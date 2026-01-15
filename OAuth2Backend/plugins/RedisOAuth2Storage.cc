@@ -50,7 +50,19 @@ bool RedisOAuth2Storage::validateClient(const std::string& clientId, const std::
     if (clientSecret.empty()) {
         return true;
     }
-    return client->clientSecretHash == clientSecret;
+    
+    // Hash the input secret with salt
+    std::string input = clientSecret + client->salt;
+    std::string calculatedHash = drogon::utils::getSha256(input.data(), input.length());
+    
+    // Normalize to lowercase for comparison (stored hash depends on generator)
+    std::transform(calculatedHash.begin(), calculatedHash.end(), calculatedHash.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+    std::string storedHash = client->clientSecretHash;
+    std::transform(storedHash.begin(), storedHash.end(), storedHash.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+
+    return storedHash == calculatedHash;
 }
 
 void RedisOAuth2Storage::cleanupExpiredAuthCodes()
@@ -86,11 +98,15 @@ void RedisOAuth2Storage::saveRefreshToken(const OAuth2RefreshToken& token)
     int64_t ttl = token.expiresAt - now;
     if (ttl <= 0) ttl = 1;
 
-    redis->execCommandSync<std::string>(
-        [](const drogon::nosql::RedisResult &r) { return ""; },
-        "SETEX %s %d %s", getRefreshTokenKey(token.token).c_str(), (int)ttl, value.c_str()
-    );
-    LOG_DEBUG << "Saved Refresh Token: " << token.token;
+    try {
+        redis->execCommandSync<std::string>(
+            [](const drogon::nosql::RedisResult &r) { return ""; },
+            "SETEX %s %d %s", getRefreshTokenKey(token.token).c_str(), (int)ttl, value.c_str()
+        );
+        LOG_DEBUG << "Saved Refresh Token: " << token.token;
+    } catch (const std::exception& e) {
+        LOG_ERROR << "Redis error saving refresh token: " << e.what();
+    }
 }
 
 std::optional<OAuth2RefreshToken> RedisOAuth2Storage::getRefreshToken(const std::string& token)
@@ -184,6 +200,7 @@ std::optional<OAuth2Client> RedisOAuth2Storage::getClient(const std::string& cli
         OAuth2Client client;
         client.clientId = clientId;
         client.clientSecretHash = hashMap["secret"];
+        client.salt = hashMap["salt"];
         
         Json::Value uris;
         Json::Reader reader;
@@ -225,7 +242,6 @@ void RedisOAuth2Storage::saveAuthCode(const OAuth2AuthCode& code)
     Json::FastWriter writer;
     std::string value = writer.write(json);
     
-    // Set with TTL (10 minutes = 600s)
     // Set with TTL (10 minutes = 600s)
     try {
         redis->execCommandSync<std::string>(
@@ -336,7 +352,6 @@ void RedisOAuth2Storage::saveAccessToken(const OAuth2AccessToken& token)
     Json::FastWriter writer;
     std::string value = writer.write(json);
     
-    // Set with TTL (1 hour = 3600s)
     // Set with TTL (1 hour = 3600s)
     try {
         redis->execCommandSync<std::string>(

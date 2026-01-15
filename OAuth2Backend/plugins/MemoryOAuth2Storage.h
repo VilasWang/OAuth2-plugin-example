@@ -1,8 +1,8 @@
 #pragma once
 
 #include "IOAuth2Storage.h"
-#include <map>
 #include <mutex>
+#include <unordered_map>
 #include <json/json.h>
 
 namespace oauth2 {
@@ -15,8 +15,6 @@ namespace oauth2 {
  */
 class MemoryOAuth2Storage : public IOAuth2Storage {
 public:
-    MemoryOAuth2Storage() = default;
-    
     /**
      * @brief Initialize with client configuration from JSON
      * @param clientsConfig JSON object with client definitions
@@ -46,12 +44,11 @@ public:
     void revokeRefreshToken(const std::string& token) override;
 
 private:
-    std::map<std::string, OAuth2Client> clients_;
-    std::map<std::string, OAuth2AuthCode> authCodes_;
-    std::map<std::string, OAuth2AccessToken> accessTokens_;
-    std::map<std::string, OAuth2RefreshToken> refreshTokens_;
-    
-    mutable std::mutex mutex_;
+    std::mutex mutex_;
+    std::unordered_map<std::string, OAuth2Client> clients_;
+    std::unordered_map<std::string, OAuth2AuthCode> authCodes_;
+    std::unordered_map<std::string, OAuth2AccessToken> accessTokens_;
+    std::unordered_map<std::string, OAuth2RefreshToken> refreshTokens_;
     
     int64_t getCurrentTimestamp() const;
 };

@@ -2,9 +2,8 @@
 
 #include <string>
 #include <vector>
-#include <memory>
 #include <optional>
-#include <cstdint>
+#include <memory>
 
 namespace oauth2 {
 
@@ -13,7 +12,8 @@ namespace oauth2 {
  */
 struct OAuth2Client {
     std::string clientId;
-    std::string clientSecretHash;  // Stored as hash (bcrypt/argon2)
+    std::string clientSecretHash;
+    std::string salt;
     std::vector<std::string> redirectUris;
     std::vector<std::string> allowedScopes;
 };

@@ -80,7 +80,19 @@ bool PostgresOAuth2Storage::validateClient(const std::string& clientId,
         return true;
     }
     
-    return verifyPassword(clientSecret, client->clientSecretHash);
+    // Hash (SHA256) check
+    // Note: Salt is currently empty for Postgres until schema update
+    std::string input = clientSecret + client->salt;
+    std::string calculatedHash = drogon::utils::getSha256(input.data(), input.length());
+    
+    // Normalize to lowercase
+    std::transform(calculatedHash.begin(), calculatedHash.end(), calculatedHash.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+    std::string storedHash = client->clientSecretHash;
+    std::transform(storedHash.begin(), storedHash.end(), storedHash.begin(),
+                   [](unsigned char c){ return std::tolower(c); });
+                   
+    return calculatedHash == storedHash;
 }
 
 bool PostgresOAuth2Storage::verifyPassword(const std::string& password, 
