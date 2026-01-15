@@ -1,133 +1,211 @@
 #include "OAuth2Plugin.h"
+#include "MemoryOAuth2Storage.h"
+#include "PostgresOAuth2Storage.h"
+#include "RedisOAuth2Storage.h"
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
-#include <random>
+#include <chrono>
 
 using namespace drogon;
 
 void OAuth2Plugin::initAndStart(const Json::Value &config)
 {
     LOG_INFO << "OAuth2Plugin loading...";
-    auto clients = config["clients"];
-    if (clients.isObject())
+    
+    // Initialize storage backend based on configuration
+    initStorage(config);
+    
+    LOG_INFO << "OAuth2Plugin initialized with storage type: " << storageType_;
+}
+
+void OAuth2Plugin::initStorage(const Json::Value &config)
+{
+    storageType_ = config.get("storage_type", "memory").asString();
+    
+    if (storageType_ == "postgres")
     {
-        for (auto it = clients.begin(); it != clients.end(); ++it)
-        {
-            Client c;
-            c.clientId = it.key().asString();
-            c.clientSecret = (*it)["secret"].asString();
-            c.redirectUri = (*it)["redirect_uri"].asString();
-            clients_[c.clientId] = c;
-            LOG_INFO << "Loaded client: " << c.clientId;
+        auto postgresStorage = std::make_unique<oauth2::PostgresOAuth2Storage>();
+        if (config.isMember("postgres")) {
+            postgresStorage->initFromConfig(config["postgres"]);
         }
+        storage_ = std::move(postgresStorage);
+        LOG_INFO << "Using PostgreSQL storage backend";
+    }
+    else if (storageType_ == "redis")
+    {
+        Json::Value redisConfig;
+        if (config.isMember("redis")) {
+            redisConfig = config["redis"];
+        }
+        storage_ = oauth2::createRedisStorage(redisConfig);
+        LOG_INFO << "Using Redis storage backend";
+    }
+    else
+    {
+        // Default to memory storage
+        auto memoryStorage = std::make_unique<oauth2::MemoryOAuth2Storage>();
+        if (config.isMember("clients")) {
+            memoryStorage->initFromConfig(config["clients"]);
+        }
+        storage_ = std::move(memoryStorage);
+        LOG_INFO << "Using in-memory storage backend";
     }
 }
 
 void OAuth2Plugin::shutdown()
 {
     LOG_INFO << "OAuth2Plugin shutdown";
+    storage_.reset();
 }
 
 bool OAuth2Plugin::validateClient(const std::string &clientId, const std::string &clientSecret)
 {
-    auto it = clients_.find(clientId);
-    if (it == clients_.end())
+    if (!storage_) {
+        LOG_ERROR << "Storage not initialized";
         return false;
-    
-    if (!clientSecret.empty() && it->second.clientSecret != clientSecret)
-        return false;
-
-    return true;
+    }
+    return storage_->validateClient(clientId, clientSecret);
 }
 
 bool OAuth2Plugin::validateRedirectUri(const std::string &clientId, const std::string &redirectUri)
 {
-    auto it = clients_.find(clientId);
-    if (it == clients_.end())
+    if (!storage_) {
         return false;
-    // For simplicity, strict match. In real world, allows subdirectory or multiple URIs.
-    return it->second.redirectUri == redirectUri;
+    }
+    
+    auto client = storage_->getClient(clientId);
+    if (!client) {
+        return false;
+    }
+    
+    // Check if redirect URI matches any registered URI
+    for (const auto& uri : client->redirectUris) {
+        if (uri == redirectUri) {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
-std::string OAuth2Plugin::generateAuthorizationCode(const std::string &clientId, const std::string &userId, const std::string &scope)
+std::string OAuth2Plugin::generateAuthorizationCode(const std::string &clientId, 
+                                                     const std::string &userId, 
+                                                     const std::string &scope)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto code = utils::getUuid(); 
-    AuthCode ac;
-    ac.code = code;
-    ac.clientId = clientId;
-    ac.userId = userId;
-    ac.scope = scope;
-    ac.timestamp = trantor::Date::now().microSecondsSinceEpoch();
-    authCodes_[code] = ac;
+    if (!storage_) {
+        LOG_ERROR << "Storage not initialized";
+        return "";
+    }
+    
+    auto code = utils::getUuid();
+    
+    oauth2::OAuth2AuthCode authCode;
+    authCode.code = code;
+    authCode.clientId = clientId;
+    authCode.userId = userId;
+    authCode.scope = scope;
+    authCode.redirectUri = ""; // Will be validated separately
+    authCode.codeChallenge = "";
+    authCode.codeChallengeMethod = "";
+    
+    // Expire in 10 minutes
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+    authCode.expiresAt = now + 600; // 10 minutes
+    authCode.used = false;
+    
+    storage_->saveAuthCode(authCode);
+    
     return code;
 }
 
 std::string OAuth2Plugin::exchangeCodeForToken(const std::string &code, const std::string &clientId)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = authCodes_.find(code);
-    if (it == authCodes_.end())
-    {
-        LOG_WARN << "Invalid code: " << code;
+    if (!storage_) {
+        LOG_ERROR << "Storage not initialized";
         return "";
     }
-
-    if (it->second.clientId != clientId)
-    {
+    
+    auto authCode = storage_->getAuthCode(code);
+    if (!authCode) {
+        LOG_WARN << "Invalid or expired authorization code: " << code;
+        return "";
+    }
+    
+    if (authCode->clientId != clientId) {
         LOG_WARN << "Client ID mismatch for code";
         return "";
     }
-
-    // Check expiration (e.g., 10 minutes)
-    long long now = trantor::Date::now().microSecondsSinceEpoch();
-    if (now - it->second.timestamp > 10 * 60 * 1000000)
-    {
-        LOG_WARN << "Code expired";
-        authCodes_.erase(it);
-        return "";
-    }
-
-    // Generate Token
-    auto token = utils::getUuid();
-    auto at = std::make_shared<AccessToken>();
-    at->token = token;
-    at->clientId = clientId;
-    at->userId = it->second.userId;
-    at->scope = it->second.scope;
-    at->timestamp = now;
-    at->expires = 3600; // 1 hour
-
-    accessTokens_[token] = at;
     
-    // Remove used code
-    authCodes_.erase(it);
-
-    return token;
+    // Mark code as used (single-use enforcement)
+    storage_->markAuthCodeUsed(code);
+    
+    // Generate access token
+    auto tokenStr = utils::getUuid();
+    
+    oauth2::OAuth2AccessToken accessToken;
+    accessToken.token = tokenStr;
+    accessToken.clientId = clientId;
+    accessToken.userId = authCode->userId;
+    accessToken.scope = authCode->scope;
+    
+    // Expire in 1 hour
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+    accessToken.expiresAt = now + 3600; // 1 hour
+    accessToken.revoked = false;
+    
+    storage_->saveAccessToken(accessToken);
+    
+    return tokenStr;
 }
 
 std::shared_ptr<OAuth2Plugin::AccessToken> OAuth2Plugin::validateAccessToken(const std::string &token)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = accessTokens_.find(token);
-    if (it == accessTokens_.end())
-        return nullptr;
-    
-    // Check expiry
-    long long now = trantor::Date::now().microSecondsSinceEpoch();
-    // timestamp is microseconds, expires is seconds.
-    if ((now - it->second->timestamp) / 1000000 > it->second->expires)
-    {
+    if (!storage_) {
         return nullptr;
     }
-
-    return it->second;
+    
+    auto storedToken = storage_->getAccessToken(token);
+    if (!storedToken) {
+        return nullptr;
+    }
+    
+    // Convert to legacy AccessToken structure for API compatibility
+    auto result = std::make_shared<AccessToken>();
+    result->token = storedToken->token;
+    result->clientId = storedToken->clientId;
+    result->userId = storedToken->userId;
+    result->scope = storedToken->scope;
+    
+    // Convert expiresAt to timestamp and remaining seconds
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+    result->timestamp = now;
+    result->expires = storedToken->expiresAt - now; // Remaining seconds
+    
+    return result;
 }
 
 std::shared_ptr<OAuth2Plugin::Client> OAuth2Plugin::getClient(const std::string &clientId)
 {
-    auto it = clients_.find(clientId);
-    if (it != clients_.end())
-        return std::make_shared<Client>(it->second);
-    return nullptr;
+    if (!storage_) {
+        return nullptr;
+    }
+    
+    auto storedClient = storage_->getClient(clientId);
+    if (!storedClient) {
+        return nullptr;
+    }
+    
+    // Convert to legacy Client structure for API compatibility
+    auto result = std::make_shared<Client>();
+    result->clientId = storedClient->clientId;
+    result->clientSecret = storedClient->clientSecretHash;
+    result->redirectUri = storedClient->redirectUris.empty() ? "" : storedClient->redirectUris[0];
+    
+    return result;
 }

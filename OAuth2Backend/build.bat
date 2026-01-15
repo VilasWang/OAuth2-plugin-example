@@ -47,7 +47,6 @@ where conan >nul 2>&1
 if %errorlevel% neq 0 (
     echo Error: Conan is not installed or not in PATH
     cd ..
-    pause
     exit /b 1
 )
 
@@ -66,7 +65,6 @@ conan install .. -s compiler="msvc" -s compiler.version=194 -s compiler.cppstd=2
 if %errorlevel% neq 0 (
     echo Error: Failed to install dependencies
     cd ..
-    pause
     exit /b 1
 )
 
@@ -76,7 +74,6 @@ cmake .. -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_CXX_STANDARD=20  -DCMAKE_TOOLCH
 if %errorlevel% neq 0 (
     echo Error: CMake configuration failed
     cd ..
-    pause
     exit /b 1
 )
 
@@ -86,7 +83,6 @@ cmake --build . --parallel  --config %BUILD_TYPE%
 if %errorlevel% neq 0 (
     echo Error: Build failed
     cd ..
-    pause
     exit /b 1
 )
 

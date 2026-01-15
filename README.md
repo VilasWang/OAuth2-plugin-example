@@ -45,7 +45,7 @@ cd OAuth2Backend
 ### Running the Server
 ```powershell
 cd OAuth2Backend/build
-Release/OAuth2Test.exe
+Release/OAuth2Server.exe
 ```
 The server listens on `http://localhost:5555`.
 
