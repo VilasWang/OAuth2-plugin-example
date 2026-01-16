@@ -132,7 +132,9 @@ void OAuth2Plugin::exchangeCodeForToken(const std::string &code,
                  ).count();
                  token.expiresAt = now + 3600;
 
-                 storage_->saveAccessToken(token, [callback, tokenStr]() {
+                 storage_->saveAccessToken(token, [callback, tokenStr, token]() {
+                     LOG_INFO << "[AUDIT] Action=IssueAccessToken User=" << token.userId 
+                              << " Client=" << token.clientId << " Success=True";
                      callback(tokenStr);
                  });
             });

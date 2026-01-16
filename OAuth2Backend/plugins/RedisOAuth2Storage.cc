@@ -3,6 +3,7 @@
 #include <json/json.h>
 #include <sstream>
 #include <algorithm>
+#include "OAuth2Metrics.h"
 
 namespace oauth2 {
 
@@ -34,8 +35,9 @@ void RedisOAuth2Storage::getClient(const std::string& clientId, ClientCallback&&
         return;
     }
     std::string cmd = "HGETALL oauth2:client:" + clientId;
+    auto timer = std::make_shared<OperationTimer>("getClient", "redis");
     redisClient_->execCommandAsync(
-        [cb, clientId](const RedisResult& result) {
+        [cb, clientId, timer](const RedisResult& result) {
             if (result.type() == RedisResultType::kNil || 
                 result.type() != RedisResultType::kArray) {
                 cb(std::nullopt);

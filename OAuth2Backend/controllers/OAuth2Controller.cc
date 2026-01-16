@@ -1,5 +1,8 @@
 #include "OAuth2Controller.h"
 #include <drogon/drogon.h>
+#include "../plugins/OAuth2Metrics.h"
+
+using namespace oauth2;
 
 void OAuth2Controller::authorize(const HttpRequestPtr &req,
                                  std::function<void(const HttpResponsePtr &)> &&callback)
@@ -24,6 +27,9 @@ void OAuth2Controller::authorize(const HttpRequestPtr &req,
      plugin->validateClient(clientId, "", 
         [=, callback = std::move(callback)](bool validClient) mutable {
             if (!validClient) {
+                Metrics::incRequest("authorize", 400);
+                Metrics::incLoginFailure("invalid_client_id");
+                
                 auto resp = HttpResponse::newHttpResponse();
                 resp->setStatusCode(k400BadRequest);
                 resp->setBody("Invalid client_id");
@@ -52,6 +58,7 @@ void OAuth2Controller::authorize(const HttpRequestPtr &req,
                                 std::string location = redirectUri + "?code=" + code;
                                 if (!state.empty()) location += "&state=" + state;
                                 auto resp = HttpResponse::newRedirectionResponse(location);
+                                Metrics::incRequest("authorize", 302);
                                 callback(resp);
                             }
                         );
@@ -106,6 +113,7 @@ void OAuth2Controller::login(const HttpRequestPtr &req,
     else
     {
         // Fail
+        Metrics::incLoginFailure("bad_credentials");
         auto resp = HttpResponse::newHttpResponse();
         resp->setBody("Login Failed.");
         callback(resp);
@@ -125,6 +133,7 @@ void OAuth2Controller::token(const HttpRequestPtr &req,
     std::string clientSecret = req->getParameter("client_secret");
 
     if (grantType != "authorization_code") {
+         Metrics::incRequest("token", 400);
          Json::Value json; json["error"] = "unsupported_grant_type";
          auto resp = HttpResponse::newHttpJsonResponse(json);
          resp->setStatusCode(k400BadRequest);
@@ -134,6 +143,8 @@ void OAuth2Controller::token(const HttpRequestPtr &req,
     plugin->validateClient(clientId, clientSecret,
         [=, callback = std::move(callback)](bool valid) mutable {
             if (!valid) {
+                 Metrics::incLoginFailure("invalid_client_secret");
+                 Metrics::incRequest("token", 401);
                  Json::Value json; json["error"] = "invalid_client";
                  auto resp = HttpResponse::newHttpJsonResponse(json);
                  resp->setStatusCode(k401Unauthorized);
@@ -156,6 +167,11 @@ void OAuth2Controller::token(const HttpRequestPtr &req,
                     json["token_type"] = "Bearer";
                     json["expires_in"] = 3600;
                     auto resp = HttpResponse::newHttpJsonResponse(json);
+                    
+                    Metrics::incRequest("token", 200);
+                    // Estimate sessions (simple increment)
+                    Metrics::updateActiveTokens(1); 
+                    
                     callback(resp);
                 }
             );

@@ -1,6 +1,7 @@
 #include "PostgresOAuth2Storage.h"
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
+#include "OAuth2Metrics.h"
 
 namespace oauth2 {
 
@@ -23,10 +24,11 @@ void PostgresOAuth2Storage::getClient(const std::string& clientId, ClientCallbac
     }
     
     auto sharedCb = std::make_shared<ClientCallback>(std::move(cb));
+    auto timer = std::make_shared<OperationTimer>("getClient", "postgres");
 
     dbClient_->execSqlAsync(
         "SELECT * FROM oauth2_clients WHERE client_id = $1",
-        [sharedCb, clientId](const Result& r) {
+        [sharedCb, clientId, timer](const Result& r) {
             if (r.empty()) {
                 LOG_DEBUG << "Postgres getClient: Not found -> " << clientId;
                 (*sharedCb)(std::nullopt);
@@ -102,7 +104,7 @@ void PostgresOAuth2Storage::validateClient(const std::string& clientId,
             // Compute hash for validation
             std::string computedHash = drogon::utils::getSha256(clientSecret + salt);
             
-            // LOG_DEBUG << "Postgres validateClient: storedHash=" << storedHash << ", computedHash=" << computedHash;
+            LOG_DEBUG << "Postgres validateClient: storedHash=" << storedHash << ", computedHash=" << computedHash;
 
             if (computedHash.length() == storedHash.length()) {
                 bool match = true;
@@ -112,8 +114,7 @@ void PostgresOAuth2Storage::validateClient(const std::string& clientId,
                         break;
                     }
                 }
-                }
-                // LOG_DEBUG << "Postgres validateClient match result: " << match;
+                LOG_DEBUG << "Postgres validateClient match result: " << match;
                 (*sharedCb)(match);
             } else {
                 LOG_DEBUG << "Postgres validateClient length mismatch";
