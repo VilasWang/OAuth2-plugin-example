@@ -86,5 +86,13 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+REM Copy config.json to build directory
+robocopy .. %BUILD_TYPE% config.json /NFL /NDL /NJH /NJS /NP
+if %ERRORLEVEL% GEQ 8 (
+  echo Error: copy failed
+  cd ..
+  exit /b 1
+)
+
 echo Build completed successfully!
 cd ..

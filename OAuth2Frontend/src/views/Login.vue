@@ -30,7 +30,7 @@ const loginWithDrogon = () => {
     const scope = 'openid profile';
     
     // NOTE: Backend running on 5555
-    const authUrl = `http://localhost:5556/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
+    const authUrl = `http://localhost:5555/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
     
     window.location.href = authUrl;
 }

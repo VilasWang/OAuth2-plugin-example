@@ -32,7 +32,7 @@ onMounted(async () => {
             // Call our Backend to perform the server-side exchange for external providers
             const loginEndpoint = provider === 'wechat' ? '/api/wechat/login' : '/api/google/login';
             
-            const response = await fetch(`http://localhost:5556${loginEndpoint}`, {
+            const response = await fetch(`http://localhost:5555${loginEndpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ code: code })
@@ -66,7 +66,7 @@ onMounted(async () => {
         }
         localStorage.removeItem('auth_state_drogon');
 
-        const tokenUrl = 'http://localhost:5556/oauth2/token';
+        const tokenUrl = 'http://localhost:5555/oauth2/token';
         const tokenBody = {
             grant_type: 'authorization_code',
             code: code,
@@ -92,7 +92,7 @@ onMounted(async () => {
         status.value = "Fetching user info...";
 
         // Fetch User Info
-        const userResponse = await fetch('http://localhost:5556/oauth2/userinfo', {
+        const userResponse = await fetch('http://localhost:5555/oauth2/userinfo', {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         

@@ -105,8 +105,17 @@ Edit `OAuth2Backend/config.json`:
     "port": 6379,
     "passwd": "your_password"
   }
-}
-```
+
+### Security Hardening
+
+Client Secrets are securely stored using **SHA256 Hashing with Salt**.
+
+### Persistence & Storage
+
+This project uses a flexible persistence layer supporting **PostgreSQL** and **Redis**.
+
+For detailed architecture, database schema, and Redis key structures, please refer to the technical design document:
+👉 **[Persistence Design Document](OAuth2Backend/document/持久化方案.md)**
 
 ## Features & Endpoints
 
