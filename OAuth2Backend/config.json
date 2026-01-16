@@ -98,7 +98,7 @@
         },
         "log": {
             "use_spdlog": false,
-            "log_path": "./",
+            "log_path": "",
             "logfile_base_name": "",
             "log_size_limit": 100000000,
             "max_files": 0,
@@ -153,7 +153,7 @@
             "name": "OAuth2Plugin",
             "dependencies": [],
             "config": {
-                "storage_type": "redis",
+                "storage_type": "postgres",
                 "redis": {
                     "client_name": "default"
                 },
@@ -162,7 +162,7 @@
                 },
                 "clients": {
                     "vue-client": {
-                        "secret": "vue-secret",
+                        "secret": "123456",
                         "redirect_uri": "http://localhost:5173/callback"
                     }
                 }

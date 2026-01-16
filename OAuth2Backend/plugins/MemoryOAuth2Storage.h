@@ -22,29 +22,26 @@ public:
     void initFromConfig(const Json::Value& clientsConfig);
 
     // Client Operations
-    std::optional<OAuth2Client> getClient(const std::string& clientId) override;
-    bool validateClient(const std::string& clientId, 
-                        const std::string& clientSecret = "") override;
+    void getClient(const std::string& clientId, ClientCallback&& cb) override;
+    void validateClient(const std::string& clientId, 
+                        const std::string& clientSecret,
+                        BoolCallback&& cb) override;
 
     // Authorization Code Operations
-    void saveAuthCode(const OAuth2AuthCode& code) override;
-    std::optional<OAuth2AuthCode> getAuthCode(const std::string& code) override;
-    void markAuthCodeUsed(const std::string& code) override;
-    void cleanupExpiredAuthCodes() override;
+    void saveAuthCode(const OAuth2AuthCode& code, VoidCallback&& cb) override;
+    void getAuthCode(const std::string& code, AuthCodeCallback&& cb) override;
+    void markAuthCodeUsed(const std::string& code, VoidCallback&& cb) override;
 
     // Access Token Operations
-    void saveAccessToken(const OAuth2AccessToken& token) override;
-    std::optional<OAuth2AccessToken> getAccessToken(const std::string& token) override;
-    void revokeAccessToken(const std::string& token) override;
-    void revokeAllUserTokens(const std::string& userId) override;
+    void saveAccessToken(const OAuth2AccessToken& token, VoidCallback&& cb) override;
+    void getAccessToken(const std::string& token, AccessTokenCallback&& cb) override;
 
     // Refresh Token Operations
-    void saveRefreshToken(const OAuth2RefreshToken& token) override;
-    std::optional<OAuth2RefreshToken> getRefreshToken(const std::string& token) override;
-    void revokeRefreshToken(const std::string& token) override;
+    void saveRefreshToken(const OAuth2RefreshToken& token, VoidCallback&& cb) override;
+    void getRefreshToken(const std::string& token, RefreshTokenCallback&& cb) override;
 
 private:
-    std::mutex mutex_;
+    std::recursive_mutex mutex_;
     std::unordered_map<std::string, OAuth2Client> clients_;
     std::unordered_map<std::string, OAuth2AuthCode> authCodes_;
     std::unordered_map<std::string, OAuth2AccessToken> accessTokens_;

@@ -17,22 +17,43 @@ const loginWithWeChat = () => {
     window.location.href = url;
 }
 
-const loginWithDrogon = () => {
+const loginWithDrogon = async () => {
     localStorage.setItem('auth_provider', 'drogon');
     
     // Generate random state for CSRF protection
     const state = crypto.randomUUID();
     localStorage.setItem('auth_state_drogon', state);
     
-    // Redirect to Drogon Backend Authorize Endpoint
     const clientId = 'vue-client';
     const redirectUri = 'http://localhost:5173/callback';
     const scope = 'openid profile';
-    
-    // NOTE: Backend running on 5555
     const authUrl = `http://localhost:5555/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
-    
-    window.location.href = authUrl;
+
+    // Health check with timeout
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+        // Just check if we can connect. Expecting 404 or 405 is fine, just not timeout/refused.
+        // Or if authorize endpoint supports GET, it might return HTML or redirect.
+        // Let's try a HEAD request or just fetch the authorize URL and catch error.
+        await fetch(`http://localhost:5555/oauth2/authorize`, { 
+            method: 'HEAD', 
+            signal: controller.signal,
+            mode: 'no-cors' // We just want to check connectivity, not read opaque response
+        });
+        clearTimeout(timeoutId);
+        
+        // Proceed if reachable
+        window.location.href = authUrl;
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            alert('Login timeout: Backend server is unreachable (5s timeout).');
+        } else {
+            console.error(error);
+            alert(`Login failed: Unable to connect to backend (${error.message}).`);
+        }
+    }
 }
 
 const loginWithGoogle = () => {

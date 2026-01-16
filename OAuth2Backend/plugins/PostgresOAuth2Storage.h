@@ -2,58 +2,40 @@
 
 #include "IOAuth2Storage.h"
 #include <drogon/orm/DbClient.h>
-#include <json/json.h>
 
 namespace oauth2 {
 
-/**
- * @brief PostgreSQL implementation of OAuth2 storage
- * 
- * Production-ready storage using Drogon's ORM DbClient.
- * Requires database tables to be created according to the schema.
- */
 class PostgresOAuth2Storage : public IOAuth2Storage {
 public:
+    PostgresOAuth2Storage() = default;
+
     /**
-     * @brief Construct with database client name
-     * @param dbClientName Name of the DbClient configured in Drogon (e.g., "default")
-     */
-    explicit PostgresOAuth2Storage(const std::string& dbClientName = "default");
-    
-    /**
-     * @brief Initialize from JSON configuration
-     * @param config Configuration containing database settings
+     * @brief Initialize from config
      */
     void initFromConfig(const Json::Value& config);
 
     // Client Operations
-    std::optional<OAuth2Client> getClient(const std::string& clientId) override;
-    bool validateClient(const std::string& clientId, 
-                        const std::string& clientSecret = "") override;
+    void getClient(const std::string& clientId, ClientCallback&& cb) override;
+    void validateClient(const std::string& clientId, 
+                        const std::string& clientSecret,
+                        BoolCallback&& cb) override;
 
     // Authorization Code Operations
-    void saveAuthCode(const OAuth2AuthCode& code) override;
-    std::optional<OAuth2AuthCode> getAuthCode(const std::string& code) override;
-    void markAuthCodeUsed(const std::string& code) override;
-    void cleanupExpiredAuthCodes() override;
+    void saveAuthCode(const OAuth2AuthCode& code, VoidCallback&& cb) override;
+    void getAuthCode(const std::string& code, AuthCodeCallback&& cb) override;
+    void markAuthCodeUsed(const std::string& code, VoidCallback&& cb) override;
 
     // Access Token Operations
-    void saveAccessToken(const OAuth2AccessToken& token) override;
-    std::optional<OAuth2AccessToken> getAccessToken(const std::string& token) override;
-    void revokeAccessToken(const std::string& token) override;
-    void revokeAllUserTokens(const std::string& userId) override;
+    void saveAccessToken(const OAuth2AccessToken& token, VoidCallback&& cb) override;
+    void getAccessToken(const std::string& token, AccessTokenCallback&& cb) override;
 
     // Refresh Token Operations
-    void saveRefreshToken(const OAuth2RefreshToken& token) override;
-    std::optional<OAuth2RefreshToken> getRefreshToken(const std::string& token) override;
-    void revokeRefreshToken(const std::string& token) override;
+    void saveRefreshToken(const OAuth2RefreshToken& token, VoidCallback&& cb) override;
+    void getRefreshToken(const std::string& token, RefreshTokenCallback&& cb) override;
 
 private:
-    std::string dbClientName_;
-    drogon::orm::DbClientPtr getDbClient() const;
-    
-    // Helper to verify password against bcrypt hash
-    bool verifyPassword(const std::string& password, const std::string& hash) const;
+    drogon::orm::DbClientPtr dbClient_;
+    std::string dbClientName_ = "default";
 };
 
 } // namespace oauth2

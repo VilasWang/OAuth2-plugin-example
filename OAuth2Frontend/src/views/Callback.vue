@@ -71,7 +71,7 @@ onMounted(async () => {
             grant_type: 'authorization_code',
             code: code,
             client_id: 'vue-client',
-            client_secret: 'vue-secret',
+            client_secret: '123456',
             redirect_uri: 'http://localhost:5173/callback'
         };
 

@@ -4,6 +4,7 @@
 #include <vector>
 #include <optional>
 #include <memory>
+#include <functional>
 
 namespace oauth2 {
 
@@ -61,94 +62,75 @@ struct OAuth2RefreshToken {
 /**
  * @brief Abstract storage interface for OAuth2 data
  * 
- * Implementations can use different backends:
- * - MemoryOAuth2Storage: In-memory storage for development/testing
- * - PostgresOAuth2Storage: PostgreSQL for production
- * - RedisOAuth2Storage: Redis for high-performance caching
+ * Implementations use ASYNCHRONOUS CALLBACKS.
+ * Callbacks are invoked when the operation completes.
  */
 class IOAuth2Storage {
 public:
     virtual ~IOAuth2Storage() = default;
 
+    // Callback types
+    using ClientCallback = std::function<void(std::optional<OAuth2Client>)>;
+    using AuthCodeCallback = std::function<void(std::optional<OAuth2AuthCode>)>;
+    using AccessTokenCallback = std::function<void(std::optional<OAuth2AccessToken>)>;
+    using RefreshTokenCallback = std::function<void(std::optional<OAuth2RefreshToken>)>;
+    using VoidCallback = std::function<void()>;
+    using BoolCallback = std::function<void(bool)>;
+
     // ========== Client Operations ==========
     
     /**
      * @brief Get client by ID
-     * @return Client data or nullopt if not found
      */
-    virtual std::optional<OAuth2Client> getClient(const std::string& clientId) = 0;
+    virtual void getClient(const std::string& clientId, ClientCallback&& cb) = 0;
 
     /**
      * @brief Validate client credentials
-     * @param clientId Client identifier
-     * @param clientSecret Plain-text secret to verify against stored hash
-     * @return true if valid
      */
-    virtual bool validateClient(const std::string& clientId, 
-                                const std::string& clientSecret = "") = 0;
+    virtual void validateClient(const std::string& clientId, 
+                                const std::string& clientSecret,
+                                BoolCallback&& cb) = 0;
 
     // ========== Authorization Code Operations ==========
     
     /**
      * @brief Save a new authorization code
      */
-    virtual void saveAuthCode(const OAuth2AuthCode& code) = 0;
+    virtual void saveAuthCode(const OAuth2AuthCode& code, VoidCallback&& cb) = 0;
 
     /**
      * @brief Get authorization code by code value
-     * @return AuthCode data or nullopt if not found/expired
      */
-    virtual std::optional<OAuth2AuthCode> getAuthCode(const std::string& code) = 0;
+    virtual void getAuthCode(const std::string& code, AuthCodeCallback&& cb) = 0;
 
     /**
      * @brief Mark an authorization code as used (single-use enforcement)
      */
-    virtual void markAuthCodeUsed(const std::string& code) = 0;
-
-    /**
-     * @brief Delete expired authorization codes
-     */
-    virtual void cleanupExpiredAuthCodes() = 0;
+    virtual void markAuthCodeUsed(const std::string& code, VoidCallback&& cb) = 0;
 
     // ========== Access Token Operations ==========
     
     /**
      * @brief Save a new access token
      */
-    virtual void saveAccessToken(const OAuth2AccessToken& token) = 0;
+    virtual void saveAccessToken(const OAuth2AccessToken& token, VoidCallback&& cb) = 0;
 
     /**
      * @brief Get access token by token value
-     * @return Token data or nullopt if not found/expired/revoked
      */
-    virtual std::optional<OAuth2AccessToken> getAccessToken(const std::string& token) = 0;
-
-    /**
-     * @brief Revoke an access token
-     */
-    virtual void revokeAccessToken(const std::string& token) = 0;
-
-    /**
-     * @brief Revoke all tokens for a user
-     */
-    virtual void revokeAllUserTokens(const std::string& userId) = 0;
+    virtual void getAccessToken(const std::string& token, AccessTokenCallback&& cb) = 0;
 
     // ========== Refresh Token Operations ==========
     
     /**
      * @brief Save a new refresh token
      */
-    virtual void saveRefreshToken(const OAuth2RefreshToken& token) = 0;
+    virtual void saveRefreshToken(const OAuth2RefreshToken& token, VoidCallback&& cb) = 0;
 
     /**
      * @brief Get refresh token by token value
      */
-    virtual std::optional<OAuth2RefreshToken> getRefreshToken(const std::string& token) = 0;
-
-    /**
-     * @brief Revoke a refresh token
-     */
-    virtual void revokeRefreshToken(const std::string& token) = 0;
+    virtual void getRefreshToken(const std::string& token, RefreshTokenCallback&& cb) = 0;
 };
 
 } // namespace oauth2

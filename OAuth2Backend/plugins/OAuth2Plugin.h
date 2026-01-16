@@ -4,102 +4,60 @@
 #include "IOAuth2Storage.h"
 #include <string>
 #include <memory>
+#include <functional>
 
-/**
- * @brief OAuth2 Authorization Server Plugin
- * 
- * Provides OAuth2 authorization code flow with pluggable storage backend.
- * Storage backend is configurable via config.json:
- *   - "memory": In-memory storage (default, for development)
- *   - "postgres": PostgreSQL database (for production)
- */
 class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
 {
 public:
-    // Legacy structures for API compatibility
-    struct Client
-    {
-        std::string clientId;
-        std::string clientSecret;
-        std::string redirectUri;
-    };
-
-    struct AuthCode
-    {
-        std::string code;
-        std::string clientId;
-        std::string userId;
-        std::string scope;
-        long long timestamp;
-    };
-
-    struct AccessToken
-    {
-        std::string token;
-        std::string clientId;
-        std::string userId;
-        std::string scope;
-        long long timestamp;
-        long long expires;
-    };
+    using AccessToken = oauth2::OAuth2AccessToken;
+    using Client = oauth2::OAuth2Client;
 
     OAuth2Plugin() = default;
     void initAndStart(const Json::Value &config) override;
     void shutdown() override;
 
-    // ========== Client Validation ==========
+    // ========== Async API with Callbacks ==========
     
     /**
-     * @brief Validate if client exists and secret matches
+     * @brief Validate if client exists and secret matches (Async)
      */
-    bool validateClient(const std::string &clientId, const std::string &clientSecret = "");
+    void validateClient(const std::string &clientId, 
+                        const std::string &clientSecret, 
+                        std::function<void(bool)>&& callback);
     
     /**
-     * @brief Validate redirect URI for a client
+     * @brief Validate redirect URI (Async)
      */
-    bool validateRedirectUri(const std::string &clientId, const std::string &redirectUri);
-
-    // ========== Authorization Code Flow ==========
-    
-    /**
-     * @brief Generate and store Authorization Code
-     * @return Generated authorization code string
-     */
-    std::string generateAuthorizationCode(const std::string &clientId, 
-                                          const std::string &userId, 
-                                          const std::string &scope);
+    void validateRedirectUri(const std::string &clientId, 
+                             const std::string &redirectUri,
+                             std::function<void(bool)>&& callback);
 
     /**
-     * @brief Exchange Code for Access Token
-     * @return Access token string, empty if invalid
+     * @brief Generate Authorization Code (Async)
      */
-    std::string exchangeCodeForToken(const std::string &code, const std::string &clientId);
+    void generateAuthorizationCode(const std::string &clientId, 
+                                   const std::string &userId, 
+                                   const std::string &scope,
+                                   std::function<void(std::string)>&& callback);
 
-    // ========== Token Validation ==========
-    
     /**
-     * @brief Validate Access Token
-     * @return Token info or nullptr if invalid
+     * @brief Exchange Code for Access Token (Async)
      */
-    std::shared_ptr<AccessToken> validateAccessToken(const std::string &token);
+    void exchangeCodeForToken(const std::string &code, 
+                              const std::string &clientId,
+                              std::function<void(std::string)>&& callback);
 
-    // ========== Client Info ==========
-    
     /**
-     * @brief Get Client info by ID
+     * @brief Validate Access Token (Async)
      */
-    std::shared_ptr<Client> getClient(const std::string &clientId);
+    void validateAccessToken(const std::string &token,
+                             std::function<void(std::shared_ptr<AccessToken>)>&& callback);
 
-    // ========== Storage Access (for advanced use) ==========
-    
-    /**
-     * @brief Get the underlying storage implementation
-     */
+    // ========== Storage Access ==========
     oauth2::IOAuth2Storage* getStorage() { return storage_.get(); }
 
 private:
     std::unique_ptr<oauth2::IOAuth2Storage> storage_;
     std::string storageType_;
-    
     void initStorage(const Json::Value &config);
 };
