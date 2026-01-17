@@ -42,10 +42,19 @@ public:
 
     /**
      * @brief Exchange Code for Access Token (Async)
+     * Returns JSON with {access_token, refresh_token, expires_in} or {error}
      */
     void exchangeCodeForToken(const std::string &code, 
                               const std::string &clientId,
-                              std::function<void(std::string)>&& callback);
+                              std::function<void(const Json::Value&)>&& callback);
+
+    /**
+     * @brief Refresh Access Token (Async)
+     * Returns JSON with {access_token, refresh_token, expires_in} or {error}
+     */
+    void refreshAccessToken(const std::string &refreshToken,
+                            const std::string &clientId,
+                            std::function<void(const Json::Value&)>&& callback);
 
     /**
      * @brief Validate Access Token (Async)

@@ -99,49 +99,157 @@ void OAuth2Plugin::generateAuthorizationCode(const std::string &clientId,
     });
 }
 
+// Helper to create error JSON
+static Json::Value makeError(const std::string& error, const std::string& desc = "") {
+    Json::Value json;
+    json["error"] = error;
+    if(!desc.empty()) json["error_description"] = desc;
+    return json;
+}
+
 void OAuth2Plugin::exchangeCodeForToken(const std::string &code, 
                                         const std::string &clientId,
-                                        std::function<void(std::string)>&& callback)
+                                        std::function<void(const Json::Value&)>&& callback)
 {
-    if (!storage_) { callback(""); return; }
+    if (!storage_) { callback(makeError("server_error")); return; }
 
     storage_->getAuthCode(code, 
         [this, callback = std::move(callback), clientId, code](std::optional<oauth2::OAuth2AuthCode> authCode) {
             if (!authCode) {
                 LOG_WARN << "Invalid code: " << code;
-                callback("");
+                callback(makeError("invalid_grant", "Invalid authorization code"));
                 return;
             }
             if (authCode->clientId != clientId) {
-                callback("");
+                callback(makeError("invalid_client"));
                 return;
             }
             if (authCode->used) {
                 LOG_WARN << "Code already used (Replay Attack Attempt): " << code;
-                callback("");
+                callback(makeError("invalid_grant", "Code already used"));
+                return;
+            }
+            
+            auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+            ).count();
+
+            if (now > authCode->expiresAt) {
+                LOG_WARN << "Code expired: " << code;
+                callback(makeError("invalid_grant", "Code expired"));
                 return;
             }
             
             // Mark used
-            storage_->markAuthCodeUsed(code, [this, callback, authCode]() {
-                 // Generate Token
+            storage_->markAuthCodeUsed(code, [this, callback, authCode, now]() {
+                 // Generate Access Token
                  auto tokenStr = utils::getUuid();
                  oauth2::OAuth2AccessToken token;
                  token.token = tokenStr;
                  token.clientId = authCode->clientId;
                  token.userId = authCode->userId;
                  token.scope = authCode->scope;
-                 
-                 auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                    std::chrono::system_clock::now().time_since_epoch()
-                 ).count();
-                 token.expiresAt = now + 3600;
+                 token.expiresAt = now + 3600; // 1 hour
 
-                 storage_->saveAccessToken(token, [callback, tokenStr, token]() {
-                     LOG_INFO << "[AUDIT] Action=IssueAccessToken User=" << token.userId 
-                              << " Client=" << token.clientId << " Success=True";
-                     callback(tokenStr);
+                 // Generate Refresh Token
+                 auto refreshTokenStr = utils::getUuid();
+                 oauth2::OAuth2RefreshToken refreshToken;
+                 refreshToken.token = refreshTokenStr;
+                 refreshToken.accessToken = tokenStr;
+                 refreshToken.clientId = authCode->clientId;
+                 refreshToken.userId = authCode->userId;
+                 refreshToken.scope = authCode->scope;
+                 refreshToken.expiresAt = now + (3600 * 24 * 30); // 30 days
+
+                 // Save Access Token
+                 storage_->saveAccessToken(token, [this, callback, token, refreshToken]() { 
+                     // Save Refresh Token
+                     storage_->saveRefreshToken(refreshToken, [callback, token, refreshToken]() {
+                        LOG_INFO << "[AUDIT] Action=IssueToken User=" << token.userId 
+                                 << " Client=" << token.clientId << " Success=True";
+                        
+                        Json::Value json;
+                        json["access_token"] = token.token;
+                        json["token_type"] = "Bearer";
+                        json["expires_in"] = 3600;
+                        json["refresh_token"] = refreshToken.token;
+                        callback(json);
+                     });
                  });
+            });
+        }
+    );
+}
+
+void OAuth2Plugin::refreshAccessToken(const std::string &refreshTokenStr,
+                                      const std::string &clientId,
+                                      std::function<void(const Json::Value&)>&& callback)
+{
+    if (!storage_) { callback(makeError("server_error")); return; }
+
+    storage_->getRefreshToken(refreshTokenStr, 
+        [this, callback = std::move(callback), clientId](std::optional<oauth2::OAuth2RefreshToken> storedRt) {
+            if (!storedRt) {
+                 callback(makeError("invalid_grant", "Invalid refresh token"));
+                 return;
+            }
+            if (storedRt->clientId != clientId) {
+                 callback(makeError("invalid_client"));
+                 return;
+            }
+            if (storedRt->revoked) {
+                 LOG_WARN << "Refresh token revoked: " << storedRt->token;
+                 callback(makeError("invalid_grant", "Token revoked"));
+                 return;
+            }
+
+            auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+            ).count();
+
+            if (now > storedRt->expiresAt) {
+                 callback(makeError("invalid_grant", "Token expired"));
+                 return;
+            }
+
+            // Generate New Tokens (Rolling Refresh Token pattern is safer, but keeping simple for now? 
+            // Let's implement Rolling: Revoke old RT, Issue new RT)
+            
+            // 1. Generate New Access Token
+            auto newTokenStr = utils::getUuid();
+            oauth2::OAuth2AccessToken token;
+            token.token = newTokenStr;
+            token.clientId = storedRt->clientId;
+            token.userId = storedRt->userId;
+            token.scope = storedRt->scope;
+            token.expiresAt = now + 3600;
+
+            // 2. Generate New Refresh Token
+            auto newRefreshTokenStr = utils::getUuid();
+            oauth2::OAuth2RefreshToken newRt;
+            newRt.token = newRefreshTokenStr;
+            newRt.accessToken = newTokenStr;
+            newRt.clientId = storedRt->clientId;
+            newRt.userId = storedRt->userId;
+            newRt.scope = storedRt->scope;
+            newRt.expiresAt = now + (3600 * 24 * 30);
+
+            // 3. Save New Access Token
+            storage_->saveAccessToken(token, [this, callback, token, newRt]() {
+                // 4. Save New Refresh Token
+                storage_->saveRefreshToken(newRt, [callback, token, newRt]() {
+                    // We technically should revoke the old one, but IOAuth2Storage lacks revoke().
+                    // We will skip revocation for now as discussed, or rely on simple overwriting if supported? 
+                    // Since we can't revoke, we just issue new ones. This allows parallel usage which is suboptimal but functional.
+                    // Improving: Does saveRefreshToken overwrite? No, UUID is different.
+                    
+                    Json::Value json;
+                    json["access_token"] = token.token;
+                    json["token_type"] = "Bearer";
+                    json["expires_in"] = 3600;
+                    json["refresh_token"] = newRt.token;
+                    callback(json);
+                });
             });
         }
     );
@@ -156,9 +264,25 @@ void OAuth2Plugin::validateAccessToken(const std::string &token,
         [callback](std::optional<oauth2::OAuth2AccessToken> t) {
             if (!t) {
                 callback(nullptr);
-            } else {
-                callback(std::make_shared<oauth2::OAuth2AccessToken>(*t));
+                return;
             }
+            
+            auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+            ).count();
+
+            if (t->revoked) {
+                LOG_WARN << "Access token revoked: " << t->token;
+                callback(nullptr);
+                return;
+            }
+            if (now > t->expiresAt) {
+                LOG_WARN << "Access token expired: " << t->token;
+                callback(nullptr);
+                return;
+            }
+
+            callback(std::make_shared<oauth2::OAuth2AccessToken>(*t));
         }
     );
 }

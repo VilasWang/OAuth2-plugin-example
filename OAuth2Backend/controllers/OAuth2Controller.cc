@@ -132,51 +132,47 @@ void OAuth2Controller::token(const HttpRequestPtr &req,
     std::string clientId = req->getParameter("client_id");
     std::string clientSecret = req->getParameter("client_secret");
 
-    if (grantType != "authorization_code") {
+    if (grantType == "authorization_code") {
+        plugin->exchangeCodeForToken(code, clientId,
+            [callback = std::move(callback)](const Json::Value& result) {
+                if (result.isMember("error")) {
+                    auto resp = HttpResponse::newHttpJsonResponse(result);
+                    resp->setStatusCode(k400BadRequest);
+                    callback(resp);
+                    return;
+                }
+                
+                auto resp = HttpResponse::newHttpJsonResponse(result);
+                Metrics::incRequest("token", 200);
+                Metrics::updateActiveTokens(1); 
+                callback(resp);
+            }
+        );
+    } 
+    else if (grantType == "refresh_token") {
+        std::string refreshToken = req->getParameter("refresh_token");
+        plugin->refreshAccessToken(refreshToken, clientId,
+            [callback = std::move(callback)](const Json::Value& result) {
+                if (result.isMember("error")) {
+                    auto resp = HttpResponse::newHttpJsonResponse(result);
+                    resp->setStatusCode(k400BadRequest); // Or 401? Spec says 400 uses invalid_grant
+                    callback(resp);
+                    return;
+                }
+                
+                auto resp = HttpResponse::newHttpJsonResponse(result);
+                Metrics::incRequest("token", 200);
+                callback(resp);
+            }
+        );
+    }
+    else {
          Metrics::incRequest("token", 400);
          Json::Value json; json["error"] = "unsupported_grant_type";
          auto resp = HttpResponse::newHttpJsonResponse(json);
          resp->setStatusCode(k400BadRequest);
-         callback(resp); return;
+         callback(resp); 
     }
-
-    plugin->validateClient(clientId, clientSecret,
-        [=, callback = std::move(callback)](bool valid) mutable {
-            if (!valid) {
-                 Metrics::incLoginFailure("invalid_client_secret");
-                 Metrics::incRequest("token", 401);
-                 Json::Value json; json["error"] = "invalid_client";
-                 auto resp = HttpResponse::newHttpJsonResponse(json);
-                 resp->setStatusCode(k401Unauthorized);
-                 callback(resp);
-                 return;
-            }
-
-            plugin->exchangeCodeForToken(code, clientId,
-                [callback = std::move(callback)](std::string tokenStr) {
-                    if (tokenStr.empty()) {
-                        Json::Value json; json["error"] = "invalid_grant";
-                        auto resp = HttpResponse::newHttpJsonResponse(json);
-                        resp->setStatusCode(k400BadRequest);
-                        callback(resp);
-                        return;
-                    }
-
-                    Json::Value json;
-                    json["access_token"] = tokenStr;
-                    json["token_type"] = "Bearer";
-                    json["expires_in"] = 3600;
-                    auto resp = HttpResponse::newHttpJsonResponse(json);
-                    
-                    Metrics::incRequest("token", 200);
-                    // Estimate sessions (simple increment)
-                    Metrics::updateActiveTokens(1); 
-                    
-                    callback(resp);
-                }
-            );
-        }
-    );
 }
 
 void OAuth2Controller::userInfo(const HttpRequestPtr &req,
