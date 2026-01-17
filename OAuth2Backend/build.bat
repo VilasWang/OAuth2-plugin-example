@@ -93,6 +93,12 @@ if %ERRORLEVEL% GEQ 8 (
   cd ..
   exit /b 1
 )
+robocopy .. test/%BUILD_TYPE% config.json /NFL /NDL /NJH /NJS /NP
+if %ERRORLEVEL% GEQ 8 (
+  echo Error: copy failed
+  cd ..
+  exit /b 1
+)
 
 echo Build completed successfully!
 cd ..

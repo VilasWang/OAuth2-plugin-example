@@ -116,6 +116,11 @@ void OAuth2Plugin::exchangeCodeForToken(const std::string &code,
                 callback("");
                 return;
             }
+            if (authCode->used) {
+                LOG_WARN << "Code already used (Replay Attack Attempt): " << code;
+                callback("");
+                return;
+            }
             
             // Mark used
             storage_->markAuthCodeUsed(code, [this, callback, authCode]() {
