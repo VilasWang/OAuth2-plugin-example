@@ -1,6 +1,8 @@
 #define DROGON_TEST_MAIN
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
+#include <filesystem>
+#include <iostream>
 
 DROGON_TEST(BasicTest)
 {
@@ -18,6 +20,18 @@ int main(int argc, char** argv)
     std::thread thr([&]() {
         // Queues the promise to be fulfilled after starting the loop
         app().getLoop()->queueInLoop([&p1]() { p1.set_value(); });
+        
+        // Load Config for Integration Tests
+        std::string configPath = "../../config.json";
+        if (!std::filesystem::exists(configPath)) configPath = "../config.json";
+        if (!std::filesystem::exists(configPath)) configPath = "../../../config.json";
+        
+        if (std::filesystem::exists(configPath)) {
+            app().loadConfigFile(configPath);
+        } else {
+            std::cerr << "WARNING: config.json not found. Integration tests might fail." << std::endl;
+        }
+
         app().run();
     });
 
