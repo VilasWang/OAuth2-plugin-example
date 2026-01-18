@@ -5,3 +5,7 @@
 fix_run.md
 review_config_verification.md
 __pycache__/
+
+# IDE & Envs
+.vscode/
+.venv/
