@@ -9,3 +9,7 @@ __pycache__/
 # IDE & Envs
 .vscode/
 .venv/
+
+# Temporary Outputs
+tmp_output/*
+!tmp_output/.gitkeep

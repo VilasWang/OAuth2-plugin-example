@@ -55,6 +55,19 @@ def main():
              print("ℹ️ No source files found in project.")
              return
 
+    # Redirect output to report file if requested
+    if "--report" in args:
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = os.path.join("tmp_output", "reports", f"review_{timestamp}.md")
+        
+        # Make sure directory exists
+        os.makedirs(os.path.dirname(report_file), exist_ok=True)
+        
+        print(f"📝 Report will be saved to: {report_file}")
+        sys.stdout = open(report_file, "w", encoding='utf-8')
+        print(f"# Code Review Report ({timestamp})\n")
+
     print(f"🔍 Reviewing {len(files)} files: {', '.join(files[:3])}..." + (" (and others)" if len(files)>3 else ""))
 
     # 2. Static Analysis
