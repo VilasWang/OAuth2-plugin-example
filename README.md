@@ -105,6 +105,8 @@ Edit `OAuth2Backend/config.json`:
     "port": 6379,
     "passwd": "your_password"
   }
+}
+```
 
 ### Security Hardening
 
@@ -112,10 +114,23 @@ Client Secrets are securely stored using **SHA256 Hashing with Salt**.
 
 ### Persistence & Storage
 
-This project uses a flexible persistence layer supporting **PostgreSQL** and **Redis**.
+This project uses a flexible persistence layer supporting **PostgreSQL** (Production) and **Redis** (High Performance).
 
-For detailed architecture, database schema, and Redis key structures, please refer to the technical design document:
-👉 **[Persistence Design Document](OAuth2Backend/document/持久化方案.md)**
+For detailed architecture, supported backends, and schema designs, please refer to:
+👉 **[Data Persistence Guide](OAuth2Backend/docs/data_persistence.md)**
+
+### Data Consistency & Security
+
+We implement **Atomic Consume** operations and **SHA256 Hashing** to ensure high security and consistency.
+
+For implementation details (Lua Scripts, Threat Models, Token Lifecycle):
+👉 **[Data Consistency Guide](OAuth2Backend/docs/data_consistency.md)**
+👉 **[Security Architecture](OAuth2Backend/docs/security_architecture.md)**
+
+### Observability
+
+Production-ready monitoring with Prometheus Metrics and Structured Audit Logs.
+👉 **[Observability Guide](OAuth2Backend/docs/observability.md)**
 
 ## Features & Endpoints
 

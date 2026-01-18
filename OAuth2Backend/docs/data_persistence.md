@@ -1,4 +1,4 @@
-# OAuth2 Plugin 持久化与安全设计文档
+# OAuth2 数据持久化文档 (Data Persistence)
 
 本文档详细描述了 OAuth2 插件的持久化层设计、数据库 Schema、Redis 键值结构以及安全加固方案。
 
@@ -7,7 +7,7 @@
 - **存储解耦**：通过 `IOAuth2Storage` 接口抽象，支持内存、PostgreSQL、Redis 等多种存储后端。
 - **数据持久化**：确保 Client 信息、Token、Auth Code 等关键数据不丢失。
 - **安全加固**：Client Secret 绝不明文存储，强制使用 SHA256 加盐哈希。
-- **高稳定性**：核心存储操作采用同步 IO (`execSqlSync` / `execCommandSync`)，优先保证数据一致性和防范内存安全问题（如 Lambda 捕获临时变量声明周期问题）。
+- **异步高性能**：底层操作全部采用 `execSqlAsync` 和 `execCommandAsync`，基于回调机制，充分利用 Drogon 的非阻塞 I/O 能力。
 
 ---
 
@@ -48,7 +48,7 @@ CREATE TABLE oauth2_codes (
     redirect_uri    TEXT NOT NULL,
     code_challenge  VARCHAR(128),         -- PKCE 支持
     code_challenge_method VARCHAR(10),     -- S256 / plain
-    expires_at      TIMESTAMP NOT NULL,
+    expires_at      BIGINT NOT NULL,      -- Unix Timestamp
     used            BOOLEAN DEFAULT FALSE, -- 防重放攻击
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -63,7 +63,7 @@ CREATE TABLE oauth2_access_tokens (
     client_id       VARCHAR(64) NOT NULL REFERENCES oauth2_clients(client_id),
     user_id         VARCHAR(128) NOT NULL,
     scope           TEXT,
-    expires_at      TIMESTAMP NOT NULL,
+    expires_at      BIGINT NOT NULL,
     revoked         BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -78,7 +78,7 @@ CREATE TABLE oauth2_refresh_tokens (
     client_id       VARCHAR(64) NOT NULL,
     user_id         VARCHAR(128) NOT NULL,
     scope           TEXT,
-    expires_at      TIMESTAMP NOT NULL,
+    expires_at      BIGINT NOT NULL,
     revoked         BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -117,7 +117,8 @@ HSET oauth2:client:vue-client secret "42a121b66fb9f1d4f73125788f42eb6799110c6aea
   "user_id": "admin",
   "scope": "openid",
   "redirect_uri": "http://localhost:5173/callback",
-  "expires_at": 1735689000
+  "expires_at": 1735689000,
+  "used": false
 }
 ```
 
@@ -150,21 +151,3 @@ std::string input = clientSecret + client->salt;
 std::string calculatedHash = drogon::utils::getSha256(input.data(), input.length());
 return lower(calculatedHash) == lower(storedHash);
 ```
-
----
-
-## 5. 架构决策：同步 vs 异步
-
-### 现状
-
-目前的持久化层（`RedisOAuth2Storage`, `PostgresOAuth2Storage`）均采用 **同步接口** (`execCommandSync`, `execSqlSync`)。
-
-### 决策理由
-
-在早期的异步改造（C++20 Coroutine）尝试中，发现 Drogon 的 Redis 异步接口在配合 Coroutines 使用时，如果处理不当（如引用捕获了临时的 `std::string` 参数），极易导致 **Use-After-Free** 崩溃。
-为了保障 **OAuth2 认证服务器的绝对稳定性** 和 **数据一致性**，我们回退到了同步阻塞模型。
-
-### 性能影响与未来计划
-
-- 对于低并发、管理后台类应用（如当前的 OAuth2 Provider），同步 DB 操作的性能损耗完全可接受。
-- 未来如果需要支撑高并发（如 10k+ QPS），可以重新引入 `drogon::Task<>` 协程，但必须配合 `shared_ptr` 进行严格的生命周期管理。
