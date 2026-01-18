@@ -3,6 +3,11 @@
 #include "../plugins/OAuth2Plugin.h"
 #include <future>
 #include <chrono>
+#include <limits>
+
+#ifdef max
+#undef max
+#endif
 
 using namespace oauth2;
 
