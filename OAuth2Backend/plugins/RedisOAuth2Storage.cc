@@ -337,18 +337,9 @@ void RedisOAuth2Storage::consumeAuthCode(const std::string &code,
             }
             std::string jsonStr = result.asString();
 
-            Json::CharReaderBuilder builder;
-            Json::CharReader *reader = builder.newCharReader();
-            Json::Value json;
-            std::string errs;
-            bool parsingSuccessful =
-                reader->parse(jsonStr.c_str(),
-                              jsonStr.c_str() + jsonStr.size(),
-                              &json,
-                              &errs);
-            delete reader;
+            auto json = parseJson(jsonStr);
 
-            if (!parsingSuccessful)
+            if (json.isNull())
             {
                 LOG_ERROR << "consumeAuthCode: Failed to parse JSON result";
                 cb(std::nullopt);
