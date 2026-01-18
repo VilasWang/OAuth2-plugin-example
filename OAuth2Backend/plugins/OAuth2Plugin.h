@@ -8,7 +8,7 @@
 
 class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
 {
-public:
+  public:
     using AccessToken = oauth2::OAuth2AccessToken;
     using Client = oauth2::OAuth2Client;
 
@@ -17,55 +17,61 @@ public:
     void shutdown() override;
 
     // ========== Async API with Callbacks ==========
-    
+
     /**
      * @brief Validate if client exists and secret matches (Async)
      */
-    void validateClient(const std::string &clientId, 
-                        const std::string &clientSecret, 
-                        std::function<void(bool)>&& callback);
-    
+    void validateClient(const std::string &clientId,
+                        const std::string &clientSecret,
+                        std::function<void(bool)> &&callback);
+
     /**
      * @brief Validate redirect URI (Async)
      */
-    void validateRedirectUri(const std::string &clientId, 
+    void validateRedirectUri(const std::string &clientId,
                              const std::string &redirectUri,
-                             std::function<void(bool)>&& callback);
+                             std::function<void(bool)> &&callback);
 
     /**
      * @brief Generate Authorization Code (Async)
      */
-    void generateAuthorizationCode(const std::string &clientId, 
-                                   const std::string &userId, 
+    void generateAuthorizationCode(const std::string &clientId,
+                                   const std::string &userId,
                                    const std::string &scope,
-                                   std::function<void(std::string)>&& callback);
+                                   std::function<void(std::string)> &&callback);
 
     /**
      * @brief Exchange Code for Access Token (Async)
      * Returns JSON with {access_token, refresh_token, expires_in} or {error}
      */
-    void exchangeCodeForToken(const std::string &code, 
-                              const std::string &clientId,
-                              std::function<void(const Json::Value&)>&& callback);
+    void exchangeCodeForToken(
+        const std::string &code,
+        const std::string &clientId,
+        std::function<void(const Json::Value &)> &&callback);
 
     /**
      * @brief Refresh Access Token (Async)
      * Returns JSON with {access_token, refresh_token, expires_in} or {error}
      */
-    void refreshAccessToken(const std::string &refreshToken,
-                            const std::string &clientId,
-                            std::function<void(const Json::Value&)>&& callback);
+    void refreshAccessToken(
+        const std::string &refreshToken,
+        const std::string &clientId,
+        std::function<void(const Json::Value &)> &&callback);
 
     /**
      * @brief Validate Access Token (Async)
      */
-    void validateAccessToken(const std::string &token,
-                             std::function<void(std::shared_ptr<AccessToken>)>&& callback);
+    void validateAccessToken(
+        const std::string &token,
+        std::function<void(std::shared_ptr<AccessToken>)> &&callback);
 
     // ========== Storage Access ==========
-    oauth2::IOAuth2Storage* getStorage() { return storage_.get(); }
+    oauth2::IOAuth2Storage *getStorage()
+    {
+        return storage_.get();
+    }
 
-private:
+  private:
     std::unique_ptr<oauth2::IOAuth2Storage> storage_;
     std::string storageType_;
     void initStorage(const Json::Value &config);

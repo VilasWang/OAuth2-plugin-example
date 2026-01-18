@@ -7,8 +7,11 @@ using namespace drogon;
 
 class OAuth2Middleware : public HttpFilter<OAuth2Middleware>
 {
-public:
-    OAuth2Middleware() {}
+  public:
+    OAuth2Middleware()
+    {
+    }
+
     void doFilter(const HttpRequestPtr &req,
                   FilterCallback &&fcb,
                   FilterChainCallback &&fccb) override;

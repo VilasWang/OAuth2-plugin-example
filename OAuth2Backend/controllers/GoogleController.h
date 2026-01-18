@@ -4,7 +4,7 @@ using namespace drogon;
 
 class GoogleController : public drogon::HttpController<GoogleController>
 {
-public:
+  public:
     METHOD_LIST_BEGIN
     // Endpoint to exchange Google code for User Info
     ADD_METHOD_TO(GoogleController::login, "/api/google/login", Post, Options);

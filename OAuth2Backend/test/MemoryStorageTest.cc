@@ -10,13 +10,13 @@ DROGON_TEST(MemoryStorageTest)
 {
     // 1. Setup
     auto storage = std::make_shared<MemoryOAuth2Storage>();
-    
+
     Json::Value config;
     config["test-client"]["secret"] = "test-secret";
     config["test-client"]["redirect_uri"] = "http://localhost/cb";
-    
+
     storage->initFromConfig(config);
-    
+
     // 2. Test getClient
     {
         std::promise<std::optional<OAuth2Client>> p;
@@ -27,9 +27,10 @@ DROGON_TEST(MemoryStorageTest)
         auto client = f.get();
         CHECK(client.has_value());
         CHECK(client->clientId == "test-client");
-        CHECK(client->clientSecretHash == "test-secret"); // Memory stores plaintext as "hash" currently
+        CHECK(client->clientSecretHash ==
+              "test-secret");  // Memory stores plaintext as "hash" currently
     }
-    
+
     // 3. Test validateClient
     {
         std::promise<bool> p;
@@ -39,7 +40,7 @@ DROGON_TEST(MemoryStorageTest)
         });
         CHECK(f.get() == true);
     }
-    
+
     {
         std::promise<bool> p;
         auto f = p.get_future();
@@ -69,9 +70,10 @@ DROGON_TEST(MemoryStorageTest)
     {
         std::promise<std::optional<OAuth2AuthCode>> p;
         auto f = p.get_future();
-        storage->getAuthCode("test_code_123", [&](std::optional<OAuth2AuthCode> c) {
-            p.set_value(c);
-        });
+        storage->getAuthCode("test_code_123",
+                             [&](std::optional<OAuth2AuthCode> c) {
+                                 p.set_value(c);
+                             });
         auto c = f.get();
         CHECK(c.has_value());
         CHECK(c->code == "test_code_123");
@@ -90,9 +92,10 @@ DROGON_TEST(MemoryStorageTest)
     {
         std::promise<std::optional<OAuth2AuthCode>> p;
         auto f = p.get_future();
-        storage->getAuthCode("test_code_123", [&](std::optional<OAuth2AuthCode> c) {
-            p.set_value(c);
-        });
+        storage->getAuthCode("test_code_123",
+                             [&](std::optional<OAuth2AuthCode> c) {
+                                 p.set_value(c);
+                             });
         auto c = f.get();
         CHECK(c.has_value());
         CHECK(c->used == true);

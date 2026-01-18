@@ -35,12 +35,12 @@ CREATE TABLE oauth2_clients (
 );
 ```
 
-#### 授权码表 (`oauth2_authorization_codes`)
+#### 授权码表 (`oauth2_codes`)
 
 短期有效的授权凭证。
 
 ```sql
-CREATE TABLE oauth2_authorization_codes (
+CREATE TABLE oauth2_codes (
     code            VARCHAR(64) PRIMARY KEY,
     client_id       VARCHAR(64) NOT NULL REFERENCES oauth2_clients(client_id),
     user_id         VARCHAR(128) NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE oauth2_authorization_codes (
     used            BOOLEAN DEFAULT FALSE, -- 防重放攻击
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_auth_codes_expires ON oauth2_authorization_codes(expires_at);
+CREATE INDEX idx_auth_codes_expires ON oauth2_codes(expires_at);
 ```
 
 #### 访问令牌表 (`oauth2_access_tokens`)
@@ -106,7 +106,7 @@ CREATE TABLE oauth2_refresh_tokens (
 **Client (Hash Structure)**:
 
 ```bash
-HSET oauth2:client:vue-client secret "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" salt "random_salt" redirect_uris "[\"http://localhost:5173/callback\"]"
+HSET oauth2:client:vue-client secret "42a121b66fb9f1d4f73125788f42eb6799110c6aeae5a9a12a2fed5307a0088d" salt "random_salt" redirect_uris "[\"http://localhost:5173/callback\"]"
 ```
 
 **Auth Code (String Value)**:

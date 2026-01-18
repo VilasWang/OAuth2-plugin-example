@@ -35,7 +35,7 @@ redis-cli ping
 
 ```powershell
 # 如未初始化，执行：
-psql -U postgres -d oauth2_db -f "d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2Backend\init_oauth2.sql"
+psql -U postgres -d oauth2_test -f "d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2Backend\init_oauth2.sql"
 ```
 
 ---

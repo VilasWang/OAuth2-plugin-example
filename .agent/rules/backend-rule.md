@@ -21,8 +21,8 @@ trigger: always_on
 ### [MUST] 异步编程规范
 
 - 优先使用异步回调接口，其次同步接口，禁止使用协程接口
-- 回调中使用 `shared_ptr` 延长对象生命周期
-- ❌ 禁止在回调中捕获裸指针或引用（如 `[this]`、`[&var]`）
+- 必要时回调中使用 `shared_ptr` 延长对象生命周期
+- 回调中慎用捕获裸指针或引用（如 [this]、[&var]）；如确需使用，必须在 PR 中明确说明对象生命周期保障方案（如 shared_from_this/weak_ptr 锁定、对象作用域与回调完成时机）。
 
 ---
 
@@ -30,9 +30,7 @@ trigger: always_on
 
 ### [MUST] Windows 构建流程
 
-- 由于项目使用 Conan 管理依赖项，必须使用 `build.bat` 来编译
-- `build.bat` 已配置自动清理进程，无需手动停止服务
-- 使用方法：`.\build.bat [-debug|-release]`
+详细构建流程参见 `/build` workflow
 
 ### [MUST] 配置文件管理
 
@@ -46,23 +44,17 @@ trigger: always_on
 
 ### [MUST] 测试前置检查
 
-执行测试前需确认：
-
-- [ ] 配置文件 `config.json` 存在于 exe 同级目录
-- [ ] 数据库 Schema 已初始化（`init_oauth2.sql`）
-- [ ] 外部服务（Redis/PostgreSQL）已启动且可达
-
 详细检查流程参见 `/test-checklist` workflow
 
 ### [MUST] 测试分级
 
 1. **单元测试**：每次代码变更后必须执行，通过 `ctest` 运行
 2. **集成测试**：API 接口级测试，验证端到端功能
-3. **浏览器集成测试**：大型 Feature 完成后执行完整 OAuth2 流程验证
+3. **浏览器集成测试**：大的 Feature 完成后或者涉及授权/回调/刷新 token 变更时执行完整 OAuth2 流程验证
 
 ### [MUST] 测试失败处理
 
-- 重复测试出现相同错误超过 3-5 次后停止
+- 重复测试出现相同错误超过 3 次后停止
 - 分析根本原因，不要盲目重试
 - 尝试不同方案解决问题
 
@@ -74,7 +66,7 @@ trigger: always_on
 
 - 每个迭代完成后，先同步更新所有相关文档
 - 然后执行 `git commit`
-- 可以执行 `git commit`，但 **禁止执行 `git push`**
+- 允许 `git commit`，但 **禁止 `git push`**
 
 ### [MUST] 代码质量
 

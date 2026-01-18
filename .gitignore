@@ -1,0 +1,7 @@
+
+# Agent Skill Reports
+*.log
+*_report.md
+fix_run.md
+review_config_verification.md
+__pycache__/

@@ -23,7 +23,7 @@ DROGON_TEST(AdvancedStorageTest)
         revokedToken.clientId = "client1";
         revokedToken.userId = "user1";
         revokedToken.expiresAt = std::numeric_limits<int64_t>::max();
-        revokedToken.revoked = true; // Key Flag
+        revokedToken.revoked = true;  // Key Flag
 
         std::promise<void> pSave;
         storage->saveAccessToken(revokedToken, [&]() { pSave.set_value(); });
@@ -31,11 +31,12 @@ DROGON_TEST(AdvancedStorageTest)
 
         // Validate via Plugin
         std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
-        plugin->validateAccessToken("revoked_token_123", [&](std::shared_ptr<OAuth2AccessToken> t) {
-            pVal.set_value(t);
-        });
+        plugin->validateAccessToken("revoked_token_123",
+                                    [&](std::shared_ptr<OAuth2AccessToken> t) {
+                                        pVal.set_value(t);
+                                    });
         auto t = pVal.get_future().get();
-        CHECK(t == nullptr); // Should detect revocation
+        CHECK(t == nullptr);  // Should detect revocation
     }
 
     // 3. Test Expiration
@@ -46,9 +47,9 @@ DROGON_TEST(AdvancedStorageTest)
         expiredToken.userId = "user1";
         // Set specific past time
         auto now = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()
-        ).count();
-        expiredToken.expiresAt = now - 100; // Expired 100s ago
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+        expiredToken.expiresAt = now - 100;  // Expired 100s ago
         expiredToken.revoked = false;
 
         std::promise<void> pSave;
@@ -57,11 +58,12 @@ DROGON_TEST(AdvancedStorageTest)
 
         // Validate via Plugin
         std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
-        plugin->validateAccessToken("expired_token_123", [&](std::shared_ptr<OAuth2AccessToken> t) {
-            pVal.set_value(t);
-        });
+        plugin->validateAccessToken("expired_token_123",
+                                    [&](std::shared_ptr<OAuth2AccessToken> t) {
+                                        pVal.set_value(t);
+                                    });
         auto t = pVal.get_future().get();
-        CHECK(t == nullptr); // Should detect expiration
+        CHECK(t == nullptr);  // Should detect expiration
     }
 
     // 4. Test Valid Token (Control)
@@ -71,9 +73,9 @@ DROGON_TEST(AdvancedStorageTest)
         validToken.clientId = "client1";
         validToken.userId = "user1";
         auto now = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::system_clock::now().time_since_epoch()
-        ).count();
-        validToken.expiresAt = now + 100; 
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+        validToken.expiresAt = now + 100;
         validToken.revoked = false;
 
         std::promise<void> pSave;
@@ -81,9 +83,10 @@ DROGON_TEST(AdvancedStorageTest)
         pSave.get_future().get();
 
         std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
-        plugin->validateAccessToken("valid_token_123", [&](std::shared_ptr<OAuth2AccessToken> t) {
-            pVal.set_value(t);
-        });
+        plugin->validateAccessToken("valid_token_123",
+                                    [&](std::shared_ptr<OAuth2AccessToken> t) {
+                                        pVal.set_value(t);
+                                    });
         auto t = pVal.get_future().get();
         CHECK(t != nullptr);
         CHECK(t->token == "valid_token_123");
