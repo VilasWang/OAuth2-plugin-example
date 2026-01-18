@@ -1,6 +1,18 @@
 @echo off
 setlocal enabledelayedexpansion
 
+REM ========================================
+REM Kill any running OAuth2Server processes
+REM ========================================
+echo Checking for running OAuth2Server processes...
+taskkill /F /IM OAuth2Server.exe >nul 2>&1
+if %errorlevel% equ 0 (
+    echo Killed running OAuth2Server.exe process
+    timeout /t 1 /nobreak >nul
+) else (
+    echo No running OAuth2Server.exe process found
+)
+
 REM Store the script directory and change to it
 set CURRENT_DIR=%~dp0
 cd /d "%CURRENT_DIR%"
