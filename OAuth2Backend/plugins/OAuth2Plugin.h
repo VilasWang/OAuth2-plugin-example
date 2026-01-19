@@ -74,5 +74,11 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
   private:
     std::unique_ptr<oauth2::IOAuth2Storage> storage_;
     std::string storageType_;
+    
+    // TTL Configuration (Seconds)
+    long authCodeTtl_{600};
+    long accessTokenTtl_{3600};
+    long refreshTokenTtl_{3600 * 24 * 30};
+
     void initStorage(const Json::Value &config);
 };

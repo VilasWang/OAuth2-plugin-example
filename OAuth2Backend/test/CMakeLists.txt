@@ -40,3 +40,4 @@ if(MSVC)
 endif()
 
 # ParseAndAddDrogonTests(${PROJECT_NAME})
+add_test(NAME OAuth2Tests COMMAND ${PROJECT_NAME})

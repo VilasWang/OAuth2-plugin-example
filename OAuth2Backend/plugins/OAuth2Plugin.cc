@@ -12,6 +12,19 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
 {
     LOG_INFO << "OAuth2Plugin loading...";
     initStorage(config);
+    
+    // Load TTL Config
+    if (config.isMember("tokens"))
+    {
+        auto tokens = config["tokens"];
+        authCodeTtl_ = tokens.get("auth_code_ttl", 600).asInt64();
+        accessTokenTtl_ = tokens.get("access_token_ttl", 3600).asInt64();
+        refreshTokenTtl_ = tokens.get("refresh_token_ttl", 2592000).asInt64();
+        LOG_INFO << "OAuth2 Config Loaded: AuthCode=" << authCodeTtl_
+                 << "s, AccessToken=" << accessTokenTtl_
+                 << "s, RefreshToken=" << refreshTokenTtl_ << "s";
+    }
+
     LOG_INFO << "OAuth2Plugin initialized with storage type: " << storageType_;
 }
 
@@ -113,7 +126,10 @@ void OAuth2Plugin::generateAuthorizationCode(
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                    std::chrono::system_clock::now().time_since_epoch())
                    .count();
-    authCode.expiresAt = now + 600;  // 10 mins
+    authCodeTtl_ = 600; // Fallback or override if needed? No, use member. Wait, initAndStart sets member.
+    // The previous line 116 was "authCode.expiresAt = now + 600;"
+    // Correction:
+    authCode.expiresAt = now + authCodeTtl_;
 
     storage_->saveAuthCode(authCode, [callback = std::move(callback), code]() {
         callback(code);
@@ -181,7 +197,7 @@ void OAuth2Plugin::exchangeCodeForToken(
                 token.clientId = authCode->clientId;
                 token.userId = authCode->userId;
                 token.scope = authCode->scope;
-                token.expiresAt = now + 3600;  // 1 hour
+                token.expiresAt = now + accessTokenTtl_;
 
                 // Generate Refresh Token
                 auto refreshTokenStr = utils::getUuid();
@@ -191,14 +207,14 @@ void OAuth2Plugin::exchangeCodeForToken(
                 refreshToken.clientId = authCode->clientId;
                 refreshToken.userId = authCode->userId;
                 refreshToken.scope = authCode->scope;
-                refreshToken.expiresAt = now + (3600 * 24 * 30);  // 30 days
+                refreshToken.expiresAt = now + refreshTokenTtl_;
 
                 // Save Access Token
                 storage_->saveAccessToken(
                     token, [this, callback, token, refreshToken]() {
                         // Save Refresh Token
                         storage_->saveRefreshToken(
-                            refreshToken, [callback, token, refreshToken]() {
+                            refreshToken, [this, callback, token, refreshToken]() {
                                 LOG_INFO << "[AUDIT] Action=IssueToken User="
                                          << token.userId
                                          << " Client=" << token.clientId
@@ -207,7 +223,7 @@ void OAuth2Plugin::exchangeCodeForToken(
                                 Json::Value json;
                                 json["access_token"] = token.token;
                                 json["token_type"] = "Bearer";
-                                json["expires_in"] = 3600;
+                                json["expires_in"] = (Json::Int64)accessTokenTtl_;
                                 json["refresh_token"] = refreshToken.token;
                                 callback(json);
                             });
@@ -269,7 +285,8 @@ void OAuth2Plugin::refreshAccessToken(
             token.clientId = storedRt->clientId;
             token.userId = storedRt->userId;
             token.scope = storedRt->scope;
-            token.expiresAt = now + 3600;
+            token.scope = storedRt->scope;
+            token.expiresAt = now + accessTokenTtl_;
 
             // 2. Generate New Refresh Token
             auto newRefreshTokenStr = utils::getUuid();
@@ -279,12 +296,12 @@ void OAuth2Plugin::refreshAccessToken(
             newRt.clientId = storedRt->clientId;
             newRt.userId = storedRt->userId;
             newRt.scope = storedRt->scope;
-            newRt.expiresAt = now + (3600 * 24 * 30);
+            newRt.expiresAt = now + refreshTokenTtl_;
 
             // 3. Save New Access Token
             storage_->saveAccessToken(token, [this, callback, token, newRt]() {
                 // 4. Save New Refresh Token
-                storage_->saveRefreshToken(newRt, [callback, token, newRt]() {
+                storage_->saveRefreshToken(newRt, [this, callback, token, newRt]() {
                     // We technically should revoke the old one, but
                     // IOAuth2Storage lacks revoke(). We will skip revocation
                     // for now as discussed, or rely on simple overwriting if
@@ -296,7 +313,7 @@ void OAuth2Plugin::refreshAccessToken(
                     Json::Value json;
                     json["access_token"] = token.token;
                     json["token_type"] = "Bearer";
-                    json["expires_in"] = 3600;
+                    json["expires_in"] = (Json::Int64)accessTokenTtl_;
                     json["refresh_token"] = newRt.token;
                     callback(json);
                 });
