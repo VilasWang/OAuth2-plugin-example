@@ -5,7 +5,8 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
-const success = ref('')
+const success = ref(false)
+const countdown = ref(3)
 
 const form = ref({
     username: '',
@@ -38,9 +39,19 @@ const validate = () => {
     return true
 }
 
+const startCountdown = () => {
+    const timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+            clearInterval(timer)
+            router.push('/')
+        }
+    }, 1000)
+}
+
 const register = async () => {
     error.value = ''
-    success.value = ''
+    success.value = false
     
     if (!validate()) return
     
@@ -60,10 +71,9 @@ const register = async () => {
         })
         
         if (response.ok) {
-            success.value = 'Account created successfully! Redirecting to login...'
-            setTimeout(() => {
-                router.push('/')
-            }, 2000)
+            success.value = true
+            countdown.value = 3
+            startCountdown()
         } else {
             const text = await response.text()
             if (response.status === 409 || text.includes('exists')) {
@@ -123,10 +133,27 @@ const register = async () => {
           {{ error }}
         </div>
 
-        <!-- Success Alert -->
-        <div v-if="success" class="alert alert-success">
-          {{ success }}
-        </div>
+        <!-- Success Overlay -->
+        <Transition name="success-fade">
+          <div v-if="success" class="success-overlay">
+            <div class="success-card">
+              <div class="success-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="11" stroke="#48bb78" stroke-width="2"/>
+                  <path d="M7 12.5l3 3 7-7" stroke="#48bb78" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <h3>Account Created!</h3>
+              <p>Welcome to OAuth2 Platform</p>
+              <div class="countdown-text">
+                Redirecting to login in <span class="countdown-number">{{ countdown }}</span> seconds...
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: ((3 - countdown) / 3 * 100) + '%' }"></div>
+              </div>
+            </div>
+          </div>
+        </Transition>
 
         <form @submit.prevent="register" class="register-form">
           <div class="form-group">
@@ -375,5 +402,122 @@ const register = async () => {
   .benefits {
     display: none;
   }
+}
+
+/* Success Overlay */
+.success-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 15, 35, 0.95);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.success-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 3rem;
+  text-align: center;
+  max-width: 400px;
+  animation: successPop 0.4s ease-out;
+}
+
+@keyframes successPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.success-icon {
+  margin-bottom: 1.5rem;
+  animation: checkDraw 0.6s ease-out 0.2s both;
+}
+
+@keyframes checkDraw {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-10deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.success-icon svg {
+  filter: drop-shadow(0 0 20px rgba(72, 187, 120, 0.5));
+}
+
+.success-card h3 {
+  font-size: 1.5rem;
+  color: #48bb78;
+  margin-bottom: 0.5rem;
+}
+
+.success-card p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.countdown-text {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.countdown-number {
+  display: inline-block;
+  width: 1.5em;
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 1.1rem;
+}
+
+.progress-bar {
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #48bb78);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+/* Transition */
+.success-fade-enter-active {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.success-fade-leave-active {
+  animation: fadeOut 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 </style>
