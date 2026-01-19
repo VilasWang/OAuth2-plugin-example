@@ -1,6 +1,9 @@
 #include "OAuth2Controller.h"
+#include "../models/Users.h"
 #include <drogon/drogon.h>
 #include "../plugins/OAuth2Metrics.h"
+#include <drogon/utils/Utilities.h>
+#include <algorithm>
 
 using namespace oauth2;
 
@@ -109,32 +112,106 @@ void OAuth2Controller::login(
     std::string state = params["state"];
 
     // Mock Authentication
-    if (username == "admin" && password == "admin")
-    {
-        // Success
-        req->session()->insert("userId", username);
-        auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    // ORM Authentication
+    try {
+        auto mapper = drogon::orm::Mapper<drogon_model::oauth_test::Users>(drogon::app().getDbClient());
+        auto user = mapper.findOne({
+            drogon_model::oauth_test::Users::Cols::_username, 
+            drogon::orm::CompareOperator::EQ, 
+            username
+        });
+        
+        // Compute Hash
+        std::string salt = user.getValueOfSalt();
+        std::string dbHash = user.getValueOfPasswordHash();
+        std::string inputHash = drogon::utils::getSha256(password + salt);
+        
+        // Compare (Case insensitive for Hex)
+        bool valid = false;
+        if (inputHash.length() == dbHash.length()) {
+            std::transform(inputHash.begin(), inputHash.end(), inputHash.begin(), ::tolower);
+            std::transform(dbHash.begin(), dbHash.end(), dbHash.begin(), ::tolower);
+            if (inputHash == dbHash) valid = true;
+        }
 
-        plugin->generateAuthorizationCode(
-            clientId,
-            username,
-            scope,
-            [=, callback = std::move(callback)](std::string code) {
-                std::string location = redirectUri + "?code=" + code;
-                if (!state.empty())
-                    location += "&state=" + state;
-                auto resp = HttpResponse::newRedirectionResponse(location);
-                callback(resp);
-            });
-    }
-    else
-    {
-        // Fail
-        Metrics::incLoginFailure("bad_credentials");
+        if (valid)
+        {
+            // Success
+            req->session()->insert("userId", username);
+            auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+
+            plugin->generateAuthorizationCode(
+                clientId,
+                username,
+                scope,
+                [=, callback = std::move(callback)](std::string code) {
+                    std::string location = redirectUri + "?code=" + code;
+                    if (!state.empty())
+                        location += "&state=" + state;
+                    auto resp = HttpResponse::newRedirectionResponse(location);
+                    callback(resp);
+                });
+        }
+        else
+        {
+            // Fail (Bad Password)
+            Metrics::incLoginFailure("bad_credentials");
+            auto resp = HttpResponse::newHttpResponse();
+            resp->setBody("Login Failed: Invalid Credentials");
+            callback(resp);
+        }
+    } catch (const drogon::orm::DrogonDbException &e) {
+        LOG_WARN << "Login Failed: DB Error or User Not Found. " << e.base().what();
+        // User not found throws exception in findOne
+        Metrics::incLoginFailure("user_not_found");
         auto resp = HttpResponse::newHttpResponse();
-        resp->setBody("Login Failed.");
+        resp->setBody("Login Failed: User Not Found");
         callback(resp);
     }
+}
+
+void OAuth2Controller::registerUser(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback)
+{
+    auto params = req->getParameters();
+    std::string username = params["username"];
+    std::string password = params["password"];
+    std::string email = params["email"];
+
+    if (username.empty() || password.empty()) {
+        auto resp = HttpResponse::newHttpResponse();
+        resp->setStatusCode(k400BadRequest);
+        resp->setBody("Username and password required");
+        callback(resp);
+        return;
+    }
+
+    // Hash Password
+    std::string salt = drogon::utils::getUuid(); 
+    std::string passwordHash = drogon::utils::getSha256(password + salt);
+
+    drogon_model::oauth_test::Users newUser;
+    newUser.setUsername(username);
+    newUser.setPasswordHash(passwordHash);
+    newUser.setSalt(salt);
+    if(!email.empty()) newUser.setEmail(email);
+
+    auto mapper = drogon::orm::Mapper<drogon_model::oauth_test::Users>(drogon::app().getDbClient());
+    
+    // Async Insert
+    mapper.insert(newUser, [callback](const drogon_model::oauth_test::Users &u) {
+        auto resp = HttpResponse::newHttpResponse();
+        resp->setBody("User Registered: " + u.getValueOfUsername());
+        callback(resp);
+    },
+    [callback](const drogon::orm::DrogonDbException &e) {
+        LOG_ERROR << "Register Failed: " << e.base().what();
+        auto resp = HttpResponse::newHttpResponse();
+        resp->setStatusCode(k500InternalServerError);
+        resp->setBody("Registration Failed (Username likely exists)");
+        callback(resp);
+    });
 }
 
 void OAuth2Controller::token(

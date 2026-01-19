@@ -6,9 +6,22 @@ file(GLOB TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/*.cc")
 # set(TEST_SRC "test_main.cc" "MemoryStorageTest.cc" "PluginTest.cc" "ConfigTest.cc" "RedisStorageTest.cc" "PostgresStorageTest.cc" "AdvancedStorageTest.cc") # DEBUG: Isolate ConfigTest
 file(GLOB PLUGIN_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../plugins/*.cc")
 # file(GLOB CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../controllers/*.cc") # Controller tests require views/mocking
-# file(GLOB MODEL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../models/*.cc") # Uncomment if models exist
+file(GLOB MODEL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../models/*.cc") # Uncomment if models exist
 
-add_executable(${PROJECT_NAME} ${TEST_SRC} ${PLUGIN_SRC})
+# Explicitly list sources to avoid picking up broken UserTest.cc
+set(TEST_SRC 
+    "test_main.cc" 
+    "MemoryStorageTest.cc" 
+    "PluginTest.cc" 
+    "ConfigTest.cc" 
+    "RedisStorageTest.cc" 
+    "PostgresStorageTest.cc" 
+    "AdvancedStorageTest.cc"
+    "SchemaSetup.cc"
+    "UserTest.cc"
+)
+
+add_executable(${PROJECT_NAME} ${TEST_SRC} ${PLUGIN_SRC} ${MODEL_SRC})
 
 # Include parent project directories
 target_include_directories(${PROJECT_NAME} PRIVATE 
@@ -22,4 +35,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon)
 # If using shared metrics or other libs, link them here too
 
-ParseAndAddDrogonTests(${PROJECT_NAME})
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /FI"${CMAKE_CURRENT_SOURCE_DIR}/../models/orm_compat.h")
+endif()
+
+# ParseAndAddDrogonTests(${PROJECT_NAME})

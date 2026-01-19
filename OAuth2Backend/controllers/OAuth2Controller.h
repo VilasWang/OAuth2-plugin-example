@@ -28,6 +28,10 @@ class OAuth2Controller : public drogon::HttpController<OAuth2Controller>
     // Login Form Submission (Internal)
     ADD_METHOD_TO(OAuth2Controller::login, "/oauth2/login", Post);
 
+    // Register User (Helper for testing)
+    // POST /api/register
+    ADD_METHOD_TO(OAuth2Controller::registerUser, "/api/register", Post);
+
     METHOD_LIST_END
 
     void authorize(const HttpRequestPtr &req,
@@ -41,4 +45,7 @@ class OAuth2Controller : public drogon::HttpController<OAuth2Controller>
 
     void userInfo(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
+
+    void registerUser(const HttpRequestPtr &req,
+                      std::function<void(const HttpResponsePtr &)> &&callback);
 };
