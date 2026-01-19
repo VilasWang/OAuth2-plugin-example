@@ -18,10 +18,7 @@ int main(int argc, char **argv)
 
     // Start the main loop on another thread
     std::thread thr([&]() {
-        // Queues the promise to be fulfilled after starting the loop
-        app().getLoop()->queueInLoop([&p1]() { p1.set_value(); });
-
-        // Load Config for Integration Tests
+        // Load Config for Integration Tests BEFORE app().run()
         std::string configPath = "../../config.json";
         if (!std::filesystem::exists(configPath))
             configPath = "../config.json";
@@ -30,6 +27,7 @@ int main(int argc, char **argv)
 
         if (std::filesystem::exists(configPath))
         {
+            std::cout << "Loading config from: " << configPath << std::endl;
             app().loadConfigFile(configPath);
         }
         else
@@ -38,6 +36,13 @@ int main(int argc, char **argv)
                          "might fail."
                       << std::endl;
         }
+
+        // Use registerBeginningAdvice to signal that the app is ready
+        // This fires AFTER all plugins and DB connections are initialized
+        app().registerBeginningAdvice([&p1]() { 
+            std::cout << "Drogon app ready, signaling tests to start..." << std::endl;
+            p1.set_value(); 
+        });
 
         app().run();
     });

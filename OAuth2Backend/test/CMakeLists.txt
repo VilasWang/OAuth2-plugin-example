@@ -5,7 +5,8 @@ project(OAuth2Test_test CXX)
 file(GLOB TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/*.cc")
 # set(TEST_SRC "test_main.cc" "MemoryStorageTest.cc" "PluginTest.cc" "ConfigTest.cc" "RedisStorageTest.cc" "PostgresStorageTest.cc" "AdvancedStorageTest.cc") # DEBUG: Isolate ConfigTest
 file(GLOB PLUGIN_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../plugins/*.cc")
-# file(GLOB CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../controllers/*.cc") # Controller tests require views/mocking
+file(GLOB CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../controllers/*.cc")
+file(GLOB FILTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../filters/*.cc")
 file(GLOB MODEL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../models/*.cc") # Uncomment if models exist
 
 # Explicitly list sources to avoid picking up broken UserTest.cc
@@ -19,9 +20,10 @@ set(TEST_SRC
     "AdvancedStorageTest.cc"
     "SchemaSetup.cc"
     "UserTest.cc"
+    "IntegrationE2ETest.cc"
 )
 
-add_executable(${PROJECT_NAME} ${TEST_SRC} ${PLUGIN_SRC} ${MODEL_SRC})
+add_executable(${PROJECT_NAME} ${TEST_SRC} ${PLUGIN_SRC} ${MODEL_SRC} ${CTL_SRC} ${FILTER_SRC})
 
 # Include parent project directories
 target_include_directories(${PROJECT_NAME} PRIVATE 
