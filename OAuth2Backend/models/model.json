@@ -6,7 +6,11 @@
     "user": "test",
     "password": "123456",
     "tables": [
-        "users"
+        "users",
+        "oauth2_clients",
+        "oauth2_codes",
+        "oauth2_access_tokens",
+        "oauth2_refresh_tokens"
     ],
     "schema": "public"
 }

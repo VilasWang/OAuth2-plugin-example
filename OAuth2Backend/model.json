@@ -1,0 +1,11 @@
+{
+    "rdbms": "postgresql",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "dbname": "oauth_test",
+    "user": "test",
+    "passwd": "123456",
+    "tables": [
+        "users"
+    ]
+}
