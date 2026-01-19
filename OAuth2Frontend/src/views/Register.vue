@@ -1,0 +1,379 @@
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const loading = ref(false)
+const error = ref('')
+const success = ref('')
+
+const form = ref({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+})
+
+const goToLogin = () => {
+    router.push('/')
+}
+
+const validate = () => {
+    if (!form.value.username || form.value.username.length < 3) {
+        error.value = 'Username must be at least 3 characters'
+        return false
+    }
+    if (!form.value.email || !form.value.email.includes('@')) {
+        error.value = 'Please enter a valid email address'
+        return false
+    }
+    if (!form.value.password || form.value.password.length < 6) {
+        error.value = 'Password must be at least 6 characters'
+        return false
+    }
+    if (form.value.password !== form.value.confirmPassword) {
+        error.value = 'Passwords do not match'
+        return false
+    }
+    return true
+}
+
+const register = async () => {
+    error.value = ''
+    success.value = ''
+    
+    if (!validate()) return
+    
+    loading.value = true
+    
+    try {
+        const response = await fetch('http://localhost:5555/api/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                username: form.value.username,
+                email: form.value.email,
+                password: form.value.password
+            })
+        })
+        
+        if (response.ok) {
+            success.value = 'Account created successfully! Redirecting to login...'
+            setTimeout(() => {
+                router.push('/')
+            }, 2000)
+        } else {
+            const text = await response.text()
+            if (response.status === 409 || text.includes('exists')) {
+                error.value = 'Username already exists. Please choose another.'
+            } else {
+                error.value = text || 'Registration failed. Please try again.'
+            }
+        }
+    } catch (err) {
+        error.value = 'Unable to connect to server. Please ensure the backend is running.'
+    } finally {
+        loading.value = false
+    }
+}
+</script>
+
+<template>
+  <div class="auth-page">
+    <!-- Left Panel - Branding -->
+    <div class="brand-panel">
+      <div class="brand-content">
+        <div class="logo">🔐</div>
+        <h1>Join OAuth2 Platform</h1>
+        <p class="tagline">Create your account in seconds</p>
+        
+        <div class="benefits">
+          <div class="benefit">
+            <span class="check">✓</span>
+            Free to use, forever
+          </div>
+          <div class="benefit">
+            <span class="check">✓</span>
+            Secure authentication
+          </div>
+          <div class="benefit">
+            <span class="check">✓</span>
+            Connect multiple providers
+          </div>
+          <div class="benefit">
+            <span class="check">✓</span>
+            No credit card required
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel - Register Form -->
+    <div class="form-panel">
+      <div class="form-container">
+        <div class="form-header">
+          <h2>Create account</h2>
+          <p>Start your journey with us</p>
+        </div>
+
+        <!-- Error Alert -->
+        <div v-if="error" class="alert alert-error">
+          {{ error }}
+        </div>
+
+        <!-- Success Alert -->
+        <div v-if="success" class="alert alert-success">
+          {{ success }}
+        </div>
+
+        <form @submit.prevent="register" class="register-form">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input 
+              type="text" 
+              id="username" 
+              v-model="form.username"
+              placeholder="Choose a username"
+              required
+              autocomplete="username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input 
+              type="email" 
+              id="email" 
+              v-model="form.email"
+              placeholder="you@example.com"
+              required
+              autocomplete="email"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input 
+              type="password" 
+              id="password" 
+              v-model="form.password"
+              placeholder="Create a strong password"
+              required
+              autocomplete="new-password"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">Confirm Password</label>
+            <input 
+              type="password" 
+              id="confirmPassword" 
+              v-model="form.confirmPassword"
+              placeholder="Confirm your password"
+              required
+              autocomplete="new-password"
+            />
+          </div>
+
+          <button type="submit" class="btn btn-primary" :disabled="loading" style="width: 100%">
+            <span v-if="loading" class="spinner"></span>
+            <span v-else>Create account</span>
+          </button>
+        </form>
+
+        <div class="divider">or</div>
+
+        <div class="form-footer">
+          <p>Already have an account?</p>
+          <button @click="goToLogin" class="btn btn-secondary" style="width: 100%">
+            Sign in instead
+          </button>
+        </div>
+
+        <p class="terms text-sm text-muted text-center mt-3">
+          By creating an account, you agree to our 
+          <a href="#">Terms of Service</a> and 
+          <a href="#">Privacy Policy</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.auth-page {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Brand Panel */
+.brand-panel {
+  flex: 1;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-panel::before {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.2) 0%, transparent 70%);
+  top: -200px;
+  right: -200px;
+}
+
+.brand-panel::after {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(118, 75, 162, 0.15) 0%, transparent 70%);
+  bottom: -150px;
+  left: -150px;
+}
+
+.brand-content {
+  position: relative;
+  z-index: 1;
+  max-width: 400px;
+}
+
+.brand-content .logo {
+  margin-bottom: 1.5rem;
+}
+
+.brand-content h1 {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  margin-bottom: 3rem;
+}
+
+.benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.benefit {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.check {
+  width: 24px;
+  height: 24px;
+  background: rgba(72, 187, 120, 0.2);
+  color: #48bb78;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+/* Form Panel */
+.form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg-secondary);
+}
+
+.form-container {
+  width: 100%;
+  max-width: 400px;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.form-header h2 {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-header p {
+  color: var(--text-muted);
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.form-footer {
+  text-align: center;
+}
+
+.form-footer p {
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+}
+
+.terms {
+  margin-top: 2rem;
+}
+
+.terms a {
+  color: var(--primary-color);
+}
+
+.terms a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .auth-page {
+    flex-direction: column;
+  }
+  
+  .brand-panel {
+    padding: 3rem 2rem;
+  }
+  
+  .brand-content h1 {
+    font-size: 1.75rem;
+  }
+  
+  .benefits {
+    display: none;
+  }
+}
+</style>
