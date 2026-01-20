@@ -139,6 +139,8 @@ We implement Rate Limiting and Security Headers to protect against attacks.
 
 ## Features & Endpoints
 
+> **OpenAPI Specification**: [openapi.yaml](OAuth2Backend/openapi.yaml)
+
 | Feature | Endpoint / Description |
 |---------|------------------------|
 | **Authorize** | `GET /oauth2/authorize` - Logic to handle Authorization requests. |

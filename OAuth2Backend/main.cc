@@ -92,12 +92,16 @@ int main()
     setupCors();
 
     // Global Security Headers
-    drogon::app().registerPostHandlingAdvice([](const drogon::HttpRequestPtr &, const drogon::HttpResponsePtr &resp) {
-        resp->addHeader("X-Content-Type-Options", "nosniff");
-        resp->addHeader("X-Frame-Options", "SAMEORIGIN");
-        resp->addHeader("Content-Security-Policy", "default-src 'self'; frame-ancestors 'self';");
-        resp->addHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    });
+    drogon::app().registerPostHandlingAdvice(
+        [](const drogon::HttpRequestPtr &,
+           const drogon::HttpResponsePtr &resp) {
+            resp->addHeader("X-Content-Type-Options", "nosniff");
+            resp->addHeader("X-Frame-Options", "SAMEORIGIN");
+            resp->addHeader("Content-Security-Policy",
+                            "default-src 'self'; frame-ancestors 'self';");
+            resp->addHeader("Strict-Transport-Security",
+                            "max-age=31536000; includeSubDomains");
+        });
 
     drogon::app().run();
     return 0;

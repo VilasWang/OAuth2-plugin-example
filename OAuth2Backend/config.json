@@ -70,7 +70,9 @@
             "cur",
             "xml",
             "webp",
-            "svg"
+            "svg",
+            "yaml",
+            "yml"
         ],
         "mime": {},
         "locations": [

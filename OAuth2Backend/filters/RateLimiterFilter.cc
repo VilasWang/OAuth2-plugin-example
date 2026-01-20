@@ -8,18 +8,21 @@ using namespace drogon;
 
 // Simple in-memory rate limiter for demonstration
 // In production, use Redis for distributed limiting
-namespace {
-    std::map<std::string, int> requestCounts;
-    std::string currentMinute;
-    std::mutex limitMutex;
+namespace
+{
+std::map<std::string, int> requestCounts;
+std::string currentMinute;
+std::mutex limitMutex;
 
-    void cleanupOldCounts(const std::string& nowMinute) {
-        if (currentMinute != nowMinute) {
-            requestCounts.clear();
-            currentMinute = nowMinute;
-        }
+void cleanupOldCounts(const std::string &nowMinute)
+{
+    if (currentMinute != nowMinute)
+    {
+        requestCounts.clear();
+        currentMinute = nowMinute;
     }
 }
+}  // namespace
 
 void RateLimiterFilter::doFilter(const HttpRequestPtr &req,
                                  FilterCallback &&fcb,
@@ -45,14 +48,17 @@ void RateLimiterFilter::doFilter(const HttpRequestPtr &req,
             clientIp = clientIp.substr(0, commaPos);
         }
     }
-    
+
     // 2. Determine Limit based on Path
-    int limit = 60; // Default
+    int limit = 60;  // Default
     std::string path = req->path();
-    
-    if (path == "/oauth2/login") limit = 5;
-    else if (path == "/oauth2/token") limit = 10;
-    else if (path == "/api/register") limit = 5;
+
+    if (path == "/oauth2/login")
+        limit = 5;
+    else if (path == "/oauth2/token")
+        limit = 10;
+    else if (path == "/api/register")
+        limit = 5;
 
     // 3. Get Current Minute
     auto now = std::chrono::system_clock::now();
@@ -65,13 +71,15 @@ void RateLimiterFilter::doFilter(const HttpRequestPtr &req,
     // 4. Check Limit
     {
         std::lock_guard<std::mutex> lock(limitMutex);
-        cleanupOldCounts(nowMinute); // Reset if new minute
-        
+        cleanupOldCounts(nowMinute);  // Reset if new minute
+
         std::string key = clientIp + ":" + path;
         int count = ++requestCounts[key];
-        
-        if (count > limit) {
-            LOG_WARN << "Rate Limit Exceeded: " << clientIp << " -> " << path << " (" << count << "/" << limit << ")";
+
+        if (count > limit)
+        {
+            LOG_WARN << "Rate Limit Exceeded: " << clientIp << " -> " << path
+                     << " (" << count << "/" << limit << ")";
             auto resp = HttpResponse::newHttpResponse();
             resp->setStatusCode(k429TooManyRequests);
             resp->setBody("Too Many Requests");
