@@ -26,7 +26,25 @@ void RateLimiterFilter::doFilter(const HttpRequestPtr &req,
                                  FilterChainCallback &&fcc)
 {
     // 1. Get Client IP
-    auto clientIp = req->peerAddr().toIp();
+    std::string clientIp = req->getHeader("X-Forwarded-For");
+    if (clientIp.empty())
+    {
+        clientIp = req->getHeader("X-Real-IP");
+    }
+    if (clientIp.empty())
+    {
+        clientIp = req->peerAddr().toIp();
+    }
+    else
+    {
+        // X-Forwarded-For can contain multiple IPs "client, proxy1, proxy2".
+        // We take the first one.
+        size_t commaPos = clientIp.find(',');
+        if (commaPos != std::string::npos)
+        {
+            clientIp = clientIp.substr(0, commaPos);
+        }
+    }
     
     // 2. Determine Limit based on Path
     int limit = 60; // Default
