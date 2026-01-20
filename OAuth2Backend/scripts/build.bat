@@ -13,10 +13,11 @@ if %errorlevel% equ 0 (
     echo No running OAuth2Server.exe process found
 )
 
-REM Store the script directory and change to it
-set CURRENT_DIR=%~dp0
-cd /d "%CURRENT_DIR%"
-echo current work directory is "%CURRENT_DIR%"
+REM Store the script directory and change to parent (OAuth2Backend)
+set SCRIPT_DIR=%~dp0
+cd /d "%SCRIPT_DIR%.."
+set PROJECT_DIR=%CD%
+echo Current work directory is "%PROJECT_DIR%"
 
 REM Default build type
 set BUILD_TYPE=Release

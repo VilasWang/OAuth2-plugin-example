@@ -1,7 +1,7 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include "../plugins/RedisOAuth2Storage.h"
+#include "RedisOAuth2Storage.h"
 #include <future>
 
 using namespace oauth2;

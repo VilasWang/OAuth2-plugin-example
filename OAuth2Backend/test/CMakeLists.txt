@@ -5,6 +5,7 @@ project(OAuth2Test_test CXX)
 file(GLOB TEST_SRC "${CMAKE_CURRENT_SOURCE_DIR}/*.cc")
 # set(TEST_SRC "test_main.cc" "MemoryStorageTest.cc" "PluginTest.cc" "ConfigTest.cc" "RedisStorageTest.cc" "PostgresStorageTest.cc" "AdvancedStorageTest.cc") # DEBUG: Isolate ConfigTest
 file(GLOB PLUGIN_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../plugins/*.cc")
+file(GLOB STORAGE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../storage/*.cc")
 file(GLOB CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../controllers/*.cc")
 file(GLOB FILTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../filters/*.cc")
 file(GLOB MODEL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../models/*.cc") # Uncomment if models exist
@@ -23,12 +24,13 @@ set(TEST_SRC
     "IntegrationE2ETest.cc"
 )
 
-add_executable(${PROJECT_NAME} ${TEST_SRC} ${PLUGIN_SRC} ${MODEL_SRC} ${CTL_SRC} ${FILTER_SRC})
+add_executable(${PROJECT_NAME} ${TEST_SRC} ${PLUGIN_SRC} ${STORAGE_SRC} ${MODEL_SRC} ${CTL_SRC} ${FILTER_SRC})
 
 # Include parent project directories
 target_include_directories(${PROJECT_NAME} PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/../
     ${CMAKE_CURRENT_SOURCE_DIR}/../plugins
+    ${CMAKE_CURRENT_SOURCE_DIR}/../storage
     ${CMAKE_CURRENT_SOURCE_DIR}/../controllers
     ${CMAKE_CURRENT_SOURCE_DIR}/../models
 )

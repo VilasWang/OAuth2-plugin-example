@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include "../plugins/OAuth2Plugin.h"
+#include "OAuth2Plugin.h"
 #include <future>
 #include <chrono>
 #include <limits>

@@ -3,7 +3,7 @@
 #include <json/json.h>
 #include <sstream>
 #include <algorithm>
-#include "OAuth2Metrics.h"
+#include "plugins/OAuth2Metrics.h"
 
 namespace oauth2
 {

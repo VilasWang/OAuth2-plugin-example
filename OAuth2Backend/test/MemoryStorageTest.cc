@@ -1,7 +1,7 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include "../plugins/MemoryOAuth2Storage.h"
+#include "MemoryOAuth2Storage.h"
 #include <future>
 
 using namespace oauth2;

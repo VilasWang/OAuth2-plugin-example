@@ -1,7 +1,7 @@
 #include "PostgresOAuth2Storage.h"
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
-#include "OAuth2Metrics.h"
+#include "plugins/OAuth2Metrics.h"
 
 #include "../models/Oauth2Clients.h"
 #include "../models/Oauth2Codes.h"

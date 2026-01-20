@@ -33,13 +33,13 @@ cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2B
 **Debug 构建：**
 
 ```powershell
-.\build.bat -debug
+.\scripts\build.bat -debug
 ```
 
 **Release 构建（默认）：**
 
 ```powershell
-.\build.bat -release
+.\scripts\build.bat -release
 ```
 
 ### 4. 验证构建产物
