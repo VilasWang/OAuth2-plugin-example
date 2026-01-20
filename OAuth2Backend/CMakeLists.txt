@@ -40,6 +40,7 @@ else ()
 endif ()
 
 aux_source_directory(controllers CTL_SRC)
+aux_source_directory(services SERVICE_SRC)
 aux_source_directory(filters FILTER_SRC)
 aux_source_directory(plugins PLUGIN_SRC)
 aux_source_directory(storage STORAGE_SRC)
@@ -58,7 +59,8 @@ drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/views
 target_include_directories(${PROJECT_NAME}
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
                                    ${CMAKE_CURRENT_SOURCE_DIR}/models
-                                   ${CMAKE_CURRENT_SOURCE_DIR}/storage)
+                                   ${CMAKE_CURRENT_SOURCE_DIR}/storage
+                                   ${CMAKE_CURRENT_SOURCE_DIR}/services)
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /FI"${CMAKE_CURRENT_SOURCE_DIR}/models/orm_compat.h")
@@ -71,6 +73,7 @@ target_sources(${PROJECT_NAME}
                ${FILTER_SRC}
                ${PLUGIN_SRC}
                ${STORAGE_SRC}
+               ${SERVICE_SRC}
                ${MODEL_SRC})
 # ##############################################################################
 # uncomment the following line for dynamically loading views 
