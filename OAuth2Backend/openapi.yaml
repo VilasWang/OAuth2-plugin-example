@@ -4,7 +4,7 @@ info:
   description: API documentation for the custom OAuth2 implementation using Drogon C++ Framework.
   version: 1.0.0
 servers:
-  - url: http://localhost:5555
+  - url: http://127.0.0.1:5555
     description: Local Development Server
 
 paths:
@@ -19,35 +19,40 @@ paths:
           schema:
             type: string
             enum: [code]
+            default: code
         - name: client_id
           in: query
           required: true
           schema:
             type: string
+            default: vue-client
         - name: redirect_uri
           in: query
           required: true
           schema:
             type: string
+            default: http://127.0.0.1:5173/callback
         - name: state
           in: query
           required: false
           schema:
             type: string
+            default: xyz
         - name: scope
           in: query
           required: false
           schema:
             type: string
+            default: openid profile
       responses:
-        '302':
+        "302":
           description: Successful redirection with code.
           headers:
             Location:
               schema:
                 type: string
-                example: http://localhost:5173/callback?code=xyz&state=abc
-        '400':
+                example: http://127.0.0.1:5173/callback?code=xyz&state=abc
+        "400":
           description: Invalid request parameters.
 
   /oauth2/token:
@@ -64,14 +69,19 @@ paths:
                 grant_type:
                   type: string
                   enum: [authorization_code]
+                  default: authorization_code
                 code:
                   type: string
+                  description: Paste the code obtained from /oauth2/login here
                 redirect_uri:
                   type: string
+                  default: http://127.0.0.1:5173/callback
                 client_id:
                   type: string
+                  default: vue-client
                 client_secret:
                   type: string
+                  default: 123456
               required:
                 - grant_type
                 - code
@@ -79,7 +89,7 @@ paths:
                 - client_id
                 - client_secret
       responses:
-        '200':
+        "200":
           description: Access Token generated successfully.
           content:
             application/json:
@@ -97,9 +107,9 @@ paths:
                     type: string
                   scope:
                     type: string
-        '400':
+        "400":
           description: Invalid request.
-        '429':
+        "429":
           description: Rate limit exceeded (10 req/min).
 
   /oauth2/userinfo:
@@ -109,7 +119,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: User profile data.
           content:
             application/json:
@@ -122,13 +132,20 @@ paths:
                     type: string
                   email:
                     type: string
-        '401':
+        "401":
           description: Unauthorized (Invalid Token).
 
   /oauth2/login:
     post:
       summary: Login Form Submission
-      description: internal endpoint for login form.
+      description: Submit login form to authorize client. Use this instead of /oauth2/authorize for automation.
+      parameters:
+        - name: json
+          in: query
+          description: If true, returns 200 JSON with code instead of 302 Redirect (useful for API testing)
+          schema:
+            type: boolean
+            default: true
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -137,14 +154,36 @@ paths:
               properties:
                 username:
                   type: string
+                  default: admin_user
                 password:
                   type: string
+                  default: password123
+                client_id:
+                  type: string
+                  default: vue-client
+                redirect_uri:
+                  type: string
+                  default: http://127.0.0.1:5173/callback
+                response_type:
+                  type: string
+                  default: code
+                scope:
+                  type: string
+                  default: openid profile
+                state:
+                  type: string
+                  default: xyz
+              required:
+                - username
+                - password
+                - client_id
+                - redirect_uri
       responses:
-        '302':
+        "302":
           description: Redirect on success.
-        '200':
-          description: Login page on failure (re-render).
-        '429':
+        "200":
+          description: Login page on failure (re-render) or JSON success.
+        "429":
           description: Rate limit exceeded (5 req/min).
 
   /api/register:
@@ -159,16 +198,19 @@ paths:
               properties:
                 username:
                   type: string
+                  default: new_user
                 password:
                   type: string
+                  default: password123
                 email:
                   type: string
+                  default: test@example.com
       responses:
-        '200':
+        "200":
           description: Registration successful.
-        '400':
+        "400":
           description: Username exists or invalid data.
-        '429':
+        "429":
           description: Rate limit exceeded (5 req/min).
 
 components:
