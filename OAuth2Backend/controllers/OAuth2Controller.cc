@@ -128,6 +128,15 @@ void OAuth2Controller::login(
                         std::string location = redirectUri + "?code=" + code;
                         if (!state.empty())
                             location += "&state=" + state;
+                        if (req->getParameter("json") == "true")
+                        {
+                            Json::Value ret;
+                            ret["code"] = code;
+                            ret["location"] = location;
+                            auto resp = HttpResponse::newHttpJsonResponse(ret);
+                            callback(resp);
+                            return;
+                        }
                         auto resp =
                             HttpResponse::newRedirectionResponse(location);
                         callback(resp);

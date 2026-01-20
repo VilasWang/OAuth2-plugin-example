@@ -19,7 +19,8 @@ void setupCors()
         {
             for (const auto &allowed : allowOrigins)
             {
-                if (allowed.asString() == origin)
+                auto allowedStr = allowed.asString();
+                if (allowedStr == "*" || allowedStr == origin)
                     return true;
             }
         }
