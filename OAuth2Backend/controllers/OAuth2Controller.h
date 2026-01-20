@@ -15,7 +15,7 @@ class OAuth2Controller : public drogon::HttpController<OAuth2Controller>
 
     // Token Endpoint
     // POST /oauth2/token
-    ADD_METHOD_TO(OAuth2Controller::token, "/oauth2/token", Post);
+    ADD_METHOD_TO(OAuth2Controller::token, "/oauth2/token", Post, "RateLimiterFilter");
 
     // UserInfo Endpoint (Protected)
     // GET /oauth2/userinfo
@@ -26,11 +26,11 @@ class OAuth2Controller : public drogon::HttpController<OAuth2Controller>
                   "OAuth2Middleware");
 
     // Login Form Submission (Internal)
-    ADD_METHOD_TO(OAuth2Controller::login, "/oauth2/login", Post);
+    ADD_METHOD_TO(OAuth2Controller::login, "/oauth2/login", Post, "RateLimiterFilter");
 
     // Register User (Helper for testing)
     // POST /api/register
-    ADD_METHOD_TO(OAuth2Controller::registerUser, "/api/register", Post);
+    ADD_METHOD_TO(OAuth2Controller::registerUser, "/api/register", Post, "RateLimiterFilter");
 
     METHOD_LIST_END
 
