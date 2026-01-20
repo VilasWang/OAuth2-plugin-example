@@ -31,11 +31,12 @@ redis-cli ping
 
 ### 4. 数据库初始化检查
 
-确认已执行 `init_oauth2.sql` 初始化 OAuth2 所需表结构：
+确认已执行 SQL 初始化 OAuth2 所需表结构：
 
 ```powershell
-# 如未初始化，执行：
-psql -U postgres -d oauth2_test -f "d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2Backend\init_oauth2.sql"
+# 如未初始化，执行（按顺序）：
+psql -U postgres -d oauth_test -f "d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2Backend\sql\001_oauth2_core.sql"
+psql -U postgres -d oauth_test -f "d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2Backend\sql\002_users_table.sql"
 ```
 
 ---
@@ -109,11 +110,10 @@ Invoke-RestMethod -Uri "http://localhost:5555/oauth2/token" -Method POST -Body $
 
 3. **浏览器测试流程**：
    - 访问 <http://localhost:5173>
-   - 点击 "Login with Drogon"
-   - 使用凭据 `admin` / `admin` 登录
+   - 点击 "Create an account" 注册新用户
+   - 点击 "Login with Drogon" 使用注册的账号登录
    - 验证重定向和用户信息显示
    - 验证 Token 刷新流程
-   - 验证登出功能
 
 ### 浏览器测试检查点
 
