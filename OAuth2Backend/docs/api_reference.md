@@ -86,6 +86,13 @@ Location: http://localhost:5173/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=xyz12
 }
 ```
 
+**失败 (429 Too Many Requests)**:
+请求频率过高，触发限流。
+
+```text
+Too Many Requests
+```
+
 ---
 
 ## 3. 用户信息端点 (UserInfo Endpoint)

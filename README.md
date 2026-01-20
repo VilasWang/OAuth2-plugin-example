@@ -132,6 +132,11 @@ For implementation details (Lua Scripts, Threat Models, Token Lifecycle):
 Production-ready monitoring with Prometheus Metrics and Structured Audit Logs.
 👉 **[Observability Guide](OAuth2Backend/docs/observability.md)**
 
+### Security Hardening (New)
+
+We implement Rate Limiting and Security Headers to protect against attacks.
+👉 **[Security Hardening Guide](OAuth2Backend/docs/security_hardening.md)**
+
 ## Features & Endpoints
 
 | Feature | Endpoint / Description |
