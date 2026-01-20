@@ -39,9 +39,10 @@ int main(int argc, char **argv)
 
         // Use registerBeginningAdvice to signal that the app is ready
         // This fires AFTER all plugins and DB connections are initialized
-        app().registerBeginningAdvice([&p1]() { 
-            std::cout << "Drogon app ready, signaling tests to start..." << std::endl;
-            p1.set_value(); 
+        app().registerBeginningAdvice([&p1]() {
+            std::cout << "Drogon app ready, signaling tests to start..."
+                      << std::endl;
+            p1.set_value();
         });
 
         app().run();

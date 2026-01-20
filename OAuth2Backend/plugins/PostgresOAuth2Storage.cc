@@ -43,7 +43,9 @@ void PostgresOAuth2Storage::getClient(const std::string &clientId,
     {
         Mapper<Oauth2Clients> mapper(dbClient_);
         mapper.findOne(
-            Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
+            Criteria(Oauth2Clients::Cols::_client_id,
+                     CompareOperator::EQ,
+                     clientId),
             [sharedCb, clientId](const Oauth2Clients &row) {
                 OAuth2Client client;
                 client.clientId = row.getValueOfClientId();
@@ -62,14 +64,17 @@ void PostgresOAuth2Storage::getClient(const std::string &clientId,
                 (*sharedCb)(client);
             },
             [sharedCb, clientId](const DrogonDbException &e) {
-                LOG_DEBUG << "Postgres getClient: Not found or Error -> " << clientId << " (" << e.base().what() << ")";
-                 // FindOne throws or calls unexpected error callback if not found? 
-                 // Actually generated findOne typically throws if 0 rows in sync. Async:
-                 // Exception callback is called for DB errors. 
-                 // If not found, does it call exception or success? 
-                 // Mapper::findOne async usually expects exactly one. If not found, it often calls exception callback with specific UnexpectedRows or similar.
-                 // Wait, standard Mapper findOne calls exception callback if row count != 1.
-                 (*sharedCb)(std::nullopt);
+                LOG_DEBUG << "Postgres getClient: Not found or Error -> "
+                          << clientId << " (" << e.base().what() << ")";
+                // FindOne throws or calls unexpected error callback if not
+                // found? Actually generated findOne typically throws if 0 rows
+                // in sync. Async: Exception callback is called for DB errors.
+                // If not found, does it call exception or success?
+                // Mapper::findOne async usually expects exactly one. If not
+                // found, it often calls exception callback with specific
+                // UnexpectedRows or similar. Wait, standard Mapper findOne
+                // calls exception callback if row count != 1.
+                (*sharedCb)(std::nullopt);
             });
     }
     catch (...)
@@ -99,27 +104,35 @@ void PostgresOAuth2Storage::validateClient(const std::string &clientId,
     try
     {
         Mapper<Oauth2Clients> mapper(dbClient_);
-        
+
         // Case 1: No Client Secret (Check Existence Only via PK)
         // If clientSecret is empty, we just check if client exists.
         if (clientSecret.empty())
         {
-             mapper.findOne(
-                Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
+            mapper.findOne(
+                Criteria(Oauth2Clients::Cols::_client_id,
+                         CompareOperator::EQ,
+                         clientId),
                 [sharedCb, clientId](const Oauth2Clients &) {
-                    LOG_DEBUG << "Postgres validateClient (no secret): Found -> " << clientId;
+                    LOG_DEBUG
+                        << "Postgres validateClient (no secret): Found -> "
+                        << clientId;
                     (*sharedCb)(true);
                 },
                 [sharedCb, clientId](const DrogonDbException &e) {
-                    LOG_DEBUG << "Postgres validateClient (no secret): Not found/Error -> " << clientId << " " << e.base().what();
+                    LOG_DEBUG << "Postgres validateClient (no secret): Not "
+                                 "found/Error -> "
+                              << clientId << " " << e.base().what();
                     (*sharedCb)(false);
                 });
-             return;
+            return;
         }
 
         // Case 2: Validate Secret
         mapper.findOne(
-            Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
+            Criteria(Oauth2Clients::Cols::_client_id,
+                     CompareOperator::EQ,
+                     clientId),
             [sharedCb, clientId, clientSecret](const Oauth2Clients &row) {
                 std::string storedHash = row.getValueOfClientSecret();
                 std::string salt = row.getValueOfSalt();
@@ -128,8 +141,8 @@ void PostgresOAuth2Storage::validateClient(const std::string &clientId,
                 std::string computedHash =
                     drogon::utils::getSha256(clientSecret + salt);
 
-                LOG_DEBUG << "Postgres validateClient: storedHash=" << storedHash
-                          << ", computedHash=" << computedHash;
+                LOG_DEBUG << "Postgres validateClient: storedHash="
+                          << storedHash << ", computedHash=" << computedHash;
 
                 if (computedHash.length() == storedHash.length())
                 {
@@ -143,7 +156,8 @@ void PostgresOAuth2Storage::validateClient(const std::string &clientId,
                             break;
                         }
                     }
-                    LOG_DEBUG << "Postgres validateClient match result: " << match;
+                    LOG_DEBUG << "Postgres validateClient match result: "
+                              << match;
                     (*sharedCb)(match);
                 }
                 else
@@ -153,8 +167,8 @@ void PostgresOAuth2Storage::validateClient(const std::string &clientId,
                 }
             },
             [sharedCb, clientId](const DrogonDbException &e) {
-                LOG_ERROR << "Postgres validateClient Error for " << clientId << ": "
-                          << e.base().what();
+                LOG_ERROR << "Postgres validateClient Error for " << clientId
+                          << ": " << e.base().what();
                 (*sharedCb)(false);
             });
     }
@@ -180,7 +194,8 @@ void PostgresOAuth2Storage::saveAuthCode(const oauth2::OAuth2AuthCode &code,
         return;
     }
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
-    try {
+    try
+    {
         Mapper<Oauth2Codes> mapper(dbClient_);
         Oauth2Codes newCode;
         newCode.setCode(code.code);
@@ -190,18 +205,24 @@ void PostgresOAuth2Storage::saveAuthCode(const oauth2::OAuth2AuthCode &code,
         newCode.setRedirectUri(code.redirectUri);
         newCode.setExpiresAt(code.expiresAt);
         newCode.setUsed(code.used);
-        
-        mapper.insert(newCode,
+
+        mapper.insert(
+            newCode,
             [sharedCb](const Oauth2Codes &) {
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             },
             [sharedCb](const DrogonDbException &e) {
                 LOG_ERROR << "saveAuthCode Error: " << e.base().what();
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             });
-    } catch(...) {
+    }
+    catch (...)
+    {
         LOG_ERROR << "saveAuthCode Exception";
-         if (*sharedCb) (*sharedCb)();
+        if (*sharedCb)
+            (*sharedCb)();
     }
 }
 
@@ -214,7 +235,8 @@ void PostgresOAuth2Storage::getAuthCode(const std::string &code,
         return;
     }
     auto sharedCb = std::make_shared<AuthCodeCallback>(std::move(cb));
-    try {
+    try
+    {
         Mapper<Oauth2Codes> mapper(dbClient_);
         mapper.findOne(
             Criteria(Oauth2Codes::Cols::_code, CompareOperator::EQ, code),
@@ -225,17 +247,20 @@ void PostgresOAuth2Storage::getAuthCode(const std::string &code,
                 c.userId = row.getValueOfUserId();
                 c.scope = row.getValueOfScope();
                 c.redirectUri = row.getValueOfRedirectUri();
-                c.expiresAt = row.getValueOfExpiresAt(); // int64_t
+                c.expiresAt = row.getValueOfExpiresAt();  // int64_t
                 c.used = row.getValueOfUsed();
                 (*sharedCb)(c);
             },
             [sharedCb](const DrogonDbException &e) {
                 // Not found or error
-                LOG_DEBUG << "getAuthCode not found or error: " << e.base().what();
+                LOG_DEBUG << "getAuthCode not found or error: "
+                          << e.base().what();
                 (*sharedCb)(std::nullopt);
             });
-    } catch (...) {
-         LOG_ERROR << "getAuthCode Exception";
+    }
+    catch (...)
+    {
+        LOG_ERROR << "getAuthCode Exception";
         (*sharedCb)(std::nullopt);
     }
 }
@@ -250,28 +275,36 @@ void PostgresOAuth2Storage::markAuthCodeUsed(const std::string &code,
         return;
     }
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
-    try {
+    try
+    {
         Mapper<Oauth2Codes> mapper(dbClient_);
         Oauth2Codes updateObj;
         updateObj.setCode(code);
         updateObj.setUsed(true);
-        
-        mapper.update(updateObj, 
+
+        mapper.update(
+            updateObj,
             [sharedCb](const size_t count) {
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             },
             [sharedCb](const DrogonDbException &e) {
                 LOG_ERROR << "markAuthCodeUsed Error: " << e.base().what();
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             });
-    } catch (...) {
-         LOG_ERROR << "markAuthCodeUsed Exception";
-        if (*sharedCb) (*sharedCb)();
+    }
+    catch (...)
+    {
+        LOG_ERROR << "markAuthCodeUsed Exception";
+        if (*sharedCb)
+            (*sharedCb)();
     }
 }
 
-void PostgresOAuth2Storage::consumeAuthCode(const std::string &code,
-                                            IOAuth2Storage::AuthCodeCallback &&cb)
+void PostgresOAuth2Storage::consumeAuthCode(
+    const std::string &code,
+    IOAuth2Storage::AuthCodeCallback &&cb)
 {
     if (!dbClient_)
     {
@@ -312,8 +345,9 @@ void PostgresOAuth2Storage::consumeAuthCode(const std::string &code,
         code);
 }
 
-void PostgresOAuth2Storage::saveAccessToken(const oauth2::OAuth2AccessToken &token,
-                                            IOAuth2Storage::VoidCallback &&cb)
+void PostgresOAuth2Storage::saveAccessToken(
+    const oauth2::OAuth2AccessToken &token,
+    IOAuth2Storage::VoidCallback &&cb)
 {
     if (!dbClient_)
     {
@@ -322,7 +356,8 @@ void PostgresOAuth2Storage::saveAccessToken(const oauth2::OAuth2AccessToken &tok
         return;
     }
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
-    try {
+    try
+    {
         Mapper<Oauth2AccessTokens> mapper(dbClient_);
         Oauth2AccessTokens newToken;
         newToken.setToken(token.token);
@@ -331,23 +366,30 @@ void PostgresOAuth2Storage::saveAccessToken(const oauth2::OAuth2AccessToken &tok
         newToken.setScope(token.scope);
         newToken.setExpiresAt(token.expiresAt);
         newToken.setRevoked(token.revoked);
-        
-        mapper.insert(newToken,
+
+        mapper.insert(
+            newToken,
             [sharedCb](const Oauth2AccessTokens &) {
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             },
             [sharedCb](const DrogonDbException &e) {
                 LOG_ERROR << "saveAccessToken Error: " << e.base().what();
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             });
-    } catch (...) {
-         LOG_ERROR << "saveAccessToken Exception";
-        if (*sharedCb) (*sharedCb)();
+    }
+    catch (...)
+    {
+        LOG_ERROR << "saveAccessToken Exception";
+        if (*sharedCb)
+            (*sharedCb)();
     }
 }
 
-void PostgresOAuth2Storage::getAccessToken(const std::string &token,
-                                           IOAuth2Storage::AccessTokenCallback &&cb)
+void PostgresOAuth2Storage::getAccessToken(
+    const std::string &token,
+    IOAuth2Storage::AccessTokenCallback &&cb)
 {
     if (!dbClient_)
     {
@@ -355,10 +397,13 @@ void PostgresOAuth2Storage::getAccessToken(const std::string &token,
         return;
     }
     auto sharedCb = std::make_shared<AccessTokenCallback>(std::move(cb));
-    try {
+    try
+    {
         Mapper<Oauth2AccessTokens> mapper(dbClient_);
         mapper.findOne(
-            Criteria(Oauth2AccessTokens::Cols::_token, CompareOperator::EQ, token),
+            Criteria(Oauth2AccessTokens::Cols::_token,
+                     CompareOperator::EQ,
+                     token),
             [sharedCb](const Oauth2AccessTokens &row) {
                 OAuth2AccessToken t;
                 t.token = row.getValueOfToken();
@@ -370,17 +415,21 @@ void PostgresOAuth2Storage::getAccessToken(const std::string &token,
                 (*sharedCb)(t);
             },
             [sharedCb](const DrogonDbException &e) {
-                LOG_DEBUG << "getAccessToken not found/error: " << e.base().what();
+                LOG_DEBUG << "getAccessToken not found/error: "
+                          << e.base().what();
                 (*sharedCb)(std::nullopt);
             });
-    } catch (...) {
+    }
+    catch (...)
+    {
         LOG_ERROR << "getAccessToken Exception";
         (*sharedCb)(std::nullopt);
     }
 }
 
-void PostgresOAuth2Storage::saveRefreshToken(const oauth2::OAuth2RefreshToken &token,
-                                             IOAuth2Storage::VoidCallback &&cb)
+void PostgresOAuth2Storage::saveRefreshToken(
+    const oauth2::OAuth2RefreshToken &token,
+    IOAuth2Storage::VoidCallback &&cb)
 {
     if (!dbClient_)
     {
@@ -389,7 +438,8 @@ void PostgresOAuth2Storage::saveRefreshToken(const oauth2::OAuth2RefreshToken &t
         return;
     }
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
-    try {
+    try
+    {
         Mapper<Oauth2RefreshTokens> mapper(dbClient_);
         Oauth2RefreshTokens newToken;
         newToken.setToken(token.token);
@@ -399,23 +449,30 @@ void PostgresOAuth2Storage::saveRefreshToken(const oauth2::OAuth2RefreshToken &t
         newToken.setScope(token.scope);
         newToken.setExpiresAt(token.expiresAt);
         newToken.setRevoked(token.revoked);
-        
-        mapper.insert(newToken,
+
+        mapper.insert(
+            newToken,
             [sharedCb](const Oauth2RefreshTokens &) {
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             },
             [sharedCb](const DrogonDbException &e) {
                 LOG_ERROR << "saveRefreshToken Error: " << e.base().what();
-                if (*sharedCb) (*sharedCb)();
+                if (*sharedCb)
+                    (*sharedCb)();
             });
-    } catch (...) {
-         LOG_ERROR << "saveRefreshToken Exception";
-        if (*sharedCb) (*sharedCb)();
+    }
+    catch (...)
+    {
+        LOG_ERROR << "saveRefreshToken Exception";
+        if (*sharedCb)
+            (*sharedCb)();
     }
 }
 
-void PostgresOAuth2Storage::getRefreshToken(const std::string &token,
-                                            IOAuth2Storage::RefreshTokenCallback &&cb)
+void PostgresOAuth2Storage::getRefreshToken(
+    const std::string &token,
+    IOAuth2Storage::RefreshTokenCallback &&cb)
 {
     if (!dbClient_)
     {
@@ -423,10 +480,13 @@ void PostgresOAuth2Storage::getRefreshToken(const std::string &token,
         return;
     }
     auto sharedCb = std::make_shared<RefreshTokenCallback>(std::move(cb));
-    try {
+    try
+    {
         Mapper<Oauth2RefreshTokens> mapper(dbClient_);
         mapper.findOne(
-            Criteria(Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token),
+            Criteria(Oauth2RefreshTokens::Cols::_token,
+                     CompareOperator::EQ,
+                     token),
             [sharedCb](const Oauth2RefreshTokens &row) {
                 OAuth2RefreshToken t;
                 t.token = row.getValueOfToken();
@@ -439,10 +499,13 @@ void PostgresOAuth2Storage::getRefreshToken(const std::string &token,
                 (*sharedCb)(t);
             },
             [sharedCb](const DrogonDbException &e) {
-                LOG_DEBUG << "getRefreshToken not found/error: " << e.base().what();
+                LOG_DEBUG << "getRefreshToken not found/error: "
+                          << e.base().what();
                 (*sharedCb)(std::nullopt);
             });
-    } catch (...) {
+    }
+    catch (...)
+    {
         LOG_ERROR << "getRefreshToken Exception";
         (*sharedCb)(std::nullopt);
     }

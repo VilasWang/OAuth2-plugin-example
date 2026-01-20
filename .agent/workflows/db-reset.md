@@ -17,9 +17,12 @@ taskkill /F /IM OAuth2Server.exe 2>$null
 ## 2. 清空并重建数据库
 
 ```powershell
+# 设置密码环境变量避免交互式输入
+$env:PGPASSWORD='123456'
+
 # 删除并重建数据库
-psql -U postgres -c "DROP DATABASE IF EXISTS oauth_test;"
-psql -U postgres -c "CREATE DATABASE oauth_test;"
+psql -U test -d postgres -c "DROP DATABASE IF EXISTS oauth_test;"
+psql -U test -d postgres -c "CREATE DATABASE oauth_test;"
 ```
 
 ## 3. 执行 SQL 初始化脚本
@@ -27,18 +30,21 @@ psql -U postgres -c "CREATE DATABASE oauth_test;"
 // turbo
 
 ```powershell
-cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2Backend\sql
-psql -U postgres -d oauth_test -f "001_oauth2_core.sql"
-psql -U postgres -d oauth_test -f "002_users_table.sql"
+cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example
+$env:PGPASSWORD='123456'
+psql -U test -d oauth_test -f "OAuth2Backend\sql\001_oauth2_core.sql"
+psql -U test -d oauth_test -f "OAuth2Backend\sql\002_users_table.sql"
 Write-Host "✅ 数据库已重置"
 ```
 
-## 4. 初始化测试客户端
+## 数据库凭据
 
-```powershell
-# 插入默认 OAuth2 客户端
-psql -U postgres -d oauth_test -c "INSERT INTO oauth2_clients (client_id, client_secret, redirect_uri, allowed_scopes) VALUES ('vue-client', 'secret', 'http://localhost:5173/callback', 'openid profile') ON CONFLICT (client_id) DO NOTHING;"
-```
+| 配置项 | 值 |
+|-------|-----|
+| 用户名 | test |
+| 密码 | 123456 |
+| 数据库 | oauth_test |
+| 端口 | 5432 |
 
 ## SQL 文件列表
 

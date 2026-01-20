@@ -113,25 +113,34 @@ void OAuth2Controller::login(
 
     // Mock Authentication
     // ORM Authentication
-    try {
-        auto mapper = drogon::orm::Mapper<drogon_model::oauth_test::Users>(drogon::app().getDbClient());
-        auto user = mapper.findOne({
-            drogon_model::oauth_test::Users::Cols::_username, 
-            drogon::orm::CompareOperator::EQ, 
-            username
-        });
-        
+    try
+    {
+        auto mapper = drogon::orm::Mapper<drogon_model::oauth_test::Users>(
+            drogon::app().getDbClient());
+        auto user =
+            mapper.findOne({drogon_model::oauth_test::Users::Cols::_username,
+                            drogon::orm::CompareOperator::EQ,
+                            username});
+
         // Compute Hash
         std::string salt = user.getValueOfSalt();
         std::string dbHash = user.getValueOfPasswordHash();
         std::string inputHash = drogon::utils::getSha256(password + salt);
-        
+
         // Compare (Case insensitive for Hex)
         bool valid = false;
-        if (inputHash.length() == dbHash.length()) {
-            std::transform(inputHash.begin(), inputHash.end(), inputHash.begin(), ::tolower);
-            std::transform(dbHash.begin(), dbHash.end(), dbHash.begin(), ::tolower);
-            if (inputHash == dbHash) valid = true;
+        if (inputHash.length() == dbHash.length())
+        {
+            std::transform(inputHash.begin(),
+                           inputHash.end(),
+                           inputHash.begin(),
+                           ::tolower);
+            std::transform(dbHash.begin(),
+                           dbHash.end(),
+                           dbHash.begin(),
+                           ::tolower);
+            if (inputHash == dbHash)
+                valid = true;
         }
 
         if (valid)
@@ -160,8 +169,11 @@ void OAuth2Controller::login(
             resp->setBody("Login Failed: Invalid Credentials");
             callback(resp);
         }
-    } catch (const drogon::orm::DrogonDbException &e) {
-        LOG_WARN << "Login Failed: DB Error or User Not Found. " << e.base().what();
+    }
+    catch (const drogon::orm::DrogonDbException &e)
+    {
+        LOG_WARN << "Login Failed: DB Error or User Not Found. "
+                 << e.base().what();
         // User not found throws exception in findOne
         Metrics::incLoginFailure("user_not_found");
         auto resp = HttpResponse::newHttpResponse();
@@ -179,7 +191,8 @@ void OAuth2Controller::registerUser(
     std::string password = params["password"];
     std::string email = params["email"];
 
-    if (username.empty() || password.empty()) {
+    if (username.empty() || password.empty())
+    {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
         resp->setBody("Username and password required");
@@ -188,30 +201,34 @@ void OAuth2Controller::registerUser(
     }
 
     // Hash Password
-    std::string salt = drogon::utils::getUuid(); 
+    std::string salt = drogon::utils::getUuid();
     std::string passwordHash = drogon::utils::getSha256(password + salt);
 
     drogon_model::oauth_test::Users newUser;
     newUser.setUsername(username);
     newUser.setPasswordHash(passwordHash);
     newUser.setSalt(salt);
-    if(!email.empty()) newUser.setEmail(email);
+    if (!email.empty())
+        newUser.setEmail(email);
 
-    auto mapper = drogon::orm::Mapper<drogon_model::oauth_test::Users>(drogon::app().getDbClient());
-    
+    auto mapper = drogon::orm::Mapper<drogon_model::oauth_test::Users>(
+        drogon::app().getDbClient());
+
     // Async Insert
-    mapper.insert(newUser, [callback](const drogon_model::oauth_test::Users &u) {
-        auto resp = HttpResponse::newHttpResponse();
-        resp->setBody("User Registered: " + u.getValueOfUsername());
-        callback(resp);
-    },
-    [callback](const drogon::orm::DrogonDbException &e) {
-        LOG_ERROR << "Register Failed: " << e.base().what();
-        auto resp = HttpResponse::newHttpResponse();
-        resp->setStatusCode(k500InternalServerError);
-        resp->setBody("Registration Failed (Username likely exists)");
-        callback(resp);
-    });
+    mapper.insert(
+        newUser,
+        [callback](const drogon_model::oauth_test::Users &u) {
+            auto resp = HttpResponse::newHttpResponse();
+            resp->setBody("User Registered: " + u.getValueOfUsername());
+            callback(resp);
+        },
+        [callback](const drogon::orm::DrogonDbException &e) {
+            LOG_ERROR << "Register Failed: " << e.base().what();
+            auto resp = HttpResponse::newHttpResponse();
+            resp->setStatusCode(k500InternalServerError);
+            resp->setBody("Registration Failed (Username likely exists)");
+            callback(resp);
+        });
 }
 
 void OAuth2Controller::token(

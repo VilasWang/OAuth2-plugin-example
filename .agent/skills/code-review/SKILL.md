@@ -1,11 +1,13 @@
 ---
 name: code-review
-description: 针对 Drogon 项目的自动化代码审查流程 (Format, Lint, Arch, Tests)
+description: 针对 Drogon 项目的自动化代码审查流程 (Format, Lint, Arch)
 ---
 
 # Code Review Skill
 
-用于对项目代码进行全自动化的质量检查，包括格式、风格、架构合规性和单元测试。
+用于对项目代码进行全自动化的质量检查，包括格式、风格和架构合规性检查。
+
+> 📌 **注意**：测试由 `/test` workflow 单独处理，避免功能重复。
 
 ## Usage
 
@@ -34,7 +36,7 @@ args = "{{args}}".split()
 
 # Locate the run.py script relative to this SKILL.md
 
-skill_dir = os.path.dirname(os.path.abspath(__file__))
+skill_dir = os.path.dirname(os.path.abspath(**file**))
 script_path = os.path.join(skill_dir, "scripts", "run.py")
 
 # Execute the script with the same python interpreter

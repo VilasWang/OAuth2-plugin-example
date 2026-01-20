@@ -6,8 +6,10 @@ using namespace drogon::orm;
 
 DROGON_TEST(SchemaSetup)
 {
-    auto dbClient = DbClient::newPgClient("host=127.0.0.1 port=5432 dbname=oauth_test user=test password=123456", 1);
-    
+    auto dbClient = DbClient::newPgClient(
+        "host=127.0.0.1 port=5432 dbname=oauth_test user=test password=123456",
+        1);
+
     // Create users table
     std::string sql = R"(
         CREATE TABLE IF NOT EXISTS users (
@@ -21,10 +23,13 @@ DROGON_TEST(SchemaSetup)
     )";
 
     // Synchronous execution for setup
-    try {
+    try
+    {
         dbClient->execSqlSync(sql);
         LOG_INFO << "SchemaSetup: users table created (or verified).";
-    } catch (const DrogonDbException &e) {
+    }
+    catch (const DrogonDbException &e)
+    {
         LOG_ERROR << "SchemaSetup Error: " << e.base().what();
         FAIL("Schema Creation Failed");
     }

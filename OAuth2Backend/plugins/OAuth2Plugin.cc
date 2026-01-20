@@ -12,7 +12,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
 {
     LOG_INFO << "OAuth2Plugin loading...";
     initStorage(config);
-    
+
     // Load TTL Config
     if (config.isMember("tokens"))
     {
@@ -126,7 +126,8 @@ void OAuth2Plugin::generateAuthorizationCode(
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                    std::chrono::system_clock::now().time_since_epoch())
                    .count();
-    authCodeTtl_ = 600; // Fallback or override if needed? No, use member. Wait, initAndStart sets member.
+    authCodeTtl_ = 600;  // Fallback or override if needed? No, use member.
+                         // Wait, initAndStart sets member.
     // The previous line 116 was "authCode.expiresAt = now + 600;"
     // Correction:
     authCode.expiresAt = now + authCodeTtl_;
@@ -214,7 +215,8 @@ void OAuth2Plugin::exchangeCodeForToken(
                     token, [this, callback, token, refreshToken]() {
                         // Save Refresh Token
                         storage_->saveRefreshToken(
-                            refreshToken, [this, callback, token, refreshToken]() {
+                            refreshToken,
+                            [this, callback, token, refreshToken]() {
                                 LOG_INFO << "[AUDIT] Action=IssueToken User="
                                          << token.userId
                                          << " Client=" << token.clientId
@@ -223,7 +225,8 @@ void OAuth2Plugin::exchangeCodeForToken(
                                 Json::Value json;
                                 json["access_token"] = token.token;
                                 json["token_type"] = "Bearer";
-                                json["expires_in"] = (Json::Int64)accessTokenTtl_;
+                                json["expires_in"] =
+                                    (Json::Int64)accessTokenTtl_;
                                 json["refresh_token"] = refreshToken.token;
                                 callback(json);
                             });
@@ -301,22 +304,23 @@ void OAuth2Plugin::refreshAccessToken(
             // 3. Save New Access Token
             storage_->saveAccessToken(token, [this, callback, token, newRt]() {
                 // 4. Save New Refresh Token
-                storage_->saveRefreshToken(newRt, [this, callback, token, newRt]() {
-                    // We technically should revoke the old one, but
-                    // IOAuth2Storage lacks revoke(). We will skip revocation
-                    // for now as discussed, or rely on simple overwriting if
-                    // supported? Since we can't revoke, we just issue new ones.
-                    // This allows parallel usage which is suboptimal but
-                    // functional. Improving: Does saveRefreshToken overwrite?
-                    // No, UUID is different.
+                storage_->saveRefreshToken(
+                    newRt, [this, callback, token, newRt]() {
+                        // We technically should revoke the old one, but
+                        // IOAuth2Storage lacks revoke(). We will skip
+                        // revocation for now as discussed, or rely on simple
+                        // overwriting if supported? Since we can't revoke, we
+                        // just issue new ones. This allows parallel usage which
+                        // is suboptimal but functional. Improving: Does
+                        // saveRefreshToken overwrite? No, UUID is different.
 
-                    Json::Value json;
-                    json["access_token"] = token.token;
-                    json["token_type"] = "Bearer";
-                    json["expires_in"] = (Json::Int64)accessTokenTtl_;
-                    json["refresh_token"] = newRt.token;
-                    callback(json);
-                });
+                        Json::Value json;
+                        json["access_token"] = token.token;
+                        json["token_type"] = "Bearer";
+                        json["expires_in"] = (Json::Int64)accessTokenTtl_;
+                        json["refresh_token"] = newRt.token;
+                        callback(json);
+                    });
             });
         });
 }

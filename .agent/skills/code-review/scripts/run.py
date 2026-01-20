@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import locations
 import static_check
 import arch_check
-import run_tests
+# Removed: import run_tests (use /test workflow instead)
 
 def find_all_sources(root_dir="."):
     exts = ('.cc', '.h', '.cpp', '.hpp', '.csp')
@@ -48,8 +48,7 @@ def main():
     if not files:
         if "--all" not in args:
             print("ℹ️ No modified source files found. Use --all to check everything.")
-            print("   Running tests anyway...")
-            run_tests.run_tests()
+            print("   Use /test workflow to run tests.")
             return
         else:
              print("ℹ️ No source files found in project.")
@@ -100,9 +99,8 @@ def main():
     else:
         print("✅ No architecture checks failed.")
 
-    # 4. Tests
-    # Always run tests if we reviewed code
-    run_tests.run_tests()
+    # Note: Tests are handled by /test workflow, not duplicated here
+    print("\nℹ️ Use `/test` workflow to run tests.")
 
 if __name__ == "__main__":
     main()

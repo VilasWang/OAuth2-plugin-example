@@ -24,346 +24,392 @@ const std::string Oauth2Codes::primaryKeyName = "code";
 const bool Oauth2Codes::hasPrimaryKey = true;
 const std::string Oauth2Codes::tableName = "\"oauth2_codes\"";
 
-const std::vector<typename Oauth2Codes::MetaData> Oauth2Codes::metaData_={
-{"code","std::string","character varying",100,0,1,1},
-{"client_id","std::string","character varying",50,0,0,1},
-{"user_id","std::string","character varying",50,0,0,0},
-{"scope","std::string","text",0,0,0,0},
-{"redirect_uri","std::string","text",0,0,0,0},
-{"expires_at","int64_t","bigint",8,0,0,1},
-{"used","bool","boolean",1,0,0,0}
-};
+const std::vector<typename Oauth2Codes::MetaData> Oauth2Codes::metaData_ = {
+    {"code", "std::string", "character varying", 100, 0, 1, 1},
+    {"client_id", "std::string", "character varying", 50, 0, 0, 1},
+    {"user_id", "std::string", "character varying", 50, 0, 0, 0},
+    {"scope", "std::string", "text", 0, 0, 0, 0},
+    {"redirect_uri", "std::string", "text", 0, 0, 0, 0},
+    {"expires_at", "int64_t", "bigint", 8, 0, 0, 1},
+    {"used", "bool", "boolean", 1, 0, 0, 0}};
+
 const std::string &Oauth2Codes::getColumnName(size_t index) noexcept(false)
 {
     assert(index < metaData_.size());
     return metaData_[index].colName_;
 }
+
 Oauth2Codes::Oauth2Codes(const Row &r, const ssize_t indexOffset) noexcept
 {
-    if(indexOffset < 0)
+    if (indexOffset < 0)
     {
-        if(!r["code"].isNull())
+        if (!r["code"].isNull())
         {
-            code_=std::make_shared<std::string>(r["code"].as<std::string>());
+            code_ = std::make_shared<std::string>(r["code"].as<std::string>());
         }
-        if(!r["client_id"].isNull())
+        if (!r["client_id"].isNull())
         {
-            clientId_=std::make_shared<std::string>(r["client_id"].as<std::string>());
+            clientId_ =
+                std::make_shared<std::string>(r["client_id"].as<std::string>());
         }
-        if(!r["user_id"].isNull())
+        if (!r["user_id"].isNull())
         {
-            userId_=std::make_shared<std::string>(r["user_id"].as<std::string>());
+            userId_ =
+                std::make_shared<std::string>(r["user_id"].as<std::string>());
         }
-        if(!r["scope"].isNull())
+        if (!r["scope"].isNull())
         {
-            scope_=std::make_shared<std::string>(r["scope"].as<std::string>());
+            scope_ =
+                std::make_shared<std::string>(r["scope"].as<std::string>());
         }
-        if(!r["redirect_uri"].isNull())
+        if (!r["redirect_uri"].isNull())
         {
-            redirectUri_=std::make_shared<std::string>(r["redirect_uri"].as<std::string>());
+            redirectUri_ = std::make_shared<std::string>(
+                r["redirect_uri"].as<std::string>());
         }
-        if(!r["expires_at"].isNull())
+        if (!r["expires_at"].isNull())
         {
-            expiresAt_=std::make_shared<int64_t>(r["expires_at"].as<int64_t>());
+            expiresAt_ =
+                std::make_shared<int64_t>(r["expires_at"].as<int64_t>());
         }
-        if(!r["used"].isNull())
+        if (!r["used"].isNull())
         {
-            used_=std::make_shared<bool>(r["used"].as<bool>());
+            used_ = std::make_shared<bool>(r["used"].as<bool>());
         }
     }
     else
     {
         size_t offset = (size_t)indexOffset;
-        if(offset + 7 > r.size())
+        if (offset + 7 > r.size())
         {
             LOG_FATAL << "Invalid SQL result for this model";
             return;
         }
         size_t index;
         index = offset + 0;
-        if(!r[index].isNull())
+        if (!r[index].isNull())
         {
-            code_=std::make_shared<std::string>(r[index].as<std::string>());
+            code_ = std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 1;
-        if(!r[index].isNull())
+        if (!r[index].isNull())
         {
-            clientId_=std::make_shared<std::string>(r[index].as<std::string>());
+            clientId_ =
+                std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 2;
-        if(!r[index].isNull())
+        if (!r[index].isNull())
         {
-            userId_=std::make_shared<std::string>(r[index].as<std::string>());
+            userId_ = std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 3;
-        if(!r[index].isNull())
+        if (!r[index].isNull())
         {
-            scope_=std::make_shared<std::string>(r[index].as<std::string>());
+            scope_ = std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 4;
-        if(!r[index].isNull())
+        if (!r[index].isNull())
         {
-            redirectUri_=std::make_shared<std::string>(r[index].as<std::string>());
+            redirectUri_ =
+                std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 5;
-        if(!r[index].isNull())
+        if (!r[index].isNull())
         {
-            expiresAt_=std::make_shared<int64_t>(r[index].as<int64_t>());
+            expiresAt_ = std::make_shared<int64_t>(r[index].as<int64_t>());
         }
         index = offset + 6;
-        if(!r[index].isNull())
+        if (!r[index].isNull())
         {
-            used_=std::make_shared<bool>(r[index].as<bool>());
+            used_ = std::make_shared<bool>(r[index].as<bool>());
         }
     }
-
 }
 
-Oauth2Codes::Oauth2Codes(const Json::Value &pJson, const std::vector<std::string> &pMasqueradingVector) noexcept(false)
+Oauth2Codes::Oauth2Codes(
+    const Json::Value &pJson,
+    const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 7)
+    if (pMasqueradingVector.size() != 7)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
     }
-    if(!pMasqueradingVector[0].empty() && pJson.isMember(pMasqueradingVector[0]))
+    if (!pMasqueradingVector[0].empty() &&
+        pJson.isMember(pMasqueradingVector[0]))
     {
         dirtyFlag_[0] = true;
-        if(!pJson[pMasqueradingVector[0]].isNull())
+        if (!pJson[pMasqueradingVector[0]].isNull())
         {
-            code_=std::make_shared<std::string>(pJson[pMasqueradingVector[0]].asString());
+            code_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[0]].asString());
         }
     }
-    if(!pMasqueradingVector[1].empty() && pJson.isMember(pMasqueradingVector[1]))
+    if (!pMasqueradingVector[1].empty() &&
+        pJson.isMember(pMasqueradingVector[1]))
     {
         dirtyFlag_[1] = true;
-        if(!pJson[pMasqueradingVector[1]].isNull())
+        if (!pJson[pMasqueradingVector[1]].isNull())
         {
-            clientId_=std::make_shared<std::string>(pJson[pMasqueradingVector[1]].asString());
+            clientId_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[1]].asString());
         }
     }
-    if(!pMasqueradingVector[2].empty() && pJson.isMember(pMasqueradingVector[2]))
+    if (!pMasqueradingVector[2].empty() &&
+        pJson.isMember(pMasqueradingVector[2]))
     {
         dirtyFlag_[2] = true;
-        if(!pJson[pMasqueradingVector[2]].isNull())
+        if (!pJson[pMasqueradingVector[2]].isNull())
         {
-            userId_=std::make_shared<std::string>(pJson[pMasqueradingVector[2]].asString());
+            userId_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[2]].asString());
         }
     }
-    if(!pMasqueradingVector[3].empty() && pJson.isMember(pMasqueradingVector[3]))
+    if (!pMasqueradingVector[3].empty() &&
+        pJson.isMember(pMasqueradingVector[3]))
     {
         dirtyFlag_[3] = true;
-        if(!pJson[pMasqueradingVector[3]].isNull())
+        if (!pJson[pMasqueradingVector[3]].isNull())
         {
-            scope_=std::make_shared<std::string>(pJson[pMasqueradingVector[3]].asString());
+            scope_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[3]].asString());
         }
     }
-    if(!pMasqueradingVector[4].empty() && pJson.isMember(pMasqueradingVector[4]))
+    if (!pMasqueradingVector[4].empty() &&
+        pJson.isMember(pMasqueradingVector[4]))
     {
         dirtyFlag_[4] = true;
-        if(!pJson[pMasqueradingVector[4]].isNull())
+        if (!pJson[pMasqueradingVector[4]].isNull())
         {
-            redirectUri_=std::make_shared<std::string>(pJson[pMasqueradingVector[4]].asString());
+            redirectUri_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[4]].asString());
         }
     }
-    if(!pMasqueradingVector[5].empty() && pJson.isMember(pMasqueradingVector[5]))
+    if (!pMasqueradingVector[5].empty() &&
+        pJson.isMember(pMasqueradingVector[5]))
     {
         dirtyFlag_[5] = true;
-        if(!pJson[pMasqueradingVector[5]].isNull())
+        if (!pJson[pMasqueradingVector[5]].isNull())
         {
-            expiresAt_=std::make_shared<int64_t>((int64_t)pJson[pMasqueradingVector[5]].asInt64());
+            expiresAt_ = std::make_shared<int64_t>(
+                (int64_t)pJson[pMasqueradingVector[5]].asInt64());
         }
     }
-    if(!pMasqueradingVector[6].empty() && pJson.isMember(pMasqueradingVector[6]))
+    if (!pMasqueradingVector[6].empty() &&
+        pJson.isMember(pMasqueradingVector[6]))
     {
         dirtyFlag_[6] = true;
-        if(!pJson[pMasqueradingVector[6]].isNull())
+        if (!pJson[pMasqueradingVector[6]].isNull())
         {
-            used_=std::make_shared<bool>(pJson[pMasqueradingVector[6]].asBool());
+            used_ =
+                std::make_shared<bool>(pJson[pMasqueradingVector[6]].asBool());
         }
     }
 }
 
 Oauth2Codes::Oauth2Codes(const Json::Value &pJson) noexcept(false)
 {
-    if(pJson.isMember("code"))
+    if (pJson.isMember("code"))
     {
-        dirtyFlag_[0]=true;
-        if(!pJson["code"].isNull())
+        dirtyFlag_[0] = true;
+        if (!pJson["code"].isNull())
         {
-            code_=std::make_shared<std::string>(pJson["code"].asString());
+            code_ = std::make_shared<std::string>(pJson["code"].asString());
         }
     }
-    if(pJson.isMember("client_id"))
+    if (pJson.isMember("client_id"))
     {
-        dirtyFlag_[1]=true;
-        if(!pJson["client_id"].isNull())
+        dirtyFlag_[1] = true;
+        if (!pJson["client_id"].isNull())
         {
-            clientId_=std::make_shared<std::string>(pJson["client_id"].asString());
+            clientId_ =
+                std::make_shared<std::string>(pJson["client_id"].asString());
         }
     }
-    if(pJson.isMember("user_id"))
+    if (pJson.isMember("user_id"))
     {
-        dirtyFlag_[2]=true;
-        if(!pJson["user_id"].isNull())
+        dirtyFlag_[2] = true;
+        if (!pJson["user_id"].isNull())
         {
-            userId_=std::make_shared<std::string>(pJson["user_id"].asString());
+            userId_ =
+                std::make_shared<std::string>(pJson["user_id"].asString());
         }
     }
-    if(pJson.isMember("scope"))
+    if (pJson.isMember("scope"))
     {
-        dirtyFlag_[3]=true;
-        if(!pJson["scope"].isNull())
+        dirtyFlag_[3] = true;
+        if (!pJson["scope"].isNull())
         {
-            scope_=std::make_shared<std::string>(pJson["scope"].asString());
+            scope_ = std::make_shared<std::string>(pJson["scope"].asString());
         }
     }
-    if(pJson.isMember("redirect_uri"))
+    if (pJson.isMember("redirect_uri"))
     {
-        dirtyFlag_[4]=true;
-        if(!pJson["redirect_uri"].isNull())
+        dirtyFlag_[4] = true;
+        if (!pJson["redirect_uri"].isNull())
         {
-            redirectUri_=std::make_shared<std::string>(pJson["redirect_uri"].asString());
+            redirectUri_ =
+                std::make_shared<std::string>(pJson["redirect_uri"].asString());
         }
     }
-    if(pJson.isMember("expires_at"))
+    if (pJson.isMember("expires_at"))
     {
-        dirtyFlag_[5]=true;
-        if(!pJson["expires_at"].isNull())
+        dirtyFlag_[5] = true;
+        if (!pJson["expires_at"].isNull())
         {
-            expiresAt_=std::make_shared<int64_t>((int64_t)pJson["expires_at"].asInt64());
+            expiresAt_ = std::make_shared<int64_t>(
+                (int64_t)pJson["expires_at"].asInt64());
         }
     }
-    if(pJson.isMember("used"))
+    if (pJson.isMember("used"))
     {
-        dirtyFlag_[6]=true;
-        if(!pJson["used"].isNull())
+        dirtyFlag_[6] = true;
+        if (!pJson["used"].isNull())
         {
-            used_=std::make_shared<bool>(pJson["used"].asBool());
+            used_ = std::make_shared<bool>(pJson["used"].asBool());
         }
     }
 }
 
-void Oauth2Codes::updateByMasqueradedJson(const Json::Value &pJson,
-                                            const std::vector<std::string> &pMasqueradingVector) noexcept(false)
+void Oauth2Codes::updateByMasqueradedJson(
+    const Json::Value &pJson,
+    const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 7)
+    if (pMasqueradingVector.size() != 7)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
     }
-    if(!pMasqueradingVector[0].empty() && pJson.isMember(pMasqueradingVector[0]))
+    if (!pMasqueradingVector[0].empty() &&
+        pJson.isMember(pMasqueradingVector[0]))
     {
-        if(!pJson[pMasqueradingVector[0]].isNull())
+        if (!pJson[pMasqueradingVector[0]].isNull())
         {
-            code_=std::make_shared<std::string>(pJson[pMasqueradingVector[0]].asString());
+            code_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[0]].asString());
         }
     }
-    if(!pMasqueradingVector[1].empty() && pJson.isMember(pMasqueradingVector[1]))
+    if (!pMasqueradingVector[1].empty() &&
+        pJson.isMember(pMasqueradingVector[1]))
     {
         dirtyFlag_[1] = true;
-        if(!pJson[pMasqueradingVector[1]].isNull())
+        if (!pJson[pMasqueradingVector[1]].isNull())
         {
-            clientId_=std::make_shared<std::string>(pJson[pMasqueradingVector[1]].asString());
+            clientId_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[1]].asString());
         }
     }
-    if(!pMasqueradingVector[2].empty() && pJson.isMember(pMasqueradingVector[2]))
+    if (!pMasqueradingVector[2].empty() &&
+        pJson.isMember(pMasqueradingVector[2]))
     {
         dirtyFlag_[2] = true;
-        if(!pJson[pMasqueradingVector[2]].isNull())
+        if (!pJson[pMasqueradingVector[2]].isNull())
         {
-            userId_=std::make_shared<std::string>(pJson[pMasqueradingVector[2]].asString());
+            userId_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[2]].asString());
         }
     }
-    if(!pMasqueradingVector[3].empty() && pJson.isMember(pMasqueradingVector[3]))
+    if (!pMasqueradingVector[3].empty() &&
+        pJson.isMember(pMasqueradingVector[3]))
     {
         dirtyFlag_[3] = true;
-        if(!pJson[pMasqueradingVector[3]].isNull())
+        if (!pJson[pMasqueradingVector[3]].isNull())
         {
-            scope_=std::make_shared<std::string>(pJson[pMasqueradingVector[3]].asString());
+            scope_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[3]].asString());
         }
     }
-    if(!pMasqueradingVector[4].empty() && pJson.isMember(pMasqueradingVector[4]))
+    if (!pMasqueradingVector[4].empty() &&
+        pJson.isMember(pMasqueradingVector[4]))
     {
         dirtyFlag_[4] = true;
-        if(!pJson[pMasqueradingVector[4]].isNull())
+        if (!pJson[pMasqueradingVector[4]].isNull())
         {
-            redirectUri_=std::make_shared<std::string>(pJson[pMasqueradingVector[4]].asString());
+            redirectUri_ = std::make_shared<std::string>(
+                pJson[pMasqueradingVector[4]].asString());
         }
     }
-    if(!pMasqueradingVector[5].empty() && pJson.isMember(pMasqueradingVector[5]))
+    if (!pMasqueradingVector[5].empty() &&
+        pJson.isMember(pMasqueradingVector[5]))
     {
         dirtyFlag_[5] = true;
-        if(!pJson[pMasqueradingVector[5]].isNull())
+        if (!pJson[pMasqueradingVector[5]].isNull())
         {
-            expiresAt_=std::make_shared<int64_t>((int64_t)pJson[pMasqueradingVector[5]].asInt64());
+            expiresAt_ = std::make_shared<int64_t>(
+                (int64_t)pJson[pMasqueradingVector[5]].asInt64());
         }
     }
-    if(!pMasqueradingVector[6].empty() && pJson.isMember(pMasqueradingVector[6]))
+    if (!pMasqueradingVector[6].empty() &&
+        pJson.isMember(pMasqueradingVector[6]))
     {
         dirtyFlag_[6] = true;
-        if(!pJson[pMasqueradingVector[6]].isNull())
+        if (!pJson[pMasqueradingVector[6]].isNull())
         {
-            used_=std::make_shared<bool>(pJson[pMasqueradingVector[6]].asBool());
+            used_ =
+                std::make_shared<bool>(pJson[pMasqueradingVector[6]].asBool());
         }
     }
 }
 
 void Oauth2Codes::updateByJson(const Json::Value &pJson) noexcept(false)
 {
-    if(pJson.isMember("code"))
+    if (pJson.isMember("code"))
     {
-        if(!pJson["code"].isNull())
+        if (!pJson["code"].isNull())
         {
-            code_=std::make_shared<std::string>(pJson["code"].asString());
+            code_ = std::make_shared<std::string>(pJson["code"].asString());
         }
     }
-    if(pJson.isMember("client_id"))
+    if (pJson.isMember("client_id"))
     {
         dirtyFlag_[1] = true;
-        if(!pJson["client_id"].isNull())
+        if (!pJson["client_id"].isNull())
         {
-            clientId_=std::make_shared<std::string>(pJson["client_id"].asString());
+            clientId_ =
+                std::make_shared<std::string>(pJson["client_id"].asString());
         }
     }
-    if(pJson.isMember("user_id"))
+    if (pJson.isMember("user_id"))
     {
         dirtyFlag_[2] = true;
-        if(!pJson["user_id"].isNull())
+        if (!pJson["user_id"].isNull())
         {
-            userId_=std::make_shared<std::string>(pJson["user_id"].asString());
+            userId_ =
+                std::make_shared<std::string>(pJson["user_id"].asString());
         }
     }
-    if(pJson.isMember("scope"))
+    if (pJson.isMember("scope"))
     {
         dirtyFlag_[3] = true;
-        if(!pJson["scope"].isNull())
+        if (!pJson["scope"].isNull())
         {
-            scope_=std::make_shared<std::string>(pJson["scope"].asString());
+            scope_ = std::make_shared<std::string>(pJson["scope"].asString());
         }
     }
-    if(pJson.isMember("redirect_uri"))
+    if (pJson.isMember("redirect_uri"))
     {
         dirtyFlag_[4] = true;
-        if(!pJson["redirect_uri"].isNull())
+        if (!pJson["redirect_uri"].isNull())
         {
-            redirectUri_=std::make_shared<std::string>(pJson["redirect_uri"].asString());
+            redirectUri_ =
+                std::make_shared<std::string>(pJson["redirect_uri"].asString());
         }
     }
-    if(pJson.isMember("expires_at"))
+    if (pJson.isMember("expires_at"))
     {
         dirtyFlag_[5] = true;
-        if(!pJson["expires_at"].isNull())
+        if (!pJson["expires_at"].isNull())
         {
-            expiresAt_=std::make_shared<int64_t>((int64_t)pJson["expires_at"].asInt64());
+            expiresAt_ = std::make_shared<int64_t>(
+                (int64_t)pJson["expires_at"].asInt64());
         }
     }
-    if(pJson.isMember("used"))
+    if (pJson.isMember("used"))
     {
         dirtyFlag_[6] = true;
-        if(!pJson["used"].isNull())
+        if (!pJson["used"].isNull())
         {
-            used_=std::make_shared<bool>(pJson["used"].asBool());
+            used_ = std::make_shared<bool>(pJson["used"].asBool());
         }
     }
 }
@@ -371,25 +417,29 @@ void Oauth2Codes::updateByJson(const Json::Value &pJson) noexcept(false)
 const std::string &Oauth2Codes::getValueOfCode() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if(code_)
+    if (code_)
         return *code_;
     return defaultValue;
 }
+
 const std::shared_ptr<std::string> &Oauth2Codes::getCode() const noexcept
 {
     return code_;
 }
+
 void Oauth2Codes::setCode(const std::string &pCode) noexcept
 {
     code_ = std::make_shared<std::string>(pCode);
     dirtyFlag_[0] = true;
 }
+
 void Oauth2Codes::setCode(std::string &&pCode) noexcept
 {
     code_ = std::make_shared<std::string>(std::move(pCode));
     dirtyFlag_[0] = true;
 }
-const typename Oauth2Codes::PrimaryKeyType & Oauth2Codes::getPrimaryKey() const
+
+const typename Oauth2Codes::PrimaryKeyType &Oauth2Codes::getPrimaryKey() const
 {
     assert(code_);
     return *code_;
@@ -398,19 +448,22 @@ const typename Oauth2Codes::PrimaryKeyType & Oauth2Codes::getPrimaryKey() const
 const std::string &Oauth2Codes::getValueOfClientId() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if(clientId_)
+    if (clientId_)
         return *clientId_;
     return defaultValue;
 }
+
 const std::shared_ptr<std::string> &Oauth2Codes::getClientId() const noexcept
 {
     return clientId_;
 }
+
 void Oauth2Codes::setClientId(const std::string &pClientId) noexcept
 {
     clientId_ = std::make_shared<std::string>(pClientId);
     dirtyFlag_[1] = true;
 }
+
 void Oauth2Codes::setClientId(std::string &&pClientId) noexcept
 {
     clientId_ = std::make_shared<std::string>(std::move(pClientId));
@@ -420,24 +473,28 @@ void Oauth2Codes::setClientId(std::string &&pClientId) noexcept
 const std::string &Oauth2Codes::getValueOfUserId() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if(userId_)
+    if (userId_)
         return *userId_;
     return defaultValue;
 }
+
 const std::shared_ptr<std::string> &Oauth2Codes::getUserId() const noexcept
 {
     return userId_;
 }
+
 void Oauth2Codes::setUserId(const std::string &pUserId) noexcept
 {
     userId_ = std::make_shared<std::string>(pUserId);
     dirtyFlag_[2] = true;
 }
+
 void Oauth2Codes::setUserId(std::string &&pUserId) noexcept
 {
     userId_ = std::make_shared<std::string>(std::move(pUserId));
     dirtyFlag_[2] = true;
 }
+
 void Oauth2Codes::setUserIdToNull() noexcept
 {
     userId_.reset();
@@ -447,24 +504,28 @@ void Oauth2Codes::setUserIdToNull() noexcept
 const std::string &Oauth2Codes::getValueOfScope() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if(scope_)
+    if (scope_)
         return *scope_;
     return defaultValue;
 }
+
 const std::shared_ptr<std::string> &Oauth2Codes::getScope() const noexcept
 {
     return scope_;
 }
+
 void Oauth2Codes::setScope(const std::string &pScope) noexcept
 {
     scope_ = std::make_shared<std::string>(pScope);
     dirtyFlag_[3] = true;
 }
+
 void Oauth2Codes::setScope(std::string &&pScope) noexcept
 {
     scope_ = std::make_shared<std::string>(std::move(pScope));
     dirtyFlag_[3] = true;
 }
+
 void Oauth2Codes::setScopeToNull() noexcept
 {
     scope_.reset();
@@ -474,24 +535,28 @@ void Oauth2Codes::setScopeToNull() noexcept
 const std::string &Oauth2Codes::getValueOfRedirectUri() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if(redirectUri_)
+    if (redirectUri_)
         return *redirectUri_;
     return defaultValue;
 }
+
 const std::shared_ptr<std::string> &Oauth2Codes::getRedirectUri() const noexcept
 {
     return redirectUri_;
 }
+
 void Oauth2Codes::setRedirectUri(const std::string &pRedirectUri) noexcept
 {
     redirectUri_ = std::make_shared<std::string>(pRedirectUri);
     dirtyFlag_[4] = true;
 }
+
 void Oauth2Codes::setRedirectUri(std::string &&pRedirectUri) noexcept
 {
     redirectUri_ = std::make_shared<std::string>(std::move(pRedirectUri));
     dirtyFlag_[4] = true;
 }
+
 void Oauth2Codes::setRedirectUriToNull() noexcept
 {
     redirectUri_.reset();
@@ -501,14 +566,16 @@ void Oauth2Codes::setRedirectUriToNull() noexcept
 const int64_t &Oauth2Codes::getValueOfExpiresAt() const noexcept
 {
     static const int64_t defaultValue = int64_t();
-    if(expiresAt_)
+    if (expiresAt_)
         return *expiresAt_;
     return defaultValue;
 }
+
 const std::shared_ptr<int64_t> &Oauth2Codes::getExpiresAt() const noexcept
 {
     return expiresAt_;
 }
+
 void Oauth2Codes::setExpiresAt(const int64_t &pExpiresAt) noexcept
 {
     expiresAt_ = std::make_shared<int64_t>(pExpiresAt);
@@ -518,19 +585,22 @@ void Oauth2Codes::setExpiresAt(const int64_t &pExpiresAt) noexcept
 const bool &Oauth2Codes::getValueOfUsed() const noexcept
 {
     static const bool defaultValue = bool();
-    if(used_)
+    if (used_)
         return *used_;
     return defaultValue;
 }
+
 const std::shared_ptr<bool> &Oauth2Codes::getUsed() const noexcept
 {
     return used_;
 }
+
 void Oauth2Codes::setUsed(const bool &pUsed) noexcept
 {
     used_ = std::make_shared<bool>(pUsed);
     dirtyFlag_[6] = true;
 }
+
 void Oauth2Codes::setUsedToNull() noexcept
 {
     used_.reset();
@@ -543,23 +613,21 @@ void Oauth2Codes::updateId(const uint64_t id)
 
 const std::vector<std::string> &Oauth2Codes::insertColumns() noexcept
 {
-    static const std::vector<std::string> inCols={
-        "code",
-        "client_id",
-        "user_id",
-        "scope",
-        "redirect_uri",
-        "expires_at",
-        "used"
-    };
+    static const std::vector<std::string> inCols = {"code",
+                                                    "client_id",
+                                                    "user_id",
+                                                    "scope",
+                                                    "redirect_uri",
+                                                    "expires_at",
+                                                    "used"};
     return inCols;
 }
 
 void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
 {
-    if(dirtyFlag_[0])
+    if (dirtyFlag_[0])
     {
-        if(getCode())
+        if (getCode())
         {
             binder << getValueOfCode();
         }
@@ -568,9 +636,9 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[1])
+    if (dirtyFlag_[1])
     {
-        if(getClientId())
+        if (getClientId())
         {
             binder << getValueOfClientId();
         }
@@ -579,9 +647,9 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[2])
+    if (dirtyFlag_[2])
     {
-        if(getUserId())
+        if (getUserId())
         {
             binder << getValueOfUserId();
         }
@@ -590,9 +658,9 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[3])
+    if (dirtyFlag_[3])
     {
-        if(getScope())
+        if (getScope())
         {
             binder << getValueOfScope();
         }
@@ -601,9 +669,9 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[4])
+    if (dirtyFlag_[4])
     {
-        if(getRedirectUri())
+        if (getRedirectUri())
         {
             binder << getValueOfRedirectUri();
         }
@@ -612,9 +680,9 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[5])
+    if (dirtyFlag_[5])
     {
-        if(getExpiresAt())
+        if (getExpiresAt())
         {
             binder << getValueOfExpiresAt();
         }
@@ -623,9 +691,9 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[6])
+    if (dirtyFlag_[6])
     {
-        if(getUsed())
+        if (getUsed())
         {
             binder << getValueOfUsed();
         }
@@ -639,31 +707,31 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
 const std::vector<std::string> Oauth2Codes::updateColumns() const
 {
     std::vector<std::string> ret;
-    if(dirtyFlag_[0])
+    if (dirtyFlag_[0])
     {
         ret.push_back(getColumnName(0));
     }
-    if(dirtyFlag_[1])
+    if (dirtyFlag_[1])
     {
         ret.push_back(getColumnName(1));
     }
-    if(dirtyFlag_[2])
+    if (dirtyFlag_[2])
     {
         ret.push_back(getColumnName(2));
     }
-    if(dirtyFlag_[3])
+    if (dirtyFlag_[3])
     {
         ret.push_back(getColumnName(3));
     }
-    if(dirtyFlag_[4])
+    if (dirtyFlag_[4])
     {
         ret.push_back(getColumnName(4));
     }
-    if(dirtyFlag_[5])
+    if (dirtyFlag_[5])
     {
         ret.push_back(getColumnName(5));
     }
-    if(dirtyFlag_[6])
+    if (dirtyFlag_[6])
     {
         ret.push_back(getColumnName(6));
     }
@@ -672,9 +740,9 @@ const std::vector<std::string> Oauth2Codes::updateColumns() const
 
 void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
 {
-    if(dirtyFlag_[0])
+    if (dirtyFlag_[0])
     {
-        if(getCode())
+        if (getCode())
         {
             binder << getValueOfCode();
         }
@@ -683,9 +751,9 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[1])
+    if (dirtyFlag_[1])
     {
-        if(getClientId())
+        if (getClientId())
         {
             binder << getValueOfClientId();
         }
@@ -694,9 +762,9 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[2])
+    if (dirtyFlag_[2])
     {
-        if(getUserId())
+        if (getUserId())
         {
             binder << getValueOfUserId();
         }
@@ -705,9 +773,9 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[3])
+    if (dirtyFlag_[3])
     {
-        if(getScope())
+        if (getScope())
         {
             binder << getValueOfScope();
         }
@@ -716,9 +784,9 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[4])
+    if (dirtyFlag_[4])
     {
-        if(getRedirectUri())
+        if (getRedirectUri())
         {
             binder << getValueOfRedirectUri();
         }
@@ -727,9 +795,9 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[5])
+    if (dirtyFlag_[5])
     {
-        if(getExpiresAt())
+        if (getExpiresAt())
         {
             binder << getValueOfExpiresAt();
         }
@@ -738,9 +806,9 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if(dirtyFlag_[6])
+    if (dirtyFlag_[6])
     {
-        if(getUsed())
+        if (getUsed())
         {
             binder << getValueOfUsed();
         }
@@ -750,64 +818,65 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
         }
     }
 }
+
 Json::Value Oauth2Codes::toJson() const
 {
     Json::Value ret;
-    if(getCode())
+    if (getCode())
     {
-        ret["code"]=getValueOfCode();
+        ret["code"] = getValueOfCode();
     }
     else
     {
-        ret["code"]=Json::Value();
+        ret["code"] = Json::Value();
     }
-    if(getClientId())
+    if (getClientId())
     {
-        ret["client_id"]=getValueOfClientId();
-    }
-    else
-    {
-        ret["client_id"]=Json::Value();
-    }
-    if(getUserId())
-    {
-        ret["user_id"]=getValueOfUserId();
+        ret["client_id"] = getValueOfClientId();
     }
     else
     {
-        ret["user_id"]=Json::Value();
+        ret["client_id"] = Json::Value();
     }
-    if(getScope())
+    if (getUserId())
     {
-        ret["scope"]=getValueOfScope();
-    }
-    else
-    {
-        ret["scope"]=Json::Value();
-    }
-    if(getRedirectUri())
-    {
-        ret["redirect_uri"]=getValueOfRedirectUri();
+        ret["user_id"] = getValueOfUserId();
     }
     else
     {
-        ret["redirect_uri"]=Json::Value();
+        ret["user_id"] = Json::Value();
     }
-    if(getExpiresAt())
+    if (getScope())
     {
-        ret["expires_at"]=(Json::Int64)getValueOfExpiresAt();
-    }
-    else
-    {
-        ret["expires_at"]=Json::Value();
-    }
-    if(getUsed())
-    {
-        ret["used"]=getValueOfUsed();
+        ret["scope"] = getValueOfScope();
     }
     else
     {
-        ret["used"]=Json::Value();
+        ret["scope"] = Json::Value();
+    }
+    if (getRedirectUri())
+    {
+        ret["redirect_uri"] = getValueOfRedirectUri();
+    }
+    else
+    {
+        ret["redirect_uri"] = Json::Value();
+    }
+    if (getExpiresAt())
+    {
+        ret["expires_at"] = (Json::Int64)getValueOfExpiresAt();
+    }
+    else
+    {
+        ret["expires_at"] = Json::Value();
+    }
+    if (getUsed())
+    {
+        ret["used"] = getValueOfUsed();
+    }
+    else
+    {
+        ret["used"] = Json::Value();
     }
     return ret;
 }
@@ -821,506 +890,595 @@ Json::Value Oauth2Codes::toMasqueradedJson(
     const std::vector<std::string> &pMasqueradingVector) const
 {
     Json::Value ret;
-    if(pMasqueradingVector.size() == 7)
+    if (pMasqueradingVector.size() == 7)
     {
-        if(!pMasqueradingVector[0].empty())
+        if (!pMasqueradingVector[0].empty())
         {
-            if(getCode())
+            if (getCode())
             {
-                ret[pMasqueradingVector[0]]=getValueOfCode();
+                ret[pMasqueradingVector[0]] = getValueOfCode();
             }
             else
             {
-                ret[pMasqueradingVector[0]]=Json::Value();
+                ret[pMasqueradingVector[0]] = Json::Value();
             }
         }
-        if(!pMasqueradingVector[1].empty())
+        if (!pMasqueradingVector[1].empty())
         {
-            if(getClientId())
+            if (getClientId())
             {
-                ret[pMasqueradingVector[1]]=getValueOfClientId();
+                ret[pMasqueradingVector[1]] = getValueOfClientId();
             }
             else
             {
-                ret[pMasqueradingVector[1]]=Json::Value();
+                ret[pMasqueradingVector[1]] = Json::Value();
             }
         }
-        if(!pMasqueradingVector[2].empty())
+        if (!pMasqueradingVector[2].empty())
         {
-            if(getUserId())
+            if (getUserId())
             {
-                ret[pMasqueradingVector[2]]=getValueOfUserId();
+                ret[pMasqueradingVector[2]] = getValueOfUserId();
             }
             else
             {
-                ret[pMasqueradingVector[2]]=Json::Value();
+                ret[pMasqueradingVector[2]] = Json::Value();
             }
         }
-        if(!pMasqueradingVector[3].empty())
+        if (!pMasqueradingVector[3].empty())
         {
-            if(getScope())
+            if (getScope())
             {
-                ret[pMasqueradingVector[3]]=getValueOfScope();
+                ret[pMasqueradingVector[3]] = getValueOfScope();
             }
             else
             {
-                ret[pMasqueradingVector[3]]=Json::Value();
+                ret[pMasqueradingVector[3]] = Json::Value();
             }
         }
-        if(!pMasqueradingVector[4].empty())
+        if (!pMasqueradingVector[4].empty())
         {
-            if(getRedirectUri())
+            if (getRedirectUri())
             {
-                ret[pMasqueradingVector[4]]=getValueOfRedirectUri();
+                ret[pMasqueradingVector[4]] = getValueOfRedirectUri();
             }
             else
             {
-                ret[pMasqueradingVector[4]]=Json::Value();
+                ret[pMasqueradingVector[4]] = Json::Value();
             }
         }
-        if(!pMasqueradingVector[5].empty())
+        if (!pMasqueradingVector[5].empty())
         {
-            if(getExpiresAt())
+            if (getExpiresAt())
             {
-                ret[pMasqueradingVector[5]]=(Json::Int64)getValueOfExpiresAt();
+                ret[pMasqueradingVector[5]] =
+                    (Json::Int64)getValueOfExpiresAt();
             }
             else
             {
-                ret[pMasqueradingVector[5]]=Json::Value();
+                ret[pMasqueradingVector[5]] = Json::Value();
             }
         }
-        if(!pMasqueradingVector[6].empty())
+        if (!pMasqueradingVector[6].empty())
         {
-            if(getUsed())
+            if (getUsed())
             {
-                ret[pMasqueradingVector[6]]=getValueOfUsed();
+                ret[pMasqueradingVector[6]] = getValueOfUsed();
             }
             else
             {
-                ret[pMasqueradingVector[6]]=Json::Value();
+                ret[pMasqueradingVector[6]] = Json::Value();
             }
         }
         return ret;
     }
     LOG_ERROR << "Masquerade failed";
-    if(getCode())
+    if (getCode())
     {
-        ret["code"]=getValueOfCode();
+        ret["code"] = getValueOfCode();
     }
     else
     {
-        ret["code"]=Json::Value();
+        ret["code"] = Json::Value();
     }
-    if(getClientId())
+    if (getClientId())
     {
-        ret["client_id"]=getValueOfClientId();
-    }
-    else
-    {
-        ret["client_id"]=Json::Value();
-    }
-    if(getUserId())
-    {
-        ret["user_id"]=getValueOfUserId();
+        ret["client_id"] = getValueOfClientId();
     }
     else
     {
-        ret["user_id"]=Json::Value();
+        ret["client_id"] = Json::Value();
     }
-    if(getScope())
+    if (getUserId())
     {
-        ret["scope"]=getValueOfScope();
-    }
-    else
-    {
-        ret["scope"]=Json::Value();
-    }
-    if(getRedirectUri())
-    {
-        ret["redirect_uri"]=getValueOfRedirectUri();
+        ret["user_id"] = getValueOfUserId();
     }
     else
     {
-        ret["redirect_uri"]=Json::Value();
+        ret["user_id"] = Json::Value();
     }
-    if(getExpiresAt())
+    if (getScope())
     {
-        ret["expires_at"]=(Json::Int64)getValueOfExpiresAt();
-    }
-    else
-    {
-        ret["expires_at"]=Json::Value();
-    }
-    if(getUsed())
-    {
-        ret["used"]=getValueOfUsed();
+        ret["scope"] = getValueOfScope();
     }
     else
     {
-        ret["used"]=Json::Value();
+        ret["scope"] = Json::Value();
+    }
+    if (getRedirectUri())
+    {
+        ret["redirect_uri"] = getValueOfRedirectUri();
+    }
+    else
+    {
+        ret["redirect_uri"] = Json::Value();
+    }
+    if (getExpiresAt())
+    {
+        ret["expires_at"] = (Json::Int64)getValueOfExpiresAt();
+    }
+    else
+    {
+        ret["expires_at"] = Json::Value();
+    }
+    if (getUsed())
+    {
+        ret["used"] = getValueOfUsed();
+    }
+    else
+    {
+        ret["used"] = Json::Value();
     }
     return ret;
 }
 
-bool Oauth2Codes::validateJsonForCreation(const Json::Value &pJson, std::string &err)
+bool Oauth2Codes::validateJsonForCreation(const Json::Value &pJson,
+                                          std::string &err)
 {
-    if(pJson.isMember("code"))
+    if (pJson.isMember("code"))
     {
-        if(!validJsonOfField(0, "code", pJson["code"], err, true))
+        if (!validJsonOfField(0, "code", pJson["code"], err, true))
             return false;
     }
     else
     {
-        err="The code column cannot be null";
+        err = "The code column cannot be null";
         return false;
     }
-    if(pJson.isMember("client_id"))
+    if (pJson.isMember("client_id"))
     {
-        if(!validJsonOfField(1, "client_id", pJson["client_id"], err, true))
+        if (!validJsonOfField(1, "client_id", pJson["client_id"], err, true))
             return false;
     }
     else
     {
-        err="The client_id column cannot be null";
+        err = "The client_id column cannot be null";
         return false;
     }
-    if(pJson.isMember("user_id"))
+    if (pJson.isMember("user_id"))
     {
-        if(!validJsonOfField(2, "user_id", pJson["user_id"], err, true))
+        if (!validJsonOfField(2, "user_id", pJson["user_id"], err, true))
             return false;
     }
-    if(pJson.isMember("scope"))
+    if (pJson.isMember("scope"))
     {
-        if(!validJsonOfField(3, "scope", pJson["scope"], err, true))
+        if (!validJsonOfField(3, "scope", pJson["scope"], err, true))
             return false;
     }
-    if(pJson.isMember("redirect_uri"))
+    if (pJson.isMember("redirect_uri"))
     {
-        if(!validJsonOfField(4, "redirect_uri", pJson["redirect_uri"], err, true))
+        if (!validJsonOfField(
+                4, "redirect_uri", pJson["redirect_uri"], err, true))
             return false;
     }
-    if(pJson.isMember("expires_at"))
+    if (pJson.isMember("expires_at"))
     {
-        if(!validJsonOfField(5, "expires_at", pJson["expires_at"], err, true))
+        if (!validJsonOfField(5, "expires_at", pJson["expires_at"], err, true))
             return false;
     }
     else
     {
-        err="The expires_at column cannot be null";
+        err = "The expires_at column cannot be null";
         return false;
     }
-    if(pJson.isMember("used"))
+    if (pJson.isMember("used"))
     {
-        if(!validJsonOfField(6, "used", pJson["used"], err, true))
+        if (!validJsonOfField(6, "used", pJson["used"], err, true))
             return false;
     }
     return true;
 }
-bool Oauth2Codes::validateMasqueradedJsonForCreation(const Json::Value &pJson,
-                                                     const std::vector<std::string> &pMasqueradingVector,
-                                                     std::string &err)
+
+bool Oauth2Codes::validateMasqueradedJsonForCreation(
+    const Json::Value &pJson,
+    const std::vector<std::string> &pMasqueradingVector,
+    std::string &err)
 {
-    if(pMasqueradingVector.size() != 7)
+    if (pMasqueradingVector.size() != 7)
     {
         err = "Bad masquerading vector";
         return false;
     }
-    try {
-      if(!pMasqueradingVector[0].empty())
-      {
-          if(pJson.isMember(pMasqueradingVector[0]))
-          {
-              if(!validJsonOfField(0, pMasqueradingVector[0], pJson[pMasqueradingVector[0]], err, true))
-                  return false;
-          }
-        else
-        {
-            err="The " + pMasqueradingVector[0] + " column cannot be null";
-            return false;
-        }
-      }
-      if(!pMasqueradingVector[1].empty())
-      {
-          if(pJson.isMember(pMasqueradingVector[1]))
-          {
-              if(!validJsonOfField(1, pMasqueradingVector[1], pJson[pMasqueradingVector[1]], err, true))
-                  return false;
-          }
-        else
-        {
-            err="The " + pMasqueradingVector[1] + " column cannot be null";
-            return false;
-        }
-      }
-      if(!pMasqueradingVector[2].empty())
-      {
-          if(pJson.isMember(pMasqueradingVector[2]))
-          {
-              if(!validJsonOfField(2, pMasqueradingVector[2], pJson[pMasqueradingVector[2]], err, true))
-                  return false;
-          }
-      }
-      if(!pMasqueradingVector[3].empty())
-      {
-          if(pJson.isMember(pMasqueradingVector[3]))
-          {
-              if(!validJsonOfField(3, pMasqueradingVector[3], pJson[pMasqueradingVector[3]], err, true))
-                  return false;
-          }
-      }
-      if(!pMasqueradingVector[4].empty())
-      {
-          if(pJson.isMember(pMasqueradingVector[4]))
-          {
-              if(!validJsonOfField(4, pMasqueradingVector[4], pJson[pMasqueradingVector[4]], err, true))
-                  return false;
-          }
-      }
-      if(!pMasqueradingVector[5].empty())
-      {
-          if(pJson.isMember(pMasqueradingVector[5]))
-          {
-              if(!validJsonOfField(5, pMasqueradingVector[5], pJson[pMasqueradingVector[5]], err, true))
-                  return false;
-          }
-        else
-        {
-            err="The " + pMasqueradingVector[5] + " column cannot be null";
-            return false;
-        }
-      }
-      if(!pMasqueradingVector[6].empty())
-      {
-          if(pJson.isMember(pMasqueradingVector[6]))
-          {
-              if(!validJsonOfField(6, pMasqueradingVector[6], pJson[pMasqueradingVector[6]], err, true))
-                  return false;
-          }
-      }
-    }
-    catch(const Json::LogicError &e)
+    try
     {
-      err = e.what();
-      return false;
+        if (!pMasqueradingVector[0].empty())
+        {
+            if (pJson.isMember(pMasqueradingVector[0]))
+            {
+                if (!validJsonOfField(0,
+                                      pMasqueradingVector[0],
+                                      pJson[pMasqueradingVector[0]],
+                                      err,
+                                      true))
+                    return false;
+            }
+            else
+            {
+                err =
+                    "The " + pMasqueradingVector[0] + " column cannot be null";
+                return false;
+            }
+        }
+        if (!pMasqueradingVector[1].empty())
+        {
+            if (pJson.isMember(pMasqueradingVector[1]))
+            {
+                if (!validJsonOfField(1,
+                                      pMasqueradingVector[1],
+                                      pJson[pMasqueradingVector[1]],
+                                      err,
+                                      true))
+                    return false;
+            }
+            else
+            {
+                err =
+                    "The " + pMasqueradingVector[1] + " column cannot be null";
+                return false;
+            }
+        }
+        if (!pMasqueradingVector[2].empty())
+        {
+            if (pJson.isMember(pMasqueradingVector[2]))
+            {
+                if (!validJsonOfField(2,
+                                      pMasqueradingVector[2],
+                                      pJson[pMasqueradingVector[2]],
+                                      err,
+                                      true))
+                    return false;
+            }
+        }
+        if (!pMasqueradingVector[3].empty())
+        {
+            if (pJson.isMember(pMasqueradingVector[3]))
+            {
+                if (!validJsonOfField(3,
+                                      pMasqueradingVector[3],
+                                      pJson[pMasqueradingVector[3]],
+                                      err,
+                                      true))
+                    return false;
+            }
+        }
+        if (!pMasqueradingVector[4].empty())
+        {
+            if (pJson.isMember(pMasqueradingVector[4]))
+            {
+                if (!validJsonOfField(4,
+                                      pMasqueradingVector[4],
+                                      pJson[pMasqueradingVector[4]],
+                                      err,
+                                      true))
+                    return false;
+            }
+        }
+        if (!pMasqueradingVector[5].empty())
+        {
+            if (pJson.isMember(pMasqueradingVector[5]))
+            {
+                if (!validJsonOfField(5,
+                                      pMasqueradingVector[5],
+                                      pJson[pMasqueradingVector[5]],
+                                      err,
+                                      true))
+                    return false;
+            }
+            else
+            {
+                err =
+                    "The " + pMasqueradingVector[5] + " column cannot be null";
+                return false;
+            }
+        }
+        if (!pMasqueradingVector[6].empty())
+        {
+            if (pJson.isMember(pMasqueradingVector[6]))
+            {
+                if (!validJsonOfField(6,
+                                      pMasqueradingVector[6],
+                                      pJson[pMasqueradingVector[6]],
+                                      err,
+                                      true))
+                    return false;
+            }
+        }
+    }
+    catch (const Json::LogicError &e)
+    {
+        err = e.what();
+        return false;
     }
     return true;
 }
-bool Oauth2Codes::validateJsonForUpdate(const Json::Value &pJson, std::string &err)
+
+bool Oauth2Codes::validateJsonForUpdate(const Json::Value &pJson,
+                                        std::string &err)
 {
-    if(pJson.isMember("code"))
+    if (pJson.isMember("code"))
     {
-        if(!validJsonOfField(0, "code", pJson["code"], err, false))
+        if (!validJsonOfField(0, "code", pJson["code"], err, false))
             return false;
     }
     else
     {
-        err = "The value of primary key must be set in the json object for update";
+        err =
+            "The value of primary key must be set in the json object for "
+            "update";
         return false;
     }
-    if(pJson.isMember("client_id"))
+    if (pJson.isMember("client_id"))
     {
-        if(!validJsonOfField(1, "client_id", pJson["client_id"], err, false))
+        if (!validJsonOfField(1, "client_id", pJson["client_id"], err, false))
             return false;
     }
-    if(pJson.isMember("user_id"))
+    if (pJson.isMember("user_id"))
     {
-        if(!validJsonOfField(2, "user_id", pJson["user_id"], err, false))
+        if (!validJsonOfField(2, "user_id", pJson["user_id"], err, false))
             return false;
     }
-    if(pJson.isMember("scope"))
+    if (pJson.isMember("scope"))
     {
-        if(!validJsonOfField(3, "scope", pJson["scope"], err, false))
+        if (!validJsonOfField(3, "scope", pJson["scope"], err, false))
             return false;
     }
-    if(pJson.isMember("redirect_uri"))
+    if (pJson.isMember("redirect_uri"))
     {
-        if(!validJsonOfField(4, "redirect_uri", pJson["redirect_uri"], err, false))
+        if (!validJsonOfField(
+                4, "redirect_uri", pJson["redirect_uri"], err, false))
             return false;
     }
-    if(pJson.isMember("expires_at"))
+    if (pJson.isMember("expires_at"))
     {
-        if(!validJsonOfField(5, "expires_at", pJson["expires_at"], err, false))
+        if (!validJsonOfField(5, "expires_at", pJson["expires_at"], err, false))
             return false;
     }
-    if(pJson.isMember("used"))
+    if (pJson.isMember("used"))
     {
-        if(!validJsonOfField(6, "used", pJson["used"], err, false))
+        if (!validJsonOfField(6, "used", pJson["used"], err, false))
             return false;
     }
     return true;
 }
-bool Oauth2Codes::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
-                                                   const std::vector<std::string> &pMasqueradingVector,
-                                                   std::string &err)
+
+bool Oauth2Codes::validateMasqueradedJsonForUpdate(
+    const Json::Value &pJson,
+    const std::vector<std::string> &pMasqueradingVector,
+    std::string &err)
 {
-    if(pMasqueradingVector.size() != 7)
+    if (pMasqueradingVector.size() != 7)
     {
         err = "Bad masquerading vector";
         return false;
     }
-    try {
-      if(!pMasqueradingVector[0].empty() && pJson.isMember(pMasqueradingVector[0]))
-      {
-          if(!validJsonOfField(0, pMasqueradingVector[0], pJson[pMasqueradingVector[0]], err, false))
-              return false;
-      }
-    else
+    try
     {
-        err = "The value of primary key must be set in the json object for update";
+        if (!pMasqueradingVector[0].empty() &&
+            pJson.isMember(pMasqueradingVector[0]))
+        {
+            if (!validJsonOfField(0,
+                                  pMasqueradingVector[0],
+                                  pJson[pMasqueradingVector[0]],
+                                  err,
+                                  false))
+                return false;
+        }
+        else
+        {
+            err =
+                "The value of primary key must be set in the json object for "
+                "update";
+            return false;
+        }
+        if (!pMasqueradingVector[1].empty() &&
+            pJson.isMember(pMasqueradingVector[1]))
+        {
+            if (!validJsonOfField(1,
+                                  pMasqueradingVector[1],
+                                  pJson[pMasqueradingVector[1]],
+                                  err,
+                                  false))
+                return false;
+        }
+        if (!pMasqueradingVector[2].empty() &&
+            pJson.isMember(pMasqueradingVector[2]))
+        {
+            if (!validJsonOfField(2,
+                                  pMasqueradingVector[2],
+                                  pJson[pMasqueradingVector[2]],
+                                  err,
+                                  false))
+                return false;
+        }
+        if (!pMasqueradingVector[3].empty() &&
+            pJson.isMember(pMasqueradingVector[3]))
+        {
+            if (!validJsonOfField(3,
+                                  pMasqueradingVector[3],
+                                  pJson[pMasqueradingVector[3]],
+                                  err,
+                                  false))
+                return false;
+        }
+        if (!pMasqueradingVector[4].empty() &&
+            pJson.isMember(pMasqueradingVector[4]))
+        {
+            if (!validJsonOfField(4,
+                                  pMasqueradingVector[4],
+                                  pJson[pMasqueradingVector[4]],
+                                  err,
+                                  false))
+                return false;
+        }
+        if (!pMasqueradingVector[5].empty() &&
+            pJson.isMember(pMasqueradingVector[5]))
+        {
+            if (!validJsonOfField(5,
+                                  pMasqueradingVector[5],
+                                  pJson[pMasqueradingVector[5]],
+                                  err,
+                                  false))
+                return false;
+        }
+        if (!pMasqueradingVector[6].empty() &&
+            pJson.isMember(pMasqueradingVector[6]))
+        {
+            if (!validJsonOfField(6,
+                                  pMasqueradingVector[6],
+                                  pJson[pMasqueradingVector[6]],
+                                  err,
+                                  false))
+                return false;
+        }
+    }
+    catch (const Json::LogicError &e)
+    {
+        err = e.what();
         return false;
-    }
-      if(!pMasqueradingVector[1].empty() && pJson.isMember(pMasqueradingVector[1]))
-      {
-          if(!validJsonOfField(1, pMasqueradingVector[1], pJson[pMasqueradingVector[1]], err, false))
-              return false;
-      }
-      if(!pMasqueradingVector[2].empty() && pJson.isMember(pMasqueradingVector[2]))
-      {
-          if(!validJsonOfField(2, pMasqueradingVector[2], pJson[pMasqueradingVector[2]], err, false))
-              return false;
-      }
-      if(!pMasqueradingVector[3].empty() && pJson.isMember(pMasqueradingVector[3]))
-      {
-          if(!validJsonOfField(3, pMasqueradingVector[3], pJson[pMasqueradingVector[3]], err, false))
-              return false;
-      }
-      if(!pMasqueradingVector[4].empty() && pJson.isMember(pMasqueradingVector[4]))
-      {
-          if(!validJsonOfField(4, pMasqueradingVector[4], pJson[pMasqueradingVector[4]], err, false))
-              return false;
-      }
-      if(!pMasqueradingVector[5].empty() && pJson.isMember(pMasqueradingVector[5]))
-      {
-          if(!validJsonOfField(5, pMasqueradingVector[5], pJson[pMasqueradingVector[5]], err, false))
-              return false;
-      }
-      if(!pMasqueradingVector[6].empty() && pJson.isMember(pMasqueradingVector[6]))
-      {
-          if(!validJsonOfField(6, pMasqueradingVector[6], pJson[pMasqueradingVector[6]], err, false))
-              return false;
-      }
-    }
-    catch(const Json::LogicError &e)
-    {
-      err = e.what();
-      return false;
     }
     return true;
 }
+
 bool Oauth2Codes::validJsonOfField(size_t index,
                                    const std::string &fieldName,
                                    const Json::Value &pJson,
                                    std::string &err,
                                    bool isForCreation)
 {
-    switch(index)
+    switch (index)
     {
         case 0:
-            if(pJson.isNull())
+            if (pJson.isNull())
             {
-                err="The " + fieldName + " column cannot be null";
+                err = "The " + fieldName + " column cannot be null";
                 return false;
             }
-            if(!pJson.isString())
+            if (!pJson.isString())
             {
-                err="Type error in the "+fieldName+" field";
+                err = "Type error in the " + fieldName + " field";
                 return false;
             }
-            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
-                .from_bytes(pJson.asCString()).size() > 100)
+            if (pJson.isString() &&
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,
+                                     wchar_t>{}
+                        .from_bytes(pJson.asCString())
+                        .size() > 100)
             {
-                err="String length exceeds limit for the " +
-                    fieldName +
-                    " field (the maximum value is 100)";
+                err = "String length exceeds limit for the " + fieldName +
+                      " field (the maximum value is 100)";
                 return false;
             }
             break;
         case 1:
-            if(pJson.isNull())
+            if (pJson.isNull())
             {
-                err="The " + fieldName + " column cannot be null";
+                err = "The " + fieldName + " column cannot be null";
                 return false;
             }
-            if(!pJson.isString())
+            if (!pJson.isString())
             {
-                err="Type error in the "+fieldName+" field";
+                err = "Type error in the " + fieldName + " field";
                 return false;
             }
-            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
-                .from_bytes(pJson.asCString()).size() > 50)
+            if (pJson.isString() &&
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,
+                                     wchar_t>{}
+                        .from_bytes(pJson.asCString())
+                        .size() > 50)
             {
-                err="String length exceeds limit for the " +
-                    fieldName +
-                    " field (the maximum value is 50)";
+                err = "String length exceeds limit for the " + fieldName +
+                      " field (the maximum value is 50)";
                 return false;
             }
             break;
         case 2:
-            if(pJson.isNull())
+            if (pJson.isNull())
             {
                 return true;
             }
-            if(!pJson.isString())
+            if (!pJson.isString())
             {
-                err="Type error in the "+fieldName+" field";
+                err = "Type error in the " + fieldName + " field";
                 return false;
             }
-            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
-                .from_bytes(pJson.asCString()).size() > 50)
+            if (pJson.isString() &&
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,
+                                     wchar_t>{}
+                        .from_bytes(pJson.asCString())
+                        .size() > 50)
             {
-                err="String length exceeds limit for the " +
-                    fieldName +
-                    " field (the maximum value is 50)";
+                err = "String length exceeds limit for the " + fieldName +
+                      " field (the maximum value is 50)";
                 return false;
             }
             break;
         case 3:
-            if(pJson.isNull())
+            if (pJson.isNull())
             {
                 return true;
             }
-            if(!pJson.isString())
+            if (!pJson.isString())
             {
-                err="Type error in the "+fieldName+" field";
+                err = "Type error in the " + fieldName + " field";
                 return false;
             }
             break;
         case 4:
-            if(pJson.isNull())
+            if (pJson.isNull())
             {
                 return true;
             }
-            if(!pJson.isString())
+            if (!pJson.isString())
             {
-                err="Type error in the "+fieldName+" field";
+                err = "Type error in the " + fieldName + " field";
                 return false;
             }
             break;
         case 5:
-            if(pJson.isNull())
+            if (pJson.isNull())
             {
-                err="The " + fieldName + " column cannot be null";
+                err = "The " + fieldName + " column cannot be null";
                 return false;
             }
-            if(!pJson.isInt64())
+            if (!pJson.isInt64())
             {
-                err="Type error in the "+fieldName+" field";
+                err = "Type error in the " + fieldName + " field";
                 return false;
             }
             break;
         case 6:
-            if(pJson.isNull())
+            if (pJson.isNull())
             {
                 return true;
             }
-            if(!pJson.isBool())
+            if (!pJson.isBool())
             {
-                err="Type error in the "+fieldName+" field";
+                err = "Type error in the " + fieldName + " field";
                 return false;
             }
             break;
         default:
-            err="Internal error in the server";
+            err = "Internal error in the server";
             return false;
     }
     return true;
