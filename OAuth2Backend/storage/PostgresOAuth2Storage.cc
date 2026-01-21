@@ -511,4 +511,62 @@ void PostgresOAuth2Storage::getRefreshToken(
     }
 }
 
+void PostgresOAuth2Storage::deleteExpiredData()
+{
+    if (!dbClient_)
+        return;
+
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                   std::chrono::system_clock::now().time_since_epoch())
+                   .count();
+
+    try
+    {
+        // 1. Codes
+        Mapper<Oauth2Codes> codeMapper(dbClient_);
+        codeMapper.deleteBy(
+            Criteria(Oauth2Codes::Cols::_expires_at, CompareOperator::LT, now),
+            [](const size_t count) {
+                if (count > 0)
+                    LOG_INFO << "Cleaned " << count << " expired auth codes";
+            },
+            [](const DrogonDbException &e) {
+                LOG_ERROR << "Cleanup Codes Error: " << e.base().what();
+            });
+
+        // 2. Access Tokens
+        Mapper<Oauth2AccessTokens> atMapper(dbClient_);
+        atMapper.deleteBy(
+            Criteria(Oauth2AccessTokens::Cols::_expires_at,
+                     CompareOperator::LT,
+                     now),
+            [](const size_t count) {
+                if (count > 0)
+                    LOG_INFO << "Cleaned " << count << " expired access tokens";
+            },
+            [](const DrogonDbException &e) {
+                LOG_ERROR << "Cleanup AccessTokens Error: " << e.base().what();
+            });
+
+        // 3. Refresh Tokens
+        Mapper<Oauth2RefreshTokens> rtMapper(dbClient_);
+        rtMapper.deleteBy(
+            Criteria(Oauth2RefreshTokens::Cols::_expires_at,
+                     CompareOperator::LT,
+                     now),
+            [](const size_t count) {
+                if (count > 0)
+                    LOG_INFO << "Cleaned " << count
+                             << " expired refresh tokens";
+            },
+            [](const DrogonDbException &e) {
+                LOG_ERROR << "Cleanup RefreshTokens Error: " << e.base().what();
+            });
+    }
+    catch (...)
+    {
+        LOG_ERROR << "Cleanup Exception";
+    }
+}
+
 }  // namespace oauth2

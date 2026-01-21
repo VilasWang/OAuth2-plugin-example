@@ -60,4 +60,25 @@ DROGON_TEST(RedisStorageTest)
         }
         LOG_INFO << "Redis: Retrieved Auth Code";
     }
+
+    // Cleanup
+    {
+        std::promise<void> p;
+        auto f = p.get_future();
+        client->execCommandAsync([](const drogon::nosql::RedisResult &r) {},
+                                 [&](const std::exception &e) {},
+                                 "DEL oauth2:code:test_redis_code_123");
+        // We don't strictly wait here because Redis is fast, but better to
+        // wait? Actually execCommandAsync doesn't block. Let's rely on fast
+        // execution or just fire and forget if acceptable, BUT strict cleanup
+        // requires waiting. Since we don't have a callback to set promise in
+        // the simple signature above (wait, I need callback signature)
+
+        client->execCommandAsync(
+            [&](const drogon::nosql::RedisResult &r) { p.set_value(); },
+            [&](const std::exception &e) { p.set_value(); },
+            "DEL oauth2:code:test_redis_code_123");
+        f.get();
+        LOG_INFO << "Redis: Cleaned up test keys";
+    }
 }

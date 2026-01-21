@@ -41,6 +41,9 @@ class PostgresOAuth2Storage : public IOAuth2Storage
     void getRefreshToken(const std::string &token,
                          RefreshTokenCallback &&cb) override;
 
+    // Cleanup Operations
+    void deleteExpiredData() override;
+
   private:
     drogon::orm::DbClientPtr dbClient_;
     std::string dbClientName_ = "default";

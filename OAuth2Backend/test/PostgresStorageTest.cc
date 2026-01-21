@@ -64,10 +64,19 @@ DROGON_TEST(PostgresStorageTest)
     }
 
     // Cleanup (Optional but good practice)
-    // Here we might leave it for inspection or run a raw DELETE
-    client->execSqlAsync(
-        "DELETE FROM oauth2_codes WHERE code = $1",
-        [](const drogon::orm::Result &) {},
-        [](const drogon::orm::DrogonDbException &) {},
-        "test_pg_code_123");
+    // Cleanup (Synchronous wait)
+    {
+        std::promise<void> p;
+        auto f = p.get_future();
+        client->execSqlAsync(
+            "DELETE FROM oauth2_codes WHERE code = $1",
+            [&](const drogon::orm::Result &) { p.set_value(); },
+            [&](const drogon::orm::DrogonDbException &e) {
+                LOG_ERROR << "Postgres Cleanup Failed: " << e.base().what();
+                p.set_value();
+            },
+            "test_pg_code_123");
+        f.get();
+        LOG_INFO << "Postgres: Cleaned up test data";
+    }
 }

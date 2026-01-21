@@ -154,6 +154,12 @@ class IOAuth2Storage
      */
     virtual void getRefreshToken(const std::string &token,
                                  RefreshTokenCallback &&cb) = 0;
+
+    /**
+     * @brief Delete expired data (codes, tokens)
+     * Implementations should remove all expired entries.
+     */
+    virtual void deleteExpiredData() = 0;
 };
 
 }  // namespace oauth2

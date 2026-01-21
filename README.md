@@ -148,6 +148,7 @@ We implement Rate Limiting and Security Headers to protect against attacks.
 | **User Info** | `GET /oauth2/userinfo` - Protected Endpoint (Requires Bearer Token). |
 | **WeChat Login** | `POST /api/wechat/login` - Server-side exchange of WeChat code for Session. |
 | **Persistence** | Support for Redis/Postgres backends via Strategy Pattern. |
+| **Expiration** | Auto-cleanup of expired tokens (Hourly) via Scheduler. |
 
 ## Usage Guide
 

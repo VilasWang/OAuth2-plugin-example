@@ -460,4 +460,10 @@ void RedisOAuth2Storage::getRefreshToken(const std::string &token,
         cb(std::nullopt);
 }
 
+// Redis handles expiration via TTL automatically.
+void RedisOAuth2Storage::deleteExpiredData()
+{
+    LOG_DEBUG << "Redis deleteExpiredData called (No-op, relying on Redis TTL)";
+}
+
 }  // namespace oauth2

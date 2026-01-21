@@ -1,5 +1,5 @@
 ---
-description: 提交前完整质量检查（Code Review + Build + Start + Test）
+description: 提交前完整质量检查（Code Review + ORM Gen + Build + Start + Test + Docs）
 ---
 
 # Pre-Commit 检查
@@ -16,7 +16,18 @@ python d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\.ag
 
 ---
 
-## 2. 构建验证
+## 2. ORM 模型生成
+
+> 重新生成 Drogon ORM 模型，确保与数据库结构一致。
+
+```powershell
+cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2Backend\models
+drogon_ctl create model .
+```
+
+---
+
+## 3. 构建验证
 
 // turbo
 
@@ -28,7 +39,7 @@ taskkill /F /IM OAuth2Server.exe 2>$null
 
 ---
 
-## 3. 启动验证 (Start & Check & Stop)
+## 4. 启动验证 (Start & Check & Stop)
 
 // turbo
 
@@ -50,7 +61,7 @@ Write-Host "Server verified and stopped."
 
 ---
 
-## 4. 执行测试
+## 5. 执行测试
 
 > **注意**：测试运行器会自行启动 Drogon App 实例，因此无需外部服务运行。
 
@@ -63,11 +74,26 @@ cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2B
 
 ---
 
+## 6. 文档与 README 更新
+
+> **关键步骤**：确保文档与代码保持同步。
+
+**请执行以下检查：**
+
+1. 检查 `docs/` 目录，更新相关技术文档，新功能模块按需新增技术文档。
+2. 更新根目录 `README.md`，记录版本变更或新功能。
+3. 更新 `task.md` 和 `walkthrough.md` 等 Status Artifacts。
+
+---
+
 ## 检查清单
 
 - [ ] Code Review 无错误
+- [ ] ORM 模型已更新
 - [ ] 构建成功
+- [ ] 服务启动验证通过
 - [ ] 所有测试通过
+- [ ] 文档已更新
 - [ ] 可以执行 `git commit`
 
 ## 失败处理

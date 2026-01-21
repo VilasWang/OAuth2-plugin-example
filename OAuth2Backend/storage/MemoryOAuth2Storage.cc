@@ -196,4 +196,54 @@ void MemoryOAuth2Storage::getRefreshToken(const std::string &token,
     cb(std::nullopt);
 }
 
+// Manual cleanup for Memory Storage
+void MemoryOAuth2Storage::deleteExpiredData()
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    int64_t now = getCurrentTimestamp();
+    size_t count = 0;
+
+    // 1. Auth Codes
+    for (auto it = authCodes_.begin(); it != authCodes_.end();)
+    {
+        if (it->second.expiresAt < now)
+        {
+            it = authCodes_.erase(it);
+            count++;
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    // 2. Access Tokens
+    for (auto it = accessTokens_.begin(); it != accessTokens_.end();)
+    {
+        if (it->second.expiresAt < now)
+        {
+            it = accessTokens_.erase(it);
+            count++;
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    // 3. Refresh Tokens
+    for (auto it = refreshTokens_.begin(); it != refreshTokens_.end();)
+    {
+        if (it->second.expiresAt < now)
+        {
+            it = refreshTokens_.erase(it);
+            count++;
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
 }  // namespace oauth2

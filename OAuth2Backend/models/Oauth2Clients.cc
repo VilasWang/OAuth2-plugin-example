@@ -18,404 +18,352 @@ const std::string Oauth2Clients::Cols::_client_secret = "\"client_secret\"";
 const std::string Oauth2Clients::Cols::_salt = "\"salt\"";
 const std::string Oauth2Clients::Cols::_name = "\"name\"";
 const std::string Oauth2Clients::Cols::_redirect_uris = "\"redirect_uris\"";
-const std::string Oauth2Clients::Cols::_allowed_grant_types =
-    "\"allowed_grant_types\"";
+const std::string Oauth2Clients::Cols::_allowed_grant_types = "\"allowed_grant_types\"";
 const std::string Oauth2Clients::Cols::_allowed_scopes = "\"allowed_scopes\"";
 const std::string Oauth2Clients::primaryKeyName = "client_id";
 const bool Oauth2Clients::hasPrimaryKey = true;
 const std::string Oauth2Clients::tableName = "\"oauth2_clients\"";
 
-const std::vector<typename Oauth2Clients::MetaData> Oauth2Clients::metaData_ = {
-    {"client_id", "std::string", "character varying", 50, 0, 1, 1},
-    {"client_secret", "std::string", "character varying", 100, 0, 0, 1},
-    {"salt", "std::string", "character varying", 50, 0, 0, 1},
-    {"name", "std::string", "character varying", 100, 0, 0, 0},
-    {"redirect_uris", "std::string", "text", 0, 0, 0, 0},
-    {"allowed_grant_types", "std::string", "text", 0, 0, 0, 0},
-    {"allowed_scopes", "std::string", "text", 0, 0, 0, 0}};
-
+const std::vector<typename Oauth2Clients::MetaData> Oauth2Clients::metaData_={
+{"client_id","std::string","character varying",50,0,1,1},
+{"client_secret","std::string","character varying",100,0,0,1},
+{"salt","std::string","character varying",50,0,0,1},
+{"name","std::string","character varying",100,0,0,0},
+{"redirect_uris","std::string","text",0,0,0,0},
+{"allowed_grant_types","std::string","text",0,0,0,0},
+{"allowed_scopes","std::string","text",0,0,0,0}
+};
 const std::string &Oauth2Clients::getColumnName(size_t index) noexcept(false)
 {
     assert(index < metaData_.size());
     return metaData_[index].colName_;
 }
-
 Oauth2Clients::Oauth2Clients(const Row &r, const ssize_t indexOffset) noexcept
 {
-    if (indexOffset < 0)
+    if(indexOffset < 0)
     {
-        if (!r["client_id"].isNull())
+        if(!r["client_id"].isNull())
         {
-            clientId_ =
-                std::make_shared<std::string>(r["client_id"].as<std::string>());
+            clientId_=std::make_shared<std::string>(r["client_id"].as<std::string>());
         }
-        if (!r["client_secret"].isNull())
+        if(!r["client_secret"].isNull())
         {
-            clientSecret_ = std::make_shared<std::string>(
-                r["client_secret"].as<std::string>());
+            clientSecret_=std::make_shared<std::string>(r["client_secret"].as<std::string>());
         }
-        if (!r["salt"].isNull())
+        if(!r["salt"].isNull())
         {
-            salt_ = std::make_shared<std::string>(r["salt"].as<std::string>());
+            salt_=std::make_shared<std::string>(r["salt"].as<std::string>());
         }
-        if (!r["name"].isNull())
+        if(!r["name"].isNull())
         {
-            name_ = std::make_shared<std::string>(r["name"].as<std::string>());
+            name_=std::make_shared<std::string>(r["name"].as<std::string>());
         }
-        if (!r["redirect_uris"].isNull())
+        if(!r["redirect_uris"].isNull())
         {
-            redirectUris_ = std::make_shared<std::string>(
-                r["redirect_uris"].as<std::string>());
+            redirectUris_=std::make_shared<std::string>(r["redirect_uris"].as<std::string>());
         }
-        if (!r["allowed_grant_types"].isNull())
+        if(!r["allowed_grant_types"].isNull())
         {
-            allowedGrantTypes_ = std::make_shared<std::string>(
-                r["allowed_grant_types"].as<std::string>());
+            allowedGrantTypes_=std::make_shared<std::string>(r["allowed_grant_types"].as<std::string>());
         }
-        if (!r["allowed_scopes"].isNull())
+        if(!r["allowed_scopes"].isNull())
         {
-            allowedScopes_ = std::make_shared<std::string>(
-                r["allowed_scopes"].as<std::string>());
+            allowedScopes_=std::make_shared<std::string>(r["allowed_scopes"].as<std::string>());
         }
     }
     else
     {
         size_t offset = (size_t)indexOffset;
-        if (offset + 7 > r.size())
+        if(offset + 7 > r.size())
         {
             LOG_FATAL << "Invalid SQL result for this model";
             return;
         }
         size_t index;
         index = offset + 0;
-        if (!r[index].isNull())
+        if(!r[index].isNull())
         {
-            clientId_ =
-                std::make_shared<std::string>(r[index].as<std::string>());
+            clientId_=std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 1;
-        if (!r[index].isNull())
+        if(!r[index].isNull())
         {
-            clientSecret_ =
-                std::make_shared<std::string>(r[index].as<std::string>());
+            clientSecret_=std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 2;
-        if (!r[index].isNull())
+        if(!r[index].isNull())
         {
-            salt_ = std::make_shared<std::string>(r[index].as<std::string>());
+            salt_=std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 3;
-        if (!r[index].isNull())
+        if(!r[index].isNull())
         {
-            name_ = std::make_shared<std::string>(r[index].as<std::string>());
+            name_=std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 4;
-        if (!r[index].isNull())
+        if(!r[index].isNull())
         {
-            redirectUris_ =
-                std::make_shared<std::string>(r[index].as<std::string>());
+            redirectUris_=std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 5;
-        if (!r[index].isNull())
+        if(!r[index].isNull())
         {
-            allowedGrantTypes_ =
-                std::make_shared<std::string>(r[index].as<std::string>());
+            allowedGrantTypes_=std::make_shared<std::string>(r[index].as<std::string>());
         }
         index = offset + 6;
-        if (!r[index].isNull())
+        if(!r[index].isNull())
         {
-            allowedScopes_ =
-                std::make_shared<std::string>(r[index].as<std::string>());
+            allowedScopes_=std::make_shared<std::string>(r[index].as<std::string>());
         }
     }
+
 }
 
-Oauth2Clients::Oauth2Clients(
-    const Json::Value &pJson,
-    const std::vector<std::string> &pMasqueradingVector) noexcept(false)
+Oauth2Clients::Oauth2Clients(const Json::Value &pJson, const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if (pMasqueradingVector.size() != 7)
+    if(pMasqueradingVector.size() != 7)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
     }
-    if (!pMasqueradingVector[0].empty() &&
-        pJson.isMember(pMasqueradingVector[0]))
+    if(!pMasqueradingVector[0].empty() && pJson.isMember(pMasqueradingVector[0]))
     {
         dirtyFlag_[0] = true;
-        if (!pJson[pMasqueradingVector[0]].isNull())
+        if(!pJson[pMasqueradingVector[0]].isNull())
         {
-            clientId_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[0]].asString());
+            clientId_=std::make_shared<std::string>(pJson[pMasqueradingVector[0]].asString());
         }
     }
-    if (!pMasqueradingVector[1].empty() &&
-        pJson.isMember(pMasqueradingVector[1]))
+    if(!pMasqueradingVector[1].empty() && pJson.isMember(pMasqueradingVector[1]))
     {
         dirtyFlag_[1] = true;
-        if (!pJson[pMasqueradingVector[1]].isNull())
+        if(!pJson[pMasqueradingVector[1]].isNull())
         {
-            clientSecret_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[1]].asString());
+            clientSecret_=std::make_shared<std::string>(pJson[pMasqueradingVector[1]].asString());
         }
     }
-    if (!pMasqueradingVector[2].empty() &&
-        pJson.isMember(pMasqueradingVector[2]))
+    if(!pMasqueradingVector[2].empty() && pJson.isMember(pMasqueradingVector[2]))
     {
         dirtyFlag_[2] = true;
-        if (!pJson[pMasqueradingVector[2]].isNull())
+        if(!pJson[pMasqueradingVector[2]].isNull())
         {
-            salt_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[2]].asString());
+            salt_=std::make_shared<std::string>(pJson[pMasqueradingVector[2]].asString());
         }
     }
-    if (!pMasqueradingVector[3].empty() &&
-        pJson.isMember(pMasqueradingVector[3]))
+    if(!pMasqueradingVector[3].empty() && pJson.isMember(pMasqueradingVector[3]))
     {
         dirtyFlag_[3] = true;
-        if (!pJson[pMasqueradingVector[3]].isNull())
+        if(!pJson[pMasqueradingVector[3]].isNull())
         {
-            name_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[3]].asString());
+            name_=std::make_shared<std::string>(pJson[pMasqueradingVector[3]].asString());
         }
     }
-    if (!pMasqueradingVector[4].empty() &&
-        pJson.isMember(pMasqueradingVector[4]))
+    if(!pMasqueradingVector[4].empty() && pJson.isMember(pMasqueradingVector[4]))
     {
         dirtyFlag_[4] = true;
-        if (!pJson[pMasqueradingVector[4]].isNull())
+        if(!pJson[pMasqueradingVector[4]].isNull())
         {
-            redirectUris_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[4]].asString());
+            redirectUris_=std::make_shared<std::string>(pJson[pMasqueradingVector[4]].asString());
         }
     }
-    if (!pMasqueradingVector[5].empty() &&
-        pJson.isMember(pMasqueradingVector[5]))
+    if(!pMasqueradingVector[5].empty() && pJson.isMember(pMasqueradingVector[5]))
     {
         dirtyFlag_[5] = true;
-        if (!pJson[pMasqueradingVector[5]].isNull())
+        if(!pJson[pMasqueradingVector[5]].isNull())
         {
-            allowedGrantTypes_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[5]].asString());
+            allowedGrantTypes_=std::make_shared<std::string>(pJson[pMasqueradingVector[5]].asString());
         }
     }
-    if (!pMasqueradingVector[6].empty() &&
-        pJson.isMember(pMasqueradingVector[6]))
+    if(!pMasqueradingVector[6].empty() && pJson.isMember(pMasqueradingVector[6]))
     {
         dirtyFlag_[6] = true;
-        if (!pJson[pMasqueradingVector[6]].isNull())
+        if(!pJson[pMasqueradingVector[6]].isNull())
         {
-            allowedScopes_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[6]].asString());
+            allowedScopes_=std::make_shared<std::string>(pJson[pMasqueradingVector[6]].asString());
         }
     }
 }
 
 Oauth2Clients::Oauth2Clients(const Json::Value &pJson) noexcept(false)
 {
-    if (pJson.isMember("client_id"))
+    if(pJson.isMember("client_id"))
     {
-        dirtyFlag_[0] = true;
-        if (!pJson["client_id"].isNull())
+        dirtyFlag_[0]=true;
+        if(!pJson["client_id"].isNull())
         {
-            clientId_ =
-                std::make_shared<std::string>(pJson["client_id"].asString());
+            clientId_=std::make_shared<std::string>(pJson["client_id"].asString());
         }
     }
-    if (pJson.isMember("client_secret"))
+    if(pJson.isMember("client_secret"))
     {
-        dirtyFlag_[1] = true;
-        if (!pJson["client_secret"].isNull())
+        dirtyFlag_[1]=true;
+        if(!pJson["client_secret"].isNull())
         {
-            clientSecret_ = std::make_shared<std::string>(
-                pJson["client_secret"].asString());
+            clientSecret_=std::make_shared<std::string>(pJson["client_secret"].asString());
         }
     }
-    if (pJson.isMember("salt"))
+    if(pJson.isMember("salt"))
     {
-        dirtyFlag_[2] = true;
-        if (!pJson["salt"].isNull())
+        dirtyFlag_[2]=true;
+        if(!pJson["salt"].isNull())
         {
-            salt_ = std::make_shared<std::string>(pJson["salt"].asString());
+            salt_=std::make_shared<std::string>(pJson["salt"].asString());
         }
     }
-    if (pJson.isMember("name"))
+    if(pJson.isMember("name"))
     {
-        dirtyFlag_[3] = true;
-        if (!pJson["name"].isNull())
+        dirtyFlag_[3]=true;
+        if(!pJson["name"].isNull())
         {
-            name_ = std::make_shared<std::string>(pJson["name"].asString());
+            name_=std::make_shared<std::string>(pJson["name"].asString());
         }
     }
-    if (pJson.isMember("redirect_uris"))
+    if(pJson.isMember("redirect_uris"))
     {
-        dirtyFlag_[4] = true;
-        if (!pJson["redirect_uris"].isNull())
+        dirtyFlag_[4]=true;
+        if(!pJson["redirect_uris"].isNull())
         {
-            redirectUris_ = std::make_shared<std::string>(
-                pJson["redirect_uris"].asString());
+            redirectUris_=std::make_shared<std::string>(pJson["redirect_uris"].asString());
         }
     }
-    if (pJson.isMember("allowed_grant_types"))
+    if(pJson.isMember("allowed_grant_types"))
     {
-        dirtyFlag_[5] = true;
-        if (!pJson["allowed_grant_types"].isNull())
+        dirtyFlag_[5]=true;
+        if(!pJson["allowed_grant_types"].isNull())
         {
-            allowedGrantTypes_ = std::make_shared<std::string>(
-                pJson["allowed_grant_types"].asString());
+            allowedGrantTypes_=std::make_shared<std::string>(pJson["allowed_grant_types"].asString());
         }
     }
-    if (pJson.isMember("allowed_scopes"))
+    if(pJson.isMember("allowed_scopes"))
     {
-        dirtyFlag_[6] = true;
-        if (!pJson["allowed_scopes"].isNull())
+        dirtyFlag_[6]=true;
+        if(!pJson["allowed_scopes"].isNull())
         {
-            allowedScopes_ = std::make_shared<std::string>(
-                pJson["allowed_scopes"].asString());
+            allowedScopes_=std::make_shared<std::string>(pJson["allowed_scopes"].asString());
         }
     }
 }
 
-void Oauth2Clients::updateByMasqueradedJson(
-    const Json::Value &pJson,
-    const std::vector<std::string> &pMasqueradingVector) noexcept(false)
+void Oauth2Clients::updateByMasqueradedJson(const Json::Value &pJson,
+                                            const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if (pMasqueradingVector.size() != 7)
+    if(pMasqueradingVector.size() != 7)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
     }
-    if (!pMasqueradingVector[0].empty() &&
-        pJson.isMember(pMasqueradingVector[0]))
+    if(!pMasqueradingVector[0].empty() && pJson.isMember(pMasqueradingVector[0]))
     {
-        if (!pJson[pMasqueradingVector[0]].isNull())
+        if(!pJson[pMasqueradingVector[0]].isNull())
         {
-            clientId_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[0]].asString());
+            clientId_=std::make_shared<std::string>(pJson[pMasqueradingVector[0]].asString());
         }
     }
-    if (!pMasqueradingVector[1].empty() &&
-        pJson.isMember(pMasqueradingVector[1]))
+    if(!pMasqueradingVector[1].empty() && pJson.isMember(pMasqueradingVector[1]))
     {
         dirtyFlag_[1] = true;
-        if (!pJson[pMasqueradingVector[1]].isNull())
+        if(!pJson[pMasqueradingVector[1]].isNull())
         {
-            clientSecret_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[1]].asString());
+            clientSecret_=std::make_shared<std::string>(pJson[pMasqueradingVector[1]].asString());
         }
     }
-    if (!pMasqueradingVector[2].empty() &&
-        pJson.isMember(pMasqueradingVector[2]))
+    if(!pMasqueradingVector[2].empty() && pJson.isMember(pMasqueradingVector[2]))
     {
         dirtyFlag_[2] = true;
-        if (!pJson[pMasqueradingVector[2]].isNull())
+        if(!pJson[pMasqueradingVector[2]].isNull())
         {
-            salt_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[2]].asString());
+            salt_=std::make_shared<std::string>(pJson[pMasqueradingVector[2]].asString());
         }
     }
-    if (!pMasqueradingVector[3].empty() &&
-        pJson.isMember(pMasqueradingVector[3]))
+    if(!pMasqueradingVector[3].empty() && pJson.isMember(pMasqueradingVector[3]))
     {
         dirtyFlag_[3] = true;
-        if (!pJson[pMasqueradingVector[3]].isNull())
+        if(!pJson[pMasqueradingVector[3]].isNull())
         {
-            name_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[3]].asString());
+            name_=std::make_shared<std::string>(pJson[pMasqueradingVector[3]].asString());
         }
     }
-    if (!pMasqueradingVector[4].empty() &&
-        pJson.isMember(pMasqueradingVector[4]))
+    if(!pMasqueradingVector[4].empty() && pJson.isMember(pMasqueradingVector[4]))
     {
         dirtyFlag_[4] = true;
-        if (!pJson[pMasqueradingVector[4]].isNull())
+        if(!pJson[pMasqueradingVector[4]].isNull())
         {
-            redirectUris_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[4]].asString());
+            redirectUris_=std::make_shared<std::string>(pJson[pMasqueradingVector[4]].asString());
         }
     }
-    if (!pMasqueradingVector[5].empty() &&
-        pJson.isMember(pMasqueradingVector[5]))
+    if(!pMasqueradingVector[5].empty() && pJson.isMember(pMasqueradingVector[5]))
     {
         dirtyFlag_[5] = true;
-        if (!pJson[pMasqueradingVector[5]].isNull())
+        if(!pJson[pMasqueradingVector[5]].isNull())
         {
-            allowedGrantTypes_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[5]].asString());
+            allowedGrantTypes_=std::make_shared<std::string>(pJson[pMasqueradingVector[5]].asString());
         }
     }
-    if (!pMasqueradingVector[6].empty() &&
-        pJson.isMember(pMasqueradingVector[6]))
+    if(!pMasqueradingVector[6].empty() && pJson.isMember(pMasqueradingVector[6]))
     {
         dirtyFlag_[6] = true;
-        if (!pJson[pMasqueradingVector[6]].isNull())
+        if(!pJson[pMasqueradingVector[6]].isNull())
         {
-            allowedScopes_ = std::make_shared<std::string>(
-                pJson[pMasqueradingVector[6]].asString());
+            allowedScopes_=std::make_shared<std::string>(pJson[pMasqueradingVector[6]].asString());
         }
     }
 }
 
 void Oauth2Clients::updateByJson(const Json::Value &pJson) noexcept(false)
 {
-    if (pJson.isMember("client_id"))
+    if(pJson.isMember("client_id"))
     {
-        if (!pJson["client_id"].isNull())
+        if(!pJson["client_id"].isNull())
         {
-            clientId_ =
-                std::make_shared<std::string>(pJson["client_id"].asString());
+            clientId_=std::make_shared<std::string>(pJson["client_id"].asString());
         }
     }
-    if (pJson.isMember("client_secret"))
+    if(pJson.isMember("client_secret"))
     {
         dirtyFlag_[1] = true;
-        if (!pJson["client_secret"].isNull())
+        if(!pJson["client_secret"].isNull())
         {
-            clientSecret_ = std::make_shared<std::string>(
-                pJson["client_secret"].asString());
+            clientSecret_=std::make_shared<std::string>(pJson["client_secret"].asString());
         }
     }
-    if (pJson.isMember("salt"))
+    if(pJson.isMember("salt"))
     {
         dirtyFlag_[2] = true;
-        if (!pJson["salt"].isNull())
+        if(!pJson["salt"].isNull())
         {
-            salt_ = std::make_shared<std::string>(pJson["salt"].asString());
+            salt_=std::make_shared<std::string>(pJson["salt"].asString());
         }
     }
-    if (pJson.isMember("name"))
+    if(pJson.isMember("name"))
     {
         dirtyFlag_[3] = true;
-        if (!pJson["name"].isNull())
+        if(!pJson["name"].isNull())
         {
-            name_ = std::make_shared<std::string>(pJson["name"].asString());
+            name_=std::make_shared<std::string>(pJson["name"].asString());
         }
     }
-    if (pJson.isMember("redirect_uris"))
+    if(pJson.isMember("redirect_uris"))
     {
         dirtyFlag_[4] = true;
-        if (!pJson["redirect_uris"].isNull())
+        if(!pJson["redirect_uris"].isNull())
         {
-            redirectUris_ = std::make_shared<std::string>(
-                pJson["redirect_uris"].asString());
+            redirectUris_=std::make_shared<std::string>(pJson["redirect_uris"].asString());
         }
     }
-    if (pJson.isMember("allowed_grant_types"))
+    if(pJson.isMember("allowed_grant_types"))
     {
         dirtyFlag_[5] = true;
-        if (!pJson["allowed_grant_types"].isNull())
+        if(!pJson["allowed_grant_types"].isNull())
         {
-            allowedGrantTypes_ = std::make_shared<std::string>(
-                pJson["allowed_grant_types"].asString());
+            allowedGrantTypes_=std::make_shared<std::string>(pJson["allowed_grant_types"].asString());
         }
     }
-    if (pJson.isMember("allowed_scopes"))
+    if(pJson.isMember("allowed_scopes"))
     {
         dirtyFlag_[6] = true;
-        if (!pJson["allowed_scopes"].isNull())
+        if(!pJson["allowed_scopes"].isNull())
         {
-            allowedScopes_ = std::make_shared<std::string>(
-                pJson["allowed_scopes"].asString());
+            allowedScopes_=std::make_shared<std::string>(pJson["allowed_scopes"].asString());
         }
     }
 }
@@ -423,30 +371,25 @@ void Oauth2Clients::updateByJson(const Json::Value &pJson) noexcept(false)
 const std::string &Oauth2Clients::getValueOfClientId() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if (clientId_)
+    if(clientId_)
         return *clientId_;
     return defaultValue;
 }
-
 const std::shared_ptr<std::string> &Oauth2Clients::getClientId() const noexcept
 {
     return clientId_;
 }
-
 void Oauth2Clients::setClientId(const std::string &pClientId) noexcept
 {
     clientId_ = std::make_shared<std::string>(pClientId);
     dirtyFlag_[0] = true;
 }
-
 void Oauth2Clients::setClientId(std::string &&pClientId) noexcept
 {
     clientId_ = std::make_shared<std::string>(std::move(pClientId));
     dirtyFlag_[0] = true;
 }
-
-const typename Oauth2Clients::PrimaryKeyType &Oauth2Clients::getPrimaryKey()
-    const
+const typename Oauth2Clients::PrimaryKeyType & Oauth2Clients::getPrimaryKey() const
 {
     assert(clientId_);
     return *clientId_;
@@ -455,23 +398,19 @@ const typename Oauth2Clients::PrimaryKeyType &Oauth2Clients::getPrimaryKey()
 const std::string &Oauth2Clients::getValueOfClientSecret() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if (clientSecret_)
+    if(clientSecret_)
         return *clientSecret_;
     return defaultValue;
 }
-
-const std::shared_ptr<std::string> &Oauth2Clients::getClientSecret()
-    const noexcept
+const std::shared_ptr<std::string> &Oauth2Clients::getClientSecret() const noexcept
 {
     return clientSecret_;
 }
-
 void Oauth2Clients::setClientSecret(const std::string &pClientSecret) noexcept
 {
     clientSecret_ = std::make_shared<std::string>(pClientSecret);
     dirtyFlag_[1] = true;
 }
-
 void Oauth2Clients::setClientSecret(std::string &&pClientSecret) noexcept
 {
     clientSecret_ = std::make_shared<std::string>(std::move(pClientSecret));
@@ -481,22 +420,19 @@ void Oauth2Clients::setClientSecret(std::string &&pClientSecret) noexcept
 const std::string &Oauth2Clients::getValueOfSalt() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if (salt_)
+    if(salt_)
         return *salt_;
     return defaultValue;
 }
-
 const std::shared_ptr<std::string> &Oauth2Clients::getSalt() const noexcept
 {
     return salt_;
 }
-
 void Oauth2Clients::setSalt(const std::string &pSalt) noexcept
 {
     salt_ = std::make_shared<std::string>(pSalt);
     dirtyFlag_[2] = true;
 }
-
 void Oauth2Clients::setSalt(std::string &&pSalt) noexcept
 {
     salt_ = std::make_shared<std::string>(std::move(pSalt));
@@ -506,28 +442,24 @@ void Oauth2Clients::setSalt(std::string &&pSalt) noexcept
 const std::string &Oauth2Clients::getValueOfName() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if (name_)
+    if(name_)
         return *name_;
     return defaultValue;
 }
-
 const std::shared_ptr<std::string> &Oauth2Clients::getName() const noexcept
 {
     return name_;
 }
-
 void Oauth2Clients::setName(const std::string &pName) noexcept
 {
     name_ = std::make_shared<std::string>(pName);
     dirtyFlag_[3] = true;
 }
-
 void Oauth2Clients::setName(std::string &&pName) noexcept
 {
     name_ = std::make_shared<std::string>(std::move(pName));
     dirtyFlag_[3] = true;
 }
-
 void Oauth2Clients::setNameToNull() noexcept
 {
     name_.reset();
@@ -537,29 +469,24 @@ void Oauth2Clients::setNameToNull() noexcept
 const std::string &Oauth2Clients::getValueOfRedirectUris() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if (redirectUris_)
+    if(redirectUris_)
         return *redirectUris_;
     return defaultValue;
 }
-
-const std::shared_ptr<std::string> &Oauth2Clients::getRedirectUris()
-    const noexcept
+const std::shared_ptr<std::string> &Oauth2Clients::getRedirectUris() const noexcept
 {
     return redirectUris_;
 }
-
 void Oauth2Clients::setRedirectUris(const std::string &pRedirectUris) noexcept
 {
     redirectUris_ = std::make_shared<std::string>(pRedirectUris);
     dirtyFlag_[4] = true;
 }
-
 void Oauth2Clients::setRedirectUris(std::string &&pRedirectUris) noexcept
 {
     redirectUris_ = std::make_shared<std::string>(std::move(pRedirectUris));
     dirtyFlag_[4] = true;
 }
-
 void Oauth2Clients::setRedirectUrisToNull() noexcept
 {
     redirectUris_.reset();
@@ -569,32 +496,24 @@ void Oauth2Clients::setRedirectUrisToNull() noexcept
 const std::string &Oauth2Clients::getValueOfAllowedGrantTypes() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if (allowedGrantTypes_)
+    if(allowedGrantTypes_)
         return *allowedGrantTypes_;
     return defaultValue;
 }
-
-const std::shared_ptr<std::string> &Oauth2Clients::getAllowedGrantTypes()
-    const noexcept
+const std::shared_ptr<std::string> &Oauth2Clients::getAllowedGrantTypes() const noexcept
 {
     return allowedGrantTypes_;
 }
-
-void Oauth2Clients::setAllowedGrantTypes(
-    const std::string &pAllowedGrantTypes) noexcept
+void Oauth2Clients::setAllowedGrantTypes(const std::string &pAllowedGrantTypes) noexcept
 {
     allowedGrantTypes_ = std::make_shared<std::string>(pAllowedGrantTypes);
     dirtyFlag_[5] = true;
 }
-
-void Oauth2Clients::setAllowedGrantTypes(
-    std::string &&pAllowedGrantTypes) noexcept
+void Oauth2Clients::setAllowedGrantTypes(std::string &&pAllowedGrantTypes) noexcept
 {
-    allowedGrantTypes_ =
-        std::make_shared<std::string>(std::move(pAllowedGrantTypes));
+    allowedGrantTypes_ = std::make_shared<std::string>(std::move(pAllowedGrantTypes));
     dirtyFlag_[5] = true;
 }
-
 void Oauth2Clients::setAllowedGrantTypesToNull() noexcept
 {
     allowedGrantTypes_.reset();
@@ -604,29 +523,24 @@ void Oauth2Clients::setAllowedGrantTypesToNull() noexcept
 const std::string &Oauth2Clients::getValueOfAllowedScopes() const noexcept
 {
     static const std::string defaultValue = std::string();
-    if (allowedScopes_)
+    if(allowedScopes_)
         return *allowedScopes_;
     return defaultValue;
 }
-
-const std::shared_ptr<std::string> &Oauth2Clients::getAllowedScopes()
-    const noexcept
+const std::shared_ptr<std::string> &Oauth2Clients::getAllowedScopes() const noexcept
 {
     return allowedScopes_;
 }
-
 void Oauth2Clients::setAllowedScopes(const std::string &pAllowedScopes) noexcept
 {
     allowedScopes_ = std::make_shared<std::string>(pAllowedScopes);
     dirtyFlag_[6] = true;
 }
-
 void Oauth2Clients::setAllowedScopes(std::string &&pAllowedScopes) noexcept
 {
     allowedScopes_ = std::make_shared<std::string>(std::move(pAllowedScopes));
     dirtyFlag_[6] = true;
 }
-
 void Oauth2Clients::setAllowedScopesToNull() noexcept
 {
     allowedScopes_.reset();
@@ -639,21 +553,23 @@ void Oauth2Clients::updateId(const uint64_t id)
 
 const std::vector<std::string> &Oauth2Clients::insertColumns() noexcept
 {
-    static const std::vector<std::string> inCols = {"client_id",
-                                                    "client_secret",
-                                                    "salt",
-                                                    "name",
-                                                    "redirect_uris",
-                                                    "allowed_grant_types",
-                                                    "allowed_scopes"};
+    static const std::vector<std::string> inCols={
+        "client_id",
+        "client_secret",
+        "salt",
+        "name",
+        "redirect_uris",
+        "allowed_grant_types",
+        "allowed_scopes"
+    };
     return inCols;
 }
 
 void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
 {
-    if (dirtyFlag_[0])
+    if(dirtyFlag_[0])
     {
-        if (getClientId())
+        if(getClientId())
         {
             binder << getValueOfClientId();
         }
@@ -662,9 +578,9 @@ void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[1])
+    if(dirtyFlag_[1])
     {
-        if (getClientSecret())
+        if(getClientSecret())
         {
             binder << getValueOfClientSecret();
         }
@@ -673,9 +589,9 @@ void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[2])
+    if(dirtyFlag_[2])
     {
-        if (getSalt())
+        if(getSalt())
         {
             binder << getValueOfSalt();
         }
@@ -684,9 +600,9 @@ void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[3])
+    if(dirtyFlag_[3])
     {
-        if (getName())
+        if(getName())
         {
             binder << getValueOfName();
         }
@@ -695,9 +611,9 @@ void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[4])
+    if(dirtyFlag_[4])
     {
-        if (getRedirectUris())
+        if(getRedirectUris())
         {
             binder << getValueOfRedirectUris();
         }
@@ -706,9 +622,9 @@ void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[5])
+    if(dirtyFlag_[5])
     {
-        if (getAllowedGrantTypes())
+        if(getAllowedGrantTypes())
         {
             binder << getValueOfAllowedGrantTypes();
         }
@@ -717,9 +633,9 @@ void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[6])
+    if(dirtyFlag_[6])
     {
-        if (getAllowedScopes())
+        if(getAllowedScopes())
         {
             binder << getValueOfAllowedScopes();
         }
@@ -733,31 +649,31 @@ void Oauth2Clients::outputArgs(drogon::orm::internal::SqlBinder &binder) const
 const std::vector<std::string> Oauth2Clients::updateColumns() const
 {
     std::vector<std::string> ret;
-    if (dirtyFlag_[0])
+    if(dirtyFlag_[0])
     {
         ret.push_back(getColumnName(0));
     }
-    if (dirtyFlag_[1])
+    if(dirtyFlag_[1])
     {
         ret.push_back(getColumnName(1));
     }
-    if (dirtyFlag_[2])
+    if(dirtyFlag_[2])
     {
         ret.push_back(getColumnName(2));
     }
-    if (dirtyFlag_[3])
+    if(dirtyFlag_[3])
     {
         ret.push_back(getColumnName(3));
     }
-    if (dirtyFlag_[4])
+    if(dirtyFlag_[4])
     {
         ret.push_back(getColumnName(4));
     }
-    if (dirtyFlag_[5])
+    if(dirtyFlag_[5])
     {
         ret.push_back(getColumnName(5));
     }
-    if (dirtyFlag_[6])
+    if(dirtyFlag_[6])
     {
         ret.push_back(getColumnName(6));
     }
@@ -766,9 +682,9 @@ const std::vector<std::string> Oauth2Clients::updateColumns() const
 
 void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
 {
-    if (dirtyFlag_[0])
+    if(dirtyFlag_[0])
     {
-        if (getClientId())
+        if(getClientId())
         {
             binder << getValueOfClientId();
         }
@@ -777,9 +693,9 @@ void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[1])
+    if(dirtyFlag_[1])
     {
-        if (getClientSecret())
+        if(getClientSecret())
         {
             binder << getValueOfClientSecret();
         }
@@ -788,9 +704,9 @@ void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[2])
+    if(dirtyFlag_[2])
     {
-        if (getSalt())
+        if(getSalt())
         {
             binder << getValueOfSalt();
         }
@@ -799,9 +715,9 @@ void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[3])
+    if(dirtyFlag_[3])
     {
-        if (getName())
+        if(getName())
         {
             binder << getValueOfName();
         }
@@ -810,9 +726,9 @@ void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[4])
+    if(dirtyFlag_[4])
     {
-        if (getRedirectUris())
+        if(getRedirectUris())
         {
             binder << getValueOfRedirectUris();
         }
@@ -821,9 +737,9 @@ void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[5])
+    if(dirtyFlag_[5])
     {
-        if (getAllowedGrantTypes())
+        if(getAllowedGrantTypes())
         {
             binder << getValueOfAllowedGrantTypes();
         }
@@ -832,9 +748,9 @@ void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
-    if (dirtyFlag_[6])
+    if(dirtyFlag_[6])
     {
-        if (getAllowedScopes())
+        if(getAllowedScopes())
         {
             binder << getValueOfAllowedScopes();
         }
@@ -844,65 +760,64 @@ void Oauth2Clients::updateArgs(drogon::orm::internal::SqlBinder &binder) const
         }
     }
 }
-
 Json::Value Oauth2Clients::toJson() const
 {
     Json::Value ret;
-    if (getClientId())
+    if(getClientId())
     {
-        ret["client_id"] = getValueOfClientId();
+        ret["client_id"]=getValueOfClientId();
     }
     else
     {
-        ret["client_id"] = Json::Value();
+        ret["client_id"]=Json::Value();
     }
-    if (getClientSecret())
+    if(getClientSecret())
     {
-        ret["client_secret"] = getValueOfClientSecret();
-    }
-    else
-    {
-        ret["client_secret"] = Json::Value();
-    }
-    if (getSalt())
-    {
-        ret["salt"] = getValueOfSalt();
+        ret["client_secret"]=getValueOfClientSecret();
     }
     else
     {
-        ret["salt"] = Json::Value();
+        ret["client_secret"]=Json::Value();
     }
-    if (getName())
+    if(getSalt())
     {
-        ret["name"] = getValueOfName();
-    }
-    else
-    {
-        ret["name"] = Json::Value();
-    }
-    if (getRedirectUris())
-    {
-        ret["redirect_uris"] = getValueOfRedirectUris();
+        ret["salt"]=getValueOfSalt();
     }
     else
     {
-        ret["redirect_uris"] = Json::Value();
+        ret["salt"]=Json::Value();
     }
-    if (getAllowedGrantTypes())
+    if(getName())
     {
-        ret["allowed_grant_types"] = getValueOfAllowedGrantTypes();
-    }
-    else
-    {
-        ret["allowed_grant_types"] = Json::Value();
-    }
-    if (getAllowedScopes())
-    {
-        ret["allowed_scopes"] = getValueOfAllowedScopes();
+        ret["name"]=getValueOfName();
     }
     else
     {
-        ret["allowed_scopes"] = Json::Value();
+        ret["name"]=Json::Value();
+    }
+    if(getRedirectUris())
+    {
+        ret["redirect_uris"]=getValueOfRedirectUris();
+    }
+    else
+    {
+        ret["redirect_uris"]=Json::Value();
+    }
+    if(getAllowedGrantTypes())
+    {
+        ret["allowed_grant_types"]=getValueOfAllowedGrantTypes();
+    }
+    else
+    {
+        ret["allowed_grant_types"]=Json::Value();
+    }
+    if(getAllowedScopes())
+    {
+        ret["allowed_scopes"]=getValueOfAllowedScopes();
+    }
+    else
+    {
+        ret["allowed_scopes"]=Json::Value();
     }
     return ret;
 }
@@ -916,616 +831,514 @@ Json::Value Oauth2Clients::toMasqueradedJson(
     const std::vector<std::string> &pMasqueradingVector) const
 {
     Json::Value ret;
-    if (pMasqueradingVector.size() == 7)
+    if(pMasqueradingVector.size() == 7)
     {
-        if (!pMasqueradingVector[0].empty())
+        if(!pMasqueradingVector[0].empty())
         {
-            if (getClientId())
+            if(getClientId())
             {
-                ret[pMasqueradingVector[0]] = getValueOfClientId();
+                ret[pMasqueradingVector[0]]=getValueOfClientId();
             }
             else
             {
-                ret[pMasqueradingVector[0]] = Json::Value();
+                ret[pMasqueradingVector[0]]=Json::Value();
             }
         }
-        if (!pMasqueradingVector[1].empty())
+        if(!pMasqueradingVector[1].empty())
         {
-            if (getClientSecret())
+            if(getClientSecret())
             {
-                ret[pMasqueradingVector[1]] = getValueOfClientSecret();
+                ret[pMasqueradingVector[1]]=getValueOfClientSecret();
             }
             else
             {
-                ret[pMasqueradingVector[1]] = Json::Value();
+                ret[pMasqueradingVector[1]]=Json::Value();
             }
         }
-        if (!pMasqueradingVector[2].empty())
+        if(!pMasqueradingVector[2].empty())
         {
-            if (getSalt())
+            if(getSalt())
             {
-                ret[pMasqueradingVector[2]] = getValueOfSalt();
+                ret[pMasqueradingVector[2]]=getValueOfSalt();
             }
             else
             {
-                ret[pMasqueradingVector[2]] = Json::Value();
+                ret[pMasqueradingVector[2]]=Json::Value();
             }
         }
-        if (!pMasqueradingVector[3].empty())
+        if(!pMasqueradingVector[3].empty())
         {
-            if (getName())
+            if(getName())
             {
-                ret[pMasqueradingVector[3]] = getValueOfName();
+                ret[pMasqueradingVector[3]]=getValueOfName();
             }
             else
             {
-                ret[pMasqueradingVector[3]] = Json::Value();
+                ret[pMasqueradingVector[3]]=Json::Value();
             }
         }
-        if (!pMasqueradingVector[4].empty())
+        if(!pMasqueradingVector[4].empty())
         {
-            if (getRedirectUris())
+            if(getRedirectUris())
             {
-                ret[pMasqueradingVector[4]] = getValueOfRedirectUris();
+                ret[pMasqueradingVector[4]]=getValueOfRedirectUris();
             }
             else
             {
-                ret[pMasqueradingVector[4]] = Json::Value();
+                ret[pMasqueradingVector[4]]=Json::Value();
             }
         }
-        if (!pMasqueradingVector[5].empty())
+        if(!pMasqueradingVector[5].empty())
         {
-            if (getAllowedGrantTypes())
+            if(getAllowedGrantTypes())
             {
-                ret[pMasqueradingVector[5]] = getValueOfAllowedGrantTypes();
+                ret[pMasqueradingVector[5]]=getValueOfAllowedGrantTypes();
             }
             else
             {
-                ret[pMasqueradingVector[5]] = Json::Value();
+                ret[pMasqueradingVector[5]]=Json::Value();
             }
         }
-        if (!pMasqueradingVector[6].empty())
+        if(!pMasqueradingVector[6].empty())
         {
-            if (getAllowedScopes())
+            if(getAllowedScopes())
             {
-                ret[pMasqueradingVector[6]] = getValueOfAllowedScopes();
+                ret[pMasqueradingVector[6]]=getValueOfAllowedScopes();
             }
             else
             {
-                ret[pMasqueradingVector[6]] = Json::Value();
+                ret[pMasqueradingVector[6]]=Json::Value();
             }
         }
         return ret;
     }
     LOG_ERROR << "Masquerade failed";
-    if (getClientId())
+    if(getClientId())
     {
-        ret["client_id"] = getValueOfClientId();
+        ret["client_id"]=getValueOfClientId();
     }
     else
     {
-        ret["client_id"] = Json::Value();
+        ret["client_id"]=Json::Value();
     }
-    if (getClientSecret())
+    if(getClientSecret())
     {
-        ret["client_secret"] = getValueOfClientSecret();
-    }
-    else
-    {
-        ret["client_secret"] = Json::Value();
-    }
-    if (getSalt())
-    {
-        ret["salt"] = getValueOfSalt();
+        ret["client_secret"]=getValueOfClientSecret();
     }
     else
     {
-        ret["salt"] = Json::Value();
+        ret["client_secret"]=Json::Value();
     }
-    if (getName())
+    if(getSalt())
     {
-        ret["name"] = getValueOfName();
-    }
-    else
-    {
-        ret["name"] = Json::Value();
-    }
-    if (getRedirectUris())
-    {
-        ret["redirect_uris"] = getValueOfRedirectUris();
+        ret["salt"]=getValueOfSalt();
     }
     else
     {
-        ret["redirect_uris"] = Json::Value();
+        ret["salt"]=Json::Value();
     }
-    if (getAllowedGrantTypes())
+    if(getName())
     {
-        ret["allowed_grant_types"] = getValueOfAllowedGrantTypes();
-    }
-    else
-    {
-        ret["allowed_grant_types"] = Json::Value();
-    }
-    if (getAllowedScopes())
-    {
-        ret["allowed_scopes"] = getValueOfAllowedScopes();
+        ret["name"]=getValueOfName();
     }
     else
     {
-        ret["allowed_scopes"] = Json::Value();
+        ret["name"]=Json::Value();
+    }
+    if(getRedirectUris())
+    {
+        ret["redirect_uris"]=getValueOfRedirectUris();
+    }
+    else
+    {
+        ret["redirect_uris"]=Json::Value();
+    }
+    if(getAllowedGrantTypes())
+    {
+        ret["allowed_grant_types"]=getValueOfAllowedGrantTypes();
+    }
+    else
+    {
+        ret["allowed_grant_types"]=Json::Value();
+    }
+    if(getAllowedScopes())
+    {
+        ret["allowed_scopes"]=getValueOfAllowedScopes();
+    }
+    else
+    {
+        ret["allowed_scopes"]=Json::Value();
     }
     return ret;
 }
 
-bool Oauth2Clients::validateJsonForCreation(const Json::Value &pJson,
-                                            std::string &err)
+bool Oauth2Clients::validateJsonForCreation(const Json::Value &pJson, std::string &err)
 {
-    if (pJson.isMember("client_id"))
+    if(pJson.isMember("client_id"))
     {
-        if (!validJsonOfField(0, "client_id", pJson["client_id"], err, true))
+        if(!validJsonOfField(0, "client_id", pJson["client_id"], err, true))
             return false;
     }
     else
     {
-        err = "The client_id column cannot be null";
+        err="The client_id column cannot be null";
         return false;
     }
-    if (pJson.isMember("client_secret"))
+    if(pJson.isMember("client_secret"))
     {
-        if (!validJsonOfField(
-                1, "client_secret", pJson["client_secret"], err, true))
+        if(!validJsonOfField(1, "client_secret", pJson["client_secret"], err, true))
             return false;
     }
     else
     {
-        err = "The client_secret column cannot be null";
+        err="The client_secret column cannot be null";
         return false;
     }
-    if (pJson.isMember("salt"))
+    if(pJson.isMember("salt"))
     {
-        if (!validJsonOfField(2, "salt", pJson["salt"], err, true))
+        if(!validJsonOfField(2, "salt", pJson["salt"], err, true))
             return false;
     }
     else
     {
-        err = "The salt column cannot be null";
+        err="The salt column cannot be null";
         return false;
     }
-    if (pJson.isMember("name"))
+    if(pJson.isMember("name"))
     {
-        if (!validJsonOfField(3, "name", pJson["name"], err, true))
+        if(!validJsonOfField(3, "name", pJson["name"], err, true))
             return false;
     }
-    if (pJson.isMember("redirect_uris"))
+    if(pJson.isMember("redirect_uris"))
     {
-        if (!validJsonOfField(
-                4, "redirect_uris", pJson["redirect_uris"], err, true))
+        if(!validJsonOfField(4, "redirect_uris", pJson["redirect_uris"], err, true))
             return false;
     }
-    if (pJson.isMember("allowed_grant_types"))
+    if(pJson.isMember("allowed_grant_types"))
     {
-        if (!validJsonOfField(5,
-                              "allowed_grant_types",
-                              pJson["allowed_grant_types"],
-                              err,
-                              true))
+        if(!validJsonOfField(5, "allowed_grant_types", pJson["allowed_grant_types"], err, true))
             return false;
     }
-    if (pJson.isMember("allowed_scopes"))
+    if(pJson.isMember("allowed_scopes"))
     {
-        if (!validJsonOfField(
-                6, "allowed_scopes", pJson["allowed_scopes"], err, true))
+        if(!validJsonOfField(6, "allowed_scopes", pJson["allowed_scopes"], err, true))
             return false;
     }
     return true;
 }
-
-bool Oauth2Clients::validateMasqueradedJsonForCreation(
-    const Json::Value &pJson,
-    const std::vector<std::string> &pMasqueradingVector,
-    std::string &err)
+bool Oauth2Clients::validateMasqueradedJsonForCreation(const Json::Value &pJson,
+                                                       const std::vector<std::string> &pMasqueradingVector,
+                                                       std::string &err)
 {
-    if (pMasqueradingVector.size() != 7)
+    if(pMasqueradingVector.size() != 7)
     {
         err = "Bad masquerading vector";
         return false;
     }
-    try
-    {
-        if (!pMasqueradingVector[0].empty())
-        {
-            if (pJson.isMember(pMasqueradingVector[0]))
-            {
-                if (!validJsonOfField(0,
-                                      pMasqueradingVector[0],
-                                      pJson[pMasqueradingVector[0]],
-                                      err,
-                                      true))
-                    return false;
-            }
-            else
-            {
-                err =
-                    "The " + pMasqueradingVector[0] + " column cannot be null";
-                return false;
-            }
-        }
-        if (!pMasqueradingVector[1].empty())
-        {
-            if (pJson.isMember(pMasqueradingVector[1]))
-            {
-                if (!validJsonOfField(1,
-                                      pMasqueradingVector[1],
-                                      pJson[pMasqueradingVector[1]],
-                                      err,
-                                      true))
-                    return false;
-            }
-            else
-            {
-                err =
-                    "The " + pMasqueradingVector[1] + " column cannot be null";
-                return false;
-            }
-        }
-        if (!pMasqueradingVector[2].empty())
-        {
-            if (pJson.isMember(pMasqueradingVector[2]))
-            {
-                if (!validJsonOfField(2,
-                                      pMasqueradingVector[2],
-                                      pJson[pMasqueradingVector[2]],
-                                      err,
-                                      true))
-                    return false;
-            }
-            else
-            {
-                err =
-                    "The " + pMasqueradingVector[2] + " column cannot be null";
-                return false;
-            }
-        }
-        if (!pMasqueradingVector[3].empty())
-        {
-            if (pJson.isMember(pMasqueradingVector[3]))
-            {
-                if (!validJsonOfField(3,
-                                      pMasqueradingVector[3],
-                                      pJson[pMasqueradingVector[3]],
-                                      err,
-                                      true))
-                    return false;
-            }
-        }
-        if (!pMasqueradingVector[4].empty())
-        {
-            if (pJson.isMember(pMasqueradingVector[4]))
-            {
-                if (!validJsonOfField(4,
-                                      pMasqueradingVector[4],
-                                      pJson[pMasqueradingVector[4]],
-                                      err,
-                                      true))
-                    return false;
-            }
-        }
-        if (!pMasqueradingVector[5].empty())
-        {
-            if (pJson.isMember(pMasqueradingVector[5]))
-            {
-                if (!validJsonOfField(5,
-                                      pMasqueradingVector[5],
-                                      pJson[pMasqueradingVector[5]],
-                                      err,
-                                      true))
-                    return false;
-            }
-        }
-        if (!pMasqueradingVector[6].empty())
-        {
-            if (pJson.isMember(pMasqueradingVector[6]))
-            {
-                if (!validJsonOfField(6,
-                                      pMasqueradingVector[6],
-                                      pJson[pMasqueradingVector[6]],
-                                      err,
-                                      true))
-                    return false;
-            }
-        }
-    }
-    catch (const Json::LogicError &e)
-    {
-        err = e.what();
-        return false;
-    }
-    return true;
-}
-
-bool Oauth2Clients::validateJsonForUpdate(const Json::Value &pJson,
-                                          std::string &err)
-{
-    if (pJson.isMember("client_id"))
-    {
-        if (!validJsonOfField(0, "client_id", pJson["client_id"], err, false))
-            return false;
-    }
-    else
-    {
-        err =
-            "The value of primary key must be set in the json object for "
-            "update";
-        return false;
-    }
-    if (pJson.isMember("client_secret"))
-    {
-        if (!validJsonOfField(
-                1, "client_secret", pJson["client_secret"], err, false))
-            return false;
-    }
-    if (pJson.isMember("salt"))
-    {
-        if (!validJsonOfField(2, "salt", pJson["salt"], err, false))
-            return false;
-    }
-    if (pJson.isMember("name"))
-    {
-        if (!validJsonOfField(3, "name", pJson["name"], err, false))
-            return false;
-    }
-    if (pJson.isMember("redirect_uris"))
-    {
-        if (!validJsonOfField(
-                4, "redirect_uris", pJson["redirect_uris"], err, false))
-            return false;
-    }
-    if (pJson.isMember("allowed_grant_types"))
-    {
-        if (!validJsonOfField(5,
-                              "allowed_grant_types",
-                              pJson["allowed_grant_types"],
-                              err,
-                              false))
-            return false;
-    }
-    if (pJson.isMember("allowed_scopes"))
-    {
-        if (!validJsonOfField(
-                6, "allowed_scopes", pJson["allowed_scopes"], err, false))
-            return false;
-    }
-    return true;
-}
-
-bool Oauth2Clients::validateMasqueradedJsonForUpdate(
-    const Json::Value &pJson,
-    const std::vector<std::string> &pMasqueradingVector,
-    std::string &err)
-{
-    if (pMasqueradingVector.size() != 7)
-    {
-        err = "Bad masquerading vector";
-        return false;
-    }
-    try
-    {
-        if (!pMasqueradingVector[0].empty() &&
-            pJson.isMember(pMasqueradingVector[0]))
-        {
-            if (!validJsonOfField(0,
-                                  pMasqueradingVector[0],
-                                  pJson[pMasqueradingVector[0]],
-                                  err,
-                                  false))
-                return false;
-        }
+    try {
+      if(!pMasqueradingVector[0].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[0]))
+          {
+              if(!validJsonOfField(0, pMasqueradingVector[0], pJson[pMasqueradingVector[0]], err, true))
+                  return false;
+          }
         else
         {
-            err =
-                "The value of primary key must be set in the json object for "
-                "update";
+            err="The " + pMasqueradingVector[0] + " column cannot be null";
             return false;
         }
-        if (!pMasqueradingVector[1].empty() &&
-            pJson.isMember(pMasqueradingVector[1]))
+      }
+      if(!pMasqueradingVector[1].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[1]))
+          {
+              if(!validJsonOfField(1, pMasqueradingVector[1], pJson[pMasqueradingVector[1]], err, true))
+                  return false;
+          }
+        else
         {
-            if (!validJsonOfField(1,
-                                  pMasqueradingVector[1],
-                                  pJson[pMasqueradingVector[1]],
-                                  err,
-                                  false))
-                return false;
+            err="The " + pMasqueradingVector[1] + " column cannot be null";
+            return false;
         }
-        if (!pMasqueradingVector[2].empty() &&
-            pJson.isMember(pMasqueradingVector[2]))
+      }
+      if(!pMasqueradingVector[2].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[2]))
+          {
+              if(!validJsonOfField(2, pMasqueradingVector[2], pJson[pMasqueradingVector[2]], err, true))
+                  return false;
+          }
+        else
         {
-            if (!validJsonOfField(2,
-                                  pMasqueradingVector[2],
-                                  pJson[pMasqueradingVector[2]],
-                                  err,
-                                  false))
-                return false;
+            err="The " + pMasqueradingVector[2] + " column cannot be null";
+            return false;
         }
-        if (!pMasqueradingVector[3].empty() &&
-            pJson.isMember(pMasqueradingVector[3]))
-        {
-            if (!validJsonOfField(3,
-                                  pMasqueradingVector[3],
-                                  pJson[pMasqueradingVector[3]],
-                                  err,
-                                  false))
-                return false;
-        }
-        if (!pMasqueradingVector[4].empty() &&
-            pJson.isMember(pMasqueradingVector[4]))
-        {
-            if (!validJsonOfField(4,
-                                  pMasqueradingVector[4],
-                                  pJson[pMasqueradingVector[4]],
-                                  err,
-                                  false))
-                return false;
-        }
-        if (!pMasqueradingVector[5].empty() &&
-            pJson.isMember(pMasqueradingVector[5]))
-        {
-            if (!validJsonOfField(5,
-                                  pMasqueradingVector[5],
-                                  pJson[pMasqueradingVector[5]],
-                                  err,
-                                  false))
-                return false;
-        }
-        if (!pMasqueradingVector[6].empty() &&
-            pJson.isMember(pMasqueradingVector[6]))
-        {
-            if (!validJsonOfField(6,
-                                  pMasqueradingVector[6],
-                                  pJson[pMasqueradingVector[6]],
-                                  err,
-                                  false))
-                return false;
-        }
+      }
+      if(!pMasqueradingVector[3].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[3]))
+          {
+              if(!validJsonOfField(3, pMasqueradingVector[3], pJson[pMasqueradingVector[3]], err, true))
+                  return false;
+          }
+      }
+      if(!pMasqueradingVector[4].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[4]))
+          {
+              if(!validJsonOfField(4, pMasqueradingVector[4], pJson[pMasqueradingVector[4]], err, true))
+                  return false;
+          }
+      }
+      if(!pMasqueradingVector[5].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[5]))
+          {
+              if(!validJsonOfField(5, pMasqueradingVector[5], pJson[pMasqueradingVector[5]], err, true))
+                  return false;
+          }
+      }
+      if(!pMasqueradingVector[6].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[6]))
+          {
+              if(!validJsonOfField(6, pMasqueradingVector[6], pJson[pMasqueradingVector[6]], err, true))
+                  return false;
+          }
+      }
     }
-    catch (const Json::LogicError &e)
+    catch(const Json::LogicError &e)
     {
-        err = e.what();
-        return false;
+      err = e.what();
+      return false;
     }
     return true;
 }
-
+bool Oauth2Clients::validateJsonForUpdate(const Json::Value &pJson, std::string &err)
+{
+    if(pJson.isMember("client_id"))
+    {
+        if(!validJsonOfField(0, "client_id", pJson["client_id"], err, false))
+            return false;
+    }
+    else
+    {
+        err = "The value of primary key must be set in the json object for update";
+        return false;
+    }
+    if(pJson.isMember("client_secret"))
+    {
+        if(!validJsonOfField(1, "client_secret", pJson["client_secret"], err, false))
+            return false;
+    }
+    if(pJson.isMember("salt"))
+    {
+        if(!validJsonOfField(2, "salt", pJson["salt"], err, false))
+            return false;
+    }
+    if(pJson.isMember("name"))
+    {
+        if(!validJsonOfField(3, "name", pJson["name"], err, false))
+            return false;
+    }
+    if(pJson.isMember("redirect_uris"))
+    {
+        if(!validJsonOfField(4, "redirect_uris", pJson["redirect_uris"], err, false))
+            return false;
+    }
+    if(pJson.isMember("allowed_grant_types"))
+    {
+        if(!validJsonOfField(5, "allowed_grant_types", pJson["allowed_grant_types"], err, false))
+            return false;
+    }
+    if(pJson.isMember("allowed_scopes"))
+    {
+        if(!validJsonOfField(6, "allowed_scopes", pJson["allowed_scopes"], err, false))
+            return false;
+    }
+    return true;
+}
+bool Oauth2Clients::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
+                                                     const std::vector<std::string> &pMasqueradingVector,
+                                                     std::string &err)
+{
+    if(pMasqueradingVector.size() != 7)
+    {
+        err = "Bad masquerading vector";
+        return false;
+    }
+    try {
+      if(!pMasqueradingVector[0].empty() && pJson.isMember(pMasqueradingVector[0]))
+      {
+          if(!validJsonOfField(0, pMasqueradingVector[0], pJson[pMasqueradingVector[0]], err, false))
+              return false;
+      }
+    else
+    {
+        err = "The value of primary key must be set in the json object for update";
+        return false;
+    }
+      if(!pMasqueradingVector[1].empty() && pJson.isMember(pMasqueradingVector[1]))
+      {
+          if(!validJsonOfField(1, pMasqueradingVector[1], pJson[pMasqueradingVector[1]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[2].empty() && pJson.isMember(pMasqueradingVector[2]))
+      {
+          if(!validJsonOfField(2, pMasqueradingVector[2], pJson[pMasqueradingVector[2]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[3].empty() && pJson.isMember(pMasqueradingVector[3]))
+      {
+          if(!validJsonOfField(3, pMasqueradingVector[3], pJson[pMasqueradingVector[3]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[4].empty() && pJson.isMember(pMasqueradingVector[4]))
+      {
+          if(!validJsonOfField(4, pMasqueradingVector[4], pJson[pMasqueradingVector[4]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[5].empty() && pJson.isMember(pMasqueradingVector[5]))
+      {
+          if(!validJsonOfField(5, pMasqueradingVector[5], pJson[pMasqueradingVector[5]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[6].empty() && pJson.isMember(pMasqueradingVector[6]))
+      {
+          if(!validJsonOfField(6, pMasqueradingVector[6], pJson[pMasqueradingVector[6]], err, false))
+              return false;
+      }
+    }
+    catch(const Json::LogicError &e)
+    {
+      err = e.what();
+      return false;
+    }
+    return true;
+}
 bool Oauth2Clients::validJsonOfField(size_t index,
                                      const std::string &fieldName,
                                      const Json::Value &pJson,
                                      std::string &err,
                                      bool isForCreation)
 {
-    switch (index)
+    switch(index)
     {
         case 0:
-            if (pJson.isNull())
+            if(pJson.isNull())
             {
-                err = "The " + fieldName + " column cannot be null";
+                err="The " + fieldName + " column cannot be null";
                 return false;
             }
-            if (!pJson.isString())
+            if(!pJson.isString())
             {
-                err = "Type error in the " + fieldName + " field";
+                err="Type error in the "+fieldName+" field";
                 return false;
             }
-            if (pJson.isString() &&
-                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,
-                                     wchar_t>{}
-                        .from_bytes(pJson.asCString())
-                        .size() > 50)
+            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
+                .from_bytes(pJson.asCString()).size() > 50)
             {
-                err = "String length exceeds limit for the " + fieldName +
-                      " field (the maximum value is 50)";
+                err="String length exceeds limit for the " +
+                    fieldName +
+                    " field (the maximum value is 50)";
                 return false;
             }
             break;
         case 1:
-            if (pJson.isNull())
+            if(pJson.isNull())
             {
-                err = "The " + fieldName + " column cannot be null";
+                err="The " + fieldName + " column cannot be null";
                 return false;
             }
-            if (!pJson.isString())
+            if(!pJson.isString())
             {
-                err = "Type error in the " + fieldName + " field";
+                err="Type error in the "+fieldName+" field";
                 return false;
             }
-            if (pJson.isString() &&
-                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,
-                                     wchar_t>{}
-                        .from_bytes(pJson.asCString())
-                        .size() > 100)
+            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
+                .from_bytes(pJson.asCString()).size() > 100)
             {
-                err = "String length exceeds limit for the " + fieldName +
-                      " field (the maximum value is 100)";
+                err="String length exceeds limit for the " +
+                    fieldName +
+                    " field (the maximum value is 100)";
                 return false;
             }
             break;
         case 2:
-            if (pJson.isNull())
+            if(pJson.isNull())
             {
-                err = "The " + fieldName + " column cannot be null";
+                err="The " + fieldName + " column cannot be null";
                 return false;
             }
-            if (!pJson.isString())
+            if(!pJson.isString())
             {
-                err = "Type error in the " + fieldName + " field";
+                err="Type error in the "+fieldName+" field";
                 return false;
             }
-            if (pJson.isString() &&
-                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,
-                                     wchar_t>{}
-                        .from_bytes(pJson.asCString())
-                        .size() > 50)
+            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
+                .from_bytes(pJson.asCString()).size() > 50)
             {
-                err = "String length exceeds limit for the " + fieldName +
-                      " field (the maximum value is 50)";
+                err="String length exceeds limit for the " +
+                    fieldName +
+                    " field (the maximum value is 50)";
                 return false;
             }
             break;
         case 3:
-            if (pJson.isNull())
+            if(pJson.isNull())
             {
                 return true;
             }
-            if (!pJson.isString())
+            if(!pJson.isString())
             {
-                err = "Type error in the " + fieldName + " field";
+                err="Type error in the "+fieldName+" field";
                 return false;
             }
-            if (pJson.isString() &&
-                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>,
-                                     wchar_t>{}
-                        .from_bytes(pJson.asCString())
-                        .size() > 100)
+            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
+                .from_bytes(pJson.asCString()).size() > 100)
             {
-                err = "String length exceeds limit for the " + fieldName +
-                      " field (the maximum value is 100)";
+                err="String length exceeds limit for the " +
+                    fieldName +
+                    " field (the maximum value is 100)";
                 return false;
             }
             break;
         case 4:
-            if (pJson.isNull())
+            if(pJson.isNull())
             {
                 return true;
             }
-            if (!pJson.isString())
+            if(!pJson.isString())
             {
-                err = "Type error in the " + fieldName + " field";
+                err="Type error in the "+fieldName+" field";
                 return false;
             }
             break;
         case 5:
-            if (pJson.isNull())
+            if(pJson.isNull())
             {
                 return true;
             }
-            if (!pJson.isString())
+            if(!pJson.isString())
             {
-                err = "Type error in the " + fieldName + " field";
+                err="Type error in the "+fieldName+" field";
                 return false;
             }
             break;
         case 6:
-            if (pJson.isNull())
+            if(pJson.isNull())
             {
                 return true;
             }
-            if (!pJson.isString())
+            if(!pJson.isString())
             {
-                err = "Type error in the " + fieldName + " field";
+                err="Type error in the "+fieldName+" field";
                 return false;
             }
             break;
         default:
-            err = "Internal error in the server";
+            err="Internal error in the server";
             return false;
     }
     return true;

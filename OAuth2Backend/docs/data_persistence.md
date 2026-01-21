@@ -151,3 +151,40 @@ std::string input = clientSecret + client->salt;
 std::string calculatedHash = drogon::utils::getSha256(input.data(), input.length());
 return lower(calculatedHash) == lower(storedHash);
 ```
+
+---
+
+## 5. 数据生命周期管理 (Data Lifecycle)
+
+为了防止数据库无限增长，系统实现了自动化的过期数据清理机制。
+
+### 5.1 策略概览
+
+| 存储后端 | 清理策略 | 实现机制 | 频率 |
+|----------|----------|----------|------|
+| **Redis** | **TTL 自动清理** | 依赖 Redis 原生 `EXPIRE` 机制，无需应用层干预。 | 实时 |
+| **PostgreSQL**| **定期删除** | 通过 `OAuth2Plugin` 调度器执行 `Storage::deleteExpiredData`。 | 每 1 小时 |
+| **Memory** | **定期扫描** | 通过 `OAuth2Plugin` 调度器遍历 Map 并移除过期项。 | 每 1 小时 |
+
+### 5.2 调度器实现
+
+在 `OAuth2Plugin::initAndStart` 中，系统会注册一个定时任务：
+
+```cpp
+// 每 3600 秒 (1小时) 执行一次
+drogon::app().getLoop()->runEvery(3600.0, [this]() {
+    LOG_DEBUG << "Running periodic data cleanup...";
+    storage_->deleteExpiredData();
+});
+```
+
+### 5.3 接口定义
+
+`IOAuth2Storage` 接口新增了清理方法：
+
+```cpp
+/**
+ * @brief 删除所有过期的 Auth Codes, Access Tokens 和 Refresh Tokens
+ */
+virtual void deleteExpiredData() = 0;
+```

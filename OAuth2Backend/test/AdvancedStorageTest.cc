@@ -96,4 +96,34 @@ DROGON_TEST(AdvancedStorageTest)
         CHECK(t != nullptr);
         CHECK(t->token == "valid_token_123");
     }
+
+    // 5. Test Cleanup (Phase 24)
+    {
+        // Add one more expired token
+        OAuth2AccessToken expiredToken2;
+        expiredToken2.token = "expired_token_456";
+        expiredToken2.clientId = "client1";
+        expiredToken2.userId = "user1";
+        auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+        expiredToken2.expiresAt = now - 1000;
+        expiredToken2.revoked = false;
+
+        std::promise<void> pSave;
+        storage->saveAccessToken(expiredToken2, [&]() { pSave.set_value(); });
+        pSave.get_future().get();
+
+        // Manual cleanup call
+        storage->deleteExpiredData();
+
+        // Verify via validation (Should definitely be gone)
+        std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
+        plugin->validateAccessToken("expired_token_456",
+                                    [&](std::shared_ptr<OAuth2AccessToken> t) {
+                                        pVal.set_value(t);
+                                    });
+        auto t = pVal.get_future().get();
+        CHECK(t == nullptr);
+    }
 }

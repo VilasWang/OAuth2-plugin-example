@@ -16,7 +16,9 @@ trigger: always_on
 
 - **Controller 层**：仅处理 HTTP 请求/响应，薄层化设计，不含业务逻辑
 - **Plugin/Service 层**：封装核心业务逻辑，使用依赖注入（Drogon Plugin 模式）
-- **Model 层**：数据访问与 ORM 映射。ORM生成的类，禁止修改，如有变更则使用drogon ORM重新生成c++类。正常情况下禁止直接使用sql访问数据库，应使用ORM类，特殊情况下需要说明yuan'yin
+- **Model 层**：数据访问与 ORM 映射
+  - ORM生成的类，禁止修改，如有变更则使用drogon ORM重新生成c++类
+  - 正常情况下禁止直接使用raw sql语句访问数据库，应使用ORM类访问，特殊情况下需要说明必要性
 
 ### [MUST] 异步编程规范
 

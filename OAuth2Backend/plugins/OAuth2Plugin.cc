@@ -26,6 +26,15 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     }
 
     LOG_INFO << "OAuth2Plugin initialized with storage type: " << storageType_;
+
+    // Periodically clean up expired data (every 1 hour)
+    drogon::app().getLoop()->runEvery(3600.0, [this]() {
+        if (storage_)
+        {
+            LOG_DEBUG << "Running periodic data cleanup...";
+            storage_->deleteExpiredData();
+        }
+    });
 }
 
 void OAuth2Plugin::initStorage(const Json::Value &config)

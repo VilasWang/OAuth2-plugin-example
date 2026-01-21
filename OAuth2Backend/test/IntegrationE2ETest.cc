@@ -96,5 +96,23 @@ DROGON_TEST(IntegrationE2E)
     // attach a Session object? Drogon tests support `req->setSession()`.
 
     // Todo: Implement full flow if Step 1 works.
+    // Cleanup
+    if (!userId.empty())
+    {
+        auto client = app().getDbClient();
+        std::promise<void> p;
+        auto f = p.get_future();
+        client->execSqlAsync(
+            "DELETE FROM users WHERE username = $1",
+            [&](const drogon::orm::Result &) { p.set_value(); },
+            [&](const drogon::orm::DrogonDbException &e) {
+                LOG_ERROR << "Integration Cleanup Failed: " << e.base().what();
+                p.set_value();
+            },
+            userId);
+        f.get();
+        LOG_INFO << "Integration: Cleaned up user " << userId;
+    }
+
     LOG_INFO << "Integration Test Step 1 Complete";
 }
