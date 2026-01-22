@@ -2,6 +2,7 @@
 #include "MemoryOAuth2Storage.h"
 #include "PostgresOAuth2Storage.h"
 #include "RedisOAuth2Storage.h"
+#include "CachedOAuth2Storage.h"
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <chrono>
@@ -27,14 +28,17 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
 
     LOG_INFO << "OAuth2Plugin initialized with storage type: " << storageType_;
 
-    // Periodically clean up expired data (every 1 hour)
-    drogon::app().getLoop()->runEvery(3600.0, [this]() {
-        if (storage_)
-        {
-            LOG_DEBUG << "Running periodic data cleanup...";
-            storage_->deleteExpiredData();
-        }
-    });
+    // Initialize and start cleanup service
+    cleanupService_ =
+        std::make_unique<oauth2::OAuth2CleanupService>(storage_.get());
+
+    // Default cleanup 1 hour, or config
+    double cleanupInterval = 3600.0;
+    if (config.isMember("cleanup_interval_seconds"))
+    {
+        cleanupInterval = config["cleanup_interval_seconds"].asDouble();
+    }
+    cleanupService_->start(cleanupInterval);
 }
 
 void OAuth2Plugin::initStorage(const Json::Value &config)
@@ -46,8 +50,35 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         auto s = std::make_unique<oauth2::PostgresOAuth2Storage>();
         s->initFromConfig(
             config["postgres"]);  // Always call to get defaults if missing
-        storage_ = std::move(s);
-        LOG_INFO << "Using PostgreSQL storage backend";
+
+        // Try to enable L2 Cache
+        try
+        {
+            auto redis = drogon::app().getRedisClient("default");
+            // Explicitly upcast to base unique_ptr
+            std::unique_ptr<oauth2::IOAuth2Storage> baseStorage = std::move(s);
+            // Use raw new to avoid make_unique forwarding issues with move-only
+            // types in some MSVC versions
+            std::unique_ptr<oauth2::IOAuth2Storage> cached(
+                new oauth2::CachedOAuth2Storage(std::move(baseStorage), redis));
+            storage_ = std::move(cached);
+            LOG_INFO << "Using PostgreSQL storage backend with L2 Redis Cache";
+        }
+        catch (...)
+        {
+            // s was moved to baseStorage, and possibly to cached.
+            // If we are here, we might have lost the pointer if move happened.
+            // But we can check if baseStorage is still valid (if exception
+            // happened before second move). However, checking a moved-from
+            // pointer is relying on implementation details (usually null).
+            // Safest fallback is to re-create.
+            LOG_ERROR
+                << "Failed to init Cache. Fallback creating new Postgres.";
+            auto s2 = std::make_unique<oauth2::PostgresOAuth2Storage>();
+            s2->initFromConfig(config["postgres"]);
+            storage_ = std::move(s2);
+            LOG_INFO << "Using PostgreSQL storage backend (Cache Init Failed)";
+        }
     }
     else if (storageType_ == "redis")
     {
@@ -67,6 +98,8 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
 void OAuth2Plugin::shutdown()
 {
     LOG_INFO << "OAuth2Plugin shutdown";
+    if (cleanupService_)
+        cleanupService_->stop();
     storage_.reset();
 }
 

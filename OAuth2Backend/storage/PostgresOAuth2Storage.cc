@@ -17,13 +17,18 @@ using namespace drogon_model::oauth_test;
 void PostgresOAuth2Storage::initFromConfig(const Json::Value &config)
 {
     dbClientName_ = config.get("db_client_name", "default").asString();
+    dbClientReaderName_ =
+        config.get("db_client_reader", dbClientName_).asString();
+
     try
     {
-        dbClient_ = drogon::app().getDbClient(dbClientName_);
+        dbClientMaster_ = drogon::app().getDbClient(dbClientName_);
+        dbClientReader_ = drogon::app().getDbClient(dbClientReaderName_);
     }
     catch (...)
     {
-        LOG_ERROR << "Failed to get DB Client: " << dbClientName_;
+        LOG_ERROR << "Failed to get DB Clients: Master=" << dbClientName_
+                  << ", Reader=" << dbClientReaderName_;
     }
 }
 
@@ -31,9 +36,9 @@ void PostgresOAuth2Storage::getClient(const std::string &clientId,
                                       ClientCallback &&cb)
 {
     LOG_DEBUG << "Postgres getClient: " << clientId;
-    if (!dbClient_)
+    if (!dbClientReader_)
     {
-        LOG_ERROR << "Postgres DB Client is null!";
+        LOG_ERROR << "Postgres DB Client Reader is null!";
         cb(std::nullopt);
         return;
     }
@@ -41,7 +46,7 @@ void PostgresOAuth2Storage::getClient(const std::string &clientId,
     auto sharedCb = std::make_shared<ClientCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2Clients> mapper(dbClient_);
+        Mapper<Oauth2Clients> mapper(dbClientReader_);
         mapper.findOne(
             Criteria(Oauth2Clients::Cols::_client_id,
                      CompareOperator::EQ,
@@ -94,7 +99,7 @@ void PostgresOAuth2Storage::validateClient(const std::string &clientId,
                                            IOAuth2Storage::BoolCallback &&cb)
 {
     LOG_DEBUG << "Postgres validateClient: " << clientId;
-    if (!dbClient_)
+    if (!dbClientReader_)
     {
         cb(false);
         return;
@@ -103,7 +108,7 @@ void PostgresOAuth2Storage::validateClient(const std::string &clientId,
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2Clients> mapper(dbClient_);
+        Mapper<Oauth2Clients> mapper(dbClientReader_);
 
         // Case 1: No Client Secret (Check Existence Only via PK)
         // If clientSecret is empty, we just check if client exists.
@@ -187,7 +192,7 @@ void PostgresOAuth2Storage::validateClient(const std::string &clientId,
 void PostgresOAuth2Storage::saveAuthCode(const oauth2::OAuth2AuthCode &code,
                                          IOAuth2Storage::VoidCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientMaster_)
     {
         if (cb)
             cb();
@@ -196,7 +201,7 @@ void PostgresOAuth2Storage::saveAuthCode(const oauth2::OAuth2AuthCode &code,
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2Codes> mapper(dbClient_);
+        Mapper<Oauth2Codes> mapper(dbClientMaster_);
         Oauth2Codes newCode;
         newCode.setCode(code.code);
         newCode.setClientId(code.clientId);
@@ -229,7 +234,7 @@ void PostgresOAuth2Storage::saveAuthCode(const oauth2::OAuth2AuthCode &code,
 void PostgresOAuth2Storage::getAuthCode(const std::string &code,
                                         IOAuth2Storage::AuthCodeCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientReader_)
     {
         cb(std::nullopt);
         return;
@@ -237,7 +242,7 @@ void PostgresOAuth2Storage::getAuthCode(const std::string &code,
     auto sharedCb = std::make_shared<AuthCodeCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2Codes> mapper(dbClient_);
+        Mapper<Oauth2Codes> mapper(dbClientReader_);
         mapper.findOne(
             Criteria(Oauth2Codes::Cols::_code, CompareOperator::EQ, code),
             [sharedCb](const Oauth2Codes &row) {
@@ -268,7 +273,7 @@ void PostgresOAuth2Storage::getAuthCode(const std::string &code,
 void PostgresOAuth2Storage::markAuthCodeUsed(const std::string &code,
                                              IOAuth2Storage::VoidCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientMaster_)
     {
         if (cb)
             cb();
@@ -277,7 +282,7 @@ void PostgresOAuth2Storage::markAuthCodeUsed(const std::string &code,
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2Codes> mapper(dbClient_);
+        Mapper<Oauth2Codes> mapper(dbClientMaster_);
         Oauth2Codes updateObj;
         updateObj.setCode(code);
         updateObj.setUsed(true);
@@ -306,7 +311,7 @@ void PostgresOAuth2Storage::consumeAuthCode(
     const std::string &code,
     IOAuth2Storage::AuthCodeCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientMaster_)
     {
         cb(std::nullopt);
         return;
@@ -316,7 +321,7 @@ void PostgresOAuth2Storage::consumeAuthCode(
     // Atomic Check-and-Set via UPDATE RETURNING
     // We only update if used=false.
     // If used=true already, WHERE clause fails, returns 0 rows -> cb(nullopt).
-    dbClient_->execSqlAsync(
+    dbClientMaster_->execSqlAsync(
         "UPDATE oauth2_codes SET used = true WHERE code = $1 AND used = false "
         "RETURNING client_id, user_id, scope, redirect_uri, expires_at",
         [sharedCb, code](const Result &r) {
@@ -349,7 +354,7 @@ void PostgresOAuth2Storage::saveAccessToken(
     const oauth2::OAuth2AccessToken &token,
     IOAuth2Storage::VoidCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientMaster_)
     {
         if (cb)
             cb();
@@ -358,7 +363,7 @@ void PostgresOAuth2Storage::saveAccessToken(
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2AccessTokens> mapper(dbClient_);
+        Mapper<Oauth2AccessTokens> mapper(dbClientMaster_);
         Oauth2AccessTokens newToken;
         newToken.setToken(token.token);
         newToken.setClientId(token.clientId);
@@ -391,7 +396,7 @@ void PostgresOAuth2Storage::getAccessToken(
     const std::string &token,
     IOAuth2Storage::AccessTokenCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientReader_)
     {
         cb(std::nullopt);
         return;
@@ -399,7 +404,7 @@ void PostgresOAuth2Storage::getAccessToken(
     auto sharedCb = std::make_shared<AccessTokenCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2AccessTokens> mapper(dbClient_);
+        Mapper<Oauth2AccessTokens> mapper(dbClientReader_);
         mapper.findOne(
             Criteria(Oauth2AccessTokens::Cols::_token,
                      CompareOperator::EQ,
@@ -431,7 +436,7 @@ void PostgresOAuth2Storage::saveRefreshToken(
     const oauth2::OAuth2RefreshToken &token,
     IOAuth2Storage::VoidCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientMaster_)
     {
         if (cb)
             cb();
@@ -440,7 +445,7 @@ void PostgresOAuth2Storage::saveRefreshToken(
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2RefreshTokens> mapper(dbClient_);
+        Mapper<Oauth2RefreshTokens> mapper(dbClientMaster_);
         Oauth2RefreshTokens newToken;
         newToken.setToken(token.token);
         newToken.setAccessToken(token.accessToken);
@@ -474,7 +479,7 @@ void PostgresOAuth2Storage::getRefreshToken(
     const std::string &token,
     IOAuth2Storage::RefreshTokenCallback &&cb)
 {
-    if (!dbClient_)
+    if (!dbClientReader_)
     {
         cb(std::nullopt);
         return;
@@ -482,7 +487,7 @@ void PostgresOAuth2Storage::getRefreshToken(
     auto sharedCb = std::make_shared<RefreshTokenCallback>(std::move(cb));
     try
     {
-        Mapper<Oauth2RefreshTokens> mapper(dbClient_);
+        Mapper<Oauth2RefreshTokens> mapper(dbClientReader_);
         mapper.findOne(
             Criteria(Oauth2RefreshTokens::Cols::_token,
                      CompareOperator::EQ,
@@ -513,7 +518,7 @@ void PostgresOAuth2Storage::getRefreshToken(
 
 void PostgresOAuth2Storage::deleteExpiredData()
 {
-    if (!dbClient_)
+    if (!dbClientMaster_)
         return;
 
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
@@ -523,7 +528,7 @@ void PostgresOAuth2Storage::deleteExpiredData()
     try
     {
         // 1. Codes
-        Mapper<Oauth2Codes> codeMapper(dbClient_);
+        Mapper<Oauth2Codes> codeMapper(dbClientMaster_);
         codeMapper.deleteBy(
             Criteria(Oauth2Codes::Cols::_expires_at, CompareOperator::LT, now),
             [](const size_t count) {
@@ -535,7 +540,7 @@ void PostgresOAuth2Storage::deleteExpiredData()
             });
 
         // 2. Access Tokens
-        Mapper<Oauth2AccessTokens> atMapper(dbClient_);
+        Mapper<Oauth2AccessTokens> atMapper(dbClientMaster_);
         atMapper.deleteBy(
             Criteria(Oauth2AccessTokens::Cols::_expires_at,
                      CompareOperator::LT,
@@ -549,7 +554,7 @@ void PostgresOAuth2Storage::deleteExpiredData()
             });
 
         // 3. Refresh Tokens
-        Mapper<Oauth2RefreshTokens> rtMapper(dbClient_);
+        Mapper<Oauth2RefreshTokens> rtMapper(dbClientMaster_);
         rtMapper.deleteBy(
             Criteria(Oauth2RefreshTokens::Cols::_expires_at,
                      CompareOperator::LT,

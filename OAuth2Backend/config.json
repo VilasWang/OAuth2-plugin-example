@@ -17,7 +17,7 @@
             "passwd": "123456",
             "is_fast": false,
             "client_encoding": "",
-            "number_of_connections": 1,
+            "number_of_connections": 50,
             "timeout": -1.0,
             "auto_batch": false,
             "connect_options": {
@@ -34,7 +34,7 @@
             "passwd": "123456",
             "db": 0,
             "is_fast": false,
-            "number_of_connections": 1,
+            "number_of_connections": 5,
             "timeout": -1.0
         }
     ],
@@ -172,7 +172,8 @@
                     "auth_code_ttl": 600,
                     "access_token_ttl": 3600,
                     "refresh_token_ttl": 2592000
-                }
+                },
+                "cleanup_interval_seconds": 3600
             }
         }
     ],

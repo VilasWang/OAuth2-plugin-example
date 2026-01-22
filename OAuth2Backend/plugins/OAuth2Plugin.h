@@ -2,6 +2,7 @@
 
 #include <drogon/plugins/Plugin.h>
 #include "IOAuth2Storage.h"
+#include "OAuth2CleanupService.h"
 #include <string>
 #include <memory>
 #include <functional>
@@ -73,6 +74,7 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
 
   private:
     std::unique_ptr<oauth2::IOAuth2Storage> storage_;
+    std::unique_ptr<oauth2::OAuth2CleanupService> cleanupService_;
     std::string storageType_;
 
     // TTL Configuration (Seconds)

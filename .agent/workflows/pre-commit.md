@@ -6,7 +6,32 @@ description: 提交前完整质量检查（Code Review + ORM Gen + Build + Start
 
 确保代码质量符合提交标准的完整检查流程。
 
-## 1. 代码审查
+## 1. 基础设施检查 (Redis & Postgres)
+
+> 确保测试所需的基础设施服务已运行。
+
+// turbo
+
+```powershell
+$services = @(
+    @{"Name"="Redis"; "Port"=6379},
+    @{"Name"="PostgreSQL"; "Port"=5432}
+)
+
+foreach ($svc in $services) {
+    $conn = Test-NetConnection -ComputerName localhost -Port $svc.Port
+    if (-not $conn.TcpTestSucceeded) {
+        Write-Error "CRITICAL: $($svc.Name) service is NOT reachable on port $($svc.Port). Please start it."
+        exit 1
+    } else {
+        Write-Host "SUCCESS: $($svc.Name) is reachable."
+    }
+}
+```
+
+---
+
+## 2. 代码审查
 
 ```powershell
 python d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\.agent\skills\code-review\scripts\run.py --all --fix
@@ -16,7 +41,7 @@ python d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\.ag
 
 ---
 
-## 2. ORM 模型生成
+## 3. ORM 模型生成
 
 > 重新生成 Drogon ORM 模型，确保与数据库结构一致。
 
@@ -27,7 +52,7 @@ drogon_ctl create model .
 
 ---
 
-## 3. 构建验证
+## 4. 构建验证
 
 // turbo
 
@@ -39,7 +64,7 @@ taskkill /F /IM OAuth2Server.exe 2>$null
 
 ---
 
-## 4. 启动验证 (Start & Check & Stop)
+## 5. 启动验证 (Start & Check & Stop)
 
 // turbo
 
@@ -61,7 +86,7 @@ Write-Host "Server verified and stopped."
 
 ---
 
-## 5. 执行测试
+## 6. 执行测试
 
 > **注意**：测试运行器会自行启动 Drogon App 实例，因此无需外部服务运行。
 
@@ -74,7 +99,7 @@ cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2B
 
 ---
 
-## 6. 文档与 README 更新
+## 7. 文档与 README 更新
 
 > **关键步骤**：确保文档与代码保持同步。
 
@@ -88,6 +113,7 @@ cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example\OAuth2B
 
 ## 检查清单
 
+- [ ] 基础设施服务 (Redis/Postgres) 正常
 - [ ] Code Review 无错误
 - [ ] ORM 模型已更新
 - [ ] 构建成功
