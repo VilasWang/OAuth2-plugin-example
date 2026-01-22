@@ -54,9 +54,13 @@ def main():
              print("ℹ️ No source files found in project.")
              return
 
+    # Exclude models directory as requested (ORM generated code)
+    files = [f for f in files if "models" not in os.path.normpath(f).split(os.sep)]
+
     # Redirect output to report file if requested
     if "--report" in args:
         import datetime
+
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         report_file = os.path.join("tmp_output", "reports", f"review_{timestamp}.md")
         
