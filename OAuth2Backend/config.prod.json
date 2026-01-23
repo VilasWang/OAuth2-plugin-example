@@ -17,7 +17,7 @@
             "passwd": "123456",
             "is_fast": true,
             "client_encoding": "",
-            "number_of_connections": 50,
+            "number_of_connections": 20,
             "timeout": -1.0,
             "auto_batch": true,
             "connect_options": {
