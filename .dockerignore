@@ -1,0 +1,36 @@
+# Version Control
+.git
+.gitignore
+
+# Build Artifacts (Windows/Linux)
+**/build/
+**/out/
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.venv/
+**/*.exe
+**/*.dll
+**/*.so
+**/*.lib
+**/*.pdb
+**/*.idb
+**/*.obj
+**/*.exp
+**/*.ilk
+**/*.user
+**/*.suo
+
+# Temporary Files
+tmp/
+temp/
+logs/
+*.log
+**/*.log
+__pycache__/
+*.pyc
+
+# Drogon specific
+tmp_output/
