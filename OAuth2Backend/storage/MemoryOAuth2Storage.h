@@ -51,6 +51,14 @@ class MemoryOAuth2Storage : public IOAuth2Storage
     // Cleanup Operations
     void deleteExpiredData() override;
 
+    // RBAC
+    void getUserRoles(const std::string &userId,
+                      StringListCallback &&cb) override
+    {
+        // Default role for in-memory
+        cb({"user"});
+    }
+
   private:
     std::recursive_mutex mutex_;
     std::unordered_map<std::string, OAuth2Client> clients_;

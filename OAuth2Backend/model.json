@@ -6,6 +6,10 @@
     "user": "test",
     "passwd": "123456",
     "tables": [
-        "users"
+        "users",
+        "roles",
+        "permissions",
+        "user_roles",
+        "role_permissions"
     ]
 }

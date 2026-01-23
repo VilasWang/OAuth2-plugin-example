@@ -4,13 +4,12 @@
     "port": 5432,
     "dbname": "oauth_test",
     "user": "test",
-    "password": "123456",
+    "passwd": "123456",
     "tables": [
         "users",
-        "oauth2_clients",
-        "oauth2_codes",
-        "oauth2_access_tokens",
-        "oauth2_refresh_tokens"
-    ],
-    "schema": "public"
+        "roles",
+        "permissions",
+        "user_roles",
+        "role_permissions"
+    ]
 }

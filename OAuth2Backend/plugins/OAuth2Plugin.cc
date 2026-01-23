@@ -232,48 +232,79 @@ void OAuth2Plugin::exchangeCodeForToken(
 
             // Generate Access Token (Code is already marked used by
             // consumeAuthCode) No need to call markAuthCodeUsed again.
-            {
-                // Generate Access Token
-                auto tokenStr = utils::getUuid();
-                oauth2::OAuth2AccessToken token;
-                token.token = tokenStr;
-                token.clientId = authCode->clientId;
-                token.userId = authCode->userId;
-                token.scope = authCode->scope;
-                token.expiresAt = now + accessTokenTtl_;
+            // Generate Access Token (Code is already marked used by
+            // consumeAuthCode)
 
-                // Generate Refresh Token
-                auto refreshTokenStr = utils::getUuid();
-                oauth2::OAuth2RefreshToken refreshToken;
-                refreshToken.token = refreshTokenStr;
-                refreshToken.accessToken = tokenStr;
-                refreshToken.clientId = authCode->clientId;
-                refreshToken.userId = authCode->userId;
-                refreshToken.scope = authCode->scope;
-                refreshToken.expiresAt = now + refreshTokenTtl_;
+            // Fetch User Roles to return in response (and potentially bake into
+            // token if we switched to JWT later)
+            storage_->getUserRoles(
+                authCode->userId,
+                [this,
+                 callback,
+                 authCode,
+                 now,
+                 accessTokenTtl = accessTokenTtl_,
+                 refreshTokenTtl =
+                     refreshTokenTtl_](std::vector<std::string> roles) {
+                    // Convert roles vector to string for logs/response
+                    Json::Value rolesJson(Json::arrayValue);
+                    for (const auto &r : roles)
+                        rolesJson.append(r);
 
-                // Save Access Token
-                storage_->saveAccessToken(
-                    token, [this, callback, token, refreshToken]() {
-                        // Save Refresh Token
-                        storage_->saveRefreshToken(
-                            refreshToken,
-                            [this, callback, token, refreshToken]() {
-                                LOG_INFO << "[AUDIT] Action=IssueToken User="
-                                         << token.userId
-                                         << " Client=" << token.clientId
-                                         << " Success=True";
+                    // Generate Access Token
+                    auto tokenStr = utils::getUuid();
+                    oauth2::OAuth2AccessToken token;
+                    token.token = tokenStr;
+                    token.clientId = authCode->clientId;
+                    token.userId = authCode->userId;
+                    token.scope = authCode->scope;
+                    token.expiresAt = now + accessTokenTtl;
 
-                                Json::Value json;
-                                json["access_token"] = token.token;
-                                json["token_type"] = "Bearer";
-                                json["expires_in"] =
-                                    (Json::Int64)accessTokenTtl_;
-                                json["refresh_token"] = refreshToken.token;
-                                callback(json);
-                            });
-                    });
-            }
+                    // Generate Refresh Token
+                    auto refreshTokenStr = utils::getUuid();
+                    oauth2::OAuth2RefreshToken refreshToken;
+                    refreshToken.token = refreshTokenStr;
+                    refreshToken.accessToken = tokenStr;
+                    refreshToken.clientId = authCode->clientId;
+                    refreshToken.userId = authCode->userId;
+                    refreshToken.scope = authCode->scope;
+                    refreshToken.expiresAt = now + refreshTokenTtl;
+
+                    // Save Access Token
+                    storage_->saveAccessToken(
+                        token,
+                        [this, callback, token, refreshToken, rolesJson]() {
+                            // Save Refresh Token
+                            storage_->saveRefreshToken(
+                                refreshToken,
+                                [this,
+                                 callback,
+                                 token,
+                                 refreshToken,
+                                 rolesJson]() {
+                                    LOG_INFO
+                                        << "[AUDIT] Action=IssueToken User="
+                                        << token.userId
+                                        << " Client=" << token.clientId
+                                        << " Success=True";
+
+                                    Json::Value json;
+                                    json["access_token"] = token.token;
+                                    json["token_type"] = "Bearer";
+                                    json["expires_in"] = (Json::Int64)(
+                                        token.expiresAt -
+                                        std::chrono::duration_cast<
+                                            std::chrono::seconds>(
+                                            std::chrono::system_clock::now()
+                                                .time_since_epoch())
+                                            .count());
+                                    json["refresh_token"] = refreshToken.token;
+                                    json["roles"] =
+                                        rolesJson;  // Extension: Return roles
+                                    callback(json);
+                                });
+                        });
+                });
         });
 }
 
@@ -404,4 +435,16 @@ void OAuth2Plugin::validateAccessToken(
 
             callback(std::make_shared<oauth2::OAuth2AccessToken>(*t));
         });
+}
+
+void OAuth2Plugin::getUserRoles(
+    const std::string &userId,
+    std::function<void(std::vector<std::string>)> &&callback)
+{
+    if (!storage_)
+    {
+        callback({});
+        return;
+    }
+    storage_->getUserRoles(userId, std::move(callback));
 }

@@ -137,6 +137,11 @@ Production-ready monitoring with Prometheus Metrics and Structured Audit Logs.
 We implement Rate Limiting and Security Headers to protect against attacks.
 👉 **[Security Hardening Guide](OAuth2Backend/docs/security_hardening.md)**
 
+### RBAC Permission System (New)
+
+Role-Based Access Control using `AuthorizationFilter` and `rbac_rules` configuration.
+Matches URL patterns to required roles (e.g. `/api/admin/.*` -> `["admin"]`).
+
 ## Features & Endpoints
 
 > **OpenAPI Specification**: [openapi.yaml](OAuth2Backend/openapi.yaml)

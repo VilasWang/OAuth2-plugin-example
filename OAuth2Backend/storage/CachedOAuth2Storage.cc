@@ -210,4 +210,13 @@ void CachedOAuth2Storage::deleteExpiredData()
     impl_->deleteExpiredData();
 }
 
+void CachedOAuth2Storage::getUserRoles(const std::string &userId,
+                                       StringListCallback &&cb)
+{
+    // Caching Strategy: We could cache user roles in Redis key
+    // "oauth2:roles:{userId}" For now, pass through to underlying storage
+    // (Postgres) which is efficient enough for login
+    impl_->getUserRoles(userId, std::move(cb));
+}
+
 }  // namespace oauth2

@@ -1,5 +1,7 @@
 #include "AuthService.h"
 #include "../models/Users.h"
+#include "../models/Roles.h"
+#include "../models/UserRoles.h"
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 
@@ -82,14 +84,64 @@ void AuthService::registerUser(
 
     try
     {
-        auto mapper =
-            Mapper<drogon_model::oauth_test::Users>(app().getDbClient());
+        auto db = app().getDbClient();
+        // Start Transaction? For now, just chain.
+
+        auto mapper = Mapper<drogon_model::oauth_test::Users>(db);
 
         // Async Insert
         mapper.insert(
             newUser,
-            [callback](const drogon_model::oauth_test::Users &u) {
-                callback("");  // Success
+            [db, callback](const drogon_model::oauth_test::Users &u) {
+                // Assign Default Role "user"
+                try
+                {
+                    auto roleMapper =
+                        Mapper<drogon_model::oauth_test::Roles>(db);
+                    roleMapper.findOne(
+                        Criteria(drogon_model::oauth_test::Roles::Cols::_name,
+                                 CompareOperator::EQ,
+                                 "user"),
+                        [db, callback, userId = u.getValueOfId()](
+                            const drogon_model::oauth_test::Roles &role) {
+                            try
+                            {
+                                auto urMapper =
+                                    Mapper<drogon_model::oauth_test::UserRoles>(
+                                        db);
+                                drogon_model::oauth_test::UserRoles ur;
+                                ur.setUserId(userId);
+                                ur.setRoleId(role.getValueOfId());
+
+                                urMapper.insert(
+                                    ur,
+                                    [callback](const drogon_model::oauth_test::
+                                                   UserRoles &) {
+                                        callback("");  // Success
+                                    },
+                                    [callback](const DrogonDbException &e) {
+                                        LOG_ERROR << "Assign Role Failed: "
+                                                  << e.base().what();
+                                        callback("");  // Treat as success for
+                                                       // now (User created),
+                                                       // but log error
+                                    });
+                            }
+                            catch (...)
+                            {
+                                callback("");
+                            }
+                        },
+                        [callback](const DrogonDbException &e) {
+                            LOG_ERROR << "Default Role 'user' not found: "
+                                      << e.base().what();
+                            callback("");  // User created w/o role
+                        });
+                }
+                catch (...)
+                {
+                    callback("");
+                }
             },
             [callback](const DrogonDbException &e) {
                 LOG_ERROR << "Register Failed: " << e.base().what();

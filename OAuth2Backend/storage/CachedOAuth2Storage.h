@@ -44,6 +44,10 @@ class CachedOAuth2Storage : public IOAuth2Storage
     // Cleanup Operations
     void deleteExpiredData() override;
 
+    // RBAC
+    void getUserRoles(const std::string &userId,
+                      StringListCallback &&cb) override;
+
   private:
     std::unique_ptr<IOAuth2Storage> impl_;
     drogon::nosql::RedisClientPtr redisClient_;

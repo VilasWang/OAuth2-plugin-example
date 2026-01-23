@@ -6,6 +6,15 @@
             "https": false
         }
     ],
+    "rbac_rules": {
+        "/api/admin/.*": [
+            "admin"
+        ],
+        "/api/user/.*": [
+            "user",
+            "admin"
+        ]
+    },
     "db_clients": [
         {
             "name": "default",
@@ -17,7 +26,7 @@
             "passwd": "123456",
             "is_fast": true,
             "client_encoding": "",
-            "number_of_connections": 20,
+            "number_of_connections": 4,
             "timeout": -1.0,
             "auto_batch": true,
             "connect_options": {

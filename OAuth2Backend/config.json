@@ -6,6 +6,15 @@
             "https": false
         }
     ],
+    "rbac_rules": {
+        "/api/admin/.*": [
+            "admin"
+        ],
+        "/api/user/.*": [
+            "user",
+            "admin"
+        ]
+    },
     "db_clients": [
         {
             "name": "default",
@@ -15,9 +24,9 @@
             "dbname": "oauth_test",
             "user": "test",
             "passwd": "123456",
-            "is_fast": true,
+            "is_fast": false,
             "client_encoding": "",
-            "number_of_connections": 20,
+            "number_of_connections": 1,
             "timeout": -1.0,
             "auto_batch": true,
             "connect_options": {
@@ -33,8 +42,8 @@
             "username": "",
             "passwd": "123456",
             "db": 0,
-            "is_fast": true,
-            "number_of_connections": 16,
+            "is_fast": false,
+            "number_of_connections": 1,
             "timeout": -1.0
         }
     ],

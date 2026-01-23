@@ -155,6 +155,18 @@ class IOAuth2Storage
     virtual void getRefreshToken(const std::string &token,
                                  RefreshTokenCallback &&cb) = 0;
 
+    using StringListCallback = std::function<void(std::vector<std::string>)>;
+
+    // ========== User/Role Operations ==========
+
+    /**
+     * @brief Get roles assigned to a user
+     * @param userId The ID of the user (as string)
+     * @param cb Callback with list of role names
+     */
+    virtual void getUserRoles(const std::string &userId,
+                              StringListCallback &&cb) = 0;
+
     /**
      * @brief Delete expired data (codes, tokens)
      * Implementations should remove all expired entries.

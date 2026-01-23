@@ -44,6 +44,10 @@ class PostgresOAuth2Storage : public IOAuth2Storage
     // Cleanup Operations
     void deleteExpiredData() override;
 
+    // RBAC
+    void getUserRoles(const std::string &userId,
+                      StringListCallback &&cb) override;
+
   private:
     drogon::orm::DbClientPtr dbClientMaster_;
     drogon::orm::DbClientPtr dbClientReader_;

@@ -574,4 +574,50 @@ void PostgresOAuth2Storage::deleteExpiredData()
     }
 }
 
+// RBAC Implementation
+void PostgresOAuth2Storage::getUserRoles(const std::string &userId,
+                                         StringListCallback &&cb)
+{
+    if (!dbClientReader_)
+    {
+        cb({});
+        return;
+    }
+
+    int uid = 0;
+    try
+    {
+        uid = std::stoi(userId);
+    }
+    catch (...)
+    {
+        LOG_WARN << "getUserRoles: Invalid userId (not int): " << userId;
+        cb({});
+        return;
+    }
+
+    // Query: SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id
+    // WHERE ur.user_id = $1
+    std::string sql =
+        "SELECT r.name FROM roles r "
+        "JOIN user_roles ur ON r.id = ur.role_id "
+        "WHERE ur.user_id = $1";
+
+    dbClientReader_->execSqlAsync(
+        sql,
+        [cb](const Result &r) {
+            std::vector<std::string> roles;
+            for (const auto &row : r)
+            {
+                roles.push_back(row["name"].as<std::string>());
+            }
+            cb(roles);
+        },
+        [cb](const DrogonDbException &e) {
+            LOG_ERROR << "getUserRoles failed: " << e.base().what();
+            cb({});
+        },
+        uid);
+}
+
 }  // namespace oauth2

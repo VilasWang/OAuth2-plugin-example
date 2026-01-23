@@ -66,6 +66,12 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
         const std::string &token,
         std::function<void(std::shared_ptr<AccessToken>)> &&callback);
 
+    /**
+     * @brief Get User Roles (Async)
+     */
+    void getUserRoles(const std::string &userId,
+                      std::function<void(std::vector<std::string>)> &&callback);
+
     // ========== Storage Access ==========
     oauth2::IOAuth2Storage *getStorage()
     {

@@ -466,4 +466,11 @@ void RedisOAuth2Storage::deleteExpiredData()
     LOG_DEBUG << "Redis deleteExpiredData called (No-op, relying on Redis TTL)";
 }
 
+void RedisOAuth2Storage::getUserRoles(const std::string &userId,
+                                      StringListCallback &&cb)
+{
+    // Default role for redis (until we implement role storage in redis)
+    cb({"user"});
+}
+
 }  // namespace oauth2
