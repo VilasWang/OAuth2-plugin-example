@@ -1,0 +1,200 @@
+{
+    "listeners": [
+        {
+            "address": "0.0.0.0",
+            "port": 5555,
+            "https": false
+        }
+    ],
+    "db_clients": [
+        {
+            "name": "default",
+            "rdbms": "postgresql",
+            "host": "127.0.0.1",
+            "port": 5432,
+            "dbname": "oauth_test",
+            "user": "test",
+            "passwd": "123456",
+            "is_fast": false,
+            "client_encoding": "",
+            "number_of_connections": 5,
+            "timeout": -1.0,
+            "auto_batch": false,
+            "connect_options": {
+                "statement_timeout": "10s"
+            }
+        }
+    ],
+    "redis_clients": [
+        {
+            "name": "default",
+            "host": "127.0.0.1",
+            "port": 6379,
+            "username": "",
+            "passwd": "123456",
+            "db": 0,
+            "is_fast": false,
+            "number_of_connections": 5,
+            "timeout": -1.0
+        }
+    ],
+    "app": {
+        "number_of_threads": 1,
+        "enable_session": true,
+        "session_timeout": 0,
+        "session_same_site": "Null",
+        "session_cookie_key": "JSESSIONID",
+        "session_max_age": -1,
+        "document_root": "./",
+        "home_page": "index.html",
+        "use_implicit_page": true,
+        "implicit_page": "index.html",
+        "static_file_headers": [
+            {
+                "name": "Cache-Control",
+                "value": "no-cache"
+            }
+        ],
+        "upload_path": "uploads",
+        "file_types": [
+            "gif",
+            "png",
+            "jpg",
+            "js",
+            "css",
+            "html",
+            "ico",
+            "swf",
+            "xap",
+            "apk",
+            "cur",
+            "xml",
+            "webp",
+            "svg",
+            "yaml",
+            "yml"
+        ],
+        "mime": {},
+        "locations": [
+            {
+                "default_content_type": "text/plain",
+                "alias": "",
+                "is_case_sensitive": false,
+                "allow_all": true,
+                "is_recursive": true,
+                "filters": []
+            }
+        ],
+        "max_connections": 100000,
+        "max_connections_per_ip": 0,
+        "load_dynamic_views": false,
+        "dynamic_views_path": [
+            "./views"
+        ],
+        "dynamic_views_output_path": "",
+        "json_parser_stack_limit": 1000,
+        "enable_unicode_escaping_in_json": true,
+        "float_precision_in_json": {
+            "precision": 0,
+            "precision_type": "significant"
+        },
+        "log": {
+            "use_spdlog": false,
+            "log_path": "",
+            "logfile_base_name": "",
+            "log_size_limit": 100000000,
+            "max_files": 0,
+            "log_level": "DEBUG",
+            "display_local_time": true
+        },
+        "run_as_daemon": false,
+        "handle_sig_term": true,
+        "relaunch_on_error": false,
+        "use_sendfile": true,
+        "use_gzip": true,
+        "use_brotli": false,
+        "static_files_cache_time": 0,
+        "simple_controllers_map": [],
+        "idle_connection_timeout": 60,
+        "server_header_field": "",
+        "enable_server_header": true,
+        "enable_date_header": true,
+        "keepalive_requests": 0,
+        "pipelining_requests": 0,
+        "gzip_static": true,
+        "br_static": true,
+        "client_max_body_size": "1M",
+        "client_max_memory_body_size": "64K",
+        "client_max_websocket_message_size": "128K",
+        "reuse_port": false,
+        "enabled_compressed_request": false,
+        "enable_request_stream": false
+    },
+    "plugins": [
+        {
+            "name": "drogon::plugin::PromExporter",
+            "dependencies": [],
+            "config": {
+                "path": "/metrics"
+            }
+        },
+        {
+            "name": "drogon::plugin::AccessLogger",
+            "dependencies": [],
+            "config": {
+                "use_spdlog": false,
+                "log_path": "",
+                "log_format": "",
+                "log_file": "access.log",
+                "log_size_limit": 0,
+                "use_local_time": true,
+                "log_index": 0
+            }
+        },
+        {
+            "name": "OAuth2Plugin",
+            "dependencies": [],
+            "config": {
+                "storage_type": "postgres",
+                "redis": {
+                    "client_name": "default"
+                },
+                "postgres": {
+                    "db_client_name": "default"
+                },
+                "clients": {
+                    "vue-client": {
+                        "secret": "123456",
+                        "redirect_uri": "http://127.0.0.1:5173/callback"
+                    }
+                },
+                "tokens": {
+                    "auth_code_ttl": 600,
+                    "access_token_ttl": 3600,
+                    "refresh_token_ttl": 2592000
+                },
+                "cleanup_interval_seconds": 3600
+            }
+        }
+    ],
+    "custom_config": {
+        "cors": {
+            "allow_origins": [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "https://editor.swagger.io"
+            ]
+        },
+        "external_auth": {
+            "wechat": {
+                "appid": "YOUR_WECHAT_APPID",
+                "secret": "YOUR_WECHAT_SECRET"
+            },
+            "google": {
+                "client_id": "YOUR_GOOGLE_CLIENT_ID",
+                "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
+                "redirect_uri": "http://127.0.0.1:5173/callback"
+            }
+        }
+    }
+}
