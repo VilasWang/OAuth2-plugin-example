@@ -27,7 +27,7 @@
             "is_fast": true,
             "client_encoding": "",
             "number_of_connections": 4,
-            "timeout": -1.0,
+            "timeout": 60.0,
             "auto_batch": true,
             "connect_options": {
                 "statement_timeout": "5s"
@@ -43,8 +43,8 @@
             "passwd": "123456",
             "db": 0,
             "is_fast": true,
-            "number_of_connections": 16,
-            "timeout": -1.0
+            "number_of_connections": 4,
+            "timeout": 60.0
         }
     ],
     "app": {
