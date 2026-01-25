@@ -62,3 +62,17 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p 
 WHERE r.name = 'user' AND p.name IN ('user:read')
 ON CONFLICT DO NOTHING;
+
+-- 6. Default Admin User (Bootstrap)
+-- Password: 'admin', Salt: 'admin_salt'
+INSERT INTO users (username, password_hash, salt, email)
+VALUES ('admin', '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', 'admin_salt', 'admin@example.com')
+ON CONFLICT (username) DO NOTHING;
+
+-- Assign admin role to admin user
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u, roles r
+WHERE u.username = 'admin' AND r.name = 'admin'
+ON CONFLICT DO NOTHING;
+

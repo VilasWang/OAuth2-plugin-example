@@ -107,6 +107,10 @@ paths:
                     type: string
                   scope:
                     type: string
+                  roles:
+                    type: array
+                    items:
+                      type: string
         "400":
           description: Invalid request.
         "429":
@@ -154,10 +158,10 @@ paths:
               properties:
                 username:
                   type: string
-                  default: admin_user
+                  default: admin
                 password:
                   type: string
-                  default: password123
+                  default: admin
                 client_id:
                   type: string
                   default: vue-client
@@ -189,7 +193,7 @@ paths:
   /api/register:
     post:
       summary: User Registration
-      description: Register a new user.
+      description: Register a new user. The 'user' role is assigned by default.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -210,6 +214,35 @@ paths:
           description: Registration successful.
         "400":
           description: Username exists or invalid data.
+        "429":
+          description: Rate limit exceeded (5 req/min).
+
+  /api/admin/dashboard:
+    get:
+      summary: Admin Dashboard
+      description: Protected endpoint requiring 'admin' role.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Access allowed. Returns admin data.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user_id:
+                    type: string
+                  roles:
+                    type: array
+                    items:
+                      type: string
+        "401":
+          description: Unauthorized (Invalid Token).
+        "403":
+          description: Forbidden (Insufficient permissions/roles).
         "429":
           description: Rate limit exceeded (5 req/min).
 

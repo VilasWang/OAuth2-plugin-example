@@ -34,6 +34,7 @@ cd d:\work\development\Repos\backend\drogon-plugin\OAuth2-plugin-example
 $env:PGPASSWORD='123456'
 psql -U test -d oauth_test -f "OAuth2Backend\sql\001_oauth2_core.sql"
 psql -U test -d oauth_test -f "OAuth2Backend\sql\002_users_table.sql"
+psql -U test -d oauth_test -f "OAuth2Backend\sql\003_rbac_schema.sql"
 Write-Host "✅ 数据库已重置"
 ```
 
@@ -52,3 +53,4 @@ Write-Host "✅ 数据库已重置"
 |------|------|
 | `001_oauth2_core.sql` | OAuth2 核心表（clients, codes, tokens） |
 | `002_users_table.sql` | 用户账号表 |
+| `003_rbac_schema.sql` | RBAC 权限架构及默认数据 |
