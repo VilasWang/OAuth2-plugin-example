@@ -20,17 +20,8 @@ DROGON_TEST(UserSystemTest)
         return;
     }
 
-    // Fix Schema (Salt length issue: UUID is 36 chars, column was 32)
-    try
-    {
-        db->execSqlSync("ALTER TABLE users ALTER COLUMN salt TYPE VARCHAR(36)");
-        LOG_INFO << "Schema corrected: salt column resized to 36";
-    }
-    catch (...)
-    {
-        // Ignore if already done or permission error (shouldn't happen in test
-        // env)
-    }
+    // Schema already correct in 002_users_table.sql
+
 
     // Clean up
     try

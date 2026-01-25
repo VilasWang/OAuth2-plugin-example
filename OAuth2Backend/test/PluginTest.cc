@@ -73,6 +73,7 @@ DROGON_TEST(PluginTest)
         auto result = f.get();
         CHECK(result.isMember("access_token"));
         CHECK(result.isMember("refresh_token"));
+        CHECK(result.isMember("roles"));
         requestAccessToken = result["access_token"].asString();
         requestRefreshToken = result["refresh_token"].asString();
     }
