@@ -113,16 +113,18 @@ void OAuth2Controller::login(
     std::string state = params["state"];
 
     AuthService::validateUser(
-        username, password, [=, callback = std::move(callback)](bool isValid) {
-            if (isValid)
+        username,
+        password,
+        [=, callback = std::move(callback)](std::optional<int> userId) {
+            if (userId)
             {
-                // Success
-                req->session()->insert("userId", username);
+                // Success - Store ID (as string) in Session
+                req->session()->insert("userId", std::to_string(*userId));
                 auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
 
                 plugin->generateAuthorizationCode(
                     clientId,
-                    username,
+                    std::to_string(*userId),
                     scope,
                     [=, callback = std::move(callback)](std::string code) {
                         std::string location = redirectUri + "?code=" + code;

@@ -11,9 +11,10 @@ using namespace drogon::orm;
 namespace services
 {
 
-void AuthService::validateUser(const std::string &username,
-                               const std::string &password,
-                               std::function<void(bool isValid)> &&callback)
+void AuthService::validateUser(
+    const std::string &username,
+    const std::string &password,
+    std::function<void(std::optional<int> userId)> &&callback)
 {
     try
     {
@@ -51,17 +52,21 @@ void AuthService::validateUser(const std::string &username,
                     if (inputLower == dbLower)
                         valid = true;
                 }
-                callback(valid);
+                
+                if (valid)
+                    callback(user.getValueOfId());
+                else
+                    callback(std::nullopt);
             },
             [callback](const DrogonDbException &e) {
                 LOG_WARN << "Validate User Failed: " << e.base().what();
-                callback(false);
+                callback(std::nullopt);
             });
     }
     catch (const DrogonDbException &e)
     {
         LOG_WARN << "Validate User Init Failed: " << e.base().what();
-        callback(false);
+        callback(std::nullopt);
     }
 }
 

@@ -168,7 +168,7 @@ void OAuth2Plugin::generateAuthorizationCode(
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                    std::chrono::system_clock::now().time_since_epoch())
                    .count();
-    authCodeTtl_ = 600;  // Fallback or override if needed? No, use member.
+    // authCodeTtl_ is already set from config in initAndStart
                          // Wait, initAndStart sets member.
     // The previous line 116 was "authCode.expiresAt = now + 600;"
     // Correction:

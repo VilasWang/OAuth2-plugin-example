@@ -12,9 +12,10 @@ class AuthService
   public:
     // 异步验证用户凭据
     // callback: 成功返回 true，失败返回 false
-    static void validateUser(const std::string &username,
-                             const std::string &password,
-                             std::function<void(bool isValid)> &&callback);
+    static void validateUser(
+        const std::string &username,
+        const std::string &password,
+        std::function<void(std::optional<int> userId)> &&callback);
 
     // 异步注册用户
     // callback: 成功返回空字符串，失败返回错误消息
