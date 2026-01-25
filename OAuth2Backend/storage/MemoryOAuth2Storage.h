@@ -55,8 +55,15 @@ class MemoryOAuth2Storage : public IOAuth2Storage
     void getUserRoles(const std::string &userId,
                       StringListCallback &&cb) override
     {
-        // Default role for in-memory
-        cb({"user"});
+        // Mock Admin for ID "1" or "admin"
+        if (userId == "1" || userId == "admin")
+        {
+            cb({"admin", "user"});
+        }
+        else
+        {
+            cb({"user"});
+        }
     }
 
   private:
