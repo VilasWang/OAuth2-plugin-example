@@ -47,4 +47,4 @@ if(MSVC)
 endif()
 
 # ParseAndAddDrogonTests(${PROJECT_NAME})
-add_test(NAME OAuth2Tests COMMAND ${PROJECT_NAME})
+add_test(NAME OAuth2Tests COMMAND ${PROJECT_NAME} WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}>)

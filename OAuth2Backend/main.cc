@@ -5,6 +5,44 @@
 
 using namespace drogon;
 
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+
+// Helper to create log directory from config
+void createLogDirFromConfig(const std::string &configPath)
+{
+    std::ifstream configFile(configPath);
+    if (!configFile.is_open())
+        return;
+
+    Json::Value root;
+    Json::Reader reader;
+    if (reader.parse(configFile, root))
+    {
+        const auto &logConfig = root["app"]["log"];
+        if (!logConfig.isNull())
+        {
+            std::string logPath = logConfig.get("log_path", "").asString();
+            if (!logPath.empty())
+            {
+                try
+                {
+                    if (!std::filesystem::exists(logPath))
+                    {
+                        std::filesystem::create_directories(logPath);
+                        std::cout << "Created log directory: " << logPath << std::endl;
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    std::cerr << "Failed to create log directory: " << e.what() << std::endl;
+                }
+            }
+        }
+    }
+}
+
 void setupCors()
 {
     // Define the whitelist check logic
@@ -87,6 +125,13 @@ int main()
     // Load config file - important to do this BEFORE setupCors if setupCors
     // uses getCustomConfig() Actually, getCustomConfig() is populated after
     // loadConfigFile()
+    // Load config file - important to do this BEFORE setupCors if setupCors
+    // uses getCustomConfig() Actually, getCustomConfig() is populated after
+    // loadConfigFile()
+    
+    // Ensure log directory exists
+    createLogDirFromConfig("./config.json");
+
     drogon::app().loadConfigFile("./config.json");
 
     // Setup CORS support
