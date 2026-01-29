@@ -6,6 +6,15 @@
             "https": false
         }
     ],
+    "rbac_rules": {
+        "/api/admin/.*": [
+            "admin"
+        ],
+        "/api/user/.*": [
+            "user",
+            "admin"
+        ]
+    },
     "db_clients": [
         {
             "name": "default",
