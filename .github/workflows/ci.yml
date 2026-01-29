@@ -1,0 +1,97 @@
+name: OAuth2 Backend CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      # Service containers to run with `runner-job`
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: 123456
+          POSTGRES_DB: oauth_test
+        ports:
+          - 5432:5432
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libjsoncpp-dev \
+            uuid-dev \
+            zlib1g-dev \
+            openssl \
+            libssl-dev \
+            postgresql-server-dev-all \
+            libhiredis-dev \
+            python3-pip
+
+      - name: Install Conan
+        run: |
+          pip3 install conan
+          conan profile detect --force
+
+      - name: Configure CMake using Conan
+        working-directory: ${{github.workspace}}/OAuth2Backend
+        run: |
+          conan install . --output-folder=build --build=missing -s build_type=${{env.BUILD_TYPE}}
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+
+      - name: Build
+        working-directory: ${{github.workspace}}/OAuth2Backend
+        run: cmake --build build --config ${{env.BUILD_TYPE}}
+
+      - name: Initialize Database
+        working-directory: ${{github.workspace}}/OAuth2Backend
+        env:
+          PGPASSWORD: 123456
+        run: |
+          # Wait for Postgres to be ready (just in case)
+          sleep 5
+          psql -h localhost -U test -d oauth_test -f sql/001_oauth2_core.sql
+          psql -h localhost -U test -d oauth_test -f sql/002_users_table.sql
+          psql -h localhost -U test -d oauth_test -f sql/003_rbac_schema.sql
+
+      - name: Test
+        working-directory: ${{github.workspace}}/OAuth2Backend/build
+        # Execute tests defined by the CMake configuration.
+        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag oauth2-server:latest
