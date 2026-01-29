@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(OAuth2Server CXX)
+project(OAuth2Server VERSION 1.0.0 LANGUAGES CXX)
 
 include(CheckIncludeFileCXX)
 
