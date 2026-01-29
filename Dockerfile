@@ -65,7 +65,7 @@ WORKDIR /app
 
 # Copy executable and config
 COPY --from=builder /app/OAuth2Backend/build/OAuth2Server .
-COPY --from=builder /app/OAuth2Backend/config.prod.json ./config.json
+COPY --from=builder /app/OAuth2Backend/config.json ./config.json
 # Copy web content
 COPY --from=builder /app/OAuth2Backend/views ./views
 # Create log and upload dirs

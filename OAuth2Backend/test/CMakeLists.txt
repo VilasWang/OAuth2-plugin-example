@@ -24,6 +24,7 @@ set(TEST_SRC
     "UserTest.cc"
     "IntegrationE2ETest.cc"
     "RateLimiterTest.cc"
+    "EnvConfigTest.cc"
 )
 
 add_executable(${PROJECT_NAME} ${TEST_SRC} ${PLUGIN_SRC} ${STORAGE_SRC} ${SERVICE_SRC} ${MODEL_SRC} ${CTL_SRC} ${FILTER_SRC})
@@ -44,6 +45,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon)
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /FI"${CMAKE_CURRENT_SOURCE_DIR}/../models/orm_compat.h")
+    target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
 endif()
 
 # ParseAndAddDrogonTests(${PROJECT_NAME})

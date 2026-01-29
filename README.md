@@ -25,11 +25,12 @@ OAuth2Test/
 ## Prerequisites
 
 - **Backend**:
-  - C++ Compiler (supporting C++17/20, e.g., MSVC, GCC)
+  - C++ Compiler (supporting C++17/20, e.g., MSVC, GCC, Clang)
   - [Conan](https://conan.io/) (Package Manager)
-  - [CMake](https://cmake.org/)
+  - [CMake](https://cmake.org/) (3.20+)
 - **Frontend**:
   - [Node.js](https://nodejs.org/) & npm
+- **Docker** (Optional, for Linux verification on Windows)
 
 ## 1. Backend Setup (OAuth2Backend)
 
@@ -137,10 +138,21 @@ Production-ready monitoring with Prometheus Metrics and Structured Audit Logs.
 We implement Rate Limiting and Security Headers to protect against attacks.
 👉 **[Security Hardening Guide](OAuth2Backend/docs/security_hardening.md)**
 
-### RBAC Permission System (New)
+### Configuration & Deployment (New)
+
+Full guide on Environment Variables and Docker deployment.
+👉 **[Configuration Guide](OAuth2Backend/docs/configuration_guide.md)**
+
+### RBAC Permission System
 
 Role-Based Access Control using `AuthorizationFilter` and `rbac_rules` configuration.
 Matches URL patterns to required roles (e.g. `/api/admin/.*` -> `["admin"]`).
+👉 **[RBAC Guide](OAuth2Backend/docs/rbac_guide.md)**
+
+### Linux Compatibility & Docker
+
+Full cross-platform support with provided `Dockerfile` and `build.sh`.
+Validated via automated Docker Desktop workflows on Windows.
 
 ## Features & Endpoints
 

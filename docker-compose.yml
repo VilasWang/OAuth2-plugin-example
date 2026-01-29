@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  oauth2-server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: oauth2-server
+    restart: always
+    ports:
+      - "5555:5555"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - OAUTH2_DB_HOST=postgres
+      - OAUTH2_DB_NAME=oauth2_db
+      - OAUTH2_DB_PASSWORD=postgres_secret_pass
+      - OAUTH2_REDIS_HOST=redis
+      - OAUTH2_REDIS_PASSWORD=redis_secret_pass
+      - OAUTH2_VUE_CLIENT_SECRET=vue_secret_prod
+    networks:
+      - oauth2-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: oauth2-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=postgres_secret_pass
+      - POSTGRES_DB=oauth2_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./OAuth2Backend/sql:/docker-entrypoint-initdb.d
+    networks:
+      - oauth2-net
+
+  redis:
+    image: redis:alpine
+    container_name: oauth2-redis
+    restart: always
+    command: redis-server --requirepass redis_secret_pass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - oauth2-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: oauth2-prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - oauth2-net
+
+networks:
+  oauth2-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:

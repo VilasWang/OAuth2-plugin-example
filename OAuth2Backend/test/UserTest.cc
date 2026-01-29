@@ -22,7 +22,6 @@ DROGON_TEST(UserSystemTest)
 
     // Schema already correct in 002_users_table.sql
 
-
     // Clean up
     try
     {

@@ -117,26 +117,36 @@ DROGON_TEST(PluginTest)
         // Just use validation logic on previous known valid?
         // Actually Step 6 validated format.
     }
-    
+
     // 8. Verify Admin Roles (Memory Mock)
     {
         std::string adminCode;
         // Generate code for admin
         std::promise<std::string> p;
         auto f = p.get_future();
-        plugin->generateAuthorizationCode("plugin-client", "admin", "scope1", [&](std::string c){ p.set_value(c); });
+        plugin->generateAuthorizationCode("plugin-client",
+                                          "admin",
+                                          "scope1",
+                                          [&](std::string c) {
+                                              p.set_value(c);
+                                          });
         adminCode = f.get();
-        
+
         // Exchange
         std::promise<Json::Value> p2;
         auto f2 = p2.get_future();
-        plugin->exchangeCodeForToken(adminCode, "plugin-client", [&](const Json::Value &v){ p2.set_value(v); });
+        plugin->exchangeCodeForToken(adminCode,
+                                     "plugin-client",
+                                     [&](const Json::Value &v) {
+                                         p2.set_value(v);
+                                     });
         auto res = f2.get();
-        
+
         CHECK(res.isMember("roles"));
         bool hasAdmin = false;
-        for(const auto& r : res["roles"]) 
-            if(r.asString() == "admin") hasAdmin = true;
+        for (const auto &r : res["roles"])
+            if (r.asString() == "admin")
+                hasAdmin = true;
         CHECK(hasAdmin == true);
     }
 }

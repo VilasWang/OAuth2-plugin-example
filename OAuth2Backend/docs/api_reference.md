@@ -143,3 +143,17 @@ Authorization: `Bearer {access_token}`
 - **URL**: `/api/wechat/login`
 - **Method**: `POST`
 - **Desc**: 处理微信小程序/扫码登录（演示用途）。
+
+---
+
+## 5. 通用错误码
+
+| HTTP Status | 描述 | 原因示例 |
+|---|---|---|
+| `200` | OK | 请求成功 |
+| `302` | Found | 重定向 (如 OAuth2 授权跳转) |
+| `400` | Bad Request | 参数错误, `invalid_grant`, `invalid_client` |
+| `401` | Unauthorized | Token 无效或过期 |
+| `403` | Forbidden | **RBAC 拦截**: 用户已登录但缺少所需角色 |
+| `429` | Too Many Requests | 触发限流 (Rate Limiting) |
+| `500` | Internal Server Error | 服务器内部错误 |

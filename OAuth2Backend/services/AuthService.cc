@@ -52,7 +52,7 @@ void AuthService::validateUser(
                     if (inputLower == dbLower)
                         valid = true;
                 }
-                
+
                 if (valid)
                     callback(user.getValueOfId());
                 else

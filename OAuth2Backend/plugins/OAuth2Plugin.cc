@@ -169,7 +169,7 @@ void OAuth2Plugin::generateAuthorizationCode(
                    std::chrono::system_clock::now().time_since_epoch())
                    .count();
     // authCodeTtl_ is already set from config in initAndStart
-                         // Wait, initAndStart sets member.
+    // Wait, initAndStart sets member.
     // The previous line 116 was "authCode.expiresAt = now + 600;"
     // Correction:
     authCode.expiresAt = now + authCodeTtl_;
