@@ -95,7 +95,6 @@ DROGON_TEST(IntegrationE2E)
     // Session. Session is attached to Request. If we create a Request, we can
     // attach a Session object? Drogon tests support `req->setSession()`.
 
-    // Todo: Implement full flow if Step 1 works.
     // Cleanup
     if (!userId.empty())
     {
