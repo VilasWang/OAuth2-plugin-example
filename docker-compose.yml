@@ -1,8 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   oauth2-server:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: oauth2-server
@@ -31,7 +31,7 @@ services:
       - POSTGRES_PASSWORD=postgres_secret_pass
       - POSTGRES_DB=oauth2_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./OAuth2Backend/sql:/docker-entrypoint-initdb.d
@@ -44,7 +44,7 @@ services:
     restart: always
     command: redis-server --requirepass redis_secret_pass
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redisdata:/data
     networks:
