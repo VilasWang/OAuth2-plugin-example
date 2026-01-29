@@ -86,6 +86,9 @@ jobs:
       - name: Test
         working-directory: ${{github.workspace}}/OAuth2Backend/build
         # Execute tests defined by the CMake configuration.
+        # Override Redis password to empty because GHA service redis has no password
+        env:
+          OAUTH2_REDIS_PASSWORD: ""
         run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure
 
   docker-build:
