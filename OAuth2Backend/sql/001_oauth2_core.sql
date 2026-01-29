@@ -56,7 +56,7 @@ VALUES (
     '42a121b66fb9f1d4f73125788f42eb6799110c6aeae5a9a12a2fed5307a0088d', 
     'random_salt', 
     'Vue Front-end Client', 
-    'http://localhost:5173/callback', 
+    'http://localhost:5173/callback,http://localhost:8080/callback', 
     'authorization_code,refresh_token', 
     'openid profile'
 );

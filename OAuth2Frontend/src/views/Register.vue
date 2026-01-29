@@ -58,7 +58,7 @@ const register = async () => {
     loading.value = true
     
     try {
-        const response = await fetch('http://localhost:5555/api/register', {
+        const response = await fetch('/api/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',

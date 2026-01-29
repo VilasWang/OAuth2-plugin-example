@@ -225,7 +225,12 @@ int main()
             resp->addHeader("X-Content-Type-Options", "nosniff");
             resp->addHeader("X-Frame-Options", "SAMEORIGIN");
             resp->addHeader("Content-Security-Policy",
-                            "default-src 'self'; frame-ancestors 'self';");
+                            "default-src 'self'; "
+                            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                            "font-src 'self' https://fonts.gstatic.com; "
+                            "img-src 'self' data: https:; "
+                            "frame-ancestors 'self';");
             resp->addHeader("Strict-Transport-Security",
                             "max-age=31536000; includeSubDomains");
         });

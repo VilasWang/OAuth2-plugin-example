@@ -1,10 +1,25 @@
 version: "3.8"
 
 services:
+  oauth2-client:
+    build:
+      context: ./OAuth2Frontend
+      dockerfile: Dockerfile
+    image: oauth2-client:latest
+    container_name: oauth2-client
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - oauth2-server
+    networks:
+      - oauth2-net
+
   oauth2-server:
     build:
       context: .
       dockerfile: Dockerfile
+    image: oauth2-server:latest
     container_name: oauth2-server
     restart: always
     ports:

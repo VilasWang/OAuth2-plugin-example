@@ -118,9 +118,17 @@ void OAuth2Controller::login(
         [=, callback = std::move(callback)](std::optional<int> userId) {
             if (userId)
             {
-                // Success - Store ID (as string) in Session
                 req->session()->insert("userId", std::to_string(*userId));
                 auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+                if (!plugin)
+                {
+                    LOG_ERROR << "OAuth2Plugin not loaded during login";
+                    auto resp = HttpResponse::newHttpResponse();
+                    resp->setStatusCode(k500InternalServerError);
+                    resp->setBody("Internal Server Error: Plugin not loaded");
+                    callback(resp);
+                    return;
+                }
 
                 plugin->generateAuthorizationCode(
                     clientId,

@@ -19,15 +19,15 @@ const loginWithDrogon = async () => {
     localStorage.setItem('auth_state_drogon', state)
     
     const clientId = 'vue-client'
-    const redirectUri = 'http://localhost:5173/callback'
+    const redirectUri = window.location.origin + '/callback'
     const scope = 'openid profile'
-    const authUrl = `http://localhost:5555/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`
+    const authUrl = `/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`
 
     try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-        await fetch(`http://localhost:5555/oauth2/authorize`, { 
+        await fetch(`/oauth2/authorize`, { 
             method: 'HEAD', 
             signal: controller.signal,
             mode: 'no-cors'
