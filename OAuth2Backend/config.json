@@ -134,8 +134,7 @@
         "br_static": true,
         "client_max_body_size": "20M",
         "client_max_memory_body_size": "64K",
-        "client_max_websocket_message_size": "128K",
-        "reuse_port": true,
+        "reuse_port": false,
         "enabled_compressed_request": true,
         "enable_request_stream": false
     },
@@ -161,7 +160,7 @@
                 "clients": {
                     "vue-client": {
                         "secret": "123456",
-                        "redirect_uri": "http://127.0.0.1:5173/callback"
+                        "redirect_uri": "http://localhost:5173/callback"
                     }
                 },
                 "tokens": {
@@ -189,7 +188,7 @@
             "google": {
                 "client_id": "YOUR_GOOGLE_CLIENT_ID",
                 "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
-                "redirect_uri": "http://127.0.0.1:5173/callback"
+                "redirect_uri": "http://localhost:5173/callback"
             }
         }
     }

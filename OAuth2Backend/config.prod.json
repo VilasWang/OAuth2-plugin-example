@@ -161,7 +161,7 @@
                 "clients": {
                     "vue-client": {
                         "secret": "123456",
-                        "redirect_uri": "http://127.0.0.1:5173/callback"
+                        "redirect_uri": "http://localhost:5173/callback"
                     }
                 },
                 "tokens": {
@@ -189,7 +189,7 @@
             "google": {
                 "client_id": "YOUR_GOOGLE_CLIENT_ID",
                 "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
-                "redirect_uri": "http://127.0.0.1:5173/callback"
+                "redirect_uri": "http://localhost:5173/callback"
             }
         }
     }

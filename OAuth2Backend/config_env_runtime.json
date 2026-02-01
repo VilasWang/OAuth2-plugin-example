@@ -1,0 +1,188 @@
+{
+   "app" : {
+      "br_static" : true,
+      "client_max_body_size" : "20M",
+      "client_max_memory_body_size" : "64K",
+      "document_root" : "./",
+      "dynamic_views_output_path" : "",
+      "dynamic_views_path" : [ "./views" ],
+      "enable_date_header" : true,
+      "enable_request_stream" : false,
+      "enable_server_header" : true,
+      "enable_session" : true,
+      "enable_unicode_escaping_in_json" : false,
+      "enabled_compressed_request" : true,
+      "file_types" : [
+         "gif",
+         "png",
+         "jpg",
+         "js",
+         "css",
+         "html",
+         "ico",
+         "swf",
+         "xap",
+         "apk",
+         "cur",
+         "xml",
+         "webp",
+         "svg",
+         "yaml",
+         "yml"
+      ],
+      "float_precision_in_json" : {
+         "precision" : 0,
+         "precision_type" : "significant"
+      },
+      "gzip_static" : true,
+      "handle_sig_term" : true,
+      "home_page" : "index.html",
+      "idle_connection_timeout" : 60,
+      "implicit_page" : "index.html",
+      "json_parser_stack_limit" : 1000,
+      "keepalive_requests" : 10000,
+      "load_dynamic_views" : false,
+      "locations" : [
+         {
+            "alias" : "",
+            "allow_all" : true,
+            "default_content_type" : "text/plain",
+            "filters" : [],
+            "is_case_sensitive" : true,
+            "is_recursive" : true
+         }
+      ],
+      "log" : {
+         "display_local_time" : true,
+         "log_level" : "WARN",
+         "log_path" : "./logs",
+         "log_size_limit" : 100000000,
+         "logfile_base_name" : "oauth2_prod",
+         "max_files" : 10,
+         "use_spdlog" : true
+      },
+      "max_connections" : 100000,
+      "max_connections_per_ip" : 0,
+      "mime" : {},
+      "number_of_threads" : 0,
+      "pipelining_requests" : 4096,
+      "relaunch_on_error" : true,
+      "reuse_port" : false,
+      "run_as_daemon" : false,
+      "server_header_field" : "OAuth2Server",
+      "session_cookie_key" : "JSESSIONID",
+      "session_max_age" : 3600,
+      "session_same_site" : "Lax",
+      "session_timeout" : 3600,
+      "simple_controllers_map" : [],
+      "static_file_headers" : [
+         {
+            "name" : "Cache-Control",
+            "value" : "public, max-age=86400"
+         }
+      ],
+      "static_files_cache_time" : 86400,
+      "upload_path" : "uploads",
+      "use_brotli" : true,
+      "use_gzip" : true,
+      "use_implicit_page" : false,
+      "use_sendfile" : true
+   },
+   "custom_config" : {
+      "cors" : {
+         "allow_origins" : [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://editor.swagger.io"
+         ]
+      },
+      "external_auth" : {
+         "google" : {
+            "client_id" : "YOUR_GOOGLE_CLIENT_ID",
+            "client_secret" : "YOUR_GOOGLE_CLIENT_SECRET",
+            "redirect_uri" : "http://localhost:5173/callback"
+         },
+         "wechat" : {
+            "appid" : "YOUR_WECHAT_APPID",
+            "secret" : "YOUR_WECHAT_SECRET"
+         }
+      }
+   },
+   "db_clients" : [
+      {
+         "auto_batch" : true,
+         "client_encoding" : "",
+         "connect_options" : {
+            "statement_timeout" : "5s"
+         },
+         "dbname" : "oauth_test",
+         "host" : "127.0.0.1",
+         "is_fast" : false,
+         "name" : "default",
+         "number_of_connections" : 1,
+         "passwd" : "123456",
+         "port" : 5432,
+         "rdbms" : "postgresql",
+         "timeout" : -1.0,
+         "user" : "test"
+      }
+   ],
+   "listeners" : [
+      {
+         "address" : "0.0.0.0",
+         "https" : false,
+         "port" : 5555
+      }
+   ],
+   "plugins" : [
+      {
+         "config" : {
+            "path" : "/metrics"
+         },
+         "dependencies" : [],
+         "name" : "drogon::plugin::PromExporter"
+      },
+      {
+         "config" : {
+            "cleanup_interval_seconds" : 3600,
+            "clients" : {
+               "vue-client" : {
+                  "redirect_uri" : "http://localhost:5173/callback",
+                  "secret" : "123456"
+               }
+            },
+            "postgres" : {
+               "db_client_name" : "default"
+            },
+            "redis" : {
+               "client_name" : "default"
+            },
+            "storage_type" : "postgres",
+            "tokens" : {
+               "access_token_ttl" : 3600,
+               "auth_code_ttl" : 600,
+               "refresh_token_ttl" : 2592000
+            }
+         },
+         "dependencies" : [],
+         "name" : "OAuth2Plugin"
+      }
+   ],
+   "rbac_rules" : {
+      "/api/admin/.*" : [ "admin" ],
+      "/api/user/.*" : [ "user", "admin" ]
+   },
+   "redis_clients" : [
+      {
+         "db" : 0,
+         "host" : "127.0.0.1",
+         "is_fast" : false,
+         "name" : "default",
+         "number_of_connections" : 1,
+         "passwd" : "123456",
+         "port" : 6379,
+         "timeout" : -1.0,
+         "username" : ""
+      }
+   ]
+}

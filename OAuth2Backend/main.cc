@@ -148,12 +148,16 @@ std::string loadConfigWithEnv(const std::string &configPath)
         root["db_clients"][0]["dbname"] = env;
     if (const char *env = std::getenv("OAUTH2_DB_PASSWORD"))
         root["db_clients"][0]["passwd"] = env;
+    if (const char *env = std::getenv("OAUTH2_DB_PORT"))
+        root["db_clients"][0]["port"] = std::stoi(env);
 
     // Override Redis Settings
     if (const char *env = std::getenv("OAUTH2_REDIS_HOST"))
         root["redis_clients"][0]["host"] = env;
     if (const char *env = std::getenv("OAUTH2_REDIS_PASSWORD"))
         root["redis_clients"][0]["passwd"] = env;
+    if (const char *env = std::getenv("OAUTH2_REDIS_PORT"))
+        root["redis_clients"][0]["port"] = std::stoi(env);
 
     // Override Client Secret in OAuth2Plugin
     if (const char *env = std::getenv("OAUTH2_VUE_CLIENT_SECRET"))
