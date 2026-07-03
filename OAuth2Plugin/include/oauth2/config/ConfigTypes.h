@@ -35,11 +35,10 @@ inline const std::vector<EnvOverride> OAUTH2_ENV_OVERRIDES =
    {"custom_config.external_auth.google.redirect_uri", "OAUTH2_GOOGLE_REDIRECT_URI", false},
    {"listeners.0.port", "OAUTH2_LISTEN_PORT", true},
    {"vue_client.secret", "OAUTH2_VUE_CLIENT_SECRET", false},
-   // Index 2 matches config.prod.json (PromExporter=0, Hodor=1, OAuth2Plugin=2).
-   // This is the file baked into the Docker runtime image (Dockerfile copies
-   // config.prod.json → config.json). Production deployments must keep OAuth2Plugin
-   // at this index, or update the path accordingly.
-   {"plugins.2.config.clients.vue-client.redirect_uri", "OAUTH2_VUE_REDIRECT_URI", false},
+   // "[name=OAuth2Plugin]" resolves the plugin by its drogon "name" field,
+   // independent of array ordering — each config file inserts a different set
+   // of plugins (Hodor, AccessLogger) so a numeric index would be fragile.
+   {"plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri", "OAUTH2_VUE_REDIRECT_URI", false},
    {"custom_config.cors.allow_origins", "OAUTH2_CORS_ALLOW_ORIGINS", false, /*isStringList=*/true}};
 
 }  // namespace common::config

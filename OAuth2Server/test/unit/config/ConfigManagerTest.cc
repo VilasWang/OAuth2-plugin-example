@@ -146,27 +146,27 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_GoogleRedirect)
     unsetenv("OAUTH2_GOOGLE_REDIRECT_URI");
 }
 
-// Locks the PRODUCTION config structure: in config.prod.json the OAuth2Plugin
-// sits at plugins[2] (PromExporter=0, Hodor=1, OAuth2Plugin=2), and this is the
-// file baked into the Docker runtime image. A test against config.json (where
-// the plugin is at index 1) cannot catch a prod-specific index regression.
-DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_ProdConfig_VueRedirect)
+// Verifies the "[name=OAuth2Plugin]" named-element lookup decouples the
+// OAUTH2_VUE_REDIRECT_URI override from plugin array ordering. Each config
+// file inserts different plugins (Hodor/AccessLogger) so a numeric index would
+// point at the wrong element; the named lookup must resolve regardless.
+DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_VueRedirect_ByNameLookup)
 {
     setenv("OAUTH2_VUE_REDIRECT_URI", "https://prod.example.com/callback", 1);
 
-    std::string configPath = "./config.prod.json";
+    std::string configPath = "./config.json";
     if (!std::filesystem::exists(configPath))
-        configPath = "../config.prod.json";
+        configPath = "../config.json";
     if (!std::filesystem::exists(configPath))
-        configPath = "../../config.prod.json";
+        configPath = "../../config.json";
     if (!std::filesystem::exists(configPath))
-        configPath = "../../../config.prod.json";
+        configPath = "../../../config.json";
 
     Json::Value config;
     CHECK(common::config::ConfigManager::load(configPath, config) == true);
 
     auto redirect = common::config::ConfigManager::get<std::string>(
-        config, "plugins.2.config.clients.vue-client.redirect_uri");
+        config, "plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri");
     CHECK(redirect == "https://prod.example.com/callback");
 
     unsetenv("OAUTH2_VUE_REDIRECT_URI");

@@ -222,6 +222,61 @@ Json::Value *ConfigManager::getJsonPointer(Json::Value &root, const std::string 
             }
             current = &((*current)[static_cast<int>(index)]);
         }
+        // Named-element lookup in an object array. Supports two spellings:
+        //   "[name=OAuth2Plugin]"            — filter the current array
+        //   "plugins[name=OAuth2Plugin]"     — first access member "plugins",
+        //                                       then filter the resulting array.
+        // Decouples override paths from plugin ordering, which differs per config
+        // file (Hodor/AccessLogger are inserted in some configs but not others).
+        else if (p.size() > 2 && p.back() == ']')
+        {
+            std::string member;
+            std::string body = p;
+            auto lb = body.find('[');
+            if (lb == std::string::npos)
+            {
+                return nullptr;
+            }
+            member = body.substr(0, lb);
+            body = body.substr(lb + 1, body.size() - lb - 2);  // strip [ and ]
+
+            auto eq = body.find('=');
+            if (eq == std::string::npos)
+            {
+                return nullptr;
+            }
+            std::string key = body.substr(0, eq);
+            std::string val = body.substr(eq + 1);
+
+            Json::Value *arr = current;
+            if (!member.empty())
+            {
+                if (!current->isObject() || !current->isMember(member))
+                {
+                    return nullptr;
+                }
+                arr = &((*current)[member]);
+            }
+            if (!arr->isArray())
+            {
+                return nullptr;
+            }
+            bool found = false;
+            for (auto &elem : *arr)
+            {
+                if (elem.isObject() && elem.isMember(key) &&
+                    elem[key].isString() && elem[key].asString() == val)
+                {
+                    current = &elem;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                return nullptr;
+            }
+        }
         else
         {
             if (!current->isObject() || !current->isMember(p))
