@@ -63,6 +63,17 @@ CMD ["./OAuth2Server"]
 # --- Stage 5: Frontend Builder ---
 # Only proxy Node as it was the one failing
 FROM node:${NODE_VERSION} AS frontend-builder
+# Vite build-time vars (inlined into the SPA bundle via import.meta.env.VITE_*).
+# Passed through from docker-compose.prod.yml build.args; default empty so the
+# SPA falls back to its in-code defaults when a var is not provided.
+ARG VITE_API_BASE_URL=
+ARG VITE_CLIENT_ID=vue-client
+ARG VITE_REDIRECT_URI=
+ARG VITE_GITHUB_CLIENT_ID=
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    VITE_CLIENT_ID=$VITE_CLIENT_ID \
+    VITE_REDIRECT_URI=$VITE_REDIRECT_URI \
+    VITE_GITHUB_CLIENT_ID=$VITE_GITHUB_CLIENT_ID
 WORKDIR /app/OAuth2Frontend
 COPY OAuth2Frontend/package*.json ./
 RUN npm install

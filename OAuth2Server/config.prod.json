@@ -201,7 +201,7 @@
                     "vue-client": {
                         "client_type": "PUBLIC",
                         "secret": "123456",
-                        "redirect_uri": ["http://localhost:5173/callback", "http://localhost:8080/callback"],
+                        "redirect_uri": "http://localhost:5173/callback,http://localhost:8080/callback",
                         "allowed_scopes": ["openid", "profile", "email"]
                     }
                 },

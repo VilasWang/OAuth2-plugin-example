@@ -95,3 +95,79 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_Database_EnvOverrideDbHost)
 
     unsetenv("OAUTH2_DB_HOST");
 }
+
+// CORS allow_origins is a JSON array consumer (main.cc checks isArray()).
+// The env override must split the comma-separated string into a real array,
+// not clobber the node into a scalar string.
+DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_CorsArray)
+{
+    setenv("OAUTH2_CORS_ALLOW_ORIGINS", "https://a.com, https://b.com", 1);
+
+    std::string configPath = "./config.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../config.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../../config.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../../../config.json";
+
+    Json::Value config;
+    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+
+    const Json::Value &origins = config["custom_config"]["cors"]["allow_origins"];
+    CHECK(origins.isArray() == true);
+    CHECK(origins.size() == 2);
+    CHECK(origins[0].asString() == "https://a.com");
+    CHECK(origins[1].asString() == "https://b.com");
+
+    unsetenv("OAUTH2_CORS_ALLOW_ORIGINS");
+}
+
+// Google redirect_uri is a scalar string consumer (GoogleController.cc).
+DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_GoogleRedirect)
+{
+    setenv("OAUTH2_GOOGLE_REDIRECT_URI", "https://prod.example.com/callback", 1);
+
+    std::string configPath = "./config.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../config.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../../config.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../../../config.json";
+
+    Json::Value config;
+    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+
+    auto redirect = common::config::ConfigManager::get<std::string>(
+        config, "custom_config.external_auth.google.redirect_uri");
+    CHECK(redirect == "https://prod.example.com/callback");
+
+    unsetenv("OAUTH2_GOOGLE_REDIRECT_URI");
+}
+
+// Locks the PRODUCTION config structure: in config.prod.json the OAuth2Plugin
+// sits at plugins[2] (PromExporter=0, Hodor=1, OAuth2Plugin=2), and this is the
+// file baked into the Docker runtime image. A test against config.json (where
+// the plugin is at index 1) cannot catch a prod-specific index regression.
+DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_ProdConfig_VueRedirect)
+{
+    setenv("OAUTH2_VUE_REDIRECT_URI", "https://prod.example.com/callback", 1);
+
+    std::string configPath = "./config.prod.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../config.prod.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../../config.prod.json";
+    if (!std::filesystem::exists(configPath))
+        configPath = "../../../config.prod.json";
+
+    Json::Value config;
+    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+
+    auto redirect = common::config::ConfigManager::get<std::string>(
+        config, "plugins.2.config.clients.vue-client.redirect_uri");
+    CHECK(redirect == "https://prod.example.com/callback");
+
+    unsetenv("OAUTH2_VUE_REDIRECT_URI");
+}

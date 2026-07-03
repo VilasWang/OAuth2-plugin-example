@@ -330,9 +330,16 @@ cp /etc/letsencrypt/live/your-domain.com/privkey.pem deploy/nginx/ssl/
 cp deploy/env/docker.env.example .env.docker
 ```
 
-编辑 `.env.docker`，设置强密码：
+编辑 `.env.docker`，设置强密码与 HTTPS 域名相关配置：
 
 ```env
+# 运行模式（生产强制校验 HTTPS issuer / 强密码；须配合 OAUTH2_ISSUER=https://）
+OAUTH2_ENV=production
+OAUTH2_ISSUER=https://your-domain.com
+
+# JWT 签名密钥（生产必填；不设则每次重启 token 失效）
+OAUTH2_JWT_KEY_PATH=/app/keys/signing.pem
+
 POSTGRES_USER=oauth2_user
 POSTGRES_PASSWORD=<生成强密码>
 POSTGRES_DB=oauth2_db
@@ -340,10 +347,23 @@ POSTGRES_DB=oauth2_db
 REDIS_PASSWORD=<生成强密码>
 
 OAUTH2_DB_HOST=oauth2-postgres
+OAUTH2_DB_PORT=5432
 OAUTH2_DB_NAME=oauth2_db
+OAUTH2_DB_USER=oauth2_user
 OAUTH2_DB_PASSWORD=<与 POSTGRES_PASSWORD 相同>
 OAUTH2_REDIS_HOST=oauth2-redis
+OAUTH2_REDIS_PORT=6379
 OAUTH2_REDIS_PASSWORD=<与 REDIS_PASSWORD 相同>
+
+# CORS / OAuth 回调（HTTPS 域名必填，否则浏览器请求被拦截）
+OAUTH2_FRONTEND_URL=https://your-domain.com
+OAUTH2_CORS_ALLOW_ORIGINS=https://your-domain.com
+OAUTH2_VUE_REDIRECT_URI=https://your-domain.com/callback
+OAUTH2_VUE_CLIENT_SECRET=<生成强密码>
+OAUTH2_GOOGLE_REDIRECT_URI=https://your-domain.com/callback
+
+# 错误详细度（生产建议 false，不暴露字段级校验错误）
+DETAILED_VALIDATION_ERRORS=false
 
 # 邮件服务（SMTP）— 生产环境必须配置
 OAUTH2_SMTP_HOST=smtp.example.com
@@ -353,8 +373,17 @@ OAUTH2_SMTP_PASSWORD=<SMTP 授权码，非邮箱登录密码>
 OAUTH2_SMTP_FROM_NAME=OAuth2 Platform
 OAUTH2_SMTP_SSL=true
 
+# 前端构建变量（Vite 构建期注入）
+# VITE_API_BASE_URL 生产必须留空 → SPA 走相对路径（nginx 同源反代）
+VITE_API_BASE_URL=
+VITE_CLIENT_ID=vue-client
+VITE_REDIRECT_URI=https://your-domain.com/callback
+VITE_GITHUB_CLIENT_ID=
+
 DOMAIN=your-domain.com
 ```
+
+> **重要耦合**：`OAUTH2_ENV=production` 与 `OAUTH2_ISSUER=https://...` 必须同时设置。仅设 production 而不配 HTTPS issuer 会导致后端启动校验失败（`ConfigManager` 的 prod-mode 校验拒绝非 https issuer）。同理 DB/Redis 密码不能是默认的 `123456` / `password`，否则 prod 校验也会拒绝启动。
 
 生成强密码：
 ```bash
@@ -472,18 +501,32 @@ curl -k https://localhost/admin/
 
 ### 后端配置 (config.prod.json)
 
-后端通过环境变量覆盖配置文件中的值：
+后端通过环境变量覆盖配置文件中的值（优先级：`.env` 文件 > 系统环境变量 > `config.prod.json` 默认值）：
 
 | 环境变量 | 用途 | 默认值 |
 |----------|------|--------|
+| `OAUTH2_ENV` | 运行模式（`production` 启用 HTTPS issuer + 强密码严格校验） | development |
+| `OAUTH2_ISSUER` | JWT issuer（生产必须 `https://`） | http://localhost:5555 |
+| `OAUTH2_JWT_KEY_PATH` | JWT 签名密钥文件路径 | /app/keys/signing.pem |
+| `OAUTH2_SIGNING_KEY` | JWT 密钥 PEM 内容（与 `JWT_KEY_PATH` 二选一） | (可选) |
 | `OAUTH2_DB_HOST` | PostgreSQL 主机 | postgres |
+| `OAUTH2_DB_PORT` | PostgreSQL 端口 | 5432 |
 | `OAUTH2_DB_NAME` | 数据库名 | oauth2_db_prod |
+| `OAUTH2_DB_USER` | 数据库用户 | oauth2_user |
 | `OAUTH2_DB_PASSWORD` | 数据库密码 | (必须设置) |
 | `OAUTH2_REDIS_HOST` | Redis 主机 | redis |
+| `OAUTH2_REDIS_PORT` | Redis 端口 | 6379 |
 | `OAUTH2_REDIS_PASSWORD` | Redis 密码 | (必须设置) |
-| `OAUTH2_JWT_KEY_PATH` | JWT 签名密钥路径 | /app/keys/signing.pem |
+| `OAUTH2_LISTEN_PORT` | 后端监听端口 | 5555 |
+| `OAUTH2_FRONTEND_URL` | 前端 URL（用于重定向等） | http://localhost:5173 |
+| `OAUTH2_CORS_ALLOW_ORIGINS` | CORS 允许的源（逗号分隔，覆盖 JSON 数组） | config 中的 localhost 列表 |
+| `OAUTH2_VUE_REDIRECT_URI` | vue-client OAuth 回调 URI | config 中的 localhost 值 |
+| `OAUTH2_GOOGLE_REDIRECT_URI` | Google OAuth 回调 URI | config 中的 localhost 值 |
+| `OAUTH2_VUE_CLIENT_SECRET` | vue-client 密钥 | 123456 |
 | `OAUTH2_AUTO_MIGRATE` | 自动执行数据库迁移 | true |
-| `OAUTH2_SIGNING_KEY` | JWT 密钥 PEM 内容（替代文件） | (可选) |
+| `DETAILED_VALIDATION_ERRORS` | 是否返回字段级校验错误（生产建议 false） | false |
+| `OAUTH2_GITHUB_CLIENT_ID` / `OAUTH2_GITHUB_CLIENT_SECRET` | GitHub OAuth（可选） | (空) |
+| `OAUTH2_GOOGLE_CLIENT_ID` / `OAUTH2_GOOGLE_CLIENT_SECRET` | Google OAuth（可选） | (空) |
 | `OAUTH2_SMTP_HOST` | SMTP 服务器主机（未设置则邮件走 Console 模式） | (可选) |
 | `OAUTH2_SMTP_PORT` | SMTP 端口 | 465 |
 | `OAUTH2_SMTP_USER` | SMTP 用户名（完整邮箱地址） | (可选) |
@@ -492,6 +535,8 @@ curl -k https://localhost/admin/
 | `OAUTH2_SMTP_SSL` | 是否启用 SSL | true |
 
 > **邮件模式说明**：仅当 `OAUTH2_SMTP_HOST` + `OAUTH2_SMTP_USER` + `OAUTH2_SMTP_PASSWORD` 三项均非空时启用真实 SMTP 发送；否则邮件只输出到后端日志。详见上文"邮件服务（SMTP）配置说明"。
+>
+> **CORS 数组覆盖**：`OAUTH2_CORS_ALLOW_ORIGINS` 是逗号分隔的字符串（如 `https://a.com,https://b.com`），后端启动时自动分割成 JSON 数组覆盖 `config.prod.json` 的 `custom_config.cors.allow_origins`。CORS 校验代码要求该字段是数组，因此**必须**用逗号分隔形式，不要写成 JSON 数组字面量。
 
 ### Nginx 配置
 
@@ -504,13 +549,18 @@ curl -k https://localhost/admin/
 
 ### 前端配置
 
-前端通过 Vite 环境变量配置（构建时注入）：
+前端（用户端 OAuth2Frontend）通过 Vite 环境变量配置，**在镜像构建时注入**到 SPA bundle（不是运行时读取）。`docker-compose.prod.yml` 的 `oauth2-frontend.build.args` 从 `.env.docker` 透传这些变量，`Dockerfile` 的 `frontend-builder` 阶段用 `ARG`/`ENV` 暴露给 Vite。
 
 | 变量 | 用途 | 生产值 |
 |------|------|--------|
-| `VITE_API_BASE_URL` | API 基础 URL | (空，使用同域) |
+| `VITE_API_BASE_URL` | API 基础 URL | **(空)** — SPA 同域走相对路径，填值会破坏 nginx 反代路由 |
 | `VITE_CLIENT_ID` | OAuth2 Client ID | vue-client |
 | `VITE_REDIRECT_URI` | OAuth2 回调 URI | https://your-domain.com/callback |
+| `VITE_GITHUB_CLIENT_ID` | GitHub "Sign in with GitHub" 按钮（可选） | (空则不显示按钮) |
+
+> **管理后台（OAuth2Admin）无需配置**：源码不读取任何 `import.meta.env`，所有 API 调用走相对路径 `/api/admin/*`，由 nginx 反代到后端。改域名时只需保证 nginx `/admin/` 路由正确，无需重建 admin 镜像。
+>
+> **改域名需重建前端镜像**：由于 VITE 变量在构建期固化，更换域名后必须 `docker compose ... up -d --build oauth2-frontend`（管理后台不受影响）。
 
 ---
 
