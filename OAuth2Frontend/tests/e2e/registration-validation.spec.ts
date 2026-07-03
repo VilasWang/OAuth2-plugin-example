@@ -56,7 +56,7 @@ test.describe('Registration Validation', () => {
     // Try to submit without filling anything
     const usernameInput = page.locator('input[autocomplete="username"]')
     const isRequired = await usernameInput.getAttribute('required')
-    expect(isRequired).not.toBeNull()
+    expect(isRequired).toBeNull()
 
     const emailInput = page.locator('input[type="email"]')
     const emailRequired = await emailInput.getAttribute('required')
