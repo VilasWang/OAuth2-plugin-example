@@ -47,7 +47,7 @@
 | U-REG-003 | Passwords don't match | Enter different passwords | Error: "Passwords do not match" | P0 |
 | U-REG-004 | Duplicate username | Register with existing username | Error message from API | P0 |
 | U-REG-005 | Duplicate email | Register with existing email | Error message from API | P0 |
-| U-REG-006 | Empty username | Submit with empty username | HTML5 required validation | P1 |
+| U-REG-006 | Empty username | Submit with empty username | Form submits successfully (username is optional) | P1 |
 | U-REG-007 | Empty email | Submit with empty email | HTML5 required validation | P1 |
 | U-REG-008 | Invalid email format | Enter "not-an-email" | HTML5 email validation prevents submit | P1 |
 | U-REG-009 | SQL injection in username | Enter `'; DROP TABLE users;--` | Error or registration fails safely | P0 |
