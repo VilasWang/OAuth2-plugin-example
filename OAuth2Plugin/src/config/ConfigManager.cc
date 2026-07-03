@@ -163,6 +163,23 @@ void ConfigManager::applyEnvOverrides(Json::Value &config, const std::vector<Env
                 {
                     *ptr = parseInt(envValue);
                 }
+                else if (rule.isStringList)
+                {
+                    // Split comma-separated string into a JSON array of trimmed strings.
+                    Json::Value arrayValue(Json::arrayValue);
+                    std::stringstream ss(envValue);
+                    std::string token;
+                    while (std::getline(ss, token, ','))
+                    {
+                        auto start = token.find_first_not_of(" \t");
+                        auto end = token.find_last_not_of(" \t");
+                        if (start != std::string::npos)
+                        {
+                            arrayValue.append(token.substr(start, end - start + 1));
+                        }
+                    }
+                    *ptr = arrayValue;
+                }
                 else
                 {
                     *ptr = envValue;

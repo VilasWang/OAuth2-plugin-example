@@ -27,6 +27,12 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
       target: frontend-runtime
+      args:
+        # Vite build-time vars (inlined into the SPA bundle)
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_CLIENT_ID: ${VITE_CLIENT_ID:-vue-client}
+        VITE_REDIRECT_URI: ${VITE_REDIRECT_URI:-}
+        VITE_GITHUB_CLIENT_ID: ${VITE_GITHUB_CLIENT_ID:-}
     container_name: oauth2-frontend
     restart: always
     expose:
@@ -60,13 +66,30 @@ services:
       oauth2-redis:
         condition: service_started
     environment:
+      - OAUTH2_ENV=${OAUTH2_ENV:-production}
+      - OAUTH2_ISSUER=${OAUTH2_ISSUER}
+      - OAUTH2_JWT_KEY_PATH=${OAUTH2_JWT_KEY_PATH:-/app/keys/signing.pem}
       - OAUTH2_DB_HOST=${OAUTH2_DB_HOST}
+      - OAUTH2_DB_PORT=${OAUTH2_DB_PORT:-5432}
       - OAUTH2_DB_NAME=${OAUTH2_DB_NAME}
+      - OAUTH2_DB_USER=${OAUTH2_DB_USER}
       - OAUTH2_DB_PASSWORD=${OAUTH2_DB_PASSWORD}
       - OAUTH2_REDIS_HOST=${OAUTH2_REDIS_HOST}
+      - OAUTH2_REDIS_PORT=${OAUTH2_REDIS_PORT:-6379}
       - OAUTH2_REDIS_PASSWORD=${OAUTH2_REDIS_PASSWORD}
-      - OAUTH2_JWT_KEY_PATH=/app/keys/signing.pem
-      - OAUTH2_AUTO_MIGRATE=true
+      - OAUTH2_LISTEN_PORT=${OAUTH2_LISTEN_PORT:-5555}
+      - OAUTH2_FRONTEND_URL=${OAUTH2_FRONTEND_URL}
+      - OAUTH2_CORS_ALLOW_ORIGINS=${OAUTH2_CORS_ALLOW_ORIGINS}
+      - OAUTH2_VUE_REDIRECT_URI=${OAUTH2_VUE_REDIRECT_URI}
+      - OAUTH2_VUE_CLIENT_SECRET=${OAUTH2_VUE_CLIENT_SECRET}
+      - OAUTH2_GOOGLE_REDIRECT_URI=${OAUTH2_GOOGLE_REDIRECT_URI:-}
+      - OAUTH2_AUTO_MIGRATE=${OAUTH2_AUTO_MIGRATE:-true}
+      - DETAILED_VALIDATION_ERRORS=${DETAILED_VALIDATION_ERRORS:-false}
+      # External auth (optional)
+      - OAUTH2_GITHUB_CLIENT_ID=${OAUTH2_GITHUB_CLIENT_ID:-}
+      - OAUTH2_GITHUB_CLIENT_SECRET=${OAUTH2_GITHUB_CLIENT_SECRET:-}
+      - OAUTH2_GOOGLE_CLIENT_ID=${OAUTH2_GOOGLE_CLIENT_ID:-}
+      - OAUTH2_GOOGLE_CLIENT_SECRET=${OAUTH2_GOOGLE_CLIENT_SECRET:-}
       # Email / SMTP (生产环境必须配置，否则验证邮件/密码重置只输出到日志)
       - OAUTH2_SMTP_HOST=${OAUTH2_SMTP_HOST:-}
       - OAUTH2_SMTP_PORT=${OAUTH2_SMTP_PORT:-465}
