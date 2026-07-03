@@ -228,6 +228,11 @@ Json::Value *ConfigManager::getJsonPointer(Json::Value &root, const std::string 
         //                                       then filter the resulting array.
         // Decouples override paths from plugin ordering, which differs per config
         // file (Hodor/AccessLogger are inserted in some configs but not others).
+        //
+        // LIMITATION: the path is split on '.' before this branch runs, so the
+        // filter value must not contain '.'. Current plugin names (OAuth2Plugin,
+        // Hodor, PromExporter) are safe; a future namespaced name like
+        // "drogon.plugin.Foo" would need the tokenizer to ignore '.' inside [].
         else if (p.size() > 2 && p.back() == ']')
         {
             std::string member;
