@@ -257,6 +257,17 @@ void MfaController::verifyLogin(
     // This endpoint is called during login when MFA is required
     // The mfa_token is a short-lived session token from the login step
     std::string mfaToken, code;
+    // U-MFA-002 fix: after TOTP succeeds, we must issue real tokens (not just
+    // a session flag) because the SPA is stateless and never sends cookies.
+    // client_id/redirect_uri/scope/nonce are needed to generate the
+    // authorization code the same way SessionController::login does; the SPA
+    // already sends client_id and redirect_uri (see authService.ts
+    // verifyMfa()). PKCE is intentionally out of scope here: the first-factor
+    // /oauth2/login step does not use PKCE today, so there is no
+    // code_verifier available to validate at this second step (see
+    // PRD/mfa_auth_code_pkce_design.md §6/§7 for the follow-up architecture
+    // proposal that would add PKCE across both steps).
+    std::string clientId, redirectUri, scope, nonce;
     if (req->contentType() == CT_APPLICATION_JSON)
     {
         auto json = req->getJsonObject();
@@ -264,12 +275,20 @@ void MfaController::verifyLogin(
         {
             mfaToken = json->get("mfa_token", "").asString();
             code = json->get("code", "").asString();
+            clientId = json->get("client_id", "").asString();
+            redirectUri = json->get("redirect_uri", "").asString();
+            scope = json->get("scope", "").asString();
+            nonce = json->get("nonce", "").asString();
         }
     }
     else
     {
         mfaToken = req->getParameter("mfa_token");
         code = req->getParameter("code");
+        clientId = req->getParameter("client_id");
+        redirectUri = req->getParameter("redirect_uri");
+        scope = req->getParameter("scope");
+        nonce = req->getParameter("nonce");
     }
 
     if (mfaToken.empty() || code.empty())
@@ -283,6 +302,21 @@ void MfaController::verifyLogin(
         return;
     }
 
+    if (clientId.empty() || redirectUri.empty())
+    {
+        common::error::ErrorResponder::respond(
+          req,
+          std::move(callback),
+          "VALIDATION_MISSING_REQUIRED_FIELD",
+          "verifyLogin: client_id and redirect_uri are required to issue tokens after MFA"
+        );
+        return;
+    }
+    if (scope.empty())
+    {
+        scope = "openid profile email";
+    }
+
     // For now, MFA login verification uses session-based approach
     // The mfa_token is the userId stored in session during first login step
     // In production, this should be a signed short-lived JWT
@@ -292,7 +326,7 @@ void MfaController::verifyLogin(
     auto db = app().getDbClient();
     db->execSqlAsync(
       "SELECT id, public_sub, mfa_secret, mfa_backup_codes FROM users WHERE id = $1",
-      [sharedCb, code, mfaToken, req](const Result &r) {
+      [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce](const Result &r) {
           if (r.empty())
           {
               respondError(
@@ -308,18 +342,76 @@ void MfaController::verifyLogin(
           // Try TOTP code first
           if (oauth2::utils::TotpUtils::verifyCode(secret, code))
           {
-              // MFA verified - store in session and return success
-              if (req->session())
+              // MFA verified: generate an authorization code and immediately
+              // exchange it for tokens server-side (no PKCE on this leg, see
+              // comment above), so the stateless SPA client gets
+              // access_token/refresh_token directly in this response instead
+              // of only a session flag (fixes U-MFA-002).
+              auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+              if (!plugin)
               {
-                  req->session()->insert("mfa_verified", true);
-                  req->session()->insert("userId", publicSub);
+                  respondError(
+                    req, sharedCb, "INTERNAL_ERROR", "verifyLogin: OAuth2 Plugin not loaded"
+                  );
+                  return;
               }
 
-              Json::Value json;
-              json["message"] = "MFA verification successful";
-              json["mfa_verified"] = true;
-              auto resp = HttpResponse::newHttpJsonResponse(json);
-              (*sharedCb)(resp);
+              plugin->generateAuthorizationCode(
+                clientId,
+                publicSub,
+                scope,
+                redirectUri,
+                "",  // codeChallenge: PKCE not used on this leg (see comment above)
+                "",  // codeChallengeMethod
+                nonce,
+                [sharedCb, req, plugin, clientId, redirectUri, publicSub](
+                  bool success, std::string authCode, std::string genError
+                ) {
+                    if (!success)
+                    {
+                        respondError(
+                          req,
+                          sharedCb,
+                          "INTERNAL_ERROR",
+                          "verifyLogin: failed to generate authorization code: " + genError
+                        );
+                        return;
+                    }
+
+                    plugin->exchangeCodeForToken(
+                      authCode,
+                      clientId,
+                      "",  // clientSecret: vue-client is PUBLIC, no secret required
+                      redirectUri,
+                      "",  // codeVerifier: no PKCE on this internal exchange
+                      [sharedCb, req, publicSub](const Json::Value &tokenResult) {
+                          if (tokenResult.isMember("error"))
+                          {
+                              std::string detail = tokenResult.isMember("error_description")
+                                                      ? tokenResult["error_description"].asString()
+                                                      : tokenResult["error"].asString();
+                              respondError(
+                                req,
+                                sharedCb,
+                                "INTERNAL_ERROR",
+                                "verifyLogin: failed to exchange authorization code: " + detail
+                              );
+                              return;
+                          }
+
+                          oauth2::observability::AuditLogger::log(
+                            "mfa_verified", "success", req, publicSub, "user", publicSub
+                          );
+
+                          Json::Value json = tokenResult;
+                          json["message"] = "MFA verification successful";
+                          json["mfa_verified"] = true;
+                          auto resp = HttpResponse::newHttpJsonResponse(json);
+                          (*sharedCb)(resp);
+                      }
+                    );
+                }
+              );
               return;
           }
 
