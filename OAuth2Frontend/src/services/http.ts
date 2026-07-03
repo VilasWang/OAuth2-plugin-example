@@ -84,7 +84,8 @@ http.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-    if (error.response?.status === 401 && refreshToken && !originalRequest._retry) {
+    const isOauthRoute = originalRequest.url?.includes('/oauth2/')
+    if (error.response?.status === 401 && refreshToken && !originalRequest._retry && !isOauthRoute) {
       originalRequest._retry = true
       try {
         const CLIENT_ID = import.meta.env.VITE_CLIENT_ID || 'vue-client'
