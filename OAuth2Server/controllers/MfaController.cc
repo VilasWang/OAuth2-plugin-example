@@ -323,10 +323,23 @@ void MfaController::verifyLogin(
     auto sharedCb =
       std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
 
+    // Resolve the OAuth2 plugin once here (moved up from the TOTP-success
+    // branch). It is needed for validateClient/validateRedirectUri (P0-1/P0-2
+    // fix) AND for generateAuthorizationCode/exchangeCodeForToken below.
+    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    if (!plugin)
+    {
+        respondError(req, sharedCb, "INTERNAL_ERROR", "verifyLogin: OAuth2 Plugin not loaded");
+        return;
+    }
+
     auto db = app().getDbClient();
     db->execSqlAsync(
-      "SELECT id, public_sub, mfa_secret, mfa_backup_codes FROM users WHERE id = $1",
-      [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce](const Result &r) {
+      "SELECT id, public_sub, mfa_secret, mfa_backup_codes, mfa_pending_client_id, "
+      "mfa_pending_redirect_uri FROM users WHERE id = $1",
+      [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin](
+        const Result &r
+      ) {
           if (r.empty())
           {
               respondError(
@@ -338,76 +351,180 @@ void MfaController::verifyLogin(
           std::string secret =
             r[0]["mfa_secret"].isNull() ? "" : r[0]["mfa_secret"].as<std::string>();
           std::string publicSub = r[0]["public_sub"].as<std::string>();
+          // Pending first-factor login-session binding (written by
+          // SessionController::login when it returned mfa_required). NULL means
+          // no binding was recorded (e.g. a row that predates V022, or a
+          // previous successful verification already cleared it).
+          std::string pendingClientId =
+            r[0]["mfa_pending_client_id"].isNull() ? "" : r[0]["mfa_pending_client_id"].as<std::string>();
+          std::string pendingRedirectUri =
+            r[0]["mfa_pending_redirect_uri"].isNull() ? "" : r[0]["mfa_pending_redirect_uri"].as<std::string>();
 
-          // Try TOTP code first
+          // TOTP is checked first (unchanged ordering): a wrong code never
+          // reveals anything about client/redirect_uri validity, preserving the
+          // no-oracle property (Requirement 3.3, "regardless of client/
+          // redirect_uri validity").
           if (oauth2::utils::TotpUtils::verifyCode(secret, code))
           {
-              // MFA verified: generate an authorization code and immediately
-              // exchange it for tokens server-side (no PKCE on this leg, see
-              // comment above), so the stateless SPA client gets
-              // access_token/refresh_token directly in this response instead
-              // of only a session flag (fixes U-MFA-002).
-              auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
-              if (!plugin)
-              {
-                  respondError(
-                    req, sharedCb, "INTERNAL_ERROR", "verifyLogin: OAuth2 Plugin not loaded"
-                  );
-                  return;
-              }
+              // MFA TOTP verified. Before issuing any code/token, enforce the
+              // three P0-1/P0-2 checks. All rejections use
+              // AUTH_INVALID_CREDENTIALS (401) so an unregistered client, a
+              // non-whitelisted redirect_uri, and a mismatched pending binding
+              // are indistinguishable from a wrong TOTP code from the outside
+              // (no oracle for client registration).
 
-              plugin->generateAuthorizationCode(
+              // Check 1 (P0-1, Requirement 2.1): the client must be registered.
+              plugin->validateClient(
                 clientId,
-                publicSub,
-                scope,
-                redirectUri,
-                "",  // codeChallenge: PKCE not used on this leg (see comment above)
-                "",  // codeChallengeMethod
-                nonce,
-                [sharedCb, req, plugin, clientId, redirectUri, publicSub](
-                  bool success, std::string authCode, std::string genError
-                ) {
-                    if (!success)
+                "",  // empty secret: PUBLIC clients need no secret here
+                [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
+                 pendingRedirectUri, scope, nonce, mfaToken](bool validClient) {
+                    if (!validClient)
                     {
                         respondError(
                           req,
                           sharedCb,
-                          "INTERNAL_ERROR",
-                          "verifyLogin: failed to generate authorization code: " + genError
+                          "AUTH_INVALID_CREDENTIALS",
+                          "verifyLogin: unknown or invalid client"
                         );
                         return;
                     }
 
-                    plugin->exchangeCodeForToken(
-                      authCode,
+                    // Check 2 (P0-2, Requirement 2.2): redirect_uri must be in
+                    // that client's registered whitelist (RFC 6749 §3.1.2.3).
+                    plugin->validateRedirectUri(
                       clientId,
-                      "",  // clientSecret: vue-client is PUBLIC, no secret required
                       redirectUri,
-                      "",  // codeVerifier: no PKCE on this internal exchange
-                      [sharedCb, req, publicSub](const Json::Value &tokenResult) {
-                          if (tokenResult.isMember("error"))
+                      [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
+                       pendingRedirectUri, scope, nonce, mfaToken](bool validUri) {
+                          if (!validUri)
                           {
-                              std::string detail = tokenResult.isMember("error_description")
-                                                      ? tokenResult["error_description"].asString()
-                                                      : tokenResult["error"].asString();
                               respondError(
                                 req,
                                 sharedCb,
-                                "INTERNAL_ERROR",
-                                "verifyLogin: failed to exchange authorization code: " + detail
+                                "AUTH_INVALID_CREDENTIALS",
+                                "verifyLogin: redirect_uri not registered for client"
                               );
                               return;
                           }
 
-                          oauth2::observability::AuditLogger::log(
-                            "mfa_verified", "success", req, publicSub, "user", publicSub
-                          );
+                          // Check 3 (P0-1, Requirement 2.3): the
+                          // client_id/redirect_uri must match the pending
+                          // first-factor login-session binding recorded for
+                          // this user. A NULL/empty pending binding is treated
+                          // as a mismatch against any non-empty request pair.
+                          if (clientId != pendingClientId ||
+                              redirectUri != pendingRedirectUri)
+                          {
+                              respondError(
+                                req,
+                                sharedCb,
+                                "AUTH_INVALID_CREDENTIALS",
+                                "verifyLogin: client/redirect_uri does not match login session"
+                              );
+                              return;
+                          }
 
-                          Json::Value json = tokenResult;
-                          json["message"] = "MFA verification successful";
-                          json["mfa_verified"] = true;
-                          auto resp = HttpResponse::newHttpJsonResponse(json);
-                          (*sharedCb)(resp);
+                          // All checks passed: generate an authorization code
+                          // and immediately exchange it for tokens server-side
+                          // (no PKCE on this leg, see comment above), so the
+                          // stateless SPA client gets access_token/refresh_token
+                          // directly in this response instead of only a session
+                          // flag (fixes U-MFA-002).
+                          plugin->generateAuthorizationCode(
+                            clientId,
+                            publicSub,
+                            scope,
+                            redirectUri,
+                            "",  // codeChallenge: PKCE not used on this leg
+                            "",  // codeChallengeMethod
+                            nonce,
+                            [sharedCb, req, plugin, clientId, redirectUri, publicSub, mfaToken](
+                              bool success, std::string authCode, std::string genError
+                            ) {
+                                if (!success)
+                                {
+                                    respondError(
+                                      req,
+                                      sharedCb,
+                                      "INTERNAL_ERROR",
+                                      "verifyLogin: failed to generate authorization code: " +
+                                        genError
+                                    );
+                                    return;
+                                }
+
+                                plugin->exchangeCodeForToken(
+                                  authCode,
+                                  clientId,
+                                  "",  // clientSecret: vue-client is PUBLIC
+                                  redirectUri,
+                                  "",  // codeVerifier: no PKCE on this internal exchange
+                                  [sharedCb, req, publicSub, mfaToken](const Json::Value &tokenResult) {
+                                      if (tokenResult.isMember("error"))
+                                      {
+                                          std::string detail =
+                                            tokenResult.isMember("error_description")
+                                              ? tokenResult["error_description"].asString()
+                                              : tokenResult["error"].asString();
+                                          respondError(
+                                            req,
+                                            sharedCb,
+                                            "INTERNAL_ERROR",
+                                            "verifyLogin: failed to exchange authorization code: " +
+                                              detail
+                                          );
+                                          return;
+                                      }
+
+                                      oauth2::observability::AuditLogger::log(
+                                        "mfa_verified", "success", req, publicSub, "user", publicSub
+                                      );
+
+                                      Json::Value json = tokenResult;
+                                      json["message"] = "MFA verification successful";
+                                      json["mfa_verified"] = true;
+
+                                      // Best-effort: clear the pending binding now
+                                      // that tokens are issued, so a later,
+                                      // unrelated verification attempt has no
+                                      // binding to reuse (Requirement 2.5). This
+                                      // is best-effort (tokens are already issued
+                                      // and cannot be un-issued): if the clear
+                                      // fails we still return the tokens, only
+                                      // LOG_ERROR for observability. mfaToken is
+                                      // the users.id (the outer SELECT bound
+                                      // WHERE id = $1 to mfaToken), so it is
+                                      // reused directly.
+                                      auto clearDb = app().getDbClient();
+                                      auto sendSuccess = [sharedCb, req, json]() {
+                                          auto resp = HttpResponse::newHttpJsonResponse(json);
+                                          (*sharedCb)(resp);
+                                      };
+                                      if (clearDb)
+                                      {
+                                          clearDb->execSqlAsync(
+                                            "UPDATE users SET mfa_pending_client_id = NULL, "
+                                            "mfa_pending_redirect_uri = NULL WHERE id = $1",
+                                            [sendSuccess](const Result &) { sendSuccess(); },
+                                            [sendSuccess](const DrogonDbException &e) {
+                                                LOG_ERROR
+                                                  << "verifyLogin: failed to clear MFA pending "
+                                                     "binding (tokens already issued): "
+                                                  << e.base().what();
+                                                sendSuccess();
+                                            },
+                                            mfaToken
+                                          );
+                                      }
+                                      else
+                                      {
+                                          sendSuccess();
+                                      }
+                                  }
+                                );
+                            }
+                          );
                       }
                     );
                 }
