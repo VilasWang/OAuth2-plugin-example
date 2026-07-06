@@ -34,6 +34,8 @@ const std::string Users::Cols::_failed_login_count = "\"failed_login_count\"";
 const std::string Users::Cols::_locked_until = "\"locked_until\"";
 const std::string Users::Cols::_last_failed_login = "\"last_failed_login\"";
 const std::string Users::Cols::_org_id = "\"org_id\"";
+const std::string Users::Cols::_mfa_pending_client_id = "\"mfa_pending_client_id\"";
+const std::string Users::Cols::_mfa_pending_redirect_uri = "\"mfa_pending_redirect_uri\"";
 const std::string Users::primaryKeyName = "id";
 const bool Users::hasPrimaryKey = true;
 const std::string Users::tableName = "\"users\"";
@@ -53,7 +55,9 @@ const std::vector<typename Users::MetaData> Users::metaData_={
 {"failed_login_count","int32_t","integer",4,0,0,0},
 {"locked_until","int64_t","bigint",8,0,0,0},
 {"last_failed_login","int64_t","bigint",8,0,0,0},
-{"org_id","int32_t","integer",4,0,0,0}
+{"org_id","int32_t","integer",4,0,0,0},
+{"mfa_pending_client_id","std::string","character varying",50,0,0,0},
+{"mfa_pending_redirect_uri","std::string","text",0,0,0,0}
 };
 const std::string &Users::getColumnName(size_t index) noexcept(false)
 {
@@ -142,11 +146,19 @@ Users::Users(const Row &r, const ssize_t indexOffset) noexcept
         {
             orgId_=std::make_shared<int32_t>(r["org_id"].as<int32_t>());
         }
+        if(!r["mfa_pending_client_id"].isNull())
+        {
+            mfaPendingClientId_=std::make_shared<std::string>(r["mfa_pending_client_id"].as<std::string>());
+        }
+        if(!r["mfa_pending_redirect_uri"].isNull())
+        {
+            mfaPendingRedirectUri_=std::make_shared<std::string>(r["mfa_pending_redirect_uri"].as<std::string>());
+        }
     }
     else
     {
         size_t offset = (size_t)indexOffset;
-        if(offset + 15 > r.size())
+        if(offset + 17 > r.size())
         {
             LOG_FATAL << "Invalid SQL result for this model";
             return;
@@ -245,13 +257,23 @@ Users::Users(const Row &r, const ssize_t indexOffset) noexcept
         {
             orgId_=std::make_shared<int32_t>(r[index].as<int32_t>());
         }
+        index = offset + 15;
+        if(!r[index].isNull())
+        {
+            mfaPendingClientId_=std::make_shared<std::string>(r[index].as<std::string>());
+        }
+        index = offset + 16;
+        if(!r[index].isNull())
+        {
+            mfaPendingRedirectUri_=std::make_shared<std::string>(r[index].as<std::string>());
+        }
     }
 
 }
 
 Users::Users(const Json::Value &pJson, const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 15)
+    if(pMasqueradingVector.size() != 17)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -392,6 +414,22 @@ Users::Users(const Json::Value &pJson, const std::vector<std::string> &pMasquera
         if(!pJson[pMasqueradingVector[14]].isNull())
         {
             orgId_=std::make_shared<int32_t>((int32_t)pJson[pMasqueradingVector[14]].asInt64());
+        }
+    }
+    if(!pMasqueradingVector[15].empty() && pJson.isMember(pMasqueradingVector[15]))
+    {
+        dirtyFlag_[15] = true;
+        if(!pJson[pMasqueradingVector[15]].isNull())
+        {
+            mfaPendingClientId_=std::make_shared<std::string>(pJson[pMasqueradingVector[15]].asString());
+        }
+    }
+    if(!pMasqueradingVector[16].empty() && pJson.isMember(pMasqueradingVector[16]))
+    {
+        dirtyFlag_[16] = true;
+        if(!pJson[pMasqueradingVector[16]].isNull())
+        {
+            mfaPendingRedirectUri_=std::make_shared<std::string>(pJson[pMasqueradingVector[16]].asString());
         }
     }
 }
@@ -536,12 +574,28 @@ Users::Users(const Json::Value &pJson) noexcept(false)
             orgId_=std::make_shared<int32_t>((int32_t)pJson["org_id"].asInt64());
         }
     }
+    if(pJson.isMember("mfa_pending_client_id"))
+    {
+        dirtyFlag_[15]=true;
+        if(!pJson["mfa_pending_client_id"].isNull())
+        {
+            mfaPendingClientId_=std::make_shared<std::string>(pJson["mfa_pending_client_id"].asString());
+        }
+    }
+    if(pJson.isMember("mfa_pending_redirect_uri"))
+    {
+        dirtyFlag_[16]=true;
+        if(!pJson["mfa_pending_redirect_uri"].isNull())
+        {
+            mfaPendingRedirectUri_=std::make_shared<std::string>(pJson["mfa_pending_redirect_uri"].asString());
+        }
+    }
 }
 
 void Users::updateByMasqueradedJson(const Json::Value &pJson,
                                             const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 15)
+    if(pMasqueradingVector.size() != 17)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -683,6 +737,22 @@ void Users::updateByMasqueradedJson(const Json::Value &pJson,
             orgId_=std::make_shared<int32_t>((int32_t)pJson[pMasqueradingVector[14]].asInt64());
         }
     }
+    if(!pMasqueradingVector[15].empty() && pJson.isMember(pMasqueradingVector[15]))
+    {
+        dirtyFlag_[15] = true;
+        if(!pJson[pMasqueradingVector[15]].isNull())
+        {
+            mfaPendingClientId_=std::make_shared<std::string>(pJson[pMasqueradingVector[15]].asString());
+        }
+    }
+    if(!pMasqueradingVector[16].empty() && pJson.isMember(pMasqueradingVector[16]))
+    {
+        dirtyFlag_[16] = true;
+        if(!pJson[pMasqueradingVector[16]].isNull())
+        {
+            mfaPendingRedirectUri_=std::make_shared<std::string>(pJson[pMasqueradingVector[16]].asString());
+        }
+    }
 }
 
 void Users::updateByJson(const Json::Value &pJson) noexcept(false)
@@ -822,6 +892,22 @@ void Users::updateByJson(const Json::Value &pJson) noexcept(false)
         if(!pJson["org_id"].isNull())
         {
             orgId_=std::make_shared<int32_t>((int32_t)pJson["org_id"].asInt64());
+        }
+    }
+    if(pJson.isMember("mfa_pending_client_id"))
+    {
+        dirtyFlag_[15] = true;
+        if(!pJson["mfa_pending_client_id"].isNull())
+        {
+            mfaPendingClientId_=std::make_shared<std::string>(pJson["mfa_pending_client_id"].asString());
+        }
+    }
+    if(pJson.isMember("mfa_pending_redirect_uri"))
+    {
+        dirtyFlag_[16] = true;
+        if(!pJson["mfa_pending_redirect_uri"].isNull())
+        {
+            mfaPendingRedirectUri_=std::make_shared<std::string>(pJson["mfa_pending_redirect_uri"].asString());
         }
     }
 }
@@ -1176,6 +1262,60 @@ void Users::setOrgIdToNull() noexcept
     dirtyFlag_[14] = true;
 }
 
+const std::string &Users::getValueOfMfaPendingClientId() const noexcept
+{
+    static const std::string defaultValue = std::string();
+    if(mfaPendingClientId_)
+        return *mfaPendingClientId_;
+    return defaultValue;
+}
+const std::shared_ptr<std::string> &Users::getMfaPendingClientId() const noexcept
+{
+    return mfaPendingClientId_;
+}
+void Users::setMfaPendingClientId(const std::string &pMfaPendingClientId) noexcept
+{
+    mfaPendingClientId_ = std::make_shared<std::string>(pMfaPendingClientId);
+    dirtyFlag_[15] = true;
+}
+void Users::setMfaPendingClientId(std::string &&pMfaPendingClientId) noexcept
+{
+    mfaPendingClientId_ = std::make_shared<std::string>(std::move(pMfaPendingClientId));
+    dirtyFlag_[15] = true;
+}
+void Users::setMfaPendingClientIdToNull() noexcept
+{
+    mfaPendingClientId_.reset();
+    dirtyFlag_[15] = true;
+}
+
+const std::string &Users::getValueOfMfaPendingRedirectUri() const noexcept
+{
+    static const std::string defaultValue = std::string();
+    if(mfaPendingRedirectUri_)
+        return *mfaPendingRedirectUri_;
+    return defaultValue;
+}
+const std::shared_ptr<std::string> &Users::getMfaPendingRedirectUri() const noexcept
+{
+    return mfaPendingRedirectUri_;
+}
+void Users::setMfaPendingRedirectUri(const std::string &pMfaPendingRedirectUri) noexcept
+{
+    mfaPendingRedirectUri_ = std::make_shared<std::string>(pMfaPendingRedirectUri);
+    dirtyFlag_[16] = true;
+}
+void Users::setMfaPendingRedirectUri(std::string &&pMfaPendingRedirectUri) noexcept
+{
+    mfaPendingRedirectUri_ = std::make_shared<std::string>(std::move(pMfaPendingRedirectUri));
+    dirtyFlag_[16] = true;
+}
+void Users::setMfaPendingRedirectUriToNull() noexcept
+{
+    mfaPendingRedirectUri_.reset();
+    dirtyFlag_[16] = true;
+}
+
 void Users::updateId(const uint64_t id)
 {
 }
@@ -1196,7 +1336,9 @@ const std::vector<std::string> &Users::insertColumns() noexcept
         "failed_login_count",
         "locked_until",
         "last_failed_login",
-        "org_id"
+        "org_id",
+        "mfa_pending_client_id",
+        "mfa_pending_redirect_uri"
     };
     return inCols;
 }
@@ -1357,6 +1499,28 @@ void Users::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
+    if(dirtyFlag_[15])
+    {
+        if(getMfaPendingClientId())
+        {
+            binder << getValueOfMfaPendingClientId();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
+    if(dirtyFlag_[16])
+    {
+        if(getMfaPendingRedirectUri())
+        {
+            binder << getValueOfMfaPendingRedirectUri();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
 }
 
 const std::vector<std::string> Users::updateColumns() const
@@ -1417,6 +1581,14 @@ const std::vector<std::string> Users::updateColumns() const
     if(dirtyFlag_[14])
     {
         ret.push_back(getColumnName(14));
+    }
+    if(dirtyFlag_[15])
+    {
+        ret.push_back(getColumnName(15));
+    }
+    if(dirtyFlag_[16])
+    {
+        ret.push_back(getColumnName(16));
     }
     return ret;
 }
@@ -1577,6 +1749,28 @@ void Users::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
+    if(dirtyFlag_[15])
+    {
+        if(getMfaPendingClientId())
+        {
+            binder << getValueOfMfaPendingClientId();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
+    if(dirtyFlag_[16])
+    {
+        if(getMfaPendingRedirectUri())
+        {
+            binder << getValueOfMfaPendingRedirectUri();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
 }
 Json::Value Users::toJson() const
 {
@@ -1701,6 +1895,22 @@ Json::Value Users::toJson() const
     {
         ret["org_id"]=Json::Value();
     }
+    if(getMfaPendingClientId())
+    {
+        ret["mfa_pending_client_id"]=getValueOfMfaPendingClientId();
+    }
+    else
+    {
+        ret["mfa_pending_client_id"]=Json::Value();
+    }
+    if(getMfaPendingRedirectUri())
+    {
+        ret["mfa_pending_redirect_uri"]=getValueOfMfaPendingRedirectUri();
+    }
+    else
+    {
+        ret["mfa_pending_redirect_uri"]=Json::Value();
+    }
     return ret;
 }
 
@@ -1713,7 +1923,7 @@ Json::Value Users::toMasqueradedJson(
     const std::vector<std::string> &pMasqueradingVector) const
 {
     Json::Value ret;
-    if(pMasqueradingVector.size() == 15)
+    if(pMasqueradingVector.size() == 17)
     {
         if(!pMasqueradingVector[0].empty())
         {
@@ -1880,6 +2090,28 @@ Json::Value Users::toMasqueradedJson(
                 ret[pMasqueradingVector[14]]=Json::Value();
             }
         }
+        if(!pMasqueradingVector[15].empty())
+        {
+            if(getMfaPendingClientId())
+            {
+                ret[pMasqueradingVector[15]]=getValueOfMfaPendingClientId();
+            }
+            else
+            {
+                ret[pMasqueradingVector[15]]=Json::Value();
+            }
+        }
+        if(!pMasqueradingVector[16].empty())
+        {
+            if(getMfaPendingRedirectUri())
+            {
+                ret[pMasqueradingVector[16]]=getValueOfMfaPendingRedirectUri();
+            }
+            else
+            {
+                ret[pMasqueradingVector[16]]=Json::Value();
+            }
+        }
         return ret;
     }
     LOG_ERROR << "Masquerade failed";
@@ -2003,6 +2235,22 @@ Json::Value Users::toMasqueradedJson(
     {
         ret["org_id"]=Json::Value();
     }
+    if(getMfaPendingClientId())
+    {
+        ret["mfa_pending_client_id"]=getValueOfMfaPendingClientId();
+    }
+    else
+    {
+        ret["mfa_pending_client_id"]=Json::Value();
+    }
+    if(getMfaPendingRedirectUri())
+    {
+        ret["mfa_pending_redirect_uri"]=getValueOfMfaPendingRedirectUri();
+    }
+    else
+    {
+        ret["mfa_pending_redirect_uri"]=Json::Value();
+    }
     return ret;
 }
 
@@ -2093,13 +2341,23 @@ bool Users::validateJsonForCreation(const Json::Value &pJson, std::string &err)
         if(!validJsonOfField(14, "org_id", pJson["org_id"], err, true))
             return false;
     }
+    if(pJson.isMember("mfa_pending_client_id"))
+    {
+        if(!validJsonOfField(15, "mfa_pending_client_id", pJson["mfa_pending_client_id"], err, true))
+            return false;
+    }
+    if(pJson.isMember("mfa_pending_redirect_uri"))
+    {
+        if(!validJsonOfField(16, "mfa_pending_redirect_uri", pJson["mfa_pending_redirect_uri"], err, true))
+            return false;
+    }
     return true;
 }
 bool Users::validateMasqueradedJsonForCreation(const Json::Value &pJson,
                                                const std::vector<std::string> &pMasqueradingVector,
                                                std::string &err)
 {
-    if(pMasqueradingVector.size() != 15)
+    if(pMasqueradingVector.size() != 17)
     {
         err = "Bad masquerading vector";
         return false;
@@ -2235,6 +2493,22 @@ bool Users::validateMasqueradedJsonForCreation(const Json::Value &pJson,
                   return false;
           }
       }
+      if(!pMasqueradingVector[15].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[15]))
+          {
+              if(!validJsonOfField(15, pMasqueradingVector[15], pJson[pMasqueradingVector[15]], err, true))
+                  return false;
+          }
+      }
+      if(!pMasqueradingVector[16].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[16]))
+          {
+              if(!validJsonOfField(16, pMasqueradingVector[16], pJson[pMasqueradingVector[16]], err, true))
+                  return false;
+          }
+      }
     }
     catch(const Json::LogicError &e)
     {
@@ -2325,13 +2599,23 @@ bool Users::validateJsonForUpdate(const Json::Value &pJson, std::string &err)
         if(!validJsonOfField(14, "org_id", pJson["org_id"], err, false))
             return false;
     }
+    if(pJson.isMember("mfa_pending_client_id"))
+    {
+        if(!validJsonOfField(15, "mfa_pending_client_id", pJson["mfa_pending_client_id"], err, false))
+            return false;
+    }
+    if(pJson.isMember("mfa_pending_redirect_uri"))
+    {
+        if(!validJsonOfField(16, "mfa_pending_redirect_uri", pJson["mfa_pending_redirect_uri"], err, false))
+            return false;
+    }
     return true;
 }
 bool Users::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
                                              const std::vector<std::string> &pMasqueradingVector,
                                              std::string &err)
 {
-    if(pMasqueradingVector.size() != 15)
+    if(pMasqueradingVector.size() != 17)
     {
         err = "Bad masquerading vector";
         return false;
@@ -2415,6 +2699,16 @@ bool Users::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
       if(!pMasqueradingVector[14].empty() && pJson.isMember(pMasqueradingVector[14]))
       {
           if(!validJsonOfField(14, pMasqueradingVector[14], pJson[pMasqueradingVector[14]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[15].empty() && pJson.isMember(pMasqueradingVector[15]))
+      {
+          if(!validJsonOfField(15, pMasqueradingVector[15], pJson[pMasqueradingVector[15]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[16].empty() && pJson.isMember(pMasqueradingVector[16]))
+      {
+          if(!validJsonOfField(16, pMasqueradingVector[16], pJson[pMasqueradingVector[16]], err, false))
               return false;
       }
     }
@@ -2642,6 +2936,36 @@ bool Users::validJsonOfField(size_t index,
                 return true;
             }
             if(!pJson.isInt())
+            {
+                err="Type error in the "+fieldName+" field";
+                return false;
+            }
+            break;
+        case 15:
+            if(pJson.isNull())
+            {
+                return true;
+            }
+            if(!pJson.isString())
+            {
+                err="Type error in the "+fieldName+" field";
+                return false;
+            }
+            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
+                .from_bytes(pJson.asCString()).size() > 50)
+            {
+                err="String length exceeds limit for the " +
+                    fieldName +
+                    " field (the maximum value is 50)";
+                return false;
+            }
+            break;
+        case 16:
+            if(pJson.isNull())
+            {
+                return true;
+            }
+            if(!pJson.isString())
             {
                 err="Type error in the "+fieldName+" field";
                 return false;

@@ -65,6 +65,8 @@ class Users
         static const std::string _locked_until;
         static const std::string _last_failed_login;
         static const std::string _org_id;
+        static const std::string _mfa_pending_client_id;
+        static const std::string _mfa_pending_redirect_uri;
     };
 
     static const int primaryKeyNumber;
@@ -254,8 +256,28 @@ class Users
     void setOrgId(const int32_t &pOrgId) noexcept;
     void setOrgIdToNull() noexcept;
 
+    /**  For column mfa_pending_client_id  */
+    ///Get the value of the column mfa_pending_client_id, returns the default value if the column is null
+    const std::string &getValueOfMfaPendingClientId() const noexcept;
+    ///Return a shared_ptr object pointing to the column const value, or an empty shared_ptr object if the column is null
+    const std::shared_ptr<std::string> &getMfaPendingClientId() const noexcept;
+    ///Set the value of the column mfa_pending_client_id
+    void setMfaPendingClientId(const std::string &pMfaPendingClientId) noexcept;
+    void setMfaPendingClientId(std::string &&pMfaPendingClientId) noexcept;
+    void setMfaPendingClientIdToNull() noexcept;
 
-    static size_t getColumnNumber() noexcept {  return 15;  }
+    /**  For column mfa_pending_redirect_uri  */
+    ///Get the value of the column mfa_pending_redirect_uri, returns the default value if the column is null
+    const std::string &getValueOfMfaPendingRedirectUri() const noexcept;
+    ///Return a shared_ptr object pointing to the column const value, or an empty shared_ptr object if the column is null
+    const std::shared_ptr<std::string> &getMfaPendingRedirectUri() const noexcept;
+    ///Set the value of the column mfa_pending_redirect_uri
+    void setMfaPendingRedirectUri(const std::string &pMfaPendingRedirectUri) noexcept;
+    void setMfaPendingRedirectUri(std::string &&pMfaPendingRedirectUri) noexcept;
+    void setMfaPendingRedirectUriToNull() noexcept;
+
+
+    static size_t getColumnNumber() noexcept {  return 17;  }
     static const std::string &getColumnName(size_t index) noexcept(false);
 
     Json::Value toJson() const;
@@ -312,6 +334,8 @@ class Users
     std::shared_ptr<int64_t> lockedUntil_;
     std::shared_ptr<int64_t> lastFailedLogin_;
     std::shared_ptr<int32_t> orgId_;
+    std::shared_ptr<std::string> mfaPendingClientId_;
+    std::shared_ptr<std::string> mfaPendingRedirectUri_;
     struct MetaData
     {
         const std::string colName_;
@@ -323,7 +347,7 @@ class Users
         const bool notNull_;
     };
     static const std::vector<MetaData> metaData_;
-    bool dirtyFlag_[15]={ false };
+    bool dirtyFlag_[17]={ false };
   public:
     static const std::string &sqlForFindingByPrimaryKey()
     {
@@ -418,6 +442,16 @@ class Users
         if(dirtyFlag_[14])
         {
             sql += "org_id,";
+            ++parametersCount;
+        }
+        if(dirtyFlag_[15])
+        {
+            sql += "mfa_pending_client_id,";
+            ++parametersCount;
+        }
+        if(dirtyFlag_[16])
+        {
+            sql += "mfa_pending_redirect_uri,";
             ++parametersCount;
         }
         needSelection=true;
@@ -527,6 +561,16 @@ class Users
             sql +="default,";
         }
         if(dirtyFlag_[14])
+        {
+            n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
+            sql.append(placeholderStr, n);
+        }
+        if(dirtyFlag_[15])
+        {
+            n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
+            sql.append(placeholderStr, n);
+        }
+        if(dirtyFlag_[16])
         {
             n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
             sql.append(placeholderStr, n);
