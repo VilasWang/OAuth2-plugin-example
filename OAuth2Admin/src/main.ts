@@ -13,6 +13,10 @@ app.use(router)
 // Attempt to restore an existing session (refresh token persisted in
 // sessionStorage) before mounting + initial navigation. The auth guard reads
 // isAuthenticated, which requires the access token to be present. See A-LOGIN-014.
-await useAuthStore().restoreSession()
+// Fire-and-forget: the router's beforeEach guard awaits the deduped
+// ensureSessionRestored() before allowing protected routes, so the one-shot
+// session restoration completes before first render regardless. Top-level
+// await would break the Vite es2020 build target (see OAuth2Frontend pattern).
+useAuthStore().restoreSession()
 
 app.mount('#app')

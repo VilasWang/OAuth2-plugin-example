@@ -419,16 +419,55 @@ void SessionController::login(
               // === CHECK 2: MFA enforcement ===
               if (authResult->mfaEnabled)
               {
-                  // MFA is enabled - don't issue auth code yet
-                  // Return mfa_required response with a temporary token
-                  Json::Value mfaResp;
-                  mfaResp["mfa_required"] = true;
-                  mfaResp["mfa_token"] = std::to_string(authResult->internalId);
-                  mfaResp["message"] =
-                    "MFA verification required. Submit TOTP code to /oauth2/mfa/verify";
-                  auto resp = HttpResponse::newHttpJsonResponse(mfaResp);
-                  resp->setStatusCode(k200OK);
-                  callback(resp);
+                  // MFA is enabled - don't issue auth code yet. Before returning
+                  // the mfa_required response, persist this login attempt's
+                  // client_id/redirect_uri as the pending binding that
+                  // verifyLogin MUST match against on the second-factor leg
+                  // (P0-1 cross-client authorization confusion fix, Requirement
+                  // 2.6). The binding must be durable before the client can act
+                  // on mfa_token (= std::to_string(internalId)), so the response
+                  // is built only inside the UPDATE success callback. If the
+                  // UPDATE fails we fail closed (DB_QUERY_ERROR) rather than
+                  // return mfa_required against a stale/missing binding.
+                  auto internalId = authResult->internalId;
+                  auto sharedCb = std::make_shared<
+                    std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+                  auto db = drogon::app().getDbClient();
+                  db->execSqlAsync(
+                    "UPDATE users SET mfa_pending_client_id = $1, "
+                    "mfa_pending_redirect_uri = $2 WHERE id = $3",
+                    [req, internalId, sharedCb](const drogon::orm::Result &) {
+                        // Only now build and send the mfa_required response —
+                        // the pending binding is durably recorded before the
+                        // client can act on mfa_token.
+                        Json::Value mfaResp;
+                        mfaResp["mfa_required"] = true;
+                        mfaResp["mfa_token"] = std::to_string(internalId);
+                        mfaResp["message"] =
+                          "MFA verification required. Submit TOTP code to "
+                          "/oauth2/mfa/verify";
+                        auto resp = HttpResponse::newHttpJsonResponse(mfaResp);
+                        resp->setStatusCode(k200OK);
+                        (*sharedCb)(resp);
+                    },
+                    [req, sharedCb](const drogon::orm::DrogonDbException &e) {
+                        // Fail closed: do not return mfa_required if the pending
+                        // binding could not be persisted — verifyLogin would
+                        // otherwise have no binding (or a stale one) to compare
+                        // against for this login attempt.
+                        respondError(
+                          req,
+                          *sharedCb,
+                          "DB_QUERY_ERROR",
+                          std::string("login: failed to persist MFA pending "
+                                      "binding: ") +
+                            e.base().what()
+                        );
+                    },
+                    clientId,
+                    redirectUri,
+                    internalId
+                  );
                   return;
               }
 
