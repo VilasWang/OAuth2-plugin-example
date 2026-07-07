@@ -25,8 +25,10 @@ scripts/backend/build.bat [-debug]                                              
 ### Run Server
 
 ```bash
-./manage.sh run-backend    # Linux/macOS
-./manage.ps1 run-backend   # Windows
+./manage.sh run-backend           # Linux/macOS (Release)
+./manage.sh run-backend -debug    # Linux/macOS (Debug)
+./manage.ps1 run-backend          # Windows (Release)
+./manage.ps1 run-backend -debug   # Windows (Debug)
 # Or directly: build/OAuth2Server/{Debug|Release}/OAuth2Server -c config.json
 ```
 
@@ -34,8 +36,8 @@ scripts/backend/build.bat [-debug]                                              
 
 ```bash
 # C++ unit/integration tests (ctest)
-./manage.sh test-backend          # Linux/macOS
-./manage.ps1 test-backend         # Windows
+./manage.sh test-backend          # Linux/macOS (Release)
+./manage.ps1 test-backend         # Windows (Release)
 cd build && ctest --output-on-failure   # Direct ctest
 
 # Run specific test categories
@@ -50,8 +52,8 @@ scripts/backend/test-admin-endpoints.ps1    # Admin API (37 tests)
 scripts/backend/test-oauth2-endpoints.ps1   # OAuth2 core (17 tests)
 
 # Full cycle (build + unit tests + API tests)
-./manage.sh full-test     # Linux/macOS
-./manage.ps1 full-test    # Windows
+./manage.sh full-test     # Linux/macOS (Release)
+./manage.ps1 full-test    # Windows (Release)
 ```
 
 ### Frontend
@@ -59,10 +61,13 @@ scripts/backend/test-oauth2-endpoints.ps1   # OAuth2 core (17 tests)
 ```bash
 # Admin console (OAuth2Admin)
 cd OAuth2Admin && npm install && npm run dev          # Dev server at localhost:5174/admin/
-cd OAuth2Admin && npx playwright test                  # E2E tests
+cd OAuth2Admin && npx playwright test                 # E2E tests
+cd OAuth2Admin && npm run test:unit                   # unit tests
 
 # User frontend (OAuth2Frontend)
 cd OAuth2Frontend && npm install && npm run dev        # Dev server at localhost:5173
+cd OAuth2Frontend && npx playwright test               # E2E tests
+cd OAuth2Frontend && npm run test:unit                 # unit tests
 ```
 
 ### Docker
