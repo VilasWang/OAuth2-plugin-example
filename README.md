@@ -128,7 +128,7 @@ docker-compose up -d
 
 # 2. Start backend (requires PostgreSQL + Redis)
 cd OAuth2Server
-..\build\OAuth2Server\Debug\OAuth2Server.exe
+..\build\OAuth2Server\Release\OAuth2Server.exe
 
 # 3. Start admin console
 cd OAuth2Admin
