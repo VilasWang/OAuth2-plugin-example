@@ -55,6 +55,35 @@ jobs:
         run: |
           conan install . --output-folder=build --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17 -s arch=armv8
 
+      - name: Add drogon_ctl (Conan package) to PATH
+        # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
+        # bare command at BUILD time (see OAuth2Server/CMakeLists.txt and
+        # OAuth2Server/test/CMakeLists.txt), so it must be resolvable on PATH.
+        # Previously this worked because Drogon was `sudo cmake --install`ed
+        # to /usr/local. Now that Drogon comes from Conan, its package's
+        # bin/ dir (containing drogon_ctl) is not on PATH by default --
+        # CMakeDeps' Drogon-*-data.cmake records the resolved package
+        # folder, so we read it from there instead of hardcoding a Conan
+        # cache layout.
+        run: |
+          data_file=$(find build -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
+          if [ -z "$data_file" ]; then
+            echo "::error::Could not find Drogon-*-data.cmake under build/ (conan install may have failed)"
+            exit 1
+          fi
+          drogon_folder=$(grep -E 'set\(drogon_PACKAGE_FOLDER_RELEASE "' "$data_file" | sed -E 's/.*"(.+)".*/\1/')
+          if [ -z "$drogon_folder" ]; then
+            echo "::error::Could not parse drogon_PACKAGE_FOLDER_RELEASE from $data_file"
+            exit 1
+          fi
+          drogon_bin="$drogon_folder/bin"
+          if [ ! -x "$drogon_bin/drogon_ctl" ]; then
+            echo "::error::drogon_ctl not found under $drogon_bin"
+            exit 1
+          fi
+          echo "Adding $drogon_bin to PATH"
+          echo "$drogon_bin" >> "$GITHUB_PATH"
+
       - name: Configure Project CMake
         run: |
           # Use CI config which uses memory storage instead of Postgres/Redis
