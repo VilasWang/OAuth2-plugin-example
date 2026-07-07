@@ -35,13 +35,15 @@ class AuthService
 
     /**
      * @brief Async register a new user
-     * @param callback Returns empty string on success, error message on failure
+     * @param callback Invoked with an empty string on success, or a structured
+     *                 Error_Code (registered in ErrorCatalog) on failure. The
+     *                 caller forwards the value verbatim to ErrorResponder.
      */
     static void registerUser(
       const std::string &username,
       const std::string &password,
       const std::string &email,
-      std::function<void(const std::string &error)> &&callback
+      std::function<void(const std::string &errorCode)> &&callback
     );
 
     /**

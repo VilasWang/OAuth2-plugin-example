@@ -240,10 +240,13 @@ void PasswordResetController::confirm(
       [sharedCb, newPassword, db, req](const Result &r) {
           if (r.empty())
           {
+              // Empty result covers all four failure causes (not found /
+              // malformed / expired / already used); they are deliberately not
+              // distinguished to prevent token-enumeration attacks.
               respondError(
                 req,
                 sharedCb,
-                "VALIDATION_INVALID_INPUT",
+                "VALIDATION_RESET_TOKEN_INVALID",
                 "password-reset confirm: token is invalid, expired, or already used"
               );
               return;

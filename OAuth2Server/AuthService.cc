@@ -182,11 +182,11 @@ void AuthService::registerUser(
   const std::string &username,
   const std::string &password,
   const std::string &email,
-  std::function<void(const std::string &error)> &&callback
+  std::function<void(const std::string &errorCode)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const std::string &error)>>(std::move(callback));
+      std::make_shared<std::function<void(const std::string &errorCode)>>(std::move(callback));
     // Hash Password with Argon2id
     std::string salt = "";  // Argon2id embeds its own salt
     std::string passwordHash;
@@ -197,7 +197,7 @@ void AuthService::registerUser(
     catch (const std::exception &e)
     {
         LOG_ERROR << "Password hashing failed: " << e.what();
-        (*sharedCb)("Internal Server Error");
+        (*sharedCb)("INTERNAL_ERROR");
         return;
     }
 
@@ -271,16 +271,24 @@ void AuthService::registerUser(
               }
           },
           [sharedCb](const DrogonDbException &e) {
-              LOG_ERROR << "Register Failed: " << e.base().what();
-              // Usually duplicate username
-              (*sharedCb)("Registration Failed (Username likely exists)");
+              const std::string what = e.base().what();
+              LOG_ERROR << "Register Failed: " << what;
+              // Map the failing DB constraint to a structured Error_Code so the
+              // controller can forward it verbatim. Username conflict is checked
+              // before email so a simultaneous conflict reports username first.
+              if (what.find("users_username_key") != std::string::npos)
+                  (*sharedCb)("VALIDATION_USERNAME_TAKEN");
+              else if (what.find("idx_users_email_unique") != std::string::npos)
+                  (*sharedCb)("VALIDATION_EMAIL_TAKEN");
+              else
+                  (*sharedCb)("VALIDATION_INVALID_INPUT");  // unrecognized constraint
           }
         );
     }
     catch (const DrogonDbException &e)
     {
         LOG_ERROR << "Register Init Failed: " << e.base().what();
-        (*sharedCb)("Internal Server Error");
+        (*sharedCb)("INTERNAL_ERROR");
     }
 }
 

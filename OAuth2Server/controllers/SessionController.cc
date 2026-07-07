@@ -831,8 +831,8 @@ void SessionController::registerUser(
     }
 
     AuthService::registerUser(
-      username, password, email, [callback, email, req](const std::string &error) {
-          if (error.empty())
+      username, password, email, [callback, email, req](const std::string &errorCode) {
+          if (errorCode.empty())
           {
               Json::Value json;
               json["message"] = "User registered successfully";
@@ -843,8 +843,11 @@ void SessionController::registerUser(
           }
           else
           {
+              // Forward the structured Error_Code from AuthService verbatim to
+              // ErrorResponder — no text inspection or hardcoded fallback
+              // (Requirement 1.6).
               respondError(
-                req, callback, "VALIDATION_INVALID_INPUT", "registerUser failed: " + error
+                req, callback, errorCode, "registerUser failed: " + errorCode
               );
           }
       }

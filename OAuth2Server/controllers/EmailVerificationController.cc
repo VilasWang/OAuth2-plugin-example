@@ -134,8 +134,14 @@ void EmailVerificationController::verify(
       [sharedCb, db, req](const Result &r) {
           if (r.empty())
           {
+              // Empty result covers all four failure causes (not found /
+              // malformed / expired / already used); they are deliberately not
+              // distinguished to prevent token-enumeration attacks.
               respondError(
-                req, sharedCb, "VALIDATION_INVALID_INPUT", "verify: token is invalid or expired"
+                req,
+                sharedCb,
+                "VALIDATION_VERIFICATION_TOKEN_INVALID",
+                "verify: token is invalid or expired"
               );
               return;
           }
