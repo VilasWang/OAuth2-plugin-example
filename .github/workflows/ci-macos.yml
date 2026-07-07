@@ -30,8 +30,11 @@ jobs:
           brew update
 
       - name: Install Conan
+        # macos-14 runner ships a PEP 668 "externally-managed-environment"
+        # Python, which blocks a plain `pip3 install`. --break-system-packages
+        # is safe here: this is an ephemeral CI VM, not a shared system.
         run: |
-          pip3 install conan
+          pip3 install --break-system-packages conan
           conan profile detect --force
 
       # --- Conan dependency cache ---
