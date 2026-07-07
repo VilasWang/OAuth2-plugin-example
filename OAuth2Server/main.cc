@@ -269,13 +269,26 @@ int main()
     );
 
     // Report Hodor status after plugins have been initialized. Hodor is loaded
-    // only by production configuration.
+    // only by production configuration. When present, also wire its rejection
+    // response factory so rate-limited requests get the standard Error Envelope
+    // (VALIDATION_RATE_LIMITED / HTTP 429) instead of Hodor's plain-text body.
+    // If the plugin is absent or its load state cannot be determined, startup
+    // proceeds normally and rate-limit Envelope semantics are simply not
+    // guaranteed (Requirements 6.4-6.7).
     drogon::app().registerBeginningAdvice([]() {
         try
         {
             auto hodor = drogon::app().getPlugin<drogon::plugin::Hodor>();
             if (hodor)
+            {
+                hodor->setRejectResponseFactory([](const drogon::HttpRequestPtr &req) {
+                    common::error::Error error = common::error::Error::fromCode(
+                      "VALIDATION_RATE_LIMITED", common::error::RequestId::resolve(req)
+                    );
+                    return common::error::ErrorResponder::buildResponse(req, error);
+                });
                 LOG_INFO << "Hodor rate limiter enabled";
+            }
             else
                 LOG_INFO << "Hodor rate limiter not enabled by this config";
         }

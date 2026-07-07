@@ -18,8 +18,8 @@ namespace
 
 // Map a numeric HTTP status (as registered in the ErrorCatalog) to the
 // drogon::HttpStatusCode enum. Covers every status the Application catalog can
-// register (400/401/403/404/409/500/502/503/504); anything unexpected defaults
-// to 500 Internal Server Error, keeping the function total.
+// register (400/401/403/404/409/429/500/502/503/504); anything unexpected
+// defaults to 500 Internal Server Error, keeping the function total.
 drogon::HttpStatusCode toDrogonStatus(int httpStatus)
 {
     switch (httpStatus)
@@ -34,6 +34,8 @@ drogon::HttpStatusCode toDrogonStatus(int httpStatus)
             return drogon::k404NotFound;
         case 409:
             return drogon::k409Conflict;
+        case 429:
+            return drogon::k429TooManyRequests;
         case 502:
             return drogon::k502BadGateway;
         case 503:

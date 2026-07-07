@@ -255,11 +255,14 @@ void DeviceAuthController::approveDevice(
       [sharedCb, userCode, req](const drogon::orm::Result &result) {
           if (result.affectedRows() == 0)
           {
-              // Either not found, already approved/denied, or expired
+              // Either not found, already approved/denied, or expired. All three
+              // reasons collapse to a single code (no way to distinguish them in
+              // the response) and the device code's existing status is left
+              // unchanged because the UPDATE matched no rows.
               respondError(
                 req,
                 sharedCb,
-                "VALIDATION_INVALID_INPUT",
+                "VALIDATION_DEVICE_CODE_INVALID",
                 "approveDevice: invalid, expired, or already processed user_code"
               );
               return;

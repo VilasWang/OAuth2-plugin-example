@@ -150,7 +150,7 @@ void MfaController::verifySetup(
               respondError(
                 req,
                 sharedCb,
-                "VALIDATION_INVALID_INPUT",
+                "AUTH_MFA_NOT_CONFIGURED",
                 "verifySetup: MFA not set up. Call /api/me/mfa/setup first"
               );
               return;
@@ -162,7 +162,7 @@ void MfaController::verifySetup(
           if (!oauth2::utils::TotpUtils::verifyCode(secret, code))
           {
               respondError(
-                req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifySetup: TOTP code is incorrect"
+                req, sharedCb, "AUTH_MFA_CODE_INVALID", "verifySetup: TOTP code is incorrect"
               );
               return;
           }

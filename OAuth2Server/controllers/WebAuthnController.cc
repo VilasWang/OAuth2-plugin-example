@@ -213,11 +213,27 @@ void WebAuthnController::registerFinish(
           (*sharedCb)(resp);
       },
       [sharedCb, req](const DrogonDbException &e) {
+          const std::string what = e.base().what();
+          // A credential_id unique-constraint conflict means the user is adding
+          // the same security key twice — respond with a precise conflict code
+          // (HTTP 409) instead of the generic "service unavailable" DB code, and
+          // leave the existing credential record untouched (Requirement 3.3).
+          if (what.find("webauthn_credentials") != std::string::npos &&
+              what.find("credential_id") != std::string::npos)
+          {
+              respondError(
+                req,
+                sharedCb,
+                "VALIDATION_CREDENTIAL_ALREADY_REGISTERED",
+                std::string("registerFinish: duplicate credential_id: ") + what
+              );
+              return;
+          }
           respondError(
             req,
             sharedCb,
             "DB_QUERY_ERROR",
-            std::string("registerFinish: failed to store credential: ") + e.base().what()
+            std::string("registerFinish: failed to store credential: ") + what
           );
       },
       userId,

@@ -217,7 +217,7 @@ Authorization: `Bearer {access_token}`
 
 ### 5.1 应用错误码 (Application Error Codes)
 
-业务端点（Application_Endpoint）返回统一的 Error Envelope，其 `error.code` 取值属于下表登记的 Error_Code 集合；`numeric_code` 与 `category` 同样取自下表，HTTP 状态码按 Error_Category（NETWORK 类按 numeric_code 区分 502/504）一致映射。少数面向资源语义的 VALIDATION 码（`VALIDATION_RESOURCE_NOT_FOUND` → 404、`VALIDATION_RESOURCE_CONFLICT` → 409）通过条目级显式覆盖保留迁移前的 HTTP 状态码（方案 A / 需求 11.4），其余 VALIDATION 码仍为 400。
+业务端点（Application_Endpoint）返回统一的 Error Envelope，其 `error.code` 取值属于下表登记的 Error_Code 集合；`numeric_code` 与 `category` 同样取自下表，HTTP 状态码按 Error_Category（NETWORK 类按 numeric_code 区分 502/504）一致映射。少数面向资源语义的 VALIDATION 码通过条目级显式覆盖保留迁移前的 HTTP 状态码（方案 A / 需求 11.4）：`VALIDATION_RESOURCE_NOT_FOUND` → 404，资源已存在/冲突类（`VALIDATION_RESOURCE_CONFLICT`、`VALIDATION_USERNAME_TAKEN`、`VALIDATION_EMAIL_TAKEN`、`VALIDATION_CREDENTIAL_ALREADY_REGISTERED`）→ 409，`VALIDATION_RATE_LIMITED` → 429；其余 VALIDATION 码仍为 400。
 
 | Error_Code | numeric_code | Error_Category | HTTP Status | 默认信息 (Client_Safe_Message) |
 |---|---|---|---|---|
@@ -231,9 +231,18 @@ Authorization: `Bearer {access_token}`
 | `VALIDATION_FORMAT_ERROR` | 3003 | VALIDATION | 400 | 格式不正确 |
 | `VALIDATION_RESOURCE_NOT_FOUND` | 3004 | VALIDATION | 404 | 资源不存在 |
 | `VALIDATION_RESOURCE_CONFLICT` | 3005 | VALIDATION | 409 | 资源已存在或冲突 |
+| `VALIDATION_USERNAME_TAKEN` | 3006 | VALIDATION | 409 | 该用户名已被注册 |
+| `VALIDATION_EMAIL_TAKEN` | 3007 | VALIDATION | 409 | 该邮箱已被注册 |
+| `VALIDATION_CREDENTIAL_ALREADY_REGISTERED` | 3008 | VALIDATION | 409 | 该安全密钥已注册，无需重复添加 |
+| `VALIDATION_RESET_TOKEN_INVALID` | 3009 | VALIDATION | 400 | 重置链接已失效，请重新申请 |
+| `VALIDATION_VERIFICATION_TOKEN_INVALID` | 3010 | VALIDATION | 400 | 验证链接已失效，请重新发送邮件 |
+| `VALIDATION_DEVICE_CODE_INVALID` | 3011 | VALIDATION | 400 | 设备码无效、已过期或已被处理 |
+| `VALIDATION_RATE_LIMITED` | 3012 | VALIDATION | 429 | 请求过于频繁，请稍后重试 |
 | `AUTH_INVALID_CREDENTIALS` | 4001 | AUTHENTICATION | 401 | 用户名或密码错误 |
 | `AUTH_TOKEN_EXPIRED` | 4002 | AUTHENTICATION | 401 | 登录已过期 |
 | `AUTH_TOKEN_INVALID` | 4003 | AUTHENTICATION | 401 | 登录凭证无效 |
+| `AUTH_MFA_CODE_INVALID` | 4004 | AUTHENTICATION | 401 | 验证码不正确 |
+| `AUTH_MFA_NOT_CONFIGURED` | 4005 | AUTHENTICATION | 401 | 尚未设置双重验证，请先完成设置 |
 | `AUTHZ_ACCESS_DENIED` | 5001 | AUTHORIZATION | 403 | 没有访问权限 |
 | `AUTHZ_INSUFFICIENT_PERMISSIONS` | 5002 | AUTHORIZATION | 403 | 权限不足 |
 | `INTERNAL_ERROR` | 6001 | INTERNAL | 500 | 服务器内部错误 |

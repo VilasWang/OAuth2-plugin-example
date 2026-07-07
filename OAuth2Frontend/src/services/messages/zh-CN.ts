@@ -35,6 +35,20 @@ export const zhCN: Record<string, string> = {
   AUTHZ_INSUFFICIENT_PERMISSIONS: '权限不足',
   INTERNAL_ERROR: '服务器内部错误',
 
+  // --- auth-flow-error-code-gaps: 9 new backend Error_Codes ---
+  // Wording is kept character-for-character identical to OAuth2Admin's
+  // zh-CN.ts (Requirement 9.3) and must equal the catalog's default
+  // Client_Safe_Message (Requirement 9.4).
+  VALIDATION_USERNAME_TAKEN: '该用户名已被注册',
+  VALIDATION_EMAIL_TAKEN: '该邮箱已被注册',
+  VALIDATION_CREDENTIAL_ALREADY_REGISTERED: '该安全密钥已注册，无需重复添加',
+  VALIDATION_RESET_TOKEN_INVALID: '重置链接已失效，请重新申请',
+  VALIDATION_VERIFICATION_TOKEN_INVALID: '验证链接已失效，请重新发送邮件',
+  VALIDATION_DEVICE_CODE_INVALID: '设备码无效、已过期或已被处理',
+  VALIDATION_RATE_LIMITED: '请求过于频繁，请稍后重试',
+  AUTH_MFA_CODE_INVALID: '验证码不正确',
+  AUTH_MFA_NOT_CONFIGURED: '尚未设置双重验证，请先完成设置',
+
   // --- OAuth2 / RFC 6749 protocol error codes ---
   invalid_request: '请求参数缺失或无效',
   invalid_client: '客户端认证失败',

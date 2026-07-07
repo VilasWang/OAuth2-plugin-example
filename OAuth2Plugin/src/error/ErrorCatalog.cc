@@ -60,9 +60,9 @@ struct RawEntry
 // Existing 14 numeric error codes: integer values preserved unchanged
 // (Requirement 3.6 / 11.5). New codes, when added during migration, must keep
 // their numeric value inside the owning category segment.
-const std::array<RawEntry, 16> &rawEntries()
+const std::array<RawEntry, 25> &rawEntries()
 {
-    static const std::array<RawEntry, 16> kEntries = {{
+    static const std::array<RawEntry, 25> kEntries = {{
       // NETWORK (1000-1099)
       {"NET_CONNECTION_FAILED",
        1001,
@@ -156,6 +156,62 @@ const std::array<RawEntry, 16> &rawEntries()
        ErrorCategory::INTERNAL,
        "服务器内部错误",
        "服务器内部错误（INTERNAL 类）"},
+
+      // --- auth-flow-error-code-gaps: 9 new entries appended below. Existing
+      // entries (code/numeric/order) are preserved unchanged (Requirement 8.6).
+      // VALIDATION (3000-3099) —— 注册/登录/凭据/token/设备码/限流补充缺口
+      // (G1, G3, G5, G6).
+      {"VALIDATION_USERNAME_TAKEN",
+       3006,
+       ErrorCategory::VALIDATION,
+       "该用户名已被注册",
+       "注册时用户名重复（VALIDATION 类，HTTP 409）",
+       409},
+      {"VALIDATION_EMAIL_TAKEN",
+       3007,
+       ErrorCategory::VALIDATION,
+       "该邮箱已被注册",
+       "注册时邮箱重复（VALIDATION 类，HTTP 409）",
+       409},
+      {"VALIDATION_CREDENTIAL_ALREADY_REGISTERED",
+       3008,
+       ErrorCategory::VALIDATION,
+       "该安全密钥已注册，无需重复添加",
+       "WebAuthn 凭据重复注册（VALIDATION 类，HTTP 409）",
+       409},
+      {"VALIDATION_RESET_TOKEN_INVALID",
+       3009,
+       ErrorCategory::VALIDATION,
+       "重置链接已失效，请重新申请",
+       "密码重置 token 无效/过期/已用（VALIDATION 类）"},
+      {"VALIDATION_VERIFICATION_TOKEN_INVALID",
+       3010,
+       ErrorCategory::VALIDATION,
+       "验证链接已失效，请重新发送邮件",
+       "邮箱验证 token 无效/过期/已用（VALIDATION 类）"},
+      {"VALIDATION_DEVICE_CODE_INVALID",
+       3011,
+       ErrorCategory::VALIDATION,
+       "设备码无效、已过期或已被处理",
+       "设备授权 user_code 未找到/已处理/已过期（VALIDATION 类）"},
+      {"VALIDATION_RATE_LIMITED",
+       3012,
+       ErrorCategory::VALIDATION,
+       "请求过于频繁，请稍后重试",
+       "Hodor 限流拒绝（VALIDATION 类，HTTP 429）",
+       429},
+
+      // AUTHENTICATION (4000-4099) —— MFA 补充缺口 (G2a, G2b).
+      {"AUTH_MFA_CODE_INVALID",
+       4004,
+       ErrorCategory::AUTHENTICATION,
+       "验证码不正确",
+       "MFA TOTP 校验失败（AUTHENTICATION 类）"},
+      {"AUTH_MFA_NOT_CONFIGURED",
+       4005,
+       ErrorCategory::AUTHENTICATION,
+       "尚未设置双重验证，请先完成设置",
+       "用户尚未完成 MFA 设置（AUTHENTICATION 类）"},
     }};
     return kEntries;
 }
