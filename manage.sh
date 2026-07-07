@@ -6,6 +6,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ACTION="${1:-}"
 CONFIG="Release"
 
+# Load paths.env - single source of truth for source/build/SQL/config paths
+# (Task 5 / M0, design.md review H2). Later milestones only need to update
+# paths.env; this script reads the resulting variables instead of
+# hardcoding directory names.
+PATHS_ENV_FILE="$SCRIPT_DIR/paths.env"
+if [ ! -f "$PATHS_ENV_FILE" ]; then
+    echo "[Error] paths.env not found at $PATHS_ENV_FILE"
+    exit 1
+fi
+set -a
+# shellcheck disable=SC1090
+source "$PATHS_ENV_FILE"
+set +a
+COMPOSE_FILE_ABS="$SCRIPT_DIR/$COMPOSE_FILE_REL"
+
 # Parse global options
 for arg in "$@"; do
     case "$arg" in
@@ -52,22 +67,22 @@ case "$ACTION" in
         bash "$SCRIPT_DIR/scripts/backend/test.sh" "--${CONFIG,,}"
         ;;
     build-frontend)
-        cd "$SCRIPT_DIR/OAuth2Frontend"
+        cd "$SCRIPT_DIR/$OAUTH2_FRONTEND_DIR"
         npm install
         npm run build
         ;;
     dev-frontend)
-        cd "$SCRIPT_DIR/OAuth2Frontend"
+        cd "$SCRIPT_DIR/$OAUTH2_FRONTEND_DIR"
         npm install
         npm run dev
         ;;
     build-admin)
-        cd "$SCRIPT_DIR/OAuth2Admin"
+        cd "$SCRIPT_DIR/$OAUTH2_ADMIN_DIR"
         npm install
         npm run build
         ;;
     dev-admin)
-        cd "$SCRIPT_DIR/OAuth2Admin"
+        cd "$SCRIPT_DIR/$OAUTH2_ADMIN_DIR"
         npm install
         npm run dev
         ;;
@@ -103,16 +118,16 @@ case "$ACTION" in
         ;;
     docker-up)
         cd "$SCRIPT_DIR"
-        docker compose -f deploy/docker/docker-compose.yml --project-directory . up -d
+        docker compose -f "$COMPOSE_FILE_ABS" --project-directory . up -d
         ;;
     docker-down)
         cd "$SCRIPT_DIR"
-        docker compose -f deploy/docker/docker-compose.yml --project-directory . down
+        docker compose -f "$COMPOSE_FILE_ABS" --project-directory . down
         ;;
     clean)
-        rm -rf "$SCRIPT_DIR/build"
-        rm -rf "$SCRIPT_DIR/OAuth2Frontend/dist"
-        rm -rf "$SCRIPT_DIR/OAuth2Admin/dist"
+        rm -rf "$SCRIPT_DIR/$BUILD_DIR"
+        rm -rf "$SCRIPT_DIR/$OAUTH2_FRONTEND_DIR/dist"
+        rm -rf "$SCRIPT_DIR/$OAUTH2_ADMIN_DIR/dist"
         echo "Cleaned build artifacts."
         ;;
     help)

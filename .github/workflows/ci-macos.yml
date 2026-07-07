@@ -8,7 +8,6 @@ on:
 
 env:
   BUILD_TYPE: Release
-  DROGON_VERSION: "v1.9.13"
 
 jobs:
   build-and-test:
@@ -18,60 +17,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Drogon dependencies
+      - name: Install build dependencies
+        # Library dependencies (jsoncpp/openssl/libpq/hiredis/curl/zlib) are
+        # now resolved by Conan via conanfile.py (design.md §9.1) instead of
+        # Homebrew. git/cmake ship preinstalled on the GitHub-hosted macos-14
+        # image at versions new enough for Conan (>=3.21); ossp-uuid is not
+        # needed since Drogon's Conan recipe uses macOS's native uuid support.
         run: |
-          # Refresh Homebrew formula index (do NOT upgrade preinstalled
-          # packages — a blanket `brew upgrade` breaks the job whenever any
-          # preinstalled formula (e.g. xcodes) lacks an arm64 bottle).
+          # Refresh Homebrew formula index only (do NOT `brew upgrade` —
+          # that can break the job whenever a preinstalled formula lacks an
+          # arm64 bottle). No package installs required anymore.
           brew update
 
-          # Install core dependencies (no databases needed for build-only)
-          brew install git cmake
-          brew install jsoncpp
-          brew install ossp-uuid
-          brew install zlib
-          brew install openssl@3 libpq hiredis
-          brew install curl
-
-      # --- Drogon build cache ---
-      # Temporarily disable cache to force rebuild after key change
-      # - name: Cache Drogon build
-      #   id: cache-drogon
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ${{github.workspace}}/drogon
-      #     key: drogon-${{ runner.os }}-${{ env.DROGON_VERSION }}-v6-cpp17-pure-${{ env.BUILD_TYPE }}
-
-      - name: Build Drogon
+      - name: Install Conan
         run: |
-          git clone --depth 1 --branch ${{ env.DROGON_VERSION }} https://github.com/drogonframework/drogon
-          cd drogon
-          git submodule update --init --recursive
-          mkdir build && cd build
-          export PostgreSQL_ROOT="$(brew --prefix libpq)"
-          cmake .. \
-            -G "Unix Makefiles" \
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_CXX_STANDARD=17 \
-            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
-            -DCMAKE_CXX_EXTENSIONS=OFF \
-            -DCMAKE_INSTALL_PREFIX=/usr/local \
-            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
-            -DCMAKE_FIND_FRAMEWORK=LAST \
-            -DBUILD_EXAMPLES=OFF \
-            -DBUILD_MYSQL=OFF \
-            -DBUILD_POSTGRESQL=ON \
-            -DBUILD_REDIS=ON \
-            -DBUILD_TESTING=OFF
-          cmake --build . --config ${{ env.BUILD_TYPE }} --parallel $(sysctl -n hw.ncpu)
-          sudo cmake --install .
+          pip3 install conan
+          conan profile detect --force
+
+      # --- Conan dependency cache ---
+      # Keyed on conanfile.py + conan.lock content hash so the cache is
+      # invalidated exactly when the dependency graph could have changed.
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-v1-cpp17-${{ hashFiles('conanfile.py', 'conan.lock') }}
+          restore-keys: |
+            conan-${{ runner.os }}-v1-cpp17-
+
+      - name: Configure CMake using Conan
+        # Drogon (with_orm/with_postgres/with_redis/with_ctl/with_sqlite/with_brotli)
+        # and all other C++ dependencies are declared in conanfile.py and
+        # resolved here instead of being cloned/compiled from source via brew.
+        run: |
+          conan install . --output-folder=build --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17 -s arch=armv8
 
       - name: Configure Project CMake
         run: |
           # Use CI config which uses memory storage instead of Postgres/Redis
           cp OAuth2Server/config.ci.json OAuth2Server/config.json
 
-          export PostgreSQL_ROOT="$(brew --prefix libpq)"
           cmake -S . -B build -G "Unix Makefiles" \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -DCMAKE_CXX_STANDARD=17 \
@@ -79,9 +64,8 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=OFF \
             -DBUILD_TESTS=ON \
             -DOAUTH2_MEMORY_TESTS_ONLY=ON \
-            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
-            -DCURL_ROOT="$(brew --prefix curl)" \
-            -DCMAKE_FIND_FRAMEWORK=LAST
+            -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}/build/conan_toolchain.cmake" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64
       - name: Build
         run: cmake --build build --config ${{env.BUILD_TYPE}}
 

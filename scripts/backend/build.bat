@@ -4,8 +4,8 @@ setlocal enabledelayedexpansion
 call "%~dp0\env_setup.bat"
 if %errorlevel% neq 0 exit /b 1
 
-echo Checking for running OAuth2Server processes...
-taskkill /F /IM OAuth2Server.exe >nul 2>&1
+echo Checking for running %SERVER_BINARY_NAME% processes...
+taskkill /F /IM %SERVER_BINARY_NAME%.exe >nul 2>&1
 
 set PROJECT_DIR=%~dp0..\..
 set BUILD_TYPE=Release
@@ -44,8 +44,8 @@ if %errorlevel% neq 0 (
 )
 
 echo Copying config files...
-copy ..\OAuth2Server\config.json .\OAuth2Server\%BUILD_TYPE%\ /Y
-copy ..\OAuth2Server\config.json .\OAuth2Server\test\%BUILD_TYPE%\ /Y
+copy "..\%OAUTH2_SERVER_DIR%\%CONFIG_FILE%" ".\%OAUTH2_SERVER_DIR%\%BUILD_TYPE%\" /Y
+copy "..\%OAUTH2_SERVER_DIR%\%CONFIG_FILE%" ".\%OAUTH2_SERVER_DIR%\test\%BUILD_TYPE%\" /Y
 
 echo Build completed successfully!
 endlocal

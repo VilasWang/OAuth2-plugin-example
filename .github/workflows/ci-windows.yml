@@ -8,7 +8,6 @@ on:
 
 env:
   BUILD_TYPE: Release
-  DROGON_VERSION: "v1.9.13"
 
 jobs:
   build-and-test:
@@ -50,68 +49,29 @@ jobs:
           conan profile detect --force
 
       # --- Conan dependency cache ---
-      # Disabled Conan cache to avoid cache-related conflicts
-      # - name: Cache Conan packages
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ~/.conan2
-      #     key: conan-${{ runner.os }}-v3-cpp17-${{ hashFiles('conanfile.txt') }}
-      #     restore-keys: |
-      #       conan-${{ runner.os }}-
+      # Keyed on conanfile.py + conan.lock content hash so the cache is
+      # invalidated exactly when the dependency graph could have changed.
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-v1-cpp17-${{ hashFiles('conanfile.py', 'conan.lock') }}
+          restore-keys: |
+            conan-${{ runner.os }}-v1-cpp17-
 
       - name: Configure CMake using Conan
-        # NOTE: OpenSSL is required for OAuth2 token hashing and OIDC JWT signing.
-        # It is installed via Conan (--build=openssl) and linked through the
-        # conan_toolchain.cmake file, which sets CMAKE_PREFIX_PATH automatically.
+        # Drogon (with_orm/with_postgres/with_redis/with_ctl/with_sqlite/with_brotli)
+        # is now provided by Conan via conanfile.py instead of being cloned
+        # and compiled from source into C:\Drogon. OpenSSL is likewise
+        # resolved by Conan and linked through conan_toolchain.cmake, which
+        # sets CMAKE_PREFIX_PATH automatically.
         run: |
           # Remove old build directory to avoid cache conflicts
           Remove-Item -Path build -Recurse -Force -ErrorAction SilentlyContinue
-          conan install . --output-folder=build --build=openssl --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17
-
-      # --- Drogon build cache ---
-      # Disabled Drogon cache to avoid cache key conflicts and force fresh builds
-      # - name: Cache Drogon build
-      #   id: cache-drogon
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ${{github.workspace}}/drogon
-      #     key: drogon-${{ runner.os }}-${{ env.DROGON_VERSION }}-v6-full-components-${{ env.BUILD_TYPE }}
+          conan install . --output-folder=build --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17
 
       - name: Skip database installation
         run: Write-Host "Skipping PostgreSQL and Redis installation to speed up CI"
-
-      - name: Build Drogon
-        # if: steps.cache-drogon.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch ${{ env.DROGON_VERSION }} https://github.com/drogonframework/drogon
-          cd drogon
-          git submodule update --init --recursive
-          mkdir build && cd build
-          cmake .. `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-            -DCMAKE_CXX_STANDARD=17 `
-            -DCMAKE_CXX_STANDARD_REQUIRED=ON `
-            -DCMAKE_INSTALL_PREFIX="C:\Drogon" `
-            -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}/build/conan_toolchain.cmake" `
-            -DCMAKE_POLICY_DEFAULT_CMP0091=NEW `
-            -DBUILD_CTL=ON `
-            -DBUILD_ORM=ON `
-            -DBUILD_EXAMPLES=OFF `
-            -DBUILD_POSTGRESQL=ON `
-            -DBUILD_MYSQL=OFF `
-            -DBUILD_SQLITE=ON `
-            -DBUILD_REDIS=ON `
-            -DBUILD_BROTLI=ON `
-            -DBUILD_YAML_CONFIG=ON
-          cmake --build . --config ${{ env.BUILD_TYPE }} --target install --parallel $env:NUMBER_OF_PROCESSORS
-
-      - name: Skip database initialization
-        run: |
-          Write-Host "Skipping database initialization - databases not installed"
-          # Add Drogon to PATH for drogon_ctl
-          echo "C:\Drogon\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Prepare CI Config
         run: |
@@ -123,7 +83,7 @@ jobs:
 
       - name: Configure Project CMake
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}/build/conan_toolchain.cmake" -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_PREFIX_PATH="C:\Drogon" -DDrogon_DIR="C:\Drogon\lib\cmake\Drogon" -DBUILD_TESTS=ON
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}/build/conan_toolchain.cmake" -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DBUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config ${{env.BUILD_TYPE}}

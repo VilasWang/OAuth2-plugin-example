@@ -6,6 +6,12 @@ $Manage = Join-Path $ProjectDir "manage.ps1"
 $Result = 0
 $ServerProcess = $null
 
+# Load paths.env (repo root) - single source of truth for source/build/SQL
+# /config paths (Task 5 / M0, design.md review H2).
+. "$PSScriptRoot\backend\paths-env.ps1"
+$Paths = Import-PathsEnv -PathsEnvFile (Join-Path $ProjectDir "paths.env")
+$ComposeFileAbs = Join-Path $ProjectDir $Paths["COMPOSE_FILE_REL"]
+
 function Cleanup {
     if ($ServerProcess -and -not $ServerProcess.HasExited) {
         Write-Host "[Cleanup] Stopping server..."
@@ -13,7 +19,7 @@ function Cleanup {
     }
     # Ensure docker is down (compose file relocated to deploy/docker/)
     Set-Location $ProjectDir
-    docker-compose -f "$ProjectDir/deploy/docker/docker-compose.yml" down 2>$null | Out-Null
+    docker-compose -f "$ComposeFileAbs" down 2>$null | Out-Null
 }
 
 trap { Cleanup } EXIT
@@ -45,9 +51,10 @@ Write-Host ""
 
 # Step 3: manage run-backend & wait + curl /health/ready
 Write-Host "[Step 3/5] manage run-backend + health check"
-$ServerExe = Join-Path $ProjectDir "build\OAuth2Server\Release\OAuth2Server.exe"
+$ServerExeName = "$($Paths['SERVER_BINARY_NAME']).exe"
+$ServerExe = Join-Path $ProjectDir "$($Paths['BUILD_DIR'])\$($Paths['SERVER_BUILD_SUBDIR'])\Release\$ServerExeName"
 if (-not (Test-Path $ServerExe)) {
-    $ServerExe = Join-Path $ProjectDir "build\OAuth2Server\Debug\OAuth2Server.exe"
+    $ServerExe = Join-Path $ProjectDir "$($Paths['BUILD_DIR'])\$($Paths['SERVER_BUILD_SUBDIR'])\Debug\$ServerExeName"
 }
 if (-not (Test-Path $ServerExe)) {
     Write-Host "[FAIL] Server executable not found" -ForegroundColor Red

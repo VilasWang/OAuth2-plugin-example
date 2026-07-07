@@ -8,7 +8,6 @@ on:
 
 env:
   BUILD_TYPE: Release
-  DROGON_VERSION: "v1.9.13"
 
 jobs:
   build-and-test:
@@ -68,7 +67,15 @@ jobs:
           npm ci
           npm run test:unit
 
-      - name: Install Drogon dependencies
+      - name: Install build dependencies
+        # Library dependencies (jsoncpp/libpq/openssl/zlib/hiredis/libcurl) are
+        # now resolved by Conan via conanfile.py (design.md §9.1) instead of
+        # apt. We still need: system build toolchain, uuid-dev (Drogon's Conan
+        # recipe does not wrap libuuid, so the system headers/lib are required
+        # when Conan builds Drogon on Linux), and redis-tools/postgres client
+        # CLIs used by the later "Wait for services"/"Initialize Database"
+        # steps (psql/pg_isready ship preinstalled on the GitHub-hosted
+        # ubuntu-22.04 image; redis-tools does not, hence kept explicit here).
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -76,43 +83,35 @@ jobs:
             gcc \
             g++ \
             cmake \
-            libjsoncpp-dev \
             uuid-dev \
-            libpq-dev \
-            libssl-dev \
-            zlib1g-dev \
-            libhiredis-dev \
-            libcurl4-openssl-dev \
             redis-tools
 
-      # --- Drogon build cache ---
-      # --- Drogon build cache ---
-      # Disabled Drogon cache to avoid cache key conflicts and force fresh builds
-      # - name: Cache Drogon build
-      #   id: cache-drogon
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ${{github.workspace}}/drogon
-      #     key: drogon-${{ runner.os }}-${{ env.DROGON_VERSION }}-v4-cpp17-${{ env.BUILD_TYPE }}
-
-      - name: Build Drogon
-        # if: steps.cache-drogon.outputs.cache-hit != 'true'
+      - name: Install Conan
         run: |
-          git clone --depth 1 --branch ${{ env.DROGON_VERSION }} https://github.com/drogonframework/drogon
-          cd drogon
-          git submodule update --init --recursive
-          mkdir build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DBUILD_EXAMPLES=OFF -DBUILD_MYSQL=OFF
-          make -j$(nproc)
+          pip install conan
+          conan profile detect --force
 
-      - name: Install Drogon
+      # --- Conan dependency cache ---
+      # Keyed on conanfile.py + conan.lock content hash so the cache is
+      # invalidated exactly when the dependency graph could have changed.
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-v1-cpp17-${{ hashFiles('conanfile.py', 'conan.lock') }}
+          restore-keys: |
+            conan-${{ runner.os }}-v1-cpp17-
+
+      - name: Configure CMake using Conan
+        # Drogon (with_orm/with_postgres/with_redis/with_ctl/with_sqlite/with_brotli)
+        # and all other C++ dependencies are declared in conanfile.py and
+        # resolved here instead of being cloned/compiled from source.
         run: |
-          cd drogon/build
-          sudo make install
+          conan install . --output-folder=build --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17
 
       - name: Configure Project CMake
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DBUILD_TESTS=ON -DCMAKE_PREFIX_PATH=/usr/local
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DBUILD_TESTS=ON -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}/build/conan_toolchain.cmake"
 
       - name: Build
         run: cmake --build build --config ${{env.BUILD_TYPE}}

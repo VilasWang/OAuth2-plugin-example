@@ -3,8 +3,8 @@
 #include <drogon/utils/Utilities.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
-#include <openssl/rsa.h>
 #include <openssl/bn.h>
+#include <openssl/core_names.h>
 #include <openssl/err.h>
 #include <fstream>
 #include <sstream>
@@ -253,23 +253,25 @@ bool JwkManager::getPublicKeyComponents(std::string &n, std::string &e) const
         return false;
 
     EVP_PKEY *pkey = static_cast<EVP_PKEY *>(rsaKey_);
-    // Deprecation note (not required for the 1.5 concurrency fix): on OpenSSL
-    // 3.0+ EVP_PKEY_get1_RSA (and the RSA_*/BN_* accessors below) are
-    // deprecated. The forward-looking migration is EVP_PKEY_get_bn_param(pkey,
-    // OSSL_PKEY_PARAM_RSA_N / OSSL_PKEY_PARAM_RSA_E, ...) to read the modulus
-    // and exponent directly as BIGNUMs. Left as-is here to avoid changing any
-    // crypto behaviour or the JWKS output bytes (preservation 3.3).
-    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
-    if (!rsa)
-        return false;
 
-    const BIGNUM *bn_n = nullptr;
-    const BIGNUM *bn_e = nullptr;
-    RSA_get0_key(rsa, &bn_n, &bn_e, nullptr);
+    // OpenSSL 3.x migration (Task 3 / design §9.3): EVP_PKEY_get1_RSA +
+    // RSA_get0_key + BN_* accessors are deprecated as of OpenSSL 3.0. Read
+    // the modulus/exponent directly as BIGNUMs via EVP_PKEY_get_bn_param(),
+    // which works on the EVP_PKEY without extracting a legacy RSA* handle.
+    // BN_bn2bin() semantics (big-endian, minimal-length encoding) are
+    // unchanged, so the resulting base64url bytes are byte-for-byte
+    // identical to the pre-migration output (preservation 3.3 / golden).
+    BIGNUM *bn_n = nullptr;
+    BIGNUM *bn_e = nullptr;
 
-    if (!bn_n || !bn_e)
+    if (EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_n) <= 0 || !bn_n)
     {
-        RSA_free(rsa);
+        return false;
+    }
+
+    if (EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn_e) <= 0 || !bn_e)
+    {
+        BN_free(bn_n);
         return false;
     }
 
@@ -284,7 +286,8 @@ bool JwkManager::getPublicKeyComponents(std::string &n, std::string &e) const
     BN_bn2bin(bn_e, eBuf.data());
     e = base64UrlEncode(eBuf.data(), eBuf.size());
 
-    RSA_free(rsa);
+    BN_free(bn_n);
+    BN_free(bn_e);
     return true;
 }
 

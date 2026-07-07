@@ -34,30 +34,30 @@ echo Running OAuth2 Tests (Dual-Config)
 echo ========================================
 echo Build Type: %BUILD_TYPE%
 
-if not exist "%PROJECT_DIR%\build" (
+if not exist "%PROJECT_DIR%\%BUILD_DIR%" (
     echo [Error] Build directory not found. Please run build.bat first.
     exit /b 1
 )
 
-set "TEST_WORK_DIR=%PROJECT_DIR%\build\OAuth2Server\test\%BUILD_TYPE%"
+set "TEST_WORK_DIR=%PROJECT_DIR%\%BUILD_DIR%\%OAUTH2_SERVER_DIR%\test\%BUILD_TYPE%"
 
-cd /d "%PROJECT_DIR%\build"
+cd /d "%PROJECT_DIR%\%BUILD_DIR%"
 
 REM --- Run 1: Standard config.json ---
 echo.
-echo [1/2] Running tests with standard config.json...
+echo [1/2] Running tests with standard %CONFIG_FILE%...
 ctest -V -C %BUILD_TYPE% %VERBOSE%
 if !errorlevel! neq 0 (
-    echo [FAIL] Tests failed with standard config.json
+    echo [FAIL] Tests failed with standard %CONFIG_FILE%
     exit /b 1
 )
 echo [PASS] Standard config tests successful.
 
 REM --- Run 2: config.ci.json ---
 echo.
-echo [2/2] Running tests with config.ci.json...
-if not exist "%PROJECT_DIR%\OAuth2Server\config.ci.json" (
-    echo [SKIP] config.ci.json not found, skipping second run.
+echo [2/2] Running tests with %CONFIG_CI_FILE%...
+if not exist "%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%" (
+    echo [SKIP] %CONFIG_CI_FILE% not found, skipping second run.
     goto done
 )
 
@@ -67,18 +67,18 @@ if not exist "%TEST_WORK_DIR%" (
 )
 
 REM Backup original and use CI config
-copy /Y "%TEST_WORK_DIR%\config.json" "%TEST_WORK_DIR%\config.json.bak" >nul
-copy /Y "%PROJECT_DIR%\OAuth2Server\config.ci.json" "%TEST_WORK_DIR%\config.json" >nul
+copy /Y "%TEST_WORK_DIR%\%CONFIG_FILE%" "%TEST_WORK_DIR%\%CONFIG_FILE%.bak" >nul
+copy /Y "%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%" "%TEST_WORK_DIR%\%CONFIG_FILE%" >nul
 
 ctest -V -C %BUILD_TYPE% %VERBOSE%
 set "CI_EXIT=!errorlevel!"
 
 REM Restore original config immediately
-copy /Y "%TEST_WORK_DIR%\config.json.bak" "%TEST_WORK_DIR%\config.json" >nul
-del "%TEST_WORK_DIR%\config.json.bak" >nul 2>&1
+copy /Y "%TEST_WORK_DIR%\%CONFIG_FILE%.bak" "%TEST_WORK_DIR%\%CONFIG_FILE%" >nul
+del "%TEST_WORK_DIR%\%CONFIG_FILE%.bak" >nul 2>&1
 
 if !CI_EXIT! neq 0 (
-    echo [FAIL] Tests failed with config.ci.json
+    echo [FAIL] Tests failed with %CONFIG_CI_FILE%
     exit /b 1
 )
 echo [PASS] CI config tests successful.

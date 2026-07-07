@@ -83,9 +83,9 @@ echo ""
 echo "========================================"
 echo "Step 5: Starting OAuth2 server"
 echo "========================================"
-EXE_PATH="$PROJECT_DIR/build/OAuth2Server/OAuth2Server"
+EXE_PATH="$BUILD_ABS_DIR/$SERVER_BUILD_SUBDIR/$SERVER_BINARY_NAME"
 if [ ! -f "$EXE_PATH" ]; then
-    EXE_PATH="$PROJECT_DIR/build/OAuth2Server/$BUILD_TYPE/OAuth2Server"
+    EXE_PATH="$BUILD_ABS_DIR/$SERVER_BUILD_SUBDIR/$BUILD_TYPE/$SERVER_BINARY_NAME"
 fi
 if [ ! -f "$EXE_PATH" ]; then
     echo "[FAILED] Server executable not found"

@@ -77,14 +77,14 @@ docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "DROP DATABASE IF
 docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
 
 echo "Applying migrations..."
-for f in "$PROJECT_DIR/OAuth2Server/sql/migrations"/V*.sql; do
+for f in "$OAUTH2_SERVER_ABS_DIR/$SQL_MIGRATIONS_REL_DIR"/V*.sql; do
     [ -f "$f" ] || continue
     echo "  Applying $(basename "$f")..."
     docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "$f"
 done
 
 echo "Applying seed data..."
-for f in "$PROJECT_DIR/OAuth2Server/sql/seed"/*.sql; do
+for f in "$OAUTH2_SERVER_ABS_DIR/$SQL_SEED_REL_DIR"/*.sql; do
     [ -f "$f" ] || continue
     echo "  Applying $(basename "$f")..."
     docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "$f"
@@ -120,9 +120,9 @@ echo ""
 echo "========================================"
 echo "Step 6: Starting OAuth2 server"
 echo "========================================"
-EXE_PATH="$PROJECT_DIR/build/OAuth2Server/OAuth2Server"
+EXE_PATH="$BUILD_ABS_DIR/$SERVER_BUILD_SUBDIR/$SERVER_BINARY_NAME"
 if [ ! -f "$EXE_PATH" ]; then
-    EXE_PATH="$PROJECT_DIR/build/OAuth2Server/$BUILD_TYPE/OAuth2Server"
+    EXE_PATH="$BUILD_ABS_DIR/$SERVER_BUILD_SUBDIR/$BUILD_TYPE/$SERVER_BINARY_NAME"
 fi
 if [ ! -f "$EXE_PATH" ]; then
     echo "[FAILED] Server executable not found"

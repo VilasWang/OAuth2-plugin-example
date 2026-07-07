@@ -30,6 +30,11 @@ set PROJECT_DIR=%CD%
 echo Project directory: %PROJECT_DIR%
 echo.
 
+REM Load paths.env (repo root) - single source of truth for source/build
+REM /SQL/config paths (Task 5 / M0, design.md review H2).
+call "%SCRIPT_DIR%paths_env.bat"
+if errorlevel 1 exit /b 1
+
 REM ========================================
 REM Prerequisites Check
 REM ========================================
@@ -70,11 +75,11 @@ echo ========================================
 
 REM Stop any existing containers
 echo Stopping existing containers...
-docker-compose -f "%PROJECT_DIR%\deploy\docker\docker-compose.yml" down >nul 2>&1
+docker-compose -f "%PROJECT_DIR%\%COMPOSE_FILE_REL%" down >nul 2>&1
 
 REM Start PostgreSQL and Redis containers
 echo Starting PostgreSQL and Redis containers...
-docker-compose -f "%PROJECT_DIR%\deploy\docker\docker-compose.yml" up -d oauth2-postgres oauth2-redis
+docker-compose -f "%PROJECT_DIR%\%COMPOSE_FILE_REL%" up -d oauth2-postgres oauth2-redis
 if %ERRORLEVEL% neq 0 (
     echo [FAILED] Failed to start containers
     goto cleanup_and_exit
@@ -128,7 +133,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo Applying migrations...
-for %%f in ("%PROJECT_DIR%\OAuth2Server\sql\migrations\V*.sql") do (
+for %%f in ("%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_MIGRATIONS_REL_DIR%\V*.sql") do (
     echo   Applying %%~nxf...
     docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "%%f"
     if %ERRORLEVEL% neq 0 (
@@ -138,7 +143,7 @@ for %%f in ("%PROJECT_DIR%\OAuth2Server\sql\migrations\V*.sql") do (
 )
 
 echo Applying seed data...
-for %%f in ("%PROJECT_DIR%\OAuth2Server\sql\seed\*.sql") do (
+for %%f in ("%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_SEED_REL_DIR%\*.sql") do (
     echo   Applying %%~nxf...
     docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "%%f"
     if %ERRORLEVEL% neq 0 (
@@ -205,12 +210,12 @@ echo ========================================
 REM Determine server executable path
 set SERVER_EXE=
 set EXE_DIR=
-if exist "%PROJECT_DIR%\build\OAuth2Server\Release\OAuth2Server.exe" (
-    set SERVER_EXE=%PROJECT_DIR%\build\OAuth2Server\Release\OAuth2Server.exe
-    set EXE_DIR=%PROJECT_DIR%\build\OAuth2Server\Release
-) else if exist "%PROJECT_DIR%\build\OAuth2Server\Debug\OAuth2Server.exe" (
-    set SERVER_EXE=%PROJECT_DIR%\build\OAuth2Server\Debug\OAuth2Server.exe
-    set EXE_DIR=%PROJECT_DIR%\build\OAuth2Server\Debug
+if exist "%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\Release\%SERVER_BINARY_NAME%.exe" (
+    set SERVER_EXE=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\Release\%SERVER_BINARY_NAME%.exe
+    set EXE_DIR=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\Release
+) else if exist "%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\Debug\%SERVER_BINARY_NAME%.exe" (
+    set SERVER_EXE=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\Debug\%SERVER_BINARY_NAME%.exe
+    set EXE_DIR=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\Debug
 ) else (
     echo [FAILED] Server executable not found
     goto cleanup_and_exit
@@ -223,7 +228,7 @@ set OAUTH2_DB_PORT=5433
 set OAUTH2_REDIS_HOST=127.0.0.1
 set OAUTH2_REDIS_PORT=6380
 set OAUTH2_REDIS_PASSWORD=redis_secret_pass
-start "" "%SERVER_EXE%" -c "%PROJECT_DIR%\config.json"
+start "" "%SERVER_EXE%" -c "%PROJECT_DIR%\%CONFIG_FILE%"
 popd
 
 REM Wait for server to start
@@ -231,7 +236,7 @@ echo Waiting for server to start...
 timeout /t 3 /nobreak >nul
 
 REM Check if server is running
-tasklist /FI "IMAGENAME eq OAuth2Server.exe" 2>NUL | find /I /N "OAuth2Server.exe">NUL
+tasklist /FI "IMAGENAME eq %SERVER_BINARY_NAME%.exe" 2>NUL | find /I /N "%SERVER_BINARY_NAME%.exe">NUL
 if "%ERRORLEVEL%"=="0" (
     echo [SUCCESS] Server started
 ) else (
@@ -275,11 +280,11 @@ echo ========================================
 echo Step 9: Stopping OAuth2 server
 echo ========================================
 
-REM Try to stop OAuth2Server.exe
-tasklist /FI "IMAGENAME eq OAuth2Server.exe" 2>NUL | find /I /N "OAuth2Server.exe">NUL
+REM Try to stop the server binary
+tasklist /FI "IMAGENAME eq %SERVER_BINARY_NAME%.exe" 2>NUL | find /I /N "%SERVER_BINARY_NAME%.exe">NUL
 if "%ERRORLEVEL%"=="0" (
-    taskkill /F /IM OAuth2Server.exe >nul 2>&1
-    echo Stopped OAuth2Server.exe
+    taskkill /F /IM %SERVER_BINARY_NAME%.exe >nul 2>&1
+    echo Stopped %SERVER_BINARY_NAME%.exe
 )
 
 REM Try to stop OAuth2Backend.exe
@@ -298,7 +303,7 @@ REM ========================================
 echo ========================================
 echo Step 10: Stopping Docker containers
 echo ========================================
-docker-compose -f "%PROJECT_DIR%\deploy\docker\docker-compose.yml" down
+docker-compose -f "%PROJECT_DIR%\%COMPOSE_FILE_REL%" down
 echo [SUCCESS] Docker containers stopped
 echo.
 
@@ -334,9 +339,9 @@ REM ========================================
 REM Ensure server is stopped even on failure
 echo.
 echo Ensuring server is stopped...
-tasklist /FI "IMAGENAME eq OAuth2Server.exe" 2>NUL | find /I /N "OAuth2Server.exe">NUL
+tasklist /FI "IMAGENAME eq %SERVER_BINARY_NAME%.exe" 2>NUL | find /I /N "%SERVER_BINARY_NAME%.exe">NUL
 if "%ERRORLEVEL%"=="0" (
-    taskkill /F /IM OAuth2Server.exe >nul 2>&1
+    taskkill /F /IM %SERVER_BINARY_NAME%.exe >nul 2>&1
 )
 
 tasklist /FI "IMAGENAME eq OAuth2Backend.exe" 2>NUL | find /I /N "OAuth2Backend.exe">NUL
@@ -346,7 +351,7 @@ if "%ERRORLEVEL%"=="0" (
 
 REM Stop Docker containers
 echo Stopping Docker containers...
-docker-compose -f "%PROJECT_DIR%\deploy\docker\docker-compose.yml" down >nul 2>&1
+docker-compose -f "%PROJECT_DIR%\%COMPOSE_FILE_REL%" down >nul 2>&1
 
 REM Pause before exit
 echo.

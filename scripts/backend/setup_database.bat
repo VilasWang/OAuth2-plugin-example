@@ -12,9 +12,9 @@ if errorlevel 1 (
 )
 
 set PROJECT_DIR=%~dp0..\..
-set MIGRATIONS_DIR=%PROJECT_DIR%\OAuth2Server\sql\migrations
-set SEED_DIR=%PROJECT_DIR%\OAuth2Server\sql\seed
-set LEGACY_SQL_DIR=%PROJECT_DIR%\OAuth2Server\sql
+set MIGRATIONS_DIR=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_MIGRATIONS_REL_DIR%
+set SEED_DIR=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_SEED_REL_DIR%
+set LEGACY_SQL_DIR=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_DIR%
 
 echo Setting up oauth2_db database...
 

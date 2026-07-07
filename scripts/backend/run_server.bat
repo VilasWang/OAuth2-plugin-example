@@ -24,19 +24,19 @@ goto parse_args
 :end_parse
 
 REM Check for Conan environment script
-if exist "%PROJECT_DIR%\build\conanrun.bat" (
-    call "%PROJECT_DIR%\build\conanrun.bat"
+if exist "%PROJECT_DIR%\%BUILD_DIR%\conanrun.bat" (
+    call "%PROJECT_DIR%\%BUILD_DIR%\conanrun.bat"
 ) else (
     echo [Warning] conanrun.bat not found in build directory.
 )
 
-set "EXE_PATH=%PROJECT_DIR%\build\OAuth2Server\%BUILD_TYPE%\OAuth2Server.exe"
+set "EXE_PATH=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%\%SERVER_BINARY_NAME%.exe"
 if exist "%EXE_PATH%" (
-    echo Starting OAuth2Server (%BUILD_TYPE%)
-    cd /d "%PROJECT_DIR%\build\OAuth2Server\%BUILD_TYPE%"
-    OAuth2Server.exe
+    echo Starting %SERVER_BINARY_NAME% (%BUILD_TYPE%)
+    cd /d "%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%"
+    %SERVER_BINARY_NAME%.exe
 ) else (
-    echo [Error] OAuth2Server.exe not found at %EXE_PATH%.
+    echo [Error] %SERVER_BINARY_NAME%.exe not found at %EXE_PATH%.
     echo Please run build.bat first.
     exit /b 1
 )

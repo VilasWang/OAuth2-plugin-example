@@ -8,7 +8,7 @@ set -e
 source "$(dirname "$0")/env_common.sh"
 
 BUILD_TYPE=Release
-BUILD_DIR="$PROJECT_DIR/build"
+BUILD_DIR="$BUILD_ABS_DIR"
 INSTALL_DEPS=false
 BUILD_DROGON=false
 DROGON_VERSION="v1.9.13"
@@ -161,9 +161,9 @@ cmake --build . --config $BUILD_TYPE -- -j$(nproc 2>/dev/null || sysctl -n hw.nc
 
 # 4. Finalize
 echo -e "${YELLOW}[INFO] Copying config files...${NC}"
-mkdir -p "$BUILD_DIR/OAuth2Server"
-cp "$PROJECT_DIR/OAuth2Server/config.json" "$BUILD_DIR/OAuth2Server/"
-mkdir -p "$BUILD_DIR/OAuth2Server/test"
-cp "$PROJECT_DIR/OAuth2Server/config.json" "$BUILD_DIR/OAuth2Server/test/"
+mkdir -p "$BUILD_DIR/$OAUTH2_SERVER_DIR"
+cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$BUILD_DIR/$OAUTH2_SERVER_DIR/"
+mkdir -p "$BUILD_DIR/$OAUTH2_SERVER_DIR/test"
+cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$BUILD_DIR/$OAUTH2_SERVER_DIR/test/"
 
 echo -e "${GREEN}Build Completed Successfully!${NC}"

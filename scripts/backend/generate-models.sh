@@ -10,10 +10,10 @@ if ! command -v drogon_ctl &>/dev/null; then
     exit 1
 fi
 
-MODELS_SRC_DIR="$PROJECT_DIR/OAuth2Plugin/src/models"
-MODELS_INC_DIR="$PROJECT_DIR/OAuth2Plugin/include/oauth2/models"
-MODELS_BACKUP="$PROJECT_DIR/OAuth2Plugin/models_backup"
-MODEL_JSON_DIR="$PROJECT_DIR/OAuth2Server"
+MODELS_SRC_DIR="$OAUTH2_PLUGIN_ABS_DIR/$MODELS_SRC_REL_DIR"
+MODELS_INC_DIR="$OAUTH2_PLUGIN_ABS_DIR/$MODELS_INC_REL_DIR"
+MODELS_BACKUP="$OAUTH2_PLUGIN_ABS_DIR/$MODELS_BACKUP_REL_DIR"
+MODEL_JSON_DIR="$OAUTH2_SERVER_ABS_DIR"
 
 echo ""
 echo "========================================"
@@ -49,9 +49,9 @@ mkdir -p "$MODELS_SRC_DIR"
 
 cd "$MODEL_JSON_DIR"
 if [ $AUTO_MODE -eq 1 ]; then
-    echo "y" | drogon_ctl create model "../OAuth2Plugin/src/models"
+    echo "y" | drogon_ctl create model "../$OAUTH2_PLUGIN_DIR/$MODELS_SRC_REL_DIR"
 else
-    drogon_ctl create model "../OAuth2Plugin/src/models"
+    drogon_ctl create model "../$OAUTH2_PLUGIN_DIR/$MODELS_SRC_REL_DIR"
 fi
 
 echo "Moving header files to $MODELS_INC_DIR..."
