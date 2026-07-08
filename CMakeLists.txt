@@ -20,5 +20,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 enable_testing()
 
+# libs/common (authforge::common, M2a Task 13): Domain-layer shared kernel.
+# Added before OAuth2Plugin/OAuth2Server since it has no dependency on
+# either (design.md §4.1: Domain layer must not depend on Drogon) -- this
+# is purely additive for now; OAuth2Plugin/OAuth2Server do not yet consume
+# it (that migration is a later M2a task).
+add_subdirectory(${OAUTH2_PATH_LIBS_COMMON_DIR})
+
 add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})

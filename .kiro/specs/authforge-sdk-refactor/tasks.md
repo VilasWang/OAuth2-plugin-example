@@ -120,7 +120,7 @@
 
 ## M2a — 抽 common + 端口 + 去 drogon::utils（P0，最高风险，依赖：M1）
 
-- [ ] 13. 创建 `libs/common`（authforge::common）
+- [x] 13. 创建 `libs/common`（authforge::common）
   - `Result<T,Error>`、框架无关 `ErrorCatalog`/`ErrorEnvelope`、值对象（Subject/Scope/ClientId/RedirectUri/PkceChallenge/TokenValue/TenantId）
   - 端口：`ISubjectResolver`/`IRoleProvider`/`IUserInfoProvider`/`IClock`/`ICryptoProvider`/`IUuidGenerator`/`IEmailSender`/`ILogger`/`IMetrics`；`AuditEvent` 模型
   - 产出：`libs/common` target + `authforge-common` export；验收：独立编译；纯单测通过；arch-guard 无 `#include <drogon/`
