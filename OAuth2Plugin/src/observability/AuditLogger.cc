@@ -1,6 +1,6 @@
 #include <oauth2/observability/AuditLogger.h>
 #include <drogon/drogon.h>
-#include <drogon/utils/Utilities.h>
+#include <oauth2/adapters/OpenSslUuidGenerator.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
 namespace oauth2::observability
@@ -101,7 +101,14 @@ void AuditLogger::log(
         event.userAgent = req->getHeader("User-Agent");
         event.requestId = req->getHeader("X-Request-ID");
         if (event.requestId.empty())
-            event.requestId = drogon::utils::getUuid();
+        {
+            // Task 14 (design.md §5.6): migrated off drogon::utils::getUuid()
+            // onto the authforge::common::ports::IUuidGenerator Adapter
+            // implementation (OpenSslUuidGenerator), same convention as
+            // error/RequestId.cc.
+            static oauth2::adapters::OpenSslUuidGenerator uuidGenerator;
+            event.requestId = uuidGenerator.generate();
+        }
     }
 
     log(event);

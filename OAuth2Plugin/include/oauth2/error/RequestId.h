@@ -16,9 +16,11 @@ namespace common::error
 //   * Otherwise (header missing, empty, too long or containing characters
 //     outside the agreed set) a fresh Request_ID is generated.
 //
-// Generation reuses `drogon::utils::getUuid()` (consistent with
-// observability/AuditLogger) so that ids are unique across requests on the same
-// backend instance while always having a length within 1..128.
+// Generation uses oauth2::adapters::OpenSslUuidGenerator (Task 14, design.md
+// §5.6: authforge::common::ports::IUuidGenerator's Adapter implementation;
+// consistent with observability/AuditLogger) so that ids are unique across
+// requests on the same backend instance while always having a length within
+// 1..128.
 class RequestId
 {
   public:
