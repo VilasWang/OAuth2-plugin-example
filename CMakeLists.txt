@@ -27,5 +27,13 @@ enable_testing()
 # it (that migration is a later M2a task).
 add_subdirectory(${OAUTH2_PATH_LIBS_COMMON_DIR})
 
+# libs/common/testing (authforge::common::testing, M2a Task 15): fake
+# ("test double") implementations of every common::ports interface, kept
+# separate from both libs/common (ports only) and OAuth2Plugin's
+# production Adapter implementations, so production binaries never link
+# test doubles and future standalone Domain packages can depend on this
+# for deterministic unit tests without pulling in Drogon.
+add_subdirectory(${OAUTH2_PATH_LIBS_COMMON_TESTING_DIR})
+
 add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})

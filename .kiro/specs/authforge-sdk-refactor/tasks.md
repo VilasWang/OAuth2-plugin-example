@@ -131,7 +131,7 @@
   - **可发布性 + 工作量边界（H6 + 评审 C）**：逐端口逐调用点推进，保证每次提交可编译；`CryptoUtils.h` 有 **14 个 include 者**、Domain 内 **407 处 `LOG_*`**——按「每类端口一个 PR、单 PR 调用点数设上限、超限即停并汇报进度」控制，勿一次性大爆炸
   - 产出：Adapter 默认实现 + Domain 仅依赖端口；验收：Domain 无 `drogon::utils`/`drogon/` 引用；加密单测（PKCE/JWT/密码哈希 golden）逐字节一致
 
-- [ ] 15. 端口的 Adapter 实现 + 假实现（测试用）
+- [x] 15. 端口的 Adapter 实现 + 假实现（测试用）
   - 生产实现放 Adapter；假实现放测试支持库
   - 产出：端口实现 + 假实现；验收：Domain 可用假时钟/假 crypto 做确定性单测
 
