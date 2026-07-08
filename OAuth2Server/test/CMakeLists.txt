@@ -19,6 +19,10 @@ file(GLOB COMMON_SRC
     "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/utils/*.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/observability/*.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/observability/openapi/*.cc"
+    # Task 14 (authforge-sdk-refactor, design.md §5.6): Adapter-side default
+    # implementations of authforge::common::ports (OpenSslCryptoProvider/
+    # OpenSslUuidGenerator/SystemClock).
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/adapters/*.cc"
 )
 
 # Collect Server source files
@@ -101,7 +105,7 @@ find_package(OpenSSL REQUIRED)
 # libcurl: the test target compiles the plugin sources (incl. EmailService.cc,
 # which uses libcurl SMTP) directly into itself, so it must link libcurl too.
 find_package(CURL REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl)
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common)
 
 # Match the plugin's static-libcurl handling: define CURL_STATICLIB so the curl
 # headers don't decorate symbols with __declspec(dllimport) (which would yield

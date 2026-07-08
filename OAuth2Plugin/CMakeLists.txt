@@ -55,7 +55,14 @@ file(GLOB_RECURSE PLUGIN_SOURCES
 target_sources(${PROJECT_NAME} PRIVATE ${PLUGIN_SOURCES})
 
 # Links
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl)
+# authforge::common (M2a Task 13/14): the OpenSslCryptoProvider/
+# OpenSslUuidGenerator/SystemClock Adapter implementations under
+# OAuth2Plugin/src/adapters/ implement authforge::common::ports interfaces
+# (design.md §5.6), so this target needs the port headers. This does NOT
+# make OAuth2Plugin's OWN Domain-layer code (Domain-facing classes under
+# oauth2/) depend on common yet -- that call-site migration is a separate,
+# incremental step (Task 14's own scope).
+target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common)
 
 # Conan provides a STATIC libcurl by default. On Windows the curl headers
 # decorate symbols with __declspec(dllimport) UNLESS CURL_STATICLIB is defined,
