@@ -18,6 +18,7 @@
 #include <oauth2/adapters/OpenSslUuidGenerator.h>
 #include <oauth2/adapters/SystemClock.h>
 #include <oauth2/utils/CryptoUtils.h>
+#include <oauth2/services/TokenService.h>
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -341,4 +342,61 @@ DROGON_TEST(Unit_SystemClock_NowMillisecondsIsConsistentWithNowSeconds)
 
     // millis/1000 should equal seconds (within +/-1 for a boundary race).
     CHECK(std::abs(millis / 1000 - seconds) <= 1);
+}
+
+// ---------------------------------------------------------------------------
+// TokenService::generateSha256Hash byte-for-byte migration golden check
+// ---------------------------------------------------------------------------
+//
+// TokenService::generateSha256Hash (Task 14 slice 6) was migrated off
+// drogon::utils::getSha256/base64Encode onto OpenSslCryptoProvider. This
+// test reproduces the OLD algorithm inline via drogon::utils directly (the
+// exact pre-migration implementation, byte for byte) and compares it
+// against the NEW production function's output for the same inputs, to
+// prove the migration is a byte-identical drop-in replacement despite the
+// non-standard "base64(hex-string-as-ASCII)" behavior this function
+// preserves verbatim (see TokenService.cc's own comment for why that
+// behavior, though RFC 7636 non-conformant, is intentionally NOT fixed as
+// part of this Drogon-removal task).
+DROGON_TEST(Unit_TokenService_GenerateSha256Hash_MatchesPreMigrationAlgorithm)
+{
+    auto oldAlgorithm = [](const std::string &input) -> std::string {
+        std::string hash = drogon::utils::getSha256(input);
+        std::string base64Url = drogon::utils::base64Encode(
+          reinterpret_cast<const unsigned char *>(hash.c_str()), hash.length()
+        );
+        for (char &c : base64Url)
+        {
+            if (c == '+')
+                c = '-';
+            else if (c == '/')
+                c = '_';
+        }
+        while (!base64Url.empty() && base64Url.back() == '=')
+        {
+            base64Url.pop_back();
+        }
+        return base64Url;
+    };
+
+    const std::vector<std::string> testInputs = {
+      "testVerifier1234567890123456789012345678901234567890",
+      "",
+      "a",
+      "the quick brown fox jumps over the lazy dog",
+      "PKCE-code-verifier-with-special-chars_~.-123",
+    };
+
+    // generateSha256Hash is a pure function of its input (does not touch
+    // storage_), so a stack-constructed TokenService(nullptr) is safe to
+    // call it on, matching the existing convention
+    // OAuth2Plugin::validatePkceCodeVerifier already uses
+    // (oauth2::TokenService(nullptr).validatePkceCodeVerifier(...)).
+    oauth2::TokenService tokenService(nullptr);
+    for (const auto &input : testInputs)
+    {
+        auto expected = oldAlgorithm(input);
+        auto actual = tokenService.generateSha256Hash(input);
+        CHECK(actual == expected);
+    }
 }

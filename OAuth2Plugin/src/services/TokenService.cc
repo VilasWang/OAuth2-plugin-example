@@ -3,7 +3,8 @@
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/utils/JwkManager.h>
 #include <oauth2/observability/AuditLogger.h>
-#include <drogon/utils/Utilities.h>
+#include <oauth2/adapters/OpenSslCryptoProvider.h>
+#include <cctype>
 #include <chrono>
 
 namespace oauth2
@@ -458,23 +459,44 @@ bool TokenService::validatePkceCodeVerifier(
 
 std::string TokenService::generateSha256Hash(const std::string &input)
 {
-    std::string hash = drogon::utils::getSha256(input);
-    std::string base64Url = drogon::utils::base64Encode(
-      reinterpret_cast<const unsigned char *>(hash.c_str()), hash.length()
-    );
+    // Task 14 (design.md §5.6): migrated off drogon::utils::getSha256 /
+    // drogon::utils::base64Encode onto OpenSslCryptoProvider.
+    //
+    // IMPORTANT -- this function's behavior is preserved BYTE-FOR-BYTE
+    // exactly as it was pre-migration, including a pre-existing, NOT-fixed
+    // RFC 7636 non-compliance this migration discovered but is explicitly
+    // out of scope to fix here (Task 14 is "remove drogon::utils", not "fix
+    // PKCE protocol bugs" -- deviating would be an unauthorized behavior
+    // change). RFC 7636 §4.2 defines
+    // code_challenge = BASE64URL(SHA256(ASCII(code_verifier))) -- i.e.
+    // base64url of the RAW 32 DIGEST BYTES. This function instead base64s
+    // the ASCII TEXT of the hex digest STRING (64 ASCII chars), which is a
+    // different value than any RFC-7636-conformant client (browser SDKs,
+    // mobile SDKs, etc.) would compute for the same code_verifier. This
+    // does not surface as a test failure today because the one existing
+    // PKCE test (P0FunctionalityTest.cc's Unit_P0_PKCE_Legacy_Hashing) is
+    // self-consistent: it generates the challenge via this SAME function
+    // and validates via this SAME function, so it round-trips regardless
+    // of RFC conformance. This is a real interoperability defect for
+    // standard-conformant PKCE clients and should be tracked/fixed as its
+    // own dedicated bugfix task, not folded into this Drogon-dependency
+    // removal.
+    //
+    // Reproducing the pre-migration case-sensitive detail precisely: the
+    // ASCII hex string that gets base64-encoded must be UPPERCASE to match
+    // byte-for-byte, because drogon::utils::getSha256() returned uppercase
+    // hex (verified in OpenSslCryptoProviderTest.cc's cross-check) and this
+    // function base64-encodes that hex STRING's ASCII bytes, not the
+    // decoded digest -- a lowercase hex string would base64-encode to a
+    // completely different result.
+    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+    std::string hexUpper = cryptoProvider.sha256Hex(input);
+    for (char &c : hexUpper)
+    {
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
 
-    for (char &c : base64Url)
-    {
-        if (c == '+')
-            c = '-';
-        else if (c == '/')
-            c = '_';
-    }
-    while (!base64Url.empty() && base64Url.back() == '=')
-    {
-        base64Url.pop_back();
-    }
-    return base64Url;
+    return cryptoProvider.base64UrlEncode(hexUpper);
 }
 
 }  // namespace oauth2
