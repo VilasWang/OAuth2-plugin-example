@@ -1,5 +1,5 @@
 ﻿#include <oauth2/utils/TotpUtils.h>
-#include <drogon/utils/Utilities.h>
+#include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <chrono>
@@ -75,8 +75,13 @@ std::vector<uint8_t> TotpUtils::base32Decode(const std::string &encoded)
 
 std::string TotpUtils::generateSecret()
 {
+    // Task 14 (design.md §5.6): migrated off drogon::utils::secureRandomBytes
+    // onto the authforge::common::ports::ICryptoProvider Adapter
+    // implementation (OpenSslCryptoProvider), same fallback shape.
+    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+
     uint8_t secretBytes[20];  // 160 bits
-    if (!drogon::utils::secureRandomBytes(secretBytes, 20))
+    if (!cryptoProvider.secureRandomBytes(secretBytes, 20))
     {
         RAND_bytes(secretBytes, 20);
     }
@@ -175,7 +180,10 @@ std::vector<std::string> TotpUtils::generateBackupCodes(int count)
     for (int i = 0; i < count; ++i)
     {
         uint8_t randomBytes[8];
-        if (!drogon::utils::secureRandomBytes(randomBytes, 8))
+        // Task 14 (design.md §5.6): migrated off
+        // drogon::utils::secureRandomBytes onto OpenSslCryptoProvider.
+        static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+        if (!cryptoProvider.secureRandomBytes(randomBytes, 8))
         {
             RAND_bytes(randomBytes, 8);
         }

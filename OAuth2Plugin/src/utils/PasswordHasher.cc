@@ -1,5 +1,5 @@
 ﻿#include <oauth2/utils/PasswordHasher.h>
-#include <drogon/utils/Utilities.h>
+#include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <algorithm>
@@ -53,9 +53,14 @@ static std::vector<unsigned char> hexToBytes(const std::string &hex)
 
 std::string PasswordHasher::hash(const std::string &password)
 {
+    // Task 14 (design.md §5.6): migrated off drogon::utils::secureRandomBytes
+    // onto the authforge::common::ports::ICryptoProvider Adapter
+    // implementation (OpenSslCryptoProvider), same fallback shape.
+    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+
     // Generate random salt
     unsigned char salt[PBKDF2_SALT_LENGTH];
-    if (!drogon::utils::secureRandomBytes(salt, PBKDF2_SALT_LENGTH))
+    if (!cryptoProvider.secureRandomBytes(salt, PBKDF2_SALT_LENGTH))
     {
         RAND_bytes(salt, PBKDF2_SALT_LENGTH);  // fallback
     }
@@ -154,8 +159,16 @@ bool PasswordHasher::verify(
     }
     else
     {
-        // Legacy SHA-256 + salt verification
-        std::string inputHash = drogon::utils::getSha256(password + salt);
+        // Legacy SHA-256 + salt verification. Task 14 (design.md §5.6):
+        // migrated off drogon::utils::getSha256() onto
+        // OpenSslCryptoProvider::sha256Hex(). sha256Hex() returns lowercase
+        // hex (vs. drogon::utils::getSha256()'s uppercase), but this is
+        // safe here (unlike CryptoUtils.h's hashToken()) because this
+        // comparison already explicitly lowercases BOTH sides below before
+        // comparing -- the legacy hash's stored case was never relied upon
+        // to match exactly.
+        static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+        std::string inputHash = cryptoProvider.sha256Hex(password + salt);
 
         // Case-insensitive comparison (legacy hashes may vary in case)
         if (inputHash.length() != storedHash.length())
