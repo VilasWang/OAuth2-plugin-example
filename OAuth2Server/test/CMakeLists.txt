@@ -37,6 +37,13 @@ file(GLOB_RECURSE INTEGRATION_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/integration/*.c
 file(GLOB_RECURSE E2E_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/e2e/*.cc")
 file(GLOB_RECURSE SECURITY_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/security/*.cc")
 file(GLOB_RECURSE PERFORMANCE_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/performance/*.cc")
+# Task 12 (authforge-sdk-refactor, design.md §7.3 / F5): tiered repository
+# contract tests (IClientRepository/IGrantRepository/ITokenRepository/
+# IConsentRepository across Postgres/Redis/Memory). Kept under the existing
+# OAuth2Server/test/ hierarchy (see contract/ContractFixtures.h header for
+# the placement rationale) rather than the tasks.md-referenced top-level
+# tests/contract/, which is the M2a-and-later target layout.
+file(GLOB_RECURSE CONTRACT_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/contract/*.cc")
 
 # Root test sources
 set(ROOT_TEST_SOURCES
@@ -57,6 +64,7 @@ set(ALL_TEST_SOURCES
     ${E2E_TESTS}
     ${SECURITY_TESTS}
     ${PERFORMANCE_TESTS}
+    ${CONTRACT_TESTS}
 )
 
 add_executable(${PROJECT_NAME}
@@ -148,6 +156,82 @@ if(OAUTH2_TEST_COVERAGE)
 endif()
 
 add_test(NAME OAuth2Tests COMMAND ${PROJECT_NAME} WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+
+# --- Contract test suite (Task 12, design.md §7.3 / F5): CTest label "Contract" ---
+#
+# DROGON_TEST's own `-r <name>` test runner does an EXACT name match (see
+# drogon_test.cc's `test->name() == targetTest`), not a prefix/substring
+# match -- there is no way to select "every test whose name starts with
+# Contract_" in one process invocation the way the naming convention might
+# suggest. To still get a `ctest -L Contract` entry point (per the task's
+# acceptance criterion), each contract DROGON_TEST case below is registered
+# as its own individual add_test() (same pattern the rest of this project's
+# CI already uses to run named tests individually, e.g. the
+# "Run Error-Standardization Backend Tests" step in ci-linux.yml -- this
+# just does the equivalent registration at the CMake/CTest level instead of
+# a shell script loop), all tagged with LABELS "Contract" so `ctest -L
+# Contract` runs exactly this set, `ctest -L Contract -E Postgres` can
+# exclude backend tiers, etc.
+set(OAUTH2_CONTRACT_TEST_NAMES
+    # ClientRepositoryContractTest.cc
+    Integration_P0_Contract_Functional_ClientRepository_Postgres_NotFoundReturnsNullopt
+    Integration_P0_Contract_Functional_ClientRepository_Postgres_PublicClientAcceptsAnySecret
+    Integration_P0_Contract_Functional_ClientRepository_Postgres_ConfidentialClientValidatesSecret
+    Integration_P0_Contract_Functional_ClientRepository_Redis_NotFoundReturnsNullopt
+    Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClientValidatesSecret
+    Integration_P0_Contract_Functional_ClientRepository_Memory_NotFoundReturnsNullopt
+    Integration_P0_Contract_Functional_ClientRepository_Memory_PublicClientAcceptsAnySecret
+    Integration_P0_Contract_Functional_ClientRepository_Memory_ConfidentialClientValidatesSecret
+    # GrantRepositoryContractTest.cc
+    Integration_P0_Contract_Functional_GrantRepository_Postgres_SaveGetRoundTrip
+    Integration_P0_Contract_Functional_GrantRepository_Postgres_NotFoundReturnsNullopt
+    Integration_P0_Contract_Functional_GrantRepository_Postgres_ConsumeAuthCode_CorrectRedirectUriSucceeds
+    Integration_P0_Contract_Functional_GrantRepository_Postgres_ConsumeAuthCode_WrongRedirectUriFails
+    Integration_P0_Contract_Functional_GrantRepository_Postgres_ConsumeAuthCode_SingleUse
+    Integration_P0_Contract_Functional_GrantRepository_Redis_SaveGetRoundTrip
+    Integration_P0_Contract_Functional_GrantRepository_Redis_NotFoundReturnsNullopt
+    Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuthCode_CorrectRedirectUriSucceeds
+    Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuthCode_WrongRedirectUriFails
+    Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuthCode_SingleUse
+    Integration_P0_Contract_Functional_GrantRepository_Memory_SaveGetRoundTrip
+    Integration_P0_Contract_Functional_GrantRepository_Memory_NotFoundReturnsNullopt
+    Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_CorrectRedirectUriSucceeds
+    Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_WrongRedirectUriFails
+    Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_SingleUse
+    # TokenRepositoryContractTest.cc
+    Integration_P0_Contract_Functional_TokenRepository_Postgres_AccessTokenSaveGetRoundTrip
+    Integration_P0_Contract_Functional_TokenRepository_Postgres_AccessTokenNotFound
+    Integration_P0_Contract_Functional_TokenRepository_Redis_AccessTokenSaveGetRoundTrip
+    Integration_P0_Contract_Functional_TokenRepository_Redis_AccessTokenNotFound
+    Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenSaveGetRoundTrip
+    Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenNotFound
+    Integration_P0_Contract_Functional_TokenRepository_Postgres_RefreshTokenSaveGetRoundTrip
+    Integration_P0_Contract_Functional_TokenRepository_Memory_RefreshTokenSaveGetRoundTrip
+    Integration_P0_Contract_Functional_TokenRepository_Redis_RefreshTokenSaveIsNoOp_GetAlwaysNullopt
+    Integration_P0_Contract_Functional_TokenRepository_Postgres_RevokeRefreshToken_GetReturnsRevokedFlagTrue
+    Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeRefreshToken_GetReturnsNullopt
+    Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredAccessToken_GetReturnsNullopt
+    Integration_P0_Contract_Functional_TokenRepository_Postgres_ExpiredAccessToken_StillReturnedByGet_NoActiveExpiryCheck
+    Integration_P0_Contract_Atomicity_TokenRepository_Postgres_AtomicRevokeRefreshToken_ConcurrentCas
+    Integration_P0_Contract_Atomicity_TokenRepository_Memory_AtomicRevokeRefreshToken_ConcurrentCas
+    Integration_P0_Contract_Atomicity_TokenRepository_Redis_AtomicRevokeRefreshToken_CasTierSkipped
+    Integration_P0_Contract_Atomicity_TokenRepository_Postgres_SaveTokenPair_HappyPathBothWritesSucceed
+    Integration_P0_Contract_Atomicity_TokenRepository_Postgres_SaveTokenPair_AccessTokenConflict_RefreshTokenNotPersisted
+    Integration_P0_Contract_Atomicity_TokenRepository_Memory_SaveTokenPair_HappyPathBothWritesSucceed
+    # ConsentRepositoryContractTest.cc
+    Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHasRevokeRoundTrip
+    Integration_P0_Contract_Functional_ConsentRepository_Redis_SaveHasRevokeRoundTrip
+    Integration_P0_Contract_Functional_ConsentRepository_Memory_SaveHasRevokeRoundTrip
+)
+
+foreach(_contract_test_name ${OAUTH2_CONTRACT_TEST_NAMES})
+    add_test(
+        NAME "Contract.${_contract_test_name}"
+        COMMAND ${PROJECT_NAME} -r ${_contract_test_name}
+        WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    )
+    set_tests_properties("Contract.${_contract_test_name}" PROPERTIES LABELS "Contract")
+endforeach()
 
 # Copy config to the test executable directory
 if(MSVC OR XCODE)

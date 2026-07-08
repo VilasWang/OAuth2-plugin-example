@@ -1,0 +1,45 @@
+#include <oauth2/storage/CachedClientRepository.h>
+#include <drogon/drogon.h>
+
+namespace oauth2
+{
+
+CachedClientRepository::CachedClientRepository(std::shared_ptr<IClientRepository> impl)
+    : impl_(std::move(impl)),
+      clientCache_(drogon::app().getLoop(), 1.0, 4, 60)  // Clean up expired every 60s
+{
+}
+
+void CachedClientRepository::getClient(const std::string &clientId, ClientCallback &&cb)
+{
+    OAuth2Client cachedClient;
+    if (clientCache_.findAndFetch(clientId, cachedClient))
+    {
+        cb(cachedClient);
+        return;
+    }
+
+    impl_->getClient(
+      clientId,
+      [self = shared_from_this(), this, clientId, cb = std::move(cb)](
+        const std::optional<OAuth2Client> &client
+      ) mutable {
+          if (client)
+          {
+              clientCache_.insert(clientId, *client, 60);  // Cache for 60 seconds
+          }
+          cb(client);
+      }
+    );
+}
+
+void CachedClientRepository::validateClient(
+  const std::string &clientId,
+  const std::string &clientSecret,
+  BoolCallback &&cb
+)
+{
+    impl_->validateClient(clientId, clientSecret, std::move(cb));
+}
+
+}  // namespace oauth2
