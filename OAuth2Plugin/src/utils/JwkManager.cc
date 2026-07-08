@@ -1,6 +1,6 @@
 ﻿#include <oauth2/utils/JwkManager.h>
 #include <drogon/drogon.h>
-#include <drogon/utils/Utilities.h>
+#include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/bn.h>
@@ -154,14 +154,18 @@ bool JwkManager::generateEphemeralKey()
 
 std::string JwkManager::base64UrlEncode(const unsigned char *data, size_t len)
 {
-    return drogon::utils::base64EncodeUnpadded(data, len, true);
+    // Task 14 (design.md §5.6): migrated off
+    // drogon::utils::base64EncodeUnpadded onto the
+    // authforge::common::ports::ICryptoProvider Adapter implementation
+    // (OpenSslCryptoProvider).
+    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+    return cryptoProvider.base64UrlEncode(data, len);
 }
 
 std::string JwkManager::base64UrlEncode(const std::string &data)
 {
-    return drogon::utils::base64EncodeUnpadded(
-      reinterpret_cast<const unsigned char *>(data.c_str()), data.length(), true
-    );
+    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+    return cryptoProvider.base64UrlEncode(data);
 }
 
 std::string JwkManager::signJwt(const Json::Value &payload) const
