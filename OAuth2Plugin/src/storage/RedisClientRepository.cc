@@ -127,8 +127,15 @@ void RedisClientRepository::validateClient(
                   return;
               }
               auto arr = result.asArray();
-              if (arr.size() < 2)
+              if (arr.size() < 2 || arr[0].type() == RedisResultType::kNil ||
+                  arr[1].type() == RedisResultType::kNil)
               {
+                  // HMGET returns an array of nil elements (not a top-level
+                  // nil) when the hash key doesn't exist or the requested
+                  // fields are missing. RedisResult::asString() throws for
+                  // a kNil element, so this must be checked before calling
+                  // it (bug fix: previously crashed the process here for a
+                  // nonexistent client with a non-empty secret).
                   cb(false);
                   return;
               }

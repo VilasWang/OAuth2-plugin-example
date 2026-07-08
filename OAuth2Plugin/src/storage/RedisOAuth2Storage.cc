@@ -135,8 +135,15 @@ void RedisOAuth2Storage::validateClient(
                   return;
               }
               auto arr = result.asArray();
-              if (arr.size() < 2)
+              if (arr.size() < 2 || arr[0].type() == RedisResultType::kNil ||
+                  arr[1].type() == RedisResultType::kNil)
               {
+                  // HMGET returns an array of nil elements (not a top-level
+                  // nil) when the hash key doesn't exist or the requested
+                  // fields are missing. RedisResult::asString() throws for
+                  // a kNil element, so this must be checked before calling
+                  // it (bug fix: previously crashed the process here for a
+                  // nonexistent client with a non-empty secret).
                   cb(false);
                   return;
               }
@@ -872,8 +879,11 @@ void RedisOAuth2Storage::hasUserConsent(
       "oauth2:consent:" + std::to_string(internalUserId) + ":" + clientId + ":" + scope;
     redisClient_->execCommandAsync(
       [cb](const RedisResult &result) {
-          // EXISTS returns 1 if key exists, 0 otherwise
-          cb(result.type() != RedisResultType::kNil);
+          // EXISTS returns an integer reply (1 if the key exists, 0
+          // otherwise), never a nil reply -- so the previous
+          // `type() != kNil` check was always true regardless of whether
+          // the key existed (bug fix: hasUserConsent always returned true).
+          cb(result.type() == RedisResultType::kInteger && result.asInteger() == 1);
       },
       [cb](const RedisException &e) {
           LOG_ERROR << "Redis hasUserConsent error: " << e.what();

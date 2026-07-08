@@ -86,7 +86,7 @@
 
 ## M1 — 拆分存储上帝接口 + 缓存装饰器再架构（P0，依赖：M0 Task1/2）
 
-- [ ] 7. 定义 oauth2 仓储接口（暂放现结构，M2b 再迁包）
+- [x] 7. 定义 oauth2 仓储接口（暂放现结构，M2b 再迁包）
   - `IClientRepository` / `IGrantRepository` / `ITokenRepository` / `IConsentRepository`
   - 保留 `saveTokenPair`/`revokeTokenFamily` 事务契约、`consumeAuthCode` redirect_uri 校验语义
   - **F4：consent 端口对外用抽象 `UserRef`（经 `ISubjectResolver` 解析），不暴露 `internalUserId`**
@@ -94,25 +94,25 @@
   - **A3：产出「30 个方法 → 目标仓储」完整映射表**，零丢失；`deleteExpiredData` 拆为各仓储 `purgeExpired()` 由产品 `CleanupService` 编排（不放单一仓储）
   - 产出：接口头文件 + 方法映射表；验收：编译通过；映射表覆盖全部 30 方法
 
-- [ ] 8. 定义 identity 仓储接口
+- [x] 8. 定义 identity 仓储接口
   - `IUserRepository` / `IRoleRepository` / `ISubjectMappingRepository`；承接 getUserInfo/getUserRoles/getInternalUserId/createSubjectMapping/createUserForExternalLogin
   - 产出：接口头文件；验收：编译通过
 
-- [ ] 9. 拆分 `PostgresOAuth2Storage`（1743 行）为多实现文件（ORM 模型暂留原地，M2b 迁移）
+- [x] 9. 拆分 `PostgresOAuth2Storage`（1743 行）为多实现文件（ORM 模型暂留原地，M2b 迁移）
   - 各实现一个仓储接口；`PostgresRepositoryBundle` 聚合
   - 产出：拆分后的实现文件；验收：现有测试全绿
 
-- [ ] 10. 同步拆分 `RedisOAuth2Storage` / `MemoryOAuth2Storage`
+- [x] 10. 同步拆分 `RedisOAuth2Storage` / `MemoryOAuth2Storage`
   - 依能力标志声明各自支持的原子性/事务档位
   - 产出：拆分后的实现；验收：现有测试全绿
 
-- [ ] 11. 缓存装饰器 `CachedOAuth2Storage` 再架构（评审 H3/A1，新增）
+- [x] 11. 缓存装饰器 `CachedOAuth2Storage` 再架构（评审 H3/A1，新增）
   - 从「包裹整个接口」改为 **per-repository 缓存装饰**（只缓存读多写少/可安全缓存的仓储；令牌/授权码不缓存或仅缓存否定结果）
   - **保留现有并发安全模式（非修缺陷，A1 更正）**：UAF 已在 HEAD 修复（`CachedOAuth2Storage.h:26-27` 已继承 `enable_shared_from_this`，`self` 捕获，提交 `30a1d1e`）——把这套模式**原样保留**到新 per-repository 装饰器，勿丢失
   - 落点：`libs/storage-redis`（或独立 `storage-cache`）
   - 产出：per-repository 缓存装饰实现；验收：`CategoryC_CachedStorageUafTest`（作回归门控）及缓存相关测试全绿
 
-- [ ] 12. 编写分档契约测试套件 `tests/contract/`（F5）
+- [x] 12. 编写分档契约测试套件 `tests/contract/`（F5）
   - **功能契约**（所有实现必过）+ **原子性/事务契约**（仅 `supportsTransactions()`/`supportsCas()` 为真的实现运行；Postgres 全过，Memory 尽力而为并标注局限）
   - 产出：分档契约测试 + CTest label `Contract`；验收：各实现按能力档位通过；能力谎报致 CI 失败
 

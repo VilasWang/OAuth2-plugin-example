@@ -29,8 +29,11 @@ void RedisConsentRepository::hasUserConsent(
       "oauth2:consent:" + std::to_string(internalUserId) + ":" + clientId + ":" + scope;
     redisClient_->execCommandAsync(
       [cb](const RedisResult &result) {
-          // EXISTS returns 1 if key exists, 0 otherwise
-          cb(result.type() != RedisResultType::kNil);
+          // EXISTS returns an integer reply (1 if the key exists, 0
+          // otherwise), never a nil reply -- so the previous
+          // `type() != kNil` check was always true regardless of whether
+          // the key existed (bug fix: hasUserConsent always returned true).
+          cb(result.type() == RedisResultType::kInteger && result.asInteger() == 1);
       },
       [cb](const RedisException &e) {
           LOG_ERROR << "Redis hasUserConsent error: " << e.what();
