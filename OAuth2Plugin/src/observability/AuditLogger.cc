@@ -1,10 +1,30 @@
 #include <oauth2/observability/AuditLogger.h>
 #include <drogon/drogon.h>
+#include <oauth2/adapters/DrogonLogger.h>
 #include <oauth2/adapters/OpenSslUuidGenerator.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
 namespace oauth2::observability
 {
+
+namespace
+{
+// Task 14 (design.md §5.6): shared ILogger instance backing this file's
+// LOG_* call sites, replacing direct Drogon LOG_* macro usage. This file
+// remains Adapter-shaped overall (drogon::app().getDbClient(),
+// drogon::orm::DrogonDbException, drogon::HttpRequestPtr are its actual
+// job -- audit persistence -- and stay untouched; that DB/HTTP dependency
+// is a separate architectural concern for the eventual M2a/M3 split of
+// the audit *sink* into an Adapter package, not something Task 14's
+// LOG_*/drogon::utils migration addresses). Migrating only the logging
+// calls is still worthwhile: design.md §5.6 explicitly names AuditLogger
+// as an ILogger call-site to migrate.
+authforge::common::ports::ILogger &logger()
+{
+    static oauth2::adapters::DrogonLogger instance;
+    return instance;
+}
+}  // namespace
 
 void AuditLogger::log(const AuditEvent &event)
 {
@@ -20,10 +40,15 @@ void AuditLogger::log(const AuditEvent &event)
         auto db = drogon::app().getDbClient();
         if (!db)
         {
-            LOG_WARN << "AuditLogger: No DB client, logging to console only";
-            LOG_INFO << "[AUDIT] " << event.action << " " << event.outcome
-                     << " actor=" << event.actorType << ":" << event.actorId
-                     << " target=" << event.targetType << ":" << event.targetId;
+            logger().log(
+              authforge::common::ports::LogLevel::Warn,
+              "AuditLogger: No DB client, logging to console only"
+            );
+            logger().log(
+              authforge::common::ports::LogLevel::Info,
+              "[AUDIT] " + event.action + " " + event.outcome + " actor=" + event.actorType + ":" +
+                event.actorId + " target=" + event.targetType + ":" + event.targetId
+            );
             return;
         }
 
@@ -41,8 +66,11 @@ void AuditLogger::log(const AuditEvent &event)
               // Success - no action needed
           },
           [event](const drogon::orm::DrogonDbException &e) {
-              LOG_WARN << "AuditLogger: Failed to write audit log: " << e.base().what()
-                       << " (action=" << event.action << ")";
+              logger().log(
+                authforge::common::ports::LogLevel::Warn,
+                "AuditLogger: Failed to write audit log: " + std::string(e.base().what()) +
+                  " (action=" + event.action + ")"
+              );
           },
           event.actorType,
           event.actorId,
@@ -58,7 +86,9 @@ void AuditLogger::log(const AuditEvent &event)
     }
     catch (const std::exception &e)
     {
-        LOG_WARN << "AuditLogger: Exception: " << e.what();
+        logger().log(
+          authforge::common::ports::LogLevel::Warn, "AuditLogger: Exception: " + std::string(e.what())
+        );
     }
 }
 
