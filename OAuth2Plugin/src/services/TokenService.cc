@@ -3,9 +3,26 @@
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/utils/JwkManager.h>
 #include <oauth2/observability/AuditLogger.h>
+#include <oauth2/adapters/DrogonLogger.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <cctype>
 #include <chrono>
+
+namespace
+{
+// Task 14 (design.md §5.6): shared ILogger instance backing this file's two
+// LOG_WARN call sites, replacing direct Drogon LOG_* macro usage. See
+// JwkManager.cc for the identical pattern and DrogonLogger.h's own comment
+// for why an Adapter-layer class (this file, which still calls
+// drogon::app().getCustomConfig() elsewhere and is not yet fully
+// Drogon-free) using a Drogon-backed ILogger implementation is expected and
+// correct.
+authforge::common::ports::ILogger &logger()
+{
+    static oauth2::adapters::DrogonLogger instance;
+    return instance;
+}
+}  // namespace
 
 namespace oauth2
 {
@@ -146,8 +163,11 @@ void TokenService::exchangeCodeForToken(
                         // Full enforcement should happen at /oauth2/authorize time
                         if (client && client->clientType == ClientType::PUBLIC)
                         {
-                            LOG_WARN << "[SECURITY] PUBLIC client " << client->clientId
-                                     << " used authorization code without PKCE";
+                            logger().log(
+                              authforge::common::ports::LogLevel::Warn,
+                              "[SECURITY] PUBLIC client " + client->clientId +
+                                " used authorization code without PKCE"
+                            );
                         }
                     });
                 }
@@ -295,8 +315,11 @@ void TokenService::refreshAccessToken(
                     if (maybeRevoked && maybeRevoked->revoked && !maybeRevoked->familyId.empty())
                     {
                         // REUSE DETECTED! Cascade revoke the entire family
-                        LOG_WARN << "[SECURITY] Refresh token reuse detected! "
-                                 << "Revoking token family: " << maybeRevoked->familyId;
+                        logger().log(
+                          authforge::common::ports::LogLevel::Warn,
+                          "[SECURITY] Refresh token reuse detected! Revoking token family: " +
+                            maybeRevoked->familyId
+                        );
                         oauth2::observability::AuditLogger::log(
                           "refresh_token_reuse_detected",
                           "failure",
