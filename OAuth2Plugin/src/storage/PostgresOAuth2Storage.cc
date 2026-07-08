@@ -556,28 +556,62 @@ void PostgresOAuth2Storage::saveTokenPair(
     }
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
 
+    // Bug fix: the caller's callback must not fire until the transaction
+    // has actually been COMMITted. Drogon only issues "commit" to Postgres
+    // when the last shared_ptr reference to the Transaction object is
+    // released (see drogon::orm::TransactionImpl::~TransactionImpl), which
+    // happens asynchronously, some time after the second INSERT's own
+    // result callback returns. The previous implementation called the
+    // caller's callback directly from that second INSERT's success
+    // callback -- i.e. before COMMIT was even sent. A second connection
+    // reading immediately afterwards could observe pre-commit state under
+    // Postgres MVCC and see neither row. This was intermittent (a race
+    // between the async COMMIT round trip and a subsequent read on a
+    // different connection), which is why it only reproduced under some
+    // environments/timings and not deterministically in every one.
+    //
+    // Fix: install a commit callback via newTransaction() and fire the
+    // caller's callback from there (guaranteed to run only after COMMIT
+    // completes). The insert error paths still invoke the caller's
+    // callback directly, because Drogon automatically rolls back on error
+    // and its own documentation states the commit callback "will never be
+    // executed" if the transaction is rolled back.
+    auto invoked = std::make_shared<bool>(false);
+    auto invokeOnce = [sharedCb, invoked]() {
+        if (!*invoked)
+        {
+            *invoked = true;
+            if (*sharedCb)
+                (*sharedCb)();
+        }
+    };
+
     // Use a transaction to ensure both tokens are saved atomically
-    auto transPtr = dbClientMaster_->newTransaction();
+    auto transPtr = dbClientMaster_->newTransaction([invokeOnce](bool committed) {
+        if (!committed)
+            LOG_ERROR << "saveTokenPair: transaction commit failed";
+        invokeOnce();
+    });
+
+    auto refreshInsertErrorCb = [invokeOnce](const DrogonDbException &e) {
+        LOG_ERROR << "saveTokenPair (refresh) failed: " << e.base().what();
+        invokeOnce();
+    };
+
     transPtr->execSqlAsync(
       "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, expires_at, revoked) "
       "VALUES ($1, $2, $3, $4, $5, $6)",
-      [transPtr, sharedCb, rt](const drogon::orm::Result &) {
-          // Access token saved, now save refresh token
+      [transPtr, rt, refreshInsertErrorCb](const drogon::orm::Result &) {
+          // Access token saved, now save refresh token. The caller's
+          // callback fires from the commit callback above, not here.
           if (rt.familyId.empty())
           {
               transPtr->execSqlAsync(
                 "INSERT INTO oauth2_refresh_tokens "
                 "(token, access_token, client_id, user_id, scope, expires_at, revoked) "
                 "VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                [sharedCb](const drogon::orm::Result &) {
-                    if (*sharedCb)
-                        (*sharedCb)();
-                },
-                [sharedCb](const DrogonDbException &e) {
-                    LOG_ERROR << "saveTokenPair (refresh) failed: " << e.base().what();
-                    if (*sharedCb)
-                        (*sharedCb)();
-                },
+                [](const drogon::orm::Result &) {},
+                refreshInsertErrorCb,
                 rt.token,
                 rt.accessToken,
                 rt.clientId,
@@ -593,15 +627,8 @@ void PostgresOAuth2Storage::saveTokenPair(
                 "INSERT INTO oauth2_refresh_tokens "
                 "(token, access_token, client_id, user_id, scope, expires_at, revoked, family_id) "
                 "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                [sharedCb](const drogon::orm::Result &) {
-                    if (*sharedCb)
-                        (*sharedCb)();
-                },
-                [sharedCb](const DrogonDbException &e) {
-                    LOG_ERROR << "saveTokenPair (refresh) failed: " << e.base().what();
-                    if (*sharedCb)
-                        (*sharedCb)();
-                },
+                [](const drogon::orm::Result &) {},
+                refreshInsertErrorCb,
                 rt.token,
                 rt.accessToken,
                 rt.clientId,
@@ -613,10 +640,9 @@ void PostgresOAuth2Storage::saveTokenPair(
               );
           }
       },
-      [sharedCb](const DrogonDbException &e) {
+      [invokeOnce](const DrogonDbException &e) {
           LOG_ERROR << "saveTokenPair (access) failed: " << e.base().what();
-          if (*sharedCb)
-              (*sharedCb)();
+          invokeOnce();
       },
       at.token,
       at.clientId,
