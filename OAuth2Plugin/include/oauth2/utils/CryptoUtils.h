@@ -1,30 +1,59 @@
 #pragma once
 
+#include <cctype>
 #include <string>
 #include <vector>
-#include <drogon/utils/Utilities.h>
 
-// Forward declare OpenSSL types only when needed in implementation
-// For header-only functions, we use Drogon's wrappers which handle OpenSSL internally
+// Task 14 (authforge-sdk-refactor, design.md §5.6): this header no longer
+// calls drogon::utils::* directly. Every function below now delegates to
+// oauth2::adapters::OpenSslCryptoProvider (the Adapter-side default
+// implementation of authforge::common::ports::ICryptoProvider added in
+// Task 14 slice 1), which is pure OpenSSL with zero Drogon dependency.
+//
+// Public API is UNCHANGED (same free-function names/signatures/semantics)
+// so all 14 existing #include sites of this header (TokenService,
+// JwkManager, and 9 Server-side controllers) keep working without any
+// call-site edit -- this slice's entire point is removing the
+// drogon::utils dependency from the SHARED IMPLEMENTATION, not migrating
+// every caller to inject ICryptoProvider individually (that finer-grained
+// DI step, if ever needed for testability, is separate follow-up work
+// design.md does not currently ask for).
+//
+// OpenSslCryptoProvider is stateless (every method allocates its own
+// OpenSSL context per call, see its own header's thread-safety note), so a
+// single static instance shared by every inline function below is safe to
+// call concurrently from many request threads.
+#include <oauth2/adapters/OpenSslCryptoProvider.h>
+#include <oauth2/adapters/OpenSslUuidGenerator.h>
 
 namespace oauth2
 {
 namespace utils
 {
 
+namespace detail
+{
+// Shared, stateless OpenSslCryptoProvider instance backing every function
+// in this header. See file header comment for the thread-safety rationale.
+inline oauth2::adapters::OpenSslCryptoProvider &cryptoProvider()
+{
+    static oauth2::adapters::OpenSslCryptoProvider instance;
+    return instance;
+}
+}  // namespace detail
+
 /**
  * @brief Base64URL encode data (RFC 4648 Section 5)
  *
- * Uses Drogon's base64Encode with urlSafe=true parameter.
- * This replaces '+' with '-' and '/' with '_' for URL-safe encoding.
+ * This replaces '+' with '-' and '/' with '_' for URL-safe encoding, with
+ * no padding.
  *
  * @param data Data to encode
  * @return Base64URL encoded string (without padding)
  */
 inline std::string base64UrlEncode(const std::string &data)
 {
-    // Use Drogon's base64Encode with urlSafe=true and unpadded
-    return drogon::utils::base64EncodeUnpadded(data, true);
+    return detail::cryptoProvider().base64UrlEncode(data);
 }
 
 /**
@@ -36,34 +65,18 @@ inline std::string base64UrlEncode(const std::string &data)
  */
 inline std::string base64UrlEncode(const unsigned char *bytes, size_t length)
 {
-    return drogon::utils::base64EncodeUnpadded(bytes, length, true);
+    return detail::cryptoProvider().base64UrlEncode(bytes, length);
 }
 
 /**
  * @brief Compute SHA-256 hash (RFC 7636 for PKCE)
- *
- * Uses Drogon's getSha256 which returns a hex string, then converts to binary.
  *
  * @param data Input data
  * @return SHA-256 hash as vector of unsigned chars (32 bytes)
  */
 inline std::vector<unsigned char> sha256(const std::string &data)
 {
-    // Drogon getSha256 returns lowercase hex string (64 chars)
-    std::string hexStr = drogon::utils::getSha256(data.data(), data.length());
-    std::vector<unsigned char> hash;
-    hash.reserve(32);
-    for (size_t i = 0; i + 1 < hexStr.size(); i += 2)
-    {
-        unsigned char byte = 0;
-        char hi = hexStr[i];
-        char lo = hexStr[i + 1];
-        byte = static_cast<unsigned char>(
-          ((hi >= 'a' ? hi - 'a' + 10 : hi - '0') << 4) | (lo >= 'a' ? lo - 'a' + 10 : lo - '0')
-        );
-        hash.push_back(byte);
-    }
-    return hash;
+    return detail::cryptoProvider().sha256(data);
 }
 
 /**
@@ -154,9 +167,9 @@ inline bool isValidCodeChallenge(const std::string &codeChallenge)
 /**
  * @brief Generate a cryptographically secure random token
  *
- * Uses Drogon's secureRandomBytes to generate high-entropy random data,
- * then encodes it as base64url (no padding).
- * Default 32 bytes = 256 bits of entropy, producing a 43-character string.
+ * Generates high-entropy random data, then encodes it as base64url (no
+ * padding). Default 32 bytes = 256 bits of entropy, producing a
+ * 43-character string.
  *
  * @param bytes Number of random bytes (default 32 = 256 bits)
  * @return Base64URL encoded random token string
@@ -164,10 +177,15 @@ inline bool isValidCodeChallenge(const std::string &codeChallenge)
 inline std::string generateSecureToken(size_t bytes = 32)
 {
     std::vector<unsigned char> buffer(bytes);
-    if (!drogon::utils::secureRandomBytes(buffer.data(), bytes))
+    if (!detail::cryptoProvider().secureRandomBytes(buffer.data(), bytes))
     {
-        // Fallback to Drogon UUID if secure random fails (should never happen)
-        return drogon::utils::getUuid() + drogon::utils::getUuid();
+        // Fallback if secure random fails (should never happen). Uses two
+        // freshly generated UUIDs concatenated, matching the pre-migration
+        // fallback shape exactly (same entropy source underneath -- see
+        // OpenSslUuidGenerator, itself RAND_bytes-backed -- so this remains
+        // "should never happen" defense-in-depth, not a weaker substitute).
+        oauth2::adapters::OpenSslUuidGenerator uuidGenerator;
+        return uuidGenerator.generate() + uuidGenerator.generate();
     }
     return base64UrlEncode(buffer.data(), buffer.size());
 }
@@ -175,16 +193,39 @@ inline std::string generateSecureToken(size_t bytes = 32)
 /**
  * @brief Hash a token for secure storage
  *
- * Computes SHA-256 of the raw token and returns lowercase hex string (64 chars).
- * Used to store tokens in the database without exposing the raw value.
- * On lookup, the raw token from the client is hashed before querying.
+ * Computes SHA-256 of the raw token and returns an UPPERCASE hex string
+ * (64 chars). Used to store tokens in the database without exposing the
+ * raw value, AND as the exact-match lookup key on read
+ * (storage_->getAccessToken/getRefreshToken/introspectToken/
+ * revokeAccessToken all query `WHERE token = $1`, an exact string
+ * comparison, not a case-insensitive one).
+ *
+ * Case is UPPERCASE, not lowercase, despite this function's historical
+ * doc comment claiming otherwise (verified while writing Task 14's
+ * OpenSslCryptoProviderTest.cc: the pre-migration implementation
+ * delegated to drogon::utils::getSha256(), which actually returns
+ * UPPERCASE hex). This is NOT a stylistic choice this migration is free
+ * to change: every access/refresh token row already persisted in a
+ * production database was hashed with the pre-migration UPPERCASE
+ * behavior, and every read path is an EXACT string match against that
+ * stored value (unlike e.g. RedisClientRepository::validateClient's
+ * secret-hash comparison, which explicitly lowercases both sides before
+ * comparing). Switching this function to lowercase would silently break
+ * every token lookup against pre-existing data -- so this migration
+ * preserves the exact pre-migration case rather than "fixing" it to match
+ * the doc comment's stale claim.
  *
  * @param rawToken The raw token string (as returned to the client)
- * @return Lowercase hex SHA-256 hash (64 characters)
+ * @return Uppercase hex SHA-256 hash (64 characters)
  */
 inline std::string hashToken(const std::string &rawToken)
 {
-    return drogon::utils::getSha256(rawToken.data(), rawToken.length());
+    std::string hex = detail::cryptoProvider().sha256Hex(rawToken);
+    for (char &c : hex)
+    {
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
+    return hex;
 }
 
 }  // namespace utils
