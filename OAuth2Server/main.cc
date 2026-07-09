@@ -8,7 +8,7 @@
 #include <sstream>
 #include <oauth2/config/ConfigManager.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
-#include <oauth2/controllers/OAuth2StandardController.h>
+#include <authforge/drogon/controllers/OAuth2StandardController.h>
 #include <oauth2/filters/OAuth2AuthFilter.h>
 #include <authforge/drogon/controllers/HealthController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
@@ -259,6 +259,9 @@ int main()
     );
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::AdminController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<oauth2::controllers::OAuth2StandardController>()
     );
 
     // Log configuration values for startup information

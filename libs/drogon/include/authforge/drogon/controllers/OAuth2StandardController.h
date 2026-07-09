@@ -1,5 +1,17 @@
 #pragma once
 
+// M3 Task 20 continuation (authforge-sdk-refactor): relocated from
+// OAuth2Plugin/include/oauth2/controllers/OAuth2StandardController.h into
+// libs/drogon, using the AutoCreation=false + explicit registerController
+// pattern verified across the rest of Task 20's controller migration (see
+// PROGRESS.md). Namespace deliberately LEFT AS oauth2::controllers (not
+// renamed to authforge::drogon::controllers) to avoid touching the 4
+// existing call sites (OAuth2Server/main.cc, OAuth2Plugin.cc,
+// OAuth2FlowE2ETest.cc, CategoryA_InitOrderSnapshotTest.cc) that reference
+// oauth2::controllers::OAuth2StandardController -- design.md's own naming
+// cleanup (§5.8, splitting into AuthorizationEndpointController/
+// TokenEndpointController/DiscoveryController) is deferred to a later task.
+
 #include <drogon/HttpController.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
@@ -30,7 +42,7 @@ struct ClientCredentials
 //     along the async chain (NOT held as a raw IOAuth2Storage*), so they are kept
 //     alive across every async hop. See OAuth2Plugin::getStorage(), which returns
 //     std::shared_ptr<oauth2::IOAuth2Storage> for exactly this reason.
-class OAuth2StandardController : public drogon::HttpController<OAuth2StandardController>
+class OAuth2StandardController : public drogon::HttpController<OAuth2StandardController, false>
 {
   public:
     static void initApiDocs();

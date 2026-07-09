@@ -287,12 +287,31 @@
 - **Plugin 本体**（`OAuth2Plugin.cc`）：仍在 `OAuth2Plugin` OBJECT 库，未迁移，Task 21 方案 A 决策继续有效
 - **Views**（`login.csp`/`consent.csp`）：物理文件仍在 `OAuth2Server/views/`，`drogon_create_views` 在 `OAuth2Server/CMakeLists.txt`/`test/CMakeLists.txt` 里生成，未迁移到 `libs/drogon`——验证过 `SessionController::showLoginPage`（已迁移到 `libs/drogon`）调用 `HttpResponse::newHttpViewResponse("login", data)` 能正常工作（上面的 `/login` 200 测试），说明 view 的加载不依赖 controller 所在的库，可以继续留在原位，不阻塞
 
+### OAuth2StandardController 迁移完成（核心协议控制器）
+
+把最后一个、也是耦合最深的控制器 `OAuth2StandardController`（`/oauth2/authorize`、`/oauth2/token`、`/oauth2/userinfo`、`/oauth2/introspect`、`/oauth2/revoke`、OIDC discovery、JWKS，1562 行）从 `OAuth2Plugin/` 迁移到 `libs/drogon`。
+
+**决策：命名空间保持 `oauth2::controllers` 不变**（不改成 `authforge::drogon::controllers`）——因为已有 4 处调用点（`OAuth2Server/main.cc`、`OAuth2Plugin.cc`、`OAuth2FlowE2ETest.cc`、`CategoryA_InitOrderSnapshotTest.cc`）引用 `oauth2::controllers::OAuth2StandardController`，保持命名空间可以避免改动这些点；design.md §5.8 提到的拆分改名（`AuthorizationEndpointController`/`TokenEndpointController`/`DiscoveryController`）留给后续任务。物理位置迁移和命名空间迁移是两件独立的事，不需要绑定一起做。
+
+**发现并解决的真实循环依赖**：`OAuth2Plugin.cc`（`initAndStart()`）原本直接调用 `oauth2::controllers::OAuth2StandardController::initApiDocs()`。若该类迁入 `libs/drogon`，`OAuth2Plugin.cc` 就需要 `#include <authforge/drogon/controllers/OAuth2StandardController.h>`，形成 `OAuth2Plugin → libs/drogon → OAuth2Plugin`（后者是 slice 1 就有的、为 `common::error` 建立的既有依赖边）的真循环。**修复**：确认 `OAuth2Server/main.cc` 已经在 `drogon::app().run()` 之前显式调用了同一个 `initApiDocs()`（`call_once` 保护，重复调用本来就安全——这是当年"消除 SIOF 静态初始化依赖"设计里预留的冗余调用保护），因此可以安全**删除** `OAuth2Plugin.cc` 里的调用，只保留 `main.cc`/`test_main.cc` 的显式调用（`test_main.cc` 之前没有这行，本次补上）。这样 `OAuth2Plugin.cc` 不再需要 include `libs/drogon` 的任何头文件，循环依赖自然消失。
+
+**验证结果**：
+
+- 全量 `cmake --build`（含 `OAuth2Plugin`/`authforge-drogon`/`OAuth2Server`/`OAuth2Test_test`）：编译通过，零错误，**确认无循环依赖**
+- `ctest -C Debug`：207/207 全绿
+- 真实服务器 + curl 验证核心 OAuth2/OIDC 协议端点：
+  - `GET /.well-known/openid-configuration` → 200，完整 OIDC discovery 文档（`authorization_endpoint`/`token_endpoint`/`jwks_uri`/`grant_types_supported` 等字段齐全）
+  - `GET /.well-known/jwks.json` → 200
+  - `GET /oauth2/authorize`（缺参数）→ 400 `VALIDATION_INVALID_INPUT`，证明请求验证链路完整
+
+**Task 20 现已彻底完成**：`OAuth2Plugin`/`OAuth2Server` 目录下所有 controller、filter（主动挂路由的两个）、`AuthService` 均已迁入 `libs/drogon`，全部使用 `AutoCreation=false` + 显式注册，全程未用 whole-archive。
+
 ### 下一步
 
-1. `OAuth2StandardController` 迁移（是否拆分改名，看是否要顺带做 design.md §5.8 的命名规范化，或先原样迁移再说）
-2. Task 23（controller/filter 去单例化）：现在全部 controller 已经在 `libs/drogon`，去单例化可以作为一个独立的后续批次，不再与迁移耦合
-3. Task 22（whole-archive）：**可能不再需要**——本次验证 `AutoCreation=false` 方案完全替代了 whole-archive 的作用；design.md 里 F1/H5 的 whole-archive 章节可能需要在后续任务中重新评估是否还有必要（例如 views/plugin 是否也有类似的免 whole-archive 方案）
-4. Plugin 本体退化为装配器（Task 21 已定方案 A，尚未真正实施"退化"这个动作，目前只是保持原样）
+1. Task 23（controller/filter 去单例化）：现在全部 controller 已经在 `libs/drogon`，去单例化可以作为一个独立的后续批次
+2. Task 22（whole-archive）：**大概率不再需要**——`AutoCreation=false` 方案已验证完全替代其作用；仍需评估的是 **views**（`login.csp`/`consent.csp`，`drogon_create_views` 生成的类）和**插件类本身**（`OAuth2Plugin`，`Plugin<T>` 没有 `AutoCreation` 参数）是否有类似的免 whole-archive 路径，或者这两类天生需要不同的处理方式
+3. Plugin 本体退化为装配器（Task 21 方案 A 已定，尚未真正做"退化"这个动作，目前只是删除了一行冗余调用，插件本体基本保持原样）
+4. `OAuth2StandardController` 后续可能的拆分改名（design.md §5.8，非阻塞项）
 - Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
 - libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 

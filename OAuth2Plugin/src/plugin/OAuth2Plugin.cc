@@ -1,5 +1,4 @@
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/controllers/OAuth2StandardController.h>
 #include <oauth2/filters/OAuth2AuthFilter.h>
 #include <oauth2/utils/JwkManager.h>
 #include <oauth2/adapters/DrogonLogger.h>
@@ -16,12 +15,18 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
 {
     LOG_INFO << "OAuth2Plugin loading...";
 
-    // Explicitly register OpenApi docs during startup (replaces the former
-    // file-scope global object whose constructor side-effect registered these
-    // docs at static-init time -> cross-TU SIOF, defect 1.1). initApiDocs() is
-    // idempotent (call_once guarded), so registration is order-independent and
-    // happens exactly once regardless of how many call sites invoke it.
-    oauth2::controllers::OAuth2StandardController::initApiDocs();
+    // M3 Task 20 continuation (authforge-sdk-refactor): the explicit
+    // OAuth2StandardController::initApiDocs() call that used to live here
+    // was removed to break a circular dependency -- OAuth2StandardController
+    // now lives in libs/drogon, which itself links OAuth2Plugin (for the
+    // not-yet-relocated common::error machinery; see
+    // libs/drogon/CMakeLists.txt). OAuth2Plugin therefore cannot #include
+    // anything from libs/drogon without creating a link cycle.
+    // initApiDocs() is still called explicitly and unconditionally by every
+    // production/test entry point before drogon::app().run() (see
+    // OAuth2Server/main.cc and OAuth2Server/test/test_main.cc), and is
+    // idempotent (call_once guarded), so doc registration is unaffected by
+    // this removal -- it just no longer ALSO happens from inside the plugin.
 
     initStorage(config);
 

@@ -5,7 +5,7 @@
 #include <drogon/Cookie.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/controllers/SessionController.h>
-#include <oauth2/controllers/OAuth2StandardController.h>
+#include <authforge/drogon/controllers/OAuth2StandardController.h>
 #include <future>
 #include <iostream>
 #include <map>

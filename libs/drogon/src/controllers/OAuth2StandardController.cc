@@ -1,4 +1,4 @@
-#include <oauth2/controllers/OAuth2StandardController.h>
+#include <authforge/drogon/controllers/OAuth2StandardController.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/observability/OAuth2Metrics.h>
 #include <oauth2/validation/RuleSet.h>
