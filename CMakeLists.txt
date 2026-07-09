@@ -42,5 +42,19 @@ add_subdirectory(${OAUTH2_PATH_LIBS_COMMON_TESTING_DIR})
 # OAuth2Plugin/OAuth2Server do not yet consume it.
 add_subdirectory(${OAUTH2_PATH_LIBS_OAUTH2_DIR})
 
+# libs/storage-postgres (authforge::storage::postgres, M2b Task 18):
+# drogon::orm-generated ORM model classes, relocated out of OAuth2Plugin
+# (design.md §4.1/§5.5: ORM models must not live in the Domain layer;
+# this is their designated Adapter-layer home). OAuth2Plugin now depends
+# on this package instead of owning the models itself.
+add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_POSTGRES_DIR})
+
+# libs/identity (authforge::identity, M2.5 Task 19): Domain-layer identity
+# & authentication package. Handles user auth, MFA, WebAuthn, social login,
+# session management, RBAC. Implements IRoleProvider, ISubjectResolver,
+# IUserInfoProvider ports. Depends only on libs/common and storage interfaces,
+# never on OAuth2 domain (arch-guard enforced). Purely additive for now.
+add_subdirectory(${OAUTH2_PATH_LIBS_IDENTITY_DIR})
+
 add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})
