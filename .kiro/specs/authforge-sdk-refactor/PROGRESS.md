@@ -315,6 +315,34 @@
 - Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
 - libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 
+## Task 25：拆分 main.cc 为 bootstrap 模块（design.md §6 "apps/server/src/main.cc # 仅装配"）
+
+新建 `OAuth2Server/bootstrap/` 目录，把 `main.cc` 里原本混在一起的横切关注点拆成 6 个独立模块：
+
+- `CorsSetup.h/.cc`：CORS 处理
+- `SecurityHeaders.h/.cc`：安全响应头
+- `ExceptionHandlerSetup.h/.cc`：全局异常处理
+- `OpenApiSetup.h/.cc`：OpenAPI 生成配置
+- `MigrationRunner.h/.cc`：数据库迁移（`OAUTH2_AUTO_MIGRATE` 开关）
+- `ControllerRegistration.h/.cc`：全部 15+1 个 controller 的 `registerController` 调用集中封装（`bootstrap::registerAllControllers()`）
+
+`main.cc` 重写为精简装配版：加载配置 → `registerAllControllers()` → `setupCors/setupSecurityHeaders/setupExceptionHandler` → ErrorCatalog invariant 校验 advice → Hodor rate-limit advice → `initApiDocs()` + `setupOpenApi()` → `setupMigrations()` → `drogon::app().run()`。`OAuth2Server/CMakeLists.txt` 新增 `file(GLOB BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/bootstrap/*.cc")` 并加入 `add_executable`。
+
+**踩坑与修复**：`main.cc` 精简后仍直接调用 `oauth2::controllers::OAuth2StandardController::initApiDocs()`（Task 20 决定保留的旧命名空间），但拆分时漏加了对应 include，导致 `error C2653: "oauth2" 不是类或命名空间名称` / `C3861: "initApiDocs" 找不到标识符`。修复：补上 `#include <authforge/drogon/controllers/OAuth2StandardController.h>`。
+
+**范围说明**：本任务只针对 `OAuth2Server/main.cc`（design.md Task 25 明确指向 `apps/server/src/main.cc`）。`OAuth2Server/test/test_main.cc` 未拆分，也不在本任务范围——它有自己独立的初始化逻辑，不调用 `main.cc` 的任何函数，`bootstrap/*.cc` 只加入了 `OAuth2Server` 的 `add_executable`，未加入 `test/CMakeLists.txt`，`OAuth2Test_test` 编译验证确认不受影响。
+
+**验证结果**：
+
+- 全量编译（`OAuth2Server` + `OAuth2Test_test`）：通过，零错误（含 include 修复后的重新编译确认）
+- `ctest -C Debug`：207/207 全绿，零回归
+- 真实服务器 + curl 端到端验证（`OAuth2Server.exe` + `config.ci.json`，端口 5555）：
+  - `GET /health` → 200 `{"status":"ok",...}`
+  - `GET /.well-known/openid-configuration` → 200，完整 OIDC discovery 文档
+  - `GET /login` → 200
+
+**Task 25 完成**。main.cc 现在仅做装配，符合 design.md §6 的分层要求。
+
 ## 关键提醒
 
 - 每个 slice/task 完成后必须跑全量测试套件（当前 124 个 CTest cases: 40 authforge-common-test + 38 authforge-common-testing-test + 1 OAuth2Tests(内含 310 DROGON_TEST cases/57113 assertions) + 45 Contract）确认零回归

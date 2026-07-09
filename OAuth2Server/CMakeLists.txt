@@ -7,9 +7,17 @@ find_package(Drogon CONFIG REQUIRED)
 # EmailService.cc is compiled into THIS executable; link libcurl here too.
 find_package(CURL REQUIRED)
 
+# M3 Task 25 (authforge-sdk-refactor, design.md §6): main.cc's former
+# monolithic body has been split into apps/server-style bootstrap/ modules
+# (CorsSetup/SecurityHeaders/ExceptionHandlerSetup/OpenApiSetup/
+# MigrationRunner/ControllerRegistration); main() itself now only wires
+# them together.
+file(GLOB BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/bootstrap/*.cc")
+
 add_executable(${PROJECT_NAME} 
     main.cc
     SchemaManager.cc
+    ${BOOTSTRAP_SRC}
 )
 
 # M3 Task 20 (authforge-sdk-refactor): OAuth2Server/controllers/* and
