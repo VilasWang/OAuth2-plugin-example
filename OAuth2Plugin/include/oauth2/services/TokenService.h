@@ -36,11 +36,23 @@ class TokenService : public std::enable_shared_from_this<TokenService>
     // storage lifetime is guaranteed to cover every user. A null shared_ptr is
     // accepted for the pure-function call sites (e.g.
     // OAuth2Plugin::validatePkceCodeVerifier via TokenService(nullptr)).
+    // M2b Task 17 slice 11 (authforge-sdk-refactor): `issuer` is now a
+    // constructor parameter instead of being read at id_token-issuance
+    // time via drogon::app().getCustomConfig() -- the latter is a Drogon
+    // dependency this Domain-layer-bound class must not have (design.md
+    // §4.1 rule 1). Default value ("http://localhost:5555") matches the
+    // pre-existing hardcoded fallback exactly, so any call site NOT
+    // passing an explicit issuer behaves identically to before. Production
+    // wiring (OAuth2Plugin::initAndStart) is updated to pass the
+    // metadata.issuer value it previously read at issuance time, now read
+    // once at construction time instead (config value does not change at
+    // runtime, so this is not a behavior change).
     explicit TokenService(
       std::shared_ptr<IOAuth2Storage> storage,
       int64_t authCodeTtl = 600,
       int64_t accessTokenTtl = 3600,
-      int64_t refreshTokenTtl = 2592000
+      int64_t refreshTokenTtl = 2592000,
+      std::string issuer = "http://localhost:5555"
     );
 
     // Defect 1.5 fix (immutable publish): the JwkManager is published as a
@@ -126,6 +138,7 @@ class TokenService : public std::enable_shared_from_this<TokenService>
     int64_t authCodeTtl_;
     int64_t accessTokenTtl_;
     int64_t refreshTokenTtl_;
+    std::string issuer_;
     std::shared_ptr<const JwkManager> jwkManager_;
 };
 

@@ -32,12 +32,14 @@ TokenService::TokenService(
   std::shared_ptr<IOAuth2Storage> storage,
   int64_t authCodeTtl,
   int64_t accessTokenTtl,
-  int64_t refreshTokenTtl
+  int64_t refreshTokenTtl,
+  std::string issuer
 )
     : storage_(std::move(storage)),
       authCodeTtl_(authCodeTtl),
       accessTokenTtl_(accessTokenTtl),
-      refreshTokenTtl_(refreshTokenTtl)
+      refreshTokenTtl_(refreshTokenTtl),
+      issuer_(std::move(issuer))
 {
 }
 
@@ -234,18 +236,8 @@ void TokenService::exchangeCodeForToken(
                               authCode->scope.find("openid") != std::string::npos
                             )
                             {
-                                auto customConfig = drogon::app().getCustomConfig();
-                                std::string issuer = "http://localhost:5555";
-                                if (
-                                  customConfig.isMember("metadata") &&
-                                  customConfig["metadata"].isMember("issuer")
-                                )
-                                {
-                                    issuer = customConfig["metadata"]["issuer"].asString();
-                                }
-
                                 Json::Value idTokenClaims;
-                                idTokenClaims["iss"] = issuer;
+                                idTokenClaims["iss"] = issuer_;
                                 idTokenClaims["sub"] = authCode->userId;
                                 idTokenClaims["aud"] = authCode->clientId;
                                 idTokenClaims["iat"] = (Json::Int64)now;

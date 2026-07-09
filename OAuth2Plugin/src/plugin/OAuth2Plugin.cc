@@ -62,12 +62,24 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // Publish as shared_ptr<const JwkManager>: read-only from here on.
     jwkManager_ = jwkManager;
 
+    // M2b Task 17 slice 11: issuer is now a TokenService constructor
+    // parameter (read once, here, at startup) rather than being read via
+    // drogon::app().getCustomConfig() at id_token-issuance time -- same
+    // config value, same default, just read at a different (equally
+    // startup-time) point.
+    std::string issuer = "http://localhost:5555";
+    auto customConfig = drogon::app().getCustomConfig();
+    if (customConfig.isMember("metadata") && customConfig["metadata"].isMember("issuer"))
+    {
+        issuer = customConfig["metadata"]["issuer"].asString();
+    }
+
     // Initialize Services
     // Defect 1.3 fix: services now share ownership of storage_ (shared_ptr),
     // so the storage lifetime is guaranteed to cover every service instead of
     // relying on the implicit "storage_ outlives services" timing convention.
     tokenService_ = std::make_shared<oauth2::TokenService>(
-      storage_, authCodeTtl_, accessTokenTtl_, refreshTokenTtl_
+      storage_, authCodeTtl_, accessTokenTtl_, refreshTokenTtl_, issuer
     );
     tokenService_->setJwkManager(jwkManager_);
     clientService_ = std::make_shared<oauth2::ClientService>(storage_);
