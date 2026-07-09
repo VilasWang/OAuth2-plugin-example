@@ -1,52 +1,76 @@
 #pragma once
 
-#include <authforge/common/model/Subject.h>
-#include <authforge/common/result/Result.h>
-#include <authforge/identity/ISubjectResolver.h>
-#include <authforge/identity/IUserInfoProvider.h>
+// Task 19 (authforge-sdk-refactor, design.md §5.1/§6): real (non-placeholder)
+// implementation. AuthService is framework-independent business logic --
+// its only dependencies are the identity-owned IUserRepository
+// (persistence) plus one authforge::common::ports seam (ICryptoProvider,
+// for password hashing/verification), never Drogon or OAuth2Plugin
+// directly (design.md §4.1 rule 1). This mirrors
+// OAuth2Server/AuthService.cc's validateUser/registerUser/getUserInfo
+// semantics (login-identifier routing, progressive lockout backoff,
+// hash-on-verify upgrade of legacy hashes, default-role assignment on
+// registration) but ported to the injected-port/repository style instead
+// of calling drogon::app().getDbClient() or oauth2::utils::PasswordHasher
+// directly. Time-based lockout arithmetic uses IClock instead of
+// std::chrono::system_clock::now() so it stays testable with a fake clock
+// (design.md §5.6).
+
+#include <authforge/common/ports/ICryptoProvider.h>
+#include <authforge/common/ports/IClock.h>
+
+#include <cstdint>
 #include <functional>
-#include <string>
-#include <optional>
 #include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 #include <json/json.h>
 
 namespace authforge::identity
 {
 
+class IUserRepository;
+
 /**
- * @brief Result of a successful user authentication
+ * @brief Result of a successful user authentication.
  */
 struct AuthResult
 {
-    int64_t internalId;           // Internal auto-increment ID (for DB operations)
-    std::string publicSub;        // Public UUID subject (for OAuth2 tokens, never expose internalId)
-    bool emailVerified = false;   // Whether email is verified
-    bool mfaEnabled = false;      // Whether MFA (TOTP) is enabled
+    int64_t internalId = 0;      // Internal auto-increment ID (for DB operations)
+    std::string publicSub;       // Public UUID subject (for OAuth2 tokens, never expose internalId)
+    bool emailVerified = false;  // Whether email is verified
+    bool mfaEnabled = false;     // Whether MFA (TOTP) is enabled
 };
 
 /**
- * @brief Core authentication service
- * 
- * Handles user authentication, registration, and basic user operations.
- * Framework-independent - dependencies injected through constructor.
+ * @brief Core authentication service.
+ *
+ * Handles user authentication, registration, and userinfo lookup.
+ * Framework-independent -- all infrastructure dependencies (persistence,
+ * crypto, clock) are injected through the constructor.
  */
 class AuthService
 {
-public:
+  public:
     /**
-     * @brief Construct auth service with dependencies
+     * @brief Construct auth service with dependencies.
+     * @param userRepo Persistence for user records (required).
+     * @param crypto Password hashing/verification port (required).
+     * @param clock Time source for lockout-window arithmetic (required).
      */
     AuthService(
-      std::shared_ptr<class IUserRepository> userRepo,
-      std::shared_ptr<ISubjectResolver> subjectResolver,
-      std::shared_ptr<IUserInfoProvider> userInfoProvider
+      std::shared_ptr<IUserRepository> userRepo,
+      std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
+      std::shared_ptr<authforge::common::ports::IClock> clock
     );
 
     /**
-     * @brief Async validate user credentials
-     * @param identifier Login identifier — email or username (含 @ 按 email 查，否则按 username 查)
-     * @param password User password (plain text)
+     * @brief Async validate user credentials.
+     * @param identifier Login identifier — email or username (contains '@'
+     * -> looked up as email, otherwise as username).
+     * @param password User password (plain text).
      * @param callback Returns AuthResult on success, nullopt on failure
+     * (unknown identifier, wrong password, or account currently locked).
      */
     void validateUser(
       const std::string &identifier,
@@ -55,11 +79,14 @@ public:
     );
 
     /**
-     * @brief Async register a new user
-     * @param username Unique username
-     * @param password Plain text password (will be hashed)
-     * @param email User email address
-     * @param callback Invoked with error code on failure, empty string on success
+     * @brief Async register a new user.
+     * @param username Unique username (may be empty -- email-first model).
+     * @param password Plain text password (will be hashed).
+     * @param email User email address (normalized before storage/lookup).
+     * @param callback Invoked with an empty string on success, or a
+     * structured Error_Code (registered in ErrorCatalog) on failure --
+     * mirrors OAuth2Server/AuthService.cc's existing contract so callers
+     * can forward the value verbatim to ErrorResponder.
      */
     void registerUser(
       const std::string &username,
@@ -69,21 +96,20 @@ public:
     );
 
     /**
-     * @brief Fetch user info (delegates to IUserInfoProvider)
-     * @param userId Internal user ID
-     * @param scopes Granted scopes (determines which claims to include)
-     * @param callback Returns user info JSON or nullopt if not found
+     * @brief Fetch user info + roles for the userinfo endpoint.
+     * @param userId Internal user ID.
+     * @param callback Returns user info JSON (sub/name/email/roles) or
+     * nullopt if not found.
      */
     void getUserInfo(
       int64_t userId,
-      const std::vector<std::string> &scopes,
       std::function<void(std::optional<Json::Value>)> &&callback
     );
 
-private:
-    std::shared_ptr<class IUserRepository> userRepo_;
-    std::shared_ptr<ISubjectResolver> subjectResolver_;
-    std::shared_ptr<IUserInfoProvider> userInfoProvider_;
+  private:
+    std::shared_ptr<IUserRepository> userRepo_;
+    std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto_;
+    std::shared_ptr<authforge::common::ports::IClock> clock_;
 };
 
 }  // namespace authforge::identity

@@ -1,0 +1,98 @@
+// Task 19 (authforge-sdk-refactor, design.md §6): unit tests for
+// authforge::identity::UserInfoProvider (implements
+// authforge::common::ports::IUserInfoProvider).
+
+#include <authforge/identity/UserInfoProvider.h>
+
+#include <gtest/gtest.h>
+
+#include <map>
+#include <memory>
+
+using authforge::identity::IUserRepository;
+using authforge::identity::UserData;
+using authforge::identity::UserInfoProvider;
+
+namespace
+{
+
+class FakeUserRepository : public IUserRepository
+{
+  public:
+    std::map<int64_t, Json::Value> infos;
+
+    void findByEmail(const std::string &, std::function<void(std::optional<UserData>)> &&cb)
+      override
+    {
+        cb(std::nullopt);
+    }
+    void findByUsername(const std::string &, std::function<void(std::optional<UserData>)> &&cb)
+      override
+    {
+        cb(std::nullopt);
+    }
+    void findById(int64_t, std::function<void(std::optional<UserData>)> &&cb) override
+    {
+        cb(std::nullopt);
+    }
+    void create(const UserData &, std::function<void(std::optional<int64_t>)> &&cb) override
+    {
+        cb(std::nullopt);
+    }
+    void updatePasswordHash(int64_t, const std::string &, std::function<void(bool)> &&cb)
+      override
+    {
+        cb(false);
+    }
+    void resetFailedLogins(int64_t, std::function<void(bool)> &&cb) override
+    {
+        cb(false);
+    }
+    void incrementFailedLogins(int64_t, std::function<void(bool)> &&cb) override
+    {
+        cb(false);
+    }
+    void getUserInfoWithRoles(int64_t userId, std::function<void(std::optional<Json::Value>)> &&cb)
+      override
+    {
+        auto it = infos.find(userId);
+        cb(it == infos.end() ? std::nullopt : std::optional<Json::Value>(it->second));
+    }
+};
+
+}  // namespace
+
+TEST(UserInfoProviderTest, ForwardsToRepository)
+{
+    auto repo = std::make_shared<FakeUserRepository>();
+    Json::Value claims;
+    claims["sub"] = "sub-1";
+    claims["email"] = "a@example.com";
+    repo->infos[1] = claims;
+
+    UserInfoProvider provider(repo);
+
+    std::optional<Json::Value> result;
+    provider.getUserInfo(1, [&](std::optional<Json::Value> j) { result = j; });
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)["email"].asString(), "a@example.com");
+}
+
+TEST(UserInfoProviderTest, UnknownUserReturnsNullopt)
+{
+    auto repo = std::make_shared<FakeUserRepository>();
+    UserInfoProvider provider(repo);
+
+    std::optional<Json::Value> result;
+    provider.getUserInfo(999, [&](std::optional<Json::Value> j) { result = j; });
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(UserInfoProviderTest, NullRepositoryReturnsNulloptInsteadOfCrashing)
+{
+    UserInfoProvider provider(nullptr);
+
+    std::optional<Json::Value> result;
+    provider.getUserInfo(1, [&](std::optional<Json::Value> j) { result = j; });
+    EXPECT_FALSE(result.has_value());
+}
