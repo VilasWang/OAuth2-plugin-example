@@ -6,7 +6,7 @@
 
 - 分支：`feat/m0-conan-migration`
 - PR：#11（GitHub）
-- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `d92b7d1`（Task 17 slice 11: issuer 构造参数化）
+- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `d435c88`（Task 17 slice 12 + 清理）
 - **用户指示（加快节奏）**："每个task完成后，编译通过即可，几个相关的task完成后可以一起测" —— 后续 slice 采用编译验证+攒批测试模式，减少单 slice 全量 ctest 频率
 - 上次推送到远端的 commit：`e5c097d`（M1 saveTokenPair 修复）
 - 用户指示："CI 不急，按计划往后推进" —— 暂不推送，先把 M2a/M2b 等后续任务在本地做完再统一验证推送
@@ -142,9 +142,14 @@
 - 去掉 `drogon::app().getCustomConfig()` 在签发 id_token 时的调用，issuer 改为构造参数（默认值/config 路径不变，只是读取时机从"每次签发"挪到"启动时构造"）
 - 验证：全量编译 + `ctest` 188/188，零回归
 
-### Task 17 剩余 slice（未完成，下一步；用户已要求加快节奏——单个 slice 编译过即可，攒几个一起测）
+### Task 17 slice 12 + 杂项清理（commit `ead1eda`, `d435c88`，编译验证+批测）
+- 新建 `OAuth2Plugin/include/oauth2/adapters/StorageRoleProvider.h`：`IRoleProvider` 的首个生产实现（薄转发到 `IOAuth2Storage::getUserRoles(int32_t,...)`），在 `OAuth2Plugin::initAndStart` 里实例化，**尚未接入任何调用点**——`IdentityService` 的角色查询是按 subject 字符串键的，这个端口按 `internalUserId` 键，真正接入还需要 `ISubjectResolver`
+- 顺手清理 `ClientService.cc` 里未使用的 `#include <drogon/drogon.h>`（死代码，无 `drogon::` 符号使用）
+- 验证：全量编译 + `ctest -C Debug` 188/188，批量验证 slice 11+12+清理，零回归
+
+### Task 17 剩余 slice（未完成，下一步；已按用户要求加快节奏——单个 slice 编译过即可，攒几个一起测）
 - **`AuthorizationService`/`TokenService` 完整迁移到 `libs/oauth2`**：阻塞项基本清空（PKCE/AuditLogger端口/仓储接口/聚合/决策引擎/JwkManager/issuer 均已就位），剩下主要是把类本体搬过去 + 切换到新仓储接口 + 接入 IAuditSink/IRoleProvider
-- `IRoleProvider` 尚未在生产代码接入任何实现（`IdentityService::getUserRoles` 仍直接查 `IOAuth2Storage`）
+- `IRoleProvider` 已有生产实现（slice 12）但尚未接入任何调用点，需要 `ISubjectResolver` 配合才能真正替换 `IdentityService::getUserRoles`
 - 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）迁移到 `authforge::oauth2::` 命名空间，生产代码切换、淘汰旧接口——尚未开始
 
 ## 下一步
