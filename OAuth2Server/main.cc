@@ -11,6 +11,7 @@
 #include <oauth2/controllers/OAuth2StandardController.h>
 #include <oauth2/filters/OAuth2AuthFilter.h>
 #include <authforge/drogon/controllers/HealthController.h>
+#include <authforge/drogon/controllers/GoogleController.h>
 #include <oauth2/error/ErrorCatalog.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <oauth2/error/ErrorTypes.h>
@@ -204,6 +205,9 @@ int main()
     // whole-archive linking.
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::HealthController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::GoogleController>()
     );
 
     // Log configuration values for startup information

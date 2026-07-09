@@ -1,7 +1,13 @@
-#include "GoogleController.h"
+#include <authforge/drogon/controllers/GoogleController.h>
 #include <drogon/HttpClient.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
+
+namespace authforge::drogon::controllers
+{
+
+namespace
+{
 
 // TODO: REPLACE WITH YOUR REAL GOOGLE CREDENTIALS
 const std::string GOOGLE_CLIENT_ID_KEY = "client_id";
@@ -10,7 +16,7 @@ const std::string GOOGLE_REDIRECT_URI_KEY = "redirect_uri";
 
 std::string getGoogleConfig(const std::string &key)
 {
-    auto config = drogon::app().getCustomConfig();
+    auto config = ::drogon::app().getCustomConfig();
     if (config.isMember("external_auth") && config["external_auth"].isMember("google"))
     {
         return config["external_auth"]["google"].get(key, "").asString();
@@ -18,29 +24,24 @@ std::string getGoogleConfig(const std::string &key)
     return "";
 }
 
-namespace
-{
 // Emit an Application error via the unified ErrorResponder entry point so the
 // body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5).
 void respondError(
-  const drogon::HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const drogon::HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
+    ::common::error::ErrorResponder::respond(
       req,
-      [cb](const drogon::HttpResponsePtr &r) { (*cb)(r); },
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
       std::move(detailForLog)
     );
 }
-}  // namespace
 
 // Register OpenAPI documentation (executed once at startup)
-namespace
-{
 struct GoogleControllerDocs
 {
     GoogleControllerDocs()
@@ -93,17 +94,18 @@ struct GoogleControllerDocs
 };
 
 GoogleControllerDocs docs_;
+
 }  // namespace
 
 void GoogleController::login(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Handle OPTIONS for CORS
-    if (req->method() == Options)
+    if (req->method() == ::drogon::Options)
     {
-        auto resp = HttpResponse::newHttpResponse();
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
         callback(resp);
         return;
     }
@@ -139,7 +141,7 @@ void GoogleController::login(
 
     if (code.empty())
     {
-        common::error::ErrorResponder::respond(
+        ::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -150,9 +152,9 @@ void GoogleController::login(
 
     // 1. Exchange Code for Access Token
     // API: https://oauth2.googleapis.com/token
-    auto client = HttpClient::newHttpClient("https://oauth2.googleapis.com");
-    auto request = HttpRequest::newHttpRequest();
-    request->setMethod(Post);
+    auto client = ::drogon::HttpClient::newHttpClient("https://oauth2.googleapis.com");
+    auto request = ::drogon::HttpRequest::newHttpRequest();
+    request->setMethod(::drogon::Post);
     request->setPath("/token");
     request->setParameter("code", code);
     request->setParameter("client_id", getGoogleConfig(GOOGLE_CLIENT_ID_KEY));
@@ -161,11 +163,13 @@ void GoogleController::login(
     request->setParameter("grant_type", "authorization_code");
 
     auto callbackPtr =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     client->sendRequest(
-      request, [callbackPtr, client, req](ReqResult result, const HttpResponsePtr &response) {
-          if (result != ReqResult::Ok || !response || response->getStatusCode() != k200OK)
+      request,
+      [callbackPtr, client, req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+          if (result != ::drogon::ReqResult::Ok || !response ||
+              response->getStatusCode() != ::drogon::k200OK)
           {
               respondError(
                 req,
@@ -189,14 +193,15 @@ void GoogleController::login(
 
           // 2. Fetch User Info
           // API: https://www.googleapis.com/oauth2/v3/userinfo
-          auto client2 = HttpClient::newHttpClient("https://www.googleapis.com");
-          auto req2 = HttpRequest::newHttpRequest();
+          auto client2 = ::drogon::HttpClient::newHttpClient("https://www.googleapis.com");
+          auto req2 = ::drogon::HttpRequest::newHttpRequest();
           req2->setPath("/oauth2/v3/userinfo");
           req2->addHeader("Authorization", "Bearer " + accessToken);
 
-          client2
-            ->sendRequest(req2, [callbackPtr, req](ReqResult res2, const HttpResponsePtr &resp2) {
-                if (res2 != ReqResult::Ok || !resp2)
+          client2->sendRequest(
+            req2,
+            [callbackPtr, req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
+                if (res2 != ::drogon::ReqResult::Ok || !resp2)
                 {
                     respondError(
                       req,
@@ -216,9 +221,12 @@ void GoogleController::login(
                 filteredJson["email"] = (*googleData).get("email", "").asString();
                 filteredJson["picture"] = (*googleData).get("picture", "").asString();
 
-                auto finalResp = HttpResponse::newHttpJsonResponse(filteredJson);
+                auto finalResp = ::drogon::HttpResponse::newHttpJsonResponse(filteredJson);
                 (*callbackPtr)(finalResp);
-            });
+            }
+          );
       }
     );
 }
+
+}  // namespace authforge::drogon::controllers

@@ -2,6 +2,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <authforge/drogon/controllers/HealthController.h>
+#include <authforge/drogon/controllers/GoogleController.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -230,6 +231,9 @@ int main(int argc, char **argv)
     // 404.
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::HealthController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::GoogleController>()
     );
 
     std::promise<void> p1;
