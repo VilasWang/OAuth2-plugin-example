@@ -1,23 +1,30 @@
-#include "OrganizationController.h"
+#include <authforge/drogon/controllers/OrganizationController.h>
 #include <oauth2/observability/AuditLogger.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <regex>
 
+namespace authforge::drogon::controllers
+{
+
 namespace
 {
+
 // Emit an Application error via the unified ErrorResponder entry point so the
 // body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5).
 void respondError(
-  const HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
-      req, [cb](const HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
+    ::common::error::ErrorResponder::respond(
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
     );
 }
 
@@ -55,20 +62,21 @@ struct OrganizationControllerDocs
 };
 
 OrganizationControllerDocs docs_;
+
 }  // namespace
 
 void OrganizationController::list(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
-    auto db = drogon::app().getDbClient();
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "SELECT id, slug, name, logo_uri, primary_color, issuer_override, created_at "
       "FROM organizations ORDER BY id",
-      [sharedCb](const drogon::orm::Result &r) {
+      [sharedCb](const ::drogon::orm::Result &r) {
           Json::Value json;
           Json::Value orgs(Json::arrayValue);
           for (const auto &row : r)
@@ -86,9 +94,9 @@ void OrganizationController::list(
           }
           json["organizations"] = orgs;
           json["total"] = static_cast<int>(r.size());
-          (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+          (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
       },
-      [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
             req,
             sharedCb,
@@ -100,12 +108,12 @@ void OrganizationController::list(
 }
 
 void OrganizationController::create(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     auto jsonBody = req->getJsonObject();
     if (!jsonBody)
     {
@@ -140,11 +148,11 @@ void OrganizationController::create(
         return;
     }
 
-    auto db = drogon::app().getDbClient();
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "INSERT INTO organizations (slug, name, logo_uri, primary_color, issuer_override) "
       "VALUES ($1, $2, $3, $4, $5) RETURNING id",
-      [sharedCb, slug, name, req](const drogon::orm::Result &r) {
+      [sharedCb, slug, name, req](const ::drogon::orm::Result &r) {
           int id = r[0]["id"].as<int>();
           oauth2::observability::AuditLogger::log(
             "organization_created", "success", req, "", "organization", slug
@@ -154,11 +162,11 @@ void OrganizationController::create(
           json["slug"] = slug;
           json["name"] = name;
           json["message"] = "Organization created";
-          auto resp = HttpResponse::newHttpJsonResponse(json);
-          resp->setStatusCode(k201Created);
+          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+          resp->setStatusCode(::drogon::k201Created);
           (*sharedCb)(resp);
       },
-      [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
             req,
             sharedCb,
@@ -175,18 +183,18 @@ void OrganizationController::create(
 }
 
 void OrganizationController::getBySlug(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &slug
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
-    auto db = drogon::app().getDbClient();
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "SELECT id, slug, name, logo_uri, primary_color, issuer_override, created_at "
       "FROM organizations WHERE slug = $1",
-      [sharedCb, req](const drogon::orm::Result &r) {
+      [sharedCb, req](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
               respondError(
@@ -204,9 +212,9 @@ void OrganizationController::getBySlug(
             row["primary_color"].isNull() ? "" : row["primary_color"].as<std::string>();
           json["issuer_override"] =
             row["issuer_override"].isNull() ? "" : row["issuer_override"].as<std::string>();
-          (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+          (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
       },
-      [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
             req, sharedCb, "DB_QUERY_ERROR", std::string("get org failed: ") + e.base().what()
           );
@@ -214,3 +222,5 @@ void OrganizationController::getBySlug(
       slug
     );
 }
+
+}  // namespace authforge::drogon::controllers

@@ -4,6 +4,7 @@
 #include <authforge/drogon/controllers/HealthController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <authforge/drogon/controllers/WeChatController.h>
+#include <authforge/drogon/controllers/OrganizationController.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -238,6 +239,9 @@ int main(int argc, char **argv)
     );
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::WeChatController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::OrganizationController>()
     );
 
     std::promise<void> p1;
