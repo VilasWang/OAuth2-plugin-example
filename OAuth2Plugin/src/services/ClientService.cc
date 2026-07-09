@@ -1,5 +1,4 @@
 ﻿#include <oauth2/services/ClientService.h>
-#include <drogon/drogon.h>
 
 namespace oauth2
 {
