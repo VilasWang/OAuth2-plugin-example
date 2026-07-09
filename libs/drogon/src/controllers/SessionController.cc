@@ -1,7 +1,7 @@
-#include "SessionController.h"
+#include <authforge/drogon/controllers/SessionController.h>
 
-#include "../AuthService.h"
-#include "EmailVerificationController.h"
+#include <authforge/drogon/AuthService.h>
+#include <authforge/drogon/controllers/EmailVerificationController.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
 #include <oauth2/observability/OAuth2Metrics.h>
@@ -19,8 +19,11 @@
 #include <oauth2/error/ErrorResponder.h>
 
 using namespace oauth2;
-using namespace services;
-using namespace oauth2::observability::openapi;
+using namespace authforge::drogon::services;
+using namespace ::oauth2::observability::openapi;
+
+namespace authforge::drogon::controllers
+{
 
 namespace
 {
@@ -29,25 +32,30 @@ namespace
 // callback is taken by value so callers that have already moved their callback
 // into an enclosing lambda can pass a copy.
 void respondError(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> cb,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
+    ::common::error::ErrorResponder::respond(
       req,
-      [cb = std::move(cb)](const drogon::HttpResponsePtr &r) { cb(r); },
+      [cb = std::move(cb)](const ::drogon::HttpResponsePtr &r) { cb(r); },
       std::move(code),
       std::move(detailForLog)
     );
 }
 }  // namespace
 
+}  // namespace authforge::drogon::controllers
+
 static void sendBackchannelLogoutNotifications(const std::string &)
 {
     LOG_DEBUG << "sendBackchannelLogoutNotifications: stub";
 }
+
+namespace authforge::drogon::controllers
+{
 
 // API documentation initialization
 namespace
@@ -62,7 +70,7 @@ struct OAuth2ControllerDocs
             successExample["status"] = "ok";
             successExample["version"] = "1.0.0";
 
-            oauth2::observability::openapi::EndpointInfo healthEndpoint;
+            ::oauth2::observability::openapi::EndpointInfo healthEndpoint;
             healthEndpoint.path = "/health";
             healthEndpoint.method = "GET";
             healthEndpoint.summary = "Health check";
@@ -84,7 +92,7 @@ struct OAuth2ControllerDocs
             Json::Value errorExample;
             errorExample["error"] = "invalid_client";
 
-            oauth2::observability::openapi::EndpointInfo loginEndpoint;
+            ::oauth2::observability::openapi::EndpointInfo loginEndpoint;
             loginEndpoint.path = "/oauth2/login";
             loginEndpoint.method = "POST";
             loginEndpoint.summary = "Authenticate user";
@@ -93,46 +101,46 @@ struct OAuth2ControllerDocs
               "Usually called by the frontend login page during the authorization code flow.";
             loginEndpoint.tags = {"OAuth2", "Authentication"};
 
-            oauth2::observability::openapi::ParameterInfo usernameParam;
+            ::oauth2::observability::openapi::ParameterInfo usernameParam;
             usernameParam.name = "username";
             usernameParam.description = "User's account username (required)";
-            usernameParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            usernameParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            usernameParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            usernameParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             usernameParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo passwordParam;
+            ::oauth2::observability::openapi::ParameterInfo passwordParam;
             passwordParam.name = "password";
             passwordParam.description = "User's password (required)";
-            passwordParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            passwordParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            passwordParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            passwordParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             passwordParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo clientIdParam;
+            ::oauth2::observability::openapi::ParameterInfo clientIdParam;
             clientIdParam.name = "client_id";
             clientIdParam.description = "Client identifier matches the requesting app (required)";
-            clientIdParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            clientIdParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            clientIdParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            clientIdParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             clientIdParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo redirectUriParam;
+            ::oauth2::observability::openapi::ParameterInfo redirectUriParam;
             redirectUriParam.name = "redirect_uri";
             redirectUriParam.description = "Redirect URI matching the registered client (required)";
-            redirectUriParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            redirectUriParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            redirectUriParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            redirectUriParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             redirectUriParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo scopeParam;
+            ::oauth2::observability::openapi::ParameterInfo scopeParam;
             scopeParam.name = "scope";
             scopeParam.description = "Requested scope, space-separated (optional)";
-            scopeParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            scopeParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            scopeParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            scopeParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             scopeParam.required = false;
 
-            oauth2::observability::openapi::ParameterInfo stateParam;
+            ::oauth2::observability::openapi::ParameterInfo stateParam;
             stateParam.name = "state";
             stateParam.description = "Opaque value to maintain state (recommended)";
-            stateParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            stateParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            stateParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            stateParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             stateParam.required = false;
 
             loginEndpoint.parameters = {
@@ -153,32 +161,32 @@ struct OAuth2ControllerDocs
             successExample["status"] = "success";
             successExample["message"] = "User registered successfully";
 
-            oauth2::observability::openapi::EndpointInfo registerEndpoint;
+            ::oauth2::observability::openapi::EndpointInfo registerEndpoint;
             registerEndpoint.path = "/api/register";
             registerEndpoint.method = "POST";
             registerEndpoint.summary = "Register new user";
             registerEndpoint.description = "Registers a new user account into the system.";
             registerEndpoint.tags = {"User", "Registration"};
 
-            oauth2::observability::openapi::ParameterInfo usernameParam;
+            ::oauth2::observability::openapi::ParameterInfo usernameParam;
             usernameParam.name = "username";
             usernameParam.description = "Desired username (required)";
-            usernameParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            usernameParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            usernameParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            usernameParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             usernameParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo passwordParam;
+            ::oauth2::observability::openapi::ParameterInfo passwordParam;
             passwordParam.name = "password";
             passwordParam.description = "Strong password (required)";
-            passwordParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            passwordParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            passwordParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            passwordParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             passwordParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo emailParam;
+            ::oauth2::observability::openapi::ParameterInfo emailParam;
             emailParam.name = "email";
             emailParam.description = "Email address (optional)";
-            emailParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            emailParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            emailParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            emailParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             emailParam.required = false;
 
             registerEndpoint.parameters = {usernameParam, passwordParam, emailParam};
@@ -191,7 +199,7 @@ struct OAuth2ControllerDocs
 
         // Consent endpoint
         {
-            oauth2::observability::openapi::EndpointInfo consentEndpoint;
+            ::oauth2::observability::openapi::EndpointInfo consentEndpoint;
             consentEndpoint.path = "/oauth2/consent";
             consentEndpoint.method = "POST";
             consentEndpoint.summary = "Submit user consent";
@@ -199,46 +207,46 @@ struct OAuth2ControllerDocs
               "Submit user consent for requested scopes. Redirects back to client.";
             consentEndpoint.tags = {"OAuth2", "Consent"};
 
-            oauth2::observability::openapi::ParameterInfo clientIdParam;
+            ::oauth2::observability::openapi::ParameterInfo clientIdParam;
             clientIdParam.name = "client_id";
             clientIdParam.description = "Client identifier (required)";
-            clientIdParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            clientIdParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            clientIdParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            clientIdParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             clientIdParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo userIdParam;
+            ::oauth2::observability::openapi::ParameterInfo userIdParam;
             userIdParam.name = "user_id";
             userIdParam.description = "User identifier (required)";
-            userIdParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            userIdParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            userIdParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            userIdParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             userIdParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo scopeParam;
+            ::oauth2::observability::openapi::ParameterInfo scopeParam;
             scopeParam.name = "scope";
             scopeParam.description = "Requested scope to consent (required)";
-            scopeParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            scopeParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            scopeParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            scopeParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             scopeParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo redirectUriParam;
+            ::oauth2::observability::openapi::ParameterInfo redirectUriParam;
             redirectUriParam.name = "redirect_uri";
             redirectUriParam.description = "Redirect URI (required)";
-            redirectUriParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            redirectUriParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            redirectUriParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            redirectUriParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             redirectUriParam.required = true;
 
-            oauth2::observability::openapi::ParameterInfo stateParam;
+            ::oauth2::observability::openapi::ParameterInfo stateParam;
             stateParam.name = "state";
             stateParam.description = "Opaque value to maintain state";
-            stateParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            stateParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            stateParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            stateParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             stateParam.required = false;
 
-            oauth2::observability::openapi::ParameterInfo actionParam;
+            ::oauth2::observability::openapi::ParameterInfo actionParam;
             actionParam.name = "action";
             actionParam.description = "Action to perform: 'approve' or 'deny' (required)";
-            actionParam.type = oauth2::observability::openapi::ParameterType::STRING;
-            actionParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+            actionParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+            actionParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
             actionParam.required = true;
             actionParam.enumValues = "approve,deny";
 
@@ -257,8 +265,8 @@ OAuth2ControllerDocs docs_;
 }  // namespace
 
 void SessionController::showLoginPage(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Get OAuth2 parameters from URL
@@ -276,7 +284,7 @@ void SessionController::showLoginPage(
 
     // Build frontend register URL from config
     std::string frontendRegisterUrl;
-    auto customConfig = drogon::app().getCustomConfig();
+    auto customConfig = ::drogon::app().getCustomConfig();
     if (customConfig.isMember("frontend"))
     {
         const auto &frontend = customConfig["frontend"];
@@ -290,7 +298,7 @@ void SessionController::showLoginPage(
     }
 
     // Create template data
-    DrTemplateData data;
+    ::drogon::DrTemplateData data;
     data["client_id"] = clientId;
     data["redirect_uri"] = redirectUri;
     data["scope"] = scope;
@@ -303,7 +311,7 @@ void SessionController::showLoginPage(
     // Render login.csp template
     try
     {
-        auto resp = HttpResponse::newHttpViewResponse("login", data);
+        auto resp = ::drogon::HttpResponse::newHttpViewResponse("login", data);
         callback(resp);
     }
     catch (const std::exception &e)
@@ -318,17 +326,17 @@ void SessionController::showLoginPage(
 }
 
 void SessionController::login(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Use ValidatorHelper for consistent validation
-    auto errors = oauth2::validation::RuleSet::login(req);
+    auto errors = ::oauth2::validation::RuleSet::login(req);
 
     // Return validation errors if any
-    if (oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    if (::oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
     {
-        oauth2::observability::Metrics::incLoginFailure("validation_failed");
+        ::oauth2::observability::Metrics::incLoginFailure("validation_failed");
         return;
     }
 
@@ -339,7 +347,7 @@ void SessionController::login(
     std::string nonce;
 
     // Try JSON body first
-    if (req->contentType() == CT_APPLICATION_JSON)
+    if (req->contentType() == ::drogon::CT_APPLICATION_JSON)
     {
         auto json = req->getJsonObject();
         if (json)
@@ -388,7 +396,7 @@ void SessionController::login(
               req->session()->insert("userId", std::to_string(authResult->internalId));
 
               // Audit: login success
-              oauth2::observability::AuditLogger::log(
+              ::oauth2::observability::AuditLogger::log(
                 "login_success",
                 "success",
                 req,
@@ -398,7 +406,7 @@ void SessionController::login(
               );
 
               // === CHECK 1: Email verification enforcement ===
-              auto customCfg = drogon::app().getCustomConfig();
+              auto customCfg = ::drogon::app().getCustomConfig();
               bool requireEmailVerification = false;
               if (
                 customCfg.isMember("auth") &&
@@ -419,42 +427,25 @@ void SessionController::login(
               // === CHECK 2: MFA enforcement ===
               if (authResult->mfaEnabled)
               {
-                  // MFA is enabled - don't issue auth code yet. Before returning
-                  // the mfa_required response, persist this login attempt's
-                  // client_id/redirect_uri as the pending binding that
-                  // verifyLogin MUST match against on the second-factor leg
-                  // (P0-1 cross-client authorization confusion fix, Requirement
-                  // 2.6). The binding must be durable before the client can act
-                  // on mfa_token (= std::to_string(internalId)), so the response
-                  // is built only inside the UPDATE success callback. If the
-                  // UPDATE fails we fail closed (DB_QUERY_ERROR) rather than
-                  // return mfa_required against a stale/missing binding.
                   auto internalId = authResult->internalId;
                   auto sharedCb = std::make_shared<
-                    std::function<void(const HttpResponsePtr &)>>(std::move(callback));
-                  auto db = drogon::app().getDbClient();
+                    std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+                  auto db = ::drogon::app().getDbClient();
                   db->execSqlAsync(
                     "UPDATE users SET mfa_pending_client_id = $1, "
                     "mfa_pending_redirect_uri = $2 WHERE id = $3",
-                    [req, internalId, sharedCb](const drogon::orm::Result &) {
-                        // Only now build and send the mfa_required response —
-                        // the pending binding is durably recorded before the
-                        // client can act on mfa_token.
+                    [req, internalId, sharedCb](const ::drogon::orm::Result &) {
                         Json::Value mfaResp;
                         mfaResp["mfa_required"] = true;
                         mfaResp["mfa_token"] = std::to_string(internalId);
                         mfaResp["message"] =
                           "MFA verification required. Submit TOTP code to "
                           "/oauth2/mfa/verify";
-                        auto resp = HttpResponse::newHttpJsonResponse(mfaResp);
-                        resp->setStatusCode(k200OK);
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(mfaResp);
+                        resp->setStatusCode(::drogon::k200OK);
                         (*sharedCb)(resp);
                     },
-                    [req, sharedCb](const drogon::orm::DrogonDbException &e) {
-                        // Fail closed: do not return mfa_required if the pending
-                        // binding could not be persisted — verifyLogin would
-                        // otherwise have no binding (or a stale one) to compare
-                        // against for this login attempt.
+                    [req, sharedCb](const ::drogon::orm::DrogonDbException &e) {
                         respondError(
                           req,
                           *sharedCb,
@@ -481,7 +472,6 @@ void SessionController::login(
               }
               if (requirePkce && codeChallenge.empty())
               {
-                  // Check will be done after getClient - for now log warning
                   LOG_WARN << "[SECURITY] PUBLIC client " << clientId
                            << " login without PKCE (enforcement enabled)";
                   respondError(
@@ -493,7 +483,7 @@ void SessionController::login(
                   return;
               }
 
-              auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+              auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
               if (!plugin)
               {
                   respondError(
@@ -536,11 +526,11 @@ void SessionController::login(
                         Json::Value ret;
                         ret["code"] = code;
                         ret["location"] = location;
-                        auto resp = HttpResponse::newHttpJsonResponse(ret);
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(ret);
                         callback(resp);
                         return;
                     }
-                    auto resp = HttpResponse::newRedirectionResponse(location);
+                    auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
                     callback(resp);
                 }
               );
@@ -548,10 +538,10 @@ void SessionController::login(
           else
           {
               // Fail (Bad Password or User Not Found)
-              oauth2::observability::Metrics::incLoginFailure("bad_credentials");
+              ::oauth2::observability::Metrics::incLoginFailure("bad_credentials");
 
               // Audit: login failure
-              oauth2::observability::AuditLogger::log(
+              ::oauth2::observability::AuditLogger::log(
                 "login_failure", "failure", req, username, "user", username
               );
 
@@ -564,8 +554,8 @@ void SessionController::login(
 }
 
 void SessionController::consent(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // P0-2: Handle user consent approval
@@ -582,18 +572,16 @@ void SessionController::consent(
 
     if (action == "deny")
     {
-        // User denied consent, redirect back with error
         std::string location =
           redirectUri + "?error=access_denied&error_description=User+denied+consent";
         if (!state.empty())
             location += "&state=" + state;
-        auto resp = HttpResponse::newRedirectionResponse(location);
+        auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
         callback(resp);
         return;
     }
 
-    // User approved consent, save it and proceed with authorization
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (!plugin)
     {
         respondError(
@@ -602,7 +590,6 @@ void SessionController::consent(
         return;
     }
 
-    // Get internal user ID
     plugin->getInternalUserId(
       userId,
       [plugin,
@@ -624,7 +611,6 @@ void SessionController::consent(
               return;
           }
 
-          // Parse scopes and save consent for each
           std::vector<std::string> scopes;
           std::stringstream ss(scope);
           std::string scopeItem;
@@ -636,7 +622,6 @@ void SessionController::consent(
               }
           }
 
-          // Save consent for all scopes (use first scope as callback trigger)
           if (!scopes.empty())
           {
               std::string firstScope = scopes[0];
@@ -670,14 +655,11 @@ void SessionController::consent(
                         return;
                     }
 
-                    // Save consent for remaining scopes (fire and forget
-                    // for simplicity)
                     for (size_t i = 1; i < scopes.size(); ++i)
                     {
                         plugin->saveUserConsent(uid, clientId, scopes[i], [](bool) {});
                     }
 
-                    // Proceed with authorization code generation
                     plugin->generateAuthorizationCode(
                       clientId,
                       userId,
@@ -703,8 +685,8 @@ void SessionController::consent(
                           std::string location = redirectUri + "?code=" + code;
                           if (!state.empty())
                               location += "&state=" + state;
-                          auto resp = HttpResponse::newRedirectionResponse(location);
-                          oauth2::observability::Metrics::incRequest("authorize", 302);
+                          auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
+                          ::oauth2::observability::Metrics::incRequest("authorize", 302);
                           callback(resp);
                       }
                     );
@@ -713,7 +695,6 @@ void SessionController::consent(
           }
           else
           {
-              // No scopes to save consent for, proceed directly
               plugin->generateAuthorizationCode(
                 clientId,
                 userId,
@@ -739,8 +720,8 @@ void SessionController::consent(
                     std::string location = redirectUri + "?code=" + code;
                     if (!state.empty())
                         location += "&state=" + state;
-                    auto resp = HttpResponse::newRedirectionResponse(location);
-                    oauth2::observability::Metrics::incRequest("authorize", 302);
+                    auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
+                    ::oauth2::observability::Metrics::incRequest("authorize", 302);
                     callback(resp);
                 }
               );
@@ -750,8 +731,8 @@ void SessionController::consent(
 }
 
 void SessionController::logout(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Check Authorization header (OAuth2Middleware normally handles this,
@@ -775,7 +756,7 @@ void SessionController::logout(
 
     std::string token = authHeader.substr(7);  // Remove "Bearer "
 
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (!plugin)
     {
         respondError(
@@ -794,25 +775,25 @@ void SessionController::logout(
         // Respond immediately without waiting for backchannel notifications
         Json::Value json;
         json["message"] = "Logged out successfully";
-        auto resp = HttpResponse::newHttpJsonResponse(json);
-        resp->setStatusCode(k200OK);
+        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+        resp->setStatusCode(::drogon::k200OK);
         callback(resp);
     });
 }
 
 void SessionController::registerUser(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    auto errors = oauth2::validation::RuleSet::registerUser(req);
-    if (oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    auto errors = ::oauth2::validation::RuleSet::registerUser(req);
+    if (::oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
         return;
     // Parse the same fields RuleSet::registerUser validated. Duplicated inline
     // (not shared with RuleSet) by decision: getParameters() returns empty for
     // application/json bodies, which previously persisted bogus accounts.
     std::string username, password, email;
-    if (req->contentType() == drogon::CT_APPLICATION_JSON)
+    if (req->contentType() == ::drogon::CT_APPLICATION_JSON)
     {
         auto json = req->getJsonObject();
         if (json)
@@ -838,7 +819,7 @@ void SessionController::registerUser(
               json["message"] = "User registered successfully";
               if (!email.empty())
                   json["note"] = "Please check your email to verify your account";
-              auto resp = HttpResponse::newHttpJsonResponse(json);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
               callback(resp);
           }
           else
@@ -853,3 +834,5 @@ void SessionController::registerUser(
       }
     );
 }
+
+}  // namespace authforge::drogon::controllers

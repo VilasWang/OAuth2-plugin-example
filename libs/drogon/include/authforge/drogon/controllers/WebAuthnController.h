@@ -1,8 +1,14 @@
 #pragma once
 
+// M3 Task 20 slice 7 (authforge-sdk-refactor): relocated from
+// OAuth2Server/controllers/WebAuthnController.h into
+// authforge::drogon::controllers, following the AutoCreation=false
+// pattern verified in slice 3 (HealthController) -- see PROGRESS.md.
+
 #include <drogon/HttpController.h>
 
-using namespace drogon;
+namespace authforge::drogon::controllers
+{
 
 /**
  * @brief WebAuthn / Passkey Controller
@@ -11,7 +17,7 @@ using namespace drogon;
  * Registration: user registers a new credential (passkey)
  * Authentication: user authenticates with an existing credential
  */
-class WebAuthnController : public drogon::HttpController<WebAuthnController>
+class WebAuthnController : public ::drogon::HttpController<WebAuthnController, false>
 {
   public:
     METHOD_LIST_BEGIN
@@ -19,53 +25,55 @@ class WebAuthnController : public drogon::HttpController<WebAuthnController>
     ADD_METHOD_TO(
       WebAuthnController::registerBegin,
       "/api/me/webauthn/register/begin",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       WebAuthnController::registerFinish,
       "/api/me/webauthn/register/finish",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::OAuth2AuthFilter"
     );
     // Authentication flow (no auth required - this IS the auth)
     ADD_METHOD_TO(
       WebAuthnController::authenticateBegin,
       "/oauth2/webauthn/authenticate/begin",
-      Post
+      ::drogon::Post
     );
     ADD_METHOD_TO(
       WebAuthnController::authenticateFinish,
       "/oauth2/webauthn/authenticate/finish",
-      Post
+      ::drogon::Post
     );
     // List credentials (requires auth)
     ADD_METHOD_TO(
       WebAuthnController::listCredentials,
       "/api/me/webauthn/credentials",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::OAuth2AuthFilter"
     );
     METHOD_LIST_END
 
     void registerBegin(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void registerFinish(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void authenticateBegin(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void authenticateFinish(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void listCredentials(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 };
+
+}  // namespace authforge::drogon::controllers

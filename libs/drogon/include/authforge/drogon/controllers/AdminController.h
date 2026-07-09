@@ -1,10 +1,16 @@
 #pragma once
 
+// M3 Task 20 slice 7 (authforge-sdk-refactor): relocated from
+// OAuth2Server/controllers/AdminController.h into
+// authforge::drogon::controllers, following the AutoCreation=false
+// pattern verified in slice 3 (HealthController) -- see PROGRESS.md.
+
 #include <drogon/HttpController.h>
 
-using namespace drogon;
+namespace authforge::drogon::controllers
+{
 
-class AdminController : public drogon::HttpController<AdminController>
+class AdminController : public ::drogon::HttpController<AdminController, false>
 {
   public:
     METHOD_LIST_BEGIN
@@ -12,56 +18,56 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::dashboard,
       "/api/admin/dashboard",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     // Client Management
     ADD_METHOD_TO(
       AdminController::listClients,
       "/api/admin/clients",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::createClient,
       "/api/admin/clients",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::getClient,
       "/api/admin/clients/{clientId}",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::updateClient,
       "/api/admin/clients/{clientId}",
-      Put,
+      ::drogon::Put,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::deleteClient,
       "/api/admin/clients/{clientId}",
-      Delete,
+      ::drogon::Delete,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::resetClientSecret,
       "/api/admin/clients/{clientId}/reset-secret",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::getClientScopes,
       "/api/admin/clients/{clientId}/scopes",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::updateClientScopes,
       "/api/admin/clients/{clientId}/scopes",
-      Put,
+      ::drogon::Put,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -69,19 +75,19 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::listUsers,
       "/api/admin/users",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::disableUser,
       "/api/admin/users/{userId}/disable",
-      Put,
+      ::drogon::Put,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::assignUserRoles,
       "/api/admin/users/{userId}/roles",
-      Put,
+      ::drogon::Put,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -89,7 +95,7 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::listScopes,
       "/api/admin/scopes",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -97,7 +103,7 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::listLogs,
       "/api/admin/logs",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -105,25 +111,25 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::listTokens,
       "/api/admin/tokens",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::revokeTokensByClient,
       "/api/admin/tokens/revoke-by-client",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::revokeTokensByUser,
       "/api/admin/tokens/revoke-by-user",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::revokeToken,
       "/api/admin/tokens/{tokenPrefix}",
-      Delete,
+      ::drogon::Delete,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -131,25 +137,25 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::getUser,
       "/api/admin/users/{userId}",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::updateUser,
       "/api/admin/users/{userId}",
-      Put,
+      ::drogon::Put,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::enableUser,
       "/api/admin/users/{userId}/enable",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::getUserRoles,
       "/api/admin/users/{userId}/roles",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -157,25 +163,25 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::listRoles,
       "/api/admin/roles",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::createRole,
       "/api/admin/roles",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::updateRole,
       "/api/admin/roles/{roleId}",
-      Put,
+      ::drogon::Put,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::deleteRole,
       "/api/admin/roles/{roleId}",
-      Delete,
+      ::drogon::Delete,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -183,19 +189,19 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::createScope,
       "/api/admin/scopes",
-      Post,
+      ::drogon::Post,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::updateScope,
       "/api/admin/scopes/{scopeId}",
-      Put,
+      ::drogon::Put,
       "oauth2::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       AdminController::deleteScope,
       "/api/admin/scopes/{scopeId}",
-      Delete,
+      ::drogon::Delete,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -203,7 +209,7 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::getDashboardStats,
       "/api/admin/dashboard/stats",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -211,183 +217,185 @@ class AdminController : public drogon::HttpController<AdminController>
     ADD_METHOD_TO(
       AdminController::getOidcKeys,
       "/api/admin/oidc/keys",
-      Get,
+      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 
     void listClients(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void createClient(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void deleteClient(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &clientId
     );
 
     void getClient(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &clientId
     );
 
     void updateClient(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &clientId
     );
 
     void getClientScopes(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &clientId
     );
 
     void updateClientScopes(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &clientId
     );
 
     void resetClientSecret(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &clientId
     );
 
     void listUsers(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void disableUser(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &userId
     );
 
     void assignUserRoles(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &userId
     );
 
     void listScopes(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void listLogs(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void listTokens(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void revokeToken(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &tokenPrefix
     );
 
     void revokeTokensByClient(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void revokeTokensByUser(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void getOidcKeys(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     // User Detail & Management
     void getUser(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &userId
     );
 
     void updateUser(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &userId
     );
 
     void enableUser(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &userId
     );
 
     void getUserRoles(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &userId
     );
 
     // Role Management
     void listRoles(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void createRole(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void updateRole(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &roleId
     );
 
     void deleteRole(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &roleId
     );
 
     // Scope Management (CRUD)
     void createScope(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     void updateScope(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &scopeId
     );
 
     void deleteScope(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback,
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &scopeId
     );
 
     // Dashboard Stats
     void getDashboardStats(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void dashboard(
-      const HttpRequestPtr &req,
-      std::function<void(const HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 };
+
+}  // namespace authforge::drogon::controllers

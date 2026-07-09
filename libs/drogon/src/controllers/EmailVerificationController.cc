@@ -1,4 +1,4 @@
-#include "EmailVerificationController.h"
+#include <authforge/drogon/controllers/EmailVerificationController.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/utils/EmailService.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
@@ -6,22 +6,25 @@
 #include <drogon/drogon.h>
 #include <chrono>
 
-using namespace drogon;
-using namespace drogon::orm;
+namespace authforge::drogon::controllers
+{
 
 namespace
 {
 // Emit an Application error via the unified ErrorResponder entry point so the
 // body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5).
 void respondError(
-  const HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
-      req, [cb](const HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
+    ::common::error::ErrorResponder::respond(
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
     );
 }
 
@@ -29,42 +32,47 @@ struct EmailVerificationControllerDocs
 {
     EmailVerificationControllerDocs()
     {
-        oauth2::observability::openapi::EndpointInfo verifyEmail;
+        ::oauth2::observability::openapi::EndpointInfo verifyEmail;
         verifyEmail.path = "/api/verify-email";
         verifyEmail.method = "GET";
         verifyEmail.summary = "Verify Email";
         verifyEmail.description = "Verify an email address using a token.";
         verifyEmail.tags = {"User Verification"};
         verifyEmail.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyEmail);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyEmail);
 
-        oauth2::observability::openapi::EndpointInfo resendEmail;
+        ::oauth2::observability::openapi::EndpointInfo resendEmail;
         resendEmail.path = "/api/verify-email/resend";
         resendEmail.method = "POST";
         resendEmail.summary = "Resend Verification Email";
         resendEmail.description = "Resend the email verification link.";
         resendEmail.tags = {"User Verification"};
         resendEmail.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(resendEmail);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(resendEmail);
     }
 };
 
 EmailVerificationControllerDocs docs_;
 }  // namespace
 
+}  // namespace authforge::drogon::controllers
+
 // Lazy accessor - avoids static init order crash (see P5 bugfix).
-static oauth2::IEmailService &getEmailSvc()
+static ::oauth2::IEmailService &getEmailSvc()
 {
-    return oauth2::getEmailService();
+    return ::oauth2::getEmailService();
 }
+
+namespace authforge::drogon::controllers
+{
 
 void EmailVerificationController::sendVerificationEmail(int userId, const std::string &email)
 {
     if (email.empty())
         return;
 
-    std::string rawToken = oauth2::utils::generateSecureToken();
-    std::string tokenHash = oauth2::utils::hashToken(rawToken);
+    std::string rawToken = ::oauth2::utils::generateSecureToken();
+    std::string tokenHash = ::oauth2::utils::hashToken(rawToken);
 
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
@@ -72,14 +80,14 @@ void EmailVerificationController::sendVerificationEmail(int userId, const std::s
                  .count();
     int64_t expiresAt = now + 86400;  // 24 hours
 
-    auto db = drogon::app().getDbClient();
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "INSERT INTO email_verification_tokens (token_hash, user_id, email, expires_at) "
       "VALUES ($1, $2, $3, $4) "
       "ON CONFLICT (token_hash) DO NOTHING",
-      [rawToken, email](const Result &) {
+      [rawToken, email](const ::drogon::orm::Result &) {
           // Build verification link using frontend URL
-          auto customConfig = drogon::app().getCustomConfig();
+          auto customConfig = ::drogon::app().getCustomConfig();
           std::string frontendUrl = "http://localhost:5173";
           if (customConfig.isMember("frontend") && customConfig["frontend"].isMember("url"))
           {
@@ -89,9 +97,9 @@ void EmailVerificationController::sendVerificationEmail(int userId, const std::s
           std::string body = "Please verify your email by clicking:\n\n" + verifyLink +
                              "\n\nThis link expires in 24 hours.";
 
-          oauth2::getEmailService().sendEmail(email, "Verify Your Email", body, [](bool) {});
+          ::oauth2::getEmailService().sendEmail(email, "Verify Your Email", body, [](bool) {});
       },
-      [](const DrogonDbException &e) {
+      [](const ::drogon::orm::DrogonDbException &e) {
           LOG_ERROR << "Failed to store verification token: " << e.base().what();
       },
       tokenHash,
@@ -102,12 +110,12 @@ void EmailVerificationController::sendVerificationEmail(int userId, const std::s
 }
 
 void EmailVerificationController::verify(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     std::string token = req->getParameter("token");
     if (token.empty())
@@ -118,25 +126,22 @@ void EmailVerificationController::verify(
         return;
     }
 
-    std::string tokenHash = oauth2::utils::hashToken(token);
+    std::string tokenHash = ::oauth2::utils::hashToken(token);
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
     )
                  .count();
 
-    auto db = app().getDbClient();
+    auto db = ::drogon::app().getDbClient();
 
     // Atomic consume and get user info
     db->execSqlAsync(
       "DELETE FROM email_verification_tokens "
       "WHERE token_hash = $1 AND expires_at > $2 "
       "RETURNING user_id, email",
-      [sharedCb, db, req](const Result &r) {
+      [sharedCb, db, req](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
-              // Empty result covers all four failure causes (not found /
-              // malformed / expired / already used); they are deliberately not
-              // distinguished to prevent token-enumeration attacks.
               respondError(
                 req,
                 sharedCb,
@@ -151,13 +156,13 @@ void EmailVerificationController::verify(
           // Mark email as verified
           db->execSqlAsync(
             "UPDATE users SET email_verified = true WHERE id = $1",
-            [sharedCb](const Result &) {
+            [sharedCb](const ::drogon::orm::Result &) {
                 Json::Value json;
                 json["message"] = "Email verified successfully";
-                auto resp = HttpResponse::newHttpJsonResponse(json);
+                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                 (*sharedCb)(resp);
             },
-            [sharedCb, req](const DrogonDbException &e) {
+            [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
                   req,
                   sharedCb,
@@ -168,7 +173,7 @@ void EmailVerificationController::verify(
             userId
           );
       },
-      [sharedCb, req](const DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
             req,
             sharedCb,
@@ -182,12 +187,12 @@ void EmailVerificationController::verify(
 }
 
 void EmailVerificationController::resend(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     // Get userId from OAuth2Middleware attributes
     std::string userId = req->getAttributes()->get<std::string>("userId");
@@ -197,10 +202,10 @@ void EmailVerificationController::resend(
         return;
     }
 
-    auto db = app().getDbClient();
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "SELECT id, email, email_verified FROM users WHERE public_sub::text = $1::text",
-      [sharedCb, req](const Result &r) {
+      [sharedCb, req](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
               respondError(
@@ -213,7 +218,7 @@ void EmailVerificationController::resend(
           {
               Json::Value json;
               json["message"] = "Email is already verified";
-              auto resp = HttpResponse::newHttpJsonResponse(json);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
               (*sharedCb)(resp);
               return;
           }
@@ -233,10 +238,10 @@ void EmailVerificationController::resend(
 
           Json::Value json;
           json["message"] = "Verification email sent";
-          auto resp = HttpResponse::newHttpJsonResponse(json);
+          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
           (*sharedCb)(resp);
       },
-      [sharedCb, req](const DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
             req,
             sharedCb,
@@ -247,3 +252,5 @@ void EmailVerificationController::resend(
       userId
     );
 }
+
+}  // namespace authforge::drogon::controllers

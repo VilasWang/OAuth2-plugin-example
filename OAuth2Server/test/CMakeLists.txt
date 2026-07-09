@@ -27,9 +27,14 @@ file(GLOB COMMON_SRC
 )
 
 # Collect Server source files
+# M3 Task 20 (authforge-sdk-refactor): OAuth2Server/controllers/*,
+# OAuth2Server/filters/* and OAuth2Server/AuthService.cc have all been
+# relocated into libs/drogon (authforge::drogon::controllers/filters,
+# authforge::drogon::services::AuthService) -- linked below via
+# authforge::drogon instead of being globbed/compiled directly into this
+# test binary.
 file(GLOB CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../controllers/*.cc")
 file(GLOB FILTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../filters/*.cc")
-file(GLOB SERVER_SERVICE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../AuthService.cc")
 
 # SchemaManager: needed by the SQL-splitter unit test (unit/schema/).
 # Compiled directly into the test target so the splitter can be exercised
@@ -82,7 +87,6 @@ add_executable(${PROJECT_NAME}
     ${CTL_SRC}
     ${FILTER_SRC}
     ${COMMON_SRC}
-    ${SERVER_SERVICE_SRC}
     ${SCHEMA_MGR_SRC}
 )
 
@@ -96,7 +100,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../
     ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../controllers
 )
 
 # Link libraries

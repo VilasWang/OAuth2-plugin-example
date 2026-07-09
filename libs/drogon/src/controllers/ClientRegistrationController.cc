@@ -1,4 +1,4 @@
-#include "ClientRegistrationController.h"
+#include <authforge/drogon/controllers/ClientRegistrationController.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/observability/AuditLogger.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
@@ -6,19 +6,26 @@
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 
+namespace authforge::drogon::controllers
+{
+
 namespace
 {
+
 // Emit an Application error via the unified ErrorResponder entry point so the
 // body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5).
 void respondError(
-  const HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
-      req, [cb](const HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
+    ::common::error::ErrorResponder::respond(
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
     );
 }
 
@@ -26,27 +33,28 @@ struct ClientRegistrationControllerDocs
 {
     ClientRegistrationControllerDocs()
     {
-        oauth2::observability::openapi::EndpointInfo regDocs;
+        ::oauth2::observability::openapi::EndpointInfo regDocs;
         regDocs.path = "/oauth2/register";
         regDocs.method = "POST";
         regDocs.summary = "Register Client";
         regDocs.description = "Dynamic client registration.";
         regDocs.tags = {"OAuth2", "Dynamic Registration"};
         regDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regDocs);
     }
 };
 
 ClientRegistrationControllerDocs docs_;
+
 }  // namespace
 
 void ClientRegistrationController::registerClient(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     // Parse request body
     auto jsonBody = req->getJsonObject();
@@ -156,10 +164,10 @@ void ClientRegistrationController::registerClient(
     }
 
     // Generate client credentials
-    std::string clientId = drogon::utils::getUuid();
-    std::string clientSecret = oauth2::utils::generateSecureToken();
-    std::string secretHash = oauth2::utils::hashToken(clientSecret);
-    std::string salt = drogon::utils::getUuid().substr(0, 36);
+    std::string clientId = ::drogon::utils::getUuid();
+    std::string clientSecret = ::oauth2::utils::generateSecureToken();
+    std::string secretHash = ::oauth2::utils::hashToken(clientSecret);
+    std::string salt = ::drogon::utils::getUuid().substr(0, 36);
 
     // Current timestamp for client_id_issued_at
     auto now = std::chrono::system_clock::now();
@@ -168,7 +176,7 @@ void ClientRegistrationController::registerClient(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "INSERT INTO oauth2_clients (client_id, client_type, client_secret, salt, name, "
           "redirect_uris, allowed_grant_types) VALUES ($1, $2, $3, $4, $5, $6, $7)",
@@ -180,7 +188,7 @@ void ClientRegistrationController::registerClient(
            grantTypesArray,
            issuedAt,
            tokenEndpointAuthMethod,
-           req](const drogon::orm::Result &) {
+           req](const ::drogon::orm::Result &) {
               // Build RFC 7591 compliant response
               Json::Value json;
               json["client_id"] = clientId;
@@ -192,11 +200,11 @@ void ClientRegistrationController::registerClient(
               json["client_id_issued_at"] = static_cast<Json::Int64>(issuedAt);
               json["client_secret_expires_at"] = 0;  // Does not expire
 
-              auto resp = HttpResponse::newHttpJsonResponse(json);
-              resp->setStatusCode(k201Created);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+              resp->setStatusCode(::drogon::k201Created);
 
               // Audit log the registration
-              oauth2::observability::AuditLogger::log(
+              ::oauth2::observability::AuditLogger::log(
                 "client_registered",
                 "success",
                 req,
@@ -207,9 +215,9 @@ void ClientRegistrationController::registerClient(
 
               (*sharedCb)(resp);
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               // Audit log the failure
-              oauth2::observability::AuditLogger::log(
+              ::oauth2::observability::AuditLogger::log(
                 "client_registered", "failure", req, "", "client", "", Json::Value(e.base().what())
               );
 
@@ -234,3 +242,5 @@ void ClientRegistrationController::registerClient(
         respondError(req, sharedCb, "DB_CONNECTION_ERROR", "registerClient: database unavailable");
     }
 }
+
+}  // namespace authforge::drogon::controllers

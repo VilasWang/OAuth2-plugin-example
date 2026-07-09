@@ -14,12 +14,22 @@
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <authforge/drogon/controllers/WeChatController.h>
 #include <authforge/drogon/controllers/OrganizationController.h>
+#include <authforge/drogon/controllers/ClientRegistrationController.h>
+#include <authforge/drogon/controllers/ApiDocController.h>
+#include <authforge/drogon/controllers/DeviceAuthController.h>
+#include <authforge/drogon/controllers/EmailVerificationController.h>
+#include <authforge/drogon/controllers/GitHubController.h>
+#include <authforge/drogon/controllers/MfaController.h>
+#include <authforge/drogon/controllers/PasswordResetController.h>
+#include <authforge/drogon/controllers/SessionController.h>
+#include <authforge/drogon/controllers/UserSelfServiceController.h>
+#include <authforge/drogon/controllers/WebAuthnController.h>
+#include <authforge/drogon/controllers/AdminController.h>
 #include <oauth2/error/ErrorCatalog.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <oauth2/error/ErrorTypes.h>
 #include <oauth2/error/OAuth2ErrorHandler.h>
 #include <oauth2/error/RequestId.h>
-#include "controllers/SessionController.h"
 #include "SchemaManager.h"
 
 using namespace drogon;
@@ -216,6 +226,39 @@ int main()
     );
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::OrganizationController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::ClientRegistrationController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::ApiDocController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::DeviceAuthController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::EmailVerificationController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::GitHubController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::MfaController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::PasswordResetController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::SessionController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::UserSelfServiceController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::WebAuthnController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::AdminController>()
     );
 
     // Log configuration values for startup information

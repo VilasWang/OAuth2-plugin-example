@@ -2,10 +2,10 @@
 #include <drogon/drogon.h>
 #include <json/json.h>
 #include <future>
-#include "services/AuthService.h"
+#include <authforge/drogon/AuthService.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
-using namespace services;
+using namespace authforge::drogon::services;
 
 DROGON_TEST(Integration_P0_AuthService_GetUserInfo_Success)
 {

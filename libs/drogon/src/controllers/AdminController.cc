@@ -1,4 +1,4 @@
-#include "AdminController.h"
+#include <authforge/drogon/controllers/AdminController.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <oauth2/utils/CryptoUtils.h>
@@ -8,19 +8,22 @@
 #include <atomic>
 #include <mutex>
 
+namespace authforge::drogon::controllers
+{
+
 namespace
 {
 // Emit an Application error via the unified ErrorResponder entry point so the
 // body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5).
 void respondError(
-  const HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
-      req, [cb](const HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
+    ::common::error::ErrorResponder::respond(
+      req, [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
     );
 }
 
@@ -28,170 +31,170 @@ struct AdminApiControllerDocs
 {
     AdminApiControllerDocs()
     {
-        oauth2::observability::openapi::EndpointInfo listClients;
+        ::oauth2::observability::openapi::EndpointInfo listClients;
         listClients.path = "/api/admin/clients";
         listClients.method = "GET";
         listClients.summary = "List OAuth2 Clients";
         listClients.description = "Get a paginated list of registered OAuth2 clients.";
         listClients.tags = {"Admin", "Clients"};
         listClients.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listClients);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listClients);
 
-        oauth2::observability::openapi::EndpointInfo createClient;
+        ::oauth2::observability::openapi::EndpointInfo createClient;
         createClient.path = "/api/admin/clients";
         createClient.method = "POST";
         createClient.summary = "Create OAuth2 Client";
         createClient.description = "Register a new OAuth2 client.";
         createClient.tags = {"Admin", "Clients"};
         createClient.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createClient);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createClient);
 
-        oauth2::observability::openapi::EndpointInfo getClient;
+        ::oauth2::observability::openapi::EndpointInfo getClient;
         getClient.path = "/api/admin/clients/{clientId}";
         getClient.method = "GET";
         getClient.summary = "Get Client Details";
         getClient.description = "Get details of a specific OAuth2 client by ID.";
         getClient.tags = {"Admin", "Clients"};
         getClient.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getClient);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getClient);
 
-        oauth2::observability::openapi::EndpointInfo updateClient;
+        ::oauth2::observability::openapi::EndpointInfo updateClient;
         updateClient.path = "/api/admin/clients/{clientId}";
         updateClient.method = "PUT";
         updateClient.summary = "Update OAuth2 Client";
         updateClient.description = "Update details of a specific OAuth2 client.";
         updateClient.tags = {"Admin", "Clients"};
         updateClient.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateClient);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateClient);
 
-        oauth2::observability::openapi::EndpointInfo deleteClient;
+        ::oauth2::observability::openapi::EndpointInfo deleteClient;
         deleteClient.path = "/api/admin/clients/{clientId}";
         deleteClient.method = "DELETE";
         deleteClient.summary = "Delete OAuth2 Client";
         deleteClient.description = "Delete a specific OAuth2 client.";
         deleteClient.tags = {"Admin", "Clients"};
         deleteClient.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteClient);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteClient);
 
-        oauth2::observability::openapi::EndpointInfo resetClientSecret;
+        ::oauth2::observability::openapi::EndpointInfo resetClientSecret;
         resetClientSecret.path = "/api/admin/clients/{clientId}/reset-secret";
         resetClientSecret.method = "POST";
         resetClientSecret.summary = "Reset Client Secret";
         resetClientSecret.description = "Reset the secret of a specific OAuth2 client.";
         resetClientSecret.tags = {"Admin", "Clients"};
         resetClientSecret.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(resetClientSecret);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(resetClientSecret);
 
-        oauth2::observability::openapi::EndpointInfo getClientScopes;
+        ::oauth2::observability::openapi::EndpointInfo getClientScopes;
         getClientScopes.path = "/api/admin/clients/{clientId}/scopes";
         getClientScopes.method = "GET";
         getClientScopes.summary = "Get Client Scopes";
         getClientScopes.description = "Get the assigned scopes for an OAuth2 client.";
         getClientScopes.tags = {"Admin", "Clients"};
         getClientScopes.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getClientScopes);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getClientScopes);
 
-        oauth2::observability::openapi::EndpointInfo updateClientScopes;
+        ::oauth2::observability::openapi::EndpointInfo updateClientScopes;
         updateClientScopes.path = "/api/admin/clients/{clientId}/scopes";
         updateClientScopes.method = "PUT";
         updateClientScopes.summary = "Update Client Scopes";
         updateClientScopes.description = "Update the assigned scopes for an OAuth2 client.";
         updateClientScopes.tags = {"Admin", "Clients"};
         updateClientScopes.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateClientScopes);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateClientScopes);
 
-        oauth2::observability::openapi::EndpointInfo listUsers;
+        ::oauth2::observability::openapi::EndpointInfo listUsers;
         listUsers.path = "/api/admin/users";
         listUsers.method = "GET";
         listUsers.summary = "List Users";
         listUsers.description = "Get a paginated list of users.";
         listUsers.tags = {"Admin", "Users"};
         listUsers.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listUsers);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listUsers);
 
-        oauth2::observability::openapi::EndpointInfo disableUser;
+        ::oauth2::observability::openapi::EndpointInfo disableUser;
         disableUser.path = "/api/admin/users/{userId}/disable";
         disableUser.method = "PUT";
         disableUser.summary = "Disable User";
         disableUser.description = "Disable a specific user account.";
         disableUser.tags = {"Admin", "Users"};
         disableUser.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(disableUser);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(disableUser);
 
-        oauth2::observability::openapi::EndpointInfo assignUserRoles;
+        ::oauth2::observability::openapi::EndpointInfo assignUserRoles;
         assignUserRoles.path = "/api/admin/users/{userId}/roles";
         assignUserRoles.method = "PUT";
         assignUserRoles.summary = "Assign User Roles";
         assignUserRoles.description = "Assign roles to a specific user.";
         assignUserRoles.tags = {"Admin", "Users"};
         assignUserRoles.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(assignUserRoles);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(assignUserRoles);
 
-        oauth2::observability::openapi::EndpointInfo listScopes;
+        ::oauth2::observability::openapi::EndpointInfo listScopes;
         listScopes.path = "/api/admin/scopes";
         listScopes.method = "GET";
         listScopes.summary = "List Scopes";
         listScopes.description = "Get a list of all available scopes.";
         listScopes.tags = {"Admin", "Scopes"};
         listScopes.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listScopes);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listScopes);
 
-        oauth2::observability::openapi::EndpointInfo listLogs;
+        ::oauth2::observability::openapi::EndpointInfo listLogs;
         listLogs.path = "/api/admin/logs";
         listLogs.method = "GET";
         listLogs.summary = "List Audit Logs";
         listLogs.description = "Get a paginated list of system audit logs.";
         listLogs.tags = {"Admin", "Logs"};
         listLogs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listLogs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listLogs);
 
-        oauth2::observability::openapi::EndpointInfo listTokens;
+        ::oauth2::observability::openapi::EndpointInfo listTokens;
         listTokens.path = "/api/admin/tokens";
         listTokens.method = "GET";
         listTokens.summary = "List Tokens";
         listTokens.description = "Get a list of active OAuth2 tokens.";
         listTokens.tags = {"Admin", "Tokens"};
         listTokens.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listTokens);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listTokens);
 
-        oauth2::observability::openapi::EndpointInfo revokeTokensByClient;
+        ::oauth2::observability::openapi::EndpointInfo revokeTokensByClient;
         revokeTokensByClient.path = "/api/admin/tokens/revoke-by-client";
         revokeTokensByClient.method = "POST";
         revokeTokensByClient.summary = "Revoke Tokens By Client";
         revokeTokensByClient.description = "Revoke all tokens issued to a specific client.";
         revokeTokensByClient.tags = {"Admin", "Tokens"};
         revokeTokensByClient.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeTokensByClient);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeTokensByClient);
 
-        oauth2::observability::openapi::EndpointInfo revokeTokensByUser;
+        ::oauth2::observability::openapi::EndpointInfo revokeTokensByUser;
         revokeTokensByUser.path = "/api/admin/tokens/revoke-by-user";
         revokeTokensByUser.method = "POST";
         revokeTokensByUser.summary = "Revoke Tokens By User";
         revokeTokensByUser.description = "Revoke all tokens issued for a specific user.";
         revokeTokensByUser.tags = {"Admin", "Tokens"};
         revokeTokensByUser.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeTokensByUser);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeTokensByUser);
 
-        oauth2::observability::openapi::EndpointInfo revokeToken;
+        ::oauth2::observability::openapi::EndpointInfo revokeToken;
         revokeToken.path = "/api/admin/tokens/{tokenPrefix}";
         revokeToken.method = "DELETE";
         revokeToken.summary = "Revoke Token";
         revokeToken.description = "Revoke a specific token by its prefix.";
         revokeToken.tags = {"Admin", "Tokens"};
         revokeToken.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeToken);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeToken);
 
-        oauth2::observability::openapi::EndpointInfo getOidcKeys;
+        ::oauth2::observability::openapi::EndpointInfo getOidcKeys;
         getOidcKeys.path = "/api/admin/oidc/keys";
         getOidcKeys.method = "GET";
         getOidcKeys.summary = "Get OIDC Keys Info";
         getOidcKeys.description = "Get information about OIDC signing keys.";
         getOidcKeys.tags = {"Admin", "OIDC"};
         getOidcKeys.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getOidcKeys);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getOidcKeys);
 
         // New endpoints
-        oauth2::observability::openapi::EndpointInfo getUser;
+        ::oauth2::observability::openapi::EndpointInfo getUser;
         getUser.path = "/api/admin/users/{userId}";
         getUser.method = "GET";
         getUser.summary = "Get User Detail";
@@ -199,99 +202,99 @@ struct AdminApiControllerDocs
           "Get detailed information about a specific user including roles and account status.";
         getUser.tags = {"Admin", "Users"};
         getUser.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getUser);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getUser);
 
-        oauth2::observability::openapi::EndpointInfo updateUser;
+        ::oauth2::observability::openapi::EndpointInfo updateUser;
         updateUser.path = "/api/admin/users/{userId}";
         updateUser.method = "PUT";
         updateUser.summary = "Update User";
         updateUser.description = "Update user information (email, email_verified).";
         updateUser.tags = {"Admin", "Users"};
         updateUser.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateUser);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateUser);
 
-        oauth2::observability::openapi::EndpointInfo enableUser;
+        ::oauth2::observability::openapi::EndpointInfo enableUser;
         enableUser.path = "/api/admin/users/{userId}/enable";
         enableUser.method = "POST";
         enableUser.summary = "Enable User";
         enableUser.description = "Enable a disabled user account by resetting lockout state.";
         enableUser.tags = {"Admin", "Users"};
         enableUser.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(enableUser);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(enableUser);
 
-        oauth2::observability::openapi::EndpointInfo getUserRoles;
+        ::oauth2::observability::openapi::EndpointInfo getUserRoles;
         getUserRoles.path = "/api/admin/users/{userId}/roles";
         getUserRoles.method = "GET";
         getUserRoles.summary = "Get User Roles";
         getUserRoles.description = "Get the roles assigned to a specific user.";
         getUserRoles.tags = {"Admin", "Users"};
         getUserRoles.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getUserRoles);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getUserRoles);
 
-        oauth2::observability::openapi::EndpointInfo listRoles;
+        ::oauth2::observability::openapi::EndpointInfo listRoles;
         listRoles.path = "/api/admin/roles";
         listRoles.method = "GET";
         listRoles.summary = "List Roles";
         listRoles.description = "Get a list of all roles with user counts.";
         listRoles.tags = {"Admin", "Roles"};
         listRoles.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listRoles);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listRoles);
 
-        oauth2::observability::openapi::EndpointInfo createRole;
+        ::oauth2::observability::openapi::EndpointInfo createRole;
         createRole.path = "/api/admin/roles";
         createRole.method = "POST";
         createRole.summary = "Create Role";
         createRole.description = "Create a new role. Built-in roles cannot be duplicated.";
         createRole.tags = {"Admin", "Roles"};
         createRole.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createRole);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createRole);
 
-        oauth2::observability::openapi::EndpointInfo updateRole;
+        ::oauth2::observability::openapi::EndpointInfo updateRole;
         updateRole.path = "/api/admin/roles/{roleId}";
         updateRole.method = "PUT";
         updateRole.summary = "Update Role";
         updateRole.description = "Update a role's description.";
         updateRole.tags = {"Admin", "Roles"};
         updateRole.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateRole);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateRole);
 
-        oauth2::observability::openapi::EndpointInfo deleteRole;
+        ::oauth2::observability::openapi::EndpointInfo deleteRole;
         deleteRole.path = "/api/admin/roles/{roleId}";
         deleteRole.method = "DELETE";
         deleteRole.summary = "Delete Role";
         deleteRole.description = "Delete a role. Built-in roles (admin, user) cannot be deleted.";
         deleteRole.tags = {"Admin", "Roles"};
         deleteRole.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteRole);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteRole);
 
-        oauth2::observability::openapi::EndpointInfo createScope;
+        ::oauth2::observability::openapi::EndpointInfo createScope;
         createScope.path = "/api/admin/scopes";
         createScope.method = "POST";
         createScope.summary = "Create Scope";
         createScope.description = "Create a new OAuth2 scope.";
         createScope.tags = {"Admin", "Scopes"};
         createScope.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createScope);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createScope);
 
-        oauth2::observability::openapi::EndpointInfo updateScope;
+        ::oauth2::observability::openapi::EndpointInfo updateScope;
         updateScope.path = "/api/admin/scopes/{scopeId}";
         updateScope.method = "PUT";
         updateScope.summary = "Update Scope";
         updateScope.description = "Update a scope's properties.";
         updateScope.tags = {"Admin", "Scopes"};
         updateScope.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateScope);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateScope);
 
-        oauth2::observability::openapi::EndpointInfo deleteScope;
+        ::oauth2::observability::openapi::EndpointInfo deleteScope;
         deleteScope.path = "/api/admin/scopes/{scopeId}";
         deleteScope.method = "DELETE";
         deleteScope.summary = "Delete Scope";
         deleteScope.description = "Delete a scope. Built-in scopes cannot be deleted.";
         deleteScope.tags = {"Admin", "Scopes"};
         deleteScope.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteScope);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteScope);
 
-        oauth2::observability::openapi::EndpointInfo getDashboardStats;
+        ::oauth2::observability::openapi::EndpointInfo getDashboardStats;
         getDashboardStats.path = "/api/admin/dashboard/stats";
         getDashboardStats.method = "GET";
         getDashboardStats.summary = "Get Dashboard Stats";
@@ -300,7 +303,7 @@ struct AdminApiControllerDocs
           "metrics.";
         getDashboardStats.tags = {"Admin", "Dashboard"};
         getDashboardStats.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getDashboardStats);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getDashboardStats);
     }
 };
 
@@ -308,20 +311,20 @@ AdminApiControllerDocs docs_;
 }  // namespace
 
 void AdminController::listClients(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT client_id, client_type, name, redirect_uris, allowed_grant_types "
           "FROM oauth2_clients ORDER BY client_id",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               Json::Value json;
               json["status"] = "success";
               Json::Value clients(Json::arrayValue);
@@ -342,9 +345,9 @@ void AdminController::listClients(
 
               json["clients"] = clients;
               json["total"] = static_cast<int>(result.size());
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -361,12 +364,12 @@ void AdminController::listClients(
 }
 
 void AdminController::createClient(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     // Parse request body
     std::string name;
@@ -384,29 +387,29 @@ void AdminController::createClient(
     }
 
     // Generate client_id (UUID) and client_secret
-    std::string clientId = drogon::utils::getUuid();
-    std::string clientSecret = oauth2::utils::generateSecureToken();
-    std::string secretHash = oauth2::utils::hashToken(clientSecret);
-    std::string salt = drogon::utils::getUuid().substr(0, 36);
+    std::string clientId = ::drogon::utils::getUuid();
+    std::string clientSecret = ::oauth2::utils::generateSecureToken();
+    std::string secretHash = ::oauth2::utils::hashToken(clientSecret);
+    std::string salt = ::drogon::utils::getUuid().substr(0, 36);
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "INSERT INTO oauth2_clients (client_id, client_type, client_secret, salt, name, "
           "redirect_uris, allowed_grant_types) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-          [sharedCb, req, clientId, clientSecret](const drogon::orm::Result &) {
+          [sharedCb, req, clientId, clientSecret](const ::drogon::orm::Result &) {
               Json::Value json;
               json["status"] = "success";
               json["message"] = "Client created successfully";
               json["client_id"] = clientId;
               json["client_secret"] = clientSecret;  // Only returned once at creation time
               json["note"] = "Store the client_secret securely. It will not be shown again.";
-              auto resp = HttpResponse::newHttpJsonResponse(json);
-              resp->setStatusCode(k201Created);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+              resp->setStatusCode(::drogon::k201Created);
               (*sharedCb)(resp);
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -430,13 +433,13 @@ void AdminController::createClient(
 }
 
 void AdminController::getClient(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &clientId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (clientId.empty())
     {
@@ -446,11 +449,11 @@ void AdminController::getClient(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT client_id, client_type, name, redirect_uris, allowed_grant_types "
           "FROM oauth2_clients WHERE client_id = $1",
-          [sharedCb, req, clientId, db](const drogon::orm::Result &result) {
+          [sharedCb, req, clientId, db](const ::drogon::orm::Result &result) {
               if (result.empty())
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
@@ -473,24 +476,24 @@ void AdminController::getClient(
               // Also fetch scopes for this client
               db->execSqlAsync(
                 "SELECT scope_name FROM oauth2_client_scopes WHERE client_id = $1",
-                [sharedCb, req, json](const drogon::orm::Result &scopeResult) mutable {
+                [sharedCb, req, json](const ::drogon::orm::Result &scopeResult) mutable {
                     Json::Value scopes(Json::arrayValue);
                     for (const auto &scopeRow : scopeResult)
                     {
                         scopes.append(scopeRow["scope_name"].as<std::string>());
                     }
                     json["scopes"] = scopes;
-                    (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                 },
-                [sharedCb, req, json](const drogon::orm::DrogonDbException &) mutable {
+                [sharedCb, req, json](const ::drogon::orm::DrogonDbException &) mutable {
                     // Return client info even if scope query fails
                     json["scopes"] = Json::Value(Json::arrayValue);
-                    (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                 },
                 clientId
               );
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -508,13 +511,13 @@ void AdminController::getClient(
 }
 
 void AdminController::updateClient(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &clientId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (clientId.empty())
     {
@@ -568,14 +571,14 @@ void AdminController::updateClient(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
 
         // Execute update based on number of params
         if (params.size() == 2)
         {
             db->execSqlAsync(
               query,
-              [sharedCb, req, clientId](const drogon::orm::Result &result) {
+              [sharedCb, req, clientId](const ::drogon::orm::Result &result) {
                   if (result.affectedRows() == 0)
                   {
                       respondError(
@@ -587,9 +590,9 @@ void AdminController::updateClient(
                   json["status"] = "success";
                   json["message"] = "Client updated successfully";
                   json["client_id"] = clientId;
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -605,7 +608,7 @@ void AdminController::updateClient(
         {
             db->execSqlAsync(
               query,
-              [sharedCb, req, clientId](const drogon::orm::Result &result) {
+              [sharedCb, req, clientId](const ::drogon::orm::Result &result) {
                   if (result.affectedRows() == 0)
                   {
                       respondError(
@@ -617,9 +620,9 @@ void AdminController::updateClient(
                   json["status"] = "success";
                   json["message"] = "Client updated successfully";
                   json["client_id"] = clientId;
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -636,7 +639,7 @@ void AdminController::updateClient(
         {
             db->execSqlAsync(
               query,
-              [sharedCb, req, clientId](const drogon::orm::Result &result) {
+              [sharedCb, req, clientId](const ::drogon::orm::Result &result) {
                   if (result.affectedRows() == 0)
                   {
                       respondError(
@@ -648,9 +651,9 @@ void AdminController::updateClient(
                   json["status"] = "success";
                   json["message"] = "Client updated successfully";
                   json["client_id"] = clientId;
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -672,13 +675,13 @@ void AdminController::updateClient(
 }
 
 void AdminController::getClientScopes(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &clientId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (clientId.empty())
     {
@@ -688,10 +691,10 @@ void AdminController::getClientScopes(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT scope_name FROM oauth2_client_scopes WHERE client_id = $1",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               Json::Value json;
               json["status"] = "success";
               Json::Value scopes(Json::arrayValue);
@@ -700,9 +703,9 @@ void AdminController::getClientScopes(
                   scopes.append(row["scope_name"].as<std::string>());
               }
               json["scopes"] = scopes;
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -720,13 +723,13 @@ void AdminController::getClientScopes(
 }
 
 void AdminController::updateClientScopes(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &clientId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (clientId.empty())
     {
@@ -757,20 +760,20 @@ void AdminController::updateClientScopes(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         auto transaction = db->newTransaction();
 
         // Step 1: Delete existing scopes for this client
         transaction->execSqlAsync(
           "DELETE FROM oauth2_client_scopes WHERE client_id = $1",
-          [sharedCb, req, clientId, scopes, transaction](const drogon::orm::Result &) {
+          [sharedCb, req, clientId, scopes, transaction](const ::drogon::orm::Result &) {
               if (scopes.empty())
               {
                   Json::Value json;
                   json["status"] = "success";
                   json["message"] = "Scopes updated";
                   json["scopes"] = Json::Value(Json::arrayValue);
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                   return;
               }
 
@@ -784,7 +787,7 @@ void AdminController::updateClientScopes(
                   transaction->execSqlAsync(
                     "INSERT INTO oauth2_client_scopes (client_id, scope_name) VALUES ($1, $2)",
                     [sharedCb, req, scopeName, remaining, insertedScopes, mu, scopes](
-                      const drogon::orm::Result &
+                      const ::drogon::orm::Result &
                     ) {
                         {
                             std::lock_guard<std::mutex> lock(*mu);
@@ -803,10 +806,10 @@ void AdminController::updateClientScopes(
                                     scopesJson.append(s);
                             }
                             json["scopes"] = scopesJson;
-                            (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                            (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                         }
                     },
-                    [sharedCb, req, remaining](const drogon::orm::DrogonDbException &e) {
+                    [sharedCb, req, remaining](const ::drogon::orm::DrogonDbException &e) {
                         if (remaining->fetch_sub(1) == 1)
                         {
                             respondError(
@@ -822,7 +825,7 @@ void AdminController::updateClientScopes(
                   );
               }
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -840,20 +843,20 @@ void AdminController::updateClientScopes(
 }
 
 void AdminController::listUsers(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT id, username, email, email_verified, mfa_enabled "
           "FROM users ORDER BY id",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               Json::Value json;
               json["status"] = "success";
               Json::Value users(Json::arrayValue);
@@ -873,9 +876,9 @@ void AdminController::listUsers(
 
               json["users"] = users;
               json["total"] = static_cast<int>(result.size());
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -892,20 +895,20 @@ void AdminController::listUsers(
 }
 
 void AdminController::listScopes(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT id, name, description, mapped_role, is_default, requires_admin_role "
           "FROM oauth2_scopes ORDER BY id",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               Json::Value json;
               json["status"] = "success";
               Json::Value scopes(Json::arrayValue);
@@ -929,9 +932,9 @@ void AdminController::listScopes(
 
               json["scopes"] = scopes;
               json["total"] = static_cast<int>(result.size());
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -948,13 +951,13 @@ void AdminController::listScopes(
 }
 
 void AdminController::deleteClient(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &clientId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (clientId.empty())
     {
@@ -964,10 +967,10 @@ void AdminController::deleteClient(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "DELETE FROM oauth2_clients WHERE client_id = $1",
-          [sharedCb, req, clientId](const drogon::orm::Result &result) {
+          [sharedCb, req, clientId](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
@@ -978,10 +981,10 @@ void AdminController::deleteClient(
               json["status"] = "success";
               json["message"] = "Client deleted successfully";
               json["client_id"] = clientId;
-              auto resp = HttpResponse::newHttpJsonResponse(json);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
               (*sharedCb)(resp);
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -999,13 +1002,13 @@ void AdminController::deleteClient(
 }
 
 void AdminController::disableUser(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &userId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (userId.empty())
     {
@@ -1015,10 +1018,10 @@ void AdminController::disableUser(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "UPDATE users SET locked_until = 9999999999 WHERE id = $1",
-          [sharedCb, req, userId](const drogon::orm::Result &result) {
+          [sharedCb, req, userId](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
@@ -1029,10 +1032,10 @@ void AdminController::disableUser(
               json["status"] = "success";
               json["message"] = "User disabled successfully";
               json["user_id"] = userId;
-              auto resp = HttpResponse::newHttpJsonResponse(json);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
               (*sharedCb)(resp);
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -1050,13 +1053,13 @@ void AdminController::disableUser(
 }
 
 void AdminController::assignUserRoles(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &userId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (userId.empty())
     {
@@ -1087,12 +1090,12 @@ void AdminController::assignUserRoles(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
 
         // Step 1: Delete existing roles for this user
         db->execSqlAsync(
           "DELETE FROM user_roles WHERE user_id = $1",
-          [sharedCb, req, userId, roles, db](const drogon::orm::Result &) {
+          [sharedCb, req, userId, roles, db](const ::drogon::orm::Result &) {
               if (roles.empty())
               {
                   Json::Value json;
@@ -1100,7 +1103,7 @@ void AdminController::assignUserRoles(
                   json["message"] = "User roles updated successfully";
                   json["user_id"] = userId;
                   json["roles"] = Json::Value(Json::arrayValue);
-                  auto resp = HttpResponse::newHttpJsonResponse(json);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                   (*sharedCb)(resp);
                   return;
               }
@@ -1116,7 +1119,7 @@ void AdminController::assignUserRoles(
                     "INSERT INTO user_roles (user_id, role_id) "
                     "SELECT $1, id FROM roles WHERE name = $2",
                     [sharedCb, req, userId, roleName, remaining, assignedRoles, mu](
-                      const drogon::orm::Result &result
+                      const ::drogon::orm::Result &result
                     ) {
                         if (result.affectedRows() > 0)
                         {
@@ -1138,11 +1141,11 @@ void AdminController::assignUserRoles(
                                     rolesJson.append(r);
                             }
                             json["roles"] = rolesJson;
-                            auto resp = HttpResponse::newHttpJsonResponse(json);
+                            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                             (*sharedCb)(resp);
                         }
                     },
-                    [sharedCb, req, remaining](const drogon::orm::DrogonDbException &e) {
+                    [sharedCb, req, remaining](const ::drogon::orm::DrogonDbException &e) {
                         if (remaining->fetch_sub(1) == 1)
                         {
                             respondError(
@@ -1158,7 +1161,7 @@ void AdminController::assignUserRoles(
                   );
               }
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -1176,13 +1179,13 @@ void AdminController::assignUserRoles(
 }
 
 void AdminController::resetClientSecret(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &clientId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (clientId.empty())
     {
@@ -1191,15 +1194,15 @@ void AdminController::resetClientSecret(
     }
 
     // Generate new secret
-    std::string newSecret = oauth2::utils::generateSecureToken();
-    std::string newSecretHash = oauth2::utils::hashToken(newSecret);
+    std::string newSecret = ::oauth2::utils::generateSecureToken();
+    std::string newSecretHash = ::oauth2::utils::hashToken(newSecret);
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "UPDATE oauth2_clients SET client_secret = $1 WHERE client_id = $2",
-          [sharedCb, req, clientId, newSecret](const drogon::orm::Result &result) {
+          [sharedCb, req, clientId, newSecret](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
@@ -1212,10 +1215,10 @@ void AdminController::resetClientSecret(
               json["client_id"] = clientId;
               json["client_secret"] = newSecret;
               json["note"] = "Store the new client_secret securely. It will not be shown again.";
-              auto resp = HttpResponse::newHttpJsonResponse(json);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
               (*sharedCb)(resp);
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -1234,12 +1237,12 @@ void AdminController::resetClientSecret(
 }
 
 void AdminController::listLogs(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     // Parse query params for filtering
     int page = 1;
@@ -1272,7 +1275,7 @@ void AdminController::listLogs(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
 
         // Build the parameterized WHERE clause from the optional action / outcome
         // / actor_id filters. The previous implementation built this clause but
@@ -1299,7 +1302,7 @@ void AdminController::listLogs(
         // Build the JSON response from the query result. `total` reflects the
         // number of rows on this page (matches the pre-fix behavior; the logs
         // table is not expected to drive precise pagination counts here).
-        auto buildLogs = [sharedCb, req, page, perPage](const drogon::orm::Result &result) {
+        auto buildLogs = [sharedCb, req, page, perPage](const ::drogon::orm::Result &result) {
             Json::Value json;
             json["status"] = "success";
             json["page"] = page;
@@ -1327,10 +1330,10 @@ void AdminController::listLogs(
             }
 
             json["logs"] = logs;
-            (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+            (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
         };
 
-        auto onDbError = [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+        auto onDbError = [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
             respondError(
               req,
               sharedCb,
@@ -1381,12 +1384,12 @@ void AdminController::listLogs(
 }
 
 void AdminController::listTokens(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     int page = 1;
     int perPage = 50;
@@ -1417,7 +1420,7 @@ void AdminController::listTokens(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
 
         // Build count query and data query with filters
         // expires_at is stored as BIGINT (Unix epoch seconds)
@@ -1450,7 +1453,7 @@ void AdminController::listTokens(
             db->execSqlAsync(
               countQuery,
               [sharedCb, req, dataQuery, page, perPage, clientIdFilter, userIdFilter, db](
-                const drogon::orm::Result &countResult
+                const ::drogon::orm::Result &countResult
               ) {
                   int total = 0;
                   if (!countResult.empty())
@@ -1460,7 +1463,7 @@ void AdminController::listTokens(
 
                   db->execSqlAsync(
                     dataQuery,
-                    [sharedCb, req, page, perPage, total](const drogon::orm::Result &result) {
+                    [sharedCb, req, page, perPage, total](const ::drogon::orm::Result &result) {
                         Json::Value json;
                         Json::Value tokens(Json::arrayValue);
 
@@ -1490,9 +1493,9 @@ void AdminController::listTokens(
                         json["total"] = total;
                         json["page"] = page;
                         json["per_page"] = perPage;
-                        (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                        (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     },
-                    [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                         respondError(
                           req,
                           sharedCb,
@@ -1504,7 +1507,7 @@ void AdminController::listTokens(
                     userIdFilter
                   );
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -1522,7 +1525,7 @@ void AdminController::listTokens(
             db->execSqlAsync(
               countQuery,
               [sharedCb, req, dataQuery, page, perPage, clientIdFilter, db](
-                const drogon::orm::Result &countResult
+                const ::drogon::orm::Result &countResult
               ) {
                   int total = 0;
                   if (!countResult.empty())
@@ -1532,7 +1535,7 @@ void AdminController::listTokens(
 
                   db->execSqlAsync(
                     dataQuery,
-                    [sharedCb, req, page, perPage, total](const drogon::orm::Result &result) {
+                    [sharedCb, req, page, perPage, total](const ::drogon::orm::Result &result) {
                         Json::Value json;
                         Json::Value tokens(Json::arrayValue);
 
@@ -1562,9 +1565,9 @@ void AdminController::listTokens(
                         json["total"] = total;
                         json["page"] = page;
                         json["per_page"] = perPage;
-                        (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                        (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     },
-                    [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                         respondError(
                           req,
                           sharedCb,
@@ -1575,7 +1578,7 @@ void AdminController::listTokens(
                     clientIdFilter
                   );
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -1592,7 +1595,7 @@ void AdminController::listTokens(
             db->execSqlAsync(
               countQuery,
               [sharedCb, req, dataQuery, page, perPage, userIdFilter, db](
-                const drogon::orm::Result &countResult
+                const ::drogon::orm::Result &countResult
               ) {
                   int total = 0;
                   if (!countResult.empty())
@@ -1602,7 +1605,7 @@ void AdminController::listTokens(
 
                   db->execSqlAsync(
                     dataQuery,
-                    [sharedCb, req, page, perPage, total](const drogon::orm::Result &result) {
+                    [sharedCb, req, page, perPage, total](const ::drogon::orm::Result &result) {
                         Json::Value json;
                         Json::Value tokens(Json::arrayValue);
 
@@ -1632,9 +1635,9 @@ void AdminController::listTokens(
                         json["total"] = total;
                         json["page"] = page;
                         json["per_page"] = perPage;
-                        (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                        (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     },
-                    [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                         respondError(
                           req,
                           sharedCb,
@@ -1645,7 +1648,7 @@ void AdminController::listTokens(
                     userIdFilter
                   );
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -1662,7 +1665,7 @@ void AdminController::listTokens(
             db->execSqlAsync(
               countQuery,
               [sharedCb, req, dataQuery, page, perPage, db](
-                const drogon::orm::Result &countResult
+                const ::drogon::orm::Result &countResult
               ) {
                   int total = 0;
                   if (!countResult.empty())
@@ -1672,7 +1675,7 @@ void AdminController::listTokens(
 
                   db->execSqlAsync(
                     dataQuery,
-                    [sharedCb, req, page, perPage, total](const drogon::orm::Result &result) {
+                    [sharedCb, req, page, perPage, total](const ::drogon::orm::Result &result) {
                         Json::Value json;
                         Json::Value tokens(Json::arrayValue);
 
@@ -1702,9 +1705,9 @@ void AdminController::listTokens(
                         json["total"] = total;
                         json["page"] = page;
                         json["per_page"] = perPage;
-                        (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                        (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     },
-                    [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                         respondError(
                           req,
                           sharedCb,
@@ -1714,7 +1717,7 @@ void AdminController::listTokens(
                     }
                   );
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -1732,13 +1735,13 @@ void AdminController::listTokens(
 }
 
 void AdminController::revokeToken(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &tokenPrefix
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (tokenPrefix.empty())
     {
@@ -1748,12 +1751,12 @@ void AdminController::revokeToken(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         std::string likePattern = tokenPrefix + "%";
 
         db->execSqlAsync(
           "DELETE FROM oauth2_access_tokens WHERE token LIKE $1",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "Token not found");
@@ -1763,9 +1766,9 @@ void AdminController::revokeToken(
               Json::Value json;
               json["status"] = "success";
               json["message"] = "Token revoked";
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -1783,12 +1786,12 @@ void AdminController::revokeToken(
 }
 
 void AdminController::revokeTokensByClient(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody || !jsonBody->isMember("client_id"))
@@ -1813,38 +1816,38 @@ void AdminController::revokeTokensByClient(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
 
         // Delete access tokens for this client
         db->execSqlAsync(
           "DELETE FROM oauth2_access_tokens WHERE client_id = $1",
-          [sharedCb, req, clientId, db](const drogon::orm::Result &accessResult) {
+          [sharedCb, req, clientId, db](const ::drogon::orm::Result &accessResult) {
               int accessCount = static_cast<int>(accessResult.affectedRows());
 
               // Also delete refresh tokens for this client
               db->execSqlAsync(
                 "DELETE FROM oauth2_refresh_tokens WHERE client_id = $1",
-                [sharedCb, req, clientId, accessCount](const drogon::orm::Result &refreshResult) {
+                [sharedCb, req, clientId, accessCount](const ::drogon::orm::Result &refreshResult) {
                     int totalCount = accessCount + static_cast<int>(refreshResult.affectedRows());
 
                     Json::Value json;
                     json["status"] = "success";
                     json["message"] = "All tokens for client revoked";
                     json["count"] = totalCount;
-                    (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                 },
-                [sharedCb, req, accessCount](const drogon::orm::DrogonDbException &) {
+                [sharedCb, req, accessCount](const ::drogon::orm::DrogonDbException &) {
                     // Refresh token deletion failed but access tokens were deleted
                     Json::Value json;
                     json["status"] = "success";
                     json["message"] = "Access tokens revoked (refresh token cleanup failed)";
                     json["count"] = accessCount;
-                    (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                 },
                 clientId
               );
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -1862,12 +1865,12 @@ void AdminController::revokeTokensByClient(
 }
 
 void AdminController::revokeTokensByUser(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody || !jsonBody->isMember("user_id"))
@@ -1887,38 +1890,38 @@ void AdminController::revokeTokensByUser(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
 
         // Delete access tokens for this user
         db->execSqlAsync(
           "DELETE FROM oauth2_access_tokens WHERE user_id = $1",
-          [sharedCb, req, userId, db](const drogon::orm::Result &accessResult) {
+          [sharedCb, req, userId, db](const ::drogon::orm::Result &accessResult) {
               int accessCount = static_cast<int>(accessResult.affectedRows());
 
               // Also delete refresh tokens for this user
               db->execSqlAsync(
                 "DELETE FROM oauth2_refresh_tokens WHERE user_id = $1",
-                [sharedCb, req, userId, accessCount](const drogon::orm::Result &refreshResult) {
+                [sharedCb, req, userId, accessCount](const ::drogon::orm::Result &refreshResult) {
                     int totalCount = accessCount + static_cast<int>(refreshResult.affectedRows());
 
                     Json::Value json;
                     json["status"] = "success";
                     json["message"] = "All tokens for user revoked";
                     json["count"] = totalCount;
-                    (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                 },
-                [sharedCb, req, accessCount](const drogon::orm::DrogonDbException &) {
+                [sharedCb, req, accessCount](const ::drogon::orm::DrogonDbException &) {
                     // Refresh token deletion failed but access tokens were deleted
                     Json::Value json;
                     json["status"] = "success";
                     json["message"] = "Access tokens revoked (refresh token cleanup failed)";
                     json["count"] = accessCount;
-                    (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                 },
                 userId
               );
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -1936,8 +1939,8 @@ void AdminController::revokeTokensByUser(
 }
 
 void AdminController::getOidcKeys(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     Json::Value json;
@@ -1951,7 +1954,7 @@ void AdminController::getOidcKeys(
     json["key_status"] = "active";
     json["note"] = "Key rotation is not yet implemented. Single signing key in use.";
 
-    callback(HttpResponse::newHttpJsonResponse(json));
+    callback(::drogon::HttpResponse::newHttpJsonResponse(json));
 }
 
 // ============================================================
@@ -1959,13 +1962,13 @@ void AdminController::getOidcKeys(
 // ============================================================
 
 void AdminController::getUser(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &userId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (userId.empty())
     {
@@ -1975,7 +1978,7 @@ void AdminController::getUser(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT u.id, u.username, u.email, u.email_verified, u.mfa_enabled, "
           "u.failed_login_count, u.locked_until, u.created_at, "
@@ -1985,7 +1988,7 @@ void AdminController::getUser(
           "LEFT JOIN roles r ON ur.role_id = r.id "
           "WHERE u.id = $1 "
           "GROUP BY u.id",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               if (result.empty())
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
@@ -2032,9 +2035,9 @@ void AdminController::getUser(
               {
                   json["roles"] = Json::Value(Json::arrayValue);
               }
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2052,13 +2055,13 @@ void AdminController::getUser(
 }
 
 void AdminController::updateUser(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &userId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (userId.empty())
     {
@@ -2082,7 +2085,7 @@ void AdminController::updateUser(
         // Normalize on write so admin edits stay consistent with registration
         // (login + password reset look up the canonical form).
         setClauses.push_back("email = $" + std::to_string(paramIdx++));
-        params.push_back(oauth2::utils::normalizeEmail((*jsonBody)["email"].asString()));
+        params.push_back(::oauth2::utils::normalizeEmail((*jsonBody)["email"].asString()));
     }
     if (jsonBody->isMember("email_verified"))
     {
@@ -2108,12 +2111,12 @@ void AdminController::updateUser(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         if (params.size() == 2)
         {
             db->execSqlAsync(
               query,
-              [sharedCb, req, userId](const drogon::orm::Result &result) {
+              [sharedCb, req, userId](const ::drogon::orm::Result &result) {
                   if (result.affectedRows() == 0)
                   {
                       respondError(
@@ -2124,9 +2127,9 @@ void AdminController::updateUser(
                   Json::Value json;
                   json["status"] = "success";
                   json["message"] = "User updated successfully";
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -2142,7 +2145,7 @@ void AdminController::updateUser(
         {
             db->execSqlAsync(
               query,
-              [sharedCb, req](const drogon::orm::Result &result) {
+              [sharedCb, req](const ::drogon::orm::Result &result) {
                   if (result.affectedRows() == 0)
                   {
                       respondError(
@@ -2153,9 +2156,9 @@ void AdminController::updateUser(
                   Json::Value json;
                   json["status"] = "success";
                   json["message"] = "User updated successfully";
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -2176,13 +2179,13 @@ void AdminController::updateUser(
 }
 
 void AdminController::enableUser(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &userId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (userId.empty())
     {
@@ -2192,10 +2195,10 @@ void AdminController::enableUser(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "UPDATE users SET locked_until = 0, failed_login_count = 0 WHERE id = $1",
-          [sharedCb, req, userId](const drogon::orm::Result &result) {
+          [sharedCb, req, userId](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
@@ -2205,9 +2208,9 @@ void AdminController::enableUser(
               json["status"] = "success";
               json["message"] = "User enabled successfully";
               json["user_id"] = userId;
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2225,13 +2228,13 @@ void AdminController::enableUser(
 }
 
 void AdminController::getUserRoles(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &userId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (userId.empty())
     {
@@ -2241,12 +2244,12 @@ void AdminController::getUserRoles(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT r.id, r.name, r.description FROM roles r "
           "JOIN user_roles ur ON r.id = ur.role_id "
           "WHERE ur.user_id = $1 ORDER BY r.name",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               Json::Value json;
               json["status"] = "success";
               Json::Value roles(Json::arrayValue);
@@ -2260,9 +2263,9 @@ void AdminController::getUserRoles(
                   roles.append(role);
               }
               json["roles"] = roles;
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2284,23 +2287,23 @@ void AdminController::getUserRoles(
 // ============================================================
 
 void AdminController::listRoles(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT r.id, r.name, r.description, r.created_at, "
           "COUNT(DISTINCT ur.user_id) AS user_count "
           "FROM roles r "
           "LEFT JOIN user_roles ur ON r.id = ur.role_id "
           "GROUP BY r.id ORDER BY r.name",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               Json::Value json;
               json["status"] = "success";
               Json::Value roles(Json::arrayValue);
@@ -2318,9 +2321,9 @@ void AdminController::listRoles(
               }
               json["roles"] = roles;
               json["total"] = static_cast<int>(result.size());
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2337,12 +2340,12 @@ void AdminController::listRoles(
 }
 
 void AdminController::createRole(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody || !jsonBody->isMember("name"))
@@ -2366,11 +2369,11 @@ void AdminController::createRole(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         // Check for existing role first to return proper 409
         db->execSqlAsync(
           "SELECT id FROM roles WHERE name = $1",
-          [sharedCb, req, db, name, description](const drogon::orm::Result &checkResult) {
+          [sharedCb, req, db, name, description](const ::drogon::orm::Result &checkResult) {
               if (!checkResult.empty())
               {
                   respondError(
@@ -2381,7 +2384,7 @@ void AdminController::createRole(
               db->execSqlAsync(
                 "INSERT INTO roles (name, description) VALUES ($1, $2) "
                 "RETURNING id, name, description",
-                [sharedCb, req](const drogon::orm::Result &result) {
+                [sharedCb, req](const ::drogon::orm::Result &result) {
                     if (result.empty())
                     {
                         respondError(req, sharedCb, "INTERNAL_ERROR", "Failed to create role");
@@ -2395,11 +2398,11 @@ void AdminController::createRole(
                     json["name"] = row["name"].as<std::string>();
                     json["description"] =
                       row["description"].isNull() ? "" : row["description"].as<std::string>();
-                    auto resp = HttpResponse::newHttpJsonResponse(json);
-                    resp->setStatusCode(k201Created);
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                    resp->setStatusCode(::drogon::k201Created);
                     (*sharedCb)(resp);
                 },
-                [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+                [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                     respondError(
                       req,
                       sharedCb,
@@ -2411,7 +2414,7 @@ void AdminController::createRole(
                 description
               );
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2429,13 +2432,13 @@ void AdminController::createRole(
 }
 
 void AdminController::updateRole(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &roleId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody)
@@ -2472,10 +2475,10 @@ void AdminController::updateRole(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           query,
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "Role not found");
@@ -2484,9 +2487,9 @@ void AdminController::updateRole(
               Json::Value json;
               json["status"] = "success";
               json["message"] = "Role updated successfully";
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2505,20 +2508,20 @@ void AdminController::updateRole(
 }
 
 void AdminController::deleteRole(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &roleId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "DELETE FROM roles WHERE id = $1 AND name NOT IN ('admin', 'user')",
-          [sharedCb, req, roleId](const drogon::orm::Result &result) {
+          [sharedCb, req, roleId](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(
@@ -2532,9 +2535,9 @@ void AdminController::deleteRole(
               Json::Value json;
               json["status"] = "success";
               json["message"] = "Role deleted successfully";
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2556,12 +2559,12 @@ void AdminController::deleteRole(
 // ============================================================
 
 void AdminController::createScope(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody || !jsonBody->isMember("name"))
@@ -2588,11 +2591,11 @@ void AdminController::createScope(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT id FROM oauth2_scopes WHERE name = $1",
           [sharedCb, req, db, name, description, mappedRole, isDefault, requiresAdminRole](
-            const drogon::orm::Result &checkResult
+            const ::drogon::orm::Result &checkResult
           ) {
               if (!checkResult.empty())
               {
@@ -2605,7 +2608,7 @@ void AdminController::createScope(
                 "INSERT INTO oauth2_scopes (name, description, mapped_role, is_default, "
                 "requires_admin_role) VALUES ($1, $2, $3, $4, $5) "
                 "RETURNING id, name, description, mapped_role, is_default, requires_admin_role",
-                [sharedCb, req](const drogon::orm::Result &result) {
+                [sharedCb, req](const ::drogon::orm::Result &result) {
                     if (result.empty())
                     {
                         respondError(req, sharedCb, "INTERNAL_ERROR", "Failed to create scope");
@@ -2626,11 +2629,11 @@ void AdminController::createScope(
                     json["requires_admin_role"] = row["requires_admin_role"].isNull()
                                                     ? false
                                                     : row["requires_admin_role"].as<bool>();
-                    auto resp = HttpResponse::newHttpJsonResponse(json);
-                    resp->setStatusCode(k201Created);
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                    resp->setStatusCode(::drogon::k201Created);
                     (*sharedCb)(resp);
                 },
-                [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+                [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                     respondError(
                       req,
                       sharedCb,
@@ -2645,7 +2648,7 @@ void AdminController::createScope(
                 requiresAdminRole
               );
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2663,13 +2666,13 @@ void AdminController::createScope(
 }
 
 void AdminController::updateScope(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &scopeId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody)
@@ -2721,12 +2724,12 @@ void AdminController::updateScope(
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         // Use a lambda that captures params by value and dispatches based on count
         auto execUpdate = [&](auto &&...args) {
             db->execSqlAsync(
               query,
-              [sharedCb, req](const drogon::orm::Result &result) {
+              [sharedCb, req](const ::drogon::orm::Result &result) {
                   if (result.affectedRows() == 0)
                   {
                       respondError(
@@ -2737,9 +2740,9 @@ void AdminController::updateScope(
                   Json::Value json;
                   json["status"] = "success";
                   json["message"] = "Scope updated successfully";
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               },
-              [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
                     req,
                     sharedCb,
@@ -2767,21 +2770,21 @@ void AdminController::updateScope(
 }
 
 void AdminController::deleteScope(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &scopeId
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "DELETE FROM oauth2_scopes WHERE id = $1 "
           "AND name NOT IN ('openid', 'profile', 'email', 'admin')",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               if (result.affectedRows() == 0)
               {
                   respondError(
@@ -2795,9 +2798,9 @@ void AdminController::deleteScope(
               Json::Value json;
               json["status"] = "success";
               json["message"] = "Scope deleted successfully";
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2819,16 +2822,16 @@ void AdminController::deleteScope(
 // ============================================================
 
 void AdminController::getDashboardStats(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         auto now = std::chrono::duration_cast<std::chrono::seconds>(
                      std::chrono::system_clock::now().time_since_epoch()
         )
@@ -2845,7 +2848,7 @@ void AdminController::getDashboardStats(
           "(SELECT COUNT(*) FROM audit_logs WHERE timestamp > to_timestamp($2)) AS logs_today, "
           "(SELECT COUNT(*) FROM audit_logs WHERE outcome = 'failure' "
           " AND timestamp > to_timestamp($3)) AS failures_today",
-          [sharedCb, req](const drogon::orm::Result &result) {
+          [sharedCb, req](const ::drogon::orm::Result &result) {
               if (result.empty())
               {
                   respondError(req, sharedCb, "INTERNAL_ERROR", "Failed to fetch stats");
@@ -2859,9 +2862,9 @@ void AdminController::getDashboardStats(
               json["active_tokens"] = row["active_tokens"].as<int>();
               json["logs_today"] = row["logs_today"].as<int>();
               json["failures_today"] = row["failures_today"].as<int>();
-              (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
           },
-          [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
@@ -2883,14 +2886,16 @@ void AdminController::getDashboardStats(
 // ========== Dashboard (merged from old AdminController) ==========
 
 void AdminController::dashboard(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     Json::Value json;
     json["message"] = "Welcome to Admin Dashboard";
     json["status"] = "success";
 
-    auto resp = HttpResponse::newHttpJsonResponse(json);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
     callback(resp);
 }
+
+}  // namespace authforge::drogon::controllers

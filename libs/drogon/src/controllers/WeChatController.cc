@@ -45,7 +45,7 @@ struct WeChatControllerDocs
 {
     WeChatControllerDocs()
     {
-        using namespace oauth2::observability::openapi;
+        using namespace ::oauth2::observability::openapi;
 
         Json::Value successExample;
         successExample["openid"] = "oXXXXXXXXXXXXXXXXXXXXXXXXXX";
@@ -56,7 +56,7 @@ struct WeChatControllerDocs
         errorExample["error"] = "Missing code parameter";
 
         // C++17 compatible initialization (avoid designated initializers)
-        oauth2::observability::openapi::EndpointInfo weChatEndpoint;
+        ::oauth2::observability::openapi::EndpointInfo weChatEndpoint;
         weChatEndpoint.path = "/api/wechat/login";
         weChatEndpoint.method = "POST";
         weChatEndpoint.summary = "WeChat OAuth2 Login";
@@ -67,11 +67,11 @@ struct WeChatControllerDocs
         weChatEndpoint.tags = {"External Auth", "WeChat"};
 
         // Initialize parameters
-        oauth2::observability::openapi::ParameterInfo codeParam;
+        ::oauth2::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code from WeChat OAuth2 callback (required)";
-        codeParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        codeParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
+        codeParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = true;
         weChatEndpoint.parameters = {codeParam};
 

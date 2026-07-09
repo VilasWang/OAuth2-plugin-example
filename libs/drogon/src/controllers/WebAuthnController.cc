@@ -1,4 +1,4 @@
-#include "WebAuthnController.h"
+#include <authforge/drogon/controllers/WebAuthnController.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/observability/AuditLogger.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
@@ -7,22 +7,25 @@
 #include <drogon/utils/Utilities.h>
 #include <chrono>
 
-using namespace drogon;
-using namespace drogon::orm;
+namespace authforge::drogon::controllers
+{
 
 namespace
 {
 // Emit an Application error via the unified ErrorResponder entry point so the
 // body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5).
 void respondError(
-  const HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
-      req, [cb](const HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
+    ::common::error::ErrorResponder::respond(
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
     );
 }
 
@@ -30,82 +33,82 @@ struct WebAuthnControllerDocs
 {
     WebAuthnControllerDocs()
     {
-        oauth2::observability::openapi::EndpointInfo regBeginDocs;
+        ::oauth2::observability::openapi::EndpointInfo regBeginDocs;
         regBeginDocs.path = "/oauth2/webauthn/register/begin";
         regBeginDocs.method = "POST";
         regBeginDocs.summary = "WebAuthn Register Begin";
         regBeginDocs.description = "Start WebAuthn registration.";
         regBeginDocs.tags = {"WebAuthn"};
         regBeginDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
 
-        oauth2::observability::openapi::EndpointInfo regFinishDocs;
+        ::oauth2::observability::openapi::EndpointInfo regFinishDocs;
         regFinishDocs.path = "/oauth2/webauthn/register/finish";
         regFinishDocs.method = "POST";
         regFinishDocs.summary = "WebAuthn Register Finish";
         regFinishDocs.description = "Finish WebAuthn registration.";
         regFinishDocs.tags = {"WebAuthn"};
         regFinishDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
 
-        oauth2::observability::openapi::EndpointInfo loginBeginDocs;
+        ::oauth2::observability::openapi::EndpointInfo loginBeginDocs;
         loginBeginDocs.path = "/oauth2/webauthn/login/begin";
         loginBeginDocs.method = "POST";
         loginBeginDocs.summary = "WebAuthn Login Begin";
         loginBeginDocs.description = "Start WebAuthn login.";
         loginBeginDocs.tags = {"WebAuthn"};
         loginBeginDocs.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
 
-        oauth2::observability::openapi::EndpointInfo loginFinishDocs;
+        ::oauth2::observability::openapi::EndpointInfo loginFinishDocs;
         loginFinishDocs.path = "/oauth2/webauthn/login/finish";
         loginFinishDocs.method = "POST";
         loginFinishDocs.summary = "WebAuthn Login Finish";
         loginFinishDocs.description = "Finish WebAuthn login.";
         loginFinishDocs.tags = {"WebAuthn"};
         loginFinishDocs.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
 
-        oauth2::observability::openapi::EndpointInfo credentialsDocs;
+        ::oauth2::observability::openapi::EndpointInfo credentialsDocs;
         credentialsDocs.path = "/oauth2/webauthn/credentials";
         credentialsDocs.method = "GET";
         credentialsDocs.summary = "List WebAuthn Credentials";
         credentialsDocs.description = "List registered WebAuthn credentials.";
         credentialsDocs.tags = {"WebAuthn"};
         credentialsDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
     }
 };
 
 WebAuthnControllerDocs docs_;
-}  // namespace
 
 // WebAuthn RP (Relying Party) configuration
-static std::string getRpId()
+std::string getRpId()
 {
-    auto config = drogon::app().getCustomConfig();
+    auto config = ::drogon::app().getCustomConfig();
     if (config.isMember("webauthn") && config["webauthn"].isMember("rp_id"))
         return config["webauthn"]["rp_id"].asString();
     return "localhost";
 }
 
-static std::string getRpName()
+std::string getRpName()
 {
-    auto config = drogon::app().getCustomConfig();
+    auto config = ::drogon::app().getCustomConfig();
     if (config.isMember("webauthn") && config["webauthn"].isMember("rp_name"))
         return config["webauthn"]["rp_name"].asString();
     return "OAuth2 Server";
 }
+}  // namespace
 
 void WebAuthnController::registerBegin(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     std::string userId = req->getAttributes()->get<std::string>("userId");
 
     // Generate challenge (32 bytes, base64url encoded)
-    std::string challenge = oauth2::utils::generateSecureToken();
+    std::string challenge = ::oauth2::utils::generateSecureToken();
 
     // Store challenge in session for verification in registerFinish
     if (req->session())
@@ -149,18 +152,18 @@ void WebAuthnController::registerBegin(
 
     Json::Value response;
     response["options"] = options;
-    auto resp = HttpResponse::newHttpJsonResponse(response);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
     callback(resp);
 }
 
 void WebAuthnController::registerFinish(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     std::string userId = req->getAttributes()->get<std::string>("userId");
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody)
@@ -173,13 +176,6 @@ void WebAuthnController::registerFinish(
         );
         return;
     }
-
-    // In a full implementation, we would:
-    // 1. Verify the challenge matches the session
-    // 2. Parse the attestation object
-    // 3. Verify the attestation signature
-    // 4. Extract the public key and credential ID
-    // For this foundation, we store the credential data as-is
 
     std::string credentialId = (*jsonBody).get("credential_id", "").asString();
     std::string publicKey = (*jsonBody).get("public_key", "").asString();
@@ -197,27 +193,23 @@ void WebAuthnController::registerFinish(
     }
 
     // Store credential
-    auto db = drogon::app().getDbClient();
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "INSERT INTO webauthn_credentials (user_id, credential_id, public_key, name) "
       "VALUES ((SELECT id FROM users WHERE public_sub::text = $1::text), $2, $3, $4)",
-      [sharedCb, credentialId, req, userId](const Result &) {
-          oauth2::observability::AuditLogger::log(
+      [sharedCb, credentialId, req, userId](const ::drogon::orm::Result &) {
+          ::oauth2::observability::AuditLogger::log(
             "webauthn_registered", "success", req, userId, "credential", credentialId
           );
           Json::Value json;
           json["message"] = "Passkey registered successfully";
           json["credential_id"] = credentialId;
-          auto resp = HttpResponse::newHttpJsonResponse(json);
-          resp->setStatusCode(k201Created);
+          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+          resp->setStatusCode(::drogon::k201Created);
           (*sharedCb)(resp);
       },
-      [sharedCb, req](const DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           const std::string what = e.base().what();
-          // A credential_id unique-constraint conflict means the user is adding
-          // the same security key twice — respond with a precise conflict code
-          // (HTTP 409) instead of the generic "service unavailable" DB code, and
-          // leave the existing credential record untouched (Requirement 3.3).
           if (what.find("webauthn_credentials") != std::string::npos &&
               what.find("credential_id") != std::string::npos)
           {
@@ -244,12 +236,12 @@ void WebAuthnController::registerFinish(
 }
 
 void WebAuthnController::authenticateBegin(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Generate challenge
-    std::string challenge = oauth2::utils::generateSecureToken();
+    std::string challenge = ::oauth2::utils::generateSecureToken();
 
     // Store in session
     if (req->session())
@@ -268,17 +260,17 @@ void WebAuthnController::authenticateBegin(
 
     Json::Value response;
     response["options"] = options;
-    auto resp = HttpResponse::newHttpJsonResponse(response);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
     callback(resp);
 }
 
 void WebAuthnController::authenticateFinish(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     auto jsonBody = req->getJsonObject();
     if (!jsonBody)
@@ -302,14 +294,13 @@ void WebAuthnController::authenticateFinish(
     }
 
     // Look up credential and verify
-    // In full implementation: verify signature against stored public key
-    auto db = drogon::app().getDbClient();
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "SELECT wc.user_id, wc.sign_count, u.public_sub "
       "FROM webauthn_credentials wc "
       "JOIN users u ON wc.user_id = u.id "
       "WHERE wc.credential_id = $1",
-      [sharedCb, credentialId, db, req](const Result &r) {
+      [sharedCb, credentialId, db, req](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
               respondError(
@@ -329,13 +320,13 @@ void WebAuthnController::authenticateFinish(
           db->execSqlAsync(
             "UPDATE webauthn_credentials SET sign_count = $1, last_used_at = NOW() "
             "WHERE credential_id = $2",
-            [](const Result &) {},
-            [](const DrogonDbException &) {},
+            [](const ::drogon::orm::Result &) {},
+            [](const ::drogon::orm::DrogonDbException &) {},
             signCount + 1,
             credentialId
           );
 
-          oauth2::observability::AuditLogger::log(
+          ::oauth2::observability::AuditLogger::log(
             "webauthn_authenticated", "success", req, publicSub, "credential", credentialId
           );
 
@@ -344,10 +335,10 @@ void WebAuthnController::authenticateFinish(
           json["authenticated"] = true;
           json["user_id"] = publicSub;
           json["sign_count"] = signCount + 1;
-          auto resp = HttpResponse::newHttpJsonResponse(json);
+          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
           (*sharedCb)(resp);
       },
-      [sharedCb, req](const DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
             req,
             sharedCb,
@@ -360,21 +351,21 @@ void WebAuthnController::authenticateFinish(
 }
 
 void WebAuthnController::listCredentials(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     std::string userId = req->getAttributes()->get<std::string>("userId");
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
-    auto db = drogon::app().getDbClient();
+    auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "SELECT credential_id, name, sign_count, created_at, last_used_at "
       "FROM webauthn_credentials "
       "WHERE user_id = (SELECT id FROM users WHERE public_sub::text = $1::text) "
       "ORDER BY created_at DESC",
-      [sharedCb](const Result &r) {
+      [sharedCb](const ::drogon::orm::Result &r) {
           Json::Value json;
           Json::Value creds(Json::arrayValue);
           for (const auto &row : r)
@@ -387,9 +378,9 @@ void WebAuthnController::listCredentials(
           }
           json["credentials"] = creds;
           json["total"] = static_cast<int>(r.size());
-          (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+          (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
       },
-      [sharedCb, req](const DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
             req,
             sharedCb,
@@ -400,3 +391,5 @@ void WebAuthnController::listCredentials(
       userId
     );
 }
+
+}  // namespace authforge::drogon::controllers

@@ -1,4 +1,4 @@
-#include "DeviceAuthController.h"
+#include <authforge/drogon/controllers/DeviceAuthController.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/error/OAuth2ErrorHandler.h>
@@ -8,6 +8,9 @@
 #include <drogon/utils/Utilities.h>
 #include <chrono>
 
+namespace authforge::drogon::controllers
+{
+
 namespace
 {
 // Emit an Application error via the unified ErrorResponder entry point so the
@@ -16,14 +19,17 @@ namespace
 // authorization protocol endpoint keeps emitting RFC 6749 §5.2 error bodies via
 // OAuth2ErrorHandler.
 void respondError(
-  const HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
-      req, [cb](const HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
+    ::common::error::ErrorResponder::respond(
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
     );
 }
 
@@ -31,32 +37,32 @@ struct DeviceAuthControllerDocs
 {
     DeviceAuthControllerDocs()
     {
-        oauth2::observability::openapi::EndpointInfo authDocs;
+        ::oauth2::observability::openapi::EndpointInfo authDocs;
         authDocs.path = "/oauth2/device_authorization";
         authDocs.method = "POST";
         authDocs.summary = "Device Authorization";
         authDocs.description = "Request device authorization.";
         authDocs.tags = {"OAuth2", "Device Flow"};
         authDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(authDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(authDocs);
 
-        oauth2::observability::openapi::EndpointInfo verifyGetDocs;
+        ::oauth2::observability::openapi::EndpointInfo verifyGetDocs;
         verifyGetDocs.path = "/oauth2/device/verify";
         verifyGetDocs.method = "GET";
         verifyGetDocs.summary = "Verify Device (GET)";
         verifyGetDocs.description = "Display device verification page.";
         verifyGetDocs.tags = {"OAuth2", "Device Flow"};
         verifyGetDocs.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyGetDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyGetDocs);
 
-        oauth2::observability::openapi::EndpointInfo verifyPostDocs;
+        ::oauth2::observability::openapi::EndpointInfo verifyPostDocs;
         verifyPostDocs.path = "/oauth2/device/verify";
         verifyPostDocs.method = "POST";
         verifyPostDocs.summary = "Verify Device (POST)";
         verifyPostDocs.description = "Submit device verification code.";
         verifyPostDocs.tags = {"OAuth2", "Device Flow"};
         verifyPostDocs.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyPostDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyPostDocs);
     }
 };
 
@@ -69,7 +75,7 @@ constexpr int USER_CODE_LENGTH = 8;
 
 std::string getVerificationUri()
 {
-    auto customConfig = drogon::app().getCustomConfig();
+    auto customConfig = ::drogon::app().getCustomConfig();
     if (
       customConfig.isMember("device_authorization") &&
       customConfig["device_authorization"].isMember("verification_uri")
@@ -87,10 +93,10 @@ std::string DeviceAuthController::generateUserCode()
     const size_t charsLen = chars.length();
 
     std::vector<unsigned char> randomBytes(USER_CODE_LENGTH);
-    if (!drogon::utils::secureRandomBytes(randomBytes.data(), USER_CODE_LENGTH))
+    if (!::drogon::utils::secureRandomBytes(randomBytes.data(), USER_CODE_LENGTH))
     {
         // Fallback: use UUID-based randomness
-        auto uuid = drogon::utils::getUuid();
+        auto uuid = ::drogon::utils::getUuid();
         std::string code;
         for (int i = 0; i < USER_CODE_LENGTH && i < static_cast<int>(uuid.size()); ++i)
         {
@@ -109,8 +115,8 @@ std::string DeviceAuthController::generateUserCode()
 }
 
 void DeviceAuthController::deviceAuthorization(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     LOG_DEBUG << "Device authorization request received";
@@ -121,37 +127,37 @@ void DeviceAuthController::deviceAuthorization(
 
     if (clientId.empty())
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        ::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_request", "client_id is required"
         );
         return;
     }
 
     // Validate client exists
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (!plugin)
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        ::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "server_error", "OAuth2 plugin not available"
         );
         return;
     }
 
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     plugin->validateClient(clientId, "", [plugin, clientId, scope, sharedCb](bool valid) {
         if (!valid)
         {
-            common::error::OAuth2ErrorHandler::sendErrorResponse(
+            ::common::error::OAuth2ErrorHandler::sendErrorResponse(
               std::move(*sharedCb), "invalid_client", "Unknown client_id"
             );
             return;
         }
 
         // Generate device_code and user_code
-        std::string deviceCode = oauth2::utils::generateSecureToken();
-        std::string deviceCodeHash = oauth2::utils::hashToken(deviceCode);
+        std::string deviceCode = ::oauth2::utils::generateSecureToken();
+        std::string deviceCodeHash = ::oauth2::utils::hashToken(deviceCode);
         std::string userCode = generateUserCode();
 
         auto now = std::chrono::duration_cast<std::chrono::seconds>(
@@ -161,10 +167,10 @@ void DeviceAuthController::deviceAuthorization(
         int64_t expiresAt = now + DEVICE_CODE_LIFETIME_SECONDS;
 
         // Store in database
-        auto dbClient = drogon::app().getDbClient();
+        auto dbClient = ::drogon::app().getDbClient();
         if (!dbClient)
         {
-            common::error::OAuth2ErrorHandler::sendErrorResponse(
+            ::common::error::OAuth2ErrorHandler::sendErrorResponse(
               std::move(*sharedCb), "server_error", "Database not available"
             );
             return;
@@ -174,7 +180,7 @@ void DeviceAuthController::deviceAuthorization(
           "INSERT INTO oauth2_device_codes "
           "(device_code_hash, user_code, client_id, scope, status, expires_at, interval_seconds) "
           "VALUES ($1, $2, $3, $4, 'pending', $5, $6)",
-          [deviceCode, userCode, expiresAt, sharedCb](const drogon::orm::Result &) {
+          [deviceCode, userCode, expiresAt, sharedCb](const ::drogon::orm::Result &) {
               // Success - return device authorization response
               Json::Value response;
               response["device_code"] = deviceCode;
@@ -183,13 +189,13 @@ void DeviceAuthController::deviceAuthorization(
               response["expires_in"] = DEVICE_CODE_LIFETIME_SECONDS;
               response["interval"] = POLLING_INTERVAL_SECONDS;
 
-              auto resp = HttpResponse::newHttpJsonResponse(response);
-              resp->setStatusCode(k200OK);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
+              resp->setStatusCode(::drogon::k200OK);
               (*sharedCb)(resp);
           },
-          [sharedCb](const drogon::orm::DrogonDbException &e) {
+          [sharedCb](const ::drogon::orm::DrogonDbException &e) {
               LOG_ERROR << "Failed to store device code: " << e.base().what();
-              common::error::OAuth2ErrorHandler::sendErrorResponse(
+              ::common::error::OAuth2ErrorHandler::sendErrorResponse(
                 std::move(*sharedCb), "server_error", "Failed to store device authorization"
               );
           },
@@ -204,8 +210,8 @@ void DeviceAuthController::deviceAuthorization(
 }
 
 void DeviceAuthController::approveDevice(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     LOG_DEBUG << "Device approval request received";
@@ -218,7 +224,7 @@ void DeviceAuthController::approveDevice(
     // standardized RFC 8628 protocol endpoint, so its errors are emitted as JSON
     // Error Envelopes via the unified entry point (Requirement 7.1 / 7.3 / 7.5).
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     if (userCode.empty())
     {
@@ -236,7 +242,7 @@ void DeviceAuthController::approveDevice(
         return;
     }
 
-    auto dbClient = drogon::app().getDbClient();
+    auto dbClient = ::drogon::app().getDbClient();
     if (!dbClient)
     {
         respondError(req, sharedCb, "DB_CONNECTION_ERROR", "approveDevice: database not available");
@@ -252,13 +258,9 @@ void DeviceAuthController::approveDevice(
     dbClient->execSqlAsync(
       "UPDATE oauth2_device_codes SET status = 'approved', user_id = $1 "
       "WHERE user_code = $2 AND status = 'pending' AND expires_at > $3",
-      [sharedCb, userCode, req](const drogon::orm::Result &result) {
+      [sharedCb, userCode, req](const ::drogon::orm::Result &result) {
           if (result.affectedRows() == 0)
           {
-              // Either not found, already approved/denied, or expired. All three
-              // reasons collapse to a single code (no way to distinguish them in
-              // the response) and the device code's existing status is left
-              // unchanged because the UPDATE matched no rows.
               respondError(
                 req,
                 sharedCb,
@@ -272,11 +274,11 @@ void DeviceAuthController::approveDevice(
           response["status"] = "approved";
           response["user_code"] = userCode;
 
-          auto resp = HttpResponse::newHttpJsonResponse(response);
-          resp->setStatusCode(k200OK);
+          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
+          resp->setStatusCode(::drogon::k200OK);
           (*sharedCb)(resp);
       },
-      [sharedCb, req](const drogon::orm::DrogonDbException &e) {
+      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           LOG_ERROR << "Failed to approve device code: " << e.base().what();
           respondError(
             req,
@@ -290,3 +292,5 @@ void DeviceAuthController::approveDevice(
       now
     );
 }
+
+}  // namespace authforge::drogon::controllers

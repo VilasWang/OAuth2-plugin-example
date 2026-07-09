@@ -250,13 +250,49 @@
 
 **已知例外/待定**：`ADD_METHOD_TO(..., "命名空间::FilterClassName")` 字符串引用的过滤器（`AuthorizationFilter`/`OAuth2AuthFilter`，Task 20 slice 2 已迁移）不需要改 `AutoCreation`——它们是被 DrClassMap 按名动态查找实例化的被动组件，不是本节讨论的"主动挂路由"模式，这条路径本来就没有 whole-archive 问题（`ADD_METHOD_TO` 里的字符串本身就是一个真实的、编译期确认过的引用意图，即使运行时是按名查找）。
 
+### Task 20 全部 controllers 迁移完成（用户要求加快节奏，一次性批量完成）
+
+按用户明确指示"全部controller全部一次性迁移，再一起编译测试"，把剩余全部 14 个 controller（`GoogleController`/`WeChatController`/`OrganizationController`/`ClientRegistrationController`/`ApiDocController`/`DeviceAuthController`/`EmailVerificationController`/`GitHubController`/`MfaController`/`PasswordResetController`/`SessionController`/`UserSelfServiceController`/`WebAuthnController`/`AdminController`，含 2688 行的 `AdminController.cc`）一次性迁移到 `libs/drogon`，而不是逐个 slice 提交。
+
+**执行方式**：
+
+- 中小文件（<800 行）逐个手写迁移（新建 `.h`/`.cc`，命名空间 `authforge::drogon::controllers`，`HttpController<T, false>`，`::drogon::` 全限定），原子删除旧文件
+- `AdminController`（2688 行）用 PowerShell 正则批量转换（自动包裹 namespace、限定 `HttpRequestPtr`/`HttpResponsePtr`/`Get`/`Post`/`Put`/`Delete`/`drogon::app()`/`drogon::orm::`/`k201Created` 等符号），而非逐行手写——大幅提速，转换后人工核查开头/结尾正确性
+- `AuthService.h/.cc`（`SessionController` 依赖）一并迁移到 `libs/drogon/{include,src}/authforge/drogon/`（命名空间 `authforge::drogon::services`），避免 `libs/drogon` 反向依赖 `OAuth2Server`（这是这批迁移里唯一一个"被拖带迁移"的非 controller 文件，因为 `SessionController::login/registerUser` 直接调用它）
+- `main.cc` + `test/test_main.cc` 同步添加全部 21 个 `drogon::app().registerController(...)` 调用（15 controller + 之前 slice 1/2 的机制验证未涉及 filter，filter 走 `ADD_METHOD_TO` 字符串查找不需要显式注册）
+
+**踩坑与修复（两类命名空间歧义，均已确认是通用规律并记入本节供后续参考）**：
+
+1. **`common::error::` 歧义**（重复第一次踩坑，出现在 `AuthorizationFilter.cc`/`OAuth2AuthFilter.cc`/`HttpResponder.cc`/`AdminController.cc`）：一旦某个 `.cc` 的 include 链间接引入了 `authforge::common` 命名空间（哪怕只是 `authforge::common::ports::IRoleProvider` 这种深层头文件），`namespace authforge::drogon::xxx { ... common::error::Yyy ... }` 内的裸 `common::` 会优先匹配到同级的 `authforge::common`（存在但没有 `error` 子命名空间）而不是全局 `::common::error`，导致编译失败。**修复模式**：所有 `common::error::` 改成 `::common::error::`。
+2. **`oauth2::`/`drogon::` 歧义**（本批新发现的同类问题，规模更大）：`namespace authforge::drogon::controllers { ... }` 内部裸写 `oauth2::observability::...`/`drogon::app()`/`drogon::orm::Result` 等，一旦 include 链带入 `authforge::oauth2` 或触发 `authforge::drogon` 自身的命名空间可见性，会被优先解析到 `authforge::oauth2::`/`authforge::drogon::` 而不是全局 `::oauth2::`/`::drogon::`。**修复模式**：用 PowerShell 正则 `(?<!::)(?<!authforge::)\boauth2::` → `::oauth2::`（同理 `drogon::`）批量修复全部 14 个新迁移的 `.cc` 文件 + `AuthService.cc`。
+3. **通用规律总结**：任何写在 `authforge::drogon::*`（或未来 `authforge::oauth2::*`/`authforge::identity::*`）命名空间内部的代码，凡是引用不带 `authforge::` 前缀的全局命名空间（`drogon::`/`oauth2::`/`common::`/`services::`等 pre-refactor 遗留命名空间），**必须**显式加 `::` 前缀，不能依赖"反正没有同名子命名空间"的假设——因为 include 链的传递性会不可预测地引入 `authforge::` 子命名空间的可见性，这个问题只有在编译时才会暴露，且报错信息（C3083/C2039）不会直接提示"这是命名空间歧义"，需要经验识别。
+
+**验证结果**：
+
+- 全量 `cmake --build` (`authforge-drogon` + `OAuth2Server` + `OAuth2Test_test`)：编译通过，零错误
+- `ctest -C Debug`：**207/207 全绿**
+- 真实可执行文件端到端验证（`OAuth2Server.exe` + `config.ci.json` memory 存储 + `curl`）：
+  - `GET /health` → 200，含 `getPlugin<OAuth2Plugin>()` 成功
+  - `GET /login?...` → 200，`SessionController::showLoginPage` 成功渲染 `login.csp` 视图
+  - `GET /api/admin/dashboard`（无 Authorization header）→ 401 `AUTH_TOKEN_INVALID`，证明 `AdminController` + `AuthorizationFilter`（仍是旧 `oauth2::filters::` 位置，按名字符串查找）链路完整
+  - `POST /api/google/login`（缺 code 参数）→ 400 `VALIDATION_MISSING_REQUIRED_FIELD`，证明 `GoogleController` 正常
+- `OAuth2Server/controllers/`、`OAuth2Server/filters/` 现在是空目录（`.gitkeep` 保留），`OAuth2Server/CMakeLists.txt`/`test/CMakeLists.txt` 的 `aux_source_directory`/`file(GLOB)` 调用返回空列表（无害，已加注释说明）
+
+**Task 20 至此全部完成**：全部 15 个 controller + 2 个主动挂路由的 filter（`AuthorizationFilter`/`OAuth2AuthFilter`）+ `RequestValidationFilter`（被动查找）+ `AuthService` 均已迁入 `libs/drogon`。**且全程未使用 whole-archive**，证实了用户提出的 `AutoCreation=false` 方案完全可行，比 design.md 原定的 F1/H5 whole-archive 方案更简单。
+
+### 遗留、未动的部分（明确记录，避免误判为遗漏）
+
+- **`OAuth2StandardController`**（在 `OAuth2Plugin/`，不是 `OAuth2Server/`）：这是核心 OAuth2 协议端点控制器（`/oauth2/authorize`、`/oauth2/token` 等），design.md §5.8 提到未来要拆分改名（`AuthorizationEndpointController`/`TokenEndpointController`/`DiscoveryController`），**本次未触碰**——它跟 `OAuth2Plugin` 本体耦合更深（直接持有 `plugin->getTokenService()` 等），且属于协议引擎核心而非产品外围功能，按 design.md 的既定优先级应该晚于本批"外围 controller"处理，留给后续任务（可能是 M3 的下一个 slice，或者结合 Task 23 去单例化一起做）
+- **`oauth2::filters::AuthorizationFilter`/`OAuth2AuthFilter` 旧位置**：本批迁移的 controller 里 `ADD_METHOD_TO` 字符串仍然写的是 `"oauth2::filters::AuthorizationFilter"`（旧命名空间），没有切换成 `"authforge::drogon::filters::AuthorizationFilter"`——因为 DrClassMap 的按名反射查找机制下，新旧两个 filter 类目前都存在且都能被查到，两边都能工作，暂不强制统一（等 M8 Task 40 命名空间统一扫尾时处理，或者提前作为一个独立小 slice 处理也可以）
+- **Plugin 本体**（`OAuth2Plugin.cc`）：仍在 `OAuth2Plugin` OBJECT 库，未迁移，Task 21 方案 A 决策继续有效
+- **Views**（`login.csp`/`consent.csp`）：物理文件仍在 `OAuth2Server/views/`，`drogon_create_views` 在 `OAuth2Server/CMakeLists.txt`/`test/CMakeLists.txt` 里生成，未迁移到 `libs/drogon`——验证过 `SessionController::showLoginPage`（已迁移到 `libs/drogon`）调用 `HttpResponse::newHttpViewResponse("login", data)` 能正常工作（上面的 `/login` 200 测试），说明 view 的加载不依赖 controller 所在的库，可以继续留在原位，不阻塞
+
 ### 下一步
 
-1. 按上述标准流程继续迁移剩余 controllers：`OAuth2StandardController`（`OAuth2Plugin/`）+ `OAuth2Server/controllers/*` 的 15 个文件（`ApiDocController`→...→`AdminController` 2896 行最后做），每个文件一个提交，保持"小步可编译"节奏
-2. 每个 controller 迁移时同步评估是否值得改构造函数支持依赖注入（顺带完成 Task 23 去单例化的部分范围）——不强制要求，先以"迁移到位 + 编译测试通过"为主线，注入改造可以是同一批次内的**追加**改动而非阻塞项
-3. `OAuth2Plugin.cc` 插件本体：不受本节机制影响（`Plugin<T>` 没有 `AutoCreation` 参数，注册机制不同），仍按 Task 21 已确认的方案 A 处理，继续保留在 `OAuth2Plugin` OBJECT 库，不强制迁入 `libs/drogon`（design.md 允许"装配器"和"controller/filter"分离存放，只要依赖方向正确）
-4. views（`login.csp`/`consent.csp`，`drogon_create_views` 生成机制）的注册方式待查证——留到实际处理这两个文件时核实是否有类似 `AutoCreation` 的机制
-5. 已完成：filters/validation（slice 1/2）+ controllers 的 `HealthController`（slice 3，机制验证批次，已通过真实 HTTP 请求验证）
+1. `OAuth2StandardController` 迁移（是否拆分改名，看是否要顺带做 design.md §5.8 的命名规范化，或先原样迁移再说）
+2. Task 23（controller/filter 去单例化）：现在全部 controller 已经在 `libs/drogon`，去单例化可以作为一个独立的后续批次，不再与迁移耦合
+3. Task 22（whole-archive）：**可能不再需要**——本次验证 `AutoCreation=false` 方案完全替代了 whole-archive 的作用；design.md 里 F1/H5 的 whole-archive 章节可能需要在后续任务中重新评估是否还有必要（例如 views/plugin 是否也有类似的免 whole-archive 方案）
+4. Plugin 本体退化为装配器（Task 21 已定方案 A，尚未真正实施"退化"这个动作，目前只是保持原样）
 - Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
 - libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 

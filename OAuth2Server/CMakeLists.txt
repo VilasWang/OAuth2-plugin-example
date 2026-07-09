@@ -9,11 +9,15 @@ find_package(CURL REQUIRED)
 
 add_executable(${PROJECT_NAME} 
     main.cc
-    AuthService.cc
     SchemaManager.cc
 )
 
-# Controllers, Filters, etc.
+# M3 Task 20 (authforge-sdk-refactor): OAuth2Server/controllers/* and
+# OAuth2Server/filters/* have all been relocated into libs/drogon
+# (authforge::drogon::controllers / authforge::drogon::filters). These two
+# directories are now empty (kept for potential future product-specific
+# controllers); aux_source_directory returns an empty list here, which is
+# harmless.
 aux_source_directory(controllers CTL_SRC)
 aux_source_directory(filters FILTER_SRC)
 
@@ -27,13 +31,15 @@ target_sources(${PROJECT_NAME} PRIVATE
 )
 
 # Link against the Plugin library (defined in root CMakeLists.txt)
-# authforge::drogon (M3 Task 20 slice 3, EXPERIMENTAL): linked as a PLAIN
-# static library dependency (NOT whole-archive) -- this is deliberately
-# the core of the AutoCreation=false mechanism-verification experiment
-# (see PROGRESS.md). HealthController now lives there with
-# AutoCreation=false + an explicit drogon::app().registerController() call
-# in main.cc, which is meant to establish a real linker-visible reference
-# so the controller's .obj is not dropped even without whole-archive.
+# authforge::drogon (M3 Task 20, verified mechanism -- see PROGRESS.md):
+# linked as a PLAIN static library dependency, NOT whole-archive. All 15
+# controllers + 2 filters + AuthService now live there with
+# AutoCreation=false + explicit drogon::app().registerController() calls
+# in main.cc (below), which establishes a real linker-visible reference so
+# each controller's .obj is not dropped even without whole-archive -- this
+# was verified end-to-end with a running OAuth2Server.exe and real HTTP
+# requests (/health, /login, /api/admin/dashboard, /api/google/login all
+# behave correctly).
 target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin authforge::drogon CURL::libcurl)
 
 # Additional includes

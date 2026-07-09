@@ -32,32 +32,32 @@ struct OrganizationControllerDocs
 {
     OrganizationControllerDocs()
     {
-        oauth2::observability::openapi::EndpointInfo getOrgsDocs;
+        ::oauth2::observability::openapi::EndpointInfo getOrgsDocs;
         getOrgsDocs.path = "/api/orgs";
         getOrgsDocs.method = "GET";
         getOrgsDocs.summary = "List Organizations";
         getOrgsDocs.description = "List all organizations.";
         getOrgsDocs.tags = {"Organization"};
         getOrgsDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getOrgsDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getOrgsDocs);
 
-        oauth2::observability::openapi::EndpointInfo postOrgsDocs;
+        ::oauth2::observability::openapi::EndpointInfo postOrgsDocs;
         postOrgsDocs.path = "/api/orgs";
         postOrgsDocs.method = "POST";
         postOrgsDocs.summary = "Create Organization";
         postOrgsDocs.description = "Create a new organization.";
         postOrgsDocs.tags = {"Organization"};
         postOrgsDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(postOrgsDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(postOrgsDocs);
 
-        oauth2::observability::openapi::EndpointInfo postOrgUsersDocs;
+        ::oauth2::observability::openapi::EndpointInfo postOrgUsersDocs;
         postOrgUsersDocs.path = "/api/orgs/{orgId}/users";
         postOrgUsersDocs.method = "POST";
         postOrgUsersDocs.summary = "Add User to Organization";
         postOrgUsersDocs.description = "Add a user to an organization.";
         postOrgUsersDocs.tags = {"Organization"};
         postOrgUsersDocs.requiresAuth = true;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(postOrgUsersDocs);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(postOrgUsersDocs);
     }
 };
 
@@ -154,7 +154,7 @@ void OrganizationController::create(
       "VALUES ($1, $2, $3, $4, $5) RETURNING id",
       [sharedCb, slug, name, req](const ::drogon::orm::Result &r) {
           int id = r[0]["id"].as<int>();
-          oauth2::observability::AuditLogger::log(
+          ::oauth2::observability::AuditLogger::log(
             "organization_created", "success", req, "", "organization", slug
           );
           Json::Value json;

@@ -1,11 +1,17 @@
 #pragma once
 
+// M3 Task 20 slice 7 (authforge-sdk-refactor): relocated from
+// OAuth2Server/AuthService.h into authforge::drogon::services --
+// SessionController (this slice's migration) depends on this class, so
+// it must move together to avoid a circular dependency (libs/drogon <->
+// OAuth2Server) that would otherwise result from leaving it behind.
+
 #include <drogon/drogon.h>
 #include <functional>
 #include <string>
 #include <optional>
 
-namespace services
+namespace authforge::drogon::services
 {
 
 /**
@@ -57,4 +63,4 @@ class AuthService
     );
 };
 
-}  // namespace services
+}  // namespace authforge::drogon::services

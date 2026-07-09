@@ -1,4 +1,4 @@
-#include "ApiDocController.h"
+#include <authforge/drogon/controllers/ApiDocController.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/utils/Utilities.h>
@@ -6,7 +6,8 @@
 #include <fstream>
 #include <sstream>
 
-using namespace api;
+namespace authforge::drogon::controllers
+{
 
 namespace
 {
@@ -14,7 +15,7 @@ struct ApiDocControllerDocs
 {
     ApiDocControllerDocs()
     {
-        oauth2::observability::openapi::EndpointInfo spec;
+        ::oauth2::observability::openapi::EndpointInfo spec;
         spec.path = "/docs/api/openapi.json";
         spec.method = "GET";
         spec.summary = "Get OpenAPI Specification";
@@ -22,16 +23,16 @@ struct ApiDocControllerDocs
           "Returns the dynamically generated OpenAPI 3.0 specification in JSON format.";
         spec.tags = {"Documentation"};
         spec.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(spec);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(spec);
 
-        oauth2::observability::openapi::EndpointInfo ui;
+        ::oauth2::observability::openapi::EndpointInfo ui;
         ui.path = "/docs/api/";
         ui.method = "GET";
         ui.summary = "Swagger UI";
         ui.description = "Serves the Swagger UI HTML page for interactive API documentation.";
         ui.tags = {"Documentation"};
         ui.requiresAuth = false;
-        oauth2::observability::openapi::OpenApiGenerator::addEndpoint(ui);
+        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(ui);
     }
 };
 
@@ -39,15 +40,15 @@ ApiDocControllerDocs docs_;
 }  // namespace
 
 void ApiDocController::openApiSpec(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     try
     {
         // Use document root from Drogon config as base, fallback to current
         // directory
-        std::filesystem::path baseDir = drogon::app().getDocumentRoot();
+        std::filesystem::path baseDir = ::drogon::app().getDocumentRoot();
         if (baseDir.empty() || baseDir == "./" || baseDir == ".")
         {
             baseDir = std::filesystem::current_path();
@@ -58,11 +59,7 @@ void ApiDocController::openApiSpec(
         std::ifstream file(filePath);
         if (!file.is_open())
         {
-            // Error responses are emitted as JSON Error Envelopes via the unified
-            // entry point so no non-JSON / ad-hoc body is returned (Requirement
-            // 7.1 / 7.3 / 7.5). A missing spec file is reported as 404 Not Found,
-            // preserving the pre-migration status (Requirement 11.4).
-            common::error::ErrorResponder::respond(
+            ::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_RESOURCE_NOT_FOUND",
@@ -75,8 +72,8 @@ void ApiDocController::openApiSpec(
         buffer << file.rdbuf();
         std::string content = buffer.str();
 
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k200OK);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k200OK);
         resp->setContentTypeString("application/json");
         resp->addHeader("Access-Control-Allow-Origin", "*");
         resp->setBody(content);
@@ -84,22 +81,22 @@ void ApiDocController::openApiSpec(
     }
     catch (const std::exception &e)
     {
-        common::error::ErrorResponder::respondException(
-          req, std::move(callback), e, common::error::ErrorCategory::INTERNAL
+        ::common::error::ErrorResponder::respondException(
+          req, std::move(callback), e, ::common::error::ErrorCategory::INTERNAL
         );
     }
 }
 
 void ApiDocController::swaggerUi(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     try
     {
         // Use document root from Drogon config as base, fallback to current
         // directory
-        std::filesystem::path baseDir = drogon::app().getDocumentRoot();
+        std::filesystem::path baseDir = ::drogon::app().getDocumentRoot();
         if (baseDir.empty() || baseDir == "./" || baseDir == ".")
         {
             baseDir = std::filesystem::current_path();
@@ -110,12 +107,7 @@ void ApiDocController::swaggerUi(
         std::ifstream file(filePath);
         if (!file.is_open())
         {
-            // The previous implementation returned an HTML error page here. Error
-            // responses must be JSON Error Envelopes (Requirement 7.3): the
-            // successful response is still HTML, but errors go through the unified
-            // entry point. A missing UI asset is reported as 404 Not Found,
-            // preserving the pre-migration status (Requirement 11.4).
-            common::error::ErrorResponder::respond(
+            ::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_RESOURCE_NOT_FOUND",
@@ -128,8 +120,8 @@ void ApiDocController::swaggerUi(
         buffer << file.rdbuf();
         std::string content = buffer.str();
 
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k200OK);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k200OK);
         resp->setContentTypeString("text/html");
         resp->addHeader("Access-Control-Allow-Origin", "*");
         resp->setBody(content);
@@ -137,12 +129,10 @@ void ApiDocController::swaggerUi(
     }
     catch (const std::exception &e)
     {
-        common::error::ErrorResponder::respondException(
-          req, std::move(callback), e, common::error::ErrorCategory::INTERNAL
+        ::common::error::ErrorResponder::respondException(
+          req, std::move(callback), e, ::common::error::ErrorCategory::INTERNAL
         );
     }
 }
 
-namespace api
-{
-}
+}  // namespace authforge::drogon::controllers

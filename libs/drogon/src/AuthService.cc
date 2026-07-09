@@ -1,4 +1,4 @@
-#include "AuthService.h"
+#include <authforge/drogon/AuthService.h>
 #include <authforge/storage/postgres/models/Users.h>
 #include <authforge/storage/postgres/models/Roles.h>
 #include <authforge/storage/postgres/models/UserRoles.h>
@@ -8,9 +8,9 @@
 #include <algorithm>
 
 using namespace drogon;
-using namespace drogon::orm;
+using namespace ::drogon::orm;
 
-namespace services
+namespace authforge::drogon::services
 {
 
 void AuthService::validateUser(
@@ -80,8 +80,8 @@ void AuthService::validateUser(
                       int userId = user.getValueOfId();
                       db->execSqlAsync(
                         "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE id = $1",
-                        [](const drogon::orm::Result &) {},
-                        [](const drogon::orm::DrogonDbException &) {},
+                        [](const ::drogon::orm::Result &) {},
+                        [](const ::drogon::orm::DrogonDbException &) {},
                         userId
                       );
                   }
@@ -97,10 +97,10 @@ void AuthService::validateUser(
                           int userId = user.getValueOfId();
                           db->execSqlAsync(
                             "UPDATE users SET password_hash = $1, salt = '' WHERE id = $2",
-                            [userId](const drogon::orm::Result &) {
+                            [userId](const ::drogon::orm::Result &) {
                                 LOG_INFO << "Upgraded password hash to PBKDF2 for user " << userId;
                             },
-                            [userId](const drogon::orm::DrogonDbException &e) {
+                            [userId](const ::drogon::orm::DrogonDbException &e) {
                                 LOG_WARN << "Failed to upgrade password hash for user " << userId
                                          << ": " << e.base().what();
                             },
@@ -154,8 +154,8 @@ void AuthService::validateUser(
                   db->execSqlAsync(
                     "UPDATE users SET failed_login_count = $1, locked_until = $2, "
                     "last_failed_login = $3 WHERE id = $4",
-                    [](const drogon::orm::Result &) {},
-                    [](const drogon::orm::DrogonDbException &) {},
+                    [](const ::drogon::orm::Result &) {},
+                    [](const ::drogon::orm::DrogonDbException &) {},
                     newFailedCount,
                     newLockedUntil,
                     now,
@@ -362,4 +362,4 @@ void AuthService::getUserInfo(
     }
 }
 
-}  // namespace services
+}  // namespace authforge::drogon::services
