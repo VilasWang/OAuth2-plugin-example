@@ -73,9 +73,30 @@ namespace oauth2::test::contract
  * @brief Returns the "default" Postgres DbClient, or nullptr if unavailable
  * (no configured client, connection refused, etc). Callers should
  * `if (!client) return;` to skip the calling DROGON_TEST case.
+ *
+ * Bug fix: the memory-only test run (config.ci.json, "storage_type":
+ * "memory", "db_clients": []) has NO db_clients configured at all.
+ * drogon::app().getDbClient() on an empty db_clients list does not throw a
+ * catchable exception in every Drogon build -- some paths assert()
+ * directly (see drogon::nosql::RedisClientManager::getRedisClient's
+ * `assert(redisClientsMap_.find(name) != ...)` for the Redis analog,
+ * which crashes the whole test process rather than being caught below).
+ * The pre-existing convention in
+ * OAuth2Server/test/integration/storage/{Postgres,Redis}StorageTest.cc
+ * guards this with an explicit storage-type check BEFORE ever calling
+ * getDbClient()/getRedisClient() -- this function previously only had the
+ * try/catch half of that pattern, not the storage-type check, so it could
+ * still crash the process during a memory-only run instead of skipping
+ * cleanly. Mirrors that pre-existing pattern now.
  */
 inline drogon::orm::DbClientPtr getPostgresClientOrNull()
 {
+    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    if (plugin && plugin->getStorageType() == "memory")
+    {
+        return nullptr;
+    }
+
     try
     {
         return drogon::app().getDbClient();
@@ -90,9 +111,23 @@ inline drogon::orm::DbClientPtr getPostgresClientOrNull()
 /**
  * @brief Returns the "default" Redis client, or nullptr if unavailable.
  * Callers should `if (!client) return;` to skip the calling DROGON_TEST case.
+ *
+ * Bug fix: see getPostgresClientOrNull()'s doc comment -- same storage-type
+ * guard needed before calling drogon::app().getRedisClient(), since a
+ * memory-only run's "redis_clients": [] means
+ * drogon::nosql::RedisClientManager::getRedisClient() hits its internal
+ * `assert(redisClientsMap_.find(name) != redisClientsMap_.end())` (an
+ * uncatchable process-terminating assert, not a throw) rather than failing
+ * gracefully.
  */
 inline drogon::nosql::RedisClientPtr getRedisClientOrNull()
 {
+    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    if (plugin && plugin->getStorageType() == "memory")
+    {
+        return nullptr;
+    }
+
     try
     {
         return drogon::app().getRedisClient("default");
