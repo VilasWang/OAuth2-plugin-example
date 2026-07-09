@@ -2,6 +2,7 @@
 #include <oauth2/controllers/OAuth2StandardController.h>
 #include <oauth2/filters/OAuth2AuthFilter.h>
 #include <oauth2/utils/JwkManager.h>
+#include <oauth2/adapters/DrogonLogger.h>
 #include <oauth2/storage/MemoryOAuth2Storage.h>
 #include <oauth2/storage/PostgresOAuth2Storage.h>
 #include <oauth2/storage/RedisOAuth2Storage.h>
@@ -42,7 +43,12 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // run-time reads (signJwt/getJwks) cannot race any write. The "init before
     // request acceptance" ordering provides the happens-before edge (see
     // JwkManager.h); no per-read lock is needed.
-    auto jwkManager = std::make_shared<oauth2::JwkManager>();
+    // M2b Task 17 slice 10: JwkManager now requires an explicit ILogger to
+    // produce any log output (it no longer has a hardcoded Drogon-backed
+    // fallback, since it moved into the Domain layer). Pass a
+    // DrogonLogger explicitly here to preserve the pre-move log behavior.
+    static oauth2::adapters::DrogonLogger jwkManagerLogger;
+    auto jwkManager = std::make_shared<oauth2::JwkManager>(&jwkManagerLogger);
     if (config.isMember("oidc"))
     {
         jwkManager->init(config["oidc"]);

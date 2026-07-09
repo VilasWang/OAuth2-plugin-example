@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <oauth2/storage/IOAuth2Storage.h>
+#include <oauth2/utils/JwkManager.h>
 #include <drogon/drogon.h>
 #include <memory>
 #include <string>
@@ -9,7 +10,12 @@
 namespace oauth2
 {
 
-class JwkManager;  // Forward declaration
+// M2b Task 17 slice 10: oauth2::JwkManager is now a type alias (see
+// OAuth2Plugin/include/oauth2/utils/JwkManager.h's compatibility shim),
+// not a class -- a forward `class JwkManager;` declaration here would
+// conflict with that alias. Include the (lightweight) shim header
+// instead; JwkManager.h no longer pulls in anything Drogon-heavy so this
+// does not meaningfully change TokenService.h's include weight.
 
 // Defect 1.9 fix (async-chain dangling `this`): TokenService inherits
 // std::enable_shared_from_this so its asynchronous storage chains

@@ -1,5 +1,4 @@
-#include <oauth2/utils/JwkManager.h>
-#include <oauth2/adapters/DrogonLogger.h>
+#include <authforge/oauth2/jwk/JwkManager.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/bn.h>
@@ -9,32 +8,15 @@
 #include <sstream>
 #include <cstring>
 
-namespace oauth2
+namespace authforge::oauth2
 {
-
-namespace
-{
-// Task 14 (design.md §5.6): shared ILogger instance backing every LOG_*
-// call site in this file, replacing direct Drogon LOG_* macro usage with
-// the authforge::common::ports::ILogger Adapter implementation
-// (DrogonLogger, which itself forwards to Drogon's logger -- see that
-// class's own header comment for why it is correct for THIS class to
-// depend on Drogon while libs/common's port definition does not).
-//
-// M2b Task 17 slice 8: this is now the FALLBACK used only when a
-// JwkManager instance was constructed without an explicit logger (the
-// default, `JwkManager()`/`JwkManager(nullptr)` -- i.e. every existing
-// call site, unchanged). See JwkManager::log() below.
-authforge::common::ports::ILogger &fallbackLogger()
-{
-    static oauth2::adapters::DrogonLogger instance;
-    return instance;
-}
-}  // namespace
 
 void JwkManager::log(authforge::common::ports::LogLevel level, const std::string &message) const
 {
-    (logger_ ? *logger_ : fallbackLogger()).log(level, message);
+    if (logger_)
+    {
+        logger_->log(level, message);
+    }
 }
 
 JwkManager::~JwkManager()
@@ -48,11 +30,6 @@ JwkManager::~JwkManager()
 
 bool JwkManager::init(const Json::Value &config)
 {
-    // init-once guard (defect 1.5): init() is the only mutating method on this
-    // class. Once a previous call has succeeded, refuse to run again — log an
-    // error and no-op (do NOT re-allocate rsaKey_ or overwrite kid_). This
-    // removes the run-time mutation entry point so concurrent readers
-    // (signJwt/getJwks/getKeyId) can never observe the key state changing.
     if (initialized_)
     {
         log(
@@ -63,7 +40,6 @@ bool JwkManager::init(const Json::Value &config)
         return true;
     }
 
-    // Try loading from environment variable (PEM content)
     const char *keyEnv = std::getenv("OAUTH2_SIGNING_KEY");
     if (keyEnv && std::strlen(keyEnv) > 0)
     {
@@ -79,7 +55,6 @@ bool JwkManager::init(const Json::Value &config)
         }
     }
 
-    // Try loading from file path (env variable)
     const char *keyPathEnv = std::getenv("OAUTH2_JWT_KEY_PATH");
     if (keyPathEnv && std::strlen(keyPathEnv) > 0)
     {
@@ -106,7 +81,6 @@ bool JwkManager::init(const Json::Value &config)
         );
     }
 
-    // Try loading from config file path
     std::string keyPath = config.get("signing_key_path", "").asString();
     if (!keyPath.empty())
     {
@@ -131,7 +105,6 @@ bool JwkManager::init(const Json::Value &config)
         );
     }
 
-    // Fallback: generate ephemeral key (dev/test only)
     log(
       authforge::common::ports::LogLevel::Warn,
       "JwkManager: No signing key configured, generating ephemeral key (DEV ONLY)"
@@ -200,20 +173,10 @@ bool JwkManager::generateEphemeralKey()
 
 namespace
 {
-// M2b Task 17 slice 9 (authforge-sdk-refactor): a standalone base64url
-// (RFC 4648 §5, unpadded) implementation, duplicated deliberately rather
-// than depending on oauth2::adapters::OpenSslCryptoProvider (an
-// Adapter-layer class in OAuth2Plugin). This is the LAST OAuth2Plugin
-// dependency this file had (Task 14 slice 5 migrated this off
-// drogon::utils::base64EncodeUnpadded onto that Adapter class; this slice
-// removes the Adapter dependency too), which unblocks relocating this
-// entire file into libs/oauth2 (Domain layer, design.md §4.1 rule 1: no
-// Drogon, and no dependency on OAuth2Plugin either since the dependency
-// direction is the other way). Byte-for-byte identical algorithm/alphabet
-// to OpenSslCryptoProvider::base64UrlEncode and
-// FakeCryptoProvider::base64UrlEncode (which duplicate this same
-// algorithm for the identical dependency-direction reason -- see those
-// classes' own header comments).
+// See JwkManager.h's top comment: byte-for-byte identical algorithm to
+// oauth2::adapters::OpenSslCryptoProvider::base64UrlEncode /
+// authforge::common::testing::FakeCryptoProvider::base64UrlEncode
+// (deliberately duplicated in each, for dependency-direction reasons).
 constexpr char kBase64UrlAlphabet[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
@@ -267,19 +230,6 @@ std::string JwkManager::base64UrlEncode(const std::string &data)
 
 std::string JwkManager::signJwt(const Json::Value &payload) const
 {
-    // OpenSSL concurrency (defect 1.5): this const method is safe to call from
-    // many request threads at once because the per-call signing context below
-    // (EVP_MD_CTX) is created with EVP_MD_CTX_new() and released with
-    // EVP_MD_CTX_free() ON EVERY CALL — each thread gets its own, so there is
-    // NO shared mutable signing context. The ONLY object shared across
-    // concurrent signers is the EVP_PKEY (rsaKey_): concurrent signing touches
-    // its internal state (refcount, BN_BLINDING, lazily-initialized
-    // BN_MONT_CTX). This design ASSUMES OpenSSL >= 1.1.0 built with thread
-    // support (atomic refcounts + automatic internal locking), which makes that
-    // shared EVP_PKEY use thread-safe. If this project may instead link against
-    // OpenSSL 1.0.2 or earlier, concurrent signing would be a data race unless
-    // the application registers the legacy CRYPTO_set_locking_callback /
-    // CRYPTO_THREADID callbacks — prefer upgrading OpenSSL to >= 1.1.0.
     if (!initialized_ || !rsaKey_)
     {
         log(
@@ -288,26 +238,21 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
         return "";
     }
 
-    // Build header
     Json::Value header;
     header["alg"] = "RS256";
     header["typ"] = "JWT";
     header["kid"] = kid_;
 
-    // Serialize header and payload
     Json::StreamWriterBuilder writerBuilder;
     writerBuilder["indentation"] = "";
     std::string headerJson = Json::writeString(writerBuilder, header);
     std::string payloadJson = Json::writeString(writerBuilder, payload);
 
-    // Base64URL encode
     std::string headerB64 = base64UrlEncode(headerJson);
     std::string payloadB64 = base64UrlEncode(payloadJson);
 
-    // Signing input
     std::string signingInput = headerB64 + "." + payloadB64;
 
-    // Sign with RS256 (SHA-256 + RSA PKCS#1 v1.5)
     EVP_MD_CTX *mdCtx = EVP_MD_CTX_new();
     if (!mdCtx)
         return "";
@@ -326,7 +271,6 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
         return "";
     }
 
-    // Get signature length
     size_t sigLen = 0;
     if (EVP_DigestSignFinal(mdCtx, nullptr, &sigLen) <= 0)
     {
@@ -334,7 +278,6 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
         return "";
     }
 
-    // Get signature
     std::vector<unsigned char> signature(sigLen);
     if (EVP_DigestSignFinal(mdCtx, signature.data(), &sigLen) <= 0)
     {
@@ -344,7 +287,6 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
 
     EVP_MD_CTX_free(mdCtx);
 
-    // Base64URL encode signature
     std::string sigB64 = base64UrlEncode(signature.data(), sigLen);
 
     return signingInput + "." + sigB64;
@@ -357,13 +299,6 @@ bool JwkManager::getPublicKeyComponents(std::string &n, std::string &e) const
 
     EVP_PKEY *pkey = static_cast<EVP_PKEY *>(rsaKey_);
 
-    // OpenSSL 3.x migration (Task 3 / design §9.3): EVP_PKEY_get1_RSA +
-    // RSA_get0_key + BN_* accessors are deprecated as of OpenSSL 3.0. Read
-    // the modulus/exponent directly as BIGNUMs via EVP_PKEY_get_bn_param(),
-    // which works on the EVP_PKEY without extracting a legacy RSA* handle.
-    // BN_bn2bin() semantics (big-endian, minimal-length encoding) are
-    // unchanged, so the resulting base64url bytes are byte-for-byte
-    // identical to the pre-migration output (preservation 3.3 / golden).
     BIGNUM *bn_n = nullptr;
     BIGNUM *bn_e = nullptr;
 
@@ -378,7 +313,6 @@ bool JwkManager::getPublicKeyComponents(std::string &n, std::string &e) const
         return false;
     }
 
-    // Convert BIGNUM to binary then base64url
     int nLen = BN_num_bytes(bn_n);
     std::vector<unsigned char> nBuf(nLen);
     BN_bn2bin(bn_n, nBuf.data());
@@ -418,4 +352,4 @@ Json::Value JwkManager::getJwks() const
     return jwks;
 }
 
-}  // namespace oauth2
+}  // namespace authforge::oauth2

@@ -30,6 +30,14 @@ endif()
 
 project(authforge-oauth2 VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
+# OpenSSL (M2b Task 17 slice 10): JwkManager (jwk/JwkManager.cc) signs
+# RS256 JWTs and does RSA key loading/generation directly against
+# OpenSSL, mirroring OAuth2Plugin's own find_package(OpenSSL REQUIRED) +
+# OpenSSL::Crypto link (design.md §4.1 rule 1 allows OpenSSL in the
+# Domain layer -- it is the one non-Drogon exception already established
+# by libs/common's ICryptoProvider adapters).
+find_package(OpenSSL REQUIRED)
+
 add_library(${PROJECT_NAME} STATIC)
 add_library(authforge::oauth2 ALIAS ${PROJECT_NAME})
 
@@ -42,7 +50,7 @@ target_include_directories(${PROJECT_NAME}
 file(GLOB_RECURSE AUTHFORGE_OAUTH2_SOURCES "src/*.cc")
 target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_OAUTH2_SOURCES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC authforge::common)
+target_link_libraries(${PROJECT_NAME} PUBLIC authforge::common OpenSSL::Crypto)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
