@@ -6,7 +6,7 @@
 
 - 分支：`feat/m0-conan-migration`
 - PR：#11（GitHub）
-- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `5a42584`（Task 16 完成标记）
+- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `440b028`（Task 17 slice 1: libs/oauth2 + oauth2::pkce）
 - 上次推送到远端的 commit：`e5c097d`（M1 saveTokenPair 修复）
 - 用户指示："CI 不急，按计划往后推进" —— 暂不推送，先把 M2a/M2b 等后续任务在本地做完再统一验证推送
 
@@ -15,7 +15,7 @@
 - [x] M0（Task 1-6）：Conan 迁移、drogon_ctl、OpenSSL 3.5、CMakePresets、paths.env、三平台 CI — 已推送，CI 全绿
 - [x] M1（Task 7-12）：仓储接口拆分、缓存装饰器、契约测试套件 — 已推送，CI 全绿（含 3 个真实生产缺陷修复：Redis validateClient 崩溃、hasUserConsent 逻辑反、saveTokenPair 竞态）
 - [x] M2a（Task 13-16）：libs/common + 端口 + 去 drogon::utils + 测试链接过渡 — **本地完成，未推送**
-- [ ] M2b（Task 17-18）：libs/oauth2 + ORM 归位 — **下一步**
+- [ ] M2b（Task 17-18）：libs/oauth2 + ORM 归位 — **进行中**（Task 17 slice 1 完成，见下）
 - [ ] M2.5（Task 19）：libs/identity
 - [ ] M3 起：未开始
 
@@ -65,10 +65,27 @@
 - 用户本机独立安装了 Redis 服务（非 Docker），**不要用 Docker 里的 Redis/Postgres**，会冲突。之前误启动过 docker compose 已停止。
 - 主要验证目录：`build/windows-msvc-asan`（CMake preset，一直在用）+ `build/`（传统 manage.ps1 流程，Task 16 验证时用过一次）
 
-## 下一步：M2b Task 17-18
+## M2b 详细完成内容（Task 17，进行中）
 
-- Task 17：创建 `libs/oauth2`（authforge::oauth2），迁入协议逻辑（oauth2::pkce 纯函数、AuthorizationService/TokenService、access/ 决策引擎、model/ 聚合、M1 的 4 个仓储接口）
-- Task 18：ORM 模型迁移到 storage-postgres + DTO 映射（14 个 ORM 模型、models_backup/ 忽略不迁移）
+### Task 17 slice 1：libs/oauth2 骨架 + oauth2::pkce（commit `440b028`）
+- 新建 `libs/oauth2`（authforge::oauth2），依赖仅 `authforge::common`（值对象 + `ICryptoProvider` 端口），零 Drogon、零 OAuth2Plugin 依赖
+- `oauth2::pkce` 纯函数模块：`computeCodeChallenge`/`verifyCodeVerifier`/`isValidCodeVerifierFormat`/`isValidCodeChallengeFormat`
+- 接入顶层构建：`paths.env` 新增 `LIBS_OAUTH2_DIR=libs/oauth2`；顶层 `CMakeLists.txt` 在 `libs/common`/`libs/common/testing` 之后新增 `add_subdirectory`
+- `libs/oauth2/test`（gtest，仿 `libs/common/test` 模式，非 DROGON_TEST）：13 个测试，含 RFC 7636 Appendix B 官方已知向量（用 `FakeCryptoProvider` 的真 OpenSSL SHA-256/base64url 验证，非 stub 断言）
+- **故意实现正确算法**（S256 = base64url(原始摘要字节)），与 Task 14 发现的 `TokenService::generateSha256Hash` 缺陷完全独立、不受影响——**当前无任何生产代码调用此新模块**，把 TokenService/AuthorizationService 迁移到调用它是后续 slice 的决定点
+- 验证：全量 `cmake --build build/windows-msvc-asan` 编译通过；`ctest -C Debug` 137 个测试（含新增 13 个 PkceTest #79-91）100% 通过，零回归
+
+### Task 17 剩余 slice（未完成）
+- `AuthorizationService`（需新建，目前在 OAuth2Plugin 里没有直接对应文件，需要从 `OAuth2StandardController`/`ClientService` 相关逻辑中提炼）
+- `TokenService` 迁移到 `libs/oauth2`（含是否切到 `oauth2::pkce` 修复 RFC7636 缺陷的决策，见 PROGRESS.md 上方"发现的缺陷"章节）
+- `access/`（consent + scope 决策引擎）
+- `model/`（聚合）
+- M1 的 4 个仓储接口（`IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository`）从当前位置迁移到 `authforge::oauth2` 命名空间
+
+## 下一步
+
+- 继续 Task 17 剩余 slice（见上）
+- Task 18：ORM 模型迁移到 storage-postgres + DTO 映射（14 个 ORM 模型、`models_backup/` 忽略不迁移）
 - 这是 M2a 之后风险第二高的任务（真正把 Domain 逻辑从 OAuth2Plugin 迁出）
 
 ## 关键提醒
