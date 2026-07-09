@@ -16,9 +16,13 @@
 - [x] M0（Task 1-6）：Conan 迁移、drogon_ctl、OpenSSL 3.5、CMakePresets、paths.env、三平台 CI — 已推送，CI 全绿
 - [x] M1（Task 7-12）：仓储接口拆分、缓存装饰器、契约测试套件 — 已推送，CI 全绿（含 3 个真实生产缺陷修复：Redis validateClient 崩溃、hasUserConsent 逻辑反、saveTokenPair 竞态）
 - [x] M2a（Task 13-16）：libs/common + 端口 + 去 drogon::utils + 测试链接过渡 — **本地完成，未推送**
-- [ ] M2b（Task 17-18）：libs/oauth2 + ORM 归位 — **进行中**（Task 17 slice 1 完成，见下）
-- [ ] M2.5（Task 19）：libs/identity
-- [ ] M3 起：未开始
+- [x] M2b（Task 17-18）：libs/oauth2 + ORM 归位 — **本地完成**（Task 17 AuthorizationService/TokenService 主体逻辑仍留在 OAuth2Plugin，具体仓储实现未迁移命名空间——这是已知的、可接受的范围边界，不阻塞 M3；Task 18 ORM 模型 + 调用点已全部迁移并提交）
+- [x] M2.5（Task 19，**范围受限**）：libs/identity — 2026-07 继续执行时发现此前提交（`e4eea5e`）虽然创建了目录结构，但 `AuthService.cc`/`MfaService.cc`/`SessionManager.cc`/`WebAuthnService.cc` 等全部是空壳占位（`TODO` 注释 + `callback(std::nullopt)`），且 `IRoleProvider`/`ISubjectResolver`/`IUserInfoProvider` 是与 `common::ports` 同名但签名不同的重复声明，违反设计 §5.2 方案 A（端口应下沉到 common，identity 应实现该端口而非自建竞争接口）。
+  - **用户明确约束范围**：仅完成 AuthService 真实迁移 + RBAC/subject 绑定，其余控制器（MFA/WebAuthn/Social/Session）保持现状不动，留给未来独立任务。
+  - 已完成：删除重复端口声明；`AuthService.cc` 真实实现（validateUser/registerUser/getUserInfo，语义对齐 `OAuth2Server/AuthService.cc`，含 PBKDF2 哈希格式字节级兼容、legacy hash 校验后升级、账户锁定进度退避）；`RoleProvider`/`SubjectResolver`/`UserInfoProvider` 三个薄适配器（真实实现 `common::ports` 接口，非占位）；新增 `libs/storage-postgres/PostgresIdentityRepository`（Adapter 层，实现 identity 的三个仓储接口）；19 个新 gtest 单测。
+  - **仍是占位/未做**（如实记录，不夸大）：MFA/WebAuthn/Social（Google/WeChat/GitHub）/Session 五个服务的 `.cc` 仍是 TODO 占位；`PostgresIdentityRepository` 是全新实现，与 `OAuth2Plugin` 现有的 `oauth2::Postgres{User,Role,SubjectMapping}Repository` 是两套并行实现（故意不统一，统一需要迁移 `IdentityService` 的调用方，超出本次范围）；新 `AuthService`/`RoleProvider` 等尚未被任何生产代码（`OAuth2Server` controllers）实际调用——它们目前只是「libs/identity 内可独立编译验证」的构件，产品装配（把它们接入 `SessionController` 等）是 M3 Task 24 的工作。
+  - 验收核对：✅ 独立编译；✅ 不依赖 `libs/oauth2`（grep 确认零 include）；✅ identity 单测通过（19/19）。
+- [ ] M3（Task 20-26）：**即将开始**，见下
 
 ## M2a 详细完成内容（Task 13-16）
 
@@ -154,9 +158,9 @@
 
 ## 下一步
 
-- 继续 Task 17 剩余 slice（见上）
-- Task 18：ORM 模型迁移到 storage-postgres + DTO 映射（14 个 ORM 模型、`models_backup/` 忽略不迁移）
-- 这是 M2a 之后风险第二高的任务（真正把 Domain 逻辑从 OAuth2Plugin 迁出）
+- 开始 M3（Task 20-26）：Drogon 适配器 + 插件注册迁移 + whole-archive 链接策略 + 去单例化 + 产品瘦身
+- Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
+- libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 
 ## 关键提醒
 

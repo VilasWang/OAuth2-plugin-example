@@ -149,7 +149,7 @@
   - `oauth2::pkce`（纯函数）、`AuthorizationService`/`TokenService`、`access/`（consent+scope 策略+决策引擎）、`model/`（聚合）、DTO 迁入；仓储接口（M1 的 4 个）迁入
   - 产出：`libs/oauth2` target + `authforge-oauth2` export；验收：Domain 纯单测通过；arch-guard 无 drogon 依赖
 
-- [ ] 18. ORM 模型迁 `storage-postgres` + DTO 映射（F2）
+- [x] 18. ORM 模型迁 `storage-postgres` + DTO 映射（F2）
   - 14 个生成的 ORM 模型（`Oauth2*`/`Users`/`Roles` 等）迁 `libs/storage-postgres/models/`；补齐 ORM ↔ Domain DTO/值对象双向映射；更新 ORM 生成器输出目录（配合 Task 2）
   - **`models_backup/` 是 ORM 重生成时的临时备份（评审点 1 澄清）**——加入 `.gitignore` 不入库、视为 ephemeral，**不作迁移源、不迁移**；确保迁移/arch-guard 脚本忽略它
   - 产出：storage-postgres 内 models/ + 映射层；验收：Domain 零 `drogon::orm` 引用；DB 集成测试全绿；无 models 重复副本
@@ -158,7 +158,7 @@
 
 ## M2.5 — 抽取 Identity SDK（依赖：M2b）
 
-- [ ] 19. 创建 `libs/identity`（authforge::identity）
+- [x] 19. 创建 `libs/identity`（authforge::identity）【范围受限：仅 AuthService + RBAC 绑定，MFA/WebAuthn/Social/Session 迁移留待后续任务，详见 PROGRESS.md】
   - **实际迁移文件集（评审 A4 更正）**：`AuthService.cc`（365 行，仅 `validateUser`/`registerUser`/`getUserInfo`）+ 分散在各控制器的能力：
     - MFA：`MfaController.cc`（551 行）+ `TotpUtils`
     - WebAuthn：`WebAuthnController.cc`（402 行）
