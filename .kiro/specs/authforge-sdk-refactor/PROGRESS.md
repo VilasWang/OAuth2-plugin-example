@@ -6,7 +6,7 @@
 
 - 分支：`feat/m0-conan-migration`
 - PR：#11（GitHub）
-- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `40ea196`（Task 17 slice 7: access 决策引擎）
+- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `1e316f9`（Task 17 slice 10: JwkManager 迁移完成）
 - 上次推送到远端的 commit：`e5c097d`（M1 saveTokenPair 修复）
 - 用户指示："CI 不急，按计划往后推进" —— 暂不推送，先把 M2a/M2b 等后续任务在本地做完再统一验证推送
 
@@ -123,11 +123,24 @@
 - 18 个新测试，含短路验证（已 Invalid 的 scope 不应触发 consent 查询回调）
 - 验证：全量编译通过，`ctest -C Debug` 182/182 通过，零回归
 
+### Task 17 slice 8-9：JwkManager 去 OAuth2Plugin 依赖（commit `d91237c`, `efb242c`）
+- slice 8：构造函数新增可选 `ILogger*` 注入参数（默认 nullptr 回退到共享 `DrogonLogger` 实例），8 处 `logger().log(` 调用改成成员 `log(`
+- slice 9：`base64UrlEncode` 不再依赖 `oauth2::adapters::OpenSslCryptoProvider`（Adapter 层类），改成独立实现（跟 `OpenSslCryptoProvider`/`FakeCryptoProvider` 里同一段算法第三次重复，各自为了保持依赖方向正确）
+- 验证：两个 slice 各自全量编译+`ctest`182/182+`OAuth2Test_test.exe`311个DROGON_TEST全过，零回归
+
+### Task 17 slice 10：JwkManager 整体迁移到 `libs/oauth2`（commit `911965d`, `1e316f9`）
+- 新建 `libs/oauth2/include/authforge/oauth2/jwk/JwkManager.h` + `src/jwk/JwkManager.cc`：行为不变，仅去掉了硬编码 Drogon 回退（未注入 logger 时 `log()` 是安全 no-op）
+- `libs/oauth2/CMakeLists.txt` 新增 `find_package(OpenSSL)` + 链接 `OpenSSL::Crypto`
+- **旧位置 `OAuth2Plugin/include/oauth2/utils/JwkManager.h` 变成兼容 shim**（`using JwkManager = authforge::oauth2::JwkManager`），现有全部 `oauth2::JwkManager` 调用点不用改——完整命名空间统一是 M8 Task 40 的事，不在本 slice
+- `OAuth2Plugin.cc` 显式构造一个 `static DrogonLogger` 传给 `JwkManager` 构造函数，保住生产环境原有日志输出
+- `TokenService.h` 的 `class JwkManager;` 前向声明跟新 alias 冲突，改成 `#include` shim 头
+- 6 个新 smoke test（`libs/oauth2/test/JwkManagerTest.cc`）
+- 验证：全量编译通过，`ctest -C Debug` 182/182，`OAuth2Test_test.exe` 311 DROGON_TEST 全过，零回归
+
 ### Task 17 剩余 slice（未完成，下一步）
-- **`AuthorizationService`/`TokenService` 完整迁移到 `libs/oauth2`**（目前只做了 slice 4 的算法修复，两个 Service 本身仍在 `OAuth2Plugin` 里，未搬家；这是目前唯一还没有 Domain 层落点的核心业务逻辑）：
-  - `TokenService` 现在的阻塞项已经消除大半：① PKCE 缺陷已修复（slice 4）② `AuditLogger` 依赖已有端口可替（slice 5，但 `TokenService.cc` 本身还没切换成调用 `IAuditSink`，仍是直接调 `AuditLogger::log`）③ 4 个仓储接口已有新家（slice 3）④ `Client`/`AuthorizationGrant`/`TokenPair` 聚合已建好（slice 6）⑤ scope 决策逻辑已有引擎（slice 7，`ClientService`/`IdentityService` 里的对应逻辑可以退化为调用它）
-  - 仍未解决：① `drogon::app().getCustomConfig()` 取 issuer——需要通过构造参数注入（倾向此方案，不新建配置端口）② `JwkManager` 本身还没迁移到 `libs/oauth2`（它已经几乎去 Drogon 化，但内部硬编码了一个 `static DrogonLogger` 实例做日志，挪进 Domain 层前需要改成构造注入 `ILogger`）③ `IRoleProvider`（admin 角色查询）尚未在生产代码里接入任何实现，`IdentityService::getUserRoles` 目前还是直接查 `IOAuth2Storage`
-  - **建议下一步**：先把 `JwkManager` 的日志改成构造注入 `ILogger`（小而独立），再把它整体搬进 `libs/oauth2`；之后才具备把 `TokenService`/`AuthorizationService` 完整迁移的全部前提条件
+- **`AuthorizationService`/`TokenService` 完整迁移到 `libs/oauth2`**（两个 Service 本身仍在 `OAuth2Plugin` 里，未搬家；这是目前唯一还没有 Domain 层落点的核心业务逻辑）：
+  - 阻塞项基本清空：① PKCE 缺陷已修复（slice 4）② `AuditLogger` 依赖已有端口可替（slice 5，`TokenService.cc` 本身还没切换成调用 `IAuditSink`）③ 4 个仓储接口已有新家（slice 3）④ `Client`/`AuthorizationGrant`/`TokenPair` 聚合已建好（slice 6）⑤ scope 决策逻辑已有引擎（slice 7）⑥ `JwkManager` 已搬进 Domain 层（slice 8-10）
+  - 仍未解决：① `drogon::app().getCustomConfig()` 取 issuer——需要通过构造参数注入（倾向此方案，不新建配置端口）② `IRoleProvider`（admin 角色查询）尚未在生产代码里接入任何实现，`IdentityService::getUserRoles` 目前还是直接查 `IOAuth2Storage`
 - 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）从 `oauth2::` 命名空间迁移到 `authforge::oauth2::`，并让生产代码（`OAuth2Plugin.cc`）切换过去，淘汰旧接口——这是让新接口"生效"的最后一步，尚未开始
 
 ## 下一步
