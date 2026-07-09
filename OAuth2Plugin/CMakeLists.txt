@@ -62,7 +62,14 @@ target_sources(${PROJECT_NAME} PRIVATE ${PLUGIN_SOURCES})
 # make OAuth2Plugin's OWN Domain-layer code (Domain-facing classes under
 # oauth2/) depend on common yet -- that call-site migration is a separate,
 # incremental step (Task 14's own scope).
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common)
+#
+# authforge::oauth2 (M2b Task 17 slice 4): TokenService::generateSha256Hash
+# now delegates to oauth2::pkce::computeCodeChallenge() (the RFC 7636 fix,
+# see TokenService.cc's own comment). This is the correct dependency
+# direction (design.md §4.1): OAuth2Plugin, an Adapter-layer/production
+# target, is allowed to depend on the Domain-layer libs/oauth2; libs/oauth2
+# itself has zero dependency back on OAuth2Plugin.
+target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2)
 
 # Conan provides a STATIC libcurl by default. On Windows the curl headers
 # decorate symbols with __declspec(dllimport) UNLESS CURL_STATICLIB is defined,

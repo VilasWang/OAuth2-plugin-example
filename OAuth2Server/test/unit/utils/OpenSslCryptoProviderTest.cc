@@ -345,38 +345,26 @@ DROGON_TEST(Unit_SystemClock_NowMillisecondsIsConsistentWithNowSeconds)
 }
 
 // ---------------------------------------------------------------------------
-// TokenService::generateSha256Hash byte-for-byte migration golden check
+// TokenService::generateSha256Hash RFC 7636 conformance check
 // ---------------------------------------------------------------------------
 //
-// TokenService::generateSha256Hash (Task 14 slice 6) was migrated off
-// drogon::utils::getSha256/base64Encode onto OpenSslCryptoProvider. This
-// test reproduces the OLD algorithm inline via drogon::utils directly (the
-// exact pre-migration implementation, byte for byte) and compares it
-// against the NEW production function's output for the same inputs, to
-// prove the migration is a byte-identical drop-in replacement despite the
-// non-standard "base64(hex-string-as-ASCII)" behavior this function
-// preserves verbatim (see TokenService.cc's own comment for why that
-// behavior, though RFC 7636 non-conformant, is intentionally NOT fixed as
-// part of this Drogon-removal task).
-DROGON_TEST(Unit_TokenService_GenerateSha256Hash_MatchesPreMigrationAlgorithm)
+// TokenService::generateSha256Hash was migrated off drogon::utils
+// (Task 14 slice 6) and, in a later step (M2b Task 17 slice 4), fixed to
+// be RFC 7636 §4.2 conformant: code_challenge = BASE64URL(SHA256(ASCII(
+// code_verifier))), i.e. base64url of the RAW digest bytes -- not the old,
+// non-conformant "base64(hex-string-as-ASCII)" behavior this function used
+// to have (see git history for that behavior and the decision to fix it).
+// This test reproduces the CORRECT algorithm inline (independently of
+// TokenService's own implementation, which now delegates to
+// oauth2::pkce::computeCodeChallenge) and compares it against
+// TokenService::generateSha256Hash's output for the same inputs, proving
+// the two stay in lockstep.
+DROGON_TEST(Unit_TokenService_GenerateSha256Hash_IsRfc7636Conformant)
 {
-    auto oldAlgorithm = [](const std::string &input) -> std::string {
-        std::string hash = drogon::utils::getSha256(input);
-        std::string base64Url = drogon::utils::base64Encode(
-          reinterpret_cast<const unsigned char *>(hash.c_str()), hash.length()
-        );
-        for (char &c : base64Url)
-        {
-            if (c == '+')
-                c = '-';
-            else if (c == '/')
-                c = '_';
-        }
-        while (!base64Url.empty() && base64Url.back() == '=')
-        {
-            base64Url.pop_back();
-        }
-        return base64Url;
+    auto correctAlgorithm = [](const std::string &input) -> std::string {
+        OpenSslCryptoProvider provider;
+        auto digest = provider.sha256(input);
+        return provider.base64UrlEncode(digest.data(), digest.size());
     };
 
     const std::vector<std::string> testInputs = {
@@ -395,8 +383,23 @@ DROGON_TEST(Unit_TokenService_GenerateSha256Hash_MatchesPreMigrationAlgorithm)
     oauth2::TokenService tokenService(nullptr);
     for (const auto &input : testInputs)
     {
-        auto expected = oldAlgorithm(input);
+        auto expected = correctAlgorithm(input);
         auto actual = tokenService.generateSha256Hash(input);
         CHECK(actual == expected);
     }
+}
+
+// Cross-check against the RFC 7636 Appendix B official known-answer
+// vector, the same one libs/oauth2/test/PkceTest.cc asserts for
+// oauth2::pkce::computeCodeChallenge directly -- proving
+// TokenService::generateSha256Hash (the production call site) now agrees
+// with the spec-correct standalone implementation on the exact example
+// RFC 7636 itself provides.
+DROGON_TEST(Unit_TokenService_GenerateSha256Hash_MatchesRfc7636AppendixBVector)
+{
+    oauth2::TokenService tokenService(nullptr);
+    const std::string verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+    const std::string expectedChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+
+    CHECK(tokenService.generateSha256Hash(verifier) == expectedChallenge);
 }

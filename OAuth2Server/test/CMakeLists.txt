@@ -105,7 +105,7 @@ find_package(OpenSSL REQUIRED)
 # libcurl: the test target compiles the plugin sources (incl. EmailService.cc,
 # which uses libcurl SMTP) directly into itself, so it must link libcurl too.
 find_package(CURL REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common)
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2)
 
 # Match the plugin's static-libcurl handling: define CURL_STATICLIB so the curl
 # headers don't decorate symbols with __declspec(dllimport) (which would yield

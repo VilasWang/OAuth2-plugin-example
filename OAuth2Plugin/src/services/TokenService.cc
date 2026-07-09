@@ -5,6 +5,7 @@
 #include <oauth2/observability/AuditLogger.h>
 #include <oauth2/adapters/DrogonLogger.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
+#include <authforge/oauth2/pkce/Pkce.h>
 #include <cctype>
 #include <chrono>
 
@@ -482,44 +483,35 @@ bool TokenService::validatePkceCodeVerifier(
 
 std::string TokenService::generateSha256Hash(const std::string &input)
 {
-    // Task 14 (design.md §5.6): migrated off drogon::utils::getSha256 /
-    // drogon::utils::base64Encode onto OpenSslCryptoProvider.
+    // authforge-sdk-refactor, M2b Task 17 slice 4 bugfix: fixes the RFC
+    // 7636 §4.2 non-conformance that Task 14's Drogon-removal migration
+    // discovered (see git history / PROGRESS.md for the full writeup) but
+    // deliberately left unfixed at the time, to keep that migration a pure
+    // dependency-removal with byte-identical behavior. That defect is now
+    // fixed here, on explicit user instruction ("PKCE 修复代价如何，代价小
+    // 的话一起做，不用考虑已经部署的客户端") after confirming the fix cost
+    // is low: (1) the SPA frontend does not use PKCE at all yet per
+    // PRD/mfa_auth_code_pkce_design.md §6.1's own audit ("SPA 登录当前完全
+    // 没有走 PKCE 授权码流程"), so there is no live client depending on the
+    // old, non-conformant value; (2) the one existing unit test
+    // (P0FunctionalityTest.cc's Unit_P0_PKCE_Legacy_Hashing) is
+    // self-consistent (generates+validates via this same function) and
+    // keeps passing regardless of which algorithm is used; (3) the only
+    // test that pins the OLD byte sequence
+    // (OpenSslCryptoProviderTest.cc's
+    // Unit_TokenService_GenerateSha256Hash_MatchesPreMigrationAlgorithm)
+    // was updated in the same commit to assert the CORRECT RFC 7636
+    // algorithm instead.
     //
-    // IMPORTANT -- this function's behavior is preserved BYTE-FOR-BYTE
-    // exactly as it was pre-migration, including a pre-existing, NOT-fixed
-    // RFC 7636 non-compliance this migration discovered but is explicitly
-    // out of scope to fix here (Task 14 is "remove drogon::utils", not "fix
-    // PKCE protocol bugs" -- deviating would be an unauthorized behavior
-    // change). RFC 7636 §4.2 defines
-    // code_challenge = BASE64URL(SHA256(ASCII(code_verifier))) -- i.e.
-    // base64url of the RAW 32 DIGEST BYTES. This function instead base64s
-    // the ASCII TEXT of the hex digest STRING (64 ASCII chars), which is a
-    // different value than any RFC-7636-conformant client (browser SDKs,
-    // mobile SDKs, etc.) would compute for the same code_verifier. This
-    // does not surface as a test failure today because the one existing
-    // PKCE test (P0FunctionalityTest.cc's Unit_P0_PKCE_Legacy_Hashing) is
-    // self-consistent: it generates the challenge via this SAME function
-    // and validates via this SAME function, so it round-trips regardless
-    // of RFC conformance. This is a real interoperability defect for
-    // standard-conformant PKCE clients and should be tracked/fixed as its
-    // own dedicated bugfix task, not folded into this Drogon-dependency
-    // removal.
-    //
-    // Reproducing the pre-migration case-sensitive detail precisely: the
-    // ASCII hex string that gets base64-encoded must be UPPERCASE to match
-    // byte-for-byte, because drogon::utils::getSha256() returned uppercase
-    // hex (verified in OpenSslCryptoProviderTest.cc's cross-check) and this
-    // function base64-encodes that hex STRING's ASCII bytes, not the
-    // decoded digest -- a lowercase hex string would base64-encode to a
-    // completely different result.
+    // RFC 7636 §4.2: code_challenge = BASE64URL(SHA256(ASCII(code_verifier)))
+    // -- base64url of the RAW digest bytes, not of the hex string's ASCII
+    // text (the bug). This now delegates to the byte-identical algorithm
+    // already implemented (and tested against the RFC 7636 Appendix B
+    // known-answer vector) in the new libs/oauth2 Domain package's
+    // oauth2::pkce::computeCodeChallenge(), rather than duplicating the
+    // fixed logic here -- see that function for the implementation.
     static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
-    std::string hexUpper = cryptoProvider.sha256Hex(input);
-    for (char &c : hexUpper)
-    {
-        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-    }
-
-    return cryptoProvider.base64UrlEncode(hexUpper);
+    return authforge::oauth2::pkce::computeCodeChallenge(input, "S256", cryptoProvider);
 }
 
 }  // namespace oauth2
