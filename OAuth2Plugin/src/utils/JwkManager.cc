@@ -1,6 +1,5 @@
 #include <oauth2/utils/JwkManager.h>
 #include <oauth2/adapters/DrogonLogger.h>
-#include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/bn.h>
@@ -199,20 +198,71 @@ bool JwkManager::generateEphemeralKey()
     return true;
 }
 
+namespace
+{
+// M2b Task 17 slice 9 (authforge-sdk-refactor): a standalone base64url
+// (RFC 4648 §5, unpadded) implementation, duplicated deliberately rather
+// than depending on oauth2::adapters::OpenSslCryptoProvider (an
+// Adapter-layer class in OAuth2Plugin). This is the LAST OAuth2Plugin
+// dependency this file had (Task 14 slice 5 migrated this off
+// drogon::utils::base64EncodeUnpadded onto that Adapter class; this slice
+// removes the Adapter dependency too), which unblocks relocating this
+// entire file into libs/oauth2 (Domain layer, design.md §4.1 rule 1: no
+// Drogon, and no dependency on OAuth2Plugin either since the dependency
+// direction is the other way). Byte-for-byte identical algorithm/alphabet
+// to OpenSslCryptoProvider::base64UrlEncode and
+// FakeCryptoProvider::base64UrlEncode (which duplicate this same
+// algorithm for the identical dependency-direction reason -- see those
+// classes' own header comments).
+constexpr char kBase64UrlAlphabet[] =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+std::string base64UrlEncodeImpl(const unsigned char *bytes, size_t length)
+{
+    std::string out;
+    out.reserve((length + 2) / 3 * 4);
+
+    size_t i = 0;
+    while (i + 3 <= length)
+    {
+        const uint32_t n =
+          (static_cast<uint32_t>(bytes[i]) << 16) | (static_cast<uint32_t>(bytes[i + 1]) << 8) |
+          static_cast<uint32_t>(bytes[i + 2]);
+        out.push_back(kBase64UrlAlphabet[(n >> 18) & 0x3F]);
+        out.push_back(kBase64UrlAlphabet[(n >> 12) & 0x3F]);
+        out.push_back(kBase64UrlAlphabet[(n >> 6) & 0x3F]);
+        out.push_back(kBase64UrlAlphabet[n & 0x3F]);
+        i += 3;
+    }
+
+    const size_t remaining = length - i;
+    if (remaining == 1)
+    {
+        const uint32_t n = static_cast<uint32_t>(bytes[i]) << 16;
+        out.push_back(kBase64UrlAlphabet[(n >> 18) & 0x3F]);
+        out.push_back(kBase64UrlAlphabet[(n >> 12) & 0x3F]);
+    }
+    else if (remaining == 2)
+    {
+        const uint32_t n =
+          (static_cast<uint32_t>(bytes[i]) << 16) | (static_cast<uint32_t>(bytes[i + 1]) << 8);
+        out.push_back(kBase64UrlAlphabet[(n >> 18) & 0x3F]);
+        out.push_back(kBase64UrlAlphabet[(n >> 12) & 0x3F]);
+        out.push_back(kBase64UrlAlphabet[(n >> 6) & 0x3F]);
+    }
+
+    return out;
+}
+}  // namespace
+
 std::string JwkManager::base64UrlEncode(const unsigned char *data, size_t len)
 {
-    // Task 14 (design.md §5.6): migrated off
-    // drogon::utils::base64EncodeUnpadded onto the
-    // authforge::common::ports::ICryptoProvider Adapter implementation
-    // (OpenSslCryptoProvider).
-    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
-    return cryptoProvider.base64UrlEncode(data, len);
+    return base64UrlEncodeImpl(data, len);
 }
 
 std::string JwkManager::base64UrlEncode(const std::string &data)
 {
-    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
-    return cryptoProvider.base64UrlEncode(data);
+    return base64UrlEncodeImpl(reinterpret_cast<const unsigned char *>(data.data()), data.size());
 }
 
 std::string JwkManager::signJwt(const Json::Value &payload) const
