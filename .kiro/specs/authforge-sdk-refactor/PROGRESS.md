@@ -6,7 +6,7 @@
 
 - 分支：`feat/m0-conan-migration`
 - PR：#11（GitHub）
-- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `70aba78`（Task 17 slice 4: PKCE RFC7636 缺陷修复）
+- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `40ea196`（Task 17 slice 7: access 决策引擎）
 - 上次推送到远端的 commit：`e5c097d`（M1 saveTokenPair 修复）
 - 用户指示："CI 不急，按计划往后推进" —— 暂不推送，先把 M2a/M2b 等后续任务在本地做完再统一验证推送
 
@@ -98,13 +98,36 @@
 - `P0FunctionalityTest.cc` 无需改动（自洽，不受算法变化影响）
 - 验证：全量编译通过；`ctest -C Debug` 151/151 通过；`OAuth2Test_test.exe` 直接跑显示 311 个 DROGON_TEST（57114 断言）全过（比修复前多 1 个新测试）；`authforge-oauth2-test` 27/27 通过。零回归
 
+### Task 17 slice 5：IAuditSink 端口 + DrogonAuditSink 适配器（commit `f20f64d`）
+- **动机**：`TokenService` 迁移的阻塞项之一——现有 `TokenService.cc` 直接调用 `oauth2::observability::AuditLogger::log()`，后者依赖 `drogon::app().getDbClient()`/`drogon::orm::DrogonDbException`，Domain 层不能依赖
+- design.md §3.3 只说了"模型进 common，导出器留在适配器"，但没有为 sink 侧定义端口（因为当时没有 Domain 代码需要发审计事件）。现在补上
+- 新建 `libs/common/include/authforge/common/ports/IAuditSink.h`：单方法端口（`record(AuditEvent)`），仿 `IMetrics.h` 的形状，不是照搬 `AuditLogger` 的具体方法名
+- 新建 `libs/common/testing/.../FakeAuditSink.h` + 4 个测试（仿 `FakeLogger.h` 模式）
+- 新建 `OAuth2Plugin/include/oauth2/adapters/DrogonAuditSink.h` + `.cc`：薄适配器，把 `common::observability::AuditEvent` 逐字段转换成旧的 `oauth2::observability::AuditEvent` 并转发给现有 `AuditLogger::log()`——`AuditLogger` 本身未改动，没有重复的写库逻辑
+- 验证：全量编译通过，`ctest -C Debug` 155/155 通过，零回归
+
+### Task 17 slice 6：Client/AuthorizationGrant/TokenPair 聚合（commit `f8a1cb8`）
+- design.md 的 Data Models 表定义了三个聚合，之前只搬了裸 DTO，聚合本身没建
+- `model/Client.h`：包一层 `OAuth2Client`，加 `isRegisteredRedirectUri()`/`allowsScope()`/`allowsAllScopes()`——现有调用点（如 `TokenService.cc` 里裸的 `clientType==PUBLIC` 判断）都是手写线性查找，这里统一收口
+- `model/AuthorizationGrant.h`：包一层 `AuthorizationTransaction`，加 `isExpired()`/`hasPkceChallenge()`/`verifyPkceCodeVerifier()`（后者直接调用 Task 17 slice 1 的 `oauth2::pkce::verifyCodeVerifier`）
+- `model/TokenPair.h`：包一层 access+refresh token DTO，**构造时校验配对不变量**（`refreshToken.accessToken` 必须引用 `accessToken.token`；`clientId`/`userId` 必须一致）——这是所有生产调用点一直隐含遵守但从未显式校验过的不变量
+- 三者都是刻意的薄包装（不重新用值对象建模字段），跟 Dto.h 保持一致的克制
+- 14 个新测试，含用 RFC 7636 Appendix B 向量走通 `AuthorizationGrant::verifyPkceCodeVerifier` 的往返验证、`TokenPair` 全部 3 种不变量违反场景
+- 验证：全量编译通过，`ctest -C Debug` 169/169 通过，零回归
+
+### Task 17 slice 7：oauth2::access 决策引擎（commit `40ea196`）
+- design.md 目录结构里的 `access/`（consent + scope 分层策略 + 决策引擎）之前完全没建
+- 现有生产逻辑把"client 允许→admin 角色→用户 consent"三级决策拆成分散的服务调用（`ClientService::validateClientScopes`、`IdentityService::validateUserRolesForScopes`+`scopeRequiresAdminRole`、`OAuth2StandardController::checkUserConsentAndProceed` 的递归 `hasUserConsent` 调用链），没有一个统一的类型化决策结果
+- `access/ScopeDecision.h`：三态枚举（`Valid`/`Invalid`/`ConsentRequired`）+ `ScopeCheckResult`（单 scope 结果+可机读 reason code）+ `ScopeValidationSummary`（汇总，带 `canProceed()`/`needsConsent()`/`hasErrors()`）
+- `access/ScopeDecisionEngine.h/.cc`：`isAdminScope()` 精确复刻 `IdentityService::scopeRequiresAdminRole` 的硬编码列表和前缀匹配语义；`evaluateScope()`/`evaluateScopes()` 是**纯函数、同步**求值（不自己做角色/consent的异步查询，那是调用方——未来的 `AuthorizationService`——的职责），刻意保持引擎本身可测试、跟异步编排策略解耦
+- 18 个新测试，含短路验证（已 Invalid 的 scope 不应触发 consent 查询回调）
+- 验证：全量编译通过，`ctest -C Debug` 182/182 通过，零回归
+
 ### Task 17 剩余 slice（未完成，下一步）
-- `AuthorizationService`（需新建，目前在 OAuth2Plugin 里没有直接对应文件，需要从 `OAuth2StandardController`/`ClientService` 相关逻辑中提炼）
-- **`TokenService` 完整迁移到 `libs/oauth2`**（目前只做了 slice 4 的算法修复，`TokenService` 本身仍在 `OAuth2Plugin` 里，未搬家）：
-  - 现有 `OAuth2Plugin/include/oauth2/services/TokenService.h` + `.cc` 直接 `#include <drogon/drogon.h>`（`drogon::app().getCustomConfig()` 取 issuer）+ 依赖旧 `IOAuth2Storage`（上帝接口，未拆）+ 直接用 `AuditLogger`（Drogon 相关）
-  - 迁移需要：① 把 `IOAuth2Storage` 依赖换成 4 个新 `authforge::oauth2::repository::I*Repository`（或先只迁移用到的方法子集）② `drogon::app().getCustomConfig()` 取 issuer 需要通过某种配置端口注入（目前 `common::ports` 里没有配置端口，需要新增或者把 issuer 作为构造参数传入——构造参数注入更简单，倾向此方案）③ `AuditLogger::log` 调用需要确认是否已去 Drogon 化（Task 14 slice 8 只迁移了 `AuditLogger.cc` 内部的 LOG_* 调用，`AuditLogger` 本身的 DB/HTTP 依赖被保留，需要重新检查它是否可以在 libs/oauth2 里使用，或者需要经 observability 端口）
-- `access/`（consent + scope 决策引擎）
-- `model/`（聚合，`AuthorizationGrant`/`TokenPair`/`Client` 三个聚合尚未建；目前只有裸 DTO）
+- **`AuthorizationService`/`TokenService` 完整迁移到 `libs/oauth2`**（目前只做了 slice 4 的算法修复，两个 Service 本身仍在 `OAuth2Plugin` 里，未搬家；这是目前唯一还没有 Domain 层落点的核心业务逻辑）：
+  - `TokenService` 现在的阻塞项已经消除大半：① PKCE 缺陷已修复（slice 4）② `AuditLogger` 依赖已有端口可替（slice 5，但 `TokenService.cc` 本身还没切换成调用 `IAuditSink`，仍是直接调 `AuditLogger::log`）③ 4 个仓储接口已有新家（slice 3）④ `Client`/`AuthorizationGrant`/`TokenPair` 聚合已建好（slice 6）⑤ scope 决策逻辑已有引擎（slice 7，`ClientService`/`IdentityService` 里的对应逻辑可以退化为调用它）
+  - 仍未解决：① `drogon::app().getCustomConfig()` 取 issuer——需要通过构造参数注入（倾向此方案，不新建配置端口）② `JwkManager` 本身还没迁移到 `libs/oauth2`（它已经几乎去 Drogon 化，但内部硬编码了一个 `static DrogonLogger` 实例做日志，挪进 Domain 层前需要改成构造注入 `ILogger`）③ `IRoleProvider`（admin 角色查询）尚未在生产代码里接入任何实现，`IdentityService::getUserRoles` 目前还是直接查 `IOAuth2Storage`
+  - **建议下一步**：先把 `JwkManager` 的日志改成构造注入 `ILogger`（小而独立），再把它整体搬进 `libs/oauth2`；之后才具备把 `TokenService`/`AuthorizationService` 完整迁移的全部前提条件
 - 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）从 `oauth2::` 命名空间迁移到 `authforge::oauth2::`，并让生产代码（`OAuth2Plugin.cc`）切换过去，淘汰旧接口——这是让新接口"生效"的最后一步，尚未开始
 
 ## 下一步
