@@ -1,5 +1,20 @@
 #pragma once
 
+// M2b Task 17 slice 8 (authforge-sdk-refactor): constructor now optionally
+// takes an authforge::common::ports::ILogger& (Task 13's Drogon-free
+// logging port), so this class's LOG_* call sites (all already migrated
+// to ILogger::log() in Task 14 slice 7) no longer force a hardcoded,
+// Drogon-backed logger implementation at construction time -- a
+// prerequisite for eventually relocating this class into libs/oauth2
+// (Domain layer, design.md §4.1 rule 1: no Drogon). See JwkManager.cc's
+// logger() free function for the backward-compatible fallback that keeps
+// every EXISTING call site (`JwkManager()`, `JwkManager jwk;`,
+// `std::make_shared<JwkManager>()`, none of which pass a logger) compiling
+// and behaving identically (falls back to the same DrogonLogger instance
+// as before this change).
+
+#include <authforge/common/ports/ILogger.h>
+
 #include <string>
 #include <json/json.h>
 #include <memory>
@@ -42,7 +57,25 @@ namespace oauth2
 class JwkManager
 {
   public:
-    JwkManager() = default;
+    /**
+     * @brief Construct, optionally injecting the ILogger this class logs
+     * through. Defaults to nullptr, in which case every LOG_* call site
+     * falls back to a shared, Drogon-backed DrogonLogger instance (see
+     * JwkManager.cc's logger() free function) -- preserving EVERY existing
+     * call site's behavior unchanged (none of them currently pass a
+     * logger). Passing a non-null logger here is the only way to observe
+     * this class's log output without a Drogon dependency (e.g. from a
+     * future Domain-layer unit test using FakeLogger, or once this class
+     * is relocated into libs/oauth2 and a production Adapter wires its
+     * own ILogger implementation explicitly instead of relying on the
+     * fallback).
+     *
+     * Does NOT take ownership: the caller must keep `*logger` alive for
+     * at least this object's lifetime.
+     */
+    explicit JwkManager(authforge::common::ports::ILogger *logger = nullptr) : logger_(logger)
+    {
+    }
     ~JwkManager();
 
     /**
@@ -98,6 +131,7 @@ class JwkManager
     void *rsaKey_ = nullptr;  // EVP_PKEY* (opaque to avoid OpenSSL header in public API)
     std::string kid_;
     bool initialized_ = false;
+    authforge::common::ports::ILogger *logger_ = nullptr;  // non-owning; may be nullptr
 
     // Generate an ephemeral RSA key for development/testing
     bool generateEphemeralKey();
@@ -111,6 +145,10 @@ class JwkManager
 
     // Extract RSA public key components (n, e) for JWK
     bool getPublicKeyComponents(std::string &n, std::string &e) const;
+
+    // Log through the injected logger_ if set, else the shared
+    // Drogon-backed fallback (see JwkManager.cc's fallbackLogger()).
+    void log(authforge::common::ports::LogLevel level, const std::string &message) const;
 };
 
 }  // namespace oauth2

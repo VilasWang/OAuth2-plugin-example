@@ -1,4 +1,4 @@
-﻿#include <oauth2/utils/JwkManager.h>
+#include <oauth2/utils/JwkManager.h>
 #include <oauth2/adapters/DrogonLogger.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <openssl/evp.h>
@@ -21,12 +21,22 @@ namespace
 // (DrogonLogger, which itself forwards to Drogon's logger -- see that
 // class's own header comment for why it is correct for THIS class to
 // depend on Drogon while libs/common's port definition does not).
-authforge::common::ports::ILogger &logger()
+//
+// M2b Task 17 slice 8: this is now the FALLBACK used only when a
+// JwkManager instance was constructed without an explicit logger (the
+// default, `JwkManager()`/`JwkManager(nullptr)` -- i.e. every existing
+// call site, unchanged). See JwkManager::log() below.
+authforge::common::ports::ILogger &fallbackLogger()
 {
     static oauth2::adapters::DrogonLogger instance;
     return instance;
 }
 }  // namespace
+
+void JwkManager::log(authforge::common::ports::LogLevel level, const std::string &message) const
+{
+    (logger_ ? *logger_ : fallbackLogger()).log(level, message);
+}
 
 JwkManager::~JwkManager()
 {
@@ -46,7 +56,7 @@ bool JwkManager::init(const Json::Value &config)
     // (signJwt/getJwks/getKeyId) can never observe the key state changing.
     if (initialized_)
     {
-        logger().log(
+        log(
           authforge::common::ports::LogLevel::Error,
           "JwkManager: init() called more than once; ignoring "
           "(init-once-then-read-only contract). The existing key is kept."
@@ -62,7 +72,7 @@ bool JwkManager::init(const Json::Value &config)
         {
             kid_ = config.get("kid", "key-1").asString();
             initialized_ = true;
-            logger().log(
+            log(
               authforge::common::ports::LogLevel::Info,
               "JwkManager: Loaded signing key from OAUTH2_SIGNING_KEY env"
             );
@@ -83,7 +93,7 @@ bool JwkManager::init(const Json::Value &config)
             {
                 kid_ = config.get("kid", "key-1").asString();
                 initialized_ = true;
-                logger().log(
+                log(
                   authforge::common::ports::LogLevel::Info,
                   "JwkManager: Loaded signing key from OAUTH2_JWT_KEY_PATH=" +
                     std::string(keyPathEnv)
@@ -91,7 +101,7 @@ bool JwkManager::init(const Json::Value &config)
                 return true;
             }
         }
-        logger().log(
+        log(
           authforge::common::ports::LogLevel::Warn,
           "JwkManager: Failed to load key from OAUTH2_JWT_KEY_PATH=" + std::string(keyPathEnv)
         );
@@ -110,20 +120,20 @@ bool JwkManager::init(const Json::Value &config)
             {
                 kid_ = config.get("kid", "key-1").asString();
                 initialized_ = true;
-                logger().log(
+                log(
                   authforge::common::ports::LogLevel::Info,
                   "JwkManager: Loaded signing key from " + keyPath
                 );
                 return true;
             }
         }
-        logger().log(
+        log(
           authforge::common::ports::LogLevel::Warn, "JwkManager: Failed to load key from " + keyPath
         );
     }
 
     // Fallback: generate ephemeral key (dev/test only)
-    logger().log(
+    log(
       authforge::common::ports::LogLevel::Warn,
       "JwkManager: No signing key configured, generating ephemeral key (DEV ONLY)"
     );
@@ -134,7 +144,7 @@ bool JwkManager::init(const Json::Value &config)
         return true;
     }
 
-    logger().log(authforge::common::ports::LogLevel::Error, "JwkManager: Failed to initialize");
+    log(authforge::common::ports::LogLevel::Error, "JwkManager: Failed to initialize");
     return false;
 }
 
@@ -149,7 +159,7 @@ bool JwkManager::loadFromPem(const std::string &pemData)
 
     if (!pkey)
     {
-        logger().log(
+        log(
           authforge::common::ports::LogLevel::Error, "JwkManager: Failed to parse PEM private key"
         );
         return false;
@@ -222,7 +232,7 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
     // CRYPTO_THREADID callbacks — prefer upgrading OpenSSL to >= 1.1.0.
     if (!initialized_ || !rsaKey_)
     {
-        logger().log(
+        log(
           authforge::common::ports::LogLevel::Error, "JwkManager: Cannot sign JWT - not initialized"
         );
         return "";
