@@ -1,7 +1,7 @@
 #include <oauth2/storage/PostgresGrantRepository.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/models/Oauth2Codes.h>
+#include <authforge/storage/postgres/models/Oauth2Codes.h>
 
 #include <chrono>
 

@@ -26,16 +26,16 @@ inline int constantTimeMemcmp(const void *s1, const void *s2, size_t n)
 }
 }  // namespace
 
-#include <oauth2/models/Oauth2Clients.h>
-#include <oauth2/models/Oauth2Codes.h>
-#include <oauth2/models/Oauth2AccessTokens.h>
-#include <oauth2/models/Oauth2RefreshTokens.h>
-#include <oauth2/models/Oauth2Scopes.h>
-#include <oauth2/models/Oauth2ClientScopes.h>
-#include <oauth2/models/Oauth2UserConsents.h>
-#include <oauth2/models/Oauth2SubjectMappings.h>
-#include <oauth2/models/Roles.h>
-#include <oauth2/models/UserRoles.h>
+#include <authforge/storage/postgres/models/Oauth2Clients.h>
+#include <authforge/storage/postgres/models/Oauth2Codes.h>
+#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
+#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
+#include <authforge/storage/postgres/models/Oauth2Scopes.h>
+#include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
+#include <authforge/storage/postgres/models/Oauth2UserConsents.h>
+#include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <authforge/storage/postgres/models/Roles.h>
+#include <authforge/storage/postgres/models/UserRoles.h>
 
 namespace oauth2
 {

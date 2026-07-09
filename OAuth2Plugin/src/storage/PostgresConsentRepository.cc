@@ -1,7 +1,7 @@
 #include <oauth2/storage/PostgresConsentRepository.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/models/Oauth2UserConsents.h>
+#include <authforge/storage/postgres/models/Oauth2UserConsents.h>
 
 namespace oauth2
 {

@@ -1,8 +1,8 @@
 #include <oauth2/storage/PostgresTokenRepository.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/models/Oauth2AccessTokens.h>
-#include <oauth2/models/Oauth2RefreshTokens.h>
+#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
+#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
 
 #include <chrono>
 #include <ctime>

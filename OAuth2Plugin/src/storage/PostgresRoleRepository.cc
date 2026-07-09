@@ -1,8 +1,8 @@
 #include <oauth2/storage/PostgresRoleRepository.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/models/Roles.h>
-#include <oauth2/models/UserRoles.h>
+#include <authforge/storage/postgres/models/Roles.h>
+#include <authforge/storage/postgres/models/UserRoles.h>
 
 namespace oauth2
 {

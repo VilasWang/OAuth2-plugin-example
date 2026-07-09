@@ -1,7 +1,7 @@
 #include <oauth2/storage/PostgresSubjectMappingRepository.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/models/Oauth2SubjectMappings.h>
+#include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
 
 namespace oauth2
 {

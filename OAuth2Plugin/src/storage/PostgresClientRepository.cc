@@ -28,9 +28,9 @@ inline int constantTimeMemcmp(const void *s1, const void *s2, size_t n)
 }
 }  // namespace
 
-#include <oauth2/models/Oauth2Clients.h>
-#include <oauth2/models/Oauth2Scopes.h>
-#include <oauth2/models/Oauth2ClientScopes.h>
+#include <authforge/storage/postgres/models/Oauth2Clients.h>
+#include <authforge/storage/postgres/models/Oauth2Scopes.h>
+#include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
 
 namespace oauth2
 {

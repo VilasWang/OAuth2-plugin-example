@@ -9,7 +9,8 @@ option(OAUTH2_TEST_COVERAGE "Enable code coverage reporting" OFF)
 file(GLOB PLUGIN_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/plugin/*.cc")
 file(GLOB STORAGE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/storage/*.cc")
 file(GLOB SERVICE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/services/*.cc")
-file(GLOB MODEL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/models/*.cc")
+# M2b Task 18: ORM model sources relocated to libs/storage-postgres (now
+# linked below as authforge::storage::postgres); no longer globbed here.
 file(GLOB PLUGIN_CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/controllers/*.cc")
 file(GLOB PLUGIN_FILTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/filters/*.cc")
 file(GLOB COMMON_SRC 
@@ -76,7 +77,6 @@ add_executable(${PROJECT_NAME}
     ${PLUGIN_SRC}
     ${STORAGE_SRC}
     ${SERVICE_SRC}
-    ${MODEL_SRC}
     ${PLUGIN_CTL_SRC}
     ${PLUGIN_FILTER_SRC}
     ${CTL_SRC}
@@ -95,7 +95,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/../
     ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/include/oauth2/models
     ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../controllers
 )
@@ -105,7 +104,7 @@ find_package(OpenSSL REQUIRED)
 # libcurl: the test target compiles the plugin sources (incl. EmailService.cc,
 # which uses libcurl SMTP) directly into itself, so it must link libcurl too.
 find_package(CURL REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2)
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2 authforge::storage::postgres)
 
 # Match the plugin's static-libcurl handling: define CURL_STATICLIB so the curl
 # headers don't decorate symbols with __declspec(dllimport) (which would yield

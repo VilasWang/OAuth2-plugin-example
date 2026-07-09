@@ -37,14 +37,9 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        # ORM-generated model .cc files emit quote-includes of sibling
-        # model headers (e.g. `#include "Oauth2Clients.h"` from
-        # `Oauth2AccessTokens.cc`). Per spec §0 the generator output is
-        # exempt from rewrite, so we keep this PRIVATE include path
-        # rather than mutating the .cc files. (design §7.4 mentioned
-        # removing this entry; the actual implementation must keep it
-        # because ORM generator quote-include style is non-negotiable.)
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/oauth2/models
+        # M2b Task 18: the ORM model headers (and their generator-emitted
+        # sibling quote-includes) moved to libs/storage-postgres; this
+        # private include path is no longer needed here.
 )
 
 # Sources
@@ -69,7 +64,10 @@ target_sources(${PROJECT_NAME} PRIVATE ${PLUGIN_SOURCES})
 # direction (design.md §4.1): OAuth2Plugin, an Adapter-layer/production
 # target, is allowed to depend on the Domain-layer libs/oauth2; libs/oauth2
 # itself has zero dependency back on OAuth2Plugin.
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2)
+# authforge::storage::postgres (M2b Task 18): ORM models relocated out of
+# this target into libs/storage-postgres; every PostgresXxxRepository.cc
+# in src/storage/ now includes them from there.
+target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2 authforge::storage::postgres)
 
 # Conan provides a STATIC libcurl by default. On Windows the curl headers
 # decorate symbols with __declspec(dllimport) UNLESS CURL_STATICLIB is defined,
