@@ -192,11 +192,27 @@
 
 **遗留给 Task 22/23 的部分**：本决策只解决"插件类名/config 反射是否变"这一层；「改为静态库形态分发时的 whole-archive 链接」（Task 22）和「controller/filter 去 `getPlugin<OAuth2Plugin>()` 单例查找、改构造注入」（Task 23）仍是独立且尚未开始的工作——方案 A 选定后，Task 23 的"去单例化"目标是**调用方式**（构造注入 vs 全局查找），不是要求插件本身消失或改名，这与方案 A 并不矛盾（design.md §5.7 决策段最后一句："无论哪种：Task 22 验收须包含 config 驱动的插件实例化成功"，本决策已满足）。
 
+### 重要发现：controllers/views/plugin 迁移必须与 Task 22（whole-archive）同步做，不能再走"slice 1/2 那种共存"模式
+
+尝试迁移 `HealthController` 到 `libs/drogon` 作为 Task 20 slice 3 时发现并撤回：
+
+- `drogon::HttpController<T>` / `drogon::Plugin<T>` 通过 `ADD_METHOD_TO`/`METHOD_LIST_BEGIN`（controller）和 CRTP 基类模板实例化（plugin）做**静态自注册**——路由/插件在全局静态对象构造时把自己塞进 Drogon 内部注册表，没有任何一个"正常"调用点会显式引用这些类的符号
+- 这与 slice 1/2 迁移的 filters/validation **本质不同**：filter 类是被 controller 的 `ADD_METHOD_TO(..., "命名空间::ClassName")` **按字符串**引用或被测试直接 `new` 出来用的，编译器/链接器有真实引用链，两套并行实现（新旧文件都编译进各自目标）不会冲突，因为它们是不同的 C++ 类型，谁被引用就链接谁
+- controller/plugin 没有这种"谁引用谁链接"的保护：如果同一个最终可执行文件（如未来的 `OAuth2Server`）**同时**链接了含旧 `HealthController` 的源码编译单元和含新 `authforge::drogon::controllers::HealthController` 的 `libs/drogon` 静态库，两者会同时自注册 `/health` 路由，Drogon 在启动时对重复路由要么报错要么产生未定义的"哪个生效"行为——这是**启动期失败**，比 F1 的"链接器丢弃符号导致 404"更早更严重
+- 反过来，如果只迁移到 `libs/drogon` 且从 `OAuth2Server` 侧删除旧文件（原子切换，不共存），又直接撞上 design.md F1/H5 描述的静态库符号丢弃问题：`libs/drogon` 一旦变成 STATIC 库，`OAuth2Server` 常规链接会因为链接器认为 controller 的自注册静态对象"未被引用"而整体丢弃该 `.o`，导致路由 404——这正是 Task 22 的 whole-archive 链接要解决的问题
+- **结论**：controllers、views（`login.csp`/`consent.csp`）、`OAuth2Plugin.cc` 插件本体这三类"自注册"代码的迁移，必须与 Task 22（whole-archive 链接配置）**在同一个原子提交批次**内完成（迁移 + 删除旧文件 + whole-archive 链接配置 + 验证路由可达，四件事一起做，不能分散成"先迁移再补链接"的多个 slice），区别于 filters/validation 这种可以安全共存过渡的迁移。这也解释了 design.md 为什么把 Task 20（创建 libs/drogon）和 Task 22（whole-archive）分开列但反复强调"扩展验收"要一起看。
+- 已清理本次撤回的 slice 3 尝试（`libs/drogon/include/authforge/drogon/controllers/HealthController.h` 未提交，已删除），未污染仓库历史
+
 ## 下一步
 
-- 继续 Task 20 剩余 slice，见上（controllers/views/OAuth2Plugin.cc 本体退化为装配器）
-- Task 22（whole-archive 链接策略）：待 controllers/views 迁移到 `libs/drogon` 且该库改为消费者需要 whole-archive 链接的形态时验证；当前 `OAuth2Plugin` 仍是 OBJECT 库，`libs/drogon` 目前也不含自注册符号（validation/filters 类不是 controller/plugin，无需 whole-archive），该验证时机随 controllers 迁移到来
-- Task 23（controller/filter 去单例化）：受影响清单见 tasks.md（9 处生产 + ~38 处测试），待 controllers 本体迁移后一并处理
+- **Task 20 controllers/views/plugin 本体 + Task 22 whole-archive 必须合并成一个更大的原子工作批次**（见上一节的发现），这比原计划的"逐个 slice 迁移"更复杂，需要：
+  1. 一次性把全部 controllers（`OAuth2StandardController` + `OAuth2Server/controllers/*` 15 个文件）+ views + `OAuth2Plugin.cc` 迁入 `libs/drogon`
+  2. 同时从 `OAuth2Server`/`OAuth2Server/test` 的 CMakeLists 里移除对应的旧源码编译（`aux_source_directory(controllers ...)`/`file(GLOB PLUGIN_CTL_SRC ...)` 等）
+  3. 同时给 `OAuth2Server`/`OAuth2Test_test` 对 `authforge-drogon` 的链接配置 whole-archive（`$<LINK_LIBRARY:WHOLE_ARCHIVE,authforge-drogon>` 或 MSVC `/WHOLEARCHIVE:`）
+  4. 验证路由可达（非 404）+ config 驱动插件实例化仍成功 + 全部 207 个现有测试通过
+  - 由于规模巨大（AdminController 单文件 2896 行），这个批次内部仍可以按"一个 controller 文件一个提交"的粒度推进，但**最后一步（whole-archive 配置生效 + 移除旧编译单元）必须是所有 controller 都迁移完之后的单次原子切换**，中间过程 `libs/drogon` 会短暂处于"新代码已加入但因未启用 whole-archive/旧编译单元未移除而实际未被使用"的状态（这本身不违反"每步可编译"，只是功能上是过渡态）
+- Task 23（controller/filter 去单例化）：受影响清单见 tasks.md（9 处生产 + ~38 处测试），可以作为上面这个大批次内部的一个环节一起处理（去单例化 + 迁移到 libs/drogon 一起做，减少重复修改同一批文件的次数）
+- 已完成且可安全独立推进的部分：filters/validation（slice 1/2，已完成）——这些不受上述限制，因为它们没有自注册行为
 - Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
 - libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 
