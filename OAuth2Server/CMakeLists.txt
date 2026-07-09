@@ -27,7 +27,14 @@ target_sources(${PROJECT_NAME} PRIVATE
 )
 
 # Link against the Plugin library (defined in root CMakeLists.txt)
-target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin CURL::libcurl)
+# authforge::drogon (M3 Task 20 slice 3, EXPERIMENTAL): linked as a PLAIN
+# static library dependency (NOT whole-archive) -- this is deliberately
+# the core of the AutoCreation=false mechanism-verification experiment
+# (see PROGRESS.md). HealthController now lives there with
+# AutoCreation=false + an explicit drogon::app().registerController() call
+# in main.cc, which is meant to establish a real linker-visible reference
+# so the controller's .obj is not dropped even without whole-archive.
+target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin authforge::drogon CURL::libcurl)
 
 # Additional includes
 target_include_directories(${PROJECT_NAME} PRIVATE 

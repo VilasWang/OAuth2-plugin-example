@@ -203,16 +203,60 @@
 - **结论**：controllers、views（`login.csp`/`consent.csp`）、`OAuth2Plugin.cc` 插件本体这三类"自注册"代码的迁移，必须与 Task 22（whole-archive 链接配置）**在同一个原子提交批次**内完成（迁移 + 删除旧文件 + whole-archive 链接配置 + 验证路由可达，四件事一起做，不能分散成"先迁移再补链接"的多个 slice），区别于 filters/validation 这种可以安全共存过渡的迁移。这也解释了 design.md 为什么把 Task 20（创建 libs/drogon）和 Task 22（whole-archive）分开列但反复强调"扩展验收"要一起看。
 - 已清理本次撤回的 slice 3 尝试（`libs/drogon/include/authforge/drogon/controllers/HealthController.h` 未提交，已删除），未污染仓库历史
 
-## 下一步
+## 重大修正：AutoCreation=false + registerController/registerFilter/registerPlugin 可能完全避免 whole-archive（用户指出，已核实源码）
 
-- **Task 20 controllers/views/plugin 本体 + Task 22 whole-archive 必须合并成一个更大的原子工作批次**（见上一节的发现），这比原计划的"逐个 slice 迁移"更复杂，需要：
-  1. 一次性把全部 controllers（`OAuth2StandardController` + `OAuth2Server/controllers/*` 15 个文件）+ views + `OAuth2Plugin.cc` 迁入 `libs/drogon`
-  2. 同时从 `OAuth2Server`/`OAuth2Server/test` 的 CMakeLists 里移除对应的旧源码编译（`aux_source_directory(controllers ...)`/`file(GLOB PLUGIN_CTL_SRC ...)` 等）
-  3. 同时给 `OAuth2Server`/`OAuth2Test_test` 对 `authforge-drogon` 的链接配置 whole-archive（`$<LINK_LIBRARY:WHOLE_ARCHIVE,authforge-drogon>` 或 MSVC `/WHOLEARCHIVE:`）
-  4. 验证路由可达（非 404）+ config 驱动插件实例化仍成功 + 全部 207 个现有测试通过
-  - 由于规模巨大（AdminController 单文件 2896 行），这个批次内部仍可以按"一个 controller 文件一个提交"的粒度推进，但**最后一步（whole-archive 配置生效 + 移除旧编译单元）必须是所有 controller 都迁移完之后的单次原子切换**，中间过程 `libs/drogon` 会短暂处于"新代码已加入但因未启用 whole-archive/旧编译单元未移除而实际未被使用"的状态（这本身不违反"每步可编译"，只是功能上是过渡态）
-- Task 23（controller/filter 去单例化）：受影响清单见 tasks.md（9 处生产 + ~38 处测试），可以作为上面这个大批次内部的一个环节一起处理（去单例化 + 迁移到 libs/drogon 一起做，减少重复修改同一批文件的次数）
-- 已完成且可安全独立推进的部分：filters/validation（slice 1/2，已完成）——这些不受上述限制，因为它们没有自注册行为
+用户指出：`class AdminController : public drogon::HttpController<AdminController, false>` 这种写法下 controller **不会静态自注册路由**，需改用 `drogon::app().registerController(ctrlPtr)` 显式注册。核实 Drogon 源码（`drogo3ea9a05eb3db3` conan 包）后确认，这比上一节"必须与 whole-archive 同批次"的结论更精确，需要修正：
+
+### 核实到的确切机制
+
+- `HttpController<T, AutoCreation>`/`HttpFilter<T, AutoCreation>` 的 `AutoCreation` 模板参数（默认 `true`）只控制 **是否自动调用 `T::initPathRouting()`挂路由**（`methodRegistrator` 构造体里 `if (AutoCreation) T::initPathRouting();`），**不影响** `DrObject<T>` 层面的类型注册（`DrClassMap::registerClass`，在 `DrObject<T>::alloc_` 静态成员构造时发生，只要 `T` 满足 `std::is_default_constructible`，与 `AutoCreation` 无关）。
+- `HttpAppFramework::registerController<T>(shared_ptr<T>)` 有 `static_assert(!T::isAutoCreation, ...)`——**只能**用于 `AutoCreation=false` 的类；调用体是 `DrClassMap::setSingleInstance(ctrlPtr); T::initPathRouting();`——即显式提供实例 + 显式触发路由挂载。`registerFilter`/推测的 filter 对应方法同构。
+- **`drogon::Plugin<T>` 没有 `AutoCreation` 模板参数**——插件的注册/查找（`getPlugin<T>()`）是纯 `DrClassMap` 机制（同 `DrObject<T>::alloc_`），Drogon 框架内部的 `PluginsManager`（未导出头文件，无法直接确认，但从 `PluginBase`/`getPlugin` 的公开行为推断）按 config 里的类名字符串查找并构造——**插件本身没有"AutoCreation=false + 手动 registerPlugin"这种口子**，config 反射加载是唯一途径（design.md §5.7 的 H1 风险分析对插件仍然完全成立，不受本节修正影响）。
+- **本质结论**：`AutoCreation=false` 把"路由挂载"从"静态对象副作用（隐式，链接器可能连带丢弃）"变成"显式函数调用（`registerController` 内部调 `T::initPathRouting()`，是真实的、编译器/链接器能看到的调用链）"——**只要 `main.cc`/装配代码里显式调用了 `make_shared<T>()` + `registerController(ptr)`，这个符号引用链就是真实的，静态库的这个 `.o` 就不会被链接器当作"未引用"丢弃**，从而绕开 F1/H5 描述的"controller 类注册符号被 whole-archive 丢弃导致路由 404"问题——因为问题的根源（隐式静态初始化、无显式引用）被消除了，不是靠 whole-archive 强行保留，而是从设计上不再需要它。
+
+### 对迁移策略的影响
+
+- **filters**：`registerFilter` 同理存在（`static_assert(!T::isAutoCreation, ...)` 紧跟在 `registerController` 后面，见 HttpAppFramework.h）。但 slice 1/2 已经迁移的 3 个 filter 全部保持 `AutoCreation=true`（默认）——它们目前是被 **`ADD_METHOD_TO(..., "命名空间::ClassName")` 字符串引用**的被动过滤器（controller 按名查找 filter 类并通过 `DrClassMap` 实例化），不是本节讨论的"自己挂路由"的主动注册模式，这条路径本来就没有 whole-archive 问题（DrClassMap 按名查找本身就是显式调用链）。slice 1/2 的迁移结论不变，不需要回滚或调整。
+- **controllers**（本节的新发现真正影响的部分）：把 15+1 个 controller 逐个改成 `HttpController<T, false>` + 在装配代码（未来的 `apps/server` bootstrap，当前是 `main.cc`/`OAuth2Plugin::initAndStart`）里显式 `registerController`，**可以把"迁移到 libs/drogon"和"whole-archive 链接配置"两件事解耦**——迁移到 `libs/drogon` 静态库后，只要 main.cc 显式 `make_shared` + `registerController` 了每一个 controller，就不需要 whole-archive；如果嫌一次性改全部 15+1 个文件的构造方式工作量大，也可以先维持 `AutoCreation=true` 原样迁移（沿用上一节"迁移+移除旧文件+whole-archive 同批次"的保守路径）——**两条路径都可行，`AutoCreation=false` 路径的额外收益是顺带完成 Task 23 的"去单例化"精神**（因为改成显式构造注册后，可以同时把构造函数改造为接受 Domain 服务依赖注入，而不是构造后仍然全局 `getPlugin<OAuth2Plugin>()` 查找）——但这也意味着 `AutoCreation=false` 路径工作量并不比"去单例化"任务本身小，只是把 Task 20 controllers 迁移、Task 22 whole-archive 判断、Task 23 去单例化三件事合并成一次改造，减少重复touch同一批文件的次数。
+- **plugin 本体**（`OAuth2Plugin.cc`）：不受本节修正影响，仍然是 config 反射加载，Task 21 已确认的方案 A（保留类名/config块，OBJECT库形态不变）继续有效；如果 Task 20 controllers 迁移改用 `AutoCreation=false` 路径，`OAuth2Plugin` 本身要不要迁移到 `libs/drogon`、要不要保持独立于 controllers 之外单独处理，是下一步需要具体规划的点。
+
+### 验证结果：机制确认有效，whole-archive 不再是 controllers 迁移的必需品（Task 20 slice 3，已完成）
+
+**实测方式**：把 `HealthController` 完整迁移到 `libs/drogon`（`authforge::drogon::controllers::HealthController`），改成 `AutoCreation=false`，删除 `OAuth2Server/controllers/` 下的旧文件（原子切换，不共存——这类自注册类不能像 filter 那样共存，见上一节），`OAuth2Server`/`OAuth2Test_test` 的 `CMakeLists.txt` 对 `authforge::drogon` 用**普通** `target_link_libraries`（明确没有 whole-archive/`$<LINK_LIBRARY:WHOLE_ARCHIVE,...>`），`main.cc`/`test_main.cc` 加一行显式 `drogon::app().registerController(std::make_shared<authforge::drogon::controllers::HealthController>())`。
+
+**验证步骤与结果**：
+
+1. 全量编译（`authforge-drogon`/`OAuth2Server`/`OAuth2Test_test`）：全部通过，零错误
+2. 启动真实 `OAuth2Server.exe`（`config.ci.json`，memory 存储，无需数据库），用 `curl` 直接发 HTTP 请求：
+   - `GET /health/live` → `{"status":"ok"}` HTTP 200
+   - `GET /health` → `{"database":"connected","service":"OAuth2 Server","status":"ok","storage_type":"memory",...}` HTTP 200（包含成功调用 `drogon::app().getPlugin<OAuth2Plugin>()` 拿到非空插件、读取 `storage_type` 的完整链路，证明与 Task 21 方案 A 决策兼容）
+   - （`GET /health/ready` 触发一个**预先存在、与本次改动无关**的 `dbClientsMap_` 断言崩溃——`getDbClient()`/`getRedisClient()` 在纯 memory 配置下调用会崩，这是 Task 16 已经记录过的同类已知问题，未在本次范围内修，用 `/health`/`/health/live` 两个不触发 DB 调用的路由已足以证明核心假设）
+3. `ctest -C Debug`：**207/207 全绿**，含 `Integration_P0_SuccessBodyShape_GoldenSnapshot`（`make_shared<HealthController>()` 直接调方法，不经路由——`AutoCreation=false` 不影响这种用法）
+
+**结论确认**：`AutoCreation=false` + 显式 `registerController` 让 controller 的路由挂载从"隐式静态初始化副作用"变为"真实的、编译器/链接器可见的函数调用链"，**controller 迁入 STATIC 库（`libs/drogon`）后，只要消费者显式构造+注册了它，就不需要 whole-archive 链接**——用户提出的方法完全成立，已用真实可执行文件的 HTTP 请求验证（不是仅靠单测断言），这比 design.md 原方案（F1/H5 要求 whole-archive）成本更低。
+
+**过程中修复的一个小问题**：`AuthorizationFilter.cc`/`OAuth2AuthFilter.cc`/`HttpResponder.cc`（Task 20 slice 1/2 遗留）里裸写的 `common::error::Xxx` 在本次改动后编译失败——因为 `HealthController.cc` 新 include 的 `oauth2/plugin/OAuth2Plugin.h` 链式引入了 `authforge/common/ports/IRoleProvider.h`，使 `authforge::common` 命名空间对同一个静态库内的其他编译单元可见，C++ 命名空间查找规则下 `namespace authforge::drogon::{filters,validation} { ... common::error::Xxx ... }` 里的裸 `common::` 现在优先匹配到父级链上的 `authforge::common`（存在但没有 `error` 子命名空间）而非期望的全局 `::common::error`。修复：这三个文件里所有 `common::error::` 改成显式 `::common::error::` 全局限定。**这是个通用的坑**——以后在 `authforge::drogon::*` 命名空间内写代码，任何引用全局 `common::` / `oauth2::`（非 `authforge::` 前缀）命名空间的地方都要留意这个歧义，优先加 `::` 前缀。
+
+### 后续 controllers 迁移的标准流程（取代之前"必须与 whole-archive 同批次"的保守结论）
+
+单个 controller 迁移到 `libs/drogon` 的标准步骤（照 `HealthController` slice 3 的模式）：
+
+1. 在 `libs/drogon/include/authforge/drogon/controllers/` + `libs/drogon/src/controllers/` 创建新文件，命名空间 `authforge::drogon::controllers`，类模板参数改 `HttpController<T, false>`
+2. **原子删除**旧位置的 `.h`/`.cc`（不能共存，见上一节的自注册冲突分析）
+3. 更新所有 `#include` 调用点（其他 controller 间的相互引用、测试文件的直接实例化用法）到新路径+命名空间
+4. 在装配点（当前是 `OAuth2Server/main.cc` + `OAuth2Server/test/test_main.cc`，未来是 `apps/server` bootstrap）添加一行 `drogon::app().registerController(std::make_shared<authforge::drogon::controllers::Xxx>())`
+5. 编译验证 + 用真实可执行文件 HTTP 请求验证关键路由（不能只靠单测——单测很多是直接调方法，绕过路由分发，见上面`Integration_P0_SuccessBodyShape_GoldenSnapshot`的例子）
+6. 全量 `ctest` 验证零回归
+
+**已知例外/待定**：`ADD_METHOD_TO(..., "命名空间::FilterClassName")` 字符串引用的过滤器（`AuthorizationFilter`/`OAuth2AuthFilter`，Task 20 slice 2 已迁移）不需要改 `AutoCreation`——它们是被 DrClassMap 按名动态查找实例化的被动组件，不是本节讨论的"主动挂路由"模式，这条路径本来就没有 whole-archive 问题（`ADD_METHOD_TO` 里的字符串本身就是一个真实的、编译期确认过的引用意图，即使运行时是按名查找）。
+
+### 下一步
+
+1. 按上述标准流程继续迁移剩余 controllers：`OAuth2StandardController`（`OAuth2Plugin/`）+ `OAuth2Server/controllers/*` 的 15 个文件（`ApiDocController`→...→`AdminController` 2896 行最后做），每个文件一个提交，保持"小步可编译"节奏
+2. 每个 controller 迁移时同步评估是否值得改构造函数支持依赖注入（顺带完成 Task 23 去单例化的部分范围）——不强制要求，先以"迁移到位 + 编译测试通过"为主线，注入改造可以是同一批次内的**追加**改动而非阻塞项
+3. `OAuth2Plugin.cc` 插件本体：不受本节机制影响（`Plugin<T>` 没有 `AutoCreation` 参数，注册机制不同），仍按 Task 21 已确认的方案 A 处理，继续保留在 `OAuth2Plugin` OBJECT 库，不强制迁入 `libs/drogon`（design.md 允许"装配器"和"controller/filter"分离存放，只要依赖方向正确）
+4. views（`login.csp`/`consent.csp`，`drogon_create_views` 生成机制）的注册方式待查证——留到实际处理这两个文件时核实是否有类似 `AutoCreation` 的机制
+5. 已完成：filters/validation（slice 1/2）+ controllers 的 `HealthController`（slice 3，机制验证批次，已通过真实 HTTP 请求验证）
 - Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
 - libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 

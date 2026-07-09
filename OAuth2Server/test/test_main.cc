@@ -1,6 +1,7 @@
 // #define DROGON_TEST_MAIN
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
+#include <authforge/drogon/controllers/HealthController.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -220,6 +221,16 @@ int main(int argc, char **argv)
         std::cerr << "WARNING: config.json not found during pre-start check." << std::endl;
         return 1;
     }
+
+    // EXPERIMENTAL (M3 Task 20, mechanism verification): HealthController now
+    // lives in libs/drogon as a STATIC library target with AutoCreation=false,
+    // so the test binary must explicitly construct and register it too, same
+    // as OAuth2Server/main.cc, before app().run() is called on the thread
+    // below. Without this, every /health* request in this test binary would
+    // 404.
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::HealthController>()
+    );
 
     std::promise<void> p1;
     std::future<void> f1 = p1.get_future();

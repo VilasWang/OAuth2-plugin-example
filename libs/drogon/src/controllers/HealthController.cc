@@ -1,11 +1,14 @@
-﻿#include "HealthController.h"
+#include <authforge/drogon/controllers/HealthController.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <drogon/drogon.h>
 #include <json/json.h>
 
+namespace authforge::drogon::controllers
+{
+
 void HealthController::health(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Health check endpoint for monitoring/orchestration systems
@@ -17,12 +20,12 @@ void HealthController::health(
                                                std::chrono::system_clock::now().time_since_epoch()
     )
                                                .count());
-    auto statusCode = k200OK;
+    auto statusCode = ::drogon::k200OK;
 
     // Check database connectivity (optional - can be expensive)
     try
     {
-        auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+        auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
         if (plugin)
         {
             json["storage_type"] = plugin->getStorageType();
@@ -32,67 +35,67 @@ void HealthController::health(
         {
             json["status"] = "unhealthy";
             json["database"] = "unknown";
-            statusCode = k503ServiceUnavailable;
+            statusCode = ::drogon::k503ServiceUnavailable;
         }
     }
     catch (...)
     {
         json["status"] = "unhealthy";
         json["database"] = "disconnected";
-        statusCode = k503ServiceUnavailable;
+        statusCode = ::drogon::k503ServiceUnavailable;
     }
 
-    auto resp = HttpResponse::newHttpJsonResponse(json);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
     resp->setStatusCode(statusCode);
     callback(resp);
 }
 
 void HealthController::healthLive(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Liveness: process is running, always 200
     Json::Value json;
     json["status"] = "ok";
-    auto resp = HttpResponse::newHttpJsonResponse(json);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
     callback(resp);
 }
 
 void HealthController::healthReady(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Readiness: check DB connectivity
     auto sharedCb =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     try
     {
-        auto db = drogon::app().getDbClient();
+        auto db = ::drogon::app().getDbClient();
         db->execSqlAsync(
           "SELECT 1",
-          [sharedCb](const drogon::orm::Result &) {
+          [sharedCb](const ::drogon::orm::Result &) {
               // DB OK - check Redis
               try
               {
-                  auto redis = drogon::app().getRedisClient("default");
+                  auto redis = ::drogon::app().getRedisClient("default");
                   redis->execCommandAsync(
-                    [sharedCb](const drogon::nosql::RedisResult &) {
+                    [sharedCb](const ::drogon::nosql::RedisResult &) {
                         Json::Value json;
                         json["status"] = "ok";
                         json["database"] = "connected";
                         json["redis"] = "connected";
-                        (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                        (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     },
                     [sharedCb](const std::exception &) {
                         Json::Value json;
                         json["status"] = "degraded";
                         json["database"] = "connected";
                         json["redis"] = "disconnected";
-                        auto resp = HttpResponse::newHttpJsonResponse(json);
-                        resp->setStatusCode(k503ServiceUnavailable);
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                        resp->setStatusCode(::drogon::k503ServiceUnavailable);
                         (*sharedCb)(resp);
                     },
                     "PING"
@@ -105,10 +108,10 @@ void HealthController::healthReady(
                   json["status"] = "ok";
                   json["database"] = "connected";
                   json["redis"] = "not_configured";
-                  (*sharedCb)(HttpResponse::newHttpJsonResponse(json));
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               }
           },
-          [sharedCb](const drogon::orm::DrogonDbException &e) {
+          [sharedCb](const ::drogon::orm::DrogonDbException &e) {
               // Readiness probe contract: report DB unavailability as a health
               // status body with HTTP 503 (consumed by orchestration/monitoring
               // systems). This is NOT an Application error response, so it stays
@@ -120,8 +123,8 @@ void HealthController::healthReady(
               Json::Value json;
               json["status"] = "unhealthy";
               json["database"] = "disconnected";
-              auto resp = HttpResponse::newHttpJsonResponse(json);
-              resp->setStatusCode(k503ServiceUnavailable);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+              resp->setStatusCode(::drogon::k503ServiceUnavailable);
               (*sharedCb)(resp);
           }
         );
@@ -131,8 +134,10 @@ void HealthController::healthReady(
         Json::Value json;
         json["status"] = "unhealthy";
         json["database"] = "unavailable";
-        auto resp = HttpResponse::newHttpJsonResponse(json);
-        resp->setStatusCode(k503ServiceUnavailable);
+        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+        resp->setStatusCode(::drogon::k503ServiceUnavailable);
         (*sharedCb)(resp);
     }
 }
+
+}  // namespace authforge::drogon::controllers

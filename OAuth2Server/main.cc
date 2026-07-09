@@ -10,6 +10,7 @@
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/controllers/OAuth2StandardController.h>
 #include <oauth2/filters/OAuth2AuthFilter.h>
+#include <authforge/drogon/controllers/HealthController.h>
 #include <oauth2/error/ErrorCatalog.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <oauth2/error/ErrorTypes.h>
@@ -192,6 +193,18 @@ int main()
     // Load config from file with environment variable overrides
     Json::Value config = loadConfiguration(configPath);
     drogon::app().loadConfigJson(config);
+
+    // EXPERIMENTAL (M3 Task 20, mechanism verification): HealthController now
+    // lives in libs/drogon (authforge::drogon::controllers::HealthController)
+    // as a STATIC library target, with AutoCreation=false. It must be
+    // explicitly constructed and registered before app().run(). This
+    // establishes a real, linker-visible reference chain to the controller's
+    // translation unit inside the static library -- see PROGRESS.md for the
+    // full analysis of why this is being trialed as an alternative to
+    // whole-archive linking.
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::HealthController>()
+    );
 
     // Log configuration values for startup information
     LOG_INFO

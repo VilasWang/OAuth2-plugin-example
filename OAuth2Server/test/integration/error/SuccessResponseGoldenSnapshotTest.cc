@@ -52,7 +52,8 @@
 #include <drogon/HttpResponse.h>
 #include <drogon/HttpTypes.h>
 
-#include "HealthController.h"
+#include <authforge/drogon/controllers/HealthController.h>
+using authforge::drogon::controllers::HealthController;
 
 #include <json/json.h>
 
