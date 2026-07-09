@@ -1,7 +1,13 @@
-#include "WeChatController.h"
+#include <authforge/drogon/controllers/WeChatController.h>
 #include <drogon/HttpClient.h>
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
+
+namespace authforge::drogon::controllers
+{
+
+namespace
+{
 
 // TODO: REPLACE WITH YOUR REAL CREDENTIALS
 const std::string WECHAT_APPID_KEY = "appid";
@@ -9,7 +15,7 @@ const std::string WECHAT_SECRET_KEY = "secret";
 
 std::string getWeChatConfig(const std::string &key)
 {
-    auto config = drogon::app().getCustomConfig();
+    auto config = ::drogon::app().getCustomConfig();
     if (config.isMember("external_auth") && config["external_auth"].isMember("wechat"))
     {
         return config["external_auth"]["wechat"].get(key, "").asString();
@@ -17,29 +23,24 @@ std::string getWeChatConfig(const std::string &key)
     return "";
 }
 
-namespace
-{
 // Emit an Application error via the unified ErrorResponder entry point so the
 // body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5).
 void respondError(
-  const drogon::HttpRequestPtr &req,
-  const std::shared_ptr<std::function<void(const drogon::HttpResponsePtr &)>> &cb,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
   std::string code,
   std::string detailForLog = ""
 )
 {
-    common::error::ErrorResponder::respond(
+    ::common::error::ErrorResponder::respond(
       req,
-      [cb](const drogon::HttpResponsePtr &r) { (*cb)(r); },
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
       std::move(detailForLog)
     );
 }
-}  // namespace
 
 // Register OpenAPI documentation (executed once at startup)
-namespace
-{
 struct WeChatControllerDocs
 {
     WeChatControllerDocs()
@@ -90,17 +91,18 @@ struct WeChatControllerDocs
 };
 
 WeChatControllerDocs docs_;
+
 }  // namespace
 
 void WeChatController::login(
-  const HttpRequestPtr &req,
-  std::function<void(const HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Handle OPTIONS for CORS
-    if (req->method() == Options)
+    if (req->method() == ::drogon::Options)
     {
-        auto resp = HttpResponse::newHttpResponse();
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
         callback(resp);
         return;
     }
@@ -136,7 +138,7 @@ void WeChatController::login(
 
     if (code.empty())
     {
-        common::error::ErrorResponder::respond(
+        ::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -148,8 +150,8 @@ void WeChatController::login(
     // 1. Exchange Code for Access Token
     // API:
     // https://api.weixin.qq.com/sns/oauth2/access_token?appid=APPID&secret=SECRET&code=CODE&grant_type=authorization_code
-    auto client = HttpClient::newHttpClient("https://api.weixin.qq.com");
-    auto request = HttpRequest::newHttpRequest();
+    auto client = ::drogon::HttpClient::newHttpClient("https://api.weixin.qq.com");
+    auto request = ::drogon::HttpRequest::newHttpRequest();
     std::string path = "/sns/oauth2/access_token?appid=" + getWeChatConfig(WECHAT_APPID_KEY) +
                        "&secret=" + getWeChatConfig(WECHAT_SECRET_KEY) + "&code=" + code +
                        "&grant_type=authorization_code";
@@ -157,11 +159,13 @@ void WeChatController::login(
 
     // Keep the main callback alive
     auto callbackPtr =
-      std::make_shared<std::function<void(const HttpResponsePtr &)>>(std::move(callback));
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
     client->sendRequest(
-      request, [callbackPtr, client, req](ReqResult result, const HttpResponsePtr &response) {
-          if (result != ReqResult::Ok || !response || response->getStatusCode() != k200OK)
+      request,
+      [callbackPtr, client, req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+          if (result != ::drogon::ReqResult::Ok || !response ||
+              response->getStatusCode() != ::drogon::k200OK)
           {
               respondError(
                 req,
@@ -190,13 +194,14 @@ void WeChatController::login(
           // 2. Fetch User Info
           // API:
           // https://api.weixin.qq.com/sns/userinfo?access_token=ACCESS_TOKEN&openid=OPENID
-          auto client2 = HttpClient::newHttpClient("https://api.weixin.qq.com");
-          auto req2 = HttpRequest::newHttpRequest();
+          auto client2 = ::drogon::HttpClient::newHttpClient("https://api.weixin.qq.com");
+          auto req2 = ::drogon::HttpRequest::newHttpRequest();
           req2->setPath("/sns/userinfo?access_token=" + accessToken + "&openid=" + openid);
 
-          client2
-            ->sendRequest(req2, [callbackPtr, req](ReqResult res2, const HttpResponsePtr &resp2) {
-                if (res2 != ReqResult::Ok || !resp2)
+          client2->sendRequest(
+            req2,
+            [callbackPtr, req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
+                if (res2 != ::drogon::ReqResult::Ok || !resp2)
                 {
                     respondError(
                       req,
@@ -219,9 +224,12 @@ void WeChatController::login(
                 filteredJson["province"] = (*wechatData).get("province", "").asString();
                 filteredJson["country"] = (*wechatData).get("country", "").asString();
 
-                auto finalResp = HttpResponse::newHttpJsonResponse(filteredJson);
+                auto finalResp = ::drogon::HttpResponse::newHttpJsonResponse(filteredJson);
                 (*callbackPtr)(finalResp);
-            });
+            }
+          );
       }
     );
 }
+
+}  // namespace authforge::drogon::controllers

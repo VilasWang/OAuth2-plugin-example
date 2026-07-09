@@ -12,6 +12,7 @@
 #include <oauth2/filters/OAuth2AuthFilter.h>
 #include <authforge/drogon/controllers/HealthController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
+#include <authforge/drogon/controllers/WeChatController.h>
 #include <oauth2/error/ErrorCatalog.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <oauth2/error/ErrorTypes.h>
@@ -208,6 +209,9 @@ int main()
     );
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::GoogleController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::WeChatController>()
     );
 
     // Log configuration values for startup information
