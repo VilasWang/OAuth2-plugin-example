@@ -169,10 +169,15 @@
 - paths.env 新增 `LIBS_DROGON_DIR=libs/drogon`
 - 验证：`authforge-drogon` 独立编译通过；全量 `cmake --build build/windows-msvc-asan` 编译通过（含 OAuth2Plugin/OAuth2Server/OAuth2Test_test 等既有目标零回归）；`ctest -C Debug` 207/207 全绿（既有测试路径未改动，新库尚无独立测试可执行体——`DROGON_TEST` 框架的独立 test_main 基础设施比预期复杂，评估后决定暂不为这个小 slice 单独搭建，靠现有 207 个测试 + 编译期验证作为本 slice 的回归防线；后续 slice 迁移量变大后再补）
 
+### Task 20 slice 2：AuthorizationFilter + OAuth2AuthFilter（本地未提交前，待 commit）
+
+- 迁移 `oauth2::filters::{AuthorizationFilter,OAuth2AuthFilter}` 到 `authforge::drogon::filters`——这两个**确实**依赖 `drogon::app().getPlugin<OAuth2Plugin>()` 单例查找，但因为 `libs/drogon` 自 slice 1 起已经对 `OAuth2Plugin` 有临时编译期依赖（拿 `common::error`），这不是新增依赖边，只是使用了已存在的那条边，可以安全迁移，不用等 Task 21/23
+- 同 slice 1：**不**把旧 `oauth2::filters::{AuthorizationFilter,OAuth2AuthFilter}` 头文件改成 shim，两套实现并行——旧位置留给未迁移的调用点（`OrganizationController.h` 等 controller 的 `ADD_METHOD_TO(..., "oauth2::filters::AuthorizationFilter")` 字符串引用、`OAuth2Server/main.cc` 的 `#include <oauth2/filters/OAuth2AuthFilter.h>`、以及好几个测试文件），等 controllers 本体迁移时再统一切换调用点、淘汰旧位置
+- 验证：`authforge-drogon` 独立编译通过；全量编译零回归；`ctest -C Debug` 207/207 全绿
+
 ### Task 20 剩余 slice（未完成，下一步）
 
-- `AuthorizationFilter`/`OAuth2AuthFilter`：依赖 `drogon::app().getPlugin<OAuth2Plugin>()`，需协调 Task 21（插件注册方案 A/B 决策）后再迁移，避免中间态里插件还没决定最终形态就被过早引用
-- controllers（`OAuth2StandardController` + `OAuth2Server/controllers/*` 15 个文件，AdminController 单文件 2896 行）、views（`login.csp`/`consent.csp`）、`OAuth2Plugin.cc` 本体（退化为装配器）——按文件规模需继续拆分为多个 slice
+- controllers（`OAuth2StandardController` + `OAuth2Server/controllers/*` 15 个文件，AdminController 单文件 2896 行）、views（`login.csp`/`consent.csp`）、`OAuth2Plugin.cc` 本体（退化为装配器）——按文件规模需继续拆分为多个 slice。controllers 迁移时机机应与 filters 一致的调用点切换（把 `ADD_METHOD_TO` 字符串里的 `"oauth2::filters::..."` 改成新命名空间、main.cc/CMakeLists 的 include 路径切换）一并完成，避免旧/新 filter 长期并存导致维护混乱
 - `common::error` 模块（`ErrorTypes`/`ErrorCatalog`/`ErrorContext`/`ErrorHandler`/`ErrorResponder`/`RequestId`/`OAuth2ErrorHandler`）本身的 Adapter 层归位，用于清空 libs/drogon → OAuth2Plugin 的临时依赖边——注意 `libs/common/include/authforge/common/error/` 已有 `ErrorTypes.h`/`ErrorCatalog.h` 的框架无关版本（Task 13 产出），这是**不同**的一套（`authforge::common::error` vs 现有 `common::error`），本任务的 error 模块归位目标位置待定（可能是 libs/drogon，因为 ErrorResponder/ErrorHandler/RequestId 均依赖 Drogon 类型）
 
 ## 下一步
