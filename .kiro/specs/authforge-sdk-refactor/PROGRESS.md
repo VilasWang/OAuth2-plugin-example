@@ -180,9 +180,23 @@
 - controllers（`OAuth2StandardController` + `OAuth2Server/controllers/*` 15 个文件，AdminController 单文件 2896 行）、views（`login.csp`/`consent.csp`）、`OAuth2Plugin.cc` 本体（退化为装配器）——按文件规模需继续拆分为多个 slice。controllers 迁移时机机应与 filters 一致的调用点切换（把 `ADD_METHOD_TO` 字符串里的 `"oauth2::filters::..."` 改成新命名空间、main.cc/CMakeLists 的 include 路径切换）一并完成，避免旧/新 filter 长期并存导致维护混乱
 - `common::error` 模块（`ErrorTypes`/`ErrorCatalog`/`ErrorContext`/`ErrorHandler`/`ErrorResponder`/`RequestId`/`OAuth2ErrorHandler`）本身的 Adapter 层归位，用于清空 libs/drogon → OAuth2Plugin 的临时依赖边——注意 `libs/common/include/authforge/common/error/` 已有 `ErrorTypes.h`/`ErrorCatalog.h` 的框架无关版本（Task 13 产出），这是**不同**的一套（`authforge::common::error` vs 现有 `common::error`），本任务的 error 模块归位目标位置待定（可能是 libs/drogon，因为 ErrorResponder/ErrorHandler/RequestId 均依赖 Drogon 类型）
 
+## Task 21：插件注册与 config 加载迁移决策（design.md §5.7）
+
+**决策：方案 A（低破坏）。** 保留 `OAuth2Plugin` 类名与 4 份 `config.*.json` 的 `plugins` 块（`storage_type`/`clients`/`admin_users`/`tokens` 等业务配置 schema 不变），插件本体继续是 `drogon::Plugin<OAuth2Plugin>` CRTP 反射注册的类，随后续 slice 逐步退化为「读配置 → 构造 Adapter 实现 → 注入 Domain 服务 → 注册 controller/filter」的薄装配器（design.md 用语）。4 份 config **零改动**。
+
+依据：
+
+- Task 20 slice 1-2 已经隐含选择了这个方向——迁移 filters/validation 时全程保留 `OAuth2Plugin` 类名、`#include <oauth2/plugin/OAuth2Plugin.h>` 路径和 `drogon::app().getPlugin<OAuth2Plugin>()` 调用点不变，从未触碰插件本体或其在 `OAuth2Plugin/CMakeLists.txt` 里的 **OBJECT 库**类型（非 STATIC——OBJECT 库的目标文件是逐个直接链接进消费者的，不存在链接器按需抽取导致注册符号被丢弃的问题，这也是方案 A 里"用 whole-archive 保活插件自注册符号"这条风险在**当前阶段尚未出现**的原因：真正的风险点是 Task 22/H5 提到的"改为静态库形态分发"时才会浮现，届时需要给 whole-archive 链接补上，不是现在）
+- 验收标准「config 驱动的插件实例化成功」已被现有测试套件隐式覆盖：`OAuth2Server/test/test_main.cc` 通过 `common::config::ConfigManager::load()` 加载 `config.json`（含 `"plugins":[{"name":"OAuth2Plugin","config":{...}}]` 反射块）后调用 `drogon::app().run()`；本仓库现有 207 个测试里有 **30+ 处**直接调用 `drogon::app().getPlugin<OAuth2Plugin>()` 并断言/使用返回的非空指针（`RateLimiterTest`/`ConfigMigrationTest`/`PluginTest`/`P1FeatureTest`/`AuthServiceGetUserInfoTest`/多个 `Property*_MfaCrossClientAuthFix_*` 等），这些测试全绿即是「按名反射加载 + config 业务块解析成功」的现成证明，本次 M3 slice 未改动这条路径
+- 4 份 config 的 `plugins[].name`（`OAuth2Plugin`/`drogon::plugin::PromExporter`/dev 的 `AccessLogger`/prod 的 `Hodor`）保持不变，符合方案 A 的定义
+
+**遗留给 Task 22/23 的部分**：本决策只解决"插件类名/config 反射是否变"这一层；「改为静态库形态分发时的 whole-archive 链接」（Task 22）和「controller/filter 去 `getPlugin<OAuth2Plugin>()` 单例查找、改构造注入」（Task 23）仍是独立且尚未开始的工作——方案 A 选定后，Task 23 的"去单例化"目标是**调用方式**（构造注入 vs 全局查找），不是要求插件本身消失或改名，这与方案 A 并不矛盾（design.md §5.7 决策段最后一句："无论哪种：Task 22 验收须包含 config 驱动的插件实例化成功"，本决策已满足）。
+
 ## 下一步
 
-- 继续 Task 20 剩余 slice，见上
+- 继续 Task 20 剩余 slice，见上（controllers/views/OAuth2Plugin.cc 本体退化为装配器）
+- Task 22（whole-archive 链接策略）：待 controllers/views 迁移到 `libs/drogon` 且该库改为消费者需要 whole-archive 链接的形态时验证；当前 `OAuth2Plugin` 仍是 OBJECT 库，`libs/drogon` 目前也不含自注册符号（validation/filters 类不是 controller/plugin，无需 whole-archive），该验证时机随 controllers 迁移到来
+- Task 23（controller/filter 去单例化）：受影响清单见 tasks.md（9 处生产 + ~38 处测试），待 controllers 本体迁移后一并处理
 - Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
 - libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 
