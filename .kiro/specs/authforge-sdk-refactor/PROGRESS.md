@@ -6,7 +6,8 @@
 
 - 分支：`feat/m0-conan-migration`
 - PR：#11（GitHub）
-- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `1e316f9`（Task 17 slice 10: JwkManager 迁移完成）
+- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `d92b7d1`（Task 17 slice 11: issuer 构造参数化）
+- **用户指示（加快节奏）**："每个task完成后，编译通过即可，几个相关的task完成后可以一起测" —— 后续 slice 采用编译验证+攒批测试模式，减少单 slice 全量 ctest 频率
 - 上次推送到远端的 commit：`e5c097d`（M1 saveTokenPair 修复）
 - 用户指示："CI 不急，按计划往后推进" —— 暂不推送，先把 M2a/M2b 等后续任务在本地做完再统一验证推送
 
@@ -137,11 +138,14 @@
 - 6 个新 smoke test（`libs/oauth2/test/JwkManagerTest.cc`）
 - 验证：全量编译通过，`ctest -C Debug` 182/182，`OAuth2Test_test.exe` 311 DROGON_TEST 全过，零回归
 
-### Task 17 剩余 slice（未完成，下一步）
-- **`AuthorizationService`/`TokenService` 完整迁移到 `libs/oauth2`**（两个 Service 本身仍在 `OAuth2Plugin` 里，未搬家；这是目前唯一还没有 Domain 层落点的核心业务逻辑）：
-  - 阻塞项基本清空：① PKCE 缺陷已修复（slice 4）② `AuditLogger` 依赖已有端口可替（slice 5，`TokenService.cc` 本身还没切换成调用 `IAuditSink`）③ 4 个仓储接口已有新家（slice 3）④ `Client`/`AuthorizationGrant`/`TokenPair` 聚合已建好（slice 6）⑤ scope 决策逻辑已有引擎（slice 7）⑥ `JwkManager` 已搬进 Domain 层（slice 8-10）
-  - 仍未解决：① `drogon::app().getCustomConfig()` 取 issuer——需要通过构造参数注入（倾向此方案，不新建配置端口）② `IRoleProvider`（admin 角色查询）尚未在生产代码里接入任何实现，`IdentityService::getUserRoles` 目前还是直接查 `IOAuth2Storage`
-- 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）从 `oauth2::` 命名空间迁移到 `authforge::oauth2::`，并让生产代码（`OAuth2Plugin.cc`）切换过去，淘汰旧接口——这是让新接口"生效"的最后一步，尚未开始
+### Task 17 slice 11：TokenService issuer 改构造参数注入（commit `d92b7d1`）
+- 去掉 `drogon::app().getCustomConfig()` 在签发 id_token 时的调用，issuer 改为构造参数（默认值/config 路径不变，只是读取时机从"每次签发"挪到"启动时构造"）
+- 验证：全量编译 + `ctest` 188/188，零回归
+
+### Task 17 剩余 slice（未完成，下一步；用户已要求加快节奏——单个 slice 编译过即可，攒几个一起测）
+- **`AuthorizationService`/`TokenService` 完整迁移到 `libs/oauth2`**：阻塞项基本清空（PKCE/AuditLogger端口/仓储接口/聚合/决策引擎/JwkManager/issuer 均已就位），剩下主要是把类本体搬过去 + 切换到新仓储接口 + 接入 IAuditSink/IRoleProvider
+- `IRoleProvider` 尚未在生产代码接入任何实现（`IdentityService::getUserRoles` 仍直接查 `IOAuth2Storage`）
+- 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）迁移到 `authforge::oauth2::` 命名空间，生产代码切换、淘汰旧接口——尚未开始
 
 ## 下一步
 
