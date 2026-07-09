@@ -6,7 +6,7 @@
 
 - 分支：`feat/m0-conan-migration`
 - PR：#11（GitHub）
-- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `440b028`（Task 17 slice 1: libs/oauth2 + oauth2::pkce）
+- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `60373d0`（Task 17 slice 3: 仓储接口迁移）
 - 上次推送到远端的 commit：`e5c097d`（M1 saveTokenPair 修复）
 - 用户指示："CI 不急，按计划往后推进" —— 暂不推送，先把 M2a/M2b 等后续任务在本地做完再统一验证推送
 
@@ -75,12 +75,30 @@
 - **故意实现正确算法**（S256 = base64url(原始摘要字节)），与 Task 14 发现的 `TokenService::generateSha256Hash` 缺陷完全独立、不受影响——**当前无任何生产代码调用此新模块**，把 TokenService/AuthorizationService 迁移到调用它是后续 slice 的决定点
 - 验证：全量 `cmake --build build/windows-msvc-asan` 编译通过；`ctest -C Debug` 137 个测试（含新增 13 个 PkceTest #79-91）100% 通过，零回归
 
-### Task 17 剩余 slice（未完成）
+### Task 17 slice 2：Domain DTO 迁移（commit `c665648`）
+- 新建 `libs/oauth2/include/authforge/oauth2/model/{ClientType,Dto}.h`：把嵌套在 `IOAuth2Storage.h` 里的 `OAuth2Client`/`OAuth2AuthCode`/`OAuth2AccessToken`/`OAuth2RefreshToken`/`TokenIntrospection`/`AuthorizationTransaction` 逐字段原样迁移到 `authforge::oauth2::model`（design.md 明确指出迁移源是 `IOAuth2Storage.h` 而非 `OAuth2Types.h`）
+- `ClientType` 迁移，`GrantType`/`OAuth2Error` **不迁移**（Task 13 已在 `common::error::ErrorCatalog` 给 OAuth2 协议错误码建了新家，迁旧枚举会造成两套竞争定义）
+- 故意**不**把字段包成值对象（Scope/ClientId/RedirectUri/PkceChallenge/TokenValue）——那需要改动所有生产调用点，是更大的独立 slice
+- 9 个新 gtest（ClientType 往返/非法输入、DTO 默认值、TokenIntrospection::toJson 的 active/inactive 字段发射）
+- 验证：全量编译 + `ctest -C Debug` 146/146 通过，零回归
+
+### Task 17 slice 3：M1 仓储接口迁移（commit `60373d0`）
+- 新建 `libs/oauth2/include/authforge/oauth2/model/UserRef.h`：迁移 F4 的透明用户引用占位类型
+- 新建 `libs/oauth2/include/authforge/oauth2/repository/{IClientRepository,IGrantRepository,ITokenRepository,IConsentRepository}.h`：迁移 M1 的 4 个仓储接口，依赖改为新迁移的 `authforge::oauth2::model` DTO（而非旧的通过 `IOAuth2Storage.h` 引用），彻底与 `OAuth2Plugin` 解耦
+- 方法签名、文档、`saveTokenPair` 默认顺序执行体、`supportsTransactions()`/`supportsCas()` 能力标志契约、`IClientRepository`/`IConsentRepository` 故意不加 `purgeExpired()` 的决策——全部原样保留
+- 5 个新 gtest（用最小内存假实现验证每个接口可通过基类指针虚派发调用，外加验证 `saveTokenPair` 默认体确实按 access→refresh 顺序执行）——这些是接口形状测试，不是完整契约测试；现有 `OAuth2Server/test/contract/*` 仍在测试 `OAuth2Plugin` 侧实现，直到后续 slice 把具体实现迁移过来
+- 目前存在**两套并行的**这 4 个接口（`OAuth2Plugin` 的 `oauth2::` 命名空间 + 新的 `authforge::oauth2::`），直到后续 slice 迁移具体实现并淘汰旧的
+- 验证：全量编译 + `ctest -C Debug` 151/151 通过，零回归
+
+### Task 17 剩余 slice（未完成，下一步）
+- **`TokenService` 迁移**（已读取现有实现，规划见下）：
+  - 现有 `OAuth2Plugin/include/oauth2/services/TokenService.h` + `.cc` 直接 `#include <drogon/drogon.h>`（`drogon::app().getCustomConfig()` 取 issuer）+ 依赖旧 `IOAuth2Storage`（上帝接口，未拆）+ 直接用 `AuditLogger`（Drogon 相关）+ 直接 new 一个 `static oauth2::adapters::OpenSslCryptoProvider` 实例（而非注入端口）
+  - 迁移需要：① 把 `IOAuth2Storage` 依赖换成 4 个新 `authforge::oauth2::repository::I*Repository`（或先只迁移用到的方法子集）② `drogon::app().getCustomConfig()` 取 issuer 需要通过某种配置端口注入（目前 `common::ports` 里没有配置端口，需要新增或者把 issuer 作为构造参数传入——构造参数注入更简单，倾向此方案）③ `AuditLogger::log` 调用需要确认是否已去 Drogon 化（Task 14 slice 8 只迁移了 `AuditLogger.cc` 内部的 LOG_* 调用，`AuditLogger` 本身的 DB/HTTP 依赖被保留，需要重新检查它是否可以在 libs/oauth2 里使用，或者需要经 observability 端口）④ `generateSha256Hash`/`validatePkceCodeVerifier` 应该改为调用新建的 `oauth2::pkce` 模块（Task 17 slice 1）——这会**同时修复**已记录的 RFC7636 缺陷，需要用户确认是否接受此行为变更（有客户端兼容性影响，见下方"发现的缺陷"章节）
+  - **建议**：这是本 Task 剩余部分中风险最高、决策点最多的一步，建议先跟用户确认 PKCE 缺陷修复的决策，再动手迁移
 - `AuthorizationService`（需新建，目前在 OAuth2Plugin 里没有直接对应文件，需要从 `OAuth2StandardController`/`ClientService` 相关逻辑中提炼）
-- `TokenService` 迁移到 `libs/oauth2`（含是否切到 `oauth2::pkce` 修复 RFC7636 缺陷的决策，见 PROGRESS.md 上方"发现的缺陷"章节）
 - `access/`（consent + scope 决策引擎）
-- `model/`（聚合）
-- M1 的 4 个仓储接口（`IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository`）从当前位置迁移到 `authforge::oauth2` 命名空间
+- `model/`（聚合，`AuthorizationGrant`/`TokenPair`/`Client` 三个聚合尚未建；目前只有裸 DTO）
+- 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）从 `oauth2::` 命名空间迁移到 `authforge::oauth2::`，并让生产代码（`OAuth2Plugin.cc`）切换过去，淘汰旧接口——这是让新接口"生效"的最后一步，尚未开始
 
 ## 下一步
 
