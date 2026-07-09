@@ -6,7 +6,7 @@
 
 - 分支：`feat/m0-conan-migration`
 - PR：#11（GitHub）
-- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `60373d0`（Task 17 slice 3: 仓储接口迁移）
+- **本地已提交但尚未推送**的 commit 从 `0c0ec9d`（Task 13）到 `70aba78`（Task 17 slice 4: PKCE RFC7636 缺陷修复）
 - 上次推送到远端的 commit：`e5c097d`（M1 saveTokenPair 修复）
 - 用户指示："CI 不急，按计划往后推进" —— 暂不推送，先把 M2a/M2b 等后续任务在本地做完再统一验证推送
 
@@ -40,9 +40,9 @@
 - 切片8：AuditLogger.cc 的 4 处 LOG_* 迁移（DB/HTTP 依赖本身保留，只迁移日志调用）
 - **未处理**（合理超出范围）：storage/controllers/filters 里约 400 处 LOG_*，这些是 Adapter 层代码（M3 才处理）
 
-**发现的 pre-existing 缺陷（已记录，未修复，非本任务范围）**：
-1. `oauth2::utils::sha256()` (CryptoUtils.h) 十六进制大小写处理错误 —— 确认为死代码，零生产调用点
-2. **`TokenService::generateSha256Hash` 不符合 RFC 7636**——对十六进制字符串本身做 base64 编码，而非对原始摘要字节编码。标准 PKCE 客户端会验证失败。已用字节级对比确认这是迁移前就存在的缺陷，非本次引入。**建议后续单独立项修复**。
+**发现的 pre-existing 缺陷**：
+1. `oauth2::utils::sha256()` (CryptoUtils.h) 十六进制大小写处理错误 —— 确认为死代码，零生产调用点，**未修复**（不在任何任务范围内，无生产影响）
+2. **`TokenService::generateSha256Hash` 不符合 RFC 7636**——对十六进制字符串本身做 base64 编码，而非对原始摘要字节编码。**已在 Task 17 slice 4 修复**（commit `70aba78`），见下方"Task 17 slice 4"小节。
 
 ### Task 15：假实现（测试支持库）
 - 新建 `libs/common/testing`（authforge::common::testing），与 libs/common（仅端口）和 OAuth2Plugin 生产 Adapter 三方分离
@@ -90,12 +90,19 @@
 - 目前存在**两套并行的**这 4 个接口（`OAuth2Plugin` 的 `oauth2::` 命名空间 + 新的 `authforge::oauth2::`），直到后续 slice 迁移具体实现并淘汰旧的
 - 验证：全量编译 + `ctest -C Debug` 151/151 通过，零回归
 
+### Task 17 slice 4：PKCE RFC 7636 缺陷修复（commit `70aba78`）
+- **用户明确指示修复**（"PKCE 修复代价如何，代价小的话一起做，不用考虑已经部署的客户端"）。排查后确认代价低：① 前端 SPA 当前完全没有走 PKCE（`PRD/mfa_auth_code_pkce_design.md` §6.1 现状澄清已确认），无真实客户端依赖旧值 ② 现有单测 `P0FunctionalityTest.cc::Unit_P0_PKCE_Legacy_Hashing` 自洽（同一函数生成+验证），换算法后仍通过 ③ 唯一钉住旧字节序列的 golden test 已同步更新
+- `TokenService::generateSha256Hash`（`OAuth2Plugin/src/services/TokenService.cc`）改为调用 `oauth2::pkce::computeCodeChallenge(input, "S256", crypto)`（Task 17 slice 1 已建好的正确实现），不再自己拼接错误逻辑
+- `OAuth2Plugin`（`CMakeLists.txt`）与 `OAuth2Server/test`（`CMakeLists.txt`）新增链接 `authforge::oauth2`——方向正确（Adapter 层的 OAuth2Plugin 依赖 Domain 层的 libs/oauth2，反向不成立）
+- `OpenSslCryptoProviderTest.cc` 的 golden test 从"钉住迁移前旧算法字节"改为两个新测试：断言新算法符合 RFC 7636（独立重新实现对比）+ 跟 RFC 7636 Appendix B 官方已知向量交叉验证（与 `libs/oauth2/test/PkceTest.cc` 断言的同一个向量）
+- `P0FunctionalityTest.cc` 无需改动（自洽，不受算法变化影响）
+- 验证：全量编译通过；`ctest -C Debug` 151/151 通过；`OAuth2Test_test.exe` 直接跑显示 311 个 DROGON_TEST（57114 断言）全过（比修复前多 1 个新测试）；`authforge-oauth2-test` 27/27 通过。零回归
+
 ### Task 17 剩余 slice（未完成，下一步）
-- **`TokenService` 迁移**（已读取现有实现，规划见下）：
-  - 现有 `OAuth2Plugin/include/oauth2/services/TokenService.h` + `.cc` 直接 `#include <drogon/drogon.h>`（`drogon::app().getCustomConfig()` 取 issuer）+ 依赖旧 `IOAuth2Storage`（上帝接口，未拆）+ 直接用 `AuditLogger`（Drogon 相关）+ 直接 new 一个 `static oauth2::adapters::OpenSslCryptoProvider` 实例（而非注入端口）
-  - 迁移需要：① 把 `IOAuth2Storage` 依赖换成 4 个新 `authforge::oauth2::repository::I*Repository`（或先只迁移用到的方法子集）② `drogon::app().getCustomConfig()` 取 issuer 需要通过某种配置端口注入（目前 `common::ports` 里没有配置端口，需要新增或者把 issuer 作为构造参数传入——构造参数注入更简单，倾向此方案）③ `AuditLogger::log` 调用需要确认是否已去 Drogon 化（Task 14 slice 8 只迁移了 `AuditLogger.cc` 内部的 LOG_* 调用，`AuditLogger` 本身的 DB/HTTP 依赖被保留，需要重新检查它是否可以在 libs/oauth2 里使用，或者需要经 observability 端口）④ `generateSha256Hash`/`validatePkceCodeVerifier` 应该改为调用新建的 `oauth2::pkce` 模块（Task 17 slice 1）——这会**同时修复**已记录的 RFC7636 缺陷，需要用户确认是否接受此行为变更（有客户端兼容性影响，见下方"发现的缺陷"章节）
-  - **建议**：这是本 Task 剩余部分中风险最高、决策点最多的一步，建议先跟用户确认 PKCE 缺陷修复的决策，再动手迁移
 - `AuthorizationService`（需新建，目前在 OAuth2Plugin 里没有直接对应文件，需要从 `OAuth2StandardController`/`ClientService` 相关逻辑中提炼）
+- **`TokenService` 完整迁移到 `libs/oauth2`**（目前只做了 slice 4 的算法修复，`TokenService` 本身仍在 `OAuth2Plugin` 里，未搬家）：
+  - 现有 `OAuth2Plugin/include/oauth2/services/TokenService.h` + `.cc` 直接 `#include <drogon/drogon.h>`（`drogon::app().getCustomConfig()` 取 issuer）+ 依赖旧 `IOAuth2Storage`（上帝接口，未拆）+ 直接用 `AuditLogger`（Drogon 相关）
+  - 迁移需要：① 把 `IOAuth2Storage` 依赖换成 4 个新 `authforge::oauth2::repository::I*Repository`（或先只迁移用到的方法子集）② `drogon::app().getCustomConfig()` 取 issuer 需要通过某种配置端口注入（目前 `common::ports` 里没有配置端口，需要新增或者把 issuer 作为构造参数传入——构造参数注入更简单，倾向此方案）③ `AuditLogger::log` 调用需要确认是否已去 Drogon 化（Task 14 slice 8 只迁移了 `AuditLogger.cc` 内部的 LOG_* 调用，`AuditLogger` 本身的 DB/HTTP 依赖被保留，需要重新检查它是否可以在 libs/oauth2 里使用，或者需要经 observability 端口）
 - `access/`（consent + scope 决策引擎）
 - `model/`（聚合，`AuthorizationGrant`/`TokenPair`/`Client` 三个聚合尚未建；目前只有裸 DTO）
 - 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）从 `oauth2::` 命名空间迁移到 `authforge::oauth2::`，并让生产代码（`OAuth2Plugin.cc`）切换过去，淘汰旧接口——这是让新接口"生效"的最后一步，尚未开始
