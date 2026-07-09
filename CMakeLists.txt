@@ -35,5 +35,12 @@ add_subdirectory(${OAUTH2_PATH_LIBS_COMMON_DIR})
 # for deterministic unit tests without pulling in Drogon.
 add_subdirectory(${OAUTH2_PATH_LIBS_COMMON_TESTING_DIR})
 
+# libs/oauth2 (authforge::oauth2, M2b Task 17): Domain-layer OAuth2/OIDC
+# protocol package. Added before OAuth2Plugin/OAuth2Server for the same
+# reason as libs/common above -- it depends only on libs/common, never on
+# Drogon or OAuth2Plugin (design.md §4.1). Purely additive for now:
+# OAuth2Plugin/OAuth2Server do not yet consume it.
+add_subdirectory(${OAUTH2_PATH_LIBS_OAUTH2_DIR})
+
 add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})
