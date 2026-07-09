@@ -3,6 +3,7 @@
 #include <oauth2/filters/OAuth2AuthFilter.h>
 #include <oauth2/utils/JwkManager.h>
 #include <oauth2/adapters/DrogonLogger.h>
+#include <oauth2/adapters/StorageRoleProvider.h>
 #include <oauth2/storage/MemoryOAuth2Storage.h>
 #include <oauth2/storage/PostgresOAuth2Storage.h>
 #include <oauth2/storage/RedisOAuth2Storage.h>
@@ -84,6 +85,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     tokenService_->setJwkManager(jwkManager_);
     clientService_ = std::make_shared<oauth2::ClientService>(storage_);
     identityService_ = std::make_shared<oauth2::IdentityService>(storage_);
+    roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(storage_);
 
     // Initialize Cleanup Service
     cleanupService_ = std::make_shared<oauth2::OAuth2CleanupService>(storage_);

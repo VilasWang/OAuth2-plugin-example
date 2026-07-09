@@ -6,6 +6,7 @@
 #include <oauth2/services/TokenService.h>
 #include <oauth2/services/ClientService.h>
 #include <oauth2/services/IdentityService.h>
+#include <oauth2/adapters/StorageRoleProvider.h>
 #include <oauth2/utils/JwkManager.h>
 #include <string>
 #include <memory>
@@ -292,6 +293,15 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     std::shared_ptr<oauth2::TokenService> tokenService_;
     std::shared_ptr<oauth2::ClientService> clientService_;
     std::shared_ptr<oauth2::IdentityService> identityService_;
+    // M2b Task 17 slice 12: first production instantiation of
+    // authforge::common::ports::IRoleProvider (via the Adapter-side
+    // StorageRoleProvider, backed by storage_). Not yet consumed by any
+    // caller -- IdentityService's role lookups are keyed by subject
+    // string today, not the internalUserId this port takes, so wiring it
+    // into an actual call site requires ISubjectResolver too (a later
+    // slice). Constructed here so the Adapter class has a real production
+    // instantiation point once that wiring happens.
+    std::shared_ptr<oauth2::adapters::StorageRoleProvider> roleProvider_;
     std::shared_ptr<const oauth2::JwkManager> jwkManager_;
 
     std::string storageType_;
