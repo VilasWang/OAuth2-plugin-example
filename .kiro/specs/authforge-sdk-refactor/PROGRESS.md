@@ -22,7 +22,7 @@
   - 已完成：删除重复端口声明；`AuthService.cc` 真实实现（validateUser/registerUser/getUserInfo，语义对齐 `OAuth2Server/AuthService.cc`，含 PBKDF2 哈希格式字节级兼容、legacy hash 校验后升级、账户锁定进度退避）；`RoleProvider`/`SubjectResolver`/`UserInfoProvider` 三个薄适配器（真实实现 `common::ports` 接口，非占位）；新增 `libs/storage-postgres/PostgresIdentityRepository`（Adapter 层，实现 identity 的三个仓储接口）；19 个新 gtest 单测。
   - **仍是占位/未做**（如实记录，不夸大）：MFA/WebAuthn/Social（Google/WeChat/GitHub）/Session 五个服务的 `.cc` 仍是 TODO 占位；`PostgresIdentityRepository` 是全新实现，与 `OAuth2Plugin` 现有的 `oauth2::Postgres{User,Role,SubjectMapping}Repository` 是两套并行实现（故意不统一，统一需要迁移 `IdentityService` 的调用方，超出本次范围）；新 `AuthService`/`RoleProvider` 等尚未被任何生产代码（`OAuth2Server` controllers）实际调用——它们目前只是「libs/identity 内可独立编译验证」的构件，产品装配（把它们接入 `SessionController` 等）是 M3 Task 24 的工作。
   - 验收核对：✅ 独立编译；✅ 不依赖 `libs/oauth2`（grep 确认零 include）；✅ identity 单测通过（19/19）。
-- [ ] M3（Task 20-26）：**即将开始**，见下
+- [ ] M3（Task 20-26）：**进行中**，见下
 
 ## M2a 详细完成内容（Task 13-16）
 
@@ -156,9 +156,28 @@
 - `IRoleProvider` 已有生产实现（slice 12）但尚未接入任何调用点，需要 `ISubjectResolver` 配合才能真正替换 `IdentityService::getUserRoles`
 - 把具体仓储实现（`MemoryClientRepository`/`RedisClientRepository`/`PostgresClientRepository` 等）迁移到 `authforge::oauth2::` 命名空间，生产代码切换、淘汰旧接口——尚未开始
 
+## M3 详细完成内容（Task 20，进行中）
+
+### Task 20 slice 1：libs/drogon 骨架 + validation/ + RequestValidationFilter（本地未提交前，待 commit）
+
+- 新建 `libs/drogon`（authforge::drogon），Adapter 层包，**允许依赖 Drogon**（design.md §4.1 规则 1 只禁 Domain 层依赖 Drogon；common/oauth2/identity 才受限，libs/drogon 和 libs/storage-* 是 Drogon 依赖的指定落点）
+- 迁移范围（本 slice，故意最小）：`oauth2::validation::{Rules,RuleEngine,RuleSet,HttpResponder}` 四个类 + `RequestValidationFilter`——**这批代码零依赖 `OAuth2Plugin` 单例**（`drogon::app().getPlugin<OAuth2Plugin>()`），是 M3 Drogon 绑定迁移里风险最低的切片；真正依赖插件单例的 `AuthorizationFilter`/`OAuth2AuthFilter`/controllers/plugin 本体留给后续 slice（需与 Task 21 插件注册决策、Task 23 去单例化协调顺序，避免过早引入循环依赖）
+- 命名空间：`authforge::drogon::validation` / `authforge::drogon::filters`（design.md §6 命名空间同步）
+- **发现并撤回的循环依赖风险**：最初尝试把 `OAuth2Plugin/include/oauth2/validation/*.h` 四个头文件改成指向新位置的兼容 shim（仿 Task 17 slice 10 的 JwkManager.h 模式），但 `HttpResponder` 依赖的 `common::error::{Error,ErrorContext,ErrorHandler,RequestId}` 本身还留在 `OAuth2Plugin`（且这些类型本身依赖 `drogon::HttpRequestPtr`/`DrogonDbException`，其实也该属于 Adapter 层，只是尚未迁移）。若 `libs/drogon` 反向依赖 `OAuth2Plugin` 获取这些符号，而 `OAuth2Plugin` 的 controllers 又需要 `RuleSet`/`HttpResponder`（一旦改成 shim 指回新位置）依赖 `libs/drogon`，就会形成 `OAuth2Plugin` ⇄ `authforge-drogon` 循环依赖。**已撤回 shim 改动**（`git checkout` 还原四个旧头文件到原始内容），改为两套并行实现共存（同 Task 17 slice 1-3 的既有模式："新增不动旧，旧调用点淘汰是后续 slice 的事"）。`common::error` 模块自身的 Adapter 层归位（迁入 `libs/drogon` 或类似位置）是清空这个反向依赖的前提，留作后续 slice。
+- `libs/drogon` 目前对 `OAuth2Plugin` 有一条**临时的**编译期依赖（`target_link_libraries(authforge-drogon PUBLIC ... OAuth2Plugin)`，仅为拿到 `common::error` 的头文件+实现）——顶层 `CMakeLists.txt` 因此把 `add_subdirectory(libs/drogon)` 放在 `add_subdirectory(OAuth2Plugin)` **之后**（不同于其他 Domain 层 libs/* 放在 OAuth2Plugin **之前**的顺序）。这条依赖边随 `common::error` 归位而清空，不违反 libs/drogon 自身"允许依赖 Drogon"的 Adapter 层定位。
+- 踩坑记录：新代码写在 `namespace authforge::drogon::validation` 内部时，裸写 `drogon::HttpRequestPtr` 会被编译器解析成 `authforge::drogon::drogon::HttpRequestPtr`（当前命名空间找不到子命名空间 `drogon` 报错），必须显式 `::drogon::` 全局限定——四个新文件均已改用 `::drogon::`。
+- paths.env 新增 `LIBS_DROGON_DIR=libs/drogon`
+- 验证：`authforge-drogon` 独立编译通过；全量 `cmake --build build/windows-msvc-asan` 编译通过（含 OAuth2Plugin/OAuth2Server/OAuth2Test_test 等既有目标零回归）；`ctest -C Debug` 207/207 全绿（既有测试路径未改动，新库尚无独立测试可执行体——`DROGON_TEST` 框架的独立 test_main 基础设施比预期复杂，评估后决定暂不为这个小 slice 单独搭建，靠现有 207 个测试 + 编译期验证作为本 slice 的回归防线；后续 slice 迁移量变大后再补）
+
+### Task 20 剩余 slice（未完成，下一步）
+
+- `AuthorizationFilter`/`OAuth2AuthFilter`：依赖 `drogon::app().getPlugin<OAuth2Plugin>()`，需协调 Task 21（插件注册方案 A/B 决策）后再迁移，避免中间态里插件还没决定最终形态就被过早引用
+- controllers（`OAuth2StandardController` + `OAuth2Server/controllers/*` 15 个文件，AdminController 单文件 2896 行）、views（`login.csp`/`consent.csp`）、`OAuth2Plugin.cc` 本体（退化为装配器）——按文件规模需继续拆分为多个 slice
+- `common::error` 模块（`ErrorTypes`/`ErrorCatalog`/`ErrorContext`/`ErrorHandler`/`ErrorResponder`/`RequestId`/`OAuth2ErrorHandler`）本身的 Adapter 层归位，用于清空 libs/drogon → OAuth2Plugin 的临时依赖边——注意 `libs/common/include/authforge/common/error/` 已有 `ErrorTypes.h`/`ErrorCatalog.h` 的框架无关版本（Task 13 产出），这是**不同**的一套（`authforge::common::error` vs 现有 `common::error`），本任务的 error 模块归位目标位置待定（可能是 libs/drogon，因为 ErrorResponder/ErrorHandler/RequestId 均依赖 Drogon 类型）
+
 ## 下一步
 
-- 开始 M3（Task 20-26）：Drogon 适配器 + 插件注册迁移 + whole-archive 链接策略 + 去单例化 + 产品瘦身
+- 继续 Task 20 剩余 slice，见上
 - Task 17 的 `AuthorizationService`/`TokenService` 主体、具体仓储实现迁移到 `authforge::oauth2::` 命名空间仍未完成——不阻塞 M3（M3 的装配器可以继续依赖现有 `OAuth2Plugin` 服务），留作后续任务
 - libs/identity 的 MFA/WebAuthn/Social/Session 迁移留作后续独立任务（用户明确约束范围）
 

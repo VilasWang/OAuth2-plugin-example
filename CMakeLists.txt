@@ -60,4 +60,14 @@ add_subdirectory(${OAUTH2_PATH_LIBS_IDENTITY_DIR})
 add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_POSTGRES_DIR})
 
 add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
+
+# libs/drogon (authforge::drogon, M3 Task 20): Adapter-layer package for
+# Drogon-coupled code (plugin/controllers/filters/views). Added AFTER
+# OAuth2Plugin (unlike the Domain-layer libs/* above, which are added
+# BEFORE) because this slice's HttpResponder.cc links against the
+# OAuth2Plugin target for the not-yet-relocated common::error machinery
+# (see libs/drogon/CMakeLists.txt's own header comment) -- the OAuth2Plugin
+# CMake target must already exist when this add_subdirectory runs.
+add_subdirectory(${OAUTH2_PATH_LIBS_DROGON_DIR})
+
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})
