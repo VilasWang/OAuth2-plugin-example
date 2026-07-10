@@ -17,11 +17,8 @@
 - [x] M1（Task 7-12）：仓储接口拆分、缓存装饰器、契约测试套件 — 已推送，CI 全绿（含 3 个真实生产缺陷修复：Redis validateClient 崩溃、hasUserConsent 逻辑反、saveTokenPair 竞态）
 - [x] M2a（Task 13-16）：libs/common + 端口 + 去 drogon::utils + 测试链接过渡 — **本地完成，未推送**
 - [x] M2b（Task 17-18）：libs/oauth2 + ORM 归位 — **本地完成**（Task 17 AuthorizationService/TokenService 主体逻辑仍留在 OAuth2Plugin，具体仓储实现未迁移命名空间——这是已知的、可接受的范围边界，不阻塞 M3；Task 18 ORM 模型 + 调用点已全部迁移并提交）
-- [x] M2.5（Task 19，**范围受限**）：libs/identity — 2026-07 继续执行时发现此前提交（`e4eea5e`）虽然创建了目录结构，但 `AuthService.cc`/`MfaService.cc`/`SessionManager.cc`/`WebAuthnService.cc` 等全部是空壳占位（`TODO` 注释 + `callback(std::nullopt)`），且 `IRoleProvider`/`ISubjectResolver`/`IUserInfoProvider` 是与 `common::ports` 同名但签名不同的重复声明，违反设计 §5.2 方案 A（端口应下沉到 common，identity 应实现该端口而非自建竞争接口）。
-  - **用户明确约束范围**：仅完成 AuthService 真实迁移 + RBAC/subject 绑定，其余控制器（MFA/WebAuthn/Social/Session）保持现状不动，留给未来独立任务。
-  - 已完成：删除重复端口声明；`AuthService.cc` 真实实现（validateUser/registerUser/getUserInfo，语义对齐 `OAuth2Server/AuthService.cc`，含 PBKDF2 哈希格式字节级兼容、legacy hash 校验后升级、账户锁定进度退避）；`RoleProvider`/`SubjectResolver`/`UserInfoProvider` 三个薄适配器（真实实现 `common::ports` 接口，非占位）；新增 `libs/storage-postgres/PostgresIdentityRepository`（Adapter 层，实现 identity 的三个仓储接口）；19 个新 gtest 单测。
-  - **仍是占位/未做**（如实记录，不夸大）：MFA/WebAuthn/Social（Google/WeChat/GitHub）/Session 五个服务的 `.cc` 仍是 TODO 占位；`PostgresIdentityRepository` 是全新实现，与 `OAuth2Plugin` 现有的 `oauth2::Postgres{User,Role,SubjectMapping}Repository` 是两套并行实现（故意不统一，统一需要迁移 `IdentityService` 的调用方，超出本次范围）；新 `AuthService`/`RoleProvider` 等尚未被任何生产代码（`OAuth2Server` controllers）实际调用——它们目前只是「libs/identity 内可独立编译验证」的构件，产品装配（把它们接入 `SessionController` 等）是 M3 Task 24 的工作。
-  - 验收核对：✅ 独立编译；✅ 不依赖 `libs/oauth2`（grep 确认零 include）；✅ identity 单测通过（19/19）。
+- [x] M2.5（Task 19）：libs/identity — **范围已补全**。2026-07 首次执行时（用户明确约束范围）仅完成 AuthService + RBAC/subject 绑定，MFA/WebAuthn/Social/Session 五个服务留空占位；本次（继 M3 Task 17 剩余部分 + Task 23 之后）按用户指示补完这四块，详见下方"M2.5 补全"小节。
+  - 验收核对：✅ 独立编译；✅ 不依赖 `libs/oauth2`（grep 确认零 include）；✅ identity 单测 81/81 全绿（从最初 19 个增至 81 个）。
 - [ ] M3（Task 20-26）：**进行中**，见下
 
 ## M2a 详细完成内容（Task 13-16）
@@ -393,6 +390,46 @@
   - `GET /api/admin/dashboard`（无 Authorization header）→ 401 `AUTH_TOKEN_INVALID`，证明 `AuthorizationFilter::resolvePlugin()` 缓存指针路径下鉴权链路依然完整
 
 **遗留/未做**（如实记录）：`AdminController`/`OrganizationController`/`ClientRegistrationController`/`DeviceAuthController`（`approveDevice`）等使用 `AuthorizationFilter`/`OAuth2AuthFilter` 的其余 controller 不需要改动——它们本身不直接调用 `getPlugin<OAuth2Plugin>()`，鉴权都是 filter 层做的，filter 已经去单例化，这些 controller 自动受益，不需要单独处理。`OAuth2Plugin` 本体（Task 21 方案 A 决定的装配器退化）不受本任务影响。
+
+## M2.5 补全：MFA/WebAuthn/Social/Session 四块服务真实实现
+
+按用户指示，在 Task 17 剩余部分 + Task 23 完成后，补齐 M2.5 首次执行时明确留空的四块占位服务。四块任务并行委派给独立 sub-agent 执行（MFA/TotpUtils 由本人直接完成，WebAuthn/Social/Session 委派），全部遵循 `AuthService.cc`/`MfaService.cc` 已确立的约定：Domain 层类，依赖通过构造函数注入（仓储接口 + `common::ports::*`），零 Drogon、零 DB 客户端类型，异步回调风格。**全部是新增代码，未接入生产**（生产 controller `libs/drogon/src/controllers/{Mfa,WebAuthn,Google,WeChat,GitHub,Session}Controller.cc` 保持原样不动）——真正的生产装配是 Task 24，之后进行。
+
+### TotpUtils + MfaService（本人直接完成）
+
+- `TotpUtils.h/.cc`（`libs/identity/{include,src/mfa}`）：迁移 `oauth2::utils::TotpUtils`（RFC 6238 TOTP，HMAC-SHA1，30秒时间步，6位码），改为自由函数 + 显式 `ICryptoProvider&`/`nowSeconds` 参数（不再硬编码静态 Adapter 类实例、不再调用 `system_clock::now()`，可确定性测试）
+- 新建 `IMfaRepository.h`：仓储接口覆盖 MFA 相关的 `users` 表列（secret/enabled/backup_codes/pending_client_id/pending_redirect_uri），遵循"每个受限概念一个仓储接口"的既有惯例（同 `IRoleRepository`/`ISubjectMappingRepository`）
+- `MfaService.h/.cc`：迁移 `MfaController.cc` 的 setup/verifySetup/disable/verifyLogin 纯业务逻辑（生成 secret+otpauth URI、验证码后启用+生成备份码、禁用、登录时验证码、pending client/redirect_uri 绑定的存取）。**明确不做**：验证码后签发 OAuth2 token 的编排（那是 identity/oauth2 边界之外的事，`MfaController::verifyLogin` 里验证 TOTP 后紧接着调 `TokenService`/`ClientService` 签 token 的部分，留给 Task 24 装配层做，`MfaService` 本身只到"验证通过"为止）
+- 12 个 TotpUtils 测试 + 8 个 MfaService 测试（用手写 `FakeMfaRepository`）
+
+### WebAuthn（sub-agent 完成）
+
+- 新建 `IWebAuthnRepository.h`：存储凭证（credential_id/public_key/name/user_id）、按 credential_id 查询（含 sign_count/public_sub）、认证成功后更新 sign_count、按用户列出凭证
+- `WebAuthnService.h/.cc`：迁移 `WebAuthnController.cc` 的 registerBegin/registerFinish/authenticateBegin/authenticateFinish/listCredentials。**明确保留**现有代码本来就没做真正 FIDO2 签名验证的既有简化（controller 直接信任客户端提交的 credential_id/public_key，不验证 attestation/assertion）——这不是本次引入的新缺陷，原样带过来，一行注释说明。challenge 生成后直接返回给调用方（不像 controller 那样存进 `req->session()`，Domain 层不碰 session，交由未来生产装配决定存哪里）
+- `libs/identity/CMakeLists.txt` 新增 `option(WITH_WEBAUTHN ... ON)`——**发现并修复一个真实的"从未生效"配置**：`WITH_WEBAUTHN`/`WITH_SOCIAL` 此前只在 `CMakeLists.txt`/占位 `.cc` 里被引用（`$<BOOL:${WITH_WEBAUTHN}>`、`#ifdef WITH_WEBAUTHN`），但从未在任何地方 `option()` 声明过，意味着这两个变量一直是未定义/OFF，`webauthn/*.cc`、`social/*.cc` 从来没有真正编译过。补上 `option()`（默认 ON）后这批代码才第一次被编译+测试到。conanfile.py 侧的 `with_webauthn`/`with_social` 选项贯通是 Task 31 的事，不在本次范围
+- 15 个新测试（`FakeWebAuthnRepository` + `FakeCryptoProvider`）
+
+### Social（Google/WeChat/GitHub，sub-agent 完成）
+
+- 新建 `IOAuthHttpClient.h`：Domain 层出站 HTTP 端口（`postForm`/`getWithBearerToken`），三个 provider 的 token 交换 + userinfo 拉取共用，真正基于 `drogon::HttpClient` 的 Adapter 实现不在本次范围（同 `ICryptoProvider` 的 OpenSSL 实现放 Adapter 层的既有模式）
+- 新建 `ISocialAccountRepository.h`：GitHub 专属的"社交登录背后的本地账号"仓储（按 provider+subject 查找已链接账号 / 找不到时创建新账号+链接+默认角色一步完成）。**决策记录**（写在头文件注释里）：没有复用 `ISubjectMappingRepository`（该接口目前只读，且已有两个实现方，扩展是破坏性变更）或 `IUserRepository::create`（形状不匹配，GitHub 的"查找或创建+链接"是一步操作，硬套会让调用方自己跨三个仓储编排，正是这次迁移要挪出 Domain 层的东西）
+- 逐 provider 核实源码后确认范围边界：`GoogleController`/`WeChatController` 的 `login()` 只做"换 code 拿 profile 过滤后返回"，不碰本地账号；`GitHubController::login()` 多做了"查找或创建本地用户+链接+分配默认角色"，但再往后还会直接签发/落库 OAuth2 access_token/refresh_token——那部分是 oauth2 域的事（同 `MfaService` 头注释的边界原则），`GitHubAuthService::login()` 到"本地用户已确定/已创建"为止，不发 token
+- `GoogleAuthService`/`WeChatAuthService`/`GitHubAuthService` 三个类，`SocialAuthService.h` 统一声明，`#ifdef WITH_SOCIAL` 包裹
+- 16 个新测试（`FakeOAuthHttpClient` 脚本化响应队列 + `FakeSocialAccountRepository`）
+
+### Session（sub-agent 完成，范围刻意收窄）
+
+- **范围澄清**（sub-agent 提示词里明确强调，因为 `SessionController.cc` 大部分逻辑早已被别处覆盖）：`SessionController.cc` 的登录/登出/注册/consent 四个 handler 主要是薄胶水代码，真正的认证已经是 `AuthService`（M2.5 首次范围），token 签发/consent/撤销已经是 oauth2 域的 `TokenService`/`ClientService`。本次只补两块**之前哪里都没有实现过**的东西：
+  1. **登录策略决策**（纯函数，无 IO）：给定 `AuthResult` + `requireEmailVerification` 配置，判定"继续发 token" / "拒绝（邮箱未验证）" / "需要 MFA"三种结果之一——对应 `SessionController::login()` 里内联的 CHECK 1（邮箱验证）→ CHECK 2（MFA）判断链，读源码确认并保留**邮箱验证优先于 MFA**的判定顺序
+  2. **登出的 backchannel 通知转发**：`SessionController::logout()` 现在调一个只打日志的 stub 函数 `sendBackchannelLogoutNotifications`——新建 `IBackchannelLogoutNotifier` 端口 + `SessionManager::logout()` 转发，真正的 OIDC backchannel logout HTTP 投递实现不在本次范围
+- `SessionManager.h/.cc`：`LoginDecision` 枚举（`Proceed`/`DenyEmailNotVerified`/`RequireMfa`）+ `evaluateLoginPolicy()`（成员方法+自由函数两种形式）+ 构造注入 `IBackchannelLogoutNotifier` 的 `logout()`。头注释明确边界：不发/不撤 token，不管理 MFA 状态，不持久化任何凭证
+- 11 个新测试（`emailVerified × mfaEnabled × requireEmailVerification` 全组合矩阵 + 优先级验证 + logout 转发）
+
+### 验证结果（全部完成后统一跑）
+
+- `cmake --preset windows-msvc-asan` 重新配置 + 全量 `cmake --build build/windows-msvc-asan --config Debug`：编译通过，零错误
+- `ctest -C Debug`：**288/288 全绿**（`authforge-identity-test` 从最初 19 个增至 81 个，零回归；其余既有测试全部保持不变）
+- 未做（如实记录）：conanfile.py 的 `with_webauthn`/`with_social` 选项贯通（Task 31，独立任务）；四块新服务接入生产 controller（Task 24）
 
 ## 关键提醒
 
