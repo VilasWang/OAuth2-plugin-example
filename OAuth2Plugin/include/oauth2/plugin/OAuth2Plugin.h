@@ -3,14 +3,32 @@
 #include <drogon/plugins/Plugin.h>
 #include <oauth2/storage/IOAuth2Storage.h>
 #include <oauth2/plugin/OAuth2CleanupService.h>
-#include <oauth2/services/TokenService.h>
-#include <oauth2/services/ClientService.h>
 #include <oauth2/services/IdentityService.h>
 #include <oauth2/adapters/StorageRoleProvider.h>
 #include <oauth2/utils/JwkManager.h>
+#include <authforge/oauth2/protocol/TokenService.h>
+#include <authforge/oauth2/protocol/ClientService.h>
 #include <string>
 #include <memory>
 #include <functional>
+
+// M3 Task 24 slice 2 (authforge-sdk-refactor, PROGRESS.md "Task 24 切分
+// 方案"): tokenService_/clientService_ now hold the NEW Domain-layer
+// classes (authforge::oauth2::protocol::TokenService/ClientService, Task
+// 17) instead of the old oauth2::TokenService/ClientService. Every
+// forwarding method below (validateClient/generateAuthorizationCode/
+// exchangeCodeForToken/etc) keeps its EXACT existing signature -- no
+// controller call site changes -- because OAuth2Plugin was already a
+// clean forwarding facade (every controller calls plugin->xxx(...), never
+// oauth2::TokenService directly). Only OAuth2Plugin.cc's internals change:
+// construction goes through a LegacyStorageRepositoryBridge (Task 24
+// slice 1) that adapts storage_ (still the old oauth2::IOAuth2Storage) to
+// the new split repository interfaces the new services require, and each
+// forwarding method's body does the old<->new DTO conversion at the
+// boundary. identityService_ (consent/roles/subject-mapping) is
+// deliberately UNCHANGED in this slice -- AuthorizationService's
+// integration needs ISubjectResolver wiring, which is a separate,
+// larger slice (see PROGRESS.md).
 
 class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
 {
@@ -23,12 +41,17 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     void shutdown() override;
 
     // ========== Service Accessors ==========
-    std::shared_ptr<oauth2::TokenService> getTokenService() const
+    // M3 Task 24 slice 2: these now return the NEW Domain-layer service
+    // types. Grep-confirmed zero call sites use these two accessors
+    // (unlike getIdentityService()/getStorage()/getJwkManager(), which
+    // are used by controllers) -- safe to change return type without a
+    // wider ripple.
+    std::shared_ptr<authforge::oauth2::protocol::TokenService> getTokenService() const
     {
         return tokenService_;
     }
 
-    std::shared_ptr<oauth2::ClientService> getClientService() const
+    std::shared_ptr<authforge::oauth2::protocol::ClientService> getClientService() const
     {
         return clientService_;
     }
@@ -290,8 +313,8 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
   private:
     std::shared_ptr<oauth2::IOAuth2Storage> storage_;
     std::shared_ptr<oauth2::OAuth2CleanupService> cleanupService_;
-    std::shared_ptr<oauth2::TokenService> tokenService_;
-    std::shared_ptr<oauth2::ClientService> clientService_;
+    std::shared_ptr<authforge::oauth2::protocol::TokenService> tokenService_;
+    std::shared_ptr<authforge::oauth2::protocol::ClientService> clientService_;
     std::shared_ptr<oauth2::IdentityService> identityService_;
     // M2b Task 17 slice 12: first production instantiation of
     // authforge::common::ports::IRoleProvider (via the Adapter-side

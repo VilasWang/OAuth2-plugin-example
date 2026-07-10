@@ -489,6 +489,32 @@ Task 17 写的 `TokenService`/`ClientService`/`AuthorizationService` 构造参�
 - 真实服务器 + curl 对该 slice 触及的端点做端到端验证（不能只依赖单测——单测很多是直接调方法绕过路由分发）
 - 每完成 2-3 个 slice 提交一次 git commit（按用户一贯的加速节奏要求）
 
+### Slice 1 完成：桥接适配器
+
+新建 `OAuth2Plugin/include/oauth2/adapters/LegacyStorageRepositoryBridge.h`：4 个薄转发类（`ClientRepositoryBridge`/`GrantRepositoryBridge`/`TokenRepositoryBridge`/`ConsentRepositoryBridge`），各自持有 `shared_ptr<oauth2::IOAuth2Storage>`，把新拆分接口的方法调用转发给旧接口对应方法，做逐字段 DTO 转换（`oauth2::OAuth2Client` ↔ `authforge::oauth2::model::OAuth2Client` 等）。`TokenRepositoryBridge::saveTokenPair` 特别转发到旧接口的 `saveTokenPair`（而非用新接口默认的顺序执行体），保住 Postgres 实现的真事务；`supportsTransactions()`/`supportsCas()` 依据构造时传入的 `storageType` 字符串和已知的三套后端行为返回。10 个新 `DROGON_TEST` 单测（`OAuth2Server/test/unit/plugin/LegacyStorageRepositoryBridgeTest.cc`），逐一验证桥接后行为跟直接调用旧 `MemoryOAuth2Storage` 一致。验证：全量编译通过，10/10 新测试通过。
+
+### Slice 2 完成：装配新服务 + 切换 OAuth2Plugin 内部实现（合并了原计划的 Slice 2+3）
+
+**重要发现，改变了原计划**：核实 `OAuth2Plugin.cc` 后发现它本来就是一个干净的转发外壳——全部 15+1 个 controller 都是调 `plugin->exchangeCodeForToken(...)`/`plugin->generateAuthorizationCode(...)` 等方法，从未有 controller 直接碰 `oauth2::TokenService`/`ClientService`。这意味着原计划"逐个改 controller 深层嵌套异步链"的高风险方案不需要——**只需要把 `OAuth2Plugin` 内部持有的 `tokenService_`/`clientService_` 成员类型换成新的 `authforge::oauth2::protocol::TokenService`/`ClientService`，全部 controller 调用点完全不用动**。原计划的 Slice 2（切换 `OAuth2StandardController`）和 Slice 3（切换其余 controller）因此合并成一步。
+
+具体改动：
+
+- `OAuth2Plugin.h`：`tokenService_`/`clientService_` 成员类型 + `getTokenService()`/`getClientService()` 返回类型改为新 Domain 类（grep 确认这两个 accessor 零调用点，改动安全）。`identityService_`（consent/roles/subject mapping）**本次不动**——`AuthorizationService` 的接入需要真正的 `ISubjectResolver` 装配，是更大的独立工作，留给后续。
+- `OAuth2Plugin.cc::initAndStart()`：用 Slice 1 的 4 个桥接类包一层旧 `storage_`，构造出新 `TokenService`（构造参数：3 个仓储桥接 + `OpenSslCryptoProvider` + `DrogonAuditSink` + 一个新写的 `LegacyRoleResolutionBridge`）+ 新 `ClientService`（构造参数：`ClientRepositoryBridge`）。
+- **踩坑（已定位并修复）**：第一次实现时给新 `TokenService` 的 `ISubjectResolver`/`IRoleProvider` 两个可选端口传了 `nullptr`（图省事，觉得"反正是可选的"）。全量测试后 `PluginTest.cc` 的"Verify Admin Roles"用例失败——因为新 `TokenService` 的角色解析走 `ISubjectResolver::resolve(subject)→internalUserId→IRoleProvider::getRoles(internalUserId)` 两级端口链（design.md §5.2 定义的标准链路），但**旧** `TokenService` 是直接 `storage_->getUserRoles(subjectString)` 单跳字符串查找（`MemoryOAuth2Storage` 这个重载按原始 subject 字符串查表，完全不经过 subject mapping 表）。测试里的 `"admin"` 这个 subject 从未建立过 subject mapping，两级链路在中间就返回空，roles 字段因此丢失——这是一个真实的行为倒退，而不是测试断言过严。
+  - **修复方案**：新写 `LegacyRoleResolutionBridge`（在同一个 bridge 头文件里），**同时实现** `ISubjectResolver` 和 `IRoleProvider` 两个接口：`resolve()` 立即执行旧的单跳 `storage_->getUserRoles(subject, ...)` 调用，把结果暂存进一个内部 map（key 是一个单调递增的"合成 id"，绝不复用），通过 `ISubjectResolver` 契约把这个 id 当作"已解析的 internal user id"传回去；`getRoles()` 直接查（并清除）该 id 对应的暂存角色列表。因为 `TokenService::resolveRoles()` 内部固定是"先 resolve 再 getRoles，同一个异步链里紧接着调用"，这个暂存值读取一次后立刻清理，不存在生命周期或内存泄漏问题。这是一个刻意收窄的兼容层，不是长期方案——真正的 `ISubjectResolver`/`IRoleProvider`（走 subject mapping 表）留给以后跟 `AuthorizationService` 一起装配。
+- `OAuth2Plugin.cc` 的转发方法里做类型转换：`validateAccessToken`/`introspectToken` 的回调把新 Domain 类型（`authforge::oauth2::model::OAuth2AccessToken`/`TokenIntrospection`）转换回旧类型（`oauth2::OAuth2AccessToken`/`TokenIntrospection`），保持每个 controller 看到的回调签名完全不变。
+- 两个静态纯函数方法（`OAuth2Plugin::validatePkceCodeVerifier`/`generateSha256Hash`，走 `oauth2::TokenService(nullptr)`）保持不动——它们跟被替换的实例服务无关，`scopeRequiresAdminRole` 同理保持用旧 `IdentityService(nullptr)`。
+
+**验证结果**：
+
+- 全量编译（`OAuth2Plugin`/`libs/drogon`/`OAuth2Server`/`OAuth2Test_test`）：通过，零错误
+- `ctest -C Debug`：**288/288 全绿**（含定位到并修复上述角色解析回归后）
+- 真实服务器 + curl 验证：`/health`/`/.well-known/openid-configuration`/`/.well-known/jwks.json` 200，JWKS 返回内容不变（`jwkManager_` 未受影响）
+- `OAuth2Test_test.exe` 单独跑 `E2E_P0_OAuth2Flow_AuthCode_Works`（完整 authorize→login→token 真实 HTTP 流程，Postgres 后端）：通过；`Integration_P0_Client_Authentication_Works`：通过；`Unit_P0_OAuth2Plugin_ValidateClientScopes_RestrictsToAllowlist`：通过——这三个测试直接命中本次改动的核心路径（token 签发、client 认证、scope 校验），零回归确认新服务在真实请求路径下行为等价
+
+**尚未做**（如实记录，留给后续 slice）：identity 侧装配（`AuthService`/`SessionManager`）、MFA/WebAuthn/Social 三类 controller 切换、`AuthorizationService` 真正接入 consent/scope 决策链、`OAuth2Plugin` 进一步瘦身清理。
+
 ## 关键提醒
 
 - 每个 slice/task 完成后必须跑全量测试套件（当前 124 个 CTest cases: 40 authforge-common-test + 38 authforge-common-testing-test + 1 OAuth2Tests(内含 310 DROGON_TEST cases/57113 assertions) + 45 Contract）确认零回归

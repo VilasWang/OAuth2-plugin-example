@@ -3,10 +3,23 @@
 #include <oauth2/utils/JwkManager.h>
 #include <oauth2/adapters/DrogonLogger.h>
 #include <oauth2/adapters/StorageRoleProvider.h>
+#include <oauth2/adapters/OpenSslCryptoProvider.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
+#include <oauth2/adapters/LegacyStorageRepositoryBridge.h>
 #include <oauth2/storage/MemoryOAuth2Storage.h>
 #include <oauth2/storage/PostgresOAuth2Storage.h>
 #include <oauth2/storage/RedisOAuth2Storage.h>
 #include <oauth2/storage/CachedOAuth2Storage.h>
+// OLD oauth2::TokenService/IdentityService (not the new Domain-layer
+// classes): still needed here ONLY for the two static pure-function
+// utilities below (validatePkceCodeVerifier/generateSha256Hash via a
+// stack-constructed TokenService(nullptr), and scopeRequiresAdminRole via
+// IdentityService(nullptr)) -- these were never migrated to the new
+// classes in Task 24 slice 2 (out of scope: pure functions, no storage
+// dependency, no controller depends on the OLD tokenService_/
+// clientService_ members these classes used to back).
+#include <oauth2/services/TokenService.h>
+#include <oauth2/services/IdentityService.h>
 #include <drogon/drogon.h>
 
 using namespace drogon;
@@ -81,14 +94,53 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     }
 
     // Initialize Services
+    // M3 Task 24 slice 2 (authforge-sdk-refactor): tokenService_/
+    // clientService_ are now the NEW Domain-layer classes
+    // (authforge::oauth2::protocol::TokenService/ClientService, Task 17),
+    // constructed against the split repository interfaces via
+    // LegacyStorageRepositoryBridge (Task 24 slice 1) -- storage_ itself
+    // is untouched (still the old oauth2::IOAuth2Storage concrete
+    // classes), so this is purely a construction-site change, not a
+    // storage migration. Every controller keeps calling
+    // plugin->exchangeCodeForToken(...) etc unchanged (OAuth2Plugin was
+    // already a clean forwarding facade); only the delegate methods'
+    // bodies below (and this construction) know about the new types.
+    auto clientRepo = std::make_shared<oauth2::adapters::ClientRepositoryBridge>(storage_);
+    auto grantRepo = std::make_shared<oauth2::adapters::GrantRepositoryBridge>(storage_);
+    auto tokenRepo =
+      std::make_shared<oauth2::adapters::TokenRepositoryBridge>(storage_, storageType_);
+    auto cryptoProvider = std::make_shared<oauth2::adapters::OpenSslCryptoProvider>();
+    auto auditSink = std::make_shared<oauth2::adapters::DrogonAuditSink>();
+    // Preserves the OLD single-hop storage_->getUserRoles(subjectString)
+    // role-resolution semantics through the new two-port shape -- see
+    // LegacyRoleResolutionBridge's own header comment for why a naive
+    // ISubjectResolver->IRoleProvider chain via getInternalUserId would
+    // silently drop roles for subjects with no explicit subject mapping
+    // (e.g. the "admin" test user).
+    auto roleResolutionBridge = std::make_shared<oauth2::adapters::LegacyRoleResolutionBridge>(
+      storage_
+    );
+
     // Defect 1.3 fix: services now share ownership of storage_ (shared_ptr),
     // so the storage lifetime is guaranteed to cover every service instead of
     // relying on the implicit "storage_ outlives services" timing convention.
-    tokenService_ = std::make_shared<oauth2::TokenService>(
-      storage_, authCodeTtl_, accessTokenTtl_, refreshTokenTtl_, issuer
+    // The new TokenService continues that guarantee transitively via the
+    // repository bridges above, which each hold their own storage_ shared_ptr.
+    tokenService_ = std::make_shared<authforge::oauth2::protocol::TokenService>(
+      clientRepo,
+      grantRepo,
+      tokenRepo,
+      cryptoProvider,
+      auditSink,
+      roleResolutionBridge,  // ISubjectResolver
+      roleResolutionBridge,  // IRoleProvider (same object implements both)
+      authCodeTtl_,
+      accessTokenTtl_,
+      refreshTokenTtl_,
+      issuer
     );
     tokenService_->setJwkManager(jwkManager_);
-    clientService_ = std::make_shared<oauth2::ClientService>(storage_);
+    clientService_ = std::make_shared<authforge::oauth2::protocol::ClientService>(clientRepo);
     identityService_ = std::make_shared<oauth2::IdentityService>(storage_);
     roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(storage_);
 
@@ -257,7 +309,24 @@ void OAuth2Plugin::validateAccessToken(
   std::function<void(std::shared_ptr<AccessToken>)> &&callback
 )
 {
-    tokenService_->validateAccessToken(token, std::move(callback));
+    // M3 Task 24 slice 2: new TokenService returns
+    // shared_ptr<authforge::oauth2::model::OAuth2AccessToken>; convert to
+    // the old oauth2::OAuth2AccessToken (== AccessToken alias) at this
+    // boundary so every controller call site (which expects the OLD type)
+    // is unaffected.
+    tokenService_->validateAccessToken(
+      token,
+      [callback = std::move(callback)](
+        std::shared_ptr<authforge::oauth2::model::OAuth2AccessToken> t
+      ) {
+          if (!t)
+          {
+              callback(nullptr);
+              return;
+          }
+          callback(std::make_shared<AccessToken>(oauth2::adapters::toOldAccessToken(*t)));
+      }
+    );
 }
 
 void OAuth2Plugin::getUserRoles(
@@ -319,7 +388,34 @@ void OAuth2Plugin::introspectToken(
   std::function<void(std::optional<oauth2::TokenIntrospection>)> &&callback
 )
 {
-    tokenService_->introspectToken(token, std::move(callback));
+    // M3 Task 24 slice 2: convert authforge::oauth2::model::
+    // TokenIntrospection (new) back to oauth2::TokenIntrospection (old) at
+    // this boundary -- the callback signature (and every controller call
+    // site) is unchanged.
+    tokenService_->introspectToken(
+      token,
+      [callback = std::move(callback)](
+        std::optional<authforge::oauth2::model::TokenIntrospection> t
+      ) {
+          if (!t)
+          {
+              callback(std::nullopt);
+              return;
+          }
+          oauth2::TokenIntrospection old;
+          old.active = t->active;
+          old.clientId = t->clientId;
+          old.tokenType = t->tokenType;
+          old.exp = t->exp;
+          old.iat = t->iat;
+          old.nbf = t->nbf;
+          old.sub = t->sub;
+          old.aud = t->aud;
+          old.iss = t->iss;
+          old.scope = t->scope;
+          callback(old);
+      }
+    );
 }
 
 void OAuth2Plugin::incrementIntrospectCount(
