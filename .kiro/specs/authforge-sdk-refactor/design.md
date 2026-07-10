@@ -166,22 +166,32 @@
 
 > *内存存储可不直接依赖 Drogon，若需 Drogon 工具则归 Adapter 层。
 
-### 5.5 Drogon 自动注册与链接策略（关键，评审 F1）
+### 5.5 Drogon 自动注册与链接策略（关键，评审 F1 → **已用 `AutoCreation=false` 方案验证解决，取代原 whole-archive 方案**）
 
-Drogon 的 controller/filter/**视图类**/**插件类**均通过静态初始化自注册（`ADD_METHOD_TO`、`drogon_create_views`、以及插件按类名字符串反射等在 TU 级构造/查找全局对象）。当前 `OAuth2Plugin` 是 CMake **OBJECT 库**，强制所有目标文件进入最终可执行体，**恰好规避**了「未被显式引用的注册符号被链接器丢弃」的问题。
+> **本节内容为原设计（whole-archive 方案）的历史记录 + 实施后发现的更优方案，两者一并保留供对照。M3 Task 20/23 实施时采用的是下方"已验证方案"，whole-archive **未被使用**，Task 22 因此判定为大概率不再需要（见文末结论）。**
 
-改为「静态库 + `find_package`」后，注册符号可能被链接器当作未引用而丢弃，导致 **controller/filter 静默不注册、路由 404**。必须显式处理：
+**原设计假设**：Drogon 的 controller/filter/**视图类**/**插件类**均通过静态初始化自注册（`ADD_METHOD_TO`、`drogon_create_views`、以及插件按类名字符串反射等在 TU 级构造/查找全局对象）。当前 `OAuth2Plugin` 是 CMake **OBJECT 库**，强制所有目标文件进入最终可执行体，**恰好规避**了「未被显式引用的注册符号被链接器丢弃」的问题。改为「静态库 + `find_package`」后，注册符号可能被链接器当作未引用而丢弃，导致 **controller/filter 静默不注册、路由 404**——原设计给出的应对是对含注册符号的库整体做 whole-archive 链接。
 
-- 含 Drogon 自注册符号的库（`libs/drogon`：controller / filter / **视图类**（`login.csp`/`consent.csp`）/ **插件类**）对消费者必须以 **whole-archive** 方式链接：
-  - CMake ≥ 3.24：`target_link_libraries(app PRIVATE $<LINK_LIBRARY:WHOLE_ARCHIVE,authforge-drogon>)`。
-  - 回退：GCC/Clang `-Wl,--whole-archive ... -Wl,--no-whole-archive`；MSVC `/WHOLEARCHIVE:authforge-drogon.lib`。
-  - 或：对外仍以 **OBJECT 库 / INTERFACE 源传递**形态分发 `libs/drogon`（保留现状优点）。
-- 纯 Domain 库（`common`/`oauth2`/`identity`）无自注册符号，正常静态库即可。
-- **SDK 集成文档必须明确要求消费者对 `authforge-drogon` 使用 whole-archive 链接**，否则路由注册失败。
-- **视图渲染名跨库保活（评审 H5/B2）**：全仓仅 `SessionController.cc:306` 渲染 `login`；**consent 走重定向到前端 `/consent`（`OAuth2StandardController.cc:1683`），服务端 `consent.csp` 无渲染入口 → 判定为遗留死文件（标记为待处理遗留问题，见 §5.9）**。whole-archive 验收只断言 `login` 可渲染。
-- **插件按名反射（评审 H1）**：`OAuth2Plugin` 由 config 的 `"plugins":[{"name":"OAuth2Plugin"}]` 按类名字符串反射加载；whole-archive 亦须覆盖插件类符号，否则**启动加载阶段**即「plugin not found」（比路由 404 更早）。详见 §5.7。
-- M4 测试从 GLOB 直编改为链接库时同样受影响：测试可执行体必须 whole-archive 链接含注册符号的库，否则 E2E 路由测试失败。
-- 回归防线：SDK 冒烟（§Testing Strategy）**实发 HTTP 请求**断言 `/oauth2/*` 路由已注册、`login.csp` 可渲染、config 驱动的插件实例化成功。
+**已验证的更优方案（用户提出，实测确认，见 PROGRESS.md "AutoCreation=false" 相关章节）**：
+
+Drogon 的 `HttpController<T, AutoCreation>` / `HttpFilter<T, AutoCreation>` 模板第二参数（默认 `true`）**只控制是否自动挂路由**（`methodRegistrator` 构造体里 `if (AutoCreation) T::initPathRouting();`），**不影响** `DrObject<T>` 层面的类型注册（`DrClassMap::registerClass`，只要类满足 `is_default_constructible` 就会注册，与 `AutoCreation` 无关）。`HttpAppFramework::registerController<T>(shared_ptr<T>)`/`registerFilter<T>` 提供了 `AutoCreation=false` 类的显式注册入口（`static_assert(!T::isAutoCreation, ...)`），调用体是 `DrClassMap::setSingleInstance(ctrlPtr); T::initPathRouting();`——即"显式提供实例 + 显式触发路由挂载"。
+
+**核心结论**：把 controller 声明为 `HttpController<T, false>`，在装配代码（`main.cc`/未来 `apps/server` bootstrap）里显式 `drogon::app().registerController(std::make_shared<T>())`，路由挂载从"隐式静态初始化副作用（链接器可能因未被引用而整体丢弃该 `.o`）"变成"真实的、编译器/链接器可见的函数调用链"——**因为问题根源（隐式静态初始化、无显式引用）被消除了，controller 迁入静态库后完全不需要 whole-archive**，普通 `target_link_libraries` 即可。
+
+已用真实运行的可执行文件 + curl 发起真实 HTTP 请求验证（不是仅靠单测断言）：`libs/drogon` 用普通链接（非 whole-archive），`main.cc`/`test_main.cc` 显式 `registerController` 全部 15+1 个 controller 后，`/health`、`/login`、`/api/admin/dashboard`、`/oauth2/authorize`、`/.well-known/openid-configuration` 等路由全部可达，`ctest` 226/288 全绿（视里程碑推进情况递增），零回归。
+
+**这条结论的适用范围与例外**：
+
+- **Controller**（本节新方案主要覆盖对象）：15+1 个 controller 全部改为 `AutoCreation=false` + 显式 `registerController`，已完成迁移，全程不用 whole-archive。
+- **Filter（`ADD_METHOD_TO(..., "命名空间::FilterClassName")` 字符串引用的被动过滤器）**：`AuthorizationFilter`/`OAuth2AuthFilter` 保持 `AutoCreation=true`（默认）不变——它们是被 controller 按名字符串通过 `DrClassMap` 动态查找实例化的，不是"自己主动挂路由"模式，这条路径本来就没有 whole-archive 问题（`ADD_METHOD_TO` 字符串本身就是一个真实的、编译期确认过的引用意图）。**目前仍是** `OAuth2Plugin/include/oauth2/filters/` 下的旧命名空间实现（`oauth2::filters::*`）在被路由字符串实际引用；`libs/drogon` 里 Task 20 slice 2 迁移的同名副本未被任何 `ADD_METHOD_TO` 字符串引用，是路由意义上的死代码（保留供未来统一命名空间时切换调用点，不阻塞）。
+- **插件类**（`OAuth2Plugin`）：**不适用**此方案——`drogon::Plugin<T>` 没有 `AutoCreation` 模板参数，插件的注册/查找（`getPlugin<T>()`）是纯 `DrClassMap` 机制，Drogon 内部按 config 里的类名字符串反射构造，没有"手动注册"这个口子。**§5.7 的插件按名反射风险分析对插件仍然完全成立，不受本节修正影响**。
+- **视图类**（`login.csp`/`consent.csp`）：未受本节方案覆盖，但已验证 `SessionController::showLoginPage`（已用 `AutoCreation=false` 迁移）调用 `HttpResponse::newHttpViewResponse("login", data)` 能正常工作——说明 view 渲染不依赖 controller 所在的库形态，视图文件可以继续留在原位（`OAuth2Server/views/`，未随 controller 一起迁入 `libs/drogon`），不阻塞。**视图渲染名跨库保活（评审 H5/B2）**：全仓仅 `SessionController.cc` 渲染 `login`；consent 走重定向到前端 `/consent`，服务端 `consent.csp` 无渲染入口 → 遗留死文件判定不变（见 §5.9）。
+
+**对 Task 22（whole-archive）的影响**：**大概率不再需要**——`AutoCreation=false` 方案已验证完全替代其作用，成本比原方案更低（不需要 CMake `$<LINK_LIBRARY:WHOLE_ARCHIVE,...>`/`-Wl,--whole-archive`/`/WHOLEARCHIVE:` 任何形式的特殊链接配置）。仍需评估的是**视图类**和**插件类本身**是否有类似的免 whole-archive 路径，或者这两类天生需要不同的处理方式——插件类已确认没有（见上），视图类因为不是自注册类型（渲染是运行期按名查找模板文件，不是链接期符号），大概率也不需要。Task 22 在 tasks.md 中标注为"评估性任务"，而非"必须实施"。
+
+- 纯 Domain 库（`common`/`oauth2`/`identity`）无自注册符号，正常静态库即可（不受本节讨论影响，原设计对这部分的结论不变）。
+- M4 测试从 GLOB 直编改为链接库时，若沿用 `AutoCreation=false` 方案（controller 已经是这个形态），测试可执行体同样只需显式 `registerController`，不需要 whole-archive；若测试直接调方法而不经路由分发（如 `Integration_P0_SuccessBodyShape_GoldenSnapshot` 用 `make_shared<HealthController>()` 直调），`AutoCreation` 值完全不影响这种用法。
+- 回归防线：SDK 冒烟（§Testing Strategy）**实发 HTTP 请求**断言 `/oauth2/*` 路由已注册、`login.csp` 可渲染、config 驱动的插件实例化成功——此验收标准不因链接方案变化而改变。
 
 ### 5.6 去 Drogon::utils 的端口清单（评审 F3）
 
@@ -205,10 +215,10 @@ Domain 去 Drogon 化的**主体工作不是 OpenSSL（仅 1 处），而是替�
 
 **风险**：插件一旦改名 / 退化为装配器 / 迁入 `libs/drogon` 静态库，(a) 静态库丢弃插件自注册符号 → Drogon 反射「plugin not found」，(b) config 的 `plugins[].name` 失配 → **启动加载阶段即崩**（早于且更致命于 F1 的路由 404），(c) 插件 `config{}` 块是产品配置契约，装配器化后这份 schema 从哪读未定义。
 
-**决策（二选一，落地时定）**：
-- **方案 A（低破坏，推荐）**：保留 `OAuth2Plugin` 类名与 config `plugins` 块，插件内部退化为「薄装配器」（构造 Adapter 实现 → 注入 Domain 服务）；用 whole-archive 保活插件自注册符号。config 4 份**零改动**，兼容性最好。
-- **方案 B（更彻底）**：`main.cc` 显式构造装配（不走 config plugins 反射），把原 `config{}` 块迁到 `custom_config.oauth2`。需同步改 4 份 config + 文档 + 迁移说明。
-- 无论哪种：Task 22 验收须包含「**config 驱动的插件实例化成功**（非仅路由可达）」；Task 37/43 须显式列出 `config.*.json` 的 `plugins[].name` 兼容处理。
+**决策（Task 21 已完成，选定方案 A）**：
+- **方案 A（低破坏，已选定并实施）**：保留 `OAuth2Plugin` 类名与 config `plugins` 块，插件内部逐步退化为「薄装配器」（构造 Adapter 实现 → 注入 Domain 服务）；插件本体目前是 CMake **OBJECT 库**（非 STATIC），OBJECT 库的目标文件逐个直接链接进消费者，不存在链接器按需抽取丢弃注册符号的问题——这也是"用 whole-archive 保活插件自注册符号"这条风险在**当前阶段未出现**的原因（真正的风险点是"改为静态库形态分发"时才会浮现，见 §5.5 更新后的结论：插件类没有 `AutoCreation` 参数，不适用免 whole-archive 方案，若插件本体未来确实改为静态库分发，仍需要 whole-archive 或等价方案）。config 4 份**零改动**，兼容性最好。验收标准「config 驱动的插件实例化成功」已被现有测试套件隐式覆盖（30+ 处 `getPlugin<OAuth2Plugin>()` 断言非空指针的测试全绿）。
+- **方案 B（未采用）**：`main.cc` 显式构造装配（不走 config plugins 反射），把原 `config{}` 块迁到 `custom_config.oauth2`。需同步改 4 份 config + 文档 + 迁移说明，破坏性更大，已放弃。
+- Task 20 slice 1-2（迁移 filters/validation）已隐含验证了方案 A 的方向——全程保留 `OAuth2Plugin` 类名、`#include` 路径和 `getPlugin<OAuth2Plugin>()` 调用点不变。
 
 ### 5.8 类/文件命名规范（重构中统一梳理，采纳评审建议 3）
 
@@ -580,7 +590,7 @@ Memory / Redis / Postgres 三实现对同一契约测试套件行为一致（M1 
 | **secrets 管理与 legacy 密码迁移兼容（F10）** | 敏感项仅经 env/secret store、禁落盘日志；保留 `PasswordHasher` legacy SHA-256 校验与 `needsRehash` 平滑升级路径，迁移测试覆盖 |
 | **config 插件按名反射，改名/迁库致启动期失效（H1，高）** | 保留 `OAuth2Plugin` 类名 + whole-archive 保活插件符号（方案 A）；或 main.cc 显式装配并迁 config 块（方案 B）；§5.7；Task 21/22 验收含 config 驱动实例化 |
 | **CachedOAuth2Storage 装饰器拆分后无归属（H3，中）** | §7.4 定 per-repository 装饰；**UAF 已在 HEAD 修复（`enable_shared_from_this`，提交 `30a1d1e`）——非待修缺陷**；迁移须**保留**该安全模式，`CategoryC_CachedStorageUafTest` 作回归门控 |
-| **全局单例 `getPlugin<OAuth2Plugin>()` → 构造注入改动量大（H4，中）** | M3 独立「controller/filter 去单例化」任务 + 受影响清单（Session/Health/GitHub/DeviceAuth/OAuth2Standard 等）；验收挂 Admin 37 + OAuth2 17 端点测试 |
+| **全局单例 `getPlugin<OAuth2Plugin>()` → 去单例化改动量大（H4，中，**已完成，方案与原设想不同**）** | 原设想是"改为构造注入"，但插件由 config 反射构造、必须晚于 controller 注册完成，二者存在框架级先后顺序限制，构造函数注入不可行。**已落地方案**：两阶段装配——controller/filter 仍按 §5.5 的 `AutoCreation=false` 机制原样构造注册；新增 `setPlugin(OAuth2Plugin*)` setter，在 `registerBeginningAdvice` 回调（插件已构造完成的时间点）里用 `drogon::DrClassMap::getSingleInstance<T>()` 取到已注册的同一单例，逐个调用 `setPlugin()`；每个 handler 内部经 `resolvePlugin()`（`plugin_ ? plugin_ : getPlugin<OAuth2Plugin>()`）取用，缓存命中时不再每次查询全局单例，未设置时向后兼容回退到原查找方式。已验证：6 个 controller + 2 个 filter（15 处生产调用点）改造完成，`ctest` 226/288 区间全绿（视里程碑推进），真实服务器验证行为一致 |
 | **长链重构无中途可发布策略（H6，中）** | §14.1 分里程碑可发布性；M2a 逐端口逐调用点可独立合并；M8 脚本化一次性迁移 + 迁移前打 tag，整体成功或整体回退 |
 
 ### 14.1 分里程碑可发布性（评审 H6）

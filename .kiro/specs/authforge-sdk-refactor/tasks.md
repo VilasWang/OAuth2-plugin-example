@@ -145,9 +145,10 @@
 
 ## M2b — 抽 oauth2 Domain + ORM 归位（依赖：M2a）
 
-- [ ] 17. 创建 `libs/oauth2`（authforge::oauth2），迁入协议逻辑
+- [x] 17. 创建 `libs/oauth2`（authforge::oauth2），迁入协议逻辑
   - `oauth2::pkce`（纯函数）、`AuthorizationService`/`TokenService`、`access/`（consent+scope 策略+决策引擎）、`model/`（聚合）、DTO 迁入；仓储接口（M1 的 4 个）迁入
   - 产出：`libs/oauth2` target + `authforge-oauth2` export；验收：Domain 纯单测通过；arch-guard 无 drogon 依赖
+  - **完成说明**：分多个 slice 完成（详见 PROGRESS.md "M2b 详细完成内容"）。`AuthorizationService` 是全新类——设计要求但代码里从未真正存在过，用 `ScopeDecisionEngine`（已建）驱动，自己异步编排 client/role/consent 三级事实获取。`TokenService`/`ClientService` 构造参数从旧的整体接口 `IOAuth2Storage` 换成新拆分的 `IClientRepository`/`IGrantRepository`/`ITokenRepository`，全部方法逐一对照旧实现保持行为一致；PKCE 校验改用已修复的 `oauth2::pkce::verifyCodeVerifier`（RFC 7636 合规）。**尚未接入生产**——`OAuth2Plugin` 仍使用旧的 `oauth2::TokenService`/`ClientService`，真正切换是 Task 24。
 
 - [x] 18. ORM 模型迁 `storage-postgres` + DTO 映射（F2）
   - 14 个生成的 ORM 模型（`Oauth2*`/`Users`/`Roles` 等）迁 `libs/storage-postgres/models/`；补齐 ORM ↔ Domain DTO/值对象双向映射；更新 ORM 生成器输出目录（配合 Task 2）
@@ -158,44 +159,53 @@
 
 ## M2.5 — 抽取 Identity SDK（依赖：M2b）
 
-- [x] 19. 创建 `libs/identity`（authforge::identity）【范围受限：仅 AuthService + RBAC 绑定，MFA/WebAuthn/Social/Session 迁移留待后续任务，详见 PROGRESS.md】
+- [x] 19. 创建 `libs/identity`（authforge::identity）【**已补全**：AuthService + RBAC 绑定为首批范围；MFA/WebAuthn/Social/Session 已在后续批次补齐，详见 PROGRESS.md "M2.5 补全"】
   - **实际迁移文件集（评审 A4 更正）**：`AuthService.cc`（365 行，仅 `validateUser`/`registerUser`/`getUserInfo`）+ 分散在各控制器的能力：
-    - MFA：`MfaController.cc`（551 行）+ `TotpUtils`
-    - WebAuthn：`WebAuthnController.cc`（402 行）
-    - Social：`GoogleController.cc` / `WeChatController.cc` / `GitHubController.cc`
-    - Session：`SessionController.cc`（855 行）
+    - MFA：`MfaController.cc`（551 行）+ `TotpUtils` —— **已完成**：`TotpUtils`（RFC 6238，改为纯函数+显式端口参数）+ `MfaService`（setup/verify/enable/disable/login-verify/pending-binding），新增 `IMfaRepository`
+    - WebAuthn：`WebAuthnController.cc`（402 行）—— **已完成**：`WebAuthnService`（registerBegin/Finish、authenticateBegin/Finish、listCredentials），新增 `IWebAuthnRepository`；保留现有代码本就没做真正 FIDO2 签名验证的既有简化（非新增缺陷）
+    - Social：`GoogleController.cc` / `WeChatController.cc` / `GitHubController.cc` —— **已完成**：`GoogleAuthService`/`WeChatAuthService`/`GitHubAuthService`，新增 `IOAuthHttpClient`（出站 HTTP 端口，Domain 层不碰 `drogon::HttpClient`）+ `ISocialAccountRepository`（GitHub 专属的本地账号查找/创建/关联）
+    - Session：`SessionController.cc`（855 行）—— **部分完成**（范围刻意收窄）：`SessionController.cc` 大部分逻辑早已被 `AuthService`（认证）+ oauth2 域的 `TokenService`/`ClientService`（token 签发/consent/撤销）覆盖，本次只补两块之前哪里都没实现过的东西：`SessionManager::evaluateLoginPolicy()`（纯函数登录策略决策：邮箱验证 → MFA 判定，邮箱验证优先级已核对源码保留）+ `IBackchannelLogoutNotifier`（logout 的 backchannel 通知转发端口，替换原来只打日志的 stub）
   - `rbac/` 实现 `IRoleProvider`、`SubjectMapping` 实现 `ISubjectResolver`、userinfo 实现 `IUserInfoProvider`；identity 仓储接口迁入
-  - 产出：`libs/identity` target + `authforge-identity` export；验收：独立编译；**不依赖 `libs/oauth2`**（arch-guard 强制）；identity 单测通过
+  - 产出：`libs/identity` target + `authforge-identity` export；验收：独立编译；**不依赖 `libs/oauth2`**（arch-guard 强制，grep 确认零 include）；identity 单测通过（19 → **81 个**）
+  - **发现并修复的真实潜在缺陷**：`WITH_WEBAUTHN`/`WITH_SOCIAL` 两个 CMake 变量之前只被 `$<BOOL:...>` 生成器表达式和 `#ifdef` 引用，从未在任何地方 `option()` 声明过，导致这两个变量一直是未定义/OFF，`webauthn/*.cc`、`social/*.cc` 从来没有真正被编译到过。已在 `libs/identity/CMakeLists.txt` 补上 `option(... ON)`。conanfile.py 侧的 `with_webauthn`/`with_social` 选项贯通留给 Task 31。
+  - **全部新增代码均未接入生产**：`libs/drogon/src/controllers/{Mfa,WebAuthn,Google,WeChat,GitHub,Session}Controller.cc` 保持原样不动，继续用旧的 `OAuth2Plugin`/inline 逻辑；真正装配是 Task 24。
 
 ---
 
 ## M3 — Drogon 适配器 + 插件注册迁移 + 链接策略 + 产品瘦身（依赖：M2.5）
 
-- [ ] 20. 创建 `libs/drogon`（authforge::drogon）
+- [x] 20. 创建 `libs/drogon`（authforge::drogon）
   - 插件退化为装配器：读配置 → 构造 Adapter 实现 → 注入 Domain 服务 → 注册 controller/filter；迁入 controllers/filters/views
   - 产出：`libs/drogon` target；验收：编译通过
+  - **重大突破（用户提出并主导验证，详见 design.md §5.5 更新）**：`HttpController<T, false>`（`AutoCreation=false`）+ 显式 `drogon::app().registerController(...)` 可以让 controller 迁入 STATIC 库后完全不需要 whole-archive 链接。已用真实运行的可执行文件 + curl 验证。**全部 15 个 controller + `OAuth2StandardController`（协议核心）+ 2 个主动挂路由的 filter + `AuthService` 均已迁入 `libs/drogon`**，全程未用 whole-archive。
+  - 踩坑记录（已修复，通用规律记入 PROGRESS.md）：`authforge::drogon::*` 命名空间内裸写 `common::error::`/`oauth2::`/`drogon::`（不带 `authforge::` 前缀的全局命名空间）会被 include 链间接引入的 `authforge::` 子命名空间可见性坑到，优先匹配到错误的命名空间——统一改为 `::` 全局限定修复。
 
-- [ ] 21. 插件注册与 config 加载迁移（评审 H1，新增）
+- [x] 21. 插件注册与 config 加载迁移（评审 H1，新增）
   - 依 design §5.7 抉择方案 A（保留 `OAuth2Plugin` 类名 + config `plugins` 块，插件内部退化装配器）或方案 B（main.cc 显式装配 + config 块迁 `custom_config`）
   - 处理 4 份 `config.*.json` 的 `plugins[].name` 与 `config{}` 业务块（storage_type/clients/admin_users/tokens）兼容
   - 产出：插件注册/配置加载实现 + config 兼容处理
   - 验收：**config 驱动的插件实例化成功**（非仅路由）；4 份 config 启动均不崩
+  - **决策：方案 A**。理由见 design.md §5.7 更新——插件本体是 OBJECT 库（非 STATIC），天然不受链接器丢弃符号影响；验收标准已被现有 30+ 处 `getPlugin<OAuth2Plugin>()` 断言非空的测试隐式覆盖。4 份 config 零改动。
 
-- [ ] 22. whole-archive 链接策略与验证（F1/H5，扩展验收）
+- [ ] 22. whole-archive 链接策略与验证（F1/H5，**降级为评估性任务，大概率不再需要**）
   - 产品与测试对 `authforge-drogon`（含 controller/filter/**视图类**/**插件类** 注册符号）用 whole-archive 链接（CMake `$<LINK_LIBRARY:WHOLE_ARCHIVE,...>`，回退 `--whole-archive`/`/WHOLEARCHIVE`）
   - 产品启动断言关键路由已注册（fail-fast）
   - 产出：链接配置 + 路由/视图/插件注册自检
   - 验收：静态库形态下 `/oauth2/token` 等路由可访问（非 404）+ `login.csp`/`consent.csp` 可渲染 + config 驱动插件实例化成功
+  - **状态更新**：Task 20 完成的 `AutoCreation=false` 方案已验证完全替代 whole-archive 的作用（见 design.md §5.5），controller 迁移全程未用任何形式的 whole-archive 链接。剩余待评估：**views**（`login.csp`/`consent.csp`）和**插件类本身**是否也有类似免 whole-archive 路径——插件类已确认没有（`Plugin<T>` 无 `AutoCreation` 参数，若插件本体未来改为静态库分发仍需要），views 大概率也不需要（渲染是运行期按名查找模板，非链接期符号，已用 `showLoginPage` 验证正常工作）。本任务保留在列表中作为"确认性收尾"，非阻塞项。
 
-- [ ] 23. controller/filter 去单例化（评审 H4，新增）
+- [x] 23. controller/filter 去单例化（评审 H4，新增）
   - 把 `drogon::app().getPlugin<OAuth2Plugin>()` 全局查找改为构造注入/桥接
   - **完整受影响清单（评审 B5）**：共 **9 处生产 + ~38 处测试**。注意 grep 须同时匹配 `::OAuth2Plugin` 变体——`OAuth2StandardController.cc`（**位于 `OAuth2Plugin/`**，非 Server）用 `getPlugin<::OAuth2Plugin>` 8 处（行 349/476/569/733/828/1090/1544/1556）；另有 `SessionController`/`HealthController`/`GitHubController`/`DeviceAuthController`
   - 明确 Drogon controller 如何拿到注入实例（工厂 vs 桥接转发）
   - 产出：去单例化后的 controller/filter；验收：Admin API ~52 + OAuth2 ~55 端点测试全绿；Playwright E2E 全绿
+  - **完成说明（方案与原设想不同）**：原设想"改为构造注入"在框架层面不可行——插件由 config 反射构造，必须晚于 controller 注册完成，构造函数注入要求"依赖先于使用者存在"，这里恰好反了。**实际方案：两阶段装配（setter 注入）**——controller/filter 仍按 Task 20 的 `AutoCreation=false` 机制构造注册；新增 `setPlugin(OAuth2Plugin*)` setter + `resolvePlugin()`（缓存指针优先，未设置时回退到全局查找，向后兼容）；新增 `bootstrap::wireControllerPluginDependencies()`，在 `registerBeginningAdvice` 回调（插件已构造完成的时间点）里用 `drogon::DrClassMap::getSingleInstance<T>()` 取到已注册的同一单例逐个注入。实际受影响：6 个 controller + 2 个 filter（15 处调用点，比预估的 9 处略多，因为逐一核实后发现部分文件有多处调用）。真实服务器验证：启动日志确认 wiring 执行，`/health`/`/login`/`/api/admin/dashboard` 行为不变。
 
 - [ ] 24. `apps/server` 装配注入
   - 产品层构造 `identity` 实现，注入 `oauth2` 服务端口（唯一装配点）
   - 产出：装配代码；验收：oauth2 与 identity 零直接编译依赖，功能等价
+  - **前置条件已就位**：`libs/oauth2` 的 `TokenService`/`ClientService`/`AuthorizationService`（Task 17）与 `libs/identity` 的 `AuthService`/`MfaService`/`WebAuthnService`/社交登录服务/`SessionManager`（Task 19 补全）均已完成、独立编译、独立测试通过，但均未接入生产。本任务是把它们真正接进 `OAuth2Server`（未来 `apps/server`）的请求路径，替换现在 controller 里对 `OAuth2Plugin`/旧 `oauth2::TokenService` 等的直接调用。
+  - **切分方案见 PROGRESS.md "Task 24 切分方案"一节**——工作量较大，按 controller/服务分组切分为多个 slice 推进，每个 slice 编译通过 + 关键路径回归测试通过后再进下一个。
 
 - [ ] 25. 拆分 `main.cc` bootstrap
   - `CorsSetup`/`SecurityHeaders`/`ExceptionHandlerSetup`/`OpenApiSetup`/`MigrationRunner` 独立；`main` 仅装配

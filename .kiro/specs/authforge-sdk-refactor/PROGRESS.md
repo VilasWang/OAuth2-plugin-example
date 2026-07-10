@@ -431,6 +431,64 @@
 - `ctest -C Debug`：**288/288 全绿**（`authforge-identity-test` 从最初 19 个增至 81 个，零回归；其余既有测试全部保持不变）
 - 未做（如实记录）：conanfile.py 的 `with_webauthn`/`with_social` 选项贯通（Task 31，独立任务）；四块新服务接入生产 controller（Task 24）
 
+## Task 24 切分方案（`apps/server` 装配注入，尚未开始实施）
+
+### 现状盘点
+
+**已就位但未接入生产的 Domain 服务**：
+
+| 包 | 新类 | 覆盖范围 |
+|----|------|---------|
+| `libs/oauth2` | `TokenService`/`ClientService`（`authforge::oauth2::protocol`） | 授权码/token 签发/刷新/撤销/introspect，构造参数是拆分后的仓储接口 |
+| `libs/oauth2` | `AuthorizationService`（新类） | consent+scope 三级决策统一入口（client 允许→admin 角色→用户 consent） |
+| `libs/identity` | `AuthService` | validateUser/registerUser/getUserInfo |
+| `libs/identity` | `MfaService`/`TotpUtils` | TOTP 设置/验证/启用/禁用/登录验证/pending binding |
+| `libs/identity` | `WebAuthnService` | 凭证注册/认证/列表 |
+| `libs/identity` | `GoogleAuthService`/`WeChatAuthService`/`GitHubAuthService` | 社交登录 code 换 profile（+ GitHub 本地账号关联） |
+| `libs/identity` | `SessionManager` | 登录策略决策 + logout backchannel 通知转发 |
+
+**仍在被生产 controller 实际调用的旧实现**（Task 24 要替换的对象）：
+
+- `OAuth2Plugin`（`OAuth2Plugin/src/plugin/OAuth2Plugin.cc`）：`oauth2::TokenService`/`ClientService`/`IdentityService` 三个旧类的持有者+转发外壳，构造在 `initAndStart()`（config 反射触发）
+- `libs/drogon/src/controllers/*.cc` 里 15+1 个 controller，全部通过 `resolvePlugin()`（Task 23 的缓存指针，回退到 `getPlugin<OAuth2Plugin>()`）调用 `OAuth2Plugin` 的转发方法
+- MFA/WebAuthn/Social/Session 四类 controller 里的原始 SQL/业务逻辑（`MfaController.cc`/`WebAuthnController.cc`/`Google|WeChat|GitHubController.cc`/`SessionController.cc`），从未走过任何仓储接口抽象，直接 `drogon::app().getDbClient()->execSqlAsync(...)`
+
+### 核心张力：装配点问题
+
+`OAuth2Plugin` 依然是 config 反射构造的（Task 21 方案 A 决定保留）。新 Domain 服务（`TokenService` 等）不是 Drogon 插件，没有天然的"构造时机"钩子。两个可选装配点：
+
+- **选项 A：把新服务的构造塞进 `OAuth2Plugin::initAndStart()`**——最小改动，插件继续是唯一装配入口，`OAuth2Plugin` 内部把"直接持有旧 `oauth2::TokenService`"换成"持有 Adapter 实现 + 构造新 `authforge::oauth2::protocol::TokenService` + 通过 bridge 转发旧方法签名给新服务"。风险：`OAuth2Plugin` 继续膨胀，design.md §5.8 "插件退化为薄装配器"的目标没有真正达成，只是换了个装的内容。
+- **选项 B：`main.cc`/未来 bootstrap 里独立于插件之外直接装配**——`bootstrap::wireServices()`（仿 Task 23 `wireControllerPluginDependencies` 的模式），在 `registerBeginningAdvice` 里构造新服务、通过 `setService(...)` 等 setter 注入进每个 controller（同 Task 23 setPlugin 的机制）。`OAuth2Plugin` 保留只做 storage 初始化（因为具体仓储实现——Memory/Redis/Postgres 的 `OAuth2Client`/`AuthCode`/`AccessToken` 存储——还没迁移到 `authforge::oauth2::repository` 命名空间，见下方"阻塞项"），新 Domain 服务在 bootstrap 层构造，用 Task 17 已经写好的"仓储接口 + Adapter bridge"模式接到旧存储上。
+
+**推荐选项 B**——更贴近 design.md 的目标形态（`OAuth2Plugin` 继续瘦身，装配逻辑挪到 `apps/server` 层），且 Task 23 已经验证过"setter 注入 + registerBeginningAdvice 时机"这条路径可行，复用同一套机制风险最低。
+
+### 阻塞项：具体仓储实现尚未迁移命名空间
+
+Task 17 写的 `TokenService`/`ClientService`/`AuthorizationService` 构造参数要的是 `authforge::oauth2::repository::{IClientRepository,IGrantRepository,ITokenRepository,IConsentRepository}`——但**具体实现**（`MemoryOAuth2Storage`/`PostgresOAuth2Storage`/`RedisOAuth2Storage` 以及被 `CachedOAuth2Storage` 包裹的那套)仍然实现的是**旧的**、未拆分的 `oauth2::IOAuth2Storage` 上帝接口。
+
+两条路径二选一：
+
+- **路径 1（桥接适配器，推荐先做，成本低）**：写一个 `LegacyStorageRepositoryBridge`（或拆成 4 个小 bridge，每个仓储接口一个），内部持有 `shared_ptr<oauth2::IOAuth2Storage>`，把新接口的方法转发给旧接口对应方法（字段级 DTO 转换，`oauth2::OAuth2Client` ↔ `authforge::oauth2::model::OAuth2Client` 等，字段基本一一对应，转换是机械劳动不是设计难题）。不改动任何现有 Memory/Redis/Postgres 存储实现代码，风险最低，可以先把新 `TokenService` 接进生产验证行为等价，把"存储实现迁移命名空间"这件更大的事往后放。
+- **路径 2（彻底迁移，成本高，一次到位）**：把 `MemoryOAuth2Storage` 等具体类真正迁移/拆分成实现 `authforge::oauth2::repository::*` 的类（同 Task 18 ORM 模型迁移的路子），淘汰旧 `IOAuth2Storage`。工作量大（3 套存储 × 4 个接口，含 `CachedOAuth2Storage` 装饰器重新架构，design.md §7.4 已经分析过这个重新架构的方案），且不是 Task 24 本身要求的（design.md 对 Task 24 的验收标准是"oauth2 与 identity 零直接编译依赖，功能等价"，不要求存储实现迁移完成）。
+
+**建议：Task 24 先用路径 1（桥接），把路径 2 拆成独立的后续任务**（可能是 M3 之后新增一个 Task，或者合并进 M8 的 SDK 收尾）。
+
+### 切分为 6 个 slice（建议顺序，每个 slice 编译通过+关键路径回归后进下一个）
+
+1. **Slice 1：oauth2 侧桥接适配器**——写 `LegacyStorageRepositoryBridge`（4 个仓储接口各一个薄转发类），单测验证转发正确性（用现有 `MemoryOAuth2Storage` 实例跑一遍，确认桥接后的行为跟直接调用旧接口一致）。不改任何生产 controller。
+2. **Slice 2：oauth2 服务装配 + OAuth2StandardController 切换**——`bootstrap::wireServices()` 构造新 `TokenService`/`ClientService`/`AuthorizationService`（用 Slice 1 的桥接喂仓储参数），通过 setter 注入进 `OAuth2StandardController`（协议核心，覆盖 authorize/token/introspect/revoke/userinfo/jwks/discovery 全部端点）。**这是风险最高、验证最充分的一步**——协议端点测试全绿是判断新服务真正等价旧服务的关键证据。
+3. **Slice 3：其余直接调 TokenService/ClientService 的 controller 切换**——`SessionController`（login/consent/logout）、`MfaController`（verifyLogin 里签 token 的部分）、`DeviceAuthController`、`GitHubController`（回调后签 token）等，逐个切换调用点从 `plugin->generateAuthorizationCode(...)` 等改为注入的新 `TokenService` 方法。
+4. **Slice 4：identity 侧装配——AuthService/SessionManager 接入**——`SessionController::login`/`registerUser` 切换到已完成的 `authforge::identity::AuthService`（需要一个 `IUserRepository` 的 Adapter 实现接到 Postgres users 表，若尚无则新写一个薄 Adapter，比照 `PostgresIdentityRepository` 现有模式）；`SessionManager::evaluateLoginPolicy()` 替换 `SessionController::login()` 里内联的邮箱验证/MFA 判断链。
+5. **Slice 5：MFA/WebAuthn/Social 三类 controller 切换**——`MfaController`/`WebAuthnController`/`Google|WeChat|GitHubController` 的原始 SQL 逐个替换为调用 `MfaService`/`WebAuthnService`/`XxxAuthService`，需要给 `IMfaRepository`/`IWebAuthnRepository`/`ISocialAccountRepository`/`IOAuthHttpClient` 分别写 Postgres/Drogon Adapter 实现（这批还没写，Task 19 只写了 Domain 服务+接口+测试 fake，Adapter 实现是新工作量）。可以三个 provider 拆成三个子 slice 并行。
+6. **Slice 6：清理**——确认 `OAuth2Plugin` 不再持有旧 `oauth2::TokenService`/`ClientService`/`IdentityService`（若全部调用点已切换），退化为纯粹的 storage 初始化+config 解析装配器；跑一遍 arch-guard 手动检查（工具本身是 Task 33，未建，先靠 grep 人工核实）确认 `libs/oauth2`/`libs/identity` 之间、以及跟 `libs/drogon` 之间的依赖方向没有破坏。
+
+### 每个 slice 的验证标准
+
+- 全量 `cmake --build` 编译通过
+- `ctest -C Debug` 全绿（当前 288/288 基线，零回归）
+- 真实服务器 + curl 对该 slice 触及的端点做端到端验证（不能只依赖单测——单测很多是直接调方法绕过路由分发）
+- 每完成 2-3 个 slice 提交一次 git commit（按用户一贯的加速节奏要求）
+
 ## 关键提醒
 
 - 每个 slice/task 完成后必须跑全量测试套件（当前 124 个 CTest cases: 40 authforge-common-test + 38 authforge-common-testing-test + 1 OAuth2Tests(内含 310 DROGON_TEST cases/57113 assertions) + 45 Contract）确认零回归
