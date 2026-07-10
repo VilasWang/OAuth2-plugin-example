@@ -9,6 +9,14 @@
 // HealthController.h's identical comment for the rationale.
 class OAuth2Plugin;
 
+// Task 24 slice 5 (authforge-sdk-refactor): see SessionController.h's
+// identical forward-declaration comment.
+namespace authforge::identity
+{
+class MfaService;
+class IUserRepository;
+}  // namespace authforge::identity
+
 namespace authforge::drogon::controllers
 {
 
@@ -19,6 +27,25 @@ class MfaController : public ::drogon::HttpController<MfaController, false>
     void setPlugin(OAuth2Plugin *plugin)
     {
         plugin_ = plugin;
+    }
+
+    // Task 24 slice 5: identity-layer service injection, same
+    // non-owning-raw-pointer + setter pattern as setPlugin() above. Each
+    // handler below falls back to the pre-Task-24 raw-SQL path when
+    // unset (see resolvePlugin()'s identical fallback convention).
+    void setMfaService(authforge::identity::MfaService *mfaService)
+    {
+        mfaService_ = mfaService;
+    }
+    // Task 24 slice 5: needed to resolve the "userId" request attribute
+    // (actually the OAuth2 public_sub, see IUserRepository::
+    // findByPublicSub's header comment) into the internal id MfaService
+    // is keyed by. A raw non-owning pointer to the shared instance
+    // OAuth2Server/bootstrap/IdentityAssembly.cc already constructs for
+    // SessionController's AuthService -- not a new object.
+    void setUserRepository(authforge::identity::IUserRepository *userRepo)
+    {
+        userRepo_ = userRepo;
     }
 
     METHOD_LIST_BEGIN
@@ -60,6 +87,11 @@ class MfaController : public ::drogon::HttpController<MfaController, false>
   private:
     OAuth2Plugin *plugin_ = nullptr;
     OAuth2Plugin *resolvePlugin() const;
+
+    // Task 24 slice 5: see setMfaService()/setUserRepository()'s comment
+    // above.
+    authforge::identity::MfaService *mfaService_ = nullptr;
+    authforge::identity::IUserRepository *userRepo_ = nullptr;
 };
 
 }  // namespace authforge::drogon::controllers

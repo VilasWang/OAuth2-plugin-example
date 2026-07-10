@@ -140,6 +140,33 @@ void PostgresIdentityRepository::findById(
     }
 }
 
+void PostgresIdentityRepository::findByPublicSub(
+  const std::string &publicSub,
+  std::function<void(std::optional<UserData>)> &&callback
+)
+{
+    if (!dbClient_)
+    {
+        callback(std::nullopt);
+        return;
+    }
+    auto sharedCb =
+      std::make_shared<std::function<void(std::optional<UserData>)>>(std::move(callback));
+    try
+    {
+        Mapper<Users> mapper(dbClient_);
+        mapper.findOne(
+          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, publicSub),
+          [sharedCb](const Users &row) { (*sharedCb)(toUserData(row)); },
+          [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
+        );
+    }
+    catch (...)
+    {
+        (*sharedCb)(std::nullopt);
+    }
+}
+
 void PostgresIdentityRepository::create(
   const UserData &userData,
   std::function<void(std::optional<int64_t>, std::string)> &&callback

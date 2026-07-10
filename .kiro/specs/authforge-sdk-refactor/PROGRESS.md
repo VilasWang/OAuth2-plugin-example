@@ -546,6 +546,48 @@ Task 17 写的 `TokenService`/`ClientService`/`AuthorizationService` 构造参�
 
 **尚未做**（如实记录，留给 Slice 5/6）：MFA/WebAuthn/Social 三类 controller 切换（`MfaController`/`WebAuthnController`/`Google|WeChat|GitHubController` 仍是原始 SQL，未接 `MfaService`/`WebAuthnService`/`XxxAuthService`，需要新写对应 Adapter 实现）；`AuthorizationService` 真正接入 consent/scope 决策链；`OAuth2Plugin` 进一步瘦身清理确认；`libs/drogon/src/AuthService.cc`（旧 Adapter 层）仍原样保留作为无身份服务注入时的回退路径，未删除（这是有意为之——保留向后兼容的回退，而非死代码清理，清理留给 Slice 6 判断是否所有生产入口都已注入后再决定去留）。
 
+### Slice 5 完成：MFA/WebAuthn/Social 三类 controller 切换
+
+**新增 Adapter 实现**（Task 19 只写了 Domain 服务 + 接口 + 测试 fake，本 slice 补齐生产 Adapter）：
+
+- `libs/storage-postgres/{include,src}/.../PostgresMfaRepository.{h,cc}`：实现 `IMfaRepository`，SQL 与旧 `MfaController.cc` 逐句对应（`users.mfa_secret`/`mfa_enabled`/`mfa_backup_codes`/`mfa_pending_client_id`/`mfa_pending_redirect_uri`）。
+- `libs/storage-postgres/{include,src}/.../PostgresWebAuthnRepository.{h,cc}`：实现 `IWebAuthnRepository`，对应旧 `WebAuthnController.cc` 的 `webauthn_credentials` 表 SQL（含 join `users.public_sub`）。`WebAuthnCredentialSummary::createdAt/lastUsedAt` 刻意留空（结构体默认值）——核实旧 controller 的 JSON 响应从未实际输出这两个字段，解析 Postgres `timestamp` 需要 `::trantor::Date` 的非泛型转换路径（`Field::as<trantor::Date>()` 走标准流提取会编译失败，ORM 生成代码用的是手写 `strptime`），为不被使用的字段引入这个复杂度不值得。
+- `libs/storage-postgres/{include,src}/.../PostgresSocialAccountRepository.{h,cc}`（`#ifdef WITH_SOCIAL`）：实现 `ISocialAccountRepository`，对应旧 `GitHubController.cc` 的 find-or-create 账号/mapping/角色分配 SQL 序列。
+- `libs/drogon/{include,src}/.../adapters/DrogonOAuthHttpClient.{h,cc}`（`#ifdef WITH_SOCIAL`）：实现 `IOAuthHttpClient`，`postForm`/`getWithBearerToken` 内部用一个本地 `splitUrl()` 辅助函数把完整 URL 拆成 `newHttpClient(origin)` + `setPath(pathWithQuery)`——WeChat 的 GET-with-query-params 调用形态验证与旧 `WeChatController.cc` 原有的 `request->setPath(fullPathWithQuery)` 写法完全一致，非新引入的处理方式。
+
+**装配点**：`IUserRepository` 新增 `findByPublicSub()` 方法——核实发现全部四类 controller（Session/Mfa/WebAuthn 的多个 handler）读取的 `req->getAttributes()->get<std::string>("userId")` 实际上是 OAuth2 **public_sub**（`TokenService::generateAuthorizationCode` 里 `authCode.userId = subject;`，`subject` 即 `AuthResult::publicSub`），并非内部自增 id；而 `MfaService`/`WebAuthnService` 全部以内部 `int64_t` id 为键——`findByPublicSub()` 是这个解析步骤的落脚点，`PostgresIdentityRepository` 复用已有的 `Users::Cols::_public_sub` 查询模式实现，未新起表/字段。
+
+**Controller 侵入模式**（延续 Task 23/Slice 4 的"注入优先，未注入回退旧路径"约定，全部 6 个 controller 一致）：
+
+- `MfaController`：新增 `setMfaService()`/`setUserRepository()`；`setup`/`verifySetup`/`disable`/`verifyLogin` 四个 handler 均判断 `mfaService_ && userRepo_`（或仅 `mfaService_`，`verifyLogin` 不需要 public_sub 解析因为 `mfaToken` 本身就是内部 id 的字符串化）。`verifyLogin` 拆出共享续体 `onTotpVerified`（client/redirect_uri 校验 + token 签发编排，仍是 oauth2 域职责，留在 controller），两条路径（新 `MfaService::verifyLoginCode`+`getPendingBinding`，旧原始 SQL）分别产出相同的 `(publicSub, pendingClientId, pendingRedirectUri, clearPendingBinding)` 元组喂给它，避免复制一份 token 编排逻辑。
+- `WebAuthnController`：新增 `setWebAuthnService()`/`setUserRepository()`；五个 handler 全部改造。`registerBegin`/`authenticateBegin` 的注入路径把 `WebAuthnService` 返回的 challenge 存回 `req->session()`（session 归属仍在 controller，`WebAuthnService.h` 头注释本就明确这是设计决定）。
+- `GoogleController`/`WeChatController`：新增 `setGoogleAuthService()`/`setWeChatAuthService()`（`#ifdef WITH_SOCIAL`）；`login()` 注入路径直接把 `GoogleAuthService`/`WeChatAuthService::login()` 的 filtered profile 结构体字段映射回原有 JSON 响应形状，字段名逐一核对与旧代码一致。
+- `GitHubController`：新增 `setGitHubAuthService()`；`login()` 注入路径调用 `GitHubAuthService::login()` 完成"code 换 profile + 本地账号 find-or-create"，随后**仍在 controller 内部**执行原有的 `issueTokens`（直接 INSERT `oauth2_access_tokens`/`oauth2_refresh_tokens`）——这是 `SocialAuthService.h` 头注释里明确的既定范围边界（identity 不碰 oauth2 token 发放），不是本 slice 引入的新分层。
+
+**装配**：`OAuth2Server/bootstrap/IdentityAssembly.cc` 的 `wireIdentityServices()` 扩充——`PostgresMfaRepository`/`PostgresWebAuthnRepository`/`PostgresSocialAccountRepository` 复用同一个 `dbClient`；`WebAuthnService` 的 `rp_id`/`rp_name` 从 `custom_config.webauthn` 读取（对齐旧 `getRpId()`/`getRpName()` 的默认值 `"localhost"`/`"OAuth2 Server"`）；三个社交登录服务的 `client_id`/`client_secret`/`appid`/`secret` 从 `custom_config.external_auth.{google,wechat,github}` 读取（对齐旧三个 controller 各自的 `getXxxConfig()`），全部复用同一个 `DrogonOAuthHttpClient` 实例。`libs/drogon` 的 `CMakeLists.txt` 新增显式链接 `authforge::identity`（此前只靠 `OAuth2Plugin→storage-postgres→identity` 的传递依赖拿到 `WITH_SOCIAL` 编译宏，显式声明更稳妥）。
+
+**验证结果**：
+
+- 全量编译（`authforge-identity`/`authforge-storage-postgres`/`authforge-drogon`/`OAuth2Server`/`OAuth2Test_test`）：通过，零错误
+- `libs/identity` 独立单测：**83/83 全绿**（无新增，社交/WebAuthn 测试本就在 Task 19 补齐）
+- `ctest -C Debug`：**290/290 全绿**，零回归
+- 真实服务器 + curl 端到端验证：
+  - MFA 全流程：`/oauth2/login`（触发 mfa_required）→ 手写 TOTP 生成器算出当前 code → `/oauth2/mfa/verify`（真实签发 access_token/refresh_token/id_token）全部通过；`/api/me/mfa/setup`→`/api/me/mfa/verify`（enable+backup codes）→`/api/me/mfa/disable` 全部通过
+  - WebAuthn 全流程：`/api/me/webauthn/register/begin`（拿到 challenge）→`register/finish`（存入 credential）→`/api/me/webauthn/credentials`（GET 列出，确认新增的凡例存在）→`/oauth2/webauthn/authenticate/begin`→`authenticate/finish`（`sign_count` 从 0 正确自增到 1，`user_id` 正确回传 public_sub）全部通过；测试数据用后清理
+  - Google/WeChat/GitHub：config.json 里三者的 `client_id`/`secret` 都是占位符字符串（非空，`"YOUR_GITHUB_CLIENT_ID"` 等），三个 handler 的空值早退检查（GitHub）/注入路径都会走到真实出站网络调用（`DrogonOAuthHttpClient`→`accounts.google.com`/`api.weixin.qq.com`/`github.com`）——本次开发环境沙箱网络无法连通外网，三次调用均在 client 侧 `curl -m 5` 超时，但**服务器进程本身全程保持 `/health` 200 响应**，证明请求构造/分发路径本身没有崩溃或死锁，只是外部网络不可达（与代码改动无关，旧代码同样是无条件真实网络调用）
+- 手动 grep 核实 `libs/oauth2`↔`libs/identity` 零互相 include（arch-guard 规则持续满足，工具本身仍未建，Task 33）
+
+**尚未做**（如实记录，留给 Slice 6）：`OAuth2Plugin` 进一步瘦身确认（本次未触碰 `OAuth2Plugin.cc`，它从未持有过 identity 相关字段，grep 确认零 `authforge::identity` 引用，无需清理）；`libs/drogon/src/AuthService.cc`（Adapter 层旧实现）仍保留作为未注入场景的回退路径；`consent.csp` 死文件遗留判定不变（§5.9，非本次范围）。
+
+### Slice 6：清理确认（无代码改动）
+
+- 手动 grep 确认 `OAuth2Plugin.cc`/`OAuth2Plugin.h` 从未持有 `oauth2::TokenService`/`ClientService`/`IdentityService` 之外的任何 identity 相关字段——Slice 2 已经把 `tokenService_`/`clientService_` 换成新 Domain 类，`identityService_`（consent/roles/subject mapping）刻意留到 `AuthorizationService` 真正接入时再处理（本次 Task 24 范围不含），不是清理疏漏。
+- 手动 grep 确认 `libs/oauth2` 与 `libs/identity` 之间零互相 `#include`，`libs/drogon` 依赖方向正确（Adapter 层依赖两个 Domain 层，反向零依赖）。
+- `libs/drogon/src/AuthService.cc`（旧 Adapter，`authforge::drogon::services::AuthService`）确认保留：`SessionController` 在 `identityAuthService_`/`sessionManager_` 未注入时仍会调用它（例如 `OAuth2Server/test/e2e/oauth2_flows/{OAuth2FlowE2ETest,IntegrationE2ETest}.cc` 里直接 `std::make_shared<SessionController>()` 构造、不经过 `wireIdentityServices()` 的测试路径），删除会破坏这些测试且违背"注入优先、未注入回退"的既定契约——不清理是正确决定，不是遗留。
+- `arch-guard` 工具本身（Task 33）与 `AuthorizationService` 真正接入 consent/scope 决策链均确认超出 Task 24 范围，不在本次清理范畴内。
+
+结论：Task 24（`apps/server` 装配注入）Slice 1-6 全部完成。原始验收标准"oauth2 与 identity 零直接编译依赖，功能等价"已满足——两个 Domain 包互不依赖已用 grep 核实；"功能等价"已用 290/290 `ctest` + 多轮真实服务器 curl 端到端验证（login/register/logout/MFA 全流程/WebAuthn 全流程）确认，社交登录三个 provider 受限于沙箱网络无法做完整第三方 API 验证，但请求构造/错误处理路径已确认不崩溃。
+
 ## 关键提醒
 
 - 每个 slice/task 完成后必须跑全量测试套件（当前 124 个 CTest cases: 40 authforge-common-test + 38 authforge-common-testing-test + 1 OAuth2Tests(内含 310 DROGON_TEST cases/57113 assertions) + 45 Contract）确认零回归

@@ -3,6 +3,12 @@
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 
+#ifdef WITH_SOCIAL
+// Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this
+// controller now optionally consumes.
+#include <authforge/identity/SocialAuthService.h>
+#endif  // WITH_SOCIAL
+
 namespace authforge::drogon::controllers
 {
 
@@ -146,6 +152,34 @@ void WeChatController::login(
         );
         return;
     }
+
+#ifdef WITH_SOCIAL
+    // Task 24 slice 5: prefer the injected WeChatAuthService, falling
+    // back to the pre-Task-24 drogon::HttpClient-direct path when
+    // unwired.
+    if (weChatAuthService_)
+    {
+        auto sharedCb = std::make_shared<
+          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+        weChatAuthService_->login(code, [sharedCb, req](authforge::identity::WeChatLoginResult result) {
+            if (!result.errorCode.empty())
+            {
+                respondError(req, sharedCb, result.errorCode, "wechat login: " + result.errorCode);
+                return;
+            }
+            Json::Value filteredJson;
+            filteredJson["openid"] = result.profile.openid;
+            filteredJson["nickname"] = result.profile.nickname;
+            filteredJson["headimgurl"] = result.profile.headimgurl;
+            filteredJson["sex"] = result.profile.sex;
+            filteredJson["city"] = result.profile.city;
+            filteredJson["province"] = result.profile.province;
+            filteredJson["country"] = result.profile.country;
+            (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
+        });
+        return;
+    }
+#endif  // WITH_SOCIAL
 
     // 1. Exchange Code for Access Token
     // API:

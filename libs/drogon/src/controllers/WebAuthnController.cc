@@ -7,6 +7,11 @@
 #include <drogon/utils/Utilities.h>
 #include <chrono>
 
+// Task 24 slice 5 (authforge-sdk-refactor): identity-layer services this
+// controller now optionally consumes.
+#include <authforge/identity/IUserRepository.h>
+#include <authforge/identity/WebAuthnService.h>
+
 namespace authforge::drogon::controllers
 {
 
@@ -107,6 +112,61 @@ void WebAuthnController::registerBegin(
 {
     std::string userId = req->getAttributes()->get<std::string>("userId");
 
+    // Task 24 slice 5: prefer the injected WebAuthnService (challenge
+    // generation only -- see WebAuthnService.h's own top comment on why
+    // it hands the challenge back rather than storing it itself), falling
+    // back to the pre-Task-24 direct generateSecureToken() call when
+    // unwired.
+    if (webAuthnService_)
+    {
+        auto sharedCb = std::make_shared<
+          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+        webAuthnService_->beginRegistration(
+          [sharedCb,
+           req,
+           userId](std::optional<authforge::identity::WebAuthnRegistrationChallenge> result) {
+              if (!result)
+              {
+                  respondError(req, sharedCb, "INTERNAL_ERROR", "registerBegin: challenge generation failed");
+                  return;
+              }
+              if (req->session())
+                  req->session()->insert("webauthn_challenge", result->challenge);
+
+              Json::Value options;
+              options["challenge"] = result->challenge;
+              Json::Value rp;
+              rp["id"] = result->rpId;
+              rp["name"] = result->rpName;
+              options["rp"] = rp;
+              Json::Value user;
+              user["id"] = userId;
+              user["name"] = userId;
+              user["displayName"] = userId;
+              options["user"] = user;
+              Json::Value pubKeyCredParams(Json::arrayValue);
+              Json::Value es256;
+              es256["type"] = "public-key";
+              es256["alg"] = -7;
+              pubKeyCredParams.append(es256);
+              Json::Value rs256;
+              rs256["type"] = "public-key";
+              rs256["alg"] = -257;
+              pubKeyCredParams.append(rs256);
+              options["pubKeyCredParams"] = pubKeyCredParams;
+              options["timeout"] = result->timeoutMs;
+              Json::Value authenticatorSelection;
+              authenticatorSelection["userVerification"] = "preferred";
+              authenticatorSelection["residentKey"] = "preferred";
+              options["authenticatorSelection"] = authenticatorSelection;
+              Json::Value response;
+              response["options"] = options;
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
+          }
+        );
+        return;
+    }
+
     // Generate challenge (32 bytes, base64url encoded)
     std::string challenge = ::oauth2::utils::generateSecureToken();
 
@@ -192,6 +252,48 @@ void WebAuthnController::registerFinish(
         return;
     }
 
+    // Task 24 slice 5: prefer the injected WebAuthnService/IUserRepository,
+    // falling back to the pre-Task-24 raw SQL when unwired.
+    if (webAuthnService_ && userRepo_)
+    {
+        userRepo_->findByPublicSub(
+          userId,
+          [this, sharedCb, req, userId, credentialId, publicKey,
+           credName](std::optional<authforge::identity::UserData> user) {
+              if (!user)
+              {
+                  respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerFinish: unknown user");
+                  return;
+              }
+              webAuthnService_->finishRegistration(
+                user->id,
+                credentialId,
+                publicKey,
+                credName,
+                [sharedCb, req, userId, credentialId](const std::string &errorCode) {
+                    if (!errorCode.empty())
+                    {
+                        respondError(
+                          req, sharedCb, errorCode, "registerFinish: " + errorCode
+                        );
+                        return;
+                    }
+                    ::oauth2::observability::AuditLogger::log(
+                      "webauthn_registered", "success", req, userId, "credential", credentialId
+                    );
+                    Json::Value json;
+                    json["message"] = "Passkey registered successfully";
+                    json["credential_id"] = credentialId;
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                    resp->setStatusCode(::drogon::k201Created);
+                    (*sharedCb)(resp);
+                }
+              );
+          }
+        );
+        return;
+    }
+
     // Store credential
     auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
@@ -240,6 +342,36 @@ void WebAuthnController::authenticateBegin(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
+    // Task 24 slice 5: prefer the injected WebAuthnService, falling back
+    // to the pre-Task-24 direct generateSecureToken() call when unwired.
+    if (webAuthnService_)
+    {
+        auto sharedCb = std::make_shared<
+          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+        webAuthnService_->beginAuthentication(
+          [sharedCb, req](std::optional<authforge::identity::WebAuthnAuthenticationChallenge> result) {
+              if (!result)
+              {
+                  respondError(req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: challenge generation failed");
+                  return;
+              }
+              if (req->session())
+                  req->session()->insert("webauthn_auth_challenge", result->challenge);
+
+              Json::Value options;
+              options["challenge"] = result->challenge;
+              options["rpId"] = result->rpId;
+              options["timeout"] = result->timeoutMs;
+              options["userVerification"] = "preferred";
+              options["allowCredentials"] = Json::Value(Json::arrayValue);
+              Json::Value response;
+              response["options"] = options;
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
+          }
+        );
+        return;
+    }
+
     // Generate challenge
     std::string challenge = ::oauth2::utils::generateSecureToken();
 
@@ -289,6 +421,33 @@ void WebAuthnController::authenticateFinish(
           sharedCb,
           "VALIDATION_MISSING_REQUIRED_FIELD",
           "authenticateFinish: credential_id is required"
+        );
+        return;
+    }
+
+    // Task 24 slice 5: prefer the injected WebAuthnService, falling back
+    // to the pre-Task-24 raw SQL when unwired.
+    if (webAuthnService_)
+    {
+        webAuthnService_->finishAuthentication(
+          credentialId,
+          [sharedCb, req, credentialId](std::optional<authforge::identity::WebAuthnAuthResult> result) {
+              if (!result)
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "authenticateFinish: credential not found"
+                  );
+                  return;
+              }
+              ::oauth2::observability::AuditLogger::log(
+                "webauthn_authenticated", "success", req, result->publicSub, "credential", credentialId
+              );
+              Json::Value json;
+              json["authenticated"] = true;
+              json["user_id"] = result->publicSub;
+              json["sign_count"] = result->signCount;
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+          }
         );
         return;
     }
@@ -358,6 +517,44 @@ void WebAuthnController::listCredentials(
     std::string userId = req->getAttributes()->get<std::string>("userId");
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+    // Task 24 slice 5: prefer the injected WebAuthnService/IUserRepository,
+    // falling back to the pre-Task-24 raw SQL when unwired.
+    if (webAuthnService_ && userRepo_)
+    {
+        userRepo_->findByPublicSub(
+          userId,
+          [this, sharedCb](std::optional<authforge::identity::UserData> user) {
+              if (!user)
+              {
+                  Json::Value json;
+                  json["credentials"] = Json::Value(Json::arrayValue);
+                  json["total"] = 0;
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                  return;
+              }
+              webAuthnService_->listCredentials(
+                user->id,
+                [sharedCb](std::vector<authforge::identity::WebAuthnCredentialSummary> creds) {
+                    Json::Value json;
+                    Json::Value credsJson(Json::arrayValue);
+                    for (const auto &c : creds)
+                    {
+                        Json::Value cred;
+                        cred["credential_id"] = c.credentialId;
+                        cred["name"] = c.name;
+                        cred["sign_count"] = c.signCount;
+                        credsJson.append(cred);
+                    }
+                    json["credentials"] = credsJson;
+                    json["total"] = static_cast<int>(creds.size());
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                }
+              );
+          }
+        );
+        return;
+    }
 
     auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(

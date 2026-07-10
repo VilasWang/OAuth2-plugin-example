@@ -65,7 +65,17 @@ target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_STORAGE_POSTGRES_SOURCES})
 # is an Adapter-layer package, free to depend on the Domain-layer
 # libs/identity (implements its interfaces); identity itself has zero
 # dependency back on storage-postgres.
-target_sources(${PROJECT_NAME} PRIVATE src/PostgresIdentityRepository.cc)
+#
+# Task 24 slice 5: PostgresMfaRepository.cc/PostgresWebAuthnRepository.cc/
+# PostgresSocialAccountRepository.cc implement libs/identity's remaining
+# repository interfaces (IMfaRepository/IWebAuthnRepository/
+# ISocialAccountRepository), same placement rationale.
+target_sources(${PROJECT_NAME} PRIVATE
+    src/PostgresIdentityRepository.cc
+    src/PostgresMfaRepository.cc
+    src/PostgresWebAuthnRepository.cc
+    src/PostgresSocialAccountRepository.cc
+)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon authforge::identity)
 

@@ -59,6 +59,26 @@ public:
     ) = 0;
 
     /**
+     * @brief Find user by public subject (the UUID exposed in OAuth2
+     * tokens/OIDC claims -- never the internal id). Task 24 slice 5
+     * (authforge-sdk-refactor): controllers resolve the authenticated
+     * caller from `req->getAttributes()->get<std::string>("userId")`,
+     * which -- despite the "userId" attribute name -- is actually the
+     * OAuth2AccessToken's `userId` field, itself set from the OAuth2
+     * `subject` at token-issuance time (see
+     * authforge::oauth2::protocol::TokenService::generateAuthorizationCode's
+     * `authCode.userId = subject;`), i.e. the public_sub string, not the
+     * internal auto-increment id. MFA/WebAuthn/Social identity services
+     * are keyed by the internal int64_t id, so this method is the
+     * resolution step every one of those call sites needs before it can
+     * call into them.
+     */
+    virtual void findByPublicSub(
+      const std::string &publicSub,
+      std::function<void(std::optional<UserData>)> &&callback
+    ) = 0;
+
+    /**
      * @brief Create a new user
      * @param userData User data to create
      * @param callback Returns (user ID, empty string) on success, or

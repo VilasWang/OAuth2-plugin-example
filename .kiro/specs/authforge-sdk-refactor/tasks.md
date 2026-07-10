@@ -206,11 +206,11 @@
   - 产出：去单例化后的 controller/filter；验收：Admin API ~52 + OAuth2 ~55 端点测试全绿；Playwright E2E 全绿
   - **完成说明（方案与原设想不同）**：原设想"改为构造注入"在框架层面不可行——插件由 config 反射构造，必须晚于 controller 注册完成，构造函数注入要求"依赖先于使用者存在"，这里恰好反了。**实际方案：两阶段装配（setter 注入）**——controller/filter 仍按 Task 20 的 `AutoCreation=false` 机制构造注册；新增 `setPlugin(OAuth2Plugin*)` setter + `resolvePlugin()`（缓存指针优先，未设置时回退到全局查找，向后兼容）；新增 `bootstrap::wireControllerPluginDependencies()`，在 `registerBeginningAdvice` 回调（插件已构造完成的时间点）里用 `drogon::DrClassMap::getSingleInstance<T>()` 取到已注册的同一单例逐个注入。实际受影响：6 个 controller + 2 个 filter（15 处调用点，比预估的 9 处略多，因为逐一核实后发现部分文件有多处调用）。真实服务器验证：启动日志确认 wiring 执行，`/health`/`/login`/`/api/admin/dashboard` 行为不变。
 
-- [ ] 24. `apps/server` 装配注入
+- [x] 24. `apps/server` 装配注入
   - 产品层构造 `identity` 实现，注入 `oauth2` 服务端口（唯一装配点）
   - 产出：装配代码；验收：oauth2 与 identity 零直接编译依赖，功能等价
   - **前置条件已就位**：`libs/oauth2` 的 `TokenService`/`ClientService`/`AuthorizationService`（Task 17）与 `libs/identity` 的 `AuthService`/`MfaService`/`WebAuthnService`/社交登录服务/`SessionManager`（Task 19 补全）均已完成、独立编译、独立测试通过，但均未接入生产。本任务是把它们真正接进 `OAuth2Server`（未来 `apps/server`）的请求路径，替换现在 controller 里对 `OAuth2Plugin`/旧 `oauth2::TokenService` 等的直接调用。
-  - **切分方案见 PROGRESS.md "Task 24 切分方案"一节**——工作量较大，按 controller/服务分组切分为多个 slice 推进，每个 slice 编译通过 + 关键路径回归测试通过后再进下一个。
+  - **完成说明**：按 6 个 slice 完成（详见 PROGRESS.md "Task 24 切分方案"及各 Slice 完成记录）。Slice 1：`LegacyStorageRepositoryBridge` 桥接旧存储到新仓储接口。Slice 2：`OAuth2Plugin` 内部切换到新 `TokenService`/`ClientService`（合并了原计划的 slice 2+3，因为 `OAuth2Plugin` 本就是转发外壳，controller 调用点无需改动）。Slice 4：`SessionController` 接入 `identity::AuthService`/`SessionManager`（新增 `OAuth2Server/bootstrap/IdentityAssembly.cc` 装配模块），修复了两个真实缺陷（命名空间裸写坑 + `int64_t`/Postgres `int4` 绑定宽度不匹配导致 MFA 分支 `DB_QUERY_ERROR`）。Slice 5：`MfaController`/`WebAuthnController`/`Google|WeChat|GitHubController` 接入对应 identity 服务，新写 `PostgresMfaRepository`/`PostgresWebAuthnRepository`/`PostgresSocialAccountRepository`/`DrogonOAuthHttpClient` 四个 Adapter 实现（Task 19 只写了 Domain 服务未写 Adapter）。Slice 6：清理确认——`OAuth2Plugin` 从未持有 identity 字段无需清理，`libs/oauth2`↔`libs/identity` 零互相依赖已用 grep 核实，`libs/drogon/src/AuthService.cc` 旧 Adapter 有意保留作为未注入场景回退。全部 6 个 slice 均遵循"注入优先，未注入回退旧路径"的兼容约定，未破坏任何既有测试。验证：`ctest` 290/290 全绿 + 多轮真实服务器 curl 端到端验证（login/register/logout/MFA 全流程/WebAuthn 全流程通过；Google/WeChat/GitHub 受限于沙箱网络无法完整验证第三方 API 但确认请求路径不崩溃）。
 
 - [ ] 25. 拆分 `main.cc` bootstrap
   - `CorsSetup`/`SecurityHeaders`/`ExceptionHandlerSetup`/`OpenApiSetup`/`MigrationRunner` 独立；`main` 仅装配

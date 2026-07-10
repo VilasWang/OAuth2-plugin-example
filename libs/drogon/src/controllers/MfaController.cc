@@ -8,6 +8,11 @@
 #include <drogon/drogon.h>
 #include <chrono>
 
+// Task 24 slice 5 (authforge-sdk-refactor): identity-layer services this
+// controller now optionally consumes.
+#include <authforge/identity/IUserRepository.h>
+#include <authforge/identity/MfaService.h>
+
 namespace authforge::drogon::controllers
 {
 
@@ -89,6 +94,47 @@ void MfaController::setup(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
+    // Task 24 slice 5: prefer the injected authforge::identity::MfaService
+    // (constructed once at startup by
+    // bootstrap::wireIdentityServices()/OAuth2Server/bootstrap/
+    // IdentityAssembly.cc), falling back to the pre-Task-24 raw SQL below
+    // when unwired -- same injected-with-fallback pattern established by
+    // SessionController's Task 24 slice 4.
+    if (mfaService_ && userRepo_)
+    {
+        userRepo_->findByPublicSub(
+          userId,
+          [this, sharedCb, req, userId](std::optional<authforge::identity::UserData> user) {
+              if (!user)
+              {
+                  respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA setup: unknown user");
+                  return;
+              }
+              mfaService_->setupSecret(
+                user->id,
+                userId,
+                [sharedCb, req](std::optional<authforge::identity::MfaSetupResult> result) {
+                    if (!result)
+                    {
+                        respondError(
+                          req, sharedCb, "DB_QUERY_ERROR", "MFA setup: failed to store secret"
+                        );
+                        return;
+                    }
+                    Json::Value json;
+                    json["secret"] = result->secret;
+                    json["otpauth_uri"] = result->otpAuthUri;
+                    json["message"] =
+                      "Scan the QR code with your authenticator app, then verify with a code";
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                    (*sharedCb)(resp);
+                }
+              );
+          }
+        );
+        return;
+    }
+
     std::string secret = ::oauth2::utils::TotpUtils::generateSecret();
 
     auto db = ::drogon::app().getDbClient();
@@ -146,6 +192,62 @@ void MfaController::verifySetup(
 
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+    // Task 24 slice 5: prefer the injected MfaService, same pattern as
+    // setup() above.
+    if (mfaService_ && userRepo_)
+    {
+        userRepo_->findByPublicSub(
+          userId,
+          [this, sharedCb, req, userId,
+           code](std::optional<authforge::identity::UserData> user) {
+              if (!user)
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifySetup: unknown user"
+                  );
+                  return;
+              }
+              mfaService_->verifyAndEnable(
+                user->id,
+                code,
+                [sharedCb, req, userId](std::optional<authforge::identity::MfaEnableResult> result) {
+                    if (!result)
+                    {
+                        // MfaService::verifyAndEnable collapses "no
+                        // secret set up" and "code mismatch" into one
+                        // nullopt signal -- mirror the legacy path's
+                        // more specific AUTH_MFA_NOT_CONFIGURED (the
+                        // more actionable of the two for a client that
+                        // never called /setup) since we cannot
+                        // distinguish here.
+                        respondError(
+                          req,
+                          sharedCb,
+                          "AUTH_MFA_NOT_CONFIGURED",
+                          "verifySetup: MFA not set up or TOTP code is incorrect"
+                        );
+                        return;
+                    }
+                    ::oauth2::observability::AuditLogger::log(
+                      "mfa_enabled", "success", req, userId, "user", userId
+                    );
+                    Json::Value codesJson(Json::arrayValue);
+                    for (const auto &bc : result->backupCodes)
+                        codesJson.append(bc);
+                    Json::Value json;
+                    json["message"] = "MFA enabled successfully";
+                    json["backup_codes"] = codesJson;
+                    json["warning"] =
+                      "Save these backup codes securely. They cannot be shown again.";
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                    (*sharedCb)(resp);
+                }
+              );
+          }
+        );
+        return;
+    }
 
     auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
@@ -233,6 +335,34 @@ void MfaController::disable(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
+    // Task 24 slice 5: prefer the injected MfaService, same pattern as
+    // setup()/verifySetup() above.
+    if (mfaService_ && userRepo_)
+    {
+        userRepo_->findByPublicSub(
+          userId,
+          [this, sharedCb, req](std::optional<authforge::identity::UserData> user) {
+              if (!user)
+              {
+                  respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA disable: unknown user");
+                  return;
+              }
+              mfaService_->disable(user->id, [sharedCb, req](bool ok) {
+                  if (!ok)
+                  {
+                      respondError(req, sharedCb, "DB_QUERY_ERROR", "MFA disable: repository write failed");
+                      return;
+                  }
+                  Json::Value json;
+                  json["message"] = "MFA disabled successfully";
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                  (*sharedCb)(resp);
+              });
+          }
+        );
+        return;
+    }
+
     auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = false, mfa_secret = NULL, mfa_backup_codes = NULL "
@@ -315,6 +445,191 @@ void MfaController::verifyLogin(
     if (!plugin)
     {
         respondError(req, sharedCb, "INTERNAL_ERROR", "verifyLogin: OAuth2 Plugin not loaded");
+        return;
+    }
+
+    // Task 24 slice 5: continuation shared by both the injected-MfaService
+    // path and the legacy raw-SQL fallback below -- both resolve to the
+    // same (publicSub, pendingClientId, pendingRedirectUri, onSuccess)
+    // shape once TOTP verification has already succeeded, so the
+    // plugin->validateClient/validateRedirectUri/generateAuthorizationCode/
+    // exchangeCodeForToken orchestration (an oauth2-domain concern, see
+    // MfaService.h's own scope-boundary comment on why this stays outside
+    // that class) is written once, not duplicated per path.
+    auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken](
+                             std::string publicSub,
+                             std::string pendingClientId,
+                             std::string pendingRedirectUri,
+                             std::function<void(std::function<void()> &&)> clearPendingBinding
+                           ) {
+        plugin->validateClient(
+          clientId,
+          "",
+          [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
+           pendingRedirectUri, scope, nonce, clearPendingBinding](bool validClient) {
+              if (!validClient)
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: unknown or invalid client"
+                  );
+                  return;
+              }
+
+              plugin->validateRedirectUri(
+                clientId,
+                redirectUri,
+                [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
+                 pendingRedirectUri, scope, nonce, clearPendingBinding](bool validUri) {
+                    if (!validUri)
+                    {
+                        respondError(
+                          req,
+                          sharedCb,
+                          "AUTH_INVALID_CREDENTIALS",
+                          "verifyLogin: redirect_uri not registered for client"
+                        );
+                        return;
+                    }
+
+                    if (clientId != pendingClientId || redirectUri != pendingRedirectUri)
+                    {
+                        respondError(
+                          req,
+                          sharedCb,
+                          "AUTH_INVALID_CREDENTIALS",
+                          "verifyLogin: client/redirect_uri does not match login session"
+                        );
+                        return;
+                    }
+
+                    plugin->generateAuthorizationCode(
+                      clientId,
+                      publicSub,
+                      scope,
+                      redirectUri,
+                      "",
+                      "",
+                      nonce,
+                      [sharedCb, req, plugin, clientId, redirectUri, publicSub, clearPendingBinding](
+                        bool success, std::string authCode, std::string genError
+                      ) {
+                          if (!success)
+                          {
+                              respondError(
+                                req,
+                                sharedCb,
+                                "INTERNAL_ERROR",
+                                "verifyLogin: failed to generate authorization code: " + genError
+                              );
+                              return;
+                          }
+
+                          plugin->exchangeCodeForToken(
+                            authCode,
+                            clientId,
+                            "",
+                            redirectUri,
+                            "",
+                            [sharedCb, req, publicSub, clearPendingBinding](
+                              const Json::Value &tokenResult
+                            ) {
+                                if (tokenResult.isMember("error"))
+                                {
+                                    std::string detail = tokenResult.isMember("error_description")
+                                                            ? tokenResult["error_description"]
+                                                                .asString()
+                                                            : tokenResult["error"].asString();
+                                    respondError(
+                                      req,
+                                      sharedCb,
+                                      "INTERNAL_ERROR",
+                                      "verifyLogin: failed to exchange authorization code: " + detail
+                                    );
+                                    return;
+                                }
+
+                                ::oauth2::observability::AuditLogger::log(
+                                  "mfa_verified", "success", req, publicSub, "user", publicSub
+                                );
+
+                                Json::Value json = tokenResult;
+                                json["message"] = "MFA verification successful";
+                                json["mfa_verified"] = true;
+
+                                auto sendSuccess = [sharedCb, json]() {
+                                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                                    (*sharedCb)(resp);
+                                };
+                                clearPendingBinding(std::move(sendSuccess));
+                            }
+                          );
+                      }
+                    );
+                }
+              );
+          }
+        );
+    };
+
+    // Task 24 slice 5: prefer the injected MfaService/IUserRepository,
+    // falling back to the pre-Task-24 raw SQL when unwired -- same
+    // injected-with-fallback pattern established by SessionController's
+    // Task 24 slice 4. mfaToken IS the internal user id, stringified (see
+    // SessionController::login()'s `mfaResp["mfa_token"] =
+    // std::to_string(internalId);`), so no public_sub resolution step is
+    // needed here.
+    if (mfaService_ && userRepo_)
+    {
+        int64_t userId = 0;
+        try
+        {
+            userId = std::stoll(mfaToken);
+        }
+        catch (const std::exception &)
+        {
+            respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: invalid MFA session");
+            return;
+        }
+
+        userRepo_->findById(
+          userId,
+          [this, sharedCb, req, code, userId,
+           onTotpVerified](std::optional<authforge::identity::UserData> user) {
+              if (!user)
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: invalid MFA session"
+                  );
+                  return;
+              }
+              std::string publicSub = user->publicSub;
+              mfaService_->verifyLoginCode(userId, code, [this, sharedCb, req, userId, publicSub,
+                                                            onTotpVerified](bool codeValid) {
+                  if (!codeValid)
+                  {
+                      respondError(
+                        req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: TOTP code is incorrect"
+                      );
+                      return;
+                  }
+                  mfaService_->getPendingBinding(
+                    userId,
+                    [this, sharedCb, publicSub, userId, onTotpVerified](
+                      std::optional<std::pair<std::string, std::string>> pending
+                    ) {
+                        std::string pendingClientId = pending ? pending->first : "";
+                        std::string pendingRedirectUri = pending ? pending->second : "";
+                        auto clearPendingBinding = [this, userId](std::function<void()> &&done) {
+                            mfaService_->clearPendingBinding(userId, [done = std::move(done)](bool) {
+                                done();
+                            });
+                        };
+                        onTotpVerified(publicSub, pendingClientId, pendingRedirectUri, clearPendingBinding);
+                    }
+                  );
+              });
+          }
+        );
         return;
     }
 

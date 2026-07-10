@@ -72,7 +72,14 @@ target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_DROGON_SOURCES})
 # OAuth2Plugin (temporary, see header note above): HttpResponder.cc calls
 # the pre-existing common::error::{Error,ErrorContext,ErrorHandler,
 # RequestId} machinery, whose headers+impl still live under OAuth2Plugin.
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OAuth2Plugin)
+#
+# Task 24 slice 5: DrogonOAuthHttpClient.cc implements
+# authforge::identity::IOAuthHttpClient -- authforge::identity linked
+# explicitly here (previously only reached transitively via OAuth2Plugin
+# -> authforge::storage::postgres -> authforge::identity) so the
+# WITH_SOCIAL PUBLIC compile definition it carries is visible to this
+# target without relying on that transitive chain's continued existence.
+target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OAuth2Plugin authforge::identity)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 

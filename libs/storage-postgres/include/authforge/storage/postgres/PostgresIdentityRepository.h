@@ -80,6 +80,11 @@ class PostgresIdentityRepository :
       std::function<void(std::optional<authforge::identity::UserData>)> &&callback
     ) override;
 
+    void findByPublicSub(
+      const std::string &publicSub,
+      std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+    ) override;
+
     void create(
       const authforge::identity::UserData &userData,
       std::function<void(std::optional<int64_t>, std::string errorCode)> &&callback

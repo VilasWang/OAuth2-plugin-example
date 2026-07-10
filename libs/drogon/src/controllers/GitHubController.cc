@@ -6,6 +6,12 @@
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/error/ErrorResponder.h>
 
+#ifdef WITH_SOCIAL
+// Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this
+// controller now optionally consumes.
+#include <authforge/identity/SocialAuthService.h>
+#endif  // WITH_SOCIAL
+
 namespace authforge::drogon::controllers
 {
 
@@ -121,6 +127,101 @@ void GitHubController::login(
         );
         return;
     }
+
+#ifdef WITH_SOCIAL
+    // Task 24 slice 5: prefer the injected GitHubAuthService for the
+    // code-exchange + userinfo-fetch + local-account find-or-create
+    // steps, falling back to the pre-Task-24 drogon::HttpClient-direct
+    // path when unwired. Token issuance (issueTokens below) stays in this
+    // controller either way -- GitHubAuthService::login() deliberately
+    // stops short of it (identity <-> oauth2 boundary, see
+    // SocialAuthService.h's own scope-boundary comment).
+    if (gitHubAuthService_)
+    {
+        auto callbackPtr = std::make_shared<
+          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+        auto issueTokens = [this, callbackPtr, req](int64_t userId, const std::string &) {
+            auto plugin = resolvePlugin();
+            if (!plugin)
+            {
+                respondError(req, callbackPtr, "INTERNAL_ERROR", "github login: OAuth2Plugin not available");
+                return;
+            }
+            std::string accessToken = ::oauth2::utils::generateSecureToken();
+            std::string refreshToken = ::oauth2::utils::generateSecureToken();
+            auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::system_clock::now().time_since_epoch()
+            )
+                         .count();
+            auto db2 = ::drogon::app().getDbClient();
+            db2->execSqlAsync(
+              "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, "
+              "issued_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)",
+              [callbackPtr, accessToken, refreshToken, db2, userId, req](const ::drogon::orm::Result &) {
+                  auto now2 = std::chrono::duration_cast<std::chrono::seconds>(
+                                std::chrono::system_clock::now().time_since_epoch()
+                  )
+                                .count();
+                  db2->execSqlAsync(
+                    "INSERT INTO oauth2_refresh_tokens (token, access_token, "
+                    "client_id, user_id, scope, expires_at) "
+                    "VALUES ($1, $2, $3, $4, $5, $6)",
+                    [callbackPtr, accessToken, refreshToken](const ::drogon::orm::Result &) {
+                        Json::Value result;
+                        result["access_token"] = accessToken;
+                        result["refresh_token"] = refreshToken;
+                        result["token_type"] = "Bearer";
+                        result["expires_in"] = 3600;
+                        (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
+                    },
+                    [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req,
+                          callbackPtr,
+                          "DB_QUERY_ERROR",
+                          std::string("github login: failed to create refresh token: ") + e.base().what()
+                        );
+                    },
+                    refreshToken,
+                    accessToken,
+                    "vue-client",
+                    std::to_string(userId),
+                    "openid profile email",
+                    now2 + 2592000
+                  );
+              },
+              [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
+                  respondError(
+                    req,
+                    callbackPtr,
+                    "DB_QUERY_ERROR",
+                    std::string("github login: failed to create access token: ") + e.base().what()
+                  );
+              },
+              accessToken,
+              "vue-client",
+              std::to_string(userId),
+              "openid profile email",
+              now,
+              now + 3600
+            );
+        };
+
+        gitHubAuthService_->login(
+          code,
+          [callbackPtr, req, issueTokens](authforge::identity::GitHubLoginResult result) {
+              if (!result.errorCode.empty())
+              {
+                  respondError(req, callbackPtr, result.errorCode, "github login: " + result.errorCode);
+                  return;
+              }
+              issueTokens(result.userId, result.username);
+          }
+        );
+        return;
+    }
+#endif  // WITH_SOCIAL
 
     // Step 1: Exchange code for access token
     auto client = ::drogon::HttpClient::newHttpClient("https://github.com");

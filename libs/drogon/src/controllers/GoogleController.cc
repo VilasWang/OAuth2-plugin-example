@@ -3,6 +3,12 @@
 #include <oauth2/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 
+#ifdef WITH_SOCIAL
+// Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this
+// controller now optionally consumes.
+#include <authforge/identity/SocialAuthService.h>
+#endif  // WITH_SOCIAL
+
 namespace authforge::drogon::controllers
 {
 
@@ -149,6 +155,34 @@ void GoogleController::login(
         );
         return;
     }
+
+#ifdef WITH_SOCIAL
+    // Task 24 slice 5: prefer the injected GoogleAuthService (constructed
+    // once at startup by bootstrap::wireIdentityServices(), backed by
+    // DrogonOAuthHttpClient), falling back to the pre-Task-24
+    // drogon::HttpClient-direct path when unwired -- same
+    // injected-with-fallback pattern established by SessionController's
+    // Task 24 slice 4.
+    if (googleAuthService_)
+    {
+        auto sharedCb = std::make_shared<
+          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+        googleAuthService_->login(code, [sharedCb, req](authforge::identity::GoogleLoginResult result) {
+            if (!result.errorCode.empty())
+            {
+                respondError(req, sharedCb, result.errorCode, "google login: " + result.errorCode);
+                return;
+            }
+            Json::Value filteredJson;
+            filteredJson["sub"] = result.profile.sub;
+            filteredJson["name"] = result.profile.name;
+            filteredJson["email"] = result.profile.email;
+            filteredJson["picture"] = result.profile.picture;
+            (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
+        });
+        return;
+    }
+#endif  // WITH_SOCIAL
 
     // 1. Exchange Code for Access Token
     // API: https://oauth2.googleapis.com/token

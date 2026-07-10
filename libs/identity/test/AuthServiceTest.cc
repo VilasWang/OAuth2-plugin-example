@@ -64,6 +64,20 @@ class InMemoryUserRepository : public IUserRepository
         cb(it == users_.end() ? std::nullopt : std::optional<UserData>(it->second));
     }
 
+    void findByPublicSub(const std::string &publicSub, std::function<void(std::optional<UserData>)> &&cb)
+      override
+    {
+        for (auto &[id, user] : users_)
+        {
+            if (user.publicSub == publicSub)
+            {
+                cb(user);
+                return;
+            }
+        }
+        cb(std::nullopt);
+    }
+
     void create(
       const UserData &userData,
       std::function<void(std::optional<int64_t>, std::string)> &&cb

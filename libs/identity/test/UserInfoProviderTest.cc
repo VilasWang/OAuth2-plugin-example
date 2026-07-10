@@ -35,6 +35,11 @@ class FakeUserRepository : public IUserRepository
     {
         cb(std::nullopt);
     }
+    void findByPublicSub(const std::string &, std::function<void(std::optional<UserData>)> &&cb)
+      override
+    {
+        cb(std::nullopt);
+    }
     void create(const UserData &, std::function<void(std::optional<int64_t>, std::string)> &&cb)
       override
     {
