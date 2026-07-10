@@ -87,6 +87,11 @@ std::string getVerificationUri()
 }
 }  // namespace
 
+OAuth2Plugin *DeviceAuthController::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
+}
+
 std::string DeviceAuthController::generateUserCode()
 {
     const std::string chars = ALLOWED_USER_CODE_CHARS;
@@ -134,7 +139,7 @@ void DeviceAuthController::deviceAuthorization(
     }
 
     // Validate client exists
-    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         ::common::error::OAuth2ErrorHandler::sendErrorResponse(

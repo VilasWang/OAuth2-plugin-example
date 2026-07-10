@@ -6,6 +6,11 @@
 namespace authforge::drogon::controllers
 {
 
+OAuth2Plugin *HealthController::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
+}
+
 void HealthController::health(
   const ::drogon::HttpRequestPtr &req,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
@@ -25,7 +30,7 @@ void HealthController::health(
     // Check database connectivity (optional - can be expensive)
     try
     {
-        auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
+        auto plugin = resolvePlugin();
         if (plugin)
         {
             json["storage_type"] = plugin->getStorageType();

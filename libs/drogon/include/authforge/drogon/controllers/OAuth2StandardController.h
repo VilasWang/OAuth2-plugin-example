@@ -47,6 +47,14 @@ class OAuth2StandardController : public drogon::HttpController<OAuth2StandardCon
   public:
     static void initApiDocs();
 
+    // M3 Task 23 (authforge-sdk-refactor, evaluation H4): see
+    // libs/drogon/include/authforge/drogon/controllers/HealthController.h's
+    // setPlugin() comment for the full rationale.
+    void setPlugin(::OAuth2Plugin *plugin)
+    {
+        plugin_ = plugin;
+    }
+
     METHOD_LIST_BEGIN
     ADD_METHOD_TO(OAuth2StandardController::authorize, "/oauth2/authorize", drogon::Get);
     ADD_METHOD_TO(OAuth2StandardController::token, "/oauth2/token", drogon::Post);
@@ -132,6 +140,13 @@ class OAuth2StandardController : public drogon::HttpController<OAuth2StandardCon
       const std::string &state,
       std::function<void(const drogon::HttpResponsePtr &)> &&callback
     );
+
+    ::OAuth2Plugin *plugin_ = nullptr;
+
+    /// Returns the injected plugin_ if set (Task 23 wiring), otherwise
+    /// falls back to the global drogon::app().getPlugin<OAuth2Plugin>()
+    /// lookup (pre-Task-23 behavior).
+    ::OAuth2Plugin *resolvePlugin() const;
 };
 
 }  // namespace oauth2::controllers

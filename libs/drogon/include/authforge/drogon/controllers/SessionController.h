@@ -6,12 +6,22 @@
 
 #include <drogon/HttpController.h>
 
+// M3 Task 23 (authforge-sdk-refactor, evaluation H4): see
+// HealthController.h's identical comment for the rationale.
+class OAuth2Plugin;
+
 namespace authforge::drogon::controllers
 {
 
 class SessionController : public ::drogon::HttpController<SessionController, false>
 {
   public:
+    // M3 Task 23: see HealthController::setPlugin()'s comment.
+    void setPlugin(OAuth2Plugin *plugin)
+    {
+        plugin_ = plugin;
+    }
+
     METHOD_LIST_BEGIN
     ADD_METHOD_TO(SessionController::showLoginPage, "/login", ::drogon::Get);
     ADD_METHOD_TO(SessionController::login, "/oauth2/login", ::drogon::Post);
@@ -45,6 +55,10 @@ class SessionController : public ::drogon::HttpController<SessionController, fal
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
+
+  private:
+    OAuth2Plugin *plugin_ = nullptr;
+    OAuth2Plugin *resolvePlugin() const;
 };
 
 }  // namespace authforge::drogon::controllers

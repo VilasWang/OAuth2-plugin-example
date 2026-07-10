@@ -7,6 +7,10 @@
 
 #include <drogon/HttpController.h>
 
+// M3 Task 23 (authforge-sdk-refactor, evaluation H4): see
+// HealthController.h's identical comment for the rationale.
+class OAuth2Plugin;
+
 namespace authforge::drogon::controllers
 {
 
@@ -24,6 +28,12 @@ namespace authforge::drogon::controllers
 class DeviceAuthController : public ::drogon::HttpController<DeviceAuthController, false>
 {
   public:
+    // M3 Task 23: see HealthController::setPlugin()'s comment.
+    void setPlugin(OAuth2Plugin *plugin)
+    {
+        plugin_ = plugin;
+    }
+
     METHOD_LIST_BEGIN
     // Device Authorization Request (no auth required)
     ADD_METHOD_TO(
@@ -54,6 +64,9 @@ class DeviceAuthController : public ::drogon::HttpController<DeviceAuthControlle
      * @brief Generate a user-friendly 8-character uppercase alphanumeric code
      */
     static std::string generateUserCode();
+
+    OAuth2Plugin *plugin_ = nullptr;
+    OAuth2Plugin *resolvePlugin() const;
 };
 
 }  // namespace authforge::drogon::controllers

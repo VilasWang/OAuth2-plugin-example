@@ -4,13 +4,18 @@
 #include <oauth2/error/RequestId.h>
 #include <drogon/drogon.h>
 
+OAuth2Plugin *oauth2::filters::OAuth2AuthFilter::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : drogon::app().getPlugin<OAuth2Plugin>();
+}
+
 void oauth2::filters::OAuth2AuthFilter::doFilter(
   const HttpRequestPtr &req,
   FilterCallback &&fcb,
   FilterChainCallback &&fccb
 )
 {
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         LOG_ERROR << "OAuth2AuthFilter: OAuth2Plugin not found";

@@ -1,6 +1,7 @@
 // #define DROGON_TEST_MAIN
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
+#include "../bootstrap/ControllerRegistration.h"
 #include <authforge/drogon/controllers/HealthController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <authforge/drogon/controllers/WeChatController.h>
@@ -307,6 +308,10 @@ int main(int argc, char **argv)
         try
         {
             drogon::app().registerBeginningAdvice([&]() {
+                // M3 Task 23: same wiring as OAuth2Server/main.cc -- see
+                // bootstrap::wireControllerPluginDependencies()'s header
+                // comment for the ordering requirement.
+                bootstrap::wireControllerPluginDependencies();
                 std::cout << "Drogon app ready, signaling tests to start..." << std::endl;
                 // Add a small delay on macOS to ensure EventLoop and ThreadPool
                 // are fully initialized before tests start hitting the server.

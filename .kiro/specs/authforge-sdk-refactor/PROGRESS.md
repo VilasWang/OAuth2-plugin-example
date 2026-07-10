@@ -343,6 +343,57 @@
 
 **Task 25 完成**。main.cc 现在仅做装配，符合 design.md §6 的分层要求。
 
+## Task 17 剩余部分：新建 `authforge::oauth2::protocol` 服务（`TokenService`/`ClientService`/`AuthorizationService`）
+
+**背景**：Task 17 slice 1-12（见上文"M2b 详细完成内容"）已经把所有阻塞项就位（PKCE/AuditLogger 端口/仓储接口/聚合/决策引擎/JwkManager/issuer），但 `TokenService`/`ClientService` 本体、以及设计要求但代码里从未真正存在过的 `AuthorizationService`，仍然没有迁移/创建。本次完成这部分。
+
+**新建文件**（`libs/oauth2/{include,src}/authforge/oauth2/protocol/`）：
+
+- `TokenCrypto.h/.cc`：Domain 层版本的 `generateSecureToken`/`hashToken`（对应旧 `CryptoUtils.h` 的同名自由函数），但显式接收 `ICryptoProvider&` 参数而不是硬编码静态 `OpenSslCryptoProvider` 实例——因为后者是 Adapter 层类，Domain 包不能依赖
+- `ClientService.h/.cc`：`oauth2::ClientService` 的 Domain 版迁移，构造参数从旧的整体接口 `IOAuth2Storage` 换成新拆分的 `IClientRepository`，三个方法（`validateClient`/`validateRedirectUri`/`validateClientScopes`）语义原样保留（`validateRedirectUri`/`validateClientScopes` 内部改用已有的 `model::Client` 聚合的 `isRegisteredRedirectUri()`/`allowsScope()`，而非重新手写线性查找）
+- `TokenService.h/.cc`：`oauth2::TokenService` 的 Domain 版迁移，构造参数从 `IOAuth2Storage` 换成三个拆分接口（`IClientRepository`/`IGrantRepository`/`ITokenRepository`）+ 四个 Domain 端口（`ICryptoProvider`/`IAuditSink`/`ISubjectResolver`/`IRoleProvider`，后两者可选，用于解析 `roles` 字段）。全部 7 个公开方法（`generateAuthorizationCode`/`exchangeCodeForToken`/`refreshAccessToken`/`validateAccessToken`/`introspectToken`/`revokeAccessToken`/`validatePkceCodeVerifier`）逐方法对照旧实现迁移，JSON 响应形状、错误码/消息、TTL 语义、refresh token 重用检测级联撤销、`shared_from_this()` 生命周期保护模式全部保持一致。**唯一故意的行为差异**：PKCE S256 校验改为调用 `oauth2::pkce::verifyCodeVerifier`（Task 17 slice 1 已经建好、符合 RFC 7636 的实现），而不是重新拷贝一遍 `validatePkceCodeVerifier`/`generateSha256Hash`——这不是新引入的差异，是把旧类在 slice 4 里已经修过的正确行为原样带过来
+- `AuthorizationService.h/.cc`：**设计要求但代码里从未真正存在过的新类**——旧代码把"client 允许→admin 角色→用户 consent"三级决策拆散在 `ClientService::validateClientScopes`（Tier 1）+ `IdentityService::validateUserRolesForScopes`/`scopeRequiresAdminRole`（Tier 2）+ `OAuth2StandardController::checkUserConsentAndProceed` 的内联 `plugin->hasUserConsent` 调用链（Tier 3）里，从未有一个类统一收口。新类用已建好的 `ScopeDecisionEngine::evaluateScopes`（纯函数决策引擎，Task 17 slice 7）驱动，自己异步编排三级事实的获取（`IClientRepository::getClient` → `ISubjectResolver::resolve` + `IRoleProvider::getRoles`（仅当有 admin 分层 scope 时才查）→ `IConsentRepository::hasUserConsent` 逐 scope 并发查询），返回统一的 `ScopeValidationSummary`
+
+**尚未接入生产**：`OAuth2Plugin`/`OAuth2StandardController` 的消费逻辑继续使用旧的 `oauth2::TokenService`/`oauth2::ClientService`/内联决策链，未切换到这批新类——按用户指示，这批新类先落地+测试，真正的生产装配是 Task 24，等 `libs/identity` 的 MFA/WebAuthn/Social/Session 五块服务补完后再一起做（避免现在接入一半、将来 identity 补完后又要返工）。
+
+**新增测试**（`libs/oauth2/test/`，全部走 gtest + 手写最小 fake 仓储/端口实现，无 Drogon 依赖）：
+
+- `TokenServiceTest.cc`：6 个测试（用例形状对照 `Property4_TokenFlowBaselineTest.cc`——那是钉住旧类行为的既有基线——确保新类行为一致：exchange 成功/错误密钥/未知 code、refresh 成功+重用检测、revoke 后 validate 失败、introspect 激活/未激活）
+- `ClientServiceTest.cc`：7 个测试
+- `AuthorizationServiceTest.cc`：6 个测试（未知 client 全 Invalid、scope 不在 allowlist、无 consent 端口时安全默认 ConsentRequired、admin scope 无 roleProvider 时保守判定 Invalid、有 admin 角色时 ConsentRequired、已 consent 时 Valid）
+
+**验证结果**：
+
+- 全量编译（含 `authforge-oauth2`/`authforge-oauth2-test`/`OAuth2Server`/`OAuth2Test_test`）：通过，零错误
+- `authforge-oauth2-test`：79/79 通过（66 个既有 + 13 个新增）
+- `ctest -C Debug`：226/226 全绿（207 之前 + 19 个新增，含 6 个既有 identity 测试之前漏记入总数），零回归
+
+## Task 23：controller/filter 去单例化（评审 H4）
+
+**阻塞项澄清**（详见与用户的讨论）：Drogon 插件必须等 `run()` 内部才被 config 反射构造，而 controller/filter 必须在 `run()` 之前构造+注册完毕——这是框架级的先天顺序限制，无法用真正的"构造函数注入"绕过。核实生产代码后发现现状其实没有运行时错误（所有 `getPlugin<OAuth2Plugin>()` 调用都在请求处理函数体内，不在构造函数里，`run()` 完成后调用是安全的），但每次请求都要重新查一次单例，且这不是设计意图的"去单例化"。
+
+**采用方案：两阶段装配**（setter 注入，而非构造函数注入）——
+
+1. Controller/filter 仍按现状用默认构造函数注册（`AutoCreation=false` + `registerController`/`ADD_METHOD_TO` 字符串查找，Task 20 的既有机制不变）
+2. 新增 `OAuth2Plugin*` 成员 + `setPlugin(OAuth2Plugin*)` setter，每个 handler 内部通过一个私有 `resolvePlugin()` 方法读取（`plugin_ ? plugin_ : drogon::app().getPlugin<OAuth2Plugin>()`——设置成功用缓存指针，未设置时保留原始全局查找作为后备，不是破坏性变更）
+3. `main.cc`/`test_main.cc` 新增 `bootstrap::wireControllerPluginDependencies()`，在 `registerBeginningAdvice` 回调里（插件已经构造完成之后的时间点，跟现有 Hodor 状态检查用的是同一类回调）用 `drogon::DrClassMap::getSingleInstance<T>()` 取到 `registerController`/字符串查找已经登记的**同一个**单例实例（不是重新 `make_shared` 一个新对象），逐个调用 `setPlugin()`
+
+**受影响范围**（评审 B5 清单核实后的实际统计）：6 个 controller（`HealthController`/`DeviceAuthController`/`GitHubController`/`MfaController`/`SessionController`/`OAuth2StandardController`，共 15 处 `getPlugin<OAuth2Plugin>()` 调用点）+ 2 个 filter（`AuthorizationFilter`/`OAuth2AuthFilter`，仍是 `OAuth2Plugin/include/oauth2/filters/` 下的**旧命名空间**类，因为 `ADD_METHOD_TO` 字符串引用的就是这两个旧位置的类——`libs/drogon` 里 Task 20 slice 2 迁移的同名副本没有被任何路由字符串引用，是路由意义上的死代码，未触碰）。
+
+**踩坑**：`GitHubController::login`/`SessionController::login` 内部有多层嵌套 lambda（HTTP 客户端回调 → DB 回调 → 内层业务闭包），只在最内层加 `this` 捕获会导致 MSVC 报 `C3494`/`C4573`（外层闭包未捕获 `this`，内层引用不到）——修复：从最外层（`login()` 方法体直接调用的那一层 lambda）开始，逐层在捕获列表里补 `this`，一路带到需要调用 `resolvePlugin()` 的最内层。这是"controller 是进程级单例，`this` 全程有效"这条既有生命周期约定（`OAuth2StandardController.h` 头注释里写明的 defect 1.11 契约）的自然延伸，不是新引入的生命周期风险。
+
+**验证结果**：
+
+- 全量编译（`OAuth2Plugin`/`authforge-drogon`/`OAuth2Server`/`OAuth2Test_test`）：通过，零错误
+- `ctest -C Debug`：226/226 全绿，零回归
+- 真实服务器 + curl 端到端验证（`OAuth2Server.exe` + `config.ci.json`）：
+  - 启动日志出现 `"Controller/filter plugin dependencies wired"`（`main.cc` 新增的 `registerBeginningAdvice` 回调确认执行）
+  - `GET /health` → 200（`HealthController::resolvePlugin()` 走缓存指针路径）
+  - `GET /login` → 200
+  - `GET /api/admin/dashboard`（无 Authorization header）→ 401 `AUTH_TOKEN_INVALID`，证明 `AuthorizationFilter::resolvePlugin()` 缓存指针路径下鉴权链路依然完整
+
+**遗留/未做**（如实记录）：`AdminController`/`OrganizationController`/`ClientRegistrationController`/`DeviceAuthController`（`approveDevice`）等使用 `AuthorizationFilter`/`OAuth2AuthFilter` 的其余 controller 不需要改动——它们本身不直接调用 `getPlugin<OAuth2Plugin>()`，鉴权都是 filter 层做的，filter 已经去单例化，这些 controller 自动受益，不需要单独处理。`OAuth2Plugin` 本体（Task 21 方案 A 决定的装配器退化）不受本任务影响。
+
 ## 关键提醒
 
 - 每个 slice/task 完成后必须跑全量测试套件（当前 124 个 CTest cases: 40 authforge-common-test + 38 authforge-common-testing-test + 1 OAuth2Tests(内含 310 DROGON_TEST cases/57113 assertions) + 45 Contract）确认零回归

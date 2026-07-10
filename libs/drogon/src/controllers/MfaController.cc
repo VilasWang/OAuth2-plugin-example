@@ -11,6 +11,11 @@
 namespace authforge::drogon::controllers
 {
 
+OAuth2Plugin *MfaController::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
+}
+
 namespace
 {
 
@@ -306,7 +311,7 @@ void MfaController::verifyLogin(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
-    auto plugin = ::drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         respondError(req, sharedCb, "INTERNAL_ERROR", "verifyLogin: OAuth2 Plugin not loaded");

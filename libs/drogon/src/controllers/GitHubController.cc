@@ -72,6 +72,11 @@ GitHubControllerDocs docs_;
 
 }  // namespace
 
+OAuth2Plugin *GitHubController::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
+}
+
 void GitHubController::login(
   const ::drogon::HttpRequestPtr &req,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
@@ -132,7 +137,7 @@ void GitHubController::login(
 
     client->sendRequest(
       request,
-      [callbackPtr, req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+      [this, callbackPtr, req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
           if (result != ::drogon::ReqResult::Ok || !response ||
               response->getStatusCode() != ::drogon::k200OK)
           {
@@ -167,7 +172,7 @@ void GitHubController::login(
 
           apiClient->sendRequest(
             userReq,
-            [callbackPtr, req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
+            [this, callbackPtr, req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
                 if (res2 != ::drogon::ReqResult::Ok || !resp2 ||
                     resp2->getStatusCode() != ::drogon::k200OK)
                 {
@@ -205,13 +210,13 @@ void GitHubController::login(
                 db->execSqlAsync(
                   "SELECT internal_user_id FROM oauth2_subject_mappings "
                   "WHERE provider = $1 AND subject = $2",
-                  [callbackPtr, db, githubLogin, githubEmail, provider, subject, req](
+                  [this, callbackPtr, db, githubLogin, githubEmail, provider, subject, req](
                     const ::drogon::orm::Result &mappingResult
                   ) {
-                      auto issueTokens = [callbackPtr,
+                      auto issueTokens = [this, callbackPtr,
                                           req](int userId, const std::string &username) {
                           // Issue access_token and refresh_token
-                          auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
+                          auto plugin = resolvePlugin();
                           if (!plugin)
                           {
                               respondError(

@@ -41,6 +41,15 @@ file(GLOB FILTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../filters/*.cc")
 # without a running database.
 set(SCHEMA_MGR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../SchemaManager.cc")
 
+# M3 Task 23 (authforge-sdk-refactor): test_main.cc now calls
+# bootstrap::wireControllerPluginDependencies() (see its own header comment),
+# defined in ControllerRegistration.cc alongside registerAllControllers()
+# (already called by test_main.cc directly, without going through this
+# glob, before this task). Only this one bootstrap/ file is needed by the
+# test target; the others (CorsSetup/SecurityHeaders/etc) are apps/server-
+# only concerns test_main.cc does not use.
+set(BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrap/ControllerRegistration.cc")
+
 # Collect hierarchical test sources
 file(GLOB_RECURSE UNIT_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cc")
 file(GLOB_RECURSE INTEGRATION_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/integration/*.cc")
@@ -88,6 +97,7 @@ add_executable(${PROJECT_NAME}
     ${FILTER_SRC}
     ${COMMON_SRC}
     ${SCHEMA_MGR_SRC}
+    ${BOOTSTRAP_SRC}
 )
 
 drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/../views

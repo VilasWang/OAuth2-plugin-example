@@ -21,6 +21,11 @@ using namespace oauth2::observability::openapi;
 namespace oauth2::controllers
 {
 
+::OAuth2Plugin *OAuth2StandardController::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : drogon::app().getPlugin<::OAuth2Plugin>();
+}
+
 void OAuth2StandardController::initApiDocs()
 {
     // Explicit, order-independent registration (replaces the former file-scope
@@ -346,7 +351,7 @@ void OAuth2StandardController::introspect(
     }
 
     // Get OAuth2 plugin
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         common::error::OAuth2ErrorHandler::sendErrorResponse(
@@ -473,7 +478,7 @@ void OAuth2StandardController::revoke(
     }
 
     // Get OAuth2 plugin
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         common::error::OAuth2ErrorHandler::sendErrorResponse(
@@ -566,7 +571,7 @@ void OAuth2StandardController::metadata(
     LOG_DEBUG << "Metadata endpoint requested";
 
     // Get OAuth2 plugin
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         common::error::OAuth2ErrorHandler::sendErrorResponse(
@@ -730,7 +735,7 @@ void OAuth2StandardController::jwks(
   std::function<void(const drogon::HttpResponsePtr &)> &&callback
 )
 {
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin || !plugin->getJwkManager())
     {
         Json::Value empty;
@@ -825,7 +830,7 @@ void OAuth2StandardController::authorize(
     LOG_DEBUG << "Authorization request with valid state parameter for client: " << clientId
               << ", state: " << state.substr(0, 8) << "...";
 
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         auto resp = drogon::HttpResponse::newHttpResponse();
@@ -1087,7 +1092,7 @@ void OAuth2StandardController::token(
         return;
     }
 
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         auto resp = drogon::HttpResponse::newHttpResponse();
@@ -1541,7 +1546,7 @@ void OAuth2StandardController::userInfo(
     }
     userId = attrs->get<std::string>("userId");
 
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         Json::Value userInfo;
@@ -1551,9 +1556,9 @@ void OAuth2StandardController::userInfo(
         return;
     }
     // First get user roles
-    plugin->getUserRoles(userId, [userId, callback](std::vector<std::string> roles) {
+    plugin->getUserRoles(userId, [this, userId, callback](std::vector<std::string> roles) {
         // Get user info directly from storage
-        auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+        auto plugin = resolvePlugin();
         auto storage = plugin->getStorage();
 
         // Query user details from database.

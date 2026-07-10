@@ -14,6 +14,11 @@ AuthorizationFilter::AuthorizationFilter()
 {
 }
 
+OAuth2Plugin *AuthorizationFilter::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : app().getPlugin<OAuth2Plugin>();
+}
+
 void AuthorizationFilter::loadConfig()
 {
     // Defect 1.4 fix: thread-safe, exactly-once initialization. std::call_once
@@ -108,7 +113,7 @@ void AuthorizationFilter::doFilter(
     }
 
     // 2. Validate Token
-    auto plugin = app().getPlugin<OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         LOG_ERROR << "OAuth2Plugin not found!";

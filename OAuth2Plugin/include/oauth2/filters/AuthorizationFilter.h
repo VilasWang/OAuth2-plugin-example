@@ -9,6 +9,8 @@
 
 using namespace drogon;
 
+class OAuth2Plugin;
+
 namespace oauth2::filters
 {
 
@@ -16,6 +18,21 @@ class AuthorizationFilter : public HttpFilter<AuthorizationFilter>
 {
   public:
     AuthorizationFilter();
+
+    // M3 Task 23 (authforge-sdk-refactor, evaluation H4 "controller/filter
+    // 去单例化"): explicit dependency injection point, set once at startup
+    // (bootstrap::wireFilterPluginDependencies(), via
+    // drogon::DrClassMap::getSingleInstance<AuthorizationFilter>() after
+    // the plugin has been constructed) instead of doFilter() calling
+    // drogon::app().getPlugin<OAuth2Plugin>() on every request. Non-owning
+    // (see HealthController::setPlugin()'s identical comment on plugin
+    // lifetime). doFilter() falls back to the global lookup if unset, so
+    // this is additive, not a behavior-changing requirement.
+    void setPlugin(::OAuth2Plugin *plugin)
+    {
+        plugin_ = plugin;
+    }
+
     void doFilter(
       const HttpRequestPtr &req,
       FilterCallback &&fcb,
@@ -23,6 +40,9 @@ class AuthorizationFilter : public HttpFilter<AuthorizationFilter>
     ) override;
 
   private:
+    ::OAuth2Plugin *plugin_ = nullptr;
+    ::OAuth2Plugin *resolvePlugin() const;
+
     // Path regex -> Allowed Roles
     struct RbacRule
     {

@@ -136,6 +136,19 @@ int main()
         LOG_INFO << "ErrorCatalog invariants validated";
     });
 
+    // M3 Task 23 (authforge-sdk-refactor, evaluation H4): wire the
+    // OAuth2Plugin pointer into every controller/filter that exposes a
+    // setPlugin(), replacing their per-request
+    // drogon::app().getPlugin<OAuth2Plugin>() lookups with a cached
+    // pointer set once here. Must run AFTER plugins are constructed
+    // (registerBeginningAdvice callbacks run once app().run() has
+    // finished config-reflection plugin construction -- see
+    // bootstrap::wireControllerPluginDependencies()'s header comment).
+    drogon::app().registerBeginningAdvice([]() {
+        bootstrap::wireControllerPluginDependencies();
+        LOG_INFO << "Controller/filter plugin dependencies wired";
+    });
+
     // Report Hodor status after plugins have been initialized. Hodor is loaded
     // only by production configuration. When present, also wire its rejection
     // response factory so rate-limited requests get the standard Error Envelope

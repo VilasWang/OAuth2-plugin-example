@@ -25,6 +25,11 @@ using namespace ::oauth2::observability::openapi;
 namespace authforge::drogon::controllers
 {
 
+OAuth2Plugin *SessionController::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
+}
+
 namespace
 {
 // Emit an Application error via the unified ErrorResponder entry point so the
@@ -381,7 +386,8 @@ void SessionController::login(
     AuthService::validateUser(
       username,
       password,
-      [req,
+      [this,
+       req,
        username,
        clientId,
        scope,
@@ -483,7 +489,7 @@ void SessionController::login(
                   return;
               }
 
-              auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
+              auto plugin = resolvePlugin();
               if (!plugin)
               {
                   respondError(
@@ -581,7 +587,7 @@ void SessionController::consent(
         return;
     }
 
-    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         respondError(
@@ -756,7 +762,7 @@ void SessionController::logout(
 
     std::string token = authHeader.substr(7);  // Remove "Bearer "
 
-    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         respondError(

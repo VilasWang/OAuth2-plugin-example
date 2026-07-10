@@ -1,5 +1,6 @@
 #include "ControllerRegistration.h"
 #include <drogon/drogon.h>
+#include <drogon/DrClassMap.h>
 #include <authforge/drogon/controllers/OAuth2StandardController.h>
 #include <authforge/drogon/controllers/HealthController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
@@ -16,6 +17,9 @@
 #include <authforge/drogon/controllers/UserSelfServiceController.h>
 #include <authforge/drogon/controllers/WebAuthnController.h>
 #include <authforge/drogon/controllers/AdminController.h>
+#include <oauth2/filters/AuthorizationFilter.h>
+#include <oauth2/filters/OAuth2AuthFilter.h>
+#include <oauth2/plugin/OAuth2Plugin.h>
 
 namespace bootstrap
 {
@@ -77,6 +81,51 @@ void registerAllControllers()
     drogon::app().registerController(
       std::make_shared<oauth2::controllers::OAuth2StandardController>()
     );
+}
+
+void wireControllerPluginDependencies()
+{
+    // M3 Task 23: fetch the plugin exactly once (config-reflection
+    // construction has completed by the time registerBeginningAdvice
+    // callbacks run -- see this function's header comment for the
+    // ordering requirement) and push it into every controller/filter that
+    // exposes a setPlugin(). Using drogon::DrClassMap::getSingleInstance<T>()
+    // rather than re-constructing each controller: registerController()
+    // already called DrClassMap::setSingleInstance(ctrlPtr), so the
+    // SAME instance drogon dispatches requests to is the one we mutate
+    // here (a fresh std::make_shared<T>() would wire a different, unused
+    // object).
+    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    if (!plugin)
+    {
+        LOG_ERROR << "wireControllerPluginDependencies: OAuth2Plugin not found; "
+                     "controllers/filters will fall back to per-request "
+                     "getPlugin<OAuth2Plugin>() lookups";
+        return;
+    }
+
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::HealthController>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::DeviceAuthController>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GitHubController>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::MfaController>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::SessionController>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<oauth2::controllers::OAuth2StandardController>()
+      ->setPlugin(plugin);
+
+    // Filters are looked up by the same by-name DrClassMap mechanism their
+    // ADD_METHOD_TO string references use -- these are the OLD
+    // oauth2::filters::{AuthorizationFilter,OAuth2AuthFilter} classes
+    // (OAuth2Plugin/include/oauth2/filters/*.h), NOT the libs/drogon
+    // copies (see PROGRESS.md's filter-vs-controller distinction: the
+    // libs/drogon filter copies are not referenced by any ADD_METHOD_TO
+    // string and are dead code for routing purposes).
+    drogon::DrClassMap::getSingleInstance<oauth2::filters::AuthorizationFilter>()->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<oauth2::filters::OAuth2AuthFilter>()->setPlugin(plugin);
 }
 
 }  // namespace bootstrap
