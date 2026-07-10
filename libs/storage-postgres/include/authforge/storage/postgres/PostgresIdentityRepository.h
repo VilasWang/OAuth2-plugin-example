@@ -51,7 +51,15 @@ class PostgresIdentityRepository :
   public std::enable_shared_from_this<PostgresIdentityRepository>
 {
   public:
-    explicit PostgresIdentityRepository(drogon::orm::DbClientPtr dbClient) :
+    // M3 Task 20 pitfall (see PROGRESS.md's "authforge::drogon::* 命名空间
+    // 裸写" note): globally qualified (::drogon::orm::DbClientPtr) so this
+    // header compiles correctly in any translation unit that also
+    // includes an authforge::drogon::* header (e.g. bootstrap/
+    // IdentityAssembly.cc, which includes
+    // authforge/drogon/controllers/SessionController.h in the same TU) --
+    // an unqualified `drogon::` here would resolve to the sibling
+    // authforge::drogon namespace instead of the global ::drogon one.
+    explicit PostgresIdentityRepository(::drogon::orm::DbClientPtr dbClient) :
       dbClient_(std::move(dbClient))
     {
     }
@@ -74,7 +82,7 @@ class PostgresIdentityRepository :
 
     void create(
       const authforge::identity::UserData &userData,
-      std::function<void(std::optional<int64_t>)> &&callback
+      std::function<void(std::optional<int64_t>, std::string errorCode)> &&callback
     ) override;
 
     void updatePasswordHash(
@@ -106,7 +114,7 @@ class PostgresIdentityRepository :
     ) override;
 
   private:
-    drogon::orm::DbClientPtr dbClient_;
+    ::drogon::orm::DbClientPtr dbClient_;
 };
 
 }  // namespace authforge::storage::postgres

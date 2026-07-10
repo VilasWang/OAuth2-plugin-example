@@ -61,11 +61,20 @@ public:
     /**
      * @brief Create a new user
      * @param userData User data to create
-     * @param callback Returns user ID on success, nullopt on failure
+     * @param callback Returns (user ID, empty string) on success, or
+     * (nullopt, Error_Code) on failure. The Error_Code is a structured
+     * value registered in ErrorCatalog (e.g. "VALIDATION_USERNAME_TAKEN",
+     * "VALIDATION_EMAIL_TAKEN") when the implementation can identify the
+     * specific conflicting constraint, or "INTERNAL_ERROR"/"" for a
+     * generic/unclassified failure -- mirrors
+     * OAuth2Server/AuthService.cc's pre-existing registerUser contract
+     * (auth-flow-error-code-gaps spec) so callers (AuthService::
+     * registerUser) can forward the value verbatim to ErrorResponder
+     * instead of collapsing every failure into one generic code.
      */
     virtual void create(
       const UserData &userData,
-      std::function<void(std::optional<int64_t>)> &&callback
+      std::function<void(std::optional<int64_t>, std::string errorCode)> &&callback
     ) = 0;
 
     /**

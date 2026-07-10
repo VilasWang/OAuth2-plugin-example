@@ -125,7 +125,7 @@
   - 端口：`ISubjectResolver`/`IRoleProvider`/`IUserInfoProvider`/`IClock`/`ICryptoProvider`/`IUuidGenerator`/`IEmailSender`/`ILogger`/`IMetrics`；`AuditEvent` 模型
   - 产出：`libs/common` target + `authforge-common` export；验收：独立编译；纯单测通过；arch-guard 无 `#include <drogon/`
 
-- [ ] 14. 去 `drogon::utils`：实现并替换所有调用点（F3，核心成本，须逐调用点小步提交）
+- [x] 14. 去 `drogon::utils`：实现并替换所有调用点（F3，核心成本，须逐调用点小步提交）
   - 实现 `ICryptoProvider`（`getSha256`/`secureRandomBytes`/base64url/HMAC/PBKDF2/RSA-JWT，OpenSSL 直接实现）、`IUuidGenerator`、`IClock`、`ILogger`
   - 改造调用点：`CryptoUtils.h`（头文件内联，逐 include 点改注入）、`PasswordHasher`、`TotpUtils`、`JwkManager`、`TokenService`、`AuditLogger`、`RequestId`；Domain 内 `LOG_*` 改 `ILogger`
   - **可发布性 + 工作量边界（H6 + 评审 C）**：逐端口逐调用点推进，保证每次提交可编译；`CryptoUtils.h` 有 **14 个 include 者**、Domain 内 **407 处 `LOG_*`**——按「每类端口一个 PR、单 PR 调用点数设上限、超限即停并汇报进度」控制，勿一次性大爆炸
@@ -187,12 +187,17 @@
   - 验收：**config 驱动的插件实例化成功**（非仅路由）；4 份 config 启动均不崩
   - **决策：方案 A**。理由见 design.md §5.7 更新——插件本体是 OBJECT 库（非 STATIC），天然不受链接器丢弃符号影响；验收标准已被现有 30+ 处 `getPlugin<OAuth2Plugin>()` 断言非空的测试隐式覆盖。4 份 config 零改动。
 
-- [ ] 22. whole-archive 链接策略与验证（F1/H5，**降级为评估性任务，大概率不再需要**）
+- [x] 22. whole-archive 链接策略与验证（F1/H5，**降级为评估性任务，大概率不再需要**）
   - 产品与测试对 `authforge-drogon`（含 controller/filter/**视图类**/**插件类** 注册符号）用 whole-archive 链接（CMake `$<LINK_LIBRARY:WHOLE_ARCHIVE,...>`，回退 `--whole-archive`/`/WHOLEARCHIVE`）
   - 产品启动断言关键路由已注册（fail-fast）
   - 产出：链接配置 + 路由/视图/插件注册自检
   - 验收：静态库形态下 `/oauth2/token` 等路由可访问（非 404）+ `login.csp`/`consent.csp` 可渲染 + config 驱动插件实例化成功
   - **状态更新**：Task 20 完成的 `AutoCreation=false` 方案已验证完全替代 whole-archive 的作用（见 design.md §5.5），controller 迁移全程未用任何形式的 whole-archive 链接。剩余待评估：**views**（`login.csp`/`consent.csp`）和**插件类本身**是否也有类似免 whole-archive 路径——插件类已确认没有（`Plugin<T>` 无 `AutoCreation` 参数，若插件本体未来改为静态库分发仍需要），views 大概率也不需要（渲染是运行期按名查找模板，非链接期符号，已用 `showLoginPage` 验证正常工作）。本任务保留在列表中作为"确认性收尾"，非阻塞项。
+  - **评估结论（本次执行确认，无新增代码）**：
+    1. **View 类**：`drogon_create_views` 把 `.csp` 编译为 `.cc`/`.h`（`build/OAuth2Server/{login,consent}.{cc,h}`）直接 `target_sources` 进 `OAuth2Server` 可执行体，不是"自注册符号型"目标（没有依赖静态初始化触发注册、也不被链接器按需丢弃的风险），与 controller/plugin 的问题模型不同，天然不需要 whole-archive。
+    2. **插件类**：核实 `OAuth2Plugin/CMakeLists.txt:31` 为 `add_library(OAuth2Plugin OBJECT)`（非 STATIC），OBJECT 库的所有 `.obj` 无条件整体链入消费者，不存在链接器按引用丢弃符号的问题；`OAuth2Server/CMakeLists.txt` 对其也是普通 `target_link_libraries`（非 whole-archive）。与 design.md §5.7 记录一致。
+    3. **端到端验证**（Debug 构建 + 本机 Postgres/Redis + 真实 `OAuth2Server.exe` + curl，均为普通链接、无任何 whole-archive 配置）：`/health`→200；`/oauth2/token`（client_credentials，无认证）→401（非404，路由存在）；`/oauth2/authorize`（缺 state）→400（非404，路由存在）；`/.well-known/jwks.json`→200；`/login`→200 且返回真实渲染的 `login.csp` HTML（非空壳）；不存在路由 `/this-route-does-not-exist-xyz`→404（确认 404 判定有效）。服务器日志确认 `OAuth2Plugin initialized with storage type: postgres` 与 `Controller/filter plugin dependencies wired`，即 config 驱动的插件实例化成功。`consent.csp` 复核仍为 §5.9 记录的死文件（服务端无渲染入口，走前端重定向），不影响本任务验收范围。
+    4. **结论**：全部验收标准在不引入 whole-archive 的现状下已满足，无需补充任何 CMake whole-archive 链接配置。本任务性质确认为"验证现有方案已满足原始验收目标"，不产生新代码变更。
 
 - [x] 23. controller/filter 去单例化（评审 H4，新增）
   - 把 `drogon::app().getPlugin<OAuth2Plugin>()` 全局查找改为构造注入/桥接

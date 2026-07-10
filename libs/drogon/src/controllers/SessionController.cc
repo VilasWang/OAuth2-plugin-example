@@ -18,6 +18,13 @@
 #include <oauth2/storage/IOAuth2Storage.h>
 #include <oauth2/error/ErrorResponder.h>
 
+// Task 24 slice 4 (authforge-sdk-refactor): identity-layer services this
+// controller now optionally consumes (see SessionController.h's
+// setIdentityAuthService()/setSessionManager() comments for the
+// wiring/fallback contract).
+#include <authforge/identity/AuthService.h>
+#include <authforge/identity/SessionManager.h>
+
 using namespace oauth2;
 using namespace authforge::drogon::services;
 using namespace ::oauth2::observability::openapi;
@@ -383,180 +390,257 @@ void SessionController::login(
         nonce = params["nonce"];
     }
 
-    AuthService::validateUser(
-      username,
-      password,
-      [this,
-       req,
-       username,
-       clientId,
-       scope,
-       redirectUri,
-       state,
-       nonce,
-       codeChallenge,
-       codeChallengeMethod,
-       callback = std::move(callback)](std::optional<services::AuthResult> authResult) mutable {
-          if (authResult)
-          {
-              req->session()->insert("userId", std::to_string(authResult->internalId));
+    // Task 24 slice 4 (authforge-sdk-refactor): validateUser's continuation
+    // is identical regardless of which AuthService implementation ran it
+    // (only the internalId width differs: authforge::identity::AuthResult
+    // uses int64_t, the pre-Task-24 authforge::drogon::services::AuthResult
+    // uses int). This shared continuation takes the widened representation
+    // so both branches below (new identity::AuthService if injected, else
+    // the legacy drogon::services::AuthService fallback) funnel into the
+    // exact same logic -- no duplicated CHECK 1/2/3 chain to keep in sync.
+    auto onValidated = [this,
+                         req,
+                         username,
+                         clientId,
+                         scope,
+                         redirectUri,
+                         state,
+                         nonce,
+                         codeChallenge,
+                         codeChallengeMethod,
+                         callback = std::move(callback)](
+                          bool success,
+                          int64_t internalId,
+                          std::string publicSub,
+                          bool emailVerified,
+                          bool mfaEnabled
+                        ) mutable {
+        if (success)
+        {
+            req->session()->insert("userId", std::to_string(internalId));
 
-              // Audit: login success
-              ::oauth2::observability::AuditLogger::log(
-                "login_success",
-                "success",
-                req,
-                authResult->publicSub,
-                "user",
-                authResult->publicSub
-              );
+            // Audit: login success
+            ::oauth2::observability::AuditLogger::log(
+              "login_success", "success", req, publicSub, "user", publicSub
+            );
 
-              // === CHECK 1: Email verification enforcement ===
-              auto customCfg = ::drogon::app().getCustomConfig();
-              bool requireEmailVerification = false;
-              if (
-                customCfg.isMember("auth") &&
-                customCfg["auth"].isMember("require_email_verification")
-              )
-              {
-                  requireEmailVerification =
-                    customCfg["auth"]["require_email_verification"].asBool();
+            // === CHECK 1/2: email verification + MFA enforcement ===
+            // Task 24 slice 4: delegates to
+            // authforge::identity::evaluateLoginPolicy() (design.md §5.1/§6),
+            // the pure-function extraction of this exact if/else chain
+            // (email-verification precedence over MFA verified against
+            // this file's own pre-Task-24 source, see SessionManager.h's
+            // top comment) -- called unconditionally (not gated on
+            // sessionManager_ being wired) because it is a stateless free
+            // function, not an instance method requiring injected state.
+            auto customCfg = ::drogon::app().getCustomConfig();
+            bool requireEmailVerification = false;
+            if (
+              customCfg.isMember("auth") && customCfg["auth"].isMember("require_email_verification")
+            )
+            {
+                requireEmailVerification = customCfg["auth"]["require_email_verification"].asBool();
+            }
+
+            authforge::identity::AuthResult policyInput;
+            policyInput.internalId = internalId;
+            policyInput.publicSub = publicSub;
+            policyInput.emailVerified = emailVerified;
+            policyInput.mfaEnabled = mfaEnabled;
+            auto decision =
+              authforge::identity::evaluateLoginPolicy(policyInput, requireEmailVerification);
+
+            if (decision == authforge::identity::LoginDecision::DenyEmailNotVerified)
+            {
+                respondError(
+                  req, std::move(callback), "AUTHZ_ACCESS_DENIED", "login: email not verified"
+                );
+                return;
+            }
+
+            if (decision == authforge::identity::LoginDecision::RequireMfa)
+            {
+                auto sharedCb = std::make_shared<
+                  std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+                auto db = ::drogon::app().getDbClient();
+                // users.id is a Postgres `integer` (32-bit) column --
+                // narrow explicitly so libpq binds this parameter as
+                // int4, not int8/bigint (Task 24 slice 4: internalId is
+                // int64_t here, widened to match
+                // authforge::identity::AuthResult's type; binding an
+                // 8-byte value against a `WHERE id = $3` integer column
+                // fails at the wire-protocol/type-coercion level, not as
+                // a SQL syntax error).
+                int32_t internalIdInt32 = static_cast<int32_t>(internalId);
+                db->execSqlAsync(
+                  "UPDATE users SET mfa_pending_client_id = $1, "
+                  "mfa_pending_redirect_uri = $2 WHERE id = $3",
+                  [req, internalId, sharedCb](const ::drogon::orm::Result &) {
+                      Json::Value mfaResp;
+                      mfaResp["mfa_required"] = true;
+                      mfaResp["mfa_token"] = std::to_string(internalId);
+                      mfaResp["message"] =
+                        "MFA verification required. Submit TOTP code to "
+                        "/oauth2/mfa/verify";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(mfaResp);
+                      resp->setStatusCode(::drogon::k200OK);
+                      (*sharedCb)(resp);
+                  },
+                  [req, sharedCb](const ::drogon::orm::DrogonDbException &e) {
+                      respondError(
+                        req,
+                        *sharedCb,
+                        "DB_QUERY_ERROR",
+                        std::string("login: failed to persist MFA pending "
+                                    "binding: ") +
+                          e.base().what()
+                      );
+                  },
+                  clientId,
+                  redirectUri,
+                  internalIdInt32
+                );
+                return;
+            }
+
+            // === CHECK 3: PKCE enforcement for PUBLIC clients ===
+            bool requirePkce = false;
+            if (customCfg.isMember("auth") && customCfg["auth"].isMember("require_pkce_for_public"))
+            {
+                requirePkce = customCfg["auth"]["require_pkce_for_public"].asBool();
+            }
+            if (requirePkce && codeChallenge.empty())
+            {
+                LOG_WARN << "[SECURITY] PUBLIC client " << clientId
+                         << " login without PKCE (enforcement enabled)";
+                respondError(
+                  req,
+                  std::move(callback),
+                  "VALIDATION_MISSING_REQUIRED_FIELD",
+                  "login: PKCE (code_challenge) is required for public clients"
+                );
+                return;
+            }
+
+            auto plugin = resolvePlugin();
+            if (!plugin)
+            {
+                respondError(
+                  req, std::move(callback), "INTERNAL_ERROR", "login: OAuth2 Plugin not loaded"
+                );
+                return;
+            }
+
+            plugin->generateAuthorizationCode(
+              clientId,
+              publicSub,
+              scope,
+              redirectUri,
+              codeChallenge,
+              codeChallengeMethod,
+              nonce,
+              [req,
+               redirectUri,
+               state,
+               codeChallenge,
+               codeChallengeMethod,
+               callback =
+                 std::move(callback)](bool success, std::string code, std::string error) mutable {
+                  if (!success)
+                  {
+                      respondError(
+                        req,
+                        std::move(callback),
+                        "INTERNAL_ERROR",
+                        "login: failed to generate authorization code: " + error
+                      );
+                      return;
+                  }
+
+                  std::string location = redirectUri + "?code=" + code;
+                  if (!state.empty())
+                      location += "&state=" + state;
+                  if (req->getParameter("json") == "true")
+                  {
+                      Json::Value ret;
+                      ret["code"] = code;
+                      ret["location"] = location;
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(ret);
+                      callback(resp);
+                      return;
+                  }
+                  auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
+                  callback(resp);
               }
-              if (requireEmailVerification && !authResult->emailVerified)
+            );
+        }
+        else
+        {
+            // Fail (Bad Password or User Not Found)
+            ::oauth2::observability::Metrics::incLoginFailure("bad_credentials");
+
+            // Audit: login failure
+            ::oauth2::observability::AuditLogger::log(
+              "login_failure", "failure", req, username, "user", username
+            );
+
+            respondError(
+              req, std::move(callback), "AUTH_INVALID_CREDENTIALS", "login: invalid credentials"
+            );
+        }
+    };
+
+    // Task 24 slice 4: prefer the injected authforge::identity::AuthService
+    // (constructed once at startup by
+    // bootstrap::wireIdentityServices()/OAuth2Server/bootstrap/
+    // IdentityAssembly.cc, backed by PostgresIdentityRepository +
+    // OpenSslCryptoProvider + SystemClock -- see that file for the
+    // construction site) when wired; otherwise fall back to the
+    // pre-Task-24 authforge::drogon::services::AuthService (static,
+    // Mapper<Users>-backed) so this controller keeps working unchanged in
+    // any binary that has not called setIdentityAuthService() yet (e.g.
+    // OAuth2Server/test/e2e's direct-construction tests, until they are
+    // updated). Both AuthResult shapes are adapted into onValidated's
+    // widened (bool, int64_t, string, bool, bool) signature above.
+    if (identityAuthService_)
+    {
+        identityAuthService_->validateUser(
+          username,
+          password,
+          [onValidated = std::move(onValidated)](
+            std::optional<authforge::identity::AuthResult> result
+          ) mutable {
+              if (!result)
               {
-                  respondError(
-                    req, std::move(callback), "AUTHZ_ACCESS_DENIED", "login: email not verified"
-                  );
+                  onValidated(false, 0, "", false, false);
                   return;
               }
-
-              // === CHECK 2: MFA enforcement ===
-              if (authResult->mfaEnabled)
-              {
-                  auto internalId = authResult->internalId;
-                  auto sharedCb = std::make_shared<
-                    std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
-                  auto db = ::drogon::app().getDbClient();
-                  db->execSqlAsync(
-                    "UPDATE users SET mfa_pending_client_id = $1, "
-                    "mfa_pending_redirect_uri = $2 WHERE id = $3",
-                    [req, internalId, sharedCb](const ::drogon::orm::Result &) {
-                        Json::Value mfaResp;
-                        mfaResp["mfa_required"] = true;
-                        mfaResp["mfa_token"] = std::to_string(internalId);
-                        mfaResp["message"] =
-                          "MFA verification required. Submit TOTP code to "
-                          "/oauth2/mfa/verify";
-                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(mfaResp);
-                        resp->setStatusCode(::drogon::k200OK);
-                        (*sharedCb)(resp);
-                    },
-                    [req, sharedCb](const ::drogon::orm::DrogonDbException &e) {
-                        respondError(
-                          req,
-                          *sharedCb,
-                          "DB_QUERY_ERROR",
-                          std::string("login: failed to persist MFA pending "
-                                      "binding: ") +
-                            e.base().what()
-                        );
-                    },
-                    clientId,
-                    redirectUri,
-                    internalId
-                  );
-                  return;
-              }
-
-              // === CHECK 3: PKCE enforcement for PUBLIC clients ===
-              bool requirePkce = false;
-              if (
-                customCfg.isMember("auth") && customCfg["auth"].isMember("require_pkce_for_public")
-              )
-              {
-                  requirePkce = customCfg["auth"]["require_pkce_for_public"].asBool();
-              }
-              if (requirePkce && codeChallenge.empty())
-              {
-                  LOG_WARN << "[SECURITY] PUBLIC client " << clientId
-                           << " login without PKCE (enforcement enabled)";
-                  respondError(
-                    req,
-                    std::move(callback),
-                    "VALIDATION_MISSING_REQUIRED_FIELD",
-                    "login: PKCE (code_challenge) is required for public clients"
-                  );
-                  return;
-              }
-
-              auto plugin = resolvePlugin();
-              if (!plugin)
-              {
-                  respondError(
-                    req, std::move(callback), "INTERNAL_ERROR", "login: OAuth2 Plugin not loaded"
-                  );
-                  return;
-              }
-
-              plugin->generateAuthorizationCode(
-                clientId,
-                authResult->publicSub,
-                scope,
-                redirectUri,
-                codeChallenge,
-                codeChallengeMethod,
-                nonce,
-                [req,
-                 redirectUri,
-                 state,
-                 codeChallenge,
-                 codeChallengeMethod,
-                 callback =
-                   std::move(callback)](bool success, std::string code, std::string error) mutable {
-                    if (!success)
-                    {
-                        respondError(
-                          req,
-                          std::move(callback),
-                          "INTERNAL_ERROR",
-                          "login: failed to generate authorization code: " + error
-                        );
-                        return;
-                    }
-
-                    std::string location = redirectUri + "?code=" + code;
-                    if (!state.empty())
-                        location += "&state=" + state;
-                    if (req->getParameter("json") == "true")
-                    {
-                        Json::Value ret;
-                        ret["code"] = code;
-                        ret["location"] = location;
-                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(ret);
-                        callback(resp);
-                        return;
-                    }
-                    auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-                    callback(resp);
-                }
+              onValidated(
+                true, result->internalId, result->publicSub, result->emailVerified,
+                result->mfaEnabled
               );
           }
-          else
-          {
-              // Fail (Bad Password or User Not Found)
-              ::oauth2::observability::Metrics::incLoginFailure("bad_credentials");
-
-              // Audit: login failure
-              ::oauth2::observability::AuditLogger::log(
-                "login_failure", "failure", req, username, "user", username
-              );
-
-              respondError(
-                req, std::move(callback), "AUTH_INVALID_CREDENTIALS", "login: invalid credentials"
+        );
+    }
+    else
+    {
+        AuthService::validateUser(
+          username,
+          password,
+          [onValidated = std::move(onValidated)](std::optional<services::AuthResult> result
+          ) mutable {
+              if (!result)
+              {
+                  onValidated(false, 0, "", false, false);
+                  return;
+              }
+              onValidated(
+                true, static_cast<int64_t>(result->internalId), result->publicSub,
+                result->emailVerified, result->mfaEnabled
               );
           }
-      }
-    );
+        );
+    }
 }
 
 void SessionController::consent(
@@ -772,19 +856,41 @@ void SessionController::logout(
     }
 
     // Revoke the access token
-    plugin->revokeAccessToken(token, clientId, [userId, callback = std::move(callback)]() mutable {
-        LOG_INFO << "Logout: Token revoked for user " << userId;
+    // Task 24 slice 4: prefer the injected authforge::identity::SessionManager
+    // (its logout() forwards to a real IBackchannelLogoutNotifier
+    // implementation, see bootstrap::wireIdentityServices()) over the
+    // pre-Task-24 sendBackchannelLogoutNotifications() stub (which only
+    // logs, see this file's static function above), falling back to that
+    // stub when unset -- same injected-with-fallback pattern as
+    // login()/registerUser() above.
+    auto *sessionManager = sessionManager_;
+    plugin->revokeAccessToken(
+      token, clientId, [userId, sessionManager, callback = std::move(callback)]() mutable {
+          LOG_INFO << "Logout: Token revoked for user " << userId;
 
-        // Send backchannel logout notifications (fire-and-forget)
-        sendBackchannelLogoutNotifications(userId);
+          auto respond = [callback = std::move(callback)]() mutable {
+              // Respond immediately without waiting for backchannel
+              // notifications to fully complete on the caller's side --
+              // both branches below still invoke this only after their
+              // respective notify() completes (fire-and-forget from the
+              // HTTP response's perspective, matching the pre-Task-24
+              // stub's synchronous-log-then-respond timing).
+              Json::Value json;
+              json["message"] = "Logged out successfully";
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+              resp->setStatusCode(::drogon::k200OK);
+              callback(resp);
+          };
 
-        // Respond immediately without waiting for backchannel notifications
-        Json::Value json;
-        json["message"] = "Logged out successfully";
-        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-        resp->setStatusCode(::drogon::k200OK);
-        callback(resp);
-    });
+          if (sessionManager)
+              sessionManager->logout(userId, std::move(respond));
+          else
+          {
+              sendBackchannelLogoutNotifications(userId);
+              respond();
+          }
+      }
+    );
 }
 
 void SessionController::registerUser(
@@ -817,28 +923,33 @@ void SessionController::registerUser(
         email = params["email"];
     }
 
-    AuthService::registerUser(
-      username, password, email, [callback, email, req](const std::string &errorCode) {
-          if (errorCode.empty())
-          {
-              Json::Value json;
-              json["message"] = "User registered successfully";
-              if (!email.empty())
-                  json["note"] = "Please check your email to verify your account";
-              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-              callback(resp);
-          }
-          else
-          {
-              // Forward the structured Error_Code from AuthService verbatim to
-              // ErrorResponder — no text inspection or hardcoded fallback
-              // (Requirement 1.6).
-              respondError(
-                req, callback, errorCode, "registerUser failed: " + errorCode
-              );
-          }
-      }
-    );
+    auto onRegistered = [callback, email, req](const std::string &errorCode) {
+        if (errorCode.empty())
+        {
+            Json::Value json;
+            json["message"] = "User registered successfully";
+            if (!email.empty())
+                json["note"] = "Please check your email to verify your account";
+            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+            callback(resp);
+        }
+        else
+        {
+            // Forward the structured Error_Code from AuthService verbatim to
+            // ErrorResponder — no text inspection or hardcoded fallback
+            // (Requirement 1.6).
+            respondError(req, callback, errorCode, "registerUser failed: " + errorCode);
+        }
+    };
+
+    // Task 24 slice 4: same injected-service-with-fallback pattern as
+    // login() above -- both AuthService::registerUser overloads share the
+    // exact (const std::string &errorCode) callback contract already, so
+    // onRegistered needs no adaptation.
+    if (identityAuthService_)
+        identityAuthService_->registerUser(username, password, email, onRegistered);
+    else
+        AuthService::registerUser(username, password, email, onRegistered);
 }
 
 }  // namespace authforge::drogon::controllers

@@ -515,6 +515,37 @@ Task 17 写的 `TokenService`/`ClientService`/`AuthorizationService` 构造参�
 
 **尚未做**（如实记录，留给后续 slice）：identity 侧装配（`AuthService`/`SessionManager`）、MFA/WebAuthn/Social 三类 controller 切换、`AuthorizationService` 真正接入 consent/scope 决策链、`OAuth2Plugin` 进一步瘦身清理。
 
+### Slice 4 完成：identity 侧装配（AuthService + SessionManager 接入 SessionController）
+
+**装配点：选项 B**（新增独立 `OAuth2Server/bootstrap/IdentityAssembly.{h,cc}`，而非塞进 `OAuth2Plugin::initAndStart()`）——理由与 PROGRESS.md 早先"核心张力"一节的分析一致：复用 Task 23 已验证的"setter 注入 + `registerBeginningAdvice` 回调时机"机制，`OAuth2Plugin` 不再进一步膨胀。
+
+具体改动：
+
+- `IUserRepository::create()` 签名扩展为 `(userData, callback(optional<int64_t>, string errorCode))`——原因：`authforge::identity::AuthService::registerUser` 若不能拿到具体冲突字段（用户名 vs 邮箱），就只能把全部注册失败折叠成 `INTERNAL_ERROR`，是相对旧 `libs/drogon` `AuthService.cc::registerUser`（区分 `VALIDATION_USERNAME_TAKEN`/`VALIDATION_EMAIL_TAKEN`/`VALIDATION_INVALID_INPUT`，auth-flow-error-code-gaps spec 建立的契约）的真实行为倒退。把"分类约束冲突"这个职责下沉到 repository 实现（`PostgresIdentityRepository::create()`，与旧逐字段字符串匹配 `users_username_key`/`idx_users_email_unique` 完全对应），`AuthService::registerUser` 只转发。同步更新两个测试 fake（`AuthServiceTest.cc`/`UserInfoProviderTest.cc`）+ 新增 2 个回归测试（`RegisterDuplicateUsernameReturnsUsernameTakenCode`/`RegisterDuplicateEmailReturnsEmailTakenCode`），identity 单测 83→85（含本次新增 2 个）。
+- `SessionController.h`：新增 `setIdentityAuthService(authforge::identity::AuthService*)` + `setSessionManager(authforge::identity::SessionManager*)`（非拥有裸指针 + setter，与 `setPlugin()` 同款模式），前向声明 `authforge::identity::{AuthService,SessionManager}` 避免头文件强拉依赖。
+- `SessionController.cc`：
+  - `login()`：拆出共享续体 `onValidated(bool, int64_t, string, bool, bool)`，把"新 `identity::AuthService`"和"旧 `drogon::services::AuthService`"两条路径的 `validateUser` 回调都适配成这个统一形状，避免维护两份 CHECK1/2/3 判断链。inline 的邮箱验证/MFA if/else 链替换为 `authforge::identity::evaluateLoginPolicy()`（纯函数，无条件调用，不依赖 `sessionManager_` 是否已装配——因为它是无状态自由函数，不是要注入状态的实例方法）。
+  - `registerUser()`：同样的注入优先、回退到旧路径的模式，两个 `AuthService::registerUser` 重载的回调签名本就一致，无需适配。
+  - `logout()`：`sessionManager_` 若已装配则调用 `SessionManager::logout()`（转发到真正的 `IBackchannelLogoutNotifier`），否则回退到原 `sendBackchannelLogoutNotifications` stub。
+- 新增 `OAuth2Server/bootstrap/IdentityAssembly.{h,cc}`：`wireIdentityServices()`——用 `drogon::app().getDbClient()` 构造 `PostgresIdentityRepository`（复用 Task 19 已写好的实现，未新写 Adapter）+ `OpenSslCryptoProvider`/`SystemClock`（复用 Task 14 产出），组出 `authforge::identity::AuthService`；新写一个极薄的 `LoggingBackchannelLogoutNotifier`（`IBackchannelLogoutNotifier` 的日志实现，与被替换的旧 stub 行为等价——`IBackchannelLogoutNotifier.h` 头注释本就明确真正的 OIDC backchannel HTTP 投递超出本次范围）组出 `SessionManager`。若 `getDbClient()` 为空（如 memory-only 场景）则记录警告并直接返回，`SessionController` 保持在旧路径上，不崩溃。`main.cc`/`test_main.cc` 均在 `wireControllerPluginDependencies()` 之后追加一个新的 `registerBeginningAdvice` 回调调用它。
+- **踩坑 1（编译期，已修复）**：`PostgresIdentityRepository.h` 里裸写 `drogon::orm::DbClientPtr`，一旦 `IdentityAssembly.cc` 同时 `#include` 了 `SessionController.h`（间接引入 `authforge::drogon` 命名空间）就会优先匹配到 `authforge::drogon`（不是全局 `::drogon`），报 "`orm`不是`authforge::drogon`的成员"——Task 20 PROGRESS.md 早就记录过这个通用规律（`authforge::drogon::*` 命名空间内裸写非 `authforge::` 前缀符号的坑），本次是第一次在 `libs/storage-postgres` 里踩到，同样改为 `::drogon::orm::DbClientPtr` 全局限定修复。
+- **踩坑 2（运行期，已修复，真实缺陷）**：`authforge::identity::AuthResult::internalId` 是 `int64_t`（对齐新 Domain 类型），而 `users.id` 是 Postgres `integer`（32 位）列。login() 的 MFA 分支原样把这个 `int64_t` 传给 `db->execSqlAsync("UPDATE users SET ... WHERE id = $3", ..., internalId)`，libpq 按 C++ 参数类型绑定，8 字节值绑到 4 字节整型列的 `WHERE id = $3` 上导致查询失败（返回 `DB_QUERY_ERROR`，登录 MFA 分支整体报错）——这是本次改动引入的真实回归，不是测试断言过严。用真实服务器 + curl 手动开启 admin 的 MFA + 登录复现（错误信息为 `DB_QUERY_ERROR`/"服务暂时不可用"），定位到类型宽度不匹配后，在绑定点显式 `static_cast<int32_t>(internalId)` 收窄修复。
+- **命名空间/CMake 收尾**：`OAuth2Server/test/CMakeLists.txt` 新增链接 `authforge::identity`（此前测试目标未直接链接它，虽然通过 `storage-postgres`→`identity` 的 PUBLIC 传递依赖已经能链接到符号，但显式声明更清晰）；`BOOTSTRAP_SRC` 增加 `IdentityAssembly.cc`。
+
+**验证结果**：
+
+- 全量编译（`authforge-identity`/`authforge-storage-postgres`/`authforge-drogon`/`OAuth2Server`/`OAuth2Test_test`）：通过，零错误
+- `libs/identity` 独立单测：**85/85 全绿**（新增 2 个用户名/邮箱冲突分类回归测试）
+- `ctest -C Debug`：**290/290 全绿**（发现踩坑 2 的运行期回归后修复，回归前曾一次性看到 13 个 `MfaCrossClientAuthFix` 相关测试失败，全部指向同一根因——`mfaToken` 为空，即 MFA 分支从未成功返回 token，修复类型宽度后全部转绿；零测试断言被放宽或跳过）
+- `OAuth2Test_test.exe` 直跑：**321 个测试用例、57156 个断言全过**，与 Slice 2 记录的基线完全一致（数字未变，证明 Slice 4 没有引入任何新的测试或删除任何测试，纯粹是生产路径切换）
+- 真实服务器 + curl 端到端验证（手动执行，非自动化脚本）：
+  - `/oauth2/login`（无 MFA 的 admin 账号）→ 302 重定向到 `redirect_uri?code=...`，`?json=true` 变体返回 `{"code":...,"location":...}`——确认新 `identity::AuthService::validateUser` 在真实请求路径下能正确产出授权码（token 签发链路本身属于 Task 24 Slice 2 已验证的 `oauth2::TokenService`，本次未改动）
+  - 手动 `UPDATE users SET mfa_enabled=true, mfa_secret=...` 后再登录 → 首次复现 `DB_QUERY_ERROR`（踩坑 2），修复后重新验证 → 正确返回 `{"mfa_required":true,"mfa_token":"1","message":"..."}`
+  - `/api/register`：全新邮箱首次注册 → 200 成功；同邮箱二次注册 → 409 语义的 `VALIDATION_EMAIL_TAKEN`（用 psql 直接确认目标邮箱在两次调用之间确实是"不存在→存在"的状态迁移，排除"第一次调用其实也失败了"的误报可能）
+  - `/health` 全程保持 `"database":"connected"`，未见连接池耗尽或异常
+
+**尚未做**（如实记录，留给 Slice 5/6）：MFA/WebAuthn/Social 三类 controller 切换（`MfaController`/`WebAuthnController`/`Google|WeChat|GitHubController` 仍是原始 SQL，未接 `MfaService`/`WebAuthnService`/`XxxAuthService`，需要新写对应 Adapter 实现）；`AuthorizationService` 真正接入 consent/scope 决策链；`OAuth2Plugin` 进一步瘦身清理确认；`libs/drogon/src/AuthService.cc`（旧 Adapter 层）仍原样保留作为无身份服务注入时的回退路径，未删除（这是有意为之——保留向后兼容的回退，而非死代码清理，清理留给 Slice 6 判断是否所有生产入口都已注入后再决定去留）。
+
 ## 关键提醒
 
 - 每个 slice/task 完成后必须跑全量测试套件（当前 124 个 CTest cases: 40 authforge-common-test + 38 authforge-common-testing-test + 1 OAuth2Tests(内含 310 DROGON_TEST cases/57113 assertions) + 45 Contract）确认零回归

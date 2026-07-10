@@ -2,6 +2,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include "../bootstrap/ControllerRegistration.h"
+#include "../bootstrap/IdentityAssembly.h"
 #include <authforge/drogon/controllers/HealthController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <authforge/drogon/controllers/WeChatController.h>
@@ -312,6 +313,9 @@ int main(int argc, char **argv)
                 // bootstrap::wireControllerPluginDependencies()'s header
                 // comment for the ordering requirement.
                 bootstrap::wireControllerPluginDependencies();
+                // Task 24 slice 4: same wiring as OAuth2Server/main.cc --
+                // see bootstrap::wireIdentityServices()'s header comment.
+                bootstrap::wireIdentityServices();
                 std::cout << "Drogon app ready, signaling tests to start..." << std::endl;
                 // Add a small delay on macOS to ensure EventLoop and ThreadPool
                 // are fully initialized before tests start hitting the server.

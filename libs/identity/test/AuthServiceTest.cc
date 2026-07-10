@@ -64,15 +64,36 @@ class InMemoryUserRepository : public IUserRepository
         cb(it == users_.end() ? std::nullopt : std::optional<UserData>(it->second));
     }
 
-    void create(const UserData &userData, std::function<void(std::optional<int64_t>)> &&cb)
-      override
+    void create(
+      const UserData &userData,
+      std::function<void(std::optional<int64_t>, std::string)> &&cb
+    ) override
     {
+        // Mirror PostgresIdentityRepository's uniqueness classification
+        // (username checked before email) so tests exercising conflict
+        // handling behave the same as production.
+        for (auto &[id, user] : users_)
+        {
+            if (!userData.username.empty() && user.username == userData.username)
+            {
+                cb(std::nullopt, "VALIDATION_USERNAME_TAKEN");
+                return;
+            }
+        }
+        for (auto &[id, user] : users_)
+        {
+            if (!userData.email.empty() && user.email == userData.email)
+            {
+                cb(std::nullopt, "VALIDATION_EMAIL_TAKEN");
+                return;
+            }
+        }
         int64_t newId = nextId_++;
         UserData stored = userData;
         stored.id = newId;
         stored.publicSub = "sub-" + std::to_string(newId);
         users_[newId] = stored;
-        cb(newId);
+        cb(newId, "");
     }
 
     void updatePasswordHash(
@@ -279,4 +300,35 @@ TEST_F(AuthServiceTest, GetUserInfoReturnsNulloptForUnknownUser)
     std::optional<Json::Value> info;
     service->getUserInfo(99999, [&](std::optional<Json::Value> j) { info = j; });
     EXPECT_FALSE(info.has_value());
+}
+
+// Task 24 slice 4 (authforge-sdk-refactor): AuthService::registerUser must
+// forward the repository's structured Error_Code verbatim (not collapse
+// every failure into a generic code) -- mirrors OAuth2Server/
+// AuthService.cc's pre-migration registerUser contract
+// (auth-flow-error-code-gaps spec), which this repository-owned
+// classification replaces (IUserRepository::create() is now responsible
+// for it instead of the caller inspecting a raw DB exception message).
+TEST_F(AuthServiceTest, RegisterDuplicateUsernameReturnsUsernameTakenCode)
+{
+    service->registerUser("greg", "pw", "greg@example.com", [](const std::string &) {});
+
+    std::string errorCode;
+    service->registerUser(
+      "greg", "different-pw", "other@example.com", [&](const std::string &err) { errorCode = err; }
+    );
+    EXPECT_EQ(errorCode, "VALIDATION_USERNAME_TAKEN");
+}
+
+TEST_F(AuthServiceTest, RegisterDuplicateEmailReturnsEmailTakenCode)
+{
+    service->registerUser("hank", "pw", "hank@example.com", [](const std::string &) {});
+
+    std::string errorCode;
+    service->registerUser(
+      "different-username", "pw", "hank@example.com", [&](const std::string &err) {
+          errorCode = err;
+      }
+    );
+    EXPECT_EQ(errorCode, "VALIDATION_EMAIL_TAKEN");
 }

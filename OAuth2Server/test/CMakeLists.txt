@@ -45,10 +45,15 @@ set(SCHEMA_MGR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../SchemaManager.cc")
 # bootstrap::wireControllerPluginDependencies() (see its own header comment),
 # defined in ControllerRegistration.cc alongside registerAllControllers()
 # (already called by test_main.cc directly, without going through this
-# glob, before this task). Only this one bootstrap/ file is needed by the
-# test target; the others (CorsSetup/SecurityHeaders/etc) are apps/server-
-# only concerns test_main.cc does not use.
-set(BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrap/ControllerRegistration.cc")
+# glob, before this task). Task 24 slice 4 adds IdentityAssembly.cc
+# (test_main.cc also calls bootstrap::wireIdentityServices()). These two
+# bootstrap/ files are needed by the test target; the others
+# (CorsSetup/SecurityHeaders/etc) are apps/server-only concerns
+# test_main.cc does not use.
+set(BOOTSTRAP_SRC
+    "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrap/ControllerRegistration.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrap/IdentityAssembly.cc"
+)
 
 # Collect hierarchical test sources
 file(GLOB_RECURSE UNIT_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cc")
@@ -120,7 +125,7 @@ find_package(CURL REQUIRED)
 # authforge::drogon (M3 Task 20 slice 3, EXPERIMENTAL): plain link, not
 # whole-archive -- see OAuth2Server/CMakeLists.txt's own comment for the
 # rationale. HealthController now lives there.
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2 authforge::storage::postgres authforge::drogon)
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2 authforge::storage::postgres authforge::drogon authforge::identity)
 
 # Match the plugin's static-libcurl handling: define CURL_STATICLIB so the curl
 # headers don't decorate symbols with __declspec(dllimport) (which would yield

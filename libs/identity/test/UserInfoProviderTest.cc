@@ -35,9 +35,10 @@ class FakeUserRepository : public IUserRepository
     {
         cb(std::nullopt);
     }
-    void create(const UserData &, std::function<void(std::optional<int64_t>)> &&cb) override
+    void create(const UserData &, std::function<void(std::optional<int64_t>, std::string)> &&cb)
+      override
     {
-        cb(std::nullopt);
+        cb(std::nullopt, "INTERNAL_ERROR");
     }
     void updatePasswordHash(int64_t, const std::string &, std::function<void(bool)> &&cb)
       override

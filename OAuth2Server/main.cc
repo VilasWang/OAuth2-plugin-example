@@ -18,6 +18,7 @@
 #include "bootstrap/ControllerRegistration.h"
 #include "bootstrap/CorsSetup.h"
 #include "bootstrap/ExceptionHandlerSetup.h"
+#include "bootstrap/IdentityAssembly.h"
 #include "bootstrap/MigrationRunner.h"
 #include "bootstrap/OpenApiSetup.h"
 #include "bootstrap/SecurityHeaders.h"
@@ -148,6 +149,16 @@ int main()
         bootstrap::wireControllerPluginDependencies();
         LOG_INFO << "Controller/filter plugin dependencies wired";
     });
+
+    // Task 24 slice 4 (authforge-sdk-refactor): construct the identity-layer
+    // services (authforge::identity::AuthService/SessionManager) and inject
+    // them into SessionController. Must run after
+    // wireControllerPluginDependencies() has registered every controller
+    // (registerBeginningAdvice callbacks run in registration order) and,
+    // like it, must be a registerBeginningAdvice callback itself --
+    // drogon::app().getDbClient() is only reliably available once app().run()
+    // has processed the db_clients config block.
+    drogon::app().registerBeginningAdvice([]() { bootstrap::wireIdentityServices(); });
 
     // Report Hodor status after plugins have been initialized. Hodor is loaded
     // only by production configuration. When present, also wire its rejection

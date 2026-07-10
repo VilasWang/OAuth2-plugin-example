@@ -267,13 +267,23 @@ void AuthService::registerUser(
 
     userRepo_->create(
       newUser,
-      [callback = std::move(callback)](std::optional<int64_t> newUserId) {
+      [callback = std::move(callback)](std::optional<int64_t> newUserId, std::string errorCode) {
           // IUserRepository::create() is responsible for default-role
           // assignment (repository-owned concern -- mirrors
           // OAuth2Server/AuthService.cc's registerUser, which assigns the
           // "user" role as part of the same transaction/continuation
-          // chain rather than as a separate caller-driven step).
-          callback(newUserId ? "" : "INTERNAL_ERROR");
+          // chain rather than as a separate caller-driven step). It is
+          // also responsible for classifying constraint-violation
+          // failures into structured Error_Codes (e.g.
+          // VALIDATION_USERNAME_TAKEN/VALIDATION_EMAIL_TAKEN) -- forward
+          // verbatim, falling back to INTERNAL_ERROR only if the
+          // repository didn't classify the failure.
+          if (newUserId)
+          {
+              callback("");
+              return;
+          }
+          callback(errorCode.empty() ? "INTERNAL_ERROR" : errorCode);
       }
     );
 }

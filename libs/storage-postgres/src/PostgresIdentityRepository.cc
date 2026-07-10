@@ -142,12 +142,12 @@ void PostgresIdentityRepository::findById(
 
 void PostgresIdentityRepository::create(
   const UserData &userData,
-  std::function<void(std::optional<int64_t>)> &&callback
+  std::function<void(std::optional<int64_t>, std::string)> &&callback
 )
 {
     if (!dbClient_)
     {
-        callback(std::nullopt);
+        callback(std::nullopt, "INTERNAL_ERROR");
         return;
     }
 
@@ -160,7 +160,9 @@ void PostgresIdentityRepository::create(
         newUser.setEmail(userData.email);
 
     auto sharedCb =
-      std::make_shared<std::function<void(std::optional<int64_t>)>>(std::move(callback));
+      std::make_shared<std::function<void(std::optional<int64_t>, std::string)>>(
+        std::move(callback)
+      );
     auto db = dbClient_;
 
     try
@@ -188,42 +190,55 @@ void PostgresIdentityRepository::create(
                             ur.setRoleId(role.getValueOfId());
                             urMapper.insert(
                               ur,
-                              [sharedCb, newUserId](const UserRoles &) { (*sharedCb)(newUserId); },
+                              [sharedCb, newUserId](const UserRoles &) {
+                                  (*sharedCb)(newUserId, "");
+                              },
                               [sharedCb, newUserId](const DrogonDbException &e) {
                                   LOG_ERROR << "PostgresIdentityRepository::create: role "
                                                "assignment failed: "
                                             << e.base().what();
-                                  (*sharedCb)(newUserId);
+                                  (*sharedCb)(newUserId, "");
                               }
                             );
                         }
                         catch (...)
                         {
-                            (*sharedCb)(newUserId);
+                            (*sharedCb)(newUserId, "");
                         }
                     },
                     [sharedCb, newUserId](const DrogonDbException &e) {
                         LOG_ERROR << "PostgresIdentityRepository::create: default role 'user' "
                                      "not found: "
                                   << e.base().what();
-                        (*sharedCb)(newUserId);
+                        (*sharedCb)(newUserId, "");
                     }
                   );
               }
               catch (...)
               {
-                  (*sharedCb)(newUserId);
+                  (*sharedCb)(newUserId, "");
               }
           },
           [sharedCb](const DrogonDbException &e) {
-              LOG_ERROR << "PostgresIdentityRepository::create failed: " << e.base().what();
-              (*sharedCb)(std::nullopt);
+              const std::string what = e.base().what();
+              LOG_ERROR << "PostgresIdentityRepository::create failed: " << what;
+              // Classify the failing DB constraint into the same
+              // structured Error_Codes OAuth2Server/AuthService.cc's
+              // pre-migration registerUser produced (auth-flow-error-
+              // code-gaps spec) -- username conflict checked first so a
+              // simultaneous username+email conflict reports username.
+              if (what.find("users_username_key") != std::string::npos)
+                  (*sharedCb)(std::nullopt, "VALIDATION_USERNAME_TAKEN");
+              else if (what.find("idx_users_email_unique") != std::string::npos)
+                  (*sharedCb)(std::nullopt, "VALIDATION_EMAIL_TAKEN");
+              else
+                  (*sharedCb)(std::nullopt, "VALIDATION_INVALID_INPUT");
           }
         );
     }
     catch (...)
     {
-        (*sharedCb)(std::nullopt);
+        (*sharedCb)(std::nullopt, "INTERNAL_ERROR");
     }
 }
 
