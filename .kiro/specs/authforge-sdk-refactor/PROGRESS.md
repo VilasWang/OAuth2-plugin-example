@@ -19,7 +19,8 @@
 - [x] M2b（Task 17-18）：libs/oauth2 + ORM 归位 — **本地完成**（Task 17 AuthorizationService/TokenService 主体逻辑仍留在 OAuth2Plugin，具体仓储实现未迁移命名空间——这是已知的、可接受的范围边界，不阻塞 M3；Task 18 ORM 模型 + 调用点已全部迁移并提交）
 - [x] M2.5（Task 19）：libs/identity — **范围已补全**。2026-07 首次执行时（用户明确约束范围）仅完成 AuthService + RBAC/subject 绑定，MFA/WebAuthn/Social/Session 五个服务留空占位；本次（继 M3 Task 17 剩余部分 + Task 23 之后）按用户指示补完这四块，详见下方"M2.5 补全"小节。
   - 验收核对：✅ 独立编译；✅ 不依赖 `libs/oauth2`（grep 确认零 include）；✅ identity 单测 81/81 全绿（从最初 19 个增至 81 个）。
-- [ ] M3（Task 20-26）：**进行中**，见下
+- [x] M3（Task 20-26）：**完成**（本地，未推送）。Task 20（controllers/filter/AuthService 迁入 libs/drogon，AutoCreation=false，全程未用 whole-archive）+ Task 21（插件注册方案 A）+ Task 22（whole-archive 评估，确认不需要）+ Task 23（controller/filter 去单例化，两阶段 setter 注入）+ Task 24（apps/server 装配注入，6 slice）+ Task 25（main.cc bootstrap 拆分 + B1 OpenApiGenerator 迁出 OAuth2Plugin 到 libs/drogon）+ Task 26（M3 构建产物路径同步——评估性，无 M3 路径变化，改名留 M8）。`ctest`（config.json/postgres）290/290 全绿。
+  - **遗留/非阻塞**：① `manage test-backend` Run 2（config.ci.json/memory）的 45 个 `Contract.*` 测试因 memory 配置无 DB client 崩溃（pre-existing，与 M3 改动无关）；② `OAuth2StandardController` 拆分改名（§5.8）留给后续；③ Task 17 具体仓储实现命名空间迁移仍未完成（不阻塞）。
 
 ## M2a 详细完成内容（Task 13-16）
 
