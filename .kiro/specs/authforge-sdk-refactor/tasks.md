@@ -229,11 +229,13 @@
 
 ## M4 — 测试消费库化 + SDK 冒烟（依赖：M3）
 
-- [ ] 27. 重构 `tests/` 改为链接库产物（F6）
+- [x] 27. 重构 `tests/` 改为链接库产物（F6）
   - 取消 `GLOB_RECURSE` 全源码编译；按层链接对应库；含注册符号的库 whole-archive
   - **测试框架是 `DROGON_TEST` 宏 + `<drogon/drogon_test.h>`（非 gtest；后端总 319 个 `DROGON_TEST`，`unit/` 139）**——CMake 重构须保留该运行器（勿误按 gtest 组织）
   - 处理 `drogon_create_views` 生成的 view 归属；导出必要测试支持头；剥离对内部私有头的白盒依赖
   - 产出：新测试 CMake；验收：全部测试通过；构建更快；无越界 include 私有头
+  - **完成说明**：`OAuth2Server/test/CMakeLists.txt` 不再直接 GLOB 编译 `OAuth2Plugin/src/*.cc`（59 个）与已空的 `OAuth2Server/{controllers,filters}`——这些是 Task 16 的过渡桥（plugin 源被双编译：一次进 test、一次进 OBJECT 库经 `authforge::drogon` 传递）。改为显式 `target_link_libraries(... OAuth2Plugin ...)`（OBJECT 库，CMake 去重，无双符号）+ `authforge::{common,oauth2,storage::postgres,drogon,identity}`。删除冗余的 `OAuth2Plugin/src` 私有 include 路径（已核实 47 个测试用的 `<oauth2/...>` include 全部解析到 public `include/oauth2/`，零 src-only 私有头）+ 删除 test 目标上冗余的 `find_package(CURL)`/`CURL::libcurl`/`CURL_STATICLIB`（现经 OAuth2Plugin PUBLIC 传递，test 不再自编 EmailService.cc）。**whole-archive 不需要**（AutoCreation=false controller 显式注册 + OBJECT 库，design §5.5 / Task 22 结论）。view 归属：`drogon_create_views`（login.csp/consent.csp）仍在 test 目标（测试经 SessionController 渲染 login.csp），符合 §5.5「view 是运行期模板查找非链接期符号」。保留直编：`SchemaManager.cc` + `bootstrap/{ControllerRegistration,IdentityAssembly}.cc`（apps/server 关注点，尚无独立库；test_main.cc 直接调用）。DROGON_TEST 运行器、contract 测试注册、compile defs、config 拷贝全部不变。
+  - **验收**：全量编译通过；`ctest -C Debug` **290/290 全绿**（零回归）；构建更快——test 目标不再编译 59 个 plugin 源（构建输出仅含 test/schema/bootstrap/views），消除双编译；零越界私有头 include（src 路径已移除）。
 
 - [ ] 28. 创建 `examples/third-party-host`（SDK 冒烟，F1/H1/H5 回归防线）
   - 最小 Drogon 宿主，`find_package(authforge-oauth2)` + 实现 3 个端口，whole-archive 链接

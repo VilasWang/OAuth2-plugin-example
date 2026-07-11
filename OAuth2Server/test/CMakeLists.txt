@@ -5,36 +5,20 @@ project(OAuth2Test_test CXX)
 option(OAUTH2_MEMORY_TESTS_ONLY "Build only tests that do not require external databases" OFF)
 option(OAUTH2_TEST_COVERAGE "Enable code coverage reporting" OFF)
 
-# Collect source files from the plugin project
-file(GLOB PLUGIN_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/plugin/*.cc")
-file(GLOB STORAGE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/storage/*.cc")
-file(GLOB SERVICE_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/services/*.cc")
-# M2b Task 18: ORM model sources relocated to libs/storage-postgres (now
-# linked below as authforge::storage::postgres); no longer globbed here.
-file(GLOB PLUGIN_CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/controllers/*.cc")
-file(GLOB PLUGIN_FILTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/filters/*.cc")
-file(GLOB COMMON_SRC 
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/validation/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/config/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/error/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/utils/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/observability/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/observability/openapi/*.cc"
-    # Task 14 (authforge-sdk-refactor, design.md §5.6): Adapter-side default
-    # implementations of authforge::common::ports (OpenSslCryptoProvider/
-    # OpenSslUuidGenerator/SystemClock).
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src/adapters/*.cc"
-)
-
-# Collect Server source files
-# M3 Task 20 (authforge-sdk-refactor): OAuth2Server/controllers/*,
-# OAuth2Server/filters/* and OAuth2Server/AuthService.cc have all been
-# relocated into libs/drogon (authforge::drogon::controllers/filters,
-# authforge::drogon::services::AuthService) -- linked below via
-# authforge::drogon instead of being globbed/compiled directly into this
-# test binary.
-file(GLOB CTL_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../controllers/*.cc")
-file(GLOB FILTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../filters/*.cc")
+# M4 Task 27 (authforge-sdk-refactor, design.md F6 / Testing Strategy):
+# This test binary used to GLOB the plugin/server sources directly into
+# itself (the Task 16 transitional bridge) -- compiling OAuth2Plugin/src/*.cc
+# a second time even though those same sources already live in the
+# OAuth2Plugin OBJECT library and reach this target transitively through
+# authforge::drogon. That double-compilation masked linking-boundary
+# problems and slowed the build. The test now consumes library products
+# only: it links OAuth2Plugin (+ authforge::*) below and no longer
+# compiles any OAuth2Plugin/src or OAuth2Server/{controllers,filters}
+# sources directly. All test #include directives resolve to public headers
+# under OAuth2Plugin/include/oauth2 (verified: no test reaches a src-only
+# private header), so the former OAuth2Plugin/src private include path is
+# dropped too. Whole-archive is not needed (AutoCreation=false controllers
+# are explicitly registered; OAuth2Plugin is an OBJECT lib -- design §5.5).
 
 # SchemaManager: needed by the SQL-splitter unit test (unit/schema/).
 # Compiled directly into the test target so the splitter can be exercised
@@ -93,14 +77,6 @@ set(ALL_TEST_SOURCES
 
 add_executable(${PROJECT_NAME}
     ${ALL_TEST_SOURCES}
-    ${PLUGIN_SRC}
-    ${STORAGE_SRC}
-    ${SERVICE_SRC}
-    ${PLUGIN_CTL_SRC}
-    ${PLUGIN_FILTER_SRC}
-    ${CTL_SRC}
-    ${FILTER_SRC}
-    ${COMMON_SRC}
     ${SCHEMA_MGR_SRC}
     ${BOOTSTRAP_SRC}
 )
@@ -109,32 +85,25 @@ drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/../views
                     ${CMAKE_CURRENT_BINARY_DIR})
 
 # Include directories
-target_include_directories(${PROJECT_NAME} PRIVATE 
+target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/../
     ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/src
 )
 
 # Link libraries
 find_package(OpenSSL REQUIRED)
-# libcurl: the test target compiles the plugin sources (incl. EmailService.cc,
-# which uses libcurl SMTP) directly into itself, so it must link libcurl too.
-find_package(CURL REQUIRED)
-# authforge::drogon (M3 Task 20 slice 3, EXPERIMENTAL): plain link, not
-# whole-archive -- see OAuth2Server/CMakeLists.txt's own comment for the
-# rationale. HealthController now lives there.
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2 authforge::storage::postgres authforge::drogon authforge::identity)
-
-# Match the plugin's static-libcurl handling: define CURL_STATICLIB so the curl
-# headers don't decorate symbols with __declspec(dllimport) (which would yield
-# unresolved __imp_curl_* on Windows when linking a static libcurl). The test
-# target compiles its own copy of EmailService.cc, so the define must be set
-# here directly. No-op on non-Windows.
-if(WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE CURL_STATICLIB)
-endif()
+# M4 Task 27: the test consumes library products only. OAuth2Plugin (the
+# OBJECT lib) is linked explicitly so every plugin symbol reaches the test
+# through the library rather than via the former direct source compile; it
+# is also reached transitively through authforge::drogon, and CMake
+# de-duplicates the OBJECT-lib objects (no double symbols). Plain link, no
+# whole-archive (AutoCreation=false + OBJECT lib, design §5.5).
+# CURL::libcurl + CURL_STATICLIB are no longer declared on the test target:
+# the test no longer compiles EmailService.cc (or any curl-using source)
+# itself, and OAuth2Plugin PUBLIC-provides both transitively.
+target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin Drogon::Drogon OpenSSL::Crypto authforge::common authforge::oauth2 authforge::storage::postgres authforge::drogon authforge::identity)
 
 # Platform compatibility (shared module)
 oauth2_apply_compat(${PROJECT_NAME})

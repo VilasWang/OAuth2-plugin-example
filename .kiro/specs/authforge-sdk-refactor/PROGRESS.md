@@ -400,6 +400,34 @@ design.md §15 item 5 + Task 25 B1 要求把 `OpenApiGenerator`（不依赖 Drog
 
 **Task 26 完成（评估性，无代码改动）**。
 
+## Task 27：tests/ 改为链接库产物（design.md F6 / Testing Strategy）
+
+**核心动作**：`OAuth2Server/test/CMakeLists.txt` 不再直接 GLOB 编译 `OAuth2Plugin/src/*.cc`（59 个）和已空的 `OAuth2Server/{controllers,filters}` 进 test 二进制——这是 Task 16 的「过渡桥」，plugin 源被**双编译**（一次进 test 目标、一次进 OAuth2Plugin OBJECT 库再经 `authforge::drogon` 传递到达 test），既慢又掩盖链接边界。改为纯链接库产物。
+
+**改动**（`OAuth2Server/test/CMakeLists.txt` 单文件）：
+
+- 删除 6 个源 GLOB（`PLUGIN_SRC`/`STORAGE_SRC`/`SERVICE_SRC`/`PLUGIN_CTL_SRC`/`PLUGIN_FILTER_SRC`/`COMMON_SRC`）+ 已空的 `CTL_SRC`/`FILTER_SRC`（OAuth2Server/controllers、filters 在 Task 20 已迁空），及它们在 `add_executable` 里的引用。
+- `target_link_libraries` 显式加 `OAuth2Plugin`（OBJECT 库）——所有 plugin 符号经库到达，不再经直编；它也经 `authforge::drogon` 传递到达，CMake 对 OBJECT 库对象去重，无双符号。普通链接，**无 whole-archive**（AutoCreation=false controller 显式注册 + OBJECT 库，design §5.5 / Task 22 结论，无需 `$<LINK_LIBRARY:WHOLE_ARCHIVE,...>`）。
+- 删除冗余的 `OAuth2Plugin/src` 私有 include 路径——**已核实零白盒依赖**：测试里全部 47 个 `<oauth2/...>` include 都解析到 public `include/oauth2/`，无一是 src-only 私有头（逐文件核对 `include/` vs `src/` 存在性，零 SRC-ONLY）。
+- 删除 test 目标上冗余的 `find_package(CURL)` + `CURL::libcurl` + `CURL_STATICLIB`——test 不再自编 `EmailService.cc`（唯一用 curl 的源），这两者现经 OAuth2Plugin 的 PUBLIC 链接传递；实测删除后仍链接通过（传递有效）。
+- **保留直编**：`SchemaManager.cc` + `bootstrap/{ControllerRegistration,IdentityAssembly}.cc`（apps/server 关注点，尚无独立库；`test_main.cc` 直接调用 `registerAllControllers()`/`wireControllerPluginDependencies()`/`wireIdentityServices()`）。其余 bootstrap（CorsSetup/SecurityHeaders 等）是 apps/server 专属，test 不用，不编。
+- **view 归属**：`drogon_create_views`（login.csp/consent.csp → login.cc/consent.cc）仍在 test 目标——测试经 `SessionController::showLoginPage` 渲染 `login.csp`。符合 design §5.5「view 是运行期按名查找模板、非链接期符号」，view 不随 controller 进库。
+- DROGON_TEST 运行器（`<drogon/drogon_test.h>`，非 gtest）、`add_test` 主入口、45 个 contract 测试的逐个 `add_test` 注册、`OAUTH2_MEMORY_TESTS_ONLY`/`OAUTH2_TEST_COVERAGE` 选项、`OAUTH2_DOC_API_REFERENCE`/`OAUTH2_GOLDEN_DIR` 编译定义、config.json 拷贝——全部不变。
+
+**验收**（design.md Task 27 + F6）：
+
+- ✅ 全量编译（`authforge-drogon` + `OAuth2Server` + `OAuth2Test_test`）通过，零错误。
+- ✅ `ctest -C Debug` **290/290 全绿**，零回归（contract 45 + unit/integration/e2e/security/performance）。
+- ✅ **构建更快**：test 目标不再编译 59 个 `OAuth2Plugin/src/*.cc`（构建输出仅含 test 源 + SchemaManager + bootstrap + login/consent view），消除双编译。OAuth2Plugin 源只在 OBJECT 库里编一次。
+- ✅ **无越界私有头 include**：`OAuth2Plugin/src` 路径已从 test 移除；47 个 `<oauth2/...>` 全部 public。
+- ✅ DROGON_TEST 运行器保留（非 gtest 组织）。
+
+**关于 tasks.md 的 319 个 DROGON_TEST**：ctest 入口是 290（部分 DROGON_TEST 共享进程/分组），底层 `DROGON_TEST` 用例数更多；本任务未改动测试组织，运行器不变。
+
+**未做（如实记录，留给后续）**：① test/common/ 测试支持头（TestBase.h/ContractFixtures.h 等）目前 test-internal，未导出为独立测试支持库——design 提的「导出必要测试支持头」是 M8 顶层 `tests/` 布局的事，当前 test 还在 `OAuth2Server/test/` 旧位置，无需现在导出；② config.ci.json（memory）下 45 个 Contract 测试崩溃的 pre-existing 问题（Task 26 已记录），按用户指示「Task 27 调整完一起处理」，留待本会话随后处理。
+
+**Task 27 完成**。M4 剩 Task 28（examples/third-party-host SDK 冒烟）。
+
 ## Task 17 剩余部分：新建 `authforge::oauth2::protocol` 服务（`TokenService`/`ClientService`/`AuthorizationService`）
 
 **背景**：Task 17 slice 1-12（见上文"M2b 详细完成内容"）已经把所有阻塞项就位（PKCE/AuditLogger 端口/仓储接口/聚合/决策引擎/JwkManager/issuer），但 `TokenService`/`ClientService` 本体、以及设计要求但代码里从未真正存在过的 `AuthorizationService`，仍然没有迁移/创建。本次完成这部分。
