@@ -428,6 +428,20 @@ design.md §15 item 5 + Task 25 B1 要求把 `OpenApiGenerator`（不依赖 Drog
 
 **Task 27 完成**。M4 剩 Task 28（examples/third-party-host SDK 冒烟）。
 
+## 顺带修复：config.ci.json（memory）启动期 `dbClientsMap_` 崩溃（Task 24 slice 4 遗留真实缺陷）
+
+按用户指示「config.ci.json Contract 崩溃，Task 27 调整完一起处理」，定位并修复。`manage.ps1 test-backend` Run 2（config.ci.json，memory-only）此前 45 个 `Contract.*` 测试全部因 `assert(dbClientsMap_.find(name) != dbClientsMap_.end())`（Drogon `DbClientManager.h:37`）崩溃——**包括 Memory 变体**，因为崩溃发生在 `drogon::app().run()` 启动期（测试 body 之前）。
+
+**根因**（真实缺陷，非测试环境问题）：`OAuth2Server/bootstrap/IdentityAssembly.cc::wireIdentityServices()` 第一行就 `auto dbClient = drogon::app().getDbClient();`——无任何 memory 守卫。memory 配置（`db_clients: []`）下 `getDbClient()` 命中 Drogon 硬 `assert`（**进程级终止，非可捕获 throw**），后面的 `if (!dbClient) return;` 永远到不了。PROGRESS.md Task 24 slice 4 写的「若 getDbClient() 为空则记录警告并直接返回」**意图正确但实现没挡 assert**。这是 Task 24 slice 4 引入的缺陷，此前只跑 config.json（postgres，有 DB client）所以没暴露。
+
+**修复**：在 `wireIdentityServices()` 顶部、`getDbClient()` 之前加 `plugin->getStorageType() == "memory"` 守卫（同 `ContractFixtures.h::getPostgresClientOrNull()` 的既有模式），memory 下直接 WARN + return，SessionController/Mfa/WebAuthn/Social 保持 legacy 回退路径。include 加 `<oauth2/plugin/OAuth2Plugin.h>`。`::OAuth2Plugin` 全局限定（authforge 命名空间歧义坑）。
+
+**为何只此一处**：排查启动路径其余 `getDbClient`/`getRedisClient` 调用点——`OAuth2Plugin.cc:170` 的 `getRedisClient` 在 `if (storageType_ == "postgres")` 块内（memory 跳过）；`SchemaManager::migrate()` 的 `getDbClient` 仅在 `OAUTH2_AUTO_MIGRATE` 开启时跑迁移才触达（memory 不跑）。故 `wireIdentityServices` 是 memory 启动期唯一的未守卫 getDbClient。
+
+**收益**：不止修测试 leg——**真实服务器以 memory 存储启动**（config.ci.json 或等价）原本也会在 `wireIdentityServices` 崩溃，现修复。
+
+**验证**：重编 `OAuth2Server` + `OAuth2Test_test`；`manage.ps1 test-backend -debug` **两套 config 全绿**——Run 1（config.json/postgres）290/290，Run 2（config.ci.json/memory）`[PASS] CI config tests successful`（DB 后端 Contract 测试经 fixture 守卫 skip，Memory 变体真跑，零崩溃）。
+
 ## Task 17 剩余部分：新建 `authforge::oauth2::protocol` 服务（`TokenService`/`ClientService`/`AuthorizationService`）
 
 **背景**：Task 17 slice 1-12（见上文"M2b 详细完成内容"）已经把所有阻塞项就位（PKCE/AuditLogger 端口/仓储接口/聚合/决策引擎/JwkManager/issuer），但 `TokenService`/`ClientService` 本体、以及设计要求但代码里从未真正存在过的 `AuthorizationService`，仍然没有迁移/创建。本次完成这部分。

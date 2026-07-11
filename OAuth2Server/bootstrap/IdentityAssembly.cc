@@ -23,6 +23,7 @@
 #include <drogon/drogon.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <oauth2/adapters/SystemClock.h>
+#include <oauth2/plugin/OAuth2Plugin.h>
 
 #include <memory>
 
@@ -55,6 +56,25 @@ class LoggingBackchannelLogoutNotifier : public authforge::identity::IBackchanne
 
 void wireIdentityServices()
 {
+    // Memory-only config (e.g. config.ci.json: "storage_type":"memory",
+    // "db_clients":[]) has NO default DbClient. Drogon's
+    // DbClientManager::getDbClient() hits a hard `assert(dbClientsMap_.find(
+    // name) != dbClientsMap_.end())` -- a process-terminating assert, NOT a
+    // catchable throw -- so the `if (!dbClient)` check below would never be
+    // reached. Guard with the storage-type check BEFORE the getDbClient()
+    // call (same pattern as ContractFixtures.h::getPostgresClientOrNull()).
+    // SessionController/Mfa/WebAuthn/Social then stay on their legacy
+    // (non-injected) fallback paths, as already documented for the no-DB
+    // case. This also fixes a real memory-storage server startup crash, not
+    // just the test leg.
+    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    if (plugin && plugin->getStorageType() == "memory")
+    {
+        LOG_WARN << "wireIdentityServices: memory storage (no DB client) -- "
+                    "SessionController/Mfa/WebAuthn/Social stay on legacy paths";
+        return;
+    }
+
     auto dbClient = drogon::app().getDbClient();
     if (!dbClient)
     {
