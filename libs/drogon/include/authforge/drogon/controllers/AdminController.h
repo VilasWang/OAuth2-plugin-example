@@ -23,25 +23,7 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
     );
     // Client Management routes moved to ClientAdminController (M5 Task 29a).
 
-    // User Management
-    ADD_METHOD_TO(
-      AdminController::listUsers,
-      "/api/admin/users",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::disableUser,
-      "/api/admin/users/{userId}/disable",
-      ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::assignUserRoles,
-      "/api/admin/users/{userId}/roles",
-      ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
-    );
+    // User Management routes moved to UserAdminController (M5 Task 29a).
 
     // Scope Management
     ADD_METHOD_TO(
@@ -82,32 +64,6 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
       AdminController::revokeToken,
       "/api/admin/tokens/{tokenPrefix}",
       ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
-    );
-
-    // User Detail & Management
-    ADD_METHOD_TO(
-      AdminController::getUser,
-      "/api/admin/users/{userId}",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::updateUser,
-      "/api/admin/users/{userId}",
-      ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::enableUser,
-      "/api/admin/users/{userId}/enable",
-      ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::getUserRoles,
-      "/api/admin/users/{userId}/roles",
-      ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
 
@@ -175,23 +131,7 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
     METHOD_LIST_END
 
     // Client Management handlers moved to ClientAdminController (M5 Task 29a).
-
-    void listUsers(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void disableUser(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &userId
-    );
-
-    void assignUserRoles(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &userId
-    );
+    // User Management handlers moved to UserAdminController (M5 Task 29a).
 
     void listScopes(
       const ::drogon::HttpRequestPtr &req,
@@ -229,30 +169,8 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
-    // User Detail & Management
-    void getUser(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &userId
-    );
-
-    void updateUser(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &userId
-    );
-
-    void enableUser(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &userId
-    );
-
-    void getUserRoles(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &userId
-    );
+    // User Detail & Management handlers moved to UserAdminController
+    // (M5 Task 29a).
 
     // Role Management
     void listRoles(
