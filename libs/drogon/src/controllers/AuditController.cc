@@ -1,12 +1,16 @@
-#include <authforge/drogon/controllers/AdminController.h>
+#include <authforge/drogon/controllers/AuditController.h>
 #include <drogon/drogon.h>
-#include <drogon/utils/Utilities.h>
-#include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/utils/EmailNormalizer.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
-#include <atomic>
-#include <mutex>
+#include <chrono>
+#include <memory>
+
+// M5 Task 29a (authforge-sdk-refactor): audit-log + dashboard routes moved
+// verbatim from AdminController.cc (the final 3 routes; AdminController is now
+// empty and removed). respondError helper, OpenAPI docs struct, and every
+// handler body are byte-for-byte copies -- no behavior change (Admin API tests
+// must stay green). The raw SQL and business logic remain inline pending
+// Task 29b extraction.
 
 namespace authforge::drogon::controllers
 {
@@ -30,17 +34,10 @@ void respondError(
     );
 }
 
-struct AdminApiControllerDocs
+struct AuditControllerDocs
 {
-    AdminApiControllerDocs()
+    AuditControllerDocs()
     {
-        // Client Management endpoint docs moved to ClientAdminControllerDocs
-        // (M5 Task 29a).
-        // User Management endpoint docs moved to UserAdminControllerDocs
-        // (M5 Task 29a).
-        // Role + Scope endpoint docs moved to RoleScopeAdminControllerDocs
-        // (M5 Task 29a).
-
         ::authforge::drogon::observability::openapi::EndpointInfo listLogs;
         listLogs.path = "/api/admin/logs";
         listLogs.method = "GET";
@@ -49,9 +46,6 @@ struct AdminApiControllerDocs
         listLogs.tags = {"Admin", "Logs"};
         listLogs.requiresAuth = true;
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listLogs);
-
-        // User detail/role endpoint docs moved to UserAdminControllerDocs
-        // (M5 Task 29a).
 
         ::authforge::drogon::observability::openapi::EndpointInfo getDashboardStats;
         getDashboardStats.path = "/api/admin/dashboard/stats";
@@ -66,12 +60,10 @@ struct AdminApiControllerDocs
           getDashboardStats
         );
     }
-};
-
-AdminApiControllerDocs docs_;
+} g_auditControllerDocs;
 }  // namespace
 
-void AdminController::listLogs(
+void AuditController::listLogs(
   const ::drogon::HttpRequestPtr &req,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
@@ -218,10 +210,7 @@ void AdminController::listLogs(
     }
 }
 
-// Dashboard Stats
-// ============================================================
-
-void AdminController::getDashboardStats(
+void AuditController::getDashboardStats(
   const ::drogon::HttpRequestPtr &req,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
@@ -283,9 +272,7 @@ void AdminController::getDashboardStats(
     }
 }
 
-// ========== Dashboard (merged from old AdminController) ==========
-
-void AdminController::dashboard(
+void AuditController::dashboard(
   const ::drogon::HttpRequestPtr &req,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )

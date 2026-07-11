@@ -254,7 +254,7 @@
 
 ## M5 — 控制器拆分 + 身份域内聚（依赖：M3，可与 M4 并行）
 
-- [ ] 29. 拆分 `AdminController`（2914 行；`.h` 401 + `.cc` 2914）
+- [~] 29. 拆分 `AdminController`（2914 行；`.h` 401 + `.cc` 2914）
   - → `UserAdminController`/`ClientAdminController`/`RoleScopeAdminController`/`TokenAdminController`/`AuditController`；业务下沉 application service
   - 产出：薄控制器；验收：Admin API ~52 测试全绿；Playwright E2E 全绿
   - **实地摸底（2026-07-11）+ 分阶段决策（已批准）**：
@@ -263,6 +263,7 @@
     - **路由→控制器映射**：Client=8（`/clients*`）、User=7（`/users*`）、RoleScope=8（`/roles*`+`/scopes*`）、Token=4（`/tokens*`）、Audit=1（`/logs`）。
     - **3 决策**：(1) **分阶段**——29a 机械拆分（原样搬，零行为变化，先做）；29b 业务下沉 + 裸 SQL→ORM Mapper（后做，按域分批）。(2) **dashboard（2 路由）→AuditController**、**oidc/keys（1 路由）→TokenAdminController**。(3) **OrgAdminController 本次跳过**——AdminController 无 `/api/admin/org*` 路由，组织管理在别处（Task 30 才迁），不是从本控制器拆出。
     - 29a 执行：按控制器逐个搬（Client→User→RoleScope→Token→Audit），每搬一个 checkpoint（编译通过），全部搬完 + 改 `ControllerRegistration` + 分发 OpenAPI docs 后跑全量 `manage.ps1 test-backend`。注意 `AuthorizationFilter` 字符串引用、AutoCreation=false 显式 registerController（§5.5）。
+  - **29a 完成说明（2026-07-11）**：2914 行 `AdminController` 全部拆为 5 个资源控制器并**删除原 AdminController**（`[~]` = 29a 机械拆分完成，29b SQL/服务下沉待做）。产出：`ClientAdminController`(8 路由)、`UserAdminController`(7)、`RoleScopeAdminController`(8)、`TokenAdminController`(5，含 oidc/keys)、`AuditController`(3，logs+dashboard)。全程 verbatim 搬运（含裸 SQL、`respondError` helper、各控制器私有 `XxxControllerDocs` OpenAPI 静态结构）。两处注册点同步：`ControllerRegistration.cc`（apps/server bootstrap）+ `test/test_main.cc`（测试二进制有独立内联注册列表，与 bootstrap 分离——发现并修复：test_main 须逐个 registerController 否则 route-manifest golden 丢路由）。验收：`manage.ps1 build-backend -debug` 绿；`ctest -C Debug` **290/290 零回归**（route-manifest golden 因路由是 sorted set、全部重新注册后无变化）。`AuthorizationFilter` 字符串引用、AutoCreation=false 显式 registerController、whole-archive 不需要（§5.5）均符合预期。OrgAdminController 按决策跳过（AdminController 无 `/api/admin/org*` 路由，组织管理在别处，Task 30 迁）。
 
 - [ ] 30. Organization 管理归入 `apps/server/src/organization/`（产品级）
   - 产出：迁移后的组织管理；验收：多租户组织 CRUD 功能等价
