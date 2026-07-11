@@ -1,7 +1,7 @@
 #include <authforge/drogon/controllers/WebAuthnController.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/observability/AuditLogger.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
@@ -38,50 +38,50 @@ struct WebAuthnControllerDocs
 {
     WebAuthnControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo regBeginDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo regBeginDocs;
         regBeginDocs.path = "/oauth2/webauthn/register/begin";
         regBeginDocs.method = "POST";
         regBeginDocs.summary = "WebAuthn Register Begin";
         regBeginDocs.description = "Start WebAuthn registration.";
         regBeginDocs.tags = {"WebAuthn"};
         regBeginDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo regFinishDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo regFinishDocs;
         regFinishDocs.path = "/oauth2/webauthn/register/finish";
         regFinishDocs.method = "POST";
         regFinishDocs.summary = "WebAuthn Register Finish";
         regFinishDocs.description = "Finish WebAuthn registration.";
         regFinishDocs.tags = {"WebAuthn"};
         regFinishDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo loginBeginDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo loginBeginDocs;
         loginBeginDocs.path = "/oauth2/webauthn/login/begin";
         loginBeginDocs.method = "POST";
         loginBeginDocs.summary = "WebAuthn Login Begin";
         loginBeginDocs.description = "Start WebAuthn login.";
         loginBeginDocs.tags = {"WebAuthn"};
         loginBeginDocs.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo loginFinishDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo loginFinishDocs;
         loginFinishDocs.path = "/oauth2/webauthn/login/finish";
         loginFinishDocs.method = "POST";
         loginFinishDocs.summary = "WebAuthn Login Finish";
         loginFinishDocs.description = "Finish WebAuthn login.";
         loginFinishDocs.tags = {"WebAuthn"};
         loginFinishDocs.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo credentialsDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo credentialsDocs;
         credentialsDocs.path = "/oauth2/webauthn/credentials";
         credentialsDocs.method = "GET";
         credentialsDocs.summary = "List WebAuthn Credentials";
         credentialsDocs.description = "List registered WebAuthn credentials.";
         credentialsDocs.tags = {"WebAuthn"};
         credentialsDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
     }
 };
 
@@ -119,15 +119,18 @@ void WebAuthnController::registerBegin(
     // unwired.
     if (webAuthnService_)
     {
-        auto sharedCb = std::make_shared<
-          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+          std::move(callback)
+        );
         webAuthnService_->beginRegistration(
           [sharedCb,
            req,
            userId](std::optional<authforge::identity::WebAuthnRegistrationChallenge> result) {
               if (!result)
               {
-                  respondError(req, sharedCb, "INTERNAL_ERROR", "registerBegin: challenge generation failed");
+                  respondError(
+                    req, sharedCb, "INTERNAL_ERROR", "registerBegin: challenge generation failed"
+                  );
                   return;
               }
               if (req->session())
@@ -258,11 +261,14 @@ void WebAuthnController::registerFinish(
     {
         userRepo_->findByPublicSub(
           userId,
-          [this, sharedCb, req, userId, credentialId, publicKey,
-           credName](std::optional<authforge::identity::UserData> user) {
+          [this, sharedCb, req, userId, credentialId, publicKey, credName](
+            std::optional<authforge::identity::UserData> user
+          ) {
               if (!user)
               {
-                  respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerFinish: unknown user");
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerFinish: unknown user"
+                  );
                   return;
               }
               webAuthnService_->finishRegistration(
@@ -273,9 +279,7 @@ void WebAuthnController::registerFinish(
                 [sharedCb, req, userId, credentialId](const std::string &errorCode) {
                     if (!errorCode.empty())
                     {
-                        respondError(
-                          req, sharedCb, errorCode, "registerFinish: " + errorCode
-                        );
+                        respondError(req, sharedCb, errorCode, "registerFinish: " + errorCode);
                         return;
                     }
                     ::oauth2::observability::AuditLogger::log(
@@ -312,8 +316,10 @@ void WebAuthnController::registerFinish(
       },
       [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           const std::string what = e.base().what();
-          if (what.find("webauthn_credentials") != std::string::npos &&
-              what.find("credential_id") != std::string::npos)
+          if (
+            what.find("webauthn_credentials") != std::string::npos &&
+            what.find("credential_id") != std::string::npos
+          )
           {
               respondError(
                 req,
@@ -346,13 +352,20 @@ void WebAuthnController::authenticateBegin(
     // to the pre-Task-24 direct generateSecureToken() call when unwired.
     if (webAuthnService_)
     {
-        auto sharedCb = std::make_shared<
-          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+          std::move(callback)
+        );
         webAuthnService_->beginAuthentication(
-          [sharedCb, req](std::optional<authforge::identity::WebAuthnAuthenticationChallenge> result) {
+          [sharedCb,
+           req](std::optional<authforge::identity::WebAuthnAuthenticationChallenge> result) {
               if (!result)
               {
-                  respondError(req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: challenge generation failed");
+                  respondError(
+                    req,
+                    sharedCb,
+                    "INTERNAL_ERROR",
+                    "authenticateBegin: challenge generation failed"
+                  );
                   return;
               }
               if (req->session())
@@ -431,16 +444,26 @@ void WebAuthnController::authenticateFinish(
     {
         webAuthnService_->finishAuthentication(
           credentialId,
-          [sharedCb, req, credentialId](std::optional<authforge::identity::WebAuthnAuthResult> result) {
+          [sharedCb,
+           req,
+           credentialId](std::optional<authforge::identity::WebAuthnAuthResult> result) {
               if (!result)
               {
                   respondError(
-                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "authenticateFinish: credential not found"
+                    req,
+                    sharedCb,
+                    "AUTH_INVALID_CREDENTIALS",
+                    "authenticateFinish: credential not found"
                   );
                   return;
               }
               ::oauth2::observability::AuditLogger::log(
-                "webauthn_authenticated", "success", req, result->publicSub, "credential", credentialId
+                "webauthn_authenticated",
+                "success",
+                req,
+                result->publicSub,
+                "credential",
+                credentialId
               );
               Json::Value json;
               json["authenticated"] = true;
@@ -523,8 +546,7 @@ void WebAuthnController::listCredentials(
     if (webAuthnService_ && userRepo_)
     {
         userRepo_->findByPublicSub(
-          userId,
-          [this, sharedCb](std::optional<authforge::identity::UserData> user) {
+          userId, [this, sharedCb](std::optional<authforge::identity::UserData> user) {
               if (!user)
               {
                   Json::Value json;

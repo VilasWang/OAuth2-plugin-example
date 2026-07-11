@@ -615,7 +615,7 @@ Memory / Redis / Postgres 三实现对同一契约测试套件行为一致（M1 
 2. ~~Conan `drogon_ctl` 实测结果 → 决定 ORM 生成流程。~~ **已实测，见 §15.1（Task 2 结论）。**
 3. OpenSSL 3.5 LTS 具体补丁版本（落地时取当时受支持的 LTS）。
 4. 插件注册迁移方案 A/B 抉择（§5.7）——决定 config 4 份是否零改动。
-5. `OpenApiGenerator`（385 行）**已核实不使用 Drogon 路由自省**（手动 `addEndpoint(EndpointInfo)` + 输出 `Json::Value`），按设计自身规则归 **`apps/server`**（决策已定，评审 L1/B1 关闭；当前误置于 `OAuth2Plugin` 伪领域层，M8 迁出）。
+5. `OpenApiGenerator`（385 行）**已核实不使用 Drogon 路由自省**（手动 `addEndpoint(EndpointInfo)` + 输出 `Json::Value`）。**落点修正（Task 25 B1 执行时定）**：原判定「归 `apps/server`」是在 Task 20 把 16 个 controller 迁入 `libs/drogon` **之前**做出的；实际全部 controller 的静态初始化 `XxxControllerDocs` 直接调 `addEndpoint`，真实调用方在 `libs/drogon`，放进 `apps/server`（依赖图顶端）会让 `libs/drogon` 反向依赖 app 形成环依赖。故实际落点为 **`libs/drogon`（`authforge::drogon::observability::openapi`）**——与调用方同库，`apps/server` 的 `OpenApiSetup` 仍拥有「配置 server URL + 写盘」编排，端点注册表随调用方留库，达成「迁出 `OAuth2Plugin` 伪领域层」实质目标（评审 L1/B1 关闭）。
 6. `observability-prometheus`（评审 H7/B3 更正）：**当前无自研导出器，4 份 config 均用原生 `drogon::plugin::PromExporter`，不存在「双轨」冲突**。该包为**可选新增**，仅当需脱 Drogon 的 metrics 时才做，否则保留原生插件——降级为延后项。
 
 ### 15.1 Conan drogon 包 `drogon_ctl` 可用性实测结论（Task 2，本任务新增）

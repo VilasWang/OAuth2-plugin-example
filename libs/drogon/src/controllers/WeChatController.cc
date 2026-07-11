@@ -1,6 +1,6 @@
 #include <authforge/drogon/controllers/WeChatController.h>
 #include <drogon/HttpClient.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 
 #ifdef WITH_SOCIAL
@@ -51,7 +51,7 @@ struct WeChatControllerDocs
 {
     WeChatControllerDocs()
     {
-        using namespace ::oauth2::observability::openapi;
+        using namespace ::authforge::drogon::observability::openapi;
 
         Json::Value successExample;
         successExample["openid"] = "oXXXXXXXXXXXXXXXXXXXXXXXXXX";
@@ -62,7 +62,7 @@ struct WeChatControllerDocs
         errorExample["error"] = "Missing code parameter";
 
         // C++17 compatible initialization (avoid designated initializers)
-        ::oauth2::observability::openapi::EndpointInfo weChatEndpoint;
+        ::authforge::drogon::observability::openapi::EndpointInfo weChatEndpoint;
         weChatEndpoint.path = "/api/wechat/login";
         weChatEndpoint.method = "POST";
         weChatEndpoint.summary = "WeChat OAuth2 Login";
@@ -73,11 +73,11 @@ struct WeChatControllerDocs
         weChatEndpoint.tags = {"External Auth", "WeChat"};
 
         // Initialize parameters
-        ::oauth2::observability::openapi::ParameterInfo codeParam;
+        ::authforge::drogon::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code from WeChat OAuth2 callback (required)";
-        codeParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-        codeParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+        codeParam.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = true;
         weChatEndpoint.parameters = {codeParam};
 
@@ -159,24 +159,28 @@ void WeChatController::login(
     // unwired.
     if (weChatAuthService_)
     {
-        auto sharedCb = std::make_shared<
-          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
-        weChatAuthService_->login(code, [sharedCb, req](authforge::identity::WeChatLoginResult result) {
-            if (!result.errorCode.empty())
-            {
-                respondError(req, sharedCb, result.errorCode, "wechat login: " + result.errorCode);
-                return;
-            }
-            Json::Value filteredJson;
-            filteredJson["openid"] = result.profile.openid;
-            filteredJson["nickname"] = result.profile.nickname;
-            filteredJson["headimgurl"] = result.profile.headimgurl;
-            filteredJson["sex"] = result.profile.sex;
-            filteredJson["city"] = result.profile.city;
-            filteredJson["province"] = result.profile.province;
-            filteredJson["country"] = result.profile.country;
-            (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
-        });
+        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+          std::move(callback)
+        );
+        weChatAuthService_
+          ->login(code, [sharedCb, req](authforge::identity::WeChatLoginResult result) {
+              if (!result.errorCode.empty())
+              {
+                  respondError(
+                    req, sharedCb, result.errorCode, "wechat login: " + result.errorCode
+                  );
+                  return;
+              }
+              Json::Value filteredJson;
+              filteredJson["openid"] = result.profile.openid;
+              filteredJson["nickname"] = result.profile.nickname;
+              filteredJson["headimgurl"] = result.profile.headimgurl;
+              filteredJson["sex"] = result.profile.sex;
+              filteredJson["city"] = result.profile.city;
+              filteredJson["province"] = result.profile.province;
+              filteredJson["country"] = result.profile.country;
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
+          });
         return;
     }
 #endif  // WITH_SOCIAL
@@ -197,9 +201,13 @@ void WeChatController::login(
 
     client->sendRequest(
       request,
-      [callbackPtr, client, req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
-          if (result != ::drogon::ReqResult::Ok || !response ||
-              response->getStatusCode() != ::drogon::k200OK)
+      [callbackPtr,
+       client,
+       req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+          if (
+            result != ::drogon::ReqResult::Ok || !response ||
+            response->getStatusCode() != ::drogon::k200OK
+          )
           {
               respondError(
                 req,

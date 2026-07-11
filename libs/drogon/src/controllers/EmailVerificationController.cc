@@ -1,7 +1,7 @@
 #include <authforge/drogon/controllers/EmailVerificationController.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/utils/EmailService.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <chrono>
@@ -32,23 +32,23 @@ struct EmailVerificationControllerDocs
 {
     EmailVerificationControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo verifyEmail;
+        ::authforge::drogon::observability::openapi::EndpointInfo verifyEmail;
         verifyEmail.path = "/api/verify-email";
         verifyEmail.method = "GET";
         verifyEmail.summary = "Verify Email";
         verifyEmail.description = "Verify an email address using a token.";
         verifyEmail.tags = {"User Verification"};
         verifyEmail.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyEmail);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyEmail);
 
-        ::oauth2::observability::openapi::EndpointInfo resendEmail;
+        ::authforge::drogon::observability::openapi::EndpointInfo resendEmail;
         resendEmail.path = "/api/verify-email/resend";
         resendEmail.method = "POST";
         resendEmail.summary = "Resend Verification Email";
         resendEmail.description = "Resend the email verification link.";
         resendEmail.tags = {"User Verification"};
         resendEmail.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(resendEmail);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(resendEmail);
     }
 };
 

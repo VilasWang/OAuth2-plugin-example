@@ -3,7 +3,7 @@
 #include <drogon/utils/Utilities.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/utils/EmailNormalizer.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <atomic>
 #include <mutex>
@@ -23,7 +23,10 @@ void respondError(
 )
 {
     ::common::error::ErrorResponder::respond(
-      req, [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); }, std::move(code), std::move(detailForLog)
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
     );
 }
 
@@ -31,170 +34,178 @@ struct AdminApiControllerDocs
 {
     AdminApiControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo listClients;
+        ::authforge::drogon::observability::openapi::EndpointInfo listClients;
         listClients.path = "/api/admin/clients";
         listClients.method = "GET";
         listClients.summary = "List OAuth2 Clients";
         listClients.description = "Get a paginated list of registered OAuth2 clients.";
         listClients.tags = {"Admin", "Clients"};
         listClients.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listClients);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listClients);
 
-        ::oauth2::observability::openapi::EndpointInfo createClient;
+        ::authforge::drogon::observability::openapi::EndpointInfo createClient;
         createClient.path = "/api/admin/clients";
         createClient.method = "POST";
         createClient.summary = "Create OAuth2 Client";
         createClient.description = "Register a new OAuth2 client.";
         createClient.tags = {"Admin", "Clients"};
         createClient.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createClient);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(createClient);
 
-        ::oauth2::observability::openapi::EndpointInfo getClient;
+        ::authforge::drogon::observability::openapi::EndpointInfo getClient;
         getClient.path = "/api/admin/clients/{clientId}";
         getClient.method = "GET";
         getClient.summary = "Get Client Details";
         getClient.description = "Get details of a specific OAuth2 client by ID.";
         getClient.tags = {"Admin", "Clients"};
         getClient.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getClient);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getClient);
 
-        ::oauth2::observability::openapi::EndpointInfo updateClient;
+        ::authforge::drogon::observability::openapi::EndpointInfo updateClient;
         updateClient.path = "/api/admin/clients/{clientId}";
         updateClient.method = "PUT";
         updateClient.summary = "Update OAuth2 Client";
         updateClient.description = "Update details of a specific OAuth2 client.";
         updateClient.tags = {"Admin", "Clients"};
         updateClient.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateClient);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateClient);
 
-        ::oauth2::observability::openapi::EndpointInfo deleteClient;
+        ::authforge::drogon::observability::openapi::EndpointInfo deleteClient;
         deleteClient.path = "/api/admin/clients/{clientId}";
         deleteClient.method = "DELETE";
         deleteClient.summary = "Delete OAuth2 Client";
         deleteClient.description = "Delete a specific OAuth2 client.";
         deleteClient.tags = {"Admin", "Clients"};
         deleteClient.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteClient);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteClient);
 
-        ::oauth2::observability::openapi::EndpointInfo resetClientSecret;
+        ::authforge::drogon::observability::openapi::EndpointInfo resetClientSecret;
         resetClientSecret.path = "/api/admin/clients/{clientId}/reset-secret";
         resetClientSecret.method = "POST";
         resetClientSecret.summary = "Reset Client Secret";
         resetClientSecret.description = "Reset the secret of a specific OAuth2 client.";
         resetClientSecret.tags = {"Admin", "Clients"};
         resetClientSecret.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(resetClientSecret);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
+          resetClientSecret
+        );
 
-        ::oauth2::observability::openapi::EndpointInfo getClientScopes;
+        ::authforge::drogon::observability::openapi::EndpointInfo getClientScopes;
         getClientScopes.path = "/api/admin/clients/{clientId}/scopes";
         getClientScopes.method = "GET";
         getClientScopes.summary = "Get Client Scopes";
         getClientScopes.description = "Get the assigned scopes for an OAuth2 client.";
         getClientScopes.tags = {"Admin", "Clients"};
         getClientScopes.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getClientScopes);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getClientScopes);
 
-        ::oauth2::observability::openapi::EndpointInfo updateClientScopes;
+        ::authforge::drogon::observability::openapi::EndpointInfo updateClientScopes;
         updateClientScopes.path = "/api/admin/clients/{clientId}/scopes";
         updateClientScopes.method = "PUT";
         updateClientScopes.summary = "Update Client Scopes";
         updateClientScopes.description = "Update the assigned scopes for an OAuth2 client.";
         updateClientScopes.tags = {"Admin", "Clients"};
         updateClientScopes.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateClientScopes);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
+          updateClientScopes
+        );
 
-        ::oauth2::observability::openapi::EndpointInfo listUsers;
+        ::authforge::drogon::observability::openapi::EndpointInfo listUsers;
         listUsers.path = "/api/admin/users";
         listUsers.method = "GET";
         listUsers.summary = "List Users";
         listUsers.description = "Get a paginated list of users.";
         listUsers.tags = {"Admin", "Users"};
         listUsers.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listUsers);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listUsers);
 
-        ::oauth2::observability::openapi::EndpointInfo disableUser;
+        ::authforge::drogon::observability::openapi::EndpointInfo disableUser;
         disableUser.path = "/api/admin/users/{userId}/disable";
         disableUser.method = "PUT";
         disableUser.summary = "Disable User";
         disableUser.description = "Disable a specific user account.";
         disableUser.tags = {"Admin", "Users"};
         disableUser.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(disableUser);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(disableUser);
 
-        ::oauth2::observability::openapi::EndpointInfo assignUserRoles;
+        ::authforge::drogon::observability::openapi::EndpointInfo assignUserRoles;
         assignUserRoles.path = "/api/admin/users/{userId}/roles";
         assignUserRoles.method = "PUT";
         assignUserRoles.summary = "Assign User Roles";
         assignUserRoles.description = "Assign roles to a specific user.";
         assignUserRoles.tags = {"Admin", "Users"};
         assignUserRoles.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(assignUserRoles);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(assignUserRoles);
 
-        ::oauth2::observability::openapi::EndpointInfo listScopes;
+        ::authforge::drogon::observability::openapi::EndpointInfo listScopes;
         listScopes.path = "/api/admin/scopes";
         listScopes.method = "GET";
         listScopes.summary = "List Scopes";
         listScopes.description = "Get a list of all available scopes.";
         listScopes.tags = {"Admin", "Scopes"};
         listScopes.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listScopes);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listScopes);
 
-        ::oauth2::observability::openapi::EndpointInfo listLogs;
+        ::authforge::drogon::observability::openapi::EndpointInfo listLogs;
         listLogs.path = "/api/admin/logs";
         listLogs.method = "GET";
         listLogs.summary = "List Audit Logs";
         listLogs.description = "Get a paginated list of system audit logs.";
         listLogs.tags = {"Admin", "Logs"};
         listLogs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listLogs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listLogs);
 
-        ::oauth2::observability::openapi::EndpointInfo listTokens;
+        ::authforge::drogon::observability::openapi::EndpointInfo listTokens;
         listTokens.path = "/api/admin/tokens";
         listTokens.method = "GET";
         listTokens.summary = "List Tokens";
         listTokens.description = "Get a list of active OAuth2 tokens.";
         listTokens.tags = {"Admin", "Tokens"};
         listTokens.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listTokens);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listTokens);
 
-        ::oauth2::observability::openapi::EndpointInfo revokeTokensByClient;
+        ::authforge::drogon::observability::openapi::EndpointInfo revokeTokensByClient;
         revokeTokensByClient.path = "/api/admin/tokens/revoke-by-client";
         revokeTokensByClient.method = "POST";
         revokeTokensByClient.summary = "Revoke Tokens By Client";
         revokeTokensByClient.description = "Revoke all tokens issued to a specific client.";
         revokeTokensByClient.tags = {"Admin", "Tokens"};
         revokeTokensByClient.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeTokensByClient);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
+          revokeTokensByClient
+        );
 
-        ::oauth2::observability::openapi::EndpointInfo revokeTokensByUser;
+        ::authforge::drogon::observability::openapi::EndpointInfo revokeTokensByUser;
         revokeTokensByUser.path = "/api/admin/tokens/revoke-by-user";
         revokeTokensByUser.method = "POST";
         revokeTokensByUser.summary = "Revoke Tokens By User";
         revokeTokensByUser.description = "Revoke all tokens issued for a specific user.";
         revokeTokensByUser.tags = {"Admin", "Tokens"};
         revokeTokensByUser.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeTokensByUser);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
+          revokeTokensByUser
+        );
 
-        ::oauth2::observability::openapi::EndpointInfo revokeToken;
+        ::authforge::drogon::observability::openapi::EndpointInfo revokeToken;
         revokeToken.path = "/api/admin/tokens/{tokenPrefix}";
         revokeToken.method = "DELETE";
         revokeToken.summary = "Revoke Token";
         revokeToken.description = "Revoke a specific token by its prefix.";
         revokeToken.tags = {"Admin", "Tokens"};
         revokeToken.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeToken);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(revokeToken);
 
-        ::oauth2::observability::openapi::EndpointInfo getOidcKeys;
+        ::authforge::drogon::observability::openapi::EndpointInfo getOidcKeys;
         getOidcKeys.path = "/api/admin/oidc/keys";
         getOidcKeys.method = "GET";
         getOidcKeys.summary = "Get OIDC Keys Info";
         getOidcKeys.description = "Get information about OIDC signing keys.";
         getOidcKeys.tags = {"Admin", "OIDC"};
         getOidcKeys.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getOidcKeys);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getOidcKeys);
 
         // New endpoints
-        ::oauth2::observability::openapi::EndpointInfo getUser;
+        ::authforge::drogon::observability::openapi::EndpointInfo getUser;
         getUser.path = "/api/admin/users/{userId}";
         getUser.method = "GET";
         getUser.summary = "Get User Detail";
@@ -202,99 +213,99 @@ struct AdminApiControllerDocs
           "Get detailed information about a specific user including roles and account status.";
         getUser.tags = {"Admin", "Users"};
         getUser.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getUser);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getUser);
 
-        ::oauth2::observability::openapi::EndpointInfo updateUser;
+        ::authforge::drogon::observability::openapi::EndpointInfo updateUser;
         updateUser.path = "/api/admin/users/{userId}";
         updateUser.method = "PUT";
         updateUser.summary = "Update User";
         updateUser.description = "Update user information (email, email_verified).";
         updateUser.tags = {"Admin", "Users"};
         updateUser.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateUser);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateUser);
 
-        ::oauth2::observability::openapi::EndpointInfo enableUser;
+        ::authforge::drogon::observability::openapi::EndpointInfo enableUser;
         enableUser.path = "/api/admin/users/{userId}/enable";
         enableUser.method = "POST";
         enableUser.summary = "Enable User";
         enableUser.description = "Enable a disabled user account by resetting lockout state.";
         enableUser.tags = {"Admin", "Users"};
         enableUser.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(enableUser);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(enableUser);
 
-        ::oauth2::observability::openapi::EndpointInfo getUserRoles;
+        ::authforge::drogon::observability::openapi::EndpointInfo getUserRoles;
         getUserRoles.path = "/api/admin/users/{userId}/roles";
         getUserRoles.method = "GET";
         getUserRoles.summary = "Get User Roles";
         getUserRoles.description = "Get the roles assigned to a specific user.";
         getUserRoles.tags = {"Admin", "Users"};
         getUserRoles.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getUserRoles);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getUserRoles);
 
-        ::oauth2::observability::openapi::EndpointInfo listRoles;
+        ::authforge::drogon::observability::openapi::EndpointInfo listRoles;
         listRoles.path = "/api/admin/roles";
         listRoles.method = "GET";
         listRoles.summary = "List Roles";
         listRoles.description = "Get a list of all roles with user counts.";
         listRoles.tags = {"Admin", "Roles"};
         listRoles.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listRoles);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listRoles);
 
-        ::oauth2::observability::openapi::EndpointInfo createRole;
+        ::authforge::drogon::observability::openapi::EndpointInfo createRole;
         createRole.path = "/api/admin/roles";
         createRole.method = "POST";
         createRole.summary = "Create Role";
         createRole.description = "Create a new role. Built-in roles cannot be duplicated.";
         createRole.tags = {"Admin", "Roles"};
         createRole.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createRole);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(createRole);
 
-        ::oauth2::observability::openapi::EndpointInfo updateRole;
+        ::authforge::drogon::observability::openapi::EndpointInfo updateRole;
         updateRole.path = "/api/admin/roles/{roleId}";
         updateRole.method = "PUT";
         updateRole.summary = "Update Role";
         updateRole.description = "Update a role's description.";
         updateRole.tags = {"Admin", "Roles"};
         updateRole.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateRole);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateRole);
 
-        ::oauth2::observability::openapi::EndpointInfo deleteRole;
+        ::authforge::drogon::observability::openapi::EndpointInfo deleteRole;
         deleteRole.path = "/api/admin/roles/{roleId}";
         deleteRole.method = "DELETE";
         deleteRole.summary = "Delete Role";
         deleteRole.description = "Delete a role. Built-in roles (admin, user) cannot be deleted.";
         deleteRole.tags = {"Admin", "Roles"};
         deleteRole.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteRole);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteRole);
 
-        ::oauth2::observability::openapi::EndpointInfo createScope;
+        ::authforge::drogon::observability::openapi::EndpointInfo createScope;
         createScope.path = "/api/admin/scopes";
         createScope.method = "POST";
         createScope.summary = "Create Scope";
         createScope.description = "Create a new OAuth2 scope.";
         createScope.tags = {"Admin", "Scopes"};
         createScope.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(createScope);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(createScope);
 
-        ::oauth2::observability::openapi::EndpointInfo updateScope;
+        ::authforge::drogon::observability::openapi::EndpointInfo updateScope;
         updateScope.path = "/api/admin/scopes/{scopeId}";
         updateScope.method = "PUT";
         updateScope.summary = "Update Scope";
         updateScope.description = "Update a scope's properties.";
         updateScope.tags = {"Admin", "Scopes"};
         updateScope.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(updateScope);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateScope);
 
-        ::oauth2::observability::openapi::EndpointInfo deleteScope;
+        ::authforge::drogon::observability::openapi::EndpointInfo deleteScope;
         deleteScope.path = "/api/admin/scopes/{scopeId}";
         deleteScope.method = "DELETE";
         deleteScope.summary = "Delete Scope";
         deleteScope.description = "Delete a scope. Built-in scopes cannot be deleted.";
         deleteScope.tags = {"Admin", "Scopes"};
         deleteScope.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteScope);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteScope);
 
-        ::oauth2::observability::openapi::EndpointInfo getDashboardStats;
+        ::authforge::drogon::observability::openapi::EndpointInfo getDashboardStats;
         getDashboardStats.path = "/api/admin/dashboard/stats";
         getDashboardStats.method = "GET";
         getDashboardStats.summary = "Get Dashboard Stats";
@@ -303,7 +314,9 @@ struct AdminApiControllerDocs
           "metrics.";
         getDashboardStats.tags = {"Admin", "Dashboard"};
         getDashboardStats.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getDashboardStats);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
+          getDashboardStats
+        );
     }
 };
 

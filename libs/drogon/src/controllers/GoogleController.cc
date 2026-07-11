@@ -1,6 +1,6 @@
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <drogon/HttpClient.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 
 #ifdef WITH_SOCIAL
@@ -52,7 +52,7 @@ struct GoogleControllerDocs
 {
     GoogleControllerDocs()
     {
-        using namespace ::oauth2::observability::openapi;
+        using namespace ::authforge::drogon::observability::openapi;
 
         Json::Value successExample;
         successExample["sub"] = "123456789012345678901";
@@ -64,7 +64,7 @@ struct GoogleControllerDocs
         errorExample["error"] = "Missing code parameter";
 
         // C++17 compatible initialization (avoid designated initializers)
-        ::oauth2::observability::openapi::EndpointInfo googleEndpoint;
+        ::authforge::drogon::observability::openapi::EndpointInfo googleEndpoint;
         googleEndpoint.path = "/api/google/login";
         googleEndpoint.method = "POST";
         googleEndpoint.summary = "Google OAuth2 Login";
@@ -76,11 +76,11 @@ struct GoogleControllerDocs
         googleEndpoint.tags = {"External Auth", "Google"};
 
         // Initialize parameters
-        ::oauth2::observability::openapi::ParameterInfo codeParam;
+        ::authforge::drogon::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code from Google OAuth2 callback (required)";
-        codeParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-        codeParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+        codeParam.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = true;
         googleEndpoint.parameters = {codeParam};
 
@@ -165,21 +165,25 @@ void GoogleController::login(
     // Task 24 slice 4.
     if (googleAuthService_)
     {
-        auto sharedCb = std::make_shared<
-          std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
-        googleAuthService_->login(code, [sharedCb, req](authforge::identity::GoogleLoginResult result) {
-            if (!result.errorCode.empty())
-            {
-                respondError(req, sharedCb, result.errorCode, "google login: " + result.errorCode);
-                return;
-            }
-            Json::Value filteredJson;
-            filteredJson["sub"] = result.profile.sub;
-            filteredJson["name"] = result.profile.name;
-            filteredJson["email"] = result.profile.email;
-            filteredJson["picture"] = result.profile.picture;
-            (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
-        });
+        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+          std::move(callback)
+        );
+        googleAuthService_
+          ->login(code, [sharedCb, req](authforge::identity::GoogleLoginResult result) {
+              if (!result.errorCode.empty())
+              {
+                  respondError(
+                    req, sharedCb, result.errorCode, "google login: " + result.errorCode
+                  );
+                  return;
+              }
+              Json::Value filteredJson;
+              filteredJson["sub"] = result.profile.sub;
+              filteredJson["name"] = result.profile.name;
+              filteredJson["email"] = result.profile.email;
+              filteredJson["picture"] = result.profile.picture;
+              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
+          });
         return;
     }
 #endif  // WITH_SOCIAL
@@ -201,9 +205,13 @@ void GoogleController::login(
 
     client->sendRequest(
       request,
-      [callbackPtr, client, req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
-          if (result != ::drogon::ReqResult::Ok || !response ||
-              response->getStatusCode() != ::drogon::k200OK)
+      [callbackPtr,
+       client,
+       req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+          if (
+            result != ::drogon::ReqResult::Ok || !response ||
+            response->getStatusCode() != ::drogon::k200OK
+          )
           {
               respondError(
                 req,

@@ -43,12 +43,12 @@
 #include <string>
 #include <vector>
 
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/filters/RequestValidationFilter.h>
 
 #include "Property4_PreservationSupport.h"
 
-using namespace oauth2::observability::openapi;
+using namespace authforge::drogon::observability::openapi;
 using namespace oauth2::test::concurrency;
 
 namespace

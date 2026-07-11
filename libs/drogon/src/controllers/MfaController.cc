@@ -3,7 +3,7 @@
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/observability/AuditLogger.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <chrono>
@@ -43,41 +43,41 @@ struct MfaControllerDocs
 {
     MfaControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo setupDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo setupDocs;
         setupDocs.path = "/oauth2/mfa/setup";
         setupDocs.method = "POST";
         setupDocs.summary = "Setup MFA";
         setupDocs.description = "Initiate MFA setup by generating a TOTP secret.";
         setupDocs.tags = {"MFA"};
         setupDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(setupDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(setupDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo verifySetupDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo verifySetupDocs;
         verifySetupDocs.path = "/oauth2/mfa/setup/verify";
         verifySetupDocs.method = "POST";
         verifySetupDocs.summary = "Verify MFA Setup";
         verifySetupDocs.description = "Verify a TOTP code to finalize MFA setup.";
         verifySetupDocs.tags = {"MFA"};
         verifySetupDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifySetupDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifySetupDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo disableDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo disableDocs;
         disableDocs.path = "/oauth2/mfa/disable";
         disableDocs.method = "POST";
         disableDocs.summary = "Disable MFA";
         disableDocs.description = "Disable MFA for the authenticated user.";
         disableDocs.tags = {"MFA"};
         disableDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(disableDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(disableDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo verifyDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo verifyDocs;
         verifyDocs.path = "/oauth2/mfa/verify";
         verifyDocs.method = "POST";
         verifyDocs.summary = "Verify MFA Code (Login)";
         verifyDocs.description = "Verify MFA code during login.";
         verifyDocs.tags = {"MFA"};
         verifyDocs.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyDocs);
     }
 };
 
@@ -103,11 +103,12 @@ void MfaController::setup(
     if (mfaService_ && userRepo_)
     {
         userRepo_->findByPublicSub(
-          userId,
-          [this, sharedCb, req, userId](std::optional<authforge::identity::UserData> user) {
+          userId, [this, sharedCb, req, userId](std::optional<authforge::identity::UserData> user) {
               if (!user)
               {
-                  respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA setup: unknown user");
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA setup: unknown user"
+                  );
                   return;
               }
               mfaService_->setupSecret(
@@ -199,8 +200,7 @@ void MfaController::verifySetup(
     {
         userRepo_->findByPublicSub(
           userId,
-          [this, sharedCb, req, userId,
-           code](std::optional<authforge::identity::UserData> user) {
+          [this, sharedCb, req, userId, code](std::optional<authforge::identity::UserData> user) {
               if (!user)
               {
                   respondError(
@@ -211,7 +211,9 @@ void MfaController::verifySetup(
               mfaService_->verifyAndEnable(
                 user->id,
                 code,
-                [sharedCb, req, userId](std::optional<authforge::identity::MfaEnableResult> result) {
+                [sharedCb,
+                 req,
+                 userId](std::optional<authforge::identity::MfaEnableResult> result) {
                     if (!result)
                     {
                         // MfaService::verifyAndEnable collapses "no
@@ -340,17 +342,20 @@ void MfaController::disable(
     if (mfaService_ && userRepo_)
     {
         userRepo_->findByPublicSub(
-          userId,
-          [this, sharedCb, req](std::optional<authforge::identity::UserData> user) {
+          userId, [this, sharedCb, req](std::optional<authforge::identity::UserData> user) {
               if (!user)
               {
-                  respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA disable: unknown user");
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA disable: unknown user"
+                  );
                   return;
               }
               mfaService_->disable(user->id, [sharedCb, req](bool ok) {
                   if (!ok)
                   {
-                      respondError(req, sharedCb, "DB_QUERY_ERROR", "MFA disable: repository write failed");
+                      respondError(
+                        req, sharedCb, "DB_QUERY_ERROR", "MFA disable: repository write failed"
+                      );
                       return;
                   }
                   Json::Value json;
@@ -457,20 +462,32 @@ void MfaController::verifyLogin(
     // MfaService.h's own scope-boundary comment on why this stays outside
     // that class) is written once, not duplicated per path.
     auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken](
-                             std::string publicSub,
-                             std::string pendingClientId,
-                             std::string pendingRedirectUri,
-                             std::function<void(std::function<void()> &&)> clearPendingBinding
-                           ) {
+                            std::string publicSub,
+                            std::string pendingClientId,
+                            std::string pendingRedirectUri,
+                            std::function<void(std::function<void()> &&)> clearPendingBinding
+                          ) {
         plugin->validateClient(
           clientId,
           "",
-          [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
-           pendingRedirectUri, scope, nonce, clearPendingBinding](bool validClient) {
+          [sharedCb,
+           req,
+           plugin,
+           clientId,
+           redirectUri,
+           publicSub,
+           pendingClientId,
+           pendingRedirectUri,
+           scope,
+           nonce,
+           clearPendingBinding](bool validClient) {
               if (!validClient)
               {
                   respondError(
-                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: unknown or invalid client"
+                    req,
+                    sharedCb,
+                    "AUTH_INVALID_CREDENTIALS",
+                    "verifyLogin: unknown or invalid client"
                   );
                   return;
               }
@@ -478,8 +495,17 @@ void MfaController::verifyLogin(
               plugin->validateRedirectUri(
                 clientId,
                 redirectUri,
-                [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
-                 pendingRedirectUri, scope, nonce, clearPendingBinding](bool validUri) {
+                [sharedCb,
+                 req,
+                 plugin,
+                 clientId,
+                 redirectUri,
+                 publicSub,
+                 pendingClientId,
+                 pendingRedirectUri,
+                 scope,
+                 nonce,
+                 clearPendingBinding](bool validUri) {
                     if (!validUri)
                     {
                         respondError(
@@ -510,7 +536,13 @@ void MfaController::verifyLogin(
                       "",
                       "",
                       nonce,
-                      [sharedCb, req, plugin, clientId, redirectUri, publicSub, clearPendingBinding](
+                      [sharedCb,
+                       req,
+                       plugin,
+                       clientId,
+                       redirectUri,
+                       publicSub,
+                       clearPendingBinding](
                         bool success, std::string authCode, std::string genError
                       ) {
                           if (!success)
@@ -535,15 +567,16 @@ void MfaController::verifyLogin(
                             ) {
                                 if (tokenResult.isMember("error"))
                                 {
-                                    std::string detail = tokenResult.isMember("error_description")
-                                                            ? tokenResult["error_description"]
-                                                                .asString()
-                                                            : tokenResult["error"].asString();
+                                    std::string detail =
+                                      tokenResult.isMember("error_description")
+                                        ? tokenResult["error_description"].asString()
+                                        : tokenResult["error"].asString();
                                     respondError(
                                       req,
                                       sharedCb,
                                       "INTERNAL_ERROR",
-                                      "verifyLogin: failed to exchange authorization code: " + detail
+                                      "verifyLogin: failed to exchange authorization code: " +
+                                        detail
                                     );
                                     return;
                                 }
@@ -587,14 +620,17 @@ void MfaController::verifyLogin(
         }
         catch (const std::exception &)
         {
-            respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: invalid MFA session");
+            respondError(
+              req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: invalid MFA session"
+            );
             return;
         }
 
         userRepo_->findById(
           userId,
-          [this, sharedCb, req, code, userId,
-           onTotpVerified](std::optional<authforge::identity::UserData> user) {
+          [this, sharedCb, req, code, userId, onTotpVerified](
+            std::optional<authforge::identity::UserData> user
+          ) {
               if (!user)
               {
                   respondError(
@@ -603,31 +639,39 @@ void MfaController::verifyLogin(
                   return;
               }
               std::string publicSub = user->publicSub;
-              mfaService_->verifyLoginCode(userId, code, [this, sharedCb, req, userId, publicSub,
-                                                            onTotpVerified](bool codeValid) {
-                  if (!codeValid)
-                  {
-                      respondError(
-                        req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: TOTP code is incorrect"
-                      );
-                      return;
-                  }
-                  mfaService_->getPendingBinding(
-                    userId,
-                    [this, sharedCb, publicSub, userId, onTotpVerified](
-                      std::optional<std::pair<std::string, std::string>> pending
-                    ) {
-                        std::string pendingClientId = pending ? pending->first : "";
-                        std::string pendingRedirectUri = pending ? pending->second : "";
-                        auto clearPendingBinding = [this, userId](std::function<void()> &&done) {
-                            mfaService_->clearPendingBinding(userId, [done = std::move(done)](bool) {
-                                done();
-                            });
-                        };
-                        onTotpVerified(publicSub, pendingClientId, pendingRedirectUri, clearPendingBinding);
+              mfaService_->verifyLoginCode(
+                userId,
+                code,
+                [this, sharedCb, req, userId, publicSub, onTotpVerified](bool codeValid) {
+                    if (!codeValid)
+                    {
+                        respondError(
+                          req,
+                          sharedCb,
+                          "AUTH_INVALID_CREDENTIALS",
+                          "verifyLogin: TOTP code is incorrect"
+                        );
+                        return;
                     }
-                  );
-              });
+                    mfaService_->getPendingBinding(
+                      userId,
+                      [this, sharedCb, publicSub, userId, onTotpVerified](
+                        std::optional<std::pair<std::string, std::string>> pending
+                      ) {
+                          std::string pendingClientId = pending ? pending->first : "";
+                          std::string pendingRedirectUri = pending ? pending->second : "";
+                          auto clearPendingBinding = [this, userId](std::function<void()> &&done) {
+                              mfaService_->clearPendingBinding(
+                                userId, [done = std::move(done)](bool) { done(); }
+                              );
+                          };
+                          onTotpVerified(
+                            publicSub, pendingClientId, pendingRedirectUri, clearPendingBinding
+                          );
+                      }
+                    );
+                }
+              );
           }
         );
         return;
@@ -652,19 +696,28 @@ void MfaController::verifyLogin(
             r[0]["mfa_secret"].isNull() ? "" : r[0]["mfa_secret"].as<std::string>();
           std::string publicSub = r[0]["public_sub"].as<std::string>();
           std::string pendingClientId = r[0]["mfa_pending_client_id"].isNull()
-                                           ? ""
-                                           : r[0]["mfa_pending_client_id"].as<std::string>();
+                                          ? ""
+                                          : r[0]["mfa_pending_client_id"].as<std::string>();
           std::string pendingRedirectUri = r[0]["mfa_pending_redirect_uri"].isNull()
-                                              ? ""
-                                              : r[0]["mfa_pending_redirect_uri"].as<std::string>();
+                                             ? ""
+                                             : r[0]["mfa_pending_redirect_uri"].as<std::string>();
 
           if (::oauth2::utils::TotpUtils::verifyCode(secret, code))
           {
               plugin->validateClient(
                 clientId,
                 "",
-                [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
-                 pendingRedirectUri, scope, nonce, mfaToken](bool validClient) {
+                [sharedCb,
+                 req,
+                 plugin,
+                 clientId,
+                 redirectUri,
+                 publicSub,
+                 pendingClientId,
+                 pendingRedirectUri,
+                 scope,
+                 nonce,
+                 mfaToken](bool validClient) {
                     if (!validClient)
                     {
                         respondError(
@@ -679,8 +732,17 @@ void MfaController::verifyLogin(
                     plugin->validateRedirectUri(
                       clientId,
                       redirectUri,
-                      [sharedCb, req, plugin, clientId, redirectUri, publicSub, pendingClientId,
-                       pendingRedirectUri, scope, nonce, mfaToken](bool validUri) {
+                      [sharedCb,
+                       req,
+                       plugin,
+                       clientId,
+                       redirectUri,
+                       publicSub,
+                       pendingClientId,
+                       pendingRedirectUri,
+                       scope,
+                       nonce,
+                       mfaToken](bool validUri) {
                           if (!validUri)
                           {
                               respondError(
@@ -732,7 +794,9 @@ void MfaController::verifyLogin(
                                   "",
                                   redirectUri,
                                   "",
-                                  [sharedCb, req, publicSub, mfaToken](const Json::Value &tokenResult) {
+                                  [sharedCb, req, publicSub, mfaToken](
+                                    const Json::Value &tokenResult
+                                  ) {
                                       if (tokenResult.isMember("error"))
                                       {
                                           std::string detail =
@@ -759,7 +823,8 @@ void MfaController::verifyLogin(
 
                                       auto clearDb = ::drogon::app().getDbClient();
                                       auto sendSuccess = [sharedCb, req, json]() {
-                                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                                          auto resp =
+                                            ::drogon::HttpResponse::newHttpJsonResponse(json);
                                           (*sharedCb)(resp);
                                       };
                                       if (clearDb)
@@ -767,8 +832,12 @@ void MfaController::verifyLogin(
                                           clearDb->execSqlAsync(
                                             "UPDATE users SET mfa_pending_client_id = NULL, "
                                             "mfa_pending_redirect_uri = NULL WHERE id = $1",
-                                            [sendSuccess](const ::drogon::orm::Result &) { sendSuccess(); },
-                                            [sendSuccess](const ::drogon::orm::DrogonDbException &e) {
+                                            [sendSuccess](const ::drogon::orm::Result &) {
+                                                sendSuccess();
+                                            },
+                                            [sendSuccess](
+                                              const ::drogon::orm::DrogonDbException &e
+                                            ) {
                                                 LOG_ERROR
                                                   << "verifyLogin: failed to clear MFA pending "
                                                      "binding (tokens already issued): "

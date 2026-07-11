@@ -4,7 +4,7 @@
 #include <oauth2/validation/RuleSet.h>
 #include <oauth2/validation/HttpResponder.h>
 #include <oauth2/error/OAuth2ErrorHandler.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/observability/AuditLogger.h>
 #include <drogon/drogon.h>
@@ -16,7 +16,7 @@
 
 using namespace oauth2;
 using namespace oauth2::controllers;
-using namespace oauth2::observability::openapi;
+using namespace authforge::drogon::observability::openapi;
 
 namespace oauth2::controllers
 {
@@ -53,7 +53,7 @@ void OAuth2StandardController::initApiDocsImpl()
         errorExample["error"] = "invalid_grant";
         errorExample["error_description"] = "Invalid authorization code";
 
-        oauth2::observability::openapi::EndpointInfo tokenEndpoint;
+        authforge::drogon::observability::openapi::EndpointInfo tokenEndpoint;
         tokenEndpoint.path = "/oauth2/token";
         tokenEndpoint.method = "POST";
         tokenEndpoint.summary = "Exchange authorization code for access token";
@@ -62,47 +62,51 @@ void OAuth2StandardController::initApiDocsImpl()
           "code or refresh token for access token.";
         tokenEndpoint.tags = {"OAuth2", "Token"};
 
-        oauth2::observability::openapi::ParameterInfo grantTypeParam;
+        authforge::drogon::observability::openapi::ParameterInfo grantTypeParam;
         grantTypeParam.name = "grant_type";
         grantTypeParam.description = "Type of grant being requested";
-        grantTypeParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        grantTypeParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        grantTypeParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        grantTypeParam.location =
+          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         grantTypeParam.required = true;
         grantTypeParam.enumValues = "authorization_code,refresh_token,client_credentials";
 
-        oauth2::observability::openapi::ParameterInfo codeParam;
+        authforge::drogon::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code (required for grant_type=authorization_code)";
-        codeParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        codeParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        codeParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = false;
 
-        oauth2::observability::openapi::ParameterInfo refreshParam;
+        authforge::drogon::observability::openapi::ParameterInfo refreshParam;
         refreshParam.name = "refresh_token";
         refreshParam.description = "Refresh token (required for grant_type=refresh_token)";
-        refreshParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        refreshParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        refreshParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        refreshParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         refreshParam.required = false;
 
-        oauth2::observability::openapi::ParameterInfo clientIdParam;
+        authforge::drogon::observability::openapi::ParameterInfo clientIdParam;
         clientIdParam.name = "client_id";
         clientIdParam.description = "Client identifier (required)";
-        clientIdParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        clientIdParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        clientIdParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        clientIdParam.location =
+          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         clientIdParam.required = true;
 
-        oauth2::observability::openapi::ParameterInfo clientSecretParam;
+        authforge::drogon::observability::openapi::ParameterInfo clientSecretParam;
         clientSecretParam.name = "client_secret";
         clientSecretParam.description = "Client secret (required for confidential clients)";
-        clientSecretParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        clientSecretParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        clientSecretParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        clientSecretParam.location =
+          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         clientSecretParam.required = true;
 
-        oauth2::observability::openapi::ParameterInfo redirectUriParam;
+        authforge::drogon::observability::openapi::ParameterInfo redirectUriParam;
         redirectUriParam.name = "redirect_uri";
         redirectUriParam.description = "Redirect URI (required for authorization_code grant)";
-        redirectUriParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        redirectUriParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        redirectUriParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        redirectUriParam.location =
+          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         redirectUriParam.required = false;
 
         tokenEndpoint.parameters =
@@ -122,7 +126,7 @@ void OAuth2StandardController::initApiDocsImpl()
     }
 
     // Authorize endpoint
-    oauth2::observability::openapi::EndpointInfo authorizeEndpoint;
+    authforge::drogon::observability::openapi::EndpointInfo authorizeEndpoint;
     authorizeEndpoint.path = "/oauth2/authorize";
     authorizeEndpoint.method = "GET";
     authorizeEndpoint.summary = "Request authorization";
@@ -131,29 +135,29 @@ void OAuth2StandardController::initApiDocsImpl()
     authorizeEndpoint.parameters =
       {{"client_id",
         "Client identifier (required)",
-        oauth2::observability::openapi::ParameterType::STRING,
-        oauth2::observability::openapi::ParameterLocation::QUERY,
+        authforge::drogon::observability::openapi::ParameterType::STRING,
+        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
         true},
        {"redirect_uri",
         "Redirect URI (required)",
-        oauth2::observability::openapi::ParameterType::STRING,
-        oauth2::observability::openapi::ParameterLocation::QUERY,
+        authforge::drogon::observability::openapi::ParameterType::STRING,
+        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
         true},
        {"response_type",
         "Response type, must be 'code' (required)",
-        oauth2::observability::openapi::ParameterType::STRING,
-        oauth2::observability::openapi::ParameterLocation::QUERY,
+        authforge::drogon::observability::openapi::ParameterType::STRING,
+        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
         true},
        {"scope",
         "Requested scope (optional)",
-        oauth2::observability::openapi::ParameterType::STRING,
-        oauth2::observability::openapi::ParameterLocation::QUERY,
+        authforge::drogon::observability::openapi::ParameterType::STRING,
+        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
         false},
        {"state",
         "Opaque value to maintain state between request and callback "
         "(recommended)",
-        oauth2::observability::openapi::ParameterType::STRING,
-        oauth2::observability::openapi::ParameterLocation::QUERY,
+        authforge::drogon::observability::openapi::ParameterType::STRING,
+        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
         false}};
     authorizeEndpoint
       .responses = {{302, "Redirect to client with authorization code"}, {400, "Invalid request"}};
@@ -173,7 +177,7 @@ void OAuth2StandardController::initApiDocsImpl()
         Json::Value errorExample;
         errorExample["error"] = "User not found";
 
-        oauth2::observability::openapi::EndpointInfo userInfoEndpoint;
+        authforge::drogon::observability::openapi::EndpointInfo userInfoEndpoint;
         userInfoEndpoint.path = "/oauth2/userinfo";
         userInfoEndpoint.method = "GET";
         userInfoEndpoint.summary = "Get user information";
@@ -204,7 +208,7 @@ void OAuth2StandardController::initApiDocsImpl()
         successExample["sub"] = "user_456";
         successExample["scope"] = "read write";
 
-        oauth2::observability::openapi::EndpointInfo introspectEndpoint;
+        authforge::drogon::observability::openapi::EndpointInfo introspectEndpoint;
         introspectEndpoint.path = "/oauth2/introspect";
         introspectEndpoint.method = "POST";
         introspectEndpoint.summary = "Introspect token";
@@ -212,11 +216,11 @@ void OAuth2StandardController::initApiDocsImpl()
           "RFC 7662 OAuth 2.0 Token Introspection. Returns information about a token.";
         introspectEndpoint.tags = {"OAuth2", "Token"};
 
-        oauth2::observability::openapi::ParameterInfo tokenParam;
+        authforge::drogon::observability::openapi::ParameterInfo tokenParam;
         tokenParam.name = "token";
         tokenParam.description = "The string value of the token (required)";
-        tokenParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        tokenParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        tokenParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        tokenParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         tokenParam.required = true;
 
         introspectEndpoint.parameters = {tokenParam};
@@ -231,7 +235,7 @@ void OAuth2StandardController::initApiDocsImpl()
 
     // Revoke endpoint
     {
-        oauth2::observability::openapi::EndpointInfo revokeEndpoint;
+        authforge::drogon::observability::openapi::EndpointInfo revokeEndpoint;
         revokeEndpoint.path = "/oauth2/revoke";
         revokeEndpoint.method = "POST";
         revokeEndpoint.summary = "Revoke token";
@@ -239,11 +243,11 @@ void OAuth2StandardController::initApiDocsImpl()
           "RFC 7009 OAuth 2.0 Token Revocation. Revokes an access or refresh token.";
         revokeEndpoint.tags = {"OAuth2", "Token"};
 
-        oauth2::observability::openapi::ParameterInfo tokenParam;
+        authforge::drogon::observability::openapi::ParameterInfo tokenParam;
         tokenParam.name = "token";
         tokenParam.description = "The token that the client wants to get revoked (required)";
-        tokenParam.type = oauth2::observability::openapi::ParameterType::STRING;
-        tokenParam.location = oauth2::observability::openapi::ParameterLocation::QUERY;
+        tokenParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        tokenParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         tokenParam.required = true;
 
         revokeEndpoint.parameters = {tokenParam};
@@ -257,7 +261,7 @@ void OAuth2StandardController::initApiDocsImpl()
 
     // OIDC Discovery endpoint
     {
-        oauth2::observability::openapi::EndpointInfo discoveryEndpoint;
+        authforge::drogon::observability::openapi::EndpointInfo discoveryEndpoint;
         discoveryEndpoint.path = "/.well-known/openid-configuration";
         discoveryEndpoint.method = "GET";
         discoveryEndpoint.summary = "OpenID Connect Discovery";
@@ -272,7 +276,7 @@ void OAuth2StandardController::initApiDocsImpl()
 
     // JWKS endpoint
     {
-        oauth2::observability::openapi::EndpointInfo jwksEndpoint;
+        authforge::drogon::observability::openapi::EndpointInfo jwksEndpoint;
         jwksEndpoint.path = "/.well-known/jwks.json";
         jwksEndpoint.method = "GET";
         jwksEndpoint.summary = "JSON Web Key Set";

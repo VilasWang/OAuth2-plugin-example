@@ -212,10 +212,11 @@
   - **前置条件已就位**：`libs/oauth2` 的 `TokenService`/`ClientService`/`AuthorizationService`（Task 17）与 `libs/identity` 的 `AuthService`/`MfaService`/`WebAuthnService`/社交登录服务/`SessionManager`（Task 19 补全）均已完成、独立编译、独立测试通过，但均未接入生产。本任务是把它们真正接进 `OAuth2Server`（未来 `apps/server`）的请求路径，替换现在 controller 里对 `OAuth2Plugin`/旧 `oauth2::TokenService` 等的直接调用。
   - **完成说明**：按 6 个 slice 完成（详见 PROGRESS.md "Task 24 切分方案"及各 Slice 完成记录）。Slice 1：`LegacyStorageRepositoryBridge` 桥接旧存储到新仓储接口。Slice 2：`OAuth2Plugin` 内部切换到新 `TokenService`/`ClientService`（合并了原计划的 slice 2+3，因为 `OAuth2Plugin` 本就是转发外壳，controller 调用点无需改动）。Slice 4：`SessionController` 接入 `identity::AuthService`/`SessionManager`（新增 `OAuth2Server/bootstrap/IdentityAssembly.cc` 装配模块），修复了两个真实缺陷（命名空间裸写坑 + `int64_t`/Postgres `int4` 绑定宽度不匹配导致 MFA 分支 `DB_QUERY_ERROR`）。Slice 5：`MfaController`/`WebAuthnController`/`Google|WeChat|GitHubController` 接入对应 identity 服务，新写 `PostgresMfaRepository`/`PostgresWebAuthnRepository`/`PostgresSocialAccountRepository`/`DrogonOAuthHttpClient` 四个 Adapter 实现（Task 19 只写了 Domain 服务未写 Adapter）。Slice 6：清理确认——`OAuth2Plugin` 从未持有 identity 字段无需清理，`libs/oauth2`↔`libs/identity` 零互相依赖已用 grep 核实，`libs/drogon/src/AuthService.cc` 旧 Adapter 有意保留作为未注入场景回退。全部 6 个 slice 均遵循"注入优先，未注入回退旧路径"的兼容约定，未破坏任何既有测试。验证：`ctest` 290/290 全绿 + 多轮真实服务器 curl 端到端验证（login/register/logout/MFA 全流程/WebAuthn 全流程通过；Google/WeChat/GitHub 受限于沙箱网络无法完整验证第三方 API 但确认请求路径不崩溃）。
 
-- [ ] 25. 拆分 `main.cc` bootstrap
+- [x] 25. 拆分 `main.cc` bootstrap
   - `CorsSetup`/`SecurityHeaders`/`ExceptionHandlerSetup`/`OpenApiSetup`/`MigrationRunner` 独立；`main` 仅装配
   - **B1：`OpenApiGenerator`（385 行，不依赖 Drogon 路由自省）迁入 `apps/server`**（`OpenApiSetup`），移出 `OAuth2Plugin` 伪领域层
   - 产出：`apps/server/src/bootstrap/`；验收：启动行为等价；OpenAPI 生成正确；E2E 全绿
+  - **完成说明**：bootstrap 拆分（6 个模块 + `ControllerRegistration`）在 commit `6f250a8` 完成。B1（OpenApiGenerator 迁出）**落点修正为 `libs/drogon`（`authforge::drogon::observability::openapi`）而非字面的 `apps/server`**——理由：全部 16 个 controller 的静态初始化 `XxxControllerDocs` 直接调 `addEndpoint`，真实调用方在 `libs/drogon`；放进 `apps/server` 会让 `libs/drogon` 反向依赖 app（环依赖）。`apps/server` 的 `OpenApiSetup` 仍拥有「配置 server URL + 写盘」编排，端点注册表随调用方留在 `libs/drogon`，达成「迁出 `OAuth2Plugin` 伪领域层」实质目标。详见 PROGRESS.md "Task 25 B1" + design.md §15 item 5。验证：全量编译 + `ctest` **290/290** 全绿（含 4 个 OpenAPI 专属测试）+ 真实服务器 curl `/docs/api/openapi.json` 返回 59 端点的合法 spec。
 
 - [ ] 26. M3 构建产物路径同步（评审 H2，新增）
   - `OAuth2Server`→`apps/server` 目标改名使构建产物路径从 `build/OAuth2Server/{Debug|Release}` 变化——同步更新 `paths.env`、CI、本地脚本（`run-server`/`test`/`smoke-parity`）与 agent workflow

@@ -338,7 +338,33 @@
   - `GET /.well-known/openid-configuration` → 200，完整 OIDC discovery 文档
   - `GET /login` → 200
 
-**Task 25 完成**。main.cc 现在仅做装配，符合 design.md §6 的分层要求。
+**Task 25 完成（bootstrap 拆分部分）**。main.cc 现在仅做装配，符合 design.md §6 的分层要求。
+
+### Task 25 B1：`OpenApiGenerator` 迁出 `OAuth2Plugin` 伪领域层（commit 6f250a8 之后的补完部分）
+
+design.md §15 item 5 + Task 25 B1 要求把 `OpenApiGenerator`（不依赖 Drogon 路由自省，手动 `addEndpoint` + 输出 `Json::Value`）迁出 `OAuth2Plugin` 伪领域层。bootstrap 拆分提交（6f250a8）只完成了 `main.cc` 拆分，**B1 这部分是未提交 WIP**，本次接手时补完。
+
+**迁移落点：`authforge::drogon::observability::openapi`（`libs/drogon`），而非 design.md 字面写的 `apps/server`——有据可依的偏离，已在头文件注释 + design.md §15 item 5 + tasks.md 同步记录**：
+
+- design.md §15 item 5 当初判定「归 apps/server」的依据是「它不用 Drogon 路由自省」——这点仍成立（只用 `<drogon/drogon.h>` 的 `LOG_INFO/LOG_ERROR`，其余全是手搓 `EndpointInfo`/`Json::Value`，无任何 Drogon 路由自省）。
+- 但这条判定在 **Task 20 把 15+1 个 controller 迁入 `libs/drogon` 之前**做出。实际：全部 16 个 controller（含 `OAuth2StandardController`）各自的静态初始化 `XxxControllerDocs` 结构体里直接调 `OpenApiGenerator::addEndpoint(...)` 注册端点元数据——**OpenApiGenerator 的真实调用方在 `libs/drogon`**。
+- 若按字面放进 `apps/server`（`OAuth2Server`，依赖图顶端），会让 `libs/drogon`（被 app 依赖的库）反向依赖 app——环/逆向依赖，不可行。
+- **正确落点是 `libs/drogon`**：与真实调用方（controllers）同库；`apps/server` 的 `OpenApiSetup`（`OAuth2Server/bootstrap/OpenApiSetup.cc`）仍拥有「配置 server URL + 把 spec 写盘」的编排职责，只是端点注册表随调用方留在 `libs/drogon`。既达成实质目标（迁出 `OAuth2Plugin` 伪领域层），又与依赖图一致。
+
+**执行内容**：
+- 新建 `libs/drogon/{include/authforge/drogon/observability/openapi/OpenApiGenerator.h, src/observability/openapi/OpenApiGenerator.cc}`，命名空间 `oauth2::observability::openapi` → `authforge::drogon::observability::openapi`，类逻辑逐字节原样搬迁（无行为改动）。
+- 删除旧实现 `OAuth2Plugin/src/observability/openapi/OpenApiGenerator.cc` + 旧头 `OAuth2Plugin/include/oauth2/observability/openapi/OpenApiGenerator.h`（**不留 shim**——全部调用点已切到新命名空间，shim 无用；区别于 Task 17 slice 10 的 JwkManager shim，那里调用点未切换）。
+- 更新全部调用点：`OpenApiSetup.cc` + 16 个 controller + 4 个测试（`OpenApiGeneratorTest`/`OpenApiGeneratorParameterTypesTest`/`Property4_OpenApiValidationBaselineTest`/`CategoryA_InitOrderSnapshotTest`）。
+- CMake 无需改：`libs/drogon` 与 `OAuth2Plugin` 都用 `file(GLOB_RECURSE)`，文件搬动后 GLOB 自动收拢/丢弃。
+
+**踩坑（接手 WIP 时发现并修复）**：`OAuth2StandardController.cc` 是 WIP 里**唯一一个 body 没改全**的文件——include（行 7）与 `using namespace`（行 19）改了，但函数体里大量 `oauth2::observability::openapi::EndpointInfo`/`ParameterType::STRING` 仍指向旧命名空间（其余 14 个 controller 都已全限定改全）。首跑全量编译 `authforge-drogon` 直接 `C1003 错误计数超过 100`。修复：把该文件 body 里所有 `oauth2::observability::openapi::` 限定统一改为 `authforge::drogon::observability::openapi::`（grep 全仓确认零残留后重编译通过）。
+
+**验证结果**：
+- 全量编译（`authforge-drogon` + `OAuth2Server` + `OAuth2Test_test`）：通过，零错误。
+- `ctest -C Debug`：**290/290 全绿**（较 M2.5 的 288 基线 +2），零回归。OpenAPI 专属测试（`OpenApiGeneratorTest`/`OpenApiGeneratorParameterTypesTest`/`Property4_OpenApiValidationBaselineTest`/`CategoryA_InitOrderSnapshotTest`，后者专门防静态初始化顺序回归）全过——这组测试正是能捕捉「OpenApiGenerator 跨翻译单元搬迁后静态注册 addEndpoint 链路断裂」故障的那类。
+- 真实服务器 + curl（`OAuth2Server.exe -c config.ci.json`，memory 存储，端口 5555）：`GET /health` → 200；`GET /docs/api/openapi.json` → 200，49481 字节合法 spec，含 **59 个唯一端点路径**（`/oauth2/token`、`/.well-known/openid-configuration`、全部 `/api/admin/*`），证明全部 16 个 controller 的静态初始化 `addEndpoint` 搬迁后仍正确汇聚到新库的注册表。
+
+**Task 25 现彻底完成**（bootstrap 拆分 6f250a8 + B1 OpenApiGenerator 迁出）。
 
 ## Task 17 剩余部分：新建 `authforge::oauth2::protocol` 服务（`TokenService`/`ClientService`/`AuthorizationService`）
 

@@ -1,4 +1,4 @@
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <drogon/drogon.h>
 #include <fstream>
 #include <iostream>
@@ -7,7 +7,7 @@
 #include <sstream>
 #include <algorithm>
 
-namespace oauth2::observability::openapi
+namespace authforge::drogon::observability::openapi
 {
 
 std::vector<EndpointInfo> &OpenApiGenerator::getEndpoints()
@@ -382,4 +382,4 @@ bool OpenApiGenerator::writeToFile(const std::string &outputPath)
     }
 }
 
-}  // namespace oauth2::observability::openapi
+}  // namespace authforge::drogon::observability::openapi

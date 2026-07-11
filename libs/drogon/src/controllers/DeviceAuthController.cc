@@ -3,7 +3,7 @@
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/error/OAuth2ErrorHandler.h>
 #include <oauth2/error/ErrorResponder.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <chrono>
@@ -37,32 +37,32 @@ struct DeviceAuthControllerDocs
 {
     DeviceAuthControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo authDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo authDocs;
         authDocs.path = "/oauth2/device_authorization";
         authDocs.method = "POST";
         authDocs.summary = "Device Authorization";
         authDocs.description = "Request device authorization.";
         authDocs.tags = {"OAuth2", "Device Flow"};
         authDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(authDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(authDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo verifyGetDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo verifyGetDocs;
         verifyGetDocs.path = "/oauth2/device/verify";
         verifyGetDocs.method = "GET";
         verifyGetDocs.summary = "Verify Device (GET)";
         verifyGetDocs.description = "Display device verification page.";
         verifyGetDocs.tags = {"OAuth2", "Device Flow"};
         verifyGetDocs.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyGetDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyGetDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo verifyPostDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo verifyPostDocs;
         verifyPostDocs.path = "/oauth2/device/verify";
         verifyPostDocs.method = "POST";
         verifyPostDocs.summary = "Verify Device (POST)";
         verifyPostDocs.description = "Submit device verification code.";
         verifyPostDocs.tags = {"OAuth2", "Device Flow"};
         verifyPostDocs.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(verifyPostDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyPostDocs);
     }
 };
 

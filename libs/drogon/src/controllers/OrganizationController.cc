@@ -1,6 +1,6 @@
 #include <authforge/drogon/controllers/OrganizationController.h>
 #include <oauth2/observability/AuditLogger.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <regex>
@@ -32,32 +32,34 @@ struct OrganizationControllerDocs
 {
     OrganizationControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo getOrgsDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo getOrgsDocs;
         getOrgsDocs.path = "/api/orgs";
         getOrgsDocs.method = "GET";
         getOrgsDocs.summary = "List Organizations";
         getOrgsDocs.description = "List all organizations.";
         getOrgsDocs.tags = {"Organization"};
         getOrgsDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getOrgsDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getOrgsDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo postOrgsDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo postOrgsDocs;
         postOrgsDocs.path = "/api/orgs";
         postOrgsDocs.method = "POST";
         postOrgsDocs.summary = "Create Organization";
         postOrgsDocs.description = "Create a new organization.";
         postOrgsDocs.tags = {"Organization"};
         postOrgsDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(postOrgsDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(postOrgsDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo postOrgUsersDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo postOrgUsersDocs;
         postOrgUsersDocs.path = "/api/orgs/{orgId}/users";
         postOrgUsersDocs.method = "POST";
         postOrgUsersDocs.summary = "Add User to Organization";
         postOrgUsersDocs.description = "Add a user to an organization.";
         postOrgUsersDocs.tags = {"Organization"};
         postOrgUsersDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(postOrgUsersDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
+          postOrgUsersDocs
+        );
     }
 };
 

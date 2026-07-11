@@ -2,7 +2,7 @@
 #include <oauth2/utils/PasswordHasher.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/observability/AuditLogger.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <chrono>
@@ -34,43 +34,45 @@ struct UserSelfServiceControllerDocs
 {
     UserSelfServiceControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo getProfile;
+        ::authforge::drogon::observability::openapi::EndpointInfo getProfile;
         getProfile.path = "/api/me";
         getProfile.method = "GET";
         getProfile.summary = "Get User Profile";
         getProfile.description = "Get current user's profile information.";
         getProfile.tags = {"User Profile"};
         getProfile.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(getProfile);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getProfile);
 
-        ::oauth2::observability::openapi::EndpointInfo deleteAccount;
+        ::authforge::drogon::observability::openapi::EndpointInfo deleteAccount;
         deleteAccount.path = "/api/me";
         deleteAccount.method = "DELETE";
         deleteAccount.summary = "Delete Account";
         deleteAccount.description = "Soft-delete the current user's account.";
         deleteAccount.tags = {"User Profile"};
         deleteAccount.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(deleteAccount);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteAccount);
 
-        ::oauth2::observability::openapi::EndpointInfo changePassword;
+        ::authforge::drogon::observability::openapi::EndpointInfo changePassword;
         changePassword.path = "/api/me/password";
         changePassword.method = "PUT";
         changePassword.summary = "Change Password";
         changePassword.description = "Change the current user's password.";
         changePassword.tags = {"User Profile"};
         changePassword.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(changePassword);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(changePassword);
 
-        ::oauth2::observability::openapi::EndpointInfo listAuthorizedApps;
+        ::authforge::drogon::observability::openapi::EndpointInfo listAuthorizedApps;
         listAuthorizedApps.path = "/api/me/authorized-apps";
         listAuthorizedApps.method = "GET";
         listAuthorizedApps.summary = "List Authorized Apps";
         listAuthorizedApps.description = "List OAuth2 clients authorized by the current user.";
         listAuthorizedApps.tags = {"User Profile"};
         listAuthorizedApps.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(listAuthorizedApps);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
+          listAuthorizedApps
+        );
 
-        ::oauth2::observability::openapi::EndpointInfo revokeApp;
+        ::authforge::drogon::observability::openapi::EndpointInfo revokeApp;
         revokeApp.path = "/api/me/authorized-apps/{clientId}";
         revokeApp.method = "DELETE";
         revokeApp.summary = "Revoke App Authorization";
@@ -78,7 +80,7 @@ struct UserSelfServiceControllerDocs
           "Revoke the current user's authorization for a specific OAuth2 client.";
         revokeApp.tags = {"User Profile"};
         revokeApp.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(revokeApp);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(revokeApp);
     }
 };
 

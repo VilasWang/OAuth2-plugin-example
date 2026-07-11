@@ -11,7 +11,7 @@
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 #include <functional>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/validation/RuleSet.h>
 #include <oauth2/validation/HttpResponder.h>
 #include <oauth2/types/OAuth2Types.h>
@@ -27,7 +27,7 @@
 
 using namespace oauth2;
 using namespace authforge::drogon::services;
-using namespace ::oauth2::observability::openapi;
+using namespace ::authforge::drogon::observability::openapi;
 
 namespace authforge::drogon::controllers
 {
@@ -82,7 +82,7 @@ struct OAuth2ControllerDocs
             successExample["status"] = "ok";
             successExample["version"] = "1.0.0";
 
-            ::oauth2::observability::openapi::EndpointInfo healthEndpoint;
+            ::authforge::drogon::observability::openapi::EndpointInfo healthEndpoint;
             healthEndpoint.path = "/health";
             healthEndpoint.method = "GET";
             healthEndpoint.summary = "Health check";
@@ -104,7 +104,7 @@ struct OAuth2ControllerDocs
             Json::Value errorExample;
             errorExample["error"] = "invalid_client";
 
-            ::oauth2::observability::openapi::EndpointInfo loginEndpoint;
+            ::authforge::drogon::observability::openapi::EndpointInfo loginEndpoint;
             loginEndpoint.path = "/oauth2/login";
             loginEndpoint.method = "POST";
             loginEndpoint.summary = "Authenticate user";
@@ -113,46 +113,53 @@ struct OAuth2ControllerDocs
               "Usually called by the frontend login page during the authorization code flow.";
             loginEndpoint.tags = {"OAuth2", "Authentication"};
 
-            ::oauth2::observability::openapi::ParameterInfo usernameParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo usernameParam;
             usernameParam.name = "username";
             usernameParam.description = "User's account username (required)";
-            usernameParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            usernameParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            usernameParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            usernameParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             usernameParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo passwordParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo passwordParam;
             passwordParam.name = "password";
             passwordParam.description = "User's password (required)";
-            passwordParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            passwordParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            passwordParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            passwordParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             passwordParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo clientIdParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo clientIdParam;
             clientIdParam.name = "client_id";
             clientIdParam.description = "Client identifier matches the requesting app (required)";
-            clientIdParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            clientIdParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            clientIdParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            clientIdParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             clientIdParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo redirectUriParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo redirectUriParam;
             redirectUriParam.name = "redirect_uri";
             redirectUriParam.description = "Redirect URI matching the registered client (required)";
-            redirectUriParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            redirectUriParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            redirectUriParam.type =
+              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            redirectUriParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             redirectUriParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo scopeParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo scopeParam;
             scopeParam.name = "scope";
             scopeParam.description = "Requested scope, space-separated (optional)";
-            scopeParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            scopeParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            scopeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            scopeParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             scopeParam.required = false;
 
-            ::oauth2::observability::openapi::ParameterInfo stateParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo stateParam;
             stateParam.name = "state";
             stateParam.description = "Opaque value to maintain state (recommended)";
-            stateParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            stateParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            stateParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            stateParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             stateParam.required = false;
 
             loginEndpoint.parameters = {
@@ -173,32 +180,35 @@ struct OAuth2ControllerDocs
             successExample["status"] = "success";
             successExample["message"] = "User registered successfully";
 
-            ::oauth2::observability::openapi::EndpointInfo registerEndpoint;
+            ::authforge::drogon::observability::openapi::EndpointInfo registerEndpoint;
             registerEndpoint.path = "/api/register";
             registerEndpoint.method = "POST";
             registerEndpoint.summary = "Register new user";
             registerEndpoint.description = "Registers a new user account into the system.";
             registerEndpoint.tags = {"User", "Registration"};
 
-            ::oauth2::observability::openapi::ParameterInfo usernameParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo usernameParam;
             usernameParam.name = "username";
             usernameParam.description = "Desired username (required)";
-            usernameParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            usernameParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            usernameParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            usernameParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             usernameParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo passwordParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo passwordParam;
             passwordParam.name = "password";
             passwordParam.description = "Strong password (required)";
-            passwordParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            passwordParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            passwordParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            passwordParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             passwordParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo emailParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo emailParam;
             emailParam.name = "email";
             emailParam.description = "Email address (optional)";
-            emailParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            emailParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            emailParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            emailParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             emailParam.required = false;
 
             registerEndpoint.parameters = {usernameParam, passwordParam, emailParam};
@@ -211,7 +221,7 @@ struct OAuth2ControllerDocs
 
         // Consent endpoint
         {
-            ::oauth2::observability::openapi::EndpointInfo consentEndpoint;
+            ::authforge::drogon::observability::openapi::EndpointInfo consentEndpoint;
             consentEndpoint.path = "/oauth2/consent";
             consentEndpoint.method = "POST";
             consentEndpoint.summary = "Submit user consent";
@@ -219,46 +229,53 @@ struct OAuth2ControllerDocs
               "Submit user consent for requested scopes. Redirects back to client.";
             consentEndpoint.tags = {"OAuth2", "Consent"};
 
-            ::oauth2::observability::openapi::ParameterInfo clientIdParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo clientIdParam;
             clientIdParam.name = "client_id";
             clientIdParam.description = "Client identifier (required)";
-            clientIdParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            clientIdParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            clientIdParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            clientIdParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             clientIdParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo userIdParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo userIdParam;
             userIdParam.name = "user_id";
             userIdParam.description = "User identifier (required)";
-            userIdParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            userIdParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            userIdParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            userIdParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             userIdParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo scopeParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo scopeParam;
             scopeParam.name = "scope";
             scopeParam.description = "Requested scope to consent (required)";
-            scopeParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            scopeParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            scopeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            scopeParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             scopeParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo redirectUriParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo redirectUriParam;
             redirectUriParam.name = "redirect_uri";
             redirectUriParam.description = "Redirect URI (required)";
-            redirectUriParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            redirectUriParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            redirectUriParam.type =
+              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            redirectUriParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             redirectUriParam.required = true;
 
-            ::oauth2::observability::openapi::ParameterInfo stateParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo stateParam;
             stateParam.name = "state";
             stateParam.description = "Opaque value to maintain state";
-            stateParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            stateParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            stateParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            stateParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             stateParam.required = false;
 
-            ::oauth2::observability::openapi::ParameterInfo actionParam;
+            ::authforge::drogon::observability::openapi::ParameterInfo actionParam;
             actionParam.name = "action";
             actionParam.description = "Action to perform: 'approve' or 'deny' (required)";
-            actionParam.type = ::oauth2::observability::openapi::ParameterType::STRING;
-            actionParam.location = ::oauth2::observability::openapi::ParameterLocation::QUERY;
+            actionParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            actionParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             actionParam.required = true;
             actionParam.enumValues = "approve,deny";
 
@@ -399,22 +416,22 @@ void SessionController::login(
     // the legacy drogon::services::AuthService fallback) funnel into the
     // exact same logic -- no duplicated CHECK 1/2/3 chain to keep in sync.
     auto onValidated = [this,
-                         req,
-                         username,
-                         clientId,
-                         scope,
-                         redirectUri,
-                         state,
-                         nonce,
-                         codeChallenge,
-                         codeChallengeMethod,
-                         callback = std::move(callback)](
-                          bool success,
-                          int64_t internalId,
-                          std::string publicSub,
-                          bool emailVerified,
-                          bool mfaEnabled
-                        ) mutable {
+                        req,
+                        username,
+                        clientId,
+                        scope,
+                        redirectUri,
+                        state,
+                        nonce,
+                        codeChallenge,
+                        codeChallengeMethod,
+                        callback = std::move(callback)](
+                         bool success,
+                         int64_t internalId,
+                         std::string publicSub,
+                         bool emailVerified,
+                         bool mfaEnabled
+                       ) mutable {
         if (success)
         {
             req->session()->insert("userId", std::to_string(internalId));
@@ -460,8 +477,10 @@ void SessionController::login(
 
             if (decision == authforge::identity::LoginDecision::RequireMfa)
             {
-                auto sharedCb = std::make_shared<
-                  std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+                auto sharedCb =
+                  std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+                    std::move(callback)
+                  );
                 auto db = ::drogon::app().getDbClient();
                 // users.id is a Postgres `integer` (32-bit) column --
                 // narrow explicitly so libpq binds this parameter as
@@ -491,8 +510,10 @@ void SessionController::login(
                         req,
                         *sharedCb,
                         "DB_QUERY_ERROR",
-                        std::string("login: failed to persist MFA pending "
-                                    "binding: ") +
+                        std::string(
+                          "login: failed to persist MFA pending "
+                          "binding: "
+                        ) +
                           e.base().what()
                       );
                   },
@@ -616,7 +637,10 @@ void SessionController::login(
                   return;
               }
               onValidated(
-                true, result->internalId, result->publicSub, result->emailVerified,
+                true,
+                result->internalId,
+                result->publicSub,
+                result->emailVerified,
                 result->mfaEnabled
               );
           }
@@ -627,16 +651,19 @@ void SessionController::login(
         AuthService::validateUser(
           username,
           password,
-          [onValidated = std::move(onValidated)](std::optional<services::AuthResult> result
-          ) mutable {
+          [onValidated =
+             std::move(onValidated)](std::optional<services::AuthResult> result) mutable {
               if (!result)
               {
                   onValidated(false, 0, "", false, false);
                   return;
               }
               onValidated(
-                true, static_cast<int64_t>(result->internalId), result->publicSub,
-                result->emailVerified, result->mfaEnabled
+                true,
+                static_cast<int64_t>(result->internalId),
+                result->publicSub,
+                result->emailVerified,
+                result->mfaEnabled
               );
           }
         );

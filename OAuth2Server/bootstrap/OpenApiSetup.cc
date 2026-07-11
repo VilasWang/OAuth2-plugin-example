@@ -1,6 +1,6 @@
 #include "OpenApiSetup.h"
 #include <drogon/drogon.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <filesystem>
 #include <string>
 
@@ -41,7 +41,7 @@ void setupOpenApi()
             serverUrl += ":" + std::to_string(port);
         }
 
-        oauth2::observability::openapi::OpenApiGenerator::setServerConfig(
+        authforge::drogon::observability::openapi::OpenApiGenerator::setServerConfig(
           serverUrl, "OAuth2 Authorization Server"
         );
     }
@@ -50,7 +50,7 @@ void setupOpenApi()
     std::filesystem::path baseDir = std::filesystem::current_path();
     std::string openapiPath = (baseDir / "docs" / "api" / "openapi.json").string();
 
-    if (!oauth2::observability::openapi::OpenApiGenerator::writeToFile(openapiPath))
+    if (!authforge::drogon::observability::openapi::OpenApiGenerator::writeToFile(openapiPath))
     {
         LOG_WARN << "Failed to write OpenAPI specification";
     }

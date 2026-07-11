@@ -5,7 +5,7 @@
 #include <oauth2/utils/EmailService.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/observability/AuditLogger.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
@@ -36,23 +36,23 @@ struct PasswordResetControllerDocs
 {
     PasswordResetControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo requestDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo requestDocs;
         requestDocs.path = "/api/password-reset/request";
         requestDocs.method = "POST";
         requestDocs.summary = "Request Password Reset";
         requestDocs.description = "Request a password reset link to be sent via email.";
         requestDocs.tags = {"User Verification"};
         requestDocs.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(requestDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(requestDocs);
 
-        ::oauth2::observability::openapi::EndpointInfo confirmDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo confirmDocs;
         confirmDocs.path = "/api/password-reset/confirm";
         confirmDocs.method = "POST";
         confirmDocs.summary = "Confirm Password Reset";
         confirmDocs.description = "Confirm a password reset using the token sent via email.";
         confirmDocs.tags = {"User Verification"};
         confirmDocs.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(confirmDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(confirmDocs);
     }
 };
 

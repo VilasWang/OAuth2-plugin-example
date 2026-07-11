@@ -1,7 +1,7 @@
 #include <authforge/drogon/controllers/ClientRegistrationController.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/observability/AuditLogger.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
@@ -33,14 +33,14 @@ struct ClientRegistrationControllerDocs
 {
     ClientRegistrationControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo regDocs;
+        ::authforge::drogon::observability::openapi::EndpointInfo regDocs;
         regDocs.path = "/oauth2/register";
         regDocs.method = "POST";
         regDocs.summary = "Register Client";
         regDocs.description = "Dynamic client registration.";
         regDocs.tags = {"OAuth2", "Dynamic Registration"};
         regDocs.requiresAuth = true;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(regDocs);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regDocs);
     }
 };
 

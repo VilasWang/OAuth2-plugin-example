@@ -1,11 +1,33 @@
 #pragma once
 
+// M3 Task 25 (authforge-sdk-refactor, design.md §15 item 5 / evaluation
+// L1/B1): relocated from OAuth2Plugin/include/oauth2/observability/openapi/
+// OpenApiGenerator.h into authforge::drogon::observability::openapi.
+//
+// Deviation from the literal design.md wording (documented here and in
+// PROGRESS.md): design.md's B1 decision said this class belongs in
+// `apps/server` because it does not use Drogon route introspection
+// (verified true -- it only calls LOG_INFO/LOG_ERROR from <drogon/drogon.h>
+// and manually-constructed EndpointInfo/Json::Value, nothing
+// Drogon-route-specific). That assessment was made before Task 20
+// relocated all 15+ controllers that call OpenApiGenerator::addEndpoint()
+// (their static-init EndpointDocs structs) into libs/drogon. Moving this
+// class into apps/server (OAuth2Server, the top of the dependency graph)
+// would make libs/drogon depend on the executable that depends on
+// libs/drogon -- a circular/backwards dependency. Moving it into
+// libs/drogon instead achieves the same underlying goal (out of
+// OAuth2Plugin's pseudo-domain layer) while matching where its actual
+// callers live; apps/server (main.cc's bootstrap::setupOpenApi(), see
+// OAuth2Server/bootstrap/OpenApiSetup.cc) still owns configuring the
+// server URL and writing the generated spec to disk -- only the endpoint
+// registry itself moved.
+
 #include <string>
 #include <vector>
 #include <map>
 #include <json/json.h>
 
-namespace oauth2::observability::openapi
+namespace authforge::drogon::observability::openapi
 {
 
 // Parameter types supported by OpenAPI
@@ -86,4 +108,4 @@ class OpenApiGenerator
     static Json::Value generateSchema();
 };
 
-}  // namespace oauth2::observability::openapi
+}  // namespace authforge::drogon::observability::openapi

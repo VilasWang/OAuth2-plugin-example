@@ -1,5 +1,5 @@
 #include <authforge/drogon/controllers/ApiDocController.h>
-#include <oauth2/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
@@ -15,7 +15,7 @@ struct ApiDocControllerDocs
 {
     ApiDocControllerDocs()
     {
-        ::oauth2::observability::openapi::EndpointInfo spec;
+        ::authforge::drogon::observability::openapi::EndpointInfo spec;
         spec.path = "/docs/api/openapi.json";
         spec.method = "GET";
         spec.summary = "Get OpenAPI Specification";
@@ -23,16 +23,16 @@ struct ApiDocControllerDocs
           "Returns the dynamically generated OpenAPI 3.0 specification in JSON format.";
         spec.tags = {"Documentation"};
         spec.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(spec);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(spec);
 
-        ::oauth2::observability::openapi::EndpointInfo ui;
+        ::authforge::drogon::observability::openapi::EndpointInfo ui;
         ui.path = "/docs/api/";
         ui.method = "GET";
         ui.summary = "Swagger UI";
         ui.description = "Serves the Swagger UI HTML page for interactive API documentation.";
         ui.tags = {"Documentation"};
         ui.requiresAuth = false;
-        ::oauth2::observability::openapi::OpenApiGenerator::addEndpoint(ui);
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(ui);
     }
 };
 
