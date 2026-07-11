@@ -20,6 +20,7 @@
 #include <authforge/drogon/controllers/AdminController.h>
 #include <authforge/drogon/controllers/ClientAdminController.h>
 #include <authforge/drogon/controllers/UserAdminController.h>
+#include <authforge/drogon/controllers/RoleScopeAdminController.h>
 #include <authforge/drogon/controllers/OAuth2StandardController.h>
 #include <filesystem>
 #include <fstream>
@@ -297,6 +298,9 @@ int main(int argc, char **argv)
     );
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::UserAdminController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::RoleScopeAdminController>()
     );
     drogon::app().registerController(
       std::make_shared<oauth2::controllers::OAuth2StandardController>()

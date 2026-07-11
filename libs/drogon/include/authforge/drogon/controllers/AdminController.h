@@ -25,13 +25,8 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
 
     // User Management routes moved to UserAdminController (M5 Task 29a).
 
-    // Scope Management
-    ADD_METHOD_TO(
-      AdminController::listScopes,
-      "/api/admin/scopes",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
+    // Role + Scope management routes moved to RoleScopeAdminController
+    // (M5 Task 29a).
 
     // Audit Logs
     ADD_METHOD_TO(
@@ -67,51 +62,8 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
       "oauth2::filters::AuthorizationFilter"
     );
 
-    // Role Management
-    ADD_METHOD_TO(
-      AdminController::listRoles,
-      "/api/admin/roles",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::createRole,
-      "/api/admin/roles",
-      ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::updateRole,
-      "/api/admin/roles/{roleId}",
-      ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::deleteRole,
-      "/api/admin/roles/{roleId}",
-      ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
-    );
-
-    // Scope Management (CRUD)
-    ADD_METHOD_TO(
-      AdminController::createScope,
-      "/api/admin/scopes",
-      ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::updateScope,
-      "/api/admin/scopes/{scopeId}",
-      ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::deleteScope,
-      "/api/admin/scopes/{scopeId}",
-      ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
-    );
+    // Role + Scope management routes moved to RoleScopeAdminController
+    // (M5 Task 29a).
 
     // Dashboard Stats
     ADD_METHOD_TO(
@@ -132,11 +84,7 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
 
     // Client Management handlers moved to ClientAdminController (M5 Task 29a).
     // User Management handlers moved to UserAdminController (M5 Task 29a).
-
-    void listScopes(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
+    // Role + Scope handlers moved to RoleScopeAdminController (M5 Task 29a).
 
     void listLogs(
       const ::drogon::HttpRequestPtr &req,
@@ -171,47 +119,6 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
 
     // User Detail & Management handlers moved to UserAdminController
     // (M5 Task 29a).
-
-    // Role Management
-    void listRoles(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void createRole(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void updateRole(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &roleId
-    );
-
-    void deleteRole(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &roleId
-    );
-
-    // Scope Management (CRUD)
-    void createScope(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void updateScope(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &scopeId
-    );
-
-    void deleteScope(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &scopeId
-    );
 
     // Dashboard Stats
     void getDashboardStats(
