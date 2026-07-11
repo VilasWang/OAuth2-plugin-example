@@ -20,6 +20,7 @@
 #include <authforge/drogon/controllers/ClientAdminController.h>
 #include <authforge/drogon/controllers/UserAdminController.h>
 #include <authforge/drogon/controllers/RoleScopeAdminController.h>
+#include <authforge/drogon/controllers/TokenAdminController.h>
 #include <oauth2/filters/AuthorizationFilter.h>
 #include <oauth2/filters/OAuth2AuthFilter.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
@@ -89,6 +90,9 @@ void registerAllControllers()
     );
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::RoleScopeAdminController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::TokenAdminController>()
     );
     drogon::app().registerController(
       std::make_shared<oauth2::controllers::OAuth2StandardController>()

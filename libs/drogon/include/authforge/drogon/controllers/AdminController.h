@@ -36,31 +36,8 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
       "oauth2::filters::AuthorizationFilter"
     );
 
-    // Token Management
-    ADD_METHOD_TO(
-      AdminController::listTokens,
-      "/api/admin/tokens",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::revokeTokensByClient,
-      "/api/admin/tokens/revoke-by-client",
-      ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::revokeTokensByUser,
-      "/api/admin/tokens/revoke-by-user",
-      ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::revokeToken,
-      "/api/admin/tokens/{tokenPrefix}",
-      ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
-    );
+    // Token Management routes (+ OIDC keys) moved to TokenAdminController
+    // (M5 Task 29a).
 
     // Role + Scope management routes moved to RoleScopeAdminController
     // (M5 Task 29a).
@@ -73,13 +50,7 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
       "oauth2::filters::AuthorizationFilter"
     );
 
-    // OIDC Key Info
-    ADD_METHOD_TO(
-      AdminController::getOidcKeys,
-      "/api/admin/oidc/keys",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
+    // OIDC Key Info route moved to TokenAdminController (M5 Task 29a).
     METHOD_LIST_END
 
     // Client Management handlers moved to ClientAdminController (M5 Task 29a).
@@ -91,31 +62,8 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
-    void listTokens(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void revokeToken(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &tokenPrefix
-    );
-
-    void revokeTokensByClient(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void revokeTokensByUser(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void getOidcKeys(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
+    // Token Management + OIDC keys handlers moved to TokenAdminController
+    // (M5 Task 29a).
 
     // User Detail & Management handlers moved to UserAdminController
     // (M5 Task 29a).
