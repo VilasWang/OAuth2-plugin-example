@@ -366,6 +366,39 @@ design.md §15 item 5 + Task 25 B1 要求把 `OpenApiGenerator`（不依赖 Drog
 
 **Task 25 现彻底完成**（bootstrap 拆分 6f250a8 + B1 OpenApiGenerator 迁出）。
 
+## Task 26：M3 构建产物路径同步（评审 H2）——评估性任务，无代码改动（同 Task 22 模式）
+
+**结论：M3 期间构建产物路径实际未变化，本任务无可同步项；改名 + 全量路径同步是 M8（Task 39 + 42-44）。**
+
+排查过程（用 sub-agent 全量扫描脚本/CI/agent/docker/文档里的路径引用）：
+
+1. **CMake target 未改名**：`OAuth2Server/CMakeLists.txt:2` 仍是 `project(OAuth2Server ...)`，`add_executable(${PROJECT_NAME})` 产出 `OAuth2Server`；二进制 `OAuth2Server.exe`；`paths.env` 的 `SERVER_BUILD_SUBDIR=OAuth2Server`/`SERVER_BINARY_NAME=OAuth2Server`/`OAUTH2_SERVER_DIR=OAuth2Server` 全部未变。
+2. **M2a–M3 新增的 `libs/*` 构建产物是 CMake 内部**：`LIBS_COMMON_DIR`/`LIBS_OAUTH2_DIR`/`LIBS_IDENTITY_DIR`/`LIBS_DROGON_DIR`/`LIBS_STORAGE_POSTGRES_DIR`/`LIBS_COMMON_TESTING_DIR` 已在 paths.env，顶层 `CMakeLists.txt` 的 `add_subdirectory` 消费。全量 grep 确认**零个**脚本/CI/agent 文件直接引用 `build/libs/` 或 `libs/drogon` 等（即没有越界硬编码需要修）。
+3. **Task 26 描述的 `OAuth2Server→apps/server` 改名是 M8 的事**：Task 39（M8「目录迁移」）明确含 `OAuth2Server→apps/server`，Task 42-44（M8）明确做脚本/docker/agent/config 的全量路径维护。design.md §14.1 标注 M8 为「原子切换、迁移前打 tag、整体成功或整体回退」，design.md 路径时序注（"M2a/M3 构建产物路径变化时同步 → M8 顶层改名最终对齐"）亦确认改名在 M8。**M3 提前做改名会破坏 M8 原子性**，故不做。Task 26 的描述文字是在 H2 评审时「新增」的，当时可能设想改名在 M3，后续改名挪到 M8 后未回填本任务描述——这是已知的计划文字与实际时序出入，已在本完成说明 + tasks.md 标注。
+
+**验收核对（acceptance：「三平台 CI 全绿 + 本地 manage run-backend/test 可用 + 抽样 agent workflow 可跑」）**：
+
+- **paths.env 驱动的脚本链正确**：4 个 loader（`cmake/Paths.cmake`、`scripts/backend/paths-env.ps1`、`scripts/backend/paths_env.bat`、`scripts/backend/env_common.sh`）+ 消费者（`manage.ps1`/`manage.sh`/`scripts/backend/*.{sh,bat}`/`scripts/smoke-parity.*`）全部读 paths.env。实测 PowerShell `Import-PathsEnv` 返回 `BUILD_DIR=build SERVER_BUILD_SUBDIR=OAuth2Server SERVER_BINARY_NAME=OAuth2Server OAUTH2_SERVER_DIR=OAuth2Server`，值与 CMake target 一致。
+- **agent workflow 引用的构建产物路径存在**：`build/OAuth2Server/Debug/OAuth2Server.exe`、`build/OAuth2Server/test/Debug/OAuth2Test_test.exe` 均在（本会话 Task 25 验证时构建产出）。
+- **`manage.ps1 test-backend -debug` 经 paths.env 跑通（wrapper 正确）**：`test.bat` 用 `%BUILD_DIR%\%OAUTH2_SERVER_DIR%\test\%BUILD_TYPE%` 定位测试目录，两套 config 都能加载运行。**Run 1（standard config.json，postgres 后端）全绿**（与本会话直接 `ctest --test-dir build -C Debug` 的 290/290 一致）。**Run 2（config.ci.json，memory-only）**：45 个 `Contract.*` 测试因 `dbClientsMap_` assert 崩溃失败——这是 **pre-existing 的 memory-config 限制**（Contract 测试构造 Postgres/Redis 存储实现，内部 `drogon::app().getDbClient("default")` 在 `db_clients: []` 的 memory 配置下命中 Drogon 硬 assert；Task 16 的 `ContractFixtures.h` storage_type=="memory" guard 已核实仍完整，只软化 fixture 的 client 查找，挡不住存储实现构造期直连）。**与 Task 25（OpenApiGenerator 迁移）/ Task 26（路径同步）无关**——不碰 DB/storage；本会话的 format 提交对 ContractFixtures.h 仅 clang-format（非语义，guard 完整）；直接 ctest（postgres config）290/290 证明零回归。Run 2 的 Contract/memory 崩溃是独立遗留问题，不在本任务范围。
+- **ctest 290/290 全绿**（Task 25 基线）。
+- 三平台 CI 全绿：本会话无法跑真实 GitHub Actions，但 CI 改动量为零（M3 未改路径），现有 `ci-{linux,windows,macos}.yml` 引用的 `build/OAuth2Server/...` 仍是正确路径，不会因 M3 失效。
+
+**留给 M8 的硬编码清单**（sub-agent 扫描结果，Task 42-44 处理；这些文件不经 paths.env，改名时必须手改）：
+
+- CI：`.github/workflows/ci-{linux,windows,macos}.yml`（`build/OAuth2Server/test` working-directory、`OAuth2Server/` 源路径、logs artifact）。
+- Docker：`deploy/docker/Dockerfile:54-58`（`COPY .../build/OAuth2Server/OAuth2Server` + 源文件 COPY）、`docker-compose.yml`、`docker-compose.prod.yml`、`docker-quick-verify-debug.sh`。
+- Agent workflows：`.agent/workflows/{build,test,test-checklist,stress-test,stop,db-reset,orm-gen,pre-commit}.md`。
+- Skills：`.claude/skills/{e2e-test,docker-integration-test,orm-gen,db-reset,create-migration,openapi-update,release}/SKILL.md`。
+- Agent defs：`.claude/agents/{code-reviewer,api-documenter,test-writer,security-reviewer,performance-analyzer,compliance-checker}.md`。
+- 独立脚本：`scripts/{test-frontend-url-config.sh,security-check.sh}`。
+- Hook：`.claude/settings.json` 的 pre-commit `cd build/OAuth2Server && ctest`。
+- 文档：`README.md`/`README.zh-CN.md`/`CLAUDE.md`。
+
+**无需改动**（paths.env 驱动或 CMake 内部，改名时跟着 paths.env 自动走）：`manage.ps1`/`manage.sh`/`scripts/backend/*`/`scripts/smoke-parity.*`/顶层 `CMakeLists.txt`/`cmake/Paths.cmake`/所有 `libs/` 路径。
+
+**Task 26 完成（评估性，无代码改动）**。
+
 ## Task 17 剩余部分：新建 `authforge::oauth2::protocol` 服务（`TokenService`/`ClientService`/`AuthorizationService`）
 
 **背景**：Task 17 slice 1-12（见上文"M2b 详细完成内容"）已经把所有阻塞项就位（PKCE/AuditLogger 端口/仓储接口/聚合/决策引擎/JwkManager/issuer），但 `TokenService`/`ClientService` 本体、以及设计要求但代码里从未真正存在过的 `AuthorizationService`，仍然没有迁移/创建。本次完成这部分。
