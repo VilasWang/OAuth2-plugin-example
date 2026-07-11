@@ -21,55 +21,7 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
       ::drogon::Get,
       "oauth2::filters::AuthorizationFilter"
     );
-    // Client Management
-    ADD_METHOD_TO(
-      AdminController::listClients,
-      "/api/admin/clients",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::createClient,
-      "/api/admin/clients",
-      ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::getClient,
-      "/api/admin/clients/{clientId}",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::updateClient,
-      "/api/admin/clients/{clientId}",
-      ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::deleteClient,
-      "/api/admin/clients/{clientId}",
-      ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::resetClientSecret,
-      "/api/admin/clients/{clientId}/reset-secret",
-      ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::getClientScopes,
-      "/api/admin/clients/{clientId}/scopes",
-      ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
-    );
-    ADD_METHOD_TO(
-      AdminController::updateClientScopes,
-      "/api/admin/clients/{clientId}/scopes",
-      ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
-    );
+    // Client Management routes moved to ClientAdminController (M5 Task 29a).
 
     // User Management
     ADD_METHOD_TO(
@@ -222,51 +174,7 @@ class AdminController : public ::drogon::HttpController<AdminController, false>
     );
     METHOD_LIST_END
 
-    void listClients(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void createClient(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
-    void deleteClient(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &clientId
-    );
-
-    void getClient(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &clientId
-    );
-
-    void updateClient(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &clientId
-    );
-
-    void getClientScopes(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &clientId
-    );
-
-    void updateClientScopes(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &clientId
-    );
-
-    void resetClientSecret(
-      const ::drogon::HttpRequestPtr &req,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
-      const std::string &clientId
-    );
+    // Client Management handlers moved to ClientAdminController (M5 Task 29a).
 
     void listUsers(
       const ::drogon::HttpRequestPtr &req,

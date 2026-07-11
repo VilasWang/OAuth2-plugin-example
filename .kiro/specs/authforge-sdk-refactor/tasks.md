@@ -229,6 +229,8 @@
 
 ## M4 — 测试消费库化 + SDK 冒烟（依赖：M3）
 
+> **执行顺序调整（2026-07-11，Task 28 调研结论）**：原计划 M4 收尾后进 M5。调研发现 Task 28「纯引擎 SDK 冒烟」被存储接口迁移收尾（新增 Task 27.5，M1/M2b 之间漏项）卡住，详见 Task 28 说明。故调整顺序：**先做 M5（Task 29/30/31，不阻塞、可与 M4 并行、Task 31 直接服务"协议引擎可复用"）→ Task 27.5 存储接口迁移收尾 → Task 28a 全栈 build-tree smoke → M6/M7/M8**。Task 28b 纯引擎形态留到 27.5 完成后升级。
+
 - [x] 27. 重构 `tests/` 改为链接库产物（F6）
   - 取消 `GLOB_RECURSE` 全源码编译；按层链接对应库；含注册符号的库 whole-archive
   - **测试框架是 `DROGON_TEST` 宏 + `<drogon/drogon_test.h>`（非 gtest；后端总 319 个 `DROGON_TEST`，`unit/` 139）**——CMake 重构须保留该运行器（勿误按 gtest 组织）
@@ -237,18 +239,30 @@
   - **完成说明**：`OAuth2Server/test/CMakeLists.txt` 不再直接 GLOB 编译 `OAuth2Plugin/src/*.cc`（59 个）与已空的 `OAuth2Server/{controllers,filters}`——这些是 Task 16 的过渡桥（plugin 源被双编译：一次进 test、一次进 OBJECT 库经 `authforge::drogon` 传递）。改为显式 `target_link_libraries(... OAuth2Plugin ...)`（OBJECT 库，CMake 去重，无双符号）+ `authforge::{common,oauth2,storage::postgres,drogon,identity}`。删除冗余的 `OAuth2Plugin/src` 私有 include 路径（已核实 47 个测试用的 `<oauth2/...>` include 全部解析到 public `include/oauth2/`，零 src-only 私有头）+ 删除 test 目标上冗余的 `find_package(CURL)`/`CURL::libcurl`/`CURL_STATICLIB`（现经 OAuth2Plugin PUBLIC 传递，test 不再自编 EmailService.cc）。**whole-archive 不需要**（AutoCreation=false controller 显式注册 + OBJECT 库，design §5.5 / Task 22 结论）。view 归属：`drogon_create_views`（login.csp/consent.csp）仍在 test 目标（测试经 SessionController 渲染 login.csp），符合 §5.5「view 是运行期模板查找非链接期符号」。保留直编：`SchemaManager.cc` + `bootstrap/{ControllerRegistration,IdentityAssembly}.cc`（apps/server 关注点，尚无独立库；test_main.cc 直接调用）。DROGON_TEST 运行器、contract 测试注册、compile defs、config 拷贝全部不变。
   - **验收**：全量编译通过；`ctest -C Debug` **290/290 全绿**（零回归）；构建更快——test 目标不再编译 59 个 plugin 源（构建输出仅含 test/schema/bootstrap/views），消除双编译；零越界私有头 include（src 路径已移除）。
 
-- [ ] 28. 创建 `examples/third-party-host`（SDK 冒烟，F1/H1/H5 回归防线）
-  - 最小 Drogon 宿主，`find_package(authforge-oauth2)` + 实现 3 个端口，whole-archive 链接
-  - **实发 HTTP 请求**跑授权码流；断言路由注册 + 视图渲染 + config 驱动插件实例化
-  - 产出：样例工程 + CTest label `SdkSmoke`；验收：仅 find_package 集成即可跑通授权码流
+- [ ] 27.5. 存储接口迁移收尾（解锁 Task 28b 纯引擎形态；M1/M2b 之间漏项补回）
+  - 现状（2026-07-11 核实）：存储层处于半迁移——旧 `oauth2::storage::*` 接口（`IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository` + `IOAuth2Storage` facade + DTO，均在 `OAuth2Plugin/include/oauth2/storage/`，namespace `oauth2`，M1 Task 7/9/10 产物）与新 `authforge::oauth2::repository::*`（`libs/oauth2/include/authforge/oauth2/repository/`，M2b Task 17 产物，`AuthorizationService` 实际吃的接口）**并存**；Memory 实现（`MemoryClientRepository` 等 9 个，绑旧接口 + namespace `oauth2`）与 Postgres 实现（`PostgresOAuth2Storage` 等，仍在 `OAuth2Plugin/src/storage/`，M2b Task 18 只迁了 ORM 模型 + 4 个 identity 仓储）**均未迁到新接口**。
+  - 工作：Memory/Postgres 仓储实现从 `oauth2::storage::*` 迁到 `authforge::oauth2::repository::*`（+ identity 侧 `authforge::identity::*`）；退役 `oauth2::storage::*` 与 `IOAuth2Storage` facade（或保留 facade 作过渡，按迁移阻力定）；DTO 归位（OAuth2Client 等随接口走）。
+  - 产出：单一存储接口层（`authforge::oauth2::repository::*`）；验收：全量编译 + ctest 全绿；`oauth2::storage::*` 无残留引用（grep 可证）。
+  - 注：这是纯引擎 Task 28b 的真正前置，不是 M8 命名空间统一（Task 40 只改名、不合并两套接口）。
+
+- [ ] 28. 创建 `examples/third-party-host`（SDK 冒烟，F1/H1/H5 回归防线）—— 拆为 28a（现在可做）+ 28b（纯引擎，gated on 27.5）
+  - **调研结论（2026-07-11）**：原任务文本自相矛盾——前半"`find_package(authforge-oauth2)` + 实现 3 个端口"= 纯引擎；后半"断言路由注册 + 视图渲染 + config 驱动插件实例化"= 全产品栈。两者在当前包结构下互斥。根因：纯引擎消费者要喂 `AuthorizationService`（吃 `authforge::oauth2::repository::*` 新接口），但现成 Memory 实现绑在 `oauth2::storage::*` 旧接口上（Task 27.5 才迁移）。另：SDK 各包缺 `Config.cmake.in`/`find_dependency`（外部 `find_package` 跨包消费不通）；`OAuth2Plugin` 是 OBJECT 库，install/静态库分发是 §5.7 明确推迟的风险（line 558：v1.x 仅源码集成）。
+  - **28a（现在可做，先做）**：全栈 build-tree smoke。样例以 `find_package` 消费整套已验证产品栈（oauth2+plugin+drogon+identity+storage-postgres+common）经 build-tree（line 558「源码集成」），复用 controller/plugin/view，实发 HTTP 跑授权码流；断言路由注册 + 视图渲染 + config 驱动插件实例化。各包加 `Config.cmake.in`/`find_dependency` + configure-time `export()`（build-tree Config，有界机械）。whole-archive 不需要（§5.5）。产出：样例工程 + CTest label `SdkSmoke`（也满足 M8 Task 39 验收对 SdkSmoke 的依赖）+ 打包地基。
+  - **28b（gated on 27.5，后做）**：纯引擎形态升级。消费者实现 3 端口（`ISubjectResolver`/`IRoleProvider`/`IUserInfoProvider`）+ 仓储（迁到新接口后）喂 `AuthorizationService`/`TokenService`，自写薄 `/authorize`、`/token`，不依赖 authforge-drogon。验收："仅 `find_package(authforge-oauth2)` + 实现 3 端口即可跑通授权码流"（§1.1 头号目标的真正证明）。
 
 ---
 
 ## M5 — 控制器拆分 + 身份域内聚（依赖：M3，可与 M4 并行）
 
-- [ ] 29. 拆分 `AdminController`（2896 行）
-  - → `UserAdminController`/`ClientAdminController`/`RoleScopeAdminController`/`TokenAdminController`/`OrgAdminController`/`AuditController`；业务下沉 application service
-  - 产出：6 个薄控制器；验收：Admin API ~52 测试全绿；Playwright E2E 全绿
+- [ ] 29. 拆分 `AdminController`（2914 行；`.h` 401 + `.cc` 2914）
+  - → `UserAdminController`/`ClientAdminController`/`RoleScopeAdminController`/`TokenAdminController`/`AuditController`；业务下沉 application service
+  - 产出：薄控制器；验收：Admin API ~52 测试全绿；Playwright E2E 全绿
+  - **实地摸底（2026-07-11）+ 分阶段决策（已批准）**：
+    - 30 路由、handler 行段已记录（`listClients`@326 … `dashboard`@2901）。`.cc` 顶部 ~295 行是 `AdminApiControllerDocs` 静态结构（OpenAPI `addEndpoint`），拆分时按域分发到各控制器。
+    - **关键发现**：handler **直连 DB + 大量裸 SQL**（`drogon::app().getDbClient()->execSqlAsync("SELECT ... FROM oauth2_clients ...")`），不经 plugin/仓储，违反项目"禁裸 SQL"铁律 → 是预存技术债。
+    - **路由→控制器映射**：Client=8（`/clients*`）、User=7（`/users*`）、RoleScope=8（`/roles*`+`/scopes*`）、Token=4（`/tokens*`）、Audit=1（`/logs`）。
+    - **3 决策**：(1) **分阶段**——29a 机械拆分（原样搬，零行为变化，先做）；29b 业务下沉 + 裸 SQL→ORM Mapper（后做，按域分批）。(2) **dashboard（2 路由）→AuditController**、**oidc/keys（1 路由）→TokenAdminController**。(3) **OrgAdminController 本次跳过**——AdminController 无 `/api/admin/org*` 路由，组织管理在别处（Task 30 才迁），不是从本控制器拆出。
+    - 29a 执行：按控制器逐个搬（Client→User→RoleScope→Token→Audit），每搬一个 checkpoint（编译通过），全部搬完 + 改 `ControllerRegistration` + 分发 OpenAPI docs 后跑全量 `manage.ps1 test-backend`。注意 `AuthorizationFilter` 字符串引用、AutoCreation=false 显式 registerController（§5.5）。
 
 - [ ] 30. Organization 管理归入 `apps/server/src/organization/`（产品级）
   - 产出：迁移后的组织管理；验收：多租户组织 CRUD 功能等价
