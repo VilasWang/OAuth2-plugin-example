@@ -15,15 +15,18 @@ GitHubAuthService::GitHubAuthService(
   std::shared_ptr<ISocialAccountRepository> accountRepo,
   std::string clientId,
   std::string clientSecret
-) :
-  httpClient_(std::move(httpClient)),
-  accountRepo_(std::move(accountRepo)),
-  clientId_(std::move(clientId)),
-  clientSecret_(std::move(clientSecret))
+)
+    : httpClient_(std::move(httpClient)),
+      accountRepo_(std::move(accountRepo)),
+      clientId_(std::move(clientId)),
+      clientSecret_(std::move(clientSecret))
 {
 }
 
-void GitHubAuthService::login(const std::string &code, std::function<void(GitHubLoginResult)> &&callback)
+void GitHubAuthService::login(
+  const std::string &code,
+  std::function<void(GitHubLoginResult)> &&callback
+)
 {
     if (!httpClient_ || !accountRepo_)
     {
@@ -39,11 +42,8 @@ void GitHubAuthService::login(const std::string &code, std::function<void(GitHub
 
     // Step 1: Exchange code for access token --
     // POST https://github.com/login/oauth/access_token
-    std::vector<std::pair<std::string, std::string>> params = {
-      {"client_id", clientId_},
-      {"client_secret", clientSecret_},
-      {"code", code}
-    };
+    std::vector<std::pair<std::string, std::string>> params =
+      {{"client_id", clientId_}, {"client_secret", clientSecret_}, {"code", code}};
 
     httpClient_->postForm(
       "https://github.com/login/oauth/access_token",

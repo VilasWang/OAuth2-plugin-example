@@ -111,10 +111,7 @@ void restoreAdminMfa()
     p.get_future().get();
 }
 
-std::string loginForMfaToken(
-  const std::string &clientId,
-  const std::string &redirectUri
-)
+std::string loginForMfaToken(const std::string &clientId, const std::string &redirectUri)
 {
     Json::Value body;
     body["username"] = "admin";
@@ -204,9 +201,13 @@ DROGON_TEST(Integration_MfaCrossClientAuthFix_HappyPath_EndToEnd)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
@@ -259,9 +260,13 @@ DROGON_TEST(Integration_MfaCrossClientAuthFix_CrossClient_NoRowsCreated)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);

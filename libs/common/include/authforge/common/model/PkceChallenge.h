@@ -34,8 +34,8 @@ class PkceChallenge
     /// ("S256" or "plain", per RFC 7636 §4.3). Throws std::invalid_argument
     /// if `challenge` is empty or `method` is not one of the two supported
     /// values.
-    PkceChallenge(std::string challenge, std::string method) :
-      challenge_(std::move(challenge)), method_(std::move(method))
+    PkceChallenge(std::string challenge, std::string method)
+        : challenge_(std::move(challenge)), method_(std::move(method))
     {
         if (challenge_.empty())
         {

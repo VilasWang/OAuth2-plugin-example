@@ -237,9 +237,7 @@ DROGON_TEST(
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "vue-client");
 }
 
-DROGON_TEST(
-  Integration_P0_Contract_Functional_GrantRepository_Postgres_ConsumeAuthCode_SingleUse
-)
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Postgres_ConsumeAuthCode_SingleUse)
 {
     auto db = getPostgresClientOrNull();
     if (!db)

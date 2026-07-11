@@ -25,8 +25,8 @@ namespace oauth2::adapters
 class StorageRoleProvider : public authforge::common::ports::IRoleProvider
 {
   public:
-    explicit StorageRoleProvider(std::shared_ptr<oauth2::IOAuth2Storage> storage) :
-      storage_(std::move(storage))
+    explicit StorageRoleProvider(std::shared_ptr<oauth2::IOAuth2Storage> storage)
+        : storage_(std::move(storage))
     {
     }
 

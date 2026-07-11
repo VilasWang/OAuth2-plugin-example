@@ -167,10 +167,7 @@ void PostgresTokenRepository::saveTokenPair(
     );
 }
 
-void PostgresTokenRepository::getAccessToken(
-  const std::string &token,
-  AccessTokenCallback &&cb
-)
+void PostgresTokenRepository::getAccessToken(const std::string &token, AccessTokenCallback &&cb)
 {
     if (!dbClientReader_)
     {
@@ -206,10 +203,7 @@ void PostgresTokenRepository::getAccessToken(
     }
 }
 
-void PostgresTokenRepository::saveRefreshToken(
-  const OAuth2RefreshToken &token,
-  VoidCallback &&cb
-)
+void PostgresTokenRepository::saveRefreshToken(const OAuth2RefreshToken &token, VoidCallback &&cb)
 {
     if (!dbClientMaster_)
     {
@@ -253,10 +247,7 @@ void PostgresTokenRepository::saveRefreshToken(
     }
 }
 
-void PostgresTokenRepository::getRefreshToken(
-  const std::string &token,
-  RefreshTokenCallback &&cb
-)
+void PostgresTokenRepository::getRefreshToken(const std::string &token, RefreshTokenCallback &&cb)
 {
     if (!dbClientReader_)
     {
@@ -503,10 +494,7 @@ void PostgresTokenRepository::introspectToken(
     );
 }
 
-void PostgresTokenRepository::incrementIntrospectCount(
-  const std::string &token,
-  VoidCallback &&cb
-)
+void PostgresTokenRepository::incrementIntrospectCount(const std::string &token, VoidCallback &&cb)
 {
     if (!dbClientMaster_)
     {

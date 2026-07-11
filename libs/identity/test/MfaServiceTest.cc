@@ -125,9 +125,8 @@ TEST(MfaServiceTest, VerifyAndEnable_CorrectCode_EnablesAndReturnsBackupCodes)
     svc->setupSecret(42, "alice", [&](auto r) { setupResult = std::move(r); });
     ASSERT_TRUE(setupResult.has_value());
 
-    std::string code = authforge::identity::totp::generateCode(
-      setupResult->secret, clock->nowSeconds()
-    );
+    std::string code =
+      authforge::identity::totp::generateCode(setupResult->secret, clock->nowSeconds());
 
     std::optional<MfaEnableResult> enableResult;
     svc->verifyAndEnable(42, code, [&](auto r) { enableResult = std::move(r); });
@@ -190,9 +189,8 @@ TEST(MfaServiceTest, VerifyLoginCode_EnabledAndCorrect_ReturnsTrue)
 
     repo->data[42].secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
     repo->data[42].enabled = true;
-    std::string code = authforge::identity::totp::generateCode(
-      repo->data[42].secret, clock->nowSeconds()
-    );
+    std::string code =
+      authforge::identity::totp::generateCode(repo->data[42].secret, clock->nowSeconds());
 
     bool verified = false;
     svc->verifyLoginCode(42, code, [&](bool v) { verified = v; });
@@ -207,9 +205,8 @@ TEST(MfaServiceTest, VerifyLoginCode_NotEnabled_ReturnsFalse)
 
     repo->data[42].secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
     repo->data[42].enabled = false;
-    std::string code = authforge::identity::totp::generateCode(
-      repo->data[42].secret, clock->nowSeconds()
-    );
+    std::string code =
+      authforge::identity::totp::generateCode(repo->data[42].secret, clock->nowSeconds());
 
     bool verified = true;
     svc->verifyLoginCode(42, code, [&](bool v) { verified = v; });

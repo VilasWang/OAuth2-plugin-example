@@ -38,8 +38,10 @@ class ITokenRepository
   public:
     virtual ~ITokenRepository() = default;
 
-    using AccessTokenCallback = std::function<void(std::optional<authforge::oauth2::model::OAuth2AccessToken>)>;
-    using RefreshTokenCallback = std::function<void(std::optional<authforge::oauth2::model::OAuth2RefreshToken>)>;
+    using AccessTokenCallback =
+      std::function<void(std::optional<authforge::oauth2::model::OAuth2AccessToken>)>;
+    using RefreshTokenCallback =
+      std::function<void(std::optional<authforge::oauth2::model::OAuth2RefreshToken>)>;
     using VoidCallback = std::function<void()>;
     using TokenIntrospectionCallback =
       std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)>;

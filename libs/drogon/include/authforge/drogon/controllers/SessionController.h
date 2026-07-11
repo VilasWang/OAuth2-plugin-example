@@ -49,6 +49,7 @@ class SessionController : public ::drogon::HttpController<SessionController, fal
     {
         identityAuthService_ = authService;
     }
+
     void setSessionManager(authforge::identity::SessionManager *sessionManager)
     {
         sessionManager_ = sessionManager;

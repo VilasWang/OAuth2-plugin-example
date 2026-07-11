@@ -40,6 +40,7 @@ class FakeOAuthHttpClient : public IOAuthHttpClient
         std::string url;
         std::vector<std::pair<std::string, std::string>> params;
     };
+
     struct GetCall
     {
         std::string url;
@@ -63,12 +64,17 @@ class FakeOAuthHttpClient : public IOAuthHttpClient
         cb(std::move(result));
     }
 
-    void getWithBearerToken(const std::string &url, const std::string &bearerToken, ResultCallback &&cb)
-      override
+    void getWithBearerToken(
+      const std::string &url,
+      const std::string &bearerToken,
+      ResultCallback &&cb
+    ) override
     {
         getCalls.push_back({url, bearerToken});
         if (getResponses.empty())
-            throw std::runtime_error("FakeOAuthHttpClient: getWithBearerToken response queue exhausted");
+            throw std::runtime_error(
+              "FakeOAuthHttpClient: getWithBearerToken response queue exhausted"
+            );
         OAuthHttpResult result = getResponses.front();
         getResponses.pop_front();
         cb(std::move(result));
@@ -92,8 +98,11 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
         return provider + "|" + subject;
     }
 
-    void findLinkedUser(const std::string &provider, const std::string &subject, LookupCallback &&cb)
-      override
+    void findLinkedUser(
+      const std::string &provider,
+      const std::string &subject,
+      LookupCallback &&cb
+    ) override
     {
         auto it = linked.find(key(provider, subject));
         cb(it == linked.end() ? std::nullopt : std::make_optional(it->second));

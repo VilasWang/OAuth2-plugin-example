@@ -101,10 +101,7 @@ class AuthService
      * @param callback Returns user info JSON (sub/name/email/roles) or
      * nullopt if not found.
      */
-    void getUserInfo(
-      int64_t userId,
-      std::function<void(std::optional<Json::Value>)> &&callback
-    );
+    void getUserInfo(int64_t userId, std::function<void(std::optional<Json::Value>)> &&callback);
 
   private:
     std::shared_ptr<IUserRepository> userRepo_;

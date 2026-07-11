@@ -113,7 +113,7 @@ struct WebAuthnAuthenticationChallenge
  */
 struct WebAuthnAuthResult
 {
-    int64_t userId = 0;    // Internal user id (for the caller's own follow-up lookups).
+    int64_t userId = 0;     // Internal user id (for the caller's own follow-up lookups).
     std::string publicSub;  // users.public_sub -- what the controller today calls "user_id".
     int signCount = 0;      // sign_count AFTER this authentication's increment.
 };

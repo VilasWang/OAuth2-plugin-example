@@ -34,9 +34,7 @@ class WeChatController : public ::drogon::HttpController<WeChatController, false
 
     METHOD_LIST_BEGIN
     // Endpoint to exchange WeChat code for User Info
-    ADD_METHOD_TO(
-      WeChatController::login, "/api/wechat/login", ::drogon::Post, ::drogon::Options
-    );
+    ADD_METHOD_TO(WeChatController::login, "/api/wechat/login", ::drogon::Post, ::drogon::Options);
     METHOD_LIST_END
 
     void login(

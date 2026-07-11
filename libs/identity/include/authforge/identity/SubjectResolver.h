@@ -34,8 +34,8 @@ inline std::pair<std::string, std::string> splitSubject(const std::string &value
 class SubjectResolver : public authforge::common::ports::ISubjectResolver
 {
   public:
-    explicit SubjectResolver(std::shared_ptr<ISubjectMappingRepository> repo) :
-      repo_(std::move(repo))
+    explicit SubjectResolver(std::shared_ptr<ISubjectMappingRepository> repo)
+        : repo_(std::move(repo))
     {
     }
 

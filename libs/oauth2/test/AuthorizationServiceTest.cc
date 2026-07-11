@@ -28,6 +28,7 @@ class FakeClientRepo : public IClientRepository
         auto it = clients.find(clientId);
         cb(it == clients.end() ? std::nullopt : std::make_optional(it->second));
     }
+
     void validateClient(const std::string &, const std::string &, BoolCallback &&cb) override
     {
         cb(true);
@@ -40,7 +41,11 @@ class FakeConsentRepo : public IConsentRepository
     // key: internalUserId:clientId:scope
     std::unordered_map<std::string, bool> consents;
 
-    static std::string key(const UserRef &user, const std::string &clientId, const std::string &scope)
+    static std::string key(
+      const UserRef &user,
+      const std::string &clientId,
+      const std::string &scope
+    )
     {
         return std::to_string(user.internalUserId) + ":" + clientId + ":" + scope;
     }
@@ -55,6 +60,7 @@ class FakeConsentRepo : public IConsentRepository
         auto it = consents.find(key(user, clientId, scope));
         cb(it != consents.end() && it->second);
     }
+
     void saveUserConsent(
       const UserRef &user,
       const std::string &clientId,
@@ -65,6 +71,7 @@ class FakeConsentRepo : public IConsentRepository
         consents[key(user, clientId, scope)] = true;
         cb(true);
     }
+
     void revokeUserConsent(
       const UserRef &user,
       const std::string &clientId,
@@ -120,9 +127,9 @@ TEST(AuthorizationServiceTest, EvaluateScopes_UnknownClient_AllInvalid)
     AuthorizationService svc(clients);
 
     authforge::oauth2::access::ScopeValidationSummary summary;
-    svc.evaluateScopes(
-      "unknown-client", "local:alice", {"openid"}, [&](auto s) { summary = std::move(s); }
-    );
+    svc.evaluateScopes("unknown-client", "local:alice", {"openid"}, [&](auto s) {
+        summary = std::move(s);
+    });
 
     EXPECT_TRUE(summary.hasErrors());
     ASSERT_EQ(summary.invalid.size(), 1u);
@@ -136,9 +143,9 @@ TEST(AuthorizationServiceTest, EvaluateScopes_ScopeNotAllowed_Invalid)
     AuthorizationService svc(clients);
 
     authforge::oauth2::access::ScopeValidationSummary summary;
-    svc.evaluateScopes(
-      "test-client", "local:alice", {"not-allowed"}, [&](auto s) { summary = std::move(s); }
-    );
+    svc.evaluateScopes("test-client", "local:alice", {"not-allowed"}, [&](auto s) {
+        summary = std::move(s);
+    });
 
     EXPECT_TRUE(summary.hasErrors());
     ASSERT_EQ(summary.invalid.size(), 1u);
@@ -154,9 +161,9 @@ TEST(AuthorizationServiceTest, EvaluateScopes_NoConsentPort_NonAdminScope_Consen
     AuthorizationService svc(clients);
 
     authforge::oauth2::access::ScopeValidationSummary summary;
-    svc.evaluateScopes(
-      "test-client", "local:alice", {"openid"}, [&](auto s) { summary = std::move(s); }
-    );
+    svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
+        summary = std::move(s);
+    });
 
     EXPECT_TRUE(summary.needsConsent());
     ASSERT_EQ(summary.consentRequired.size(), 1u);
@@ -173,9 +180,9 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AdminScope_NoRoleProvider_TreatedA
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
     authforge::oauth2::access::ScopeValidationSummary summary;
-    svc.evaluateScopes(
-      "test-client", "local:alice", {"admin"}, [&](auto s) { summary = std::move(s); }
-    );
+    svc.evaluateScopes("test-client", "local:alice", {"admin"}, [&](auto s) {
+        summary = std::move(s);
+    });
 
     // Admin-tiered scope, no way to confirm the admin role -> Invalid
     // (matches ScopeDecisionEngine's tier-2 default: hasAdminRole=false).
@@ -195,9 +202,9 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AdminScope_WithAdminRole_ConsentRe
     AuthorizationService svc(clients, consents, subjectResolver, roleProvider);
 
     authforge::oauth2::access::ScopeValidationSummary summary;
-    svc.evaluateScopes(
-      "test-client", "local:alice", {"admin"}, [&](auto s) { summary = std::move(s); }
-    );
+    svc.evaluateScopes("test-client", "local:alice", {"admin"}, [&](auto s) {
+        summary = std::move(s);
+    });
 
     EXPECT_TRUE(summary.needsConsent());
     ASSERT_EQ(summary.consentRequired.size(), 1u);
@@ -214,9 +221,9 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AlreadyConsented_Valid)
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
     authforge::oauth2::access::ScopeValidationSummary summary;
-    svc.evaluateScopes(
-      "test-client", "local:alice", {"openid"}, [&](auto s) { summary = std::move(s); }
-    );
+    svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
+        summary = std::move(s);
+    });
 
     EXPECT_TRUE(summary.canProceed());
     ASSERT_EQ(summary.valid.size(), 1u);

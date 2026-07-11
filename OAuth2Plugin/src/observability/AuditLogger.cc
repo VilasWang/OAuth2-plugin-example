@@ -87,7 +87,8 @@ void AuditLogger::log(const AuditEvent &event)
     catch (const std::exception &e)
     {
         logger().log(
-          authforge::common::ports::LogLevel::Warn, "AuditLogger: Exception: " + std::string(e.what())
+          authforge::common::ports::LogLevel::Warn,
+          "AuditLogger: Exception: " + std::string(e.what())
         );
     }
 }

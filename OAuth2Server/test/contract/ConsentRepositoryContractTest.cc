@@ -91,9 +91,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
         db->execSqlAsync(
           "INSERT INTO users (username, password_hash, salt) VALUES ($1, $2, $3) "
           "RETURNING id",
-          [cb](const drogon::orm::Result &r) {
-              cb(r.empty() ? -1 : r[0]["id"].as<int32_t>());
-          },
+          [cb](const drogon::orm::Result &r) { cb(r.empty() ? -1 : r[0]["id"].as<int32_t>()); },
           [cb](const drogon::orm::DrogonDbException &) { cb(-1); },
           username,
           std::string("contract-test-hash"),
@@ -107,7 +105,9 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
 
     auto repo = std::make_shared<PostgresConsentRepository>();
     repo->initFromConfig(Json::Value());
-    runConsentRepository_SaveHasRevokeRoundTripContract(TEST_CTX, repo, user, "vue-client", "openid");
+    runConsentRepository_SaveHasRevokeRoundTripContract(
+      TEST_CTX, repo, user, "vue-client", "openid"
+    );
 
     // Cleanup: consent rows first (defensive; ON DELETE CASCADE on the users
     // FK would also remove them), then the throwaway user itself.

@@ -21,45 +21,62 @@ class FakeUserRepository : public IUserRepository
   public:
     std::map<int64_t, Json::Value> infos;
 
-    void findByEmail(const std::string &, std::function<void(std::optional<UserData>)> &&cb)
-      override
+    void findByEmail(
+      const std::string &,
+      std::function<void(std::optional<UserData>)> &&cb
+    ) override
     {
         cb(std::nullopt);
     }
-    void findByUsername(const std::string &, std::function<void(std::optional<UserData>)> &&cb)
-      override
+
+    void findByUsername(
+      const std::string &,
+      std::function<void(std::optional<UserData>)> &&cb
+    ) override
     {
         cb(std::nullopt);
     }
+
     void findById(int64_t, std::function<void(std::optional<UserData>)> &&cb) override
     {
         cb(std::nullopt);
     }
-    void findByPublicSub(const std::string &, std::function<void(std::optional<UserData>)> &&cb)
-      override
+
+    void findByPublicSub(
+      const std::string &,
+      std::function<void(std::optional<UserData>)> &&cb
+    ) override
     {
         cb(std::nullopt);
     }
-    void create(const UserData &, std::function<void(std::optional<int64_t>, std::string)> &&cb)
-      override
+
+    void create(
+      const UserData &,
+      std::function<void(std::optional<int64_t>, std::string)> &&cb
+    ) override
     {
         cb(std::nullopt, "INTERNAL_ERROR");
     }
-    void updatePasswordHash(int64_t, const std::string &, std::function<void(bool)> &&cb)
-      override
+
+    void updatePasswordHash(int64_t, const std::string &, std::function<void(bool)> &&cb) override
     {
         cb(false);
     }
+
     void resetFailedLogins(int64_t, std::function<void(bool)> &&cb) override
     {
         cb(false);
     }
+
     void incrementFailedLogins(int64_t, std::function<void(bool)> &&cb) override
     {
         cb(false);
     }
-    void getUserInfoWithRoles(int64_t userId, std::function<void(std::optional<Json::Value>)> &&cb)
-      override
+
+    void getUserInfoWithRoles(
+      int64_t userId,
+      std::function<void(std::optional<Json::Value>)> &&cb
+    ) override
     {
         auto it = infos.find(userId);
         cb(it == infos.end() ? std::nullopt : std::optional<Json::Value>(it->second));

@@ -16,13 +16,12 @@
 namespace authforge::storage::postgres
 {
 
-class PostgresWebAuthnRepository :
-  public authforge::identity::IWebAuthnRepository,
-  public std::enable_shared_from_this<PostgresWebAuthnRepository>
+class PostgresWebAuthnRepository : public authforge::identity::IWebAuthnRepository,
+                                   public std::enable_shared_from_this<PostgresWebAuthnRepository>
 {
   public:
-    explicit PostgresWebAuthnRepository(::drogon::orm::DbClientPtr dbClient) :
-      dbClient_(std::move(dbClient))
+    explicit PostgresWebAuthnRepository(::drogon::orm::DbClientPtr dbClient)
+        : dbClient_(std::move(dbClient))
     {
     }
 
@@ -34,10 +33,16 @@ class PostgresWebAuthnRepository :
       StoreCredentialCallback &&cb
     ) override;
 
-    void findByCredentialId(const std::string &credentialId, CredentialLookupCallback &&cb) override;
+    void findByCredentialId(
+      const std::string &credentialId,
+      CredentialLookupCallback &&cb
+    ) override;
 
-    void updateSignCount(const std::string &credentialId, int newSignCount, BoolCallback &&cb)
-      override;
+    void updateSignCount(
+      const std::string &credentialId,
+      int newSignCount,
+      BoolCallback &&cb
+    ) override;
 
     void listCredentials(int64_t userId, ListCredentialsCallback &&cb) override;
 

@@ -124,7 +124,9 @@ void wireControllerPluginDependencies()
     // copies (see PROGRESS.md's filter-vs-controller distinction: the
     // libs/drogon filter copies are not referenced by any ADD_METHOD_TO
     // string and are dead code for routing purposes).
-    drogon::DrClassMap::getSingleInstance<oauth2::filters::AuthorizationFilter>()->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<oauth2::filters::AuthorizationFilter>()->setPlugin(
+      plugin
+    );
     drogon::DrClassMap::getSingleInstance<oauth2::filters::OAuth2AuthFilter>()->setPlugin(plugin);
 }
 

@@ -31,7 +31,7 @@ struct UserData
  */
 class IUserRepository
 {
-public:
+  public:
     virtual ~IUserRepository() = default;
 
     /**
@@ -109,18 +109,12 @@ public:
     /**
      * @brief Reset failed login count
      */
-    virtual void resetFailedLogins(
-      int64_t userId,
-      std::function<void(bool)> &&callback
-    ) = 0;
+    virtual void resetFailedLogins(int64_t userId, std::function<void(bool)> &&callback) = 0;
 
     /**
      * @brief Increment failed login count and optionally lock account
      */
-    virtual void incrementFailedLogins(
-      int64_t userId,
-      std::function<void(bool)> &&callback
-    ) = 0;
+    virtual void incrementFailedLogins(int64_t userId, std::function<void(bool)> &&callback) = 0;
 
     /**
      * @brief Get user info with roles (for userinfo endpoint)

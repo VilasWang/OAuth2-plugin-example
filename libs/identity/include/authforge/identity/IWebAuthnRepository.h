@@ -52,7 +52,7 @@ enum class StoreCredentialOutcome
 {
     Success,
     DuplicateCredentialId,  // credential_id already registered (unique constraint).
-    Error                    // Any other repository failure (unknown user, DB error, etc).
+    Error                   // Any other repository failure (unknown user, DB error, etc).
 };
 
 /**
@@ -63,9 +63,9 @@ enum class StoreCredentialOutcome
  */
 struct WebAuthnCredentialLookup
 {
-    int64_t userId = 0;       // Internal user id (webauthn_credentials.user_id).
-    std::string publicSub;    // users.public_sub -- what the caller reports back as "user_id".
-    int signCount = 0;        // webauthn_credentials.sign_count, as currently stored.
+    int64_t userId = 0;     // Internal user id (webauthn_credentials.user_id).
+    std::string publicSub;  // users.public_sub -- what the caller reports back as "user_id".
+    int signCount = 0;      // webauthn_credentials.sign_count, as currently stored.
 };
 
 /**
@@ -80,10 +80,10 @@ struct WebAuthnCredentialLookup
 struct WebAuthnCredentialSummary
 {
     std::string credentialId;
-    std::string name;                   // Empty if NULL, mirroring the controller's isNull() check.
+    std::string name;  // Empty if NULL, mirroring the controller's isNull() check.
     int signCount = 0;
     int64_t createdAt = 0;              // Unix epoch seconds.
-    std::optional<int64_t> lastUsedAt;   // nullopt if the credential has never been used.
+    std::optional<int64_t> lastUsedAt;  // nullopt if the credential has never been used.
 };
 
 /**
@@ -114,7 +114,10 @@ class IWebAuthnRepository
     /// Look up a credential by credential_id, joined with the owning
     /// user's public_sub (authenticateFinish's lookup query). nullopt if
     /// no such credential exists.
-    virtual void findByCredentialId(const std::string &credentialId, CredentialLookupCallback &&cb) = 0;
+    virtual void findByCredentialId(
+      const std::string &credentialId,
+      CredentialLookupCallback &&cb
+    ) = 0;
 
     /// Update sign_count and last_used_at (= now) for a credential after
     /// a successful authentication (authenticateFinish's UPDATE).

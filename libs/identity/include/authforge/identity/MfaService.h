@@ -122,7 +122,11 @@ class MfaService
      * @param callback true iff MFA is enabled for the user and the code
      * verifies against the current (or adjacent) time step.
      */
-    void verifyLoginCode(int64_t userId, const std::string &code, std::function<void(bool)> &&callback);
+    void verifyLoginCode(
+      int64_t userId,
+      const std::string &code,
+      std::function<void(bool)> &&callback
+    );
 
     /**
      * @brief Record the OAuth2 client/redirect_uri a login is pending MFA

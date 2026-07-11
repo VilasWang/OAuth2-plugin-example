@@ -30,8 +30,11 @@ WebAuthnService::WebAuthnService(
   std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
   std::string rpId,
   std::string rpName
-) :
-  repo_(std::move(repo)), crypto_(std::move(crypto)), rpId_(std::move(rpId)), rpName_(std::move(rpName))
+)
+    : repo_(std::move(repo)),
+      crypto_(std::move(crypto)),
+      rpId_(std::move(rpId)),
+      rpName_(std::move(rpName))
 {
 }
 
@@ -130,9 +133,9 @@ void WebAuthnService::finishAuthentication(
 
     repo_->findByCredentialId(
       credentialId,
-      [repo, credentialId, callback = std::move(callback)](
-        std::optional<WebAuthnCredentialLookup> found
-      ) {
+      [repo,
+       credentialId,
+       callback = std::move(callback)](std::optional<WebAuthnCredentialLookup> found) {
           if (!found)
           {
               callback(std::nullopt);

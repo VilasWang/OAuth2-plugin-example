@@ -40,7 +40,7 @@ struct AuditEvent
     std::string userAgent;
     std::string requestId;
     Json::Value details;  ///< Additional context (Json::Value; jsoncpp is
-                           ///< allowed in the Domain layer, design.md §4.1).
+                          ///< allowed in the Domain layer, design.md §4.1).
 };
 
 }  // namespace authforge::common::observability

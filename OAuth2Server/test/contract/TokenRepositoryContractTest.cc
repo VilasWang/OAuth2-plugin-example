@@ -47,7 +47,11 @@ using namespace oauth2::test::contract;
 namespace
 {
 
-OAuth2AccessToken makeAccessToken(const std::string &token, const std::string &clientId, int64_t ttlSeconds = 300)
+OAuth2AccessToken makeAccessToken(
+  const std::string &token,
+  const std::string &clientId,
+  int64_t ttlSeconds = 300
+)
 {
     OAuth2AccessToken t;
     t.token = token;
@@ -218,9 +222,7 @@ DROGON_TEST(
     runTokenRepository_RefreshTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
-DROGON_TEST(
-  Integration_P0_Contract_Functional_TokenRepository_Memory_RefreshTokenSaveGetRoundTrip
-)
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RefreshTokenSaveGetRoundTrip)
 {
     auto repo = std::make_shared<MemoryTokenRepository>();
     runTokenRepository_RefreshTokenSaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
@@ -551,7 +553,9 @@ DROGON_TEST(
         return;
     auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
-    runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(TEST_CTX, repo, "vue-client");
+    runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
+      TEST_CTX, repo, "vue-client"
+    );
 }
 
 // The strongest evidence this suite has for Postgres's transactional
@@ -648,5 +652,7 @@ DROGON_TEST(
 )
 {
     auto repo = std::make_shared<MemoryTokenRepository>();
-    runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(TEST_CTX, repo, "mem-client");
+    runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
+      TEST_CTX, repo, "mem-client"
+    );
 }

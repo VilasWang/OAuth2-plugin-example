@@ -115,10 +115,7 @@ void restoreAdminMfa()
     p.get_future().get();
 }
 
-std::string loginForMfaToken(
-  const std::string &clientId,
-  const std::string &redirectUri
-)
+std::string loginForMfaToken(const std::string &clientId, const std::string &redirectUri)
 {
     Json::Value body;
     body["username"] = "admin";
@@ -217,9 +214,13 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_MatchingBindingIssuesTokens)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
@@ -261,9 +262,13 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_WrongTotpRejected)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
@@ -300,9 +305,7 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_UnknownMfaTokenRejected)
 
     // Use an mfa_token that cannot resolve to any user id (users.id is SERIAL
     // starting at 1, so 999999999 does not exist).
-    auto resp = verifyMfa(
-      "999999999", "123456", "vue-client", kVueRedirectUri
-    );
+    auto resp = verifyMfa("999999999", "123456", "vue-client", kVueRedirectUri);
     REQUIRE(resp != nullptr);
     CHECK(resp->getStatusCode() == k401Unauthorized);
 
@@ -332,9 +335,13 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_MissingFieldsRejected)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
@@ -398,9 +405,13 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_NonMfaLoginUnchanged)
       [&](const DrogonDbException &) { pDisable.set_value(); }
     );
     pDisable.get_future().get();
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     Json::Value body;
@@ -421,8 +432,7 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_NonMfaLoginUnchanged)
     // Non-MFA login either redirects (302) or, when json=true, returns 200 with
     // a `code`. The one behavior it must NOT exhibit is mfa_required.
     const auto status = resp->getStatusCode();
-    bool isMfaRequired =
-      (root.isMember("mfa_required") && root["mfa_required"].asBool());
+    bool isMfaRequired = (root.isMember("mfa_required") && root["mfa_required"].asBool());
     CHECK(!isMfaRequired);
     // Accept either the redirect (302) or the json-code (200) shape.
     CHECK((status == k302Found || status == k200OK));

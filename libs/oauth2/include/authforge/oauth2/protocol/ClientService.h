@@ -29,8 +29,10 @@ namespace authforge::oauth2::protocol
 class ClientService
 {
   public:
-    explicit ClientService(std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients) :
-      clients_(std::move(clients))
+    explicit ClientService(
+      std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients
+    )
+        : clients_(std::move(clients))
     {
     }
 

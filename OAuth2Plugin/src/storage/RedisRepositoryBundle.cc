@@ -10,9 +10,7 @@ RedisRepositoryBundle::RedisRepositoryBundle(const std::string &redisClientName)
       consentRepository_(std::make_shared<RedisConsentRepository>(redisClientName)),
       userRepository_(std::make_shared<RedisUserRepository>(redisClientName)),
       roleRepository_(std::make_shared<RedisRoleRepository>(redisClientName)),
-      subjectMappingRepository_(
-        std::make_shared<RedisSubjectMappingRepository>(redisClientName)
-      )
+      subjectMappingRepository_(std::make_shared<RedisSubjectMappingRepository>(redisClientName))
 {
 }
 

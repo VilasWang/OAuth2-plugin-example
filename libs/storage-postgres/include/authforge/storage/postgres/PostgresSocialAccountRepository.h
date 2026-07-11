@@ -21,13 +21,13 @@
 namespace authforge::storage::postgres
 {
 
-class PostgresSocialAccountRepository :
-  public authforge::identity::ISocialAccountRepository,
-  public std::enable_shared_from_this<PostgresSocialAccountRepository>
+class PostgresSocialAccountRepository
+    : public authforge::identity::ISocialAccountRepository,
+      public std::enable_shared_from_this<PostgresSocialAccountRepository>
 {
   public:
-    explicit PostgresSocialAccountRepository(::drogon::orm::DbClientPtr dbClient) :
-      dbClient_(std::move(dbClient))
+    explicit PostgresSocialAccountRepository(::drogon::orm::DbClientPtr dbClient)
+        : dbClient_(std::move(dbClient))
     {
     }
 

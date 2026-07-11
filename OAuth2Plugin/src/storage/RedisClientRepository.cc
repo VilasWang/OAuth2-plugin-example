@@ -127,8 +127,10 @@ void RedisClientRepository::validateClient(
                   return;
               }
               auto arr = result.asArray();
-              if (arr.size() < 2 || arr[0].type() == RedisResultType::kNil ||
-                  arr[1].type() == RedisResultType::kNil)
+              if (
+                arr.size() < 2 || arr[0].type() == RedisResultType::kNil ||
+                arr[1].type() == RedisResultType::kNil
+              )
               {
                   // HMGET returns an array of nil elements (not a top-level
                   // nil) when the hash key doesn't exist or the requested

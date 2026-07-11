@@ -36,6 +36,7 @@ class WebAuthnController : public ::drogon::HttpController<WebAuthnController, f
     {
         webAuthnService_ = webAuthnService;
     }
+
     // Needed to resolve the "userId" request attribute (actually the
     // OAuth2 public_sub) into the internal id WebAuthnService is keyed
     // by, and to resolve a WebAuthnService result's internal id back

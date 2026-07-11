@@ -61,14 +61,17 @@ class FakeGrantRepository : public IGrantRepository
     {
         cb();
     }
+
     void getAuthCode(const std::string & /*code*/, AuthCodeCallback &&cb) override
     {
         cb(std::nullopt);
     }
+
     void markAuthCodeUsed(const std::string & /*code*/, VoidCallback &&cb) override
     {
         cb();
     }
+
     void consumeAuthCode(
       const std::string & /*code*/,
       const std::string & /*redirectUri*/,
@@ -77,6 +80,7 @@ class FakeGrantRepository : public IGrantRepository
     {
         cb(std::nullopt);
     }
+
     void saveAuthorizationTransaction(
       const AuthorizationTransaction & /*transaction*/,
       BoolCallback &&cb
@@ -84,20 +88,28 @@ class FakeGrantRepository : public IGrantRepository
     {
         cb(true);
     }
-    void getAuthorizationTransaction(const std::string & /*transactionId*/, TransactionCallback &&cb)
-      override
+
+    void getAuthorizationTransaction(
+      const std::string & /*transactionId*/,
+      TransactionCallback &&cb
+    ) override
     {
         cb(std::nullopt);
     }
-    void deleteAuthorizationTransaction(const std::string & /*transactionId*/, VoidCallback &&cb)
-      override
+
+    void deleteAuthorizationTransaction(
+      const std::string & /*transactionId*/,
+      VoidCallback &&cb
+    ) override
     {
         cb();
     }
+
     void markTransactionConsumed(const std::string & /*transactionId*/, BoolCallback &&cb) override
     {
         cb(true);
     }
+
     void purgeExpired() override
     {
     }
@@ -116,39 +128,48 @@ class RecordingTokenRepository : public ITokenRepository
         callOrder.push_back("saveAccessToken");
         cb();
     }
+
     void getAccessToken(const std::string & /*token*/, AccessTokenCallback &&cb) override
     {
         cb(std::nullopt);
     }
+
     void saveRefreshToken(const OAuth2RefreshToken & /*token*/, VoidCallback &&cb) override
     {
         callOrder.push_back("saveRefreshToken");
         cb();
     }
+
     void getRefreshToken(const std::string & /*token*/, RefreshTokenCallback &&cb) override
     {
         cb(std::nullopt);
     }
+
     void revokeRefreshToken(const std::string & /*token*/, VoidCallback &&cb) override
     {
         cb();
     }
+
     void atomicRevokeRefreshToken(const std::string & /*token*/, RefreshTokenCallback &&cb) override
     {
         cb(std::nullopt);
     }
+
     void revokeTokenFamily(const std::string & /*familyId*/, VoidCallback &&cb) override
     {
         cb();
     }
+
     void introspectToken(const std::string & /*token*/, TokenIntrospectionCallback &&cb) override
     {
         cb(std::nullopt);
     }
+
     void incrementIntrospectCount(const std::string & /*token*/, VoidCallback &&cb) override
     {
         cb();
     }
+
     void revokeAccessToken(
       const std::string & /*token*/,
       const std::string & /*revokedBy*/,
@@ -157,13 +178,16 @@ class RecordingTokenRepository : public ITokenRepository
     {
         cb();
     }
+
     void purgeExpired() override
     {
     }
+
     bool supportsTransactions() const override
     {
         return false;
     }
+
     bool supportsCas() const override
     {
         return false;
@@ -182,6 +206,7 @@ class FakeConsentRepository : public IConsentRepository
     {
         cb(false);
     }
+
     void saveUserConsent(
       const UserRef & /*user*/,
       const std::string & /*clientId*/,
@@ -191,6 +216,7 @@ class FakeConsentRepository : public IConsentRepository
     {
         cb(true);
     }
+
     void revokeUserConsent(
       const UserRef & /*user*/,
       const std::string & /*clientId*/,

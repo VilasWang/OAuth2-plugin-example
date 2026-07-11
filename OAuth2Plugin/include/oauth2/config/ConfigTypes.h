@@ -10,9 +10,9 @@ namespace common::config
 // Environment variable override configuration
 struct EnvOverride
 {
-    std::string configPath;  // JSON path like "db_clients.0.host"
-    const char *envVar;      // Environment variable name
-    bool isNumeric;          // Is numeric type
+    std::string configPath;     // JSON path like "db_clients.0.host"
+    const char *envVar;         // Environment variable name
+    bool isNumeric;             // Is numeric type
     bool isStringList = false;  // Comma-separated string → JSON array of strings
 };
 
@@ -38,7 +38,9 @@ inline const std::vector<EnvOverride> OAUTH2_ENV_OVERRIDES =
    // "[name=OAuth2Plugin]" resolves the plugin by its drogon "name" field,
    // independent of array ordering — each config file inserts a different set
    // of plugins (Hodor, AccessLogger) so a numeric index would be fragile.
-   {"plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri", "OAUTH2_VUE_REDIRECT_URI", false},
+   {"plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri",
+    "OAUTH2_VUE_REDIRECT_URI",
+    false},
    {"custom_config.cors.allow_origins", "OAUTH2_CORS_ALLOW_ORIGINS", false, /*isStringList=*/true}};
 
 }  // namespace common::config

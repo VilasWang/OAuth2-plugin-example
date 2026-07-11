@@ -34,8 +34,8 @@ class TokenPair
     /// @throws std::invalid_argument if `accessToken`/`refreshToken` do
     /// not reference each other (refreshToken.accessToken must equal
     /// accessToken.token) or have mismatched clientId/userId.
-    TokenPair(OAuth2AccessToken accessToken, OAuth2RefreshToken refreshToken) :
-      accessToken_(std::move(accessToken)), refreshToken_(std::move(refreshToken))
+    TokenPair(OAuth2AccessToken accessToken, OAuth2RefreshToken refreshToken)
+        : accessToken_(std::move(accessToken)), refreshToken_(std::move(refreshToken))
     {
         if (refreshToken_.accessToken != accessToken_.token)
         {
@@ -45,7 +45,9 @@ class TokenPair
         }
         if (refreshToken_.clientId != accessToken_.clientId)
         {
-            throw std::invalid_argument("TokenPair: clientId mismatch between access/refresh token");
+            throw std::invalid_argument(
+              "TokenPair: clientId mismatch between access/refresh token"
+            );
         }
         if (refreshToken_.userId != accessToken_.userId)
         {

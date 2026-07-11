@@ -181,7 +181,10 @@ class TokenService : public std::enable_shared_from_this<TokenService>
     /// Resolve `subject`'s roles via subjectResolver_ -> roleProvider_,
     /// invoking `cb` with an empty list if either port is unset or the
     /// subject does not resolve.
-    void resolveRoles(const std::string &subject, std::function<void(std::vector<std::string>)> &&cb);
+    void resolveRoles(
+      const std::string &subject,
+      std::function<void(std::vector<std::string>)> &&cb
+    );
 
     void audit(
       const std::string &action,

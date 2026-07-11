@@ -71,7 +71,11 @@ class FakeWebAuthnRepository : public IWebAuthnRepository
         cb(lookup);
     }
 
-    void updateSignCount(const std::string &credentialId, int newSignCount, BoolCallback &&cb) override
+    void updateSignCount(
+      const std::string &credentialId,
+      int newSignCount,
+      BoolCallback &&cb
+    ) override
     {
         auto it = credentials.find(credentialId);
         if (it == credentials.end())

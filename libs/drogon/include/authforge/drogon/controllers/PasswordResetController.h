@@ -13,12 +13,8 @@ class PasswordResetController : public ::drogon::HttpController<PasswordResetCon
 {
   public:
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(
-      PasswordResetController::request, "/api/password-reset/request", ::drogon::Post
-    );
-    ADD_METHOD_TO(
-      PasswordResetController::confirm, "/api/password-reset/confirm", ::drogon::Post
-    );
+    ADD_METHOD_TO(PasswordResetController::request, "/api/password-reset/request", ::drogon::Post);
+    ADD_METHOD_TO(PasswordResetController::confirm, "/api/password-reset/confirm", ::drogon::Post);
     METHOD_LIST_END
 
     void request(

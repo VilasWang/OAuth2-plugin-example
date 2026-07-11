@@ -78,13 +78,13 @@ namespace oauth2::adapters
 inline authforge::oauth2::model::ClientType toNewClientType(::oauth2::ClientType t)
 {
     return t == ::oauth2::ClientType::PUBLIC ? authforge::oauth2::model::ClientType::PUBLIC
-                                              : authforge::oauth2::model::ClientType::CONFIDENTIAL;
+                                             : authforge::oauth2::model::ClientType::CONFIDENTIAL;
 }
 
 inline ::oauth2::ClientType toOldClientType(authforge::oauth2::model::ClientType t)
 {
     return t == authforge::oauth2::model::ClientType::PUBLIC ? ::oauth2::ClientType::PUBLIC
-                                                              : ::oauth2::ClientType::CONFIDENTIAL;
+                                                             : ::oauth2::ClientType::CONFIDENTIAL;
 }
 
 inline authforge::oauth2::model::OAuth2Client toNewClient(const ::oauth2::OAuth2Client &c)
@@ -274,16 +274,17 @@ inline ::oauth2::IOAuth2Storage::AuthorizationTransaction toOldTransaction(
 class ClientRepositoryBridge : public authforge::oauth2::repository::IClientRepository
 {
   public:
-    explicit ClientRepositoryBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage) :
-      storage_(std::move(storage))
+    explicit ClientRepositoryBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage)
+        : storage_(std::move(storage))
     {
     }
 
     void getClient(const std::string &clientId, ClientCallback &&cb) override
     {
-        storage_->getClient(clientId, [cb = std::move(cb)](std::optional<::oauth2::OAuth2Client> c) {
-            cb(c ? std::make_optional(toNewClient(*c)) : std::nullopt);
-        });
+        storage_
+          ->getClient(clientId, [cb = std::move(cb)](std::optional<::oauth2::OAuth2Client> c) {
+              cb(c ? std::make_optional(toNewClient(*c)) : std::nullopt);
+          });
     }
 
     void validateClient(
@@ -306,8 +307,8 @@ class ClientRepositoryBridge : public authforge::oauth2::repository::IClientRepo
 class GrantRepositoryBridge : public authforge::oauth2::repository::IGrantRepository
 {
   public:
-    explicit GrantRepositoryBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage) :
-      storage_(std::move(storage))
+    explicit GrantRepositoryBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage)
+        : storage_(std::move(storage))
     {
     }
 
@@ -321,9 +322,10 @@ class GrantRepositoryBridge : public authforge::oauth2::repository::IGrantReposi
 
     void getAuthCode(const std::string &code, AuthCodeCallback &&cb) override
     {
-        storage_->getAuthCode(code, [cb = std::move(cb)](std::optional<::oauth2::OAuth2AuthCode> c) {
-            cb(c ? std::make_optional(toNewAuthCode(*c)) : std::nullopt);
-        });
+        storage_
+          ->getAuthCode(code, [cb = std::move(cb)](std::optional<::oauth2::OAuth2AuthCode> c) {
+              cb(c ? std::make_optional(toNewAuthCode(*c)) : std::nullopt);
+          });
     }
 
     void markAuthCodeUsed(const std::string &code, VoidCallback &&cb) override
@@ -338,8 +340,7 @@ class GrantRepositoryBridge : public authforge::oauth2::repository::IGrantReposi
     ) override
     {
         storage_->consumeAuthCode(
-          code, redirectUri,
-          [cb = std::move(cb)](std::optional<::oauth2::OAuth2AuthCode> c) {
+          code, redirectUri, [cb = std::move(cb)](std::optional<::oauth2::OAuth2AuthCode> c) {
               cb(c ? std::make_optional(toNewAuthCode(*c)) : std::nullopt);
           }
         );
@@ -360,14 +361,17 @@ class GrantRepositoryBridge : public authforge::oauth2::repository::IGrantReposi
     {
         storage_->getAuthorizationTransaction(
           transactionId,
-          [cb = std::move(cb)](std::optional<::oauth2::IOAuth2Storage::AuthorizationTransaction> t) {
+          [cb =
+             std::move(cb)](std::optional<::oauth2::IOAuth2Storage::AuthorizationTransaction> t) {
               cb(t ? std::make_optional(toNewTransaction(*t)) : std::nullopt);
           }
         );
     }
 
-    void deleteAuthorizationTransaction(const std::string &transactionId, VoidCallback &&cb)
-      override
+    void deleteAuthorizationTransaction(
+      const std::string &transactionId,
+      VoidCallback &&cb
+    ) override
     {
         storage_->deleteAuthorizationTransaction(transactionId, std::move(cb));
     }
@@ -399,8 +403,11 @@ class GrantRepositoryBridge : public authforge::oauth2::repository::IGrantReposi
 class TokenRepositoryBridge : public authforge::oauth2::repository::ITokenRepository
 {
   public:
-    TokenRepositoryBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage, std::string storageType) :
-      storage_(std::move(storage)), storageType_(std::move(storageType))
+    TokenRepositoryBridge(
+      std::shared_ptr<::oauth2::IOAuth2Storage> storage,
+      std::string storageType
+    )
+        : storage_(std::move(storage)), storageType_(std::move(storageType))
     {
     }
 
@@ -415,8 +422,7 @@ class TokenRepositoryBridge : public authforge::oauth2::repository::ITokenReposi
     void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override
     {
         storage_->getAccessToken(
-          token,
-          [cb = std::move(cb)](std::optional<::oauth2::OAuth2AccessToken> t) {
+          token, [cb = std::move(cb)](std::optional<::oauth2::OAuth2AccessToken> t) {
               cb(t ? std::make_optional(toNewAccessToken(*t)) : std::nullopt);
           }
         );
@@ -447,8 +453,7 @@ class TokenRepositoryBridge : public authforge::oauth2::repository::ITokenReposi
     void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override
     {
         storage_->getRefreshToken(
-          token,
-          [cb = std::move(cb)](std::optional<::oauth2::OAuth2RefreshToken> t) {
+          token, [cb = std::move(cb)](std::optional<::oauth2::OAuth2RefreshToken> t) {
               cb(t ? std::make_optional(toNewRefreshToken(*t)) : std::nullopt);
           }
         );
@@ -462,8 +467,7 @@ class TokenRepositoryBridge : public authforge::oauth2::repository::ITokenReposi
     void atomicRevokeRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override
     {
         storage_->atomicRevokeRefreshToken(
-          token,
-          [cb = std::move(cb)](std::optional<::oauth2::OAuth2RefreshToken> t) {
+          token, [cb = std::move(cb)](std::optional<::oauth2::OAuth2RefreshToken> t) {
               cb(t ? std::make_optional(toNewRefreshToken(*t)) : std::nullopt);
           }
         );
@@ -477,8 +481,7 @@ class TokenRepositoryBridge : public authforge::oauth2::repository::ITokenReposi
     void introspectToken(const std::string &token, TokenIntrospectionCallback &&cb) override
     {
         storage_->introspectToken(
-          token,
-          [cb = std::move(cb)](std::optional<::oauth2::TokenIntrospection> t) {
+          token, [cb = std::move(cb)](std::optional<::oauth2::TokenIntrospection> t) {
               cb(t ? std::make_optional(toNewIntrospection(*t)) : std::nullopt);
           }
         );
@@ -535,8 +538,8 @@ class TokenRepositoryBridge : public authforge::oauth2::repository::ITokenReposi
 class ConsentRepositoryBridge : public authforge::oauth2::repository::IConsentRepository
 {
   public:
-    explicit ConsentRepositoryBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage) :
-      storage_(std::move(storage))
+    explicit ConsentRepositoryBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage)
+        : storage_(std::move(storage))
     {
     }
 
@@ -614,19 +617,18 @@ class ConsentRepositoryBridge : public authforge::oauth2::repository::IConsentRe
 // broader identity/oauth2 assembly (Task 24's later slices) is in place.
 
 class LegacyRoleResolutionBridge : public authforge::common::ports::ISubjectResolver,
-                                    public authforge::common::ports::IRoleProvider
+                                   public authforge::common::ports::IRoleProvider
 {
   public:
-    explicit LegacyRoleResolutionBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage) :
-      storage_(std::move(storage))
+    explicit LegacyRoleResolutionBridge(std::shared_ptr<::oauth2::IOAuth2Storage> storage)
+        : storage_(std::move(storage))
     {
     }
 
     void resolve(const authforge::common::model::Subject &subject, ResolveCallback &&cb) override
     {
         storage_->getUserRoles(
-          subject.value(),
-          [this, cb = std::move(cb)](std::vector<std::string> roles) {
+          subject.value(), [this, cb = std::move(cb)](std::vector<std::string> roles) {
               int32_t id = nextId_.fetch_add(1);
               {
                   std::lock_guard<std::mutex> lock(mutex_);

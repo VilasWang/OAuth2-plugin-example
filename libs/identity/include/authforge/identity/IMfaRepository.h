@@ -24,11 +24,11 @@ namespace authforge::identity
  */
 struct MfaData
 {
-    std::string secret;            // Base32 TOTP secret; empty if not set up.
+    std::string secret;  // Base32 TOTP secret; empty if not set up.
     bool enabled = false;
     std::vector<std::string> hashedBackupCodes;
-    std::string pendingClientId;      // OAuth2 client_id bound at login time,
-                                       // pending MFA verification.
+    std::string pendingClientId;  // OAuth2 client_id bound at login time,
+                                  // pending MFA verification.
     std::string pendingRedirectUri;
 };
 

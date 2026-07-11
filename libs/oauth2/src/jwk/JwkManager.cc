@@ -188,9 +188,9 @@ std::string base64UrlEncodeImpl(const unsigned char *bytes, size_t length)
     size_t i = 0;
     while (i + 3 <= length)
     {
-        const uint32_t n =
-          (static_cast<uint32_t>(bytes[i]) << 16) | (static_cast<uint32_t>(bytes[i + 1]) << 8) |
-          static_cast<uint32_t>(bytes[i + 2]);
+        const uint32_t n = (static_cast<uint32_t>(bytes[i]) << 16) |
+                           (static_cast<uint32_t>(bytes[i + 1]) << 8) |
+                           static_cast<uint32_t>(bytes[i + 2]);
         out.push_back(kBase64UrlAlphabet[(n >> 18) & 0x3F]);
         out.push_back(kBase64UrlAlphabet[(n >> 12) & 0x3F]);
         out.push_back(kBase64UrlAlphabet[(n >> 6) & 0x3F]);

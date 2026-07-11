@@ -43,11 +43,11 @@ void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
               }
           }
           data.pendingClientId = r[0]["mfa_pending_client_id"].isNull()
-                                    ? ""
-                                    : r[0]["mfa_pending_client_id"].as<std::string>();
+                                   ? ""
+                                   : r[0]["mfa_pending_client_id"].as<std::string>();
           data.pendingRedirectUri = r[0]["mfa_pending_redirect_uri"].isNull()
-                                       ? ""
-                                       : r[0]["mfa_pending_redirect_uri"].as<std::string>();
+                                      ? ""
+                                      : r[0]["mfa_pending_redirect_uri"].as<std::string>();
           (*sharedCb)(data);
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },
@@ -55,11 +55,7 @@ void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
     );
 }
 
-void PostgresMfaRepository::setSecret(
-  int64_t userId,
-  const std::string &secret,
-  BoolCallback &&cb
-)
+void PostgresMfaRepository::setSecret(int64_t userId, const std::string &secret, BoolCallback &&cb)
 {
     if (!dbClient_)
     {

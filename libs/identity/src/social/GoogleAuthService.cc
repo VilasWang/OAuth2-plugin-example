@@ -13,15 +13,18 @@ GoogleAuthService::GoogleAuthService(
   std::string clientId,
   std::string clientSecret,
   std::string redirectUri
-) :
-  httpClient_(std::move(httpClient)),
-  clientId_(std::move(clientId)),
-  clientSecret_(std::move(clientSecret)),
-  redirectUri_(std::move(redirectUri))
+)
+    : httpClient_(std::move(httpClient)),
+      clientId_(std::move(clientId)),
+      clientSecret_(std::move(clientSecret)),
+      redirectUri_(std::move(redirectUri))
 {
 }
 
-void GoogleAuthService::login(const std::string &code, std::function<void(GoogleLoginResult)> &&callback)
+void GoogleAuthService::login(
+  const std::string &code,
+  std::function<void(GoogleLoginResult)> &&callback
+)
 {
     if (!httpClient_)
     {
@@ -35,13 +38,12 @@ void GoogleAuthService::login(const std::string &code, std::function<void(Google
     auto sharedCb = std::make_shared<std::function<void(GoogleLoginResult)>>(std::move(callback));
 
     // 1. Exchange code for access token -- POST https://oauth2.googleapis.com/token
-    std::vector<std::pair<std::string, std::string>> params = {
-      {"code", code},
-      {"client_id", clientId_},
-      {"client_secret", clientSecret_},
-      {"redirect_uri", redirectUri_},
-      {"grant_type", "authorization_code"}
-    };
+    std::vector<std::pair<std::string, std::string>> params =
+      {{"code", code},
+       {"client_id", clientId_},
+       {"client_secret", clientSecret_},
+       {"redirect_uri", redirectUri_},
+       {"grant_type", "authorization_code"}};
 
     httpClient_->postForm(
       "https://oauth2.googleapis.com/token",

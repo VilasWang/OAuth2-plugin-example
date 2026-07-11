@@ -44,7 +44,8 @@ class Scope
             {
                 throw std::invalid_argument(
                   "Scope: value must be a single RFC 6749 scope-token "
-                  "(no whitespace/quote/backslash): '" + value_ + "'"
+                  "(no whitespace/quote/backslash): '" +
+                  value_ + "'"
                 );
             }
         }

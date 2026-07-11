@@ -30,13 +30,19 @@ namespace authforge::oauth2::protocol
  * @brief Generate a cryptographically secure random token, base64url
  * encoded (no padding). Default 32 bytes = 256 bits of entropy.
  */
-std::string generateSecureToken(authforge::common::ports::ICryptoProvider &crypto, size_t bytes = 32);
+std::string generateSecureToken(
+  authforge::common::ports::ICryptoProvider &crypto,
+  size_t bytes = 32
+);
 
 /**
  * @brief Hash a token for at-rest storage / exact-match lookup.
  * Returns an UPPERCASE hex SHA-256 digest (64 chars) -- see this header's
  * comment above for why the case must stay uppercase.
  */
-std::string hashToken(authforge::common::ports::ICryptoProvider &crypto, const std::string &rawToken);
+std::string hashToken(
+  authforge::common::ports::ICryptoProvider &crypto,
+  const std::string &rawToken
+);
 
 }  // namespace authforge::oauth2::protocol

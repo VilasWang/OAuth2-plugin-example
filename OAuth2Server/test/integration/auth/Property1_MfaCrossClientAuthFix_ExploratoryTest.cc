@@ -179,10 +179,7 @@ void restoreAdminMfa()
 
 // Drive the first-factor login as a given client and return the mfa_token from
 // the mfa_required response. Returns empty string on any failure (caller skips).
-std::string loginForMfaToken(
-  const std::string &clientId,
-  const std::string &redirectUri
-)
+std::string loginForMfaToken(const std::string &clientId, const std::string &redirectUri)
 {
     Json::Value body;
     body["username"] = "admin";
@@ -271,10 +268,14 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_UnregisteredClient)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     // Restore DB state whatever happens below.
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
@@ -294,8 +295,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_UnregisteredClient)
     bool isAuthInvalid = false;
     if (root.isMember("error") && root["error"].isString())
         isAuthInvalid |= root["error"].asString() == "AUTH_INVALID_CREDENTIALS";
-    if (root.isMember("error") && root["error"].isObject() &&
-        root["error"].isMember("code"))
+    if (root.isMember("error") && root["error"].isObject() && root["error"].isMember("code"))
         isAuthInvalid |= root["error"]["code"].asString() == "AUTH_INVALID_CREDENTIALS";
     CHECK(isAuthInvalid);
 
@@ -330,18 +330,20 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_NonWhitelistedRedirectUri)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
     std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
-    auto resp = verifyMfa(
-      mfaToken, code, "vue-client", "https://evil.example.invalid/cb"
-    );
+    auto resp = verifyMfa(mfaToken, code, "vue-client", "https://evil.example.invalid/cb");
     REQUIRE(resp != nullptr);
 
     CHECK(resp->getStatusCode() == k401Unauthorized);
@@ -350,8 +352,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_NonWhitelistedRedirectUri)
     bool isAuthInvalid = false;
     if (root.isMember("error") && root["error"].isString())
         isAuthInvalid |= root["error"].asString() == "AUTH_INVALID_CREDENTIALS";
-    if (root.isMember("error") && root["error"].isObject() &&
-        root["error"].isMember("code"))
+    if (root.isMember("error") && root["error"].isObject() && root["error"].isMember("code"))
         isAuthInvalid |= root["error"]["code"].asString() == "AUTH_INVALID_CREDENTIALS";
     CHECK(isAuthInvalid);
     CHECK(!root.isMember("access_token"));
@@ -390,9 +391,13 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_CrossClientConfusion)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
@@ -410,8 +415,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_CrossClientConfusion)
     bool isAuthInvalid = false;
     if (root.isMember("error") && root["error"].isString())
         isAuthInvalid |= root["error"].asString() == "AUTH_INVALID_CREDENTIALS";
-    if (root.isMember("error") && root["error"].isObject() &&
-        root["error"].isMember("code"))
+    if (root.isMember("error") && root["error"].isObject() && root["error"].isMember("code"))
         isAuthInvalid |= root["error"]["code"].asString() == "AUTH_INVALID_CREDENTIALS";
     CHECK(isAuthInvalid);
     CHECK(!root.isMember("access_token"));
@@ -446,9 +450,13 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_NullPendingBindingRejected)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     // Force the pending binding to NULL to model a row that predates the

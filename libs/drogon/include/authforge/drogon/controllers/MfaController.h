@@ -37,6 +37,7 @@ class MfaController : public ::drogon::HttpController<MfaController, false>
     {
         mfaService_ = mfaService;
     }
+
     // Task 24 slice 5: needed to resolve the "userId" request attribute
     // (actually the OAuth2 public_sub, see IUserRepository::
     // findByPublicSub's header comment) into the internal id MfaService
@@ -50,7 +51,10 @@ class MfaController : public ::drogon::HttpController<MfaController, false>
 
     METHOD_LIST_BEGIN
     ADD_METHOD_TO(
-      MfaController::setup, "/api/me/mfa/setup", ::drogon::Post, "oauth2::filters::OAuth2AuthFilter"
+      MfaController::setup,
+      "/api/me/mfa/setup",
+      ::drogon::Post,
+      "oauth2::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       MfaController::verifySetup,

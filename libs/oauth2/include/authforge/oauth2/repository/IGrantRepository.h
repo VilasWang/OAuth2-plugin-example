@@ -36,7 +36,8 @@ class IGrantRepository
   public:
     virtual ~IGrantRepository() = default;
 
-    using AuthCodeCallback = std::function<void(std::optional<authforge::oauth2::model::OAuth2AuthCode>)>;
+    using AuthCodeCallback =
+      std::function<void(std::optional<authforge::oauth2::model::OAuth2AuthCode>)>;
     using VoidCallback = std::function<void()>;
     using BoolCallback = std::function<void(bool)>;
     using AuthorizationTransaction = authforge::oauth2::model::AuthorizationTransaction;

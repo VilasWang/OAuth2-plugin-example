@@ -51,8 +51,10 @@ class MemoryGrantRepository : public IGrantRepository
       const std::string &transactionId,
       TransactionCallback &&cb
     ) override;
-    void deleteAuthorizationTransaction(const std::string &transactionId, VoidCallback &&cb)
-      override;
+    void deleteAuthorizationTransaction(
+      const std::string &transactionId,
+      VoidCallback &&cb
+    ) override;
     void markTransactionConsumed(const std::string &transactionId, BoolCallback &&cb) override;
 
     /**

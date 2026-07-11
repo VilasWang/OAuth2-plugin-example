@@ -58,11 +58,13 @@ class FakeGrantRepo : public IGrantRepository
         codes[code.code] = code;
         cb();
     }
+
     void getAuthCode(const std::string &code, AuthCodeCallback &&cb) override
     {
         auto it = codes.find(code);
         cb(it == codes.end() ? std::nullopt : std::make_optional(it->second));
     }
+
     void markAuthCodeUsed(const std::string &code, VoidCallback &&cb) override
     {
         auto it = codes.find(code);
@@ -70,6 +72,7 @@ class FakeGrantRepo : public IGrantRepository
             it->second.used = true;
         cb();
     }
+
     void consumeAuthCode(
       const std::string &code,
       const std::string &redirectUri,
@@ -86,22 +89,27 @@ class FakeGrantRepo : public IGrantRepository
         it->second.used = true;
         cb(result);
     }
+
     void saveAuthorizationTransaction(const AuthorizationTransaction &, BoolCallback &&cb) override
     {
         cb(true);
     }
+
     void getAuthorizationTransaction(const std::string &, TransactionCallback &&cb) override
     {
         cb(std::nullopt);
     }
+
     void deleteAuthorizationTransaction(const std::string &, VoidCallback &&cb) override
     {
         cb();
     }
+
     void markTransactionConsumed(const std::string &, BoolCallback &&cb) override
     {
         cb(true);
     }
+
     void purgeExpired() override
     {
     }
@@ -118,21 +126,25 @@ class FakeTokenRepo : public ITokenRepository
         accessTokens[token.token] = token;
         cb();
     }
+
     void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override
     {
         auto it = accessTokens.find(token);
         cb(it == accessTokens.end() ? std::nullopt : std::make_optional(it->second));
     }
+
     void saveRefreshToken(const OAuth2RefreshToken &token, VoidCallback &&cb) override
     {
         refreshTokens[token.token] = token;
         cb();
     }
+
     void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override
     {
         auto it = refreshTokens.find(token);
         cb(it == refreshTokens.end() ? std::nullopt : std::make_optional(it->second));
     }
+
     void revokeRefreshToken(const std::string &token, VoidCallback &&cb) override
     {
         auto it = refreshTokens.find(token);
@@ -140,6 +152,7 @@ class FakeTokenRepo : public ITokenRepository
             it->second.revoked = true;
         cb();
     }
+
     void atomicRevokeRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override
     {
         auto it = refreshTokens.find(token);
@@ -152,6 +165,7 @@ class FakeTokenRepo : public ITokenRepository
         it->second.revoked = true;
         cb(result);
     }
+
     void revokeTokenFamily(const std::string &familyId, VoidCallback &&cb) override
     {
         for (auto &[key, rt] : refreshTokens)
@@ -166,6 +180,7 @@ class FakeTokenRepo : public ITokenRepository
         }
         cb();
     }
+
     void introspectToken(const std::string &token, TokenIntrospectionCallback &&cb) override
     {
         auto it = accessTokens.find(token);
@@ -184,24 +199,33 @@ class FakeTokenRepo : public ITokenRepository
         intro.exp = it->second.expiresAt;
         cb(intro);
     }
+
     void incrementIntrospectCount(const std::string &, VoidCallback &&cb) override
     {
         cb();
     }
-    void revokeAccessToken(const std::string &token, const std::string &, VoidCallback &&cb) override
+
+    void revokeAccessToken(
+      const std::string &token,
+      const std::string &,
+      VoidCallback &&cb
+    ) override
     {
         auto it = accessTokens.find(token);
         if (it != accessTokens.end())
             it->second.revoked = true;
         cb();
     }
+
     void purgeExpired() override
     {
     }
+
     bool supportsTransactions() const override
     {
         return false;
     }
+
     bool supportsCas() const override
     {
         return true;
@@ -241,14 +265,9 @@ std::string issueAuthCode(
 {
     std::string rawCode;
     svc.generateAuthorizationCode(
-      clientId,
-      subject,
-      scope,
-      redirectUri,
-      "",
-      "",
-      "",
-      [&](bool, std::string code, std::string) { rawCode = std::move(code); }
+      clientId, subject, scope, redirectUri, "", "", "", [&](bool, std::string code, std::string) {
+          rawCode = std::move(code);
+      }
     );
     return rawCode;
 }
@@ -263,7 +282,8 @@ TEST(TokenServiceTest, ExchangeCode_HappyPath_ReturnsFrozenShape)
     auto svc = makeService(clients, grants, tokens);
 
     const std::string redirectUri = "https://example.test/cb";
-    std::string rawCode = issueAuthCode(*svc, "test-client", "alice", "openid profile", redirectUri);
+    std::string rawCode =
+      issueAuthCode(*svc, "test-client", "alice", "openid profile", redirectUri);
     ASSERT_FALSE(rawCode.empty());
 
     Json::Value result;
@@ -341,7 +361,9 @@ TEST(TokenServiceTest, RefreshToken_HappyPathThenReuse_YieldsInvalidGrant)
     std::string rawCode = issueAuthCode(*svc, "test-client", "alice", "openid", redirectUri);
     Json::Value exchanged;
     svc->exchangeCodeForToken(
-      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) { exchanged = j; }
+      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) {
+          exchanged = j;
+      }
     );
     const std::string rt = exchanged["refresh_token"].asString();
 
@@ -371,7 +393,9 @@ TEST(TokenServiceTest, RevokeAccessToken_ThenValidateFails)
     std::string rawCode = issueAuthCode(*svc, "test-client", "alice", "openid", redirectUri);
     Json::Value exchanged;
     svc->exchangeCodeForToken(
-      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) { exchanged = j; }
+      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) {
+          exchanged = j;
+      }
     );
     const std::string accessToken = exchanged["access_token"].asString();
 
@@ -395,7 +419,9 @@ TEST(TokenServiceTest, IntrospectToken_ActiveAndInactive)
     std::string rawCode = issueAuthCode(*svc, "test-client", "alice", "openid", redirectUri);
     Json::Value exchanged;
     svc->exchangeCodeForToken(
-      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) { exchanged = j; }
+      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) {
+          exchanged = j;
+      }
     );
     const std::string accessToken = exchanged["access_token"].asString();
 

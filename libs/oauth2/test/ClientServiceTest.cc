@@ -99,12 +99,10 @@ TEST(ClientServiceTest, ValidateClientScopes_AllAllowed_ReturnsTrue)
 
     bool valid = false;
     std::string msg;
-    svc.validateClientScopes(
-      "test-client", {"openid", "profile"}, [&](bool v, std::string m) {
-          valid = v;
-          msg = std::move(m);
-      }
-    );
+    svc.validateClientScopes("test-client", {"openid", "profile"}, [&](bool v, std::string m) {
+        valid = v;
+        msg = std::move(m);
+    });
     EXPECT_TRUE(valid);
     EXPECT_TRUE(msg.empty());
 }
@@ -116,12 +114,10 @@ TEST(ClientServiceTest, ValidateClientScopes_SomeDisallowed_ReturnsFalseWithMess
 
     bool valid = true;
     std::string msg;
-    svc.validateClientScopes(
-      "test-client", {"openid", "admin"}, [&](bool v, std::string m) {
-          valid = v;
-          msg = std::move(m);
-      }
-    );
+    svc.validateClientScopes("test-client", {"openid", "admin"}, [&](bool v, std::string m) {
+        valid = v;
+        msg = std::move(m);
+    });
     EXPECT_FALSE(valid);
     EXPECT_NE(msg.find("admin"), std::string::npos);
 }

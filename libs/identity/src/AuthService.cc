@@ -69,7 +69,9 @@ std::string hashPassword(
     crypto.secureRandomBytes(salt, kPbkdf2SaltLength);
 
     auto derived = crypto.pbkdf2HmacSha256(
-      password, std::string(reinterpret_cast<char *>(salt), kPbkdf2SaltLength), kPbkdf2Iterations,
+      password,
+      std::string(reinterpret_cast<char *>(salt), kPbkdf2SaltLength),
+      kPbkdf2Iterations,
       kPbkdf2KeyLength
     );
     if (derived.size() != kPbkdf2KeyLength)
@@ -78,7 +80,7 @@ std::string hashPassword(
     }
 
     return "$pbkdf2-sha256$" + std::to_string(kPbkdf2Iterations) + "$" +
-      bytesToHex(salt, kPbkdf2SaltLength) + "$" + bytesToHex(derived.data(), derived.size());
+           bytesToHex(salt, kPbkdf2SaltLength) + "$" + bytesToHex(derived.data(), derived.size());
 }
 
 bool verifyPassword(
@@ -115,8 +117,7 @@ bool verifyPassword(
         auto expectedHash = hexToBytes(parts[3]);
 
         auto derived = crypto.pbkdf2HmacSha256(
-          password, std::string(saltBytes.begin(), saltBytes.end()), iterations,
-          kPbkdf2KeyLength
+          password, std::string(saltBytes.begin(), saltBytes.end()), iterations, kPbkdf2KeyLength
         );
 
         if (derived.size() != expectedHash.size())
@@ -150,8 +151,8 @@ AuthService::AuthService(
   std::shared_ptr<IUserRepository> userRepo,
   std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
   std::shared_ptr<authforge::common::ports::IClock> clock
-) :
-  userRepo_(std::move(userRepo)), crypto_(std::move(crypto)), clock_(std::move(clock))
+)
+    : userRepo_(std::move(userRepo)), crypto_(std::move(crypto)), clock_(std::move(clock))
 {
 }
 

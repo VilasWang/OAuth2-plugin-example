@@ -47,7 +47,8 @@ bool isValidPkceCharsetAndLength(const std::string &value)
     {
         if (
           !std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '.' && c != '_' &&
-          c != '~')
+          c != '~'
+        )
         {
             return false;
         }

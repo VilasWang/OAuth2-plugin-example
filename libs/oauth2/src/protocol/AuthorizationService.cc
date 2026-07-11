@@ -75,8 +75,7 @@ void AuthorizationService::evaluateScopes(
               return;
           }
 
-          auto client =
-            std::make_shared<authforge::oauth2::model::Client>(std::move(*clientOpt));
+          auto client = std::make_shared<authforge::oauth2::model::Client>(std::move(*clientOpt));
           bool needsAdminCheck = anyRequiresAdminRole(requestedScopes);
 
           // Resolve internalUserId once (used for both the admin-role check
@@ -102,12 +101,13 @@ void AuthorizationService::evaluateScopes(
              needsAdminCheck,
              callback = std::move(callback)](std::optional<int32_t> internalUserId) mutable {
                 auto proceedWithAdminFlag = [this,
-                                              client,
-                                              clientId,
-                                              subject,
-                                              requestedScopes,
-                                              internalUserId,
-                                              callback = std::move(callback)](bool hasAdminRole) mutable {
+                                             client,
+                                             clientId,
+                                             subject,
+                                             requestedScopes,
+                                             internalUserId,
+                                             callback =
+                                               std::move(callback)](bool hasAdminRole) mutable {
                     // Fan out consent lookups for every scope that is
                     // syntactically eligible (tiers 1-2 are re-checked
                     // inside evaluateScope itself; prefetching consent for
@@ -118,10 +118,9 @@ void AuthorizationService::evaluateScopes(
                     {
                         authforge::oauth2::access::ScopeValidationSummary summary =
                           authforge::oauth2::access::evaluateScopes(
-                            requestedScopes,
-                            *client,
-                            hasAdminRole,
-                            [](const std::string &) { return false; }
+                            requestedScopes, *client, hasAdminRole, [](const std::string &) {
+                                return false;
+                            }
                           );
                         callback(std::move(summary));
                         return;
@@ -131,12 +130,13 @@ void AuthorizationService::evaluateScopes(
                     auto remaining = std::make_shared<size_t>(requestedScopes.size());
                     if (requestedScopes.empty())
                     {
-                        callback(authforge::oauth2::access::evaluateScopes(
-                          requestedScopes,
-                          *client,
-                          hasAdminRole,
-                          [](const std::string &) { return false; }
-                        ));
+                        callback(
+                          authforge::oauth2::access::evaluateScopes(
+                            requestedScopes, *client, hasAdminRole, [](const std::string &) {
+                                return false;
+                            }
+                          )
+                        );
                         return;
                     }
 
@@ -147,21 +147,27 @@ void AuthorizationService::evaluateScopes(
                           userRef,
                           clientId,
                           scope,
-                          [consentMap, remaining, scope, client, hasAdminRole, requestedScopes, callback](
-                            bool hasConsent
-                          ) mutable {
+                          [consentMap,
+                           remaining,
+                           scope,
+                           client,
+                           hasAdminRole,
+                           requestedScopes,
+                           callback](bool hasConsent) mutable {
                               (*consentMap)[scope] = hasConsent;
                               if (--(*remaining) == 0)
                               {
-                                  callback(authforge::oauth2::access::evaluateScopes(
-                                    requestedScopes,
-                                    *client,
-                                    hasAdminRole,
-                                    [consentMap](const std::string &s) {
-                                        auto it = consentMap->find(s);
-                                        return it != consentMap->end() && it->second;
-                                    }
-                                  ));
+                                  callback(
+                                    authforge::oauth2::access::evaluateScopes(
+                                      requestedScopes,
+                                      *client,
+                                      hasAdminRole,
+                                      [consentMap](const std::string &s) {
+                                          auto it = consentMap->find(s);
+                                          return it != consentMap->end() && it->second;
+                                      }
+                                    )
+                                  );
                               }
                           }
                         );
@@ -176,11 +182,9 @@ void AuthorizationService::evaluateScopes(
 
                 roleProvider_->getRoles(
                   *internalUserId,
-                  [proceedWithAdminFlag = std::move(proceedWithAdminFlag)](
-                    std::vector<std::string> roles
-                  ) mutable {
-                      bool hasAdmin =
-                        std::find(roles.begin(), roles.end(), "admin") != roles.end();
+                  [proceedWithAdminFlag =
+                     std::move(proceedWithAdminFlag)](std::vector<std::string> roles) mutable {
+                      bool hasAdmin = std::find(roles.begin(), roles.end(), "admin") != roles.end();
                       proceedWithAdminFlag(hasAdmin);
                   }
                 );

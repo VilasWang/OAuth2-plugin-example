@@ -104,9 +104,8 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256_ProducesCorrectDigestLength)
                 return c - 'A' + 10;
             return -1;
         };
-        unsigned char expected = static_cast<unsigned char>(
-          (hexVal(hex[i * 2]) << 4) | hexVal(hex[i * 2 + 1])
-        );
+        unsigned char expected =
+          static_cast<unsigned char>((hexVal(hex[i * 2]) << 4) | hexVal(hex[i * 2 + 1]));
         CHECK(digest[i] == expected);
     }
 }
@@ -325,9 +324,9 @@ DROGON_TEST(Unit_SystemClock_NowSecondsMatchesWallClockWithinTolerance)
     SystemClock clock;
     auto ours = clock.nowSeconds();
     auto wallClock = std::chrono::duration_cast<std::chrono::seconds>(
-                        std::chrono::system_clock::now().time_since_epoch()
+                       std::chrono::system_clock::now().time_since_epoch()
     )
-                        .count();
+                       .count();
 
     // Allow a small tolerance for the two calls not being perfectly
     // simultaneous.

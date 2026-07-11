@@ -23,7 +23,10 @@ std::string generateSecureToken(authforge::common::ports::ICryptoProvider &crypt
     return crypto.base64UrlEncode(buffer.data(), buffer.size());
 }
 
-std::string hashToken(authforge::common::ports::ICryptoProvider &crypto, const std::string &rawToken)
+std::string hashToken(
+  authforge::common::ports::ICryptoProvider &crypto,
+  const std::string &rawToken
+)
 {
     std::string hex = crypto.sha256Hex(rawToken);
     for (char &c : hex)

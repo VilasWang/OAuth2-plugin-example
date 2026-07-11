@@ -29,8 +29,8 @@ LoginDecision evaluateLoginPolicy(const AuthResult &authResult, bool requireEmai
     return LoginDecision::Proceed;
 }
 
-SessionManager::SessionManager(std::shared_ptr<IBackchannelLogoutNotifier> notifier) :
-  notifier_(std::move(notifier))
+SessionManager::SessionManager(std::shared_ptr<IBackchannelLogoutNotifier> notifier)
+    : notifier_(std::move(notifier))
 {
 }
 

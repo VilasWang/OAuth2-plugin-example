@@ -35,9 +35,7 @@ class GoogleController : public ::drogon::HttpController<GoogleController, false
 
     METHOD_LIST_BEGIN
     // Endpoint to exchange Google code for User Info
-    ADD_METHOD_TO(
-      GoogleController::login, "/api/google/login", ::drogon::Post, ::drogon::Options
-    );
+    ADD_METHOD_TO(GoogleController::login, "/api/google/login", ::drogon::Post, ::drogon::Options);
     METHOD_LIST_END
 
     void login(

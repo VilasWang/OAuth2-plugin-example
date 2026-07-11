@@ -186,10 +186,9 @@ void PostgresIdentityRepository::create(
     if (!userData.email.empty())
         newUser.setEmail(userData.email);
 
-    auto sharedCb =
-      std::make_shared<std::function<void(std::optional<int64_t>, std::string)>>(
-        std::move(callback)
-      );
+    auto sharedCb = std::make_shared<std::function<void(std::optional<int64_t>, std::string)>>(
+      std::move(callback)
+    );
     auto db = dbClient_;
 
     try
@@ -434,7 +433,9 @@ void PostgresIdentityRepository::getRoles(
     {
         Mapper<UserRoles> urMapper(db);
         urMapper.findBy(
-          Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, static_cast<int32_t>(internalUserId)),
+          Criteria(
+            UserRoles::Cols::_user_id, CompareOperator::EQ, static_cast<int32_t>(internalUserId)
+          ),
           [sharedCb, db](const std::vector<UserRoles> &userRoles) {
               if (userRoles.empty())
               {
@@ -477,8 +478,7 @@ void PostgresIdentityRepository::getInternalUserId(
         cb(std::nullopt);
         return;
     }
-    auto sharedCb =
-      std::make_shared<std::function<void(std::optional<int64_t>)>>(std::move(cb));
+    auto sharedCb = std::make_shared<std::function<void(std::optional<int64_t>)>>(std::move(cb));
     try
     {
         Mapper<Oauth2SubjectMappings> mapper(dbClient_);

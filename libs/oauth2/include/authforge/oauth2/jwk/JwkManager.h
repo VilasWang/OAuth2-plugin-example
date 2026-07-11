@@ -72,6 +72,7 @@ class JwkManager
     explicit JwkManager(authforge::common::ports::ILogger *logger = nullptr) : logger_(logger)
     {
     }
+
     ~JwkManager();
 
     /**

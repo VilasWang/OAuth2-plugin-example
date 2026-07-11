@@ -10,11 +10,11 @@ MfaService::MfaService(
   std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
   std::shared_ptr<authforge::common::ports::IClock> clock,
   std::string issuerName
-) :
-  mfaRepo_(std::move(mfaRepo)),
-  crypto_(std::move(crypto)),
-  clock_(std::move(clock)),
-  issuerName_(std::move(issuerName))
+)
+    : mfaRepo_(std::move(mfaRepo)),
+      crypto_(std::move(crypto)),
+      clock_(std::move(clock)),
+      issuerName_(std::move(issuerName))
 {
 }
 
@@ -87,10 +87,8 @@ void MfaService::verifyAndEnable(
               hashedCodes.push_back(crypto->sha256Hex(bc));
           }
 
-          mfaRepo->enable(
-            userId,
-            hashedCodes,
-            [backupCodes, callback = std::move(callback)](bool ok) {
+          mfaRepo
+            ->enable(userId, hashedCodes, [backupCodes, callback = std::move(callback)](bool ok) {
                 if (!ok)
                 {
                     callback(std::nullopt);
@@ -99,8 +97,7 @@ void MfaService::verifyAndEnable(
                 MfaEnableResult result;
                 result.backupCodes = backupCodes;
                 callback(result);
-            }
-          );
+            });
       }
     );
 }
@@ -129,8 +126,7 @@ void MfaService::verifyLoginCode(
 
     auto clock = clock_;
     mfaRepo_->getMfaData(
-      userId,
-      [clock, code, callback = std::move(callback)](std::optional<MfaData> data) {
+      userId, [clock, code, callback = std::move(callback)](std::optional<MfaData> data) {
           if (!data || !data->enabled || data->secret.empty())
           {
               callback(false);
@@ -166,17 +162,14 @@ void MfaService::getPendingBinding(
         callback(std::nullopt);
         return;
     }
-    mfaRepo_->getMfaData(
-      userId,
-      [callback = std::move(callback)](std::optional<MfaData> data) {
-          if (!data)
-          {
-              callback(std::nullopt);
-              return;
-          }
-          callback(std::make_pair(data->pendingClientId, data->pendingRedirectUri));
-      }
-    );
+    mfaRepo_->getMfaData(userId, [callback = std::move(callback)](std::optional<MfaData> data) {
+        if (!data)
+        {
+            callback(std::nullopt);
+            return;
+        }
+        callback(std::make_pair(data->pendingClientId, data->pendingRedirectUri));
+    });
 }
 
 void MfaService::clearPendingBinding(int64_t userId, std::function<void(bool)> &&callback)

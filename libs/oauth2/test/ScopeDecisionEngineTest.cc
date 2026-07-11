@@ -107,7 +107,9 @@ TEST(EvaluateScopesTest, AllValid_CanProceedTrue)
 {
     Client client = makeClient({"openid", "profile"});
     auto summary = evaluateScopes(
-      {"openid", "profile"}, client, /*hasAdminRole=*/false, [](const std::string &) { return true; }
+      {"openid", "profile"}, client, /*hasAdminRole=*/false, [](const std::string &) {
+          return true;
+      }
     );
 
     EXPECT_TRUE(summary.canProceed());
@@ -120,9 +122,10 @@ TEST(EvaluateScopesTest, MixedValidAndInvalid_HasErrorsTrue)
 {
     // "admin" is disallowed for this client entirely.
     Client client = makeClient({"openid"});
-    auto summary = evaluateScopes(
-      {"openid", "admin"}, client, /*hasAdminRole=*/true, [](const std::string &) { return true; }
-    );
+    auto summary =
+      evaluateScopes({"openid", "admin"}, client, /*hasAdminRole=*/true, [](const std::string &) {
+          return true;
+      });
 
     EXPECT_FALSE(summary.canProceed());
     EXPECT_TRUE(summary.hasErrors());

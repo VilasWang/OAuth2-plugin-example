@@ -92,8 +92,8 @@ TEST(AuthorizationGrantTest, BasicAccessors)
 TEST(AuthorizationGrantTest, IsExpired_PastAndFutureTimestamps)
 {
     AuthorizationGrant grant(makeTransactionDto());
-    EXPECT_FALSE(grant.isExpired(1000));            // far before expiresAt
-    EXPECT_TRUE(grant.isExpired(99999999999));      // far after expiresAt
+    EXPECT_FALSE(grant.isExpired(1000));        // far before expiresAt
+    EXPECT_TRUE(grant.isExpired(99999999999));  // far after expiresAt
 }
 
 TEST(AuthorizationGrantTest, HasPkceChallenge_EmptyByDefault)

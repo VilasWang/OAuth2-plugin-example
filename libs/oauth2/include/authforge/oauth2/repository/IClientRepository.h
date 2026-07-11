@@ -40,7 +40,8 @@ class IClientRepository
   public:
     virtual ~IClientRepository() = default;
 
-    using ClientCallback = std::function<void(std::optional<authforge::oauth2::model::OAuth2Client>)>;
+    using ClientCallback =
+      std::function<void(std::optional<authforge::oauth2::model::OAuth2Client>)>;
     using BoolCallback = std::function<void(bool)>;
 
     /// Get client by ID. Original: IOAuth2Storage::getClient.

@@ -166,14 +166,14 @@ class Result
 
   private:
     template <typename... Args>
-    explicit Result(std::in_place_index_t<0> tag, Args &&...args) :
-      storage_(tag, std::forward<Args>(args)...)
+    explicit Result(std::in_place_index_t<0> tag, Args &&...args)
+        : storage_(tag, std::forward<Args>(args)...)
     {
     }
 
     template <typename... Args>
-    explicit Result(std::in_place_index_t<1> tag, Args &&...args) :
-      storage_(tag, std::forward<Args>(args)...)
+    explicit Result(std::in_place_index_t<1> tag, Args &&...args)
+        : storage_(tag, std::forward<Args>(args)...)
     {
     }
 

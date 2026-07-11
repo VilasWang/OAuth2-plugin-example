@@ -44,11 +44,10 @@ namespace authforge::storage::postgres
  * lines of interleaved logic. This class starts small; if it grows,
  * split it then.
  */
-class PostgresIdentityRepository :
-  public authforge::identity::IUserRepository,
-  public authforge::identity::IRoleRepository,
-  public authforge::identity::ISubjectMappingRepository,
-  public std::enable_shared_from_this<PostgresIdentityRepository>
+class PostgresIdentityRepository : public authforge::identity::IUserRepository,
+                                   public authforge::identity::IRoleRepository,
+                                   public authforge::identity::ISubjectMappingRepository,
+                                   public std::enable_shared_from_this<PostgresIdentityRepository>
 {
   public:
     // M3 Task 20 pitfall (see PROGRESS.md's "authforge::drogon::* 命名空间
@@ -59,8 +58,8 @@ class PostgresIdentityRepository :
     // authforge/drogon/controllers/SessionController.h in the same TU) --
     // an unqualified `drogon::` here would resolve to the sibling
     // authforge::drogon namespace instead of the global ::drogon one.
-    explicit PostgresIdentityRepository(::drogon::orm::DbClientPtr dbClient) :
-      dbClient_(std::move(dbClient))
+    explicit PostgresIdentityRepository(::drogon::orm::DbClientPtr dbClient)
+        : dbClient_(std::move(dbClient))
     {
     }
 

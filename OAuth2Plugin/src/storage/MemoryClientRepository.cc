@@ -51,8 +51,8 @@ void MemoryClientRepository::initFromConfig(const Json::Value &clientsConfig)
         }
         catch (const std::exception &)
         {
-            LOG_WARN << "MemoryClientRepository: Invalid client type '" << clientTypeStr
-                     << "' for " << clientId << ", defaulting to CONFIDENTIAL";
+            LOG_WARN << "MemoryClientRepository: Invalid client type '" << clientTypeStr << "' for "
+                     << clientId << ", defaulting to CONFIDENTIAL";
             client.clientType = ClientType::CONFIDENTIAL;
         }
 

@@ -47,9 +47,7 @@ class GitHubController : public ::drogon::HttpController<GitHubController, false
 #endif  // WITH_SOCIAL
 
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(
-      GitHubController::login, "/api/github/login", ::drogon::Post, ::drogon::Options
-    );
+    ADD_METHOD_TO(GitHubController::login, "/api/github/login", ::drogon::Post, ::drogon::Options);
     METHOD_LIST_END
 
     void login(

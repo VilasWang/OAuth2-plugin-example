@@ -242,7 +242,14 @@ void TokenService::exchangeCodeForToken(
                       tokens_->saveTokenPair(
                         token,
                         refreshToken,
-                        [self, this, callback, tokenStr, refreshTokenStr, rolesJson, authCode, now]() {
+                        [self,
+                         this,
+                         callback,
+                         tokenStr,
+                         refreshTokenStr,
+                         rolesJson,
+                         authCode,
+                         now]() {
                             Json::Value json;
                             json["access_token"] = tokenStr;
                             json["token_type"] = "Bearer";
@@ -366,9 +373,7 @@ void TokenService::refreshAccessToken(
           newRt.familyId = storedRt->familyId;
 
           tokens_->saveTokenPair(
-            token,
-            newRt,
-            [this, callback, newTokenStr, newRefreshTokenStr, storedRt]() {
+            token, newRt, [this, callback, newTokenStr, newRefreshTokenStr, storedRt]() {
                 audit("token_refreshed", "success", storedRt->userId, "token", "");
                 Json::Value json;
                 json["access_token"] = newTokenStr;
@@ -395,8 +400,7 @@ void TokenService::validateAccessToken(
 
     auto hashedToken = hashToken(*crypto_, token);
     tokens_->getAccessToken(
-      hashedToken,
-      [callback](std::optional<authforge::oauth2::model::OAuth2AccessToken> t) {
+      hashedToken, [callback](std::optional<authforge::oauth2::model::OAuth2AccessToken> t) {
           if (!t || t->revoked)
           {
               callback(nullptr);

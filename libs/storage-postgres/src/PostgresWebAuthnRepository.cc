@@ -30,8 +30,10 @@ void PostgresWebAuthnRepository::storeCredential(
       [sharedCb](const Result &) { (*sharedCb)(StoreCredentialOutcome::Success); },
       [sharedCb](const DrogonDbException &e) {
           const std::string what = e.base().what();
-          if (what.find("webauthn_credentials") != std::string::npos &&
-              what.find("credential_id") != std::string::npos)
+          if (
+            what.find("webauthn_credentials") != std::string::npos &&
+            what.find("credential_id") != std::string::npos
+          )
           {
               (*sharedCb)(StoreCredentialOutcome::DuplicateCredentialId);
               return;

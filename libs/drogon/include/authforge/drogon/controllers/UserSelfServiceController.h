@@ -10,8 +10,7 @@
 namespace authforge::drogon::controllers
 {
 
-class UserSelfServiceController
-  : public ::drogon::HttpController<UserSelfServiceController, false>
+class UserSelfServiceController : public ::drogon::HttpController<UserSelfServiceController, false>
 {
   public:
     METHOD_LIST_BEGIN

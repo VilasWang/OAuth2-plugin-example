@@ -19,7 +19,7 @@ namespace authforge::drogon::controllers
  * Access control: Requires Bearer token with admin role (AuthorizationFilter).
  */
 class ClientRegistrationController
-  : public ::drogon::HttpController<ClientRegistrationController, false>
+    : public ::drogon::HttpController<ClientRegistrationController, false>
 {
   public:
     METHOD_LIST_BEGIN

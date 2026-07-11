@@ -341,8 +341,10 @@ int httpStatusOverrideFor(const CatalogEntry &e)
     {
         return 404;
     }
-    if (e.code == "VALIDATION_RESOURCE_CONFLICT" || e.code == "VALIDATION_USERNAME_TAKEN" ||
-        e.code == "VALIDATION_EMAIL_TAKEN" || e.code == "VALIDATION_CREDENTIAL_ALREADY_REGISTERED")
+    if (
+      e.code == "VALIDATION_RESOURCE_CONFLICT" || e.code == "VALIDATION_USERNAME_TAKEN" ||
+      e.code == "VALIDATION_EMAIL_TAKEN" || e.code == "VALIDATION_CREDENTIAL_ALREADY_REGISTERED"
+    )
     {
         return 409;
     }

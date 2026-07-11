@@ -11,7 +11,7 @@ namespace authforge::drogon::controllers
 {
 
 class EmailVerificationController
-  : public ::drogon::HttpController<EmailVerificationController, false>
+    : public ::drogon::HttpController<EmailVerificationController, false>
 {
   public:
     METHOD_LIST_BEGIN

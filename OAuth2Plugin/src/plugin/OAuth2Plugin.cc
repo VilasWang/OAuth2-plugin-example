@@ -117,9 +117,8 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // ISubjectResolver->IRoleProvider chain via getInternalUserId would
     // silently drop roles for subjects with no explicit subject mapping
     // (e.g. the "admin" test user).
-    auto roleResolutionBridge = std::make_shared<oauth2::adapters::LegacyRoleResolutionBridge>(
-      storage_
-    );
+    auto roleResolutionBridge =
+      std::make_shared<oauth2::adapters::LegacyRoleResolutionBridge>(storage_);
 
     // Defect 1.3 fix: services now share ownership of storage_ (shared_ptr),
     // so the storage lifetime is guaranteed to cover every service instead of
@@ -316,9 +315,8 @@ void OAuth2Plugin::validateAccessToken(
     // is unaffected.
     tokenService_->validateAccessToken(
       token,
-      [callback = std::move(callback)](
-        std::shared_ptr<authforge::oauth2::model::OAuth2AccessToken> t
-      ) {
+      [callback =
+         std::move(callback)](std::shared_ptr<authforge::oauth2::model::OAuth2AccessToken> t) {
           if (!t)
           {
               callback(nullptr);
@@ -394,9 +392,8 @@ void OAuth2Plugin::introspectToken(
     // site) is unchanged.
     tokenService_->introspectToken(
       token,
-      [callback = std::move(callback)](
-        std::optional<authforge::oauth2::model::TokenIntrospection> t
-      ) {
+      [callback =
+         std::move(callback)](std::optional<authforge::oauth2::model::TokenIntrospection> t) {
           if (!t)
           {
               callback(std::nullopt);

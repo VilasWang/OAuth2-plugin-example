@@ -117,10 +117,7 @@ void restoreAdminMfa()
     p.get_future().get();
 }
 
-std::string loginForMfaToken(
-  const std::string &clientId,
-  const std::string &redirectUri
-)
+std::string loginForMfaToken(const std::string &clientId, const std::string &redirectUri)
 {
     Json::Value body;
     body["username"] = "admin";
@@ -161,11 +158,11 @@ PendingBinding readPendingBinding()
       [&](const Result &r) {
           if (!r.empty())
           {
-              pb.isNull = r[0]["mfa_pending_client_id"].isNull() &&
-                          r[0]["mfa_pending_redirect_uri"].isNull();
+              pb.isNull =
+                r[0]["mfa_pending_client_id"].isNull() && r[0]["mfa_pending_redirect_uri"].isNull();
               pb.clientId = r[0]["mfa_pending_client_id"].isNull()
-                                ? ""
-                                : r[0]["mfa_pending_client_id"].as<std::string>();
+                              ? ""
+                              : r[0]["mfa_pending_client_id"].as<std::string>();
               pb.redirectUri = r[0]["mfa_pending_redirect_uri"].isNull()
                                  ? ""
                                  : r[0]["mfa_pending_redirect_uri"].as<std::string>();
@@ -226,9 +223,13 @@ DROGON_TEST(Property6_MfaCrossClientAuthFix_LoginPersistsPendingBinding)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     // The login response (mfa_required) is only sent AFTER the UPDATE commits
@@ -265,9 +266,13 @@ DROGON_TEST(Property6_MfaCrossClientAuthFix_LoginOverwritesPreviousBinding)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     // First login as vue-client.
@@ -309,9 +314,13 @@ DROGON_TEST(Property5_MfaCrossClientAuthFix_PendingBindingClearedOnSuccess)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
@@ -372,9 +381,13 @@ DROGON_TEST(Property5_MfaCrossClientAuthFix_RejectedVerifyKeepsBinding)
 
     auto fx = enableAdminMfa();
     REQUIRE(fx.ok);
+
     struct Guard
     {
-        ~Guard() { restoreAdminMfa(); }
+        ~Guard()
+        {
+            restoreAdminMfa();
+        }
     } guard;
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);

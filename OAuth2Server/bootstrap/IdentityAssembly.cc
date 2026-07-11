@@ -103,7 +103,8 @@ void wireIdentityServices()
       std::make_shared<authforge::identity::AuthService>(userRepo, crypto, clock);
     static auto notifier = std::make_shared<LoggingBackchannelLogoutNotifier>();
     static auto sessionManager = std::make_shared<authforge::identity::SessionManager>(notifier);
-    static auto mfaService = std::make_shared<authforge::identity::MfaService>(mfaRepo, crypto, clock);
+    static auto mfaService =
+      std::make_shared<authforge::identity::MfaService>(mfaRepo, crypto, clock);
     static auto webAuthnService =
       std::make_shared<authforge::identity::WebAuthnService>(webAuthnRepo, crypto, rpId, rpName);
 
@@ -141,8 +142,9 @@ void wireIdentityServices()
     static auto googleAuthService = std::make_shared<authforge::identity::GoogleAuthService>(
       oauthHttpClient, googleClientId, googleClientSecret, googleRedirectUri
     );
-    static auto weChatAuthService =
-      std::make_shared<authforge::identity::WeChatAuthService>(oauthHttpClient, wechatAppId, wechatSecret);
+    static auto weChatAuthService = std::make_shared<authforge::identity::WeChatAuthService>(
+      oauthHttpClient, wechatAppId, wechatSecret
+    );
     static auto gitHubAuthService = std::make_shared<authforge::identity::GitHubAuthService>(
       oauthHttpClient, socialAccountRepo, githubClientId, githubClientSecret
     );

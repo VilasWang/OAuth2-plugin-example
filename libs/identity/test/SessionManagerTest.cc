@@ -43,56 +43,85 @@ AuthResult makeAuthResult(bool emailVerified, bool mfaEnabled)
 // --- evaluateLoginPolicy: all (emailVerified, mfaEnabled,
 // requireEmailVerification) combinations ---
 
-TEST(SessionManagerTest, EvaluateLoginPolicy_RequireVerification_EmailNotVerified_MfaDisabled_Denies)
+TEST(
+  SessionManagerTest,
+  EvaluateLoginPolicy_RequireVerification_EmailNotVerified_MfaDisabled_Denies
+)
 {
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/false), true);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/false), true);
     EXPECT_EQ(result, LoginDecision::DenyEmailNotVerified);
 }
 
-TEST(SessionManagerTest, EvaluateLoginPolicy_RequireVerification_EmailNotVerified_MfaEnabled_DeniesBeforeMfa)
+TEST(
+  SessionManagerTest,
+  EvaluateLoginPolicy_RequireVerification_EmailNotVerified_MfaEnabled_DeniesBeforeMfa
+)
 {
     // Precedence check (matches SessionController.cc's CHECK 1 before
     // CHECK 2): email-not-verified takes precedence over MFA, so this
     // must be DenyEmailNotVerified, not RequireMfa.
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/true), true);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/true), true);
     EXPECT_EQ(result, LoginDecision::DenyEmailNotVerified);
 }
 
-TEST(SessionManagerTest, EvaluateLoginPolicy_RequireVerification_EmailVerified_MfaEnabled_RequiresMfa)
+TEST(
+  SessionManagerTest,
+  EvaluateLoginPolicy_RequireVerification_EmailVerified_MfaEnabled_RequiresMfa
+)
 {
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/true), true);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/true), true);
     EXPECT_EQ(result, LoginDecision::RequireMfa);
 }
 
 TEST(SessionManagerTest, EvaluateLoginPolicy_RequireVerification_EmailVerified_MfaDisabled_Proceeds)
 {
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/false), true);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/false), true);
     EXPECT_EQ(result, LoginDecision::Proceed);
 }
 
-TEST(SessionManagerTest, EvaluateLoginPolicy_NotRequireVerification_EmailNotVerified_MfaDisabled_Proceeds)
+TEST(
+  SessionManagerTest,
+  EvaluateLoginPolicy_NotRequireVerification_EmailNotVerified_MfaDisabled_Proceeds
+)
 {
     // With requireEmailVerification == false, an unverified email is not
     // checked at all.
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/false), false);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/false), false);
     EXPECT_EQ(result, LoginDecision::Proceed);
 }
 
-TEST(SessionManagerTest, EvaluateLoginPolicy_NotRequireVerification_EmailNotVerified_MfaEnabled_RequiresMfa)
+TEST(
+  SessionManagerTest,
+  EvaluateLoginPolicy_NotRequireVerification_EmailNotVerified_MfaEnabled_RequiresMfa
+)
 {
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/true), false);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/false, /*mfaEnabled=*/true), false);
     EXPECT_EQ(result, LoginDecision::RequireMfa);
 }
 
-TEST(SessionManagerTest, EvaluateLoginPolicy_NotRequireVerification_EmailVerified_MfaEnabled_RequiresMfa)
+TEST(
+  SessionManagerTest,
+  EvaluateLoginPolicy_NotRequireVerification_EmailVerified_MfaEnabled_RequiresMfa
+)
 {
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/true), false);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/true), false);
     EXPECT_EQ(result, LoginDecision::RequireMfa);
 }
 
-TEST(SessionManagerTest, EvaluateLoginPolicy_NotRequireVerification_EmailVerified_MfaDisabled_Proceeds)
+TEST(
+  SessionManagerTest,
+  EvaluateLoginPolicy_NotRequireVerification_EmailVerified_MfaDisabled_Proceeds
+)
 {
-    auto result = evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/false), false);
+    auto result =
+      evaluateLoginPolicy(makeAuthResult(/*emailVerified=*/true, /*mfaEnabled=*/false), false);
     EXPECT_EQ(result, LoginDecision::Proceed);
 }
 

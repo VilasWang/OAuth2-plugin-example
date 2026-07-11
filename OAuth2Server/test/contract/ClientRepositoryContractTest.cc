@@ -93,9 +93,8 @@ void runClientRepository_PublicClientAcceptsAnySecretContract(
     CHECK(client->clientId == publicClientId);
     CHECK(client->clientType == ClientType::PUBLIC);
 
-    auto validEmpty = waitForValue<bool>([&](auto cb) {
-        repo->validateClient(publicClientId, "", std::move(cb));
-    });
+    auto validEmpty =
+      waitForValue<bool>([&](auto cb) { repo->validateClient(publicClientId, "", std::move(cb)); });
     CHECK(validEmpty == true);
 
     auto validWrong = waitForValue<bool>([&](auto cb) {
@@ -163,9 +162,8 @@ void runClientRepository_Redis_KnownClientHashValidationContract(
 
     // Empty secret -> EXISTS-based check: true because the client hash key
     // exists in Redis (Redis does not gate this on a stored secret at all).
-    auto validEmpty = waitForValue<bool>([&](auto cb) {
-        repo->validateClient(clientId, "", std::move(cb));
-    });
+    auto validEmpty =
+      waitForValue<bool>([&](auto cb) { repo->validateClient(clientId, "", std::move(cb)); });
     CHECK(validEmpty == true);
 
     auto validCorrect = waitForValue<bool>([&](auto cb) {
@@ -241,9 +239,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_NotFoundRe
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
-DROGON_TEST(
-  Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClientValidatesSecret
-)
+DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClientValidatesSecret)
 {
     auto redis = getRedisClientOrNull();
     if (!redis)
@@ -294,9 +290,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_NotFoundR
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
-DROGON_TEST(
-  Integration_P0_Contract_Functional_ClientRepository_Memory_PublicClientAcceptsAnySecret
-)
+DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_PublicClientAcceptsAnySecret)
 {
     auto repo = std::make_shared<MemoryClientRepository>();
     Json::Value cfg;

@@ -28,8 +28,10 @@ namespace
 class InMemoryUserRepository : public IUserRepository
 {
   public:
-    void findByEmail(const std::string &email, std::function<void(std::optional<UserData>)> &&cb)
-      override
+    void findByEmail(
+      const std::string &email,
+      std::function<void(std::optional<UserData>)> &&cb
+    ) override
     {
         for (auto &[id, user] : users_)
         {
@@ -64,8 +66,10 @@ class InMemoryUserRepository : public IUserRepository
         cb(it == users_.end() ? std::nullopt : std::optional<UserData>(it->second));
     }
 
-    void findByPublicSub(const std::string &publicSub, std::function<void(std::optional<UserData>)> &&cb)
-      override
+    void findByPublicSub(
+      const std::string &publicSub,
+      std::function<void(std::optional<UserData>)> &&cb
+    ) override
     {
         for (auto &[id, user] : users_)
         {
@@ -207,9 +211,10 @@ class AuthServiceTest : public ::testing::Test
 TEST_F(AuthServiceTest, RegisterThenValidateSucceeds)
 {
     std::string errorCode;
-    service->registerUser("alice", "correct-password", "alice@example.com", [&](const std::string &err) {
-        errorCode = err;
-    });
+    service
+      ->registerUser("alice", "correct-password", "alice@example.com", [&](const std::string &err) {
+          errorCode = err;
+      });
     ASSERT_EQ(errorCode, "");
 
     std::optional<AuthResult> result;
@@ -236,9 +241,7 @@ TEST_F(AuthServiceTest, WrongPasswordFails)
     service->registerUser("carol", "rightpass", "carol@example.com", [](const std::string &) {});
 
     std::optional<AuthResult> result;
-    service->validateUser("carol", "wrongpass", [&](std::optional<AuthResult> r) {
-        result = r;
-    });
+    service->validateUser("carol", "wrongpass", [&](std::optional<AuthResult> r) { result = r; });
     EXPECT_FALSE(result.has_value());
 }
 
@@ -255,7 +258,7 @@ TEST_F(AuthServiceTest, LockedAccountRejectsEvenCorrectPassword)
     locked.username = "dave";
     locked.email = "dave@example.com";
     locked.passwordHash = "$pbkdf2-sha256$310000$00$00";  // irrelevant, never reached
-    locked.lockedUntil = clock->nowSeconds() + 3600;       // locked 1h into the future
+    locked.lockedUntil = clock->nowSeconds() + 3600;      // locked 1h into the future
     repo->seed(locked);
 
     std::optional<AuthResult> result;
@@ -291,12 +294,7 @@ TEST_F(AuthServiceTest, LegacyHashVerifiesAndGetsUpgraded)
 TEST_F(AuthServiceTest, GetUserInfoReturnsClaimsForRegisteredUser)
 {
     int64_t userId = 0;
-    service->registerUser(
-      "frank",
-      "pw",
-      "frank@example.com",
-      [](const std::string &) {}
-    );
+    service->registerUser("frank", "pw", "frank@example.com", [](const std::string &) {});
     repo->findByUsername("frank", [&](std::optional<UserData> u) {
         if (u)
             userId = u->id;
@@ -328,9 +326,9 @@ TEST_F(AuthServiceTest, RegisterDuplicateUsernameReturnsUsernameTakenCode)
     service->registerUser("greg", "pw", "greg@example.com", [](const std::string &) {});
 
     std::string errorCode;
-    service->registerUser(
-      "greg", "different-pw", "other@example.com", [&](const std::string &err) { errorCode = err; }
-    );
+    service->registerUser("greg", "different-pw", "other@example.com", [&](const std::string &err) {
+        errorCode = err;
+    });
     EXPECT_EQ(errorCode, "VALIDATION_USERNAME_TAKEN");
 }
 
@@ -339,10 +337,9 @@ TEST_F(AuthServiceTest, RegisterDuplicateEmailReturnsEmailTakenCode)
     service->registerUser("hank", "pw", "hank@example.com", [](const std::string &) {});
 
     std::string errorCode;
-    service->registerUser(
-      "different-username", "pw", "hank@example.com", [&](const std::string &err) {
+    service
+      ->registerUser("different-username", "pw", "hank@example.com", [&](const std::string &err) {
           errorCode = err;
-      }
-    );
+      });
     EXPECT_EQ(errorCode, "VALIDATION_EMAIL_TAKEN");
 }

@@ -37,7 +37,9 @@ class DeviceAuthController : public ::drogon::HttpController<DeviceAuthControlle
     METHOD_LIST_BEGIN
     // Device Authorization Request (no auth required)
     ADD_METHOD_TO(
-      DeviceAuthController::deviceAuthorization, "/oauth2/device_authorization", ::drogon::Post
+      DeviceAuthController::deviceAuthorization,
+      "/oauth2/device_authorization",
+      ::drogon::Post
     );
 
     // User Approval (admin-only)

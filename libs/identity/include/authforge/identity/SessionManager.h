@@ -56,17 +56,17 @@ namespace authforge::identity
  */
 enum class LoginDecision
 {
-    Proceed,                 // Neither check blocked login -- caller should
-                              // proceed to issue tokens (e.g.
-                              // generateAuthorizationCode).
-    DenyEmailNotVerified,    // Email verification is required and the
-                              // user's email is not verified -- caller
-                              // should deny the login (no tokens issued).
-    RequireMfa,               // The user has MFA enabled -- caller should
-                              // require MFA verification before issuing
-                              // tokens (and persist the pending binding via
-                              // MfaService::setPendingBinding, not this
-                              // class).
+    Proceed,               // Neither check blocked login -- caller should
+                           // proceed to issue tokens (e.g.
+                           // generateAuthorizationCode).
+    DenyEmailNotVerified,  // Email verification is required and the
+                           // user's email is not verified -- caller
+                           // should deny the login (no tokens issued).
+    RequireMfa,            // The user has MFA enabled -- caller should
+                           // require MFA verification before issuing
+                           // tokens (and persist the pending binding via
+                           // MfaService::setPendingBinding, not this
+                           // class).
 };
 
 /**
@@ -100,8 +100,10 @@ class SessionManager
      * ["require_email_verification"]` read).
      * @return Proceed, DenyEmailNotVerified, or RequireMfa.
      */
-    LoginDecision evaluateLoginPolicy(const AuthResult &authResult, bool requireEmailVerification)
-      const;
+    LoginDecision evaluateLoginPolicy(
+      const AuthResult &authResult,
+      bool requireEmailVerification
+    ) const;
 
     /**
      * @brief Forward a logout event to the injected

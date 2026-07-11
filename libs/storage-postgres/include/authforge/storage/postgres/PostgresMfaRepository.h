@@ -21,13 +21,12 @@
 namespace authforge::storage::postgres
 {
 
-class PostgresMfaRepository :
-  public authforge::identity::IMfaRepository,
-  public std::enable_shared_from_this<PostgresMfaRepository>
+class PostgresMfaRepository : public authforge::identity::IMfaRepository,
+                              public std::enable_shared_from_this<PostgresMfaRepository>
 {
   public:
-    explicit PostgresMfaRepository(::drogon::orm::DbClientPtr dbClient) :
-      dbClient_(std::move(dbClient))
+    explicit PostgresMfaRepository(::drogon::orm::DbClientPtr dbClient)
+        : dbClient_(std::move(dbClient))
     {
     }
 

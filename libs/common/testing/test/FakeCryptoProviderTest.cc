@@ -76,8 +76,7 @@ TEST(FakeCryptoProviderTest, Sha256HexIsRealAndDeterministic)
     FakeCryptoProvider provider;
     // Real SHA-256("abc") test vector (FIPS 180-2 example).
     EXPECT_EQ(
-      provider.sha256Hex("abc"),
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      provider.sha256Hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     );
 }
 

@@ -269,8 +269,10 @@ Json::Value *ConfigManager::getJsonPointer(Json::Value &root, const std::string 
             bool found = false;
             for (auto &elem : *arr)
             {
-                if (elem.isObject() && elem.isMember(key) &&
-                    elem[key].isString() && elem[key].asString() == val)
+                if (
+                  elem.isObject() && elem.isMember(key) && elem[key].isString() &&
+                  elem[key].asString() == val
+                )
                 {
                     current = &elem;
                     found = true;

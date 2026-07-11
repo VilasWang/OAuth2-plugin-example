@@ -35,8 +35,7 @@ class OpenSslCryptoProvider : public authforge::common::ports::ICryptoProvider
     std::string base64UrlEncode(const unsigned char *bytes, size_t length) override;
     std::string base64UrlEncode(const std::string &data) override;
     std::vector<unsigned char> base64UrlDecode(const std::string &encoded) override;
-    std::vector<unsigned char> hmacSha256(const std::string &key, const std::string &data)
-      override;
+    std::vector<unsigned char> hmacSha256(const std::string &key, const std::string &data) override;
     std::vector<unsigned char> pbkdf2HmacSha256(
       const std::string &password,
       const std::string &salt,

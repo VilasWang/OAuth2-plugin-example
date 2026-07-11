@@ -140,7 +140,8 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_GoogleRedirect)
     CHECK(common::config::ConfigManager::load(configPath, config) == true);
 
     auto redirect = common::config::ConfigManager::get<std::string>(
-        config, "custom_config.external_auth.google.redirect_uri");
+      config, "custom_config.external_auth.google.redirect_uri"
+    );
     CHECK(redirect == "https://prod.example.com/callback");
 
     unsetenv("OAUTH2_GOOGLE_REDIRECT_URI");
@@ -166,7 +167,8 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_VueRedirect_ByNameLookup)
     CHECK(common::config::ConfigManager::load(configPath, config) == true);
 
     auto redirect = common::config::ConfigManager::get<std::string>(
-        config, "plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri");
+      config, "plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri"
+    );
     CHECK(redirect == "https://prod.example.com/callback");
 
     unsetenv("OAUTH2_VUE_REDIRECT_URI");

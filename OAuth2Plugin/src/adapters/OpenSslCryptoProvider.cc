@@ -32,9 +32,9 @@ std::string base64UrlEncodeImpl(const unsigned char *bytes, size_t length)
     size_t i = 0;
     while (i + 3 <= length)
     {
-        const uint32_t n =
-          (static_cast<uint32_t>(bytes[i]) << 16) | (static_cast<uint32_t>(bytes[i + 1]) << 8) |
-          static_cast<uint32_t>(bytes[i + 2]);
+        const uint32_t n = (static_cast<uint32_t>(bytes[i]) << 16) |
+                           (static_cast<uint32_t>(bytes[i + 1]) << 8) |
+                           static_cast<uint32_t>(bytes[i + 2]);
         out.push_back(kBase64UrlAlphabet[(n >> 18) & 0x3F]);
         out.push_back(kBase64UrlAlphabet[(n >> 12) & 0x3F]);
         out.push_back(kBase64UrlAlphabet[(n >> 6) & 0x3F]);
@@ -121,7 +121,8 @@ std::vector<unsigned char> OpenSslCryptoProvider::sha256(const std::string &data
     if (
       EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr) != 1 ||
       EVP_DigestUpdate(ctx, data.data(), data.size()) != 1 ||
-      EVP_DigestFinal_ex(ctx, digest.data(), &digestLen) != 1)
+      EVP_DigestFinal_ex(ctx, digest.data(), &digestLen) != 1
+    )
     {
         EVP_MD_CTX_free(ctx);
         return {};
@@ -158,9 +159,7 @@ std::string OpenSslCryptoProvider::base64UrlEncode(const unsigned char *bytes, s
 
 std::string OpenSslCryptoProvider::base64UrlEncode(const std::string &data)
 {
-    return base64UrlEncodeImpl(
-      reinterpret_cast<const unsigned char *>(data.data()), data.size()
-    );
+    return base64UrlEncodeImpl(reinterpret_cast<const unsigned char *>(data.data()), data.size());
 }
 
 std::vector<unsigned char> OpenSslCryptoProvider::base64UrlDecode(const std::string &encoded)

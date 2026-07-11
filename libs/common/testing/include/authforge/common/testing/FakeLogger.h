@@ -49,8 +49,10 @@ class FakeLogger : public authforge::common::ports::ILogger
         return false;
     }
 
-    bool hasMessageContaining(authforge::common::ports::LogLevel level, const std::string &substring)
-      const
+    bool hasMessageContaining(
+      authforge::common::ports::LogLevel level,
+      const std::string &substring
+    ) const
     {
         for (const auto &entry : entries_)
         {
