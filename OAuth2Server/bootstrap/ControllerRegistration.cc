@@ -3,8 +3,10 @@
 #include <drogon/DrClassMap.h>
 #include <authforge/drogon/controllers/OAuth2StandardController.h>
 #include <authforge/drogon/controllers/HealthController.h>
+#ifdef WITH_SOCIAL
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <authforge/drogon/controllers/WeChatController.h>
+#endif  // WITH_SOCIAL
 // M5 Task 30: OrganizationController moved to the product app
 // (apps/server/src/organization/, namespace `organization`).
 #include <OrganizationController.h>
@@ -12,12 +14,16 @@
 #include <authforge/drogon/controllers/ApiDocController.h>
 #include <authforge/drogon/controllers/DeviceAuthController.h>
 #include <authforge/drogon/controllers/EmailVerificationController.h>
+#ifdef WITH_SOCIAL
 #include <authforge/drogon/controllers/GitHubController.h>
+#endif  // WITH_SOCIAL
 #include <authforge/drogon/controllers/MfaController.h>
 #include <authforge/drogon/controllers/PasswordResetController.h>
 #include <authforge/drogon/controllers/SessionController.h>
 #include <authforge/drogon/controllers/UserSelfServiceController.h>
+#ifdef WITH_WEBAUTHN
 #include <authforge/drogon/controllers/WebAuthnController.h>
+#endif  // WITH_WEBAUTHN
 #include <authforge/drogon/controllers/ClientAdminController.h>
 #include <authforge/drogon/controllers/UserAdminController.h>
 #include <authforge/drogon/controllers/RoleScopeAdminController.h>
@@ -42,12 +48,14 @@ void registerAllControllers()
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::HealthController>()
     );
+#ifdef WITH_SOCIAL
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::GoogleController>()
     );
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::WeChatController>()
     );
+#endif  // WITH_SOCIAL
     drogon::app().registerController(std::make_shared<::organization::OrganizationController>());
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::ClientRegistrationController>()
@@ -61,9 +69,11 @@ void registerAllControllers()
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::EmailVerificationController>()
     );
+#ifdef WITH_SOCIAL
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::GitHubController>()
     );
+#endif  // WITH_SOCIAL
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::MfaController>()
     );
@@ -76,9 +86,11 @@ void registerAllControllers()
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::UserSelfServiceController>()
     );
+#ifdef WITH_WEBAUTHN
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::WebAuthnController>()
     );
+#endif  // WITH_WEBAUTHN
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::ClientAdminController>()
     );
@@ -124,8 +136,10 @@ void wireControllerPluginDependencies()
       ->setPlugin(plugin);
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::DeviceAuthController>()
       ->setPlugin(plugin);
+#ifdef WITH_SOCIAL
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GitHubController>()
       ->setPlugin(plugin);
+#endif  // WITH_SOCIAL
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::MfaController>()
       ->setPlugin(plugin);
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::SessionController>()

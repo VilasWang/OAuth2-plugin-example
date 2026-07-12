@@ -20,6 +20,27 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 enable_testing()
 
+# M5 Task 31 (authforge-sdk-refactor, design.md F9 / §9.1): conditional-
+# compilation options for the optional AuthForge feature areas. Declared at
+# the TOP level (before any add_subdirectory) so every lib's own option()
+# calls resolve to the same value (option() is a no-op when the variable is
+# already set). Conan's matching with_identity/with_social/with_webauthn
+# options are threaded into these as WITH_* cache vars by conanfile.py's
+# generate(). All default ON to preserve today's build behavior; turning
+# WITH_SOCIAL/WITH_WEBAUTHN OFF shrinks the dependency surface (the social
+# controllers + WebAuthn controllers/services drop out of the build, and
+# libcbor is no longer required).
+#
+# WITH_IDENTITY is declared for symmetry with conanfile.py's `with_identity`
+# and currently defaults ON; flipping it OFF is NOT yet a working
+# configuration -- authforge::identity is consumed by storage-postgres,
+# OAuth2Plugin, and several controllers (Session/Mfa/WebAuthn/Organization),
+# so disabling it requires broader wiring that is out of scope for this task
+# (tracked as follow-up). libs/identity itself always builds today.
+option(WITH_IDENTITY "Build the authforge::identity SDK module" ON)
+option(WITH_SOCIAL "Build social-login (Google/WeChat/GitHub) controllers + services" ON)
+option(WITH_WEBAUTHN "Build the WebAuthn/FIDO2 controller + service" ON)
+
 # libs/common (authforge::common, M2a Task 13): Domain-layer shared kernel.
 # Added before OAuth2Plugin/OAuth2Server since it has no dependency on
 # either (design.md §4.1: Domain layer must not depend on Drogon) -- this

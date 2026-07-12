@@ -1,12 +1,16 @@
 #include "IdentityAssembly.h"
 
 #include <authforge/drogon/adapters/DrogonOAuthHttpClient.h>
+#ifdef WITH_SOCIAL
 #include <authforge/drogon/controllers/GitHubController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
+#include <authforge/drogon/controllers/WeChatController.h>
+#endif  // WITH_SOCIAL
 #include <authforge/drogon/controllers/MfaController.h>
 #include <authforge/drogon/controllers/SessionController.h>
-#include <authforge/drogon/controllers/WeChatController.h>
+#ifdef WITH_WEBAUTHN
 #include <authforge/drogon/controllers/WebAuthnController.h>
+#endif  // WITH_WEBAUTHN
 #include <authforge/identity/AuthService.h>
 #include <authforge/identity/IBackchannelLogoutNotifier.h>
 #include <authforge/identity/IMfaRepository.h>
@@ -96,21 +100,27 @@ void wireIdentityServices()
     // clock).
     auto mfaRepo = std::make_shared<authforge::storage::postgres::PostgresMfaRepository>(dbClient);
 
+    // custom_config is read by both WebAuthn (rp_id/rp_name) and Social
+    // (external_auth.*) config below; read it once here (only the
+    // feature-specific sub-blocks are guarded).
+    auto customConfig = ::drogon::app().getCustomConfig();
+
     // Task 24 slice 5: WebAuthnService. rp_id/rp_name mirror
     // WebAuthnController.cc's own getRpId()/getRpName() config reads
     // (custom_config "webauthn" block, defaulting to "localhost"/"OAuth2
     // Server") -- read once here at startup instead of per-request, same
     // pattern as OAuth2Plugin.cc's own issuer/TTL config reads.
+#ifdef WITH_WEBAUTHN
     auto webAuthnRepo =
       std::make_shared<authforge::storage::postgres::PostgresWebAuthnRepository>(dbClient);
     std::string rpId = "localhost";
     std::string rpName = "OAuth2 Server";
-    auto customConfig = ::drogon::app().getCustomConfig();
     if (customConfig.isMember("webauthn"))
     {
         rpId = customConfig["webauthn"].get("rp_id", rpId).asString();
         rpName = customConfig["webauthn"].get("rp_name", rpName).asString();
     }
+#endif  // WITH_WEBAUTHN
 
     // Owned for the lifetime of the process (same static-local-in-a-
     // free-function pattern OAuth2Plugin.cc's static jwkManagerLogger
@@ -125,9 +135,12 @@ void wireIdentityServices()
     static auto sessionManager = std::make_shared<authforge::identity::SessionManager>(notifier);
     static auto mfaService =
       std::make_shared<authforge::identity::MfaService>(mfaRepo, crypto, clock);
+#ifdef WITH_WEBAUTHN
     static auto webAuthnService =
       std::make_shared<authforge::identity::WebAuthnService>(webAuthnRepo, crypto, rpId, rpName);
+#endif  // WITH_WEBAUTHN
 
+#ifdef WITH_SOCIAL
     // Task 24 slice 5: Social auth services (Google/WeChat/GitHub). Config
     // keys mirror each pre-Task-24 controller's own getXxxConfig() reads
     // (custom_config "external_auth.{google,wechat,github}" blocks) --
@@ -168,6 +181,7 @@ void wireIdentityServices()
     static auto gitHubAuthService = std::make_shared<authforge::identity::GitHubAuthService>(
       oauthHttpClient, socialAccountRepo, githubClientId, githubClientSecret
     );
+#endif  // WITH_SOCIAL
 
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::SessionController>()
       ->setIdentityAuthService(authService.get());
@@ -177,16 +191,20 @@ void wireIdentityServices()
       ->setMfaService(mfaService.get());
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::MfaController>()
       ->setUserRepository(userRepo.get());
+#ifdef WITH_WEBAUTHN
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::WebAuthnController>()
       ->setWebAuthnService(webAuthnService.get());
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::WebAuthnController>()
       ->setUserRepository(userRepo.get());
+#endif  // WITH_WEBAUTHN
+#ifdef WITH_SOCIAL
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GoogleController>()
       ->setGoogleAuthService(googleAuthService.get());
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::WeChatController>()
       ->setWeChatAuthService(weChatAuthService.get());
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GitHubController>()
       ->setGitHubAuthService(gitHubAuthService.get());
+#endif  // WITH_SOCIAL
 
     LOG_INFO << "Identity services wired into SessionController/MfaController/"
                 "WebAuthnController/Google|WeChat|GitHubController "

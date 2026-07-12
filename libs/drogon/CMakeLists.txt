@@ -66,8 +66,44 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
 )
 
+# M5 Task 31 (authforge-sdk-refactor, F9): conditional compilation for the
+# optional social-login + WebAuthn controllers. Declared here too (no-op if
+# the top-level CMakeLists.txt already set them) so this library still
+# configures standalone. When OFF, the corresponding controllers are excluded
+# from compilation AND the WITH_* compile definition is withheld, so their
+# `#ifdef WITH_*` bodies are inactive even if a source slips through.
+option(WITH_SOCIAL "Build social-login (Google/WeChat/GitHub) controllers" ON)
+option(WITH_WEBAUTHN "Build the WebAuthn/FIDO2 controller" ON)
+
 file(GLOB_RECURSE AUTHFORGE_DROGON_SOURCES "src/*.cc")
+
+# Task 31: drop the optional social + WebAuthn controller sources when their
+# feature is disabled (the .cc files already carry `#ifdef WITH_SOCIAL` bodies,
+# but excluding them entirely is cleaner -- no dead TU, smaller binary, and
+# the compile definition below keeps headers' #ifdef guards consistent).
+foreach(_src ${AUTHFORGE_DROGON_SOURCES})
+    get_filename_component(_src_dir "${_src}" DIRECTORY)
+    get_filename_component(_src_name "${_src}" NAME)
+    if((NOT WITH_SOCIAL) AND _src_name MATCHES "^(Google|WeChat|GitHub)Controller\\.cc$")
+        list(REMOVE_ITEM AUTHFORGE_DROGON_SOURCES "${_src}")
+    elseif((NOT WITH_WEBAUTHN) AND _src_name STREQUAL "WebAuthnController.cc")
+        list(REMOVE_ITEM AUTHFORGE_DROGON_SOURCES "${_src}")
+    endif()
+endforeach()
+
 target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_DROGON_SOURCES})
+
+# Task 31: surface WITH_SOCIAL / WITH_WEBAUTHN as compile definitions so the
+# controllers' `#ifdef WITH_*` guards see a consistent on/off decision across
+# the whole translation unit (PUBLIC so consumers of this static lib that
+# include these controller headers also see the same guards). When the option
+# is OFF the definition is withheld and the guarded code compiles out.
+if(WITH_SOCIAL)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC WITH_SOCIAL)
+endif()
+if(WITH_WEBAUTHN)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC WITH_WEBAUTHN)
+endif()
 
 # OAuth2Plugin (temporary, see header note above): HttpResponder.cc calls
 # the pre-existing common::error::{Error,ErrorContext,ErrorHandler,

@@ -67,6 +67,14 @@ class AuthForgeConan(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
+        # M5 Task 31 (F9): thread the Conan with_* options through to the
+        # CMake-side WITH_* cache variables the build actually consumes
+        # (option() defaults live in the top-level CMakeLists.txt +
+        # libs/identity/CMakeLists.txt; without this mapping, `conan build
+        # -o with_webauthn=False` would NOT disable WebAuthn compilation).
+        tc.variables["WITH_IDENTITY"] = bool(self.options.with_identity)
+        tc.variables["WITH_SOCIAL"] = bool(self.options.with_social)
+        tc.variables["WITH_WEBAUTHN"] = bool(self.options.with_webauthn)
         tc.generate()
         deps = CMakeDeps(self)
         deps.generate()

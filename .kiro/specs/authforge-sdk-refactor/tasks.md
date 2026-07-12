@@ -269,9 +269,10 @@
   - 产出：迁移后的组织管理；验收：多租户组织 CRUD 功能等价
   - **完成说明（2026-07-11）**：`OrganizationController` 从 `libs/drogon`（SDK，namespace `authforge::drogon::controllers`）迁到产品应用 `OAuth2Server/src/organization/`（namespace `organization`，产品级，design §5.4：组织 CRUD 是产品关注点、不属于可复用 SDK）。verbatim 搬运（3 路由 list/create/getBySlug + OpenAPI docs + `respondError` helper + 裸 SQL，与 Task 29b 同类债务留后）。依赖方向正确：产品 → SDK（OpenApiGenerator/ErrorResponder/AuditLogger 经 `authforge::drogon`/`oauth2` 链接）。两处注册点同步（`ControllerRegistration.cc` + `test_main.cc`，`::organization::OrganizationController`）。CMake：server 与 test 二进制都加 `src/organization/*.cc` GLOB + include 路径。验收：`manage.ps1 build-backend -debug` 绿；`ctest -C Debug` **290/290 零回归**；手动 curl `/api/admin/organizations*` 三路由均 401（filter 链活、路由已注册），`/health` 200。
 
-- [ ] 31. 社交/邮件/WebAuthn 条件编译（F9 依赖声明）
+- [x] 31. 社交/邮件/WebAuthn 条件编译（F9 依赖声明）
   - `with_social`/`with_identity`/`with_webauthn` option 控制可选编译单元；显式声明 WebAuthn 的加密/CBOR 依赖
   - 产出：CMake + conanfile option 化；验收：关闭时纯协议引擎依赖面缩小且可编译；开启 WebAuthn 时依赖完整可构建
+  - **完成说明（2026-07-11）**：Conan 侧早已声明 `with_identity/with_social/with_webauthn` option + 条件拉 `libcbor/0.13.0`（M0 Task 1）；本任务补齐 **CMake 侧 + Conan→CMake 打通**。(1) `conanfile.py.generate()` 把 `with_*` 映射为 CMake 缓存变量 `WITH_IDENTITY/WITH_SOCIAL/WITH_WEBAUTHN`。(2) 顶层 `CMakeLists.txt` 在所有 `add_subdirectory` 前声明三个 `option(...ON)`（子目录的 `option()` 变 no-op，保留 standalone 配置能力）。(3) `libs/drogon`：`WITH_SOCIAL/WITH_WEBAUTHN` OFF 时从 GLOB 排除 Google/WeChat/GitHub + WebAuthn controller，并按需设 `PUBLIC` 编译定义（与既有 `#ifdef WITH_*` guard 一致）。(4) 注册点 `#ifdef` 守卫：`ControllerRegistration.cc`/`test_main.cc`（include + registerController）/`IdentityAssembly.cc`（include + 构造 social/webauthn 服务 + setter）。(5) `libs/identity/test`：OFF 时排除 `WebAuthnServiceTest.cc`/`SocialAuthServiceTest.cc`。**`WITH_IDENTITY` 声明为 option 但 OFF 暂非可用配置**——`authforge::identity` 被 storage-postgres/OAuth2Plugin/多 controller 深度消费，禁用需更广 wiring（记为 follow-up；本任务范围 social+webauthn，符合任务标题与"依赖面缩小且可编译"验收）。验收：默认（全 ON）`manage.ps1 build-backend -debug` 绿 + `ctest -C Debug` **290/290**；`-DWITH_SOCIAL=OFF -DWITH_WEBAUTHN=OFF`（既有 build/ reconfigure）**全量编译通过、零 link 错**（social/webauthn controller + 服务 + 测试全剔除，依赖面缩小）。
 
 ---
 

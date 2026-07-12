@@ -3,28 +3,12 @@ cmake_minimum_required(VERSION 3.20)
 
 project(authforge-identity LANGUAGES CXX)
 
-# M2.5 identity completion (WebAuthn slice): WITH_WEBAUTHN was previously
-# referenced (src/webauthn/WebAuthnService.cc's `#ifdef WITH_WEBAUTHN`
-# guard, this file's own $<BOOL:${WITH_WEBAUTHN}> generator expressions)
-# but never `option()`'d anywhere in the top-level build -- meaning the
-# variable was always unset/OFF and src/webauthn/WebAuthnService.cc never
-# actually compiled. Declaring the option here (defaulted ON) is what
-# makes the real (non-placeholder) WebAuthnService implementation below
-# actually build and get tested. Threading this through conanfile.py's
-# own `with_webauthn` option is separate, out-of-scope work (tasks.md
-# Task 31).
+# M5 Task 31: WITH_WEBAUTHN / WITH_SOCIAL are now declared at the TOP-LEVEL
+# CMakeLists.txt (and threaded from conanfile.py's with_* options). The
+# option() calls below are no-ops when the variable is already set, kept so
+# this library still configures standalone (add_subdirectory from a foreign
+# root, per OAuth2Plugin/CMakeLists.txt's self-contained-bootstrap pattern).
 option(WITH_WEBAUTHN "Build WebAuthn identity module" ON)
-
-# M2.5 identity completion (Social auth slice): same rationale as
-# WITH_WEBAUTHN above -- WITH_SOCIAL was previously referenced
-# (src/social/*.cc's `#ifdef WITH_SOCIAL` guards, this file's own
-# $<BOOL:${WITH_SOCIAL}> generator expressions) but never `option()`'d
-# anywhere in the top-level build, so src/social/*.cc never actually
-# compiled. Declaring the option here (defaulted ON) is what makes the
-# real (non-placeholder) Google/WeChat/GitHub auth service
-# implementations below actually build and get tested. Threading this
-# through conanfile.py's own `with_social` option is separate,
-# out-of-scope work (tasks.md Task 31).
 option(WITH_SOCIAL "Build social auth identity module" ON)
 
 # Find dependencies

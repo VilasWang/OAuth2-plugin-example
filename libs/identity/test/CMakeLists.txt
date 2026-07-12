@@ -10,6 +10,16 @@ find_package(GTest CONFIG REQUIRED)
 
 file(GLOB_RECURSE AUTHFORGE_IDENTITY_TEST_SOURCES "*.cc")
 
+# M5 Task 31: drop the WebAuthn/Social service tests when their feature is
+# disabled -- those tests reference symbols (WebAuthnService::*,
+# SocialAuthService::*) that are no longer compiled into authforge::identity.
+if(NOT WITH_WEBAUTHN)
+    list(FILTER AUTHFORGE_IDENTITY_TEST_SOURCES EXCLUDE REGEX "WebAuthnServiceTest\\.cc$")
+endif()
+if(NOT WITH_SOCIAL)
+    list(FILTER AUTHFORGE_IDENTITY_TEST_SOURCES EXCLUDE REGEX "SocialAuthServiceTest\\.cc$")
+endif()
+
 add_executable(authforge-identity-test ${AUTHFORGE_IDENTITY_TEST_SOURCES})
 
 target_link_libraries(authforge-identity-test
