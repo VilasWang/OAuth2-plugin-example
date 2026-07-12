@@ -14,10 +14,17 @@ find_package(CURL REQUIRED)
 # them together.
 file(GLOB BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/bootstrap/*.cc")
 
-add_executable(${PROJECT_NAME} 
+# M5 Task 30 (authforge-sdk-refactor): product-level Organization management
+# lives under apps/server/src/organization/ (design.md §5.4: Organization CRUD
+# is a PRODUCT concern, not part of the reusable SDK). Same product-app
+# compilation model as bootstrap/ -- globbed into the server executable.
+file(GLOB ORGANIZATION_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/organization/*.cc")
+
+add_executable(${PROJECT_NAME}
     main.cc
     SchemaManager.cc
     ${BOOTSTRAP_SRC}
+    ${ORGANIZATION_SRC}
 )
 
 # M3 Task 20 (authforge-sdk-refactor): OAuth2Server/controllers/* and
@@ -51,8 +58,9 @@ target_sources(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin authforge::drogon CURL::libcurl)
 
 # Additional includes
-target_include_directories(${PROJECT_NAME} PRIVATE 
+target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/organization
 )
 
 # Compiler compatibility (shared module)

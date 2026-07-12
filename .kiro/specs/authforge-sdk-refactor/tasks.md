@@ -265,8 +265,9 @@
     - 29a 执行：按控制器逐个搬（Client→User→RoleScope→Token→Audit），每搬一个 checkpoint（编译通过），全部搬完 + 改 `ControllerRegistration` + 分发 OpenAPI docs 后跑全量 `manage.ps1 test-backend`。注意 `AuthorizationFilter` 字符串引用、AutoCreation=false 显式 registerController（§5.5）。
   - **29a 完成说明（2026-07-11）**：2914 行 `AdminController` 全部拆为 5 个资源控制器并**删除原 AdminController**（`[~]` = 29a 机械拆分完成，29b SQL/服务下沉待做）。产出：`ClientAdminController`(8 路由)、`UserAdminController`(7)、`RoleScopeAdminController`(8)、`TokenAdminController`(5，含 oidc/keys)、`AuditController`(3，logs+dashboard)。全程 verbatim 搬运（含裸 SQL、`respondError` helper、各控制器私有 `XxxControllerDocs` OpenAPI 静态结构）。两处注册点同步：`ControllerRegistration.cc`（apps/server bootstrap）+ `test/test_main.cc`（测试二进制有独立内联注册列表，与 bootstrap 分离——发现并修复：test_main 须逐个 registerController 否则 route-manifest golden 丢路由）。验收：`manage.ps1 build-backend -debug` 绿；`ctest -C Debug` **290/290 零回归**（route-manifest golden 因路由是 sorted set、全部重新注册后无变化）。`AuthorizationFilter` 字符串引用、AutoCreation=false 显式 registerController、whole-archive 不需要（§5.5）均符合预期。OrgAdminController 按决策跳过（AdminController 无 `/api/admin/org*` 路由，组织管理在别处，Task 30 迁）。
 
-- [ ] 30. Organization 管理归入 `apps/server/src/organization/`（产品级）
+- [x] 30. Organization 管理归入 `apps/server/src/organization/`（产品级）
   - 产出：迁移后的组织管理；验收：多租户组织 CRUD 功能等价
+  - **完成说明（2026-07-11）**：`OrganizationController` 从 `libs/drogon`（SDK，namespace `authforge::drogon::controllers`）迁到产品应用 `OAuth2Server/src/organization/`（namespace `organization`，产品级，design §5.4：组织 CRUD 是产品关注点、不属于可复用 SDK）。verbatim 搬运（3 路由 list/create/getBySlug + OpenAPI docs + `respondError` helper + 裸 SQL，与 Task 29b 同类债务留后）。依赖方向正确：产品 → SDK（OpenApiGenerator/ErrorResponder/AuditLogger 经 `authforge::drogon`/`oauth2` 链接）。两处注册点同步（`ControllerRegistration.cc` + `test_main.cc`，`::organization::OrganizationController`）。CMake：server 与 test 二进制都加 `src/organization/*.cc` GLOB + include 路径。验收：`manage.ps1 build-backend -debug` 绿；`ctest -C Debug` **290/290 零回归**；手动 curl `/api/admin/organizations*` 三路由均 401（filter 链活、路由已注册），`/health` 200。
 
 - [ ] 31. 社交/邮件/WebAuthn 条件编译（F9 依赖声明）
   - `with_social`/`with_identity`/`with_webauthn` option 控制可选编译单元；显式声明 WebAuthn 的加密/CBOR 依赖

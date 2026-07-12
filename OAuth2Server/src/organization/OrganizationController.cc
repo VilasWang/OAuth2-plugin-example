@@ -1,11 +1,17 @@
-#include <authforge/drogon/controllers/OrganizationController.h>
+#include "OrganizationController.h"
 #include <oauth2/observability/AuditLogger.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <regex>
 
-namespace authforge::drogon::controllers
+// M5 Task 30 (authforge-sdk-refactor): Organization management moved verbatim
+// from libs/drogon/src/controllers/OrganizationController.cc into the product
+// app (apps/server/src/organization/, namespace `organization`). respondError
+// helper, OpenAPI docs struct, and every handler body are byte-for-byte copies
+// -- no behavior change (org CRUD routes/tests must stay equivalent).
+
+namespace organization
 {
 
 namespace
@@ -225,4 +231,4 @@ void OrganizationController::getBySlug(
     );
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace organization

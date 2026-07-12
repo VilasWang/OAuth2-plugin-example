@@ -1,23 +1,22 @@
 #pragma once
 
-// M3 Task 20 slice 6 (authforge-sdk-refactor): relocated from
-// OAuth2Server/controllers/OrganizationController.h into
-// authforge::drogon::controllers, following the AutoCreation=false
-// pattern verified in slice 3 (HealthController) -- see PROGRESS.md.
+// M5 Task 30 (authforge-sdk-refactor): Organization management relocated from
+// libs/drogon (authforge::drogon::controllers) into the product app
+// (apps/server/src/organization/, namespace `organization`). Per design.md
+// §5.4, Organization management is a PRODUCT-level concern (multi-tenant org
+// CRUD), NOT part of the reusable protocol-engine/identity SDK, so it does
+// not belong in libs/drogon. Verbatim move -- behavior unchanged (the org
+// CRUD tests / routes must stay equivalent). The raw-SQL -> ORM Mapper +
+// business-logic-to-service extraction remains deferred (same debt as the
+// other admin controllers, Task 29b).
 //
-// The ADD_METHOD_TO filter references ("oauth2::filters::AuthorizationFilter")
-// are STRING lookups via DrClassMap -- they still resolve to the OLD
-// oauth2::filters::AuthorizationFilter location (Task 20 slice 2 left the
-// old filter classes in place, coexisting with the new
-// authforge::drogon::filters::AuthorizationFilter copy; see PROGRESS.md's
-// filter-vs-controller distinction). Not switched to the new filter name
-// in this slice to keep the change minimal; a later cleanup slice can
-// switch all such string references once every filter consumer has
-// migrated.
+// This controller still depends on the SDK's public surface (OpenApiGenerator,
+// ErrorResponder, AuditLogger), which the product app links via
+// authforge::drogon / oauth2 -- correct dependency direction (product -> SDK).
 
 #include <drogon/HttpController.h>
 
-namespace authforge::drogon::controllers
+namespace organization
 {
 
 class OrganizationController : public ::drogon::HttpController<OrganizationController, false>
@@ -59,4 +58,4 @@ class OrganizationController : public ::drogon::HttpController<OrganizationContr
     );
 };
 
-}  // namespace authforge::drogon::controllers
+}  // namespace organization

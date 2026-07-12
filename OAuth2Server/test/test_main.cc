@@ -6,7 +6,9 @@
 #include <authforge/drogon/controllers/HealthController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <authforge/drogon/controllers/WeChatController.h>
-#include <authforge/drogon/controllers/OrganizationController.h>
+// M5 Task 30: OrganizationController moved to the product app
+// (apps/server/src/organization/, namespace `organization`).
+#include <OrganizationController.h>
 #include <authforge/drogon/controllers/ClientRegistrationController.h>
 #include <authforge/drogon/controllers/ApiDocController.h>
 #include <authforge/drogon/controllers/DeviceAuthController.h>
@@ -258,9 +260,7 @@ int main(int argc, char **argv)
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::WeChatController>()
     );
-    drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::OrganizationController>()
-    );
+    drogon::app().registerController(std::make_shared<::organization::OrganizationController>());
     drogon::app().registerController(
       std::make_shared<authforge::drogon::controllers::ClientRegistrationController>()
     );

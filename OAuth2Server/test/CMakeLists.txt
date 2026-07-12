@@ -39,6 +39,13 @@ set(BOOTSTRAP_SRC
     "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrap/IdentityAssembly.cc"
 )
 
+# M5 Task 30: the product-level OrganizationController (apps/server/src/
+# organization/) is registered by test_main.cc, so the test binary must
+# compile it too (same pattern as SchemaManager/bootstrap above).
+set(ORGANIZATION_SRC
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/organization/OrganizationController.cc"
+)
+
 # Collect hierarchical test sources
 file(GLOB_RECURSE UNIT_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cc")
 file(GLOB_RECURSE INTEGRATION_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/integration/*.cc")
@@ -79,6 +86,7 @@ add_executable(${PROJECT_NAME}
     ${ALL_TEST_SOURCES}
     ${SCHEMA_MGR_SRC}
     ${BOOTSTRAP_SRC}
+    ${ORGANIZATION_SRC}
 )
 
 drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/../views
@@ -89,6 +97,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/../
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/organization
     ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/include
 )
 
