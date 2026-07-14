@@ -12,6 +12,8 @@
 #include <openssl/pem.h>
 #include <openssl/bio.h>
 
+#include <cstring>
+
 using namespace authforge::common::testing;
 
 TEST(FakeCryptoProviderTest, SecureRandomBytesIsDeterministicForSameSeed)
