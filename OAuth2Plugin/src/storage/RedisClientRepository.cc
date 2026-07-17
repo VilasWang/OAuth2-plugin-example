@@ -9,6 +9,12 @@
 namespace oauth2
 {
 
+// Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
+// .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
+using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
+using ClientCallback = IClientRepositoryBase::ClientCallback;
+using BoolCallback = IClientRepositoryBase::BoolCallback;
+
 using namespace drogon;
 using namespace drogon::nosql;
 

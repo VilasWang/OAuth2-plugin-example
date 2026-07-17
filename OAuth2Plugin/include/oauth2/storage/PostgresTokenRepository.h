@@ -7,13 +7,19 @@
 // supportsTransactions()/supportsCas() capability flags). It is ADDITIVE:
 // PostgresOAuth2Storage / IOAuth2Storage are untouched and remain the
 // production path used by OAuth2Plugin.cc today.
-#include <oauth2/storage/ITokenRepository.h>
+#include <authforge/oauth2/repository/ITokenRepository.h>
 #include <oauth2/storage/PostgresRepositoryBase.h>
 
 #include <memory>
 
 namespace oauth2
 {
+
+// Task 27.5: now implements the NEW Domain-layer interface
+// authforge::oauth2::repository::ITokenRepository (+ authforge::oauth2::model::* DTOs) instead of
+// the legacy oauth2 one. Types are qualified below (not aliased into this namespace) because the
+// legacy oauth2::* DTOs still coexist in IOAuth2Storage.h during this transition.
+using ITokenRepositoryBase = ::authforge::oauth2::repository::ITokenRepository;
 
 /**
  * @brief PostgreSQL implementation of ITokenRepository.
@@ -37,23 +43,29 @@ namespace oauth2
  *    clause guards against a second concurrent UPDATE seeing the row as
  *    still eligible).
  */
-class PostgresTokenRepository : public ITokenRepository,
+class PostgresTokenRepository : public ITokenRepositoryBase,
                                 public PostgresRepositoryBase,
                                 public std::enable_shared_from_this<PostgresTokenRepository>
 {
   public:
     PostgresTokenRepository() = default;
 
-    void saveAccessToken(const OAuth2AccessToken &token, VoidCallback &&cb) override;
+    void saveAccessToken(
+      const ::authforge::oauth2::model::OAuth2AccessToken &token,
+      VoidCallback &&cb
+    ) override;
     void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override;
 
     void saveTokenPair(
-      const OAuth2AccessToken &at,
-      const OAuth2RefreshToken &rt,
+      const ::authforge::oauth2::model::OAuth2AccessToken &at,
+      const ::authforge::oauth2::model::OAuth2RefreshToken &rt,
       VoidCallback &&cb
     ) override;
 
-    void saveRefreshToken(const OAuth2RefreshToken &token, VoidCallback &&cb) override;
+    void saveRefreshToken(
+      const ::authforge::oauth2::model::OAuth2RefreshToken &token,
+      VoidCallback &&cb
+    ) override;
     void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override;
     void revokeRefreshToken(const std::string &token, VoidCallback &&cb) override;
     void atomicRevokeRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override;

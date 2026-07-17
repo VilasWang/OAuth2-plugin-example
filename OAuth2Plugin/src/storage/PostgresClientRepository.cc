@@ -1,7 +1,6 @@
 #include <oauth2/storage/PostgresClientRepository.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
-#include <oauth2/types/OAuth2Types.h>
 
 namespace
 {
@@ -34,6 +33,14 @@ inline int constantTimeMemcmp(const void *s1, const void *s2, size_t n)
 
 namespace oauth2
 {
+
+// Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
+// .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
+using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
+using ClientType = ::authforge::oauth2::model::ClientType;
+using ::authforge::oauth2::model::stringToClientType;
+using ClientCallback = IClientRepositoryBase::ClientCallback;
+using BoolCallback = IClientRepositoryBase::BoolCallback;
 
 using namespace drogon::orm;
 using namespace drogon_model::oauth2_db;

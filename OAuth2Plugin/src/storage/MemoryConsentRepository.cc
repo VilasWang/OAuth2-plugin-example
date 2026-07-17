@@ -5,6 +5,14 @@
 namespace oauth2
 {
 
+// Task 27.5: callback aliases now live on the new base interface; bring
+// them into scope for the out-of-class method definitions below. The
+// UserRef alias is safe at namespace scope HERE (this .cc does not include
+// oauth2/storage/UserRef.h, so no oauth2::UserRef clash).
+using BoolCallback = IConsentRepositoryBase::BoolCallback;
+using VoidCallback = IConsentRepositoryBase::VoidCallback;
+using UserRef = ::authforge::oauth2::model::UserRef;
+
 int64_t MemoryConsentRepository::getCurrentTimestamp() const
 {
     auto now = std::chrono::system_clock::now();

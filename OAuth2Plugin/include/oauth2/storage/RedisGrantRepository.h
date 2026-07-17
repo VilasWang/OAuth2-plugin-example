@@ -6,13 +6,19 @@
 // #22-25, plus the grant slice of #32 deleteExpiredData -> purgeExpired). It
 // is ADDITIVE: RedisOAuth2Storage / IOAuth2Storage are untouched and remain
 // the production path used by OAuth2Plugin.cc today.
-#include <oauth2/storage/IGrantRepository.h>
+#include <authforge/oauth2/repository/IGrantRepository.h>
 #include <oauth2/storage/RedisRepositoryBase.h>
 
 #include <memory>
 
 namespace oauth2
 {
+
+// Task 27.5: now implements the NEW Domain-layer interface
+// authforge::oauth2::repository::IGrantRepository (+ authforge::oauth2::model::* DTOs) instead of
+// the legacy oauth2 one. Types are qualified below (not aliased into this namespace) because the
+// legacy oauth2::* DTOs still coexist in IOAuth2Storage.h during this transition.
+using IGrantRepositoryBase = ::authforge::oauth2::repository::IGrantRepository;
 
 /**
  * @brief Redis implementation of IGrantRepository.
@@ -35,7 +41,7 @@ namespace oauth2
  * This override preserves that no-op behavior verbatim -- it does NOT
  * implement real cleanup logic that the original never had.
  */
-class RedisGrantRepository : public IGrantRepository,
+class RedisGrantRepository : public IGrantRepositoryBase,
                              public RedisRepositoryBase,
                              public std::enable_shared_from_this<RedisGrantRepository>
 {
@@ -45,7 +51,10 @@ class RedisGrantRepository : public IGrantRepository,
     {
     }
 
-    void saveAuthCode(const OAuth2AuthCode &code, VoidCallback &&cb) override;
+    void saveAuthCode(
+      const ::authforge::oauth2::model::OAuth2AuthCode &code,
+      VoidCallback &&cb
+    ) override;
     void getAuthCode(const std::string &code, AuthCodeCallback &&cb) override;
     void markAuthCodeUsed(const std::string &code, VoidCallback &&cb) override;
     void consumeAuthCode(
@@ -55,7 +64,7 @@ class RedisGrantRepository : public IGrantRepository,
     ) override;
 
     void saveAuthorizationTransaction(
-      const AuthorizationTransaction &transaction,
+      const ::authforge::oauth2::model::AuthorizationTransaction &transaction,
       BoolCallback &&cb
     ) override;
     void getAuthorizationTransaction(

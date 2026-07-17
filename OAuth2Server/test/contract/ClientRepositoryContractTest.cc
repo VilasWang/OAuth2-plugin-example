@@ -20,8 +20,8 @@
 //     from the real seed data other tests already depend on.
 //   - Redis: HSET a client hash directly via the raw RedisClient (the only
 //     way to get data in, since IClientRepository has no write method and
-//     RedisOAuth2Storage/RedisClientRepository never gained one either).
-//   - Memory: MemoryClientRepository::initFromConfig() -- the one repository
+//     RedisOAuth2Storage/oauth2::RedisClientRepository never gained one either).
+//   - Memory: oauth2::MemoryClientRepository::initFromConfig() -- the one repository
 //     that DOES have a construction-time write path, so this test builds a
 //     fresh config-based fixture instead of relying on seed data.
 
@@ -37,7 +37,8 @@
 
 #include <string>
 
-using namespace oauth2;
+using namespace authforge::oauth2::repository;
+using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
 
 namespace
@@ -75,8 +76,8 @@ void runClientRepository_NotFoundContract(
 // validateClient() must not gate on it. Verified true for Postgres and
 // Memory (both branch on ClientType::PUBLIC and short-circuit to `true`
 // before ever looking at the provided secret). Not run against Redis --
-// RedisClientRepository never persists/reads a client_type field at all
-// (see RedisClientRepository.h/.cc), so there is no PUBLIC/CONFIDENTIAL
+// oauth2::RedisClientRepository never persists/reads a client_type field at all
+// (see oauth2::RedisClientRepository.h/.cc), so there is no PUBLIC/CONFIDENTIAL
 // branch to exercise on that backend; Redis gets its own, differently-shaped
 // contract test below (KnownClientHashValidationContract) that matches its
 // real (type-agnostic) behavior instead of papering over the difference.
@@ -139,7 +140,7 @@ void runClientRepository_ConfidentialClientValidatesSecretContract(
     CHECK(validEmpty == false);
 }
 
-// Redis-specific: RedisClientRepository::validateClient has no notion of
+// Redis-specific: oauth2::RedisClientRepository::validateClient has no notion of
 // client_type at all (see its .cc: no PUBLIC/CONFIDENTIAL branch exists).
 // Its REAL contract is: empty secret -> EXISTS check (true iff the client
 // hash exists in Redis, regardless of what "type" it conceptually is); non-
@@ -189,7 +190,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Postgres_NotFoun
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresClientRepository>();
+    auto repo = std::make_shared<oauth2::PostgresClientRepository>();
     repo->initFromConfig(Json::Value());
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
@@ -203,7 +204,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresClientRepository>();
+    auto repo = std::make_shared<oauth2::PostgresClientRepository>();
     repo->initFromConfig(Json::Value());
     runClientRepository_PublicClientAcceptsAnySecretContract(TEST_CTX, repo, "vue-client");
 }
@@ -218,7 +219,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresClientRepository>();
+    auto repo = std::make_shared<oauth2::PostgresClientRepository>();
     repo->initFromConfig(Json::Value());
     runClientRepository_ConfidentialClientValidatesSecretContract(
       TEST_CTX, repo, "backend-svc", "test-secret", "wrong-secret"
@@ -235,7 +236,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_NotFoundRe
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisClientRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisClientRepository>("default");
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -251,7 +252,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
     const std::string hash = drogon::utils::getSha256(secret + salt);
 
     // Seed the client hash directly -- IClientRepository has no write
-    // method, and RedisClientRepository never gained one (see file header).
+    // method, and oauth2::RedisClientRepository never gained one (see file header).
     waitForVoid([&](auto cb) {
         redis->execCommandAsync(
           [cb](const drogon::nosql::RedisResult &) { cb(); },
@@ -264,7 +265,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
         );
     });
 
-    auto repo = std::make_shared<RedisClientRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisClientRepository>("default");
     runClientRepository_Redis_KnownClientHashValidationContract(
       TEST_CTX, repo, clientId, secret, "wrong-secret"
     );
@@ -286,13 +287,13 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_NotFoundReturnsNullopt)
 {
-    auto repo = std::make_shared<MemoryClientRepository>();
+    auto repo = std::make_shared<oauth2::MemoryClientRepository>();
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_PublicClientAcceptsAnySecret)
 {
-    auto repo = std::make_shared<MemoryClientRepository>();
+    auto repo = std::make_shared<oauth2::MemoryClientRepository>();
     Json::Value cfg;
     cfg["mem-public-client"]["type"] = "PUBLIC";
     cfg["mem-public-client"]["secret"] = "";
@@ -306,7 +307,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_ClientRepository_Memory_ConfidentialClientValidatesSecret
 )
 {
-    auto repo = std::make_shared<MemoryClientRepository>();
+    auto repo = std::make_shared<oauth2::MemoryClientRepository>();
     Json::Value cfg;
     cfg["mem-confidential-client"]["type"] = "CONFIDENTIAL";
     cfg["mem-confidential-client"]["secret"] = "test-secret";

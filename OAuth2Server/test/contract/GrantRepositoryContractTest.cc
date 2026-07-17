@@ -23,7 +23,7 @@
 // Authorization-transaction operations (saveAuthorizationTransaction /
 // getAuthorizationTransaction / deleteAuthorizationTransaction /
 // markTransactionConsumed) are NOT covered here: per REPOSITORY_MAPPING.md
-// and PostgresGrantRepository.h's class comment, the Postgres
+// and oauth2::PostgresGrantRepository.h's class comment, the Postgres
 // implementation of these four methods is a DOCUMENTED PLACEHOLDER (it does
 // not persist to a real table -- saveAuthorizationTransaction always
 // returns true without storing anything, getAuthorizationTransaction always
@@ -48,7 +48,8 @@
 
 #include <string>
 
-using namespace oauth2;
+using namespace authforge::oauth2::repository;
+using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
 
 namespace
@@ -193,7 +194,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Postgres_SaveGetR
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresGrantRepository>();
+    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
@@ -204,7 +205,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Postgres_NotFound
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresGrantRepository>();
+    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
@@ -217,7 +218,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresGrantRepository>();
+    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "vue-client"
@@ -232,7 +233,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresGrantRepository>();
+    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "vue-client");
 }
@@ -243,7 +244,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Postgres_ConsumeA
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresGrantRepository>();
+    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "vue-client");
 }
@@ -258,7 +259,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_SaveGetRoun
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisGrantRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -268,7 +269,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_NotFoundRet
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisGrantRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -280,7 +281,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisGrantRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "vue-client"
     );
@@ -294,7 +295,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisGrantRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -304,7 +305,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuth
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisGrantRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -314,13 +315,13 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuth
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_SaveGetRoundTrip)
 {
-    auto repo = std::make_shared<MemoryGrantRepository>();
+    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_NotFoundReturnsNullopt)
 {
-    auto repo = std::make_shared<MemoryGrantRepository>();
+    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -328,7 +329,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_CorrectRedirectUriSucceeds
 )
 {
-    auto repo = std::make_shared<MemoryGrantRepository>();
+    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "mem-client"
     );
@@ -338,12 +339,12 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_WrongRedirectUriFails
 )
 {
-    auto repo = std::make_shared<MemoryGrantRepository>();
+    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_SingleUse)
 {
-    auto repo = std::make_shared<MemoryGrantRepository>();
+    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "mem-client");
 }

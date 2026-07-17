@@ -5,13 +5,19 @@
 // IClientRepository (methods #1-2 of REPOSITORY_MAPPING.md: getClient,
 // validateClient). It is ADDITIVE: PostgresOAuth2Storage / IOAuth2Storage are
 // untouched and remain the production path used by OAuth2Plugin.cc today.
-#include <oauth2/storage/IClientRepository.h>
+#include <authforge/oauth2/repository/IClientRepository.h>
 #include <oauth2/storage/PostgresRepositoryBase.h>
 
 #include <memory>
 
 namespace oauth2
 {
+
+// Task 27.5: now implements the NEW Domain-layer interface
+// authforge::oauth2::repository::IClientRepository (+ authforge::oauth2::model::* DTOs) instead of
+// the legacy oauth2 one. Types are qualified below (not aliased into this namespace) because the
+// legacy oauth2::* DTOs still coexist in IOAuth2Storage.h during this transition.
+using IClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
 
 /**
  * @brief PostgreSQL implementation of IClientRepository.
@@ -23,7 +29,7 @@ namespace oauth2
  * uses this pattern (its scope-fetch continuation captures `self`), mirroring
  * the original PostgresOAuth2Storage::getClient.
  */
-class PostgresClientRepository : public IClientRepository,
+class PostgresClientRepository : public IClientRepositoryBase,
                                  public PostgresRepositoryBase,
                                  public std::enable_shared_from_this<PostgresClientRepository>
 {

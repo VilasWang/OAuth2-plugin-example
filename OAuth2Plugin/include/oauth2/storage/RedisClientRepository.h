@@ -6,13 +6,19 @@
 // getClient, validateClient). It is ADDITIVE: RedisOAuth2Storage /
 // IOAuth2Storage are untouched and remain the production path used by
 // OAuth2Plugin.cc today.
-#include <oauth2/storage/IClientRepository.h>
+#include <authforge/oauth2/repository/IClientRepository.h>
 #include <oauth2/storage/RedisRepositoryBase.h>
 
 #include <memory>
 
 namespace oauth2
 {
+
+// Task 27.5: now implements the NEW Domain-layer interface
+// authforge::oauth2::repository::IClientRepository (+ authforge::oauth2::model::* DTOs) instead of
+// the legacy oauth2 one. Types are qualified below (not aliased into this namespace) because the
+// legacy oauth2::* DTOs still coexist in IOAuth2Storage.h during this transition.
+using IClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
 
 /**
  * @brief Redis implementation of IClientRepository.
@@ -26,7 +32,7 @@ namespace oauth2
  * class still inherits the pattern for consistency with the other Redis
  * repository splits and in case a future edit needs it.
  */
-class RedisClientRepository : public IClientRepository,
+class RedisClientRepository : public IClientRepositoryBase,
                               public RedisRepositoryBase,
                               public std::enable_shared_from_this<RedisClientRepository>
 {

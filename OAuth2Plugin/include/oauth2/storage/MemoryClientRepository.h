@@ -30,7 +30,7 @@
 // boundary), so there is no "keep the object alive until an in-flight
 // callback fires" concern the way there is for
 // Postgres/Redis (whose callbacks run later, on a DB/Redis client thread).
-#include <oauth2/storage/IClientRepository.h>
+#include <authforge/oauth2/repository/IClientRepository.h>
 
 #include <json/json.h>
 #include <mutex>
@@ -39,6 +39,17 @@
 
 namespace oauth2
 {
+
+// Task 27.5 (authforge-sdk-refactor): this split repository now implements
+// the NEW Domain-layer interface authforge::oauth2::repository::IClientRepository
+// (and the authforge::oauth2::model::* DTOs) instead of the legacy
+// oauth2::IClientRepository from IOAuth2Storage.h. The old/new DTOs are
+// field-identical. Types are fully qualified below (not aliased into the
+// oauth2 namespace) because the legacy oauth2::OAuth2Client / oauth2::ClientType
+// still coexist in IOAuth2Storage.h / OAuth2Types.h during this transition --
+// a `using` alias would redefine those names and clash in TUs that include
+// both (e.g. MemoryRepositoryBundle.cc). They retire in phase 4.
+using IClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
 
 /**
  * @brief In-memory implementation of IClientRepository.
@@ -51,7 +62,7 @@ namespace oauth2
  * compatibility branch, and the client_type parsing with CONFIDENTIAL
  * fallback on invalid values).
  */
-class MemoryClientRepository : public IClientRepository
+class MemoryClientRepository : public IClientRepositoryBase
 {
   public:
     /**
@@ -75,7 +86,7 @@ class MemoryClientRepository : public IClientRepository
 
   private:
     std::recursive_mutex mutex_;
-    std::unordered_map<std::string, OAuth2Client> clients_;
+    std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2Client> clients_;
 };
 
 }  // namespace oauth2

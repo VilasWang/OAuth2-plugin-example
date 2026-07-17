@@ -12,7 +12,7 @@
 // general rationale): this class owns `authCodes_` and `transactions_` --
 // the two maps every IGrantRepository method touches -- and its own private
 // mutex. No cross-repository sharing is needed.
-#include <oauth2/storage/IGrantRepository.h>
+#include <authforge/oauth2/repository/IGrantRepository.h>
 
 #include <cstdint>
 #include <mutex>
@@ -21,6 +21,15 @@
 
 namespace oauth2
 {
+
+// Task 27.5 (authforge-sdk-refactor): now implements the NEW Domain-layer
+// interface authforge::oauth2::repository::IGrantRepository (+ the
+// authforge::oauth2::model::* DTOs) instead of the legacy oauth2 one from
+// IOAuth2Storage.h. Old/new DTOs are field-identical. Types are fully
+// qualified (not aliased) because the legacy oauth2::OAuth2AuthCode /
+// oauth2::AuthorizationTransaction still coexist in IOAuth2Storage.h during
+// this transition (see MemoryClientRepository.h for the clash rationale).
+using IGrantRepositoryBase = ::authforge::oauth2::repository::IGrantRepository;
 
 /**
  * @brief In-memory implementation of IGrantRepository.
@@ -31,10 +40,13 @@ namespace oauth2
  * (including getAuthorizationTransaction's lazy expiry-on-read eviction and
  * markTransactionConsumed's single-consume guard).
  */
-class MemoryGrantRepository : public IGrantRepository
+class MemoryGrantRepository : public IGrantRepositoryBase
 {
   public:
-    void saveAuthCode(const OAuth2AuthCode &code, VoidCallback &&cb) override;
+    void saveAuthCode(
+      const ::authforge::oauth2::model::OAuth2AuthCode &code,
+      VoidCallback &&cb
+    ) override;
     void getAuthCode(const std::string &code, AuthCodeCallback &&cb) override;
     void markAuthCodeUsed(const std::string &code, VoidCallback &&cb) override;
     void consumeAuthCode(
@@ -44,7 +56,7 @@ class MemoryGrantRepository : public IGrantRepository
     ) override;
 
     void saveAuthorizationTransaction(
-      const AuthorizationTransaction &transaction,
+      const ::authforge::oauth2::model::AuthorizationTransaction &transaction,
       BoolCallback &&cb
     ) override;
     void getAuthorizationTransaction(
@@ -72,8 +84,9 @@ class MemoryGrantRepository : public IGrantRepository
 
   private:
     std::recursive_mutex mutex_;
-    std::unordered_map<std::string, OAuth2AuthCode> authCodes_;
-    std::unordered_map<std::string, AuthorizationTransaction> transactions_;
+    std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2AuthCode> authCodes_;
+    std::unordered_map<std::string, ::authforge::oauth2::model::AuthorizationTransaction>
+      transactions_;
 
     int64_t getCurrentTimestamp() const;
 };

@@ -29,7 +29,8 @@
 
 #include <string>
 
-using namespace oauth2;
+using namespace authforge::oauth2::repository;
+using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
 
 namespace
@@ -103,7 +104,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
     UserRef user;
     user.internalUserId = internalUserId;
 
-    auto repo = std::make_shared<PostgresConsentRepository>();
+    auto repo = std::make_shared<oauth2::PostgresConsentRepository>();
     repo->initFromConfig(Json::Value());
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "vue-client", "openid"
@@ -142,7 +143,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Redis_SaveHasRe
     UserRef user;
     user.internalUserId = 900001;  // opaque; no FK on this backend
 
-    auto repo = std::make_shared<RedisConsentRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisConsentRepository>("default");
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "vue-client", "contract-scope-" + uniqueSuffix()
     );
@@ -157,7 +158,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_SaveHasR
     UserRef user;
     user.internalUserId = 900002;  // opaque; no FK on this backend
 
-    auto repo = std::make_shared<MemoryConsentRepository>();
+    auto repo = std::make_shared<oauth2::MemoryConsentRepository>();
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "mem-client", "contract-scope-" + uniqueSuffix()
     );

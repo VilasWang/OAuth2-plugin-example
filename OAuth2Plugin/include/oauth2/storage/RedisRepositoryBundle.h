@@ -20,6 +20,13 @@
 namespace oauth2
 {
 
+// Task 27.5: the 4 oauth2-aggregate accessors now expose the NEW authforge::oauth2::repository::*
+// interfaces the split-repos implement.
+using IClientRepository = ::authforge::oauth2::repository::IClientRepository;
+using IGrantRepository = ::authforge::oauth2::repository::IGrantRepository;
+using ITokenRepository = ::authforge::oauth2::repository::ITokenRepository;
+using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
+
 /**
  * @brief Aggregates all seven Redis repository implementations behind a
  * single constructor call, mirroring PostgresRepositoryBundle's ergonomics

@@ -18,8 +18,8 @@
 //   2. Atomicity/CAS tier (second half): gated on
 //      repo->supportsTransactions()/supportsCas(), per the capability-flag
 //      contract ITokenRepository.h documents. Memory and Postgres both
-//      declare both flags true (see MemoryTokenRepository.h /
-//      PostgresTokenRepository.h capability-flag doc comments); Redis
+//      declare both flags true (see oauth2::MemoryTokenRepository.h /
+//      oauth2::PostgresTokenRepository.h capability-flag doc comments); Redis
 //      declares both false. Tests below check the flag first and return
 //      (skip, not fail) when a backend opts out -- this is also how the
 //      suite proves it is capable of catching "能力谎报" (a false "true"):
@@ -41,7 +41,8 @@
 #include <string>
 #include <thread>
 
-using namespace oauth2;
+using namespace authforge::oauth2::repository;
+using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
 
 namespace
@@ -128,7 +129,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Postgres_AccessTo
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
@@ -138,7 +139,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Postgres_AccessTo
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
@@ -148,7 +149,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Redis_AccessToken
     auto redis = getRedisClientOrNull();
     if (!redis)
         return;
-    auto repo = std::make_shared<RedisTokenRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -157,19 +158,19 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Redis_AccessToken
     auto redis = getRedisClientOrNull();
     if (!redis)
         return;
-    auto repo = std::make_shared<RedisTokenRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenSaveGetRoundTrip)
 {
-    auto repo = std::make_shared<MemoryTokenRepository>();
+    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenNotFound)
 {
-    auto repo = std::make_shared<MemoryTokenRepository>();
+    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
 
@@ -178,7 +179,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessToke
 //
 // Verified by reading the .cc files (not assumed): Postgres and Memory both
 // genuinely persist and return refresh tokens. Redis's saveRefreshToken()/
-// getRefreshToken() are BOTH no-ops today (RedisTokenRepository.cc; the
+// getRefreshToken() are BOTH no-ops today (oauth2::RedisTokenRepository.cc; the
 // class header documents this as a pre-existing, verbatim-preserved quirk
 // of the original RedisOAuth2Storage, not something this task introduced or
 // is chartered to fix). A single shared "round trip" assertion function
@@ -217,14 +218,14 @@ DROGON_TEST(
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_RefreshTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RefreshTokenSaveGetRoundTrip)
 {
-    auto repo = std::make_shared<MemoryTokenRepository>();
+    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
     runTokenRepository_RefreshTokenSaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
@@ -241,7 +242,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisTokenRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
     const std::string rtToken = "contract-rt-noop-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "contract-at-for-rt-noop", "vue-client");
 
@@ -256,9 +257,9 @@ DROGON_TEST(
 // ===========================================================================
 // HONEST DIVERGENCE #2: revocation observability via getRefreshToken().
 //
-// Verified by reading the .cc files: MemoryTokenRepository::getRefreshToken
+// Verified by reading the .cc files: oauth2::MemoryTokenRepository::getRefreshToken
 // ACTIVELY filters out revoked (and expired) tokens (returns nullopt for
-// them). PostgresTokenRepository::getRefreshToken does NOT filter on
+// them). oauth2::PostgresTokenRepository::getRefreshToken does NOT filter on
 // revoked -- it returns the row with `revoked == true` set on the returned
 // struct. Both are legitimate, self-consistent behaviors (Postgres exposes
 // "here is the token, and here is its current revoked status" as a single
@@ -276,7 +277,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
 
     const std::string rtToken = "contract-rt-revoke-pg-" + uniqueSuffix();
@@ -296,7 +297,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeRefreshToken_GetReturnsNullopt
 )
 {
-    auto repo = std::make_shared<MemoryTokenRepository>();
+    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
 
     const std::string rtToken = "contract-rt-revoke-mem-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "contract-at-for-revoke-mem", "mem-client");
@@ -313,9 +314,9 @@ DROGON_TEST(
 // ===========================================================================
 // HONEST DIVERGENCE #3: expired-token read-time filtering.
 //
-// Verified by reading the .cc files: MemoryTokenRepository::getAccessToken
+// Verified by reading the .cc files: oauth2::MemoryTokenRepository::getAccessToken
 // ACTIVELY checks `expiresAt > now` before returning (an expired token
-// yields nullopt on get, with no separate purge needed). PostgresTokenRepository
+// yields nullopt on get, with no separate purge needed). oauth2::PostgresTokenRepository
 // ::getAccessToken does NOT check expiresAt at all -- it returns whatever row
 // matches the token, expired or not; expiry enforcement in the Postgres
 // design relies entirely on a separate purgeExpired() sweep (a future
@@ -324,7 +325,7 @@ DROGON_TEST(
 // between backends (not introduced by this task), and is reported as such
 // rather than glossed over. Redis is deliberately NOT tested here: its
 // SETEX-based TTL means "already expired at save time" collapses to a
-// 1-second grace window (see RedisTokenRepository::saveAccessToken's
+// 1-second grace window (see oauth2::RedisTokenRepository::saveAccessToken's
 // `ttl = ... : 1` fallback) before Redis itself evicts the key -- asserting
 // anything deterministic about that window would require a real sleep,
 // trading determinism for flakiness for no real benefit (Redis's own
@@ -336,7 +337,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredAccessToken_GetReturnsNullopt
 )
 {
-    auto repo = std::make_shared<MemoryTokenRepository>();
+    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
 
     const std::string token = "contract-at-expired-mem-" + uniqueSuffix();
     auto at = makeAccessToken(token, "mem-client", /*ttlSeconds=*/-60);  // already expired
@@ -362,7 +363,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
 
     const std::string token = "contract-at-expired-pg-" + uniqueSuffix();
@@ -508,7 +509,7 @@ DROGON_TEST(
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_AtomicRevokeRefreshToken_ConcurrentCasContract(TEST_CTX, repo, "vue-client");
 }
@@ -517,12 +518,12 @@ DROGON_TEST(
   Integration_P0_Contract_Atomicity_TokenRepository_Memory_AtomicRevokeRefreshToken_ConcurrentCas
 )
 {
-    auto repo = std::make_shared<MemoryTokenRepository>();
+    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
     runTokenRepository_AtomicRevokeRefreshToken_ConcurrentCasContract(TEST_CTX, repo, "mem-client");
 }
 
 // Redis declares supportsCas() == false (verified: its atomicRevokeRefreshToken
-// layers on top of a no-op getRefreshToken, see RedisTokenRepository.h's
+// layers on top of a no-op getRefreshToken, see oauth2::RedisTokenRepository.h's
 // capability-flag doc comment) -- this test proves the SKIP path itself
 // fires correctly (not a false pass) by asserting the flag first and
 // exiting via `return` with zero further assertions recorded for this case,
@@ -535,7 +536,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<RedisTokenRepository>("default");
+    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
     REQUIRE(repo->supportsCas() == false);
     // Intentionally does not call atomicRevokeRefreshToken(): Redis's own
     // capability flag says this tier does not apply to it. This test's job
@@ -551,7 +552,7 @@ DROGON_TEST(
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
       TEST_CTX, repo, "vue-client"
@@ -564,7 +565,7 @@ DROGON_TEST(
 // row, then verify the refresh token half was never persisted either.
 //
 // Honesty note on what this proves and does not: reading
-// PostgresTokenRepository::saveTokenPair's implementation shows the access
+// oauth2::PostgresTokenRepository::saveTokenPair's implementation shows the access
 // insert's error callback short-circuits the whole chain -- it never
 // issues the refresh insert at all (rather than issuing it and then rolling
 // the transaction back). This test's assertion (refresh token absent after
@@ -582,7 +583,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<PostgresTokenRepository>();
+    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     if (!repo->supportsTransactions())
         return;
@@ -634,14 +635,14 @@ DROGON_TEST(
 // Memory's honest limitation (documented rather than glossed over): unlike
 // Postgres, there is no way to make a std::unordered_map insert "fail"
 // short of throwing bad_alloc, so this suite cannot construct an equivalent
-// duplicate-key/failure-injection test for MemoryTokenRepository. What CAN
+// duplicate-key/failure-injection test for oauth2::MemoryTokenRepository. What CAN
 // be verified -- and is verified by
 // runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract above
 // -- is the happy-path completion of both writes. The DEEPER atomicity
 // claim for Memory (that no third thread could ever observe the access
 // token present but the refresh token absent, because both writes happen
 // under one continuously-held recursive_mutex) is documented in
-// MemoryTokenRepository.h's capability-flag doc comment as a matter of
+// oauth2::MemoryTokenRepository.h's capability-flag doc comment as a matter of
 // reading the lock-scope structure of the code, not something this
 // external, callback-based contract test can observe without white-box
 // access to the mutex itself (which would defeat the point of a contract
@@ -651,7 +652,7 @@ DROGON_TEST(
   Integration_P0_Contract_Atomicity_TokenRepository_Memory_SaveTokenPair_HappyPathBothWritesSucceed
 )
 {
-    auto repo = std::make_shared<MemoryTokenRepository>();
+    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
     runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
       TEST_CTX, repo, "mem-client"
     );

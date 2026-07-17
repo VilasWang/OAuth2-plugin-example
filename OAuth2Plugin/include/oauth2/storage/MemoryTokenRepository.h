@@ -13,7 +13,7 @@
 // general rationale): this class owns `accessTokens_` and `refreshTokens_`
 // -- the two maps every ITokenRepository method touches -- and its own
 // private recursive_mutex.
-#include <oauth2/storage/ITokenRepository.h>
+#include <authforge/oauth2/repository/ITokenRepository.h>
 
 #include <cstdint>
 #include <mutex>
@@ -22,6 +22,15 @@
 
 namespace oauth2
 {
+
+// Task 27.5 (authforge-sdk-refactor): now implements the NEW Domain-layer
+// interface authforge::oauth2::repository::ITokenRepository (+ the
+// authforge::oauth2::model::* DTOs) instead of the legacy oauth2 one from
+// IOAuth2Storage.h. Old/new DTOs are field-identical. Types are fully
+// qualified (not aliased) because the legacy oauth2::OAuth2AccessToken /
+// oauth2::OAuth2RefreshToken / oauth2::TokenIntrospection still coexist in
+// IOAuth2Storage.h during this transition (see MemoryClientRepository.h).
+using ITokenRepositoryBase = ::authforge::oauth2::repository::ITokenRepository;
 
 /**
  * @brief In-memory implementation of ITokenRepository.
@@ -66,13 +75,19 @@ namespace oauth2
  *    revoked" write. This is a real, in-process compare-and-swap, not an
  *    approximation.
  */
-class MemoryTokenRepository : public ITokenRepository
+class MemoryTokenRepository : public ITokenRepositoryBase
 {
   public:
-    void saveAccessToken(const OAuth2AccessToken &token, VoidCallback &&cb) override;
+    void saveAccessToken(
+      const ::authforge::oauth2::model::OAuth2AccessToken &token,
+      VoidCallback &&cb
+    ) override;
     void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override;
 
-    void saveRefreshToken(const OAuth2RefreshToken &token, VoidCallback &&cb) override;
+    void saveRefreshToken(
+      const ::authforge::oauth2::model::OAuth2RefreshToken &token,
+      VoidCallback &&cb
+    ) override;
     void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override;
     void revokeRefreshToken(const std::string &token, VoidCallback &&cb) override;
     void atomicRevokeRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override;
@@ -100,8 +115,8 @@ class MemoryTokenRepository : public ITokenRepository
 
   private:
     std::recursive_mutex mutex_;
-    std::unordered_map<std::string, OAuth2AccessToken> accessTokens_;
-    std::unordered_map<std::string, OAuth2RefreshToken> refreshTokens_;
+    std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2AccessToken> accessTokens_;
+    std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2RefreshToken> refreshTokens_;
 
     int64_t getCurrentTimestamp() const;
 };

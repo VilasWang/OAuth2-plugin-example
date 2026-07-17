@@ -5,6 +5,18 @@
 namespace oauth2
 {
 
+// Task 27.5: callback aliases now live on the new base interface; bring
+// them into scope for the out-of-class method definitions below. The DTO
+// aliases are safe at namespace scope HERE (this .cc does not include
+// IOAuth2Storage.h, so no oauth2::OAuth2AccessToken clash).
+using AccessTokenCallback = ITokenRepositoryBase::AccessTokenCallback;
+using RefreshTokenCallback = ITokenRepositoryBase::RefreshTokenCallback;
+using VoidCallback = ITokenRepositoryBase::VoidCallback;
+using TokenIntrospectionCallback = ITokenRepositoryBase::TokenIntrospectionCallback;
+using OAuth2AccessToken = ::authforge::oauth2::model::OAuth2AccessToken;
+using OAuth2RefreshToken = ::authforge::oauth2::model::OAuth2RefreshToken;
+using TokenIntrospection = ::authforge::oauth2::model::TokenIntrospection;
+
 int64_t MemoryTokenRepository::getCurrentTimestamp() const
 {
     auto now = std::chrono::system_clock::now();

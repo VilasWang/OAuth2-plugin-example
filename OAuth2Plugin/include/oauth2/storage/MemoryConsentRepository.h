@@ -10,7 +10,7 @@
 // State ownership (see MemoryClientRepository.h header comment for the
 // general rationale): this class owns `userConsents_` -- the only map
 // IConsentRepository's methods touch -- and its own private mutex.
-#include <oauth2/storage/IConsentRepository.h>
+#include <authforge/oauth2/repository/IConsentRepository.h>
 
 #include <cstdint>
 #include <mutex>
@@ -19,6 +19,14 @@
 
 namespace oauth2
 {
+
+// Task 27.5 (authforge-sdk-refactor): now implements the NEW Domain-layer
+// interface authforge::oauth2::repository::IConsentRepository (+ the
+// authforge::oauth2::model::UserRef) instead of the legacy oauth2 one. The
+// UserRef type is field-identical. It is fully qualified (not aliased)
+// because the legacy oauth2::UserRef still coexists in oauth2/storage/
+// UserRef.h during this transition (see MemoryClientRepository.h).
+using IConsentRepositoryBase = ::authforge::oauth2::repository::IConsentRepository;
 
 /**
  * @brief In-memory implementation of IConsentRepository.
@@ -31,25 +39,25 @@ namespace oauth2
  * same as MemoryOAuth2Storage's original
  * hasUserConsent/saveUserConsent/revokeUserConsent.
  */
-class MemoryConsentRepository : public IConsentRepository
+class MemoryConsentRepository : public IConsentRepositoryBase
 {
   public:
     void hasUserConsent(
-      const UserRef &user,
+      const ::authforge::oauth2::model::UserRef &user,
       const std::string &clientId,
       const std::string &scope,
       BoolCallback &&cb
     ) override;
 
     void saveUserConsent(
-      const UserRef &user,
+      const ::authforge::oauth2::model::UserRef &user,
       const std::string &clientId,
       const std::string &scope,
       BoolCallback &&cb
     ) override;
 
     void revokeUserConsent(
-      const UserRef &user,
+      const ::authforge::oauth2::model::UserRef &user,
       const std::string &clientId,
       const std::string &scope,
       VoidCallback &&cb

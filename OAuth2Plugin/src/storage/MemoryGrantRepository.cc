@@ -5,6 +5,18 @@
 namespace oauth2
 {
 
+// Task 27.5: callback aliases now live on the new base interface; bring
+// them into scope for the out-of-class method definitions below. The DTO
+// aliases are safe at namespace scope HERE (this .cc does not include
+// IOAuth2Storage.h, so there is no oauth2::OAuth2AuthCode clash the way the
+// bundled .h files would have).
+using AuthCodeCallback = IGrantRepositoryBase::AuthCodeCallback;
+using VoidCallback = IGrantRepositoryBase::VoidCallback;
+using BoolCallback = IGrantRepositoryBase::BoolCallback;
+using TransactionCallback = IGrantRepositoryBase::TransactionCallback;
+using OAuth2AuthCode = ::authforge::oauth2::model::OAuth2AuthCode;
+using AuthorizationTransaction = ::authforge::oauth2::model::AuthorizationTransaction;
+
 int64_t MemoryGrantRepository::getCurrentTimestamp() const
 {
     auto now = std::chrono::system_clock::now();

@@ -1,6 +1,5 @@
 #include <oauth2/storage/MemoryClientRepository.h>
 #include <drogon/drogon.h>
-#include <oauth2/types/OAuth2Types.h>
 
 namespace
 {
@@ -28,6 +27,12 @@ inline int constantTimeMemcmp(const void *s1, const void *s2, size_t n)
 namespace oauth2
 {
 
+// Task 27.5: callback type aliases now live on the new base interface
+// (authforge::oauth2::repository::IClientRepository); bring them into scope
+// for the out-of-class method definitions below.
+using ClientCallback = IClientRepositoryBase::ClientCallback;
+using BoolCallback = IClientRepositoryBase::BoolCallback;
+
 void MemoryClientRepository::initFromConfig(const Json::Value &clientsConfig)
 {
     if (clientsConfig.isNull() || !clientsConfig.isObject())
@@ -39,7 +44,7 @@ void MemoryClientRepository::initFromConfig(const Json::Value &clientsConfig)
     for (const auto &clientId : clientsConfig.getMemberNames())
     {
         const auto &clientData = clientsConfig[clientId];
-        OAuth2Client client;
+        ::authforge::oauth2::model::OAuth2Client client;
         client.clientId = clientId;
 
         // Parse client type (default to CONFIDENTIAL for backward
@@ -47,13 +52,13 @@ void MemoryClientRepository::initFromConfig(const Json::Value &clientsConfig)
         std::string clientTypeStr = clientData.get("type", "CONFIDENTIAL").asString();
         try
         {
-            client.clientType = stringToClientType(clientTypeStr);
+            client.clientType = ::authforge::oauth2::model::stringToClientType(clientTypeStr);
         }
         catch (const std::exception &)
         {
             LOG_WARN << "MemoryClientRepository: Invalid client type '" << clientTypeStr << "' for "
                      << clientId << ", defaulting to CONFIDENTIAL";
-            client.clientType = ClientType::CONFIDENTIAL;
+            client.clientType = ::authforge::oauth2::model::ClientType::CONFIDENTIAL;
         }
 
         // In memory mode, we store plain text or whatever provided as "secret"
@@ -134,7 +139,7 @@ void MemoryClientRepository::validateClient(
     const auto &client = it->second;
 
     // PUBLIC clients skip secret validation
-    if (client.clientType == ClientType::PUBLIC)
+    if (client.clientType == ::authforge::oauth2::model::ClientType::PUBLIC)
     {
         LOG_DEBUG << "MemoryClientRepository validateClient: PUBLIC client " << clientId
                   << " accepted without secret";

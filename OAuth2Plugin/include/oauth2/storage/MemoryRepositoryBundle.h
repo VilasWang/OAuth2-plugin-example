@@ -21,6 +21,17 @@
 namespace oauth2
 {
 
+// Task 27.5 (authforge-sdk-refactor): the 4 oauth2-aggregate accessors below
+// now expose the NEW Domain-layer repository interfaces
+// (authforge::oauth2::repository::*) that the Memory split-repos implement.
+// The 3 identity accessors (User/Role/SubjectMapping) still return the
+// legacy oauth2::* interfaces -- their migration to authforge::identity::* is
+// a separate follow-up (identity-side), out of this task's oauth2 scope.
+using IClientRepository = ::authforge::oauth2::repository::IClientRepository;
+using IGrantRepository = ::authforge::oauth2::repository::IGrantRepository;
+using ITokenRepository = ::authforge::oauth2::repository::ITokenRepository;
+using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
+
 /**
  * @brief Aggregates all seven Memory repository implementations behind a
  * single initFromConfig() call, mirroring
