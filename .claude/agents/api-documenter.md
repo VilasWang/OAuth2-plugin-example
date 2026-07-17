@@ -1,3 +1,8 @@
+---
+name: api-documenter
+description: 专门负责维护OpenAPI规范的子代理，确保API文档与代码实现保持同步。
+---
+
 # API Documenter Agent
 
 专门负责维护OpenAPI规范的子代理，确保API文档与代码实现保持同步。

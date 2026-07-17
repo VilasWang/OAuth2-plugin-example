@@ -1,3 +1,8 @@
+---
+name: code-reviewer
+description: 专业的C++代码审查代理，专注于OAuth2实现的代码质量和安全性。
+---
+
 # Code Reviewer Agent
 
 专业的C++代码审查代理，专注于OAuth2实现的代码质量和安全性。

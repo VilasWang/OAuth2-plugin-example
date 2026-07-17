@@ -1,3 +1,8 @@
+---
+name: ci-monitor
+description: CI/CD 管道监控代理，专注于多平台构建故障排查和快速修复。
+---
+
 # CI/CD Monitor Agent
 
 CI/CD 管道监控代理，专注于多平台构建故障排查和快速修复。

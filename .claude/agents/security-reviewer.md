@@ -1,3 +1,8 @@
+---
+name: security-reviewer
+description: OAuth2 security-focused review agent. Specializes in protocol compliance, token safety, and OWASP vulnerabilities.
+---
+
 # Security Reviewer Agent
 
 OAuth2 security-focused review agent. Specializes in protocol compliance, token safety, and OWASP vulnerabilities.

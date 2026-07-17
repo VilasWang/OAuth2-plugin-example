@@ -1,3 +1,8 @@
+---
+name: compliance-checker
+description: OAuth2 协议合规性检查代理，确保实现符合 RFC 规范和安全标准。
+---
+
 # Compliance Checker Agent
 
 OAuth2 协议合规性检查代理，确保实现符合 RFC 规范和安全标准。

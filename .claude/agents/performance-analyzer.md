@@ -1,3 +1,8 @@
+---
+name: performance-analyzer
+description: OAuth2 服务器性能分析代理，专注于识别和解决性能瓶颈。
+---
+
 # Performance Analyzer Agent
 
 OAuth2 服务器性能分析代理，专注于识别和解决性能瓶颈。

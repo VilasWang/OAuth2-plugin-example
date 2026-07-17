@@ -1,3 +1,8 @@
+---
+name: test-writer
+description: Generates Drogon-compatible C++ tests for the OAuth2 project. Focuses on coverage gaps and regression protection.
+---
+
 # Test Writer Agent
 
 Generates Drogon-compatible C++ tests for the OAuth2 project. Focuses on coverage gaps and regression protection.
