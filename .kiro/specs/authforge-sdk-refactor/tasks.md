@@ -244,6 +244,12 @@
   - 工作：Memory/Postgres 仓储实现从 `oauth2::storage::*` 迁到 `authforge::oauth2::repository::*`（+ identity 侧 `authforge::identity::*`）；退役 `oauth2::storage::*` 与 `IOAuth2Storage` facade（或保留 facade 作过渡，按迁移阻力定）；DTO 归位（OAuth2Client 等随接口走）。
   - 产出：单一存储接口层（`authforge::oauth2::repository::*`）；验收：全量编译 + ctest 全绿；`oauth2::storage::*` 无残留引用（grep 可证）。
   - 注：这是纯引擎 Task 28b 的真正前置，不是 M8 命名空间统一（Task 40 只改名、不合并两套接口）。
+  - **执行决策与可行性核实（2026-07-17，执行前再核）**：
+    - **DTO 已确认逐字段相同**：旧 `oauth2::OAuth2Client/AuthCode/AccessToken/...`（IOAuth2Storage.h）与新 `authforge::oauth2::model::*`（Dto.h）字段布局完全一致（clientId/clientType/clientSecretHash/salt/redirectUris/allowedScopes 等），只是 namespace 不同。→ split-repo 迁移是**机械式**（换 include + namespace 限定，无 DTO 字段转换）。早期"snake_case"观察是 JSON 序列化噪音，非 struct 布局。
+    - **split-repo 是 contract 测试的对象（非死代码）**：`ClientRepositoryContractTest.cc` 等直接 `make_shared<MemoryClientRepository>()` 等测 16 个 Memory-tier + 对应 Postgres/Redis 用例——这些 split-repo 类是 46 个 contract 测试的安全网，迁移后由它们验证。
+    - **生产路径是 god facade**：`OAuth2Plugin` 实际构造 `PostgresOAuth2Storage`/`RedisOAuth2Storage`/`MemoryOAuth2Storage`/`CachedOAuth2Storage`（god 类，30+ 方法），经 `LegacyStorageRepositoryBridge` 适配到新接口。**facade 退役 + bridge 退役 + 服务重连是独立的大块（phase 4）**，与 split-repo 迁移解耦。
+    - **分阶段**：phase 1 = Memory split-repo（4 个 oauth2 聚合 + bundle）就地迁新接口（namespace 限定 + 换 include），16 个 Memory-tier contract 测试验证；phase 2 = Postgres split-repo；phase 3 = Redis + CachedOAuth2Storage 重构（§7.4）；phase 4 = 退役 IOAuth2Storage facade + bridge + 服务重连 + 物理迁包。每 phase build + ctest 全绿。
+    - **28a 的真实前置**（与本任务并列的另一条线）：各包缺 `Config.cmake.in`/`find_dependency` + build-tree `export()` + OBJECT 库（OAuth2Plugin）分发（§5.7 推迟风险）——这是 28a "外部 find_package 消费"的硬缺口，与 27.5 独立。故按"无前置阻塞先做"规则，**先做 27.5**（自包含、有 contract 测试网），28a 打包地基留后或与 M7 Task 36 合并。
 
 - [ ] 28. 创建 `examples/third-party-host`（SDK 冒烟，F1/H1/H5 回归防线）—— 拆为 28a（现在可做）+ 28b（纯引擎，gated on 27.5）
   - **调研结论（2026-07-11）**：原任务文本自相矛盾——前半"`find_package(authforge-oauth2)` + 实现 3 个端口"= 纯引擎；后半"断言路由注册 + 视图渲染 + config 驱动插件实例化"= 全产品栈。两者在当前包结构下互斥。根因：纯引擎消费者要喂 `AuthorizationService`（吃 `authforge::oauth2::repository::*` 新接口），但现成 Memory 实现绑在 `oauth2::storage::*` 旧接口上（Task 27.5 才迁移）。另：SDK 各包缺 `Config.cmake.in`/`find_dependency`（外部 `find_package` 跨包消费不通）；`OAuth2Plugin` 是 OBJECT 库，install/静态库分发是 §5.7 明确推迟的风险（line 558：v1.x 仅源码集成）。
