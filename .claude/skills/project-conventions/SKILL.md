@@ -27,7 +27,11 @@ Apply these rules to ALL C++ code generated or modified in this project. Loaded 
 
 ### Lambda Capture Rules
 - `[sharedCb]` -- REQUIRED for callback lifetime
-- `[this]`, `[&var]` -- FORBIDDEN unless PR explains lifetime guarantee
+- `[&var]` -- FORBIDDEN unless PR explains lifetime guarantee
+- `[this]` -- FORBIDDEN (no PR-exemption); use `shared_from_this()` instead — the
+  class must `enable_shared_from_this<T>` and the lambda captures
+  `auto self = shared_from_this()`, holding ownership so `this` stays alive for
+  the whole async continuation.
 
 ### Callback Pattern
 ```cpp
