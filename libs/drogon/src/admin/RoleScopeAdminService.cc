@@ -74,10 +74,7 @@ Json::Value scopeRowToJson(const Oauth2Scopes &row)
 }
 }  // namespace
 
-void RoleScopeAdminService::listRoles(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void RoleScopeAdminService::listRoles(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     // Original: a single SELECT...LEFT JOIN user_roles...GROUP BY...COUNT(DISTINCT).
     // db-operations.md forbids JOIN-in-a-single-query, so split into:
@@ -155,10 +152,7 @@ void RoleScopeAdminService::listRoles(
     );
 }
 
-void RoleScopeAdminService::createRole(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void RoleScopeAdminService::createRole(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto jsonBody = req->getJsonObject();
     if (!jsonBody || !jsonBody->isMember("name"))
@@ -212,7 +206,10 @@ void RoleScopeAdminService::createRole(
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string("Failed to create role: ") + e.base().what()
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to create role: ") + e.base().what()
                 );
             }
           );
@@ -272,7 +269,10 @@ void RoleScopeAdminService::updateRole(
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string("Failed to update role: ") + e.base().what()
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to update role: ") + e.base().what()
                 );
             }
           );
@@ -310,7 +310,9 @@ void RoleScopeAdminService::deleteRole(
     Mapper<Roles> mapper(db);
     mapper.deleteBy(
       Criteria(Roles::Cols::_id, CompareOperator::EQ, id) &&
-        Criteria(Roles::Cols::_name, CompareOperator::NotIn, std::vector<std::string>{"admin", "user"}),
+        Criteria(
+          Roles::Cols::_name, CompareOperator::NotIn, std::vector<std::string>{"admin", "user"}
+        ),
       [cb, req](const size_t affected) {
           if (affected == 0)
           {
@@ -335,10 +337,7 @@ void RoleScopeAdminService::deleteRole(
     );
 }
 
-void RoleScopeAdminService::listScopes(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void RoleScopeAdminService::listScopes(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -369,10 +368,7 @@ void RoleScopeAdminService::listScopes(
     );
 }
 
-void RoleScopeAdminService::createScope(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void RoleScopeAdminService::createScope(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto jsonBody = req->getJsonObject();
     if (!jsonBody || !jsonBody->isMember("name"))
@@ -442,7 +438,10 @@ void RoleScopeAdminService::createScope(
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string("Failed to create scope: ") + e.base().what()
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to create scope: ") + e.base().what()
                 );
             }
           );
@@ -522,7 +521,10 @@ void RoleScopeAdminService::updateScope(
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string("Failed to update scope: ") + e.base().what()
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to update scope: ") + e.base().what()
                 );
             }
           );

@@ -64,10 +64,7 @@ Json::Value tokenRowToJson(const Oauth2AccessTokens &row)
 }
 }  // namespace
 
-void TokenManagementService::listTokens(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void TokenManagementService::listTokens(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     int page = 1;
     int perPage = 50;
@@ -113,11 +110,14 @@ void TokenManagementService::listTokens(
                        Criteria(Oauth2AccessTokens::Cols::_revoked, CompareOperator::IsNull));
     if (!clientIdFilter.empty())
     {
-        active = active && Criteria(Oauth2AccessTokens::Cols::_client_id, CompareOperator::EQ, clientIdFilter);
+        active =
+          active &&
+          Criteria(Oauth2AccessTokens::Cols::_client_id, CompareOperator::EQ, clientIdFilter);
     }
     if (!userIdFilter.empty())
     {
-        active = active && Criteria(Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ, userIdFilter);
+        active =
+          active && Criteria(Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ, userIdFilter);
     }
 
     Mapper<Oauth2AccessTokens> mapper(db);
@@ -155,10 +155,7 @@ void TokenManagementService::listTokens(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to count tokens: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to count tokens: ") + e.base().what()
           );
       }
     );
@@ -198,10 +195,7 @@ void TokenManagementService::revokeToken(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to revoke token: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to revoke token: ") + e.base().what()
           );
       }
     );
@@ -216,10 +210,7 @@ void TokenManagementService::revokeTokensByClient(
     if (!jsonBody || !jsonBody->isMember("client_id"))
     {
         respondError(
-          req,
-          cb,
-          "VALIDATION_MISSING_REQUIRED_FIELD",
-          "Request body must contain 'client_id'"
+          req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Request body must contain 'client_id'"
         );
         return;
     }
@@ -265,10 +256,7 @@ void TokenManagementService::revokeTokensByClient(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to revoke tokens: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to revoke tokens: ") + e.base().what()
           );
       }
     );
@@ -282,7 +270,9 @@ void TokenManagementService::revokeTokensByUser(
     auto jsonBody = req->getJsonObject();
     if (!jsonBody || !jsonBody->isMember("user_id"))
     {
-        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Request body must contain 'user_id'");
+        respondError(
+          req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Request body must contain 'user_id'"
+        );
         return;
     }
 
@@ -324,10 +314,7 @@ void TokenManagementService::revokeTokensByUser(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to revoke tokens: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to revoke tokens: ") + e.base().what()
           );
       }
     );

@@ -27,7 +27,8 @@ namespace organization
 class OrganizationService
 {
   public:
-    using ResponseCallback = std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
+    using ResponseCallback =
+      std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 
     static void list(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
     static void create(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);

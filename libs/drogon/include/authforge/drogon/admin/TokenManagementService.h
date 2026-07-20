@@ -31,7 +31,8 @@ namespace authforge::drogon::admin
 class TokenManagementService
 {
   public:
-    using ResponseCallback = std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
+    using ResponseCallback =
+      std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 
     // ---- GET /api/admin/tokens (paginated, filterable) ----
     static void listTokens(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);

@@ -60,10 +60,7 @@ Json::Value orgRowToJson(const ::drogon_model::oauth2_db::Organizations &row)
 using namespace ::drogon::orm;
 using namespace ::drogon_model::oauth2_db;
 
-void OrganizationService::list(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void OrganizationService::list(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -88,19 +85,13 @@ void OrganizationService::list(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("list organizations failed: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("list organizations failed: ") + e.base().what()
           );
       }
     );
 }
 
-void OrganizationService::create(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void OrganizationService::create(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto jsonBody = req->getJsonObject();
     if (!jsonBody)
@@ -196,9 +187,7 @@ void OrganizationService::getBySlug(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           // NoRowsException -> not found (original empty-result branch).
-          respondError(
-            req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "get org: organization not found"
-          );
+          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "get org: organization not found");
           (void)e;
       }
     );

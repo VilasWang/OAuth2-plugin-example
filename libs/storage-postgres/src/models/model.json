@@ -19,7 +19,8 @@
         "oauth2_scopes",
         "oauth2_client_scopes",
         "oauth2_user_consents",
-        "oauth2_subject_mappings"
+        "oauth2_subject_mappings",
+        "audit_logs"
     ],
     "relationships": {
         "enabled": true,

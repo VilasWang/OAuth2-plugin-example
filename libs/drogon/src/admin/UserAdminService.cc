@@ -71,10 +71,7 @@ Json::Value userRowToListJson(const Users &row)
 }
 }  // namespace
 
-void UserAdminService::listUsers(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -200,11 +197,10 @@ void UserAdminService::getUser(
           json["mfa_enabled"] = row.getValueOfMfaEnabled();
           json["failed_login_count"] = row.getValueOfFailedLoginCount();
           int64_t lockedUntil = row.getValueOfLockedUntil();
-          int64_t now = static_cast<int64_t>(
-            std::chrono::duration_cast<std::chrono::seconds>(
-              std::chrono::system_clock::now().time_since_epoch()
-            ).count()
-          );
+          int64_t now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                                               std::chrono::system_clock::now().time_since_epoch()
+          )
+                                               .count());
           json["locked"] = (lockedUntil > now);
           json["locked_until"] = lockedUntil;
           json["created_at"] = row.getValueOfCreatedAt().toDbString();
@@ -295,7 +291,10 @@ void UserAdminService::updateUser(
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string("Failed to update user: ") + e.base().what()
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to update user: ") + e.base().what()
                 );
             }
           );
@@ -346,7 +345,10 @@ void UserAdminService::disableUser(
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string("Failed to disable user: ") + e.base().what()
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to disable user: ") + e.base().what()
                 );
             }
           );
@@ -398,7 +400,10 @@ void UserAdminService::enableUser(
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string("Failed to enable user: ") + e.base().what()
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to enable user: ") + e.base().what()
                 );
             }
           );
@@ -459,13 +464,9 @@ void UserAdminService::getUserRoles(
             Criteria(Roles::Cols::_id, CompareOperator::In, roleIds),
             [cb](const std::vector<Roles> &roles) {
                 std::vector<Roles> sorted = roles;
-                std::sort(
-                  sorted.begin(),
-                  sorted.end(),
-                  [](const Roles &a, const Roles &b) {
-                      return a.getValueOfName() < b.getValueOfName();
-                  }
-                );
+                std::sort(sorted.begin(), sorted.end(), [](const Roles &a, const Roles &b) {
+                    return a.getValueOfName() < b.getValueOfName();
+                });
                 Json::Value json;
                 json["status"] = "success";
                 Json::Value rolesJson(Json::arrayValue);
@@ -648,7 +649,10 @@ void UserAdminService::assignUserRoles(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req, cb, "DB_QUERY_ERROR", std::string("Failed to clear existing roles: ") + e.base().what()
+            req,
+            cb,
+            "DB_QUERY_ERROR",
+            std::string("Failed to clear existing roles: ") + e.base().what()
           );
       }
     );

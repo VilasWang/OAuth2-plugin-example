@@ -39,7 +39,8 @@ namespace authforge::drogon::admin
 class ClientManagementService
 {
   public:
-    using ResponseCallback = std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
+    using ResponseCallback =
+      std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 
     // ---- GET /api/admin/clients ----
     static void listClients(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);

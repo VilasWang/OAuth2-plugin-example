@@ -65,10 +65,7 @@ void respondError(
 using namespace ::drogon::orm;
 using namespace ::drogon_model::oauth2_db;
 
-void ClientManagementService::listClients(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void ClientManagementService::listClients(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -104,19 +101,13 @@ void ClientManagementService::listClients(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to fetch clients: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to fetch clients: ") + e.base().what()
           );
       }
     );
 }
 
-void ClientManagementService::createClient(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     std::string name;
     std::string redirectUris;
@@ -168,10 +159,7 @@ void ClientManagementService::createClient(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to create client: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to create client: ") + e.base().what()
           );
       }
     );
@@ -358,10 +346,7 @@ void ClientManagementService::deleteClient(
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to delete client: ") + e.base().what()
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to delete client: ") + e.base().what()
           );
       }
     );
@@ -481,10 +466,7 @@ void ClientManagementService::updateClientScopes(
     if (!jsonBody || !jsonBody->isMember("scopes") || !(*jsonBody)["scopes"].isArray())
     {
         respondError(
-          req,
-          cb,
-          "VALIDATION_MISSING_REQUIRED_FIELD",
-          "Request body must contain a 'scopes' array"
+          req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Request body must contain a 'scopes' array"
         );
         return;
     }
@@ -536,9 +518,7 @@ void ClientManagementService::updateClientScopes(
               Mapper<Oauth2ClientScopes> insertMapper(transaction);
               insertMapper.insert(
                 scopeRow,
-                [cb, scopeName, remaining, insertedScopes, mu](
-                  const Oauth2ClientScopes &
-                ) {
+                [cb, scopeName, remaining, insertedScopes, mu](const Oauth2ClientScopes &) {
                     {
                         std::lock_guard<std::mutex> lock(*mu);
                         insertedScopes->push_back(scopeName);
