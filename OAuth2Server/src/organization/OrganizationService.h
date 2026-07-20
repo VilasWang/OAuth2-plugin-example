@@ -1,0 +1,41 @@
+#pragma once
+
+// M5 Task 29b batch 3 (authforge-sdk-refactor): application-service extraction
+// for Organization management (product-level, namespace `organization`). The
+// raw `db->execSqlAsync("SELECT/INSERT ...")` calls inline in
+// OrganizationController are now Mapper<T> + Criteria operations on the ORM
+// Organizations model (per .claude/rules/db-operations.md). Behavior is
+// equivalent to the pre-29b controller.
+
+#include <drogon/HttpRequest.h>
+#include <drogon/HttpResponse.h>
+
+#include <functional>
+#include <memory>
+#include <string>
+
+namespace organization
+{
+
+/**
+ * @brief Application service for Organization CRUD.
+ *
+ * Thin DB-access wrapper; the controller parses the request + dispatches here.
+ * Lives at product level (matches the controller -- Organization is a product
+ * concern per design.md §5.4, not part of the reusable SDK).
+ */
+class OrganizationService
+{
+  public:
+    using ResponseCallback = std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
+
+    static void list(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
+    static void create(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
+    static void getBySlug(
+      const ::drogon::HttpRequestPtr &req,
+      ResponseCallback cb,
+      const std::string &slug
+    );
+};
+
+}  // namespace organization

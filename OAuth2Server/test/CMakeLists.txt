@@ -42,8 +42,11 @@ set(BOOTSTRAP_SRC
 # M5 Task 30: the product-level OrganizationController (apps/server/src/
 # organization/) is registered by test_main.cc, so the test binary must
 # compile it too (same pattern as SchemaManager/bootstrap above).
+# Task 29b batch 3: OrganizationService extracted alongside (DB access via
+# Mapper+Criteria); both compile into the test binary.
 set(ORGANIZATION_SRC
     "${CMAKE_CURRENT_SOURCE_DIR}/../src/organization/OrganizationController.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/organization/OrganizationService.cc"
 )
 
 # Collect hierarchical test sources
