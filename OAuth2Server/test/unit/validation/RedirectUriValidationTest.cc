@@ -1,24 +1,45 @@
-﻿#include <drogon/drogon_test.h>
+#include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <oauth2/storage/MemoryOAuth2Storage.h>
+#include <oauth2/storage/MemoryRepositoryBundle.h>
+#include <authforge/oauth2/repository/IGrantRepository.h>
+#include <authforge/oauth2/model/Dto.h>
 #include <future>
 #include <iostream>
 
-using namespace oauth2;
+// Phase 4.7b (authforge-sdk-refactor): migrated off the god MemoryOAuth2Storage
+// to the per-backend MemoryRepositoryBundle. Auth-code operations now go
+// through bundle.grantRepository() (NEW IGrantRepository + model::OAuth2AuthCode).
+// The redirect_uri atomicity contract (RFC 6749 §4.1.3) is unchanged.
+
+using AuthCode = authforge::oauth2::model::OAuth2AuthCode;
+using GrantRepo = authforge::oauth2::repository::IGrantRepository;
+
+namespace
+{
+std::shared_ptr<GrantRepo> makeSeededGrantRepo(const Json::Value &clientsConfig)
+{
+    auto bundle = std::make_shared<oauth2::MemoryRepositoryBundle>();
+    bundle->initFromConfig(clientsConfig, Json::Value::nullSingleton());
+    return bundle->grantRepository();
+}
+
+Json::Value vueClientConfig()
+{
+    Json::Value config;
+    config["vue-client"]["secret"] = "test-secret";
+    config["vue-client"]["redirect_uri"] = "http://localhost:5173/callback";
+    config["vue-client"]["client_type"] = "public";
+    return config;
+}
+}  // namespace
 
 DROGON_TEST(Unit_P1_RedirectUri_MemoryStorage_Works)
 {
     LOG_INFO << "=== Integration Test: Redirect URI Validation (Memory) ===";
 
-    Json::Value config;
-    config["vue-client"]["secret"] = "test-secret";
-    config["vue-client"]["redirect_uri"] = "http://localhost:5173/callback";
-    config["vue-client"]["client_type"] = "public";
+    auto grant = makeSeededGrantRepo(vueClientConfig());
 
-    auto storage = std::make_shared<MemoryOAuth2Storage>();
-    storage->initFromConfig(config);
-
-    OAuth2AuthCode testCode;
+    AuthCode testCode;
     testCode.code = "test_memory_redirect";
     testCode.clientId = "vue-client";
     testCode.userId = "test_user";
@@ -33,7 +54,7 @@ DROGON_TEST(Unit_P1_RedirectUri_MemoryStorage_Works)
         {
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
@@ -45,10 +66,10 @@ DROGON_TEST(Unit_P1_RedirectUri_MemoryStorage_Works)
         // Test 2: Valid redirect URI - should succeed
         LOG_INFO << "--- Test 2: Valid redirect URI ---";
         {
-            std::promise<std::optional<OAuth2AuthCode>> p;
+            std::promise<std::optional<AuthCode>> p;
             auto f = p.get_future();
-            storage->consumeAuthCode(
-              testCode.code, testCode.redirectUri, [&](std::optional<OAuth2AuthCode> code) {
+            grant->consumeAuthCode(
+              testCode.code, testCode.redirectUri, [&](std::optional<AuthCode> code) {
                   p.set_value(code);
               }
             );
@@ -68,7 +89,7 @@ DROGON_TEST(Unit_P1_RedirectUri_MemoryStorage_Works)
         {
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
@@ -80,12 +101,12 @@ DROGON_TEST(Unit_P1_RedirectUri_MemoryStorage_Works)
         // Test 4: Invalid redirect URI - should fail
         LOG_INFO << "--- Test 4: Invalid redirect URI ---";
         {
-            std::promise<std::optional<OAuth2AuthCode>> p;
+            std::promise<std::optional<AuthCode>> p;
             auto f = p.get_future();
-            storage->consumeAuthCode(
+            grant->consumeAuthCode(
               testCode.code,
               "http://malicious-site.com/callback",
-              [&](std::optional<OAuth2AuthCode> code) { p.set_value(code); }
+              [&](std::optional<AuthCode> code) { p.set_value(code); }
             );
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
@@ -109,15 +130,9 @@ DROGON_TEST(Unit_P1_RedirectUri_Atomicity_Works)
 {
     LOG_INFO << "=== Integration Test: Redirect URI Validation Atomicity ===";
 
-    Json::Value config;
-    config["vue-client"]["secret"] = "test-secret";
-    config["vue-client"]["redirect_uri"] = "http://localhost:5173/callback";
-    config["vue-client"]["client_type"] = "public";
+    auto grant = makeSeededGrantRepo(vueClientConfig());
 
-    auto storage = std::make_shared<MemoryOAuth2Storage>();
-    storage->initFromConfig(config);
-
-    OAuth2AuthCode testCode;
+    AuthCode testCode;
     testCode.code = "test_atomic_" + std::string(4, 'y');
     testCode.clientId = "vue-client";
     testCode.userId = "test_user";
@@ -134,7 +149,7 @@ DROGON_TEST(Unit_P1_RedirectUri_Atomicity_Works)
             // Save auth code
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
@@ -145,12 +160,12 @@ DROGON_TEST(Unit_P1_RedirectUri_Atomicity_Works)
 
         // Try to consume with invalid redirect URI
         {
-            std::promise<std::optional<OAuth2AuthCode>> p;
+            std::promise<std::optional<AuthCode>> p;
             auto f = p.get_future();
-            storage->consumeAuthCode(
+            grant->consumeAuthCode(
               testCode.code,
               "http://malicious-site.com/callback",
-              [&](std::optional<OAuth2AuthCode> code) { p.set_value(code); }
+              [&](std::optional<AuthCode> code) { p.set_value(code); }
             );
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
@@ -163,9 +178,9 @@ DROGON_TEST(Unit_P1_RedirectUri_Atomicity_Works)
 
         // Verify code is still available (not consumed)
         {
-            std::promise<std::optional<OAuth2AuthCode>> p;
+            std::promise<std::optional<AuthCode>> p;
             auto f = p.get_future();
-            storage->getAuthCode(testCode.code, [&](std::optional<OAuth2AuthCode> code) {
+            grant->getAuthCode(testCode.code, [&](std::optional<AuthCode> code) {
                 p.set_value(code);
             });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
@@ -181,10 +196,10 @@ DROGON_TEST(Unit_P1_RedirectUri_Atomicity_Works)
 
         // Now consume with valid redirect URI
         {
-            std::promise<std::optional<OAuth2AuthCode>> p;
+            std::promise<std::optional<AuthCode>> p;
             auto f = p.get_future();
-            storage->consumeAuthCode(
-              testCode.code, testCode.redirectUri, [&](std::optional<OAuth2AuthCode> code) {
+            grant->consumeAuthCode(
+              testCode.code, testCode.redirectUri, [&](std::optional<AuthCode> code) {
                   p.set_value(code);
               }
             );
@@ -211,20 +226,14 @@ DROGON_TEST(Unit_P1_RedirectUri_EdgeCases_Works)
 {
     LOG_INFO << "=== Integration Test: Redirect URI Validation Edge Cases ===";
 
-    Json::Value config;
-    config["vue-client"]["secret"] = "test-secret";
-    config["vue-client"]["redirect_uri"] = "http://localhost:5173/callback";
-    config["vue-client"]["client_type"] = "public";
-
-    auto storage = std::make_shared<MemoryOAuth2Storage>();
-    storage->initFromConfig(config);
+    auto grant = makeSeededGrantRepo(vueClientConfig());
 
     try
     {
         // Test 1: Empty redirect URI
         LOG_INFO << "--- Test 1: Empty redirect URI ---";
         {
-            OAuth2AuthCode testCode;
+            AuthCode testCode;
             testCode.code = "test_empty_redirect";
             testCode.clientId = "vue-client";
             testCode.userId = "test_user";
@@ -234,16 +243,16 @@ DROGON_TEST(Unit_P1_RedirectUri_EdgeCases_Works)
 
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
             }
             f.get();
 
-            std::promise<std::optional<OAuth2AuthCode>> p2;
+            std::promise<std::optional<AuthCode>> p2;
             auto f2 = p2.get_future();
-            storage->consumeAuthCode(testCode.code, "", [&](std::optional<OAuth2AuthCode> code) {
+            grant->consumeAuthCode(testCode.code, "", [&](std::optional<AuthCode> code) {
                 p2.set_value(code);
             });
             if (f2.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
@@ -258,7 +267,7 @@ DROGON_TEST(Unit_P1_RedirectUri_EdgeCases_Works)
         // Test 2: Case sensitivity
         LOG_INFO << "--- Test 2: Case sensitivity ---";
         {
-            OAuth2AuthCode testCode;
+            AuthCode testCode;
             testCode.code = "test_case_sensitive";
             testCode.clientId = "vue-client";
             testCode.userId = "test_user";
@@ -268,25 +277,25 @@ DROGON_TEST(Unit_P1_RedirectUri_EdgeCases_Works)
 
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
             }
             f.get();
 
-            std::promise<std::optional<OAuth2AuthCode>> p2;
+            std::promise<std::optional<AuthCode>> p2;
             auto f2 = p2.get_future();
-            storage->consumeAuthCode(
+            grant->consumeAuthCode(
               testCode.code,
               "http://localhost:5173/CALLBACK",  // Different case
-              [&](std::optional<OAuth2AuthCode> code) { p2.set_value(code); }
+              [&](std::optional<AuthCode> code) { p2.set_value(code); }
             );
             if (f2.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Consume auth code timeout");
             }
-            auto result = f2.get();
+            f2.get();
             // Case sensitivity depends on implementation
             LOG_INFO << "Case sensitivity test completed";
         }
@@ -294,7 +303,7 @@ DROGON_TEST(Unit_P1_RedirectUri_EdgeCases_Works)
         // Test 3: URL fragments
         LOG_INFO << "--- Test 3: URL fragments ---";
         {
-            OAuth2AuthCode testCode;
+            AuthCode testCode;
             testCode.code = "test_url_fragment";
             testCode.clientId = "vue-client";
             testCode.userId = "test_user";
@@ -304,25 +313,25 @@ DROGON_TEST(Unit_P1_RedirectUri_EdgeCases_Works)
 
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
             }
             f.get();
 
-            std::promise<std::optional<OAuth2AuthCode>> p2;
+            std::promise<std::optional<AuthCode>> p2;
             auto f2 = p2.get_future();
-            storage->consumeAuthCode(
+            grant->consumeAuthCode(
               testCode.code,
               "http://localhost:5173/callback#fragment",  // With fragment
-              [&](std::optional<OAuth2AuthCode> code) { p2.set_value(code); }
+              [&](std::optional<AuthCode> code) { p2.set_value(code); }
             );
             if (f2.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Consume auth code timeout");
             }
-            auto result = f2.get();
+            f2.get();
             // Fragment handling depends on implementation
             LOG_INFO << "URL fragment test completed";
         }
@@ -341,20 +350,14 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
     LOG_INFO << "=== Integration Test: Redirect URI Validation Security "
                 "Scenarios ===";
 
-    Json::Value config;
-    config["vue-client"]["secret"] = "test-secret";
-    config["vue-client"]["redirect_uri"] = "http://localhost:5173/callback";
-    config["vue-client"]["client_type"] = "public";
-
-    auto storage = std::make_shared<MemoryOAuth2Storage>();
-    storage->initFromConfig(config);
+    auto grant = makeSeededGrantRepo(vueClientConfig());
 
     try
     {
         // Test 1: Open redirect attack prevention
         LOG_INFO << "--- Test 1: Open redirect attack prevention ---";
         {
-            OAuth2AuthCode testCode;
+            AuthCode testCode;
             testCode.code = "test_open_redirect";
             testCode.clientId = "vue-client";
             testCode.userId = "test_user";
@@ -364,7 +367,7 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
 
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
@@ -372,10 +375,10 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
             f.get();
 
             // Try to redirect to arbitrary domain
-            std::promise<std::optional<OAuth2AuthCode>> p2;
+            std::promise<std::optional<AuthCode>> p2;
             auto f2 = p2.get_future();
-            storage->consumeAuthCode(
-              testCode.code, "http://evil.com/callback", [&](std::optional<OAuth2AuthCode> code) {
+            grant->consumeAuthCode(
+              testCode.code, "http://evil.com/callback", [&](std::optional<AuthCode> code) {
                   p2.set_value(code);
               }
             );
@@ -391,7 +394,7 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
         // Test 2: URL traversal attack prevention
         LOG_INFO << "--- Test 2: URL traversal attack prevention ---";
         {
-            OAuth2AuthCode testCode;
+            AuthCode testCode;
             testCode.code = "test_url_traversal";
             testCode.clientId = "vue-client";
             testCode.userId = "test_user";
@@ -401,7 +404,7 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
 
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
@@ -409,12 +412,12 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
             f.get();
 
             // Try URL traversal
-            std::promise<std::optional<OAuth2AuthCode>> p2;
+            std::promise<std::optional<AuthCode>> p2;
             auto f2 = p2.get_future();
-            storage->consumeAuthCode(
+            grant->consumeAuthCode(
               testCode.code,
               "http://localhost:5173/../evil/callback",
-              [&](std::optional<OAuth2AuthCode> code) { p2.set_value(code); }
+              [&](std::optional<AuthCode> code) { p2.set_value(code); }
             );
             if (f2.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
@@ -428,7 +431,7 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
         // Test 3: Null byte injection prevention
         LOG_INFO << "--- Test 3: Null byte injection prevention ---";
         {
-            OAuth2AuthCode testCode;
+            AuthCode testCode;
             testCode.code = "test_null_byte";
             testCode.clientId = "vue-client";
             testCode.userId = "test_user";
@@ -438,7 +441,7 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
 
             std::promise<void> p;
             auto f = p.get_future();
-            storage->saveAuthCode(testCode, [&]() { p.set_value(); });
+            grant->saveAuthCode(testCode, [&]() { p.set_value(); });
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Save auth code timeout");
@@ -448,13 +451,11 @@ DROGON_TEST(Unit_P1_RedirectUri_SecurityScenarios_Works)
             // Try null byte injection (should be rejected by string handling)
             std::string maliciousUri =
               std::string("http://localhost:5173/callback") + '\0' + ".evil.com";
-            std::promise<std::optional<OAuth2AuthCode>> p2;
+            std::promise<std::optional<AuthCode>> p2;
             auto f2 = p2.get_future();
-            storage->consumeAuthCode(
-              testCode.code, maliciousUri, [&](std::optional<OAuth2AuthCode> code) {
-                  p2.set_value(code);
-              }
-            );
+            grant->consumeAuthCode(testCode.code, maliciousUri, [&](std::optional<AuthCode> code) {
+                p2.set_value(code);
+            });
             if (f2.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
                 throw std::runtime_error("Consume auth code timeout");

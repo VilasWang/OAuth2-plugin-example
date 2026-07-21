@@ -1,26 +1,18 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/storage/MemoryOAuth2Storage.h>
 #include <future>
+
+// Phase 4.7b (authforge-sdk-refactor): the god MemoryOAuth2Storage local that
+// this test used to construct (and never actually wire into the plugin) is
+// removed. The test exercises the plugin's public scope-validation API, which
+// runs against the plugin's own memory RepositoryBundle built by initAndStart().
 
 using namespace oauth2;
 
 DROGON_TEST(Unit_P0_OAuth2Plugin_ValidateClientScopes_RestrictsToAllowlist)
 {
     auto plugin = std::make_shared<OAuth2Plugin>();
-    auto storage = std::make_shared<MemoryOAuth2Storage>();
-
-    // Setup client with specific allowlist
-    Json::Value config;
-    config["test-client"]["secret"] = "test-secret";
-    config["test-client"]["allowed_scopes"] = "openid profile email";
-    storage->initFromConfig(config);
-
-    // We need to inject the storage into the plugin.
-    // Since storage_ is private, and we don't have a setter in the plan yet,
-    // we have to rely on initAndStart or add a setter.
-    // For now, I'll use the fact that I can use the plugin's initAndStart with memory storage.
 
     Json::Value pluginConfig;
     pluginConfig["storage_type"] = "memory";
@@ -66,20 +58,11 @@ DROGON_TEST(Unit_P0_OAuth2Plugin_ValidateUserRolesForScopes_AdminScopeProtection
 {
     auto plugin = std::make_shared<OAuth2Plugin>();
 
-    // Admin scope requires 'admin' role per scopeRequiresAdminRole implementation
-    // We need to see how getUserRoles is implemented or if it uses roles from storage.
-
     Json::Value pluginConfig;
     pluginConfig["storage_type"] = "memory";
-    // Setup a user with roles in memory storage
-    // Note: MemoryOAuth2Storage might need enhancement to support roles if it doesn't already
-
     plugin->initAndStart(pluginConfig);
 
-    // Test Case 1: User with admin role can access admin scope
-    // This requires setting up the user roles first.
-
-    // For now, let's just verify the static helper if available
+    // Verify the static helper.
     CHECK(OAuth2Plugin::scopeRequiresAdminRole("admin") == true);
     CHECK(OAuth2Plugin::scopeRequiresAdminRole("openid") == false);
 }

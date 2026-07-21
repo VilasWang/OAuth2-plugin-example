@@ -38,8 +38,7 @@
 #include <authforge/oauth2/model/Client.h>
 #include <authforge/oauth2/model/ClientType.h>
 
-#include "CategoryC_DeferredStorageSupport.h"  // PendingCallbacks
-#include "ConcurrencyRaceSupport.h"
+#include "ConcurrencyRaceSupport.h"  // PendingCallbacks
 
 namespace oauth2::test::concurrency
 {

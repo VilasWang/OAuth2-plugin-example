@@ -1,12 +1,24 @@
 #include <chrono>
 #include <drogon/drogon_test.h>
 #include <oauth2/utils/SubjectGenerator.h>
-#include <oauth2/storage/MemoryOAuth2Storage.h>
+#include <oauth2/storage/MemoryRepositoryBundle.h>
+#include <authforge/oauth2/model/UserRef.h>
 #include <json/json.h>
 
 using namespace oauth2::utils;
 
 // ========== SubjectGenerator Tests ==========
+
+namespace
+{
+// Phase 4.7b: wrap an int32 internalUserId into the NEW consent repo's UserRef.
+authforge::oauth2::model::UserRef userRef(int32_t internalUserId)
+{
+    authforge::oauth2::model::UserRef u;
+    u.internalUserId = internalUserId;
+    return u;
+}
+}  // namespace
 
 DROGON_TEST(Unit_P0_SubjectGenerator_ForLocalUser_Works)
 {
@@ -85,22 +97,25 @@ DROGON_TEST(Unit_P0_SubjectGenerator_IsValidInvalidSubject_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_CreateAndGetMapping_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
     bool createCalled = false;
     bool getCalled = false;
 
     // Create mapping
-    storage.createSubjectMapping("alice", 1, "local", [&](bool success) {
+    sm->createSubjectMapping("alice", 1, "local", [&](bool success) {
         createCalled = true;
         CHECK(success);
     });
 
     // Get mapping
-    storage.getInternalUserId("alice", "local", [&](auto userIdOpt) {
+    sm->getInternalUserId("alice", "local", [&](auto userIdOpt) {
         getCalled = true;
         CHECK(userIdOpt);
         CHECK((*userIdOpt) == (1));
@@ -112,22 +127,25 @@ DROGON_TEST(Unit_P0_SubjectMapping_CreateAndGetMapping_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_ProviderIsolation_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
     // Create same subject for different providers
-    storage.createSubjectMapping("alice", 1, "local", [&](bool) {});
-    storage.createSubjectMapping("alice", 2, "google", [&](bool) {});
+    sm->createSubjectMapping("alice", 1, "local", [&](bool) {});
+    sm->createSubjectMapping("alice", 2, "google", [&](bool) {});
 
     // Verify they are isolated
-    storage.getInternalUserId("alice", "local", [&](auto localUserId) {
+    sm->getInternalUserId("alice", "local", [&](auto localUserId) {
         CHECK(localUserId);
         CHECK((*localUserId) == (1));
     });
 
-    storage.getInternalUserId("alice", "google", [&](auto googleUserId) {
+    sm->getInternalUserId("alice", "google", [&](auto googleUserId) {
         CHECK(googleUserId);
         CHECK((*googleUserId) == (2));
     });
@@ -135,32 +153,38 @@ DROGON_TEST(Unit_P0_SubjectMapping_ProviderIsolation_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_GetNonExistentMapping_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
-    storage.getInternalUserId("nonexistent", "local", [&](auto userIdOpt) { CHECK(!(userIdOpt)); });
+    sm->getInternalUserId("nonexistent", "local", [&](auto userIdOpt) { CHECK(!(userIdOpt)); });
 }
 
 DROGON_TEST(Unit_P0_SubjectMapping_UpdateExistingMapping_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
     // Create initial mapping
-    storage.createSubjectMapping("alice", 1, "local", [&](bool) {});
+    sm->createSubjectMapping("alice", 1, "local", [&](bool) {});
 
     // Try to create same mapping again (should be idempotent in real
     // implementation)
-    storage.createSubjectMapping("alice", 1, "local", [&](bool success) {
+    sm->createSubjectMapping("alice", 1, "local", [&](bool success) {
         CHECK(success);  // Should succeed even if already exists
     });
 
     // Verify the mapping still points to the correct user
-    storage.getInternalUserId("alice", "local", [&](auto userIdOpt) {
+    sm->getInternalUserId("alice", "local", [&](auto userIdOpt) {
         CHECK(userIdOpt);
         CHECK((*userIdOpt) == (1));
     });
@@ -170,41 +194,53 @@ DROGON_TEST(Unit_P0_SubjectMapping_UpdateExistingMapping_Works)
 
 DROGON_TEST(Unit_P0_UserConsent_SaveAndCheckConsent_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
     // Save consent
-    storage.saveUserConsent(1, "vue-client", "openid", [&](bool success) { CHECK(success); });
+    consent->saveUserConsent(userRef(1), "vue-client", "openid", [&](bool success) {
+        CHECK(success);
+    });
 
     // Check consent exists
-    storage.hasUserConsent(1, "vue-client", "openid", [&](bool hasConsent) { CHECK(hasConsent); });
+    consent->hasUserConsent(userRef(1), "vue-client", "openid", [&](bool hasConsent) {
+        CHECK(hasConsent);
+    });
 
     // Check non-existent consent
-    storage.hasUserConsent(1, "vue-client", "admin", [&](bool hasConsent) {
+    consent->hasUserConsent(userRef(1), "vue-client", "admin", [&](bool hasConsent) {
         CHECK(!(hasConsent));
     });
 }
 
 DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
     // Save consent
-    storage.saveUserConsent(1, "vue-client", "profile", [&](bool) {});
+    consent->saveUserConsent(userRef(1), "vue-client", "profile", [&](bool) {});
 
     // Verify it exists
-    storage.hasUserConsent(1, "vue-client", "profile", [&](bool hasConsent) { CHECK(hasConsent); });
+    consent->hasUserConsent(userRef(1), "vue-client", "profile", [&](bool hasConsent) {
+        CHECK(hasConsent);
+    });
 
     // Revoke consent
-    storage.revokeUserConsent(1, "vue-client", "profile", [&]() {});
+    consent->revokeUserConsent(userRef(1), "vue-client", "profile", [&]() {});
 
     // Verify it's removed
-    storage.hasUserConsent(1, "vue-client", "profile", [&](bool hasConsent) {
+    consent->hasUserConsent(userRef(1), "vue-client", "profile", [&](bool hasConsent) {
         CHECK(!(hasConsent));
     });
 }
@@ -213,12 +249,15 @@ DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
-    oauth2::IOAuth2Storage::AuthorizationTransaction transaction;
+    authforge::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn123";
     transaction.clientId = "vue-client";
     transaction.subject = "local:alice";
@@ -231,10 +270,10 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
                             600;  // 10 minutes from now
 
     // Save transaction
-    storage.saveAuthorizationTransaction(transaction, [&](bool success) { CHECK(success); });
+    grant->saveAuthorizationTransaction(transaction, [&](bool success) { CHECK(success); });
 
     // Get transaction
-    storage.getAuthorizationTransaction("txn123", [&](auto txnOpt) {
+    grant->getAuthorizationTransaction("txn123", [&](auto txnOpt) {
         CHECK(txnOpt);
         CHECK((txnOpt->transactionId) == ("txn123"));
         CHECK((txnOpt->clientId) == ("vue-client"));
@@ -245,12 +284,15 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
-    oauth2::IOAuth2Storage::AuthorizationTransaction transaction;
+    authforge::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn456";
     transaction.clientId = "vue-client";
     transaction.subject = "local:bob";
@@ -263,18 +305,18 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
                             600;
 
     // Save transaction
-    storage.saveAuthorizationTransaction(transaction, [&](bool) {});
+    grant->saveAuthorizationTransaction(transaction, [&](bool) {});
 
     // Mark as consumed
-    storage.markTransactionConsumed("txn456", [&](bool success) { CHECK(success); });
+    grant->markTransactionConsumed("txn456", [&](bool success) { CHECK(success); });
 
     // Try to mark again (should fail)
-    storage.markTransactionConsumed("txn456", [&](bool success) {
+    grant->markTransactionConsumed("txn456", [&](bool success) {
         CHECK(!(success));  // Already consumed
     });
 
     // Verify consumed status
-    storage.getAuthorizationTransaction("txn456", [&](auto txnOpt) {
+    grant->getAuthorizationTransaction("txn456", [&](auto txnOpt) {
         CHECK(txnOpt);
         CHECK(txnOpt->consumed);
     });
@@ -282,12 +324,15 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_DeleteTransaction_Works)
 {
-    oauth2::MemoryOAuth2Storage storage;
+    oauth2::MemoryRepositoryBundle bundle;
+    auto sm = bundle.subjectMappingRepository();
+    auto consent = bundle.consentRepository();
+    auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     Json::Value adminConfig;
-    storage.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig, adminConfig);
 
-    oauth2::IOAuth2Storage::AuthorizationTransaction transaction;
+    authforge::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn789";
     transaction.clientId = "vue-client";
     transaction.subject = "local:charlie";
@@ -300,11 +345,11 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_DeleteTransaction_Works)
                             600;
 
     // Save transaction
-    storage.saveAuthorizationTransaction(transaction, [&](bool) {});
+    grant->saveAuthorizationTransaction(transaction, [&](bool) {});
 
     // Delete transaction
-    storage.deleteAuthorizationTransaction("txn789", [&]() {});
+    grant->deleteAuthorizationTransaction("txn789", [&]() {});
 
     // Try to get deleted transaction
-    storage.getAuthorizationTransaction("txn789", [&](auto txnOpt) { CHECK(!(txnOpt)); });
+    grant->getAuthorizationTransaction("txn789", [&](auto txnOpt) { CHECK(!(txnOpt)); });
 }
