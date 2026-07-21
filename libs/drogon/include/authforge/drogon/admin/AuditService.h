@@ -28,7 +28,8 @@ namespace authforge::drogon::admin
 class AuditService
 {
   public:
-    using ResponseCallback = std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
+    using ResponseCallback =
+      std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 
     // ---- GET /api/admin/logs (paginated, filterable) ----
     static void listLogs(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);

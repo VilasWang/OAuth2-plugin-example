@@ -2,6 +2,7 @@
 #include <drogon/drogon.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/utils/CryptoUtils.h>
+#include <authforge/oauth2/model/Dto.h>
 #include <future>
 #include <chrono>
 #include <limits>
@@ -10,7 +11,17 @@
 #undef max
 #endif
 
-using namespace oauth2;
+// Phase 4.6a (authforge-sdk-refactor): the god-facade getStorage() accessor is
+// gone. This test now exercises the token lifecycle (revocation / expiration /
+// valid / cleanup) through the plugin's NEW split-repository forwarding methods
+// (plugin->saveAccessToken / plugin->validateAccessToken) and the new model
+// DTOs (authforge::oauth2::model::OAuth2AccessToken). The cleanup case can no
+// longer call storage_->deleteExpiredData() directly (the god facade is gone);
+// per-backend purgeExpired() is orchestrated by OAuth2CleanupService, which is
+// not exposed on the plugin -- so the cleanup case is removed here (its
+// coverage lives in the contract tests + the cleanup-service unit test).
+
+using AccessToken = authforge::oauth2::model::OAuth2AccessToken;
 
 DROGON_TEST(Integration_P0_Storage_Advanced_Works)
 {
@@ -20,14 +31,17 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
     config["storage_type"] = "memory";
     plugin->initAndStart(config);
 
-    auto storage = plugin->getStorage();
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                 std::chrono::system_clock::now().time_since_epoch()
+    )
+                 .count();
 
     // 2. Test Revocation
     {
         std::string rawToken = "revoked_token_123";
         std::string hashedToken = oauth2::utils::hashToken(rawToken);
 
-        OAuth2AccessToken revokedToken;
+        AccessToken revokedToken;
         revokedToken.token = hashedToken;
         revokedToken.clientId = "client1";
         revokedToken.userId = "user1";
@@ -35,12 +49,12 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
         revokedToken.revoked = true;  // Key Flag
 
         std::promise<void> pSave;
-        storage->saveAccessToken(revokedToken, [&]() { pSave.set_value(); });
+        plugin->saveAccessToken(revokedToken, [&]() { pSave.set_value(); });
         pSave.get_future().get();
 
         // Validate via Plugin (passes raw token, plugin hashes internally)
-        std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
-        plugin->validateAccessToken(rawToken, [&](std::shared_ptr<OAuth2AccessToken> t) {
+        std::promise<std::shared_ptr<AccessToken>> pVal;
+        plugin->validateAccessToken(rawToken, [&](std::shared_ptr<AccessToken> t) {
             pVal.set_value(t);
         });
         auto t = pVal.get_future().get();
@@ -52,25 +66,20 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
         std::string rawToken = "expired_token_123";
         std::string hashedToken = oauth2::utils::hashToken(rawToken);
 
-        OAuth2AccessToken expiredToken;
+        AccessToken expiredToken;
         expiredToken.token = hashedToken;
         expiredToken.clientId = "client1";
         expiredToken.userId = "user1";
-        // Set specific past time
-        auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                     std::chrono::system_clock::now().time_since_epoch()
-        )
-                     .count();
         expiredToken.expiresAt = now - 100;  // Expired 100s ago
         expiredToken.revoked = false;
 
         std::promise<void> pSave;
-        storage->saveAccessToken(expiredToken, [&]() { pSave.set_value(); });
+        plugin->saveAccessToken(expiredToken, [&]() { pSave.set_value(); });
         pSave.get_future().get();
 
         // Validate via Plugin (passes raw token)
-        std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
-        plugin->validateAccessToken(rawToken, [&](std::shared_ptr<OAuth2AccessToken> t) {
+        std::promise<std::shared_ptr<AccessToken>> pVal;
+        plugin->validateAccessToken(rawToken, [&](std::shared_ptr<AccessToken> t) {
             pVal.set_value(t);
         });
         auto t = pVal.get_future().get();
@@ -82,60 +91,23 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
         std::string rawToken = "valid_token_123";
         std::string hashedToken = oauth2::utils::hashToken(rawToken);
 
-        OAuth2AccessToken validToken;
+        AccessToken validToken;
         validToken.token = hashedToken;
         validToken.clientId = "client1";
         validToken.userId = "user1";
-        auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                     std::chrono::system_clock::now().time_since_epoch()
-        )
-                     .count();
         validToken.expiresAt = now + 100;
         validToken.revoked = false;
 
         std::promise<void> pSave;
-        storage->saveAccessToken(validToken, [&]() { pSave.set_value(); });
+        plugin->saveAccessToken(validToken, [&]() { pSave.set_value(); });
         pSave.get_future().get();
 
-        std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
-        plugin->validateAccessToken(rawToken, [&](std::shared_ptr<OAuth2AccessToken> t) {
+        std::promise<std::shared_ptr<AccessToken>> pVal;
+        plugin->validateAccessToken(rawToken, [&](std::shared_ptr<AccessToken> t) {
             pVal.set_value(t);
         });
         auto t = pVal.get_future().get();
         CHECK(t != nullptr);
         CHECK(t->token == hashedToken);
-    }
-
-    // 5. Test Cleanup (Phase 24)
-    {
-        std::string rawToken = "expired_token_456";
-        std::string hashedToken = oauth2::utils::hashToken(rawToken);
-
-        // Add one more expired token
-        OAuth2AccessToken expiredToken2;
-        expiredToken2.token = hashedToken;
-        expiredToken2.clientId = "client1";
-        expiredToken2.userId = "user1";
-        auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                     std::chrono::system_clock::now().time_since_epoch()
-        )
-                     .count();
-        expiredToken2.expiresAt = now - 1000;
-        expiredToken2.revoked = false;
-
-        std::promise<void> pSave;
-        storage->saveAccessToken(expiredToken2, [&]() { pSave.set_value(); });
-        pSave.get_future().get();
-
-        // Manual cleanup call
-        storage->deleteExpiredData();
-
-        // Verify via validation (Should definitely be gone)
-        std::promise<std::shared_ptr<OAuth2AccessToken>> pVal;
-        plugin->validateAccessToken(rawToken, [&](std::shared_ptr<OAuth2AccessToken> t) {
-            pVal.set_value(t);
-        });
-        auto t = pVal.get_future().get();
-        CHECK(t == nullptr);
     }
 }

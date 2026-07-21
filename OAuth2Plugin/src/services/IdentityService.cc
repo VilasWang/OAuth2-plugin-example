@@ -1,12 +1,25 @@
-﻿#include <oauth2/services/IdentityService.h>
+#include <oauth2/services/IdentityService.h>
 #include <oauth2/utils/SubjectGenerator.h>
 #include <drogon/drogon.h>
+
+namespace
+{
+// Wrap an int32 internalUserId into the NEW consent repo's UserRef (F4:
+// consent no longer takes a bare int32). Per UserRef.h's documented contract
+// this boundary (a storage/service consumer) is permitted to set internalUserId
+// directly.
+authforge::oauth2::model::UserRef toUserRef(int32_t internalUserId)
+{
+    authforge::oauth2::model::UserRef u;
+    u.internalUserId = internalUserId;
+    return u;
+}
+}  // namespace
 
 namespace oauth2
 {
 
-IdentityService::IdentityService(std::shared_ptr<IOAuth2Storage> storage)
-    : storage_(std::move(storage))
+IdentityService::IdentityService(Repos repos) : repos_(std::move(repos))
 {
 }
 
@@ -15,22 +28,22 @@ void IdentityService::getUserRoles(
   std::function<void(std::vector<std::string>)> &&callback
 )
 {
-    if (!storage_)
+    if (!repos_.role)
     {
         callback({});
         return;
     }
-    storage_->getUserRoles(userId, std::move(callback));
+    repos_.role->getUserRoles(userId, std::move(callback));
 }
 
 void IdentityService::ensureSubjectMapping(
   const std::string &subject,
-  const std::string &username,
+  const std::string & /*username*/,
   int32_t internalUserId,
   std::function<void()> &&callback
 )
 {
-    if (!storage_)
+    if (!repos_.subjectMapping)
     {
         callback();
         return;
@@ -40,11 +53,9 @@ void IdentityService::ensureSubjectMapping(
 
     // Defect 1.9 fix: capture `self` (shared owner) at the OUTERMOST async call
     // and thread the SAME `self` through the nested continuation, so the
-    // service stays alive until the in-flight callback completes. `this` is
-    // kept for unchanged member access (`storage_`); `self` guarantees `this`
-    // never dangles.
+    // service stays alive until the in-flight callback completes.
     auto self = shared_from_this();
-    storage_->getInternalUserId(
+    repos_.subjectMapping->getInternalUserId(
       sub,
       provider,
       [self, this, sub, provider, internalUserId, callback = std::move(callback)](
@@ -56,8 +67,8 @@ void IdentityService::ensureSubjectMapping(
               return;
           }
 
-          storage_->createSubjectMapping(
-            sub, internalUserId, provider, [callback = std::move(callback)](bool success) {
+          repos_.subjectMapping->createSubjectMapping(
+            sub, internalUserId, provider, [callback = std::move(callback)](bool /*success*/) {
                 callback();
             }
           );
@@ -67,11 +78,11 @@ void IdentityService::ensureSubjectMapping(
 
 void IdentityService::handleFirstTimeLogin(
   const std::string &subject,
-  const std::string &provider,
+  const std::string & /*providerArg*/,
   std::function<void(int32_t)> &&callback
 )
 {
-    if (!storage_)
+    if (!repos_.subjectMapping)
     {
         callback(0);
         return;
@@ -79,15 +90,15 @@ void IdentityService::handleFirstTimeLogin(
 
     auto [prov, sub] = utils::SubjectGenerator::parse(subject);
 
-    // Create a real user in the database via storage interface
+    // Create a real user in the database via the subject-mapping repo
+    // (createUserForExternalLogin lives on ISubjectMappingRepository, carved
+    // from the god interface alongside createSubjectMapping).
     //
     // Defect 1.9 fix: capture `self` (shared owner) at the OUTERMOST async call
     // and thread the SAME `self` through the nested continuation, so the
-    // service stays alive until the in-flight callback completes. `this` is
-    // kept for unchanged member access (`storage_`); `self` guarantees `this`
-    // never dangles.
+    // service stays alive until the in-flight callback completes.
     auto self = shared_from_this();
-    storage_->createUserForExternalLogin(
+    repos_.subjectMapping->createUserForExternalLogin(
       sub,
       prov,
       [self, this, sub, prov, callback = std::move(callback)](std::optional<int32_t> newUserId) {
@@ -98,7 +109,7 @@ void IdentityService::handleFirstTimeLogin(
               return;
           }
           // Create subject mapping
-          storage_->createSubjectMapping(
+          repos_.subjectMapping->createSubjectMapping(
             sub,
             *newUserId,
             prov,
@@ -115,7 +126,7 @@ void IdentityService::getInternalUserId(
   std::function<void(std::optional<int32_t>)> &&callback
 )
 {
-    if (!storage_)
+    if (!repos_.subjectMapping)
     {
         callback(std::nullopt);
         return;
@@ -123,7 +134,7 @@ void IdentityService::getInternalUserId(
 
     auto [provider, sub] = utils::SubjectGenerator::parse(subject);
 
-    storage_->getInternalUserId(sub, provider, std::move(callback));
+    repos_.subjectMapping->getInternalUserId(sub, provider, std::move(callback));
 }
 
 void IdentityService::hasUserConsent(
@@ -133,12 +144,12 @@ void IdentityService::hasUserConsent(
   std::function<void(bool)> &&callback
 )
 {
-    if (!storage_)
+    if (!repos_.consent)
     {
         callback(false);
         return;
     }
-    storage_->hasUserConsent(internalUserId, clientId, scope, std::move(callback));
+    repos_.consent->hasUserConsent(toUserRef(internalUserId), clientId, scope, std::move(callback));
 }
 
 void IdentityService::saveUserConsent(
@@ -148,12 +159,13 @@ void IdentityService::saveUserConsent(
   std::function<void(bool)> &&callback
 )
 {
-    if (!storage_)
+    if (!repos_.consent)
     {
         callback(false);
         return;
     }
-    storage_->saveUserConsent(internalUserId, clientId, scope, std::move(callback));
+    repos_.consent
+      ->saveUserConsent(toUserRef(internalUserId), clientId, scope, std::move(callback));
 }
 
 void IdentityService::validateUserRolesForScopes(
@@ -162,7 +174,7 @@ void IdentityService::validateUserRolesForScopes(
   std::function<void(bool, std::string)> &&callback
 )
 {
-    if (!storage_)
+    if (!repos_.role)
     {
         callback(false, "Storage not initialized");
         return;

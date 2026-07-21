@@ -66,10 +66,7 @@ Json::Value logRowToJson(const AuditLogs &row)
 }
 }  // namespace
 
-void AuditService::listLogs(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void AuditService::listLogs(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     int page = 1;
     int perPage = 50;
@@ -154,10 +151,7 @@ void AuditService::listLogs(
       );
 }
 
-void AuditService::getDashboardStats(
-  const ::drogon::HttpRequestPtr &req,
-  ResponseCallback cb
-)
+void AuditService::getDashboardStats(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -172,7 +166,8 @@ void AuditService::getDashboardStats(
     // other admin services' approach).
     int64_t now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
                                          std::chrono::system_clock::now().time_since_epoch()
-    ).count());
+    )
+                                         .count());
     int64_t dayAgo = now - 86400;
 
     // Stats accumulator shared across the count chain.
@@ -184,6 +179,7 @@ void AuditService::getDashboardStats(
         size_t logsToday = 0;
         size_t failuresToday = 0;
     };
+
     auto stats = std::make_shared<Stats>();
 
     // Chain: totalUsers -> totalClients -> activeTokens -> logsToday ->
@@ -224,7 +220,8 @@ void AuditService::getDashboardStats(
                                   stats->failuresToday = n5;
                                   Json::Value json;
                                   json["status"] = "success";
-                                  json["total_users"] = static_cast<Json::UInt64>(stats->totalUsers);
+                                  json["total_users"] =
+                                    static_cast<Json::UInt64>(stats->totalUsers);
                                   json["total_clients"] =
                                     static_cast<Json::UInt64>(stats->totalClients);
                                   json["active_tokens"] =
@@ -239,7 +236,8 @@ void AuditService::getDashboardStats(
                                     req,
                                     cb,
                                     "DB_QUERY_ERROR",
-                                    std::string("Failed to fetch dashboard stats: ") + e.base().what()
+                                    std::string("Failed to fetch dashboard stats: ") +
+                                      e.base().what()
                                   );
                               }
                             );

@@ -1,10 +1,14 @@
 ﻿#pragma once
 
 #include <drogon/plugins/Plugin.h>
-#include <oauth2/storage/IOAuth2Storage.h>
 #include <oauth2/plugin/OAuth2CleanupService.h>
 #include <oauth2/services/IdentityService.h>
 #include <oauth2/adapters/StorageRoleProvider.h>
+#include <oauth2/storage/IRoleRepository.h>
+#include <oauth2/storage/IUserRepository.h>
+#include <oauth2/storage/ISubjectMappingRepository.h>
+#include <authforge/oauth2/repository/IConsentRepository.h>
+#include <authforge/oauth2/model/Dto.h>
 #include <oauth2/utils/JwkManager.h>
 #include <authforge/oauth2/protocol/TokenService.h>
 #include <authforge/oauth2/protocol/ClientService.h>
@@ -36,8 +40,10 @@
 class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
 {
   public:
-    using AccessToken = oauth2::OAuth2AccessToken;
-    using Client = oauth2::OAuth2Client;
+    // Phase 4.6a: AccessToken/Client aliases now point at the NEW
+    // authforge::oauth2::model::* DTOs (was the legacy oauth2::* structs).
+    using AccessToken = authforge::oauth2::model::OAuth2AccessToken;
+    using Client = authforge::oauth2::model::OAuth2Client;
 
     OAuth2Plugin() = default;
     void initAndStart(const Json::Value &config) override;
@@ -78,10 +84,9 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     // overloads return std::shared_ptr<IOAuth2Storage> so callers (e.g. the
     // controller async chains) can capture it and keep the storage alive across
     // async hops instead of holding a raw pointer whose lifetime is implicit.
-    std::shared_ptr<oauth2::IOAuth2Storage> getStorage() const
-    {
-        return storage_;
-    }
+    // Phase 4.6a: REMOVED -- storage_ (the god IOAuth2Storage) is gone.
+    // Controllers now route through the plugin's forwarding methods (getClient
+    // / saveAccessToken / saveTokenPair / getUserInfo) over the split repos.
 
     // ========== Async API with Callbacks ==========
 
@@ -330,10 +335,8 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     );
 
     // ========== Storage Access ==========
-    std::shared_ptr<oauth2::IOAuth2Storage> getStorage()
-    {
-        return storage_;
-    }
+    // Phase 4.6a: getStorage() (god-IOAuth2Storage accessor) removed; storage_
+    // is gone. Use the split-repo forwarding methods above.
 
     const std::string &getStorageType() const
     {
@@ -341,20 +344,21 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     }
 
   private:
-    std::shared_ptr<oauth2::IOAuth2Storage> storage_;
+    // Phase 4.6a: storage_ (the god IOAuth2Storage) is gone. The plugin now
+    // holds the split-repository handles directly, extracted from the
+    // per-backend RepositoryBundle constructed in initStorage().
+    std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo_;
+    std::shared_ptr<authforge::oauth2::repository::IGrantRepository> grantRepo_;
+    std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo_;
+    std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consentRepo_;
+    // Identity-side (still on the legacy oauth2::* interfaces; migration to
+    // authforge::identity::* is a separate follow-up).
+    std::shared_ptr<oauth2::IRoleRepository> roleRepo_;
+    std::shared_ptr<oauth2::IUserRepository> userRepo_;
+    std::shared_ptr<oauth2::ISubjectMappingRepository> subjectMappingRepo_;
     std::shared_ptr<oauth2::OAuth2CleanupService> cleanupService_;
     std::shared_ptr<authforge::oauth2::protocol::TokenService> tokenService_;
     std::shared_ptr<authforge::oauth2::protocol::ClientService> clientService_;
-    // Phase 4.1: the NEW-domain ITokenRepository the plugin constructs (today
-    // the TokenRepositoryBridge over storage_; later the direct split-repo).
-    // Retained as a member so incrementIntrospectCount() can route through the
-    // new interface instead of storage_ directly (the last direct god-facade
-    // call inside the plugin besides the legacy service ctors).
-    std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo_;
-    // Phase 4.3: the NEW-domain IClientRepository (today the bridge). Retained
-    // so the plugin can forward getClient() through the new interface for
-    // controllers that previously reached into storage_ directly.
-    std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo_;
     std::shared_ptr<oauth2::IdentityService> identityService_;
     // M2b Task 17 slice 12: first production instantiation of
     // authforge::common::ports::IRoleProvider (via the Adapter-side

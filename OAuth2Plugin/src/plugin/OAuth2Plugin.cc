@@ -5,19 +5,21 @@
 #include <oauth2/adapters/StorageRoleProvider.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <oauth2/adapters/DrogonAuditSink.h>
-#include <oauth2/adapters/LegacyStorageRepositoryBridge.h>
-#include <oauth2/storage/MemoryOAuth2Storage.h>
-#include <oauth2/storage/PostgresOAuth2Storage.h>
-#include <oauth2/storage/RedisOAuth2Storage.h>
-#include <oauth2/storage/CachedOAuth2Storage.h>
+// Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
+// per-backend RepositoryBundle and extracts its seven split-repository handles.
+#include <oauth2/storage/MemoryRepositoryBundle.h>
+#include <oauth2/storage/PostgresRepositoryBundle.h>
+#include <oauth2/storage/RedisRepositoryBundle.h>
+#include <authforge/oauth2/repository/IClientRepository.h>
+#include <authforge/oauth2/repository/IGrantRepository.h>
+#include <authforge/oauth2/repository/ITokenRepository.h>
+#include <authforge/oauth2/repository/IConsentRepository.h>
 // OLD oauth2::TokenService/IdentityService (not the new Domain-layer
 // classes): still needed here ONLY for the two static pure-function
 // utilities below (validatePkceCodeVerifier/generateSha256Hash via a
 // stack-constructed TokenService(nullptr), and scopeRequiresAdminRole via
-// IdentityService(nullptr)) -- these were never migrated to the new
-// classes in Task 24 slice 2 (out of scope: pure functions, no storage
-// dependency, no controller depends on the OLD tokenService_/
-// clientService_ members these classes used to back).
+// IdentityService({})) -- these were never migrated to the new classes in
+// Task 24 slice 2 (out of scope: pure functions, no storage dependency).
 #include <oauth2/services/TokenService.h>
 #include <oauth2/services/IdentityService.h>
 #include <drogon/drogon.h>
@@ -105,24 +107,21 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // plugin->exchangeCodeForToken(...) etc unchanged (OAuth2Plugin was
     // already a clean forwarding facade); only the delegate methods'
     // bodies below (and this construction) know about the new types.
-    // Phase 4.3: retain clientRepo as a member so the plugin can forward
-    // getClient() through the NEW IClientRepository for controllers (previously
-    // they reached into storage_ directly via getStorage()).
-    clientRepo_ = std::make_shared<oauth2::adapters::ClientRepositoryBridge>(storage_);
-    auto grantRepo = std::make_shared<oauth2::adapters::GrantRepositoryBridge>(storage_);
-    // Phase 4.1: retain tokenRepo as a member so incrementIntrospectCount() can
-    // route through the NEW ITokenRepository instead of storage_ directly.
-    tokenRepo_ = std::make_shared<oauth2::adapters::TokenRepositoryBridge>(storage_, storageType_);
+    // Phase 4.6a: clientRepo_/grantRepo_/tokenRepo_/consentRepo_/roleRepo_/
+    // userRepo_/subjectMappingRepo_ are now populated by initStorage() directly
+    // from the per-backend RepositoryBundle (no bridges, no storage_). The
+    // services below consume these handles.
     auto cryptoProvider = std::make_shared<oauth2::adapters::OpenSslCryptoProvider>();
     auto auditSink = std::make_shared<oauth2::adapters::DrogonAuditSink>();
 
-    // Phase 4.5: roles now resolve through StorageRoleProvider's subject-string
+    // Phase 4.5: roles resolve through StorageRoleProvider's subject-string
     // overload (supportsSubjectLookup()=true) -- byte-equivalent to the legacy
     // single-hop storage_->getUserRoles(subjectString), and retires the
     // LegacyRoleResolutionBridge's synthetic-id/pending-roles shim. The new
     // IRoleProvider port carries the string overload; oauth2::protocol::
     // TokenService prefers it, so no ISubjectResolver is needed (passed null).
-    roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(storage_);
+    // Phase 4.6a: now backed by roleRepo_ (the identity split-repo), not storage_.
+    roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(roleRepo_);
 
     // Defect 1.3 fix: services now share ownership of storage_ (shared_ptr),
     // so the storage lifetime is guaranteed to cover every service instead of
@@ -131,7 +130,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // repository bridges above, which each hold their own storage_ shared_ptr.
     tokenService_ = std::make_shared<authforge::oauth2::protocol::TokenService>(
       clientRepo_,
-      grantRepo,
+      grantRepo_,
       tokenRepo_,
       cryptoProvider,
       auditSink,
@@ -145,12 +144,14 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     );
     tokenService_->setJwkManager(jwkManager_);
     clientService_ = std::make_shared<authforge::oauth2::protocol::ClientService>(clientRepo_);
-    identityService_ = std::make_shared<oauth2::IdentityService>(storage_);
+    identityService_ = std::make_shared<oauth2::IdentityService>(
+      oauth2::IdentityService::Repos{roleRepo_, userRepo_, subjectMappingRepo_, consentRepo_}
+    );
 
     // Initialize Cleanup Service (Phase 4.2: now keyed on the NEW split repos,
     // not storage_. grantRepo is the local bridge over storage_; tokenRepo_ is
     // the member retained in 4.1.)
-    cleanupService_ = std::make_shared<oauth2::OAuth2CleanupService>(grantRepo, tokenRepo_);
+    cleanupService_ = std::make_shared<oauth2::OAuth2CleanupService>(grantRepo_, tokenRepo_);
     double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble();
     cleanupService_->start(cleanupInterval);
 
@@ -159,54 +160,74 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
 
 void OAuth2Plugin::initStorage(const Json::Value &config)
 {
+    // Phase 4.6a: storage_ (the god IOAuth2Storage) is gone. The plugin now
+    // constructs the per-backend RepositoryBundle (Memory/Postgres/Redis) and
+    // extracts the seven split-repository handles into members. The bundles
+    // own the underlying state; the extracted shared_ptrs keep it alive for
+    // the plugin's lifetime.
     storageType_ = config.get("storage_type", "memory").asString();
+
+    auto extractFrom = [this](
+                         std::shared_ptr<::authforge::oauth2::repository::IClientRepository> c,
+                         std::shared_ptr<::authforge::oauth2::repository::IGrantRepository> g,
+                         std::shared_ptr<::authforge::oauth2::repository::ITokenRepository> t,
+                         std::shared_ptr<::authforge::oauth2::repository::IConsentRepository> cn,
+                         std::shared_ptr<oauth2::IRoleRepository> r,
+                         std::shared_ptr<oauth2::IUserRepository> u,
+                         std::shared_ptr<oauth2::ISubjectMappingRepository> sm
+                       ) {
+        clientRepo_ = std::move(c);
+        grantRepo_ = std::move(g);
+        tokenRepo_ = std::move(t);
+        consentRepo_ = std::move(cn);
+        roleRepo_ = std::move(r);
+        userRepo_ = std::move(u);
+        subjectMappingRepo_ = std::move(sm);
+    };
 
     if (storageType_ == "postgres")
     {
-        // Option B (defect 1.8 nested ownership): create the inner Postgres via
-        // std::make_shared from the CONCRETE type so its control block is bound
-        // to PostgresOAuth2Storage. This arms enable_shared_from_this on the
-        // inner storage so its own shared_from_this() is valid in BOTH roles:
-        //   * wrapped as CachedOAuth2Storage::impl_ (shared_ptr), and
-        //   * direct (the no-cache fallback below).
-        auto pg = std::make_shared<oauth2::PostgresOAuth2Storage>();
-        pg->initFromConfig(config["postgres"]);
-        try
-        {
-            auto redis = drogon::app().getRedisClient("default");
-            // The OUTER storage_ is created via make_shared<CachedOAuth2Storage>
-            // so the shared_ptr control block binds the CONCRETE type
-            // (CachedOAuth2Storage), arming its enable_shared_from_this. The
-            // inner Postgres (pg) is handed in as a shared_ptr<IOAuth2Storage>
-            // impl_, keeping its own armed control block (Option B). Do NOT move
-            // a unique_ptr<IOAuth2Storage> into the shared_ptr — that binds the
-            // control block to the base class and makes shared_from_this() throw
-            // bad_weak_ptr.
-            storage_ = std::make_shared<oauth2::CachedOAuth2Storage>(pg, redis);
-            LOG_INFO << "Using PostgreSQL storage backend with L2 Redis Cache";
-        }
-        catch (...)
-        {
-            LOG_ERROR << "Failed to init Cache. Fallback to Postgres without cache.";
-            // Direct (un-wrapped) Postgres: reuse the same make_shared'd concrete
-            // instance, so its control block (and shared_from_this) stay valid.
-            storage_ = pg;
-        }
+        oauth2::PostgresRepositoryBundle bundle;
+        bundle.initFromConfig(config["postgres"]);
+        extractFrom(
+          bundle.clientRepository(),
+          bundle.grantRepository(),
+          bundle.tokenRepository(),
+          bundle.consentRepository(),
+          bundle.roleRepository(),
+          bundle.userRepository(),
+          bundle.subjectMappingRepository()
+        );
+        LOG_INFO << "Using PostgreSQL storage backend (RepositoryBundle)";
     }
     else if (storageType_ == "redis")
     {
-        // Direct Redis: create via make_shared from the concrete type so the
-        // control block binds RedisOAuth2Storage (arms shared_from_this in 8.1).
         std::string clientName = config["redis"].get("client_name", "default").asString();
-        storage_ = std::make_shared<oauth2::RedisOAuth2Storage>(clientName);
+        oauth2::RedisRepositoryBundle bundle(clientName);
+        extractFrom(
+          bundle.clientRepository(),
+          bundle.grantRepository(),
+          bundle.tokenRepository(),
+          bundle.consentRepository(),
+          bundle.roleRepository(),
+          bundle.userRepository(),
+          bundle.subjectMappingRepository()
+        );
     }
     else
     {
-        // Direct Memory: create via make_shared from the concrete type.
-        auto s = std::make_shared<oauth2::MemoryOAuth2Storage>();
+        oauth2::MemoryRepositoryBundle bundle;
         if (config.isMember("clients"))
-            s->initFromConfig(config["clients"], config["admin_users"]);
-        storage_ = std::move(s);
+            bundle.initFromConfig(config["clients"], config["admin_users"]);
+        extractFrom(
+          bundle.clientRepository(),
+          bundle.grantRepository(),
+          bundle.tokenRepository(),
+          bundle.consentRepository(),
+          bundle.roleRepository(),
+          bundle.userRepository(),
+          bundle.subjectMappingRepository()
+        );
     }
 }
 
@@ -214,23 +235,20 @@ void OAuth2Plugin::shutdown()
 {
     // Explicit destruction order (defect 1.3 fix): stop the cleanup timer
     // first so no new cleanup callback is dispatched, then release the service
-    // objects, and finally drop our reference to the storage. Because the
-    // services now share ownership of storage_ (shared_ptr), releasing them
-    // before resetting storage_ guarantees the storage outlives every service.
-    // Any in-flight async callback that captured a service / storage shared_ptr
-    // (added in tasks 8.x) keeps the relevant object alive until it completes,
-    // so the storage is destroyed only after the last user is gone.
+    // objects, and finally drop the repository handles. Because the services
+    // share ownership of the repos (shared_ptr), releasing them before resetting
+    // the repo handles guarantees the underlying storage outlives every
+    // service. Any in-flight async callback that captured a repo shared_ptr
+    // keeps the relevant object alive until it completes, so the storage is
+    // destroyed only after the last user is gone.
     //
-    // Defect 1.8 (self-capture interaction): the storage classes
-    // (CachedOAuth2Storage / RedisOAuth2Storage / PostgresOAuth2Storage) now
-    // capture `auto self = shared_from_this();` in their async continuations.
-    // As a result, when storage_.reset() runs here it may only drop OUR
-    // reference; if a Redis/DB callback is still in flight, the last reference
-    // is held by that continuation and ~CachedOAuth2Storage (and the inner
-    // storage) will run on the redis/DB client's loop thread once the callback
-    // completes — not on this shutdown thread. The shared-ownership guarantee
-    // makes that deferred destruction safe (no member is touched through a
-    // dangling `this`). We intentionally do not add extra synchronization here:
+    // Defect 1.8 (self-capture interaction): the split-repository classes
+    // capture `auto self = shared_from_this();` in their async continuations, so
+    // a reset() here may only drop OUR reference; if a Redis/DB callback is
+    // still in flight, the last reference is held by that continuation and the
+    // repo's destructor runs on the redis/DB client's loop thread once the
+    // callback completes. The shared-ownership guarantee makes that deferred
+    // destruction safe. We intentionally do not add extra synchronization here:
     // the strong `self` reference is the lifetime contract.
     if (cleanupService_)
         cleanupService_->stop();
@@ -239,8 +257,17 @@ void OAuth2Plugin::shutdown()
     tokenService_.reset();
     clientService_.reset();
     identityService_.reset();
+    roleProvider_.reset();
 
-    storage_.reset();
+    // Drop the repository handles (releases the bundle's underlying state once
+    // the last in-flight callback completes).
+    clientRepo_.reset();
+    grantRepo_.reset();
+    tokenRepo_.reset();
+    consentRepo_.reset();
+    roleRepo_.reset();
+    userRepo_.reset();
+    subjectMappingRepo_.reset();
 }
 
 // ========== Delegate to Services ==========
@@ -328,7 +355,7 @@ void OAuth2Plugin::validateAccessToken(
               callback(nullptr);
               return;
           }
-          callback(std::make_shared<AccessToken>(oauth2::adapters::toOldAccessToken(*t)));
+          callback(std::make_shared<AccessToken>(*t));
       }
     );
 }
@@ -469,11 +496,11 @@ void OAuth2Plugin::getUserInfo(
   std::function<void(std::optional<Json::Value>)> &&callback
 )
 {
-    // Phase 4.5: today still via storage_ (the identity-side migration to
-    // authforge::identity::IUserRepository is a separate follow-up). Exposed so
-    // controllers drop their getStorage() reach-in.
-    if (storage_)
-        storage_->getUserInfo(userId, std::move(callback));
+    // Phase 4.6a: routed through userRepo_ (the identity split-repo), no
+    // storage_ reach-in. The identity-side migration to
+    // authforge::identity::IUserRepository is a separate follow-up.
+    if (userRepo_)
+        userRepo_->getUserInfo(userId, std::move(callback));
 }
 
 void OAuth2Plugin::revokeAccessToken(
@@ -508,7 +535,7 @@ std::string OAuth2Plugin::generateSha256Hash(const std::string &input)
 
 bool OAuth2Plugin::scopeRequiresAdminRole(const std::string &scope)
 {
-    return oauth2::IdentityService(nullptr).scopeRequiresAdminRole(scope);
+    return oauth2::IdentityService({}).scopeRequiresAdminRole(scope);
 }
 
 void OAuth2Plugin::ensureSubjectMapping(

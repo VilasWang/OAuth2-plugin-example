@@ -1,26 +1,20 @@
 #pragma once
 
 // M2b Task 17 slice 12 (authforge-sdk-refactor): Adapter-side default
-// implementation of authforge::common::ports::IRoleProvider. Originally backed
-// only by IOAuth2Storage::getUserRoles(int32_t, ...).
+// implementation of authforge::common::ports::IRoleProvider.
 //
-// Phase 4.5: now ALSO overrides the subject-string overload
-// (supportsSubjectLookup() = true), backed by
-// IOAuth2Storage::getUserRoles(const std::string&, ...). This preserves the
-// legacy "roles keyed by subject string" semantics (MemoryOAuth2Storage /
-// MemoryRoleRepository userRoles_ map, populated from admin_users config)
-// through the new IRoleProvider port, letting oauth2::protocol::TokenService
-// resolve config-only subjects like "admin" without a subject_mapping row --
-// which retires LegacyRoleResolutionBridge's synthetic-id/pending-roles shim.
+// Phase 4.5: overrides the subject-string overload (supportsSubjectLookup()
+// = true), preserving the legacy "roles keyed by subject string" semantics
+// (MemoryRoleRepository userRoles_ populated from admin_users config) through
+// the new IRoleProvider port.
 //
-// Thin forwarding adapter: takes a shared IOAuth2Storage (same pattern as
-// every other *Service class in this codebase) and forwards getRoles(...)
-// to storage->getUserRoles(...). Placed under OAuth2Plugin/include/oauth2/
-// adapters/ alongside the other Adapter-layer port implementations
-// (OpenSslCryptoProvider, DrogonLogger, DrogonAuditSink).
+// Phase 4.6a: now backed by oauth2::IRoleRepository (the identity split-repo)
+// instead of the god IOAuth2Storage facade. Forwards getRoles(...) to
+// roleRepo->getUserRoles(...). Placed under OAuth2Plugin/include/oauth2/
+// adapters/ alongside the other Adapter-layer port implementations.
 
 #include <authforge/common/ports/IRoleProvider.h>
-#include <oauth2/storage/IOAuth2Storage.h>
+#include <oauth2/storage/IRoleRepository.h>
 
 #include <memory>
 
@@ -30,8 +24,8 @@ namespace oauth2::adapters
 class StorageRoleProvider : public authforge::common::ports::IRoleProvider
 {
   public:
-    explicit StorageRoleProvider(std::shared_ptr<oauth2::IOAuth2Storage> storage)
-        : storage_(std::move(storage))
+    explicit StorageRoleProvider(std::shared_ptr<oauth2::IRoleRepository> roleRepo)
+        : roleRepo_(std::move(roleRepo))
     {
     }
 
@@ -45,26 +39,26 @@ class StorageRoleProvider : public authforge::common::ports::IRoleProvider
 
     void getRoles(const std::string &subject, RolesCallback &&cb) override
     {
-        if (!storage_)
+        if (!roleRepo_)
         {
             cb({});
             return;
         }
-        storage_->getUserRoles(subject, std::move(cb));
+        roleRepo_->getUserRoles(subject, std::move(cb));
     }
 
     void getRoles(int32_t internalUserId, RolesCallback &&cb) override
     {
-        if (!storage_)
+        if (!roleRepo_)
         {
             cb({});
             return;
         }
-        storage_->getUserRoles(internalUserId, std::move(cb));
+        roleRepo_->getUserRoles(internalUserId, std::move(cb));
     }
 
   private:
-    std::shared_ptr<oauth2::IOAuth2Storage> storage_;
+    std::shared_ptr<oauth2::IRoleRepository> roleRepo_;
 };
 
 }  // namespace oauth2::adapters
