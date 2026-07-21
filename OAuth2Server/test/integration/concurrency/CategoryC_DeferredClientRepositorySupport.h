@@ -14,13 +14,13 @@
 // (CategoryC_CachedClientRepositoryUafTest.cc) can model the same
 // Postgres/Redis-style async deferral without a real DB.
 //
-// Placement rationale: this lives in its own header (not appended to
-// CategoryC_DeferredStorageSupport.h) because that file is explicitly
-// off-limits for edits in this task (it backs the existing regression gate,
-// CategoryC_CachedStorageUafTest.cc, and must stay byte-for-byte as the
-// gate's baseline). A new, separate header keeps that guarantee mechanical
-// (nothing to review for accidental drift) while still reusing its
-// `PendingCallbacks` / `makeLiveClient` helpers via #include.
+// Phase 4.4 (authforge-sdk-refactor): CachedClientRepository now implements
+// the NEW Domain interface (authforge::oauth2::repository::IClientRepository),
+// so DeferringClientRepository implements the new interface too (was the
+// legacy oauth2::IClientRepository). It builds the new-model OAuth2Client
+// locally via makeLiveClientModel below -- the shared
+// CategoryC_DeferredStorageSupport.h::makeLiveClient still returns the legacy
+// DTO for the god-facade-based CategoryC_*UafTest files (retired in 4.6/4.7).
 //
 // _Requirements: design.md §7.4 (H3/A1) — the decorator's
 // enable_shared_from_this + `self` capture pattern must be re-verified on
@@ -34,17 +34,34 @@
 #include <string>
 #include <utility>
 
-#include <oauth2/storage/IClientRepository.h>
+#include <authforge/oauth2/repository/IClientRepository.h>
+#include <authforge/oauth2/model/Client.h>
+#include <authforge/oauth2/model/ClientType.h>
 
-#include "CategoryC_DeferredStorageSupport.h"  // PendingCallbacks, makeLiveClient
+#include "CategoryC_DeferredStorageSupport.h"  // PendingCallbacks
 #include "ConcurrencyRaceSupport.h"
 
 namespace oauth2::test::concurrency
 {
-// DeferringClientRepository -- IClientRepository whose callbacks are
+// Build a live new-model OAuth2Client (drives the production
+// CachedClientRepository::getClient continuation into its "cache fill" branch,
+// which touches clientCache_ through the captured `this`).
+inline ::authforge::oauth2::model::OAuth2Client makeLiveClientModel(const std::string &clientId)
+{
+    ::authforge::oauth2::model::OAuth2Client c;
+    c.clientId = clientId;
+    c.clientType = ::authforge::oauth2::model::ClientType::CONFIDENTIAL;
+    c.clientSecretHash = "hash";
+    c.salt = "salt";
+    c.redirectUris = {"https://example.test/cb"};
+    c.allowedScopes = {"openid"};
+    return c;
+}
+
+// DeferringClientRepository -- the NEW IClientRepository whose callbacks are
 // deferred (queued), modelling Drogon's DbClient/RedisClient async dispatch,
 // analogous to DeferringStorage but scoped to only the client aggregate.
-class DeferringClientRepository : public oauth2::IClientRepository
+class DeferringClientRepository : public ::authforge::oauth2::repository::IClientRepository
 {
   public:
     explicit DeferringClientRepository(std::shared_ptr<PendingCallbacks> pending)
@@ -52,22 +69,25 @@ class DeferringClientRepository : public oauth2::IClientRepository
     {
     }
 
-    void getClient(const std::string &clientId, ClientCallback &&cb) override
+    void getClient(
+      const std::string &clientId,
+      ::authforge::oauth2::repository::IClientRepository::ClientCallback &&cb
+    ) override
     {
-        // A live (non-expiring-relevant) client value -> drives the
-        // production CachedClientRepository::getClient continuation into its
-        // "cache fill" branch, which touches the clientCache_ member through
-        // the captured `this`.
-        auto client = makeLiveClient(clientId);
+        // A live client value -> drives the production
+        // CachedClientRepository::getClient continuation into its "cache fill"
+        // branch, which touches the clientCache_ member through the captured
+        // `this`.
+        auto client = makeLiveClientModel(clientId);
         pending_->enqueue([cb = std::move(cb), client]() {
-            cb(std::optional<oauth2::OAuth2Client>(client));
+            cb(std::optional<::authforge::oauth2::model::OAuth2Client>(client));
         });
     }
 
     void validateClient(
       const std::string & /*clientId*/,
       const std::string & /*clientSecret*/,
-      BoolCallback &&cb
+      ::authforge::oauth2::repository::IClientRepository::BoolCallback &&cb
     ) override
     {
         pending_->enqueue([cb = std::move(cb)]() { cb(true); });

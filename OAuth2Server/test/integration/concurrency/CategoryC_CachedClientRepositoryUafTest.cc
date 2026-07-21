@@ -101,9 +101,12 @@ DROGON_TEST(Integration_Concurrency_11_CachedClientRepository_GetClient_ClientCa
     );
 
     std::atomic<int> delivered{0};
-    host->getClient("client-getc-per-repo", [&delivered](std::optional<oauth2::OAuth2Client>) {
-        delivered.fetch_add(1, std::memory_order_relaxed);
-    });
+    host->getClient(
+      "client-getc-per-repo",
+      [&delivered](std::optional<::authforge::oauth2::model::OAuth2Client>) {
+          delivered.fetch_add(1, std::memory_order_relaxed);
+      }
+    );
 
     // The impl_ continuation (capturing the host's `self` + `this`) is now
     // parked, mirroring the existing gate's assertion.
@@ -130,17 +133,21 @@ DROGON_TEST(Integration_Concurrency_11_CachedClientRepository_GetClient_CacheHit
     );
 
     std::atomic<int> delivered{0};
-    host->getClient("client-cachehit", [&delivered](std::optional<oauth2::OAuth2Client>) {
-        delivered.fetch_add(1, std::memory_order_relaxed);
-    });
+    host->getClient(
+      "client-cachehit", [&delivered](std::optional<::authforge::oauth2::model::OAuth2Client>) {
+          delivered.fetch_add(1, std::memory_order_relaxed);
+      }
+    );
     REQUIRE(pending->size() == 1);
     pending->drainAll();
     CHECK(delivered.load(std::memory_order_relaxed) == 1);
 
     // Second call should hit the L1 cache: no new continuation is parked.
-    host->getClient("client-cachehit", [&delivered](std::optional<oauth2::OAuth2Client>) {
-        delivered.fetch_add(1, std::memory_order_relaxed);
-    });
+    host->getClient(
+      "client-cachehit", [&delivered](std::optional<::authforge::oauth2::model::OAuth2Client>) {
+          delivered.fetch_add(1, std::memory_order_relaxed);
+      }
+    );
     CHECK(pending->empty());
     CHECK(delivered.load(std::memory_order_relaxed) == 2);
 }

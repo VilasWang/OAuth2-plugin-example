@@ -4,7 +4,14 @@
 namespace oauth2
 {
 
-CachedClientRepository::CachedClientRepository(std::shared_ptr<IClientRepository> impl)
+// Task 27.5 phase 4.4: callback + DTO aliases now live on the new base
+// interface (authforge::oauth2::repository::IClientRepository); bring them into
+// scope for the out-of-class method definitions below.
+using ClientCallback = CachedClientRepositoryBase::ClientCallback;
+using BoolCallback = CachedClientRepositoryBase::BoolCallback;
+using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
+
+CachedClientRepository::CachedClientRepository(std::shared_ptr<CachedClientRepositoryBase> impl)
     : impl_(std::move(impl)),
       clientCache_(drogon::app().getLoop(), 1.0, 4, 60)  // Clean up expired every 60s
 {
