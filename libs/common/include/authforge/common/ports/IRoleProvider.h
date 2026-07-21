@@ -28,6 +28,15 @@ namespace authforge::common::ports
 
 /**
  * @brief Provides the role list assigned to an internal user id.
+ *
+ * Phase 4.5 (authforge-sdk-refactor): a string-keyed overload was added so the
+ * legacy "roles keyed by subject string" semantics (MemoryOAuth2Storage /
+ * MemoryRoleRepository's userRoles_ map, populated from the admin_users config)
+ * survive the god-facade retirement byte-for-byte. An implementation opts in
+ * by overriding supportsSubjectLookup() (returns true) + getRoles(subject).
+ * Callers that prefer the subject path (e.g. oauth2::protocol::TokenService)
+ * check supportsSubjectLookup() first and fall back to the int32 path
+ * (ISubjectResolver::resolve -> getRoles(int32)) otherwise.
  */
 class IRoleProvider
 {
@@ -42,6 +51,26 @@ class IRoleProvider
      * roles or does not exist).
      */
     virtual void getRoles(int32_t internalUserId, RolesCallback &&cb) = 0;
+
+    /**
+     * @brief Whether this provider implements the subject-string overload
+     * below. Default false (the pure two-port design). Identity-backed
+     * providers that key roles by subject string override to return true.
+     */
+    virtual bool supportsSubjectLookup() const noexcept
+    {
+        return false;
+    }
+
+    /**
+     * @brief Get the roles assigned to a user by subject string (the opaque
+     * OAuth2 subject). Only invoked when supportsSubjectLookup() returns true.
+     * Invokes `cb` with the role-name list.
+     */
+    virtual void getRoles(const std::string & /*subject*/, RolesCallback &&cb)
+    {
+        cb({});
+    }
 };
 
 }  // namespace authforge::common::ports

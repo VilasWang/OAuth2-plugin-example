@@ -115,14 +115,14 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     tokenRepo_ = std::make_shared<oauth2::adapters::TokenRepositoryBridge>(storage_, storageType_);
     auto cryptoProvider = std::make_shared<oauth2::adapters::OpenSslCryptoProvider>();
     auto auditSink = std::make_shared<oauth2::adapters::DrogonAuditSink>();
-    // Preserves the OLD single-hop storage_->getUserRoles(subjectString)
-    // role-resolution semantics through the new two-port shape -- see
-    // LegacyRoleResolutionBridge's own header comment for why a naive
-    // ISubjectResolver->IRoleProvider chain via getInternalUserId would
-    // silently drop roles for subjects with no explicit subject mapping
-    // (e.g. the "admin" test user).
-    auto roleResolutionBridge =
-      std::make_shared<oauth2::adapters::LegacyRoleResolutionBridge>(storage_);
+
+    // Phase 4.5: roles now resolve through StorageRoleProvider's subject-string
+    // overload (supportsSubjectLookup()=true) -- byte-equivalent to the legacy
+    // single-hop storage_->getUserRoles(subjectString), and retires the
+    // LegacyRoleResolutionBridge's synthetic-id/pending-roles shim. The new
+    // IRoleProvider port carries the string overload; oauth2::protocol::
+    // TokenService prefers it, so no ISubjectResolver is needed (passed null).
+    roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(storage_);
 
     // Defect 1.3 fix: services now share ownership of storage_ (shared_ptr),
     // so the storage lifetime is guaranteed to cover every service instead of
@@ -135,8 +135,9 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
       tokenRepo_,
       cryptoProvider,
       auditSink,
-      roleResolutionBridge,  // ISubjectResolver
-      roleResolutionBridge,  // IRoleProvider (same object implements both)
+      nullptr,        // ISubjectResolver -- not needed; roleProvider_ resolves
+                      // roles by subject string directly (phase 4.5).
+      roleProvider_,  // IRoleProvider (subject-string path)
       authCodeTtl_,
       accessTokenTtl_,
       refreshTokenTtl_,
@@ -145,7 +146,6 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     tokenService_->setJwkManager(jwkManager_);
     clientService_ = std::make_shared<authforge::oauth2::protocol::ClientService>(clientRepo_);
     identityService_ = std::make_shared<oauth2::IdentityService>(storage_);
-    roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(storage_);
 
     // Initialize Cleanup Service (Phase 4.2: now keyed on the NEW split repos,
     // not storage_. grantRepo is the local bridge over storage_; tokenRepo_ is
@@ -462,6 +462,18 @@ void OAuth2Plugin::saveTokenPair(
 {
     if (tokenRepo_)
         tokenRepo_->saveTokenPair(accessToken, refreshToken, std::move(callback));
+}
+
+void OAuth2Plugin::getUserInfo(
+  const std::string &userId,
+  std::function<void(std::optional<Json::Value>)> &&callback
+)
+{
+    // Phase 4.5: today still via storage_ (the identity-side migration to
+    // authforge::identity::IUserRepository is a separate follow-up). Exposed so
+    // controllers drop their getStorage() reach-in.
+    if (storage_)
+        storage_->getUserInfo(userId, std::move(callback));
 }
 
 void OAuth2Plugin::revokeAccessToken(

@@ -61,7 +61,25 @@ void TokenService::resolveRoles(
   std::function<void(std::vector<std::string>)> &&cb
 )
 {
-    if (!subjectResolver_ || !roleProvider_)
+    if (!roleProvider_)
+    {
+        cb({});
+        return;
+    }
+
+    // Phase 4.5: prefer the subject-string role lookup when the provider
+    // supports it -- preserves the legacy "roles keyed by subject string"
+    // semantics (MemoryRoleRepository's userRoles_ map, populated from
+    // admin_users config) byte-for-byte, without needing a subject_mapping
+    // row for config-only subjects like "admin". Falls back to the pure
+    // two-port chain (ISubjectResolver -> getRoles(int32)) otherwise.
+    if (roleProvider_->supportsSubjectLookup())
+    {
+        roleProvider_->getRoles(subject, std::move(cb));
+        return;
+    }
+
+    if (!subjectResolver_)
     {
         cb({});
         return;

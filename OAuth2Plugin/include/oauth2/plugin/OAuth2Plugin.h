@@ -113,6 +113,13 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
       const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
       std::function<void()> &&callback
     );
+    // Phase 4.5: getUserInfo forwarding (today via storage_; the identity-side
+    // migration to authforge::identity::IUserRepository is a separate
+    // follow-up). Lets controllers drop their getStorage() reach-in.
+    void getUserInfo(
+      const std::string &userId,
+      std::function<void(std::optional<Json::Value>)> &&callback
+    );
 
     /**
      * @brief Validate redirect URI (Async)

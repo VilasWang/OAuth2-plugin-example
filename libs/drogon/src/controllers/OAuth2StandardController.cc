@@ -1560,15 +1560,12 @@ void OAuth2StandardController::userInfo(
     }
     // First get user roles
     plugin->getUserRoles(userId, [this, userId, callback](std::vector<std::string> roles) {
-        // Get user info directly from storage
+        // Phase 4.5: route through plugin->getUserInfo (today still the god
+        // facade; the identity-side migration to authforge::identity::* is a
+        // separate follow-up). No getStorage() reach-in.
         auto plugin = resolvePlugin();
-        auto storage = plugin->getStorage();
-
-        // Query user details from database.
-        // Capture the storage shared_ptr into the getUserInfo callback so the storage
-        // is guaranteed alive across this async hop.
-        storage->getUserInfo(
-          userId, [storage, userId, roles, callback](std::optional<Json::Value> dbUserInfo) {
+        plugin
+          ->getUserInfo(userId, [userId, roles, callback](std::optional<Json::Value> dbUserInfo) {
               Json::Value userInfo;
               userInfo["sub"] = userId;
 
@@ -1612,8 +1609,7 @@ void OAuth2StandardController::userInfo(
 
               auto resp = drogon::HttpResponse::newHttpJsonResponse(userInfo);
               callback(resp);
-          }
-        );
+          });
     });
 }
 
