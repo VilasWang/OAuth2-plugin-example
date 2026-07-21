@@ -1246,13 +1246,15 @@ void OAuth2StandardController::token(
               }
 
               // Verify client is CONFIDENTIAL (PUBLIC clients cannot use client_credentials)
-              // Capture the storage shared_ptr into the getClient continuation so the storage
-              // is guaranteed alive across this async hop (instead of re-fetching it inside the
-              // continuation, which could dangle if the plugin/storage were torn down mid-flight).
-              auto storage = plugin->getStorage();
-              storage->getClient(
+              // Phase 4.3: route through plugin->getClient (NEW IClientRepository
+              // via the bridge) instead of getStorage()->getClient. The plugin
+              // outlives this request (it is a config-driven singleton), so no
+              // shared_ptr capture of storage is needed across this async hop.
+              plugin->getClient(
                 clientId,
-                [storage, clientId, req, sharedCb](std::optional<oauth2::OAuth2Client> client) {
+                [plugin, clientId, req, sharedCb](
+                  std::optional<authforge::oauth2::model::OAuth2Client> client
+                ) {
                     if (!client)
                     {
                         Json::Value error;
@@ -1263,7 +1265,7 @@ void OAuth2StandardController::token(
                         return;
                     }
 
-                    if (client->clientType == oauth2::ClientType::PUBLIC)
+                    if (client->clientType == authforge::oauth2::model::ClientType::PUBLIC)
                     {
                         Json::Value error;
                         error["error"] = "unauthorized_client";
@@ -1286,18 +1288,16 @@ void OAuth2StandardController::token(
                     )
                                  .count();
 
-                    oauth2::OAuth2AccessToken token;
+                    authforge::oauth2::model::OAuth2AccessToken token;
                     token.token = oauth2::utils::hashToken(tokenStr);
                     token.clientId = clientId;
                     token.userId = "client:" + clientId;  // M2M: subject is the client itself
                     token.scope = grantedScope;
                     token.expiresAt = now + 3600;
 
-                    // Reuse the storage shared_ptr captured from the outer scope (kept alive
-                    // across this async hop) instead of re-fetching plugin->getStorage().
-                    // Capture it into the saveAccessToken callback as well so the storage
-                    // outlives the in-flight save operation.
-                    storage->saveAccessToken(token, [storage, sharedCb, tokenStr, grantedScope]() {
+                    // Phase 4.3: route through plugin->saveAccessToken (NEW
+                    // ITokenRepository) instead of getStorage()->saveAccessToken.
+                    plugin->saveAccessToken(token, [sharedCb, tokenStr, grantedScope]() {
                         Json::Value json;
                         json["access_token"] = tokenStr;
                         json["token_type"] = "Bearer";
@@ -1447,7 +1447,7 @@ void OAuth2StandardController::token(
               auto refreshTokenStr = oauth2::utils::generateSecureToken();
               std::string familyId = oauth2::utils::generateSecureToken(16);
 
-              oauth2::OAuth2AccessToken accessToken;
+              authforge::oauth2::model::OAuth2AccessToken accessToken;
               accessToken.token = oauth2::utils::hashToken(accessTokenStr);
               accessToken.clientId = clientId;
               accessToken.userId = userId;
@@ -1455,7 +1455,7 @@ void OAuth2StandardController::token(
               accessToken.issuedAt = now;
               accessToken.expiresAt = now + 3600;
 
-              oauth2::OAuth2RefreshToken refreshToken;
+              authforge::oauth2::model::OAuth2RefreshToken refreshToken;
               refreshToken.token = oauth2::utils::hashToken(refreshTokenStr);
               refreshToken.accessToken = accessToken.token;
               refreshToken.clientId = clientId;
@@ -1464,13 +1464,12 @@ void OAuth2StandardController::token(
               refreshToken.expiresAt = now + (3600 * 24 * 30);
               refreshToken.familyId = familyId;
 
-              // Capture the storage shared_ptr into the saveTokenPair callback so the storage
-              // is guaranteed alive across this async hop.
-              auto storage = plugin->getStorage();
-              storage->saveTokenPair(
+              // Phase 4.3: route through plugin->saveTokenPair (NEW
+              // ITokenRepository) instead of getStorage()->saveTokenPair.
+              plugin->saveTokenPair(
                 accessToken,
                 refreshToken,
-                [storage, sharedCb, accessTokenStr, refreshTokenStr, scope, deviceCodeHash]() {
+                [sharedCb, accessTokenStr, refreshTokenStr, scope, deviceCodeHash]() {
                     // Mark device code as consumed by deleting it
                     auto dbClient = drogon::app().getDbClient();
                     if (dbClient)

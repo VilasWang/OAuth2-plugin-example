@@ -105,7 +105,10 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // plugin->exchangeCodeForToken(...) etc unchanged (OAuth2Plugin was
     // already a clean forwarding facade); only the delegate methods'
     // bodies below (and this construction) know about the new types.
-    auto clientRepo = std::make_shared<oauth2::adapters::ClientRepositoryBridge>(storage_);
+    // Phase 4.3: retain clientRepo as a member so the plugin can forward
+    // getClient() through the NEW IClientRepository for controllers (previously
+    // they reached into storage_ directly via getStorage()).
+    clientRepo_ = std::make_shared<oauth2::adapters::ClientRepositoryBridge>(storage_);
     auto grantRepo = std::make_shared<oauth2::adapters::GrantRepositoryBridge>(storage_);
     // Phase 4.1: retain tokenRepo as a member so incrementIntrospectCount() can
     // route through the NEW ITokenRepository instead of storage_ directly.
@@ -127,7 +130,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // The new TokenService continues that guarantee transitively via the
     // repository bridges above, which each hold their own storage_ shared_ptr.
     tokenService_ = std::make_shared<authforge::oauth2::protocol::TokenService>(
-      clientRepo,
+      clientRepo_,
       grantRepo,
       tokenRepo_,
       cryptoProvider,
@@ -140,7 +143,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
       issuer
     );
     tokenService_->setJwkManager(jwkManager_);
-    clientService_ = std::make_shared<authforge::oauth2::protocol::ClientService>(clientRepo);
+    clientService_ = std::make_shared<authforge::oauth2::protocol::ClientService>(clientRepo_);
     identityService_ = std::make_shared<oauth2::IdentityService>(storage_);
     roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(storage_);
 
@@ -429,6 +432,36 @@ void OAuth2Plugin::incrementIntrospectCount(
     // legacy service constructors.
     if (tokenRepo_)
         tokenRepo_->incrementIntrospectCount(token, std::move(callback));
+}
+
+void OAuth2Plugin::getClient(
+  const std::string &clientId,
+  authforge::oauth2::repository::IClientRepository::ClientCallback &&callback
+)
+{
+    // Phase 4.3: forward through the NEW IClientRepository so controllers no
+    // longer reach into storage_ via getStorage().
+    if (clientRepo_)
+        clientRepo_->getClient(clientId, std::move(callback));
+}
+
+void OAuth2Plugin::saveAccessToken(
+  const authforge::oauth2::model::OAuth2AccessToken &token,
+  std::function<void()> &&callback
+)
+{
+    if (tokenRepo_)
+        tokenRepo_->saveAccessToken(token, std::move(callback));
+}
+
+void OAuth2Plugin::saveTokenPair(
+  const authforge::oauth2::model::OAuth2AccessToken &accessToken,
+  const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
+  std::function<void()> &&callback
+)
+{
+    if (tokenRepo_)
+        tokenRepo_->saveTokenPair(accessToken, refreshToken, std::move(callback));
 }
 
 void OAuth2Plugin::revokeAccessToken(

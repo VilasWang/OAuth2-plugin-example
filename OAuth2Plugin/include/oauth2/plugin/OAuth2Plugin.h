@@ -9,6 +9,8 @@
 #include <authforge/oauth2/protocol/TokenService.h>
 #include <authforge/oauth2/protocol/ClientService.h>
 #include <authforge/oauth2/repository/ITokenRepository.h>
+#include <authforge/oauth2/repository/IClientRepository.h>
+#include <authforge/oauth2/model/Dto.h>
 #include <string>
 #include <memory>
 #include <functional>
@@ -90,6 +92,26 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
       const std::string &clientId,
       const std::string &clientSecret,
       std::function<void(bool)> &&callback
+    );
+
+    // Phase 4.3: storage-forwarding accessors routed through the NEW split
+    // repository interfaces (today the bridges over storage_) so controllers no
+    // longer need to call getStorage() directly. Return/accept the NEW
+    // authforge::oauth2::model::* DTOs. These exist alongside getStorage()
+    // (kept for remaining callers like getUserInfo, retired in phase 4.5) and
+    // will collapse to thin delegations once the god facade is deleted.
+    void getClient(
+      const std::string &clientId,
+      authforge::oauth2::repository::IClientRepository::ClientCallback &&callback
+    );
+    void saveAccessToken(
+      const authforge::oauth2::model::OAuth2AccessToken &token,
+      std::function<void()> &&callback
+    );
+    void saveTokenPair(
+      const authforge::oauth2::model::OAuth2AccessToken &accessToken,
+      const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
+      std::function<void()> &&callback
     );
 
     /**
@@ -322,6 +344,10 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     // new interface instead of storage_ directly (the last direct god-facade
     // call inside the plugin besides the legacy service ctors).
     std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo_;
+    // Phase 4.3: the NEW-domain IClientRepository (today the bridge). Retained
+    // so the plugin can forward getClient() through the new interface for
+    // controllers that previously reached into storage_ directly.
+    std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo_;
     std::shared_ptr<oauth2::IdentityService> identityService_;
     // M2b Task 17 slice 12: first production instantiation of
     // authforge::common::ports::IRoleProvider (via the Adapter-side
