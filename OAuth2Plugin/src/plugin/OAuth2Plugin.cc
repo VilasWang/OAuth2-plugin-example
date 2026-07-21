@@ -107,8 +107,9 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // bodies below (and this construction) know about the new types.
     auto clientRepo = std::make_shared<oauth2::adapters::ClientRepositoryBridge>(storage_);
     auto grantRepo = std::make_shared<oauth2::adapters::GrantRepositoryBridge>(storage_);
-    auto tokenRepo =
-      std::make_shared<oauth2::adapters::TokenRepositoryBridge>(storage_, storageType_);
+    // Phase 4.1: retain tokenRepo as a member so incrementIntrospectCount() can
+    // route through the NEW ITokenRepository instead of storage_ directly.
+    tokenRepo_ = std::make_shared<oauth2::adapters::TokenRepositoryBridge>(storage_, storageType_);
     auto cryptoProvider = std::make_shared<oauth2::adapters::OpenSslCryptoProvider>();
     auto auditSink = std::make_shared<oauth2::adapters::DrogonAuditSink>();
     // Preserves the OLD single-hop storage_->getUserRoles(subjectString)
@@ -128,7 +129,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     tokenService_ = std::make_shared<authforge::oauth2::protocol::TokenService>(
       clientRepo,
       grantRepo,
-      tokenRepo,
+      tokenRepo_,
       cryptoProvider,
       auditSink,
       roleResolutionBridge,  // ISubjectResolver
@@ -143,8 +144,10 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     identityService_ = std::make_shared<oauth2::IdentityService>(storage_);
     roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(storage_);
 
-    // Initialize Cleanup Service
-    cleanupService_ = std::make_shared<oauth2::OAuth2CleanupService>(storage_);
+    // Initialize Cleanup Service (Phase 4.2: now keyed on the NEW split repos,
+    // not storage_. grantRepo is the local bridge over storage_; tokenRepo_ is
+    // the member retained in 4.1.)
+    cleanupService_ = std::make_shared<oauth2::OAuth2CleanupService>(grantRepo, tokenRepo_);
     double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble();
     cleanupService_->start(cleanupInterval);
 
@@ -420,8 +423,12 @@ void OAuth2Plugin::incrementIntrospectCount(
   std::function<void()> &&callback
 )
 {
-    if (storage_)
-        storage_->incrementIntrospectCount(token, std::move(callback));
+    // Phase 4.1: route through the NEW ITokenRepository (today the bridge over
+    // storage_; later the direct split-repo) instead of storage_ directly --
+    // removes the last direct god-facade call inside the plugin besides the
+    // legacy service constructors.
+    if (tokenRepo_)
+        tokenRepo_->incrementIntrospectCount(token, std::move(callback));
 }
 
 void OAuth2Plugin::revokeAccessToken(

@@ -8,6 +8,7 @@
 #include <oauth2/utils/JwkManager.h>
 #include <authforge/oauth2/protocol/TokenService.h>
 #include <authforge/oauth2/protocol/ClientService.h>
+#include <authforge/oauth2/repository/ITokenRepository.h>
 #include <string>
 #include <memory>
 #include <functional>
@@ -315,6 +316,12 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     std::shared_ptr<oauth2::OAuth2CleanupService> cleanupService_;
     std::shared_ptr<authforge::oauth2::protocol::TokenService> tokenService_;
     std::shared_ptr<authforge::oauth2::protocol::ClientService> clientService_;
+    // Phase 4.1: the NEW-domain ITokenRepository the plugin constructs (today
+    // the TokenRepositoryBridge over storage_; later the direct split-repo).
+    // Retained as a member so incrementIntrospectCount() can route through the
+    // new interface instead of storage_ directly (the last direct god-facade
+    // call inside the plugin besides the legacy service ctors).
+    std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo_;
     std::shared_ptr<oauth2::IdentityService> identityService_;
     // M2b Task 17 slice 12: first production instantiation of
     // authforge::common::ports::IRoleProvider (via the Adapter-side

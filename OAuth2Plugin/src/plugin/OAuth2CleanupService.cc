@@ -4,8 +4,11 @@
 namespace oauth2
 {
 
-OAuth2CleanupService::OAuth2CleanupService(std::shared_ptr<IOAuth2Storage> storage)
-    : storage_(std::move(storage))
+OAuth2CleanupService::OAuth2CleanupService(
+  std::shared_ptr<::authforge::oauth2::repository::IGrantRepository> grantRepo,
+  std::shared_ptr<::authforge::oauth2::repository::ITokenRepository> tokenRepo
+)
+    : grantRepo_(std::move(grantRepo)), tokenRepo_(std::move(tokenRepo))
 {
 }
 
@@ -89,7 +92,7 @@ void OAuth2CleanupService::stop()
 
 void OAuth2CleanupService::runCleanup()
 {
-    if (!running_ || !storage_)
+    if (!running_ || !grantRepo_ || !tokenRepo_)
         return;
 
     // Distributed lock: only one instance should run cleanup at a time
@@ -129,7 +132,7 @@ void OAuth2CleanupService::runCleanup()
               LOG_DEBUG << "Running periodic data cleanup (lock acquired)...";
               try
               {
-                  self->storage_->deleteExpiredData();
+                  self->doPurge();
               }
               catch (const std::exception &e)
               {
@@ -144,7 +147,7 @@ void OAuth2CleanupService::runCleanup()
               LOG_DEBUG << "Running periodic data cleanup (no Redis lock)...";
               try
               {
-                  self->storage_->deleteExpiredData();
+                  self->doPurge();
               }
               catch (const std::exception &ex)
               {
@@ -162,7 +165,7 @@ void OAuth2CleanupService::runCleanup()
         LOG_DEBUG << "Running periodic data cleanup (no Redis)...";
         try
         {
-            storage_->deleteExpiredData();
+            doPurge();
         }
         catch (const std::exception &e)
         {
@@ -173,6 +176,18 @@ void OAuth2CleanupService::runCleanup()
             LOG_ERROR << "Unknown error during OAuth2 cleanup";
         }
     }
+}
+
+void OAuth2CleanupService::doPurge()
+{
+    // Phase 4.2: the old IOAuth2Storage::deleteExpiredData() is now split into
+    // per-repository purgeExpired() (design.md §7 / Task 7 A3). Both are
+    // synchronous (no callback). Purge grants (auth codes + authorization
+    // transactions) then tokens (access + refresh).
+    if (grantRepo_)
+        grantRepo_->purgeExpired();
+    if (tokenRepo_)
+        tokenRepo_->purgeExpired();
 }
 
 }  // namespace oauth2
