@@ -336,6 +336,7 @@
 - [ ] 40. 命名空间统一为 `authforge::{common,oauth2,identity,storage,drogon}`
   - 用语义化重命名，避免手工替换遗漏（类/文件名的梳理见 Task 45 + design §5.8）
   - 产出：统一命名空间；验收：全量编译 + 测试全绿
+  - **详细迁移计划见 [`NAMESPACE_MIGRATION_PLAN.md`](NAMESPACE_MIGRATION_PLAN.md)**（遗留→目标命名空间全映射表 + 3 个已定决策 + 全局一致性自评审 + filter 反射字符串运行时风险 + M8 原子执行步骤）。执行前必读，尤其是 §5.2（observability 归属冲突）与 §6（风险）。新会话续做时：按本计划执行 M8 原子重命名（迁移前打 tag、per-file 命名空间目标、33 处 filter 字符串同步、真实服务器 curl 验证 filter 链）。
 
 - [ ] 41. 版本重置 v1.0.0 + 文档更新
   - 统一根 CMake 版本；更新 README/CLAUDE.md/集成文档；补 SDK 运行时契约文档（线程/ABI/异常/日志/whole-archive/插件注册，F9/H1）；前端错误码共享源路径更新（L2）
