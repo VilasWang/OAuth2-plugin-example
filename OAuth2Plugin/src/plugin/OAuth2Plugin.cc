@@ -14,13 +14,9 @@
 #include <authforge/oauth2/repository/IGrantRepository.h>
 #include <authforge/oauth2/repository/ITokenRepository.h>
 #include <authforge/oauth2/repository/IConsentRepository.h>
-// OLD oauth2::TokenService/IdentityService (not the new Domain-layer
-// classes): still needed here ONLY for the two static pure-function
-// utilities below (validatePkceCodeVerifier/generateSha256Hash via a
-// stack-constructed TokenService(nullptr), and scopeRequiresAdminRole via
-// IdentityService({})) -- these were never migrated to the new classes in
-// Task 24 slice 2 (out of scope: pure functions, no storage dependency).
-#include <oauth2/services/TokenService.h>
+#include <authforge/oauth2/pkce/Pkce.h>
+// oauth2::IdentityService (the thin forwarder over bundle repos) is still
+// constructed here for the scopeRequiresAdminRole pure-function path.
 #include <oauth2/services/IdentityService.h>
 #include <drogon/drogon.h>
 
@@ -416,36 +412,12 @@ void OAuth2Plugin::validateUserRolesForScopes(
 
 void OAuth2Plugin::introspectToken(
   const std::string &token,
-  std::function<void(std::optional<oauth2::TokenIntrospection>)> &&callback
+  std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)> &&callback
 )
 {
-    // M3 Task 24 slice 2: convert authforge::oauth2::model::
-    // TokenIntrospection (new) back to oauth2::TokenIntrospection (old) at
-    // this boundary -- the callback signature (and every controller call
-    // site) is unchanged.
-    tokenService_->introspectToken(
-      token,
-      [callback =
-         std::move(callback)](std::optional<authforge::oauth2::model::TokenIntrospection> t) {
-          if (!t)
-          {
-              callback(std::nullopt);
-              return;
-          }
-          oauth2::TokenIntrospection old;
-          old.active = t->active;
-          old.clientId = t->clientId;
-          old.tokenType = t->tokenType;
-          old.exp = t->exp;
-          old.iat = t->iat;
-          old.nbf = t->nbf;
-          old.sub = t->sub;
-          old.aud = t->aud;
-          old.iss = t->iss;
-          old.scope = t->scope;
-          callback(old);
-      }
-    );
+    // A3: pass the NEW authforge::oauth2::model::TokenIntrospection straight
+    // through (no legacy-DTO conversion -- IOAuth2Storage.h is being deleted).
+    tokenService_->introspectToken(token, std::move(callback));
 }
 
 void OAuth2Plugin::incrementIntrospectCount(
@@ -518,19 +490,27 @@ bool OAuth2Plugin::validatePkceCodeVerifier(
   const std::string &codeChallengeMethod
 )
 {
-    // Keeping this static for convenience but could delegate to TokenService if needed
-    // For now, it's just a pure function. Let's redirect to a helper if needed or keep static
-    // logic. Actually, TokenService has a private version. Let's make it a public static utility in
-    // common if needed. For now, I'll just re-implement or delegate to a private instance of
-    // TokenService if possible. But since it's static in Plugin, I'll just re-implement briefly or
-    // move to common/utils.
-    return oauth2::TokenService(nullptr)
-      .validatePkceCodeVerifier(codeVerifier, codeChallenge, codeChallengeMethod);
+    // A1: relocated off the legacy oauth2::TokenService static. Pure RFC 7636
+    // §4.6 verification: plain = direct compare, S256 = base64url(SHA256).
+    std::string method = codeChallengeMethod.empty() ? "plain" : codeChallengeMethod;
+    if (method == "plain")
+    {
+        return codeVerifier == codeChallenge;
+    }
+    if (method == "S256")
+    {
+        return generateSha256Hash(codeVerifier) == codeChallenge;
+    }
+    return false;
 }
 
 std::string OAuth2Plugin::generateSha256Hash(const std::string &input)
 {
-    return oauth2::TokenService(nullptr).generateSha256Hash(input);
+    // A1: relocated off the legacy oauth2::TokenService static. Delegates to
+    // the byte-identical, RFC 7636 Appendix-B-tested algorithm in the
+    // authforge::oauth2::pkce Domain package.
+    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+    return authforge::oauth2::pkce::computeCodeChallenge(input, "S256", cryptoProvider);
 }
 
 bool OAuth2Plugin::scopeRequiresAdminRole(const std::string &scope)

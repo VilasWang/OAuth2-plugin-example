@@ -34,7 +34,7 @@
 // and IUserRepository.h uses for `IOAuth2Storage::OptionalJsonCallback`).
 // This avoids defining a second, competing `std::function<...>` alias with
 // the same shape.
-#include <oauth2/storage/IOAuth2Storage.h>
+#include <oauth2/storage/StorageCallbacks.h>
 
 #include <cstdint>
 #include <string>
@@ -63,7 +63,7 @@ class IRoleRepository
   public:
     virtual ~IRoleRepository() = default;
 
-    using StringListCallback = IOAuth2Storage::StringListCallback;
+    // A3: StringListCallback now defined standalone in StorageCallbacks.h
 
     /**
      * @brief Get roles assigned to a user by external user ID (string form).

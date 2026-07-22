@@ -15,7 +15,6 @@
 #include <oauth2/validation/RuleSet.h>
 #include <oauth2/validation/HttpResponder.h>
 #include <oauth2/types/OAuth2Types.h>
-#include <oauth2/storage/IOAuth2Storage.h>
 #include <oauth2/error/ErrorResponder.h>
 
 // Task 24 slice 4 (authforge-sdk-refactor): identity-layer services this

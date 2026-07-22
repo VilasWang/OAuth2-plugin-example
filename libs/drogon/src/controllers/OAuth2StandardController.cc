@@ -399,7 +399,7 @@ void OAuth2StandardController::introspect(
           plugin->introspectToken(
             token,
             [clientId, callback = std::move(callback)](
-              std::optional<oauth2::TokenIntrospection> introspection
+              std::optional<authforge::oauth2::model::TokenIntrospection> introspection
             ) mutable {
                 if (!introspection)
                 {
@@ -526,7 +526,7 @@ void OAuth2StandardController::revoke(
           plugin->introspectToken(
             token,
             [plugin, token, clientId, callback = std::move(callback)](
-              std::optional<oauth2::TokenIntrospection> introspection
+              std::optional<authforge::oauth2::model::TokenIntrospection> introspection
             ) mutable {
                 if (!introspection || !introspection->active)
                 {

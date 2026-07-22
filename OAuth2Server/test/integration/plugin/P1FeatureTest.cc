@@ -2,9 +2,13 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/oauth2/model/Dto.h>
 #include <future>
 
 using namespace oauth2;
+// A3: TokenIntrospection is now authforge::oauth2::model::TokenIntrospection
+// (the legacy oauth2::TokenIntrospection in IOAuth2Storage.h is being deleted).
+using TokenIntrospection = authforge::oauth2::model::TokenIntrospection;
 
 DROGON_TEST(Integration_P1_Features_General_Works)
 {

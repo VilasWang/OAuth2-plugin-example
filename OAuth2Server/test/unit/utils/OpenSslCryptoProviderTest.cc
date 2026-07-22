@@ -18,7 +18,7 @@
 #include <oauth2/adapters/OpenSslUuidGenerator.h>
 #include <oauth2/adapters/SystemClock.h>
 #include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/services/TokenService.h>
+#include <oauth2/plugin/OAuth2Plugin.h>
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -374,16 +374,12 @@ DROGON_TEST(Unit_TokenService_GenerateSha256Hash_IsRfc7636Conformant)
       "PKCE-code-verifier-with-special-chars_~.-123",
     };
 
-    // generateSha256Hash is a pure function of its input (does not touch
-    // storage_), so a stack-constructed TokenService(nullptr) is safe to
-    // call it on, matching the existing convention
-    // OAuth2Plugin::validatePkceCodeVerifier already uses
-    // (oauth2::TokenService(nullptr).validatePkceCodeVerifier(...)).
-    oauth2::TokenService tokenService(nullptr);
+    // generateSha256Hash is a pure static on OAuth2Plugin (relocated off the
+    // legacy TokenService in A1); it delegates to oauth2::pkce::computeCodeChallenge.
     for (const auto &input : testInputs)
     {
         auto expected = correctAlgorithm(input);
-        auto actual = tokenService.generateSha256Hash(input);
+        auto actual = ::OAuth2Plugin::generateSha256Hash(input);
         CHECK(actual == expected);
     }
 }
@@ -391,14 +387,13 @@ DROGON_TEST(Unit_TokenService_GenerateSha256Hash_IsRfc7636Conformant)
 // Cross-check against the RFC 7636 Appendix B official known-answer
 // vector, the same one libs/oauth2/test/PkceTest.cc asserts for
 // oauth2::pkce::computeCodeChallenge directly -- proving
-// TokenService::generateSha256Hash (the production call site) now agrees
-// with the spec-correct standalone implementation on the exact example
-// RFC 7636 itself provides.
+// OAuth2Plugin::generateSha256Hash (the production call site, relocated off
+// the legacy TokenService in A1) agrees with the spec-correct standalone
+// implementation on the exact example RFC 7636 itself provides.
 DROGON_TEST(Unit_TokenService_GenerateSha256Hash_MatchesRfc7636AppendixBVector)
 {
-    oauth2::TokenService tokenService(nullptr);
     const std::string verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     const std::string expectedChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
-    CHECK(tokenService.generateSha256Hash(verifier) == expectedChallenge);
+    CHECK(::OAuth2Plugin::generateSha256Hash(verifier) == expectedChallenge);
 }

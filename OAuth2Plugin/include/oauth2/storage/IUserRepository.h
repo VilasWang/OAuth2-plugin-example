@@ -22,7 +22,7 @@
 // IGrantRepository.h already uses for `IOAuth2Storage::AuthorizationTransaction`).
 // This avoids defining a second, competing `std::function<...>` alias with
 // the same shape.
-#include <oauth2/storage/IOAuth2Storage.h>
+#include <oauth2/storage/StorageCallbacks.h>
 
 #include <cstdint>
 #include <string>
@@ -51,7 +51,7 @@ class IUserRepository
   public:
     virtual ~IUserRepository() = default;
 
-    using OptionalJsonCallback = IOAuth2Storage::OptionalJsonCallback;
+    // A3: OptionalJsonCallback now defined standalone in StorageCallbacks.h
 
     /**
      * @brief Get user information by external user ID (string form).

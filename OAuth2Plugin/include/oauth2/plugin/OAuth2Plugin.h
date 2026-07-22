@@ -310,7 +310,7 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
      */
     void introspectToken(
       const std::string &token,
-      std::function<void(std::optional<oauth2::TokenIntrospection>)> &&callback
+      std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)> &&callback
     );
 
     /**

@@ -36,7 +36,7 @@
 // and IUserRepository.h uses for `IOAuth2Storage::OptionalJsonCallback`).
 // This avoids defining second, competing `std::function<...>` aliases with
 // the same shapes.
-#include <oauth2/storage/IOAuth2Storage.h>
+#include <oauth2/storage/StorageCallbacks.h>
 
 #include <cstdint>
 #include <string>
@@ -68,8 +68,8 @@ class ISubjectMappingRepository
   public:
     virtual ~ISubjectMappingRepository() = default;
 
-    using OptionalIntCallback = IOAuth2Storage::OptionalIntCallback;
-    using BoolCallback = IOAuth2Storage::BoolCallback;
+    // A3: OptionalIntCallback now defined standalone in StorageCallbacks.h
+    // A3: BoolCallback now defined standalone in StorageCallbacks.h
 
     /**
      * @brief Get internal user ID by OAuth2/OpenID Connect subject and
