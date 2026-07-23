@@ -22,7 +22,8 @@
 - **决策 1（OAuth2Plugin 类）**：**保持全局命名空间**。design §5.7/H1 明确「保留 OAuth2Plugin 类名 + config plugins 块」——config 按字符串 `"OAuth2Plugin"` 反射加载插件，改名会破坏 4 份 config + 所有 `getPlugin<OAuth2Plugin>()`。`OAuth2Plugin` 类本身（全局）+ 其头 `oauth2/plugin/OAuth2Plugin.h` 名字都不动。
 - **决策 2（identity 仓储）**：**拆分**——接口（`IRoleRepository`/`IUserRepository`/`ISubjectMappingRepository`）→ `authforge::identity::`；后端实现（`Memory/Postgres/Redis Role/User/SubjectMapping Repository`）→ `authforge::storage::{memory,postgres,redis}::`。镜像 oauth2 仓储的分层（接口在 `authforge::oauth2::repository`，实现在 storage 包）。
 - **决策 3（legacy IdentityService）**：→ `authforge::identity::IdentityService`（与其他域服务命名空间方式一致——protocol 服务在 `authforge::oauth2::protocol`，identity 服务在 `authforge::identity::`）。文件位置暂不动（目录迁移是 Task 39）。
-- **observability**（次要决策）：`oauth2::observability` → `authforge::common::observability`（AuditEvent 已在 common；AuditLogger 虽 Drogon 耦合，但归 common 与 AuditEvent 一致，Drogon 依赖在 common 已允许——common 可依赖 jsoncpp/Drogon 工具）。**评审风险见 §5**。
+- **observability**（次要决策，**选项 b 已定**）：`AuditEvent`（纯模型）留 `authforge::common::observability`；`AuditLogger`/`Metrics` **重构**为依赖 `authforge::common::ports::IAuditSink`（端口已存在），Drogon 实现（`DrogonAuditSink`）进 `authforge::drogon::observability`。这是 §5.2 端口解耦正道，避免 common 层引入 Drogon 依赖（违反 §4.1）。**额外工作**：重构 AuditLogger 签名（去掉 HttpRequestPtr 直接依赖，改经 IAuditSink）。Metrics 同理（若有 IMetrics 端口）。
+- **内存存储目录**（**已定：本任务做掉**）：创建 `libs/storage-memory/`，把内存仓储实现（MemoryClientRepository 等 + MemoryRepositoryBundle）从 `OAuth2Plugin/storage/` 迁过去，命名空间 `authforge::storage::memory::`。**不再推迟到 Task 39**——本任务同时改命名空间 + 迁内存存储目录。Postgres/Redis 仓储仍在 `OAuth2Plugin/storage/`（Task 39 处理），仅内存先迁。
 
 ## 3. 完整遗留→目标映射表
 
@@ -40,7 +41,7 @@
 | `oauth2::adapters` | `authforge::drogon::adapters` | `OAuth2Plugin/include/oauth2/adapters/`、`src/adapters/`（OpenSslCryptoProvider/DrogonAuditSink/DrogonLogger/StorageRoleProvider） |
 | `oauth2::filters` | `authforge::drogon::filters` | `OAuth2Plugin/include/oauth2/filters/`、`src/filters/`（AuthorizationFilter/OAuth2AuthFilter）**+ 33 处 `ADD_METHOD_TO("...oauth2::filters::AuthorizationFilter")` 字符串引用**（见 §6 运行时风险） |
 | `oauth2::validation` | `authforge::drogon::validation` | `OAuth2Plugin/include/oauth2/validation/`、`src/validation/`（Rules/RuleSet/RuleEngine/HttpResponder） |
-| `oauth2::observability` | `authforge::common::observability` | `OAuth2Plugin/include/oauth2/observability/`（AuditLogger/Metrics） |
+| `oauth2::observability` | `AuditEvent`（纯模型）→ `authforge::common::observability`；`AuditLogger`/`Metrics` **重构**为依赖 `authforge::common::ports::IAuditSink`，Drogon 实现（`DrogonAuditSink`）→ `authforge::drogon::observability`（**决策 b，端口解耦，见 §5.2**） | `OAuth2Plugin/include/oauth2/observability/` |
 | `oauth2::utils`（纯函数：EmailNormalizer/SubjectGenerator/TotpUtils/PasswordHasher） | `authforge::common::utils` | `OAuth2Plugin/include/oauth2/utils/` 的纯函数子集 |
 | `oauth2::utils`（Drogon 耦合：CryptoUtils.h 用 drogon::utils） | `authforge::drogon::utils` | `CryptoUtils.h`（**单独目标**——Drogon 耦合，不进 common） |
 | `oauth2::utils`（JwkManager shim） | **删除**（A4） | 6 个调用方迁到 `authforge::oauth2::JwkManager` 后删 shim |
@@ -79,14 +80,11 @@
 - ✅ 三 Domain 包命名空间（`authforge::{common,oauth2,identity}`）对齐。
 - ✅ 存储后端命名空间（`authforge::storage::{postgres,redis,memory}`）对齐 §5.4。
 - ✅ Drogon 绑定（`authforge::drogon` + 子）对齐 §5.4。
-- ⚠️ **内存存储实现在 OAuth2Plugin/storage/ 而非 libs/storage-memory/**：design §5.4 设想 `libs/storage-memory` 目录，但当前内存实现在 OAuth2Plugin/。**本任务只改命名空间（→ `authforge::storage::memory::`），目录迁移（→ `libs/storage-memory/`）是 Task 39（M8 目录迁移），不在本任务。** 文件位置与命名空间暂时不一致——可接受（Task 39 会统一），但需在 PROGRESS.md 记一笔。
+- ⚠️ **内存存储实现在 OAuth2Plugin/storage/ 而非 libs/storage-memory/**：**已定——本任务同时迁目录**（创建 `libs/storage-memory/`，内存仓储从 `OAuth2Plugin/storage/` 迁过去，命名空间 `authforge::storage::memory::`）。Postgres/Redis 仓储仍在 `OAuth2Plugin/storage/`（Task 39 处理），仅内存先迁。
 
 ### 5.2 跨层依赖一致性（design §4.1 分层规则）
 - ✅ identity 仓储接口进 `authforge::identity::`，oauth2 不依赖 identity（设计 §5.2）。
-- ⚠️ **`authforge::common::observability` 里的 AuditLogger 依赖 Drogon（HttpRequestPtr）**：common 层 design §4.1 规则 1 禁 Drogon（仅允许 jsoncpp）。**冲突点**：若 AuditLogger 进 common，common 就有了 Drogon 依赖，违反分层。**两个解法**：
-  - (a) AuditLogger 留在 Drogon 层 → `authforge::drogon::observability`（但 AuditEvent 在 common，会割裂）。
-  - (b) 把 AuditLogger 改为依赖 `authforge::common::ports::IAuditSink`（已存在），Drogon 实现进 drogon 层——这才是 §5.2 的端口解耦正道。**推荐 (b)**，但属额外工作（重构 AuditLogger 签名）。
-  - **决策修正建议**：observability → **`authforge::drogon::observability`**（而非 common），避免 common 引入 Drogon 依赖。Metrics 同理。AuditEvent（纯模型）留 common。这与 §5.4 的「Drogon 绑定含 observability」更一致。
+- ✅ **observability 端口解耦（决策 b 已定）**：`AuditLogger` 重构为依赖 `authforge::common::ports::IAuditSink`（端口已存在），去掉对 `HttpRequestPtr` 的直接 Drogon 依赖；`AuditEvent`（纯模型）留 `authforge::common::observability`；Drogon 实现（`DrogonAuditSink`，把 HttpRequestPtr 提取成 audit 字段）进 `authforge::drogon::observability`。这样 common 层无 Drogon 依赖，符合 §4.1。**额外工作项**：AuditLogger 签名重构 + DrogonAuditSink 实现 + 调用方改造（所有 `AuditLogger::log(...)` 调用点改为经 IAuditSink）。调用方多为 controller（已在 drogon 层，可拿到 DrogonAuditSink）。
 - ✅ CryptoUtils（Drogon 耦合）→ `authforge::drogon::utils`（不进 common）——已正确分流。
 
 ### 5.3 反射字符串一致性（design §5.7/H1）
@@ -111,6 +109,13 @@
 ## 7. 范围边界（本任务不做）
 
 - 不改类名/文件名（B10 / Task 45）。
-- 不迁移文件目录（Task 39）。
+- **不迁 Postgres/Redis 仓储目录**（仍在 `OAuth2Plugin/storage/`；Task 39 处理）。**内存仓储目录已纳入本任务**（→ `libs/storage-memory/`，见 §2/§5.1）。
 - 不做 OAuth2StandardController 拆分（B10）。
 - 不做版本重置（Task 41）。
+
+## 8. 本任务新增工作（因决策 2b + 内存目录而扩大）
+
+除纯命名空间重命名外，本任务因决策额外包含：
+1. **AuditLogger 端口解耦重构**（决策 b）：`AuditLogger::log(req, ...)` → 经 `IAuditSink`；新增 `DrogonAuditSink`（drogon 层）；改造所有 `AuditLogger::log` 调用点（grep 确认范围，多为 controller）。
+2. **内存存储目录迁移**：创建 `libs/storage-memory/`（CMake target `authforge-storage-memory`），把 `OAuth2Plugin/storage/Memory*Repository.{h,cc}` + `MemoryRepositoryBundle.{h,cc}` 迁过去，命名空间 `authforge::storage::memory::`。内存仓储的 contract test（Memory-tier）的 include 路径同步改。
+3. 这两项让 B6 从「纯命名空间重命名」升级为「命名空间 + observability 端口解耦 + 内存目录迁移」——一个更大的 M8 原子提交，但范围已明确。
