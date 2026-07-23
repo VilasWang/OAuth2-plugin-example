@@ -22,7 +22,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -202,9 +202,11 @@ void UserSelfServiceController::changePassword(
                 result[0]["salt"].isNull() ? "" : result[0]["salt"].as<std::string>();
 
               // Verify old password
-              if (!::oauth2::utils::PasswordHasher::verify(oldPassword, storedHash, salt))
+              if (!::authforge::common::utils::PasswordHasher::verify(
+                    oldPassword, storedHash, salt
+                  ))
               {
-                  ::oauth2::observability::AuditLogger::log(
+                  ::authforge::drogon::observability::AuditLogger::log(
                     "password_change_failed", "failure", req, userId, "user", userId
                   );
                   respondError(
@@ -220,7 +222,7 @@ void UserSelfServiceController::changePassword(
               std::string newHash;
               try
               {
-                  newHash = ::oauth2::utils::PasswordHasher::hash(newPassword);
+                  newHash = ::authforge::common::utils::PasswordHasher::hash(newPassword);
               }
               catch (const std::exception &e)
               {
@@ -247,7 +249,7 @@ void UserSelfServiceController::changePassword(
                           db2->execSqlAsync(
                             "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
                             [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                                ::oauth2::observability::AuditLogger::log(
+                                ::authforge::drogon::observability::AuditLogger::log(
                                   "password_changed", "success", req, userId, "user", userId
                                 );
                                 Json::Value json;
@@ -257,7 +259,7 @@ void UserSelfServiceController::changePassword(
                                 (*sharedCb)(resp);
                             },
                             [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                                ::oauth2::observability::AuditLogger::log(
+                                ::authforge::drogon::observability::AuditLogger::log(
                                   "password_changed", "success", req, userId, "user", userId
                                 );
                                 Json::Value json;
@@ -272,7 +274,7 @@ void UserSelfServiceController::changePassword(
                           db2->execSqlAsync(
                             "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
                             [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                                ::oauth2::observability::AuditLogger::log(
+                                ::authforge::drogon::observability::AuditLogger::log(
                                   "password_changed", "success", req, userId, "user", userId
                                 );
                                 Json::Value json;
@@ -281,7 +283,7 @@ void UserSelfServiceController::changePassword(
                                 (*sharedCb)(resp);
                             },
                             [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                                ::oauth2::observability::AuditLogger::log(
+                                ::authforge::drogon::observability::AuditLogger::log(
                                   "password_changed", "success", req, userId, "user", userId
                                 );
                                 Json::Value json;
@@ -430,7 +432,7 @@ void UserSelfServiceController::revokeAuthorizedApp(
                       "UPDATE oauth2_access_tokens SET revoked = true "
                       "WHERE user_id = $1 AND client_id = $2",
                       [sharedCb, userId, clientId, req](const ::drogon::orm::Result &) {
-                          ::oauth2::observability::AuditLogger::log(
+                          ::authforge::drogon::observability::AuditLogger::log(
                             "app_authorization_revoked", "success", req, userId, "client", clientId
                           );
                           Json::Value json;
@@ -440,7 +442,7 @@ void UserSelfServiceController::revokeAuthorizedApp(
                           (*sharedCb)(resp);
                       },
                       [sharedCb, userId, clientId, req](const ::drogon::orm::DrogonDbException &) {
-                          ::oauth2::observability::AuditLogger::log(
+                          ::authforge::drogon::observability::AuditLogger::log(
                             "app_authorization_revoked", "success", req, userId, "client", clientId
                           );
                           Json::Value json;
@@ -529,7 +531,7 @@ void UserSelfServiceController::deleteAccount(
                               return;
                           }
 
-                          ::oauth2::observability::AuditLogger::log(
+                          ::authforge::drogon::observability::AuditLogger::log(
                             "account_deleted", "success", req, userId, "user", userId
                           );
                           Json::Value json;
@@ -562,7 +564,7 @@ void UserSelfServiceController::deleteAccount(
                       "UPDATE users SET username = $1, email = NULL, password_hash = 'DELETED' "
                       "WHERE public_sub::text = $2::text",
                       [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                          ::oauth2::observability::AuditLogger::log(
+                          ::authforge::drogon::observability::AuditLogger::log(
                             "account_deleted", "success", req, userId, "user", userId
                           );
                           Json::Value json;
@@ -598,7 +600,7 @@ void UserSelfServiceController::deleteAccount(
                 "UPDATE users SET username = $1, email = NULL, password_hash = 'DELETED' "
                 "WHERE public_sub::text = $2::text",
                 [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                    ::oauth2::observability::AuditLogger::log(
+                    ::authforge::drogon::observability::AuditLogger::log(
                       "account_deleted", "success", req, userId, "user", userId
                     );
                     Json::Value json;

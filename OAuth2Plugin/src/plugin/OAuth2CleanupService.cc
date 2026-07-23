@@ -1,7 +1,7 @@
 ﻿#include <oauth2/plugin/OAuth2CleanupService.h>
 #include <drogon/drogon.h>
 
-namespace oauth2
+namespace authforge::drogon
 {
 
 OAuth2CleanupService::OAuth2CleanupService(
@@ -29,7 +29,7 @@ void OAuth2CleanupService::start(double intervalSeconds)
         return;
 
     // Guard: only start if the event loop is available
-    auto loop = drogon::app().getLoop();
+    auto loop = ::drogon::app().getLoop();
     if (!loop)
     {
         LOG_WARN << "Event loop not available, OAuth2 Cleanup Service will "
@@ -73,7 +73,7 @@ void OAuth2CleanupService::stop()
     // Use try-catch to handle cases where Event loop is already destroyed
     try
     {
-        auto loop = drogon::app().getLoop();
+        auto loop = ::drogon::app().getLoop();
         if (loop && timerId_ != 0 && loop->isRunning())
         {
             loop->invalidateTimer(timerId_);
@@ -99,7 +99,7 @@ void OAuth2CleanupService::runCleanup()
     // Try to acquire Redis lock (if Redis is available)
     try
     {
-        auto redis = drogon::app().getRedisClient("default");
+        auto redis = ::drogon::app().getRedisClient("default");
         // SET key value NX EX ttl (acquire lock with TTL)
         int lockTtl = static_cast<int>(interval_ * 0.8);  // 80% of interval
         if (lockTtl < 60)
@@ -118,7 +118,7 @@ void OAuth2CleanupService::runCleanup()
         std::weak_ptr<OAuth2CleanupService> weakSelf = weak_from_this();
 
         redis->execCommandAsync(
-          [weakSelf](const drogon::nosql::RedisResult &r) {
+          [weakSelf](const ::drogon::nosql::RedisResult &r) {
               auto self = weakSelf.lock();
               if (!self || !self->running_)
                   return;
@@ -190,4 +190,4 @@ void OAuth2CleanupService::doPurge()
         tokenRepo_->purgeExpired();
 }
 
-}  // namespace oauth2
+}  // namespace authforge::drogon

@@ -2,7 +2,7 @@
 #include <drogon/utils/Utilities.h>
 #include <oauth2/utils/PasswordHasher.h>
 
-using namespace oauth2::utils;
+using namespace authforge::common::utils;
 
 DROGON_TEST(Unit_PasswordHasher_HashFormat)
 {
@@ -28,7 +28,7 @@ DROGON_TEST(Unit_PasswordHasher_LegacyVerify)
     // Legacy SHA-256+salt format
     std::string salt = "test-salt";
     std::string password = "admin";
-    std::string legacyHash = drogon::utils::getSha256(password + salt);
+    std::string legacyHash = ::drogon::utils::getSha256(password + salt);
     CHECK(PasswordHasher::verify(password, legacyHash, salt) == true);
     CHECK(PasswordHasher::verify("wrong", legacyHash, salt) == false);
 }

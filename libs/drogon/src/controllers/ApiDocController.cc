@@ -59,7 +59,7 @@ void ApiDocController::openApiSpec(
         std::ifstream file(filePath);
         if (!file.is_open())
         {
-            ::common::error::ErrorResponder::respond(
+            ::authforge::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_RESOURCE_NOT_FOUND",
@@ -81,8 +81,8 @@ void ApiDocController::openApiSpec(
     }
     catch (const std::exception &e)
     {
-        ::common::error::ErrorResponder::respondException(
-          req, std::move(callback), e, ::common::error::ErrorCategory::INTERNAL
+        ::authforge::common::error::ErrorResponder::respondException(
+          req, std::move(callback), e, ::authforge::common::error::ErrorCategory::INTERNAL
         );
     }
 }
@@ -107,7 +107,7 @@ void ApiDocController::swaggerUi(
         std::ifstream file(filePath);
         if (!file.is_open())
         {
-            ::common::error::ErrorResponder::respond(
+            ::authforge::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_RESOURCE_NOT_FOUND",
@@ -129,8 +129,8 @@ void ApiDocController::swaggerUi(
     }
     catch (const std::exception &e)
     {
-        ::common::error::ErrorResponder::respondException(
-          req, std::move(callback), e, ::common::error::ErrorCategory::INTERNAL
+        ::authforge::common::error::ErrorResponder::respondException(
+          req, std::move(callback), e, ::authforge::common::error::ErrorCategory::INTERNAL
         );
     }
 }

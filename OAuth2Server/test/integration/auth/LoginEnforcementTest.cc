@@ -26,7 +26,7 @@ DROGON_TEST(Integration_Login_MFA_Enforcement)
     auto db = app().getDbClient();
 
     // Setup: enable MFA for admin user
-    std::string secret = oauth2::utils::TotpUtils::generateSecret();
+    std::string secret = authforge::common::utils::TotpUtils::generateSecret();
     std::promise<bool> pSetup;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -46,9 +46,9 @@ DROGON_TEST(Integration_Login_MFA_Enforcement)
     CHECK(pVerify.get_future().get() == true);
 
     // Verify TOTP generation works with this secret
-    auto code = oauth2::utils::TotpUtils::generateCode(secret);
+    auto code = authforge::common::utils::TotpUtils::generateCode(secret);
     CHECK(code.length() == 6);
-    CHECK(oauth2::utils::TotpUtils::verifyCode(secret, code) == true);
+    CHECK(authforge::common::utils::TotpUtils::verifyCode(secret, code) == true);
 
     // Cleanup: disable MFA
     std::promise<void> pCleanup;

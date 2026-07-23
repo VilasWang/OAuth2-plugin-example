@@ -27,7 +27,7 @@ class ClientRegistrationController
       ClientRegistrationController::registerClient,
       "/oauth2/register",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

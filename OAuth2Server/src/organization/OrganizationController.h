@@ -27,19 +27,19 @@ class OrganizationController : public ::drogon::HttpController<OrganizationContr
       OrganizationController::list,
       "/api/admin/organizations",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       OrganizationController::create,
       "/api/admin/organizations",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       OrganizationController::getBySlug,
       "/api/admin/organizations/{slug}",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

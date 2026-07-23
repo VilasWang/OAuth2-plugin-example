@@ -47,7 +47,7 @@ class DeviceAuthController : public ::drogon::HttpController<DeviceAuthControlle
       DeviceAuthController::approveDevice,
       "/oauth2/device/approve",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

@@ -16,7 +16,7 @@ authforge::oauth2::model::UserRef toUserRef(int32_t internalUserId)
 }
 }  // namespace
 
-namespace oauth2
+namespace authforge::identity
 {
 
 IdentityService::IdentityService(Repos repos) : repos_(std::move(repos))
@@ -49,7 +49,7 @@ void IdentityService::ensureSubjectMapping(
         return;
     }
 
-    auto [provider, sub] = utils::SubjectGenerator::parse(subject);
+    auto [provider, sub] = authforge::common::utils::SubjectGenerator::parse(subject);
 
     // Defect 1.9 fix: capture `self` (shared owner) at the OUTERMOST async call
     // and thread the SAME `self` through the nested continuation, so the
@@ -88,7 +88,7 @@ void IdentityService::handleFirstTimeLogin(
         return;
     }
 
-    auto [prov, sub] = utils::SubjectGenerator::parse(subject);
+    auto [prov, sub] = authforge::common::utils::SubjectGenerator::parse(subject);
 
     // Create a real user in the database via the subject-mapping repo
     // (createUserForExternalLogin lives on ISubjectMappingRepository, carved
@@ -132,7 +132,7 @@ void IdentityService::getInternalUserId(
         return;
     }
 
-    auto [provider, sub] = utils::SubjectGenerator::parse(subject);
+    auto [provider, sub] = authforge::common::utils::SubjectGenerator::parse(subject);
 
     repos_.subjectMapping->getInternalUserId(sub, provider, std::move(callback));
 }
@@ -234,4 +234,4 @@ bool IdentityService::scopeRequiresAdminRole(const std::string &scope)
     return false;
 }
 
-}  // namespace oauth2
+}  // namespace authforge::identity

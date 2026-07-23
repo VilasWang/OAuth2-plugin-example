@@ -17,7 +17,7 @@ namespace authforge::identity
 
 /**
  * @brief Splits a "provider:localId" Subject value into (provider,
- * localId). Mirrors oauth2::utils::SubjectGenerator::parse's fallback
+ * localId). Mirrors authforge::common::utils::SubjectGenerator::parse's fallback
  * behavior: no colon (or empty localId) defaults provider to "local"
  * with the whole value treated as the local id.
  */

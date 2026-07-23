@@ -1,7 +1,7 @@
 // Feature: error-code-message-standardization — Error Envelope property tests.
 //
 // This file hosts the property-based tests that exercise the Error Envelope
-// produced by common::error::Error::toJson(bool). It is intentionally split
+// produced by authforge::common::error::Error::toJson(bool). It is intentionally split
 // into clearly delimited sections so later tasks can append their property
 // tests next to a shared set of helpers without re-declaring them:
 //
@@ -39,7 +39,7 @@
 #include <utility>
 #include <vector>
 
-using namespace common::error;
+using namespace authforge::common::error;
 
 // ============================================================================
 // SHARED HELPERS — reused by all Error Envelope properties in this file.
@@ -418,15 +418,15 @@ DROGON_TEST(Property1_ErrorEnvelope_StructuralInvariants)
         // buildResponse decides `details` from ErrorContext; with the override
         // on it behaves like non-Production_Mode. The Content-Type must be
         // application/json (Requirement 1.4).
-        const drogon::HttpRequestPtr req = drogon::HttpRequest::newHttpRequest();
-        const drogon::HttpResponsePtr resp = ErrorResponder::buildResponse(req, error);
+        const ::drogon::HttpRequestPtr req = ::drogon::HttpRequest::newHttpRequest();
+        const ::drogon::HttpResponsePtr resp = ErrorResponder::buildResponse(req, error);
         REQUIRE(resp != nullptr);
-        if (resp->contentType() != drogon::CT_APPLICATION_JSON)
+        if (resp->contentType() != ::drogon::CT_APPLICATION_JSON)
         {
             LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
                       << "] code=" << code << " Content-Type is not application/json";
         }
-        CHECK(resp->contentType() == drogon::CT_APPLICATION_JSON);
+        CHECK(resp->contentType() == ::drogon::CT_APPLICATION_JSON);
 
         // The response body must itself be a parseable Error Envelope whose top
         // level has exactly the single `error` object key.
@@ -767,8 +767,8 @@ DROGON_TEST(Property6_ErrorEnvelope_ProductionModeSafetyIsolation)
         // is pinned to Production_Mode (detailedErrorsAllowed() == false).
         const Json::Value toJsonRoot = error.toJson(ErrorContext::detailedErrorsAllowed());
 
-        const drogon::HttpRequestPtr req = drogon::HttpRequest::newHttpRequest();
-        const drogon::HttpResponsePtr resp = ErrorResponder::buildResponse(req, error);
+        const ::drogon::HttpRequestPtr req = ::drogon::HttpRequest::newHttpRequest();
+        const ::drogon::HttpResponsePtr resp = ErrorResponder::buildResponse(req, error);
         REQUIRE(resp != nullptr);
         Json::Value respRoot;
         const bool parsed = parseJson(std::string(resp->getBody()), respRoot);
@@ -962,8 +962,8 @@ DROGON_TEST(Property7_ErrorEnvelope_NonProductionDiagnosticDetails)
             // which is pinned to non-Production_Mode (detailedErrorsAllowed()).
             const Json::Value toJsonRoot = error.toJson(ErrorContext::detailedErrorsAllowed());
 
-            const drogon::HttpRequestPtr req = drogon::HttpRequest::newHttpRequest();
-            const drogon::HttpResponsePtr resp = ErrorResponder::buildResponse(req, error);
+            const ::drogon::HttpRequestPtr req = ::drogon::HttpRequest::newHttpRequest();
+            const ::drogon::HttpResponsePtr resp = ErrorResponder::buildResponse(req, error);
             REQUIRE(resp != nullptr);
             Json::Value respRoot;
             const bool parsed = parseJson(std::string(resp->getBody()), respRoot);
@@ -1032,10 +1032,10 @@ DROGON_TEST(Property7_ErrorEnvelope_NonProductionDiagnosticDetails)
 
             // Drive the unified VALIDATION entry point with a synchronous callback
             // that captures the response (Drogon's callback is invoked inline here).
-            const drogon::HttpRequestPtr req = drogon::HttpRequest::newHttpRequest();
-            drogon::HttpResponsePtr captured;
+            const ::drogon::HttpRequestPtr req = ::drogon::HttpRequest::newHttpRequest();
+            ::drogon::HttpResponsePtr captured;
             ErrorResponder::respondValidation(
-              req, [&captured](const drogon::HttpResponsePtr &r) { captured = r; }, fieldErrors
+              req, [&captured](const ::drogon::HttpResponsePtr &r) { captured = r; }, fieldErrors
             );
             REQUIRE(captured != nullptr);
 
@@ -1076,13 +1076,13 @@ DROGON_TEST(Property7_ErrorEnvelope_NonProductionDiagnosticDetails)
             CHECK(err["category"].asString() == expectedCategory);
 
             // HTTP 400 for VALIDATION (Requirement 7.4).
-            if (captured->statusCode() != drogon::k400BadRequest)
+            if (captured->statusCode() != ::drogon::k400BadRequest)
             {
                 LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
                           << "] validation HTTP status mismatch: got="
                           << static_cast<int>(captured->statusCode()) << " expected=400";
             }
-            CHECK(captured->statusCode() == drogon::k400BadRequest);
+            CHECK(captured->statusCode() == ::drogon::k400BadRequest);
 
             // details PRESENT and contains EACH field name and EACH reason
             // (Requirement 7.6).
@@ -1227,10 +1227,10 @@ DROGON_TEST(Property8_ErrorEnvelope_UnmappedExceptionInternalFallback)
 
           // ---- (2) Unified entry point path ------------------------------------
           // respondException invokes the callback synchronously; capture the response.
-          const drogon::HttpRequestPtr req = drogon::HttpRequest::newHttpRequest();
-          drogon::HttpResponsePtr captured;
+          const ::drogon::HttpRequestPtr req = ::drogon::HttpRequest::newHttpRequest();
+          ::drogon::HttpResponsePtr captured;
           ErrorResponder::respondException(
-            req, [&captured](const drogon::HttpResponsePtr &r) { captured = r; }, ex, hint
+            req, [&captured](const ::drogon::HttpResponsePtr &r) { captured = r; }, ex, hint
           );
           REQUIRE(captured != nullptr);
 

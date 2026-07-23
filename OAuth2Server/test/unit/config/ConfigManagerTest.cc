@@ -24,7 +24,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_LoadValidConfig)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
     CHECK(config.isNull() == false);
     CHECK(config.isMember("db_clients") == true);
 }
@@ -34,10 +34,10 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_TypeSafeAccessWithDefault)
     Json::Value config;
     config["port"] = 8080;
 
-    auto port = common::config::ConfigManager::get<int>(config, "port", 0);
+    auto port = authforge::common::config::ConfigManager::get<int>(config, "port", 0);
     CHECK(port == 8080);
 
-    auto missing = common::config::ConfigManager::get<int>(config, "missing", 123);
+    auto missing = authforge::common::config::ConfigManager::get<int>(config, "missing", 123);
     CHECK(missing == 123);
 }
 
@@ -48,7 +48,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_ValidateMissingRequiredField)
     // Empty arrays are valid for memory storage mode
 
     std::string errMsg;
-    CHECK(common::config::ConfigManager::validate(config, errMsg) == false);
+    CHECK(authforge::common::config::ConfigManager::validate(config, errMsg) == false);
     CHECK(errMsg.find("db_clients") != std::string::npos);
 }
 
@@ -59,7 +59,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_ValidatePortRange)
     config["redis_clients"][0]["port"] = 65535;
 
     std::string errMsg;
-    CHECK(common::config::ConfigManager::validate(config, errMsg) == false);
+    CHECK(authforge::common::config::ConfigManager::validate(config, errMsg) == false);
     CHECK(errMsg.find("port") != std::string::npos);
 }
 
@@ -88,9 +88,10 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_Database_EnvOverrideDbHost)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
 
-    auto dbHost = common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
+    auto dbHost =
+      authforge::common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
     CHECK(dbHost == "test-host");
 
     unsetenv("OAUTH2_DB_HOST");
@@ -112,7 +113,7 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_CorsArray)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
 
     const Json::Value &origins = config["custom_config"]["cors"]["allow_origins"];
     CHECK(origins.isArray() == true);
@@ -137,9 +138,9 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_GoogleRedirect)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
 
-    auto redirect = common::config::ConfigManager::get<std::string>(
+    auto redirect = authforge::common::config::ConfigManager::get<std::string>(
       config, "custom_config.external_auth.google.redirect_uri"
     );
     CHECK(redirect == "https://prod.example.com/callback");
@@ -164,9 +165,9 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_VueRedirect_ByNameLookup)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
 
-    auto redirect = common::config::ConfigManager::get<std::string>(
+    auto redirect = authforge::common::config::ConfigManager::get<std::string>(
       config, "plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri"
     );
     CHECK(redirect == "https://prod.example.com/callback");

@@ -148,7 +148,7 @@ MfaFixture enableAdminMfa()
     MfaFixture f;
     if (!db)
         return f;
-    f.secret = oauth2::utils::TotpUtils::generateSecret();
+    f.secret = authforge::common::utils::TotpUtils::generateSecret();
     std::promise<bool> p;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -281,7 +281,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_UnregisteredClient)
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
-    std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
     auto resp = verifyMfa(mfaToken, code, "not-a-real-client", kVueRedirectUri);
     REQUIRE(resp != nullptr);
 
@@ -342,7 +342,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_NonWhitelistedRedirectUri)
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
-    std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
     auto resp = verifyMfa(mfaToken, code, "vue-client", "https://evil.example.invalid/cb");
     REQUIRE(resp != nullptr);
 
@@ -403,7 +403,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_CrossClientConfusion)
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
-    std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
     // admin-console's own registered + whitelisted client_id/redirect_uri —
     // independently valid, but NOT the pair the first-factor login used.
     auto resp = verifyMfa(mfaToken, code, "admin-console", kAdminRedirectUri);
@@ -474,7 +474,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_NullPendingBindingRejected)
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
-    std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
     auto resp = verifyMfa(mfaToken, code, "vue-client", kVueRedirectUri);
     REQUIRE(resp != nullptr);
 

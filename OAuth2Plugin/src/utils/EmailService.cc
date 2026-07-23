@@ -242,7 +242,7 @@ IEmailService &getEmailService()
     static std::once_flag initFlag;
 
     std::call_once(initFlag, []() {
-        using common::config::ConfigManager;
+        using authforge::common::config::ConfigManager;
         const char *smtpHost = ConfigManager::getEnv("OAUTH2_SMTP_HOST");
         const char *smtpUser = ConfigManager::getEnv("OAUTH2_SMTP_USER");
         const char *smtpPass = ConfigManager::getEnv("OAUTH2_SMTP_PASSWORD");

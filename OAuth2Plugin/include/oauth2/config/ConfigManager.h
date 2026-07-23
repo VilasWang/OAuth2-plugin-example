@@ -5,7 +5,7 @@
 #include <json/json.h>
 #include <oauth2/config/ConfigTypes.h>
 
-namespace common::config
+namespace authforge::common::config
 {
 
 class ConfigManager
@@ -71,4 +71,4 @@ T ConfigManager::get(const Json::Value &config, const std::string &path, const T
     }
 }
 
-}  // namespace common::config
+}  // namespace authforge::common::config

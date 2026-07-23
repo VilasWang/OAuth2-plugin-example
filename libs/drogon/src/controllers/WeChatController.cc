@@ -38,7 +38,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -144,7 +144,7 @@ void WeChatController::login(
 
     if (code.empty())
     {
-        ::common::error::ErrorResponder::respond(
+        ::authforge::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",

@@ -15,15 +15,15 @@
 #include <sstream>
 
 using namespace oauth2;
-using namespace oauth2::controllers;
+using namespace authforge::drogon::controllers;
 using namespace authforge::drogon::observability::openapi;
 
-namespace oauth2::controllers
+namespace authforge::drogon::controllers
 {
 
 ::OAuth2Plugin *OAuth2StandardController::resolvePlugin() const
 {
-    return plugin_ ? plugin_ : drogon::app().getPlugin<::OAuth2Plugin>();
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<::OAuth2Plugin>();
 }
 
 void OAuth2StandardController::initApiDocs()
@@ -289,15 +289,15 @@ void OAuth2StandardController::initApiDocsImpl()
     }
 }
 
-drogon::HttpResponsePtr OAuth2StandardController::createSuccessResponse()
+::drogon::HttpResponsePtr OAuth2StandardController::createSuccessResponse()
 {
-    auto resp = drogon::HttpResponse::newHttpResponse();
-    resp->setStatusCode(drogon::k200OK);
+    auto resp = ::drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(::drogon::k200OK);
     return resp;
 }
 
 ClientCredentials OAuth2StandardController::extractClientCredentials(
-  const drogon::HttpRequestPtr &req
+  const ::drogon::HttpRequestPtr &req
 )
 {
     std::string clientId, clientSecret, authScheme;
@@ -310,7 +310,7 @@ ClientCredentials OAuth2StandardController::extractClientCredentials(
         auto basicAuth = authHeader.substr(6);
         try
         {
-            auto decoded = drogon::utils::base64Decode(basicAuth);
+            auto decoded = ::drogon::utils::base64Decode(basicAuth);
             auto colonPos = decoded.find(':');
             if (colonPos != std::string::npos)
             {
@@ -334,8 +334,8 @@ ClientCredentials OAuth2StandardController::extractClientCredentials(
 }
 
 void OAuth2StandardController::introspect(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     LOG_DEBUG << "Token introspection requested";
@@ -348,7 +348,7 @@ void OAuth2StandardController::introspect(
 
     if (clientId.empty() || clientSecret.empty())
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_client", "Client authentication required", "", authScheme
         );
         return;
@@ -358,17 +358,17 @@ void OAuth2StandardController::introspect(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "server_error", "OAuth2 plugin not available"
         );
         return;
     }
 
     // Validate request parameters
-    auto validationErrors = oauth2::validation::RuleSet::oauth2Introspect(req);
+    auto validationErrors = authforge::drogon::validation::RuleSet::oauth2Introspect(req);
     if (!validationErrors.empty())
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_request", validationErrors[0]
         );
         return;
@@ -384,8 +384,10 @@ void OAuth2StandardController::introspect(
       [plugin, token, clientId, authScheme, callback = std::move(callback)](bool valid) mutable {
           if (!valid)
           {
-              oauth2::observability::Metrics::incrementIntrospectErrors(clientId, "invalid_client");
-              common::error::OAuth2ErrorHandler::sendErrorResponse(
+              authforge::drogon::observability::Metrics::incrementIntrospectErrors(
+                clientId, "invalid_client"
+              );
+              authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
                 std::move(callback),
                 "invalid_client",
                 "Client authentication failed",
@@ -404,18 +406,20 @@ void OAuth2StandardController::introspect(
                 if (!introspection)
                 {
                     // Token not found or invalid
-                    oauth2::observability::Metrics::incrementIntrospectRequests(clientId);
+                    authforge::drogon::observability::Metrics::incrementIntrospectRequests(
+                      clientId
+                    );
 
                     Json::Value response;
                     response["active"] = false;
-                    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-                    resp->setStatusCode(drogon::k200OK);
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
+                    resp->setStatusCode(::drogon::k200OK);
                     callback(resp);
                     return;
                 }
 
                 // Token is active, return full metadata
-                oauth2::observability::Metrics::incrementIntrospectRequests(clientId);
+                authforge::drogon::observability::Metrics::incrementIntrospectRequests(clientId);
 
                 Json::Value response;
                 response["active"] = introspection->active;
@@ -451,8 +455,8 @@ void OAuth2StandardController::introspect(
                     response["scope"] = introspection->scope;
                 }
 
-                auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
-                resp->setStatusCode(drogon::k200OK);
+                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
+                resp->setStatusCode(::drogon::k200OK);
                 callback(resp);
             }
           );
@@ -461,8 +465,8 @@ void OAuth2StandardController::introspect(
 }
 
 void OAuth2StandardController::revoke(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     LOG_DEBUG << "Token revocation requested";
@@ -475,7 +479,7 @@ void OAuth2StandardController::revoke(
 
     if (clientId.empty() || clientSecret.empty())
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_client", "Client authentication required", "", authScheme
         );
         return;
@@ -485,17 +489,17 @@ void OAuth2StandardController::revoke(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "server_error", "OAuth2 plugin not available"
         );
         return;
     }
 
     // Validate request parameters
-    auto validationErrors = oauth2::validation::RuleSet::oauth2Revoke(req);
+    auto validationErrors = authforge::drogon::validation::RuleSet::oauth2Revoke(req);
     if (!validationErrors.empty())
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_request", validationErrors[0]
         );
         return;
@@ -511,8 +515,10 @@ void OAuth2StandardController::revoke(
       [plugin, token, clientId, authScheme, callback = std::move(callback)](bool valid) mutable {
           if (!valid)
           {
-              oauth2::observability::Metrics::incrementRevocationErrors(clientId, "invalid_client");
-              common::error::OAuth2ErrorHandler::sendErrorResponse(
+              authforge::drogon::observability::Metrics::incrementRevocationErrors(
+                clientId, "invalid_client"
+              );
+              authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
                 std::move(callback),
                 "invalid_client",
                 "Client authentication failed",
@@ -532,7 +538,9 @@ void OAuth2StandardController::revoke(
                 {
                     // Token doesn't exist or inactive - return success per RFC 7009
                     // (prevents token probing attacks)
-                    oauth2::observability::Metrics::incrementRevocationRequests(clientId);
+                    authforge::drogon::observability::Metrics::incrementRevocationRequests(
+                      clientId
+                    );
                     callback(createSuccessResponse());
                     return;
                 }
@@ -540,10 +548,10 @@ void OAuth2StandardController::revoke(
                 // Check permission: only token owner can revoke
                 if (introspection->clientId != clientId)
                 {
-                    oauth2::observability::Metrics::incrementRevocationErrors(
+                    authforge::drogon::observability::Metrics::incrementRevocationErrors(
                       clientId, "unauthorized_client"
                     );
-                    common::error::OAuth2ErrorHandler::sendErrorResponse(
+                    authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
                       std::move(callback),
                       "unauthorized_client",
                       "This client is not allowed to revoke the token"
@@ -554,10 +562,12 @@ void OAuth2StandardController::revoke(
                 // Has permission, execute revocation
                 plugin->revokeAccessToken(
                   token, clientId, [clientId, callback = std::move(callback), token]() mutable {
-                      oauth2::observability::AuditLogger::log(
+                      authforge::drogon::observability::AuditLogger::log(
                         "token_revoked", "success", nullptr, clientId, "token", token
                       );
-                      oauth2::observability::Metrics::incrementRevocationRequests(clientId);
+                      authforge::drogon::observability::Metrics::incrementRevocationRequests(
+                        clientId
+                      );
                       callback(createSuccessResponse());
                   }
                 );
@@ -568,8 +578,8 @@ void OAuth2StandardController::revoke(
 }
 
 void OAuth2StandardController::metadata(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     LOG_DEBUG << "Metadata endpoint requested";
@@ -578,7 +588,7 @@ void OAuth2StandardController::metadata(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        common::error::OAuth2ErrorHandler::sendErrorResponse(
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "server_error", "OAuth2 plugin not available"
         );
         return;
@@ -586,7 +596,7 @@ void OAuth2StandardController::metadata(
 
     // Base URL from configuration (required for production)
     std::string baseUrl;
-    auto customConfig = drogon::app().getCustomConfig();
+    auto customConfig = ::drogon::app().getCustomConfig();
     if (customConfig.isMember("metadata") && customConfig["metadata"].isMember("issuer"))
     {
         baseUrl = customConfig["metadata"]["issuer"].asString();
@@ -657,19 +667,19 @@ void OAuth2StandardController::metadata(
             metadata["op_tos_uri"] = customConfig["metadata"]["op_tos_uri"];
     }
 
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(metadata);
-    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(metadata);
+    resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);
     callback(resp);
 }
 
 void OAuth2StandardController::oidcDiscovery(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // OpenID Connect Discovery 1.0
     std::string baseUrl;
-    auto customConfig = drogon::app().getCustomConfig();
+    auto customConfig = ::drogon::app().getCustomConfig();
     if (customConfig.isMember("metadata") && customConfig["metadata"].isMember("issuer"))
     {
         baseUrl = customConfig["metadata"]["issuer"].asString();
@@ -729,14 +739,14 @@ void OAuth2StandardController::oidcDiscovery(
     discovery["claims_supported"].append("iat");
     discovery["claims_supported"].append("nonce");
 
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(discovery);
-    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(discovery);
+    resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);
     callback(resp);
 }
 
 void OAuth2StandardController::jwks(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     auto plugin = resolvePlugin();
@@ -744,29 +754,29 @@ void OAuth2StandardController::jwks(
     {
         Json::Value empty;
         empty["keys"] = Json::Value(Json::arrayValue);
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(empty);
+        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(empty);
         callback(resp);
         return;
     }
 
     auto jwks = plugin->getJwkManager()->getJwks();
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(jwks);
-    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(jwks);
+    resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);
     // Cache JWKS for 1 hour (keys don't change frequently)
     resp->addHeader("Cache-Control", "public, max-age=3600");
     callback(resp);
 }
 
 void OAuth2StandardController::authorize(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Use ValidatorHelper for consistent validation
-    auto errors = oauth2::validation::RuleSet::oauth2Authorize(req);
+    auto errors = authforge::drogon::validation::RuleSet::oauth2Authorize(req);
 
     // Return validation errors if any
-    if (oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    if (authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
     {
         observability::Metrics::incRequest("authorize", 400);
         return;
@@ -788,8 +798,8 @@ void OAuth2StandardController::authorize(
         observability::Metrics::incRequest("authorize", 400);
         observability::Metrics::incLoginFailure("missing_state_parameter");
 
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k400BadRequest);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k400BadRequest);
         resp->setBody(
           "state parameter is required for CSRF protection. "
           "Please include a state parameter in your authorization request."
@@ -806,8 +816,8 @@ void OAuth2StandardController::authorize(
         observability::Metrics::incRequest("authorize", 400);
         observability::Metrics::incLoginFailure("invalid_state_parameter");
 
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k400BadRequest);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k400BadRequest);
         resp->setBody("state parameter must be between 8 and 512 characters.");
         callback(resp);
         return;
@@ -824,8 +834,8 @@ void OAuth2StandardController::authorize(
         observability::Metrics::incRequest("authorize", 400);
         observability::Metrics::incLoginFailure("suspicious_state_parameter");
 
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k400BadRequest);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k400BadRequest);
         resp->setBody("state parameter contains invalid characters.");
         callback(resp);
         return;
@@ -837,8 +847,8 @@ void OAuth2StandardController::authorize(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k500InternalServerError);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k500InternalServerError);
         resp->setBody("OAuth2 Plugin not loaded");
         callback(resp);
         return;
@@ -862,8 +872,8 @@ void OAuth2StandardController::authorize(
               observability::Metrics::incRequest("authorize", 400);
               observability::Metrics::incLoginFailure("invalid_client_id");
 
-              auto resp = drogon::HttpResponse::newHttpResponse();
-              resp->setStatusCode(drogon::k400BadRequest);
+              auto resp = ::drogon::HttpResponse::newHttpResponse();
+              resp->setStatusCode(::drogon::k400BadRequest);
               resp->setBody("Invalid client_id");
               callback(resp);
               return;
@@ -884,8 +894,8 @@ void OAuth2StandardController::authorize(
              callback = std::move(callback)](bool validUri) mutable {
                 if (!validUri)
                 {
-                    auto resp = drogon::HttpResponse::newHttpResponse();
-                    resp->setStatusCode(drogon::k400BadRequest);
+                    auto resp = ::drogon::HttpResponse::newHttpResponse();
+                    resp->setStatusCode(::drogon::k400BadRequest);
                     resp->setBody("Invalid redirect_uri");
                     callback(resp);
                     return;
@@ -922,8 +932,8 @@ void OAuth2StandardController::authorize(
                           Json::Value jsonErr;
                           jsonErr["error"] = "invalid_scope";
                           jsonErr["error_description"] = scopeError;
-                          auto resp = drogon::HttpResponse::newHttpJsonResponse(jsonErr);
-                          resp->setStatusCode(drogon::k400BadRequest);
+                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(jsonErr);
+                          resp->setStatusCode(::drogon::k400BadRequest);
                           callback(resp);
                           return;
                       }
@@ -957,11 +967,11 @@ void OAuth2StandardController::authorize(
                                     Json::Value jsonErr;
                                     jsonErr["error"] = "access_denied";
                                     jsonErr["error_description"] = roleError;
-                                    auto resp = drogon::HttpResponse::newHttpJsonResponse(jsonErr);
+                                    auto resp =
+                                      ::drogon::HttpResponse::newHttpJsonResponse(jsonErr);
                                     resp->setStatusCode(
-                                      common::error::OAuth2ErrorHandler::getHttpStatusCode(
-                                        "access_denied"
-                                      )
+                                      authforge::common::error::OAuth2ErrorHandler::
+                                        getHttpStatusCode("access_denied")
                                     );
                                     callback(resp);
                                     return;
@@ -1009,11 +1019,11 @@ void OAuth2StandardController::authorize(
                                                     jsonErr["error_description"] =
                                                       "Failed to generate authorization code";
                                                     auto resp =
-                                                      drogon::HttpResponse::newHttpJsonResponse(
+                                                      ::drogon::HttpResponse::newHttpJsonResponse(
                                                         jsonErr
                                                       );
                                                     resp->setStatusCode(
-                                                      drogon::k500InternalServerError
+                                                      ::drogon::k500InternalServerError
                                                     );
                                                     callback(resp);
                                                     return;
@@ -1024,7 +1034,7 @@ void OAuth2StandardController::authorize(
                                                 if (!state.empty())
                                                     location += "&state=" + state;
                                                 auto resp =
-                                                  drogon::HttpResponse::newRedirectionResponse(
+                                                  ::drogon::HttpResponse::newRedirectionResponse(
                                                     location
                                                   );
                                                 observability::Metrics::incRequest(
@@ -1055,7 +1065,7 @@ void OAuth2StandardController::authorize(
                       }
                       else
                       {
-                          auto customConfig = drogon::app().getCustomConfig();
+                          auto customConfig = ::drogon::app().getCustomConfig();
                           std::string loginUrl = "/login";
                           if (
                             customConfig.isMember("oauth2") &&
@@ -1065,12 +1075,12 @@ void OAuth2StandardController::authorize(
                               loginUrl = customConfig["oauth2"]["login_url"].asString();
                           }
                           std::string location =
-                            loginUrl + "?client_id=" + drogon::utils::urlEncode(clientId) +
-                            "&redirect_uri=" + drogon::utils::urlEncode(redirectUri) +
-                            "&scope=" + drogon::utils::urlEncode(scope) +
-                            "&state=" + drogon::utils::urlEncode(state) +
-                            "&response_type=" + drogon::utils::urlEncode(responseType);
-                          auto resp = drogon::HttpResponse::newRedirectionResponse(location);
+                            loginUrl + "?client_id=" + ::drogon::utils::urlEncode(clientId) +
+                            "&redirect_uri=" + ::drogon::utils::urlEncode(redirectUri) +
+                            "&scope=" + ::drogon::utils::urlEncode(scope) +
+                            "&state=" + ::drogon::utils::urlEncode(state) +
+                            "&response_type=" + ::drogon::utils::urlEncode(responseType);
+                          auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
                           callback(resp);
                       }
                   }
@@ -1082,15 +1092,15 @@ void OAuth2StandardController::authorize(
 }
 
 void OAuth2StandardController::token(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     // Use ValidatorHelper for consistent validation
-    auto errors = oauth2::validation::RuleSet::oauth2Token(req);
+    auto errors = authforge::drogon::validation::RuleSet::oauth2Token(req);
 
     // Return validation errors if any
-    if (oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    if (authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
     {
         observability::Metrics::incRequest("token", 400);
         return;
@@ -1099,8 +1109,8 @@ void OAuth2StandardController::token(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k500InternalServerError);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k500InternalServerError);
         resp->setBody("OAuth2 Plugin not loaded");
         callback(resp);
         return;
@@ -1116,7 +1126,7 @@ void OAuth2StandardController::token(
         LOG_DEBUG << "Token endpoint: Attempting HTTP Basic Authentication";
         try
         {
-            std::string decoded = drogon::utils::base64Decode(authHeader.substr(6));
+            std::string decoded = ::drogon::utils::base64Decode(authHeader.substr(6));
             size_t colonPos = decoded.find(':');
             if (colonPos != std::string::npos)
             {
@@ -1135,7 +1145,7 @@ void OAuth2StandardController::token(
         }
     }
 
-    if (clientId.empty() || req->method() == drogon::Post)
+    if (clientId.empty() || req->method() == ::drogon::Post)
     {
         auto params = req->getParameters();
         if (clientId.empty())
@@ -1172,17 +1182,17 @@ void OAuth2StandardController::token(
           [callback = std::move(callback)](const Json::Value &result) {
               if (result.isMember("error"))
               {
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(result);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
                   std::string errorCode = result.get("error", "").asString();
-                  drogon::HttpStatusCode statusCode =
-                    common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
+                  ::drogon::HttpStatusCode statusCode =
+                    authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
                   resp->setStatusCode(statusCode);
                   observability::Metrics::incRequest("token", static_cast<int>(statusCode));
                   callback(resp);
                   return;
               }
 
-              auto resp = drogon::HttpResponse::newHttpJsonResponse(result);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
               observability::Metrics::incRequest("token", 200);
               observability::Metrics::updateActiveTokens(1);
               callback(resp);
@@ -1196,17 +1206,17 @@ void OAuth2StandardController::token(
           refreshTokenStr, clientId, [callback = std::move(callback)](const Json::Value &result) {
               if (result.isMember("error"))
               {
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(result);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
                   std::string errorCode = result.get("error", "").asString();
-                  drogon::HttpStatusCode statusCode =
-                    common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
+                  ::drogon::HttpStatusCode statusCode =
+                    authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
                   resp->setStatusCode(statusCode);
                   observability::Metrics::incRequest("token", static_cast<int>(statusCode));
                   callback(resp);
                   return;
               }
 
-              auto resp = drogon::HttpResponse::newHttpJsonResponse(result);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
               observability::Metrics::incRequest("token", 200);
               callback(resp);
           }
@@ -1222,13 +1232,13 @@ void OAuth2StandardController::token(
             error["error"] = "invalid_client";
             error["error_description"] =
               "Client authentication required for client_credentials grant";
-            auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-            resp->setStatusCode(drogon::k401Unauthorized);
+            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+            resp->setStatusCode(::drogon::k401Unauthorized);
             callback(resp);
             return;
         }
 
-        auto sharedCb = std::make_shared<std::function<void(const drogon::HttpResponsePtr &)>>(
+        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
           std::move(callback)
         );
 
@@ -1239,8 +1249,8 @@ void OAuth2StandardController::token(
                   Json::Value error;
                   error["error"] = "invalid_client";
                   error["error_description"] = "Client authentication failed";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(drogon::k401Unauthorized);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k401Unauthorized);
                   (*sharedCb)(resp);
                   return;
               }
@@ -1259,8 +1269,8 @@ void OAuth2StandardController::token(
                     {
                         Json::Value error;
                         error["error"] = "invalid_client";
-                        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                        resp->setStatusCode(drogon::k401Unauthorized);
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                        resp->setStatusCode(::drogon::k401Unauthorized);
                         (*sharedCb)(resp);
                         return;
                     }
@@ -1271,8 +1281,8 @@ void OAuth2StandardController::token(
                         error["error"] = "unauthorized_client";
                         error["error_description"] =
                           "Public clients cannot use client_credentials grant";
-                        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                        resp->setStatusCode(drogon::k401Unauthorized);
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                        resp->setStatusCode(::drogon::k401Unauthorized);
                         (*sharedCb)(resp);
                         return;
                     }
@@ -1282,14 +1292,14 @@ void OAuth2StandardController::token(
                     std::string grantedScope = requestedScope.empty() ? "read" : requestedScope;
 
                     // Generate access token (no refresh token for client_credentials)
-                    auto tokenStr = oauth2::utils::generateSecureToken();
+                    auto tokenStr = authforge::drogon::utils::generateSecureToken();
                     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                                  std::chrono::system_clock::now().time_since_epoch()
                     )
                                  .count();
 
                     authforge::oauth2::model::OAuth2AccessToken token;
-                    token.token = oauth2::utils::hashToken(tokenStr);
+                    token.token = authforge::drogon::utils::hashToken(tokenStr);
                     token.clientId = clientId;
                     token.userId = "client:" + clientId;  // M2M: subject is the client itself
                     token.scope = grantedScope;
@@ -1304,7 +1314,7 @@ void OAuth2StandardController::token(
                         json["expires_in"] = 3600;
                         json["scope"] = grantedScope;
                         // No refresh_token for client_credentials
-                        auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                         observability::Metrics::incRequest("token", 200);
                         (*sharedCb)(resp);
                     });
@@ -1326,28 +1336,28 @@ void OAuth2StandardController::token(
             Json::Value error;
             error["error"] = "invalid_request";
             error["error_description"] = "device_code and client_id are required";
-            auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-            resp->setStatusCode(drogon::k400BadRequest);
+            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+            resp->setStatusCode(::drogon::k400BadRequest);
             observability::Metrics::incRequest("token", 400);
             callback(resp);
             return;
         }
 
-        std::string deviceCodeHash = oauth2::utils::hashToken(deviceCode);
+        std::string deviceCodeHash = authforge::drogon::utils::hashToken(deviceCode);
 
-        auto dbClient = drogon::app().getDbClient();
+        auto dbClient = ::drogon::app().getDbClient();
         if (!dbClient)
         {
             Json::Value error;
             error["error"] = "server_error";
             error["error_description"] = "Database not available";
-            auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-            resp->setStatusCode(drogon::k500InternalServerError);
+            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+            resp->setStatusCode(::drogon::k500InternalServerError);
             callback(resp);
             return;
         }
 
-        auto sharedCb = std::make_shared<std::function<void(const drogon::HttpResponsePtr &)>>(
+        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
           std::move(callback)
         );
 
@@ -1355,14 +1365,14 @@ void OAuth2StandardController::token(
           "SELECT device_code_hash, user_code, client_id, scope, status, user_id, "
           "expires_at, interval_seconds FROM oauth2_device_codes "
           "WHERE device_code_hash = $1",
-          [plugin, sharedCb, clientId, deviceCodeHash](const drogon::orm::Result &result) {
+          [plugin, sharedCb, clientId, deviceCodeHash](const ::drogon::orm::Result &result) {
               if (result.empty())
               {
                   Json::Value error;
                   error["error"] = "invalid_grant";
                   error["error_description"] = "Invalid device_code";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(drogon::k400BadRequest);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k400BadRequest);
                   observability::Metrics::incRequest("token", 400);
                   (*sharedCb)(resp);
                   return;
@@ -1381,8 +1391,8 @@ void OAuth2StandardController::token(
                   Json::Value error;
                   error["error"] = "invalid_grant";
                   error["error_description"] = "client_id mismatch";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(drogon::k400BadRequest);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k400BadRequest);
                   observability::Metrics::incRequest("token", 400);
                   (*sharedCb)(resp);
                   return;
@@ -1398,8 +1408,8 @@ void OAuth2StandardController::token(
                   Json::Value error;
                   error["error"] = "expired_token";
                   error["error_description"] = "The device_code has expired";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(drogon::k400BadRequest);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k400BadRequest);
                   observability::Metrics::incRequest("token", 400);
                   (*sharedCb)(resp);
                   return;
@@ -1411,8 +1421,8 @@ void OAuth2StandardController::token(
                   Json::Value error;
                   error["error"] = "authorization_pending";
                   error["error_description"] = "The authorization request is still pending";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(drogon::k400BadRequest);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k400BadRequest);
                   observability::Metrics::incRequest("token", 400);
                   (*sharedCb)(resp);
                   return;
@@ -1423,8 +1433,8 @@ void OAuth2StandardController::token(
                   Json::Value error;
                   error["error"] = "access_denied";
                   error["error_description"] = "The user denied the authorization request";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(drogon::k400BadRequest);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k400BadRequest);
                   observability::Metrics::incRequest("token", 400);
                   (*sharedCb)(resp);
                   return;
@@ -1435,20 +1445,20 @@ void OAuth2StandardController::token(
                   Json::Value error;
                   error["error"] = "invalid_grant";
                   error["error_description"] = "Invalid device code status";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(drogon::k400BadRequest);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k400BadRequest);
                   observability::Metrics::incRequest("token", 400);
                   (*sharedCb)(resp);
                   return;
               }
 
               // Status is "approved" �?issue tokens
-              auto accessTokenStr = oauth2::utils::generateSecureToken();
-              auto refreshTokenStr = oauth2::utils::generateSecureToken();
-              std::string familyId = oauth2::utils::generateSecureToken(16);
+              auto accessTokenStr = authforge::drogon::utils::generateSecureToken();
+              auto refreshTokenStr = authforge::drogon::utils::generateSecureToken();
+              std::string familyId = authforge::drogon::utils::generateSecureToken(16);
 
               authforge::oauth2::model::OAuth2AccessToken accessToken;
-              accessToken.token = oauth2::utils::hashToken(accessTokenStr);
+              accessToken.token = authforge::drogon::utils::hashToken(accessTokenStr);
               accessToken.clientId = clientId;
               accessToken.userId = userId;
               accessToken.scope = scope;
@@ -1456,7 +1466,7 @@ void OAuth2StandardController::token(
               accessToken.expiresAt = now + 3600;
 
               authforge::oauth2::model::OAuth2RefreshToken refreshToken;
-              refreshToken.token = oauth2::utils::hashToken(refreshTokenStr);
+              refreshToken.token = authforge::drogon::utils::hashToken(refreshTokenStr);
               refreshToken.accessToken = accessToken.token;
               refreshToken.clientId = clientId;
               refreshToken.userId = userId;
@@ -1471,13 +1481,13 @@ void OAuth2StandardController::token(
                 refreshToken,
                 [sharedCb, accessTokenStr, refreshTokenStr, scope, deviceCodeHash]() {
                     // Mark device code as consumed by deleting it
-                    auto dbClient = drogon::app().getDbClient();
+                    auto dbClient = ::drogon::app().getDbClient();
                     if (dbClient)
                     {
                         dbClient->execSqlAsync(
                           "DELETE FROM oauth2_device_codes WHERE device_code_hash = $1",
-                          [](const drogon::orm::Result &) {},
-                          [](const drogon::orm::DrogonDbException &) {},
+                          [](const ::drogon::orm::Result &) {},
+                          [](const ::drogon::orm::DrogonDbException &) {},
                           deviceCodeHash
                         );
                     }
@@ -1492,20 +1502,20 @@ void OAuth2StandardController::token(
                         json["scope"] = scope;
                     }
 
-                    auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                     observability::Metrics::incRequest("token", 200);
                     observability::Metrics::updateActiveTokens(1);
                     (*sharedCb)(resp);
                 }
               );
           },
-          [sharedCb](const drogon::orm::DrogonDbException &e) {
+          [sharedCb](const ::drogon::orm::DrogonDbException &e) {
               LOG_ERROR << "Device code lookup failed: " << e.base().what();
               Json::Value error;
               error["error"] = "server_error";
               error["error_description"] = "Failed to process device code";
-              auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-              resp->setStatusCode(drogon::k500InternalServerError);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+              resp->setStatusCode(::drogon::k500InternalServerError);
               (*sharedCb)(resp);
           },
           deviceCodeHash
@@ -1518,21 +1528,21 @@ void OAuth2StandardController::token(
         error["error_description"] =
           "Supported types: authorization_code, refresh_token, client_credentials, "
           "urn:ietf:params:oauth:grant-type:device_code";
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-        resp->setStatusCode(drogon::k400BadRequest);
+        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+        resp->setStatusCode(::drogon::k400BadRequest);
         observability::Metrics::incRequest("token", 400);
         callback(resp);
     }
 }
 
 void OAuth2StandardController::userInfo(
-  const drogon::HttpRequestPtr &req,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    if (req->method() == drogon::Options)
+    if (req->method() == ::drogon::Options)
     {
-        auto resp = drogon::HttpResponse::newHttpResponse();
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
         callback(resp);
         return;
     }
@@ -1541,8 +1551,8 @@ void OAuth2StandardController::userInfo(
     auto attrs = req->getAttributes();
     if (!attrs->find("userId"))
     {
-        auto resp = drogon::HttpResponse::newHttpResponse();
-        resp->setStatusCode(drogon::k401Unauthorized);
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k401Unauthorized);
         resp->setBody("User ID not found in request attributes");
         callback(resp);
         return;
@@ -1554,7 +1564,7 @@ void OAuth2StandardController::userInfo(
     {
         Json::Value userInfo;
         userInfo["sub"] = userId;
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(userInfo);
+        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(userInfo);
         callback(resp);
         return;
     }
@@ -1607,7 +1617,7 @@ void OAuth2StandardController::userInfo(
                   }
               }
 
-              auto resp = drogon::HttpResponse::newHttpJsonResponse(userInfo);
+              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(userInfo);
               callback(resp);
           });
     });
@@ -1622,7 +1632,7 @@ void OAuth2StandardController::checkUserConsentAndProceed(
   const std::string &scope,
   const std::string &redirectUri,
   const std::string &state,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
     if (requestedScopes.empty())
@@ -1644,8 +1654,8 @@ void OAuth2StandardController::checkUserConsentAndProceed(
                   Json::Value jsonErr;
                   jsonErr["error"] = "server_error";
                   jsonErr["error_description"] = "Failed to generate authorization code";
-                  auto resp = drogon::HttpResponse::newHttpJsonResponse(jsonErr);
-                  resp->setStatusCode(drogon::k500InternalServerError);
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(jsonErr);
+                  resp->setStatusCode(::drogon::k500InternalServerError);
                   callback(resp);
                   return;
               }
@@ -1653,7 +1663,7 @@ void OAuth2StandardController::checkUserConsentAndProceed(
               std::string location = redirectUri + "?code=" + code;
               if (!state.empty())
                   location += "&state=" + state;
-              auto resp = drogon::HttpResponse::newRedirectionResponse(location);
+              auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
               observability::Metrics::incRequest("authorize", 302);
               callback(resp);
           }
@@ -1683,19 +1693,19 @@ void OAuth2StandardController::checkUserConsentAndProceed(
               LOG_INFO << "User " << userId << " hasn't consented to scope " << currentScope
                        << " for client " << clientId;
 
-              auto customConfig = drogon::app().getCustomConfig();
+              auto customConfig = ::drogon::app().getCustomConfig();
               std::string consentUrl = "/consent";
               if (customConfig.isMember("oauth2") && customConfig["oauth2"].isMember("consent_url"))
               {
                   consentUrl = customConfig["oauth2"]["consent_url"].asString();
               }
               std::string location = consentUrl +
-                                     "?client_id=" + drogon::utils::urlEncode(clientId) +
-                                     "&user_id=" + drogon::utils::urlEncode(userId) +
-                                     "&scope=" + drogon::utils::urlEncode(scope) +
-                                     "&redirect_uri=" + drogon::utils::urlEncode(redirectUri) +
-                                     "&state=" + drogon::utils::urlEncode(state);
-              auto resp = drogon::HttpResponse::newRedirectionResponse(location);
+                                     "?client_id=" + ::drogon::utils::urlEncode(clientId) +
+                                     "&user_id=" + ::drogon::utils::urlEncode(userId) +
+                                     "&scope=" + ::drogon::utils::urlEncode(scope) +
+                                     "&redirect_uri=" + ::drogon::utils::urlEncode(redirectUri) +
+                                     "&state=" + ::drogon::utils::urlEncode(state);
+              auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
               callback(resp);
               return;
           }
@@ -1715,4 +1725,4 @@ void OAuth2StandardController::checkUserConsentAndProceed(
     );
 }
 
-}  // namespace oauth2::controllers
+}  // namespace authforge::drogon::controllers

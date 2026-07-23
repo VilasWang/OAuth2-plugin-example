@@ -32,7 +32,7 @@ DROGON_TEST(E2E_P0_OAuth2Flow_AuthCode_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<oauth2::controllers::OAuth2StandardController>();
+    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
 
     std::string testUserId = "e2e_user_" + utils::getUuid().substr(0, 8);
     std::string testPassword = "TestPass123!";
@@ -266,7 +266,7 @@ DROGON_TEST(Integration_P0_Session_Management_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<oauth2::controllers::OAuth2StandardController>();
+    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
 
     // Test: Session Creation
     LOG_INFO << "--- Test: Session Creation ---";
@@ -327,7 +327,7 @@ DROGON_TEST(Integration_P0_Client_Authentication_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<oauth2::controllers::OAuth2StandardController>();
+    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
 
     // Test: Public Client
     LOG_INFO << "--- Test: Public Client Authentication ---";
@@ -433,7 +433,7 @@ DROGON_TEST(Integration_P1_RedirectUri_Validation_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<oauth2::controllers::OAuth2StandardController>();
+    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
 
     // Test: Valid Redirect URI
     LOG_INFO << "--- Test: Valid Redirect URI ---";

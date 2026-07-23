@@ -10,7 +10,7 @@ using namespace authforge::drogon::services;
 DROGON_TEST(Integration_P0_AuthService_GetUserInfo_Success)
 {
     // Skip this test in memory storage mode (no database)
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         LOG_INFO << "Skipping AuthService_GetUserInfo_Success in memory "
@@ -55,7 +55,7 @@ DROGON_TEST(Integration_P0_AuthService_GetUserInfo_Success)
 DROGON_TEST(Integration_P0_AuthService_GetUserInfo_UserNotFound)
 {
     // Skip this test in memory storage mode (no database)
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         LOG_INFO << "Skipping AuthService_GetUserInfo_UserNotFound in memory "
@@ -86,7 +86,7 @@ DROGON_TEST(Integration_P0_AuthService_GetUserInfo_UserNotFound)
 DROGON_TEST(Integration_P0_AuthService_GetUserInfo_InvalidUserId)
 {
     // Skip this test in memory storage mode (no database)
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         LOG_INFO << "Skipping AuthService_GetUserInfo_InvalidUserId in memory "
@@ -117,7 +117,7 @@ DROGON_TEST(Integration_P0_AuthService_GetUserInfo_InvalidUserId)
 DROGON_TEST(Integration_P0_AuthService_GetUserInfo_UserWithRoles)
 {
     // Skip this test in memory storage mode (no database)
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         LOG_INFO << "Skipping AuthService_GetUserInfo_UserWithRoles in memory "
@@ -160,7 +160,7 @@ DROGON_TEST(Integration_P0_AuthService_GetUserInfo_UserWithRoles)
 DROGON_TEST(Integration_P0_AuthService_GetUserInfo_ResponseStructure)
 {
     // Skip this test in memory storage mode (no database)
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         LOG_INFO << "Skipping AuthService_GetUserInfo_ResponseStructure in "
@@ -206,7 +206,7 @@ DROGON_TEST(Integration_P0_AuthService_GetUserInfo_ResponseStructure)
 DROGON_TEST(Integration_P0_AuthService_GetUserInfo_DatabaseErrorHandling)
 {
     // Skip this test in memory storage mode (no database)
-    auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         LOG_INFO << "Skipping AuthService_GetUserInfo_DatabaseErrorHandling in "

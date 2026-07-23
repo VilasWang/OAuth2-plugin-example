@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 namespace
@@ -52,4 +52,4 @@ void ErrorContext::clearDetailedErrorsOverride()
     detailedErrorsOverride().reset();
 }
 
-}  // namespace common::error
+}  // namespace authforge::common::error

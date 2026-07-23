@@ -6,7 +6,7 @@
 
 // Task 14 (authforge-sdk-refactor, design.md §5.6): this header no longer
 // calls drogon::utils::* directly. Every function below now delegates to
-// oauth2::adapters::OpenSslCryptoProvider (the Adapter-side default
+// authforge::drogon::adapters::OpenSslCryptoProvider (the Adapter-side default
 // implementation of authforge::common::ports::ICryptoProvider added in
 // Task 14 slice 1), which is pure OpenSSL with zero Drogon dependency.
 //
@@ -26,18 +26,16 @@
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <oauth2/adapters/OpenSslUuidGenerator.h>
 
-namespace oauth2
-{
-namespace utils
+namespace authforge::drogon::utils
 {
 
 namespace detail
 {
 // Shared, stateless OpenSslCryptoProvider instance backing every function
 // in this header. See file header comment for the thread-safety rationale.
-inline oauth2::adapters::OpenSslCryptoProvider &cryptoProvider()
+inline authforge::drogon::adapters::OpenSslCryptoProvider &cryptoProvider()
 {
-    static oauth2::adapters::OpenSslCryptoProvider instance;
+    static authforge::drogon::adapters::OpenSslCryptoProvider instance;
     return instance;
 }
 }  // namespace detail
@@ -184,7 +182,7 @@ inline std::string generateSecureToken(size_t bytes = 32)
         // fallback shape exactly (same entropy source underneath -- see
         // OpenSslUuidGenerator, itself RAND_bytes-backed -- so this remains
         // "should never happen" defense-in-depth, not a weaker substitute).
-        oauth2::adapters::OpenSslUuidGenerator uuidGenerator;
+        authforge::drogon::adapters::OpenSslUuidGenerator uuidGenerator;
         return uuidGenerator.generate() + uuidGenerator.generate();
     }
     return base64UrlEncode(buffer.data(), buffer.size());
@@ -228,5 +226,4 @@ inline std::string hashToken(const std::string &rawToken)
     return hex;
 }
 
-}  // namespace utils
-}  // namespace oauth2
+}  // namespace authforge::drogon::utils

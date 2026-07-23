@@ -20,7 +20,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -71,8 +71,8 @@ void EmailVerificationController::sendVerificationEmail(int userId, const std::s
     if (email.empty())
         return;
 
-    std::string rawToken = ::oauth2::utils::generateSecureToken();
-    std::string tokenHash = ::oauth2::utils::hashToken(rawToken);
+    std::string rawToken = ::authforge::drogon::utils::generateSecureToken();
+    std::string tokenHash = ::authforge::drogon::utils::hashToken(rawToken);
 
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
@@ -126,7 +126,7 @@ void EmailVerificationController::verify(
         return;
     }
 
-    std::string tokenHash = ::oauth2::utils::hashToken(token);
+    std::string tokenHash = ::authforge::drogon::utils::hashToken(token);
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
     )

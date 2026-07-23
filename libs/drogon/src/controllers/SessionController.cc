@@ -6,7 +6,7 @@
 #include <drogon/HttpClient.h>
 #include <oauth2/observability/OAuth2Metrics.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/utils/JwkManager.h>
+#include <authforge/oauth2/jwk/JwkManager.h>
 #include <oauth2/observability/AuditLogger.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -14,7 +14,6 @@
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/validation/RuleSet.h>
 #include <oauth2/validation/HttpResponder.h>
-#include <oauth2/types/OAuth2Types.h>
 #include <oauth2/error/ErrorResponder.h>
 
 // Task 24 slice 4 (authforge-sdk-refactor): identity-layer services this
@@ -49,7 +48,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb = std::move(cb)](const ::drogon::HttpResponsePtr &r) { cb(r); },
       std::move(code),
@@ -359,12 +358,14 @@ void SessionController::login(
 )
 {
     // Use ValidatorHelper for consistent validation
-    auto errors = ::oauth2::validation::RuleSet::login(req);
+    auto errors = ::authforge::drogon::validation::RuleSet::login(req);
 
     // Return validation errors if any
-    if (::oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    if (
+      ::authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback))
+    )
     {
-        ::oauth2::observability::Metrics::incLoginFailure("validation_failed");
+        ::authforge::drogon::observability::Metrics::incLoginFailure("validation_failed");
         return;
     }
 
@@ -436,7 +437,7 @@ void SessionController::login(
             req->session()->insert("userId", std::to_string(internalId));
 
             // Audit: login success
-            ::oauth2::observability::AuditLogger::log(
+            ::authforge::drogon::observability::AuditLogger::log(
               "login_success", "success", req, publicSub, "user", publicSub
             );
 
@@ -597,10 +598,10 @@ void SessionController::login(
         else
         {
             // Fail (Bad Password or User Not Found)
-            ::oauth2::observability::Metrics::incLoginFailure("bad_credentials");
+            ::authforge::drogon::observability::Metrics::incLoginFailure("bad_credentials");
 
             // Audit: login failure
-            ::oauth2::observability::AuditLogger::log(
+            ::authforge::drogon::observability::AuditLogger::log(
               "login_failure", "failure", req, username, "user", username
             );
 
@@ -802,7 +803,7 @@ void SessionController::consent(
                           if (!state.empty())
                               location += "&state=" + state;
                           auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-                          ::oauth2::observability::Metrics::incRequest("authorize", 302);
+                          ::authforge::drogon::observability::Metrics::incRequest("authorize", 302);
                           callback(resp);
                       }
                     );
@@ -837,7 +838,7 @@ void SessionController::consent(
                     if (!state.empty())
                         location += "&state=" + state;
                     auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-                    ::oauth2::observability::Metrics::incRequest("authorize", 302);
+                    ::authforge::drogon::observability::Metrics::incRequest("authorize", 302);
                     callback(resp);
                 }
               );
@@ -924,8 +925,10 @@ void SessionController::registerUser(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    auto errors = ::oauth2::validation::RuleSet::registerUser(req);
-    if (::oauth2::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    auto errors = ::authforge::drogon::validation::RuleSet::registerUser(req);
+    if (
+      ::authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback))
+    )
         return;
     // Parse the same fields RuleSet::registerUser validated. Duplicated inline
     // (not shared with RuleSet) by decision: getParameters() returns empty for

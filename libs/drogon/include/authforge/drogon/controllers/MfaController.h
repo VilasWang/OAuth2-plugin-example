@@ -54,19 +54,19 @@ class MfaController : public ::drogon::HttpController<MfaController, false>
       MfaController::setup,
       "/api/me/mfa/setup",
       ::drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       MfaController::verifySetup,
       "/api/me/mfa/verify",
       ::drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       MfaController::disable,
       "/api/me/mfa/disable",
       ::drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(MfaController::verifyLogin, "/oauth2/mfa/verify", ::drogon::Post);
     METHOD_LIST_END

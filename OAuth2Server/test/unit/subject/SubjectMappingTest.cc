@@ -5,7 +5,7 @@
 #include <authforge/oauth2/model/UserRef.h>
 #include <json/json.h>
 
-using namespace oauth2::utils;
+using namespace authforge::common::utils;
 
 // ========== SubjectGenerator Tests ==========
 

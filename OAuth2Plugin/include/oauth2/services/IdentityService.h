@@ -11,7 +11,7 @@
 #include <functional>
 #include <optional>
 
-namespace oauth2
+namespace authforge::identity
 {
 
 // Defect 1.9 fix (async-chain dangling `this`): IdentityService inherits
@@ -39,9 +39,9 @@ class IdentityService : public std::enable_shared_from_this<IdentityService>
   public:
     struct Repos
     {
-        std::shared_ptr<oauth2::IRoleRepository> role;
-        std::shared_ptr<oauth2::IUserRepository> user;
-        std::shared_ptr<oauth2::ISubjectMappingRepository> subjectMapping;
+        std::shared_ptr<::oauth2::IRoleRepository> role;
+        std::shared_ptr<::oauth2::IUserRepository> user;
+        std::shared_ptr<::oauth2::ISubjectMappingRepository> subjectMapping;
         std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consent;
     };
 
@@ -99,4 +99,4 @@ class IdentityService : public std::enable_shared_from_this<IdentityService>
     Repos repos_;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::identity

@@ -6,7 +6,7 @@
 // this filter DOES reach through the OAuth2Plugin singleton
 // (drogon::app().getPlugin<OAuth2Plugin>()) -- acceptable here because
 // libs/drogon already carries a temporary compile-time dependency on
-// OAuth2Plugin since slice 1 (for the not-yet-relocated common::error
+// OAuth2Plugin since slice 1 (for the not-yet-relocated authforge::common::error
 // machinery; see libs/drogon/CMakeLists.txt's header comment), so this
 // does not introduce a NEW dependency edge, only exercises the existing
 // one. The plugin itself is not being touched in this slice (still

@@ -6,7 +6,7 @@
 
 #include <authforge/common/ports/IClock.h>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 class SystemClock : public authforge::common::ports::IClock
@@ -16,4 +16,4 @@ class SystemClock : public authforge::common::ports::IClock
     int64_t nowMilliseconds() const override;
 };
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

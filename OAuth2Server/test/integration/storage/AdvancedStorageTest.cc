@@ -39,7 +39,7 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
     // 2. Test Revocation
     {
         std::string rawToken = "revoked_token_123";
-        std::string hashedToken = oauth2::utils::hashToken(rawToken);
+        std::string hashedToken = authforge::drogon::utils::hashToken(rawToken);
 
         AccessToken revokedToken;
         revokedToken.token = hashedToken;
@@ -64,7 +64,7 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
     // 3. Test Expiration
     {
         std::string rawToken = "expired_token_123";
-        std::string hashedToken = oauth2::utils::hashToken(rawToken);
+        std::string hashedToken = authforge::drogon::utils::hashToken(rawToken);
 
         AccessToken expiredToken;
         expiredToken.token = hashedToken;
@@ -89,7 +89,7 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
     // 4. Test Valid Token (Control)
     {
         std::string rawToken = "valid_token_123";
-        std::string hashedToken = oauth2::utils::hashToken(rawToken);
+        std::string hashedToken = authforge::drogon::utils::hashToken(rawToken);
 
         AccessToken validToken;
         validToken.token = hashedToken;

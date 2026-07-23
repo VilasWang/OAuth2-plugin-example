@@ -23,7 +23,7 @@
 #include <oauth2/storage/PostgresConsentRepository.h>
 #include <oauth2/storage/RedisConsentRepository.h>
 #include <oauth2/storage/MemoryConsentRepository.h>
-#include <oauth2/storage/UserRef.h>
+#include <authforge/oauth2/model/UserRef.h>
 
 #include "ContractFixtures.h"
 
@@ -41,7 +41,7 @@ namespace
 // implementations for this behavior (all three implement it as a
 // straightforward existence-flag per (user, client, scope) key/row).
 void runConsentRepository_SaveHasRevokeRoundTripContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IConsentRepository> repo,
   const UserRef &user,
   const std::string &clientId,
@@ -92,8 +92,8 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
         db->execSqlAsync(
           "INSERT INTO users (username, password_hash, salt) VALUES ($1, $2, $3) "
           "RETURNING id",
-          [cb](const drogon::orm::Result &r) { cb(r.empty() ? -1 : r[0]["id"].as<int32_t>()); },
-          [cb](const drogon::orm::DrogonDbException &) { cb(-1); },
+          [cb](const ::drogon::orm::Result &r) { cb(r.empty() ? -1 : r[0]["id"].as<int32_t>()); },
+          [cb](const ::drogon::orm::DrogonDbException &) { cb(-1); },
           username,
           std::string("contract-test-hash"),
           std::string("contract-test-salt")
@@ -115,16 +115,16 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
     waitForVoid([&](auto cb) {
         db->execSqlAsync(
           "DELETE FROM oauth2_user_consents WHERE internal_user_id = $1",
-          [cb](const drogon::orm::Result &) { cb(); },
-          [cb](const drogon::orm::DrogonDbException &) { cb(); },
+          [cb](const ::drogon::orm::Result &) { cb(); },
+          [cb](const ::drogon::orm::DrogonDbException &) { cb(); },
           internalUserId
         );
     });
     waitForVoid([&](auto cb) {
         db->execSqlAsync(
           "DELETE FROM users WHERE id = $1",
-          [cb](const drogon::orm::Result &) { cb(); },
-          [cb](const drogon::orm::DrogonDbException &) { cb(); },
+          [cb](const ::drogon::orm::Result &) { cb(); },
+          [cb](const ::drogon::orm::DrogonDbException &) { cb(); },
           internalUserId
         );
     });

@@ -23,7 +23,7 @@
 
 #include <authforge/common/ports/ICryptoProvider.h>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 class OpenSslCryptoProvider : public authforge::common::ports::ICryptoProvider
@@ -49,4 +49,4 @@ class OpenSslCryptoProvider : public authforge::common::ports::ICryptoProvider
     ) override;
 };
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

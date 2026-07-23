@@ -90,8 +90,8 @@ void wireIdentityServices()
 
     auto userRepo =
       std::make_shared<authforge::storage::postgres::PostgresIdentityRepository>(dbClient);
-    auto crypto = std::make_shared<oauth2::adapters::OpenSslCryptoProvider>();
-    auto clock = std::make_shared<oauth2::adapters::SystemClock>();
+    auto crypto = std::make_shared<authforge::drogon::adapters::OpenSslCryptoProvider>();
+    auto clock = std::make_shared<authforge::drogon::adapters::SystemClock>();
 
     // Task 24 slice 5: MfaService, sharing the same IUserRepository/
     // ICryptoProvider/IClock instances constructed above (MfaService only

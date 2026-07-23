@@ -1,7 +1,7 @@
 #include <drogon/drogon_test.h>
 #include <oauth2/utils/TotpUtils.h>
 
-using namespace oauth2::utils;
+using namespace authforge::common::utils;
 
 DROGON_TEST(Unit_TotpUtils_GenerateSecret)
 {

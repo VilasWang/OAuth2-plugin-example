@@ -6,7 +6,7 @@
 // structs, zero OAuth2Plugin dependency, so this is the lowest-risk first
 // slice of the M3 Drogon-binding migration. Namespace is
 // authforge::drogon::validation (design.md §6 namespace sync); the old
-// oauth2::validation:: location becomes a compatibility shim (same
+// authforge::drogon::validation:: location becomes a compatibility shim (same
 // pattern as libs/oauth2's JwkManager.h shim from Task 17 slice 10) so
 // existing call sites keep compiling until the full M8 namespace sweep.
 

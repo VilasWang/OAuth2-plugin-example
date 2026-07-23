@@ -3,11 +3,11 @@
 // M3 Task 20: relocated verbatim from
 // OAuth2Plugin/include/oauth2/validation/HttpResponder.h into
 // authforge::drogon::validation (see Rules.h in this directory for the
-// migration rationale). Still depends on the pre-existing common::error
+// migration rationale). Still depends on the pre-existing authforge::common::error
 // machinery (OAuth2Plugin/include/oauth2/error/*) -- that namespace's own
 // relocation into authforge::common::error (already partially done, see
 // libs/common/include/authforge/common/error/) is a separate, later
-// slice; this migration keeps calling the existing common::error:: call
+// slice; this migration keeps calling the existing authforge::common::error:: call
 // sites unchanged.
 
 #include <drogon/HttpRequest.h>
@@ -22,7 +22,7 @@ namespace authforge::drogon::validation
 
 // HttpResponder turns validation failures into HTTP error responses.
 //
-// It delegates to the unified common::error machinery so every validation
+// It delegates to the unified authforge::common::error machinery so every validation
 // failure is rendered as a VALIDATION-class Error Envelope (code
 // VALIDATION_INVALID_INPUT, category VALIDATION, HTTP 400).
 //
@@ -55,7 +55,7 @@ class HttpResponder
 
   private:
     // Builds the VALIDATION-class Error Envelope JSON for the given validation
-    // error strings, delegating to common::error::Error / ErrorContext.
+    // error strings, delegating to authforge::common::error::Error / ErrorContext.
     static Json::Value buildErrorJson(
       const std::vector<std::string> &errors,
       const ::drogon::HttpRequestPtr &req = nullptr

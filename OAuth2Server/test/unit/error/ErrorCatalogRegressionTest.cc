@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-using namespace common::error;
+using namespace authforge::common::error;
 
 // Feature: error-code-message-standardization
 // Example/regression test (specific preserved values, not a randomized property

@@ -4,7 +4,7 @@
 #include <json/json.h>
 #include <drogon/HttpRequest.h>
 
-namespace oauth2::observability
+namespace authforge::drogon::observability
 {
 
 /**
@@ -43,7 +43,7 @@ class AuditLogger
     static void log(
       const std::string &action,
       const std::string &outcome,
-      const drogon::HttpRequestPtr &req,
+      const ::drogon::HttpRequestPtr &req,
       const std::string &actorId = "",
       const std::string &targetType = "",
       const std::string &targetId = "",
@@ -51,4 +51,4 @@ class AuditLogger
     );
 };
 
-}  // namespace oauth2::observability
+}  // namespace authforge::drogon::observability

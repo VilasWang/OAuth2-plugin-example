@@ -8,7 +8,7 @@
 // (computeCodeChallenge/isValidCodeVerifier/isValidCodeChallenge) and
 // OAuth2Plugin/src/services/TokenService.cc
 // (validatePkceCodeVerifier/generateSha256Hash). Unlike CryptoUtils.h
-// (which hardcodes a static oauth2::adapters::OpenSslCryptoProvider
+// (which hardcodes a static authforge::drogon::adapters::OpenSslCryptoProvider
 // instance -- fine for an Adapter-layer convenience header, but not
 // allowed here), every function below takes an
 // authforge::common::ports::ICryptoProvider& as an explicit parameter:

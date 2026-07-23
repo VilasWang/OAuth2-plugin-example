@@ -4,7 +4,7 @@
 
 #include <cstdio>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 std::string OpenSslUuidGenerator::generate()
@@ -49,4 +49,4 @@ std::string OpenSslUuidGenerator::generate()
     return std::string(buf);
 }
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

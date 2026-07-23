@@ -4,7 +4,7 @@
 #include <string>
 #include <json/json.h>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 // Error_Category enum. The enum NAMES are stable and must not change
@@ -73,4 +73,4 @@ struct Error
     );
 };
 
-}  // namespace common::error
+}  // namespace authforge::common::error

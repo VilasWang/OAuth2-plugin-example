@@ -26,7 +26,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -171,7 +171,7 @@ void WebAuthnController::registerBegin(
     }
 
     // Generate challenge (32 bytes, base64url encoded)
-    std::string challenge = ::oauth2::utils::generateSecureToken();
+    std::string challenge = ::authforge::drogon::utils::generateSecureToken();
 
     // Store challenge in session for verification in registerFinish
     if (req->session())
@@ -282,7 +282,7 @@ void WebAuthnController::registerFinish(
                         respondError(req, sharedCb, errorCode, "registerFinish: " + errorCode);
                         return;
                     }
-                    ::oauth2::observability::AuditLogger::log(
+                    ::authforge::drogon::observability::AuditLogger::log(
                       "webauthn_registered", "success", req, userId, "credential", credentialId
                     );
                     Json::Value json;
@@ -304,7 +304,7 @@ void WebAuthnController::registerFinish(
       "INSERT INTO webauthn_credentials (user_id, credential_id, public_key, name) "
       "VALUES ((SELECT id FROM users WHERE public_sub::text = $1::text), $2, $3, $4)",
       [sharedCb, credentialId, req, userId](const ::drogon::orm::Result &) {
-          ::oauth2::observability::AuditLogger::log(
+          ::authforge::drogon::observability::AuditLogger::log(
             "webauthn_registered", "success", req, userId, "credential", credentialId
           );
           Json::Value json;
@@ -386,7 +386,7 @@ void WebAuthnController::authenticateBegin(
     }
 
     // Generate challenge
-    std::string challenge = ::oauth2::utils::generateSecureToken();
+    std::string challenge = ::authforge::drogon::utils::generateSecureToken();
 
     // Store in session
     if (req->session())
@@ -457,7 +457,7 @@ void WebAuthnController::authenticateFinish(
                   );
                   return;
               }
-              ::oauth2::observability::AuditLogger::log(
+              ::authforge::drogon::observability::AuditLogger::log(
                 "webauthn_authenticated",
                 "success",
                 req,
@@ -508,7 +508,7 @@ void WebAuthnController::authenticateFinish(
             credentialId
           );
 
-          ::oauth2::observability::AuditLogger::log(
+          ::authforge::drogon::observability::AuditLogger::log(
             "webauthn_authenticated", "success", req, publicSub, "credential", credentialId
           );
 

@@ -4,7 +4,7 @@
 #include <cctype>
 #include <string>
 
-namespace oauth2::utils
+namespace authforge::common::utils
 {
 
 // Normalize an email address for storage and uniqueness comparison.
@@ -61,4 +61,4 @@ inline std::string normalizeEmail(const std::string &input)
     return local + "@" + domain;
 }
 
-}  // namespace oauth2::utils
+}  // namespace authforge::common::utils

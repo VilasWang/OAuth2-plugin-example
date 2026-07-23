@@ -319,14 +319,14 @@ int main(int argc, char **argv)
       std::make_shared<authforge::drogon::controllers::AuditController>()
     );
     drogon::app().registerController(
-      std::make_shared<oauth2::controllers::OAuth2StandardController>()
+      std::make_shared<authforge::drogon::controllers::OAuth2StandardController>()
     );
     // M3 Task 20 continuation: OAuth2Plugin.cc no longer calls this itself
     // (removed to break a circular dependency, see OAuth2Plugin.cc's own
     // comment) -- this test binary must call it explicitly, same as
     // OAuth2Server/main.cc already does, so OpenAPI docs are registered
     // before app().run() below.
-    oauth2::controllers::OAuth2StandardController::initApiDocs();
+    authforge::drogon::controllers::OAuth2StandardController::initApiDocs();
 
     std::promise<void> p1;
     std::future<void> f1 = p1.get_future();

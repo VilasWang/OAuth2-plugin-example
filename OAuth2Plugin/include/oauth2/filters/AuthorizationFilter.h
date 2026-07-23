@@ -11,7 +11,7 @@ using namespace drogon;
 
 class OAuth2Plugin;
 
-namespace oauth2::filters
+namespace authforge::drogon::filters
 {
 
 class AuthorizationFilter : public HttpFilter<AuthorizationFilter>
@@ -66,4 +66,4 @@ class AuthorizationFilter : public HttpFilter<AuthorizationFilter>
     bool checkAccess(const std::vector<std::string> &userRoles, const std::string &path);
 };
 
-}  // namespace oauth2::filters
+}  // namespace authforge::drogon::filters

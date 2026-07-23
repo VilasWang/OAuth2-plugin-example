@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <oauth2/utils/SubjectGenerator.h>
 
-using namespace oauth2::utils;
+using namespace authforge::common::utils;
 
 DROGON_TEST(Performance_P1_Benchmark_SubjectGeneration_StressTest)
 {

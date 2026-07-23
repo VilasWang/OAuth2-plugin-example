@@ -5,7 +5,7 @@
 #include <string>
 
 using namespace drogon;
-using namespace common::error;
+using namespace authforge::common::error;
 
 // Feature: error-code-message-standardization
 // Example/boundary test (specific cases, not a randomized property test) for

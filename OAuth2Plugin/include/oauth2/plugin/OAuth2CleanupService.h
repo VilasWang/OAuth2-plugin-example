@@ -5,7 +5,7 @@
 #include <authforge/oauth2/repository/ITokenRepository.h>
 #include <memory>
 
-namespace oauth2
+namespace authforge::drogon
 {
 
 // Phase 4.2 (authforge-sdk-refactor): this service now depends on the NEW
@@ -41,4 +41,4 @@ class OAuth2CleanupService : public std::enable_shared_from_this<OAuth2CleanupSe
     void doPurge();
 };
 
-}  // namespace oauth2
+}  // namespace authforge::drogon

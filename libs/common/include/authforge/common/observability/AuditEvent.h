@@ -2,7 +2,7 @@
 
 // Task 13 (authforge-sdk-refactor, design.md §3.3/§5.1/§6): libs/common
 // Domain kernel. AuditEvent is the framework-agnostic counterpart of
-// oauth2::observability::AuditEvent (OAuth2Plugin/include/oauth2/
+// authforge::drogon::observability::AuditEvent (OAuth2Plugin/include/oauth2/
 // observability/AuditLogger.h), which is a plain data struct EXCEPT for one
 // field (`details`) declared as Json::Value and one convenience overload
 // of AuditLogger::log() that takes a drogon::HttpRequestPtr to pull ip/

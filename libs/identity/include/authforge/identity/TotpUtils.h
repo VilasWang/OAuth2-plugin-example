@@ -2,12 +2,12 @@
 
 // M2.5 identity completion (authforge-sdk-refactor, design.md §5.1/§6):
 // real (non-placeholder) implementation. Ports
-// oauth2::utils::TotpUtils (OAuth2Plugin/include/oauth2/utils/TotpUtils.h)
+// authforge::common::utils::TotpUtils (OAuth2Plugin/include/oauth2/utils/TotpUtils.h)
 // into the Domain layer, unchanged algorithm (RFC 6238 TOTP over
 // HMAC-SHA1, 30-second time steps, 6-digit codes; RFC 4226 dynamic
 // truncation), but expressed as free functions taking an
 // authforge::common::ports::ICryptoProvider& instead of hardcoding a
-// static oauth2::adapters::OpenSslCryptoProvider instance -- that class is
+// static authforge::drogon::adapters::OpenSslCryptoProvider instance -- that class is
 // Adapter-layer and this package must not depend on it (design.md §4.1
 // rule 1), matching the same pattern already established by
 // oauth2::pkce::computeCodeChallenge and

@@ -4,7 +4,7 @@
 #include <regex>
 #include <algorithm>
 
-namespace oauth2::validation
+namespace authforge::drogon::validation
 {
 
 std::optional<std::string> RuleSet::validateField(
@@ -103,7 +103,7 @@ std::vector<std::string> RuleSet::validateFields(
 }
 
 std::string RuleSet::extractFieldValue(
-  const drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr &req,
   const std::string &field,
   const std::string &source
 )
@@ -115,7 +115,7 @@ std::string RuleSet::extractFieldValue(
     else if (source == "body")
     {
         // 尝试从 JSON body 获取
-        if (req->contentType() == drogon::CT_APPLICATION_JSON)
+        if (req->contentType() == ::drogon::CT_APPLICATION_JSON)
         {
             auto json = req->getJsonObject();
             if (json)
@@ -135,7 +135,7 @@ std::string RuleSet::extractFieldValue(
 }
 
 std::vector<std::string> RuleSet::validateRequest(
-  const drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr &req,
   const std::vector<Rule> &rules
 )
 {
@@ -282,7 +282,7 @@ std::optional<std::string> RuleSet::validateToken(const std::string &token)
 
 // 便捷验证组合方法
 
-std::vector<std::string> RuleSet::oauth2Authorize(const drogon::HttpRequestPtr &req)
+std::vector<std::string> RuleSet::oauth2Authorize(const ::drogon::HttpRequestPtr &req)
 {
     std::vector<std::string> errors;
 
@@ -324,14 +324,14 @@ std::vector<std::string> RuleSet::oauth2Authorize(const drogon::HttpRequestPtr &
     return errors;
 }
 
-std::vector<std::string> RuleSet::oauth2Token(const drogon::HttpRequestPtr &req)
+std::vector<std::string> RuleSet::oauth2Token(const ::drogon::HttpRequestPtr &req)
 {
     std::vector<std::string> errors;
 
     // 优先从 POST body 获取参数
     std::string grantType, code, clientId, redirectUri, refreshToken;
 
-    if (req->method() == drogon::Post)
+    if (req->method() == ::drogon::Post)
     {
         auto params = req->getParameters();
         grantType = params["grant_type"];
@@ -386,7 +386,7 @@ std::vector<std::string> RuleSet::oauth2Token(const drogon::HttpRequestPtr &req)
     return errors;
 }
 
-std::vector<std::string> RuleSet::login(const drogon::HttpRequestPtr &req)
+std::vector<std::string> RuleSet::login(const ::drogon::HttpRequestPtr &req)
 {
     std::vector<std::string> errors;
 
@@ -394,7 +394,7 @@ std::vector<std::string> RuleSet::login(const drogon::HttpRequestPtr &req)
     // username 字段语义为"登录标识"（email 或 username），保持 API 向后兼容
     std::string identifier, password;
 
-    if (req->contentType() == drogon::CT_APPLICATION_JSON)
+    if (req->contentType() == ::drogon::CT_APPLICATION_JSON)
     {
         auto json = req->getJsonObject();
         if (json)
@@ -455,13 +455,13 @@ std::vector<std::string> RuleSet::login(const drogon::HttpRequestPtr &req)
     return errors;
 }
 
-std::vector<std::string> RuleSet::registerUser(const drogon::HttpRequestPtr &req)
+std::vector<std::string> RuleSet::registerUser(const ::drogon::HttpRequestPtr &req)
 {
     std::vector<std::string> errors;
 
     std::string username, password, email;
 
-    if (req->contentType() == drogon::CT_APPLICATION_JSON)
+    if (req->contentType() == ::drogon::CT_APPLICATION_JSON)
     {
         auto json = req->getJsonObject();
         if (json)
@@ -547,13 +547,13 @@ std::vector<std::string> RuleSet::registerUser(const drogon::HttpRequestPtr &req
 
 // ========== P1: Token Introspection & Revocation Validation ==========
 
-std::vector<std::string> RuleSet::oauth2Introspect(const drogon::HttpRequestPtr &req)
+std::vector<std::string> RuleSet::oauth2Introspect(const ::drogon::HttpRequestPtr &req)
 {
     std::vector<std::string> errors;
 
     // Extract token parameter (required)
     std::string token;
-    if (req->method() == drogon::Post)
+    if (req->method() == ::drogon::Post)
     {
         auto params = req->getParameters();
         token = params["token"];
@@ -576,13 +576,13 @@ std::vector<std::string> RuleSet::oauth2Introspect(const drogon::HttpRequestPtr 
     return errors;
 }
 
-std::vector<std::string> RuleSet::oauth2Revoke(const drogon::HttpRequestPtr &req)
+std::vector<std::string> RuleSet::oauth2Revoke(const ::drogon::HttpRequestPtr &req)
 {
     std::vector<std::string> errors;
 
     // Extract token parameter (required)
     std::string token;
-    if (req->method() == drogon::Post)
+    if (req->method() == ::drogon::Post)
     {
         auto params = req->getParameters();
         token = params["token"];
@@ -605,4 +605,4 @@ std::vector<std::string> RuleSet::oauth2Revoke(const drogon::HttpRequestPtr &req
     return errors;
 }
 
-}  // namespace oauth2::validation
+}  // namespace authforge::drogon::validation

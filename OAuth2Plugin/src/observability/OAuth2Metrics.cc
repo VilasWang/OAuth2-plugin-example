@@ -4,7 +4,7 @@
 
 using namespace drogon;
 
-namespace oauth2::observability
+namespace authforge::drogon::observability
 {
 
 // Thread-safety contract for this component is documented on the Metrics class
@@ -85,4 +85,4 @@ OperationTimer::~OperationTimer()
     Metrics::observeLatency(operation_, storage_, diff.count());
 }
 
-}  // namespace oauth2::observability
+}  // namespace authforge::drogon::observability

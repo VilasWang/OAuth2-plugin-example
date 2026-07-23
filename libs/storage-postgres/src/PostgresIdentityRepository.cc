@@ -10,7 +10,7 @@
 namespace authforge::storage::postgres
 {
 
-using namespace drogon::orm;
+using namespace ::drogon::orm;
 using namespace drogon_model::oauth2_db;
 using authforge::identity::UserData;
 

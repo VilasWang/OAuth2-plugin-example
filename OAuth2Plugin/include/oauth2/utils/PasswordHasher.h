@@ -2,11 +2,8 @@
 
 #include <string>
 
-namespace oauth2
+namespace authforge::common::utils
 {
-namespace utils
-{
-
 /**
  * @brief Password hashing utility using PBKDF2-SHA256 (via OpenSSL)
  * with backward compatibility for legacy SHA-256+salt hashes.
@@ -56,5 +53,4 @@ class PasswordHasher
     static bool needsRehash(const std::string &storedHash);
 };
 
-}  // namespace utils
-}  // namespace oauth2
+}  // namespace authforge::common::utils

@@ -4,7 +4,7 @@
 #include <vector>
 #include <utility>
 
-namespace oauth2::validation
+namespace authforge::drogon::validation
 {
 
 class RuleEngine
@@ -38,4 +38,4 @@ class RuleEngine
     );
 };
 
-}  // namespace oauth2::validation
+}  // namespace authforge::drogon::validation

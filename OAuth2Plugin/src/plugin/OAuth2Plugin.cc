@@ -1,6 +1,6 @@
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/filters/OAuth2AuthFilter.h>
-#include <oauth2/utils/JwkManager.h>
+#include <authforge/oauth2/jwk/JwkManager.h>
 #include <oauth2/adapters/DrogonLogger.h>
 #include <oauth2/adapters/StorageRoleProvider.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
@@ -15,7 +15,7 @@
 #include <authforge/oauth2/repository/ITokenRepository.h>
 #include <authforge/oauth2/repository/IConsentRepository.h>
 #include <authforge/oauth2/pkce/Pkce.h>
-// oauth2::IdentityService (the thin forwarder over bundle repos) is still
+// authforge::identity::IdentityService (the thin forwarder over bundle repos) is still
 // constructed here for the scopeRequiresAdminRole pure-function path.
 #include <oauth2/services/IdentityService.h>
 #include <drogon/drogon.h>
@@ -30,7 +30,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // OAuth2StandardController::initApiDocs() call that used to live here
     // was removed to break a circular dependency -- OAuth2StandardController
     // now lives in libs/drogon, which itself links OAuth2Plugin (for the
-    // not-yet-relocated common::error machinery; see
+    // not-yet-relocated authforge::common::error machinery; see
     // libs/drogon/CMakeLists.txt). OAuth2Plugin therefore cannot #include
     // anything from libs/drogon without creating a link cycle.
     // initApiDocs() is still called explicitly and unconditionally by every
@@ -64,8 +64,8 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // produce any log output (it no longer has a hardcoded Drogon-backed
     // fallback, since it moved into the Domain layer). Pass a
     // DrogonLogger explicitly here to preserve the pre-move log behavior.
-    static oauth2::adapters::DrogonLogger jwkManagerLogger;
-    auto jwkManager = std::make_shared<oauth2::JwkManager>(&jwkManagerLogger);
+    static authforge::drogon::adapters::DrogonLogger jwkManagerLogger;
+    auto jwkManager = std::make_shared<authforge::oauth2::JwkManager>(&jwkManagerLogger);
     if (config.isMember("oidc"))
     {
         jwkManager->init(config["oidc"]);
@@ -107,8 +107,8 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // userRepo_/subjectMappingRepo_ are now populated by initStorage() directly
     // from the per-backend RepositoryBundle (no bridges, no storage_). The
     // services below consume these handles.
-    auto cryptoProvider = std::make_shared<oauth2::adapters::OpenSslCryptoProvider>();
-    auto auditSink = std::make_shared<oauth2::adapters::DrogonAuditSink>();
+    auto cryptoProvider = std::make_shared<authforge::drogon::adapters::OpenSslCryptoProvider>();
+    auto auditSink = std::make_shared<authforge::drogon::adapters::DrogonAuditSink>();
 
     // Phase 4.5: roles resolve through StorageRoleProvider's subject-string
     // overload (supportsSubjectLookup()=true) -- byte-equivalent to the legacy
@@ -117,7 +117,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // IRoleProvider port carries the string overload; oauth2::protocol::
     // TokenService prefers it, so no ISubjectResolver is needed (passed null).
     // Phase 4.6a: now backed by roleRepo_ (the identity split-repo), not storage_.
-    roleProvider_ = std::make_shared<oauth2::adapters::StorageRoleProvider>(roleRepo_);
+    roleProvider_ = std::make_shared<authforge::drogon::adapters::StorageRoleProvider>(roleRepo_);
 
     // Defect 1.3 fix: services now share ownership of storage_ (shared_ptr),
     // so the storage lifetime is guaranteed to cover every service instead of
@@ -140,14 +140,17 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     );
     tokenService_->setJwkManager(jwkManager_);
     clientService_ = std::make_shared<authforge::oauth2::protocol::ClientService>(clientRepo_);
-    identityService_ = std::make_shared<oauth2::IdentityService>(
-      oauth2::IdentityService::Repos{roleRepo_, userRepo_, subjectMappingRepo_, consentRepo_}
+    identityService_ = std::make_shared<authforge::identity::IdentityService>(
+      authforge::identity::IdentityService::Repos{
+        roleRepo_, userRepo_, subjectMappingRepo_, consentRepo_
+      }
     );
 
     // Initialize Cleanup Service (Phase 4.2: now keyed on the NEW split repos,
     // not storage_. grantRepo is the local bridge over storage_; tokenRepo_ is
     // the member retained in 4.1.)
-    cleanupService_ = std::make_shared<oauth2::OAuth2CleanupService>(grantRepo_, tokenRepo_);
+    cleanupService_ =
+      std::make_shared<authforge::drogon::OAuth2CleanupService>(grantRepo_, tokenRepo_);
     double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble();
     cleanupService_->start(cleanupInterval);
 
@@ -509,13 +512,13 @@ std::string OAuth2Plugin::generateSha256Hash(const std::string &input)
     // A1: relocated off the legacy oauth2::TokenService static. Delegates to
     // the byte-identical, RFC 7636 Appendix-B-tested algorithm in the
     // authforge::oauth2::pkce Domain package.
-    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
     return authforge::oauth2::pkce::computeCodeChallenge(input, "S256", cryptoProvider);
 }
 
 bool OAuth2Plugin::scopeRequiresAdminRole(const std::string &scope)
 {
-    return oauth2::IdentityService({}).scopeRequiresAdminRole(scope);
+    return authforge::identity::IdentityService({}).scopeRequiresAdminRole(scope);
 }
 
 void OAuth2Plugin::ensureSubjectMapping(

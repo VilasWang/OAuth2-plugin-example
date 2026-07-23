@@ -25,7 +25,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -132,7 +132,7 @@ void DeviceAuthController::deviceAuthorization(
 
     if (clientId.empty())
     {
-        ::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_request", "client_id is required"
         );
         return;
@@ -142,7 +142,7 @@ void DeviceAuthController::deviceAuthorization(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        ::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "server_error", "OAuth2 plugin not available"
         );
         return;
@@ -154,15 +154,15 @@ void DeviceAuthController::deviceAuthorization(
     plugin->validateClient(clientId, "", [plugin, clientId, scope, sharedCb](bool valid) {
         if (!valid)
         {
-            ::common::error::OAuth2ErrorHandler::sendErrorResponse(
+            ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
               std::move(*sharedCb), "invalid_client", "Unknown client_id"
             );
             return;
         }
 
         // Generate device_code and user_code
-        std::string deviceCode = ::oauth2::utils::generateSecureToken();
-        std::string deviceCodeHash = ::oauth2::utils::hashToken(deviceCode);
+        std::string deviceCode = ::authforge::drogon::utils::generateSecureToken();
+        std::string deviceCodeHash = ::authforge::drogon::utils::hashToken(deviceCode);
         std::string userCode = generateUserCode();
 
         auto now = std::chrono::duration_cast<std::chrono::seconds>(
@@ -175,7 +175,7 @@ void DeviceAuthController::deviceAuthorization(
         auto dbClient = ::drogon::app().getDbClient();
         if (!dbClient)
         {
-            ::common::error::OAuth2ErrorHandler::sendErrorResponse(
+            ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
               std::move(*sharedCb), "server_error", "Database not available"
             );
             return;
@@ -200,7 +200,7 @@ void DeviceAuthController::deviceAuthorization(
           },
           [sharedCb](const ::drogon::orm::DrogonDbException &e) {
               LOG_ERROR << "Failed to store device code: " << e.base().what();
-              ::common::error::OAuth2ErrorHandler::sendErrorResponse(
+              ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
                 std::move(*sharedCb), "server_error", "Failed to store device authorization"
               );
           },

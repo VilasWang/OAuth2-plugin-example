@@ -12,7 +12,7 @@ namespace bootstrap
 
 // Explicitly constructs and registers every AutoCreation=false controller
 // (all controllers under authforge::drogon::controllers, plus
-// oauth2::controllers::OAuth2StandardController) on drogon::app(). Must be
+// authforge::drogon::controllers::OAuth2StandardController) on drogon::app(). Must be
 // called before drogon::app().run().
 void registerAllControllers();
 

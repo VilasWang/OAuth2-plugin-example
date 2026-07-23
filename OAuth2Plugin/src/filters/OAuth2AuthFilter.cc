@@ -4,12 +4,12 @@
 #include <oauth2/error/RequestId.h>
 #include <drogon/drogon.h>
 
-OAuth2Plugin *oauth2::filters::OAuth2AuthFilter::resolvePlugin() const
+OAuth2Plugin *authforge::drogon::filters::OAuth2AuthFilter::resolvePlugin() const
 {
-    return plugin_ ? plugin_ : drogon::app().getPlugin<OAuth2Plugin>();
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
 }
 
-void oauth2::filters::OAuth2AuthFilter::doFilter(
+void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
   const HttpRequestPtr &req,
   FilterCallback &&fcb,
   FilterChainCallback &&fccb
@@ -19,10 +19,11 @@ void oauth2::filters::OAuth2AuthFilter::doFilter(
     if (!plugin)
     {
         LOG_ERROR << "OAuth2AuthFilter: OAuth2Plugin not found";
-        auto error =
-          common::error::Error::fromCode("INTERNAL_ERROR", common::error::RequestId::resolve(req));
+        auto error = authforge::common::error::Error::fromCode(
+          "INTERNAL_ERROR", authforge::common::error::RequestId::resolve(req)
+        );
         error.message = "OAuth2 plugin not available";
-        auto resp = common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);
         return;
     }
@@ -37,11 +38,11 @@ void oauth2::filters::OAuth2AuthFilter::doFilter(
     if (authHeader.empty() || authHeader.substr(0, 7) != "Bearer ")
     {
         LOG_WARN << "OAuth2AuthFilter: Missing or invalid Authorization header";
-        auto error = common::error::Error::fromCode(
-          "AUTH_TOKEN_INVALID", common::error::RequestId::resolve(req)
+        auto error = authforge::common::error::Error::fromCode(
+          "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
         );
         error.message = "Missing or invalid Authorization header";
-        auto resp = common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);
         return;
     }
@@ -57,11 +58,11 @@ void oauth2::filters::OAuth2AuthFilter::doFilter(
           if (!tokenInfo)
           {
               LOG_WARN << "OAuth2AuthFilter: Token validation failed";
-              auto error = common::error::Error::fromCode(
-                "AUTH_TOKEN_INVALID", common::error::RequestId::resolve(req)
+              auto error = authforge::common::error::Error::fromCode(
+                "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
               );
               error.message = "Invalid or expired token";
-              auto resp = common::error::ErrorResponder::buildResponse(req, error);
+              auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
               fcb(resp);
               return;
           }

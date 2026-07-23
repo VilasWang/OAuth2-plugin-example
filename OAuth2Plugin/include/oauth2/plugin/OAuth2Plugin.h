@@ -9,7 +9,7 @@
 #include <oauth2/storage/ISubjectMappingRepository.h>
 #include <authforge/oauth2/repository/IConsentRepository.h>
 #include <authforge/oauth2/model/Dto.h>
-#include <oauth2/utils/JwkManager.h>
+#include <authforge/oauth2/jwk/JwkManager.h>
 #include <authforge/oauth2/protocol/TokenService.h>
 #include <authforge/oauth2/protocol/ClientService.h>
 #include <authforge/oauth2/repository/ITokenRepository.h>
@@ -65,7 +65,7 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
         return clientService_;
     }
 
-    std::shared_ptr<oauth2::IdentityService> getIdentityService() const
+    std::shared_ptr<authforge::identity::IdentityService> getIdentityService() const
     {
         return identityService_;
     }
@@ -75,7 +75,7 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     // during initAndStart() (before requests are served); thereafter it is
     // read-only, and the const pointer enforces that at the type level for
     // every holder (this plugin, TokenService, the JWKS controller).
-    std::shared_ptr<const oauth2::JwkManager> getJwkManager() const
+    std::shared_ptr<const authforge::oauth2::JwkManager> getJwkManager() const
     {
         return jwkManager_;
     }
@@ -356,10 +356,10 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     std::shared_ptr<oauth2::IRoleRepository> roleRepo_;
     std::shared_ptr<oauth2::IUserRepository> userRepo_;
     std::shared_ptr<oauth2::ISubjectMappingRepository> subjectMappingRepo_;
-    std::shared_ptr<oauth2::OAuth2CleanupService> cleanupService_;
+    std::shared_ptr<authforge::drogon::OAuth2CleanupService> cleanupService_;
     std::shared_ptr<authforge::oauth2::protocol::TokenService> tokenService_;
     std::shared_ptr<authforge::oauth2::protocol::ClientService> clientService_;
-    std::shared_ptr<oauth2::IdentityService> identityService_;
+    std::shared_ptr<authforge::identity::IdentityService> identityService_;
     // M2b Task 17 slice 12: first production instantiation of
     // authforge::common::ports::IRoleProvider (via the Adapter-side
     // StorageRoleProvider, backed by storage_). Not yet consumed by any
@@ -368,8 +368,8 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     // into an actual call site requires ISubjectResolver too (a later
     // slice). Constructed here so the Adapter class has a real production
     // instantiation point once that wiring happens.
-    std::shared_ptr<oauth2::adapters::StorageRoleProvider> roleProvider_;
-    std::shared_ptr<const oauth2::JwkManager> jwkManager_;
+    std::shared_ptr<authforge::drogon::adapters::StorageRoleProvider> roleProvider_;
+    std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager_;
 
     std::string storageType_;
 

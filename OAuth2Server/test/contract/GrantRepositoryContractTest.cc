@@ -77,7 +77,7 @@ OAuth2AuthCode makeAuthCode(
 // unchanged. Prerequisite plumbing for the consumeAuthCode scenarios below,
 // not independently motivated (see file header).
 void runGrantRepository_SaveGetRoundTripContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IGrantRepository> repo,
   const std::string &clientId
 )
@@ -100,7 +100,7 @@ void runGrantRepository_SaveGetRoundTripContract(
 
 // getAuthCode on an id that was never saved must return nullopt.
 void runGrantRepository_NotFoundContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IGrantRepository> repo
 )
 {
@@ -114,7 +114,7 @@ void runGrantRepository_NotFoundContract(
 // redirect_uri succeeds exactly once, returning the code's data. This is
 // the "happy path" companion to the mismatch/reuse scenarios below.
 void runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IGrantRepository> repo,
   const std::string &clientId
 )
@@ -138,7 +138,7 @@ void runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
 // consumed by an attacker-controlled redirect target). This is the specific
 // security property the task description calls out as "务必覆盖".
 void runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IGrantRepository> repo,
   const std::string &clientId
 )
@@ -160,7 +160,7 @@ void runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(
 // SECOND call with the same (now-already-consumed) code -- even with the
 // correct redirect_uri -- MUST return nullopt.
 void runGrantRepository_ConsumeAuthCode_SingleUseContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IGrantRepository> repo,
   const std::string &clientId
 )

@@ -37,7 +37,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -108,7 +108,7 @@ void GitHubController::login(
 
     if (code.empty())
     {
-        ::common::error::ErrorResponder::respond(
+        ::authforge::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -122,7 +122,7 @@ void GitHubController::login(
 
     if (clientId.empty() || clientSecret.empty())
     {
-        ::common::error::ErrorResponder::respond(
+        ::authforge::common::error::ErrorResponder::respond(
           req, std::move(callback), "INTERNAL_ERROR", "github login: GitHub OAuth not configured"
         );
         return;
@@ -151,8 +151,8 @@ void GitHubController::login(
                 );
                 return;
             }
-            std::string accessToken = ::oauth2::utils::generateSecureToken();
-            std::string refreshToken = ::oauth2::utils::generateSecureToken();
+            std::string accessToken = ::authforge::drogon::utils::generateSecureToken();
+            std::string refreshToken = ::authforge::drogon::utils::generateSecureToken();
             auto now = std::chrono::duration_cast<std::chrono::seconds>(
                          std::chrono::system_clock::now().time_since_epoch()
             )
@@ -344,8 +344,10 @@ void GitHubController::login(
                                 return;
                             }
 
-                            std::string accessToken = ::oauth2::utils::generateSecureToken();
-                            std::string refreshToken = ::oauth2::utils::generateSecureToken();
+                            std::string accessToken =
+                              ::authforge::drogon::utils::generateSecureToken();
+                            std::string refreshToken =
+                              ::authforge::drogon::utils::generateSecureToken();
                             auto now = std::chrono::duration_cast<std::chrono::seconds>(
                                          std::chrono::system_clock::now().time_since_epoch()
                             )
@@ -449,8 +451,9 @@ void GitHubController::login(
                           // New GitHub user - create local account + link
                           std::string username = "gh_" + githubLogin;
                           std::string passwordHash =
-                            ::oauth2::utils::generateSecureToken();  // random, user can't login
-                                                                     // with password
+                            ::authforge::drogon::utils::generateSecureToken();  // random, user
+                                                                                // can't login with
+                                                                                // password
                           db->execSqlAsync(
                             "INSERT INTO users (username, password_hash, salt, email, "
                             "email_verified) "

@@ -3,8 +3,8 @@
 #include <oauth2/error/ErrorHandler.h>
 
 using namespace drogon;
-using namespace drogon::orm;
-using namespace common::error;
+using namespace ::drogon::orm;
+using namespace authforge::common::error;
 
 // These legacy tests were migrated when Error::code became a string Error_Code
 // (see spec error-code-message-standardization task 2.1). They now construct

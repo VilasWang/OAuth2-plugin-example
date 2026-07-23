@@ -176,11 +176,11 @@ enum class FilterOutcome
     Neither
 };
 
-FilterOutcome runValidation(const drogon::HttpRequestPtr &req)
+FilterOutcome runValidation(const ::drogon::HttpRequestPtr &req)
 {
     RequestValidationFilter filter;
     FilterOutcome outcome = FilterOutcome::Neither;
-    auto fcb = [&outcome](const drogon::HttpResponsePtr &) { outcome = FilterOutcome::Rejected; };
+    auto fcb = [&outcome](const ::drogon::HttpResponsePtr &) { outcome = FilterOutcome::Rejected; };
     auto fccb = [&outcome]() { outcome = FilterOutcome::Passed; };
     filter.doFilter(req, std::move(fcb), std::move(fccb));
     return outcome;
@@ -227,14 +227,14 @@ DROGON_TEST(Property4_3_1_ValidationRules_RandomizedOutcomes_Baseline)
     struct Case
     {
         const char *path;
-        drogon::HttpMethod method;
+        ::drogon::HttpMethod method;
     };
 
     const std::vector<Case> cases = {
-      {"/oauth2/authorize", drogon::Get},
-      {"/oauth2/token", drogon::Post},
-      {"/oauth2/login", drogon::Post},
-      {"/api/register", drogon::Post},
+      {"/oauth2/authorize", ::drogon::Get},
+      {"/oauth2/token", ::drogon::Post},
+      {"/oauth2/login", ::drogon::Post},
+      {"/api/register", ::drogon::Post},
     };
 
     constexpr int kRounds = 24;
@@ -243,7 +243,7 @@ DROGON_TEST(Property4_3_1_ValidationRules_RandomizedOutcomes_Baseline)
         const Case &c = cases[gen.pick(cases.size())];
 
         // Build a VALID request for the chosen path.
-        auto ok = drogon::HttpRequest::newHttpRequest();
+        auto ok = ::drogon::HttpRequest::newHttpRequest();
         ok->setMethod(c.method);
         ok->setPath(c.path);
         std::string missingField;
@@ -275,7 +275,7 @@ DROGON_TEST(Property4_3_1_ValidationRules_RandomizedOutcomes_Baseline)
         CHECK(runValidation(ok) == FilterOutcome::Passed);
 
         // Build an INVALID variant (omit a required field) -> must be REJECTED.
-        auto bad = drogon::HttpRequest::newHttpRequest();
+        auto bad = ::drogon::HttpRequest::newHttpRequest();
         bad->setMethod(c.method);
         bad->setPath(c.path);
         if (std::string(c.path) == "/oauth2/authorize")
@@ -312,8 +312,8 @@ DROGON_TEST(Property4_3_1_ValidationRules_UnconfiguredPath_PassThrough_Baseline)
       {"/health", "/metrics", "/random/unmatched/path", "/static/app.js"};
     for (int i = 0; i < 8; ++i)
     {
-        auto req = drogon::HttpRequest::newHttpRequest();
-        req->setMethod(drogon::Get);
+        auto req = ::drogon::HttpRequest::newHttpRequest();
+        req->setMethod(::drogon::Get);
         req->setPath(unconfigured[gen.pick(unconfigured.size())]);
         CHECK(runValidation(req) == FilterOutcome::Passed);
     }

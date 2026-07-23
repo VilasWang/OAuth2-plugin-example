@@ -196,12 +196,12 @@ enum class FilterOutcome
 
 // Runs RequestValidationFilter::doFilter synchronously (validation is sync)
 // and reports which terminal callback fired.
-FilterOutcome runValidation(const drogon::HttpRequestPtr &req)
+FilterOutcome runValidation(const ::drogon::HttpRequestPtr &req)
 {
     RequestValidationFilter filter;
     FilterOutcome outcome = FilterOutcome::Neither;
 
-    auto fcb = [&outcome](const drogon::HttpResponsePtr &) { outcome = FilterOutcome::Rejected; };
+    auto fcb = [&outcome](const ::drogon::HttpResponsePtr &) { outcome = FilterOutcome::Rejected; };
     auto fccb = [&outcome]() { outcome = FilterOutcome::Passed; };
 
     filter.doFilter(req, std::move(fcb), std::move(fccb));
@@ -217,8 +217,8 @@ FilterOutcome runValidation(const drogon::HttpRequestPtr &req)
 DROGON_TEST(Unit_InitOrder_1_2_Authorize_RulesComplete_Baseline)
 {
     // Valid authorize request -> passes.
-    auto ok = drogon::HttpRequest::newHttpRequest();
-    ok->setMethod(drogon::Get);
+    auto ok = ::drogon::HttpRequest::newHttpRequest();
+    ok->setMethod(::drogon::Get);
     ok->setPath("/oauth2/authorize");
     ok->setParameter("client_id", "test-client");
     ok->setParameter("redirect_uri", "http://localhost:5173/callback");
@@ -226,8 +226,8 @@ DROGON_TEST(Unit_InitOrder_1_2_Authorize_RulesComplete_Baseline)
     CHECK(runValidation(ok) == FilterOutcome::Passed);
 
     // Missing required client_id -> rejected (proves rule is present & enabled).
-    auto bad = drogon::HttpRequest::newHttpRequest();
-    bad->setMethod(drogon::Get);
+    auto bad = ::drogon::HttpRequest::newHttpRequest();
+    bad->setMethod(::drogon::Get);
     bad->setPath("/oauth2/authorize");
     bad->setParameter("redirect_uri", "http://localhost:5173/callback");
     bad->setParameter("response_type", "code");
@@ -237,15 +237,15 @@ DROGON_TEST(Unit_InitOrder_1_2_Authorize_RulesComplete_Baseline)
 DROGON_TEST(Unit_InitOrder_1_2_Token_RulesComplete_Baseline)
 {
     // Valid token request -> passes.
-    auto ok = drogon::HttpRequest::newHttpRequest();
-    ok->setMethod(drogon::Post);
+    auto ok = ::drogon::HttpRequest::newHttpRequest();
+    ok->setMethod(::drogon::Post);
     ok->setPath("/oauth2/token");
     ok->setParameter("grant_type", "authorization_code");
     CHECK(runValidation(ok) == FilterOutcome::Passed);
 
     // Missing required grant_type -> rejected.
-    auto bad = drogon::HttpRequest::newHttpRequest();
-    bad->setMethod(drogon::Post);
+    auto bad = ::drogon::HttpRequest::newHttpRequest();
+    bad->setMethod(::drogon::Post);
     bad->setPath("/oauth2/token");
     CHECK(runValidation(bad) == FilterOutcome::Rejected);
 }
@@ -253,16 +253,16 @@ DROGON_TEST(Unit_InitOrder_1_2_Token_RulesComplete_Baseline)
 DROGON_TEST(Unit_InitOrder_1_2_Login_RulesComplete_Baseline)
 {
     // Valid login (body fields fall back to request parameters) -> passes.
-    auto ok = drogon::HttpRequest::newHttpRequest();
-    ok->setMethod(drogon::Post);
+    auto ok = ::drogon::HttpRequest::newHttpRequest();
+    ok->setMethod(::drogon::Post);
     ok->setPath("/oauth2/login");
     ok->setParameter("username", "alice");
     ok->setParameter("password", "password123");  // >= 8 chars, valid pattern
     CHECK(runValidation(ok) == FilterOutcome::Passed);
 
     // Password too short (< 8) -> rejected (proves min-length rule is present).
-    auto bad = drogon::HttpRequest::newHttpRequest();
-    bad->setMethod(drogon::Post);
+    auto bad = ::drogon::HttpRequest::newHttpRequest();
+    bad->setMethod(::drogon::Post);
     bad->setPath("/oauth2/login");
     bad->setParameter("username", "alice");
     bad->setParameter("password", "short");
@@ -272,16 +272,16 @@ DROGON_TEST(Unit_InitOrder_1_2_Login_RulesComplete_Baseline)
 DROGON_TEST(Unit_InitOrder_1_2_Register_RulesComplete_Baseline)
 {
     // Valid register -> passes.
-    auto ok = drogon::HttpRequest::newHttpRequest();
-    ok->setMethod(drogon::Post);
+    auto ok = ::drogon::HttpRequest::newHttpRequest();
+    ok->setMethod(::drogon::Post);
     ok->setPath("/api/register");
     ok->setParameter("username", "bob");
     ok->setParameter("password", "password123");
     CHECK(runValidation(ok) == FilterOutcome::Passed);
 
     // Missing required password -> rejected.
-    auto bad = drogon::HttpRequest::newHttpRequest();
-    bad->setMethod(drogon::Post);
+    auto bad = ::drogon::HttpRequest::newHttpRequest();
+    bad->setMethod(::drogon::Post);
     bad->setPath("/api/register");
     bad->setParameter("username", "bob");
     CHECK(runValidation(bad) == FilterOutcome::Rejected);
@@ -293,8 +293,8 @@ DROGON_TEST(Unit_InitOrder_1_2_Register_RulesComplete_Baseline)
 // rules to unconfigured paths is caught.
 DROGON_TEST(Unit_InitOrder_1_2_UnconfiguredPath_PassesThrough_Baseline)
 {
-    auto req = drogon::HttpRequest::newHttpRequest();
-    req->setMethod(drogon::Get);
+    auto req = ::drogon::HttpRequest::newHttpRequest();
+    req->setMethod(::drogon::Get);
     req->setPath("/health");
     CHECK(runValidation(req) == FilterOutcome::Passed);
 }

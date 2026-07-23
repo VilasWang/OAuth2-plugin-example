@@ -75,7 +75,7 @@
 #include "Property4_PreservationSupport.h"
 
 using namespace oauth2::test::concurrency;
-using oauth2::filters::AuthorizationFilter;
+using authforge::drogon::filters::AuthorizationFilter;
 
 namespace
 {

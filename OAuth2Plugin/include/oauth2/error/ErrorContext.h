@@ -2,7 +2,7 @@
 
 #include <optional>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 // ErrorContext centralizes the Production_Mode decision shared by every error
@@ -42,4 +42,4 @@ class ErrorContext
     static bool defaultDetailedErrorsAllowed();
 };
 
-}  // namespace common::error
+}  // namespace authforge::common::error

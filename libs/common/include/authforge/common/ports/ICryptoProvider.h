@@ -6,7 +6,7 @@
 // design.md §5.6 identifies ("Domain 去 Drogon 化的主体工作不是 OpenSSL...
 // 而是替换散落各处的 drogon::utils"). It covers every cryptographic
 // primitive the Domain layer currently reaches for via
-// oauth2::utils::CryptoUtils.h (a header-only file wrapping
+// authforge::common::utils::CryptoUtils.h (a header-only file wrapping
 // drogon::utils::base64EncodeUnpadded / getSha256 / secureRandomBytes /
 // getUuid) plus the additional primitives design.md's port table lists
 // that CryptoUtils.h does not yet cover (HMAC, PBKDF2, RSA/JWT signing --

@@ -4,9 +4,9 @@
 #include <regex>
 #include <string>
 
-using oauth2::utils::normalizeEmail;
-using oauth2::validation::EMAIL_MAX_LEN;
-using oauth2::validation::EMAIL_PATTERN;
+using authforge::common::utils::normalizeEmail;
+using authforge::drogon::validation::EMAIL_MAX_LEN;
+using authforge::drogon::validation::EMAIL_PATTERN;
 
 // Helper: check whether an address passes the W3C HTML5 email regex.
 static bool matchesEmailPattern(const std::string &email)

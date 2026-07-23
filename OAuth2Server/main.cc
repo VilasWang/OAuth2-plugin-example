@@ -75,14 +75,14 @@ static Json::Value loadConfiguration(const std::string &configPath)
 {
     Json::Value config;
 
-    if (!common::config::ConfigManager::load(configPath, config))
+    if (!authforge::common::config::ConfigManager::load(configPath, config))
     {
         LOG_FATAL << "Failed to load configuration from: " << configPath;
         exit(1);
     }
 
     std::string validationError;
-    if (!common::config::ConfigManager::validate(config, validationError))
+    if (!authforge::common::config::ConfigManager::validate(config, validationError))
     {
         LOG_FATAL << "Configuration validation failed: " << validationError;
         exit(1);
@@ -111,13 +111,15 @@ int main()
     Json::Value config = loadConfiguration(configPath);
     drogon::app().loadConfigJson(config);
 
+    LOG_INFO << "Database host: "
+             << authforge::common::config::ConfigManager::get<std::string>(
+                  config, "db_clients.0.host", "localhost"
+                );
     LOG_INFO
-      << "Database host: "
-      << common::config::ConfigManager::get<std::string>(config, "db_clients.0.host", "localhost");
-    LOG_INFO << "Database port: "
-             << common::config::ConfigManager::get<int>(config, "db_clients.0.port", 5432);
+      << "Database port: "
+      << authforge::common::config::ConfigManager::get<int>(config, "db_clients.0.port", 5432);
     LOG_INFO << "Redis host: "
-             << common::config::ConfigManager::get<std::string>(
+             << authforge::common::config::ConfigManager::get<std::string>(
                   config, "redis_clients.0.host", "localhost"
                 );
 
@@ -133,7 +135,7 @@ int main()
     // truth invariants at startup (Requirement 3.5). A violation aborts the
     // process so a defective build is never released.
     drogon::app().registerBeginningAdvice([]() {
-        common::error::ErrorCatalog::validateInvariants();
+        authforge::common::error::ErrorCatalog::validateInvariants();
         LOG_INFO << "ErrorCatalog invariants validated";
     });
 
@@ -174,10 +176,11 @@ int main()
             if (hodor)
             {
                 hodor->setRejectResponseFactory([](const drogon::HttpRequestPtr &req) {
-                    common::error::Error error = common::error::Error::fromCode(
-                      "VALIDATION_RATE_LIMITED", common::error::RequestId::resolve(req)
-                    );
-                    return common::error::ErrorResponder::buildResponse(req, error);
+                    authforge::common::error::Error error =
+                      authforge::common::error::Error::fromCode(
+                        "VALIDATION_RATE_LIMITED", authforge::common::error::RequestId::resolve(req)
+                      );
+                    return authforge::common::error::ErrorResponder::buildResponse(req, error);
                 });
                 LOG_INFO << "Hodor rate limiter enabled";
             }
@@ -195,7 +198,7 @@ int main()
     // why OAuth2Plugin no longer calls it itself: circular-dependency
     // avoidance between OAuth2Plugin and libs/drogon).
     LOG_INFO << "Initializing API documentation...";
-    oauth2::controllers::OAuth2StandardController::initApiDocs();
+    authforge::drogon::controllers::OAuth2StandardController::initApiDocs();
     bootstrap::setupOpenApi();
 
     // Swagger UI is available at http://localhost:8080/docs/api/swagger-ui/

@@ -19,7 +19,7 @@
 // dependency edge back into OAuth2Plugin (which does depend on Drogon).
 //
 // namespace: authforge::common::error (design.md §6 "命名空间同步：
-// common::error/common::config -> authforge::common::").
+// authforge::common::error/authforge::common::config -> authforge::common::").
 
 #include <exception>
 #include <string>
@@ -30,7 +30,7 @@ namespace authforge::common::error
 
 /**
  * @brief Stable error category taxonomy. Names MUST NOT change (mirrors
- * the pre-existing common::error::ErrorCategory contract).
+ * the pre-existing authforge::common::error::ErrorCategory contract).
  */
 enum class ErrorCategory
 {

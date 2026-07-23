@@ -11,9 +11,9 @@
 //     absent; in non-Production_Mode `details` is present and lists the field
 //     names and the corresponding failure reasons.
 //
-// oauth2::validation::HttpResponder::buildErrorResponse is the entry point under
-// test; it builds the Envelope via common::error::Error and gates `details` on
-// common::error::ErrorContext. The ErrorContext test hooks
+// authforge::drogon::validation::HttpResponder::buildErrorResponse is the entry point under
+// test; it builds the Envelope via authforge::common::error::Error and gates `details` on
+// authforge::common::error::ErrorContext. The ErrorContext test hooks
 // (setDetailedErrorsOverride / clearDetailedErrorsOverride) switch
 // Production_Mode deterministically without relying on build flags or
 // environment variables. Every test restores the default state with
@@ -34,8 +34,8 @@
 #include <vector>
 
 using namespace drogon;
-using namespace common::error;
-using oauth2::validation::HttpResponder;
+using namespace authforge::common::error;
+using authforge::drogon::validation::HttpResponder;
 
 namespace
 {

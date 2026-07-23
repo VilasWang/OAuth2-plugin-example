@@ -4,7 +4,7 @@
 #include <vector>
 #include <json/json.h>
 
-namespace common::config
+namespace authforge::common::config
 {
 
 // Environment variable override configuration
@@ -43,4 +43,4 @@ inline const std::vector<EnvOverride> OAUTH2_ENV_OVERRIDES =
     false},
    {"custom_config.cors.allow_origins", "OAUTH2_CORS_ALLOW_ORIGINS", false, /*isStringList=*/true}};
 
-}  // namespace common::config
+}  // namespace authforge::common::config

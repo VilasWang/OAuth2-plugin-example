@@ -4,7 +4,7 @@
 #include <string>
 #include <functional>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 /**
@@ -37,14 +37,14 @@ class OAuth2ErrorHandler
      *                     (RFC 6749 §5.2 / Requirement 2.9). HTTP 401 is preserved.
      */
     static void sendErrorResponse(
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &errorCode,
       const std::string &description = "",
       const std::string &errorUri = "",
       const std::string &authScheme = ""
     );
 
-    static drogon::HttpStatusCode getHttpStatusCode(const std::string &errorCode);
+    static ::drogon::HttpStatusCode getHttpStatusCode(const std::string &errorCode);
 
     // Standard OAuth2 Error Codes
     static constexpr const char *INVALID_REQUEST = "invalid_request";
@@ -57,4 +57,4 @@ class OAuth2ErrorHandler
     static constexpr const char *TEMPORARILY_UNAVAILABLE = "temporarily_unavailable";
 };
 
-}  // namespace common::error
+}  // namespace authforge::common::error

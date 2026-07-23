@@ -5,10 +5,10 @@
 
 using namespace drogon;
 
-namespace oauth2::filters
+namespace authforge::drogon::filters
 {
 
-class OAuth2AuthFilter : public drogon::HttpFilter<OAuth2AuthFilter>
+class OAuth2AuthFilter : public ::drogon::HttpFilter<OAuth2AuthFilter>
 {
   public:
     OAuth2AuthFilter()
@@ -33,4 +33,4 @@ class OAuth2AuthFilter : public drogon::HttpFilter<OAuth2AuthFilter>
     ::OAuth2Plugin *resolvePlugin() const;
 };
 
-}  // namespace oauth2::filters
+}  // namespace authforge::drogon::filters

@@ -5,7 +5,7 @@
 // relocates JwkManager from OAuth2Plugin/include/oauth2/utils/JwkManager.h
 // into libs/oauth2 (Domain layer), now that slices 8-9 removed its two
 // blockers (hardcoded DrogonLogger dependency; hardcoded
-// oauth2::adapters::OpenSslCryptoProvider dependency for base64url).
+// authforge::drogon::adapters::OpenSslCryptoProvider dependency for base64url).
 //
 // Behavior/API is otherwise UNCHANGED from the pre-move class (same
 // method signatures, same init-once-then-read-only concurrency contract,
@@ -64,7 +64,7 @@ class JwkManager
      * Production call sites that want JwkManager's diagnostic log lines
      * (key-load source, init-once-violation warnings, sign failures)
      * MUST pass a real ILogger implementation explicitly (e.g.
-     * oauth2::adapters::DrogonLogger, from the Adapter layer).
+     * authforge::drogon::adapters::DrogonLogger, from the Adapter layer).
      *
      * Does NOT take ownership: the caller must keep `*logger` alive for
      * at least this object's lifetime.

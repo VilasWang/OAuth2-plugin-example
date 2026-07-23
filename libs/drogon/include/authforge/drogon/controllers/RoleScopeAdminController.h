@@ -20,50 +20,50 @@ class RoleScopeAdminController : public ::drogon::HttpController<RoleScopeAdminC
       RoleScopeAdminController::listRoles,
       "/api/admin/roles",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       RoleScopeAdminController::createRole,
       "/api/admin/roles",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       RoleScopeAdminController::updateRole,
       "/api/admin/roles/{roleId}",
       ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       RoleScopeAdminController::deleteRole,
       "/api/admin/roles/{roleId}",
       ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     // Scopes
     ADD_METHOD_TO(
       RoleScopeAdminController::listScopes,
       "/api/admin/scopes",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       RoleScopeAdminController::createScope,
       "/api/admin/scopes",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       RoleScopeAdminController::updateScope,
       "/api/admin/scopes/{scopeId}",
       ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       RoleScopeAdminController::deleteScope,
       "/api/admin/scopes/{scopeId}",
       ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

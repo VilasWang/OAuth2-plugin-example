@@ -10,48 +10,48 @@
 #include <sstream>
 #include <utility>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 namespace
 {
 
 // Map a numeric HTTP status (as registered in the ErrorCatalog) to the
-// drogon::HttpStatusCode enum. Covers every status the Application catalog can
+// ::drogon::HttpStatusCode enum. Covers every status the Application catalog can
 // register (400/401/403/404/409/429/500/502/503/504); anything unexpected
 // defaults to 500 Internal Server Error, keeping the function total.
-drogon::HttpStatusCode toDrogonStatus(int httpStatus)
+::drogon::HttpStatusCode toDrogonStatus(int httpStatus)
 {
     switch (httpStatus)
     {
         case 400:
-            return drogon::k400BadRequest;
+            return ::drogon::k400BadRequest;
         case 401:
-            return drogon::k401Unauthorized;
+            return ::drogon::k401Unauthorized;
         case 403:
-            return drogon::k403Forbidden;
+            return ::drogon::k403Forbidden;
         case 404:
-            return drogon::k404NotFound;
+            return ::drogon::k404NotFound;
         case 409:
-            return drogon::k409Conflict;
+            return ::drogon::k409Conflict;
         case 429:
-            return drogon::k429TooManyRequests;
+            return ::drogon::k429TooManyRequests;
         case 502:
-            return drogon::k502BadGateway;
+            return ::drogon::k502BadGateway;
         case 503:
-            return drogon::k503ServiceUnavailable;
+            return ::drogon::k503ServiceUnavailable;
         case 504:
-            return drogon::k504GatewayTimeout;
+            return ::drogon::k504GatewayTimeout;
         case 500:
         default:
-            return drogon::k500InternalServerError;
+            return ::drogon::k500InternalServerError;
     }
 }
 
 }  // namespace
 
 void ErrorResponder::respond(
-  const drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr &req,
   Callback &&cb,
   std::string code,
   std::string detailForLog,
@@ -96,7 +96,7 @@ void ErrorResponder::respond(
 }
 
 void ErrorResponder::respondValidation(
-  const drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr &req,
   Callback &&cb,
   const std::vector<FieldError> &fieldErrors
 )
@@ -132,7 +132,7 @@ void ErrorResponder::respondValidation(
 }
 
 void ErrorResponder::respondException(
-  const drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr &req,
   Callback &&cb,
   const std::exception &e,
   ErrorCategory category
@@ -153,8 +153,8 @@ void ErrorResponder::respondException(
     cb(buildResponse(req, error));
 }
 
-drogon::HttpResponsePtr ErrorResponder::buildResponse(
-  const drogon::HttpRequestPtr &req,
+::drogon::HttpResponsePtr ErrorResponder::buildResponse(
+  const ::drogon::HttpRequestPtr &req,
   const Error &error
 )
 {
@@ -171,14 +171,14 @@ drogon::HttpResponsePtr ErrorResponder::buildResponse(
     // by every entry point (Requirement 5.1 / 5.4).
     const bool includeDetails = ErrorContext::detailedErrorsAllowed();
 
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(e.toJson(includeDetails));
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(e.toJson(includeDetails));
 
     // HTTP status is the catalog-registered value (design AD-3 / Requirement 4.7)
     // and the body is always JSON (Requirement 1.4).
     resp->setStatusCode(toDrogonStatus(e.toHttpStatusCode()));
-    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);
 
     return resp;
 }
 
-}  // namespace common::error
+}  // namespace authforge::common::error

@@ -9,7 +9,7 @@
 #include <array>
 #include <cstring>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 namespace
@@ -283,4 +283,4 @@ std::vector<unsigned char> OpenSslCryptoProvider::rsaSign(
     return signature;
 }
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

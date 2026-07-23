@@ -3,7 +3,7 @@
 #include <string>
 #include <functional>
 
-namespace oauth2::validation
+namespace authforge::drogon::validation
 {
 
 // OAuth2 validation patterns and constants (unchanged from legacy)
@@ -66,4 +66,4 @@ struct Result
     static Result failure(const std::string &field, const std::string &message);
 };
 
-}  // namespace oauth2::validation
+}  // namespace authforge::drogon::validation

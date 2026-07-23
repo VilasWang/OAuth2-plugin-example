@@ -1,10 +1,10 @@
 // Task 14 (authforge-sdk-refactor, design.md §5.6): cross-validation tests
-// for oauth2::adapters::OpenSslCryptoProvider / OpenSslUuidGenerator /
+// for authforge::drogon::adapters::OpenSslCryptoProvider / OpenSslUuidGenerator /
 // SystemClock -- the Adapter-side default implementations of
 // authforge::common::ports::ICryptoProvider / IUuidGenerator / IClock.
 //
 // These tests assert BYTE-FOR-BYTE equivalence against the existing
-// drogon::utils-backed CryptoUtils.h functions the new adapters are meant
+// ::drogon::utils-backed CryptoUtils.h functions the new adapters are meant
 // to replace (call-site migration is a separate, later step within Task 14
 // -- this file only proves the new implementation is a correct drop-in
 // replacement before any call site is touched, following the same
@@ -29,7 +29,7 @@
 #include <cstdlib>
 #include <regex>
 
-using namespace oauth2::adapters;
+using namespace authforge::drogon::adapters;
 
 // ---------------------------------------------------------------------------
 // sha256 / sha256Hex
@@ -41,9 +41,9 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256Hex_MatchesDrogonGetSha256)
     const std::string input = "test-token-for-sha256-cross-check";
 
     auto ours = provider.sha256Hex(input);
-    auto theirs = drogon::utils::getSha256(input.data(), input.length());
+    auto theirs = ::drogon::utils::getSha256(input.data(), input.length());
 
-    // Case-insensitive comparison: drogon::utils::getSha256 actually
+    // Case-insensitive comparison: ::drogon::utils::getSha256 actually
     // returns UPPERCASE hex (trantor::utils::toHexString uses
     // "0123456789ABCDEF"), despite CryptoUtils.h's hashToken() doc comment
     // claiming "lowercase hex" -- that comment is stale, not a behavior
@@ -62,16 +62,16 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256Hex_MatchesDrogonGetSha256)
 }
 
 // NOTE on what this test does NOT do: it does not cross-check against
-// oauth2::utils::sha256() (CryptoUtils.h). That function was found (while
+// authforge::drogon::utils::sha256() (CryptoUtils.h). That function was found (while
 // writing this test) to have a genuine PRE-EXISTING bug -- it assumes
-// drogon::utils::getSha256() returns lowercase hex and only decodes
+// ::drogon::utils::getSha256() returns lowercase hex and only decodes
 // lowercase a-f correctly in its hand-rolled hex-to-bytes loop, but
-// drogon::utils::getSha256() actually returns UPPERCASE hex (verified:
+// ::drogon::utils::getSha256() actually returns UPPERCASE hex (verified:
 // trantor::utils::toHexString uses the "0123456789ABCDEF" alphabet), so
-// oauth2::utils::sha256() silently produces wrong bytes for any hash
+// authforge::drogon::utils::sha256() silently produces wrong bytes for any hash
 // containing A-F. This is NOT exercised by production code today (grepped
-// the full OAuth2Plugin/OAuth2Server tree: oauth2::utils::sha256() and its
-// only caller, oauth2::utils::computeCodeChallenge(), have zero call sites
+// the full OAuth2Plugin/OAuth2Server tree: authforge::drogon::utils::sha256() and its
+// only caller, authforge::drogon::utils::computeCodeChallenge(), have zero call sites
 // outside this header -- the real PKCE S256 verification path is
 // TokenService::generateSha256Hash(), a separate implementation this file
 // does not touch). Reported here rather than silently worked around: this
@@ -88,7 +88,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256_ProducesCorrectDigestLength)
     REQUIRE(digest.size() == 32);
 
     // Cross-check against the hex form instead (sha256Hex is verified
-    // correct against drogon::utils::getSha256 in the test above) --
+    // correct against ::drogon::utils::getSha256 in the test above) --
     // decode the verified-correct hex string ourselves with a
     // known-correct (uppercase-and-lowercase-tolerant) decoder and compare.
     auto hex = provider.sha256Hex(input);
@@ -128,7 +128,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_StringOverl
     const std::string input = "hello world! this has some +/= chars after b64";
 
     auto ours = provider.base64UrlEncode(input);
-    auto theirs = drogon::utils::base64EncodeUnpadded(input, true);
+    auto theirs = ::drogon::utils::base64EncodeUnpadded(input, true);
 
     CHECK(ours == theirs);
     // Unpadded base64url: no '+', '/', or '=' characters.
@@ -143,7 +143,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_BytesOverlo
     const unsigned char bytes[] = {0xFF, 0x00, 0xAB, 0xCD, 0xEF, 0x12, 0x34};
 
     auto ours = provider.base64UrlEncode(bytes, sizeof(bytes));
-    auto theirs = drogon::utils::base64EncodeUnpadded(bytes, sizeof(bytes), true);
+    auto theirs = ::drogon::utils::base64EncodeUnpadded(bytes, sizeof(bytes), true);
 
     CHECK(ours == theirs);
 }
@@ -347,7 +347,7 @@ DROGON_TEST(Unit_SystemClock_NowMillisecondsIsConsistentWithNowSeconds)
 // TokenService::generateSha256Hash RFC 7636 conformance check
 // ---------------------------------------------------------------------------
 //
-// TokenService::generateSha256Hash was migrated off drogon::utils
+// TokenService::generateSha256Hash was migrated off ::drogon::utils
 // (Task 14 slice 6) and, in a later step (M2b Task 17 slice 4), fixed to
 // be RFC 7636 §4.2 conformant: code_challenge = BASE64URL(SHA256(ASCII(
 // code_verifier))), i.e. base64url of the RAW digest bytes -- not the old,

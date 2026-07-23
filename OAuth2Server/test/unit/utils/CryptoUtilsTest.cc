@@ -1,7 +1,7 @@
 #include <drogon/drogon_test.h>
 #include <oauth2/utils/CryptoUtils.h>
 
-using namespace oauth2::utils;
+using namespace authforge::drogon::utils;
 
 DROGON_TEST(Unit_CryptoUtils_GenerateSecureToken)
 {

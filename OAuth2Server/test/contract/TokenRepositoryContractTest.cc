@@ -87,7 +87,7 @@ OAuth2RefreshToken makeRefreshToken(
 // backends implement this uniformly (no divergence found).
 // ---------------------------------------------------------------------------
 void runTokenRepository_AccessTokenSaveGetRoundTripContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<ITokenRepository> repo,
   const std::string &clientId
 )
@@ -107,7 +107,7 @@ void runTokenRepository_AccessTokenSaveGetRoundTripContract(
 }
 
 void runTokenRepository_AccessTokenNotFoundContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<ITokenRepository> repo
 )
 {
@@ -191,7 +191,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessToke
 namespace
 {
 void runTokenRepository_RefreshTokenSaveGetRoundTripContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<ITokenRepository> repo,
   const std::string &clientId
 )
@@ -402,7 +402,7 @@ namespace
 // concurrency-sensitive assertions, so it is consistent with this
 // codebase's existing standard of evidence rather than a novel weaker one.
 void runTokenRepository_AtomicRevokeRefreshToken_ConcurrentCasContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<ITokenRepository> repo,
   const std::string &clientId
 )
@@ -461,7 +461,7 @@ void runTokenRepository_AtomicRevokeRefreshToken_ConcurrentCasContract(
 // (see the Memory wrapper's comment for why Memory cannot be given an
 // equivalent failure-injection test).
 void runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<ITokenRepository> repo,
   const std::string &clientId
 )
@@ -597,8 +597,8 @@ DROGON_TEST(
         db->execSqlAsync(
           "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, expires_at, "
           "revoked) VALUES ($1, $2, $3, $4, $5, $6)",
-          [cb](const drogon::orm::Result &) { cb(); },
-          [cb](const drogon::orm::DrogonDbException &) { cb(); },
+          [cb](const ::drogon::orm::Result &) { cb(); },
+          [cb](const ::drogon::orm::DrogonDbException &) { cb(); },
           atToken,
           std::string("vue-client"),
           std::string("pre-existing"),
@@ -625,8 +625,8 @@ DROGON_TEST(
     waitForVoid([&](auto cb) {
         db->execSqlAsync(
           "DELETE FROM oauth2_access_tokens WHERE token = $1",
-          [cb](const drogon::orm::Result &) { cb(); },
-          [cb](const drogon::orm::DrogonDbException &) { cb(); },
+          [cb](const ::drogon::orm::Result &) { cb(); },
+          [cb](const ::drogon::orm::DrogonDbException &) { cb(); },
           atToken
         );
     });

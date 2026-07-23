@@ -54,7 +54,7 @@ namespace
 // registered. This has no fixture dependency, so it needs no seed data on
 // any backend.
 void runClientRepository_NotFoundContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IClientRepository> repo
 )
 {
@@ -82,7 +82,7 @@ void runClientRepository_NotFoundContract(
 // contract test below (KnownClientHashValidationContract) that matches its
 // real (type-agnostic) behavior instead of papering over the difference.
 void runClientRepository_PublicClientAcceptsAnySecretContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IClientRepository> repo,
   const std::string &publicClientId
 )
@@ -110,7 +110,7 @@ void runClientRepository_PublicClientAcceptsAnySecretContract(
 // time comparison). Not run against Redis for the same reason as the PUBLIC
 // test above.
 void runClientRepository_ConfidentialClientValidatesSecretContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IClientRepository> repo,
   const std::string &confidentialClientId,
   const std::string &correctSecret,
@@ -148,7 +148,7 @@ void runClientRepository_ConfidentialClientValidatesSecretContract(
 // This test asserts that actual, documented behavior rather than a PUBLIC/
 // CONFIDENTIAL distinction Redis does not implement.
 void runClientRepository_Redis_KnownClientHashValidationContract(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   std::shared_ptr<IClientRepository> repo,
   const std::string &clientId,
   const std::string &correctSecret,
@@ -249,14 +249,14 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
     const std::string clientId = "contract-redis-client-" + uniqueSuffix();
     const std::string secret = "contract-secret";
     const std::string salt = "contract-salt";
-    const std::string hash = drogon::utils::getSha256(secret + salt);
+    const std::string hash = ::drogon::utils::getSha256(secret + salt);
 
     // Seed the client hash directly -- IClientRepository has no write
     // method, and oauth2::RedisClientRepository never gained one (see file header).
     waitForVoid([&](auto cb) {
         redis->execCommandAsync(
-          [cb](const drogon::nosql::RedisResult &) { cb(); },
-          [cb](const drogon::nosql::RedisException &) { cb(); },
+          [cb](const ::drogon::nosql::RedisResult &) { cb(); },
+          [cb](const ::drogon::nosql::RedisException &) { cb(); },
           "HSET oauth2:client:%s secret %s salt %s redirect_uris %s",
           clientId.c_str(),
           hash.c_str(),
@@ -273,8 +273,8 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
     // Cleanup.
     waitForVoid([&](auto cb) {
         redis->execCommandAsync(
-          [cb](const drogon::nosql::RedisResult &) { cb(); },
-          [cb](const drogon::nosql::RedisException &) { cb(); },
+          [cb](const ::drogon::nosql::RedisResult &) { cb(); },
+          [cb](const ::drogon::nosql::RedisException &) { cb(); },
           "DEL oauth2:client:%s",
           clientId.c_str()
         );

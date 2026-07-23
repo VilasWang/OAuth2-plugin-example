@@ -4,11 +4,8 @@
 #include <vector>
 #include <cstdint>
 
-namespace oauth2
+namespace authforge::common::utils
 {
-namespace utils
-{
-
 /**
  * @brief TOTP (Time-based One-Time Password) utility (RFC 6238)
  * Uses HMAC-SHA1 with 30-second time steps and 6-digit codes.
@@ -63,5 +60,4 @@ class TotpUtils
     static uint32_t generateOtp(const std::vector<uint8_t> &key, uint64_t counter);
 };
 
-}  // namespace utils
-}  // namespace oauth2
+}  // namespace authforge::common::utils

@@ -28,7 +28,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -124,8 +124,8 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
     }
 
     std::string clientId = ::drogon::utils::getUuid();
-    std::string clientSecret = ::oauth2::utils::generateSecureToken();
-    std::string secretHash = ::oauth2::utils::hashToken(clientSecret);
+    std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string secretHash = ::authforge::drogon::utils::hashToken(clientSecret);
     std::string salt = ::drogon::utils::getUuid().substr(0, 36);
 
     auto db = getDbOrRespond(req, cb);
@@ -364,8 +364,8 @@ void ClientManagementService::resetClientSecret(
         return;
     }
 
-    std::string newSecret = ::oauth2::utils::generateSecureToken();
-    std::string newSecretHash = ::oauth2::utils::hashToken(newSecret);
+    std::string newSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string newSecretHash = ::authforge::drogon::utils::hashToken(newSecret);
 
     auto db = getDbOrRespond(req, cb);
     if (!db)

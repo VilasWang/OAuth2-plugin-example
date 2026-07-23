@@ -12,10 +12,10 @@
 namespace authforge::drogon::validation
 {
 
-using ::common::error::Error;
-using ::common::error::ErrorContext;
-using ::common::error::ErrorHandler;
-using ::common::error::RequestId;
+using ::authforge::common::error::Error;
+using ::authforge::common::error::ErrorContext;
+using ::authforge::common::error::ErrorHandler;
+using ::authforge::common::error::RequestId;
 
 namespace
 {

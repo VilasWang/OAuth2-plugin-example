@@ -22,7 +22,7 @@ void cleanupEmail(const std::string &email)
       "DELETE FROM users WHERE email = $1",
       [&](const Result &) { p.set_value(); },
       [&](const DrogonDbException &) { p.set_value(); },
-      oauth2::utils::normalizeEmail(email)
+      authforge::common::utils::normalizeEmail(email)
     );
     p.get_future().get();
 }
@@ -43,7 +43,7 @@ DROGON_TEST(Integration_Registration_EmailOnly_JsonBody)
     REQUIRE(db != nullptr);
 
     const std::string rawEmail = "Alice+promo@Example.COM";
-    const std::string canonical = oauth2::utils::normalizeEmail(rawEmail);
+    const std::string canonical = authforge::common::utils::normalizeEmail(rawEmail);
     cleanupEmail(rawEmail);
 
     // Insert the way AuthService::registerUser would (validate the contract):

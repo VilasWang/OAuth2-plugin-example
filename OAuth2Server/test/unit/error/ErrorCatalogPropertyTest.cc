@@ -9,7 +9,7 @@
 #include <unordered_set>
 #include <vector>
 
-using namespace common::error;
+using namespace authforge::common::error;
 
 // Feature: error-code-message-standardization, Property 5: Error_Catalog 完整性与唯一性
 //

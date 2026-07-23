@@ -21,10 +21,10 @@ DROGON_TEST(Unit_P1_ConfigMigration_Legacy_MainCcConfigLoadWorks)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(common::config::ConfigManager::load(configPath, config));
+    CHECK(authforge::common::config::ConfigManager::load(configPath, config));
 
     std::string errMsg;
-    CHECK(common::config::ConfigManager::validate(config, errMsg));
+    CHECK(authforge::common::config::ConfigManager::validate(config, errMsg));
 
     // Verify key config sections exist
     CHECK(config.isMember("db_clients"));
@@ -62,10 +62,11 @@ DROGON_TEST(Unit_P1_ConfigMigration_Legacy_Database_EnvOverridesWorkAsBefore)
         configPath = "../../../config.json";
 
     Json::Value config;
-    common::config::ConfigManager::load(configPath, config);
+    authforge::common::config::ConfigManager::load(configPath, config);
 
-    std::string host = common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
-    int port = common::config::ConfigManager::get<int>(config, "db_clients.0.port");
+    std::string host =
+      authforge::common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
+    int port = authforge::common::config::ConfigManager::get<int>(config, "db_clients.0.port");
 
     CHECK(host == "test-host");
     CHECK(port == 5433);

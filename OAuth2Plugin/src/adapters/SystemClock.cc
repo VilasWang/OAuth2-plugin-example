@@ -2,7 +2,7 @@
 
 #include <chrono>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 int64_t SystemClock::nowSeconds() const
@@ -21,4 +21,4 @@ int64_t SystemClock::nowMilliseconds() const
       .count();
 }
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

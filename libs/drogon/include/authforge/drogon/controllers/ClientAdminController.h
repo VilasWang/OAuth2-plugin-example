@@ -21,49 +21,49 @@ class ClientAdminController : public ::drogon::HttpController<ClientAdminControl
       ClientAdminController::listClients,
       "/api/admin/clients",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       ClientAdminController::createClient,
       "/api/admin/clients",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       ClientAdminController::getClient,
       "/api/admin/clients/{clientId}",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       ClientAdminController::updateClient,
       "/api/admin/clients/{clientId}",
       ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       ClientAdminController::deleteClient,
       "/api/admin/clients/{clientId}",
       ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       ClientAdminController::resetClientSecret,
       "/api/admin/clients/{clientId}/reset-secret",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       ClientAdminController::getClientScopes,
       "/api/admin/clients/{clientId}/scopes",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       ClientAdminController::updateClientScopes,
       "/api/admin/clients/{clientId}/scopes",
       ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

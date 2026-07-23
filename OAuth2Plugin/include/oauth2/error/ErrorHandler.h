@@ -5,9 +5,9 @@
 #include <drogon/orm/DbClient.h>
 #include <functional>
 
-namespace common::error
+namespace authforge::common::error
 {
-using drogon::orm::DrogonDbException;
+using ::drogon::orm::DrogonDbException;
 
 class ErrorHandler
 {
@@ -15,12 +15,12 @@ class ErrorHandler
     // Handle specific exception types
     static Error handleDbException(
       const DrogonDbException &e,
-      const drogon::HttpRequestPtr &req = nullptr
+      const ::drogon::HttpRequestPtr &req = nullptr
     );
     static Error handleValidationError(
       const std::string &field,
       const std::string &reason,
-      const drogon::HttpRequestPtr &req = nullptr
+      const ::drogon::HttpRequestPtr &req = nullptr
     );
 
     // Utility functions
@@ -29,4 +29,4 @@ class ErrorHandler
     static void logError(const Error &error, const std::string &context = "");
 };
 
-}  // namespace common::error
+}  // namespace authforge::common::error

@@ -7,11 +7,8 @@
 #include <iomanip>
 #include <cstring>
 
-namespace oauth2
+namespace authforge::common::utils
 {
-namespace utils
-{
-
 // PBKDF2-SHA256 parameters (OWASP recommended minimum: 600,000 iterations for SHA-256)
 static constexpr int PBKDF2_ITERATIONS = 310000;  // OWASP 2023 recommendation
 static constexpr int PBKDF2_KEY_LENGTH = 32;      // 256 bits
@@ -56,7 +53,7 @@ std::string PasswordHasher::hash(const std::string &password)
     // Task 14 (design.md §5.6): migrated off drogon::utils::secureRandomBytes
     // onto the authforge::common::ports::ICryptoProvider Adapter
     // implementation (OpenSslCryptoProvider), same fallback shape.
-    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
 
     // Generate random salt
     unsigned char salt[PBKDF2_SALT_LENGTH];
@@ -167,7 +164,7 @@ bool PasswordHasher::verify(
         // comparison already explicitly lowercases BOTH sides below before
         // comparing -- the legacy hash's stored case was never relied upon
         // to match exactly.
-        static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+        static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
         std::string inputHash = cryptoProvider.sha256Hex(password + salt);
 
         // Case-insensitive comparison (legacy hashes may vary in case)
@@ -202,5 +199,4 @@ bool PasswordHasher::needsRehash(const std::string &storedHash)
     return true;
 }
 
-}  // namespace utils
-}  // namespace oauth2
+}  // namespace authforge::common::utils

@@ -28,7 +28,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -274,7 +274,9 @@ void UserAdminService::updateUser(
           {
               // Normalize on write (matches original -- login/password-reset
               // lookups use the canonical form).
-              row.setEmail(::oauth2::utils::normalizeEmail((*jsonBody)["email"].asString()));
+              row.setEmail(
+                ::authforge::common::utils::normalizeEmail((*jsonBody)["email"].asString())
+              );
           }
           if (hasEmailVerified)
           {

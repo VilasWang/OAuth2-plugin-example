@@ -4,7 +4,7 @@
 #include <string>
 
 using namespace drogon;
-using namespace oauth2::validation;
+using namespace authforge::drogon::validation;
 
 DROGON_TEST(Unit_P0_Validation_ClientId_AllScenarios)
 {

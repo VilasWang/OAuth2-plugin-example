@@ -107,7 +107,7 @@ void registerAllControllers()
       std::make_shared<authforge::drogon::controllers::AuditController>()
     );
     drogon::app().registerController(
-      std::make_shared<oauth2::controllers::OAuth2StandardController>()
+      std::make_shared<authforge::drogon::controllers::OAuth2StandardController>()
     );
 }
 
@@ -144,20 +144,21 @@ void wireControllerPluginDependencies()
       ->setPlugin(plugin);
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::SessionController>()
       ->setPlugin(plugin);
-    drogon::DrClassMap::getSingleInstance<oauth2::controllers::OAuth2StandardController>()
+    drogon::DrClassMap::getSingleInstance<
+      authforge::drogon::controllers::OAuth2StandardController>()
       ->setPlugin(plugin);
 
     // Filters are looked up by the same by-name DrClassMap mechanism their
     // ADD_METHOD_TO string references use -- these are the OLD
-    // oauth2::filters::{AuthorizationFilter,OAuth2AuthFilter} classes
+    // authforge::drogon::filters::{AuthorizationFilter,OAuth2AuthFilter} classes
     // (OAuth2Plugin/include/oauth2/filters/*.h), NOT the libs/drogon
     // copies (see PROGRESS.md's filter-vs-controller distinction: the
     // libs/drogon filter copies are not referenced by any ADD_METHOD_TO
     // string and are dead code for routing purposes).
-    drogon::DrClassMap::getSingleInstance<oauth2::filters::AuthorizationFilter>()->setPlugin(
-      plugin
-    );
-    drogon::DrClassMap::getSingleInstance<oauth2::filters::OAuth2AuthFilter>()->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::filters::AuthorizationFilter>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::filters::OAuth2AuthFilter>()
+      ->setPlugin(plugin);
 }
 
 }  // namespace bootstrap

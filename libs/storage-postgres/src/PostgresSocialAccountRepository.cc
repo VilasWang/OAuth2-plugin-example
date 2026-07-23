@@ -69,7 +69,7 @@ void PostgresSocialAccountRepository::createLinkedUser(
 
     // random password hash -- the account can never log in with a
     // password, mirrors GitHubController.cc's existing
-    // oauth2::utils::generateSecureToken() placeholder.
+    // authforge::drogon::utils::generateSecureToken() placeholder.
     std::string passwordHash;
     {
         unsigned char buf[32];

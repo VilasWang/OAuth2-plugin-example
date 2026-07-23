@@ -5,7 +5,7 @@
 #include <utility>
 #include <set>
 
-namespace oauth2::utils
+namespace authforge::common::utils
 {
 
 /**
@@ -130,4 +130,4 @@ class SubjectGenerator
     }
 };
 
-}  // namespace oauth2::utils
+}  // namespace authforge::common::utils

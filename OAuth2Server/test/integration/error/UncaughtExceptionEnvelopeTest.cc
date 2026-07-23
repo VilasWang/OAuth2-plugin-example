@@ -50,7 +50,7 @@
 #include <vector>
 
 using namespace drogon;
-using namespace common::error;
+using namespace authforge::common::error;
 
 namespace
 {

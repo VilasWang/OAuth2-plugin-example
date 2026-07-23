@@ -3,7 +3,7 @@
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 
-namespace oauth2::validation
+namespace authforge::drogon::validation
 {
 
 // Result static methods
@@ -224,4 +224,4 @@ std::vector<Result> RuleEngine::validateAll(
     return results;
 }
 
-}  // namespace oauth2::validation
+}  // namespace authforge::drogon::validation

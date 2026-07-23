@@ -18,31 +18,31 @@ class UserSelfServiceController : public ::drogon::HttpController<UserSelfServic
       UserSelfServiceController::getProfile,
       "/api/me",
       ::drogon::Get,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       UserSelfServiceController::changePassword,
       "/api/me/password",
       ::drogon::Put,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       UserSelfServiceController::listAuthorizedApps,
       "/api/me/authorized-apps",
       ::drogon::Get,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       UserSelfServiceController::revokeAuthorizedApp,
       "/api/me/authorized-apps/{clientId}",
       ::drogon::Delete,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       UserSelfServiceController::deleteAccount,
       "/api/me",
       ::drogon::Delete,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     METHOD_LIST_END
 

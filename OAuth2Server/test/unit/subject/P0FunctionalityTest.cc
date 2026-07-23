@@ -12,7 +12,7 @@
 // subjectMappingRepository(). The SubjectGenerator unit tests below need no
 // storage.
 
-using namespace oauth2::utils;
+using namespace authforge::common::utils;
 using namespace oauth2;
 
 // ========== SubjectGenerator Tests ==========

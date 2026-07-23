@@ -21,21 +21,21 @@ class AuditController : public ::drogon::HttpController<AuditController, false>
       AuditController::dashboard,
       "/api/admin/dashboard",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     // Audit Logs
     ADD_METHOD_TO(
       AuditController::listLogs,
       "/api/admin/logs",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     // Dashboard Stats
     ADD_METHOD_TO(
       AuditController::getDashboardStats,
       "/api/admin/dashboard/stats",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

@@ -7,14 +7,14 @@
 #include <string>
 #include <vector>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 /**
  * @brief A single field-level validation failure.
  *
  * No pre-existing FieldError type exists in the codebase (validation code uses
- * oauth2::validation::Result, a different namespace concerned with rule
+ * authforge::drogon::validation::Result, a different namespace concerned with rule
  * evaluation), so ErrorResponder defines this minimal structure as the input to
  * respondValidation(). Task 6.1 (HttpResponder) is expected to construct these
  * from its validation results when delegating to ErrorResponder.
@@ -45,7 +45,7 @@ struct FieldError
 class ErrorResponder
 {
   public:
-    using Callback = std::function<void(const drogon::HttpResponsePtr &)>;
+    using Callback = std::function<void(const ::drogon::HttpResponsePtr &)>;
 
     /**
      * @brief Main entry point: build and send an Error Envelope for @p code.
@@ -59,7 +59,7 @@ class ErrorResponder
      *                      ONLY when detailed errors are allowed (non-Production_Mode).
      */
     static void respond(
-      const drogon::HttpRequestPtr &req,
+      const ::drogon::HttpRequestPtr &req,
       Callback &&cb,
       std::string code,
       std::string detailForLog = "",
@@ -75,7 +75,7 @@ class ErrorResponder
      * (Requirement 7.4 / 7.6).
      */
     static void respondValidation(
-      const drogon::HttpRequestPtr &req,
+      const ::drogon::HttpRequestPtr &req,
       Callback &&cb,
       const std::vector<FieldError> &fieldErrors
     );
@@ -88,7 +88,7 @@ class ErrorResponder
      * exception text is recorded as Internal_Detail in the log.
      */
     static void respondException(
-      const drogon::HttpRequestPtr &req,
+      const ::drogon::HttpRequestPtr &req,
       Callback &&cb,
       const std::exception &e,
       ErrorCategory category
@@ -102,10 +102,10 @@ class ErrorResponder
      * include `details` from ErrorContext. If @p error has no Request_ID it is
      * resolved from @p req so the response always carries one.
      */
-    static drogon::HttpResponsePtr buildResponse(
-      const drogon::HttpRequestPtr &req,
+    static ::drogon::HttpResponsePtr buildResponse(
+      const ::drogon::HttpRequestPtr &req,
       const Error &error
     );
 };
 
-}  // namespace common::error
+}  // namespace authforge::common::error

@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 /**
@@ -91,4 +91,4 @@ class ErrorCatalog
     static void validateInvariants();
 };
 
-}  // namespace common::error
+}  // namespace authforge::common::error

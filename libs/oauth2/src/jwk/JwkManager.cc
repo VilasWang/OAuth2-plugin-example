@@ -174,7 +174,7 @@ bool JwkManager::generateEphemeralKey()
 namespace
 {
 // See JwkManager.h's top comment: byte-for-byte identical algorithm to
-// oauth2::adapters::OpenSslCryptoProvider::base64UrlEncode /
+// authforge::drogon::adapters::OpenSslCryptoProvider::base64UrlEncode /
 // authforge::common::testing::FakeCryptoProvider::base64UrlEncode
 // (deliberately duplicated in each, for dependency-direction reasons).
 constexpr char kBase64UrlAlphabet[] =

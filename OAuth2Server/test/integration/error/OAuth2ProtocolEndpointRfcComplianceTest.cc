@@ -4,7 +4,7 @@
 //
 // Validates: Requirements 7.2, 11.3
 //   - 7.2:  每个 OAuth2_Protocol_Endpoint 经由 OAuth2 错误处理入口
-//           (common::error::OAuth2ErrorHandler) 产生错误响应，输出 RFC 6749 错误体。
+//           (authforge::common::error::OAuth2ErrorHandler) 产生错误响应，输出 RFC 6749 错误体。
 //   - 11.3: 协议端点错误响应的字段名、字段类型与错误码取值与 RFC 6749 §5.2 基线一致，
 //           不新增/删除/重命名 `error`、`error_description`、`error_uri` 字段，且
 //           不使用 Requirement 1 的 Error Envelope（无嵌套 error.code 对象）。
@@ -17,7 +17,7 @@
 //
 //   Part A — Protocol entry point (always runs, DB-independent):
 //     The single OAuth2 protocol error entry point is
-//     common::error::OAuth2ErrorHandler::sendErrorResponse (see Requirement 7.2
+//     authforge::common::error::OAuth2ErrorHandler::sendErrorResponse (see Requirement 7.2
 //     and design task 5.1). Every protocol endpoint that emits an error funnels
 //     its protocol code through this entry point (introspect/revoke call it
 //     directly; the token endpoint's RFC branches emit the same RFC §5.2 body
@@ -68,7 +68,7 @@
 #include <vector>
 
 using namespace drogon;
-using namespace common::error;
+using namespace authforge::common::error;
 
 namespace
 {
@@ -127,7 +127,7 @@ bool parseBody(const HttpResponsePtr &resp, Json::Value &out)
 // strings, every member name is in the RFC whitelist, and no Error Envelope
 // keys leak in.
 void assertRfc6749ErrorBody(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   const Json::Value &root,
   const std::unordered_set<std::string> &allowed,
   const std::string &expectedCode
@@ -285,7 +285,7 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
 // Assert that a live HTTP response is an RFC 6749 §5.2 error body of the
 // expected protocol code and HTTP status.
 void assertLiveRfcError(
-  std::shared_ptr<drogon::test::Case> TEST_CTX,
+  std::shared_ptr<::drogon::test::Case> TEST_CTX,
   const HttpResponsePtr &resp,
   const std::unordered_set<std::string> &allowed,
   const std::string &expectedCode,

@@ -34,7 +34,7 @@ class RequestValidationFilter : public HttpFilter<RequestValidationFilter>
     // 定义路由验证规则
     struct RouteValidationRules
     {
-        std::vector<oauth2::validation::Rule> rules;
+        std::vector<authforge::drogon::validation::Rule> rules;
         bool enabled;
     };
 

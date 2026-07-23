@@ -1,7 +1,7 @@
 #include <oauth2/adapters/DrogonLogger.h>
 #include <drogon/drogon.h>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 using authforge::common::ports::LogLevel;
@@ -28,4 +28,4 @@ void DrogonLogger::log(LogLevel level, const std::string &message)
     }
 }
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

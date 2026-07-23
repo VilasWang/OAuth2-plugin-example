@@ -31,7 +31,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -136,14 +136,15 @@ void MfaController::setup(
         return;
     }
 
-    std::string secret = ::oauth2::utils::TotpUtils::generateSecret();
+    std::string secret = ::authforge::common::utils::TotpUtils::generateSecret();
 
     auto db = ::drogon::app().getDbClient();
     db->execSqlAsync(
       "UPDATE users SET mfa_secret = $1 WHERE public_sub::text = $2::text",
       [sharedCb, secret, userId](const ::drogon::orm::Result &) {
-          std::string otpUri =
-            ::oauth2::utils::TotpUtils::generateOtpAuthUri(secret, userId, "OAuth2Server");
+          std::string otpUri = ::authforge::common::utils::TotpUtils::generateOtpAuthUri(
+            secret, userId, "OAuth2Server"
+          );
 
           Json::Value json;
           json["secret"] = secret;
@@ -182,7 +183,7 @@ void MfaController::verifySetup(
 
     if (code.empty() || code.length() != 6)
     {
-        ::common::error::ErrorResponder::respond(
+        ::authforge::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_FORMAT_ERROR",
@@ -231,7 +232,7 @@ void MfaController::verifySetup(
                         );
                         return;
                     }
-                    ::oauth2::observability::AuditLogger::log(
+                    ::authforge::drogon::observability::AuditLogger::log(
                       "mfa_enabled", "success", req, userId, "user", userId
                     );
                     Json::Value codesJson(Json::arrayValue);
@@ -268,7 +269,7 @@ void MfaController::verifySetup(
 
           std::string secret = r[0]["mfa_secret"].as<std::string>();
 
-          if (!::oauth2::utils::TotpUtils::verifyCode(secret, code))
+          if (!::authforge::common::utils::TotpUtils::verifyCode(secret, code))
           {
               respondError(
                 req, sharedCb, "AUTH_MFA_CODE_INVALID", "verifySetup: TOTP code is incorrect"
@@ -276,13 +277,13 @@ void MfaController::verifySetup(
               return;
           }
 
-          auto backupCodes = ::oauth2::utils::TotpUtils::generateBackupCodes(10);
+          auto backupCodes = ::authforge::common::utils::TotpUtils::generateBackupCodes(10);
           Json::Value codesJson(Json::arrayValue);
           Json::Value hashedCodesJson(Json::arrayValue);
           for (const auto &bc : backupCodes)
           {
               codesJson.append(bc);
-              hashedCodesJson.append(::oauth2::utils::hashToken(bc));
+              hashedCodesJson.append(::authforge::drogon::utils::hashToken(bc));
           }
 
           Json::StreamWriterBuilder writer;
@@ -293,7 +294,7 @@ void MfaController::verifySetup(
             "UPDATE users SET mfa_enabled = true, mfa_backup_codes = $1 "
             "WHERE public_sub::text = $2::text",
             [sharedCb, codesJson, userId, req](const ::drogon::orm::Result &) {
-                ::oauth2::observability::AuditLogger::log(
+                ::authforge::drogon::observability::AuditLogger::log(
                   "mfa_enabled", "success", req, userId, "user", userId
                 );
                 Json::Value json;
@@ -419,7 +420,7 @@ void MfaController::verifyLogin(
 
     if (mfaToken.empty() || code.empty())
     {
-        ::common::error::ErrorResponder::respond(
+        ::authforge::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -430,7 +431,7 @@ void MfaController::verifyLogin(
 
     if (clientId.empty() || redirectUri.empty())
     {
-        ::common::error::ErrorResponder::respond(
+        ::authforge::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -581,7 +582,7 @@ void MfaController::verifyLogin(
                                     return;
                                 }
 
-                                ::oauth2::observability::AuditLogger::log(
+                                ::authforge::drogon::observability::AuditLogger::log(
                                   "mfa_verified", "success", req, publicSub, "user", publicSub
                                 );
 
@@ -702,7 +703,7 @@ void MfaController::verifyLogin(
                                              ? ""
                                              : r[0]["mfa_pending_redirect_uri"].as<std::string>();
 
-          if (::oauth2::utils::TotpUtils::verifyCode(secret, code))
+          if (::authforge::common::utils::TotpUtils::verifyCode(secret, code))
           {
               plugin->validateClient(
                 clientId,
@@ -813,7 +814,7 @@ void MfaController::verifyLogin(
                                           return;
                                       }
 
-                                      ::oauth2::observability::AuditLogger::log(
+                                      ::authforge::drogon::observability::AuditLogger::log(
                                         "mfa_verified", "success", req, publicSub, "user", publicSub
                                       );
 

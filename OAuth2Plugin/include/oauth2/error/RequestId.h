@@ -3,7 +3,7 @@
 #include <drogon/HttpRequest.h>
 #include <string>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 // RequestId centralizes resolution and generation of the per-request
@@ -16,7 +16,7 @@ namespace common::error
 //   * Otherwise (header missing, empty, too long or containing characters
 //     outside the agreed set) a fresh Request_ID is generated.
 //
-// Generation uses oauth2::adapters::OpenSslUuidGenerator (Task 14, design.md
+// Generation uses authforge::drogon::adapters::OpenSslUuidGenerator (Task 14, design.md
 // §5.6: authforge::common::ports::IUuidGenerator's Adapter implementation;
 // consistent with observability/AuditLogger) so that ids are unique across
 // requests on the same backend instance while always having a length within
@@ -27,7 +27,7 @@ class RequestId
     // Returns the Request_ID for `req`: reuses a valid `X-Request-ID` header
     // value, otherwise returns a freshly generated id. Always returns a valid,
     // non-empty value (never fails on malformed headers).
-    static std::string resolve(const drogon::HttpRequestPtr &req);
+    static std::string resolve(const ::drogon::HttpRequestPtr &req);
 
     // Validates a candidate Request_ID: true iff `v` is non-empty, at most 128
     // characters long and composed solely of ASCII alphanumerics and `-`/`_`.
@@ -41,4 +41,4 @@ class RequestId
     static constexpr const char *kHeader = "X-Request-ID";
 };
 
-}  // namespace common::error
+}  // namespace authforge::common::error

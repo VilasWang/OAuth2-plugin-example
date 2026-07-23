@@ -2,9 +2,9 @@
 #include <drogon/HttpRequest.h>
 #include <oauth2/validation/RuleSet.h>
 
+using authforge::drogon::validation::RuleSet;
 using drogon::HttpRequest;
 using drogon::HttpRequestPtr;
-using oauth2::validation::RuleSet;
 
 // Helper: build a form-urlencoded POST so RuleSet parses via getParameters()
 static HttpRequestPtr makeRegisterRequest(

@@ -20,7 +20,7 @@ class EmailVerificationController
       EmailVerificationController::resend,
       "/api/verify-email/resend",
       ::drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     METHOD_LIST_END
 

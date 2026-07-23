@@ -4,18 +4,17 @@
 // OAuth2Plugin/include/oauth2/controllers/OAuth2StandardController.h into
 // libs/drogon, using the AutoCreation=false + explicit registerController
 // pattern verified across the rest of Task 20's controller migration (see
-// PROGRESS.md). Namespace deliberately LEFT AS oauth2::controllers (not
-// renamed to authforge::drogon::controllers) to avoid touching the 4
-// existing call sites (OAuth2Server/main.cc, OAuth2Plugin.cc,
-// OAuth2FlowE2ETest.cc, CategoryA_InitOrderSnapshotTest.cc) that reference
-// oauth2::controllers::OAuth2StandardController -- design.md's own naming
-// cleanup (§5.8, splitting into AuthorizationEndpointController/
+// PROGRESS.md). Namespace is authforge::drogon::controllers (finalized in
+// M8 Task 40's namespace-unification pass; the call sites in
+// OAuth2Server/main.cc, OAuth2Plugin.cc, OAuth2FlowE2ETest.cc, and
+// CategoryA_InitOrderSnapshotTest.cc were updated to match). design.md's
+// naming cleanup (§5.8, splitting into AuthorizationEndpointController/
 // TokenEndpointController/DiscoveryController) is deferred to a later task.
 
 #include <drogon/HttpController.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
-namespace oauth2::controllers
+namespace authforge::drogon::controllers
 {
 
 // Helper struct to hold client credentials and authentication scheme
@@ -42,7 +41,7 @@ struct ClientCredentials
 //     along the async chain (NOT held as a raw IOAuth2Storage*), so they are kept
 //     alive across every async hop. See OAuth2Plugin::getStorage(), which returns
 //     std::shared_ptr<oauth2::IOAuth2Storage> for exactly this reason.
-class OAuth2StandardController : public drogon::HttpController<OAuth2StandardController, false>
+class OAuth2StandardController : public ::drogon::HttpController<OAuth2StandardController, false>
 {
   public:
     static void initApiDocs();
@@ -56,78 +55,78 @@ class OAuth2StandardController : public drogon::HttpController<OAuth2StandardCon
     }
 
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(OAuth2StandardController::authorize, "/oauth2/authorize", drogon::Get);
-    ADD_METHOD_TO(OAuth2StandardController::token, "/oauth2/token", drogon::Post);
+    ADD_METHOD_TO(OAuth2StandardController::authorize, "/oauth2/authorize", ::drogon::Get);
+    ADD_METHOD_TO(OAuth2StandardController::token, "/oauth2/token", ::drogon::Post);
     ADD_METHOD_TO(
       OAuth2StandardController::userInfo,
       "/oauth2/userinfo",
-      drogon::Get,
-      "oauth2::filters::OAuth2AuthFilter"
+      ::drogon::Get,
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       OAuth2StandardController::introspect,
       "/oauth2/introspect",
-      drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      ::drogon::Post,
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       OAuth2StandardController::revoke,
       "/oauth2/revoke",
-      drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      ::drogon::Post,
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       OAuth2StandardController::metadata,
       "/.well-known/oauth-authorization-server",
-      drogon::Get
+      ::drogon::Get
     );
     ADD_METHOD_TO(
       OAuth2StandardController::oidcDiscovery,
       "/.well-known/openid-configuration",
-      drogon::Get
+      ::drogon::Get
     );
-    ADD_METHOD_TO(OAuth2StandardController::jwks, "/.well-known/jwks.json", drogon::Get);
+    ADD_METHOD_TO(OAuth2StandardController::jwks, "/.well-known/jwks.json", ::drogon::Get);
     METHOD_LIST_END
 
     void authorize(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void token(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void userInfo(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void introspect(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void revoke(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void metadata(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void oidcDiscovery(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void jwks(
-      const drogon::HttpRequestPtr &req,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
   private:
     static void initApiDocsImpl();
 
-    static drogon::HttpResponsePtr createSuccessResponse();
+    static ::drogon::HttpResponsePtr createSuccessResponse();
 
-    static ClientCredentials extractClientCredentials(const drogon::HttpRequestPtr &req);
+    static ClientCredentials extractClientCredentials(const ::drogon::HttpRequestPtr &req);
 
     static void checkUserConsentAndProceed(
       ::OAuth2Plugin *plugin,
@@ -138,15 +137,15 @@ class OAuth2StandardController : public drogon::HttpController<OAuth2StandardCon
       const std::string &scope,
       const std::string &redirectUri,
       const std::string &state,
-      std::function<void(const drogon::HttpResponsePtr &)> &&callback
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
 
     ::OAuth2Plugin *plugin_ = nullptr;
 
     /// Returns the injected plugin_ if set (Task 23 wiring), otherwise
-    /// falls back to the global drogon::app().getPlugin<OAuth2Plugin>()
+    /// falls back to the global ::drogon::app().getPlugin<OAuth2Plugin>()
     /// lookup (pre-Task-23 behavior).
     ::OAuth2Plugin *resolvePlugin() const;
 };
 
-}  // namespace oauth2::controllers
+}  // namespace authforge::drogon::controllers

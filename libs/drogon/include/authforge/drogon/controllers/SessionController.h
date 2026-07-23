@@ -63,7 +63,7 @@ class SessionController : public ::drogon::HttpController<SessionController, fal
       SessionController::logout,
       "/oauth2/logout",
       ::drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(SessionController::registerUser, "/api/register", ::drogon::Post);
     METHOD_LIST_END

@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-using namespace common::error;
+using namespace authforge::common::error;
 
 // Feature: error-code-message-standardization
 // Documentation generator/validator (Task 11.1) guarding Requirements 3.5, 3.7

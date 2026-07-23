@@ -53,13 +53,13 @@ class WebAuthnController : public ::drogon::HttpController<WebAuthnController, f
       WebAuthnController::registerBegin,
       "/api/me/webauthn/register/begin",
       ::drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     ADD_METHOD_TO(
       WebAuthnController::registerFinish,
       "/api/me/webauthn/register/finish",
       ::drogon::Post,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     // Authentication flow (no auth required - this IS the auth)
     ADD_METHOD_TO(
@@ -77,7 +77,7 @@ class WebAuthnController : public ::drogon::HttpController<WebAuthnController, f
       WebAuthnController::listCredentials,
       "/api/me/webauthn/credentials",
       ::drogon::Get,
-      "oauth2::filters::OAuth2AuthFilter"
+      "authforge::drogon::filters::OAuth2AuthFilter"
     );
     METHOD_LIST_END
 

@@ -88,7 +88,7 @@ MfaFixture enableAdminMfa()
     MfaFixture f;
     if (!db)
         return f;
-    f.secret = oauth2::utils::TotpUtils::generateSecret();
+    f.secret = authforge::common::utils::TotpUtils::generateSecret();
     std::promise<bool> p;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -333,7 +333,7 @@ DROGON_TEST(Property5_MfaCrossClientAuthFix_PendingBindingClearedOnSuccess)
     }
 
     // Successful verification (matching binding).
-    std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
     Json::Value body;
     body["mfa_token"] = mfaToken;
     body["code"] = code;
@@ -394,7 +394,7 @@ DROGON_TEST(Property5_MfaCrossClientAuthFix_RejectedVerifyKeepsBinding)
     REQUIRE(!mfaToken.empty());
 
     // Rejected: wrong client (admin-console) with correct TOTP.
-    std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
     Json::Value body;
     body["mfa_token"] = mfaToken;
     body["code"] = code;

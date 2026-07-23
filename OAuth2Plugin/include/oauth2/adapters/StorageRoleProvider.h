@@ -8,7 +8,7 @@
 // (MemoryRoleRepository userRoles_ populated from admin_users config) through
 // the new IRoleProvider port.
 //
-// Phase 4.6a: now backed by oauth2::IRoleRepository (the identity split-repo)
+// Phase 4.6a: now backed by ::oauth2::IRoleRepository (the identity split-repo)
 // instead of the god IOAuth2Storage facade. Forwards getRoles(...) to
 // roleRepo->getUserRoles(...). Placed under OAuth2Plugin/include/oauth2/
 // adapters/ alongside the other Adapter-layer port implementations.
@@ -18,13 +18,13 @@
 
 #include <memory>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 class StorageRoleProvider : public authforge::common::ports::IRoleProvider
 {
   public:
-    explicit StorageRoleProvider(std::shared_ptr<oauth2::IRoleRepository> roleRepo)
+    explicit StorageRoleProvider(std::shared_ptr<::oauth2::IRoleRepository> roleRepo)
         : roleRepo_(std::move(roleRepo))
     {
     }
@@ -58,7 +58,7 @@ class StorageRoleProvider : public authforge::common::ports::IRoleProvider
     }
 
   private:
-    std::shared_ptr<oauth2::IRoleRepository> roleRepo_;
+    std::shared_ptr<::oauth2::IRoleRepository> roleRepo_;
 };
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

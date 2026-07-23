@@ -15,7 +15,7 @@
 
 #include <authforge/common/ports/ILogger.h>
 
-namespace oauth2::adapters
+namespace authforge::drogon::adapters
 {
 
 /**
@@ -30,4 +30,4 @@ class DrogonLogger : public authforge::common::ports::ILogger
     void log(authforge::common::ports::LogLevel level, const std::string &message) override;
 };
 
-}  // namespace oauth2::adapters
+}  // namespace authforge::drogon::adapters

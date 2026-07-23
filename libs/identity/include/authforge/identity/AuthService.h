@@ -10,7 +10,7 @@
 // semantics (login-identifier routing, progressive lockout backoff,
 // hash-on-verify upgrade of legacy hashes, default-role assignment on
 // registration) but ported to the injected-port/repository style instead
-// of calling drogon::app().getDbClient() or oauth2::utils::PasswordHasher
+// of calling drogon::app().getDbClient() or authforge::common::utils::PasswordHasher
 // directly. Time-based lockout arithmetic uses IClock instead of
 // std::chrono::system_clock::now() so it stays testable with a fake clock
 // (design.md §5.6).

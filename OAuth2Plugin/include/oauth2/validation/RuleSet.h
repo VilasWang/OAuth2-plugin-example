@@ -9,7 +9,7 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 
-namespace oauth2::validation
+namespace authforge::drogon::validation
 {
 
 class RuleSet
@@ -25,7 +25,7 @@ class RuleSet
       const std::vector<Rule> &rules
     );
     static std::vector<std::string> validateRequest(
-      const drogon::HttpRequestPtr &req,
+      const ::drogon::HttpRequestPtr &req,
       const std::vector<Rule> &rules
     );
 
@@ -37,24 +37,24 @@ class RuleSet
     static std::optional<std::string> validateGrantType(const std::string &type);
     static std::optional<std::string> validateToken(const std::string &token);
 
-    static std::vector<std::string> oauth2Authorize(const drogon::HttpRequestPtr &req);
-    static std::vector<std::string> oauth2Token(const drogon::HttpRequestPtr &req);
-    static std::vector<std::string> login(const drogon::HttpRequestPtr &req);
-    static std::vector<std::string> registerUser(const drogon::HttpRequestPtr &req);
-    static std::vector<std::string> oauth2Introspect(const drogon::HttpRequestPtr &req);
-    static std::vector<std::string> oauth2Revoke(const drogon::HttpRequestPtr &req);
+    static std::vector<std::string> oauth2Authorize(const ::drogon::HttpRequestPtr &req);
+    static std::vector<std::string> oauth2Token(const ::drogon::HttpRequestPtr &req);
+    static std::vector<std::string> login(const ::drogon::HttpRequestPtr &req);
+    static std::vector<std::string> registerUser(const ::drogon::HttpRequestPtr &req);
+    static std::vector<std::string> oauth2Introspect(const ::drogon::HttpRequestPtr &req);
+    static std::vector<std::string> oauth2Revoke(const ::drogon::HttpRequestPtr &req);
 
   private:
     static std::string extractFieldValue(
-      const drogon::HttpRequestPtr &req,
+      const ::drogon::HttpRequestPtr &req,
       const std::string &field,
       const std::string &source
     );
     static std::string getValueFromSource(
-      const drogon::HttpRequestPtr &req,
+      const ::drogon::HttpRequestPtr &req,
       const std::string &field,
       const std::string &source
     );
 };
 
-}  // namespace oauth2::validation
+}  // namespace authforge::drogon::validation

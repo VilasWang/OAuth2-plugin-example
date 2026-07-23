@@ -19,43 +19,43 @@ class UserAdminController : public ::drogon::HttpController<UserAdminController,
       UserAdminController::listUsers,
       "/api/admin/users",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       UserAdminController::getUser,
       "/api/admin/users/{userId}",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       UserAdminController::updateUser,
       "/api/admin/users/{userId}",
       ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       UserAdminController::disableUser,
       "/api/admin/users/{userId}/disable",
       ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       UserAdminController::enableUser,
       "/api/admin/users/{userId}/enable",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       UserAdminController::getUserRoles,
       "/api/admin/users/{userId}/roles",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       UserAdminController::assignUserRoles,
       "/api/admin/users/{userId}/roles",
       ::drogon::Put,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

@@ -7,9 +7,9 @@
 #include <iomanip>
 
 using namespace drogon;
-using namespace drogon::orm;
+using namespace ::drogon::orm;
 
-namespace common::error
+namespace authforge::common::error
 {
 
 const char *toString(ErrorCategory category)
@@ -225,7 +225,10 @@ std::string ErrorHandler::generateRequestId()
     return RequestId::generate();
 }
 
-Error ErrorHandler::handleDbException(const DrogonDbException &e, const drogon::HttpRequestPtr &req)
+Error ErrorHandler::handleDbException(
+  const DrogonDbException &e,
+  const ::drogon::HttpRequestPtr &req
+)
 {
     const std::string errStr = e.base().what();
 
@@ -256,7 +259,7 @@ Error ErrorHandler::handleDbException(const DrogonDbException &e, const drogon::
 Error ErrorHandler::handleValidationError(
   const std::string &field,
   const std::string &reason,
-  const drogon::HttpRequestPtr &req
+  const ::drogon::HttpRequestPtr &req
 )
 {
     // Use RequestId::resolve(req) to reuse inbound X-Request-ID if present (Req 6.3).
@@ -268,4 +271,4 @@ Error ErrorHandler::handleValidationError(
     return error;
 }
 
-}  // namespace common::error
+}  // namespace authforge::common::error

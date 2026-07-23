@@ -11,7 +11,7 @@ namespace
 // Generate a cryptographically secure random challenge, base64url encoded
 // (no padding) -- same algorithm as
 // libs/oauth2/src/protocol/TokenCrypto.cc's generateSecureToken() and the
-// production controller's ::oauth2::utils::generateSecureToken() call
+// production controller's ::authforge::drogon::utils::generateSecureToken() call
 // (both: secureRandomBytes(32) -> base64url), just expressed against the
 // injected ICryptoProvider instead of a hardcoded Adapter-layer instance
 // (see TokenCrypto.h's identical rationale).

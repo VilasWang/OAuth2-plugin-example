@@ -21,7 +21,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -165,8 +165,8 @@ void ClientRegistrationController::registerClient(
 
     // Generate client credentials
     std::string clientId = ::drogon::utils::getUuid();
-    std::string clientSecret = ::oauth2::utils::generateSecureToken();
-    std::string secretHash = ::oauth2::utils::hashToken(clientSecret);
+    std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string secretHash = ::authforge::drogon::utils::hashToken(clientSecret);
     std::string salt = ::drogon::utils::getUuid().substr(0, 36);
 
     // Current timestamp for client_id_issued_at
@@ -204,7 +204,7 @@ void ClientRegistrationController::registerClient(
               resp->setStatusCode(::drogon::k201Created);
 
               // Audit log the registration
-              ::oauth2::observability::AuditLogger::log(
+              ::authforge::drogon::observability::AuditLogger::log(
                 "client_registered",
                 "success",
                 req,
@@ -217,7 +217,7 @@ void ClientRegistrationController::registerClient(
           },
           [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               // Audit log the failure
-              ::oauth2::observability::AuditLogger::log(
+              ::authforge::drogon::observability::AuditLogger::log(
                 "client_registered", "failure", req, "", "client", "", Json::Value(e.base().what())
               );
 

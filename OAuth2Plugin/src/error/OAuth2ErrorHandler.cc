@@ -2,39 +2,39 @@
 #include <oauth2/error/ErrorCatalog.h>
 #include <json/json.h>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 namespace
 {
 
 // Map a numeric HTTP status (as registered in the ErrorCatalog) to the
-// drogon::HttpStatusCode enum. Only the status codes that the OAuth2 protocol
+// ::drogon::HttpStatusCode enum. Only the status codes that the OAuth2 protocol
 // catalog can register are listed; anything else falls back to 400 Bad Request,
 // which preserves the historical default for codes outside the catalog.
-drogon::HttpStatusCode toDrogonStatus(int httpStatus)
+::drogon::HttpStatusCode toDrogonStatus(int httpStatus)
 {
     switch (httpStatus)
     {
         case 400:
-            return drogon::k400BadRequest;
+            return ::drogon::k400BadRequest;
         case 401:
-            return drogon::k401Unauthorized;
+            return ::drogon::k401Unauthorized;
         case 403:
-            return drogon::k403Forbidden;
+            return ::drogon::k403Forbidden;
         case 500:
-            return drogon::k500InternalServerError;
+            return ::drogon::k500InternalServerError;
         case 503:
-            return drogon::k503ServiceUnavailable;
+            return ::drogon::k503ServiceUnavailable;
         default:
-            return drogon::k400BadRequest;
+            return ::drogon::k400BadRequest;
     }
 }
 
 }  // namespace
 
 void OAuth2ErrorHandler::sendErrorResponse(
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
   const std::string &errorCode,
   const std::string &description,
   const std::string &errorUri,
@@ -68,12 +68,12 @@ void OAuth2ErrorHandler::sendErrorResponse(
         error["error_uri"] = std::string(entry->errorUri);
     }
 
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
 
     // RFC 6749 §5.2 caching behavior + explicit JSON content type.
     resp->addHeader("Cache-Control", "no-store");
     resp->addHeader("Pragma", "no-cache");
-    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);
 
     // Determine HTTP status code from the catalog (Requirement 2.7).
     resp->setStatusCode(getHttpStatusCode(errorCode));
@@ -90,7 +90,7 @@ void OAuth2ErrorHandler::sendErrorResponse(
     callback(resp);
 }
 
-drogon::HttpStatusCode OAuth2ErrorHandler::getHttpStatusCode(const std::string &errorCode)
+::drogon::HttpStatusCode OAuth2ErrorHandler::getHttpStatusCode(const std::string &errorCode)
 {
     // The ErrorCatalog is the single source of truth for protocol error HTTP
     // statuses (Requirement 2.7): invalid_client -> 401, server_error -> 500,
@@ -103,7 +103,7 @@ drogon::HttpStatusCode OAuth2ErrorHandler::getHttpStatusCode(const std::string &
 
     // Safe fallback for any code not registered in the catalog: HTTP 400 Bad
     // Request, preserving the historical default behavior.
-    return drogon::k400BadRequest;
+    return ::drogon::k400BadRequest;
 }
 
-}  // namespace common::error
+}  // namespace authforge::common::error

@@ -8,11 +8,8 @@
 #include <iomanip>
 #include <algorithm>
 
-namespace oauth2
+namespace authforge::common::utils
 {
-namespace utils
-{
-
 static const char BASE32_ALPHABET[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 std::string TotpUtils::base32Encode(const uint8_t *data, size_t len)
@@ -78,7 +75,7 @@ std::string TotpUtils::generateSecret()
     // Task 14 (design.md §5.6): migrated off drogon::utils::secureRandomBytes
     // onto the authforge::common::ports::ICryptoProvider Adapter
     // implementation (OpenSslCryptoProvider), same fallback shape.
-    static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
 
     uint8_t secretBytes[20];  // 160 bits
     if (!cryptoProvider.secureRandomBytes(secretBytes, 20))
@@ -182,7 +179,7 @@ std::vector<std::string> TotpUtils::generateBackupCodes(int count)
         uint8_t randomBytes[8];
         // Task 14 (design.md §5.6): migrated off
         // drogon::utils::secureRandomBytes onto OpenSslCryptoProvider.
-        static oauth2::adapters::OpenSslCryptoProvider cryptoProvider;
+        static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
         if (!cryptoProvider.secureRandomBytes(randomBytes, 8))
         {
             RAND_bytes(randomBytes, 8);
@@ -199,5 +196,4 @@ std::vector<std::string> TotpUtils::generateBackupCodes(int count)
     return codes;
 }
 
-}  // namespace utils
-}  // namespace oauth2
+}  // namespace authforge::common::utils

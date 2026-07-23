@@ -19,31 +19,31 @@ class TokenAdminController : public ::drogon::HttpController<TokenAdminControlle
       TokenAdminController::listTokens,
       "/api/admin/tokens",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       TokenAdminController::revokeTokensByClient,
       "/api/admin/tokens/revoke-by-client",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       TokenAdminController::revokeTokensByUser,
       "/api/admin/tokens/revoke-by-user",
       ::drogon::Post,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       TokenAdminController::revokeToken,
       "/api/admin/tokens/{tokenPrefix}",
       ::drogon::Delete,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       TokenAdminController::getOidcKeys,
       "/api/admin/oidc/keys",
       ::drogon::Get,
-      "oauth2::filters::AuthorizationFilter"
+      "authforge::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

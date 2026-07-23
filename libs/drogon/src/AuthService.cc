@@ -28,7 +28,8 @@ void AuthService::validateUser(
         // 登录标识分流：含 @ 视为 email（先归一再查），否则按 username 查
         // USERNAME_PATTERN 不允许 @，二者天然互斥
         bool isEmail = identifier.find('@') != std::string::npos;
-        std::string lookupKey = isEmail ? oauth2::utils::normalizeEmail(identifier) : identifier;
+        std::string lookupKey =
+          isEmail ? authforge::common::utils::normalizeEmail(identifier) : identifier;
         auto criteria =
           isEmail
             ? Criteria(drogon_model::oauth2_db::Users::Cols::_email, CompareOperator::EQ, lookupKey)
@@ -69,7 +70,7 @@ void AuthService::validateUser(
               std::string salt = user.getValueOfSalt();
               std::string dbHash = user.getValueOfPasswordHash();
 
-              bool valid = oauth2::utils::PasswordHasher::verify(password, dbHash, salt);
+              bool valid = authforge::common::utils::PasswordHasher::verify(password, dbHash, salt);
 
               if (valid)
               {
@@ -87,12 +88,13 @@ void AuthService::validateUser(
                   }
 
                   // Check if password hash needs upgrade to PBKDF2
-                  if (oauth2::utils::PasswordHasher::needsRehash(dbHash))
+                  if (authforge::common::utils::PasswordHasher::needsRehash(dbHash))
                   {
                       // Async upgrade: rehash with PBKDF2
                       try
                       {
-                          std::string newHash = oauth2::utils::PasswordHasher::hash(password);
+                          std::string newHash =
+                            authforge::common::utils::PasswordHasher::hash(password);
                           auto db = app().getDbClient();
                           int userId = user.getValueOfId();
                           db->execSqlAsync(
@@ -192,7 +194,7 @@ void AuthService::registerUser(
     std::string passwordHash;
     try
     {
-        passwordHash = oauth2::utils::PasswordHasher::hash(password);
+        passwordHash = authforge::common::utils::PasswordHasher::hash(password);
     }
     catch (const std::exception &e)
     {
@@ -209,7 +211,7 @@ void AuthService::registerUser(
     newUser.setPasswordHash(passwordHash);
     newUser.setSalt(salt);
     if (!email.empty())
-        newUser.setEmail(oauth2::utils::normalizeEmail(email));
+        newUser.setEmail(authforge::common::utils::normalizeEmail(email));
 
     try
     {

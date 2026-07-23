@@ -20,7 +20,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::common::error::ErrorResponder::respond(
+    ::authforge::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -141,7 +141,7 @@ void OrganizationService::create(const ::drogon::HttpRequestPtr &req, ResponseCa
     mapper.insert(
       row,
       [cb, slug, name, req](const Organizations &inserted) {
-          ::oauth2::observability::AuditLogger::log(
+          ::authforge::drogon::observability::AuditLogger::log(
             "organization_created", "success", req, "", "organization", slug
           );
           Json::Value json;

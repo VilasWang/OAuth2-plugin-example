@@ -2,7 +2,7 @@
 #include <string>
 #include <chrono>
 
-namespace oauth2::observability
+namespace authforge::drogon::observability
 {
 
 // =============================================================================
@@ -77,4 +77,4 @@ class OperationTimer
     std::chrono::steady_clock::time_point start_;
 };
 
-}  // namespace oauth2::observability
+}  // namespace authforge::drogon::observability

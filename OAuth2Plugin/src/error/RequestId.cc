@@ -1,7 +1,7 @@
 #include <oauth2/error/RequestId.h>
 #include <oauth2/adapters/OpenSslUuidGenerator.h>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 bool RequestId::isValid(const std::string &v)
@@ -27,17 +27,17 @@ bool RequestId::isValid(const std::string &v)
 
 std::string RequestId::generate()
 {
-    // Task 14 (design.md §5.6): migrated off drogon::utils::getUuid() onto
+    // Task 14 (design.md §5.6): migrated off ::drogon::utils::getUuid() onto
     // the authforge::common::ports::IUuidGenerator Adapter implementation
     // (OpenSslUuidGenerator), same convention as observability/AuditLogger.
     // generate() yields a 36-char hyphenated UUID, which is non-empty,
     // within 1..128 and unique across requests on the same instance --
-    // identical contract to the drogon::utils::getUuid() call it replaces.
-    static oauth2::adapters::OpenSslUuidGenerator uuidGenerator;
+    // identical contract to the ::drogon::utils::getUuid() call it replaces.
+    static authforge::drogon::adapters::OpenSslUuidGenerator uuidGenerator;
     return uuidGenerator.generate();
 }
 
-std::string RequestId::resolve(const drogon::HttpRequestPtr &req)
+std::string RequestId::resolve(const ::drogon::HttpRequestPtr &req)
 {
     if (req)
     {
@@ -50,4 +50,4 @@ std::string RequestId::resolve(const drogon::HttpRequestPtr &req)
     return generate();
 }
 
-}  // namespace common::error
+}  // namespace authforge::common::error

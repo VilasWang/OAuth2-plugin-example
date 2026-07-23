@@ -9,13 +9,13 @@
 
 #include <sstream>
 
-namespace oauth2::validation
+namespace authforge::drogon::validation
 {
 
-using common::error::Error;
-using common::error::ErrorContext;
-using common::error::ErrorHandler;
-using common::error::RequestId;
+using authforge::common::error::Error;
+using authforge::common::error::ErrorContext;
+using authforge::common::error::ErrorHandler;
+using authforge::common::error::RequestId;
 
 namespace
 {
@@ -45,7 +45,7 @@ std::string joinFieldErrors(const std::vector<std::string> &errors)
 
 Json::Value HttpResponder::buildErrorJson(
   const std::vector<std::string> &errors,
-  const drogon::HttpRequestPtr &req
+  const ::drogon::HttpRequestPtr &req
 )
 {
     // VALIDATION-class Error Envelope: code VALIDATION_INVALID_INPUT, category
@@ -73,26 +73,26 @@ Json::Value HttpResponder::buildErrorJson(
     return error.toJson(includeDetails);
 }
 
-drogon::HttpResponsePtr HttpResponder::buildErrorResponse(
+::drogon::HttpResponsePtr HttpResponder::buildErrorResponse(
   const std::vector<std::string> &errors,
-  const drogon::HttpRequestPtr &req
+  const ::drogon::HttpRequestPtr &req
 )
 {
     Json::Value root = buildErrorJson(errors, req);
 
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(root);
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(root);
     // HTTP 400 for the VALIDATION category (Requirement 7.4). Content-Type is set
     // to application/json by newHttpJsonResponse; make it explicit for clarity.
-    resp->setStatusCode(drogon::k400BadRequest);
-    resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    resp->setStatusCode(::drogon::k400BadRequest);
+    resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);
     return resp;
 }
 
 void HttpResponder::respondWithError(
   const std::string &field,
   const std::string &reason,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback,
-  const drogon::HttpRequestPtr &req
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req
 )
 {
     std::vector<std::string> errors;
@@ -104,8 +104,8 @@ void HttpResponder::respondWithError(
 
 void HttpResponder::respondWithErrors(
   const std::vector<std::string> &errors,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback,
-  const drogon::HttpRequestPtr &req
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req
 )
 {
     auto resp = buildErrorResponse(errors, req);
@@ -114,8 +114,8 @@ void HttpResponder::respondWithErrors(
 
 bool HttpResponder::respondIfErrors(
   const std::vector<std::string> &errors,
-  std::function<void(const drogon::HttpResponsePtr &)> &&callback,
-  const drogon::HttpRequestPtr &req
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+  const ::drogon::HttpRequestPtr &req
 )
 {
     if (!errors.empty())
@@ -126,4 +126,4 @@ bool HttpResponder::respondIfErrors(
     return false;
 }
 
-}  // namespace oauth2::validation
+}  // namespace authforge::drogon::validation

@@ -67,12 +67,12 @@
 #include <thread>
 #include <vector>
 
-#include <oauth2/utils/JwkManager.h>
+#include <authforge/oauth2/jwk/JwkManager.h>
 
 #include "ConcurrencyRaceSupport.h"
 
 using namespace oauth2::test::concurrency;
-using oauth2::JwkManager;
+using authforge::oauth2::JwkManager;
 
 namespace
 {

@@ -19,7 +19,7 @@ void cleanupEmail(const std::string &email)
       "DELETE FROM users WHERE email = $1",
       [&](const Result &) { p.set_value(); },
       [&](const DrogonDbException &) { p.set_value(); },
-      oauth2::utils::normalizeEmail(email)
+      authforge::common::utils::normalizeEmail(email)
     );
     p.get_future().get();
 }
@@ -51,7 +51,9 @@ DROGON_TEST(Integration_Login_Dispatch_IsEmailVersusUsername)
 
     // Gmail alias folding: a plus/dot alias must resolve to the canonical key
     // that registration stored, so login (and password reset) hit the same row.
-    CHECK(oauth2::utils::normalizeEmail("Alice.Tag+promo@gmail.com") == "alicetag@gmail.com");
+    CHECK(
+      authforge::common::utils::normalizeEmail("Alice.Tag+promo@gmail.com") == "alicetag@gmail.com"
+    );
 
     cleanupEmail(email);
 }
@@ -73,5 +75,5 @@ DROGON_TEST(Integration_Login_PasswordReset_LooksUpCanonicalEmail)
     const std::string alias = "Alice.Tag+promo@gmail.com";
     // simulate registration (stored canonical)
     // ... and the reset-side fold the controller now performs:
-    CHECK(oauth2::utils::normalizeEmail(alias) == canonical);
+    CHECK(authforge::common::utils::normalizeEmail(alias) == canonical);
 }

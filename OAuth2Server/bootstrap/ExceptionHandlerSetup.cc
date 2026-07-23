@@ -46,18 +46,18 @@ void setupExceptionHandler()
           {
               // RFC 6749 §5.2 protocol error: { "error": "server_error", ... }
               // driven by the Catalog (default error_description, status 500).
-              common::error::OAuth2ErrorHandler::sendErrorResponse(
-                std::move(withCors), common::error::OAuth2ErrorHandler::SERVER_ERROR
+              authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                std::move(withCors), authforge::common::error::OAuth2ErrorHandler::SERVER_ERROR
               );
               return;
           }
 
           // Application path: unified Error Envelope with INTERNAL_ERROR.
-          common::error::Error error = common::error::Error::fromCode(
-            std::string(common::error::ErrorCatalog::internalError().code),
-            common::error::RequestId::resolve(req)
+          authforge::common::error::Error error = authforge::common::error::Error::fromCode(
+            std::string(authforge::common::error::ErrorCatalog::internalError().code),
+            authforge::common::error::RequestId::resolve(req)
           );
-          auto resp = common::error::ErrorResponder::buildResponse(req, error);
+          auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
           withCors(resp);
       }
     );

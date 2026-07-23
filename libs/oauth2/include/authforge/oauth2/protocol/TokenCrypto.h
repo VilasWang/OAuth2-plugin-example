@@ -13,7 +13,7 @@
 // extensive comment on why the hash case must stay UPPERCASE for
 // exact-match token lookups). Duplicated here rather than reused via
 // #include because CryptoUtils.h hardcodes a static
-// oauth2::adapters::OpenSslCryptoProvider instance, which is an
+// authforge::drogon::adapters::OpenSslCryptoProvider instance, which is an
 // Adapter-layer type this Domain-layer package must not depend on
 // (design.md §4.1 rule 1); this version takes ICryptoProvider& as an
 // explicit parameter instead, matching the oauth2::pkce module's own

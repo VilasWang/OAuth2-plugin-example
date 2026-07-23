@@ -86,7 +86,7 @@ MfaFixture enableAdminMfa()
     MfaFixture f;
     if (!db)
         return f;
-    f.secret = oauth2::utils::TotpUtils::generateSecret();
+    f.secret = authforge::common::utils::TotpUtils::generateSecret();
     std::promise<bool> p;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -226,7 +226,7 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_MatchingBindingIssuesTokens)
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
-    std::string code = oauth2::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
     auto resp = verifyMfa(mfaToken, code, "vue-client", kVueRedirectUri);
     REQUIRE(resp != nullptr);
     CHECK(resp->getStatusCode() == k200OK);

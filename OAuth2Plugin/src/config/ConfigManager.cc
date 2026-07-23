@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <filesystem>
 
-namespace common::config
+namespace authforge::common::config
 {
 
 // .env file contents (loaded once) — wrapped in function to guarantee
@@ -406,4 +406,4 @@ const char *ConfigManager::getEnv(const char *name)
     return getEnvValue(name);
 }
 
-}  // namespace common::config
+}  // namespace authforge::common::config

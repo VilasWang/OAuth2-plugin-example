@@ -12,7 +12,7 @@
 // oauth2::PostgresUserRepository/PostgresRoleRepository/
 // PostgresSubjectMappingRepository (OAuth2Plugin/{include,src}/oauth2/
 // storage/): those remain in place and continue to back
-// oauth2::IdentityService (still the production path for the
+// authforge::identity::IdentityService (still the production path for the
 // controllers this migration slice deliberately leaves untouched --
 // MFA/WebAuthn/Social/Session). This class is the identity SDK's OWN
 // backing store, used only by the new authforge::identity::AuthService /

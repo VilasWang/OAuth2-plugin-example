@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace common::error
+namespace authforge::common::error
 {
 
 namespace
@@ -532,4 +532,4 @@ void ErrorCatalog::validateInvariants()
     }
 }
 
-}  // namespace common::error
+}  // namespace authforge::common::error
