@@ -39,3 +39,4 @@ taskkill /F /IM OAuth2Server.exe 2>$null
 2. `002_users_table.sql`: 用户表
 3. `003_rbac_schema.sql`: 权限控制
 4. `004_oauth2_scopes.sql`: 权限范围与授权
+5. 其他表按顺序执行

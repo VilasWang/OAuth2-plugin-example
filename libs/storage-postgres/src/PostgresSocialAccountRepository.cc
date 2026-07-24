@@ -4,12 +4,19 @@
 
 #include <drogon/drogon.h>
 
+#include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <authforge/storage/postgres/models/UserRoles.h>
+#include <authforge/storage/postgres/models/Users.h>
+
 namespace authforge::storage::postgres
 {
 
 using namespace ::drogon::orm;
 using authforge::identity::LinkNewSocialAccountResult;
 using authforge::identity::SocialAccountLookup;
+using drogon_model::oauth2_db::Oauth2SubjectMappings;
+using drogon_model::oauth2_db::UserRoles;
+using drogon_model::oauth2_db::Users;
 
 void PostgresSocialAccountRepository::findLinkedUser(
   const std::string &provider,
@@ -22,32 +29,37 @@ void PostgresSocialAccountRepository::findLinkedUser(
         cb(std::nullopt);
         return;
     }
-    auto db = dbClient_;
     auto sharedCb = std::make_shared<LookupCallback>(std::move(cb));
-    db->execSqlAsync(
-      "SELECT internal_user_id FROM oauth2_subject_mappings WHERE provider = $1 AND subject = $2",
-      [db, sharedCb](const Result &mappingResult) {
-          if (mappingResult.empty())
-          {
-              (*sharedCb)(std::nullopt);
-              return;
-          }
-          int64_t userId = mappingResult[0]["internal_user_id"].as<int64_t>();
-          db->execSqlAsync(
-            "SELECT username FROM users WHERE id = $1",
-            [sharedCb, userId](const Result &r) {
+
+    Mapper<Oauth2SubjectMappings> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(
+        Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider
+      ) &&
+        Criteria(
+          Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject
+        ),
+      [sharedCb, self = shared_from_this()](const Oauth2SubjectMappings &mapping) {
+          int32_t userId32 = mapping.getValueOfInternalUserId();
+
+          Mapper<Users> userMapper(self->dbClient_);
+          userMapper.findOne(
+            Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+            [sharedCb, userId32](const Users &user) {
                 SocialAccountLookup lookup;
-                lookup.userId = userId;
-                lookup.username = r.empty() ? "user" : r[0]["username"].as<std::string>();
+                lookup.userId = userId32;
+                lookup.username = user.getValueOfUsername();
                 (*sharedCb)(lookup);
             },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },
-            static_cast<int32_t>(userId)
+            [sharedCb, userId32](const DrogonDbException &) {
+                SocialAccountLookup lookup;
+                lookup.userId = userId32;
+                lookup.username = "user";
+                (*sharedCb)(lookup);
+            }
           );
       },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },
-      provider,
-      subject
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
     );
 }
 
@@ -84,41 +96,48 @@ void PostgresSocialAccountRepository::createLinkedUser(
         }
     }
 
+    // Exemption (db-operations.md §3): INSERT...RETURNING to capture the
+    // auto-generated user id needed by the subsequent subject-mapping and
+    // role-assignment inserts.  ON CONFLICT DO UPDATE + RETURNING cannot
+    // be expressed via Mapper<T>::insert.
     db->execSqlAsync(
       "INSERT INTO users (username, password_hash, salt, email, email_verified) "
       "VALUES ($1, $2, '', $3, true) "
       "ON CONFLICT (username) DO UPDATE SET email = EXCLUDED.email, email_verified = true "
       "RETURNING id",
       [db, sharedCb, provider, subject, username](const Result &userResult) {
-          int64_t userId = userResult[0]["id"].as<int64_t>();
-          db->execSqlAsync(
-            "INSERT INTO oauth2_subject_mappings (subject, internal_user_id, provider) "
-            "VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-            [db, sharedCb, userId, username](const Result &) {
-                db->execSqlAsync(
-                  "INSERT INTO user_roles (user_id, role_id) "
-                  "SELECT $1, id FROM roles WHERE name = 'user' ON CONFLICT DO NOTHING",
-                  [sharedCb, userId, username](const Result &) {
+          int32_t userId32 = userResult[0]["id"].as<int32_t>();
+
+          Oauth2SubjectMappings mapping;
+          mapping.setSubject(subject);
+          mapping.setInternalUserId(userId32);
+          mapping.setProvider(provider);
+
+          Mapper<Oauth2SubjectMappings> mapMapper(db);
+          mapMapper.insert(
+            mapping,
+            [db, sharedCb, userId32, username](const Oauth2SubjectMappings &) {
+                UserRoles ur;
+                ur.setUserId(userId32);
+
+                Mapper<UserRoles> urMapper(db);
+                urMapper.insert(
+                  ur,
+                  [sharedCb, userId32, username](const UserRoles &) {
                       LinkNewSocialAccountResult result;
-                      result.userId = userId;
+                      result.userId = userId32;
                       result.username = username;
                       (*sharedCb)(result);
                   },
-                  [sharedCb, userId, username](const DrogonDbException &) {
-                      // Best-effort role assignment, mirrors
-                      // GitHubController.cc's existing tolerance.
+                  [sharedCb, userId32, username](const DrogonDbException &) {
                       LinkNewSocialAccountResult result;
-                      result.userId = userId;
+                      result.userId = userId32;
                       result.username = username;
                       (*sharedCb)(result);
-                  },
-                  static_cast<int32_t>(userId)
+                  }
                 );
             },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },
-            subject,
-            static_cast<int32_t>(userId),
-            provider
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
           );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },

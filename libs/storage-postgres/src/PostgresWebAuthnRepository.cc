@@ -2,6 +2,9 @@
 
 #include <drogon/drogon.h>
 
+#include <authforge/storage/postgres/models/Users.h>
+#include <authforge/storage/postgres/models/WebauthnCredentials.h>
+
 namespace authforge::storage::postgres
 {
 
@@ -9,6 +12,8 @@ using namespace ::drogon::orm;
 using authforge::identity::StoreCredentialOutcome;
 using authforge::identity::WebAuthnCredentialLookup;
 using authforge::identity::WebAuthnCredentialSummary;
+using drogon_model::oauth2_db::Users;
+using drogon_model::oauth2_db::WebauthnCredentials;
 
 void PostgresWebAuthnRepository::storeCredential(
   int64_t userId,
@@ -24,10 +29,19 @@ void PostgresWebAuthnRepository::storeCredential(
         return;
     }
     auto sharedCb = std::make_shared<StoreCredentialCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "INSERT INTO webauthn_credentials (user_id, credential_id, public_key, name) "
-      "VALUES ($1, $2, $3, $4)",
-      [sharedCb](const Result &) { (*sharedCb)(StoreCredentialOutcome::Success); },
+
+    WebauthnCredentials cred;
+    cred.setUserId(static_cast<int32_t>(userId));
+    cred.setCredentialId(credentialId);
+    cred.setPublicKey(publicKey);
+    cred.setName(name);
+
+    Mapper<WebauthnCredentials> mapper(dbClient_);
+    mapper.insert(
+      cred,
+      [sharedCb](const WebauthnCredentials &) {
+          (*sharedCb)(StoreCredentialOutcome::Success);
+      },
       [sharedCb](const DrogonDbException &e) {
           const std::string what = e.base().what();
           if (
@@ -39,11 +53,7 @@ void PostgresWebAuthnRepository::storeCredential(
               return;
           }
           (*sharedCb)(StoreCredentialOutcome::Error);
-      },
-      static_cast<int32_t>(userId),
-      credentialId,
-      publicKey,
-      name
+      }
     );
 }
 
@@ -58,25 +68,31 @@ void PostgresWebAuthnRepository::findByCredentialId(
         return;
     }
     auto sharedCb = std::make_shared<CredentialLookupCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "SELECT wc.user_id, wc.sign_count, u.public_sub "
-      "FROM webauthn_credentials wc "
-      "JOIN users u ON wc.user_id = u.id "
-      "WHERE wc.credential_id = $1",
-      [sharedCb](const Result &r) {
-          if (r.empty())
-          {
-              (*sharedCb)(std::nullopt);
-              return;
-          }
-          WebAuthnCredentialLookup lookup;
-          lookup.userId = r[0]["user_id"].as<int64_t>();
-          lookup.publicSub = r[0]["public_sub"].as<std::string>();
-          lookup.signCount = r[0]["sign_count"].as<int>();
-          (*sharedCb)(lookup);
+
+    // 查询 webauthn_credentials 获取 user_id 和 sign_count
+    Mapper<WebauthnCredentials> wcMapper(dbClient_);
+    wcMapper.findOne(
+      Criteria(
+        WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId
+      ),
+      [sharedCb, self = shared_from_this()](const WebauthnCredentials &wc) {
+          int32_t userId32 = wc.getValueOfUserId();
+
+          // 查询 users 获取 public_sub
+          Mapper<Users> userMapper(self->dbClient_);
+          userMapper.findOne(
+            Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+            [sharedCb, wc](const Users &user) {
+                WebAuthnCredentialLookup lookup;
+                lookup.userId = wc.getValueOfUserId();
+                lookup.publicSub = user.getValueOfPublicSub();
+                lookup.signCount = static_cast<int>(wc.getValueOfSignCount());
+                (*sharedCb)(lookup);
+            },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
+          );
       },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },
-      credentialId
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
     );
 }
 
@@ -92,13 +108,27 @@ void PostgresWebAuthnRepository::updateSignCount(
         return;
     }
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "UPDATE webauthn_credentials SET sign_count = $1, last_used_at = NOW() "
-      "WHERE credential_id = $2",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      newSignCount,
-      credentialId
+
+    Mapper<WebauthnCredentials> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(
+        WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId
+      ),
+      [sharedCb, newSignCount, self = shared_from_this()](
+        const WebauthnCredentials &found
+      ) {
+          WebauthnCredentials updated;
+          updated.setCredentialId(found.getValueOfCredentialId());
+          updated.setSignCount(static_cast<int32_t>(newSignCount));
+          updated.setLastUsedAt(::trantor::Date::now());
+
+          Mapper<WebauthnCredentials>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+          );
+      },
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
 }
 
@@ -110,32 +140,27 @@ void PostgresWebAuthnRepository::listCredentials(int64_t userId, ListCredentials
         return;
     }
     auto sharedCb = std::make_shared<ListCredentialsCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "SELECT credential_id, name, sign_count, created_at, last_used_at "
-      "FROM webauthn_credentials WHERE user_id = $1 ORDER BY created_at DESC",
-      [sharedCb](const Result &r) {
+
+    Mapper<WebauthnCredentials> mapper(dbClient_);
+    mapper.findBy(
+      Criteria(
+        WebauthnCredentials::Cols::_user_id, CompareOperator::EQ,
+        static_cast<int32_t>(userId)
+      ),
+      [sharedCb](const std::vector<WebauthnCredentials> &creds) {
           std::vector<WebAuthnCredentialSummary> summaries;
-          for (const auto &row : r)
+          for (const auto &wc : creds)
           {
-              // createdAt/lastUsedAt are intentionally left at their
-              // struct defaults (0 / nullopt) -- see
-              // IWebAuthnRepository.h's WebAuthnCredentialSummary comment:
-              // the production controller's JSON response never surfaces
-              // either column today, only credential_id/name/sign_count.
-              // Parsing Postgres's raw timestamp text via ::trantor::Date
-              // is possible (see the ORM-generated model .cc files' own
-              // strptime-based pattern) but not worth the added
-              // complexity for fields nothing downstream reads yet.
               WebAuthnCredentialSummary summary;
-              summary.credentialId = row["credential_id"].as<std::string>();
-              summary.name = row["name"].isNull() ? "" : row["name"].as<std::string>();
-              summary.signCount = row["sign_count"].as<int>();
+              summary.credentialId = wc.getValueOfCredentialId();
+              auto namePtr = wc.getName();
+              summary.name = namePtr ? *namePtr : "";
+              summary.signCount = static_cast<int>(wc.getValueOfSignCount());
               summaries.push_back(std::move(summary));
           }
           (*sharedCb)(summaries);
       },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)({}); },
-      static_cast<int32_t>(userId)
+      [sharedCb](const DrogonDbException &) { (*sharedCb)({}); }
     );
 }
 

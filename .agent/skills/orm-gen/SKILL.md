@@ -76,7 +76,8 @@ cat OAuth2Server/model.json
         "oauth2_clients",
         "oauth2_codes",
         "oauth2_access_tokens",
-        "oauth2_refresh_tokens"
+        "oauth2_refresh_tokens",
+        "..."
     ]
 }
 ```

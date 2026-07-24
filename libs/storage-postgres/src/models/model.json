@@ -20,7 +20,11 @@
         "oauth2_client_scopes",
         "oauth2_user_consents",
         "oauth2_subject_mappings",
-        "audit_logs"
+        "audit_logs",
+        "email_verification_tokens",
+        "password_reset_tokens",
+        "oauth2_device_codes",
+        "webauthn_credentials"
     ],
     "relationships": {
         "enabled": true,
@@ -128,6 +132,46 @@
                 "target_table_name": "oauth2_subject_mappings",
                 "target_table_alias": "subjectMappings",
                 "target_key": "internal_user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "email_verification_tokens",
+                "target_table_alias": "emailVerificationTokens",
+                "target_key": "user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "password_reset_tokens",
+                "target_table_alias": "passwordResetTokens",
+                "target_key": "user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "oauth2_clients",
+                "original_table_alias": "client",
+                "original_key": "client_id",
+                "target_table_name": "oauth2_device_codes",
+                "target_table_alias": "deviceCodes",
+                "target_key": "client_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "webauthn_credentials",
+                "target_table_alias": "webauthnCredentials",
+                "target_key": "user_id",
                 "enable_reverse": false
             }
         ]

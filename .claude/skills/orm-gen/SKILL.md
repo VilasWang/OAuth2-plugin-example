@@ -39,16 +39,14 @@ ls OAuth2Server/model.json || echo "❌ model.json not found"
 export PGPASSWORD='123456'
 psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
 
-# 预期输出应包含：
-# - oauth2_clients
-# - oauth2_codes
-# - oauth2_access_tokens
-# - oauth2_refresh_tokens
-# - users
-# - roles
-# - permissions
-# - user_roles
-# - role_permissions
+# 预期输出应包含全部19个表：
+# - organizations, users, roles, permissions
+# - user_roles, role_permissions
+# - oauth2_clients, oauth2_codes, oauth2_access_tokens, oauth2_refresh_tokens
+# - oauth2_scopes, oauth2_client_scopes, oauth2_user_consents
+# - oauth2_subject_mappings, audit_logs
+# - email_verification_tokens, password_reset_tokens
+# - oauth2_device_codes, webauthn_credentials
 ```
 
 ### 2. 检查 model.json 配置
@@ -68,15 +66,13 @@ cat OAuth2Server/model.json
     "user": "test",
     "passwd": "123456",
     "tables": [
-        "users",
-        "roles",
-        "permissions",
-        "user_roles",
-        "role_permissions",
-        "oauth2_clients",
-        "oauth2_codes",
-        "oauth2_access_tokens",
-        "oauth2_refresh_tokens"
+        "organizations", "users", "roles", "permissions",
+        "user_roles", "role_permissions",
+        "oauth2_clients", "oauth2_codes", "oauth2_access_tokens", "oauth2_refresh_tokens",
+        "oauth2_scopes", "oauth2_client_scopes", "oauth2_user_consents",
+        "oauth2_subject_mappings", "audit_logs",
+        "email_verification_tokens", "password_reset_tokens",
+        "oauth2_device_codes", "webauthn_credentials"
     ]
 }
 ```
@@ -186,6 +182,7 @@ drogon_ctl create model ../
 **预期输出**:
 ```
 Generating models for tables:
+  - organizations
   - users
   - roles
   - permissions
@@ -195,6 +192,15 @@ Generating models for tables:
   - oauth2_codes
   - oauth2_access_tokens
   - oauth2_refresh_tokens
+  - oauth2_scopes
+  - oauth2_client_scopes
+  - oauth2_user_consents
+  - oauth2_subject_mappings
+  - audit_logs
+  - email_verification_tokens
+  - password_reset_tokens
+  - oauth2_device_codes
+  - webauthn_credentials
 
 Models generated successfully!
 ```
@@ -208,6 +214,7 @@ Get-ChildItem *.h, *.cc | Select-Object Name, LastWriteTime | Format-Table -Auto
 
 # 验证关键文件
 $requiredFiles = @(
+    "Organizations.h", "Organizations.cc",
     "Users.h", "Users.cc",
     "Roles.h", "Roles.cc",
     "Permissions.h", "Permissions.cc",
@@ -216,7 +223,16 @@ $requiredFiles = @(
     "Oauth2Clients.h", "Oauth2Clients.cc",
     "Oauth2Codes.h", "Oauth2Codes.cc",
     "Oauth2AccessTokens.h", "Oauth2AccessTokens.cc",
-    "Oauth2RefreshTokens.h", "Oauth2RefreshTokens.cc"
+    "Oauth2RefreshTokens.h", "Oauth2RefreshTokens.cc",
+    "Oauth2Scopes.h", "Oauth2Scopes.cc",
+    "Oauth2ClientScopes.h", "Oauth2ClientScopes.cc",
+    "Oauth2UserConsents.h", "Oauth2UserConsents.cc",
+    "Oauth2SubjectMappings.h", "Oauth2SubjectMappings.cc",
+    "AuditLogs.h", "AuditLogs.cc",
+    "EmailVerificationTokens.h", "EmailVerificationTokens.cc",
+    "PasswordResetTokens.h", "PasswordResetTokens.cc",
+    "Oauth2DeviceCodes.h", "Oauth2DeviceCodes.cc",
+    "WebauthnCredentials.h", "WebauthnCredentials.cc"
 )
 
 $missingFiles = @()
@@ -241,6 +257,7 @@ ls -lh *.h *.cc | awk '{print $9, $6, $7, $8}'
 
 # 验证关键文件
 required_files=(
+    "Organizations.h" "Organizations.cc"
     "Users.h" "Users.cc"
     "Roles.h" "Roles.cc"
     "Permissions.h" "Permissions.cc"
@@ -250,6 +267,15 @@ required_files=(
     "Oauth2Codes.h" "Oauth2Codes.cc"
     "Oauth2AccessTokens.h" "Oauth2AccessTokens.cc"
     "Oauth2RefreshTokens.h" "Oauth2RefreshTokens.cc"
+    "Oauth2Scopes.h" "Oauth2Scopes.cc"
+    "Oauth2ClientScopes.h" "Oauth2ClientScopes.cc"
+    "Oauth2UserConsents.h" "Oauth2UserConsents.cc"
+    "Oauth2SubjectMappings.h" "Oauth2SubjectMappings.cc"
+    "AuditLogs.h" "AuditLogs.cc"
+    "EmailVerificationTokens.h" "EmailVerificationTokens.cc"
+    "PasswordResetTokens.h" "PasswordResetTokens.cc"
+    "Oauth2DeviceCodes.h" "Oauth2DeviceCodes.cc"
+    "WebauthnCredentials.h" "WebauthnCredentials.cc"
 )
 
 missing_files=()
@@ -327,6 +353,7 @@ ctest --output-on-failure -C Release
 
 | 表名 | 头文件 | 源文件 | 说明 |
 |------|--------|--------|------|
+| organizations | Organizations.h | Organizations.cc | 组织/租户表 |
 | users | Users.h | Users.cc | 用户账号表 |
 | roles | Roles.h | Roles.cc | 角色表 |
 | permissions | Permissions.h | Permissions.cc | 权限表 |
@@ -336,6 +363,15 @@ ctest --output-on-failure -C Release
 | oauth2_codes | Oauth2Codes.h | Oauth2Codes.cc | OAuth2 授权码表 |
 | oauth2_access_tokens | Oauth2AccessTokens.h | Oauth2AccessTokens.cc | OAuth2 访问令牌表 |
 | oauth2_refresh_tokens | Oauth2RefreshTokens.h | Oauth2RefreshTokens.cc | OAuth2 刷新令牌表 |
+| oauth2_scopes | Oauth2Scopes.h | Oauth2Scopes.cc | OAuth2 作用域表 |
+| oauth2_client_scopes | Oauth2ClientScopes.h | Oauth2ClientScopes.cc | 客户端-作用域关联表 |
+| oauth2_user_consents | Oauth2UserConsents.h | Oauth2UserConsents.cc | 用户授权同意表 |
+| oauth2_subject_mappings | Oauth2SubjectMappings.h | Oauth2SubjectMappings.cc | OAuth2 subject-内部用户映射表 |
+| audit_logs | AuditLogs.h | AuditLogs.cc | 审计日志表 |
+| email_verification_tokens | EmailVerificationTokens.h | EmailVerificationTokens.cc | 邮箱验证令牌表 |
+| password_reset_tokens | PasswordResetTokens.h | PasswordResetTokens.cc | 密码重置令牌表 |
+| oauth2_device_codes | Oauth2DeviceCodes.h | Oauth2DeviceCodes.cc | OAuth2 设备授权码表 |
+| webauthn_credentials | WebauthnCredentials.h | WebauthnCredentials.cc | WebAuthn/Passkey 凭证表 |
 
 ## 故障排除
 
@@ -551,7 +587,7 @@ Models generated successfully!
 ✅ Tests passed
 ```
 
-且 `ls` 应显示所有 9 张表对应的模型文件（18 个文件：9 个 .h + 9 个 .cc）
+且 `ls` 应显示所有 19 张表对应的模型文件（38 个文件：19 个 .h + 19 个 .cc）
 
 ## 技术细节
 

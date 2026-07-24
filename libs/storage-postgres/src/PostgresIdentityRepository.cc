@@ -280,12 +280,16 @@ void PostgresIdentityRepository::updatePasswordHash(
         return;
     }
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
+    LOG_DEBUG << "[PG-Identity] updatePasswordHash: userId=" << userId;
     dbClient_->execSqlAsync(
       "UPDATE users SET password_hash = $1, salt = '' WHERE id = $2",
       [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
+      [sharedCb](const DrogonDbException &e) {
+          LOG_WARN << "[PG-Identity] updatePasswordHash FAILED: " << e.base().what();
+          (*sharedCb)(false);
+      },
       newHash,
-      userId
+      static_cast<int32_t>(userId)
     );
 }
 
@@ -300,11 +304,15 @@ void PostgresIdentityRepository::resetFailedLogins(
         return;
     }
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
+    LOG_DEBUG << "[PG-Identity] resetFailedLogins: userId=" << userId;
     dbClient_->execSqlAsync(
       "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE id = $1",
       [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      userId
+      [sharedCb](const DrogonDbException &e) {
+          LOG_WARN << "[PG-Identity] resetFailedLogins FAILED: " << e.base().what();
+          (*sharedCb)(false);
+      },
+      static_cast<int32_t>(userId)
     );
 }
 
@@ -323,9 +331,10 @@ void PostgresIdentityRepository::incrementFailedLogins(
 
     // Read current failed_login_count first so the progressive-backoff
     // window matches AuthService.cc's existing thresholds (5/10/15/20+).
+    int32_t userId32 = static_cast<int32_t>(userId);
     db->execSqlAsync(
       "SELECT failed_login_count FROM users WHERE id = $1",
-      [sharedCb, db, userId](const Result &r) {
+      [sharedCb, db, userId32](const Result &r) {
           int failedCount = r.empty() ? 0 : r[0]["failed_login_count"].as<int>();
           int newFailedCount = failedCount + 1;
           int64_t now = std::chrono::duration_cast<std::chrono::seconds>(
@@ -350,11 +359,11 @@ void PostgresIdentityRepository::incrementFailedLogins(
             newFailedCount,
             newLockedUntil,
             now,
-            userId
+            userId32
           );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      userId
+      userId32
     );
 }
 
@@ -374,10 +383,11 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
 
     try
     {
+        int32_t userId32 = static_cast<int32_t>(userId);
         Mapper<Users> mapper(db);
         mapper.findOne(
-          Criteria(Users::Cols::_id, CompareOperator::EQ, static_cast<int32_t>(userId)),
-          [sharedCb, db, userId](const Users &user) {
+          Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+          [sharedCb, db, userId32](const Users &user) {
               db->execSqlAsync(
                 "SELECT r.name FROM roles r JOIN user_roles ur ON r.id = "
                 "ur.role_id WHERE ur.user_id = $1",
@@ -404,7 +414,7 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
                     json["roles"] = Json::Value(Json::arrayValue);
                     (*sharedCb)(json);
                 },
-                userId
+                userId32
               );
           },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }

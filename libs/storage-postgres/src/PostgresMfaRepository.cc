@@ -3,11 +3,14 @@
 #include <drogon/drogon.h>
 #include <json/json.h>
 
+#include <authforge/storage/postgres/models/Users.h>
+
 namespace authforge::storage::postgres
 {
 
 using namespace ::drogon::orm;
 using authforge::identity::MfaData;
+using drogon_model::oauth2_db::Users;
 
 void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
 {
@@ -17,41 +20,38 @@ void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
         return;
     }
     auto sharedCb = std::make_shared<MfaDataCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "SELECT mfa_secret, mfa_enabled, mfa_backup_codes, mfa_pending_client_id, "
-      "mfa_pending_redirect_uri FROM users WHERE id = $1",
-      [sharedCb](const Result &r) {
-          if (r.empty())
-          {
-              (*sharedCb)(std::nullopt);
-              return;
-          }
+    int32_t userId32 = static_cast<int32_t>(userId);
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb](const Users &user) {
           MfaData data;
-          data.secret = r[0]["mfa_secret"].isNull() ? "" : r[0]["mfa_secret"].as<std::string>();
-          data.enabled = !r[0]["mfa_enabled"].isNull() && r[0]["mfa_enabled"].as<bool>();
-          if (!r[0]["mfa_backup_codes"].isNull())
+          data.secret = user.getValueOfMfaSecret();
+          data.enabled = user.getValueOfMfaEnabled();
+          auto backupCodes = user.getMfaBackupCodes();
+          if (backupCodes && !backupCodes->empty())
           {
-              std::string raw = r[0]["mfa_backup_codes"].as<std::string>();
               Json::CharReaderBuilder builder;
               std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
               Json::Value arr;
               std::string errs;
-              if (reader->parse(raw.data(), raw.data() + raw.size(), &arr, &errs) && arr.isArray())
+              if (reader->parse(backupCodes->data(),
+                                backupCodes->data() + backupCodes->size(), &arr,
+                                &errs) &&
+                  arr.isArray())
               {
                   for (const auto &code : arr)
                       data.hashedBackupCodes.push_back(code.asString());
               }
           }
-          data.pendingClientId = r[0]["mfa_pending_client_id"].isNull()
-                                   ? ""
-                                   : r[0]["mfa_pending_client_id"].as<std::string>();
-          data.pendingRedirectUri = r[0]["mfa_pending_redirect_uri"].isNull()
-                                      ? ""
-                                      : r[0]["mfa_pending_redirect_uri"].as<std::string>();
+          auto pendingCid = user.getMfaPendingClientId();
+          data.pendingClientId = pendingCid ? *pendingCid : "";
+          auto pendingUri = user.getMfaPendingRedirectUri();
+          data.pendingRedirectUri = pendingUri ? *pendingUri : "";
           (*sharedCb)(data);
       },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },
-      static_cast<int32_t>(userId)
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
     );
 }
 
@@ -62,13 +62,22 @@ void PostgresMfaRepository::setSecret(int64_t userId, const std::string &secret,
         cb(false);
         return;
     }
+    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "UPDATE users SET mfa_secret = $1 WHERE id = $2",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      secret,
-      static_cast<int32_t>(userId)
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, secret, self = shared_from_this()](const Users &user) {
+          Users updated = user;
+          updated.setMfaSecret(secret);
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+          );
+      },
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
 }
 
@@ -83,6 +92,7 @@ void PostgresMfaRepository::enable(
         cb(false);
         return;
     }
+    int32_t userId32 = static_cast<int32_t>(userId);
     Json::Value arr(Json::arrayValue);
     for (const auto &code : hashedBackupCodes)
         arr.append(code);
@@ -91,12 +101,21 @@ void PostgresMfaRepository::enable(
     std::string hashedCodesStr = Json::writeString(writer, arr);
 
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "UPDATE users SET mfa_enabled = true, mfa_backup_codes = $1 WHERE id = $2",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      hashedCodesStr,
-      static_cast<int32_t>(userId)
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, hashedCodesStr, self = shared_from_this()](const Users &user) {
+          Users updated = user;
+          updated.setMfaEnabled(true);
+          updated.setMfaBackupCodes(hashedCodesStr);
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+          );
+      },
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
 }
 
@@ -107,13 +126,24 @@ void PostgresMfaRepository::disable(int64_t userId, BoolCallback &&cb)
         cb(false);
         return;
     }
+    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "UPDATE users SET mfa_enabled = false, mfa_secret = NULL, mfa_backup_codes = NULL "
-      "WHERE id = $1",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      static_cast<int32_t>(userId)
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, self = shared_from_this()](const Users &user) {
+          Users updated = user;
+          updated.setMfaEnabled(false);
+          updated.setMfaSecretToNull();
+          updated.setMfaBackupCodesToNull();
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+          );
+      },
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
 }
 
@@ -129,14 +159,23 @@ void PostgresMfaRepository::setPendingBinding(
         cb(false);
         return;
     }
+    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "UPDATE users SET mfa_pending_client_id = $1, mfa_pending_redirect_uri = $2 WHERE id = $3",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      clientId,
-      redirectUri,
-      static_cast<int32_t>(userId)
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, clientId, redirectUri, self = shared_from_this()](const Users &user) {
+          Users updated = user;
+          updated.setMfaPendingClientId(clientId);
+          updated.setMfaPendingRedirectUri(redirectUri);
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+          );
+      },
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
 }
 
@@ -147,13 +186,23 @@ void PostgresMfaRepository::clearPendingBinding(int64_t userId, BoolCallback &&c
         cb(false);
         return;
     }
+    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
-    dbClient_->execSqlAsync(
-      "UPDATE users SET mfa_pending_client_id = NULL, mfa_pending_redirect_uri = NULL "
-      "WHERE id = $1",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      static_cast<int32_t>(userId)
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findOne(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, self = shared_from_this()](const Users &user) {
+          Users updated = user;
+          updated.setMfaPendingClientIdToNull();
+          updated.setMfaPendingRedirectUriToNull();
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+          );
+      },
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
 }
 

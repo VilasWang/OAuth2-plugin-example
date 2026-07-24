@@ -78,6 +78,14 @@ void PostgresTokenRepository::saveTokenPair(
     }
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
 
+    // Exemption (db-operations.md §3): Documented batch operation.
+    // saveTokenPair inserts both access and refresh tokens within a single
+    // database transaction.  The commit callback ensures the caller is
+    // notified only after COMMIT (not merely after INSERT), which is
+    // critical for correctness (see inline comment for the race-condition
+    // analysis).  Splitting into two Mapper::insert calls would lose
+    // transactional atomicity.
+
     // Bug fix: the caller's callback must not fire until the transaction
     // has actually been COMMITted. Drogon only issues "commit" to Postgres
     // when the last shared_ptr reference to the Transaction object is
@@ -388,6 +396,12 @@ void PostgresTokenRepository::revokeTokenFamily(const std::string &familyId, Voi
     }
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
 
+    // Exemption (db-operations.md §3): Documented batch operation.
+    // Security-critical cascade revoke of an entire token family in 2 queries
+    // (refresh tokens + access tokens via sub-select).  Splitting into
+    // individual Mapper::update calls would be both incorrect (non-atomic)
+    // and inefficient (N+M round-trips vs 2).
+
     // Revoke all refresh tokens in the family
     dbClientMaster_->execSqlAsync(
       "UPDATE oauth2_refresh_tokens SET revoked = true WHERE family_id = $1",
@@ -436,71 +450,77 @@ void PostgresTokenRepository::introspectToken(
     auto sharedCb = std::make_shared<TokenIntrospectionCallback>(std::move(cb));
     int64_t now = std::time(nullptr);
 
-    // Use raw SQL to handle both old and new database schemas
-    // This query will work whether P1 columns exist or not
-    // We check both access tokens and refresh tokens
-    std::string sql = R"(
-        SELECT token, client_id, user_id, scope, expires_at, revoked,
-               COALESCE(issued_at, EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::bigint) as issued_at,
-               COALESCE(issuer, 'https://oauth.example.com') as issuer,
-               COALESCE(audience, '') as audience,
-               COALESCE(not_before, EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::bigint) as not_before
-        FROM oauth2_access_tokens
-        WHERE token = $1
-        UNION ALL
-        SELECT token, client_id, user_id, scope, expires_at, revoked,
-               EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::bigint as issued_at,
-               'https://oauth.example.com' as issuer,
-               '' as audience,
-               EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::bigint as not_before
-        FROM oauth2_refresh_tokens
-        WHERE token = $1
-    )";
-
-    dbClientReader_->execSqlAsync(
-      sql,
-      [sharedCb, now](const Result &result) {
-          TokenIntrospection introspection;
-
-          if (result.size() == 0)
-          {
-              introspection.active = false;
-              (*sharedCb)(introspection);
-              return;
-          }
-
-          auto row = result[0];
-          bool revoked = row["revoked"].as<bool>();
-          int64_t expiresAt = row["expires_at"].as<int64_t>();
+    // 查询 access tokens 表
+    Mapper<Oauth2AccessTokens> atMapper(dbClientReader_);
+    atMapper.findOne(
+      Criteria(Oauth2AccessTokens::Cols::_token, CompareOperator::EQ, token),
+      [sharedCb, now, token, self = shared_from_this(), this](
+        const Oauth2AccessTokens &accessToken
+      ) {
+          // 检查是否吊销或过期
+          bool revoked = accessToken.getValueOfRevoked();
+          int64_t expiresAt = accessToken.getValueOfExpiresAt();
 
           if (revoked || expiresAt < now)
           {
+              TokenIntrospection introspection;
               introspection.active = false;
               (*sharedCb)(introspection);
               return;
           }
 
-          // Token is active, populate introspection data
+          TokenIntrospection introspection;
           introspection.active = true;
-          introspection.clientId = row["client_id"].as<std::string>();
+          introspection.clientId = accessToken.getValueOfClientId();
           introspection.tokenType = "Bearer";
           introspection.exp = expiresAt;
-          introspection.iat = row["issued_at"].as<int64_t>();
-          introspection.iss = row["issuer"].as<std::string>();
-          introspection.aud = row["audience"].as<std::string>();
-          introspection.nbf = row["not_before"].as<int64_t>();
-          introspection.sub = row["user_id"].as<std::string>();
-          introspection.scope = row["scope"].as<std::string>();
+          introspection.iat = accessToken.getValueOfIssuedAt();
+          introspection.iss = accessToken.getValueOfIssuer();
+          introspection.aud = accessToken.getValueOfAudience();
+          introspection.nbf = accessToken.getValueOfNotBefore();
+          introspection.sub = accessToken.getValueOfUserId();
+          introspection.scope = accessToken.getValueOfScope();
+          (*sharedCb)(introspection);
+      },
+      [sharedCb, now, token, self = shared_from_this(), this](const DrogonDbException &) {
+          // 未在 access tokens 中找到，尝试 refresh tokens
+          Mapper<Oauth2RefreshTokens> rtMapper(dbClientReader_);
+          rtMapper.findOne(
+            Criteria(
+              Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token
+            ),
+            [sharedCb, now](const Oauth2RefreshTokens &refreshToken) {
+                bool revoked = refreshToken.getValueOfRevoked();
+                int64_t expiresAt = refreshToken.getValueOfExpiresAt();
 
-          (*sharedCb)(introspection);
-      },
-      [sharedCb](const DrogonDbException &e) {
-          LOG_DEBUG << "introspectToken error: " << e.base().what();
-          TokenIntrospection introspection;
-          introspection.active = false;
-          (*sharedCb)(introspection);
-      },
-      token.c_str()
+                if (revoked || expiresAt < now)
+                {
+                    TokenIntrospection introspection;
+                    introspection.active = false;
+                    (*sharedCb)(introspection);
+                    return;
+                }
+
+                TokenIntrospection introspection;
+                introspection.active = true;
+                introspection.clientId = refreshToken.getValueOfClientId();
+                introspection.tokenType = "Bearer";
+                introspection.exp = expiresAt;
+                introspection.iat = now;
+                introspection.iss = "https://oauth.example.com";
+                introspection.aud = "";
+                introspection.nbf = now;
+                introspection.sub = refreshToken.getValueOfUserId();
+                introspection.scope = refreshToken.getValueOfScope();
+                (*sharedCb)(introspection);
+            },
+            [sharedCb](const DrogonDbException &) {
+                TokenIntrospection introspection;
+                introspection.active = false;
+                (*sharedCb)(introspection);
+            }
+          );
+      }
     );
 }
 
@@ -514,22 +534,26 @@ void PostgresTokenRepository::incrementIntrospectCount(const std::string &token,
 
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
 
-    // Try to increment introspect_count (P1 feature)
-    // This will fail gracefully if column doesn't exist (P0 compatibility)
-    std::string sql =
-      "UPDATE oauth2_access_tokens "
-      "SET introspect_count = COALESCE(introspect_count, 0) + 1 "
-      "WHERE token = $1";
-
-    dbClientMaster_->execSqlAsync(
-      sql,
-      [sharedCb](const Result &) { (*sharedCb)(); },
-      [sharedCb](const DrogonDbException &e) {
-          // Column might not exist (P0 compatibility), log and continue
-          LOG_DEBUG << "incrementIntrospectCount failed (P0 compatibility): " << e.base().what();
-          (*sharedCb)();
+    Mapper<Oauth2AccessTokens> mapper(dbClientMaster_);
+    mapper.findOne(
+      Criteria(Oauth2AccessTokens::Cols::_token, CompareOperator::EQ, token),
+      [sharedCb, token, self = shared_from_this()](const Oauth2AccessTokens &found) {
+          Oauth2AccessTokens updated;
+          updated.setToken(token);
+          updated.setIntrospectCount(found.getValueOfIntrospectCount() + 1);
+          Mapper<Oauth2AccessTokens>(self->dbClientMaster_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(); },
+            [sharedCb](const DrogonDbException &e) {
+                LOG_DEBUG << "incrementIntrospectCount update failed: " << e.base().what();
+                (*sharedCb)();
+            }
+          );
       },
-      token.c_str()
+      [sharedCb](const DrogonDbException &e) {
+          LOG_DEBUG << "incrementIntrospectCount find failed: " << e.base().what();
+          (*sharedCb)();
+      }
     );
 }
 
@@ -550,52 +574,89 @@ void PostgresTokenRepository::revokeAccessToken(
     auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
     int64_t now = std::time(nullptr);
 
-    // Update token as revoked with audit trail (P1)
-    // This works with both old and new schemas
-    // We try to revoke in both access tokens and refresh tokens tables
-    dbClientMaster_->execSqlAsync(
-      "UPDATE oauth2_access_tokens SET revoked = TRUE, revoked_at = $1, revoked_by = $2 WHERE "
-      "token = $3",
-      [self = shared_from_this(), this, sharedCb, now, revokedBy, token](const Result &) {
-          dbClientMaster_->execSqlAsync(
-            "UPDATE oauth2_refresh_tokens SET revoked = TRUE, revoked_at = $1, revoked_by = $2 "
-            "WHERE token = $3",
-            [sharedCb](const Result &) {
-                LOG_DEBUG << "Token revoked successfully (checked both tables)";
-                (*sharedCb)();
-            },
-            [sharedCb](const DrogonDbException &e) {
-                // Refresh tokens table might not have audit columns yet?
-                LOG_DEBUG << "Refresh token revocation audit failed: " << e.base().what();
-                (*sharedCb)();
-            },
-            now,
-            revokedBy.c_str(),
-            token.c_str()
-          );
-      },
-      [self = shared_from_this(), this, sharedCb, now, revokedBy, token](
-        const DrogonDbException &e
+    // Find the access token first
+    Mapper<Oauth2AccessTokens> mapper(dbClientMaster_);
+    mapper.findOne(
+      Criteria(Oauth2AccessTokens::Cols::_token, CompareOperator::EQ, token),
+      [sharedCb, now, revokedBy, token, self = shared_from_this()](
+        const Oauth2AccessTokens &found
       ) {
-          LOG_DEBUG << "Access token revocation audit failed: " << e.base().what();
-          // Fallback to simple revoked = TRUE
-          dbClientMaster_->execSqlAsync(
-            "UPDATE oauth2_access_tokens SET revoked = TRUE WHERE token = $1",
-            [self, this, sharedCb, token](const Result &) {
-                dbClientMaster_->execSqlAsync(
-                  "UPDATE oauth2_refresh_tokens SET revoked = TRUE WHERE token = $1",
-                  [sharedCb](const Result &) { (*sharedCb)(); },
-                  [sharedCb](const DrogonDbException &) { (*sharedCb)(); },
-                  token.c_str()
+          Oauth2AccessTokens updated;
+          updated.setToken(token);
+          updated.setRevoked(true);
+          updated.setRevokedAt(now);
+          updated.setRevokedBy(revokedBy);
+
+          Mapper<Oauth2AccessTokens>(self->dbClientMaster_).update(
+            updated,
+            [sharedCb, now, revokedBy, token, self](const size_t) {
+                // Also try to revoke in refresh tokens table
+                Mapper<Oauth2RefreshTokens> rtMapper(self->dbClientMaster_);
+                rtMapper.findOne(
+                  Criteria(
+                    Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token
+                  ),
+                  [sharedCb, now, revokedBy, self](const Oauth2RefreshTokens &rt) {
+                      Oauth2RefreshTokens rtUpdated;
+                      rtUpdated.setToken(rt.getValueOfToken());
+                      rtUpdated.setRevoked(true);
+                      rtUpdated.setRevokedAt(now);
+                      rtUpdated.setRevokedBy(revokedBy);
+
+                      Mapper<Oauth2RefreshTokens>(self->dbClientMaster_).update(
+                        rtUpdated,
+                        [sharedCb](const size_t) {
+                            LOG_DEBUG << "Token revoked successfully (checked both tables)";
+                            (*sharedCb)();
+                        },
+                        [sharedCb](const DrogonDbException &) {
+                            (*sharedCb)();
+                        }
+                      );
+                  },
+                  [sharedCb](const DrogonDbException &) {
+                      LOG_DEBUG << "Token revoked successfully (access token only)";
+                      (*sharedCb)();
+                  }
                 );
             },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(); },
-            token.c_str()
+            [sharedCb, token, self](const DrogonDbException &e) {
+                LOG_DEBUG << "Access token revocation audit failed: " << e.base().what();
+                // Fallback: simple revoked=true without audit columns
+                Oauth2AccessTokens simpleUpdate;
+                simpleUpdate.setToken(token);
+                simpleUpdate.setRevoked(true);
+
+                Mapper<Oauth2AccessTokens>(self->dbClientMaster_).update(
+                  simpleUpdate,
+                  [sharedCb, token, self](const size_t) {
+                      Mapper<Oauth2RefreshTokens> rtMapper(self->dbClientMaster_);
+                      rtMapper.findOne(
+                        Criteria(
+                          Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token
+                        ),
+                        [sharedCb, self](const Oauth2RefreshTokens &rt) {
+                            Oauth2RefreshTokens rtSimple;
+                            rtSimple.setToken(rt.getValueOfToken());
+                            rtSimple.setRevoked(true);
+                            Mapper<Oauth2RefreshTokens>(self->dbClientMaster_).update(
+                              rtSimple,
+                              [sharedCb](const size_t) { (*sharedCb)(); },
+                              [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
+                            );
+                        },
+                        [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
+                      );
+                  },
+                  [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
+                );
+            }
           );
       },
-      now,
-      revokedBy.c_str(),
-      token.c_str()
+      [sharedCb](const DrogonDbException &) {
+          // Token not found, nothing to revoke
+          (*sharedCb)();
+      }
     );
 }
 

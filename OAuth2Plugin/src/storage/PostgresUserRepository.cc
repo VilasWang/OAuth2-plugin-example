@@ -1,10 +1,13 @@
 #include <oauth2/storage/PostgresUserRepository.h>
 #include <drogon/drogon.h>
 
+#include <authforge/storage/postgres/models/Users.h>
+
 namespace oauth2
 {
 
 using namespace drogon::orm;
+using drogon_model::oauth2_db::Users;
 
 void PostgresUserRepository::getUserInfo(const std::string &userId, OptionalJsonCallback &&cb)
 {
@@ -36,77 +39,58 @@ void PostgresUserRepository::getUserInfo(const std::string &userId, OptionalJson
     }
 
     auto sharedCb = std::make_shared<OptionalJsonCallback>(std::move(cb));
-    dbClientReader_->execSqlAsync(
-      "SELECT id, username, email FROM users WHERE public_sub::text = $1::text",
-      [sharedCb](const Result &result) {
-          if (result.empty())
-          {
-              (*sharedCb)(std::nullopt);
-              return;
-          }
-          auto row = result[0];
+    LOG_DEBUG << "[PG-UserRepo] getUserInfo by public_sub: " << userId;
+
+    Mapper<Users> mapper(dbClientReader_);
+    mapper.findOne(
+      Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId),
+      [sharedCb](const Users &user) {
           Json::Value userInfo;
-          userInfo["id"] = row["id"].as<int32_t>();
-          if (!row["username"].isNull())
-              userInfo["username"] = row["username"].as<std::string>();
-          if (!row["email"].isNull())
-              userInfo["email"] = row["email"].as<std::string>();
+          userInfo["id"] = static_cast<int32_t>(user.getValueOfId());
+          userInfo["username"] = user.getValueOfUsername();
+          userInfo["email"] = user.getValueOfEmail();
           (*sharedCb)(userInfo);
       },
       [sharedCb](const DrogonDbException &e) {
           LOG_WARN << "getUserInfo by public_sub failed: " << e.base().what();
           (*sharedCb)(std::nullopt);
-      },
-      userId
+      }
     );
 }
 
 void PostgresUserRepository::getUserInfo(int32_t internalUserId, OptionalJsonCallback &&cb)
 {
-    // Query user info from database
-    std::string query = "SELECT username, email FROM users WHERE id = $1";
+    if (!dbClientReader_)
+    {
+        cb(std::nullopt);
+        return;
+    }
 
-    dbClientReader_->execSqlAsync(
-      query,
-      [internalUserId, cb = std::move(cb)](const Result &result) mutable {
+    auto sharedCb = std::make_shared<OptionalJsonCallback>(std::move(cb));
+
+    Mapper<Users> mapper(dbClientReader_);
+    mapper.findOne(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, internalUserId),
+      [sharedCb, internalUserId](const Users &user) {
           try
           {
-              if (result.size() == 0)
-              {
-                  cb(std::nullopt);
-                  return;
-              }
-
-              auto row = result[0];
               Json::Value userInfo;
               userInfo["id"] = internalUserId;
-
-              // Get username (first column)
-              if (!row["username"].isNull())
-              {
-                  userInfo["username"] = row["username"].as<std::string>();
-              }
-
-              // Get email (second column, optional)
-              if (!row["email"].isNull())
-              {
-                  userInfo["email"] = row["email"].as<std::string>();
-              }
-
-              cb(userInfo);
+              userInfo["username"] = user.getValueOfUsername();
+              userInfo["email"] = user.getValueOfEmail();
+              (*sharedCb)(userInfo);
           }
           catch (const std::exception &e)
           {
               LOG_ERROR << "Failed to parse user info for user: " << internalUserId
                         << ", error: " << e.what();
-              cb(std::nullopt);
+              (*sharedCb)(std::nullopt);
           }
       },
-      [cb](const DrogonDbException &e) mutable {
+      [sharedCb](const DrogonDbException &e) {
           LOG_ERROR << "Database error getting user info: " << e.base().what();
-          cb(std::nullopt);
-      },
-      internalUserId
+          (*sharedCb)(std::nullopt);
+      }
     );
 }
 

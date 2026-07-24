@@ -79,6 +79,8 @@ void HealthController::healthReady(
     try
     {
         auto db = ::drogon::app().getDbClient();
+        // Exemption (db-operations.md §3): Connectivity probe, not CRUD.
+        // SELECT 1 is the standard DB readiness check pattern.
         db->execSqlAsync(
           "SELECT 1",
           [sharedCb](const ::drogon::orm::Result &) {

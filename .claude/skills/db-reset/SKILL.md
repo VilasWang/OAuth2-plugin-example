@@ -85,7 +85,7 @@ OAuth2Server/sql/
 │   ├── V006__oauth2_scopes.sql
 │   ├── V007__user_public_sub.sql
 │   ├── ...
-│   └── V018__webauthn.sql
+│   └── V022__mfa_pending_client_binding.sql
 └── seed/                # 开发/测试环境初始数据
     ├── dev_admin_user.sql
     ├── dev_admin_console_client.sql
