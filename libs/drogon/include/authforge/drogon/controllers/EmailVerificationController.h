@@ -24,6 +24,9 @@ class EmailVerificationController
     );
     METHOD_LIST_END
 
+    // Task B5: business logic moved to
+    // authforge::drogon::services::EmailVerificationService.
+
     void verify(
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
@@ -33,9 +36,6 @@ class EmailVerificationController
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
-
-    // Helper: send verification email for a user
-    static void sendVerificationEmail(int userId, const std::string &email);
 };
 
 }  // namespace authforge::drogon::controllers

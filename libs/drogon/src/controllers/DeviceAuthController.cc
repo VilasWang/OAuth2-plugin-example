@@ -1,9 +1,11 @@
 #include <authforge/drogon/controllers/DeviceAuthController.h>
+#include <authforge/storage/postgres/models/Oauth2DeviceCodes.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <oauth2/error/OAuth2ErrorHandler.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/services/DeviceCodeService.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <chrono>
@@ -181,11 +183,23 @@ void DeviceAuthController::deviceAuthorization(
             return;
         }
 
-        dbClient->execSqlAsync(
-          "INSERT INTO oauth2_device_codes "
-          "(device_code_hash, user_code, client_id, scope, status, expires_at, interval_seconds) "
-          "VALUES ($1, $2, $3, $4, 'pending', $5, $6)",
-          [deviceCode, userCode, expiresAt, sharedCb](const ::drogon::orm::Result &) {
+        ::authforge::drogon::services::DeviceCodeService::createDeviceCode(
+          deviceCodeHash,
+          userCode,
+          clientId,
+          scope,
+          expiresAt,
+          POLLING_INTERVAL_SECONDS,
+          dbClient,
+          [deviceCode, userCode, sharedCb](bool success) {
+              if (!success)
+              {
+                  ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                    std::move(*sharedCb), "server_error",
+                    "Failed to store device authorization"
+                  );
+                  return;
+              }
               // Success - return device authorization response
               Json::Value response;
               response["device_code"] = deviceCode;
@@ -197,19 +211,7 @@ void DeviceAuthController::deviceAuthorization(
               auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
               resp->setStatusCode(::drogon::k200OK);
               (*sharedCb)(resp);
-          },
-          [sharedCb](const ::drogon::orm::DrogonDbException &e) {
-              LOG_ERROR << "Failed to store device code: " << e.base().what();
-              ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-                std::move(*sharedCb), "server_error", "Failed to store device authorization"
-              );
-          },
-          deviceCodeHash,
-          userCode,
-          clientId,
-          scope,
-          expiresAt,
-          POLLING_INTERVAL_SECONDS
+          }
         );
     });
 }
@@ -259,42 +261,69 @@ void DeviceAuthController::approveDevice(
     )
                  .count();
 
-    // Update device code status to approved
-    dbClient->execSqlAsync(
-      "UPDATE oauth2_device_codes SET status = 'approved', user_id = $1 "
-      "WHERE user_code = $2 AND status = 'pending' AND expires_at > $3",
-      [sharedCb, userCode, req](const ::drogon::orm::Result &result) {
-          if (result.affectedRows() == 0)
+    // Task B5: replaced raw UPDATE SQL with DeviceCodeService
+    ::authforge::drogon::services::DeviceCodeService::findByUserCode(
+      userCode,
+      dbClient,
+      [sharedCb, userCode, req, userId, dbClient](
+        std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes> code
+      ) {
+          if (!code)
           {
               respondError(
-                req,
-                sharedCb,
-                "VALIDATION_DEVICE_CODE_INVALID",
-                "approveDevice: invalid, expired, or already processed user_code"
+                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
+                "approveDevice: invalid user_code"
+              );
+              return;
+          }
+          // Check that the code is still pending
+          auto status = code->getValueOfStatus();
+          if (status != "pending" && !status.empty())
+          {
+              respondError(
+                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
+                "approveDevice: user_code already processed"
+              );
+              return;
+          }
+          // Check expiration
+          auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::system_clock::now().time_since_epoch()
+          )
+                       .count();
+          if (now >= code->getValueOfExpiresAt())
+          {
+              respondError(
+                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
+                "approveDevice: user_code expired"
               );
               return;
           }
 
-          Json::Value response;
-          response["status"] = "approved";
-          response["user_code"] = userCode;
+          ::authforge::drogon::services::DeviceCodeService::markApproved(
+            code->getValueOfDeviceCodeHash(),
+            userId,
+            dbClient,
+            [sharedCb, userCode, req](bool success) {
+                if (!success)
+                {
+                    respondError(
+                      req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
+                      "approveDevice: failed to approve device code"
+                    );
+                    return;
+                }
 
-          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
-          resp->setStatusCode(::drogon::k200OK);
-          (*sharedCb)(resp);
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          LOG_ERROR << "Failed to approve device code: " << e.base().what();
-          respondError(
-            req,
-            sharedCb,
-            "DB_QUERY_ERROR",
-            std::string("approveDevice: failed to approve device: ") + e.base().what()
+                Json::Value response;
+                response["status"] = "approved";
+                response["user_code"] = userCode;
+
+                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
+                resp->setStatusCode(::drogon::k200OK);
+                (*sharedCb)(resp);
+            }
           );
-      },
-      userId,
-      userCode,
-      now
+      }
     );
 }
 

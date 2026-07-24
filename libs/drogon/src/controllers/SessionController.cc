@@ -1,4 +1,5 @@
 #include <authforge/drogon/controllers/SessionController.h>
+#include <authforge/storage/postgres/models/Users.h>
 #include <oauth2/adapters/DrogonAuditSink.h>
 
 #include <authforge/drogon/AuthService.h>
@@ -65,6 +66,9 @@ static void sendBackchannelLogoutNotifications(const std::string &)
 
 namespace authforge::drogon::controllers
 {
+
+using namespace ::drogon::orm;
+using namespace ::drogon_model::oauth2_db;
 
 // API documentation initialization
 namespace
@@ -500,35 +504,51 @@ void SessionController::login(
                 // fails at the wire-protocol/type-coercion level, not as
                 // a SQL syntax error).
                 int32_t internalIdInt32 = static_cast<int32_t>(internalId);
-                db->execSqlAsync(
-                  "UPDATE users SET mfa_pending_client_id = $1, "
-                  "mfa_pending_redirect_uri = $2 WHERE id = $3",
-                  [req, internalId, sharedCb](const ::drogon::orm::Result &) {
-                      Json::Value mfaResp;
-                      mfaResp["mfa_required"] = true;
-                      mfaResp["mfa_token"] = std::to_string(internalId);
-                      mfaResp["message"] =
-                        "MFA verification required. Submit TOTP code to "
-                        "/oauth2/mfa/verify";
-                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(mfaResp);
-                      resp->setStatusCode(::drogon::k200OK);
-                      (*sharedCb)(resp);
+                // Task B5: replaced raw SQL with Mapper<Users>
+                Criteria mfaCrit(Users::Cols::_id, CompareOperator::EQ,
+                                 internalIdInt32);
+                Mapper<Users>(db).findOne(
+                  mfaCrit,
+                  [req, internalId, sharedCb, db, clientId, redirectUri](
+                    const Users &user
+                  ) {
+                      Users mfaUpdated = user;
+                      mfaUpdated.setMfaPendingClientId(clientId);
+                      mfaUpdated.setMfaPendingRedirectUri(redirectUri);
+                      Mapper<Users>(db).update(
+                        mfaUpdated,
+                        [req, internalId, sharedCb](const size_t) {
+                            Json::Value mfaResp;
+                            mfaResp["mfa_required"] = true;
+                            mfaResp["mfa_token"] = std::to_string(internalId);
+                            mfaResp["message"] =
+                              "MFA verification required. Submit TOTP code to "
+                              "/oauth2/mfa/verify";
+                            auto resp =
+                              ::drogon::HttpResponse::newHttpJsonResponse(mfaResp);
+                            resp->setStatusCode(::drogon::k200OK);
+                            (*sharedCb)(resp);
+                        },
+                        [req, sharedCb](const DrogonDbException &e) {
+                            respondError(
+                              req, *sharedCb, "DB_QUERY_ERROR",
+                              std::string(
+                                "login: failed to persist MFA pending binding: "
+                              ) +
+                                e.base().what()
+                            );
+                        }
+                      );
                   },
-                  [req, sharedCb](const ::drogon::orm::DrogonDbException &e) {
+                  [req, sharedCb](const DrogonDbException &e) {
                       respondError(
-                        req,
-                        *sharedCb,
-                        "DB_QUERY_ERROR",
+                        req, *sharedCb, "DB_QUERY_ERROR",
                         std::string(
-                          "login: failed to persist MFA pending "
-                          "binding: "
+                          "login: failed to persist MFA pending binding: "
                         ) +
                           e.base().what()
                       );
-                  },
-                  clientId,
-                  redirectUri,
-                  internalIdInt32
+                  }
                 );
                 return;
             }
