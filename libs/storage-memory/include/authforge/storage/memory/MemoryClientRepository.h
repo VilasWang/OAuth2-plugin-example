@@ -37,7 +37,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace oauth2
+namespace authforge::storage::memory
 {
 
 // Task 27.5 (authforge-sdk-refactor): this split repository now implements
@@ -89,4 +89,4 @@ class MemoryClientRepository : public IClientRepositoryBase
     std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2Client> clients_;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::memory

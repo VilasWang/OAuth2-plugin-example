@@ -80,6 +80,13 @@ add_subdirectory(${OAUTH2_PATH_LIBS_IDENTITY_DIR})
 # on this package instead of owning the models itself.
 add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_POSTGRES_DIR})
 
+# libs/storage-memory (authforge::storage::memory, M8 Task 40): in-memory
+# repository implementations relocated out of OAuth2Plugin/storage/ (design.md
+# §5.4/§5.5). Pure-Domain adapters (std + jsoncpp, zero Drogon). Added BEFORE
+# OAuth2Plugin because the plugin now links this package (the Memory
+# RepositoryBundle is the memory-storage backend selected by storage_type=memory).
+add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_MEMORY_DIR})
+
 add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
 
 # libs/drogon (authforge::drogon, M3 Task 20): Adapter-layer package for

@@ -1,8 +1,8 @@
-#include <oauth2/storage/MemoryTokenRepository.h>
+#include <authforge/storage/memory/MemoryTokenRepository.h>
 #include <drogon/drogon.h>
 #include <chrono>
 
-namespace oauth2
+namespace authforge::storage::memory
 {
 
 // Task 27.5: callback aliases now live on the new base interface; bring
@@ -297,4 +297,4 @@ void MemoryTokenRepository::purgeExpired()
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::memory

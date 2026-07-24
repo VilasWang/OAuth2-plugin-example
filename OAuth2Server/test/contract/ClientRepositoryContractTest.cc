@@ -21,7 +21,8 @@
 //   - Redis: HSET a client hash directly via the raw RedisClient (the only
 //     way to get data in, since IClientRepository has no write method and
 //     RedisOAuth2Storage/oauth2::RedisClientRepository never gained one either).
-//   - Memory: oauth2::MemoryClientRepository::initFromConfig() -- the one repository
+//   - Memory: authforge::storage::memory::MemoryClientRepository::initFromConfig() -- the one
+//   repository
 //     that DOES have a construction-time write path, so this test builds a
 //     fresh config-based fixture instead of relying on seed data.
 
@@ -31,7 +32,7 @@
 
 #include <oauth2/storage/PostgresClientRepository.h>
 #include <oauth2/storage/RedisClientRepository.h>
-#include <oauth2/storage/MemoryClientRepository.h>
+#include <authforge/storage/memory/MemoryClientRepository.h>
 
 #include "ContractFixtures.h"
 
@@ -287,13 +288,13 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_NotFoundReturnsNullopt)
 {
-    auto repo = std::make_shared<oauth2::MemoryClientRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_PublicClientAcceptsAnySecret)
 {
-    auto repo = std::make_shared<oauth2::MemoryClientRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     cfg["mem-public-client"]["type"] = "PUBLIC";
     cfg["mem-public-client"]["secret"] = "";
@@ -307,7 +308,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_ClientRepository_Memory_ConfidentialClientValidatesSecret
 )
 {
-    auto repo = std::make_shared<oauth2::MemoryClientRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     cfg["mem-confidential-client"]["type"] = "CONFIDENTIAL";
     cfg["mem-confidential-client"]["secret"] = "test-secret";

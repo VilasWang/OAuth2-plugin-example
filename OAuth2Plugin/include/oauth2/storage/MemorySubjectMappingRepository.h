@@ -38,7 +38,7 @@ namespace oauth2
  * MemoryOAuth2Storage never overrode
  * IOAuth2Storage::createUserForExternalLogin either.
  */
-class MemorySubjectMappingRepository : public ISubjectMappingRepository
+class MemorySubjectMappingRepository : public ::oauth2::ISubjectMappingRepository
 {
   public:
     void getInternalUserId(

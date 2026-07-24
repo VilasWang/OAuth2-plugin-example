@@ -18,7 +18,7 @@
 //   2. Atomicity/CAS tier (second half): gated on
 //      repo->supportsTransactions()/supportsCas(), per the capability-flag
 //      contract ITokenRepository.h documents. Memory and Postgres both
-//      declare both flags true (see oauth2::MemoryTokenRepository.h /
+//      declare both flags true (see authforge::storage::memory::MemoryTokenRepository.h /
 //      oauth2::PostgresTokenRepository.h capability-flag doc comments); Redis
 //      declares both false. Tests below check the flag first and return
 //      (skip, not fail) when a backend opts out -- this is also how the
@@ -33,7 +33,7 @@
 
 #include <oauth2/storage/PostgresTokenRepository.h>
 #include <oauth2/storage/RedisTokenRepository.h>
-#include <oauth2/storage/MemoryTokenRepository.h>
+#include <authforge/storage/memory/MemoryTokenRepository.h>
 
 #include "ContractFixtures.h"
 
@@ -164,13 +164,13 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Redis_AccessToken
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenSaveGetRoundTrip)
 {
-    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenNotFound)
 {
-    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
 
@@ -225,7 +225,7 @@ DROGON_TEST(
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RefreshTokenSaveGetRoundTrip)
 {
-    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
     runTokenRepository_RefreshTokenSaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
@@ -257,10 +257,10 @@ DROGON_TEST(
 // ===========================================================================
 // HONEST DIVERGENCE #2: revocation observability via getRefreshToken().
 //
-// Verified by reading the .cc files: oauth2::MemoryTokenRepository::getRefreshToken
-// ACTIVELY filters out revoked (and expired) tokens (returns nullopt for
-// them). oauth2::PostgresTokenRepository::getRefreshToken does NOT filter on
-// revoked -- it returns the row with `revoked == true` set on the returned
+// Verified by reading the .cc files:
+// authforge::storage::memory::MemoryTokenRepository::getRefreshToken ACTIVELY filters out revoked
+// (and expired) tokens (returns nullopt for them). oauth2::PostgresTokenRepository::getRefreshToken
+// does NOT filter on revoked -- it returns the row with `revoked == true` set on the returned
 // struct. Both are legitimate, self-consistent behaviors (Postgres exposes
 // "here is the token, and here is its current revoked status" as a single
 // read; Memory conflates "found" with "found and still usable") -- but they
@@ -297,7 +297,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeRefreshToken_GetReturnsNullopt
 )
 {
-    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
 
     const std::string rtToken = "contract-rt-revoke-mem-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "contract-at-for-revoke-mem", "mem-client");
@@ -314,9 +314,10 @@ DROGON_TEST(
 // ===========================================================================
 // HONEST DIVERGENCE #3: expired-token read-time filtering.
 //
-// Verified by reading the .cc files: oauth2::MemoryTokenRepository::getAccessToken
-// ACTIVELY checks `expiresAt > now` before returning (an expired token
-// yields nullopt on get, with no separate purge needed). oauth2::PostgresTokenRepository
+// Verified by reading the .cc files:
+// authforge::storage::memory::MemoryTokenRepository::getAccessToken ACTIVELY checks `expiresAt >
+// now` before returning (an expired token yields nullopt on get, with no separate purge needed).
+// oauth2::PostgresTokenRepository
 // ::getAccessToken does NOT check expiresAt at all -- it returns whatever row
 // matches the token, expired or not; expiry enforcement in the Postgres
 // design relies entirely on a separate purgeExpired() sweep (a future
@@ -337,7 +338,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredAccessToken_GetReturnsNullopt
 )
 {
-    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
 
     const std::string token = "contract-at-expired-mem-" + uniqueSuffix();
     auto at = makeAccessToken(token, "mem-client", /*ttlSeconds=*/-60);  // already expired
@@ -518,7 +519,7 @@ DROGON_TEST(
   Integration_P0_Contract_Atomicity_TokenRepository_Memory_AtomicRevokeRefreshToken_ConcurrentCas
 )
 {
-    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
     runTokenRepository_AtomicRevokeRefreshToken_ConcurrentCasContract(TEST_CTX, repo, "mem-client");
 }
 
@@ -635,14 +636,14 @@ DROGON_TEST(
 // Memory's honest limitation (documented rather than glossed over): unlike
 // Postgres, there is no way to make a std::unordered_map insert "fail"
 // short of throwing bad_alloc, so this suite cannot construct an equivalent
-// duplicate-key/failure-injection test for oauth2::MemoryTokenRepository. What CAN
-// be verified -- and is verified by
+// duplicate-key/failure-injection test for authforge::storage::memory::MemoryTokenRepository. What
+// CAN be verified -- and is verified by
 // runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract above
 // -- is the happy-path completion of both writes. The DEEPER atomicity
 // claim for Memory (that no third thread could ever observe the access
 // token present but the refresh token absent, because both writes happen
 // under one continuously-held recursive_mutex) is documented in
-// oauth2::MemoryTokenRepository.h's capability-flag doc comment as a matter of
+// authforge::storage::memory::MemoryTokenRepository.h's capability-flag doc comment as a matter of
 // reading the lock-scope structure of the code, not something this
 // external, callback-based contract test can observe without white-box
 // access to the mutex itself (which would defeat the point of a contract
@@ -652,7 +653,7 @@ DROGON_TEST(
   Integration_P0_Contract_Atomicity_TokenRepository_Memory_SaveTokenPair_HappyPathBothWritesSucceed
 )
 {
-    auto repo = std::make_shared<oauth2::MemoryTokenRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
     runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
       TEST_CTX, repo, "mem-client"
     );

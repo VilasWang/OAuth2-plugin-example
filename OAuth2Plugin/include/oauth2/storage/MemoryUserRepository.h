@@ -33,7 +33,7 @@ namespace oauth2
  * JSON object (`user_<id>` username/name/email) rather than querying a real
  * users table.
  */
-class MemoryUserRepository : public IUserRepository
+class MemoryUserRepository : public ::oauth2::IUserRepository
 {
   public:
     void getUserInfo(const std::string &userId, OptionalJsonCallback &&cb) override;

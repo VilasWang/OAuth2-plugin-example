@@ -42,7 +42,7 @@
 
 #include <oauth2/storage/PostgresGrantRepository.h>
 #include <oauth2/storage/RedisGrantRepository.h>
-#include <oauth2/storage/MemoryGrantRepository.h>
+#include <authforge/storage/memory/MemoryGrantRepository.h>
 
 #include "ContractFixtures.h"
 
@@ -315,13 +315,13 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuth
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_SaveGetRoundTrip)
 {
-    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_NotFoundReturnsNullopt)
 {
-    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -329,7 +329,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_CorrectRedirectUriSucceeds
 )
 {
-    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "mem-client"
     );
@@ -339,12 +339,12 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_WrongRedirectUriFails
 )
 {
-    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_SingleUse)
 {
-    auto repo = std::make_shared<oauth2::MemoryGrantRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "mem-client");
 }

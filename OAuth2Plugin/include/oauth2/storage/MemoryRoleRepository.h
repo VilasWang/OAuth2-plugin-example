@@ -43,7 +43,7 @@ namespace oauth2
  * per user, single-role-as-string per user, and the "no admin config at
  * all -> default admin user 'admin' with roles {admin, user}" fallback).
  */
-class MemoryRoleRepository : public IRoleRepository
+class MemoryRoleRepository : public ::oauth2::IRoleRepository
 {
   public:
     /**

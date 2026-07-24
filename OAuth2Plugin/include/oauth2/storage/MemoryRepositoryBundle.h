@@ -7,10 +7,10 @@
 // RedisRepositoryBundle (Task 10). This is ADDITIVE -- it does not replace
 // MemoryOAuth2Storage/IOAuth2Storage, which remain the production path
 // wired up by OAuth2Plugin.cc and existing tests today.
-#include <oauth2/storage/MemoryClientRepository.h>
-#include <oauth2/storage/MemoryGrantRepository.h>
-#include <oauth2/storage/MemoryTokenRepository.h>
-#include <oauth2/storage/MemoryConsentRepository.h>
+#include <authforge/storage/memory/MemoryClientRepository.h>
+#include <authforge/storage/memory/MemoryGrantRepository.h>
+#include <authforge/storage/memory/MemoryTokenRepository.h>
+#include <authforge/storage/memory/MemoryConsentRepository.h>
 #include <oauth2/storage/MemoryUserRepository.h>
 #include <oauth2/storage/MemoryRoleRepository.h>
 #include <oauth2/storage/MemorySubjectMappingRepository.h>
@@ -38,7 +38,7 @@ using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
  * MemoryOAuth2Storage::initFromConfig(clientsConfig, adminConfig)'s
  * two-parameter shape -- but now dispatching each half to the repository
  * that actually owns the corresponding state (client config ->
- * MemoryClientRepository, admin/role config -> MemoryRoleRepository; see
+ * ::authforge::storage::memory::MemoryClientRepository, admin/role config -> MemoryRoleRepository; see
  * REPOSITORY_MAPPING.md and each repository's own header comment for the
  * split rationale).
  *
@@ -85,26 +85,26 @@ class MemoryRepositoryBundle
         return consentRepository_;
     }
 
-    std::shared_ptr<IUserRepository> userRepository() const
+    std::shared_ptr<::oauth2::IUserRepository> userRepository() const
     {
         return userRepository_;
     }
 
-    std::shared_ptr<IRoleRepository> roleRepository() const
+    std::shared_ptr<::oauth2::IRoleRepository> roleRepository() const
     {
         return roleRepository_;
     }
 
-    std::shared_ptr<ISubjectMappingRepository> subjectMappingRepository() const
+    std::shared_ptr<::oauth2::ISubjectMappingRepository> subjectMappingRepository() const
     {
         return subjectMappingRepository_;
     }
 
   private:
-    std::shared_ptr<MemoryClientRepository> clientRepository_;
-    std::shared_ptr<MemoryGrantRepository> grantRepository_;
-    std::shared_ptr<MemoryTokenRepository> tokenRepository_;
-    std::shared_ptr<MemoryConsentRepository> consentRepository_;
+    std::shared_ptr<::authforge::storage::memory::MemoryClientRepository> clientRepository_;
+    std::shared_ptr<::authforge::storage::memory::MemoryGrantRepository> grantRepository_;
+    std::shared_ptr<::authforge::storage::memory::MemoryTokenRepository> tokenRepository_;
+    std::shared_ptr<::authforge::storage::memory::MemoryConsentRepository> consentRepository_;
     std::shared_ptr<MemoryUserRepository> userRepository_;
     std::shared_ptr<MemoryRoleRepository> roleRepository_;
     std::shared_ptr<MemorySubjectMappingRepository> subjectMappingRepository_;

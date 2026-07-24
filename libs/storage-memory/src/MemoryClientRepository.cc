@@ -1,4 +1,4 @@
-#include <oauth2/storage/MemoryClientRepository.h>
+#include <authforge/storage/memory/MemoryClientRepository.h>
 #include <drogon/drogon.h>
 
 namespace
@@ -24,7 +24,7 @@ inline int constantTimeMemcmp(const void *s1, const void *s2, size_t n)
 }
 }  // namespace
 
-namespace oauth2
+namespace authforge::storage::memory
 {
 
 // Task 27.5: callback type aliases now live on the new base interface
@@ -168,4 +168,4 @@ void MemoryClientRepository::validateClient(
     cb(valid);
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::memory

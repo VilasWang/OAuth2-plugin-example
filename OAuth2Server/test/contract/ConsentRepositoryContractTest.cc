@@ -22,7 +22,7 @@
 
 #include <oauth2/storage/PostgresConsentRepository.h>
 #include <oauth2/storage/RedisConsentRepository.h>
-#include <oauth2/storage/MemoryConsentRepository.h>
+#include <authforge/storage/memory/MemoryConsentRepository.h>
 #include <authforge/oauth2/model/UserRef.h>
 
 #include "ContractFixtures.h"
@@ -158,7 +158,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_SaveHasR
     UserRef user;
     user.internalUserId = 900002;  // opaque; no FK on this backend
 
-    auto repo = std::make_shared<oauth2::MemoryConsentRepository>();
+    auto repo = std::make_shared<authforge::storage::memory::MemoryConsentRepository>();
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "mem-client", "contract-scope-" + uniqueSuffix()
     );

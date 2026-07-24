@@ -19,7 +19,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace oauth2
+namespace authforge::storage::memory
 {
 
 // Task 27.5 (authforge-sdk-refactor): now implements the NEW Domain-layer
@@ -91,4 +91,4 @@ class MemoryGrantRepository : public IGrantRepositoryBase
     int64_t getCurrentTimestamp() const;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::memory

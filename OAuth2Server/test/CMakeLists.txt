@@ -115,7 +115,7 @@ find_package(OpenSSL REQUIRED)
 # CURL::libcurl + CURL_STATICLIB are no longer declared on the test target:
 # the test no longer compiles EmailService.cc (or any curl-using source)
 # itself, and OAuth2Plugin PUBLIC-provides both transitively.
-target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin Drogon::Drogon OpenSSL::Crypto authforge::common authforge::oauth2 authforge::storage::postgres authforge::drogon authforge::identity)
+target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin Drogon::Drogon OpenSSL::Crypto authforge::common authforge::oauth2 authforge::storage::postgres authforge::storage::memory authforge::drogon authforge::identity)
 
 # Platform compatibility (shared module)
 oauth2_apply_compat(${PROJECT_NAME})
