@@ -78,12 +78,13 @@ void AuthService::validateUser(
                   if (failedCount > 0)
                   {
                       auto db = app().getDbClient();
-                      int userId = user.getValueOfId();
-                      db->execSqlAsync(
-                        "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE id = $1",
-                        [](const ::drogon::orm::Result &) {},
-                        [](const ::drogon::orm::DrogonDbException &) {},
-                        userId
+                      drogon_model::oauth2_db::Users resetUser = user;
+                      resetUser.setFailedLoginCount(0);
+                      resetUser.setLockedUntil(0);
+                      Mapper<drogon_model::oauth2_db::Users>(db).update(
+                        resetUser,
+                        [](const size_t) {},
+                        [](const ::drogon::orm::DrogonDbException &) {}
                       );
                   }
 
@@ -97,17 +98,18 @@ void AuthService::validateUser(
                             authforge::common::utils::PasswordHasher::hash(password);
                           auto db = app().getDbClient();
                           int userId = user.getValueOfId();
-                          db->execSqlAsync(
-                            "UPDATE users SET password_hash = $1, salt = '' WHERE id = $2",
-                            [userId](const ::drogon::orm::Result &) {
+                          drogon_model::oauth2_db::Users hashUser = user;
+                          hashUser.setPasswordHash(newHash);
+                          hashUser.setSalt("");
+                          Mapper<drogon_model::oauth2_db::Users>(db).update(
+                            hashUser,
+                            [userId](const size_t) {
                                 LOG_INFO << "Upgraded password hash to PBKDF2 for user " << userId;
                             },
                             [userId](const ::drogon::orm::DrogonDbException &e) {
                                 LOG_WARN << "Failed to upgrade password hash for user " << userId
                                          << ": " << e.base().what();
-                            },
-                            newHash,
-                            userId
+                            }
                           );
                       }
                       catch (const std::exception &e)
@@ -152,16 +154,14 @@ void AuthService::validateUser(
                       newLockedUntil = now + 60;
 
                   auto db = app().getDbClient();
-                  int userId = user.getValueOfId();
-                  db->execSqlAsync(
-                    "UPDATE users SET failed_login_count = $1, locked_until = $2, "
-                    "last_failed_login = $3 WHERE id = $4",
-                    [](const ::drogon::orm::Result &) {},
-                    [](const ::drogon::orm::DrogonDbException &) {},
-                    newFailedCount,
-                    newLockedUntil,
-                    now,
-                    userId
+                  drogon_model::oauth2_db::Users failedUser = user;
+                  failedUser.setFailedLoginCount(newFailedCount);
+                  failedUser.setLockedUntil(newLockedUntil);
+                  failedUser.setLastFailedLogin(now);
+                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                    failedUser,
+                    [](const size_t) {},
+                    [](const ::drogon::orm::DrogonDbException &) {}
                   );
 
                   (*sharedCb)(std::nullopt);
@@ -308,49 +308,83 @@ void AuthService::getUserInfo(
         auto db = app().getDbClient();
         auto userMapper = Mapper<drogon_model::oauth2_db::Users>(db);
 
-        userMapper.findByPrimaryKey(
-          userId,
-          [sharedCb, db, userId](const drogon_model::oauth2_db::Users &user) {
-              // Fetch roles
-              db->execSqlAsync(
-                "SELECT r.name FROM roles r JOIN user_roles ur ON r.id = "
-                "ur.role_id WHERE ur.user_id = $1",
-                [sharedCb, user, userId](const Result &r) {
-                    Json::Value json;
-                    json["sub"] = user.getValueOfPublicSub();
-                    // OIDC name claim: username preferred, fallback to email when absent
-                    // (username is optional in email-first model)
-                    std::string displayName = user.getValueOfUsername();
-                    json["name"] = displayName.empty() ? user.getValueOfEmail() : displayName;
-                    json["email"] = user.getValueOfEmail();
-
-                    Json::Value roles(Json::arrayValue);
-                    for (auto row : r)
-                    {
-                        roles.append(row["name"].as<std::string>());
-                    }
-                    json["roles"] = roles;
-
-                    (*sharedCb)(json);
-                },
-                [sharedCb, user, userId](const DrogonDbException &e) {
-                    // Error fetching roles, just return user info with
-                    // empty roles
-                    LOG_WARN << "Failed to fetch roles for user " << userId << ": "
-                             << e.base().what();
-                    Json::Value json;
-                    json["sub"] = user.getValueOfPublicSub();
-                    // OIDC name claim: username preferred, fallback to email when absent
-                    // (username is optional in email-first model)
-                    std::string displayName = user.getValueOfUsername();
-                    json["name"] = displayName.empty() ? user.getValueOfEmail() : displayName;
-                    json["email"] = user.getValueOfEmail();
-                    json["roles"] = Json::Value(Json::arrayValue);
-                    (*sharedCb)(json);
-                },
+      userMapper.findByPrimaryKey(
+        userId,
+        [sharedCb, db, userId](const drogon_model::oauth2_db::Users &user) {
+            // Fetch roles via UserRoles → Roles (split JOIN into two Mapper queries)
+            Mapper<drogon_model::oauth2_db::UserRoles> urMapper(db);
+            urMapper.findBy(
+              Criteria(
+                drogon_model::oauth2_db::UserRoles::Cols::_user_id, CompareOperator::EQ,
                 userId
-              );
-          },
+              ),
+              [sharedCb, db, user, userId](
+                const std::vector<drogon_model::oauth2_db::UserRoles> &userRoles
+              ) {
+                  auto roleNames = std::make_shared<std::vector<std::string>>();
+                  if (userRoles.empty())
+                  {
+                      Json::Value json;
+                      json["sub"] = user.getValueOfPublicSub();
+                      std::string displayName = user.getValueOfUsername();
+                      json["name"] = displayName.empty() ? user.getValueOfEmail() : displayName;
+                      json["email"] = user.getValueOfEmail();
+                      json["roles"] = Json::Value(Json::arrayValue);
+                      (*sharedCb)(json);
+                      return;
+                  }
+
+                  for (const auto &ur : userRoles)
+                  {
+                      int32_t roleId = ur.getValueOfRoleId();
+                      Mapper<drogon_model::oauth2_db::Roles> roleMapper(db);
+                      roleMapper.findByPrimaryKey(
+                        roleId,
+                        [sharedCb, roleNames, user, userRoles, userId](
+                          const drogon_model::oauth2_db::Roles &role
+                        ) {
+                            roleNames->push_back(role.getValueOfName());
+                            if (roleNames->size() == userRoles.size())
+                            {
+                                Json::Value json;
+                                json["sub"] = user.getValueOfPublicSub();
+                                std::string displayName = user.getValueOfUsername();
+                                json["name"] =
+                                  displayName.empty() ? user.getValueOfEmail() : displayName;
+                                json["email"] = user.getValueOfEmail();
+                                Json::Value roles(Json::arrayValue);
+                                for (const auto &rn : *roleNames)
+                                    roles.append(rn);
+                                json["roles"] = roles;
+                                (*sharedCb)(json);
+                            }
+                        },
+                        [sharedCb, user](const DrogonDbException &) {
+                            Json::Value json;
+                            json["sub"] = user.getValueOfPublicSub();
+                            std::string displayName = user.getValueOfUsername();
+                            json["name"] =
+                              displayName.empty() ? user.getValueOfEmail() : displayName;
+                            json["email"] = user.getValueOfEmail();
+                            json["roles"] = Json::Value(Json::arrayValue);
+                            (*sharedCb)(json);
+                        }
+                      );
+                  }
+              },
+              [sharedCb, user, userId](const DrogonDbException &e) {
+                  LOG_WARN << "Failed to fetch roles for user " << userId << ": "
+                           << e.base().what();
+                  Json::Value json;
+                  json["sub"] = user.getValueOfPublicSub();
+                  std::string displayName = user.getValueOfUsername();
+                  json["name"] = displayName.empty() ? user.getValueOfEmail() : displayName;
+                  json["email"] = user.getValueOfEmail();
+                  json["roles"] = Json::Value(Json::arrayValue);
+                  (*sharedCb)(json);
+              }
+            );
+        },
           [sharedCb](const DrogonDbException &e) {
               LOG_WARN << "Get User Info Failed: " << e.base().what();
               (*sharedCb)(std::nullopt);
