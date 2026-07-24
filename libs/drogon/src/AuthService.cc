@@ -78,13 +78,14 @@ void AuthService::validateUser(
                   if (failedCount > 0)
                   {
                       auto db = app().getDbClient();
-                      drogon_model::oauth2_db::Users resetUser = user;
-                      resetUser.setFailedLoginCount(0);
-                      resetUser.setLockedUntil(0);
+                      auto resetUser =
+                        std::make_shared<drogon_model::oauth2_db::Users>(user);
+                      resetUser->setFailedLoginCount(0);
+                      resetUser->setLockedUntil(0);
                       Mapper<drogon_model::oauth2_db::Users>(db).update(
-                        resetUser,
-                        [](const size_t) {},
-                        [](const ::drogon::orm::DrogonDbException &) {}
+                        *resetUser,
+                        [resetUser](const size_t) {},
+                        [resetUser](const ::drogon::orm::DrogonDbException &) {}
                       );
                   }
 
@@ -98,17 +99,19 @@ void AuthService::validateUser(
                             authforge::common::utils::PasswordHasher::hash(password);
                           auto db = app().getDbClient();
                           int userId = user.getValueOfId();
-                          drogon_model::oauth2_db::Users hashUser = user;
-                          hashUser.setPasswordHash(newHash);
-                          hashUser.setSalt("");
+                          auto hashUser =
+                            std::make_shared<drogon_model::oauth2_db::Users>(user);
+                          hashUser->setPasswordHash(newHash);
+                          hashUser->setSalt("");
                           Mapper<drogon_model::oauth2_db::Users>(db).update(
-                            hashUser,
-                            [userId](const size_t) {
-                                LOG_INFO << "Upgraded password hash to PBKDF2 for user " << userId;
+                            *hashUser,
+                            [hashUser, userId](const size_t) {
+                                LOG_INFO << "Upgraded password hash to PBKDF2 for user "
+                                         << userId;
                             },
-                            [userId](const ::drogon::orm::DrogonDbException &e) {
-                                LOG_WARN << "Failed to upgrade password hash for user " << userId
-                                         << ": " << e.base().what();
+                            [hashUser, userId](const ::drogon::orm::DrogonDbException &e) {
+                                LOG_WARN << "Failed to upgrade password hash for user "
+                                         << userId << ": " << e.base().what();
                             }
                           );
                       }
@@ -154,14 +157,15 @@ void AuthService::validateUser(
                       newLockedUntil = now + 60;
 
                   auto db = app().getDbClient();
-                  drogon_model::oauth2_db::Users failedUser = user;
-                  failedUser.setFailedLoginCount(newFailedCount);
-                  failedUser.setLockedUntil(newLockedUntil);
-                  failedUser.setLastFailedLogin(now);
+                  auto failedUser =
+                    std::make_shared<drogon_model::oauth2_db::Users>(user);
+                  failedUser->setFailedLoginCount(newFailedCount);
+                  failedUser->setLockedUntil(newLockedUntil);
+                  failedUser->setLastFailedLogin(now);
                   Mapper<drogon_model::oauth2_db::Users>(db).update(
-                    failedUser,
-                    [](const size_t) {},
-                    [](const ::drogon::orm::DrogonDbException &) {}
+                    *failedUser,
+                    [failedUser](const size_t) {},
+                    [failedUser](const ::drogon::orm::DrogonDbException &) {}
                   );
 
                   (*sharedCb)(std::nullopt);

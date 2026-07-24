@@ -82,17 +82,101 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
     Mapper<Users> mapper(db);
     mapper.findBy(
       Criteria(),
-      [cb](const std::vector<Users> &rows) {
-          Json::Value json;
-          json["status"] = "success";
-          Json::Value users(Json::arrayValue);
-          for (const auto &row : rows)
+      [cb, req, db](const std::vector<Users> &rows) {
+          if (rows.empty())
           {
-              users.append(userRowToListJson(row));
+              Json::Value json;
+              json["status"] = "success";
+              json["users"] = Json::Value(Json::arrayValue);
+              json["total"] = 0;
+              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+              return;
           }
-          json["users"] = users;
-          json["total"] = static_cast<int>(rows.size());
-          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+          // Batch-fetch roles for all users: user_roles -> role_ids -> roles
+          std::vector<int32_t> allUserIds;
+          allUserIds.reserve(rows.size());
+          for (const auto &r : rows)
+              allUserIds.push_back(r.getValueOfId());
+
+          Mapper<UserRoles> urMapper(db);
+          urMapper.findBy(
+            Criteria(UserRoles::Cols::_user_id, CompareOperator::In, allUserIds),
+            [cb, req, db, rows = std::move(rows)](
+              const std::vector<UserRoles> &allUserRoles
+            ) {
+                std::unordered_map<int32_t, std::vector<int32_t>> userIdToRoleIds;
+                std::set<int32_t> distinctRoleIds;
+                for (const auto &ur : allUserRoles)
+                {
+                    int32_t rid = ur.getValueOfRoleId();
+                    userIdToRoleIds[ur.getValueOfUserId()].push_back(rid);
+                    distinctRoleIds.insert(rid);
+                }
+                if (distinctRoleIds.empty())
+                {
+                    Json::Value json;
+                    json["status"] = "success";
+                    Json::Value users(Json::arrayValue);
+                    for (const auto &row : rows)
+                        users.append(userRowToListJson(row));
+                    json["users"] = users;
+                    json["total"] = static_cast<int>(rows.size());
+                    (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                    return;
+                }
+                std::vector<int32_t> roleIdsVec(
+                  distinctRoleIds.begin(), distinctRoleIds.end()
+                );
+                Mapper<Roles> rMapper(db);
+                rMapper.findBy(
+                  Criteria(Roles::Cols::_id, CompareOperator::In, roleIdsVec),
+                  [cb, rows = std::move(rows),
+                   userIdToRoleIds = std::move(userIdToRoleIds)](
+                    const std::vector<Roles> &allRoles
+                  ) {
+                      std::unordered_map<int32_t, std::string> roleIdToName;
+                      for (const auto &r : allRoles)
+                          roleIdToName[r.getValueOfId()] = r.getValueOfName();
+
+                      Json::Value json;
+                      json["status"] = "success";
+                      Json::Value users(Json::arrayValue);
+                      for (const auto &row : rows)
+                      {
+                          Json::Value user = userRowToListJson(row);
+                          Json::Value rolesJson(Json::arrayValue);
+                          auto it = userIdToRoleIds.find(row.getValueOfId());
+                          if (it != userIdToRoleIds.end())
+                          {
+                              for (int32_t rid : it->second)
+                              {
+                                  auto rn = roleIdToName.find(rid);
+                                  if (rn != roleIdToName.end())
+                                      rolesJson.append(rn->second);
+                              }
+                          }
+                          user["roles"] = rolesJson;
+                          users.append(user);
+                      }
+                      json["users"] = users;
+                      json["total"] = static_cast<int>(rows.size());
+                      (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                  },
+                  [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                      respondError(
+                        req, cb, "DB_QUERY_ERROR",
+                        std::string("Failed to fetch roles: ") + e.base().what()
+                      );
+                  }
+                );
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req, cb, "DB_QUERY_ERROR",
+                  std::string("Failed to fetch user roles: ") + e.base().what()
+                );
+            }
+          );
       },
       [req, cb](const ::drogon::orm::DrogonDbException &e) {
           respondError(

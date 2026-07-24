@@ -294,13 +294,13 @@ void PostgresIdentityRepository::updatePasswordHash(
               (*sharedCb)(false);
               return;
           }
-          Users updated = users[0];
-          updated.setPasswordHash(newHash);
-          updated.setSalt("");
+          auto updated = std::make_shared<Users>(users[0]);
+          updated->setPasswordHash(newHash);
+          updated->setSalt("");
           Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &e) {
+            *updated,
+            [updated, sharedCb](const size_t) { (*sharedCb)(true); },
+            [updated, sharedCb](const DrogonDbException &e) {
                 LOG_WARN << "[PG-Identity] updatePasswordHash FAILED: " << e.base().what();
                 (*sharedCb)(false);
             }
@@ -336,13 +336,13 @@ void PostgresIdentityRepository::resetFailedLogins(
               (*sharedCb)(false);
               return;
           }
-          Users updated = users[0];
-          updated.setFailedLoginCount(0);
-          updated.setLockedUntil(0);
+          auto updated = std::make_shared<Users>(users[0]);
+          updated->setFailedLoginCount(0);
+          updated->setLockedUntil(0);
           Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &e) {
+            *updated,
+            [updated, sharedCb](const size_t) { (*sharedCb)(true); },
+            [updated, sharedCb](const DrogonDbException &e) {
                 LOG_WARN << "[PG-Identity] resetFailedLogins FAILED: " << e.base().what();
                 (*sharedCb)(false);
             }
@@ -393,14 +393,14 @@ void PostgresIdentityRepository::incrementFailedLogins(
               (*sharedCb)(false);
               return;
           }
-          Users updated = users[0];
-          updated.setFailedLoginCount(newFailedCount);
-          updated.setLockedUntil(newLockedUntil);
-          updated.setLastFailedLogin(now);
+          auto updated = std::make_shared<Users>(users[0]);
+          updated->setFailedLoginCount(newFailedCount);
+          updated->setLockedUntil(newLockedUntil);
+          updated->setLastFailedLogin(now);
           Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            *updated,
+            [updated, sharedCb](const size_t) { (*sharedCb)(true); },
+            [updated, sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
           );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
