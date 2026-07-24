@@ -1,4 +1,4 @@
-﻿#include <oauth2/utils/EmailService.h>
+#include <oauth2/utils/EmailService.h>
 #include <oauth2/config/ConfigManager.h>
 #include <drogon/drogon.h>
 #include <curl/curl.h>

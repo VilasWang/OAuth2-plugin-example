@@ -1,4 +1,4 @@
-﻿#include <oauth2/utils/PasswordHasher.h>
+#include <oauth2/utils/PasswordHasher.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>

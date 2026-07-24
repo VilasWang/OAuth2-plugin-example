@@ -1,4 +1,4 @@
-﻿#include <oauth2/error/ErrorHandler.h>
+#include <oauth2/error/ErrorHandler.h>
 #include <oauth2/error/ErrorCatalog.h>
 #include <oauth2/error/RequestId.h>
 #include <drogon/utils/Utilities.h>

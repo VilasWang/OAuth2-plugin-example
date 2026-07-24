@@ -1,4 +1,4 @@
-﻿#include <oauth2/error/OAuth2ErrorHandler.h>
+#include <oauth2/error/OAuth2ErrorHandler.h>
 #include <oauth2/error/ErrorCatalog.h>
 #include <json/json.h>
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <oauth2/error/ErrorTypes.h>
 #include <drogon/drogon.h>

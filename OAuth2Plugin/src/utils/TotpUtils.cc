@@ -1,4 +1,4 @@
-﻿#include <oauth2/utils/TotpUtils.h>
+#include <oauth2/utils/TotpUtils.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>

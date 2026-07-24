@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <drogon/plugins/Plugin.h>
 #include <oauth2/plugin/OAuth2CleanupService.h>
