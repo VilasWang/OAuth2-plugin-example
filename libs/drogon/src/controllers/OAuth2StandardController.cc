@@ -13,9 +13,12 @@
 #include <mutex>
 #include <sstream>
 
+#include <authforge/storage/postgres/models/Oauth2DeviceCodes.h>
+
 using namespace oauth2;
 using namespace authforge::drogon::controllers;
 using namespace authforge::drogon::observability::openapi;
+using namespace ::drogon::orm;
 
 namespace authforge::drogon::controllers
 {
@@ -1478,12 +1481,16 @@ void OAuth2StandardController::token(
           std::move(callback)
         );
 
-        dbClient->execSqlAsync(
-          "SELECT device_code_hash, user_code, client_id, scope, status, user_id, "
-          "expires_at, interval_seconds FROM oauth2_device_codes "
-          "WHERE device_code_hash = $1",
-          [plugin, sharedCb, clientId, deviceCodeHash](const ::drogon::orm::Result &result) {
-              if (result.empty())
+        Mapper<drogon_model::oauth2_db::Oauth2DeviceCodes> mapper(dbClient);
+        mapper.findBy(
+          Criteria(
+            drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
+            CompareOperator::EQ, deviceCodeHash
+          ),
+          [plugin, sharedCb, clientId, deviceCodeHash](
+            const std::vector<drogon_model::oauth2_db::Oauth2DeviceCodes> &results
+          ) {
+              if (results.empty())
               {
                   Json::Value error;
                   error["error"] = "invalid_grant";
@@ -1500,12 +1507,12 @@ void OAuth2StandardController::token(
                   return;
               }
 
-              auto row = result[0];
-              std::string storedClientId = row["client_id"].as<std::string>();
-              std::string status = row["status"].as<std::string>();
-              int64_t expiresAt = row["expires_at"].as<int64_t>();
-              std::string scope = row["scope"].isNull() ? "" : row["scope"].as<std::string>();
-              std::string userId = row["user_id"].isNull() ? "" : row["user_id"].as<std::string>();
+              const auto &row = results[0];
+              std::string storedClientId = row.getValueOfClientId();
+              std::string status = row.getValueOfStatus();
+              int64_t expiresAt = row.getValueOfExpiresAt();
+              std::string scope = row.getValueOfScope();
+              std::string userId = row.getValueOfUserId();
 
               // Verify client_id matches
               if (storedClientId != clientId)
@@ -1631,11 +1638,13 @@ void OAuth2StandardController::token(
                     auto dbClient = ::drogon::app().getDbClient();
                     if (dbClient)
                     {
-                        dbClient->execSqlAsync(
-                          "DELETE FROM oauth2_device_codes WHERE device_code_hash = $1",
-                          [](const ::drogon::orm::Result &) {},
-                          [](const ::drogon::orm::DrogonDbException &) {},
-                          deviceCodeHash
+                        Mapper<drogon_model::oauth2_db::Oauth2DeviceCodes>(dbClient).deleteBy(
+                          Criteria(
+                            drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
+                            CompareOperator::EQ, deviceCodeHash
+                          ),
+                          [](const size_t) {},
+                          [](const ::drogon::orm::DrogonDbException &) {}
                         );
                     }
 
@@ -1674,8 +1683,7 @@ void OAuth2StandardController::token(
               auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
               resp->setStatusCode(::drogon::k500InternalServerError);
               (*sharedCb)(resp);
-          },
-          deviceCodeHash
+          }
         );
     }
     else

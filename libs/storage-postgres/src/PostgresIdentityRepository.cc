@@ -279,17 +279,37 @@ void PostgresIdentityRepository::updatePasswordHash(
         callback(false);
         return;
     }
+    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
     LOG_DEBUG << "[PG-Identity] updatePasswordHash: userId=" << userId;
-    dbClient_->execSqlAsync(
-      "UPDATE users SET password_hash = $1, salt = '' WHERE id = $2",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findBy(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, userId32, newHash, self = shared_from_this()](
+        const std::vector<Users> &users
+      ) {
+          if (users.empty())
+          {
+              (*sharedCb)(false);
+              return;
+          }
+          Users updated = users[0];
+          updated.setPasswordHash(newHash);
+          updated.setSalt("");
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &e) {
+                LOG_WARN << "[PG-Identity] updatePasswordHash FAILED: " << e.base().what();
+                (*sharedCb)(false);
+            }
+          );
+      },
       [sharedCb](const DrogonDbException &e) {
           LOG_WARN << "[PG-Identity] updatePasswordHash FAILED: " << e.base().what();
           (*sharedCb)(false);
-      },
-      newHash,
-      static_cast<int32_t>(userId)
+      }
     );
 }
 
@@ -303,16 +323,35 @@ void PostgresIdentityRepository::resetFailedLogins(
         callback(false);
         return;
     }
+    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
     LOG_DEBUG << "[PG-Identity] resetFailedLogins: userId=" << userId;
-    dbClient_->execSqlAsync(
-      "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE id = $1",
-      [sharedCb](const Result &) { (*sharedCb)(true); },
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findBy(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, self = shared_from_this()](const std::vector<Users> &users) {
+          if (users.empty())
+          {
+              (*sharedCb)(false);
+              return;
+          }
+          Users updated = users[0];
+          updated.setFailedLoginCount(0);
+          updated.setLockedUntil(0);
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &e) {
+                LOG_WARN << "[PG-Identity] resetFailedLogins FAILED: " << e.base().what();
+                (*sharedCb)(false);
+            }
+          );
+      },
       [sharedCb](const DrogonDbException &e) {
           LOG_WARN << "[PG-Identity] resetFailedLogins FAILED: " << e.base().what();
           (*sharedCb)(false);
-      },
-      static_cast<int32_t>(userId)
+      }
     );
 }
 
@@ -327,15 +366,13 @@ void PostgresIdentityRepository::incrementFailedLogins(
         return;
     }
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
-    auto db = dbClient_;
-
-    // Read current failed_login_count first so the progressive-backoff
-    // window matches AuthService.cc's existing thresholds (5/10/15/20+).
     int32_t userId32 = static_cast<int32_t>(userId);
-    db->execSqlAsync(
-      "SELECT failed_login_count FROM users WHERE id = $1",
-      [sharedCb, db, userId32](const Result &r) {
-          int failedCount = r.empty() ? 0 : r[0]["failed_login_count"].as<int>();
+
+    Mapper<Users> mapper(dbClient_);
+    mapper.findBy(
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      [sharedCb, userId32, self = shared_from_this()](const std::vector<Users> &users) {
+          int failedCount = users.empty() ? 0 : users[0].getValueOfFailedLoginCount();
           int newFailedCount = failedCount + 1;
           int64_t now = std::chrono::duration_cast<std::chrono::seconds>(
                           std::chrono::system_clock::now().time_since_epoch()
@@ -351,19 +388,22 @@ void PostgresIdentityRepository::incrementFailedLogins(
           else if (newFailedCount >= 5)
               newLockedUntil = now + 60;
 
-          db->execSqlAsync(
-            "UPDATE users SET failed_login_count = $1, locked_until = $2, "
-            "last_failed_login = $3 WHERE id = $4",
-            [sharedCb](const Result &) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-            newFailedCount,
-            newLockedUntil,
-            now,
-            userId32
+          if (users.empty())
+          {
+              (*sharedCb)(false);
+              return;
+          }
+          Users updated = users[0];
+          updated.setFailedLoginCount(newFailedCount);
+          updated.setLockedUntil(newLockedUntil);
+          updated.setLastFailedLogin(now);
+          Mapper<Users>(self->dbClient_).update(
+            updated,
+            [sharedCb](const size_t) { (*sharedCb)(true); },
+            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
           );
       },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); },
-      userId32
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
 }
 
@@ -384,37 +424,84 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
     try
     {
         int32_t userId32 = static_cast<int32_t>(userId);
-        Mapper<Users> mapper(db);
-        mapper.findOne(
+        Mapper<Users>(db).findBy(
           Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
-          [sharedCb, db, userId32](const Users &user) {
-              db->execSqlAsync(
-                "SELECT r.name FROM roles r JOIN user_roles ur ON r.id = "
-                "ur.role_id WHERE ur.user_id = $1",
-                [sharedCb, user](const Result &r) {
-                    Json::Value json;
-                    json["sub"] = user.getValueOfPublicSub();
-                    std::string displayName = user.getValueOfUsername();
-                    json["name"] = displayName.empty() ? user.getValueOfEmail() : displayName;
-                    json["email"] = user.getValueOfEmail();
+          [sharedCb, db, userId32](const std::vector<Users> &users) {
+              if (users.empty())
+              {
+                  (*sharedCb)(std::nullopt);
+                  return;
+              }
+              const auto &user = users[0];
 
-                    Json::Value roles(Json::arrayValue);
-                    for (auto row : r)
-                        roles.append(row["name"].as<std::string>());
-                    json["roles"] = roles;
+              // Split JOIN: UserRoles::findBy + Roles::findBy for each role
+              Mapper<UserRoles>(db).findBy(
+                Criteria(
+                  UserRoles::Cols::_user_id, CompareOperator::EQ, userId32
+                ),
+                [sharedCb, db, user](
+                  const std::vector<UserRoles> &userRoles
+                ) {
+                    auto roleNames = std::make_shared<std::vector<std::string>>();
+                    if (userRoles.empty())
+                    {
+                        Json::Value json;
+                        json["sub"] = user.getValueOfPublicSub();
+                        std::string dn = user.getValueOfUsername();
+                        json["name"] = dn.empty() ? user.getValueOfEmail() : dn;
+                        json["email"] = user.getValueOfEmail();
+                        json["roles"] = Json::Value(Json::arrayValue);
+                        (*sharedCb)(json);
+                        return;
+                    }
 
-                    (*sharedCb)(json);
+                    for (const auto &ur : userRoles)
+                    {
+                        int32_t roleId = ur.getValueOfRoleId();
+                        Mapper<Roles>(db).findBy(
+                          Criteria(Roles::Cols::_id, CompareOperator::EQ, roleId),
+                          [sharedCb, roleNames, user, userRoles](
+                            const std::vector<Roles> &roles
+                          ) {
+                              if (!roles.empty())
+                                  roleNames->push_back(roles[0].getValueOfName());
+                              if (roleNames->size() == userRoles.size())
+                              {
+                                  Json::Value json;
+                                  json["sub"] = user.getValueOfPublicSub();
+                                  std::string dn = user.getValueOfUsername();
+                                  json["name"] =
+                                    dn.empty() ? user.getValueOfEmail() : dn;
+                                  json["email"] = user.getValueOfEmail();
+                                  Json::Value rj(Json::arrayValue);
+                                  for (const auto &rn : *roleNames)
+                                      rj.append(rn);
+                                  json["roles"] = rj;
+                                  (*sharedCb)(json);
+                              }
+                          },
+                          [sharedCb, user](const DrogonDbException &) {
+                              Json::Value json;
+                              json["sub"] = user.getValueOfPublicSub();
+                              std::string dn = user.getValueOfUsername();
+                              json["name"] =
+                                dn.empty() ? user.getValueOfEmail() : dn;
+                              json["email"] = user.getValueOfEmail();
+                              json["roles"] = Json::Value(Json::arrayValue);
+                              (*sharedCb)(json);
+                          }
+                        );
+                    }
                 },
                 [sharedCb, user](const DrogonDbException &) {
                     Json::Value json;
                     json["sub"] = user.getValueOfPublicSub();
-                    std::string displayName = user.getValueOfUsername();
-                    json["name"] = displayName.empty() ? user.getValueOfEmail() : displayName;
+                    std::string dn = user.getValueOfUsername();
+                    json["name"] = dn.empty() ? user.getValueOfEmail() : dn;
                     json["email"] = user.getValueOfEmail();
                     json["roles"] = Json::Value(Json::arrayValue);
                     (*sharedCb)(json);
-                },
-                userId32
+                }
               );
           },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }

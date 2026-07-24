@@ -1,4 +1,9 @@
 #include <authforge/drogon/controllers/UserSelfServiceController.h>
+#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
+#include <authforge/storage/postgres/models/Oauth2Clients.h>
+#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
+#include <authforge/storage/postgres/models/Oauth2UserConsents.h>
+#include <authforge/storage/postgres/models/Users.h>
 #include <oauth2/utils/PasswordHasher.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/adapters/DrogonAuditSink.h>
@@ -10,6 +15,9 @@
 
 namespace authforge::drogon::controllers
 {
+
+using namespace ::drogon::orm;
+using namespace ::drogon_model::oauth2_db;
 
 namespace
 {
@@ -100,38 +108,29 @@ void UserSelfServiceController::getProfile(
     try
     {
         auto db = ::drogon::app().getDbClient();
-        db->execSqlAsync(
-          "SELECT username, email, email_verified, mfa_enabled "
-          "FROM users WHERE public_sub::text = $1::text",
-          [sharedCb, req](const ::drogon::orm::Result &result) {
-              if (result.empty())
-              {
-                  respondError(
-                    req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "getProfile: user not found"
-                  );
-                  return;
-              }
+        // Task B5: replaced raw SQL with Mapper<Users>
+        Criteria crit(Users::Cols::_public_sub, CompareOperator::EQ, userId);
+        Mapper<Users>(db).findOne(
+          crit,
+          [sharedCb, req](const Users &user) {
 
-              const auto &row = result[0];
               Json::Value json;
-              json["username"] = row["username"].as<std::string>();
-              json["email"] = row["email"].isNull() ? "" : row["email"].as<std::string>();
-              json["email_verified"] =
-                row["email_verified"].isNull() ? false : row["email_verified"].as<bool>();
-              json["mfa_enabled"] =
-                row["mfa_enabled"].isNull() ? false : row["mfa_enabled"].as<bool>();
+              json["username"] = user.getValueOfUsername();
+              json["email"] =
+                user.getValueOfEmail().empty() ? "" : user.getValueOfEmail();
+              json["email_verified"] = user.getValueOfEmailVerified();
+              json["mfa_enabled"] = user.getValueOfMfaEnabled();
               auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
               (*sharedCb)(resp);
           },
-          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
                 "DB_QUERY_ERROR",
                 std::string("getProfile failed: ") + e.base().what()
               );
-          },
-          userId
+          }
         );
     }
     catch (...)
@@ -187,20 +186,13 @@ void UserSelfServiceController::changePassword(
     try
     {
         auto db = ::drogon::app().getDbClient();
-        db->execSqlAsync(
-          "SELECT password_hash, salt FROM users WHERE public_sub::text = $1::text",
-          [sharedCb, oldPassword, newPassword, userId, req](const ::drogon::orm::Result &result) {
-              if (result.empty())
-              {
-                  respondError(
-                    req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "changePassword: user not found"
-                  );
-                  return;
-              }
-
-              std::string storedHash = result[0]["password_hash"].as<std::string>();
-              std::string salt =
-                result[0]["salt"].isNull() ? "" : result[0]["salt"].as<std::string>();
+        // Task B5: replaced raw SQL with Mapper<Users>
+        Criteria pwCrit(Users::Cols::_public_sub, CompareOperator::EQ, userId);
+        Mapper<Users>(db).findOne(
+          pwCrit,
+          [sharedCb, oldPassword, newPassword, userId, req, db](const Users &user) {
+              std::string storedHash = user.getValueOfPasswordHash();
+              std::string salt = user.getValueOfSalt();
 
               // Verify old password
               if (!::authforge::common::utils::PasswordHasher::verify(
@@ -242,12 +234,18 @@ void UserSelfServiceController::changePassword(
                   return;
               }
 
-              // Update password in DB (clear salt since PBKDF2 embeds it)
+              // Task B5: replaced UPDATE password with Mapper<Users>
+              Users updatedUser = user;
+              updatedUser.setPasswordHash(newHash);
+              updatedUser.setSalt("");
               auto db2 = ::drogon::app().getDbClient();
-              db2->execSqlAsync(
-                "UPDATE users SET password_hash = $1, salt = '' "
-                "WHERE public_sub::text = $2::text",
-                [sharedCb, userId, req, db2](const ::drogon::orm::Result &) {
+              Mapper<Users>(db2).update(
+                updatedUser,
+                [sharedCb, userId, req, db2](const size_t) {
+                    // Exemption (db-operations.md §3): Security-critical
+                    // cascade revoke of ALL tokens for a user on password
+                    // change. Splitting into individual Mapper updates per
+                    // token would be O(n) round-trips with no benefit.
                     // Revoke all access tokens for this user
                     db2->execSqlAsync(
                       "UPDATE oauth2_access_tokens SET revoked = true WHERE user_id = $1",
@@ -335,20 +333,17 @@ void UserSelfServiceController::changePassword(
                       "DB_QUERY_ERROR",
                       std::string("Password update failed: ") + e.base().what()
                     );
-                },
-                newHash,
-                userId
+                }
               );
           },
-          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+          [sharedCb, req](const DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
                 "DB_QUERY_ERROR",
                 std::string("changePassword lookup failed: ") + e.base().what()
               );
-          },
-          userId
+          }
         );
     }
     catch (...)
@@ -369,38 +364,74 @@ void UserSelfServiceController::listAuthorizedApps(
     try
     {
         auto db = ::drogon::app().getDbClient();
-        db->execSqlAsync(
-          "SELECT DISTINCT c.client_id, c.name "
-          "FROM oauth2_user_consents uc "
-          "JOIN oauth2_clients c ON uc.client_id = c.client_id "
-          "WHERE uc.internal_user_id = "
-          "(SELECT id FROM users WHERE public_sub::text = $1::text)",
-          [sharedCb](const ::drogon::orm::Result &result) {
-              Json::Value json;
-              Json::Value apps(Json::arrayValue);
-
-              for (const auto &row : result)
+        // Split 3-way JOIN: resolve public_sub → user → consents → clients
+        Mapper<Users>(db).findBy(
+          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId),
+          [sharedCb, db, req](const std::vector<Users> &users) {
+              if (users.empty())
               {
-                  Json::Value app;
-                  app["client_id"] = row["client_id"].as<std::string>();
-                  app["name"] = row["name"].isNull() ? "" : row["name"].as<std::string>();
-                  apps.append(app);
+                  Json::Value json;
+                  json["authorized_apps"] = Json::Value(Json::arrayValue);
+                  json["total"] = 0;
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                  return;
               }
+              int32_t internalId = users[0].getValueOfId();
 
-              json["authorized_apps"] = apps;
-              json["total"] = static_cast<int>(result.size());
-              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-              (*sharedCb)(resp);
+              Mapper<Oauth2UserConsents>(db).findBy(
+                Criteria(
+                  Oauth2UserConsents::Cols::_internal_user_id, CompareOperator::EQ,
+                  internalId
+                ),
+                [sharedCb, db, req](const std::vector<Oauth2UserConsents> &consents) {
+                    Json::Value json;
+                    Json::Value apps(Json::arrayValue);
+                    std::set<std::string> seen;
+
+                    for (const auto &uc : consents)
+                    {
+                        std::string clientId = uc.getValueOfClientId();
+                        if (!seen.insert(clientId).second)
+                            continue;  // DISTINCT
+
+                        Mapper<Oauth2Clients>(db).findBy(
+                          Criteria(
+                            Oauth2Clients::Cols::_client_id, CompareOperator::EQ,
+                            clientId
+                          ),
+                          [&apps, clientId](
+                            const std::vector<Oauth2Clients> &clients
+                          ) {
+                              Json::Value app;
+                              app["client_id"] = clientId;
+                              app["name"] =
+                                clients.empty() ? ""
+                                                : clients[0].getValueOfName();
+                              apps.append(app);
+                          },
+                          [](const ::drogon::orm::DrogonDbException &) {}
+                        );
+                    }
+
+                    json["authorized_apps"] = apps;
+                    json["total"] = static_cast<int>(apps.size());
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                    (*sharedCb)(resp);
+                },
+                [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                    respondError(
+                      req, sharedCb, "DB_QUERY_ERROR",
+                      std::string("listAuthorizedApps failed: ") + e.base().what()
+                    );
+                }
+              );
           },
           [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
-                req,
-                sharedCb,
-                "DB_QUERY_ERROR",
+                req, sharedCb, "DB_QUERY_ERROR",
                 std::string("listAuthorizedApps failed: ") + e.base().what()
               );
-          },
-          userId
+          }
         );
     }
     catch (...)
@@ -437,40 +468,57 @@ void UserSelfServiceController::revokeAuthorizedApp(
         auto db = ::drogon::app().getDbClient();
 
         // First get the internal user id
-        db->execSqlAsync(
-          "SELECT id FROM users WHERE public_sub::text = $1::text",
-          [sharedCb, userId, clientId, req, db](const ::drogon::orm::Result &result) {
-              if (result.empty())
+        Mapper<Users>(db).findBy(
+          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId),
+          [sharedCb, userId, clientId, req, db](const std::vector<Users> &users) {
+              if (users.empty())
               {
                   respondError(
-                    req,
-                    sharedCb,
-                    "VALIDATION_RESOURCE_NOT_FOUND",
+                    req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND",
                     "revokeAuthorizedApp: user not found"
                   );
                   return;
               }
 
-              int internalUserId = result[0]["id"].as<int>();
+              int32_t internalUserId = users[0].getValueOfId();
 
               // Delete consents
-              db->execSqlAsync(
-                "DELETE FROM oauth2_user_consents "
-                "WHERE internal_user_id = $1 AND client_id = $2",
-                [sharedCb, userId, clientId, req, db](const ::drogon::orm::Result &) {
+              Mapper<Oauth2UserConsents>(db).deleteBy(
+                Criteria(
+                  Oauth2UserConsents::Cols::_internal_user_id, CompareOperator::EQ,
+                  internalUserId
+                ) &&
+                  Criteria(
+                    Oauth2UserConsents::Cols::_client_id, CompareOperator::EQ, clientId
+                  ),
+                [sharedCb, userId, clientId, req, db](const size_t) {
                     // Revoke access tokens for this user+client
-                    db->execSqlAsync(
-                      "UPDATE oauth2_access_tokens SET revoked = true "
-                      "WHERE user_id = $1 AND client_id = $2",
-                      [sharedCb, userId, clientId, req](const ::drogon::orm::Result &) {
+                    Mapper<Oauth2AccessTokens>(db).findBy(
+                      Criteria(
+                        Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ,
+                        userId
+                      ) &&
+                        Criteria(
+                          Oauth2AccessTokens::Cols::_client_id, CompareOperator::EQ,
+                          clientId
+                        ),
+                      [sharedCb, userId, clientId, req, db](
+                        const std::vector<Oauth2AccessTokens> &tokens
+                      ) {
+                          for (const auto &t : tokens)
+                          {
+                              Oauth2AccessTokens up = t;
+                              up.setRevoked(true);
+                              Mapper<Oauth2AccessTokens>(db).update(
+                                up,
+                                [](const size_t) {},
+                                [](const ::drogon::orm::DrogonDbException &) {}
+                              );
+                          }
                           ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
                             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                            "app_authorization_revoked",
-                            "success",
-                            req,
-                            userId,
-                            "client",
-                            clientId
+                            "app_authorization_revoked", "success", req,
+                            userId, "client", clientId
                           );
                           Json::Value json;
                           json["message"] = "Authorization revoked successfully";
@@ -478,47 +526,38 @@ void UserSelfServiceController::revokeAuthorizedApp(
                           auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                           (*sharedCb)(resp);
                       },
-                      [sharedCb, userId, clientId, req](const ::drogon::orm::DrogonDbException &) {
+                      [sharedCb, userId, clientId, req](
+                        const ::drogon::orm::DrogonDbException &
+                      ) {
                           ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
                             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                            "app_authorization_revoked",
-                            "success",
-                            req,
-                            userId,
-                            "client",
-                            clientId
+                            "app_authorization_revoked", "success", req,
+                            userId, "client", clientId
                           );
                           Json::Value json;
                           json["message"] = "Authorization revoked successfully";
                           json["client_id"] = clientId;
                           auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                           (*sharedCb)(resp);
-                      },
-                      userId,
-                      clientId
+                      }
                     );
                 },
                 [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                     respondError(
-                      req,
-                      sharedCb,
-                      "DB_QUERY_ERROR",
-                      std::string("revokeAuthorizedApp consent delete failed: ") + e.base().what()
+                      req, sharedCb, "DB_QUERY_ERROR",
+                      std::string("revokeAuthorizedApp: consent DELETE failed: ") +
+                        e.base().what()
                     );
-                },
-                internalUserId,
-                clientId
+                }
               );
           },
           [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
-                req,
-                sharedCb,
-                "DB_QUERY_ERROR",
-                std::string("revokeAuthorizedApp user lookup failed: ") + e.base().what()
+                req, sharedCb, "DB_QUERY_ERROR",
+                std::string("revokeAuthorizedApp: user lookup failed: ") +
+                  e.base().what()
               );
-          },
-          userId
+          }
         );
     }
     catch (...)
@@ -542,15 +581,72 @@ void UserSelfServiceController::deleteAccount(
     {
         auto db = ::drogon::app().getDbClient();
 
+        // Helper: anonymize user record (called from multiple fallback paths)
+        auto anonymizeUser = [sharedCb, userId, req](
+                               ::drogon::orm::DbClientPtr dbClient,
+                               const std::string &anonUsername
+                             ) {
+            Mapper<Users>(dbClient).findBy(
+              Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId),
+              [sharedCb, userId, req, anonUsername, dbClient](
+                const std::vector<Users> &users
+              ) {
+                  if (users.empty())
+                  {
+                      respondError(
+                        req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND",
+                        "deleteAccount: user not found"
+                      );
+                      return;
+                  }
+                  Users u = users[0];
+                  u.setUsername(anonUsername);
+                  u.setEmailToNull();
+                  u.setPasswordHash("DELETED");
+                  Mapper<Users>(dbClient).update(
+                    u,
+                    [sharedCb, userId, req](const size_t) {
+                        ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                          ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                          "account_deleted", "success", req, userId, "user", userId
+                        );
+                        Json::Value json;
+                        json["message"] = "Account deleted successfully";
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                        (*sharedCb)(resp);
+                    },
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req, sharedCb, "DB_QUERY_ERROR",
+                          std::string("deleteAccount user update failed: ") + e.base().what()
+                        );
+                    }
+                  );
+              },
+              [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                  respondError(
+                    req, sharedCb, "DB_QUERY_ERROR",
+                    std::string("deleteAccount user lookup failed: ") + e.base().what()
+                  );
+              }
+            );
+        };
+
+        // Exemption (db-operations.md §3): Security-critical cascade revoke
+        // of ALL tokens for a user on account deletion. Bulk UPDATE is the
+        // only correct approach — splitting into per-token Mapper::update
+        // would be O(n) round-trips with no benefit.
+
         // Step 1: Revoke all access tokens
         db->execSqlAsync(
           "UPDATE oauth2_access_tokens SET revoked = true WHERE user_id = $1",
-          [sharedCb, userId, req, db](const ::drogon::orm::Result &) {
+          [sharedCb, userId, req, db, anonymizeUser](const ::drogon::orm::Result &) {
               // Step 2: Revoke all refresh tokens
               db->execSqlAsync(
                 "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
-                [sharedCb, userId, req, db](const ::drogon::orm::Result &) {
-                    // Step 3: Soft-delete user (anonymize)
+                [sharedCb, userId, req, anonymizeUser, db](
+                  const ::drogon::orm::Result &
+                ) {
                     auto timestamp = std::to_string(
                       std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::system_clock::now().time_since_epoch()
@@ -558,49 +654,11 @@ void UserSelfServiceController::deleteAccount(
                         .count()
                     );
                     std::string anonUsername = "deleted_" + timestamp;
-
-                    db->execSqlAsync(
-                      "UPDATE users SET username = $1, email = NULL, password_hash = 'DELETED' "
-                      "WHERE public_sub::text = $2::text",
-                      [sharedCb, userId, req](const ::drogon::orm::Result &result) {
-                          if (result.affectedRows() == 0)
-                          {
-                              respondError(
-                                req,
-                                sharedCb,
-                                "VALIDATION_RESOURCE_NOT_FOUND",
-                                "deleteAccount: user not found"
-                              );
-                              return;
-                          }
-
-                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
-                            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                            "account_deleted",
-                            "success",
-                            req,
-                            userId,
-                            "user",
-                            userId
-                          );
-                          Json::Value json;
-                          json["message"] = "Account deleted successfully";
-                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                          (*sharedCb)(resp);
-                      },
-                      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                          respondError(
-                            req,
-                            sharedCb,
-                            "DB_QUERY_ERROR",
-                            std::string("deleteAccount user update failed: ") + e.base().what()
-                          );
-                      },
-                      anonUsername,
-                      userId
-                    );
+                    anonymizeUser(db, anonUsername);
                 },
-                [sharedCb, userId, req, db](const ::drogon::orm::DrogonDbException &) {
+                [sharedCb, userId, req, anonymizeUser, db](
+                  const ::drogon::orm::DrogonDbException &
+                ) {
                     auto timestamp = std::to_string(
                       std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::system_clock::now().time_since_epoch()
@@ -608,41 +666,14 @@ void UserSelfServiceController::deleteAccount(
                         .count()
                     );
                     std::string anonUsername = "deleted_" + timestamp;
-
-                    db->execSqlAsync(
-                      "UPDATE users SET username = $1, email = NULL, password_hash = 'DELETED' "
-                      "WHERE public_sub::text = $2::text",
-                      [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
-                            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                            "account_deleted",
-                            "success",
-                            req,
-                            userId,
-                            "user",
-                            userId
-                          );
-                          Json::Value json;
-                          json["message"] = "Account deleted successfully";
-                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                          (*sharedCb)(resp);
-                      },
-                      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                          respondError(
-                            req,
-                            sharedCb,
-                            "DB_QUERY_ERROR",
-                            std::string("deleteAccount user update failed: ") + e.base().what()
-                          );
-                      },
-                      anonUsername,
-                      userId
-                    );
+                    anonymizeUser(db, anonUsername);
                 },
                 userId
               );
           },
-          [sharedCb, userId, req, db](const ::drogon::orm::DrogonDbException &) {
+          [sharedCb, userId, req, anonymizeUser, db](
+            const ::drogon::orm::DrogonDbException &
+          ) {
               auto timestamp = std::to_string(
                 std::chrono::duration_cast<std::chrono::seconds>(
                   std::chrono::system_clock::now().time_since_epoch()
@@ -650,36 +681,7 @@ void UserSelfServiceController::deleteAccount(
                   .count()
               );
               std::string anonUsername = "deleted_" + timestamp;
-
-              db->execSqlAsync(
-                "UPDATE users SET username = $1, email = NULL, password_hash = 'DELETED' "
-                "WHERE public_sub::text = $2::text",
-                [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                    ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
-                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                      "account_deleted",
-                      "success",
-                      req,
-                      userId,
-                      "user",
-                      userId
-                    );
-                    Json::Value json;
-                    json["message"] = "Account deleted successfully";
-                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                    (*sharedCb)(resp);
-                },
-                [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                    respondError(
-                      req,
-                      sharedCb,
-                      "DB_QUERY_ERROR",
-                      std::string("deleteAccount user update failed: ") + e.base().what()
-                    );
-                },
-                anonUsername,
-                userId
-              );
+              anonymizeUser(db, anonUsername);
           },
           userId
         );

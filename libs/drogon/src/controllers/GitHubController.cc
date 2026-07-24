@@ -12,6 +12,15 @@
 #include <authforge/identity/SocialAuthService.h>
 #endif  // WITH_SOCIAL
 
+#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
+#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
+#include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <authforge/storage/postgres/models/UserRoles.h>
+#include <authforge/storage/postgres/models/Users.h>
+
+using namespace ::drogon::orm;
+using namespace drogon_model::oauth2_db;
+
 namespace authforge::drogon::controllers
 {
 
@@ -158,21 +167,34 @@ void GitHubController::login(
             )
                          .count();
             auto db2 = ::drogon::app().getDbClient();
-            db2->execSqlAsync(
-              "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, "
-              "issued_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            Oauth2AccessTokens atModel;
+            atModel.setToken(accessToken);
+            atModel.setClientId("vue-client");
+            atModel.setUserId(std::to_string(userId));
+            atModel.setScope("openid profile email");
+            atModel.setIssuedAt(now);
+            atModel.setExpiresAt(now + 3600);
+            Mapper<Oauth2AccessTokens>(db2).insert(
+              atModel,
               [callbackPtr, accessToken, refreshToken, db2, userId, req](
-                const ::drogon::orm::Result &
+                const Oauth2AccessTokens &
               ) {
                   auto now2 = std::chrono::duration_cast<std::chrono::seconds>(
                                 std::chrono::system_clock::now().time_since_epoch()
                   )
                                 .count();
-                  db2->execSqlAsync(
-                    "INSERT INTO oauth2_refresh_tokens (token, access_token, "
-                    "client_id, user_id, scope, expires_at) "
-                    "VALUES ($1, $2, $3, $4, $5, $6)",
-                    [callbackPtr, accessToken, refreshToken](const ::drogon::orm::Result &) {
+                  Oauth2RefreshTokens rtModel;
+                  rtModel.setToken(refreshToken);
+                  rtModel.setAccessToken(accessToken);
+                  rtModel.setClientId("vue-client");
+                  rtModel.setUserId(std::to_string(userId));
+                  rtModel.setScope("openid profile email");
+                  rtModel.setExpiresAt(now2 + 2592000);
+                  Mapper<Oauth2RefreshTokens>(db2).insert(
+                    rtModel,
+                    [callbackPtr, accessToken, refreshToken](
+                      const Oauth2RefreshTokens &
+                    ) {
                         Json::Value result;
                         result["access_token"] = accessToken;
                         result["refresh_token"] = refreshToken;
@@ -182,35 +204,19 @@ void GitHubController::login(
                     },
                     [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
                         respondError(
-                          req,
-                          callbackPtr,
-                          "DB_QUERY_ERROR",
+                          req, callbackPtr, "DB_QUERY_ERROR",
                           std::string("github login: failed to create refresh token: ") +
                             e.base().what()
                         );
-                    },
-                    refreshToken,
-                    accessToken,
-                    "vue-client",
-                    std::to_string(userId),
-                    "openid profile email",
-                    now2 + 2592000
+                    }
                   );
               },
               [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
                   respondError(
-                    req,
-                    callbackPtr,
-                    "DB_QUERY_ERROR",
+                    req, callbackPtr, "DB_QUERY_ERROR",
                     std::string("github login: failed to create access token: ") + e.base().what()
                   );
-              },
-              accessToken,
-              "vue-client",
-              std::to_string(userId),
-              "openid profile email",
-              now,
-              now + 3600
+              }
             );
         };
 
@@ -323,12 +329,19 @@ void GitHubController::login(
                 std::string subject = std::to_string(githubId);
 
                 // Check if this GitHub account is already linked
-                db->execSqlAsync(
-                  "SELECT internal_user_id FROM oauth2_subject_mappings "
-                  "WHERE provider = $1 AND subject = $2",
-                  [this, callbackPtr, db, githubLogin, githubEmail, provider, subject, req](
-                    const ::drogon::orm::Result &mappingResult
-                  ) {
+                {
+                    Criteria crit(
+                      Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider
+                    );
+                    crit = crit &&
+                           Criteria(
+                             Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject
+                           );
+                    Mapper<Oauth2SubjectMappings>(db).findBy(
+                      crit,
+                      [this, callbackPtr, db, githubLogin, githubEmail, provider, subject, req](
+                        const std::vector<Oauth2SubjectMappings> &mappings
+                      ) {
                       auto issueTokens =
                         [this, callbackPtr, req](int userId, const std::string &username) {
                             // Issue access_token and refresh_token
@@ -354,24 +367,34 @@ void GitHubController::login(
                                          .count();
 
                             auto db2 = ::drogon::app().getDbClient();
-                            db2->execSqlAsync(
-                              "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, "
-                              "issued_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)",
+                            Oauth2AccessTokens atModel;
+                            atModel.setToken(accessToken);
+                            atModel.setClientId("vue-client");
+                            atModel.setUserId(std::to_string(userId));
+                            atModel.setScope("openid profile email");
+                            atModel.setIssuedAt(now);
+                            atModel.setExpiresAt(now + 3600);
+                            Mapper<Oauth2AccessTokens>(db2).insert(
+                              atModel,
                               [callbackPtr, accessToken, refreshToken, db2, userId, req](
-                                const ::drogon::orm::Result &
+                                const Oauth2AccessTokens &
                               ) {
-                                  // Also insert refresh token
                                   auto now2 = std::chrono::duration_cast<std::chrono::seconds>(
                                                 std::chrono::system_clock::now().time_since_epoch()
                                   )
                                                 .count();
-                                  db2->execSqlAsync(
-                                    "INSERT INTO oauth2_refresh_tokens (token, access_token, "
-                                    "client_id, user_id, scope, expires_at) "
-                                    "VALUES ($1, $2, $3, $4, $5, $6)",
-                                    [callbackPtr,
-                                     accessToken,
-                                     refreshToken](const ::drogon::orm::Result &) {
+                                  Oauth2RefreshTokens rtModel;
+                                  rtModel.setToken(refreshToken);
+                                  rtModel.setAccessToken(accessToken);
+                                  rtModel.setClientId("vue-client");
+                                  rtModel.setUserId(std::to_string(userId));
+                                  rtModel.setScope("openid profile email");
+                                  rtModel.setExpiresAt(now2 + 2592000);
+                                  Mapper<Oauth2RefreshTokens>(db2).insert(
+                                    rtModel,
+                                    [callbackPtr, accessToken, refreshToken](
+                                      const Oauth2RefreshTokens &
+                                    ) {
                                         Json::Value result;
                                         result["access_token"] = accessToken;
                                         result["refresh_token"] = refreshToken;
@@ -383,22 +406,11 @@ void GitHubController::login(
                                     },
                                     [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
                                         respondError(
-                                          req,
-                                          callbackPtr,
-                                          "DB_QUERY_ERROR",
-                                          std::string(
-                                            "github login: failed to create "
-                                            "refresh token: "
-                                          ) +
+                                          req, callbackPtr, "DB_QUERY_ERROR",
+                                          std::string("github login: failed to create refresh token: ") +
                                             e.base().what()
                                         );
-                                    },
-                                    refreshToken,
-                                    accessToken,
-                                    "vue-client",
-                                    std::to_string(userId),
-                                    "openid profile email",
-                                    now2 + 2592000  // 30 days
+                                    }
                                   );
                               },
                               [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
@@ -412,38 +424,31 @@ void GitHubController::login(
                                     ) +
                                       e.base().what()
                                   );
-                              },
-                              accessToken,
-                              "vue-client",
-                              std::to_string(userId),
-                              "openid profile email",
-                              now,
-                              now + 3600  // 1 hour
+                              }
                             );
                         };
 
-                      if (!mappingResult.empty())
+                      if (!mappings.empty())
                       {
                           // Existing linked account - issue tokens
-                          int userId = mappingResult[0]["internal_user_id"].as<int>();
+                          int32_t userId = mappings[0].getValueOfInternalUserId();
                           // Get username
-                          db->execSqlAsync(
-                            "SELECT username FROM users WHERE id = $1",
-                            [callbackPtr, issueTokens, userId](const ::drogon::orm::Result &r) {
+                          Mapper<Users>(db).findBy(
+                            Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+                            [callbackPtr, issueTokens, userId](
+                              const std::vector<Users> &users
+                            ) {
                                 std::string username =
-                                  r.empty() ? "user" : r[0]["username"].as<std::string>();
-                                issueTokens(userId, username);
+                                  users.empty() ? "user" : users[0].getValueOfUsername();
+                                issueTokens(static_cast<int>(userId), username);
                             },
                             [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
                                 respondError(
-                                  req,
-                                  callbackPtr,
-                                  "DB_QUERY_ERROR",
+                                  req, callbackPtr, "DB_QUERY_ERROR",
                                   std::string("github login: failed to fetch user: ") +
                                     e.base().what()
                                 );
-                            },
-                            userId
+                            }
                           );
                       }
                       else
@@ -451,9 +456,10 @@ void GitHubController::login(
                           // New GitHub user - create local account + link
                           std::string username = "gh_" + githubLogin;
                           std::string passwordHash =
-                            ::authforge::drogon::utils::generateSecureToken();  // random, user
-                                                                                // can't login with
-                                                                                // password
+                            ::authforge::drogon::utils::generateSecureToken();
+                          // Exemption (db-operations.md §3): INSERT...RETURNING to
+                          // capture auto-generated user id for subsequent subject-
+                          // mapping and role inserts.
                           db->execSqlAsync(
                             "INSERT INTO users (username, password_hash, salt, email, "
                             "email_verified) "
@@ -464,49 +470,43 @@ void GitHubController::login(
                             [callbackPtr, db, issueTokens, provider, subject, username, req](
                               const ::drogon::orm::Result &userResult
                             ) {
-                                int userId = userResult[0]["id"].as<int>();
+                                int32_t userId = userResult[0]["id"].as<int32_t>();
                                 // Create subject mapping
-                                db->execSqlAsync(
-                                  "INSERT INTO oauth2_subject_mappings (subject, internal_user_id, "
-                                  "provider) "
-                                  "VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-                                  [callbackPtr, issueTokens, userId, username](
-                                    const ::drogon::orm::Result &
+                                Oauth2SubjectMappings mapping;
+                                mapping.setSubject(subject);
+                                mapping.setInternalUserId(userId);
+                                mapping.setProvider(provider);
+                                Mapper<Oauth2SubjectMappings>(db).insert(
+                                  mapping,
+                                  [callbackPtr, issueTokens, userId, username, db](
+                                    const Oauth2SubjectMappings &
                                   ) {
                                       // Assign default 'user' role
-                                      auto db3 = ::drogon::app().getDbClient();
-                                      db3->execSqlAsync(
-                                        "INSERT INTO user_roles (user_id, role_id) "
-                                        "SELECT $1, id FROM roles WHERE name = 'user' "
-                                        "ON CONFLICT DO NOTHING",
+                                      UserRoles ur;
+                                      ur.setUserId(userId);
+                                      Mapper<UserRoles>(db).insert(
+                                        ur,
                                         [issueTokens, userId, username](
-                                          const ::drogon::orm::Result &
+                                          const UserRoles &
                                         ) { issueTokens(userId, username); },
-                                        [issueTokens,
-                                         userId,
-                                         username](const ::drogon::orm::DrogonDbException &) {
+                                        [issueTokens, userId, username](
+                                          const ::drogon::orm::DrogonDbException &
+                                        ) {
                                             issueTokens(
                                               userId, username
-                                            );  // still issue tokens even if role assignment fails
-                                        },
-                                        userId
+                                            );
+                                        }
                                       );
                                   },
                                   [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
                                       respondError(
-                                        req,
-                                        callbackPtr,
-                                        "DB_QUERY_ERROR",
+                                        req, callbackPtr, "DB_QUERY_ERROR",
                                         std::string(
-                                          "github login: failed to link GitHub "
-                                          "account: "
+                                          "github login: failed to link GitHub account: "
                                         ) +
                                           e.base().what()
                                       );
-                                  },
-                                  subject,
-                                  userId,
-                                  provider
+                                  }
                                 );
                             },
                             [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
@@ -529,19 +529,15 @@ void GitHubController::login(
                   },
                   [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
                       respondError(
-                        req,
-                        callbackPtr,
-                        "DB_QUERY_ERROR",
+                        req, callbackPtr, "DB_QUERY_ERROR",
                         std::string(
-                          "github login: database error during account "
-                          "linking: "
+                          "github login: database error during account linking: "
                         ) +
                           e.base().what()
                       );
-                  },
-                  provider,
-                  subject
+                  }
                 );
+                }  // close Criteria scope block
             }
           );
       }
