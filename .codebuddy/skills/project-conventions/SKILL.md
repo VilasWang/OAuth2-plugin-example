@@ -1,0 +1,82 @@
+---
+name: project-conventions
+description: Enforces OAuth2 project coding conventions during code generation and review. Loaded automatically as background knowledge.
+allowed-tools: Read, Write, Bash, Glob, Grep
+---
+
+# Project Conventions Checklist
+
+Apply these rules to ALL C++ code generated or modified in this project.
+
+## Architecture Rules
+
+| Rule | Requirement |
+|------|-------------|
+| Layer separation | Controllers (HTTP) -> Plugin/Service (business) -> Storage (data) -> Model (ORM) |
+| Drogon-first | Use Drogon built-ins over third-party libraries |
+| Plugin pattern | Core logic in `OAuth2Plugin`, server wiring in `OAuth2Server` |
+| ORM immutable | NEVER edit files in `models/` -- use `drogon_ctl` to regenerate |
+
+## Async Programming
+
+| Pattern | Status |
+|---------|--------|
+| Async callbacks (`Mapper::findOne`, `execSqlAsync`) | REQUIRED — always prefer |
+| Synchronous (`Mapper::findBy` with future) | RESTRICTED — only when necessary |
+| Coroutines (`CoroMapper`) | FORBIDDEN — never use |
+
+### Lambda Capture Rules
+- `[sharedCb]` — REQUIRED for callback lifetime
+- `[&var]` — FORBIDDEN unless PR explains lifetime guarantee
+- `[this]` — FORBIDDEN (no PR-exemption); use `shared_from_this()` instead — the
+  class must `enable_shared_from_this<T>` and the lambda captures
+  `auto self = shared_from_this()`, holding ownership so `this` stays alive for
+  the whole async continuation.
+
+### Callback Pattern
+```cpp
+auto sharedCb = std::make_shared<std::function<void(const ResultType &)>>(
+    std::move(callback));
+// Use *sharedCb to invoke
+```
+
+## Data Access
+
+| Operation | Allowed | Method |
+|-----------|---------|--------|
+| SELECT | ORM only | `Mapper::findBy`, `Mapper::findOne` |
+| INSERT | ORM only | `Mapper::insert` |
+| UPDATE | ORM only | `Mapper::update` |
+| JOIN | Forbidden | Split into multiple queries or `Criteria::In` |
+| Raw SQL | Exception only | DDL, `UPDATE...RETURNING`, batch ops |
+
+## Error Handling
+
+- Always catch `const DrogonDbException &e` for DB operations
+- All async callbacks MUST handle failure path: `(*sharedCb)(errorResult)`
+- Log levels: `LOG_DEBUG` (dev), `LOG_INFO` (flow), `LOG_WARN` (issues), `LOG_ERROR` (failures)
+- NEVER log passwords, tokens, or secrets
+
+## Code Style
+
+- C++17 standard, Google style, 100 char line limit
+- clang-format runs automatically on edit (hook configured)
+- ASCII only in code: use `[+]`, `[-]`, `[!]` instead of emoji
+- No comments explaining WHAT — name variables/functions to be self-documenting
+- Comments only for WHY: hidden constraints, non-obvious invariants, workarounds
+
+## Security
+
+- Input validation on ALL user input
+- ORM Criteria for queries (no string concatenation)
+- SHA-256 + salt for password/client secret hashing
+- Token TTL: access 1h, refresh 30d
+- PKCE required for public clients
+- Rate limiting on login/token/password-reset endpoints
+
+## Testing
+
+- Framework: Google Test via Drogon (`drogon_test.h`)
+- Coverage target: 80%+
+- Handle both storage modes: `MemoryOAuth2Storage` and `PostgreSQL`
+- Test naming: `{Unit|Integration|Security}_{Module}_{Function}_{Scenario}`
