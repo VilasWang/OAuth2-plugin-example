@@ -1,6 +1,7 @@
 #include <authforge/drogon/controllers/WebAuthnController.h>
 #include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/observability/AuditLogger.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
+#include <oauth2/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
@@ -282,8 +283,14 @@ void WebAuthnController::registerFinish(
                         respondError(req, sharedCb, errorCode, "registerFinish: " + errorCode);
                         return;
                     }
-                    ::authforge::drogon::observability::AuditLogger::log(
-                      "webauthn_registered", "success", req, userId, "credential", credentialId
+                    ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                      "webauthn_registered",
+                      "success",
+                      req,
+                      userId,
+                      "credential",
+                      credentialId
                     );
                     Json::Value json;
                     json["message"] = "Passkey registered successfully";
@@ -304,8 +311,14 @@ void WebAuthnController::registerFinish(
       "INSERT INTO webauthn_credentials (user_id, credential_id, public_key, name) "
       "VALUES ((SELECT id FROM users WHERE public_sub::text = $1::text), $2, $3, $4)",
       [sharedCb, credentialId, req, userId](const ::drogon::orm::Result &) {
-          ::authforge::drogon::observability::AuditLogger::log(
-            "webauthn_registered", "success", req, userId, "credential", credentialId
+          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+            "webauthn_registered",
+            "success",
+            req,
+            userId,
+            "credential",
+            credentialId
           );
           Json::Value json;
           json["message"] = "Passkey registered successfully";
@@ -457,7 +470,8 @@ void WebAuthnController::authenticateFinish(
                   );
                   return;
               }
-              ::authforge::drogon::observability::AuditLogger::log(
+              ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                 "webauthn_authenticated",
                 "success",
                 req,
@@ -508,8 +522,14 @@ void WebAuthnController::authenticateFinish(
             credentialId
           );
 
-          ::authforge::drogon::observability::AuditLogger::log(
-            "webauthn_authenticated", "success", req, publicSub, "credential", credentialId
+          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+            "webauthn_authenticated",
+            "success",
+            req,
+            publicSub,
+            "credential",
+            credentialId
           );
 
           // Return success with user info (caller can then issue tokens)

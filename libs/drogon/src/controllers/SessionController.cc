@@ -1,13 +1,12 @@
 #include <authforge/drogon/controllers/SessionController.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
 
 #include <authforge/drogon/AuthService.h>
 #include <authforge/drogon/controllers/EmailVerificationController.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
-#include <oauth2/observability/OAuth2Metrics.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <authforge/oauth2/jwk/JwkManager.h>
-#include <oauth2/observability/AuditLogger.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 #include <functional>
@@ -365,7 +364,11 @@ void SessionController::login(
       ::authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback))
     )
     {
-        ::authforge::drogon::observability::Metrics::incLoginFailure("validation_failed");
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_login_failures_total",
+              authforge::common::ports::MetricLabels{{"reason", "validation_failed"}}
+            );
         return;
     }
 
@@ -437,8 +440,14 @@ void SessionController::login(
             req->session()->insert("userId", std::to_string(internalId));
 
             // Audit: login success
-            ::authforge::drogon::observability::AuditLogger::log(
-              "login_success", "success", req, publicSub, "user", publicSub
+            ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+              ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+              "login_success",
+              "success",
+              req,
+              publicSub,
+              "user",
+              publicSub
             );
 
             // === CHECK 1/2: email verification + MFA enforcement ===
@@ -598,11 +607,21 @@ void SessionController::login(
         else
         {
             // Fail (Bad Password or User Not Found)
-            ::authforge::drogon::observability::Metrics::incLoginFailure("bad_credentials");
+            if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                m->incrementCounter(
+                  "oauth2_login_failures_total",
+                  authforge::common::ports::MetricLabels{{"reason", "bad_credentials"}}
+                );
 
             // Audit: login failure
-            ::authforge::drogon::observability::AuditLogger::log(
-              "login_failure", "failure", req, username, "user", username
+            ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+              ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+              "login_failure",
+              "failure",
+              req,
+              username,
+              "user",
+              username
             );
 
             respondError(
@@ -803,7 +822,12 @@ void SessionController::consent(
                           if (!state.empty())
                               location += "&state=" + state;
                           auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-                          ::authforge::drogon::observability::Metrics::incRequest("authorize", 302);
+                          if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                              m->incrementCounter(
+                                "oauth2_requests_total",
+                                authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                                static_cast<double>(302)
+                              );
                           callback(resp);
                       }
                     );
@@ -838,7 +862,12 @@ void SessionController::consent(
                     if (!state.empty())
                         location += "&state=" + state;
                     auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-                    ::authforge::drogon::observability::Metrics::incRequest("authorize", 302);
+                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                        m->incrementCounter(
+                          "oauth2_requests_total",
+                          authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                          static_cast<double>(302)
+                        );
                     callback(resp);
                 }
               );

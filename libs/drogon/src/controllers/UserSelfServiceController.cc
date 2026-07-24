@@ -1,7 +1,8 @@
 #include <authforge/drogon/controllers/UserSelfServiceController.h>
 #include <oauth2/utils/PasswordHasher.h>
 #include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/observability/AuditLogger.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
+#include <oauth2/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
@@ -206,8 +207,14 @@ void UserSelfServiceController::changePassword(
                     oldPassword, storedHash, salt
                   ))
               {
-                  ::authforge::drogon::observability::AuditLogger::log(
-                    "password_change_failed", "failure", req, userId, "user", userId
+                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                    ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                    "password_change_failed",
+                    "failure",
+                    req,
+                    userId,
+                    "user",
+                    userId
                   );
                   respondError(
                     req,
@@ -249,8 +256,14 @@ void UserSelfServiceController::changePassword(
                           db2->execSqlAsync(
                             "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
                             [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                                ::authforge::drogon::observability::AuditLogger::log(
-                                  "password_changed", "success", req, userId, "user", userId
+                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                  "password_changed",
+                                  "success",
+                                  req,
+                                  userId,
+                                  "user",
+                                  userId
                                 );
                                 Json::Value json;
                                 json["message"] = "Password changed successfully";
@@ -259,8 +272,14 @@ void UserSelfServiceController::changePassword(
                                 (*sharedCb)(resp);
                             },
                             [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                                ::authforge::drogon::observability::AuditLogger::log(
-                                  "password_changed", "success", req, userId, "user", userId
+                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                  "password_changed",
+                                  "success",
+                                  req,
+                                  userId,
+                                  "user",
+                                  userId
                                 );
                                 Json::Value json;
                                 json["message"] = "Password changed successfully";
@@ -274,8 +293,14 @@ void UserSelfServiceController::changePassword(
                           db2->execSqlAsync(
                             "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
                             [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                                ::authforge::drogon::observability::AuditLogger::log(
-                                  "password_changed", "success", req, userId, "user", userId
+                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                  "password_changed",
+                                  "success",
+                                  req,
+                                  userId,
+                                  "user",
+                                  userId
                                 );
                                 Json::Value json;
                                 json["message"] = "Password changed successfully";
@@ -283,8 +308,14 @@ void UserSelfServiceController::changePassword(
                                 (*sharedCb)(resp);
                             },
                             [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                                ::authforge::drogon::observability::AuditLogger::log(
-                                  "password_changed", "success", req, userId, "user", userId
+                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                  "password_changed",
+                                  "success",
+                                  req,
+                                  userId,
+                                  "user",
+                                  userId
                                 );
                                 Json::Value json;
                                 json["message"] = "Password changed successfully";
@@ -432,8 +463,14 @@ void UserSelfServiceController::revokeAuthorizedApp(
                       "UPDATE oauth2_access_tokens SET revoked = true "
                       "WHERE user_id = $1 AND client_id = $2",
                       [sharedCb, userId, clientId, req](const ::drogon::orm::Result &) {
-                          ::authforge::drogon::observability::AuditLogger::log(
-                            "app_authorization_revoked", "success", req, userId, "client", clientId
+                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                            "app_authorization_revoked",
+                            "success",
+                            req,
+                            userId,
+                            "client",
+                            clientId
                           );
                           Json::Value json;
                           json["message"] = "Authorization revoked successfully";
@@ -442,8 +479,14 @@ void UserSelfServiceController::revokeAuthorizedApp(
                           (*sharedCb)(resp);
                       },
                       [sharedCb, userId, clientId, req](const ::drogon::orm::DrogonDbException &) {
-                          ::authforge::drogon::observability::AuditLogger::log(
-                            "app_authorization_revoked", "success", req, userId, "client", clientId
+                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                            "app_authorization_revoked",
+                            "success",
+                            req,
+                            userId,
+                            "client",
+                            clientId
                           );
                           Json::Value json;
                           json["message"] = "Authorization revoked successfully";
@@ -531,8 +574,14 @@ void UserSelfServiceController::deleteAccount(
                               return;
                           }
 
-                          ::authforge::drogon::observability::AuditLogger::log(
-                            "account_deleted", "success", req, userId, "user", userId
+                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                            "account_deleted",
+                            "success",
+                            req,
+                            userId,
+                            "user",
+                            userId
                           );
                           Json::Value json;
                           json["message"] = "Account deleted successfully";
@@ -564,8 +613,14 @@ void UserSelfServiceController::deleteAccount(
                       "UPDATE users SET username = $1, email = NULL, password_hash = 'DELETED' "
                       "WHERE public_sub::text = $2::text",
                       [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                          ::authforge::drogon::observability::AuditLogger::log(
-                            "account_deleted", "success", req, userId, "user", userId
+                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                            "account_deleted",
+                            "success",
+                            req,
+                            userId,
+                            "user",
+                            userId
                           );
                           Json::Value json;
                           json["message"] = "Account deleted successfully";
@@ -600,8 +655,14 @@ void UserSelfServiceController::deleteAccount(
                 "UPDATE users SET username = $1, email = NULL, password_hash = 'DELETED' "
                 "WHERE public_sub::text = $2::text",
                 [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                    ::authforge::drogon::observability::AuditLogger::log(
-                      "account_deleted", "success", req, userId, "user", userId
+                    ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                      "account_deleted",
+                      "success",
+                      req,
+                      userId,
+                      "user",
+                      userId
                     );
                     Json::Value json;
                     json["message"] = "Account deleted successfully";

@@ -2,7 +2,7 @@
 #include <oauth2/utils/TotpUtils.h>
 #include <oauth2/utils/CryptoUtils.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/observability/AuditLogger.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
@@ -232,8 +232,14 @@ void MfaController::verifySetup(
                         );
                         return;
                     }
-                    ::authforge::drogon::observability::AuditLogger::log(
-                      "mfa_enabled", "success", req, userId, "user", userId
+                    ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                      "mfa_enabled",
+                      "success",
+                      req,
+                      userId,
+                      "user",
+                      userId
                     );
                     Json::Value codesJson(Json::arrayValue);
                     for (const auto &bc : result->backupCodes)
@@ -294,8 +300,14 @@ void MfaController::verifySetup(
             "UPDATE users SET mfa_enabled = true, mfa_backup_codes = $1 "
             "WHERE public_sub::text = $2::text",
             [sharedCb, codesJson, userId, req](const ::drogon::orm::Result &) {
-                ::authforge::drogon::observability::AuditLogger::log(
-                  "mfa_enabled", "success", req, userId, "user", userId
+                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                  "mfa_enabled",
+                  "success",
+                  req,
+                  userId,
+                  "user",
+                  userId
                 );
                 Json::Value json;
                 json["message"] = "MFA enabled successfully";
@@ -582,8 +594,14 @@ void MfaController::verifyLogin(
                                     return;
                                 }
 
-                                ::authforge::drogon::observability::AuditLogger::log(
-                                  "mfa_verified", "success", req, publicSub, "user", publicSub
+                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                  "mfa_verified",
+                                  "success",
+                                  req,
+                                  publicSub,
+                                  "user",
+                                  publicSub
                                 );
 
                                 Json::Value json = tokenResult;
@@ -814,9 +832,18 @@ void MfaController::verifyLogin(
                                           return;
                                       }
 
-                                      ::authforge::drogon::observability::AuditLogger::log(
-                                        "mfa_verified", "success", req, publicSub, "user", publicSub
-                                      );
+                                      ::authforge::drogon::adapters::DrogonAuditSink::
+                                        logFromRequest(
+                                          ::drogon::app()
+                                            .getPlugin<::OAuth2Plugin>()
+                                            ->getAuditSink(),
+                                          "mfa_verified",
+                                          "success",
+                                          req,
+                                          publicSub,
+                                          "user",
+                                          publicSub
+                                        );
 
                                       Json::Value json = tokenResult;
                                       json["message"] = "MFA verification successful";

@@ -38,9 +38,8 @@ using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
  * MemoryOAuth2Storage::initFromConfig(clientsConfig, adminConfig)'s
  * two-parameter shape -- but now dispatching each half to the repository
  * that actually owns the corresponding state (client config ->
- * ::authforge::storage::memory::MemoryClientRepository, admin/role config -> MemoryRoleRepository; see
- * REPOSITORY_MAPPING.md and each repository's own header comment for the
- * split rationale).
+ * ::authforge::storage::memory::MemoryClientRepository, admin/role config -> MemoryRoleRepository;
+ * see REPOSITORY_MAPPING.md and each repository's own header comment for the split rationale).
  *
  * Usage (future product assembly code, not part of Task 10's scope to wire
  * up into OAuth2Plugin.cc -- that remains on IOAuth2Storage per the task's

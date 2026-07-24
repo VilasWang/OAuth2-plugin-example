@@ -1,7 +1,8 @@
 #include "OrganizationService.h"
+#include <oauth2/adapters/DrogonAuditSink.h>
+#include <oauth2/plugin/OAuth2Plugin.h>
 
 #include <authforge/storage/postgres/models/Organizations.h>
-#include <oauth2/observability/AuditLogger.h>
 #include <oauth2/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
@@ -141,8 +142,14 @@ void OrganizationService::create(const ::drogon::HttpRequestPtr &req, ResponseCa
     mapper.insert(
       row,
       [cb, slug, name, req](const Organizations &inserted) {
-          ::authforge::drogon::observability::AuditLogger::log(
-            "organization_created", "success", req, "", "organization", slug
+          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+            "organization_created",
+            "success",
+            req,
+            "",
+            "organization",
+            slug
           );
           Json::Value json;
           json["id"] = inserted.getValueOfId();

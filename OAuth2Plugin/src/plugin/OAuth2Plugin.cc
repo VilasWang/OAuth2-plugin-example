@@ -5,6 +5,7 @@
 #include <oauth2/adapters/StorageRoleProvider.h>
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <oauth2/adapters/DrogonAuditSink.h>
+#include <oauth2/adapters/DrogonMetrics.h>
 // Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
 // per-backend RepositoryBundle and extracts its seven split-repository handles.
 #include <oauth2/storage/MemoryRepositoryBundle.h>
@@ -109,6 +110,12 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // services below consume these handles.
     auto cryptoProvider = std::make_shared<authforge::drogon::adapters::OpenSslCryptoProvider>();
     auto auditSink = std::make_shared<authforge::drogon::adapters::DrogonAuditSink>();
+    // M8 Task 40 decision b: publish the Adapter-side observability ports as
+    // plugin members so Drogon-layer controllers can emit audit/metrics via
+    // authforge::common::ports::* (getAuditSink()/getMetrics()) instead of
+    // AuditLogger/Metrics statics.
+    auditSink_ = auditSink;
+    metrics_ = std::make_shared<authforge::drogon::adapters::DrogonMetrics>();
 
     // Phase 4.5: roles resolve through StorageRoleProvider's subject-string
     // overload (supportsSubjectLookup()=true) -- byte-equivalent to the legacy

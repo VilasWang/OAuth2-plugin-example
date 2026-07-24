@@ -4,7 +4,7 @@
 #include <oauth2/utils/EmailNormalizer.h>
 #include <oauth2/utils/EmailService.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/observability/AuditLogger.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
@@ -263,7 +263,8 @@ void PasswordResetController::confirm(
                       db->execSqlAsync(
                         "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
                         [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                            ::authforge::drogon::observability::AuditLogger::log(
+                            ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                              ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                               "password_reset",
                               "success",
                               req,
@@ -278,7 +279,8 @@ void PasswordResetController::confirm(
                             (*sharedCb)(resp);
                         },
                         [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                            ::authforge::drogon::observability::AuditLogger::log(
+                            ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                              ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                               "password_reset",
                               "success",
                               req,
@@ -295,7 +297,8 @@ void PasswordResetController::confirm(
                       );
                   },
                   [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                      ::authforge::drogon::observability::AuditLogger::log(
+                      ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                        ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                         "password_reset",
                         "success",
                         req,

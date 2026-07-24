@@ -15,6 +15,8 @@
 #include <authforge/oauth2/repository/ITokenRepository.h>
 #include <authforge/oauth2/repository/IClientRepository.h>
 #include <authforge/oauth2/model/Dto.h>
+#include <authforge/common/ports/IAuditSink.h>
+#include <authforge/common/ports/IMetrics.h>
 #include <string>
 #include <memory>
 #include <functional>
@@ -343,6 +345,23 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
         return storageType_;
     }
 
+    // ========== Observability Ports (M8 Task 40, decision b) ==========
+    // Expose the Adapter-side IAuditSink / IMetrics instances so Drogon-layer
+    // code (libs/drogon controllers) can emit audit events / metrics through
+    // the authforge::common::ports port instead of calling AuditLogger/Metrics
+    // statics directly. Controllers fetch these via
+    // drogon::app().getPlugin<OAuth2Plugin>()->getAuditSink(). May return
+    // nullptr if called before initAndStart() completes (controllers guard).
+    std::shared_ptr<authforge::common::ports::IAuditSink> getAuditSink() const
+    {
+        return auditSink_;
+    }
+
+    std::shared_ptr<authforge::common::ports::IMetrics> getMetrics() const
+    {
+        return metrics_;
+    }
+
   private:
     // Phase 4.6a: storage_ (the god IOAuth2Storage) is gone. The plugin now
     // holds the split-repository handles directly, extracted from the
@@ -370,6 +389,10 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     // instantiation point once that wiring happens.
     std::shared_ptr<authforge::drogon::adapters::StorageRoleProvider> roleProvider_;
     std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager_;
+    // M8 Task 40 decision b: Adapter-side observability ports, exposed via
+    // getAuditSink()/getMetrics() for Drogon-layer consumers.
+    std::shared_ptr<authforge::common::ports::IAuditSink> auditSink_;
+    std::shared_ptr<authforge::common::ports::IMetrics> metrics_;
 
     std::string storageType_;
 

@@ -1,12 +1,11 @@
 #include <authforge/drogon/controllers/OAuth2StandardController.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/observability/OAuth2Metrics.h>
 #include <oauth2/validation/RuleSet.h>
 #include <oauth2/validation/HttpResponder.h>
 #include <oauth2/error/OAuth2ErrorHandler.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/observability/AuditLogger.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -384,9 +383,13 @@ void OAuth2StandardController::introspect(
       [plugin, token, clientId, authScheme, callback = std::move(callback)](bool valid) mutable {
           if (!valid)
           {
-              authforge::drogon::observability::Metrics::incrementIntrospectErrors(
-                clientId, "invalid_client"
-              );
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->incrementCounter(
+                    "oauth2_introspect_errors_total",
+                    authforge::common::ports::MetricLabels{
+                      {"client_id", clientId}, {"error", "invalid_client"}
+                    }
+                  );
               authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
                 std::move(callback),
                 "invalid_client",
@@ -406,9 +409,11 @@ void OAuth2StandardController::introspect(
                 if (!introspection)
                 {
                     // Token not found or invalid
-                    authforge::drogon::observability::Metrics::incrementIntrospectRequests(
-                      clientId
-                    );
+                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                        m->incrementCounter(
+                          "oauth2_introspect_requests_total",
+                          authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                        );
 
                     Json::Value response;
                     response["active"] = false;
@@ -419,7 +424,11 @@ void OAuth2StandardController::introspect(
                 }
 
                 // Token is active, return full metadata
-                authforge::drogon::observability::Metrics::incrementIntrospectRequests(clientId);
+                if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                    m->incrementCounter(
+                      "oauth2_introspect_requests_total",
+                      authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                    );
 
                 Json::Value response;
                 response["active"] = introspection->active;
@@ -515,9 +524,13 @@ void OAuth2StandardController::revoke(
       [plugin, token, clientId, authScheme, callback = std::move(callback)](bool valid) mutable {
           if (!valid)
           {
-              authforge::drogon::observability::Metrics::incrementRevocationErrors(
-                clientId, "invalid_client"
-              );
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->incrementCounter(
+                    "oauth2_revocation_errors_total",
+                    authforge::common::ports::MetricLabels{
+                      {"client_id", clientId}, {"error", "invalid_client"}
+                    }
+                  );
               authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
                 std::move(callback),
                 "invalid_client",
@@ -538,9 +551,11 @@ void OAuth2StandardController::revoke(
                 {
                     // Token doesn't exist or inactive - return success per RFC 7009
                     // (prevents token probing attacks)
-                    authforge::drogon::observability::Metrics::incrementRevocationRequests(
-                      clientId
-                    );
+                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                        m->incrementCounter(
+                          "oauth2_revocation_requests_total",
+                          authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                        );
                     callback(createSuccessResponse());
                     return;
                 }
@@ -548,9 +563,13 @@ void OAuth2StandardController::revoke(
                 // Check permission: only token owner can revoke
                 if (introspection->clientId != clientId)
                 {
-                    authforge::drogon::observability::Metrics::incrementRevocationErrors(
-                      clientId, "unauthorized_client"
-                    );
+                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                        m->incrementCounter(
+                          "oauth2_revocation_errors_total",
+                          authforge::common::ports::MetricLabels{
+                            {"client_id", clientId}, {"error", "unauthorized_client"}
+                          }
+                        );
                     authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
                       std::move(callback),
                       "unauthorized_client",
@@ -562,12 +581,20 @@ void OAuth2StandardController::revoke(
                 // Has permission, execute revocation
                 plugin->revokeAccessToken(
                   token, clientId, [clientId, callback = std::move(callback), token]() mutable {
-                      authforge::drogon::observability::AuditLogger::log(
-                        "token_revoked", "success", nullptr, clientId, "token", token
+                      ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                        ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                        "token_revoked",
+                        "success",
+                        nullptr,
+                        clientId,
+                        "token",
+                        token
                       );
-                      authforge::drogon::observability::Metrics::incrementRevocationRequests(
-                        clientId
-                      );
+                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                          m->incrementCounter(
+                            "oauth2_revocation_requests_total",
+                            authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                          );
                       callback(createSuccessResponse());
                   }
                 );
@@ -778,7 +805,12 @@ void OAuth2StandardController::authorize(
     // Return validation errors if any
     if (authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
     {
-        observability::Metrics::incRequest("authorize", 400);
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_requests_total",
+              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              static_cast<double>(400)
+            );
         return;
     }
 
@@ -795,8 +827,17 @@ void OAuth2StandardController::authorize(
         LOG_WARN
           << "Authorization request missing state parameter (CSRF vulnerability) for client: "
           << clientId;
-        observability::Metrics::incRequest("authorize", 400);
-        observability::Metrics::incLoginFailure("missing_state_parameter");
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_requests_total",
+              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              static_cast<double>(400)
+            );
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_login_failures_total",
+              authforge::common::ports::MetricLabels{{"reason", "missing_state_parameter"}}
+            );
 
         auto resp = ::drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(::drogon::k400BadRequest);
@@ -813,8 +854,17 @@ void OAuth2StandardController::authorize(
         LOG_WARN << "Authorization request has invalid state parameter length (must be 8-512 "
                     "chars) for client: "
                  << clientId << ", state length: " << state.length();
-        observability::Metrics::incRequest("authorize", 400);
-        observability::Metrics::incLoginFailure("invalid_state_parameter");
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_requests_total",
+              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              static_cast<double>(400)
+            );
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_login_failures_total",
+              authforge::common::ports::MetricLabels{{"reason", "invalid_state_parameter"}}
+            );
 
         auto resp = ::drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(::drogon::k400BadRequest);
@@ -831,8 +881,17 @@ void OAuth2StandardController::authorize(
         LOG_WARN << "Authorization request has potentially malicious state parameter (contains URL "
                     "delimiters) for client: "
                  << clientId << ", state: " << state.substr(0, 20) << "...";
-        observability::Metrics::incRequest("authorize", 400);
-        observability::Metrics::incLoginFailure("suspicious_state_parameter");
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_requests_total",
+              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              static_cast<double>(400)
+            );
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_login_failures_total",
+              authforge::common::ports::MetricLabels{{"reason", "suspicious_state_parameter"}}
+            );
 
         auto resp = ::drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(::drogon::k400BadRequest);
@@ -869,8 +928,17 @@ void OAuth2StandardController::authorize(
        callback = std::move(callback)](bool validClient) mutable {
           if (!validClient)
           {
-              observability::Metrics::incRequest("authorize", 400);
-              observability::Metrics::incLoginFailure("invalid_client_id");
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->incrementCounter(
+                    "oauth2_requests_total",
+                    authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                    static_cast<double>(400)
+                  );
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->incrementCounter(
+                    "oauth2_login_failures_total",
+                    authforge::common::ports::MetricLabels{{"reason", "invalid_client_id"}}
+                  );
 
               auto resp = ::drogon::HttpResponse::newHttpResponse();
               resp->setStatusCode(::drogon::k400BadRequest);
@@ -1037,9 +1105,18 @@ void OAuth2StandardController::authorize(
                                                   ::drogon::HttpResponse::newRedirectionResponse(
                                                     location
                                                   );
-                                                observability::Metrics::incRequest(
-                                                  "authorize", 302
-                                                );
+                                                if (
+                                                  auto m = ::drogon::app()
+                                                             .getPlugin<::OAuth2Plugin>()
+                                                             ->getMetrics()
+                                                )
+                                                    m->incrementCounter(
+                                                      "oauth2_requests_total",
+                                                      authforge::common::ports::MetricLabels{
+                                                        {"endpoint", "authorize"}
+                                                      },
+                                                      static_cast<double>(302)
+                                                    );
                                                 callback(resp);
                                             }
                                           );
@@ -1102,7 +1179,12 @@ void OAuth2StandardController::token(
     // Return validation errors if any
     if (authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
     {
-        observability::Metrics::incRequest("token", 400);
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_requests_total",
+              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+              static_cast<double>(400)
+            );
         return;
     }
 
@@ -1187,14 +1269,29 @@ void OAuth2StandardController::token(
                   ::drogon::HttpStatusCode statusCode =
                     authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
                   resp->setStatusCode(statusCode);
-                  observability::Metrics::incRequest("token", static_cast<int>(statusCode));
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(static_cast<int>(statusCode))
+                      );
                   callback(resp);
                   return;
               }
 
               auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
-              observability::Metrics::incRequest("token", 200);
-              observability::Metrics::updateActiveTokens(1);
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->incrementCounter(
+                    "oauth2_requests_total",
+                    authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                    static_cast<double>(200)
+                  );
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->setGauge(
+                    "oauth2_active_tokens",
+                    authforge::common::ports::MetricLabels{},
+                    static_cast<double>(1)
+                  );
               callback(resp);
           }
         );
@@ -1211,13 +1308,23 @@ void OAuth2StandardController::token(
                   ::drogon::HttpStatusCode statusCode =
                     authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
                   resp->setStatusCode(statusCode);
-                  observability::Metrics::incRequest("token", static_cast<int>(statusCode));
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(static_cast<int>(statusCode))
+                      );
                   callback(resp);
                   return;
               }
 
               auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
-              observability::Metrics::incRequest("token", 200);
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->incrementCounter(
+                    "oauth2_requests_total",
+                    authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                    static_cast<double>(200)
+                  );
               callback(resp);
           }
         );
@@ -1315,7 +1422,12 @@ void OAuth2StandardController::token(
                         json["scope"] = grantedScope;
                         // No refresh_token for client_credentials
                         auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                        observability::Metrics::incRequest("token", 200);
+                        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                            m->incrementCounter(
+                              "oauth2_requests_total",
+                              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                              static_cast<double>(200)
+                            );
                         (*sharedCb)(resp);
                     });
                 }
@@ -1338,7 +1450,12 @@ void OAuth2StandardController::token(
             error["error_description"] = "device_code and client_id are required";
             auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
             resp->setStatusCode(::drogon::k400BadRequest);
-            observability::Metrics::incRequest("token", 400);
+            if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                m->incrementCounter(
+                  "oauth2_requests_total",
+                  authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                  static_cast<double>(400)
+                );
             callback(resp);
             return;
         }
@@ -1373,7 +1490,12 @@ void OAuth2StandardController::token(
                   error["error_description"] = "Invalid device_code";
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
                   resp->setStatusCode(::drogon::k400BadRequest);
-                  observability::Metrics::incRequest("token", 400);
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(400)
+                      );
                   (*sharedCb)(resp);
                   return;
               }
@@ -1393,7 +1515,12 @@ void OAuth2StandardController::token(
                   error["error_description"] = "client_id mismatch";
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
                   resp->setStatusCode(::drogon::k400BadRequest);
-                  observability::Metrics::incRequest("token", 400);
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(400)
+                      );
                   (*sharedCb)(resp);
                   return;
               }
@@ -1410,7 +1537,12 @@ void OAuth2StandardController::token(
                   error["error_description"] = "The device_code has expired";
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
                   resp->setStatusCode(::drogon::k400BadRequest);
-                  observability::Metrics::incRequest("token", 400);
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(400)
+                      );
                   (*sharedCb)(resp);
                   return;
               }
@@ -1423,7 +1555,12 @@ void OAuth2StandardController::token(
                   error["error_description"] = "The authorization request is still pending";
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
                   resp->setStatusCode(::drogon::k400BadRequest);
-                  observability::Metrics::incRequest("token", 400);
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(400)
+                      );
                   (*sharedCb)(resp);
                   return;
               }
@@ -1435,7 +1572,12 @@ void OAuth2StandardController::token(
                   error["error_description"] = "The user denied the authorization request";
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
                   resp->setStatusCode(::drogon::k400BadRequest);
-                  observability::Metrics::incRequest("token", 400);
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(400)
+                      );
                   (*sharedCb)(resp);
                   return;
               }
@@ -1447,7 +1589,12 @@ void OAuth2StandardController::token(
                   error["error_description"] = "Invalid device code status";
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
                   resp->setStatusCode(::drogon::k400BadRequest);
-                  observability::Metrics::incRequest("token", 400);
+                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                      m->incrementCounter(
+                        "oauth2_requests_total",
+                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        static_cast<double>(400)
+                      );
                   (*sharedCb)(resp);
                   return;
               }
@@ -1503,8 +1650,18 @@ void OAuth2StandardController::token(
                     }
 
                     auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                    observability::Metrics::incRequest("token", 200);
-                    observability::Metrics::updateActiveTokens(1);
+                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                        m->incrementCounter(
+                          "oauth2_requests_total",
+                          authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                          static_cast<double>(200)
+                        );
+                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                        m->setGauge(
+                          "oauth2_active_tokens",
+                          authforge::common::ports::MetricLabels{},
+                          static_cast<double>(1)
+                        );
                     (*sharedCb)(resp);
                 }
               );
@@ -1530,7 +1687,12 @@ void OAuth2StandardController::token(
           "urn:ietf:params:oauth:grant-type:device_code";
         auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
         resp->setStatusCode(::drogon::k400BadRequest);
-        observability::Metrics::incRequest("token", 400);
+        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+            m->incrementCounter(
+              "oauth2_requests_total",
+              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+              static_cast<double>(400)
+            );
         callback(resp);
     }
 }
@@ -1664,7 +1826,12 @@ void OAuth2StandardController::checkUserConsentAndProceed(
               if (!state.empty())
                   location += "&state=" + state;
               auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-              observability::Metrics::incRequest("authorize", 302);
+              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                  m->incrementCounter(
+                    "oauth2_requests_total",
+                    authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                    static_cast<double>(302)
+                  );
               callback(resp);
           }
         );

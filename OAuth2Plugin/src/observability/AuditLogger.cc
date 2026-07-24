@@ -1,7 +1,6 @@
 #include <oauth2/observability/AuditLogger.h>
 #include <drogon/drogon.h>
 #include <oauth2/adapters/DrogonLogger.h>
-#include <oauth2/adapters/OpenSslUuidGenerator.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
 namespace authforge::drogon::observability
@@ -11,14 +10,11 @@ namespace
 {
 // Task 14 (design.md §5.6): shared ILogger instance backing this file's
 // LOG_* call sites, replacing direct Drogon LOG_* macro usage. This file
-// remains Adapter-shaped overall (::drogon::app().getDbClient(),
-// ::drogon::orm::DrogonDbException, ::drogon::HttpRequestPtr are its actual
-// job -- audit persistence -- and stay untouched; that DB/HTTP dependency
-// is a separate architectural concern for the eventual M2a/M3 split of
-// the audit *sink* into an Adapter package, not something Task 14's
-// LOG_*/::drogon::utils migration addresses). Migrating only the logging
-// calls is still worthwhile: design.md §5.6 explicitly names AuditLogger
-// as an ILogger call-site to migrate.
+// remains Adapter-shaped overall (drogon::app().getDbClient(),
+// drogon::orm::DrogonDbException are its actual job -- audit persistence --
+// and stay untouched; that DB dependency is a separate architectural concern
+// for the eventual M2a/M3 split of the audit *sink* into an Adapter package,
+// not something Task 14's LOG_*/drogon::utils migration addresses).
 authforge::common::ports::ILogger &logger()
 {
     static authforge::drogon::adapters::DrogonLogger instance;
@@ -26,7 +22,7 @@ authforge::common::ports::ILogger &logger()
 }
 }  // namespace
 
-void AuditLogger::log(const AuditEvent &event)
+void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
 {
     // Skip if storage type is memory
     auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
@@ -91,58 +87,6 @@ void AuditLogger::log(const AuditEvent &event)
           "AuditLogger: Exception: " + std::string(e.what())
         );
     }
-}
-
-void AuditLogger::log(
-  const std::string &action,
-  const std::string &outcome,
-  const ::drogon::HttpRequestPtr &req,
-  const std::string &actorId,
-  const std::string &targetType,
-  const std::string &targetId,
-  const Json::Value &details
-)
-{
-    AuditEvent event;
-    event.action = action;
-    event.outcome = outcome;
-    event.actorId = actorId;
-    event.targetType = targetType;
-    event.targetId = targetId;
-    event.details = details;
-
-    // Determine actor type
-    if (actorId.empty())
-        event.actorType = "anonymous";
-    else if (actorId.find("client:") == 0)
-        event.actorType = "client";
-    else
-        event.actorType = "user";
-
-    // Extract request context
-    if (req)
-    {
-        // IP: prefer X-Forwarded-For, then X-Real-IP, then peer
-        event.ip = req->getHeader("X-Forwarded-For");
-        if (event.ip.empty())
-            event.ip = req->getHeader("X-Real-IP");
-        if (event.ip.empty())
-            event.ip = req->getPeerAddr().toIp();
-
-        event.userAgent = req->getHeader("User-Agent");
-        event.requestId = req->getHeader("X-Request-ID");
-        if (event.requestId.empty())
-        {
-            // Task 14 (design.md §5.6): migrated off ::drogon::utils::getUuid()
-            // onto the authforge::common::ports::IUuidGenerator Adapter
-            // implementation (OpenSslUuidGenerator), same convention as
-            // error/RequestId.cc.
-            static authforge::drogon::adapters::OpenSslUuidGenerator uuidGenerator;
-            event.requestId = uuidGenerator.generate();
-        }
-    }
-
-    log(event);
 }
 
 }  // namespace authforge::drogon::observability

@@ -1,6 +1,7 @@
 #include <authforge/drogon/controllers/ClientRegistrationController.h>
 #include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/observability/AuditLogger.h>
+#include <oauth2/adapters/DrogonAuditSink.h>
+#include <oauth2/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/error/ErrorResponder.h>
 #include <drogon/drogon.h>
@@ -204,7 +205,8 @@ void ClientRegistrationController::registerClient(
               resp->setStatusCode(::drogon::k201Created);
 
               // Audit log the registration
-              ::authforge::drogon::observability::AuditLogger::log(
+              ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                 "client_registered",
                 "success",
                 req,
@@ -217,8 +219,15 @@ void ClientRegistrationController::registerClient(
           },
           [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               // Audit log the failure
-              ::authforge::drogon::observability::AuditLogger::log(
-                "client_registered", "failure", req, "", "client", "", Json::Value(e.base().what())
+              ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                "client_registered",
+                "failure",
+                req,
+                "",
+                "client",
+                "",
+                Json::Value(e.base().what())
               );
 
               respondError(
