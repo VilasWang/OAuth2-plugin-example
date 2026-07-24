@@ -99,3 +99,13 @@ add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
 add_subdirectory(${OAUTH2_PATH_LIBS_DROGON_DIR})
 
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})
+
+# examples/third-party-host (B8b / Task 28b, design.md §1.1/§6): minimal SDK
+# consumer that links ONLY the authforge SDK packages (no OAuth2Plugin /
+# libs/drogon / libs/storage-postgres) and drives the authorization-code flow
+# through the Domain-layer engine -- the smoke gate proving the SDK is
+# independently consumable. Gated by BUILD_EXAMPLES (default ON so CI runs it).
+option(BUILD_EXAMPLES "Build the SDK consumer examples" ON)
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples/third-party-host)
+endif()
