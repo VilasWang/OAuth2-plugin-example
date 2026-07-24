@@ -537,40 +537,29 @@ void WebAuthnController::authenticateFinish(
           int userId = wc.getValueOfUserId();
           int signCount = wc.getValueOfSignCount();
 
+          // Build credential update from already-fetched object
+          int newSignCount = signCount + 1;
+          auto credUpdate =
+            std::make_shared<drogon_model::oauth2_db::WebauthnCredentials>(wc);
+          credUpdate->setSignCount(newSignCount);
+          credUpdate->setLastUsedAt(::trantor::Date::now());
+
           // Query user for public_sub
           Mapper<drogon_model::oauth2_db::Users>(db).findBy(
             Criteria(
               drogon_model::oauth2_db::Users::Cols::_id,
               CompareOperator::EQ, userId
             ),
-            [sharedCb, credentialId, db, req, userId, signCount](
+            [sharedCb, credentialId, db, req, userId, newSignCount, credUpdate](
               const std::vector<drogon_model::oauth2_db::Users> &users
             ) {
                 std::string publicSub =
                   users.empty() ? "" : users[0].getValueOfPublicSub();
 
-                // Update sign_count and last_used_at
-                int newSignCount = signCount + 1;
-                Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).findBy(
-                  Criteria(
-                    drogon_model::oauth2_db::WebauthnCredentials::Cols::_credential_id,
-                    CompareOperator::EQ, credentialId
-                  ),
-                  [db, newSignCount](
-                    const std::vector<drogon_model::oauth2_db::WebauthnCredentials> &ic
-                  ) {
-                      if (!ic.empty())
-                      {
-                          drogon_model::oauth2_db::WebauthnCredentials up = ic[0];
-                          up.setSignCount(newSignCount);
-                          up.setLastUsedAt(::trantor::Date::now());
-                          Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).update(
-                            up,
-                            [](const size_t) {},
-                            [](const ::drogon::orm::DrogonDbException &) {}
-                          );
-                      }
-                  },
+                // Update sign_count and last_used_at (reuse outer findBy result)
+                Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).update(
+                  *credUpdate,
+                  [](const size_t) {},
                   [](const ::drogon::orm::DrogonDbException &) {}
                 );
 

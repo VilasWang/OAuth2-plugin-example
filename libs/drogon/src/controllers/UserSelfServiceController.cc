@@ -384,39 +384,55 @@ void UserSelfServiceController::listAuthorizedApps(
                   internalId
                 ),
                 [sharedCb, db, req](const std::vector<Oauth2UserConsents> &consents) {
-                    Json::Value json;
-                    Json::Value apps(Json::arrayValue);
-                    std::set<std::string> seen;
-
+                    // Collect distinct client_ids for batch clients query
+                    std::set<std::string> clientIdSet;
                     for (const auto &uc : consents)
-                    {
-                        std::string clientId = uc.getValueOfClientId();
-                        if (!seen.insert(clientId).second)
-                            continue;  // DISTINCT
+                        clientIdSet.insert(uc.getValueOfClientId());
 
-                        Mapper<Oauth2Clients>(db).findBy(
-                          Criteria(
-                            Oauth2Clients::Cols::_client_id, CompareOperator::EQ,
-                            clientId
-                          ),
-                          [&apps, clientId](
-                            const std::vector<Oauth2Clients> &clients
-                          ) {
-                              Json::Value app;
-                              app["client_id"] = clientId;
-                              app["name"] =
-                                clients.empty() ? ""
-                                                : clients[0].getValueOfName();
-                              apps.append(app);
-                          },
-                          [](const ::drogon::orm::DrogonDbException &) {}
-                        );
+                    if (clientIdSet.empty())
+                    {
+                        Json::Value json;
+                        json["authorized_apps"] = Json::Value(Json::arrayValue);
+                        json["total"] = 0;
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                        (*sharedCb)(resp);
+                        return;
                     }
 
-                    json["authorized_apps"] = apps;
-                    json["total"] = static_cast<int>(apps.size());
-                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                    (*sharedCb)(resp);
+                    std::vector<std::string> clientIds(
+                      clientIdSet.begin(), clientIdSet.end()
+                    );
+                    Mapper<Oauth2Clients>(db).findBy(
+                      Criteria(
+                        Oauth2Clients::Cols::_client_id, CompareOperator::In,
+                        clientIds
+                      ),
+                      [sharedCb](
+                        const std::vector<Oauth2Clients> &clients
+                      ) {
+                          Json::Value json;
+                          Json::Value apps(Json::arrayValue);
+                          for (const auto &c : clients)
+                          {
+                              Json::Value app;
+                              app["client_id"] = c.getValueOfClientId();
+                              app["name"] = c.getValueOfName();
+                              apps.append(app);
+                          }
+                          json["authorized_apps"] = apps;
+                          json["total"] = static_cast<int>(apps.size());
+                          (*sharedCb)(
+                            ::drogon::HttpResponse::newHttpJsonResponse(json)
+                          );
+                      },
+                      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                          respondError(
+                            req, sharedCb, "DB_QUERY_ERROR",
+                            std::string("listAuthorizedApps failed: ") +
+                              e.base().what()
+                          );
+                      }
+                    );
                 },
                 [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                     respondError(
@@ -492,29 +508,15 @@ void UserSelfServiceController::revokeAuthorizedApp(
                     Oauth2UserConsents::Cols::_client_id, CompareOperator::EQ, clientId
                   ),
                 [sharedCb, userId, clientId, req, db](const size_t) {
-                    // Revoke access tokens for this user+client
-                    Mapper<Oauth2AccessTokens>(db).findBy(
-                      Criteria(
-                        Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ,
-                        userId
-                      ) &&
-                        Criteria(
-                          Oauth2AccessTokens::Cols::_client_id, CompareOperator::EQ,
-                          clientId
-                        ),
-                      [sharedCb, userId, clientId, req, db](
-                        const std::vector<Oauth2AccessTokens> &tokens
+                    // Exemption (db-operations.md §3): Security-critical batch
+                    // revoke of ALL tokens for user+client.  Per-token
+                    // Mapper::update would be O(n) round-trips with no benefit.
+                    db->execSqlAsync(
+                      "UPDATE oauth2_access_tokens SET revoked = true "
+                      "WHERE user_id = $1 AND client_id = $2",
+                      [sharedCb, userId, clientId, req](
+                        const ::drogon::orm::Result &
                       ) {
-                          for (const auto &t : tokens)
-                          {
-                              Oauth2AccessTokens up = t;
-                              up.setRevoked(true);
-                              Mapper<Oauth2AccessTokens>(db).update(
-                                up,
-                                [](const size_t) {},
-                                [](const ::drogon::orm::DrogonDbException &) {}
-                              );
-                          }
                           ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
                             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                             "app_authorization_revoked", "success", req,
@@ -539,7 +541,9 @@ void UserSelfServiceController::revokeAuthorizedApp(
                           json["client_id"] = clientId;
                           auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                           (*sharedCb)(resp);
-                      }
+                      },
+                      userId,
+                      clientId
                     );
                 },
                 [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {

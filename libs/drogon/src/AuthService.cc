@@ -325,7 +325,6 @@ void AuthService::getUserInfo(
               [sharedCb, db, user, userId](
                 const std::vector<drogon_model::oauth2_db::UserRoles> &userRoles
               ) {
-                  auto roleNames = std::make_shared<std::vector<std::string>>();
                   if (userRoles.empty())
                   {
                       Json::Value json;
@@ -338,43 +337,42 @@ void AuthService::getUserInfo(
                       return;
                   }
 
+                  std::vector<int32_t> roleIds;
                   for (const auto &ur : userRoles)
-                  {
-                      int32_t roleId = ur.getValueOfRoleId();
-                      Mapper<drogon_model::oauth2_db::Roles> roleMapper(db);
-                      roleMapper.findByPrimaryKey(
-                        roleId,
-                        [sharedCb, roleNames, user, userRoles, userId](
-                          const drogon_model::oauth2_db::Roles &role
-                        ) {
-                            roleNames->push_back(role.getValueOfName());
-                            if (roleNames->size() == userRoles.size())
-                            {
-                                Json::Value json;
-                                json["sub"] = user.getValueOfPublicSub();
-                                std::string displayName = user.getValueOfUsername();
-                                json["name"] =
-                                  displayName.empty() ? user.getValueOfEmail() : displayName;
-                                json["email"] = user.getValueOfEmail();
-                                Json::Value roles(Json::arrayValue);
-                                for (const auto &rn : *roleNames)
-                                    roles.append(rn);
-                                json["roles"] = roles;
-                                (*sharedCb)(json);
-                            }
-                        },
-                        [sharedCb, user](const DrogonDbException &) {
-                            Json::Value json;
-                            json["sub"] = user.getValueOfPublicSub();
-                            std::string displayName = user.getValueOfUsername();
-                            json["name"] =
-                              displayName.empty() ? user.getValueOfEmail() : displayName;
-                            json["email"] = user.getValueOfEmail();
-                            json["roles"] = Json::Value(Json::arrayValue);
-                            (*sharedCb)(json);
-                        }
-                      );
-                  }
+                      roleIds.push_back(ur.getValueOfRoleId());
+
+                  Mapper<drogon_model::oauth2_db::Roles> roleMapper(db);
+                  roleMapper.findBy(
+                    Criteria(
+                      drogon_model::oauth2_db::Roles::Cols::_id,
+                      CompareOperator::In, roleIds
+                    ),
+                    [sharedCb, user](
+                      const std::vector<drogon_model::oauth2_db::Roles> &roles
+                    ) {
+                        Json::Value json;
+                        json["sub"] = user.getValueOfPublicSub();
+                        std::string displayName = user.getValueOfUsername();
+                        json["name"] =
+                          displayName.empty() ? user.getValueOfEmail() : displayName;
+                        json["email"] = user.getValueOfEmail();
+                        Json::Value rj(Json::arrayValue);
+                        for (const auto &r : roles)
+                            rj.append(r.getValueOfName());
+                        json["roles"] = rj;
+                        (*sharedCb)(json);
+                    },
+                    [sharedCb, user](const DrogonDbException &) {
+                        Json::Value json;
+                        json["sub"] = user.getValueOfPublicSub();
+                        std::string displayName = user.getValueOfUsername();
+                        json["name"] =
+                          displayName.empty() ? user.getValueOfEmail() : displayName;
+                        json["email"] = user.getValueOfEmail();
+                        json["roles"] = Json::Value(Json::arrayValue);
+                        (*sharedCb)(json);
+                    }
+                  );
               },
               [sharedCb, user, userId](const DrogonDbException &e) {
                   LOG_WARN << "Failed to fetch roles for user " << userId << ": "

@@ -442,7 +442,6 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
                 [sharedCb, db, user](
                   const std::vector<UserRoles> &userRoles
                 ) {
-                    auto roleNames = std::make_shared<std::vector<std::string>>();
                     if (userRoles.empty())
                     {
                         Json::Value json;
@@ -455,43 +454,38 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
                         return;
                     }
 
+                    std::vector<int32_t> roleIds;
                     for (const auto &ur : userRoles)
-                    {
-                        int32_t roleId = ur.getValueOfRoleId();
-                        Mapper<Roles>(db).findBy(
-                          Criteria(Roles::Cols::_id, CompareOperator::EQ, roleId),
-                          [sharedCb, roleNames, user, userRoles](
-                            const std::vector<Roles> &roles
-                          ) {
-                              if (!roles.empty())
-                                  roleNames->push_back(roles[0].getValueOfName());
-                              if (roleNames->size() == userRoles.size())
-                              {
-                                  Json::Value json;
-                                  json["sub"] = user.getValueOfPublicSub();
-                                  std::string dn = user.getValueOfUsername();
-                                  json["name"] =
-                                    dn.empty() ? user.getValueOfEmail() : dn;
-                                  json["email"] = user.getValueOfEmail();
-                                  Json::Value rj(Json::arrayValue);
-                                  for (const auto &rn : *roleNames)
-                                      rj.append(rn);
-                                  json["roles"] = rj;
-                                  (*sharedCb)(json);
-                              }
-                          },
-                          [sharedCb, user](const DrogonDbException &) {
-                              Json::Value json;
-                              json["sub"] = user.getValueOfPublicSub();
-                              std::string dn = user.getValueOfUsername();
-                              json["name"] =
-                                dn.empty() ? user.getValueOfEmail() : dn;
-                              json["email"] = user.getValueOfEmail();
-                              json["roles"] = Json::Value(Json::arrayValue);
-                              (*sharedCb)(json);
-                          }
-                        );
-                    }
+                        roleIds.push_back(ur.getValueOfRoleId());
+
+                    Mapper<Roles>(db).findBy(
+                      Criteria(Roles::Cols::_id, CompareOperator::In, roleIds),
+                      [sharedCb, user](
+                        const std::vector<Roles> &roles
+                      ) {
+                          Json::Value json;
+                          json["sub"] = user.getValueOfPublicSub();
+                          std::string dn = user.getValueOfUsername();
+                          json["name"] =
+                            dn.empty() ? user.getValueOfEmail() : dn;
+                          json["email"] = user.getValueOfEmail();
+                          Json::Value rj(Json::arrayValue);
+                          for (const auto &r : roles)
+                              rj.append(r.getValueOfName());
+                          json["roles"] = rj;
+                          (*sharedCb)(json);
+                      },
+                      [sharedCb, user](const DrogonDbException &) {
+                          Json::Value json;
+                          json["sub"] = user.getValueOfPublicSub();
+                          std::string dn = user.getValueOfUsername();
+                          json["name"] =
+                            dn.empty() ? user.getValueOfEmail() : dn;
+                          json["email"] = user.getValueOfEmail();
+                          json["roles"] = Json::Value(Json::arrayValue);
+                          (*sharedCb)(json);
+                      }
+                    );
                 },
                 [sharedCb, user](const DrogonDbException &) {
                     Json::Value json;
