@@ -80,6 +80,13 @@ void AuthorizationFilter::doFilter(
 {
     loadConfig();
 
+    // Lifetime contract: Drogon Filter instances are process-wide singletons
+    // whose lifetime spans the entire process run, same as controllers (see
+    // OAuth2StandardController.h). [this] captures in async callbacks below are
+    // therefore safe — `this` outlives every async continuation.
+    // shared_from_this() is not applicable here because Drogon uses raw pointers
+    // (not shared_ptr) to manage Filter instances.
+
     // 1. Extract Token
     std::string token;
     auto authHeader = req->getHeader("Authorization");

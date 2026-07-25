@@ -920,8 +920,7 @@ void OAuth2StandardController::authorize(
     plugin->validateClient(
       clientId,
       "",
-      [this,
-       plugin,
+      [plugin,
        clientId,
        redirectUri,
        scope,
@@ -954,8 +953,7 @@ void OAuth2StandardController::authorize(
           plugin->validateRedirectUri(
             clientId,
             redirectUri,
-            [this,
-             plugin,
+            [plugin,
              clientId,
              redirectUri,
              scope,
@@ -986,8 +984,7 @@ void OAuth2StandardController::authorize(
                 plugin->validateClientScopes(
                   clientId,
                   requestedScopes,
-                  [this,
-                   plugin,
+                  [plugin,
                    clientId,
                    redirectUri,
                    scope,
@@ -1021,8 +1018,7 @@ void OAuth2StandardController::authorize(
                           plugin->validateUserRolesForScopes(
                             userId,
                             requestedScopes,
-                            [this,
-                             plugin,
+                            [plugin,
                              userId,
                              requestedScopes,
                              clientId,
@@ -1052,8 +1048,7 @@ void OAuth2StandardController::authorize(
 
                                 plugin->getInternalUserId(
                                   userId,
-                                  [this,
-                                   plugin,
+                                  [plugin,
                                    userId,
                                    clientId,
                                    scope,
@@ -1644,7 +1639,10 @@ void OAuth2StandardController::token(
                             CompareOperator::EQ, deviceCodeHash
                           ),
                           [](const size_t) {},
-                          [](const ::drogon::orm::DrogonDbException &) {}
+                          [](const ::drogon::orm::DrogonDbException &e) {
+                              LOG_WARN << "Failed to delete consumed device code: "
+                                       << e.base().what();
+                          }
                         );
                     }
 

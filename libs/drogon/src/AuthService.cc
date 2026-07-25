@@ -85,7 +85,10 @@ void AuthService::validateUser(
                       Mapper<drogon_model::oauth2_db::Users>(db).update(
                         *resetUser,
                         [resetUser](const size_t) {},
-                        [resetUser](const ::drogon::orm::DrogonDbException &) {}
+                        [resetUser](const ::drogon::orm::DrogonDbException &e) {
+                            LOG_DEBUG << "Failed to reset failed login counter: "
+                                      << e.base().what();
+                        }
                       );
                   }
 
@@ -165,7 +168,10 @@ void AuthService::validateUser(
                   Mapper<drogon_model::oauth2_db::Users>(db).update(
                     *failedUser,
                     [failedUser](const size_t) {},
-                    [failedUser](const ::drogon::orm::DrogonDbException &) {}
+                    [failedUser](const ::drogon::orm::DrogonDbException &e) {
+                        LOG_WARN << "Failed to update failed login count: "
+                                 << e.base().what();
+                    }
                   );
 
                   (*sharedCb)(std::nullopt);
@@ -362,7 +368,9 @@ void AuthService::getUserInfo(
                         json["roles"] = rj;
                         (*sharedCb)(json);
                     },
-                    [sharedCb, user](const DrogonDbException &) {
+                    [sharedCb, user](const DrogonDbException &e) {
+                        LOG_DEBUG << "User " << user.getValueOfPublicSub()
+                                  << " has no roles: " << e.base().what();
                         Json::Value json;
                         json["sub"] = user.getValueOfPublicSub();
                         std::string displayName = user.getValueOfUsername();

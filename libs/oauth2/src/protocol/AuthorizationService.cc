@@ -154,19 +154,25 @@ void AuthorizationService::evaluateScopes(
                            hasAdminRole,
                            requestedScopes,
                            callback](bool hasConsent) mutable {
-                              (*consentMap)[scope] = hasConsent;
-                              if (--(*remaining) == 0)
-                              {
+                              try {
+                                  (*consentMap)[scope] = hasConsent;
+                                  if (--(*remaining) == 0)
+                                  {
+                                      callback(
+                                        authforge::oauth2::access::evaluateScopes(
+                                          requestedScopes,
+                                          *client,
+                                          hasAdminRole,
+                                          [consentMap](const std::string &s) {
+                                              auto it = consentMap->find(s);
+                                              return it != consentMap->end() && it->second;
+                                          }
+                                        )
+                                      );
+                                  }
+                              } catch (const std::exception &e) {
                                   callback(
-                                    authforge::oauth2::access::evaluateScopes(
-                                      requestedScopes,
-                                      *client,
-                                      hasAdminRole,
-                                      [consentMap](const std::string &s) {
-                                          auto it = consentMap->find(s);
-                                          return it != consentMap->end() && it->second;
-                                      }
-                                    )
+                                    allInvalid(requestedScopes, "internal_error")
                                   );
                               }
                           }

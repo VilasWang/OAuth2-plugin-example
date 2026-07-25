@@ -178,7 +178,7 @@ void RedisTokenRepository::revokeRefreshToken(const std::string &token, VoidCall
           if (cb)
               cb();
       },
-      [cb](const std::exception &e) {
+      [cb](const RedisException &e) {
           LOG_ERROR << "Failed to revoke refresh token in Redis: " << e.what();
           // Call callback even on failure to avoid blocking
           if (cb)

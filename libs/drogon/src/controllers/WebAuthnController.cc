@@ -560,7 +560,9 @@ void WebAuthnController::authenticateFinish(
                 Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).update(
                   *credUpdate,
                   [](const size_t) {},
-                  [](const ::drogon::orm::DrogonDbException &) {}
+                  [](const ::drogon::orm::DrogonDbException &e) {
+                      LOG_WARN << "Failed to update sign count: " << e.base().what();
+                  }
                 );
 
                 ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(

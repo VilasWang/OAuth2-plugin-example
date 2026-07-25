@@ -56,9 +56,9 @@ void PostgresTokenRepository::saveAccessToken(const OAuth2AccessToken &token, Vo
           }
         );
     }
-    catch (...)
+    catch (const DrogonDbException &e)
     {
-        LOG_ERROR << "saveAccessToken Exception";
+        LOG_ERROR << "saveAccessToken Exception: " << e.base().what();
         if (*sharedCb)
             (*sharedCb)();
     }
@@ -260,9 +260,9 @@ void PostgresTokenRepository::saveRefreshToken(const OAuth2RefreshToken &token, 
           }
         );
     }
-    catch (...)
+    catch (const DrogonDbException &e)
     {
-        LOG_ERROR << "saveRefreshToken Exception";
+        LOG_ERROR << "saveRefreshToken Exception: " << e.base().what();
         if (*sharedCb)
             (*sharedCb)();
     }
@@ -299,9 +299,9 @@ void PostgresTokenRepository::getRefreshToken(const std::string &token, RefreshT
           }
         );
     }
-    catch (...)
+    catch (const DrogonDbException &e)
     {
-        LOG_ERROR << "getRefreshToken Exception";
+        LOG_ERROR << "getRefreshToken Exception: " << e.base().what();
         (*sharedCb)(std::nullopt);
     }
 }
@@ -337,9 +337,9 @@ void PostgresTokenRepository::revokeRefreshToken(const std::string &token, VoidC
           }
         );
     }
-    catch (...)
+    catch (const DrogonDbException &e)
     {
-        LOG_ERROR << "revokeRefreshToken Exception";
+        LOG_ERROR << "revokeRefreshToken Exception: " << e.base().what();
         if (*sharedCb)
             (*sharedCb)();
     }
@@ -721,9 +721,13 @@ void PostgresTokenRepository::purgeExpired()
           }
         );
     }
-    catch (...)
+    catch (const DrogonDbException &e)
     {
-        LOG_ERROR << "PostgresTokenRepository::purgeExpired Exception";
+        LOG_ERROR << "PostgresTokenRepository::purgeExpired Exception: " << e.base().what();
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "PostgresTokenRepository::purgeExpired Exception: " << e.what();
     }
 }
 
