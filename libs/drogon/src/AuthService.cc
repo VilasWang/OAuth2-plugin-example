@@ -183,9 +183,14 @@ void AuthService::validateUser(
           }
         );
     }
-    catch (const DrogonDbException &e)
+    catch (const std::exception &e)
     {
-        LOG_WARN << "Validate User Init Failed: " << e.base().what();
+        LOG_WARN << "Validate User Init Failed: " << e.what();
+        (*sharedCb)(std::nullopt);
+    }
+    catch (...)
+    {
+        LOG_WARN << "Validate User Init Unknown Exception";
         (*sharedCb)(std::nullopt);
     }
 }
@@ -297,9 +302,14 @@ void AuthService::registerUser(
           }
         );
     }
-    catch (const DrogonDbException &e)
+    catch (const std::exception &e)
     {
-        LOG_ERROR << "Register Init Failed: " << e.base().what();
+        LOG_ERROR << "Register Init Failed: " << e.what();
+        (*sharedCb)("INTERNAL_ERROR");
+    }
+    catch (...)
+    {
+        LOG_ERROR << "Register Init Unknown Exception";
         (*sharedCb)("INTERNAL_ERROR");
     }
 }
@@ -401,9 +411,14 @@ void AuthService::getUserInfo(
           }
         );
     }
-    catch (const DrogonDbException &e)
+    catch (const std::exception &e)
     {
-        LOG_WARN << "Get User Info Init Failed: " << e.base().what();
+        LOG_WARN << "Get User Info Init Failed: " << e.what();
+        (*sharedCb)(std::nullopt);
+    }
+    catch (...)
+    {
+        LOG_WARN << "Get User Info Init Unknown Exception";
         (*sharedCb)(std::nullopt);
     }
 }
