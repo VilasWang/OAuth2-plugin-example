@@ -210,6 +210,8 @@ void GoogleController::login(
       [callbackPtr,
        client,
        req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+          try
+          {
           if (
             result != ::drogon::ReqResult::Ok || !response ||
             response->getStatusCode() != ::drogon::k200OK
@@ -246,6 +248,8 @@ void GoogleController::login(
           client2->sendRequest(
             req2,
             [callbackPtr, req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
+                try
+                {
                 if (res2 != ::drogon::ReqResult::Ok || !resp2)
                 {
                     respondError(
@@ -268,9 +272,40 @@ void GoogleController::login(
 
                 auto finalResp = ::drogon::HttpResponse::newHttpJsonResponse(filteredJson);
                 (*callbackPtr)(finalResp);
+                }
+                catch (const std::exception &e)
+                {
+                    LOG_ERROR
+                      << "GoogleController::login inner async callback exception: " << e.what();
+                    respondError(
+                      req, callbackPtr, "INTERNAL_ERROR",
+                      "google login: " + std::string(e.what())
+                    );
+                }
+                catch (...)
+                {
+                    LOG_ERROR << "GoogleController::login inner async callback unknown exception";
+                    respondError(
+                      req, callbackPtr, "INTERNAL_ERROR", "google login: unknown error"
+                    );
+                }
             }
           );
       }
+      catch (const std::exception &e)
+      {
+          LOG_ERROR << "GoogleController::login async callback exception: " << e.what();
+          respondError(
+            req, callbackPtr, "INTERNAL_ERROR",
+            "google login: " + std::string(e.what())
+          );
+      }
+      catch (...)
+      {
+          LOG_ERROR << "GoogleController::login async callback unknown exception";
+          respondError(req, callbackPtr, "INTERNAL_ERROR", "google login: unknown error");
+      }
+    }
     );
     }
     catch (const std::exception &e)

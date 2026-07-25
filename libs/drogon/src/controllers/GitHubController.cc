@@ -274,6 +274,8 @@ void GitHubController::login(
       [this,
        callbackPtr,
        req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+          try
+          {
           if (
             result != ::drogon::ReqResult::Ok || !response ||
             response->getStatusCode() != ::drogon::k200OK
@@ -315,6 +317,8 @@ void GitHubController::login(
             [this,
              callbackPtr,
              req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
+                try
+                {
                 if (
                   res2 != ::drogon::ReqResult::Ok || !resp2 ||
                   resp2->getStatusCode() != ::drogon::k200OK
@@ -577,9 +581,41 @@ void GitHubController::login(
                       "github login: unknown database error"
                     );
                 }
+                }
+                catch (const std::exception &e)
+                {
+                    LOG_ERROR << "GitHubController::login inner async callback exception: "
+                              << e.what();
+                    respondError(
+                      req, callbackPtr, "INTERNAL_ERROR",
+                      "github login: " + std::string(e.what())
+                    );
+                }
+                catch (...)
+                {
+                    LOG_ERROR
+                      << "GitHubController::login inner async callback unknown exception";
+                    respondError(
+                      req, callbackPtr, "INTERNAL_ERROR", "github login: unknown error"
+                    );
+                }
             }
           );
       }
+      catch (const std::exception &e)
+      {
+          LOG_ERROR << "GitHubController::login async callback exception: " << e.what();
+          respondError(
+            req, callbackPtr, "INTERNAL_ERROR",
+            "github login: " + std::string(e.what())
+          );
+      }
+      catch (...)
+      {
+          LOG_ERROR << "GitHubController::login async callback unknown exception";
+          respondError(req, callbackPtr, "INTERNAL_ERROR", "github login: unknown error");
+      }
+    }
     );
 }
 
