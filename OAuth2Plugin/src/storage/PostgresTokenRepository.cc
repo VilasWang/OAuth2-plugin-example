@@ -56,9 +56,15 @@ void PostgresTokenRepository::saveAccessToken(const OAuth2AccessToken &token, Vo
           }
         );
     }
-    catch (const DrogonDbException &e)
+    catch (const std::exception &e)
     {
-        LOG_ERROR << "saveAccessToken Exception: " << e.base().what();
+        LOG_ERROR << "saveAccessToken Exception: " << e.what();
+        if (*sharedCb)
+            (*sharedCb)();
+    }
+    catch (...)
+    {
+        LOG_ERROR << "saveAccessToken Unknown Exception";
         if (*sharedCb)
             (*sharedCb)();
     }
@@ -260,9 +266,15 @@ void PostgresTokenRepository::saveRefreshToken(const OAuth2RefreshToken &token, 
           }
         );
     }
-    catch (const DrogonDbException &e)
+    catch (const std::exception &e)
     {
-        LOG_ERROR << "saveRefreshToken Exception: " << e.base().what();
+        LOG_ERROR << "saveRefreshToken Exception: " << e.what();
+        if (*sharedCb)
+            (*sharedCb)();
+    }
+    catch (...)
+    {
+        LOG_ERROR << "saveRefreshToken Unknown Exception";
         if (*sharedCb)
             (*sharedCb)();
     }
@@ -299,9 +311,14 @@ void PostgresTokenRepository::getRefreshToken(const std::string &token, RefreshT
           }
         );
     }
-    catch (const DrogonDbException &e)
+    catch (const std::exception &e)
     {
-        LOG_ERROR << "getRefreshToken Exception: " << e.base().what();
+        LOG_ERROR << "getRefreshToken Exception: " << e.what();
+        (*sharedCb)(std::nullopt);
+    }
+    catch (...)
+    {
+        LOG_ERROR << "getRefreshToken Unknown Exception";
         (*sharedCb)(std::nullopt);
     }
 }
@@ -337,9 +354,15 @@ void PostgresTokenRepository::revokeRefreshToken(const std::string &token, VoidC
           }
         );
     }
-    catch (const DrogonDbException &e)
+    catch (const std::exception &e)
     {
-        LOG_ERROR << "revokeRefreshToken Exception: " << e.base().what();
+        LOG_ERROR << "revokeRefreshToken Exception: " << e.what();
+        if (*sharedCb)
+            (*sharedCb)();
+    }
+    catch (...)
+    {
+        LOG_ERROR << "revokeRefreshToken Unknown Exception";
         if (*sharedCb)
             (*sharedCb)();
     }
@@ -721,13 +744,13 @@ void PostgresTokenRepository::purgeExpired()
           }
         );
     }
-    catch (const DrogonDbException &e)
-    {
-        LOG_ERROR << "PostgresTokenRepository::purgeExpired Exception: " << e.base().what();
-    }
     catch (const std::exception &e)
     {
         LOG_ERROR << "PostgresTokenRepository::purgeExpired Exception: " << e.what();
+    }
+    catch (...)
+    {
+        LOG_ERROR << "PostgresTokenRepository::purgeExpired Unknown Exception";
     }
 }
 
