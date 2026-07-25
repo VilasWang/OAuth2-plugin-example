@@ -199,35 +199,37 @@ void PostgresTokenRepository::getAccessToken(const std::string &token, AccessTok
         return;
     }
     auto sharedCb = std::make_shared<AccessTokenCallback>(std::move(cb));
-    // Use execSqlAsync (text protocol) for consistency with saveTokenPair.
-    // saveTokenPair stores tokens via execSqlAsync on a transaction (text
-    // protocol).  Mapper::findOne uses binary protocol, causing VARCHAR
-    // column values to mismatch — tokens were stored but never found by
-    // the binary-protocol WHERE clause.
-    dbClientReader_->execSqlAsync(
-      "SELECT token, client_id, user_id, scope, expires_at, revoked "
-      "FROM oauth2_access_tokens WHERE token = $1",
-      [sharedCb](const Result &r) {
-          if (r.empty())
-          {
+    try
+    {
+        Mapper<Oauth2AccessTokens> mapper(dbClientReader_);
+        mapper.findOne(
+          Criteria(Oauth2AccessTokens::Cols::_token, CompareOperator::EQ, token),
+          [sharedCb](const Oauth2AccessTokens &row) {
+              OAuth2AccessToken t;
+              t.token = row.getValueOfToken();
+              t.clientId = row.getValueOfClientId();
+              t.userId = row.getValueOfUserId();
+              t.scope = row.getValueOfScope();
+              t.expiresAt = row.getValueOfExpiresAt();
+              t.revoked = row.getValueOfRevoked();
+              (*sharedCb)(t);
+          },
+          [sharedCb](const DrogonDbException &e) {
+              LOG_DEBUG << "getAccessToken not found/error: " << e.base().what();
               (*sharedCb)(std::nullopt);
-              return;
           }
-          OAuth2AccessToken t;
-          t.token = r[0]["token"].as<std::string>();
-          t.clientId = r[0]["client_id"].as<std::string>();
-          t.userId = r[0]["user_id"].as<std::string>();
-          t.scope = r[0]["scope"].isNull() ? "" : r[0]["scope"].as<std::string>();
-          t.expiresAt = r[0]["expires_at"].as<int64_t>();
-          t.revoked = r[0]["revoked"].as<bool>();
-          (*sharedCb)(t);
-      },
-      [sharedCb](const DrogonDbException &e) {
-          LOG_DEBUG << "getAccessToken not found/error: " << e.base().what();
-          (*sharedCb)(std::nullopt);
-      },
-      token
-    );
+        );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "getAccessToken Exception: " << e.what();
+        (*sharedCb)(std::nullopt);
+    }
+    catch (...)
+    {
+        LOG_ERROR << "getAccessToken Unknown Exception";
+        (*sharedCb)(std::nullopt);
+    }
 }
 
 void PostgresTokenRepository::saveRefreshToken(const OAuth2RefreshToken &token, VoidCallback &&cb)

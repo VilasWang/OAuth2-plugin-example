@@ -750,11 +750,25 @@ void MfaController::verifyLogin(
         return;
     }
 
+    int64_t fallbackUserId = 0;
+    try
+    {
+        fallbackUserId = std::stoll(mfaToken);
+    }
+    catch (const std::exception &)
+    {
+        respondError(
+          req, sharedCb, "AUTH_INVALID_CREDENTIALS",
+          "verifyLogin: invalid MFA session"
+        );
+        return;
+    }
+
     auto db = ::drogon::app().getDbClient();
     Mapper<drogon_model::oauth2_db::Users>(db).findBy(
       Criteria(
         drogon_model::oauth2_db::Users::Cols::_id, CompareOperator::EQ,
-        std::stoi(mfaToken)
+        fallbackUserId
       ),
       [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin](
         const std::vector<drogon_model::oauth2_db::Users> &users
@@ -912,11 +926,21 @@ void MfaController::verifyLogin(
                                       };
                                       if (clearDb)
                                       {
+                                          int64_t clearUserId = 0;
+                                          try
+                                          {
+                                              clearUserId = std::stoll(mfaToken);
+                                          }
+                                          catch (const std::exception &)
+                                          {
+                                              sendSuccess();
+                                              return;
+                                          }
                                           Mapper<drogon_model::oauth2_db::Users>(clearDb).findBy(
                                             Criteria(
                                               drogon_model::oauth2_db::Users::Cols::_id,
                                               CompareOperator::EQ,
-                                              std::stoi(mfaToken)
+                                              clearUserId
                                             ),
                                             [sendSuccess, clearDb](
                                               const std::vector<drogon_model::oauth2_db::Users> &u
