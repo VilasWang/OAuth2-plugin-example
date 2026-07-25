@@ -56,6 +56,7 @@ auto sharedCb = std::make_shared<std::function<void(const ResultType &)>>(
 - All async callbacks MUST handle failure path: `(*sharedCb)(errorResult)`
 - Log levels: `LOG_DEBUG` (dev), `LOG_INFO` (flow), `LOG_WARN` (issues), `LOG_ERROR` (failures)
 - NEVER log passwords, tokens, or secrets
+- Always need try catch for all async callbacks
 
 ## Code Style
 
