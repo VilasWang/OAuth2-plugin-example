@@ -113,6 +113,8 @@ void WeChatController::login(
         return;
     }
 
+    try
+    {
     // Try to get code from POST body first, then fallback to query parameter
     std::string code;
 
@@ -219,17 +221,30 @@ void WeChatController::login(
           }
 
           auto json = *response->getJsonObject();
-          if (json.isMember("errcode") && json["errcode"].asInt() != 0)
+          if (json.isMember("errcode") && json["errcode"].isInt() &&
+              json["errcode"].asInt() != 0)
           {
+              std::string errMsg = json.isMember("errmsg") && json["errmsg"].isString()
+                                     ? json["errmsg"].asString()
+                                     : "unknown";
               respondError(
                 req,
                 callbackPtr,
                 "VALIDATION_INVALID_INPUT",
-                "wechat login: WeChat error: " + json["errmsg"].asString()
+                "wechat login: WeChat error: " + errMsg
               );
               return;
           }
 
+          if (!json.isMember("access_token") || !json["access_token"].isString() ||
+              !json.isMember("openid") || !json["openid"].isString())
+          {
+              respondError(
+                req, callbackPtr, "VALIDATION_INVALID_INPUT",
+                "wechat login: missing access_token or openid in WeChat response"
+              );
+              return;
+          }
           std::string accessToken = json["access_token"].asString();
           std::string openid = json["openid"].asString();
 
@@ -272,6 +287,21 @@ void WeChatController::login(
           );
       }
     );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "WeChatController::login exception: " << e.what();
+        ::authforge::common::error::ErrorResponder::respond(
+          req, std::move(callback), "INTERNAL_ERROR", "wechat login: " + std::string(e.what())
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR << "WeChatController::login unknown exception";
+        ::authforge::common::error::ErrorResponder::respond(
+          req, std::move(callback), "INTERNAL_ERROR", "wechat login: unknown error"
+        );
+    }
 }
 
 }  // namespace authforge::drogon::controllers

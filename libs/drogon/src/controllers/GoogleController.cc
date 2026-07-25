@@ -116,6 +116,8 @@ void GoogleController::login(
         return;
     }
 
+    try
+    {
     // Try to get code from POST body first, then fallback to query parameter
     std::string code;
 
@@ -223,7 +225,8 @@ void GoogleController::login(
           }
 
           auto json = response->getJsonObject();
-          if (!json || !json->isMember("access_token"))
+          if (!json || !json->isMember("access_token") ||
+              !(*json)["access_token"].isString())
           {
               respondError(
                 req, callbackPtr, "VALIDATION_INVALID_INPUT", "google login: invalid token response"
@@ -269,6 +272,21 @@ void GoogleController::login(
           );
       }
     );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "GoogleController::login exception: " << e.what();
+        ::authforge::common::error::ErrorResponder::respond(
+          req, std::move(callback), "INTERNAL_ERROR", "google login: " + std::string(e.what())
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR << "GoogleController::login unknown exception";
+        ::authforge::common::error::ErrorResponder::respond(
+          req, std::move(callback), "INTERNAL_ERROR", "google login: unknown error"
+        );
+    }
 }
 
 }  // namespace authforge::drogon::controllers

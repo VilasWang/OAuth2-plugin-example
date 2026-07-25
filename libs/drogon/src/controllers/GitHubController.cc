@@ -167,6 +167,8 @@ void GitHubController::login(
             )
                          .count();
             auto db2 = ::drogon::app().getDbClient();
+            try
+            {
             Oauth2AccessTokens atModel;
             atModel.setToken(accessToken);
             atModel.setClientId("vue-client");
@@ -218,6 +220,24 @@ void GitHubController::login(
                   );
               }
             );
+            }
+            catch (const std::exception &e)
+            {
+                LOG_ERROR
+                  << "GitHubController::issueTokens Mapper exception: " << e.what();
+                respondError(
+                  req, callbackPtr, "DB_QUERY_ERROR",
+                  std::string("github login: failed to issue tokens: ") + e.what()
+                );
+            }
+            catch (...)
+            {
+                LOG_ERROR << "GitHubController::issueTokens Mapper unknown exception";
+                respondError(
+                  req, callbackPtr, "DB_QUERY_ERROR",
+                  "github login: failed to issue tokens"
+                );
+            }
         };
 
         gitHubAuthService_->login(
@@ -269,10 +289,12 @@ void GitHubController::login(
           }
 
           auto json = response->getJsonObject();
-          if (!json || !json->isMember("access_token"))
+          if (!json || !json->isMember("access_token") ||
+              !(*json)["access_token"].isString())
           {
               std::string detail = "github login: GitHub returned invalid token response";
-              if (json && json->isMember("error_description"))
+              if (json && json->isMember("error_description") &&
+                  (*json)["error_description"].isString())
                   detail += ": " + (*json)["error_description"].asString();
               respondError(req, callbackPtr, "VALIDATION_INVALID_INPUT", detail);
               return;
@@ -329,6 +351,7 @@ void GitHubController::login(
                 std::string subject = std::to_string(githubId);
 
                 // Check if this GitHub account is already linked
+                try
                 {
                     Criteria crit(
                       Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider
@@ -537,7 +560,23 @@ void GitHubController::login(
                       );
                   }
                 );
-                }  // close Criteria scope block
+                }
+                catch (const std::exception &e)
+                {
+                    LOG_ERROR << "GitHubController::login Mapper exception: " << e.what();
+                    respondError(
+                      req, callbackPtr, "DB_QUERY_ERROR",
+                      std::string("github login: database error: ") + e.what()
+                    );
+                }
+                catch (...)
+                {
+                    LOG_ERROR << "GitHubController::login Mapper unknown exception";
+                    respondError(
+                      req, callbackPtr, "DB_QUERY_ERROR",
+                      "github login: unknown database error"
+                    );
+                }
             }
           );
       }
