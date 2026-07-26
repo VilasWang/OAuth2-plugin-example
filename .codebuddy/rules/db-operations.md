@@ -23,6 +23,23 @@ JOIN-in-a-single-query is forbidden — split into multiple queries (or
 `Criteria::In`). Capture `auto self = shared_from_this()` in the callback to
 avoid use-after-free.
 
+## Mapper 构造异常防护
+
+`Mapper<Model>(dbClient)` 构造可能因 `DbClient` 内部状态异常（连接断开、
+之前操作失败导致连接处于不一致状态等）而抛出 `std::exception`。在异步
+回调中未捕获会逃逸到 Drogon 事件循环并导致进程终止（SIGABRT/SIGSEGV）。
+
+**要求 1：每个 `Mapper<...>(dbClient)` 构造语句所在的代码块 MUST 包裹在
+`try { ... } catch (const std::exception &e) { ... } catch (...) { ... }`
+中。** 不分位置——顶级代码、嵌套在 `findOne`/`findBy` 回调内部的
+`Mapper` 构造各自需要独立的 `try-catch`，外层保护不到内层异步回调。
+
+**要求 2：catch 块 MUST 调用 `(*sharedCb)(errorResult)` 将失败传递给上层
+回调。** 禁止仅 `LOG_ERROR` 后 return（上层静默丢失数据）。
+`errorResult` 根据回调类型选择：`StringListCallback → ({})`、
+`AccessTokenCallback/RefreshTokenCallback → (std::nullopt)`、
+`VoidCallback → ()`。
+
 ## The three raw-SQL exemptions (and only these)
 
 Raw SQL is allowed ONLY for:
