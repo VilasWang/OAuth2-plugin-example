@@ -30,16 +30,33 @@ void DeviceCodeService::createDeviceCode(
     code.setUserCode(userCode);
     code.setStatus("pending");
 
-    Mapper<Oauth2DeviceCodes> mapper(db);
-    mapper.insert(
-      code,
-      [cb = std::move(callback)](const Oauth2DeviceCodes &) { cb(true); },
-      [cb = std::move(callback)](const DrogonDbException &e) {
-          LOG_ERROR << "DeviceCodeService::createDeviceCode failed: "
-                    << e.base().what();
-          cb(false);
-      }
-    );
+    try
+    {
+        Mapper<Oauth2DeviceCodes> mapper(db);
+        auto sharedCb =
+          std::make_shared<std::function<void(bool)>>(std::move(callback));
+        mapper.insert(
+          code,
+          [sharedCb](const Oauth2DeviceCodes &) { (*sharedCb)(true); },
+          [sharedCb](const DrogonDbException &e) {
+              LOG_ERROR << "DeviceCodeService::createDeviceCode failed: "
+                        << e.base().what();
+              (*sharedCb)(false);
+          }
+        );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "DeviceCodeService::createDeviceCode Exception: " << e.what();
+        if (callback)
+            callback(false);
+    }
+    catch (...)
+    {
+        LOG_ERROR << "DeviceCodeService::createDeviceCode Unknown Exception";
+        if (callback)
+            callback(false);
+    }
 }
 
 void DeviceCodeService::findByDeviceCodeHash(
