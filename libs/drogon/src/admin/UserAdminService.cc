@@ -101,9 +101,7 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
           Mapper<UserRoles> urMapper(db);
           urMapper.findBy(
             Criteria(UserRoles::Cols::_user_id, CompareOperator::In, allUserIds),
-            [cb, req, db, rows = std::move(rows)](
-              const std::vector<UserRoles> &allUserRoles
-            ) {
+            [cb, req, db, rows = std::move(rows)](const std::vector<UserRoles> &allUserRoles) {
                 std::unordered_map<int32_t, std::vector<int32_t>> userIdToRoleIds;
                 std::set<int32_t> distinctRoleIds;
                 for (const auto &ur : allUserRoles)
@@ -124,14 +122,11 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
                     (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     return;
                 }
-                std::vector<int32_t> roleIdsVec(
-                  distinctRoleIds.begin(), distinctRoleIds.end()
-                );
+                std::vector<int32_t> roleIdsVec(distinctRoleIds.begin(), distinctRoleIds.end());
                 Mapper<Roles> rMapper(db);
                 rMapper.findBy(
                   Criteria(Roles::Cols::_id, CompareOperator::In, roleIdsVec),
-                  [cb, rows = std::move(rows),
-                   userIdToRoleIds = std::move(userIdToRoleIds)](
+                  [cb, rows = std::move(rows), userIdToRoleIds = std::move(userIdToRoleIds)](
                     const std::vector<Roles> &allRoles
                   ) {
                       std::unordered_map<int32_t, std::string> roleIdToName;
@@ -164,7 +159,9 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
                   },
                   [req, cb](const ::drogon::orm::DrogonDbException &e) {
                       respondError(
-                        req, cb, "DB_QUERY_ERROR",
+                        req,
+                        cb,
+                        "DB_QUERY_ERROR",
                         std::string("Failed to fetch roles: ") + e.base().what()
                       );
                   }
@@ -172,7 +169,9 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
             },
             [req, cb](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, cb, "DB_QUERY_ERROR",
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
                   std::string("Failed to fetch user roles: ") + e.base().what()
                 );
             }

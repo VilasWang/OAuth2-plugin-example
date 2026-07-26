@@ -38,15 +38,14 @@ namespace
 
 // Fail-loud assertion: prints to stderr and returns 1 from main on failure.
 // (No gtest here -- examples stay framework-light, per the plan.)
-#define CHECK(cond, msg)                                          \
-    do                                                            \
-    {                                                             \
-        if (!(cond))                                              \
-        {                                                         \
-            std::fprintf(stderr, "[FAIL] %s:%d: %s\n", __FILE__,  \
-                         __LINE__, msg);                          \
-            return 1;                                             \
-        }                                                         \
+#define CHECK(cond, msg)                                                         \
+    do                                                                           \
+    {                                                                            \
+        if (!(cond))                                                             \
+        {                                                                        \
+            std::fprintf(stderr, "[FAIL] %s:%d: %s\n", __FILE__, __LINE__, msg); \
+            return 1;                                                            \
+        }                                                                        \
     } while (0)
 
 // Build the minimal clients-config JSON MemoryClientRepository::initFromConfig
@@ -95,9 +94,11 @@ int main()
     // shared_from_this() for lifetime safety. Stack allocation would cause
     // std::bad_weak_ptr → terminate.
     authforge::oauth2::protocol::AuthorizationService authService(
-      clientRepo, consentRepo, /*subjectResolver=*/nullptr, /*roleProvider=*/nullptr);
+      clientRepo, consentRepo, /*subjectResolver=*/nullptr, /*roleProvider=*/nullptr
+    );
     auto tokenService = std::make_shared<authforge::oauth2::protocol::TokenService>(
-      clientRepo, grantRepo, tokenRepo, crypto);
+      clientRepo, grantRepo, tokenRepo, crypto
+    );
     std::fprintf(stderr, "[probe] services constructed ok\n");
     std::fflush(stderr);
 
@@ -105,12 +106,16 @@ int main()
     std::fprintf(stderr, "[probe] calling evaluateScopes\n");
     std::fflush(stderr);
     authService.evaluateScopes(
-      "test-client", "local:alice", {"openid"},
-      [&](authforge::oauth2::access::ScopeValidationSummary s) { summary = std::move(s); });
+      "test-client",
+      "local:alice",
+      {"openid"},
+      [&](authforge::oauth2::access::ScopeValidationSummary s) { summary = std::move(s); }
+    );
     std::fprintf(stderr, "[probe] evaluateScopes returned\n");
     std::fflush(stderr);
-    std::fprintf(stderr, "[probe] hasErrors=%d needsConsent=%d\n",
-                 summary.hasErrors(), summary.needsConsent());
+    std::fprintf(
+      stderr, "[probe] hasErrors=%d needsConsent=%d\n", summary.hasErrors(), summary.needsConsent()
+    );
     std::fflush(stderr);
     CHECK(!summary.hasErrors(), "evaluateScopes: openid should not be an error");
     std::fprintf(stderr, "[probe] CHECK1 passed\n");
@@ -124,10 +129,11 @@ int main()
     std::fprintf(stderr, "[probe] calling evaluateScopes(unknown)\n");
     std::fflush(stderr);
     authService.evaluateScopes(
-      "no-such-client", "local:alice", {"openid"},
-      [&](authforge::oauth2::access::ScopeValidationSummary s) {
-          unknownSummary = std::move(s);
-      });
+      "no-such-client",
+      "local:alice",
+      {"openid"},
+      [&](authforge::oauth2::access::ScopeValidationSummary s) { unknownSummary = std::move(s); }
+    );
     std::fprintf(stderr, "[probe] evaluateScopes(unknown) returned\n");
     std::fflush(stderr);
 
@@ -138,26 +144,41 @@ int main()
     std::fprintf(stderr, "[probe] calling generateAuthorizationCode\n");
     std::fflush(stderr);
     tokenService->generateAuthorizationCode(
-      "test-client", "local:alice", "openid", "https://app.example/callback",
-      /*codeChallenge=*/"", /*codeChallengeMethod=*/"", /*nonce=*/"",
+      "test-client",
+      "local:alice",
+      "openid",
+      "https://app.example/callback",
+      /*codeChallenge=*/"",
+      /*codeChallengeMethod=*/"",
+      /*nonce=*/"",
       [&](bool ok, const std::string &c, const std::string &e) {
           genOk = ok;
           code = c;
           genErr = e;
-      });
+      }
+    );
     CHECK(genOk, "generateAuthorizationCode failed (see genErr)");
     CHECK(!code.empty(), "generateAuthorizationCode: code must be non-empty");
 
     // ---- Step 3: exchangeCodeForToken (code -> access/refresh token JSON)
     Json::Value tokenJson;
     tokenService->exchangeCodeForToken(
-      code, "test-client", /*clientSecret=*/"", "https://app.example/callback",
-      /*codeVerifier=*/"", [&](const Json::Value &v) { tokenJson = v; });
+      code,
+      "test-client",
+      /*clientSecret=*/"",
+      "https://app.example/callback",
+      /*codeVerifier=*/"",
+      [&](const Json::Value &v) { tokenJson = v; }
+    );
     CHECK(!tokenJson.isNull(), "exchangeCodeForToken: response must be non-null");
-    CHECK(tokenJson.isMember("access_token") && !tokenJson["access_token"].asString().empty(),
-          "exchangeCodeForToken: access_token must be present and non-empty");
+    CHECK(
+      tokenJson.isMember("access_token") && !tokenJson["access_token"].asString().empty(),
+      "exchangeCodeForToken: access_token must be present and non-empty"
+    );
 
-    std::printf("[+] third-party-host SDK smoke PASSED: engine assembled via SDK packages, "
-                "auth-code flow core steps (evaluateScopes + generateCode + exchangeCode) ran.\n");
+    std::printf(
+      "[+] third-party-host SDK smoke PASSED: engine assembled via SDK packages, "
+      "auth-code flow core steps (evaluateScopes + generateCode + exchangeCode) ran.\n"
+    );
     return 0;
 }

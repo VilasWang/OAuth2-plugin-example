@@ -286,9 +286,7 @@ void PostgresIdentityRepository::updatePasswordHash(
     Mapper<Users> mapper(dbClient_);
     mapper.findBy(
       Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
-      [sharedCb, userId32, newHash, self = shared_from_this()](
-        const std::vector<Users> &users
-      ) {
+      [sharedCb, userId32, newHash, self = shared_from_this()](const std::vector<Users> &users) {
           if (users.empty())
           {
               (*sharedCb)(false);
@@ -297,14 +295,15 @@ void PostgresIdentityRepository::updatePasswordHash(
           auto updated = std::make_shared<Users>(users[0]);
           updated->setPasswordHash(newHash);
           updated->setSalt("");
-          Mapper<Users>(self->dbClient_).update(
-            *updated,
-            [updated, sharedCb](const size_t) { (*sharedCb)(true); },
-            [updated, sharedCb](const DrogonDbException &e) {
-                LOG_WARN << "[PG-Identity] updatePasswordHash FAILED: " << e.base().what();
-                (*sharedCb)(false);
-            }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              *updated,
+              [updated, sharedCb](const size_t) { (*sharedCb)(true); },
+              [updated, sharedCb](const DrogonDbException &e) {
+                  LOG_WARN << "[PG-Identity] updatePasswordHash FAILED: " << e.base().what();
+                  (*sharedCb)(false);
+              }
+            );
       },
       [sharedCb](const DrogonDbException &e) {
           LOG_WARN << "[PG-Identity] updatePasswordHash FAILED: " << e.base().what();
@@ -339,14 +338,15 @@ void PostgresIdentityRepository::resetFailedLogins(
           auto updated = std::make_shared<Users>(users[0]);
           updated->setFailedLoginCount(0);
           updated->setLockedUntil(0);
-          Mapper<Users>(self->dbClient_).update(
-            *updated,
-            [updated, sharedCb](const size_t) { (*sharedCb)(true); },
-            [updated, sharedCb](const DrogonDbException &e) {
-                LOG_WARN << "[PG-Identity] resetFailedLogins FAILED: " << e.base().what();
-                (*sharedCb)(false);
-            }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              *updated,
+              [updated, sharedCb](const size_t) { (*sharedCb)(true); },
+              [updated, sharedCb](const DrogonDbException &e) {
+                  LOG_WARN << "[PG-Identity] resetFailedLogins FAILED: " << e.base().what();
+                  (*sharedCb)(false);
+              }
+            );
       },
       [sharedCb](const DrogonDbException &e) {
           LOG_WARN << "[PG-Identity] resetFailedLogins FAILED: " << e.base().what();
@@ -397,11 +397,12 @@ void PostgresIdentityRepository::incrementFailedLogins(
           updated->setFailedLoginCount(newFailedCount);
           updated->setLockedUntil(newLockedUntil);
           updated->setLastFailedLogin(now);
-          Mapper<Users>(self->dbClient_).update(
-            *updated,
-            [updated, sharedCb](const size_t) { (*sharedCb)(true); },
-            [updated, sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              *updated,
+              [updated, sharedCb](const size_t) { (*sharedCb)(true); },
+              [updated, sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
@@ -436,12 +437,8 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
 
               // Split JOIN: UserRoles::findBy + Roles::findBy for each role
               Mapper<UserRoles>(db).findBy(
-                Criteria(
-                  UserRoles::Cols::_user_id, CompareOperator::EQ, userId32
-                ),
-                [sharedCb, db, user](
-                  const std::vector<UserRoles> &userRoles
-                ) {
+                Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, userId32),
+                [sharedCb, db, user](const std::vector<UserRoles> &userRoles) {
                     if (userRoles.empty())
                     {
                         Json::Value json;
@@ -460,14 +457,11 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
 
                     Mapper<Roles>(db).findBy(
                       Criteria(Roles::Cols::_id, CompareOperator::In, roleIds),
-                      [sharedCb, user](
-                        const std::vector<Roles> &roles
-                      ) {
+                      [sharedCb, user](const std::vector<Roles> &roles) {
                           Json::Value json;
                           json["sub"] = user.getValueOfPublicSub();
                           std::string dn = user.getValueOfUsername();
-                          json["name"] =
-                            dn.empty() ? user.getValueOfEmail() : dn;
+                          json["name"] = dn.empty() ? user.getValueOfEmail() : dn;
                           json["email"] = user.getValueOfEmail();
                           Json::Value rj(Json::arrayValue);
                           for (const auto &r : roles)
@@ -479,8 +473,7 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
                           Json::Value json;
                           json["sub"] = user.getValueOfPublicSub();
                           std::string dn = user.getValueOfUsername();
-                          json["name"] =
-                            dn.empty() ? user.getValueOfEmail() : dn;
+                          json["name"] = dn.empty() ? user.getValueOfEmail() : dn;
                           json["email"] = user.getValueOfEmail();
                           json["roles"] = Json::Value(Json::arrayValue);
                           (*sharedCb)(json);

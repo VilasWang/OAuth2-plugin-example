@@ -313,18 +313,14 @@ void WebAuthnController::registerFinish(
     // Store credential: first resolve public_sub to user_id, then insert
     auto db = ::drogon::app().getDbClient();
     Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(
-        drogon_model::oauth2_db::Users::Cols::_public_sub,
-        CompareOperator::EQ, userId
-      ),
+      Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
       [db, sharedCb, req, credentialId, publicKey, credName](
         const std::vector<drogon_model::oauth2_db::Users> &usersResult
       ) {
           if (usersResult.empty())
           {
               respondError(
-                req, sharedCb, "AUTH_INVALID_CREDENTIALS",
-                "registerFinish: user not found"
+                req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerFinish: user not found"
               );
               return;
           }
@@ -341,8 +337,12 @@ void WebAuthnController::registerFinish(
             [sharedCb, credentialId, req](const drogon_model::oauth2_db::WebauthnCredentials &) {
                 ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                  "webauthn_registered", "success", req,
-                  "", "credential", credentialId
+                  "webauthn_registered",
+                  "success",
+                  req,
+                  "",
+                  "credential",
+                  credentialId
                 );
                 Json::Value json;
                 json["message"] = "Passkey registered successfully";
@@ -359,14 +359,17 @@ void WebAuthnController::registerFinish(
                 )
                 {
                     respondError(
-                      req, sharedCb,
+                      req,
+                      sharedCb,
                       "VALIDATION_CREDENTIAL_ALREADY_REGISTERED",
                       std::string("registerFinish: duplicate credential_id: ") + what
                     );
                     return;
                 }
                 respondError(
-                  req, sharedCb, "DB_QUERY_ERROR",
+                  req,
+                  sharedCb,
+                  "DB_QUERY_ERROR",
                   std::string("registerFinish: failed to store credential: ") + what
                 );
             }
@@ -374,7 +377,9 @@ void WebAuthnController::registerFinish(
       },
       [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req, sharedCb, "DB_QUERY_ERROR",
+            req,
+            sharedCb,
+            "DB_QUERY_ERROR",
             std::string("registerFinish: user lookup failed: ") + e.base().what()
           );
       }
@@ -519,7 +524,8 @@ void WebAuthnController::authenticateFinish(
     Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).findBy(
       Criteria(
         drogon_model::oauth2_db::WebauthnCredentials::Cols::_credential_id,
-        CompareOperator::EQ, credentialId
+        CompareOperator::EQ,
+        credentialId
       ),
       [sharedCb, credentialId, db, req](
         const std::vector<drogon_model::oauth2_db::WebauthnCredentials> &creds
@@ -527,7 +533,9 @@ void WebAuthnController::authenticateFinish(
           if (creds.empty())
           {
               respondError(
-                req, sharedCb, "AUTH_INVALID_CREDENTIALS",
+                req,
+                sharedCb,
+                "AUTH_INVALID_CREDENTIALS",
                 "authenticateFinish: credential not found"
               );
               return;
@@ -539,22 +547,17 @@ void WebAuthnController::authenticateFinish(
 
           // Build credential update from already-fetched object
           int newSignCount = signCount + 1;
-          auto credUpdate =
-            std::make_shared<drogon_model::oauth2_db::WebauthnCredentials>(wc);
+          auto credUpdate = std::make_shared<drogon_model::oauth2_db::WebauthnCredentials>(wc);
           credUpdate->setSignCount(newSignCount);
           credUpdate->setLastUsedAt(::trantor::Date::now());
 
           // Query user for public_sub
           Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-            Criteria(
-              drogon_model::oauth2_db::Users::Cols::_id,
-              CompareOperator::EQ, userId
-            ),
+            Criteria(drogon_model::oauth2_db::Users::Cols::_id, CompareOperator::EQ, userId),
             [sharedCb, credentialId, db, req, userId, newSignCount, credUpdate](
               const std::vector<drogon_model::oauth2_db::Users> &users
             ) {
-                std::string publicSub =
-                  users.empty() ? "" : users[0].getValueOfPublicSub();
+                std::string publicSub = users.empty() ? "" : users[0].getValueOfPublicSub();
 
                 // Update sign_count and last_used_at (reuse outer findBy result)
                 Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).update(
@@ -567,8 +570,12 @@ void WebAuthnController::authenticateFinish(
 
                 ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                  "webauthn_authenticated", "success", req,
-                  publicSub, "credential", credentialId
+                  "webauthn_authenticated",
+                  "success",
+                  req,
+                  publicSub,
+                  "credential",
+                  credentialId
                 );
 
                 Json::Value json;
@@ -580,15 +587,16 @@ void WebAuthnController::authenticateFinish(
             },
             [sharedCb, req](const ::drogon::orm::DrogonDbException &) {
                 respondError(
-                  req, sharedCb, "DB_QUERY_ERROR",
-                  "authenticateFinish: DB error fetching user"
+                  req, sharedCb, "DB_QUERY_ERROR", "authenticateFinish: DB error fetching user"
                 );
             }
           );
       },
       [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req, sharedCb, "DB_QUERY_ERROR",
+            req,
+            sharedCb,
+            "DB_QUERY_ERROR",
             std::string("authenticateFinish: lookup failed: ") + e.base().what()
           );
       }
@@ -644,10 +652,7 @@ void WebAuthnController::listCredentials(
     auto db = ::drogon::app().getDbClient();
     // First resolve public_sub to user_id, then list credentials
     Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(
-        drogon_model::oauth2_db::Users::Cols::_public_sub,
-        CompareOperator::EQ, userId
-      ),
+      Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
       [sharedCb, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
           if (users.empty())
           {
@@ -662,11 +667,10 @@ void WebAuthnController::listCredentials(
           Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).findBy(
             Criteria(
               drogon_model::oauth2_db::WebauthnCredentials::Cols::_user_id,
-              CompareOperator::EQ, resolvedId
+              CompareOperator::EQ,
+              resolvedId
             ),
-            [sharedCb](
-              const std::vector<drogon_model::oauth2_db::WebauthnCredentials> &creds
-            ) {
+            [sharedCb](const std::vector<drogon_model::oauth2_db::WebauthnCredentials> &creds) {
                 Json::Value json;
                 Json::Value credsJson(Json::arrayValue);
                 for (const auto &wc : creds)
@@ -684,7 +688,9 @@ void WebAuthnController::listCredentials(
             },
             [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
                 respondError(
-                  req, sharedCb, "DB_QUERY_ERROR",
+                  req,
+                  sharedCb,
+                  "DB_QUERY_ERROR",
                   std::string("listCredentials: query failed: ") + e.base().what()
                 );
             }
@@ -692,7 +698,9 @@ void WebAuthnController::listCredentials(
       },
       [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
           respondError(
-            req, sharedCb, "DB_QUERY_ERROR",
+            req,
+            sharedCb,
+            "DB_QUERY_ERROR",
             std::string("listCredentials: user lookup failed: ") + e.base().what()
           );
       }

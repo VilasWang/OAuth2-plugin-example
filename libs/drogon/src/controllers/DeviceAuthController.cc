@@ -195,8 +195,7 @@ void DeviceAuthController::deviceAuthorization(
               if (!success)
               {
                   ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-                    std::move(*sharedCb), "server_error",
-                    "Failed to store device authorization"
+                    std::move(*sharedCb), "server_error", "Failed to store device authorization"
                   );
                   return;
               }
@@ -271,8 +270,7 @@ void DeviceAuthController::approveDevice(
           if (!code)
           {
               respondError(
-                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
-                "approveDevice: invalid user_code"
+                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID", "approveDevice: invalid user_code"
               );
               return;
           }
@@ -281,7 +279,9 @@ void DeviceAuthController::approveDevice(
           if (status != "pending" && !status.empty())
           {
               respondError(
-                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
+                req,
+                sharedCb,
+                "VALIDATION_DEVICE_CODE_INVALID",
                 "approveDevice: user_code already processed"
               );
               return;
@@ -294,8 +294,7 @@ void DeviceAuthController::approveDevice(
           if (now >= code->getValueOfExpiresAt())
           {
               respondError(
-                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
-                "approveDevice: user_code expired"
+                req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID", "approveDevice: user_code expired"
               );
               return;
           }
@@ -308,7 +307,9 @@ void DeviceAuthController::approveDevice(
                 if (!success)
                 {
                     respondError(
-                      req, sharedCb, "VALIDATION_DEVICE_CODE_INVALID",
+                      req,
+                      sharedCb,
+                      "VALIDATION_DEVICE_CODE_INVALID",
                       "approveDevice: failed to approve device code"
                     );
                     return;

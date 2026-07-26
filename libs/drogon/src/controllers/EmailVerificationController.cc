@@ -50,9 +50,7 @@ void EmailVerificationController::verify(
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-        std::move(callback)
-      );
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     services::EmailVerificationService::verifyToken(req, sharedCb);
 }
 
@@ -62,9 +60,7 @@ void EmailVerificationController::resend(
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-        std::move(callback)
-      );
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     services::EmailVerificationService::resendVerification(req, sharedCb);
 }
 

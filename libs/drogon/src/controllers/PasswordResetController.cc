@@ -49,9 +49,7 @@ void PasswordResetController::request(
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-        std::move(callback)
-      );
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     services::PasswordResetService::requestReset(req, sharedCb);
 }
 
@@ -61,9 +59,7 @@ void PasswordResetController::confirm(
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-        std::move(callback)
-      );
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     services::PasswordResetService::confirmReset(req, sharedCb);
 }
 

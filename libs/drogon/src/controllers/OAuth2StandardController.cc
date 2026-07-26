@@ -1480,7 +1480,8 @@ void OAuth2StandardController::token(
         mapper.findBy(
           Criteria(
             drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
-            CompareOperator::EQ, deviceCodeHash
+            CompareOperator::EQ,
+            deviceCodeHash
           ),
           [plugin, sharedCb, clientId, deviceCodeHash](
             const std::vector<drogon_model::oauth2_db::Oauth2DeviceCodes> &results
@@ -1636,7 +1637,8 @@ void OAuth2StandardController::token(
                         Mapper<drogon_model::oauth2_db::Oauth2DeviceCodes>(dbClient).deleteBy(
                           Criteria(
                             drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
-                            CompareOperator::EQ, deviceCodeHash
+                            CompareOperator::EQ,
+                            deviceCodeHash
                           ),
                           [](const size_t) {},
                           [](const ::drogon::orm::DrogonDbException &e) {

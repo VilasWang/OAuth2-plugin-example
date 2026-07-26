@@ -50,8 +50,7 @@ class DeviceCodeService
     static void findByDeviceCodeHash(
       const std::string &deviceCodeHash,
       ::drogon::orm::DbClientPtr db,
-      std::function<void(std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes>)>
-        &&callback
+      std::function<void(std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes>)> &&callback
     );
 
     /// Mark a device code as consumed (status = 'approved', set user_id).
@@ -67,8 +66,7 @@ class DeviceCodeService
     static void findByUserCode(
       const std::string &userCode,
       ::drogon::orm::DbClientPtr db,
-      std::function<void(std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes>)>
-        &&callback
+      std::function<void(std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes>)> &&callback
     );
 };
 

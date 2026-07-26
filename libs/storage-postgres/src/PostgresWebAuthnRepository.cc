@@ -39,9 +39,7 @@ void PostgresWebAuthnRepository::storeCredential(
     Mapper<WebauthnCredentials> mapper(dbClient_);
     mapper.insert(
       cred,
-      [sharedCb](const WebauthnCredentials &) {
-          (*sharedCb)(StoreCredentialOutcome::Success);
-      },
+      [sharedCb](const WebauthnCredentials &) { (*sharedCb)(StoreCredentialOutcome::Success); },
       [sharedCb](const DrogonDbException &e) {
           const std::string what = e.base().what();
           if (
@@ -72,9 +70,7 @@ void PostgresWebAuthnRepository::findByCredentialId(
     // 查询 webauthn_credentials 获取 user_id 和 sign_count
     Mapper<WebauthnCredentials> wcMapper(dbClient_);
     wcMapper.findOne(
-      Criteria(
-        WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId
-      ),
+      Criteria(WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId),
       [sharedCb, self = shared_from_this()](const WebauthnCredentials &wc) {
           int32_t userId32 = wc.getValueOfUserId();
 
@@ -111,22 +107,19 @@ void PostgresWebAuthnRepository::updateSignCount(
 
     Mapper<WebauthnCredentials> mapper(dbClient_);
     mapper.findOne(
-      Criteria(
-        WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId
-      ),
-      [sharedCb, newSignCount, self = shared_from_this()](
-        const WebauthnCredentials &found
-      ) {
+      Criteria(WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId),
+      [sharedCb, newSignCount, self = shared_from_this()](const WebauthnCredentials &found) {
           WebauthnCredentials updated;
           updated.setCredentialId(found.getValueOfCredentialId());
           updated.setSignCount(static_cast<int32_t>(newSignCount));
           updated.setLastUsedAt(::trantor::Date::now());
 
-          Mapper<WebauthnCredentials>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-          );
+          Mapper<WebauthnCredentials>(self->dbClient_)
+            .update(
+              updated,
+              [sharedCb](const size_t) { (*sharedCb)(true); },
+              [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
@@ -144,8 +137,7 @@ void PostgresWebAuthnRepository::listCredentials(int64_t userId, ListCredentials
     Mapper<WebauthnCredentials> mapper(dbClient_);
     mapper.findBy(
       Criteria(
-        WebauthnCredentials::Cols::_user_id, CompareOperator::EQ,
-        static_cast<int32_t>(userId)
+        WebauthnCredentials::Cols::_user_id, CompareOperator::EQ, static_cast<int32_t>(userId)
       ),
       [sharedCb](const std::vector<WebauthnCredentials> &creds) {
           std::vector<WebAuthnCredentialSummary> summaries;

@@ -36,10 +36,12 @@ void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
               std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
               Json::Value arr;
               std::string errs;
-              if (reader->parse(backupCodes->data(),
-                                backupCodes->data() + backupCodes->size(), &arr,
-                                &errs) &&
-                  arr.isArray())
+              if (
+                reader->parse(
+                  backupCodes->data(), backupCodes->data() + backupCodes->size(), &arr, &errs
+                ) &&
+                arr.isArray()
+              )
               {
                   for (const auto &code : arr)
                       data.hashedBackupCodes.push_back(code.asString());
@@ -71,11 +73,12 @@ void PostgresMfaRepository::setSecret(int64_t userId, const std::string &secret,
       [sharedCb, secret, self = shared_from_this()](const Users &user) {
           Users updated = user;
           updated.setMfaSecret(secret);
-          Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              updated,
+              [sharedCb](const size_t) { (*sharedCb)(true); },
+              [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
@@ -109,11 +112,12 @@ void PostgresMfaRepository::enable(
           Users updated = user;
           updated.setMfaEnabled(true);
           updated.setMfaBackupCodes(hashedCodesStr);
-          Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              updated,
+              [sharedCb](const size_t) { (*sharedCb)(true); },
+              [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
@@ -137,11 +141,12 @@ void PostgresMfaRepository::disable(int64_t userId, BoolCallback &&cb)
           updated.setMfaEnabled(false);
           updated.setMfaSecretToNull();
           updated.setMfaBackupCodesToNull();
-          Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              updated,
+              [sharedCb](const size_t) { (*sharedCb)(true); },
+              [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
@@ -169,11 +174,12 @@ void PostgresMfaRepository::setPendingBinding(
           Users updated = user;
           updated.setMfaPendingClientId(clientId);
           updated.setMfaPendingRedirectUri(redirectUri);
-          Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              updated,
+              [sharedCb](const size_t) { (*sharedCb)(true); },
+              [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );
@@ -196,11 +202,12 @@ void PostgresMfaRepository::clearPendingBinding(int64_t userId, BoolCallback &&c
           Users updated = user;
           updated.setMfaPendingClientIdToNull();
           updated.setMfaPendingRedirectUriToNull();
-          Mapper<Users>(self->dbClient_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(true); },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-          );
+          Mapper<Users>(self->dbClient_)
+            .update(
+              updated,
+              [sharedCb](const size_t) { (*sharedCb)(true); },
+              [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+            );
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );

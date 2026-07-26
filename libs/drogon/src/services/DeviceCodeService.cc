@@ -33,14 +33,12 @@ void DeviceCodeService::createDeviceCode(
     try
     {
         Mapper<Oauth2DeviceCodes> mapper(db);
-        auto sharedCb =
-          std::make_shared<std::function<void(bool)>>(std::move(callback));
+        auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
         mapper.insert(
           code,
           [sharedCb](const Oauth2DeviceCodes &) { (*sharedCb)(true); },
           [sharedCb](const DrogonDbException &e) {
-              LOG_ERROR << "DeviceCodeService::createDeviceCode failed: "
-                        << e.base().what();
+              LOG_ERROR << "DeviceCodeService::createDeviceCode failed: " << e.base().what();
               (*sharedCb)(false);
           }
         );
@@ -65,19 +63,14 @@ void DeviceCodeService::findByDeviceCodeHash(
   std::function<void(std::shared_ptr<Oauth2DeviceCodes>)> &&callback
 )
 {
-    Criteria crit(
-      Oauth2DeviceCodes::Cols::_device_code_hash, CompareOperator::EQ,
-      deviceCodeHash
-    );
+    Criteria crit(Oauth2DeviceCodes::Cols::_device_code_hash, CompareOperator::EQ, deviceCodeHash);
     Mapper<Oauth2DeviceCodes> mapper(db);
     mapper.findOne(
       crit,
       [cb = std::move(callback)](const Oauth2DeviceCodes &code) {
           cb(std::make_shared<Oauth2DeviceCodes>(code));
       },
-      [cb = std::move(callback)](const DrogonDbException &) {
-          cb(nullptr);
-      }
+      [cb = std::move(callback)](const DrogonDbException &) { cb(nullptr); }
     );
 }
 
@@ -87,18 +80,14 @@ void DeviceCodeService::findByUserCode(
   std::function<void(std::shared_ptr<Oauth2DeviceCodes>)> &&callback
 )
 {
-    Criteria crit(
-      Oauth2DeviceCodes::Cols::_user_code, CompareOperator::EQ, userCode
-    );
+    Criteria crit(Oauth2DeviceCodes::Cols::_user_code, CompareOperator::EQ, userCode);
     Mapper<Oauth2DeviceCodes> mapper(db);
     mapper.findOne(
       crit,
       [cb = std::move(callback)](const Oauth2DeviceCodes &code) {
           cb(std::make_shared<Oauth2DeviceCodes>(code));
       },
-      [cb = std::move(callback)](const DrogonDbException &) {
-          cb(nullptr);
-      }
+      [cb = std::move(callback)](const DrogonDbException &) { cb(nullptr); }
     );
 }
 
@@ -109,10 +98,7 @@ void DeviceCodeService::markApproved(
   std::function<void(bool)> &&callback
 )
 {
-    Criteria crit(
-      Oauth2DeviceCodes::Cols::_device_code_hash, CompareOperator::EQ,
-      deviceCodeHash
-    );
+    Criteria crit(Oauth2DeviceCodes::Cols::_device_code_hash, CompareOperator::EQ, deviceCodeHash);
     Mapper<Oauth2DeviceCodes> mapper(db);
     mapper.findOne(
       crit,
@@ -124,15 +110,13 @@ void DeviceCodeService::markApproved(
             updated,
             [cb](const size_t) { cb(true); },
             [cb](const DrogonDbException &e) {
-                LOG_ERROR << "DeviceCodeService::markApproved update failed: "
-                          << e.base().what();
+                LOG_ERROR << "DeviceCodeService::markApproved update failed: " << e.base().what();
                 cb(false);
             }
           );
       },
       [cb = std::move(callback)](const DrogonDbException &e) {
-          LOG_ERROR << "DeviceCodeService::markApproved find failed: "
-                    << e.base().what();
+          LOG_ERROR << "DeviceCodeService::markApproved find failed: " << e.base().what();
           cb(false);
       }
     );

@@ -514,9 +514,7 @@ void PostgresTokenRepository::introspectToken(
           // 未在 access tokens 中找到，尝试 refresh tokens
           Mapper<Oauth2RefreshTokens> rtMapper(dbClientReader_);
           rtMapper.findOne(
-            Criteria(
-              Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token
-            ),
+            Criteria(Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token),
             [sharedCb, now](const Oauth2RefreshTokens &refreshToken) {
                 bool revoked = refreshToken.getValueOfRevoked();
                 int64_t expiresAt = refreshToken.getValueOfExpiresAt();
@@ -569,14 +567,15 @@ void PostgresTokenRepository::incrementIntrospectCount(const std::string &token,
           Oauth2AccessTokens updated;
           updated.setToken(token);
           updated.setIntrospectCount(found.getValueOfIntrospectCount() + 1);
-          Mapper<Oauth2AccessTokens>(self->dbClientMaster_).update(
-            updated,
-            [sharedCb](const size_t) { (*sharedCb)(); },
-            [sharedCb](const DrogonDbException &e) {
-                LOG_DEBUG << "incrementIntrospectCount update failed: " << e.base().what();
-                (*sharedCb)();
-            }
-          );
+          Mapper<Oauth2AccessTokens>(self->dbClientMaster_)
+            .update(
+              updated,
+              [sharedCb](const size_t) { (*sharedCb)(); },
+              [sharedCb](const DrogonDbException &e) {
+                  LOG_DEBUG << "incrementIntrospectCount update failed: " << e.base().what();
+                  (*sharedCb)();
+              }
+            );
       },
       [sharedCb](const DrogonDbException &e) {
           LOG_DEBUG << "incrementIntrospectCount find failed: " << e.base().what();
@@ -615,71 +614,69 @@ void PostgresTokenRepository::revokeAccessToken(
           updated.setRevokedAt(now);
           updated.setRevokedBy(revokedBy);
 
-          Mapper<Oauth2AccessTokens>(self->dbClientMaster_).update(
-            updated,
-            [sharedCb, now, revokedBy, token, self](const size_t) {
-                // Also try to revoke in refresh tokens table
-                Mapper<Oauth2RefreshTokens> rtMapper(self->dbClientMaster_);
-                rtMapper.findOne(
-                  Criteria(
-                    Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token
-                  ),
-                  [sharedCb, now, revokedBy, self](const Oauth2RefreshTokens &rt) {
-                      Oauth2RefreshTokens rtUpdated;
-                      rtUpdated.setToken(rt.getValueOfToken());
-                      rtUpdated.setRevoked(true);
-                      rtUpdated.setRevokedAt(now);
-                      rtUpdated.setRevokedBy(revokedBy);
+          Mapper<Oauth2AccessTokens>(self->dbClientMaster_)
+            .update(
+              updated,
+              [sharedCb, now, revokedBy, token, self](const size_t) {
+                  // Also try to revoke in refresh tokens table
+                  Mapper<Oauth2RefreshTokens> rtMapper(self->dbClientMaster_);
+                  rtMapper.findOne(
+                    Criteria(Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token),
+                    [sharedCb, now, revokedBy, self](const Oauth2RefreshTokens &rt) {
+                        Oauth2RefreshTokens rtUpdated;
+                        rtUpdated.setToken(rt.getValueOfToken());
+                        rtUpdated.setRevoked(true);
+                        rtUpdated.setRevokedAt(now);
+                        rtUpdated.setRevokedBy(revokedBy);
 
-                      Mapper<Oauth2RefreshTokens>(self->dbClientMaster_).update(
-                        rtUpdated,
-                        [sharedCb](const size_t) {
-                            LOG_DEBUG << "Token revoked successfully (checked both tables)";
-                            (*sharedCb)();
-                        },
-                        [sharedCb](const DrogonDbException &) {
-                            (*sharedCb)();
-                        }
-                      );
-                  },
-                  [sharedCb](const DrogonDbException &) {
-                      LOG_DEBUG << "Token revoked successfully (access token only)";
-                      (*sharedCb)();
-                  }
-                );
-            },
-            [sharedCb, token, self](const DrogonDbException &e) {
-                LOG_DEBUG << "Access token revocation audit failed: " << e.base().what();
-                // Fallback: simple revoked=true without audit columns
-                Oauth2AccessTokens simpleUpdate;
-                simpleUpdate.setToken(token);
-                simpleUpdate.setRevoked(true);
+                        Mapper<Oauth2RefreshTokens>(self->dbClientMaster_)
+                          .update(
+                            rtUpdated,
+                            [sharedCb](const size_t) {
+                                LOG_DEBUG << "Token revoked successfully (checked both tables)";
+                                (*sharedCb)();
+                            },
+                            [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
+                          );
+                    },
+                    [sharedCb](const DrogonDbException &) {
+                        LOG_DEBUG << "Token revoked successfully (access token only)";
+                        (*sharedCb)();
+                    }
+                  );
+              },
+              [sharedCb, token, self](const DrogonDbException &e) {
+                  LOG_DEBUG << "Access token revocation audit failed: " << e.base().what();
+                  // Fallback: simple revoked=true without audit columns
+                  Oauth2AccessTokens simpleUpdate;
+                  simpleUpdate.setToken(token);
+                  simpleUpdate.setRevoked(true);
 
-                Mapper<Oauth2AccessTokens>(self->dbClientMaster_).update(
-                  simpleUpdate,
-                  [sharedCb, token, self](const size_t) {
-                      Mapper<Oauth2RefreshTokens> rtMapper(self->dbClientMaster_);
-                      rtMapper.findOne(
-                        Criteria(
-                          Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token
-                        ),
-                        [sharedCb, self](const Oauth2RefreshTokens &rt) {
-                            Oauth2RefreshTokens rtSimple;
-                            rtSimple.setToken(rt.getValueOfToken());
-                            rtSimple.setRevoked(true);
-                            Mapper<Oauth2RefreshTokens>(self->dbClientMaster_).update(
-                              rtSimple,
-                              [sharedCb](const size_t) { (*sharedCb)(); },
-                              [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
-                            );
-                        },
-                        [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
-                      );
-                  },
-                  [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
-                );
-            }
-          );
+                  Mapper<Oauth2AccessTokens>(self->dbClientMaster_)
+                    .update(
+                      simpleUpdate,
+                      [sharedCb, token, self](const size_t) {
+                          Mapper<Oauth2RefreshTokens> rtMapper(self->dbClientMaster_);
+                          rtMapper.findOne(
+                            Criteria(Oauth2RefreshTokens::Cols::_token, CompareOperator::EQ, token),
+                            [sharedCb, self](const Oauth2RefreshTokens &rt) {
+                                Oauth2RefreshTokens rtSimple;
+                                rtSimple.setToken(rt.getValueOfToken());
+                                rtSimple.setRevoked(true);
+                                Mapper<Oauth2RefreshTokens>(self->dbClientMaster_)
+                                  .update(
+                                    rtSimple,
+                                    [sharedCb](const size_t) { (*sharedCb)(); },
+                                    [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
+                                  );
+                            },
+                            [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
+                          );
+                      },
+                      [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
+                    );
+              }
+            );
       },
       [sharedCb](const DrogonDbException &) {
           // Token not found, nothing to revoke

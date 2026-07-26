@@ -64,8 +64,7 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
                     "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
                   );
                   error.message = "Invalid or expired token";
-                  auto resp =
-                    authforge::common::error::ErrorResponder::buildResponse(req, error);
+                  auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
                   fcb(resp);
                   return;
               }

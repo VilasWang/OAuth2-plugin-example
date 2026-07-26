@@ -81,7 +81,9 @@ void PasswordResetService::requestReset(
     if (email.empty())
     {
         respondError(
-          req, sharedCb, "VALIDATION_MISSING_REQUIRED_FIELD",
+          req,
+          sharedCb,
+          "VALIDATION_MISSING_REQUIRED_FIELD",
           "password-reset request: email is required"
         );
         return;
@@ -125,17 +127,13 @@ void PasswordResetService::requestReset(
             [sharedCb, json, rawToken, email](const PasswordResetTokens &) {
                 auto customConfig = ::drogon::app().getCustomConfig();
                 std::string frontendUrl = "http://localhost:5173";
-                if (customConfig.isMember("frontend") &&
-                    customConfig["frontend"].isMember("url"))
+                if (customConfig.isMember("frontend") && customConfig["frontend"].isMember("url"))
                     frontendUrl = customConfig["frontend"]["url"].asString();
                 std::string resetLink = frontendUrl + "/reset-password?token=" + rawToken;
-                std::string emailBody =
-                  "Click the following link to reset your password:\n\n" +
-                  resetLink + "\n\nThis link expires in 15 minutes.";
+                std::string emailBody = "Click the following link to reset your password:\n\n" +
+                                        resetLink + "\n\nThis link expires in 15 minutes.";
 
-                getEmailSvc().sendEmail(
-                  email, "Password Reset Request", emailBody, [](bool) {}
-                );
+                getEmailSvc().sendEmail(email, "Password Reset Request", emailBody, [](bool) {});
 
                 auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                 (*sharedCb)(resp);
@@ -181,7 +179,9 @@ void PasswordResetService::confirmReset(
     if (token.empty() || newPassword.empty())
     {
         respondError(
-          req, sharedCb, "VALIDATION_MISSING_REQUIRED_FIELD",
+          req,
+          sharedCb,
+          "VALIDATION_MISSING_REQUIRED_FIELD",
           "password-reset confirm: token and new_password are required"
         );
         return;
@@ -190,7 +190,9 @@ void PasswordResetService::confirmReset(
     if (newPassword.length() < 8)
     {
         respondError(
-          req, sharedCb, "VALIDATION_FORMAT_ERROR",
+          req,
+          sharedCb,
+          "VALIDATION_FORMAT_ERROR",
           "password-reset confirm: password must be at least 8 characters"
         );
         return;
@@ -215,7 +217,9 @@ void PasswordResetService::confirmReset(
           if (r.empty())
           {
               respondError(
-                req, sharedCb, "VALIDATION_RESET_TOKEN_INVALID",
+                req,
+                sharedCb,
+                "VALIDATION_RESET_TOKEN_INVALID",
                 "password-reset confirm: token is invalid, expired, or already used"
               );
               return;
@@ -231,8 +235,7 @@ void PasswordResetService::confirmReset(
           catch (const std::exception &e)
           {
               respondError(
-                req, sharedCb, "INTERNAL_ERROR",
-                std::string("Password hashing failed: ") + e.what()
+                req, sharedCb, "INTERNAL_ERROR", std::string("Password hashing failed: ") + e.what()
               );
               return;
           }
@@ -256,52 +259,39 @@ void PasswordResetService::confirmReset(
                       db->execSqlAsync(
                         "UPDATE oauth2_access_tokens SET revoked = true "
                         "WHERE user_id = $1",
-                        [sharedCb, req, db, userId, userIdStr](
-                          const ::drogon::orm::Result &
-                        ) {
+                        [sharedCb, req, db, userId, userIdStr](const ::drogon::orm::Result &) {
                             db->execSqlAsync(
                               "UPDATE oauth2_refresh_tokens SET revoked = true "
                               "WHERE user_id = $1",
                               [sharedCb, req, userId](const ::drogon::orm::Result &) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::
-                                    logFromRequest(
-                                      ::drogon::app()
-                                        .getPlugin<::OAuth2Plugin>()
-                                        ->getAuditSink(),
-                                      "password_reset",
-                                      "success",
-                                      req,
-                                      std::to_string(userId),
-                                      "user",
-                                      std::to_string(userId)
-                                    );
+                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                    ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                    "password_reset",
+                                    "success",
+                                    req,
+                                    std::to_string(userId),
+                                    "user",
+                                    std::to_string(userId)
+                                  );
                                   Json::Value json;
                                   json["message"] = "Password reset successful";
-                                  json["note"] =
-                                    "All existing sessions have been revoked";
-                                  auto resp =
-                                    ::drogon::HttpResponse::newHttpJsonResponse(json);
+                                  json["note"] = "All existing sessions have been revoked";
+                                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                                   (*sharedCb)(resp);
                               },
-                              [sharedCb, req, userId](
-                                const ::drogon::orm::DrogonDbException &
-                              ) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::
-                                    logFromRequest(
-                                      ::drogon::app()
-                                        .getPlugin<::OAuth2Plugin>()
-                                        ->getAuditSink(),
-                                      "password_reset",
-                                      "success",
-                                      req,
-                                      std::to_string(userId),
-                                      "user",
-                                      std::to_string(userId)
-                                    );
+                              [sharedCb, req, userId](const ::drogon::orm::DrogonDbException &) {
+                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                    ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                    "password_reset",
+                                    "success",
+                                    req,
+                                    std::to_string(userId),
+                                    "user",
+                                    std::to_string(userId)
+                                  );
                                   Json::Value json;
                                   json["message"] = "Password reset successful";
-                                  auto resp =
-                                    ::drogon::HttpResponse::newHttpJsonResponse(json);
+                                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                                   (*sharedCb)(resp);
                               },
                               userIdStr
@@ -313,46 +303,34 @@ void PasswordResetService::confirmReset(
                             db->execSqlAsync(
                               "UPDATE oauth2_refresh_tokens SET revoked = true "
                               "WHERE user_id = $1",
-                              [sharedCb, req, userId](
-                                const ::drogon::orm::Result &
-                              ) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::
-                                    logFromRequest(
-                                      ::drogon::app()
-                                        .getPlugin<::OAuth2Plugin>()
-                                        ->getAuditSink(),
-                                      "password_reset",
-                                      "success",
-                                      req,
-                                      std::to_string(userId),
-                                      "user",
-                                      std::to_string(userId)
-                                    );
+                              [sharedCb, req, userId](const ::drogon::orm::Result &) {
+                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                    ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                    "password_reset",
+                                    "success",
+                                    req,
+                                    std::to_string(userId),
+                                    "user",
+                                    std::to_string(userId)
+                                  );
                                   Json::Value json;
                                   json["message"] = "Password reset successful";
-                                  auto resp =
-                                    ::drogon::HttpResponse::newHttpJsonResponse(json);
+                                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                                   (*sharedCb)(resp);
                               },
-                              [sharedCb, req, userId](
-                                const ::drogon::orm::DrogonDbException &
-                              ) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::
-                                    logFromRequest(
-                                      ::drogon::app()
-                                        .getPlugin<::OAuth2Plugin>()
-                                        ->getAuditSink(),
-                                      "password_reset",
-                                      "success",
-                                      req,
-                                      std::to_string(userId),
-                                      "user",
-                                      std::to_string(userId)
-                                    );
+                              [sharedCb, req, userId](const ::drogon::orm::DrogonDbException &) {
+                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                    ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                    "password_reset",
+                                    "success",
+                                    req,
+                                    std::to_string(userId),
+                                    "user",
+                                    std::to_string(userId)
+                                  );
                                   Json::Value json;
                                   json["message"] = "Password reset successful";
-                                  auto resp =
-                                    ::drogon::HttpResponse::newHttpJsonResponse(json);
+                                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                                   (*sharedCb)(resp);
                               },
                               userIdStr
@@ -363,7 +341,9 @@ void PasswordResetService::confirmReset(
                   },
                   [sharedCb, req](const DrogonDbException &e) {
                       respondError(
-                        req, sharedCb, "DB_QUERY_ERROR",
+                        req,
+                        sharedCb,
+                        "DB_QUERY_ERROR",
                         std::string("Failed to update password: ") + e.base().what()
                       );
                   }
@@ -371,16 +351,19 @@ void PasswordResetService::confirmReset(
             },
             [sharedCb, req](const DrogonDbException &e) {
                 respondError(
-                  req, sharedCb, "DB_QUERY_ERROR",
-                  std::string("Failed to find user for password update: ") +
-                    e.base().what()
+                  req,
+                  sharedCb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to find user for password update: ") + e.base().what()
                 );
             }
           );
       },
       [sharedCb, req](const DrogonDbException &e) {
           respondError(
-            req, sharedCb, "DB_QUERY_ERROR",
+            req,
+            sharedCb,
+            "DB_QUERY_ERROR",
             std::string("Reset token lookup failed: ") + e.base().what()
           );
       },

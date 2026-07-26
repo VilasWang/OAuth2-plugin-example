@@ -505,13 +505,10 @@ void SessionController::login(
                 // a SQL syntax error).
                 int32_t internalIdInt32 = static_cast<int32_t>(internalId);
                 // Task B5: replaced raw SQL with Mapper<Users>
-                Criteria mfaCrit(Users::Cols::_id, CompareOperator::EQ,
-                                 internalIdInt32);
+                Criteria mfaCrit(Users::Cols::_id, CompareOperator::EQ, internalIdInt32);
                 Mapper<Users>(db).findOne(
                   mfaCrit,
-                  [req, internalId, sharedCb, db, clientId, redirectUri](
-                    const Users &user
-                  ) {
+                  [req, internalId, sharedCb, db, clientId, redirectUri](const Users &user) {
                       Users mfaUpdated = user;
                       mfaUpdated.setMfaPendingClientId(clientId);
                       mfaUpdated.setMfaPendingRedirectUri(redirectUri);
@@ -524,17 +521,16 @@ void SessionController::login(
                             mfaResp["message"] =
                               "MFA verification required. Submit TOTP code to "
                               "/oauth2/mfa/verify";
-                            auto resp =
-                              ::drogon::HttpResponse::newHttpJsonResponse(mfaResp);
+                            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(mfaResp);
                             resp->setStatusCode(::drogon::k200OK);
                             (*sharedCb)(resp);
                         },
                         [req, sharedCb](const DrogonDbException &e) {
                             respondError(
-                              req, *sharedCb, "DB_QUERY_ERROR",
-                              std::string(
-                                "login: failed to persist MFA pending binding: "
-                              ) +
+                              req,
+                              *sharedCb,
+                              "DB_QUERY_ERROR",
+                              std::string("login: failed to persist MFA pending binding: ") +
                                 e.base().what()
                             );
                         }
@@ -542,10 +538,10 @@ void SessionController::login(
                   },
                   [req, sharedCb](const DrogonDbException &e) {
                       respondError(
-                        req, *sharedCb, "DB_QUERY_ERROR",
-                        std::string(
-                          "login: failed to persist MFA pending binding: "
-                        ) +
+                        req,
+                        *sharedCb,
+                        "DB_QUERY_ERROR",
+                        std::string("login: failed to persist MFA pending binding: ") +
                           e.base().what()
                       );
                   }

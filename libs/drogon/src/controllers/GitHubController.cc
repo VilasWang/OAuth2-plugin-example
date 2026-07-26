@@ -169,64 +169,68 @@ void GitHubController::login(
             auto db2 = ::drogon::app().getDbClient();
             try
             {
-            Oauth2AccessTokens atModel;
-            atModel.setToken(accessToken);
-            atModel.setClientId("vue-client");
-            atModel.setUserId(std::to_string(userId));
-            atModel.setScope("openid profile email");
-            atModel.setIssuedAt(now);
-            atModel.setExpiresAt(now + 3600);
-            Mapper<Oauth2AccessTokens>(db2).insert(
-              atModel,
-              [callbackPtr, accessToken, refreshToken, db2, userId, req](
-                const Oauth2AccessTokens &
-              ) {
-                  auto now2 = std::chrono::duration_cast<std::chrono::seconds>(
-                                std::chrono::system_clock::now().time_since_epoch()
-                  )
-                                .count();
-                  Oauth2RefreshTokens rtModel;
-                  rtModel.setToken(refreshToken);
-                  rtModel.setAccessToken(accessToken);
-                  rtModel.setClientId("vue-client");
-                  rtModel.setUserId(std::to_string(userId));
-                  rtModel.setScope("openid profile email");
-                  rtModel.setExpiresAt(now2 + 2592000);
-                  Mapper<Oauth2RefreshTokens>(db2).insert(
-                    rtModel,
-                    [callbackPtr, accessToken, refreshToken](
-                      const Oauth2RefreshTokens &
-                    ) {
-                        Json::Value result;
-                        result["access_token"] = accessToken;
-                        result["refresh_token"] = refreshToken;
-                        result["token_type"] = "Bearer";
-                        result["expires_in"] = 3600;
-                        (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
-                    },
-                    [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
-                        respondError(
-                          req, callbackPtr, "DB_QUERY_ERROR",
-                          std::string("github login: failed to create refresh token: ") +
-                            e.base().what()
-                        );
-                    }
-                  );
-              },
-              [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
-                  respondError(
-                    req, callbackPtr, "DB_QUERY_ERROR",
-                    std::string("github login: failed to create access token: ") + e.base().what()
-                  );
-              }
-            );
+                Oauth2AccessTokens atModel;
+                atModel.setToken(accessToken);
+                atModel.setClientId("vue-client");
+                atModel.setUserId(std::to_string(userId));
+                atModel.setScope("openid profile email");
+                atModel.setIssuedAt(now);
+                atModel.setExpiresAt(now + 3600);
+                Mapper<Oauth2AccessTokens>(db2).insert(
+                  atModel,
+                  [callbackPtr, accessToken, refreshToken, db2, userId, req](
+                    const Oauth2AccessTokens &
+                  ) {
+                      auto now2 = std::chrono::duration_cast<std::chrono::seconds>(
+                                    std::chrono::system_clock::now().time_since_epoch()
+                      )
+                                    .count();
+                      Oauth2RefreshTokens rtModel;
+                      rtModel.setToken(refreshToken);
+                      rtModel.setAccessToken(accessToken);
+                      rtModel.setClientId("vue-client");
+                      rtModel.setUserId(std::to_string(userId));
+                      rtModel.setScope("openid profile email");
+                      rtModel.setExpiresAt(now2 + 2592000);
+                      Mapper<Oauth2RefreshTokens>(db2).insert(
+                        rtModel,
+                        [callbackPtr, accessToken, refreshToken](const Oauth2RefreshTokens &) {
+                            Json::Value result;
+                            result["access_token"] = accessToken;
+                            result["refresh_token"] = refreshToken;
+                            result["token_type"] = "Bearer";
+                            result["expires_in"] = 3600;
+                            (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
+                        },
+                        [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
+                            respondError(
+                              req,
+                              callbackPtr,
+                              "DB_QUERY_ERROR",
+                              std::string("github login: failed to create refresh token: ") +
+                                e.base().what()
+                            );
+                        }
+                      );
+                  },
+                  [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
+                      respondError(
+                        req,
+                        callbackPtr,
+                        "DB_QUERY_ERROR",
+                        std::string("github login: failed to create access token: ") +
+                          e.base().what()
+                      );
+                  }
+                );
             }
             catch (const std::exception &e)
             {
-                LOG_ERROR
-                  << "GitHubController::issueTokens Mapper exception: " << e.what();
+                LOG_ERROR << "GitHubController::issueTokens Mapper exception: " << e.what();
                 respondError(
-                  req, callbackPtr, "DB_QUERY_ERROR",
+                  req,
+                  callbackPtr,
+                  "DB_QUERY_ERROR",
                   std::string("github login: failed to issue tokens: ") + e.what()
                 );
             }
@@ -234,8 +238,7 @@ void GitHubController::login(
             {
                 LOG_ERROR << "GitHubController::issueTokens Mapper unknown exception";
                 respondError(
-                  req, callbackPtr, "DB_QUERY_ERROR",
-                  "github login: failed to issue tokens"
+                  req, callbackPtr, "DB_QUERY_ERROR", "github login: failed to issue tokens"
                 );
             }
         };
@@ -276,169 +279,312 @@ void GitHubController::login(
        req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
           try
           {
-          if (
-            result != ::drogon::ReqResult::Ok || !response ||
-            response->getStatusCode() != ::drogon::k200OK
-          )
-          {
-              respondError(
-                req,
-                callbackPtr,
-                "NET_CONNECTION_FAILED",
-                "github login: failed to contact GitHub Token API"
-              );
-              return;
-          }
+              if (
+                result != ::drogon::ReqResult::Ok || !response ||
+                response->getStatusCode() != ::drogon::k200OK
+              )
+              {
+                  respondError(
+                    req,
+                    callbackPtr,
+                    "NET_CONNECTION_FAILED",
+                    "github login: failed to contact GitHub Token API"
+                  );
+                  return;
+              }
 
-          auto json = response->getJsonObject();
-          if (!json || !json->isMember("access_token") ||
-              !(*json)["access_token"].isString())
-          {
-              std::string detail = "github login: GitHub returned invalid token response";
-              if (json && json->isMember("error_description") &&
-                  (*json)["error_description"].isString())
-                  detail += ": " + (*json)["error_description"].asString();
-              respondError(req, callbackPtr, "VALIDATION_INVALID_INPUT", detail);
-              return;
-          }
+              auto json = response->getJsonObject();
+              if (!json || !json->isMember("access_token") || !(*json)["access_token"].isString())
+              {
+                  std::string detail = "github login: GitHub returned invalid token response";
+                  if (
+                    json && json->isMember("error_description") &&
+                    (*json)["error_description"].isString()
+                  )
+                      detail += ": " + (*json)["error_description"].asString();
+                  respondError(req, callbackPtr, "VALIDATION_INVALID_INPUT", detail);
+                  return;
+              }
 
-          std::string accessToken = (*json)["access_token"].asString();
+              std::string accessToken = (*json)["access_token"].asString();
 
-          // Step 2: Fetch user info from GitHub API
-          auto apiClient = ::drogon::HttpClient::newHttpClient("https://api.github.com");
-          auto userReq = ::drogon::HttpRequest::newHttpRequest();
-          userReq->setPath("/user");
-          userReq->addHeader("Authorization", "Bearer " + accessToken);
-          userReq->addHeader("User-Agent", "OAuth2Server");
-          userReq->addHeader("Accept", "application/json");
+              // Step 2: Fetch user info from GitHub API
+              auto apiClient = ::drogon::HttpClient::newHttpClient("https://api.github.com");
+              auto userReq = ::drogon::HttpRequest::newHttpRequest();
+              userReq->setPath("/user");
+              userReq->addHeader("Authorization", "Bearer " + accessToken);
+              userReq->addHeader("User-Agent", "OAuth2Server");
+              userReq->addHeader("Accept", "application/json");
 
-          apiClient->sendRequest(
-            userReq,
-            [this,
-             callbackPtr,
-             req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
-                try
-                {
-                if (
-                  res2 != ::drogon::ReqResult::Ok || !resp2 ||
-                  resp2->getStatusCode() != ::drogon::k200OK
-                )
-                {
-                    respondError(
-                      req,
-                      callbackPtr,
-                      "NET_CONNECTION_FAILED",
-                      "github login: failed to fetch GitHub user info"
-                    );
-                    return;
-                }
+              apiClient->sendRequest(
+                userReq,
+                [this,
+                 callbackPtr,
+                 req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
+                    try
+                    {
+                        if (
+                          res2 != ::drogon::ReqResult::Ok || !resp2 ||
+                          resp2->getStatusCode() != ::drogon::k200OK
+                        )
+                        {
+                            respondError(
+                              req,
+                              callbackPtr,
+                              "NET_CONNECTION_FAILED",
+                              "github login: failed to fetch GitHub user info"
+                            );
+                            return;
+                        }
 
-                auto githubData = resp2->getJsonObject();
-                std::string githubLogin = (*githubData).get("login", "").asString();
-                std::string githubEmail = (*githubData).get("email", "").asString();
-                int64_t githubId = (*githubData).get("id", 0).asInt64();
+                        auto githubData = resp2->getJsonObject();
+                        std::string githubLogin = (*githubData).get("login", "").asString();
+                        std::string githubEmail = (*githubData).get("email", "").asString();
+                        int64_t githubId = (*githubData).get("id", 0).asInt64();
 
-                if (githubLogin.empty())
-                {
-                    respondError(
-                      req,
-                      callbackPtr,
-                      "VALIDATION_INVALID_INPUT",
-                      "github login: GitHub returned no user login"
-                    );
-                    return;
-                }
+                        if (githubLogin.empty())
+                        {
+                            respondError(
+                              req,
+                              callbackPtr,
+                              "VALIDATION_INVALID_INPUT",
+                              "github login: GitHub returned no user login"
+                            );
+                            return;
+                        }
 
-                // Step 3: Find or create local user linked to this GitHub account
-                auto db = ::drogon::app().getDbClient();
-                std::string provider = "github";
-                std::string subject = std::to_string(githubId);
+                        // Step 3: Find or create local user linked to this GitHub account
+                        auto db = ::drogon::app().getDbClient();
+                        std::string provider = "github";
+                        std::string subject = std::to_string(githubId);
 
-                // Check if this GitHub account is already linked
-                try
-                {
-                    Criteria crit(
-                      Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider
-                    );
-                    crit = crit &&
-                           Criteria(
-                             Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject
-                           );
-                    Mapper<Oauth2SubjectMappings>(db).findBy(
-                      crit,
-                      [this, callbackPtr, db, githubLogin, githubEmail, provider, subject, req](
-                        const std::vector<Oauth2SubjectMappings> &mappings
-                      ) {
-                      auto issueTokens =
-                        [this, callbackPtr, req](int userId, const std::string &username) {
-                            // Issue access_token and refresh_token
-                            auto plugin = resolvePlugin();
-                            if (!plugin)
-                            {
-                                respondError(
-                                  req,
-                                  callbackPtr,
-                                  "INTERNAL_ERROR",
-                                  "github login: OAuth2Plugin not available"
-                                );
-                                return;
-                            }
+                        // Check if this GitHub account is already linked
+                        try
+                        {
+                            Criteria crit(
+                              Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider
+                            );
+                            crit =
+                              crit &&
+                              Criteria(
+                                Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject
+                              );
+                            Mapper<Oauth2SubjectMappings>(db).findBy(
+                              crit,
+                              [this,
+                               callbackPtr,
+                               db,
+                               githubLogin,
+                               githubEmail,
+                               provider,
+                               subject,
+                               req](const std::vector<Oauth2SubjectMappings> &mappings) {
+                                  auto issueTokens = [this, callbackPtr, req](
+                                                       int userId, const std::string &username
+                                                     ) {
+                                      // Issue access_token and refresh_token
+                                      auto plugin = resolvePlugin();
+                                      if (!plugin)
+                                      {
+                                          respondError(
+                                            req,
+                                            callbackPtr,
+                                            "INTERNAL_ERROR",
+                                            "github login: OAuth2Plugin not available"
+                                          );
+                                          return;
+                                      }
 
-                            std::string accessToken =
-                              ::authforge::drogon::utils::generateSecureToken();
-                            std::string refreshToken =
-                              ::authforge::drogon::utils::generateSecureToken();
-                            auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                                         std::chrono::system_clock::now().time_since_epoch()
-                            )
-                                         .count();
+                                      std::string accessToken =
+                                        ::authforge::drogon::utils::generateSecureToken();
+                                      std::string refreshToken =
+                                        ::authforge::drogon::utils::generateSecureToken();
+                                      auto now =
+                                        std::chrono::duration_cast<std::chrono::seconds>(
+                                          std::chrono::system_clock::now().time_since_epoch()
+                                        )
+                                          .count();
 
-                            auto db2 = ::drogon::app().getDbClient();
-                            Oauth2AccessTokens atModel;
-                            atModel.setToken(accessToken);
-                            atModel.setClientId("vue-client");
-                            atModel.setUserId(std::to_string(userId));
-                            atModel.setScope("openid profile email");
-                            atModel.setIssuedAt(now);
-                            atModel.setExpiresAt(now + 3600);
-                            Mapper<Oauth2AccessTokens>(db2).insert(
-                              atModel,
-                              [callbackPtr, accessToken, refreshToken, db2, userId, req](
-                                const Oauth2AccessTokens &
-                              ) {
-                                  auto now2 = std::chrono::duration_cast<std::chrono::seconds>(
+                                      auto db2 = ::drogon::app().getDbClient();
+                                      Oauth2AccessTokens atModel;
+                                      atModel.setToken(accessToken);
+                                      atModel.setClientId("vue-client");
+                                      atModel.setUserId(std::to_string(userId));
+                                      atModel.setScope("openid profile email");
+                                      atModel.setIssuedAt(now);
+                                      atModel.setExpiresAt(now + 3600);
+                                      Mapper<Oauth2AccessTokens>(db2).insert(
+                                        atModel,
+                                        [callbackPtr, accessToken, refreshToken, db2, userId, req](
+                                          const Oauth2AccessTokens &
+                                        ) {
+                                            auto now2 =
+                                              std::chrono::duration_cast<std::chrono::seconds>(
                                                 std::chrono::system_clock::now().time_since_epoch()
-                                  )
+                                              )
                                                 .count();
-                                  Oauth2RefreshTokens rtModel;
-                                  rtModel.setToken(refreshToken);
-                                  rtModel.setAccessToken(accessToken);
-                                  rtModel.setClientId("vue-client");
-                                  rtModel.setUserId(std::to_string(userId));
-                                  rtModel.setScope("openid profile email");
-                                  rtModel.setExpiresAt(now2 + 2592000);
-                                  Mapper<Oauth2RefreshTokens>(db2).insert(
-                                    rtModel,
-                                    [callbackPtr, accessToken, refreshToken](
-                                      const Oauth2RefreshTokens &
-                                    ) {
-                                        Json::Value result;
-                                        result["access_token"] = accessToken;
-                                        result["refresh_token"] = refreshToken;
-                                        result["token_type"] = "Bearer";
-                                        result["expires_in"] = 3600;
-                                        (*callbackPtr)(
-                                          ::drogon::HttpResponse::newHttpJsonResponse(result)
-                                        );
-                                    },
-                                    [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
-                                        respondError(
-                                          req, callbackPtr, "DB_QUERY_ERROR",
-                                          std::string("github login: failed to create refresh token: ") +
-                                            e.base().what()
-                                        );
-                                    }
-                                  );
+                                            Oauth2RefreshTokens rtModel;
+                                            rtModel.setToken(refreshToken);
+                                            rtModel.setAccessToken(accessToken);
+                                            rtModel.setClientId("vue-client");
+                                            rtModel.setUserId(std::to_string(userId));
+                                            rtModel.setScope("openid profile email");
+                                            rtModel.setExpiresAt(now2 + 2592000);
+                                            Mapper<Oauth2RefreshTokens>(db2).insert(
+                                              rtModel,
+                                              [callbackPtr,
+                                               accessToken,
+                                               refreshToken](const Oauth2RefreshTokens &) {
+                                                  Json::Value result;
+                                                  result["access_token"] = accessToken;
+                                                  result["refresh_token"] = refreshToken;
+                                                  result["token_type"] = "Bearer";
+                                                  result["expires_in"] = 3600;
+                                                  (*callbackPtr)(
+                                                    ::drogon::HttpResponse::newHttpJsonResponse(
+                                                      result
+                                                    )
+                                                  );
+                                              },
+                                              [callbackPtr,
+                                               req](const ::drogon::orm::DrogonDbException &e) {
+                                                  respondError(
+                                                    req,
+                                                    callbackPtr,
+                                                    "DB_QUERY_ERROR",
+                                                    std::string(
+                                                      "github login: failed to create refresh "
+                                                      "token: "
+                                                    ) +
+                                                      e.base().what()
+                                                  );
+                                              }
+                                            );
+                                        },
+                                        [callbackPtr,
+                                         req](const ::drogon::orm::DrogonDbException &e) {
+                                            respondError(
+                                              req,
+                                              callbackPtr,
+                                              "DB_QUERY_ERROR",
+                                              std::string(
+                                                "github login: failed to create access "
+                                                "token: "
+                                              ) +
+                                                e.base().what()
+                                            );
+                                        }
+                                      );
+                                  };
+
+                                  if (!mappings.empty())
+                                  {
+                                      // Existing linked account - issue tokens
+                                      int32_t userId = mappings[0].getValueOfInternalUserId();
+                                      // Get username
+                                      Mapper<Users>(db).findBy(
+                                        Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+                                        [callbackPtr,
+                                         issueTokens,
+                                         userId](const std::vector<Users> &users) {
+                                            std::string username =
+                                              users.empty() ? "user"
+                                                            : users[0].getValueOfUsername();
+                                            issueTokens(static_cast<int>(userId), username);
+                                        },
+                                        [callbackPtr,
+                                         req](const ::drogon::orm::DrogonDbException &e) {
+                                            respondError(
+                                              req,
+                                              callbackPtr,
+                                              "DB_QUERY_ERROR",
+                                              std::string("github login: failed to fetch user: ") +
+                                                e.base().what()
+                                            );
+                                        }
+                                      );
+                                  }
+                                  else
+                                  {
+                                      // New GitHub user - create local account + link
+                                      std::string username = "gh_" + githubLogin;
+                                      std::string passwordHash =
+                                        ::authforge::drogon::utils::generateSecureToken();
+                                      // Exemption (db-operations.md §3): INSERT...RETURNING to
+                                      // capture auto-generated user id for subsequent subject-
+                                      // mapping and role inserts.
+                                      db->execSqlAsync(
+                                        "INSERT INTO users (username, password_hash, salt, email, "
+                                        "email_verified) "
+                                        "VALUES ($1, $2, '', $3, true) "
+                                        "ON CONFLICT (username) DO UPDATE SET email = "
+                                        "EXCLUDED.email, "
+                                        "email_verified = true "
+                                        "RETURNING id",
+                                        [callbackPtr,
+                                         db,
+                                         issueTokens,
+                                         provider,
+                                         subject,
+                                         username,
+                                         req](const ::drogon::orm::Result &userResult) {
+                                            int32_t userId = userResult[0]["id"].as<int32_t>();
+                                            // Create subject mapping
+                                            Oauth2SubjectMappings mapping;
+                                            mapping.setSubject(subject);
+                                            mapping.setInternalUserId(userId);
+                                            mapping.setProvider(provider);
+                                            Mapper<Oauth2SubjectMappings>(db).insert(
+                                              mapping,
+                                              [callbackPtr, issueTokens, userId, username, db](
+                                                const Oauth2SubjectMappings &
+                                              ) {
+                                                  // Assign default 'user' role
+                                                  UserRoles ur;
+                                                  ur.setUserId(userId);
+                                                  Mapper<UserRoles>(db).insert(
+                                                    ur,
+                                                    [issueTokens, userId, username](
+                                                      const UserRoles &
+                                                    ) { issueTokens(userId, username); },
+                                                    [issueTokens, userId, username](
+                                                      const ::drogon::orm::DrogonDbException &
+                                                    ) { issueTokens(userId, username); }
+                                                  );
+                                              },
+                                              [callbackPtr,
+                                               req](const ::drogon::orm::DrogonDbException &e) {
+                                                  respondError(
+                                                    req,
+                                                    callbackPtr,
+                                                    "DB_QUERY_ERROR",
+                                                    std::string(
+                                                      "github login: failed to link GitHub "
+                                                      "account: "
+                                                    ) +
+                                                      e.base().what()
+                                                  );
+                                              }
+                                            );
+                                        },
+                                        [callbackPtr,
+                                         req](const ::drogon::orm::DrogonDbException &e) {
+                                            respondError(
+                                              req,
+                                              callbackPtr,
+                                              "DB_QUERY_ERROR",
+                                              std::string(
+                                                "github login: failed to create user "
+                                                "account: "
+                                              ) +
+                                                e.base().what()
+                                            );
+                                        },
+                                        username,
+                                        passwordHash,
+                                        githubEmail
+                                      );
+                                  }
                               },
                               [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
                                   respondError(
@@ -446,176 +592,69 @@ void GitHubController::login(
                                     callbackPtr,
                                     "DB_QUERY_ERROR",
                                     std::string(
-                                      "github login: failed to create access "
-                                      "token: "
+                                      "github login: database error during account linking: "
                                     ) +
                                       e.base().what()
                                   );
                               }
                             );
-                        };
-
-                      if (!mappings.empty())
-                      {
-                          // Existing linked account - issue tokens
-                          int32_t userId = mappings[0].getValueOfInternalUserId();
-                          // Get username
-                          Mapper<Users>(db).findBy(
-                            Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
-                            [callbackPtr, issueTokens, userId](
-                              const std::vector<Users> &users
-                            ) {
-                                std::string username =
-                                  users.empty() ? "user" : users[0].getValueOfUsername();
-                                issueTokens(static_cast<int>(userId), username);
-                            },
-                            [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
-                                respondError(
-                                  req, callbackPtr, "DB_QUERY_ERROR",
-                                  std::string("github login: failed to fetch user: ") +
-                                    e.base().what()
-                                );
-                            }
-                          );
-                      }
-                      else
-                      {
-                          // New GitHub user - create local account + link
-                          std::string username = "gh_" + githubLogin;
-                          std::string passwordHash =
-                            ::authforge::drogon::utils::generateSecureToken();
-                          // Exemption (db-operations.md §3): INSERT...RETURNING to
-                          // capture auto-generated user id for subsequent subject-
-                          // mapping and role inserts.
-                          db->execSqlAsync(
-                            "INSERT INTO users (username, password_hash, salt, email, "
-                            "email_verified) "
-                            "VALUES ($1, $2, '', $3, true) "
-                            "ON CONFLICT (username) DO UPDATE SET email = EXCLUDED.email, "
-                            "email_verified = true "
-                            "RETURNING id",
-                            [callbackPtr, db, issueTokens, provider, subject, username, req](
-                              const ::drogon::orm::Result &userResult
-                            ) {
-                                int32_t userId = userResult[0]["id"].as<int32_t>();
-                                // Create subject mapping
-                                Oauth2SubjectMappings mapping;
-                                mapping.setSubject(subject);
-                                mapping.setInternalUserId(userId);
-                                mapping.setProvider(provider);
-                                Mapper<Oauth2SubjectMappings>(db).insert(
-                                  mapping,
-                                  [callbackPtr, issueTokens, userId, username, db](
-                                    const Oauth2SubjectMappings &
-                                  ) {
-                                      // Assign default 'user' role
-                                      UserRoles ur;
-                                      ur.setUserId(userId);
-                                      Mapper<UserRoles>(db).insert(
-                                        ur,
-                                        [issueTokens, userId, username](
-                                          const UserRoles &
-                                        ) { issueTokens(userId, username); },
-                                        [issueTokens, userId, username](
-                                          const ::drogon::orm::DrogonDbException &
-                                        ) {
-                                            issueTokens(
-                                              userId, username
-                                            );
-                                        }
-                                      );
-                                  },
-                                  [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
-                                      respondError(
-                                        req, callbackPtr, "DB_QUERY_ERROR",
-                                        std::string(
-                                          "github login: failed to link GitHub account: "
-                                        ) +
-                                          e.base().what()
-                                      );
-                                  }
-                                );
-                            },
-                            [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
-                                respondError(
-                                  req,
-                                  callbackPtr,
-                                  "DB_QUERY_ERROR",
-                                  std::string(
-                                    "github login: failed to create user "
-                                    "account: "
-                                  ) +
-                                    e.base().what()
-                                );
-                            },
-                            username,
-                            passwordHash,
-                            githubEmail
-                          );
-                      }
-                  },
-                  [callbackPtr, req](const ::drogon::orm::DrogonDbException &e) {
-                      respondError(
-                        req, callbackPtr, "DB_QUERY_ERROR",
-                        std::string(
-                          "github login: database error during account linking: "
-                        ) +
-                          e.base().what()
-                      );
-                  }
-                );
+                        }
+                        catch (const std::exception &e)
+                        {
+                            LOG_ERROR << "GitHubController::login Mapper exception: " << e.what();
+                            respondError(
+                              req,
+                              callbackPtr,
+                              "DB_QUERY_ERROR",
+                              std::string("github login: database error: ") + e.what()
+                            );
+                        }
+                        catch (...)
+                        {
+                            LOG_ERROR << "GitHubController::login Mapper unknown exception";
+                            respondError(
+                              req,
+                              callbackPtr,
+                              "DB_QUERY_ERROR",
+                              "github login: unknown database error"
+                            );
+                        }
+                    }
+                    catch (const std::exception &e)
+                    {
+                        LOG_ERROR << "GitHubController::login inner async callback exception: "
+                                  << e.what();
+                        respondError(
+                          req,
+                          callbackPtr,
+                          "INTERNAL_ERROR",
+                          "github login: " + std::string(e.what())
+                        );
+                    }
+                    catch (...)
+                    {
+                        LOG_ERROR
+                          << "GitHubController::login inner async callback unknown exception";
+                        respondError(
+                          req, callbackPtr, "INTERNAL_ERROR", "github login: unknown error"
+                        );
+                    }
                 }
-                catch (const std::exception &e)
-                {
-                    LOG_ERROR << "GitHubController::login Mapper exception: " << e.what();
-                    respondError(
-                      req, callbackPtr, "DB_QUERY_ERROR",
-                      std::string("github login: database error: ") + e.what()
-                    );
-                }
-                catch (...)
-                {
-                    LOG_ERROR << "GitHubController::login Mapper unknown exception";
-                    respondError(
-                      req, callbackPtr, "DB_QUERY_ERROR",
-                      "github login: unknown database error"
-                    );
-                }
-                }
-                catch (const std::exception &e)
-                {
-                    LOG_ERROR << "GitHubController::login inner async callback exception: "
-                              << e.what();
-                    respondError(
-                      req, callbackPtr, "INTERNAL_ERROR",
-                      "github login: " + std::string(e.what())
-                    );
-                }
-                catch (...)
-                {
-                    LOG_ERROR
-                      << "GitHubController::login inner async callback unknown exception";
-                    respondError(
-                      req, callbackPtr, "INTERNAL_ERROR", "github login: unknown error"
-                    );
-                }
-            }
-          );
+              );
+          }
+          catch (const std::exception &e)
+          {
+              LOG_ERROR << "GitHubController::login async callback exception: " << e.what();
+              respondError(
+                req, callbackPtr, "INTERNAL_ERROR", "github login: " + std::string(e.what())
+              );
+          }
+          catch (...)
+          {
+              LOG_ERROR << "GitHubController::login async callback unknown exception";
+              respondError(req, callbackPtr, "INTERNAL_ERROR", "github login: unknown error");
+          }
       }
-      catch (const std::exception &e)
-      {
-          LOG_ERROR << "GitHubController::login async callback exception: " << e.what();
-          respondError(
-            req, callbackPtr, "INTERNAL_ERROR",
-            "github login: " + std::string(e.what())
-          );
-      }
-      catch (...)
-      {
-          LOG_ERROR << "GitHubController::login async callback unknown exception";
-          respondError(req, callbackPtr, "INTERNAL_ERROR", "github login: unknown error");
-      }
-    }
     );
 }
 

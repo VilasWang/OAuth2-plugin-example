@@ -33,12 +33,8 @@ void PostgresSocialAccountRepository::findLinkedUser(
 
     Mapper<Oauth2SubjectMappings> mapper(dbClient_);
     mapper.findOne(
-      Criteria(
-        Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider
-      ) &&
-        Criteria(
-          Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject
-        ),
+      Criteria(Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider) &&
+        Criteria(Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject),
       [sharedCb, self = shared_from_this()](const Oauth2SubjectMappings &mapping) {
           int32_t userId32 = mapping.getValueOfInternalUserId();
 

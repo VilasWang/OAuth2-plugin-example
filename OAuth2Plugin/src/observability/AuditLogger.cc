@@ -59,16 +59,16 @@ void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
         auditLog.setRequestId(event.requestId);
         auditLog.setDetails(detailsStr);
 
-        auto sharedCb = std::make_shared<
-          std::function<void(const ::drogon::orm::DrogonDbException &)>>(
-          [action = event.action](const ::drogon::orm::DrogonDbException &e) {
-              logger().log(
-                authforge::common::ports::LogLevel::Warn,
-                "AuditLogger: Mapper insert FAILED: " + std::string(e.base().what()) +
-                  " (action=" + action + ")"
-              );
-          }
-        );
+        auto sharedCb =
+          std::make_shared<std::function<void(const ::drogon::orm::DrogonDbException &)>>(
+            [action = event.action](const ::drogon::orm::DrogonDbException &e) {
+                logger().log(
+                  authforge::common::ports::LogLevel::Warn,
+                  "AuditLogger: Mapper insert FAILED: " + std::string(e.base().what()) +
+                    " (action=" + action + ")"
+                );
+            }
+          );
 
         LOG_DEBUG << "[AuditLogger] Starting Mapper::insert for action=" << event.action;
 
@@ -78,9 +78,7 @@ void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
           [action = event.action](const drogon_model::oauth2_db::AuditLogs &) {
               LOG_DEBUG << "[AuditLogger] Mapper::insert OK for action=" << action;
           },
-          [sharedCb](const ::drogon::orm::DrogonDbException &e) {
-              (*sharedCb)(e);
-          }
+          [sharedCb](const ::drogon::orm::DrogonDbException &e) { (*sharedCb)(e); }
         );
     }
     catch (const std::exception &e)

@@ -118,195 +118,205 @@ void GoogleController::login(
 
     try
     {
-    // Try to get code from POST body first, then fallback to query parameter
-    std::string code;
+        // Try to get code from POST body first, then fallback to query parameter
+        std::string code;
 
-    // Check Content-Type and parse accordingly
-    auto contentType = req->getHeader("Content-Type");
-    if (contentType.find("application/x-www-form-urlencoded") != std::string::npos)
-    {
-        // Parse from POST body
-        auto body = req->getBody();
-        // Simple parsing for "code=xxx" format
-        size_t codePos = body.find("code=");
-        if (codePos != std::string::npos)
+        // Check Content-Type and parse accordingly
+        auto contentType = req->getHeader("Content-Type");
+        if (contentType.find("application/x-www-form-urlencoded") != std::string::npos)
         {
-            size_t valueStart = codePos + 5;  // "code=" length
-            size_t valueEnd = body.find("&", valueStart);
-            if (valueEnd == std::string::npos)
+            // Parse from POST body
+            auto body = req->getBody();
+            // Simple parsing for "code=xxx" format
+            size_t codePos = body.find("code=");
+            if (codePos != std::string::npos)
             {
-                valueEnd = body.length();
+                size_t valueStart = codePos + 5;  // "code=" length
+                size_t valueEnd = body.find("&", valueStart);
+                if (valueEnd == std::string::npos)
+                {
+                    valueEnd = body.length();
+                }
+                code = body.substr(valueStart, valueEnd - valueStart);
             }
-            code = body.substr(valueStart, valueEnd - valueStart);
         }
-    }
 
-    // Fallback to query parameter
-    if (code.empty())
-    {
-        code = req->getParameter("code");
-    }
+        // Fallback to query parameter
+        if (code.empty())
+        {
+            code = req->getParameter("code");
+        }
 
-    if (code.empty())
-    {
-        ::authforge::common::error::ErrorResponder::respond(
-          req,
-          std::move(callback),
-          "VALIDATION_MISSING_REQUIRED_FIELD",
-          "google login: missing code parameter"
-        );
-        return;
-    }
+        if (code.empty())
+        {
+            ::authforge::common::error::ErrorResponder::respond(
+              req,
+              std::move(callback),
+              "VALIDATION_MISSING_REQUIRED_FIELD",
+              "google login: missing code parameter"
+            );
+            return;
+        }
 
 #ifdef WITH_SOCIAL
-    // Task 24 slice 5: prefer the injected GoogleAuthService (constructed
-    // once at startup by bootstrap::wireIdentityServices(), backed by
-    // DrogonOAuthHttpClient), falling back to the pre-Task-24
-    // drogon::HttpClient-direct path when unwired -- same
-    // injected-with-fallback pattern established by SessionController's
-    // Task 24 slice 4.
-    if (googleAuthService_)
-    {
-        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-          std::move(callback)
-        );
-        googleAuthService_
-          ->login(code, [sharedCb, req](authforge::identity::GoogleLoginResult result) {
-              if (!result.errorCode.empty())
-              {
-                  respondError(
-                    req, sharedCb, result.errorCode, "google login: " + result.errorCode
-                  );
-                  return;
-              }
-              Json::Value filteredJson;
-              filteredJson["sub"] = result.profile.sub;
-              filteredJson["name"] = result.profile.name;
-              filteredJson["email"] = result.profile.email;
-              filteredJson["picture"] = result.profile.picture;
-              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
-          });
-        return;
-    }
+        // Task 24 slice 5: prefer the injected GoogleAuthService (constructed
+        // once at startup by bootstrap::wireIdentityServices(), backed by
+        // DrogonOAuthHttpClient), falling back to the pre-Task-24
+        // drogon::HttpClient-direct path when unwired -- same
+        // injected-with-fallback pattern established by SessionController's
+        // Task 24 slice 4.
+        if (googleAuthService_)
+        {
+            auto sharedCb =
+              std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+                std::move(callback)
+              );
+            googleAuthService_
+              ->login(code, [sharedCb, req](authforge::identity::GoogleLoginResult result) {
+                  if (!result.errorCode.empty())
+                  {
+                      respondError(
+                        req, sharedCb, result.errorCode, "google login: " + result.errorCode
+                      );
+                      return;
+                  }
+                  Json::Value filteredJson;
+                  filteredJson["sub"] = result.profile.sub;
+                  filteredJson["name"] = result.profile.name;
+                  filteredJson["email"] = result.profile.email;
+                  filteredJson["picture"] = result.profile.picture;
+                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(filteredJson));
+              });
+            return;
+        }
 #endif  // WITH_SOCIAL
 
-    // 1. Exchange Code for Access Token
-    // API: https://oauth2.googleapis.com/token
-    auto client = ::drogon::HttpClient::newHttpClient("https://oauth2.googleapis.com");
-    auto request = ::drogon::HttpRequest::newHttpRequest();
-    request->setMethod(::drogon::Post);
-    request->setPath("/token");
-    request->setParameter("code", code);
-    request->setParameter("client_id", getGoogleConfig(GOOGLE_CLIENT_ID_KEY));
-    request->setParameter("client_secret", getGoogleConfig(GOOGLE_CLIENT_SECRET_KEY));
-    request->setParameter("redirect_uri", getGoogleConfig(GOOGLE_REDIRECT_URI_KEY));
-    request->setParameter("grant_type", "authorization_code");
+        // 1. Exchange Code for Access Token
+        // API: https://oauth2.googleapis.com/token
+        auto client = ::drogon::HttpClient::newHttpClient("https://oauth2.googleapis.com");
+        auto request = ::drogon::HttpRequest::newHttpRequest();
+        request->setMethod(::drogon::Post);
+        request->setPath("/token");
+        request->setParameter("code", code);
+        request->setParameter("client_id", getGoogleConfig(GOOGLE_CLIENT_ID_KEY));
+        request->setParameter("client_secret", getGoogleConfig(GOOGLE_CLIENT_SECRET_KEY));
+        request->setParameter("redirect_uri", getGoogleConfig(GOOGLE_REDIRECT_URI_KEY));
+        request->setParameter("grant_type", "authorization_code");
 
-    auto callbackPtr =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+        auto callbackPtr = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+          std::move(callback)
+        );
 
-    client->sendRequest(
-      request,
-      [callbackPtr,
-       client,
-       req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
-          try
-          {
-          if (
-            result != ::drogon::ReqResult::Ok || !response ||
-            response->getStatusCode() != ::drogon::k200OK
-          )
-          {
-              respondError(
-                req,
-                callbackPtr,
-                "NET_CONNECTION_FAILED",
-                "google login: failed to contact Google Token API"
-              );
-              return;
+        client->sendRequest(
+          request,
+          [callbackPtr,
+           client,
+           req](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+              try
+              {
+                  if (
+                    result != ::drogon::ReqResult::Ok || !response ||
+                    response->getStatusCode() != ::drogon::k200OK
+                  )
+                  {
+                      respondError(
+                        req,
+                        callbackPtr,
+                        "NET_CONNECTION_FAILED",
+                        "google login: failed to contact Google Token API"
+                      );
+                      return;
+                  }
+
+                  auto json = response->getJsonObject();
+                  if (
+                    !json || !json->isMember("access_token") || !(*json)["access_token"].isString()
+                  )
+                  {
+                      respondError(
+                        req,
+                        callbackPtr,
+                        "VALIDATION_INVALID_INPUT",
+                        "google login: invalid token response"
+                      );
+                      return;
+                  }
+
+                  std::string accessToken = (*json)["access_token"].asString();
+
+                  // 2. Fetch User Info
+                  // API: https://www.googleapis.com/oauth2/v3/userinfo
+                  auto client2 = ::drogon::HttpClient::newHttpClient("https://www.googleapis.com");
+                  auto req2 = ::drogon::HttpRequest::newHttpRequest();
+                  req2->setPath("/oauth2/v3/userinfo");
+                  req2->addHeader("Authorization", "Bearer " + accessToken);
+
+                  client2->sendRequest(
+                    req2,
+                    [callbackPtr,
+                     req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
+                        try
+                        {
+                            if (res2 != ::drogon::ReqResult::Ok || !resp2)
+                            {
+                                respondError(
+                                  req,
+                                  callbackPtr,
+                                  "NET_CONNECTION_FAILED",
+                                  "google login: failed to fetch Google UserInfo"
+                                );
+                                return;
+                            }
+
+                            // Filter response to only include necessary fields
+                            // (security best practice)
+                            auto googleData = resp2->getJsonObject();
+                            Json::Value filteredJson;
+                            filteredJson["sub"] = (*googleData).get("sub", "").asString();
+                            filteredJson["name"] = (*googleData).get("name", "").asString();
+                            filteredJson["email"] = (*googleData).get("email", "").asString();
+                            filteredJson["picture"] = (*googleData).get("picture", "").asString();
+
+                            auto finalResp =
+                              ::drogon::HttpResponse::newHttpJsonResponse(filteredJson);
+                            (*callbackPtr)(finalResp);
+                        }
+                        catch (const std::exception &e)
+                        {
+                            LOG_ERROR << "GoogleController::login inner async callback exception: "
+                                      << e.what();
+                            respondError(
+                              req,
+                              callbackPtr,
+                              "INTERNAL_ERROR",
+                              "google login: " + std::string(e.what())
+                            );
+                        }
+                        catch (...)
+                        {
+                            LOG_ERROR
+                              << "GoogleController::login inner async callback unknown exception";
+                            respondError(
+                              req, callbackPtr, "INTERNAL_ERROR", "google login: unknown error"
+                            );
+                        }
+                    }
+                  );
+              }
+              catch (const std::exception &e)
+              {
+                  LOG_ERROR << "GoogleController::login async callback exception: " << e.what();
+                  respondError(
+                    req, callbackPtr, "INTERNAL_ERROR", "google login: " + std::string(e.what())
+                  );
+              }
+              catch (...)
+              {
+                  LOG_ERROR << "GoogleController::login async callback unknown exception";
+                  respondError(req, callbackPtr, "INTERNAL_ERROR", "google login: unknown error");
+              }
           }
-
-          auto json = response->getJsonObject();
-          if (!json || !json->isMember("access_token") ||
-              !(*json)["access_token"].isString())
-          {
-              respondError(
-                req, callbackPtr, "VALIDATION_INVALID_INPUT", "google login: invalid token response"
-              );
-              return;
-          }
-
-          std::string accessToken = (*json)["access_token"].asString();
-
-          // 2. Fetch User Info
-          // API: https://www.googleapis.com/oauth2/v3/userinfo
-          auto client2 = ::drogon::HttpClient::newHttpClient("https://www.googleapis.com");
-          auto req2 = ::drogon::HttpRequest::newHttpRequest();
-          req2->setPath("/oauth2/v3/userinfo");
-          req2->addHeader("Authorization", "Bearer " + accessToken);
-
-          client2->sendRequest(
-            req2,
-            [callbackPtr, req](::drogon::ReqResult res2, const ::drogon::HttpResponsePtr &resp2) {
-                try
-                {
-                if (res2 != ::drogon::ReqResult::Ok || !resp2)
-                {
-                    respondError(
-                      req,
-                      callbackPtr,
-                      "NET_CONNECTION_FAILED",
-                      "google login: failed to fetch Google UserInfo"
-                    );
-                    return;
-                }
-
-                // Filter response to only include necessary fields
-                // (security best practice)
-                auto googleData = resp2->getJsonObject();
-                Json::Value filteredJson;
-                filteredJson["sub"] = (*googleData).get("sub", "").asString();
-                filteredJson["name"] = (*googleData).get("name", "").asString();
-                filteredJson["email"] = (*googleData).get("email", "").asString();
-                filteredJson["picture"] = (*googleData).get("picture", "").asString();
-
-                auto finalResp = ::drogon::HttpResponse::newHttpJsonResponse(filteredJson);
-                (*callbackPtr)(finalResp);
-                }
-                catch (const std::exception &e)
-                {
-                    LOG_ERROR
-                      << "GoogleController::login inner async callback exception: " << e.what();
-                    respondError(
-                      req, callbackPtr, "INTERNAL_ERROR",
-                      "google login: " + std::string(e.what())
-                    );
-                }
-                catch (...)
-                {
-                    LOG_ERROR << "GoogleController::login inner async callback unknown exception";
-                    respondError(
-                      req, callbackPtr, "INTERNAL_ERROR", "google login: unknown error"
-                    );
-                }
-            }
-          );
-      }
-      catch (const std::exception &e)
-      {
-          LOG_ERROR << "GoogleController::login async callback exception: " << e.what();
-          respondError(
-            req, callbackPtr, "INTERNAL_ERROR",
-            "google login: " + std::string(e.what())
-          );
-      }
-      catch (...)
-      {
-          LOG_ERROR << "GoogleController::login async callback unknown exception";
-          respondError(req, callbackPtr, "INTERNAL_ERROR", "google login: unknown error");
-      }
-    }
-    );
+        );
     }
     catch (const std::exception &e)
     {

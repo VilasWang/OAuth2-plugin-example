@@ -63,9 +63,7 @@ using namespace ::drogon_model::oauth2_db;
 
 // ---- internal helper ----
 
-void EmailVerificationService::sendVerificationEmail(
-  int internalUserId, const std::string &email
-)
+void EmailVerificationService::sendVerificationEmail(int internalUserId, const std::string &email)
 {
     if (email.empty())
         return;
@@ -121,8 +119,7 @@ void EmailVerificationService::verifyToken(
     if (token.empty())
     {
         respondError(
-          req, sharedCb, "VALIDATION_MISSING_REQUIRED_FIELD",
-          "verify: token parameter is required"
+          req, sharedCb, "VALIDATION_MISSING_REQUIRED_FIELD", "verify: token parameter is required"
         );
         return;
     }
@@ -147,7 +144,9 @@ void EmailVerificationService::verifyToken(
           if (r.empty())
           {
               respondError(
-                req, sharedCb, "VALIDATION_VERIFICATION_TOKEN_INVALID",
+                req,
+                sharedCb,
+                "VALIDATION_VERIFICATION_TOKEN_INVALID",
                 "verify: token is invalid or expired"
               );
               return;
@@ -172,7 +171,9 @@ void EmailVerificationService::verifyToken(
                   },
                   [sharedCb, req](const DrogonDbException &e) {
                       respondError(
-                        req, sharedCb, "DB_QUERY_ERROR",
+                        req,
+                        sharedCb,
+                        "DB_QUERY_ERROR",
                         std::string("Failed to update email_verified: ") + e.base().what()
                       );
                   }
@@ -180,16 +181,19 @@ void EmailVerificationService::verifyToken(
             },
             [sharedCb, req](const DrogonDbException &e) {
                 respondError(
-                  req, sharedCb, "DB_QUERY_ERROR",
-                  std::string("Failed to find user for email_verified update: ") +
-                    e.base().what()
+                  req,
+                  sharedCb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to find user for email_verified update: ") + e.base().what()
                 );
             }
           );
       },
       [sharedCb, req](const DrogonDbException &e) {
           respondError(
-            req, sharedCb, "DB_QUERY_ERROR",
+            req,
+            sharedCb,
+            "DB_QUERY_ERROR",
             std::string("Email verification failed: ") + e.base().what()
           );
       },
@@ -207,8 +211,7 @@ void EmailVerificationService::resendVerification(
     std::string userId = req->getAttributes()->get<std::string>("userId");
     if (userId.empty())
     {
-        respondError(req, sharedCb, "AUTH_TOKEN_INVALID",
-                     "resend: missing authenticated user");
+        respondError(req, sharedCb, "AUTH_TOKEN_INVALID", "resend: missing authenticated user");
         return;
     }
 
@@ -231,13 +234,13 @@ void EmailVerificationService::resendVerification(
               return;
           }
 
-          std::string email =
-            user.getValueOfEmail().empty() ? "" : user.getValueOfEmail();
+          std::string email = user.getValueOfEmail().empty() ? "" : user.getValueOfEmail();
 
           if (email.empty())
           {
-              respondError(req, sharedCb, "VALIDATION_INVALID_INPUT",
-                           "resend: no email address on file");
+              respondError(
+                req, sharedCb, "VALIDATION_INVALID_INPUT", "resend: no email address on file"
+              );
               return;
           }
 
@@ -250,7 +253,9 @@ void EmailVerificationService::resendVerification(
       },
       [sharedCb, req](const DrogonDbException &e) {
           respondError(
-            req, sharedCb, "DB_QUERY_ERROR",
+            req,
+            sharedCb,
+            "DB_QUERY_ERROR",
             std::string("Resend verification failed: ") + e.base().what()
           );
       }

@@ -154,7 +154,8 @@ void AuthorizationService::evaluateScopes(
                            hasAdminRole,
                            requestedScopes,
                            callback](bool hasConsent) mutable {
-                              try {
+                              try
+                              {
                                   (*consentMap)[scope] = hasConsent;
                                   if (--(*remaining) == 0)
                                   {
@@ -170,10 +171,10 @@ void AuthorizationService::evaluateScopes(
                                         )
                                       );
                                   }
-                              } catch (const std::exception &e) {
-                                  callback(
-                                    allInvalid(requestedScopes, "internal_error")
-                                  );
+                              }
+                              catch (const std::exception &e)
+                              {
+                                  callback(allInvalid(requestedScopes, "internal_error"));
                               }
                           }
                         );

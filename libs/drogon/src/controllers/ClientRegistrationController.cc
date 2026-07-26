@@ -40,9 +40,7 @@ void ClientRegistrationController::registerClient(
 )
 {
     auto sharedCb =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-        std::move(callback)
-      );
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     services::ClientRegistrationService::registerClient(req, sharedCb);
 }
 
