@@ -39,21 +39,34 @@ void PostgresRoleRepository::getUserRoles(const std::string &userId, StringListC
     if (!isNumeric)
     {
         // UUID (public_sub) - resolve to internal ID first
-        Mapper<Users> userMapper(dbClientReader_);
-        userMapper.findOne(
-          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId),
-          [sharedCb, self = shared_from_this(), this](const Users &user) {
-              int32_t resolvedId = static_cast<int32_t>(user.getValueOfId());
-              getUserRoles(resolvedId, [sharedCb](std::vector<std::string> roles) {
-                  (*sharedCb)(roles);
-              });
-          },
-          [sharedCb, userId](const drogon::orm::DrogonDbException &e) {
-              LOG_WARN << "getUserRoles: Failed to resolve UUID " << userId << ": "
-                       << e.base().what();
-              (*sharedCb)({});
-          }
-        );
+        try
+        {
+            Mapper<Users> userMapper(dbClientReader_);
+            userMapper.findOne(
+              Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId),
+              [sharedCb, self = shared_from_this(), this](const Users &user) {
+                  int32_t resolvedId = static_cast<int32_t>(user.getValueOfId());
+                  getUserRoles(resolvedId, [sharedCb](std::vector<std::string> roles) {
+                      (*sharedCb)(roles);
+                  });
+              },
+              [sharedCb, userId](const drogon::orm::DrogonDbException &e) {
+                  LOG_WARN << "getUserRoles: Failed to resolve UUID " << userId << ": "
+                           << e.base().what();
+                  (*sharedCb)({});
+              }
+            );
+        }
+        catch (const std::exception &e)
+        {
+            LOG_ERROR << "getUserRoles: Mapper exception: " << e.what();
+            (*sharedCb)({});
+        }
+        catch (...)
+        {
+            LOG_ERROR << "getUserRoles: Unknown exception";
+            (*sharedCb)({});
+        }
         return;
     }
 
