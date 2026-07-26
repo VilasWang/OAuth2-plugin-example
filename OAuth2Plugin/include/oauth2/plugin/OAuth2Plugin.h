@@ -17,6 +17,7 @@
 #include <authforge/oauth2/model/Dto.h>
 #include <authforge/common/ports/IAuditSink.h>
 #include <authforge/common/ports/IMetrics.h>
+#include <authforge/oauth2/protocol/AuthorizationService.h>
 #include <string>
 #include <memory>
 #include <functional>
@@ -362,6 +363,15 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
         return metrics_;
     }
 
+    // B10 / Task 45: the Domain-layer authorization engine, exposed so
+    // AuthorizationEndpointController can call evaluateScopes() (replacing its
+    // old inline 3-tier chain). May return nullptr before initAndStart().
+    std::shared_ptr<authforge::oauth2::protocol::AuthorizationService>
+    getAuthorizationService() const
+    {
+        return authorizationService_;
+    }
+
   private:
     // Phase 4.6a: storage_ (the god IOAuth2Storage) is gone. The plugin now
     // holds the split-repository handles directly, extracted from the
@@ -393,6 +403,9 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     // getAuditSink()/getMetrics() for Drogon-layer consumers.
     std::shared_ptr<authforge::common::ports::IAuditSink> auditSink_;
     std::shared_ptr<authforge::common::ports::IMetrics> metrics_;
+    // B10 / Task 45: authorization engine + its subject resolver.
+    std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver_;
+    std::shared_ptr<authforge::oauth2::protocol::AuthorizationService> authorizationService_;
 
     std::string storageType_;
 

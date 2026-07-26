@@ -6,6 +6,8 @@
 #include <oauth2/adapters/OpenSslCryptoProvider.h>
 #include <oauth2/adapters/DrogonAuditSink.h>
 #include <oauth2/adapters/DrogonMetrics.h>
+#include <oauth2/adapters/StorageSubjectResolver.h>
+#include <authforge/oauth2/protocol/AuthorizationService.h>
 // Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
 // per-backend RepositoryBundle and extracts its seven split-repository handles.
 #include <oauth2/storage/MemoryRepositoryBundle.h>
@@ -125,6 +127,18 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // TokenService prefers it, so no ISubjectResolver is needed (passed null).
     // Phase 4.6a: now backed by roleRepo_ (the identity split-repo), not storage_.
     roleProvider_ = std::make_shared<authforge::drogon::adapters::StorageRoleProvider>(roleRepo_);
+
+    // B10 / Task 45: wire the Domain-layer AuthorizationService (the protocol
+    // engine) so /oauth2/authorize can call evaluateScopes() instead of the
+    // controller's inline 3-tier chain. The engine needs an ISubjectResolver
+    // (to turn "provider:localId" into internalUserId for the consent + role
+    // tiers) -- StorageSubjectResolver backs it with subjectMappingRepo_, the
+    // same repo IdentityService::getInternalUserId used in the old inline path.
+    subjectResolver_ =
+      std::make_shared<authforge::drogon::adapters::StorageSubjectResolver>(subjectMappingRepo_);
+    authorizationService_ = std::make_shared<authforge::oauth2::protocol::AuthorizationService>(
+      clientRepo_, consentRepo_, subjectResolver_, roleProvider_
+    );
 
     // Defect 1.3 fix: services now share ownership of storage_ (shared_ptr),
     // so the storage lifetime is guaranteed to cover every service instead of

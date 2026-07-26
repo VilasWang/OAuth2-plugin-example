@@ -128,18 +128,6 @@ class OAuth2StandardController : public ::drogon::HttpController<OAuth2StandardC
 
     static ClientCredentials extractClientCredentials(const ::drogon::HttpRequestPtr &req);
 
-    static void checkUserConsentAndProceed(
-      ::OAuth2Plugin *plugin,
-      const std::string &clientId,
-      const std::string &userId,
-      int32_t internalUserId,
-      const std::vector<std::string> &requestedScopes,
-      const std::string &scope,
-      const std::string &redirectUri,
-      const std::string &state,
-      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
-    );
-
     ::OAuth2Plugin *plugin_ = nullptr;
 
     /// Returns the injected plugin_ if set (Task 23 wiring), otherwise
