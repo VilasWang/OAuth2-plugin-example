@@ -15,9 +15,10 @@
 - **`OAuth2Plugin` 是 OBJECT 库**，被三方链接：`OAuth2Server`（PRIVATE）、`OAuth2Server/test`（PRIVATE）、`libs/drogon`（PUBLIC）。决策 1b 迁入 `libs/drogon/plugin/` 后，`libs/drogon` 不再「链接自己」——OBJECT 库的 `.obj` 直接合并进 `libs/drogon` target，需从 `libs/drogon` 的 `target_link_libraries` 移除 `OAuth2Plugin` 项，改用 `target_sources(... $<TARGET_OBJECTS:...>)` 或直接 GLOB 那些源进 `libs/drogon`。其余两消费者（server/test）改为链 `authforge::drogon`（已含装配器）。
 - **config 反射依赖 `OAuth2Plugin` 类名字符串**（4 份 `config.*.json` 的 `plugins[].name`）——**类名不改、include 路径 `<oauth2/plugin/OAuth2Plugin.h>` 可改**（include 路径是编译期，反射是运行期类名，互不影响）。但 `::OAuth2Plugin`（全局命名空间）必须保留——所有 `getPlugin<::OAuth2Plugin>()` 调用点不变。
 - **Redis 实现是完整一套**（9 文件：7 repo + Base + Bundle），可整体迁新建 `libs/storage-redis`。
-- **ORM 模型重复**：`OAuth2Plugin/src/models/` + `OAuth2Plugin/include/oauth2/storage/` 的 16-17 个模型与 `libs/storage-postgres/.../models/` 同类名两份——Task 18 已迁，`OAuth2Plugin/` 那份是死副本。
+- **ORM 模型重复**：`OAuth2Plugin/src/models/` + `OAuth2Plugin/include/oauth2/storage/` 的 16-17 个模型与 `libs/storage-postgres/.../models/` 同类名两份——Task 18 已迁，`OAuth2Plugin/` 那份是死副本。（Phase 1 已删）
+- **两套 identity 仓储接口并存（Task 39 前置）**：legacy `oauth2::I{User,Role,SubjectMapping}Repository`（int32，与 DB 一致）与 new `authforge::identity::I*Repository`（int64，脱离 DB）并存且类型不兼容。Phase 2 存储搬迁前必须先统一（Phase 1.5 = Task 39）。**决策（方向 Y）**：new 接口收回 int32 对齐 DB/ORM（DB 全 int4，int64 是凭空放宽），不反向改 DB 升 BIGINT。
 
-## 阶段执行（A1→A9 逐 commit，每步 build 绿；运行时 gate 在风险 phase 末尾；全量 ctest 仅 Phase 7 末一次）
+## 阶段执行（Task 39 + A1→A9 逐 commit，每步 build 绿；运行时 gate 在风险 phase 末尾；全量 ctest 仅 Phase 7 末一次）
 
 > 每个 commit 独立 build 绿。命名空间迁移统一为 `oauth2::` → `authforge::storage::*` / `authforge::drogon::*` / `authforge::common::*`。改 include 路径时同步改所有 `#include` 点（用 grep 找全）。
 
@@ -37,12 +38,57 @@
 - 记录当前 build 绿 + ctest 276/277（仅 Property4_3_1 pre-existing 失败）+ 运行时 gate 通过（curl 四路由）作为基线
 - 无代码改动
 
-### Phase 1 — 删死代码（零风险清场）= A1
+### Phase 1 — 删死代码（零风险清场）= A1 ✅ 已完成
 **删 `OAuth2Plugin/` 的重复 ORM 模型副本**：
 - 删 `OAuth2Plugin/src/models/*.cc` + `OAuth2Plugin/src/models/*.h`（16-17 对）+ `OAuth2Plugin/include/oauth2/storage/` 下的 ORM model 头（与 `libs/storage-postgres/.../models/` 重复的部分）
 - 核实：`OAuth2Plugin/CMakeLists.txt` 的 GLOB 去掉 models 后仍能编译；所有 `#include <oauth2/.../Oauth2Clients.h>` 等改为指向 `libs/storage-postgres` 的 `<authforge/storage/postgres/models/...>`
 - 验证：build 绿
 - **风险**：若有代码仍 include 旧路径，需逐点改。先 grep `<oauth2/` + 模型类名找全调用点。
+- **完成说明（commit 待 Phase 1.5 后一起提交）**：38 个文件（19 对 .h/.cc）删除，全量 diff 确认与 `libs/storage-postgres` 逐字节相同，零外部引用（所有代码已 include 新路径），GLOB 自动排除，reconfigure + 全量 build 绿。
+
+### Phase 1.5 — Task 39：identity 接口统一（Phase 2 的硬前置，方向 Y）
+
+> **为什么插在 Phase 2 前**：Phase 2 要把 9 个 identity 存储实现从 `OAuth2Plugin/` 迁到 `libs/storage-*` 并改命名空间。但这 9 个实现继承 legacy `oauth2::I*Repository`（int32），与 new `authforge::identity::I*Repository`（int64）并存且类型不兼容——不先统一接口，存储搬迁要么制造循环依赖，要么留两套接口永远删不掉。Task 39 消除两套接口后，Phase 2 才能干净地把「单一 identity 接口」的实现归位。design.md Task 39 原本就在 M8，这里把它提前执行。
+
+**根因（方向 Y 决策依据）**：DB 全是 int4（`users.id` SERIAL、`*_user_id`/`internal_user_id` INTEGER，无 BIGINT），ORM getter 全是 `int32_t`（`PrimaryKeyType = int32_t`）。**legacy int32 与 DB 一致、正确**；new 接口作者脱离 DB 凭空用 int64，导致每个实现进 ORM 前 `static_cast<int32_t>`（PostgresIdentityRepository/Mfa/WebAuthn/Social 共 10+ 处）。**根治方向 = 把 new 接口收回 int32，全链路对齐 DB/ORM**（用户选定的方向 Y），而非反向改 DB 升 BIGINT（本末倒置，且 int4 对 user-id 永不溢出）。
+
+**目标终态**：单一 `authforge::identity::I*Repository`（int32，补齐 string 重载 + 写路径）+ 各后端实现（Postgres 已有，补 Redis/Memory）；legacy `oauth2::I*Repository` + 9 实现 + StorageCallbacks.h 全删；`IdentityService`/plugin/adapter 全切到 new 接口；全链路 int32 零 cast。
+
+**子步骤（每步 build 绿，关键节点运行时 gate）**：
+
+**1.5a. 收回 int 类型（方向 Y 核心，纯类型对齐，行为不变）**：
+- `libs/identity/include/authforge/identity/`：6 个仓储接口（IUser/IRole/ISubjectMapping/IMfa/IWebAuthn/ISocialAccount）所有 `int64_t userId`/`int64_t internalUserId` → `int32_t`；`UserData.id` int64→int32；`ISubjectMappingRepository::OptionalIntCallback` 的 `optional<int64_t>`→`optional<int32_t>`
+- `AuthService::AuthResult.internalId` int64→int32（`AuthService.h:39`，注释「Internal auto-increment ID」）
+- 删 `libs/storage-postgres/src/Postgres{Identity,Mfa,WebAuthn,SocialAccount}Repository.cc` 里所有 `static_cast<int32_t>(userId)` + `int32_t userId32 = ...` 中间变量（直接用 int32 参数）
+- 改 `libs/identity` 内部消费者（AuthService.cc `result.internalId = user.id`、RoleProvider、SubjectResolver `cb(static_cast<int32_t>(...))` 删 cast）+ 4 个测试 fake（AuthServiceTest 的 `InMemoryUserRepository` 等）
+- 验证：build 绿 + `libs/identity` 测试绿 + 运行时 gate（Postgres 配置：登录/注册/MFA 流程不崩，identity 读路径走 int32 无 cast）
+
+**1.5b. 补 new 接口缺的方法（让 new 接口成为 legacy 的超集）**：
+- `authforge::identity::IRoleRepository`：加 `getRoles(const std::string &subject, RolesCallback&&)` 重载（legacy `getUserRoles(string)` 的对应，TokenService 偏好的 subject-string 路径）
+- `authforge::identity::ISubjectMappingRepository`：加写路径 `createSubjectMapping(subject, int32_t internalUserId, provider, BoolCallback&&)` + `createUserForExternalLogin(externalId, provider, OptionalIntCallback&&)`
+- `PostgresIdentityRepository`：实现这两个写方法（从 legacy `PostgresSubjectMappingRepository.cc` 移植逻辑——`createSubjectMapping` 用 `Mapper<Oauth2SubjectMappings>::insert`，`createUserForExternalLogin` 是 raw SQL `INSERT...RETURNING`，按 db-operations.md 核实是否属豁免或改 Mapper）+ 实现 IRoleRepository 的 string 重载（从 `PostgresRoleRepository` 移植 public_sub→int32 解析）
+- 验证：build 绿 + 新方法的单元测试（覆盖 create + read 往返）
+
+**1.5c. 补 Redis/Memory new identity 实现（消除 new 路径的后端缺口）**：
+- 新建 `RedisIdentityRepository`（`libs/storage-redis/`，本 phase 先建包骨架或临时放 OAuth2Plugin）：镜像 legacy Redis 的占位行为（getUserInfo→nullopt、getRoles→`{"user"}`、getInternalUserId 走 Redis HGET、createSubjectMapping 走 HSET），实现补齐后的 new 接口
+- 新建 `MemoryIdentityRepository`（`libs/storage-memory/`）：镜像 legacy Memory 的行为（stateless user、config-driven roles、subjectMappings map），实现 new 接口
+- 验证：build 绿 + Memory 实现的单元测试（SubjectMappingTest/P0FunctionalityTest 的逻辑可复用）
+
+**1.5d. 迁消费者到 new 接口**：
+- `OAuth2Plugin.h/.cc`：`roleRepo_`/`userRepo_`/`subjectMappingRepo_` 类型 legacy→new（`authforge::identity::I*Repository`）；`initStorage` 的 bundle 选择改用 new 实现的 bundle（或临时 adapter）；`getUserInfo(string)` 转发方法内部改用 new 的 `findById`/`findByPublicSub` 分发
+- `IdentityService.h/.cc`：`Repos` 结构 legacy→new；所有方法保持 int32（new 接口已 int32，无 cast）；`getUserRoles(string)`/`getInternalUserId`/`ensureSubjectMapping`/`handleFirstTimeLogin` 调 new 接口
+- `StorageRoleProvider`/`StorageSubjectResolver`：持有的 repo 类型 legacy→new；`getRoles(string)` 调 new 的 string 重载；`resolve()` 调 new `getInternalUserId`
+- plugin 公共转发方法签名保持 int32（间接消费者 TokenEndpointController/SessionController/AuthorizationFilter 不受影响）
+- 验证：build 绿 + **运行时 gate（强制）**：Memory + Postgres 配置各起一次服务器，跑登录/注册/MFA/外部账号绑定全流程，确认 new 接口写路径（createSubjectMapping/createUserForExternalLogin）在产品里首次可用
+
+**1.5e. 删 legacy（Task 39 收尾，清场）**：
+- 删 `OAuth2Plugin/include/oauth2/storage/I{User,Role,SubjectMapping}Repository.h` + `StorageCallbacks.h`（只被这 3 个头 include，AuthorizationTransaction 是死副本）
+- 删 9 个 legacy 实现：`Postgres/Redis/Memory{User,Role,SubjectMapping}Repository.{h,cc}`
+- 删/改 3 个 Bundle 的 identity 部分（Bundle 改为聚合 new 实现）
+- 改测试：`SubjectMappingTest.cc`/`P0FunctionalityTest.cc` 改测 new `MemoryIdentityRepository`
+- 验证：build 绿 + 运行时 gate + grep 确认 `oauth2::IUserRepository`/`oauth2::IRoleRepository`/`oauth2::ISubjectMappingRepository`/`StorageCallbacks` 零残留
+
+**Phase 1.5 末运行时 gate（强制，Task 39 是行为变更非纯重组）**：起服务器跑完整 identity 流程（注册→登录→拿 token→MFA→社交账号绑定），确认 new 接口全路径可用、legacy 零残留。**这是整个计划中除 Phase 4 外第二个强制运行时 gate 的 phase**——因为涉及写路径迁移，build 绿不能保证运行时行为等价。
 
 ### Phase 2 — 存储归位（核心，最大块）= A2 + A3 + 新建包
 
@@ -148,8 +194,9 @@
 
 ## Critical files（按阶段）
 
-- **Phase 1**：删 `OAuth2Plugin/{src/models,include/oauth2/storage/}` 重复模型；改模型 include 调用点
-- **Phase 2**：新建 `libs/storage-redis/`；迁 `OAuth2Plugin/{src,include/oauth2}/storage/{Postgres,Redis,Memory,Cached}*`；identity 仓储接口→`libs/identity`；**末运行时 gate**
+- **Phase 1**（✅）：删 `OAuth2Plugin/{src/models,include/oauth2/storage/}` 重复模型；改模型 include 调用点
+- **Phase 1.5（Task 39，行为变更）**：6 个 identity 仓储接口 int64→int32 对齐 DB；补 new 接口缺方法（Role string 重载 + SubjectMapping 写路径）；补 Redis/Memory new identity 实现；迁 IdentityService/plugin/adapter 消费者；删 legacy 9 实现 + 3 接口 + StorageCallbacks.h；**末强制运行时 gate（identity 全流程）**
+- **Phase 2**：新建 `libs/storage-redis/`；迁 `OAuth2Plugin/{src,include/oauth2}/storage/{Postgres,Redis,Memory,Cached}*`（Task 39 后 identity 实现已统一，无循环依赖）；**末运行时 gate**
 - **Phase 3**：迁 `OAuth2Plugin/{adapters,utils,error,config,observability,validation,filters,services}` → 各 `libs/*`（A4+A5，build 绿即可）
 - **Phase 4（A6 独立，最高风险）**：`OAuth2Plugin` 类→`libs/drogon/plugin/`；OBJECT→STATIC 合并；删 `OAuth2Plugin/` 目录；**末强制运行时 gate（config 反射）**
 - **Phase 5**：`OAuth2Server/`→`apps/server/`（target 改名）；前端→`frontends/`；`.codebuddy`+`.claude` rules paths + hook 同步；**末运行时 gate**
