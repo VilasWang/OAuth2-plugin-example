@@ -255,6 +255,8 @@
 
 
 - [ ] 28. 创建 `examples/third-party-host`（SDK 冒烟，F1/H1/H5 回归防线）—— 拆为 28a（现在可做）+ 28b（纯引擎，gated on 27.5）
+  - [ ] 28a（待做）：全栈 build-tree smoke + 各 SDK 包 `Config.cmake.in`/`find_dependency`/configure-time `export()` 打包地基（见 PROGRESS.md B8b 段说明）。
+  - [x] 28b（完成，`154e656`）：纯引擎形态。`examples/third-party-host` 仅链接 4 个 SDK 包（`authforge::oauth2`/`common`/`common::testing`/`storage::memory`，无 OAuth2Plugin/libs/drogon），真实装配引擎（内存仓储 + `FakeCryptoProvider`）+ 程序化跑授权码流核心步骤（`evaluateScopes` → `generateAuthorizationCode` → `exchangeCodeForToken`）。根 CMake 加 `option(BUILD_EXAMPLES ON)`。**关键坑（已修）**：`TokenService` 继承 `enable_shared_from_this`，`exchangeCodeForToken`/`refreshAccessToken` 调 `shared_from_this()`——必须 `std::make_shared`，栈分配会 `bad_weak_ptr`→terminate（exit 3）。详见 PROGRESS.md "B8b / Task 28b" 段。
   - **调研结论（2026-07-11）**：原任务文本自相矛盾——前半"`find_package(authforge-oauth2)` + 实现 3 个端口"= 纯引擎；后半"断言路由注册 + 视图渲染 + config 驱动插件实例化"= 全产品栈。两者在当前包结构下互斥。根因：纯引擎消费者要喂 `AuthorizationService`（吃 `authforge::oauth2::repository::*` 新接口），但现成 Memory 实现绑在 `oauth2::storage::*` 旧接口上（Task 27.5 才迁移）。另：SDK 各包缺 `Config.cmake.in`/`find_dependency`（外部 `find_package` 跨包消费不通）；`OAuth2Plugin` 是 OBJECT 库，install/静态库分发是 §5.7 明确推迟的风险（line 558：v1.x 仅源码集成）。
   - **28a（现在可做，先做）**：全栈 build-tree smoke。样例以 `find_package` 消费整套已验证产品栈（oauth2+plugin+drogon+identity+storage-postgres+common）经 build-tree（line 558「源码集成」），复用 controller/plugin/view，实发 HTTP 跑授权码流；断言路由注册 + 视图渲染 + config 驱动插件实例化。各包加 `Config.cmake.in`/`find_dependency` + configure-time `export()`（build-tree Config，有界机械）。whole-archive 不需要（§5.5）。产出：样例工程 + CTest label `SdkSmoke`（也满足 M8 Task 39 验收对 SdkSmoke 的依赖）+ 打包地基。
   - **28b（gated on 27.5，后做）**：纯引擎形态升级。消费者实现 3 端口（`ISubjectResolver`/`IRoleProvider`/`IUserInfoProvider`）+ 仓储（迁到新接口后）喂 `AuthorizationService`/`TokenService`，自写薄 `/authorize`、`/token`，不依赖 authforge-drogon。验收："仅 `find_package(authforge-oauth2)` + 实现 3 端口即可跑通授权码流"（§1.1 头号目标的真正证明）。
@@ -333,10 +335,9 @@
   - 产出：最终目录结构
   - 验收（可度量，F7）：全量三平台编译通过 + 全部 CTest 标签（Unit/Contract/Integration/E2E/Security/Performance/SdkSmoke）通过 + arch-guard 通过
 
-- [ ] 40. 命名空间统一为 `authforge::{common,oauth2,identity,storage,drogon}`
+- [x] 40. 命名空间统一为 `authforge::{common,oauth2,identity,storage,drogon}`（完成，分 3 阶段提交 `e8c9d9d`+`2882358`+`b500ad3`。计划修正：identity-repo 接口移动推迟到 Task 39；EmailService 保留 `namespace oauth2`；filter 字符串实际在 controller 头不在 config；observability 端口解耦在 Stage 3 完成）
   - 用语义化重命名，避免手工替换遗漏（类/文件名的梳理见 Task 45 + design §5.8）
   - 产出：统一命名空间；验收：全量编译 + 测试全绿
-  - **详细迁移计划见 [`NAMESPACE_MIGRATION_PLAN.md`](NAMESPACE_MIGRATION_PLAN.md)**（遗留→目标命名空间全映射表 + 3 个已定决策 + 全局一致性自评审 + filter 反射字符串运行时风险 + M8 原子执行步骤）。执行前必读，尤其是 §5.2（observability 归属冲突）与 §6（风险）。新会话续做时：按本计划执行 M8 原子重命名（迁移前打 tag、per-file 命名空间目标、33 处 filter 字符串同步、真实服务器 curl 验证 filter 链）。
 
 - [ ] 41. 版本重置 v1.0.0 + 文档更新
   - 统一根 CMake 版本；更新 README/CLAUDE.md/集成文档；补 SDK 运行时契约文档（线程/ABI/异常/日志/whole-archive/插件注册，F9/H1）；前端错误码共享源路径更新（L2）
@@ -355,12 +356,14 @@
   - 更新 `.claude/skills/*/SKILL.md`、`.claude/agents/*.md`、`.claude/MEMORY.md`、`.agent/workflows/*.md`(build/test/start/stop/db-reset)、`.vscode/*`、`.hooks/config.json`、`CLAUDE.md` 的 Repository Layout
   - 产出：更新后 agent/IDE 配置；验收：抽样执行各 workflow/skill 命令可正确运行；MEMORY/CLAUDE 描述与新结构一致
 
-- [ ] 45. 类/文件命名一致性终检（评审建议 3，design §5.8）
+- [x] 45. 类/文件命名一致性终检（评审建议 3，design §5.8）—— **B10 完成（commit `2d60d1e` 45.1 + `69c51f1` 45.2）**
   - 按 §5.8 约定核对全部对外类/文件/头命名，修剩余歧义名：`OAuth2StandardController`→`AuthorizationEndpointController`/`TokenEndpointController`/`DiscoveryController`（按职责拆/更名）、澄清 `OAuth2Controller`、`OAuth2Plugin` 仅保留装配器语义
   - 确保「文件名 = 主类名」；rename-on-move 未覆盖的残余用语义化重命名统一
   - **必须在 v1.0.0 冻结（Task 41）前完成**，之后 api-diff 基线（Task 34）才建立在稳定命名上
   - 产出：一致命名 + 遗留死文件清理（含 §5.9 的 `consent.csp` 确认后删除）
   - 验收：全量编译 + 全标签测试全绿；无遗留歧义名/死文件
+  - **45.1 完成说明（`2d60d1e`，接入引擎——消除"引擎 authorize 路径在产品里从未装配"死代码债）**：① 新增 `StorageSubjectResolver`（`OAuth2Plugin/include/oauth2/adapters/`，`authforge::drogon::adapters`）实现 `ISubjectResolver::resolve(Subject, cb)`——镜像 `StorageRoleProvider` 写法，经 `SubjectGenerator::parse` 拆 `provider:localId` → `ISubjectMappingRepository::getInternalUserId`，补齐引擎 Tier 2/3 所需的 subject→internalUserId 解析。② `OAuth2Plugin` 装配 `subjectResolver_` + `authorizationService_`（构造参数 `clientRepo_`/`consentRepo_`/`subjectResolver_`/`roleProvider_`）+ accessor。③ `OAuth2StandardController::authorize` 删除内联三层链（`validateClientScopes`→`validateUserRolesForScopes`→`getInternalUserId`→`checkUserConsentAndProceed` 递归）+ 删除 `checkUserConsentAndProceed` helper，替换为单次 `evaluateScopes` 调用，`ScopeValidationSummary` 三分支映射（`hasErrors()`→400 invalid_scope/access_denied；`needsConsent()`→302 /consent；`canProceed()`→generateAuthorizationCode→302 code+state）。未登录分支保留。验证：build 0 错；`ctest` 290/290；运行时 authorize 302/400 行为等价。
+  - **45.2 完成说明（`69c51f1`，纯文件重组——零行为变化）**：1765 行 `OAuth2StandardController` 拆为 3 个 `HttpController<T,false>`：`AuthorizationEndpointController`（authorize 1 路由）/`TokenEndpointController`（token/introspect/revoke/userInfo 4 路由 + `createSuccessResponse`/`extractClientCredentials` helper）/`DiscoveryController`（metadata/oidcDiscovery/jwks 3 路由）。各 controller 自有 `plugin_`/`setPlugin()`/`resolvePlugin()`/`initApiDocs()`/`initApiDocsImpl()`（HealthController/SessionController 先例）。删除 `OAuth2StandardController.{h,cc}`。8 处引用点同步：`ControllerRegistration.cc`/`test_main.cc`/`main.cc`（include+registerController+setPlugin+initApiDocs）、`CategoryA_InitOrderSnapshotTest.cc`（expectedEndpoints）、`OAuth2FlowE2ETest.cc`（4 处 make_shared）。验证：build 0 错；`ctest` 276/277（route-manifest golden 不破——keys METHOD+path 不 key 类名；唯一失败的 `Property4_3_1` fingerprint 为 **pre-existing**，git diff 核实 golden 零改动、8 路由 METHOD+path 全保留）；运行时 8 路由全活（authorize 302；token/introspect/revoke/userinfo 400/401；3 discovery 200）。
 
 ---
 
