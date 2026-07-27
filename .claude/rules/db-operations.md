@@ -41,12 +41,18 @@ avoid use-after-free.
 `AccessTokenCallback/RefreshTokenCallback → (std::nullopt)`、
 `VoidCallback → ()`。
 
-## The three raw-SQL exemptions (and only these)
+## The raw-SQL exemptions (and only these)
 
 Raw SQL is allowed ONLY for:
 - **DDL** (schema setup, migrations),
 - **`UPDATE ... RETURNING`** (when you need the updated row back in one step),
-- **documented batch operations** (state the justification in a comment).
+- **documented batch operations** (state the justification in a comment),
+- **`INSERT ... ON CONFLICT`** (upsert/reserve patterns the Mapper cannot express;
+  justify in a comment),
+- **connectivity probes** (`SELECT 1` health checks that touch no table),
+- **explicit transaction `COMMIT`** (when durability MUST be confirmed before an
+  external side effect — e.g. channel ACK / outbound call; an implicit
+  destructor-time commit would race with the network call. Justify in a comment).
 
 Anything else as raw SQL is a violation. A PreToolUse hook also guards
 credential placeholders in these files, so failures show up before runtime.

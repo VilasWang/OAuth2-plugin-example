@@ -28,14 +28,16 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-docker"
-      ]
+      ],
+      "disabled": true
     },
     "memory": {
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-memory"
-      ]
+      ],
+      "disabled": false
     }
   }
 }
