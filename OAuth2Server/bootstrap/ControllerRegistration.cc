@@ -1,7 +1,9 @@
 #include "ControllerRegistration.h"
 #include <drogon/drogon.h>
 #include <drogon/DrClassMap.h>
-#include <authforge/drogon/controllers/OAuth2StandardController.h>
+#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
+#include <authforge/drogon/controllers/TokenEndpointController.h>
+#include <authforge/drogon/controllers/DiscoveryController.h>
 #include <authforge/drogon/controllers/HealthController.h>
 #ifdef WITH_SOCIAL
 #include <authforge/drogon/controllers/GoogleController.h>
@@ -107,7 +109,13 @@ void registerAllControllers()
       std::make_shared<authforge::drogon::controllers::AuditController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::OAuth2StandardController>()
+      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::TokenEndpointController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::DiscoveryController>()
     );
 }
 
@@ -145,7 +153,11 @@ void wireControllerPluginDependencies()
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::SessionController>()
       ->setPlugin(plugin);
     drogon::DrClassMap::getSingleInstance<
-      authforge::drogon::controllers::OAuth2StandardController>()
+      authforge::drogon::controllers::AuthorizationEndpointController>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::TokenEndpointController>()
+      ->setPlugin(plugin);
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::DiscoveryController>()
       ->setPlugin(plugin);
 
     // Filters are looked up by the same by-name DrClassMap mechanism their

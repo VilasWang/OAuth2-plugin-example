@@ -5,7 +5,8 @@
 #include <drogon/Cookie.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/controllers/SessionController.h>
-#include <authforge/drogon/controllers/OAuth2StandardController.h>
+#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
+#include <authforge/drogon/controllers/TokenEndpointController.h>
 #include <future>
 #include <iostream>
 #include <map>
@@ -32,7 +33,9 @@ DROGON_TEST(E2E_P0_OAuth2Flow_AuthCode_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
+    auto authzCtrl =
+      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
 
     std::string testUserId = "e2e_user_" + utils::getUuid().substr(0, 8);
     std::string testPassword = "TestPass123!";
@@ -116,7 +119,7 @@ DROGON_TEST(E2E_P0_OAuth2Flow_AuthCode_Works)
             req->setParameter("scope", "openid profile");
             req->setParameter("state", "test_state_123");
 
-            stdCtrl->authorize(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+            authzCtrl->authorize(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
@@ -176,7 +179,7 @@ DROGON_TEST(E2E_P0_OAuth2Flow_AuthCode_Works)
                 req->setParameter(param.first, param.second);
             }
 
-            stdCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+            tokenCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
             if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
             {
@@ -266,7 +269,9 @@ DROGON_TEST(Integration_P0_Session_Management_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
+    auto authzCtrl =
+      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
 
     // Test: Session Creation
     LOG_INFO << "--- Test: Session Creation ---";
@@ -278,7 +283,7 @@ DROGON_TEST(Integration_P0_Session_Management_Works)
         req->setMethod(Get);
         req->setPath("/oauth2/authorize");
 
-        stdCtrl->authorize(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+        authzCtrl->authorize(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
         if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
         {
@@ -327,7 +332,9 @@ DROGON_TEST(Integration_P0_Client_Authentication_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
+    auto authzCtrl =
+      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
 
     // Test: Public Client
     LOG_INFO << "--- Test: Public Client Authentication ---";
@@ -346,7 +353,7 @@ DROGON_TEST(Integration_P0_Client_Authentication_Works)
             req->setParameter(param.first, param.second);
         }
 
-        stdCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+        tokenCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
         if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
         {
@@ -375,7 +382,7 @@ DROGON_TEST(Integration_P0_Client_Authentication_Works)
             req->setParameter(param.first, param.second);
         }
 
-        stdCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+        tokenCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
         if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
         {
@@ -407,7 +414,7 @@ DROGON_TEST(Integration_P0_Client_Authentication_Works)
             req->setParameter(param.first, param.second);
         }
 
-        stdCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+        tokenCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
         if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
         {
@@ -433,7 +440,9 @@ DROGON_TEST(Integration_P1_RedirectUri_Validation_Works)
     }
 
     auto ctrl = std::make_shared<SessionController>();
-    auto stdCtrl = std::make_shared<authforge::drogon::controllers::OAuth2StandardController>();
+    auto authzCtrl =
+      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
 
     // Test: Valid Redirect URI
     LOG_INFO << "--- Test: Valid Redirect URI ---";
@@ -454,7 +463,7 @@ DROGON_TEST(Integration_P1_RedirectUri_Validation_Works)
             req->setParameter(param.first, param.second);
         }
 
-        stdCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+        tokenCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
         if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
         {
@@ -484,7 +493,7 @@ DROGON_TEST(Integration_P1_RedirectUri_Validation_Works)
             req->setParameter(param.first, param.second);
         }
 
-        stdCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
+        tokenCtrl->token(req, [&](const HttpResponsePtr &resp) { p.set_value(resp); });
 
         if (f.wait_for(std::chrono::seconds(30)) == std::future_status::timeout)
         {

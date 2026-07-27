@@ -30,7 +30,9 @@
 #include <authforge/drogon/controllers/RoleScopeAdminController.h>
 #include <authforge/drogon/controllers/TokenAdminController.h>
 #include <authforge/drogon/controllers/AuditController.h>
-#include <authforge/drogon/controllers/OAuth2StandardController.h>
+#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
+#include <authforge/drogon/controllers/TokenEndpointController.h>
+#include <authforge/drogon/controllers/DiscoveryController.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -319,14 +321,22 @@ int main(int argc, char **argv)
       std::make_shared<authforge::drogon::controllers::AuditController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::OAuth2StandardController>()
+      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::TokenEndpointController>()
+    );
+    drogon::app().registerController(
+      std::make_shared<authforge::drogon::controllers::DiscoveryController>()
     );
     // M3 Task 20 continuation: OAuth2Plugin.cc no longer calls this itself
     // (removed to break a circular dependency, see OAuth2Plugin.cc's own
     // comment) -- this test binary must call it explicitly, same as
     // OAuth2Server/main.cc already does, so OpenAPI docs are registered
     // before app().run() below.
-    authforge::drogon::controllers::OAuth2StandardController::initApiDocs();
+    authforge::drogon::controllers::AuthorizationEndpointController::initApiDocs();
+    authforge::drogon::controllers::TokenEndpointController::initApiDocs();
+    authforge::drogon::controllers::DiscoveryController::initApiDocs();
 
     std::promise<void> p1;
     std::future<void> f1 = p1.get_future();

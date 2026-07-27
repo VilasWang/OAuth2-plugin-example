@@ -30,7 +30,9 @@ namespace authforge::drogon::adapters
 class StorageSubjectResolver : public authforge::common::ports::ISubjectResolver
 {
   public:
-    explicit StorageSubjectResolver(std::shared_ptr<::oauth2::ISubjectMappingRepository> subjectMappingRepo)
+    explicit StorageSubjectResolver(
+      std::shared_ptr<::oauth2::ISubjectMappingRepository> subjectMappingRepo
+    )
         : subjectMappingRepo_(std::move(subjectMappingRepo))
     {
     }

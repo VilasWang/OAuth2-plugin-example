@@ -46,7 +46,8 @@ using namespace authforge::drogon::observability::openapi;
 
 namespace
 {
-// The endpoint set that OAuth2StandardController::initApiDocs() must register.
+// The endpoint set that AuthorizationEndpoint/TokenEndpoint/DiscoveryController's
+// initApiDocs() must register (B10/Task 45 split the former OAuth2StandardController).
 // This is the BASELINE contract for 1.1. If a hostile link/init order ever
 // caused `docs_`'s ctor to run before the OpenApiGenerator registry was ready,
 // one or more of these would be MISSING from the generated spec — that is the

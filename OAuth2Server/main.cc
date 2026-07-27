@@ -13,7 +13,9 @@
 #include <oauth2/error/ErrorResponder.h>
 #include <oauth2/error/ErrorTypes.h>
 #include <oauth2/error/RequestId.h>
-#include <authforge/drogon/controllers/OAuth2StandardController.h>
+#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
+#include <authforge/drogon/controllers/TokenEndpointController.h>
+#include <authforge/drogon/controllers/DiscoveryController.h>
 
 #include "bootstrap/ControllerRegistration.h"
 #include "bootstrap/CorsSetup.h"
@@ -198,7 +200,9 @@ int main()
     // why OAuth2Plugin no longer calls it itself: circular-dependency
     // avoidance between OAuth2Plugin and libs/drogon).
     LOG_INFO << "Initializing API documentation...";
-    authforge::drogon::controllers::OAuth2StandardController::initApiDocs();
+    authforge::drogon::controllers::AuthorizationEndpointController::initApiDocs();
+    authforge::drogon::controllers::TokenEndpointController::initApiDocs();
+    authforge::drogon::controllers::DiscoveryController::initApiDocs();
     bootstrap::setupOpenApi();
 
     // Swagger UI is available at http://localhost:8080/docs/api/swagger-ui/
