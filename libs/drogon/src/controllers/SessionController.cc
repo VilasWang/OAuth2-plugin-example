@@ -312,6 +312,9 @@ void SessionController::showLoginPage(
     std::string responseType = params["response_type"];
     std::string codeChallenge = params["code_challenge"];
     std::string codeChallengeMethod = params["code_challenge_method"];
+    // P0 #1 (评审问题点 1): OIDC nonce must survive the login round-trip the
+    // same way the PKCE pair does, or it is silently dropped on this path.
+    std::string nonce = params["nonce"];
 
     LOG_INFO << "Showing login page with OAuth2 parameters: client_id=" << clientId
              << ", code_challenge=" << (codeChallenge.empty() ? "not provided" : "provided");
@@ -340,6 +343,7 @@ void SessionController::showLoginPage(
     data["response_type"] = responseType;
     data["code_challenge"] = codeChallenge;
     data["code_challenge_method"] = codeChallengeMethod.empty() ? "plain" : codeChallengeMethod;
+    data["nonce"] = nonce;
     data["frontend_register_url"] = frontendRegisterUrl;
 
     // Render login.csp template

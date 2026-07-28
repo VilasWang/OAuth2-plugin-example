@@ -38,6 +38,13 @@ void PostgresGrantRepository::saveAuthCode(const OAuth2AuthCode &code, VoidCallb
         newCode.setUserId(code.userId);
         newCode.setScope(code.scope);
         newCode.setRedirectUri(code.redirectUri);
+        // PKCE (RFC 7636): persist the challenge with the code so the token
+        // endpoint can enforce the verifier. Empty -> NULL (non-PKCE flow).
+        if (!code.codeChallenge.empty())
+        {
+            newCode.setCodeChallenge(code.codeChallenge);
+            newCode.setCodeChallengeMethod(code.codeChallengeMethod);
+        }
         newCode.setExpiresAt(code.expiresAt);
         newCode.setUsed(code.used);
 
@@ -82,6 +89,9 @@ void PostgresGrantRepository::getAuthCode(const std::string &code, AuthCodeCallb
               c.userId = row.getValueOfUserId();
               c.scope = row.getValueOfScope();
               c.redirectUri = row.getValueOfRedirectUri();
+              c.codeChallenge = row.getCodeChallenge() ? row.getValueOfCodeChallenge() : "";
+              c.codeChallengeMethod =
+                row.getCodeChallengeMethod() ? row.getValueOfCodeChallengeMethod() : "";
               c.expiresAt = row.getValueOfExpiresAt();  // int64_t
               c.used = row.getValueOfUsed();
               (*sharedCb)(c);

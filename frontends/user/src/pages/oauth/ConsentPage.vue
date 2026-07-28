@@ -12,6 +12,12 @@ const clientId = route.query.client_id as string || ''
 const scope = route.query.scope as string || ''
 const redirectUri = route.query.redirect_uri as string || ''
 const state = route.query.state as string || ''
+// P0 #1: PKCE/nonce must round-trip through the consent page, otherwise the
+// authorization code is issued without a stored code_challenge and the token
+// endpoint's PKCE verification is silently skipped.
+const codeChallenge = route.query.code_challenge as string || ''
+const codeChallengeMethod = route.query.code_challenge_method as string || ''
+const nonce = route.query.nonce as string || ''
 
 const scopes = scope.split(' ').filter(Boolean)
 
@@ -27,14 +33,20 @@ const scopeDescriptions: Record<string, string> = {
 async function handleConsent(action: 'approve' | 'deny') {
   loading.value = true
   try {
-    const resp = await axios.post('/oauth2/consent', new URLSearchParams({
+    const params = new URLSearchParams({
       client_id: clientId,
       user_id: auth.user?.sub || '',
       scope,
       redirect_uri: redirectUri,
       state,
       action,
-    }))
+    })
+    if (codeChallenge) {
+      params.set('code_challenge', codeChallenge)
+      params.set('code_challenge_method', codeChallengeMethod)
+    }
+    if (nonce) params.set('nonce', nonce)
+    const resp = await axios.post('/oauth2/consent', params)
     // Server returns redirect_uri with code
     if (resp.data?.redirect_uri) {
       window.location.href = resp.data.redirect_uri

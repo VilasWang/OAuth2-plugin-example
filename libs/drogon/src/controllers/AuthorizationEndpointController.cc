@@ -96,6 +96,18 @@ void AuthorizationEndpointController::authorize(
     std::string redirectUri = params["redirect_uri"];
     std::string scope = params["scope"];
     std::string state = params["state"];
+    // Review finding #1 (评审问题点 P0): this endpoint used to read only the
+    // five parameters above and silently dropped code_challenge/
+    // code_challenge_method/nonce, so the silent re-authorization path
+    // (logged-in + prior consent) issued codes with an empty challenge --
+    // TokenService's PKCE check is conditional on a stored challenge
+    // (RFC 7636 §4.4), so the whole PKCE line of defense was bypassed and
+    // the id_token lost its nonce claim (OIDC Core §3.1.3.7). Extract and
+    // thread all three through every branch below, matching the
+    // SessionController login/consent issuance paths.
+    std::string codeChallenge = params["code_challenge"];
+    std::string codeChallengeMethod = params["code_challenge_method"];
+    std::string nonce = params["nonce"];
 
     // P0-4: State Parameter Enforcement
     if (state.empty())
@@ -199,6 +211,9 @@ void AuthorizationEndpointController::authorize(
        scope,
        state,
        responseType,
+       codeChallenge,
+       codeChallengeMethod,
+       nonce,
        req,
        callback = std::move(callback)](bool validClient) mutable {
           if (!validClient)
@@ -232,6 +247,9 @@ void AuthorizationEndpointController::authorize(
              scope,
              state,
              responseType,
+             codeChallenge,
+             codeChallengeMethod,
+             nonce,
              req,
              callback = std::move(callback)](bool validUri) mutable {
                 if (!validUri)
@@ -286,6 +304,19 @@ void AuthorizationEndpointController::authorize(
                       "&scope=" + ::drogon::utils::urlEncode(scope) +
                       "&state=" + ::drogon::utils::urlEncode(state) +
                       "&response_type=" + ::drogon::utils::urlEncode(responseType);
+                    // Review finding #1: carry the PKCE triple into the login
+                    // screen so login.csp's hidden fields can hand it back to
+                    // SessionController::login (which already threads it into
+                    // generateAuthorizationCode).
+                    if (!codeChallenge.empty())
+                    {
+                        location +=
+                          "&code_challenge=" + ::drogon::utils::urlEncode(codeChallenge) +
+                          "&code_challenge_method=" +
+                          ::drogon::utils::urlEncode(codeChallengeMethod);
+                    }
+                    if (!nonce.empty())
+                        location += "&nonce=" + ::drogon::utils::urlEncode(nonce);
                     auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
                     callback(resp);
                     return;
@@ -311,6 +342,9 @@ void AuthorizationEndpointController::authorize(
                    redirectUri,
                    state,
                    scope,
+                   codeChallenge,
+                   codeChallengeMethod,
+                   nonce,
                    callback = std::move(callback)](
                     authforge::oauth2::access::ScopeValidationSummary summary
                   ) mutable {
@@ -356,7 +390,54 @@ void AuthorizationEndpointController::authorize(
                             "&scope=" + ::drogon::utils::urlEncode(scope) +
                             "&redirect_uri=" + ::drogon::utils::urlEncode(redirectUri) +
                             "&state=" + ::drogon::utils::urlEncode(state);
+                          // Review finding #1: the consent screen (frontend
+                          // ConsentPage.vue) echoes these query params back to
+                          // POST /oauth2/consent, whose handler already reads
+                          // and threads them into generateAuthorizationCode.
+                          if (!codeChallenge.empty())
+                          {
+                              location +=
+                                "&code_challenge=" +
+                                ::drogon::utils::urlEncode(codeChallenge) +
+                                "&code_challenge_method=" +
+                                ::drogon::utils::urlEncode(codeChallengeMethod);
+                          }
+                          if (!nonce.empty())
+                              location += "&nonce=" + ::drogon::utils::urlEncode(nonce);
                           auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
+                          callback(resp);
+                          return;
+                      }
+
+                      // Review finding #1: mirror SessionController::login's
+                      // CHECK 3 -- with auth.require_pkce_for_public enabled,
+                      // the silent re-authorization path must not issue codes
+                      // without a code_challenge either (previously only the
+                      // login path enforced this, so a returning user's
+                      // /oauth2/authorize replay bypassed the policy).
+                      auto customConfig = ::drogon::app().getCustomConfig();
+                      bool requirePkce = false;
+                      if (
+                        customConfig.isMember("auth") &&
+                        customConfig["auth"].isMember("require_pkce_for_public")
+                      )
+                      {
+                          requirePkce = customConfig["auth"]["require_pkce_for_public"].asBool();
+                      }
+                      if (requirePkce && codeChallenge.empty())
+                      {
+                          LOG_WARN << "[SECURITY] client " << clientId
+                                   << " re-authorization without PKCE (enforcement enabled)";
+                          Json::Value jsonErr;
+                          jsonErr["error"] = "invalid_request";
+                          jsonErr["error_description"] =
+                            "PKCE (code_challenge) is required for public clients";
+                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(jsonErr);
+                          resp->setStatusCode(
+                            authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(
+                              "invalid_request"
+                            )
+                          );
                           callback(resp);
                           return;
                       }
@@ -367,9 +448,9 @@ void AuthorizationEndpointController::authorize(
                         userId,
                         scope,
                         redirectUri,
-                        "",  // codeChallenge
-                        "",  // codeChallengeMethod
-                        "",  // nonce
+                        codeChallenge,
+                        codeChallengeMethod,
+                        nonce,
                         [redirectUri, state, callback = std::move(callback)](
                           bool success, std::string code, std::string error
                         ) mutable {
