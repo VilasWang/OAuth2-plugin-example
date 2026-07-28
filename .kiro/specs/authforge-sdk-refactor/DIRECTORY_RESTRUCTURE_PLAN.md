@@ -149,6 +149,8 @@
 - 消费者改链：`OAuth2Server` + `OAuth2Server/test` 的 `target_link_libraries` 去掉裸 `OAuth2Plugin`，靠 `authforge::drogon` 传递
 - **Phase 4 末运行时 gate（强制）**：起服务器确认 config 反射仍加载 `OAuth2Plugin` 插件——启动日志必须含 `OAuth2Plugin initialized with storage type: postgres` + `Controller/filter plugin dependencies wired`；curl `/health`→200、`/login`→200（login.csp 渲染）、`/.well-known/openid-configuration`→200。**这是整个计划的关键 gate**——OBJECT→STATIC 合并后符号可见性若出问题，build 完全正常但启动「plugin not found」崩溃，只有运行时能抓到。若失败，回退到 Phase 3 末 tag，改用保守方案（OAuth2Plugin 保留为独立 OBJECT 库，仅迁物理位置不合并）。
 
+> **✅ Phase 4 完成（commit `0699133`，2026-07-28）**：6 文件 git mv（rename 相似度 99-100%）；全仓 `<oauth2/` include 归零（50 文件字节级替换）；OBJECT→STATIC 合并 + 3 处 CMake 改链 + paths.env/脚本 rebase + 功能性残留清零 + `OAuth2Plugin/` 目录删除。全量 build 0 error / LNK4006=0 / C4244=0；**运行时 gate 绿**：启动日志两条关键行均出现，`/health` `/login` `/.well-known/openid-configuration` 全 200——符号保活机制（bootstrap `getPlugin<::OAuth2Plugin>()`）验证成立，未触发回退。回退 tag `restructure-phase3-end` 保留。
+
 ### Phase 5 — 顶层目录迁移 = A7 + A8 + .codebuddy/.claude 同步
 
 **5a. `OAuth2Server` → `apps/server`（A7）**：
