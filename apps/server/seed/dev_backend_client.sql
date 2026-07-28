@@ -13,3 +13,10 @@ VALUES (
     'client_credentials'
 )
 ON CONFLICT (client_id) DO NOTHING;
+
+-- Grant scopes to backend-svc (P0 #2: client_credentials now validates the
+-- requested scope against oauth2_client_scopes; without this grant the
+-- endpoint-script Test 10 request for scope=read would be rejected)
+INSERT INTO oauth2_client_scopes (client_id, scope_name)
+SELECT 'backend-svc', name FROM oauth2_scopes WHERE name IN ('read', 'write')
+ON CONFLICT (client_id, scope_name) DO NOTHING;

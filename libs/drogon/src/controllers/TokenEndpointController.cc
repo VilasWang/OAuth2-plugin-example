@@ -6,6 +6,7 @@
 #include <authforge/drogon/error/OAuth2ErrorHandler.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/oauth2/model/Client.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -764,9 +765,53 @@ void TokenEndpointController::token(
                         return;
                     }
 
-                    // Determine scope (intersection of requested and allowed)
+                    // P0 #2 (评审问题点 2, RFC 6749 §3.3): validate the requested
+                    // scope against the client's registered allowlist instead of
+                    // echoing it back unchecked (or hardcoding "read" as default).
+                    // - requested scope exceeding the allowlist -> invalid_scope
+                    // - omitted scope -> default to the full registered scope set
+                    // - omitted scope + empty registration -> invalid_scope (the
+                    //   server has no pre-defined default to fall back on)
+                    authforge::oauth2::model::Client aggregate(*client);
                     std::string requestedScope = req->getParameter("scope");
-                    std::string grantedScope = requestedScope.empty() ? "read" : requestedScope;
+                    std::string grantedScope;
+                    if (!requestedScope.empty())
+                    {
+                        if (!aggregate.allowsAllScopes(requestedScope))
+                        {
+                            Json::Value error;
+                            error["error"] = "invalid_scope";
+                            error["error_description"] =
+                              "Requested scope exceeds the scopes registered for this client";
+                            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                            resp->setStatusCode(::drogon::k400BadRequest);
+                            (*sharedCb)(resp);
+                            return;
+                        }
+                        grantedScope = requestedScope;
+                    }
+                    else
+                    {
+                        const auto &allowed = aggregate.allowedScopes();
+                        if (allowed.empty())
+                        {
+                            Json::Value error;
+                            error["error"] = "invalid_scope";
+                            error["error_description"] =
+                              "No scope requested and no default scope registered for this "
+                              "client";
+                            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                            resp->setStatusCode(::drogon::k400BadRequest);
+                            (*sharedCb)(resp);
+                            return;
+                        }
+                        for (const auto &s : allowed)
+                        {
+                            if (!grantedScope.empty())
+                                grantedScope += " ";
+                            grantedScope += s;
+                        }
+                    }
 
                     // Generate access token (no refresh token for client_credentials)
                     auto tokenStr = authforge::drogon::utils::generateSecureToken();
