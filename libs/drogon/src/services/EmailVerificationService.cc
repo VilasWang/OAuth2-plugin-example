@@ -2,9 +2,9 @@
 
 #include <authforge/storage/postgres/models/EmailVerificationTokens.h>
 #include <authforge/storage/postgres/models/Users.h>
-#include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/utils/EmailService.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/drogon/utils/EmailService.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 

@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <drogon/HttpResponse.h>
-#include <oauth2/error/OAuth2ErrorHandler.h>
+#include <authforge/drogon/error/OAuth2ErrorHandler.h>
 
 #include <string>
 

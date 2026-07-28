@@ -1,8 +1,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/utils/TotpUtils.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/drogon/utils/TotpUtils.h>
 #include <future>
 #include <chrono>
 

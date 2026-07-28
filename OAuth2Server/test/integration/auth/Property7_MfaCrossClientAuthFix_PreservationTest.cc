@@ -25,7 +25,7 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/utils/TotpUtils.h>
+#include <authforge/drogon/utils/TotpUtils.h>
 #include <json/json.h>
 #include <future>
 #include <chrono>

@@ -1,15 +1,22 @@
 #include <authforge/drogon/filters/AuthorizationFilter.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/error/ErrorResponder.h>
-#include <oauth2/error/ErrorTypes.h>
-#include <oauth2/error/RequestId.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/common/error/ErrorTypes.h>
+#include <authforge/drogon/error/RequestId.h>
 #include <drogon/drogon.h>
 
 namespace authforge::drogon::filters
 {
 
+using namespace drogon;
+
 AuthorizationFilter::AuthorizationFilter()
 {
+}
+
+OAuth2Plugin *AuthorizationFilter::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : app().getPlugin<OAuth2Plugin>();
 }
 
 void AuthorizationFilter::loadConfig()
@@ -33,7 +40,7 @@ void AuthorizationFilter::loadRulesSafely()
     std::vector<RbacRule> localRules;
     std::vector<std::regex> localPublic;
 
-    auto config = ::drogon::app().getCustomConfig();
+    auto config = app().getCustomConfig();
     if (config.isMember("rbac_rules") && config["rbac_rules"].isObject())
     {
         auto rules = config["rbac_rules"];
@@ -73,9 +80,9 @@ void AuthorizationFilter::loadRulesSafely()
 }
 
 void AuthorizationFilter::doFilter(
-  const ::drogon::HttpRequestPtr &req,
-  ::drogon::FilterCallback &&fcb,
-  ::drogon::FilterChainCallback &&fccb
+  const HttpRequestPtr &req,
+  FilterCallback &&fcb,
+  FilterChainCallback &&fccb
 )
 {
     loadConfig();
@@ -103,25 +110,25 @@ void AuthorizationFilter::doFilter(
     {
         // Session not found or invalid - use Error Envelope (Req 7.1/7.3)
         LOG_WARN << "Authorization failed: token missing";
-        auto error = ::authforge::common::error::Error::fromCode(
-          "AUTH_TOKEN_INVALID", ::authforge::common::error::RequestId::resolve(req)
+        auto error = authforge::common::error::Error::fromCode(
+          "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
         );
         error.message = "Authentication required";
-        auto resp = ::authforge::common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);  // Return response -> Use fcb
         return;
     }
 
     // 2. Validate Token
-    auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
+    auto plugin = resolvePlugin();
     if (!plugin)
     {
         LOG_ERROR << "OAuth2Plugin not found!";
-        auto error = ::authforge::common::error::Error::fromCode(
-          "INTERNAL_ERROR", ::authforge::common::error::RequestId::resolve(req)
+        auto error = authforge::common::error::Error::fromCode(
+          "INTERNAL_ERROR", authforge::common::error::RequestId::resolve(req)
         );
         error.message = "OAuth2 plugin not available";
-        auto resp = ::authforge::common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);  // Return response -> Use fcb
         return;
     }
@@ -129,8 +136,8 @@ void AuthorizationFilter::doFilter(
     // Wrap callbacks to avoid move/copy issues in nested lambdas
     // FilterCallback (Arg 2) = Return Response (Stop/Deny)
     // FilterChainCallback (Arg 3) = Continue (Pass)
-    auto denyCbPtr = std::make_shared<::drogon::FilterCallback>(std::move(fcb));
-    auto nextCbPtr = std::make_shared<::drogon::FilterChainCallback>(std::move(fccb));
+    auto denyCbPtr = std::make_shared<FilterCallback>(std::move(fcb));
+    auto nextCbPtr = std::make_shared<FilterChainCallback>(std::move(fccb));
 
     plugin->validateAccessToken(
       token,
@@ -140,11 +147,11 @@ void AuthorizationFilter::doFilter(
           if (!at)
           {
               LOG_WARN << "Authorization failed: invalid or expired token";
-              auto error = ::authforge::common::error::Error::fromCode(
-                "AUTH_TOKEN_INVALID", ::authforge::common::error::RequestId::resolve(req)
+              auto error = authforge::common::error::Error::fromCode(
+                "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
               );
               error.message = "Invalid or expired token";
-              auto resp = ::authforge::common::error::ErrorResponder::buildResponse(req, error);
+              auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
               (*denyCbPtr)(resp);
               return;
           }
@@ -161,13 +168,12 @@ void AuthorizationFilter::doFilter(
                 {
                     LOG_WARN << "Authorization failed: insufficient permissions for path "
                              << req->path();
-                    auto error = ::authforge::common::error::Error::fromCode(
+                    auto error = authforge::common::error::Error::fromCode(
                       "AUTHZ_INSUFFICIENT_PERMISSIONS",
-                      ::authforge::common::error::RequestId::resolve(req)
+                      authforge::common::error::RequestId::resolve(req)
                     );
                     error.message = "Insufficient permissions";
-                    auto resp =
-                      ::authforge::common::error::ErrorResponder::buildResponse(req, error);
+                    auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
                     (*denyCbPtr)(resp);  // DENY -> Return 403
                 }
             }

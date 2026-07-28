@@ -18,7 +18,7 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/HttpRequest.h>
-#include <oauth2/error/RequestId.h>
+#include <authforge/drogon/error/RequestId.h>
 
 #include <random>
 #include <set>

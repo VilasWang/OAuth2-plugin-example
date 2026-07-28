@@ -1,6 +1,6 @@
 #include <authforge/drogon/controllers/DiscoveryController.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/error/OAuth2ErrorHandler.h>
+#include <authforge/drogon/error/OAuth2ErrorHandler.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <drogon/drogon.h>
 #include <mutex>

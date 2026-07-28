@@ -2,8 +2,8 @@
 #include <authforge/storage/postgres/models/Users.h>
 #include <authforge/storage/postgres/models/Roles.h>
 #include <authforge/storage/postgres/models/UserRoles.h>
-#include <oauth2/utils/PasswordHasher.h>
-#include <oauth2/utils/EmailNormalizer.h>
+#include <authforge/drogon/utils/PasswordHasher.h>
+#include <authforge/common/utils/EmailNormalizer.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 

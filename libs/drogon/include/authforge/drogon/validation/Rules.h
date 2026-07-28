@@ -1,15 +1,5 @@
 #pragma once
 
-// M3 Task 20 (authforge-sdk-refactor, design.md §6 "libs/drogon # Drogon
-// 绑定 ... 插件(装配器)/controllers/filters/views"): relocated verbatim
-// from OAuth2Plugin/include/oauth2/validation/Rules.h. Pure constants/
-// structs, zero OAuth2Plugin dependency, so this is the lowest-risk first
-// slice of the M3 Drogon-binding migration. Namespace is
-// authforge::drogon::validation (design.md §6 namespace sync); the old
-// authforge::drogon::validation:: location becomes a compatibility shim (same
-// pattern as libs/oauth2's JwkManager.h shim from Task 17 slice 10) so
-// existing call sites keep compiling until the full M8 namespace sweep.
-
 #include <string>
 #include <functional>
 

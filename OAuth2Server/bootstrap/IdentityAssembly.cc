@@ -25,8 +25,8 @@
 #include <authforge/storage/postgres/PostgresWebAuthnRepository.h>
 #include <drogon/DrClassMap.h>
 #include <drogon/drogon.h>
-#include <oauth2/adapters/OpenSslCryptoProvider.h>
-#include <oauth2/adapters/SystemClock.h>
+#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
+#include <authforge/drogon/adapters/SystemClock.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
 #include <memory>

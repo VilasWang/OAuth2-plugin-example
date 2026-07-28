@@ -1,5 +1,5 @@
 #include <drogon/drogon_test.h>
-#include <oauth2/error/ErrorCatalog.h>
+#include <authforge/common/error/ErrorCatalog.h>
 
 #include <string>
 #include <vector>

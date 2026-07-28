@@ -1,9 +1,9 @@
 #include <authforge/drogon/controllers/AuthorizationEndpointController.h>
 #include <authforge/oauth2/access/ScopeDecision.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/validation/RuleSet.h>
-#include <oauth2/validation/HttpResponder.h>
-#include <oauth2/error/OAuth2ErrorHandler.h>
+#include <authforge/drogon/validation/RuleSet.h>
+#include <authforge/drogon/validation/HttpResponder.h>
+#include <authforge/drogon/error/OAuth2ErrorHandler.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>

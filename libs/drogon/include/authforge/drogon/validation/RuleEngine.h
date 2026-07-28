@@ -1,10 +1,5 @@
 #pragma once
 
-// M3 Task 20: relocated verbatim from
-// OAuth2Plugin/include/oauth2/validation/RuleEngine.h into
-// authforge::drogon::validation (see Rules.h in this directory for the
-// migration rationale).
-
 #include <authforge/drogon/validation/Rules.h>
 #include <vector>
 #include <utility>

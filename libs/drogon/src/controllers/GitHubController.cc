@@ -3,8 +3,8 @@
 #include <drogon/drogon.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 
 #ifdef WITH_SOCIAL
 // Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this

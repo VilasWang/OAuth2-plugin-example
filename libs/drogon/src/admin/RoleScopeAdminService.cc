@@ -3,7 +3,7 @@
 #include <authforge/storage/postgres/models/Roles.h>
 #include <authforge/storage/postgres/models/Oauth2Scopes.h>
 #include <authforge/storage/postgres/models/UserRoles.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>

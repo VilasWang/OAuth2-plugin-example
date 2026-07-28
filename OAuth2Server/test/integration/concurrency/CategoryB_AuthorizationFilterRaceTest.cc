@@ -59,7 +59,7 @@
 #include <thread>
 #include <vector>
 
-#include <oauth2/filters/AuthorizationFilter.h>
+#include <authforge/drogon/filters/AuthorizationFilter.h>
 
 #include "ConcurrencyRaceSupport.h"
 

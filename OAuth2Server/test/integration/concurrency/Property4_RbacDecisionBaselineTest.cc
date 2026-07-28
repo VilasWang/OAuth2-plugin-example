@@ -70,7 +70,7 @@
 #include <string>
 #include <vector>
 
-#include <oauth2/filters/AuthorizationFilter.h>
+#include <authforge/drogon/filters/AuthorizationFilter.h>
 
 #include "Property4_PreservationSupport.h"
 

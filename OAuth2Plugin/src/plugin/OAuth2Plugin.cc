@@ -1,12 +1,12 @@
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/filters/OAuth2AuthFilter.h>
+#include <authforge/drogon/filters/OAuth2AuthFilter.h>
 #include <authforge/oauth2/jwk/JwkManager.h>
-#include <oauth2/adapters/DrogonLogger.h>
-#include <oauth2/adapters/StorageRoleProvider.h>
-#include <oauth2/adapters/OpenSslCryptoProvider.h>
-#include <oauth2/adapters/DrogonAuditSink.h>
-#include <oauth2/adapters/DrogonMetrics.h>
-#include <oauth2/adapters/StorageSubjectResolver.h>
+#include <authforge/drogon/adapters/DrogonLogger.h>
+#include <authforge/drogon/adapters/StorageRoleProvider.h>
+#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
+#include <authforge/drogon/adapters/DrogonAuditSink.h>
+#include <authforge/drogon/adapters/DrogonMetrics.h>
+#include <authforge/drogon/adapters/StorageSubjectResolver.h>
 #include <authforge/oauth2/protocol/AuthorizationService.h>
 // Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
 // per-backend RepositoryBundle and extracts its four oauth2 split-repository

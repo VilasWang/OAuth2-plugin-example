@@ -2,7 +2,7 @@
 
 #include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
 #include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 

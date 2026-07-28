@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <drogon/utils/Utilities.h>
-#include <oauth2/utils/PasswordHasher.h>
+#include <authforge/drogon/utils/PasswordHasher.h>
 
 using namespace authforge::common::utils;
 

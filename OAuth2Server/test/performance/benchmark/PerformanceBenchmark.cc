@@ -4,7 +4,7 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
-#include <oauth2/utils/SubjectGenerator.h>
+#include <authforge/drogon/utils/SubjectGenerator.h>
 
 using namespace authforge::common::utils;
 

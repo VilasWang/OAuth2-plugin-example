@@ -1,6 +1,6 @@
 #include <authforge/drogon/controllers/SessionController.h>
 #include <authforge/storage/postgres/models/Users.h>
-#include <oauth2/adapters/DrogonAuditSink.h>
+#include <authforge/drogon/adapters/DrogonAuditSink.h>
 
 #include <authforge/drogon/AuthService.h>
 #include <authforge/drogon/controllers/EmailVerificationController.h>
@@ -12,9 +12,9 @@
 #include <algorithm>
 #include <functional>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <oauth2/validation/RuleSet.h>
-#include <oauth2/validation/HttpResponder.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/validation/RuleSet.h>
+#include <authforge/drogon/validation/HttpResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 
 // Task 24 slice 4 (authforge-sdk-refactor): identity-layer services this
 // controller now optionally consumes (see SessionController.h's

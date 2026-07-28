@@ -44,7 +44,7 @@
 #include <vector>
 
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <oauth2/filters/RequestValidationFilter.h>
+#include <authforge/drogon/filters/RequestValidationFilter.h>
 
 #include "Property4_PreservationSupport.h"
 

@@ -2,13 +2,13 @@
 
 #include <authforge/storage/postgres/models/PasswordResetTokens.h>
 #include <authforge/storage/postgres/models/Users.h>
-#include <oauth2/adapters/DrogonAuditSink.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/adapters/DrogonAuditSink.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/utils/CryptoUtils.h>
-#include <oauth2/utils/EmailNormalizer.h>
-#include <oauth2/utils/EmailService.h>
-#include <oauth2/utils/PasswordHasher.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/common/utils/EmailNormalizer.h>
+#include <authforge/drogon/utils/EmailService.h>
+#include <authforge/drogon/utils/PasswordHasher.h>
 
 #include <drogon/drogon.h>
 

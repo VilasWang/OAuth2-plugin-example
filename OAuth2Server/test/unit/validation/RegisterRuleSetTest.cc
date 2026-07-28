@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <drogon/HttpRequest.h>
-#include <oauth2/validation/RuleSet.h>
+#include <authforge/drogon/validation/RuleSet.h>
 
 using authforge::drogon::validation::RuleSet;
 using drogon::HttpRequest;

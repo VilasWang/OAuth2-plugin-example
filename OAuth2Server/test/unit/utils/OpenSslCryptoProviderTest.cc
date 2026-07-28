@@ -14,10 +14,10 @@
 #include <drogon/drogon_test.h>
 #include <drogon/utils/Utilities.h>
 
-#include <oauth2/adapters/OpenSslCryptoProvider.h>
-#include <oauth2/adapters/OpenSslUuidGenerator.h>
-#include <oauth2/adapters/SystemClock.h>
-#include <oauth2/utils/CryptoUtils.h>
+#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
+#include <authforge/drogon/adapters/OpenSslUuidGenerator.h>
+#include <authforge/drogon/adapters/SystemClock.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
 #include <openssl/evp.h>

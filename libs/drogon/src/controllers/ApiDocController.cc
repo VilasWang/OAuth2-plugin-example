@@ -1,6 +1,6 @@
 #include <authforge/drogon/controllers/ApiDocController.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
 #include <fstream>

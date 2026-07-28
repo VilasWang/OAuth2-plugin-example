@@ -1,10 +1,10 @@
 #include "ExceptionHandlerSetup.h"
 #include <drogon/drogon.h>
-#include <oauth2/error/ErrorCatalog.h>
-#include <oauth2/error/ErrorResponder.h>
-#include <oauth2/error/ErrorTypes.h>
-#include <oauth2/error/OAuth2ErrorHandler.h>
-#include <oauth2/error/RequestId.h>
+#include <authforge/common/error/ErrorCatalog.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/common/error/ErrorTypes.h>
+#include <authforge/drogon/error/OAuth2ErrorHandler.h>
+#include <authforge/drogon/error/RequestId.h>
 #include <string>
 
 namespace bootstrap

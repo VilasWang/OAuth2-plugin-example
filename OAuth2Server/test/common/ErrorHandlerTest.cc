@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <oauth2/error/ErrorHandler.h>
+#include <authforge/drogon/error/ErrorHandler.h>
 
 using namespace drogon;
 using namespace ::drogon::orm;

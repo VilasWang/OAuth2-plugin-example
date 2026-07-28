@@ -58,8 +58,8 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-#include <oauth2/error/OAuth2ErrorHandler.h>
-#include <oauth2/error/ErrorCatalog.h>
+#include <authforge/drogon/error/OAuth2ErrorHandler.h>
+#include <authforge/common/error/ErrorCatalog.h>
 #include <json/json.h>
 
 #include <memory>

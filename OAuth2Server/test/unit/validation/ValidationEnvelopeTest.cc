@@ -25,8 +25,8 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/HttpResponse.h>
-#include <oauth2/validation/HttpResponder.h>
-#include <oauth2/error/ErrorContext.h>
+#include <authforge/drogon/validation/HttpResponder.h>
+#include <authforge/common/error/ErrorContext.h>
 #include <json/json.h>
 
 #include <memory>

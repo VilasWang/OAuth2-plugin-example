@@ -31,8 +31,8 @@
 #include <authforge/drogon/controllers/RoleScopeAdminController.h>
 #include <authforge/drogon/controllers/TokenAdminController.h>
 #include <authforge/drogon/controllers/AuditController.h>
-#include <oauth2/filters/AuthorizationFilter.h>
-#include <oauth2/filters/OAuth2AuthFilter.h>
+#include <authforge/drogon/filters/AuthorizationFilter.h>
+#include <authforge/drogon/filters/OAuth2AuthFilter.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 
 namespace bootstrap

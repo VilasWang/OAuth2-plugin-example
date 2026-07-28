@@ -4,7 +4,7 @@
 #include <authforge/storage/postgres/models/Users.h>
 #include <authforge/storage/postgres/models/Oauth2Clients.h>
 #include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>

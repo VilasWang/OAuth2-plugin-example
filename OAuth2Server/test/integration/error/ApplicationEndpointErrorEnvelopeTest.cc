@@ -83,9 +83,9 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 
-#include <oauth2/error/ErrorCatalog.h>
-#include <oauth2/error/ErrorResponder.h>
-#include <oauth2/error/ErrorTypes.h>
+#include <authforge/common/error/ErrorCatalog.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/common/error/ErrorTypes.h>
 
 #include <json/json.h>
 

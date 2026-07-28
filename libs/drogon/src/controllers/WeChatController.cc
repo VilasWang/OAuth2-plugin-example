@@ -1,7 +1,7 @@
 #include <authforge/drogon/controllers/WeChatController.h>
 #include <drogon/HttpClient.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 
 #ifdef WITH_SOCIAL
 // Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this

@@ -1,10 +1,10 @@
 #include <authforge/drogon/controllers/MfaController.h>
-#include <oauth2/utils/TotpUtils.h>
-#include <oauth2/utils/CryptoUtils.h>
+#include <authforge/drogon/utils/TotpUtils.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/adapters/DrogonAuditSink.h>
+#include <authforge/drogon/adapters/DrogonAuditSink.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <chrono>
 

@@ -2,8 +2,8 @@
 
 #include <authforge/storage/postgres/models/Oauth2Clients.h>
 #include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
-#include <oauth2/error/ErrorResponder.h>
-#include <oauth2/utils/CryptoUtils.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
 
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>

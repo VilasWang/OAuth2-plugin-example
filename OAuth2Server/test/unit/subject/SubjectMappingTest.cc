@@ -1,6 +1,6 @@
 #include <chrono>
 #include <drogon/drogon_test.h>
-#include <oauth2/utils/SubjectGenerator.h>
+#include <authforge/drogon/utils/SubjectGenerator.h>
 #include <authforge/storage/memory/MemoryIdentityRepository.h>
 #include <authforge/storage/memory/MemoryRepositoryBundle.h>
 #include <authforge/oauth2/model/UserRef.h>

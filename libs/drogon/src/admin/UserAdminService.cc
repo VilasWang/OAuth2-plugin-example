@@ -3,8 +3,8 @@
 #include <authforge/storage/postgres/models/Users.h>
 #include <authforge/storage/postgres/models/UserRoles.h>
 #include <authforge/storage/postgres/models/Roles.h>
-#include <oauth2/error/ErrorResponder.h>
-#include <oauth2/utils/EmailNormalizer.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/common/utils/EmailNormalizer.h>
 
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>

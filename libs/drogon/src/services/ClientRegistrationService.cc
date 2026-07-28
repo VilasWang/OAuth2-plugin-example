@@ -1,10 +1,10 @@
 #include <authforge/drogon/services/ClientRegistrationService.h>
 
-#include <oauth2/adapters/DrogonAuditSink.h>
+#include <authforge/drogon/adapters/DrogonAuditSink.h>
 #include <authforge/storage/postgres/models/Oauth2Clients.h>
-#include <oauth2/error/ErrorResponder.h>
+#include <authforge/drogon/error/ErrorResponder.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
-#include <oauth2/utils/CryptoUtils.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
 
 #include <drogon/drogon.h>
 

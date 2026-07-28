@@ -1,11 +1,5 @@
 #pragma once
 
-// M3 Task 20 slice 2 (authforge-sdk-refactor): relocated verbatim from
-// OAuth2Plugin/include/oauth2/filters/AuthorizationFilter.h into
-// authforge::drogon::filters. See OAuth2AuthFilter.h in this directory
-// for the rationale on why reaching through the OAuth2Plugin singleton
-// is acceptable in this slice.
-
 #include <drogon/HttpFilter.h>
 #include <drogon/drogon.h>
 #include <mutex>
@@ -13,20 +7,42 @@
 #include <vector>
 #include <regex>
 
+using namespace drogon;
+
+class OAuth2Plugin;
+
 namespace authforge::drogon::filters
 {
 
-class AuthorizationFilter : public ::drogon::HttpFilter<AuthorizationFilter>
+class AuthorizationFilter : public HttpFilter<AuthorizationFilter>
 {
   public:
     AuthorizationFilter();
+
+    // M3 Task 23 (authforge-sdk-refactor, evaluation H4 "controller/filter
+    // 去单例化"): explicit dependency injection point, set once at startup
+    // (bootstrap::wireFilterPluginDependencies(), via
+    // drogon::DrClassMap::getSingleInstance<AuthorizationFilter>() after
+    // the plugin has been constructed) instead of doFilter() calling
+    // drogon::app().getPlugin<OAuth2Plugin>() on every request. Non-owning
+    // (see HealthController::setPlugin()'s identical comment on plugin
+    // lifetime). doFilter() falls back to the global lookup if unset, so
+    // this is additive, not a behavior-changing requirement.
+    void setPlugin(::OAuth2Plugin *plugin)
+    {
+        plugin_ = plugin;
+    }
+
     void doFilter(
-      const ::drogon::HttpRequestPtr &req,
-      ::drogon::FilterCallback &&fcb,
-      ::drogon::FilterChainCallback &&fccb
+      const HttpRequestPtr &req,
+      FilterCallback &&fcb,
+      FilterChainCallback &&fccb
     ) override;
 
   private:
+    ::OAuth2Plugin *plugin_ = nullptr;
+    ::OAuth2Plugin *resolvePlugin() const;
+
     // Path regex -> Allowed Roles
     struct RbacRule
     {

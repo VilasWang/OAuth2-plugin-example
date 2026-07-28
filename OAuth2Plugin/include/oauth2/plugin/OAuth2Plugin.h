@@ -3,7 +3,7 @@
 #include <drogon/plugins/Plugin.h>
 #include <oauth2/plugin/OAuth2CleanupService.h>
 #include <oauth2/services/IdentityService.h>
-#include <oauth2/adapters/StorageRoleProvider.h>
+#include <authforge/drogon/adapters/StorageRoleProvider.h>
 // Phase 1.5d (Task 39): the plugin's 3 identity-side members now hold the NEW
 // authforge::identity::* interfaces (Memory/Postgres impls were widened in
 // 1.5a-c to be a superset of the legacy oauth2::* shapes). The plugin

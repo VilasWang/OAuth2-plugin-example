@@ -5,9 +5,6 @@
 
 using namespace authforge::drogon::validation;
 
-namespace authforge::drogon::filters
-{
-
 // 构建完整的验证规则集（合并构造与一次性填充）。
 // 返回完整 map，供函数内静态访问器 rules() 首次访问时初始化。
 std::map<std::string, RequestValidationFilter::RouteValidationRules> RequestValidationFilter::
@@ -95,9 +92,9 @@ RequestValidationFilter::RouteValidationRules RequestValidationFilter::getValida
 }
 
 void RequestValidationFilter::doFilter(
-  const ::drogon::HttpRequestPtr &req,
-  ::drogon::FilterCallback &&fcb,
-  ::drogon::FilterChainCallback &&fccb
+  const HttpRequestPtr &req,
+  FilterCallback &&fcb,
+  FilterChainCallback &&fccb
 )
 {
     // 获取请求路径
@@ -126,5 +123,3 @@ void RequestValidationFilter::doFilter(
     // 验证通过，继续执行
     fccb();
 }
-
-}  // namespace authforge::drogon::filters

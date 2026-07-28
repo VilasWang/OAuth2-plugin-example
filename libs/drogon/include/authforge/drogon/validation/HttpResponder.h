@@ -1,15 +1,5 @@
 #pragma once
 
-// M3 Task 20: relocated verbatim from
-// OAuth2Plugin/include/oauth2/validation/HttpResponder.h into
-// authforge::drogon::validation (see Rules.h in this directory for the
-// migration rationale). Still depends on the pre-existing authforge::common::error
-// machinery (OAuth2Plugin/include/oauth2/error/*) -- that namespace's own
-// relocation into authforge::common::error (already partially done, see
-// libs/common/include/authforge/common/error/) is a separate, later
-// slice; this migration keeps calling the existing authforge::common::error:: call
-// sites unchanged.
-
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <vector>
@@ -22,9 +12,14 @@ namespace authforge::drogon::validation
 
 // HttpResponder turns validation failures into HTTP error responses.
 //
-// It delegates to the unified authforge::common::error machinery so every validation
+// As of the error-code-message-standardization effort it no longer emits its
+// own bespoke shape ({ "error": { "code": "VALIDATION_ERROR", ... } }). Instead
+// it delegates to the unified authforge::common::error machinery so every validation
 // failure is rendered as a VALIDATION-class Error Envelope (code
-// VALIDATION_INVALID_INPUT, category VALIDATION, HTTP 400).
+// VALIDATION_INVALID_INPUT, category VALIDATION, HTTP 400). The legacy aliases
+// `error_description` / `reason` / `VALIDATION_ERROR` / `timestamp` are gone
+// (Requirement 7.4 / 7.5). The Production_Mode decision and the field-level
+// `details` are gated by authforge::common::error::ErrorContext (Requirement 7.6).
 //
 // The public method signatures are intentionally unchanged so existing call
 // sites (RequestValidationFilter, OAuth2StandardController, SessionController)

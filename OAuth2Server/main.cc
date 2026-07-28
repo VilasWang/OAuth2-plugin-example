@@ -8,11 +8,11 @@
 #include <drogon/drogon.h>
 #include <drogon/plugins/Hodor.h>
 #include <json/json.h>
-#include <oauth2/config/ConfigManager.h>
-#include <oauth2/error/ErrorCatalog.h>
-#include <oauth2/error/ErrorResponder.h>
-#include <oauth2/error/ErrorTypes.h>
-#include <oauth2/error/RequestId.h>
+#include <authforge/common/config/ConfigManager.h>
+#include <authforge/common/error/ErrorCatalog.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/common/error/ErrorTypes.h>
+#include <authforge/drogon/error/RequestId.h>
 #include <authforge/drogon/controllers/AuthorizationEndpointController.h>
 #include <authforge/drogon/controllers/TokenEndpointController.h>
 #include <authforge/drogon/controllers/DiscoveryController.h>

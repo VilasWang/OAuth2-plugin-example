@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <oauth2/utils/SubjectGenerator.h>
+#include <authforge/drogon/utils/SubjectGenerator.h>
 #include <authforge/storage/memory/MemoryIdentityRepository.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <json/json.h>

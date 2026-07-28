@@ -1,8 +1,8 @@
 #include <authforge/drogon/validation/HttpResponder.h>
-#include <oauth2/error/ErrorTypes.h>
-#include <oauth2/error/ErrorContext.h>
-#include <oauth2/error/ErrorHandler.h>
-#include <oauth2/error/RequestId.h>
+#include <authforge/common/error/ErrorTypes.h>
+#include <authforge/common/error/ErrorContext.h>
+#include <authforge/drogon/error/ErrorHandler.h>
+#include <authforge/drogon/error/RequestId.h>
 
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
@@ -12,10 +12,10 @@
 namespace authforge::drogon::validation
 {
 
-using ::authforge::common::error::Error;
-using ::authforge::common::error::ErrorContext;
-using ::authforge::common::error::ErrorHandler;
-using ::authforge::common::error::RequestId;
+using authforge::common::error::Error;
+using authforge::common::error::ErrorContext;
+using authforge::common::error::ErrorHandler;
+using authforge::common::error::RequestId;
 
 namespace
 {
