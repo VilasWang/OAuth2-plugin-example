@@ -33,6 +33,17 @@ class FakeSubjectMappingRepository : public ISubjectMappingRepository
         auto it = mappings.find(provider + ":" + subject);
         cb(it == mappings.end() ? std::nullopt : std::optional<int32_t>(it->second));
     }
+
+    void createSubjectMapping(
+      const std::string &subject,
+      int32_t internalUserId,
+      const std::string &provider,
+      BoolCallback &&cb
+    ) override
+    {
+        mappings[provider + ":" + subject] = internalUserId;
+        cb(true);
+    }
 };
 
 }  // namespace

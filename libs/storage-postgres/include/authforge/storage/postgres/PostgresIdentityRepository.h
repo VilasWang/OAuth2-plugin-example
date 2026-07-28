@@ -110,9 +110,27 @@ class PostgresIdentityRepository : public authforge::identity::IUserRepository,
       std::function<void(std::vector<std::string>)> &&cb
     ) override;
 
+    void getRoles(
+      const std::string &subject,
+      std::function<void(std::vector<std::string>)> &&cb
+    ) override;
+
     // --- ISubjectMappingRepository ---
     void getInternalUserId(
       const std::string &subject,
+      const std::string &provider,
+      std::function<void(std::optional<int32_t>)> &&cb
+    ) override;
+
+    void createSubjectMapping(
+      const std::string &subject,
+      int32_t internalUserId,
+      const std::string &provider,
+      std::function<void(bool)> &&cb
+    ) override;
+
+    void createUserForExternalLogin(
+      const std::string &externalId,
       const std::string &provider,
       std::function<void(std::optional<int32_t>)> &&cb
     ) override;

@@ -575,4 +575,133 @@ void PostgresIdentityRepository::getInternalUserId(
     }
 }
 
+// Phase 1.5b (Task 39): subject-string overload. Ported from the legacy
+// oauth2::PostgresRoleRepository::getUserRoles(string) -- numeric subject is
+// used directly as the internal id; otherwise treated as users.public_sub and
+// resolved to the internal id first, then the int32 path is reused.
+void PostgresIdentityRepository::getRoles(
+  const std::string &subject,
+  std::function<void(std::vector<std::string>)> &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb({});
+        return;
+    }
+    auto sharedCb = std::make_shared<std::function<void(std::vector<std::string>)>>(std::move(cb));
+    auto db = dbClient_;
+
+    // Numeric subject -> internal id directly.
+    bool isNumeric = false;
+    int32_t numericId = 0;
+    try
+    {
+        size_t pos = 0;
+        int parsed = std::stoi(subject, &pos);
+        isNumeric = (pos == subject.length());
+        if (isNumeric)
+            numericId = parsed;
+    }
+    catch (...)
+    {
+        isNumeric = false;
+    }
+
+    if (isNumeric)
+    {
+        getRoles(numericId, [sharedCb](std::vector<std::string> roles) { (*sharedCb)(roles); });
+        return;
+    }
+
+    // Otherwise resolve public_sub -> internal id, then the int32 path.
+    try
+    {
+        Mapper<Users> userMapper(db);
+        userMapper.findOne(
+          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, subject),
+          [this, sharedCb](const Users &user) {
+              getRoles(user.getValueOfId(), [sharedCb](std::vector<std::string> roles) {
+                  (*sharedCb)(roles);
+              });
+          },
+          [sharedCb](const DrogonDbException &) { (*sharedCb)({}); }
+        );
+    }
+    catch (...)
+    {
+        (*sharedCb)({});
+    }
+}
+
+// Phase 1.5b (Task 39): write path, ported from the legacy
+// oauth2::PostgresSubjectMappingRepository.
+void PostgresIdentityRepository::createSubjectMapping(
+  const std::string &subject,
+  int32_t internalUserId,
+  const std::string &provider,
+  std::function<void(bool)> &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb(false);
+        return;
+    }
+    auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(cb));
+    try
+    {
+        Mapper<Oauth2SubjectMappings> mapper(dbClient_);
+        Oauth2SubjectMappings mapping;
+        mapping.setSubject(subject);
+        mapping.setInternalUserId(internalUserId);
+        mapping.setProvider(provider);
+        mapper.insert(
+          mapping,
+          [sharedCb](const Oauth2SubjectMappings &) { (*sharedCb)(true); },
+          [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+        );
+    }
+    catch (...)
+    {
+        (*sharedCb)(false);
+    }
+}
+
+// Phase 1.5b (Task 39): raw SQL INSERT ... ON CONFLICT ... RETURNING is the
+// upsert exemption in .claude/rules/db-operations.md (the Mapper cannot
+// express ON CONFLICT). Ported verbatim from the legacy
+// oauth2::PostgresSubjectMappingRepository::createUserForExternalLogin.
+void PostgresIdentityRepository::createUserForExternalLogin(
+  const std::string &externalId,
+  const std::string &provider,
+  std::function<void(std::optional<int32_t>)> &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb(std::nullopt);
+        return;
+    }
+    auto sharedCb = std::make_shared<std::function<void(std::optional<int32_t>)>>(std::move(cb));
+
+    std::string username = provider + "_" + externalId.substr(0, 20);
+    dbClient_->execSqlAsync(
+      "INSERT INTO users (username, password_hash, salt, email) "
+      "VALUES ($1, 'EXTERNAL_AUTH_NO_PASSWORD', '', '') "
+      "ON CONFLICT (username) DO UPDATE SET username = users.username "
+      "RETURNING id",
+      [sharedCb](const Result &r) {
+          if (r.empty())
+          {
+              (*sharedCb)(std::nullopt);
+              return;
+          }
+          (*sharedCb)(r[0]["id"].as<int32_t>());
+      },
+      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); },
+      username
+    );
+}
+
 }  // namespace authforge::storage::postgres

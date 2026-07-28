@@ -2,21 +2,15 @@
 
 // Task 19 (authforge-sdk-refactor, design.md §5.1/§6): identity-owned
 // repository interface backing SubjectResolver's implementation of
-// authforge::common::ports::ISubjectResolver. Mirrors the read-side shape
-// of the existing oauth2::ISubjectMappingRepository
-// (OAuth2Plugin/include/oauth2/storage/ISubjectMappingRepository.h), which
-// per that header's own comment is "conceptually part of the identity
-// domain" but was left under OAuth2Plugin/oauth2:: pending this exact
-// migration (M2.5, Task 19).
+// authforge::common::ports::ISubjectResolver. Mirrors the shape of the
+// legacy oauth2::ISubjectMappingRepository
+// (OAuth2Plugin/include/oauth2/storage/ISubjectMappingRepository.h).
 //
-// Scope note: only the READ path (getInternalUserId) is declared here --
-// resolve() is the only method authforge::common::ports::ISubjectResolver
-// requires, and the write path (createSubjectMapping /
-// createUserForExternalLogin, used by social-login registration flows) is
-// out of scope for this migration slice, which is deliberately bounded to
-// AuthService + RBAC/subject-resolution binding (the social/WebAuthn/MFA
-// controllers that would drive the write path stay on the existing
-// OAuth2Plugin implementation for now, per this slice's scope).
+// Phase 1.5b (Task 39): added the WRITE path (createSubjectMapping /
+// createUserForExternalLogin) so this interface becomes a superset of the
+// legacy one and IdentityService::handleFirstTimeLogin / ensureSubjectMapping
+// can migrate off the legacy interface. Previously read-only because
+// resolve() was the only method the ISubjectResolver port required.
 
 #include <cstdint>
 #include <functional>
@@ -27,8 +21,8 @@ namespace authforge::identity
 {
 
 /**
- * @brief Read-side repository for external-subject -> internal-user-id
- * mapping.
+ * @brief Repository for external-subject -> internal-user-id mapping
+ * (read + write).
  */
 class ISubjectMappingRepository
 {
@@ -36,6 +30,7 @@ class ISubjectMappingRepository
     virtual ~ISubjectMappingRepository() = default;
 
     using OptionalIntCallback = std::function<void(std::optional<int32_t>)>;
+    using BoolCallback = std::function<void(bool)>;
 
     /**
      * @brief Get the internal user id for an OAuth2/OIDC subject +
@@ -50,6 +45,37 @@ class ISubjectMappingRepository
       const std::string &provider,
       OptionalIntCallback &&cb
     ) = 0;
+
+    /**
+     * @brief Record the (subject, provider) -> internalUserId mapping.
+     * Idempotent w.r.t. the caller: callers check getInternalUserId first
+     * and only call this when no mapping exists yet.
+     */
+    virtual void createSubjectMapping(
+      const std::string &subject,
+      int32_t internalUserId,
+      const std::string &provider,
+      BoolCallback &&cb
+    ) = 0;
+
+    /**
+     * @brief Create (or reuse) a local user account for an external login
+     * that has no existing mapping, returning its internal id.
+     *
+     * Default implementation returns nullopt (backends that don't support
+     * user creation, e.g. Redis). The username is derived from
+     * provider + externalId; the account has a placeholder password
+     * (external auth, no local password). This is the upsert the social
+     * registration flows need before createSubjectMapping.
+     */
+    virtual void createUserForExternalLogin(
+      const std::string &externalId,
+      const std::string &provider,
+      OptionalIntCallback &&cb
+    )
+    {
+        cb(std::nullopt);
+    }
 };
 
 }  // namespace authforge::identity

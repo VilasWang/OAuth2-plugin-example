@@ -4,12 +4,13 @@
 // repository interface backing RoleProvider's implementation of
 // authforge::common::ports::IRoleProvider (design.md §5.3: "RBAC 数据
 // （roles/permissions/user-role）→ identity（实现
-// common::ports::IRoleProvider）"). Deliberately narrow (role-name list by
-// internal user id only) -- the existing oauth2-side
-// IRoleRepository (OAuth2Plugin/include/oauth2/storage/IRoleRepository.h)
-// also has a string-userId overload and permission listing is not yet
-// modeled anywhere in the codebase, so this interface covers exactly what
-// RoleProvider needs today rather than speculatively widening scope.
+// common::ports::IRoleProvider）").
+//
+// Phase 1.5b (Task 39): added the subject-string `getRoles` overload so this
+// interface becomes a superset of the legacy oauth2::IRoleRepository (which
+// StorageRoleProvider's subject-string path depends on). The string is
+// resolved to the internal id inside the implementation (numeric -> int32
+// directly; otherwise treated as users.public_sub).
 
 #include <cstdint>
 #include <functional>
@@ -35,6 +36,16 @@ class IRoleRepository
      * roles or does not exist).
      */
     virtual void getRoles(int32_t internalUserId, RolesCallback &&cb) = 0;
+
+    /**
+     * @brief Get the role names assigned to a user by subject string.
+     *
+     * `subject` is either a numeric internal id (resolved directly) or the
+     * users.public_sub UUID (resolved to the internal id first, then queried).
+     * This overload backs StorageRoleProvider's subject-string path, which
+     * oauth2::protocol::TokenService prefers over the internal-id path.
+     */
+    virtual void getRoles(const std::string &subject, RolesCallback &&cb) = 0;
 };
 
 }  // namespace authforge::identity

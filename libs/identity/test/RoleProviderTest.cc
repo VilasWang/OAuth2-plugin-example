@@ -26,6 +26,19 @@ class FakeRoleRepository : public IRoleRepository
         auto it = roles.find(internalUserId);
         cb(it == roles.end() ? std::vector<std::string>{} : it->second);
     }
+
+    void getRoles(const std::string &subject, RolesCallback &&cb) override
+    {
+        // Test fake: numeric subject -> internal id; otherwise empty.
+        try
+        {
+            cb(roles.at(std::stoi(subject)));
+        }
+        catch (...)
+        {
+            cb({});
+        }
+    }
 };
 
 }  // namespace
