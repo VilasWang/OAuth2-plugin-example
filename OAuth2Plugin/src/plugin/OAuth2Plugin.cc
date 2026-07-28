@@ -13,7 +13,7 @@
 // handles (Phase 1.5e: the bundle's 3 identity accessors are gone; identity
 // repos are constructed separately from authforge::identity::* backing stores).
 #include <oauth2/storage/MemoryRepositoryBundle.h>
-#include <oauth2/storage/PostgresRepositoryBundle.h>
+#include <authforge/storage/postgres/PostgresRepositoryBundle.h>
 #include <oauth2/storage/RedisRepositoryBundle.h>
 #include <authforge/oauth2/repository/IClientRepository.h>
 #include <authforge/oauth2/repository/IGrantRepository.h>
@@ -209,7 +209,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
 
     if (storageType_ == "postgres")
     {
-        oauth2::PostgresRepositoryBundle bundle;
+        authforge::storage::postgres::PostgresRepositoryBundle bundle;
         bundle.initFromConfig(config["postgres"]);
         assignOAuth2(
           bundle.clientRepository(),

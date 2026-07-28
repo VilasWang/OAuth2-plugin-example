@@ -6,11 +6,11 @@
 // PostgresOAuth2Storage / IOAuth2Storage are untouched and remain the
 // production path used by OAuth2Plugin.cc today.
 #include <authforge/oauth2/repository/IConsentRepository.h>
-#include <oauth2/storage/PostgresRepositoryBase.h>
+#include <authforge/storage/postgres/PostgresRepositoryBase.h>
 
 #include <memory>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 // Task 27.5: now implements the NEW Domain-layer interface
@@ -59,4 +59,4 @@ class PostgresConsentRepository : public IConsentRepositoryBase,
     ) override;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

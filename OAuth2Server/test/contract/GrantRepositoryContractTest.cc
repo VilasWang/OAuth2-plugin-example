@@ -23,7 +23,7 @@
 // Authorization-transaction operations (saveAuthorizationTransaction /
 // getAuthorizationTransaction / deleteAuthorizationTransaction /
 // markTransactionConsumed) are NOT covered here: per REPOSITORY_MAPPING.md
-// and oauth2::PostgresGrantRepository.h's class comment, the Postgres
+// and PostgresGrantRepository.h's class comment, the Postgres
 // implementation of these four methods is a DOCUMENTED PLACEHOLDER (it does
 // not persist to a real table -- saveAuthorizationTransaction always
 // returns true without storing anything, getAuthorizationTransaction always
@@ -40,7 +40,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/storage/PostgresGrantRepository.h>
+#include <authforge/storage/postgres/PostgresGrantRepository.h>
 #include <oauth2/storage/RedisGrantRepository.h>
 #include <authforge/storage/memory/MemoryGrantRepository.h>
 
@@ -51,6 +51,7 @@
 using namespace authforge::oauth2::repository;
 using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
+using namespace authforge::storage::postgres;
 
 namespace
 {
@@ -194,7 +195,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Postgres_SaveGetR
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
+    auto repo = std::make_shared<PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
@@ -205,7 +206,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Postgres_NotFound
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
+    auto repo = std::make_shared<PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
@@ -218,7 +219,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
+    auto repo = std::make_shared<PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "vue-client"
@@ -233,7 +234,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
+    auto repo = std::make_shared<PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "vue-client");
 }
@@ -244,7 +245,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Postgres_ConsumeA
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresGrantRepository>();
+    auto repo = std::make_shared<PostgresGrantRepository>();
     repo->initFromConfig(Json::Value());
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "vue-client");
 }

@@ -20,7 +20,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/storage/PostgresConsentRepository.h>
+#include <authforge/storage/postgres/PostgresConsentRepository.h>
 #include <oauth2/storage/RedisConsentRepository.h>
 #include <authforge/storage/memory/MemoryConsentRepository.h>
 #include <authforge/oauth2/model/UserRef.h>
@@ -32,6 +32,7 @@
 using namespace authforge::oauth2::repository;
 using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
+using namespace authforge::storage::postgres;
 
 namespace
 {
@@ -104,7 +105,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
     UserRef user;
     user.internalUserId = internalUserId;
 
-    auto repo = std::make_shared<oauth2::PostgresConsentRepository>();
+    auto repo = std::make_shared<PostgresConsentRepository>();
     repo->initFromConfig(Json::Value());
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "vue-client", "openid"

@@ -1,4 +1,4 @@
-#include <oauth2/storage/PostgresClientRepository.h>
+#include <authforge/storage/postgres/PostgresClientRepository.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 
@@ -31,7 +31,7 @@ inline int constantTimeMemcmp(const void *s1, const void *s2, size_t n)
 #include <authforge/storage/postgres/models/Oauth2Scopes.h>
 #include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
@@ -42,7 +42,7 @@ using ::authforge::oauth2::model::stringToClientType;
 using ClientCallback = IClientRepositoryBase::ClientCallback;
 using BoolCallback = IClientRepositoryBase::BoolCallback;
 
-using namespace drogon::orm;
+using namespace ::drogon::orm;
 using namespace drogon_model::oauth2_db;
 
 void PostgresClientRepository::getClient(const std::string &clientId, ClientCallback &&cb)
@@ -54,8 +54,8 @@ void PostgresClientRepository::getClient(const std::string &clientId, ClientCall
     {
         try
         {
-            dbClientMaster_ = drogon::app().getDbClient(dbClientName_);
-            dbClientReader_ = drogon::app().getDbClient(dbClientReaderName_);
+            dbClientMaster_ = ::drogon::app().getDbClient(dbClientName_);
+            dbClientReader_ = ::drogon::app().getDbClient(dbClientReaderName_);
             LOG_INFO << "Postgres DB Clients initialized lazily for getClient";
         }
         catch (...)
@@ -165,8 +165,8 @@ void PostgresClientRepository::validateClient(
     {
         try
         {
-            dbClientMaster_ = drogon::app().getDbClient(dbClientName_);
-            dbClientReader_ = drogon::app().getDbClient(dbClientReaderName_);
+            dbClientMaster_ = ::drogon::app().getDbClient(dbClientName_);
+            dbClientReader_ = ::drogon::app().getDbClient(dbClientReaderName_);
             LOG_INFO << "Postgres DB Clients initialized lazily for validateClient";
         }
         catch (...)
@@ -228,7 +228,7 @@ void PostgresClientRepository::validateClient(
               // Constant-time secret comparison to prevent timing attacks
               std::string storedHash = row.getValueOfClientSecret();
               std::string salt = row.getValueOfSalt();
-              std::string computedHash = drogon::utils::getSha256(clientSecret + salt);
+              std::string computedHash = ::drogon::utils::getSha256(clientSecret + salt);
 
               LOG_DEBUG << "Postgres validateClient: Verifying secret for " << clientId;
 
@@ -276,4 +276,4 @@ void PostgresClientRepository::validateClient(
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

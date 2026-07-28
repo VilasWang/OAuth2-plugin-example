@@ -4,7 +4,7 @@
 #include <json/json.h>
 #include <string>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 /**
@@ -58,10 +58,15 @@ class PostgresRepositoryBase
     void initFromConfig(const Json::Value &config);
 
   protected:
-    drogon::orm::DbClientPtr dbClientMaster_;
-    drogon::orm::DbClientPtr dbClientReader_;
+    // M3 pitfall (see PostgresIdentityRepository.h): inside namespace
+    // authforge::storage::postgres, bare "drogon::" can resolve to
+    // authforge::storage::postgres::drogon if such a member exists elsewhere
+    // in the include graph (OAuth2Plugin's StorageSubjectResolver.h declares
+    // namespace authforge::drogon::adapters). Globally qualify to be safe.
+    ::drogon::orm::DbClientPtr dbClientMaster_;
+    ::drogon::orm::DbClientPtr dbClientReader_;
     std::string dbClientName_ = "default";
     std::string dbClientReaderName_ = "default";
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

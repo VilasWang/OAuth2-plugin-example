@@ -1,7 +1,7 @@
-#include <oauth2/storage/PostgresRepositoryBase.h>
+#include <authforge/storage/postgres/PostgresRepositoryBase.h>
 #include <drogon/drogon.h>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 void PostgresRepositoryBase::initFromConfig(const Json::Value &config)
@@ -14,8 +14,8 @@ void PostgresRepositoryBase::initFromConfig(const Json::Value &config)
 
     try
     {
-        dbClientMaster_ = drogon::app().getDbClient(dbClientName_);
-        dbClientReader_ = drogon::app().getDbClient(dbClientReaderName_);
+        dbClientMaster_ = ::drogon::app().getDbClient(dbClientName_);
+        dbClientReader_ = ::drogon::app().getDbClient(dbClientReaderName_);
 
         if (!dbClientMaster_)
             LOG_ERROR << "dbClientMaster_ is NULL after lookup for name: " << dbClientName_;
@@ -28,4 +28,4 @@ void PostgresRepositoryBase::initFromConfig(const Json::Value &config)
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

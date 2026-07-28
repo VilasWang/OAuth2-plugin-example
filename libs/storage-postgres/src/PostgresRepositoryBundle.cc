@@ -1,6 +1,6 @@
-#include <oauth2/storage/PostgresRepositoryBundle.h>
+#include <authforge/storage/postgres/PostgresRepositoryBundle.h>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 PostgresRepositoryBundle::PostgresRepositoryBundle()
@@ -19,4 +19,4 @@ void PostgresRepositoryBundle::initFromConfig(const Json::Value &config)
     consentRepository_->initFromConfig(config);
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

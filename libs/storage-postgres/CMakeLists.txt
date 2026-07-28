@@ -70,14 +70,31 @@ target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_STORAGE_POSTGRES_SOURCES})
 # PostgresSocialAccountRepository.cc implement libs/identity's remaining
 # repository interfaces (IMfaRepository/IWebAuthnRepository/
 # ISocialAccountRepository), same placement rationale.
+#
+# Phase 2 (Postgres backend slice of the oauth2 storage refactor): relocate
+# the 6 oauth2 Postgres repository files
+# (PostgresRepositoryBase/PostgresClientRepository/PostgresGrantRepository/
+# PostgresTokenRepository/PostgresConsentRepository/PostgresRepositoryBundle)
+# verbatim from OAuth2Plugin/{include,src}/oauth2/storage/ into this package,
+# namespace rewritten to authforge::storage::postgres. The 4 concrete
+# repositories implement authforge::oauth2::repository::* interfaces, so
+# this target now links authforge::oauth2 (correct direction: oauth2 is a
+# Domain-layer package with zero dependency on storage-postgres; verified
+# no circular dep -- libs/oauth2/CMakeLists.txt does not link storage).
 target_sources(${PROJECT_NAME} PRIVATE
     src/PostgresIdentityRepository.cc
     src/PostgresMfaRepository.cc
     src/PostgresWebAuthnRepository.cc
     src/PostgresSocialAccountRepository.cc
+    src/PostgresRepositoryBase.cc
+    src/PostgresClientRepository.cc
+    src/PostgresGrantRepository.cc
+    src/PostgresTokenRepository.cc
+    src/PostgresConsentRepository.cc
+    src/PostgresRepositoryBundle.cc
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon authforge::identity)
+target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon authforge::identity authforge::oauth2)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 

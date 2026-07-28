@@ -1,4 +1,4 @@
-#include <oauth2/storage/PostgresTokenRepository.h>
+#include <authforge/storage/postgres/PostgresTokenRepository.h>
 #include <drogon/drogon.h>
 
 #include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
@@ -7,7 +7,7 @@
 #include <chrono>
 #include <ctime>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
@@ -20,7 +20,7 @@ using AccessTokenCallback = ITokenRepositoryBase::AccessTokenCallback;
 using RefreshTokenCallback = ITokenRepositoryBase::RefreshTokenCallback;
 using TokenIntrospectionCallback = ITokenRepositoryBase::TokenIntrospectionCallback;
 
-using namespace drogon::orm;
+using namespace ::drogon::orm;
 using namespace drogon_model::oauth2_db;
 
 void PostgresTokenRepository::saveAccessToken(const OAuth2AccessToken &token, VoidCallback &&cb)
@@ -139,7 +139,7 @@ void PostgresTokenRepository::saveTokenPair(
     transPtr->execSqlAsync(
       "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, expires_at, revoked) "
       "VALUES ($1, $2, $3, $4, $5, $6)",
-      [transPtr, rt, refreshInsertErrorCb](const drogon::orm::Result &) {
+      [transPtr, rt, refreshInsertErrorCb](const ::drogon::orm::Result &) {
           // Access token saved, now save refresh token. The caller's
           // callback fires from the commit callback above, not here.
           if (rt.familyId.empty())
@@ -148,7 +148,7 @@ void PostgresTokenRepository::saveTokenPair(
                 "INSERT INTO oauth2_refresh_tokens "
                 "(token, access_token, client_id, user_id, scope, expires_at, revoked) "
                 "VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                [](const drogon::orm::Result &) {},
+                [](const ::drogon::orm::Result &) {},
                 refreshInsertErrorCb,
                 rt.token,
                 rt.accessToken,
@@ -165,7 +165,7 @@ void PostgresTokenRepository::saveTokenPair(
                 "INSERT INTO oauth2_refresh_tokens "
                 "(token, access_token, client_id, user_id, scope, expires_at, revoked, family_id) "
                 "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                [](const drogon::orm::Result &) {},
+                [](const ::drogon::orm::Result &) {},
                 refreshInsertErrorCb,
                 rt.token,
                 rt.accessToken,
@@ -387,7 +387,7 @@ void PostgresTokenRepository::atomicRevokeRefreshToken(
       "UPDATE oauth2_refresh_tokens SET revoked = true "
       "WHERE token = $1 AND revoked = false "
       "RETURNING token, access_token, client_id, user_id, scope, expires_at, family_id",
-      [sharedCb](const drogon::orm::Result &r) {
+      [sharedCb](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
               // Already revoked or not found -> reuse detected
@@ -433,12 +433,12 @@ void PostgresTokenRepository::revokeTokenFamily(const std::string &familyId, Voi
     // Revoke all refresh tokens in the family
     dbClientMaster_->execSqlAsync(
       "UPDATE oauth2_refresh_tokens SET revoked = true WHERE family_id = $1",
-      [sharedCb, familyId, self = shared_from_this(), this](const drogon::orm::Result &) {
+      [sharedCb, familyId, self = shared_from_this(), this](const ::drogon::orm::Result &) {
           // Also revoke all associated access tokens
           dbClientMaster_->execSqlAsync(
             "UPDATE oauth2_access_tokens SET revoked = true "
             "WHERE token IN (SELECT access_token FROM oauth2_refresh_tokens WHERE family_id = $1)",
-            [sharedCb, familyId](const drogon::orm::Result &) {
+            [sharedCb, familyId](const ::drogon::orm::Result &) {
                 LOG_WARN << "[SECURITY] Token family cascade-revoked: " << familyId;
                 if (*sharedCb)
                     (*sharedCb)();
@@ -732,7 +732,7 @@ void PostgresTokenRepository::purgeExpired()
         // Archive old tokens (older than 30 days)
         dbClientMaster_->execSqlAsync(
           "SELECT archive_expired_tokens(30)",
-          [](const drogon::orm::Result &r) {
+          [](const ::drogon::orm::Result &r) {
               if (!r.empty() && r[0][0].as<int>() > 0)
               {
                   LOG_INFO << "Archived " << r[0][0].as<int>() << " expired tokens";
@@ -753,4 +753,4 @@ void PostgresTokenRepository::purgeExpired()
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

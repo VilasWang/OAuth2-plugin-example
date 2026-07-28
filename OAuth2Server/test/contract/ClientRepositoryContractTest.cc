@@ -30,7 +30,7 @@
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 
-#include <oauth2/storage/PostgresClientRepository.h>
+#include <authforge/storage/postgres/PostgresClientRepository.h>
 #include <oauth2/storage/RedisClientRepository.h>
 #include <authforge/storage/memory/MemoryClientRepository.h>
 
@@ -41,6 +41,7 @@
 using namespace authforge::oauth2::repository;
 using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
+using namespace authforge::storage::postgres;
 
 namespace
 {
@@ -191,7 +192,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Postgres_NotFoun
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresClientRepository>();
+    auto repo = std::make_shared<PostgresClientRepository>();
     repo->initFromConfig(Json::Value());
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
@@ -205,7 +206,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresClientRepository>();
+    auto repo = std::make_shared<PostgresClientRepository>();
     repo->initFromConfig(Json::Value());
     runClientRepository_PublicClientAcceptsAnySecretContract(TEST_CTX, repo, "vue-client");
 }
@@ -220,7 +221,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresClientRepository>();
+    auto repo = std::make_shared<PostgresClientRepository>();
     repo->initFromConfig(Json::Value());
     runClientRepository_ConfidentialClientValidatesSecretContract(
       TEST_CTX, repo, "backend-svc", "test-secret", "wrong-secret"

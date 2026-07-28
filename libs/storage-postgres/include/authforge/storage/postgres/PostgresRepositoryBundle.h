@@ -8,15 +8,15 @@
 // Phase 1.5e: the 3 identity repos that used to live here are removed; the
 // identity domain now has its own authforge::identity::* backing stores
 // (see OAuth2Plugin.cc initStorage).
-#include <oauth2/storage/PostgresClientRepository.h>
-#include <oauth2/storage/PostgresGrantRepository.h>
-#include <oauth2/storage/PostgresTokenRepository.h>
-#include <oauth2/storage/PostgresConsentRepository.h>
+#include <authforge/storage/postgres/PostgresClientRepository.h>
+#include <authforge/storage/postgres/PostgresGrantRepository.h>
+#include <authforge/storage/postgres/PostgresTokenRepository.h>
+#include <authforge/storage/postgres/PostgresConsentRepository.h>
 
 #include <json/json.h>
 #include <memory>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 // Task 27.5: the 4 oauth2-aggregate accessors now expose the NEW authforge::oauth2::repository::*
@@ -92,4 +92,4 @@ class PostgresRepositoryBundle
     std::shared_ptr<PostgresConsentRepository> consentRepository_;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

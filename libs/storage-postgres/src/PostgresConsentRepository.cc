@@ -1,9 +1,9 @@
-#include <oauth2/storage/PostgresConsentRepository.h>
+#include <authforge/storage/postgres/PostgresConsentRepository.h>
 #include <drogon/drogon.h>
 
 #include <authforge/storage/postgres/models/Oauth2UserConsents.h>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
@@ -12,7 +12,7 @@ using UserRef = ::authforge::oauth2::model::UserRef;
 using BoolCallback = IConsentRepositoryBase::BoolCallback;
 using VoidCallback = IConsentRepositoryBase::VoidCallback;
 
-using namespace drogon::orm;
+using namespace ::drogon::orm;
 using namespace drogon_model::oauth2_db;
 
 void PostgresConsentRepository::hasUserConsent(
@@ -141,4 +141,4 @@ void PostgresConsentRepository::revokeUserConsent(
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

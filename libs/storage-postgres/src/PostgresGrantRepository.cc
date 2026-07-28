@@ -1,11 +1,11 @@
-#include <oauth2/storage/PostgresGrantRepository.h>
+#include <authforge/storage/postgres/PostgresGrantRepository.h>
 #include <drogon/drogon.h>
 
 #include <authforge/storage/postgres/models/Oauth2Codes.h>
 
 #include <chrono>
 
-namespace oauth2
+namespace authforge::storage::postgres
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
@@ -17,7 +17,7 @@ using AuthCodeCallback = IGrantRepositoryBase::AuthCodeCallback;
 using VoidCallback = IGrantRepositoryBase::VoidCallback;
 using TransactionCallback = IGrantRepositoryBase::TransactionCallback;
 
-using namespace drogon::orm;
+using namespace ::drogon::orm;
 using namespace drogon_model::oauth2_db;
 
 void PostgresGrantRepository::saveAuthCode(const OAuth2AuthCode &code, VoidCallback &&cb)
@@ -157,7 +157,7 @@ void PostgresGrantRepository::consumeAuthCode(
       "WHERE code = $1 AND used = false "
       "RETURNING code, client_id, user_id, scope, redirect_uri, "
       "code_challenge, code_challenge_method, expires_at",
-      [sharedCb, redirectUri, code](const drogon::orm::Result &r) {
+      [sharedCb, redirectUri, code](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
               LOG_DEBUG << "[SECURITY] Auth code not found or already used: " << code.substr(0, 8);
@@ -331,4 +331,4 @@ void PostgresGrantRepository::purgeExpired()
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::postgres

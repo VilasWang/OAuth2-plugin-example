@@ -19,7 +19,7 @@
 //      repo->supportsTransactions()/supportsCas(), per the capability-flag
 //      contract ITokenRepository.h documents. Memory and Postgres both
 //      declare both flags true (see authforge::storage::memory::MemoryTokenRepository.h /
-//      oauth2::PostgresTokenRepository.h capability-flag doc comments); Redis
+//      PostgresTokenRepository.h capability-flag doc comments); Redis
 //      declares both false. Tests below check the flag first and return
 //      (skip, not fail) when a backend opts out -- this is also how the
 //      suite proves it is capable of catching "能力谎报" (a false "true"):
@@ -31,7 +31,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 
-#include <oauth2/storage/PostgresTokenRepository.h>
+#include <authforge/storage/postgres/PostgresTokenRepository.h>
 #include <oauth2/storage/RedisTokenRepository.h>
 #include <authforge/storage/memory/MemoryTokenRepository.h>
 
@@ -44,6 +44,7 @@
 using namespace authforge::oauth2::repository;
 using namespace authforge::oauth2::model;
 using namespace oauth2::test::contract;
+using namespace authforge::storage::postgres;
 
 namespace
 {
@@ -129,7 +130,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Postgres_AccessTo
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
@@ -139,7 +140,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Postgres_AccessTo
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
@@ -218,7 +219,7 @@ DROGON_TEST(
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_RefreshTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
@@ -259,7 +260,7 @@ DROGON_TEST(
 //
 // Verified by reading the .cc files:
 // authforge::storage::memory::MemoryTokenRepository::getRefreshToken ACTIVELY filters out revoked
-// (and expired) tokens (returns nullopt for them). oauth2::PostgresTokenRepository::getRefreshToken
+// (and expired) tokens (returns nullopt for them). PostgresTokenRepository::getRefreshToken
 // does NOT filter on revoked -- it returns the row with `revoked == true` set on the returned
 // struct. Both are legitimate, self-consistent behaviors (Postgres exposes
 // "here is the token, and here is its current revoked status" as a single
@@ -277,7 +278,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
 
     const std::string rtToken = "contract-rt-revoke-pg-" + uniqueSuffix();
@@ -317,7 +318,7 @@ DROGON_TEST(
 // Verified by reading the .cc files:
 // authforge::storage::memory::MemoryTokenRepository::getAccessToken ACTIVELY checks `expiresAt >
 // now` before returning (an expired token yields nullopt on get, with no separate purge needed).
-// oauth2::PostgresTokenRepository
+// PostgresTokenRepository
 // ::getAccessToken does NOT check expiresAt at all -- it returns whatever row
 // matches the token, expired or not; expiry enforcement in the Postgres
 // design relies entirely on a separate purgeExpired() sweep (a future
@@ -364,7 +365,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
 
     const std::string token = "contract-at-expired-pg-" + uniqueSuffix();
@@ -510,7 +511,7 @@ DROGON_TEST(
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_AtomicRevokeRefreshToken_ConcurrentCasContract(TEST_CTX, repo, "vue-client");
 }
@@ -553,7 +554,7 @@ DROGON_TEST(
     auto db = getPostgresClientOrNull();
     if (!db)
         return;
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
       TEST_CTX, repo, "vue-client"
@@ -566,7 +567,7 @@ DROGON_TEST(
 // row, then verify the refresh token half was never persisted either.
 //
 // Honesty note on what this proves and does not: reading
-// oauth2::PostgresTokenRepository::saveTokenPair's implementation shows the access
+// PostgresTokenRepository::saveTokenPair's implementation shows the access
 // insert's error callback short-circuits the whole chain -- it never
 // issues the refresh insert at all (rather than issuing it and then rolling
 // the transaction back). This test's assertion (refresh token absent after
@@ -584,7 +585,7 @@ DROGON_TEST(
     if (!db)
         return;
 
-    auto repo = std::make_shared<oauth2::PostgresTokenRepository>();
+    auto repo = std::make_shared<PostgresTokenRepository>();
     repo->initFromConfig(Json::Value());
     if (!repo->supportsTransactions())
         return;
