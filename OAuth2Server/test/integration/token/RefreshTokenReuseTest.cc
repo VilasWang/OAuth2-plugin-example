@@ -4,8 +4,6 @@
 #include <future>
 #include <chrono>
 
-using namespace oauth2;
-
 DROGON_TEST(Integration_P0_RefreshToken_NormalRotation)
 {
     // Test normal refresh: old RT revoked, new RT works

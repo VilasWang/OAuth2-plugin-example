@@ -5,7 +5,6 @@
 #include <authforge/oauth2/model/Dto.h>
 #include <future>
 
-using namespace oauth2;
 // A3: TokenIntrospection is now authforge::oauth2::model::TokenIntrospection
 // (the legacy oauth2::TokenIntrospection in IOAuth2Storage.h is being deleted).
 using TokenIntrospection = authforge::oauth2::model::TokenIntrospection;

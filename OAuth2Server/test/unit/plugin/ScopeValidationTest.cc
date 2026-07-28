@@ -8,8 +8,6 @@
 // removed. The test exercises the plugin's public scope-validation API, which
 // runs against the plugin's own memory RepositoryBundle built by initAndStart().
 
-using namespace oauth2;
-
 DROGON_TEST(Unit_P0_OAuth2Plugin_ValidateClientScopes_RestrictsToAllowlist)
 {
     auto plugin = std::make_shared<OAuth2Plugin>();

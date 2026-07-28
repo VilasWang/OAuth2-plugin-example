@@ -54,8 +54,14 @@ class MemoryIdentityRepository : public authforge::identity::IUserRepository,
     void initAdminRoles(const Json::Value &adminConfig);
 
     // --- IRoleRepository ---
-    void getRoles(int32_t internalUserId, authforge::identity::IRoleRepository::RolesCallback &&cb) override;
-    void getRoles(const std::string &subject, authforge::identity::IRoleRepository::RolesCallback &&cb) override;
+    void getRoles(
+      int32_t internalUserId,
+      authforge::identity::IRoleRepository::RolesCallback &&cb
+    ) override;
+    void getRoles(
+      const std::string &subject,
+      authforge::identity::IRoleRepository::RolesCallback &&cb
+    ) override;
 
     // --- ISubjectMappingRepository ---
     void getInternalUserId(
@@ -71,23 +77,46 @@ class MemoryIdentityRepository : public authforge::identity::IUserRepository,
     ) override;
 
     // --- IUserRepository (placeholder/synthetic, like the legacy memory backend) ---
-    void findByEmail(const std::string &email, std::function<void(std::optional<authforge::identity::UserData>)> &&callback) override;
-    void findByUsername(const std::string &username, std::function<void(std::optional<authforge::identity::UserData>)> &&callback) override;
-    void findById(int32_t userId, std::function<void(std::optional<authforge::identity::UserData>)> &&callback) override;
-    void findByPublicSub(const std::string &publicSub, std::function<void(std::optional<authforge::identity::UserData>)> &&callback) override;
-    void create(const authforge::identity::UserData &userData, std::function<void(std::optional<int32_t>, std::string errorCode)> &&callback) override;
-    void updatePasswordHash(int32_t userId, const std::string &newHash, std::function<void(bool)> &&callback) override;
+    void findByEmail(
+      const std::string &email,
+      std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+    ) override;
+    void findByUsername(
+      const std::string &username,
+      std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+    ) override;
+    void findById(
+      int32_t userId,
+      std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+    ) override;
+    void findByPublicSub(
+      const std::string &publicSub,
+      std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+    ) override;
+    void create(
+      const authforge::identity::UserData &userData,
+      std::function<void(std::optional<int32_t>, std::string errorCode)> &&callback
+    ) override;
+    void updatePasswordHash(
+      int32_t userId,
+      const std::string &newHash,
+      std::function<void(bool)> &&callback
+    ) override;
     void resetFailedLogins(int32_t userId, std::function<void(bool)> &&callback) override;
     void incrementFailedLogins(int32_t userId, std::function<void(bool)> &&callback) override;
-    void getUserInfoWithRoles(int32_t userId, std::function<void(std::optional<Json::Value>)> &&callback) override;
+    void getUserInfoWithRoles(
+      int32_t userId,
+      std::function<void(std::optional<Json::Value>)> &&callback
+    ) override;
 
   private:
     // Build a synthetic placeholder UserData for a numeric id (mirrors the
     // legacy MemoryUserRepository synthesis).
     authforge::identity::UserData syntheticUser(int32_t id) const;
 
-    std::map<std::string, std::vector<std::string>> userRoles_;  // keyed by subject string (legacy quirk: int ids converted to string)
-    std::map<std::string, int32_t> subjectMappings_;             // key "provider:subject"
+    std::map<std::string, std::vector<std::string>>
+      userRoles_;  // keyed by subject string (legacy quirk: int ids converted to string)
+    std::map<std::string, int32_t> subjectMappings_;  // key "provider:subject"
     mutable std::recursive_mutex mutex_;
 };
 

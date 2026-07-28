@@ -2,7 +2,8 @@
 
 // B10 / Task 45 (authforge-sdk-refactor, design.md §5.2/§5.3): Adapter-side
 // default implementation of authforge::common::ports::ISubjectResolver, backed
-// by the legacy ::oauth2::ISubjectMappingRepository. Mirrors StorageRoleProvider's
+// by authforge::identity::ISubjectMappingRepository (Phase 1.5d: was the
+// legacy ::oauth2::ISubjectMappingRepository). Mirrors StorageRoleProvider's
 // shape/rationale: the AuthorizationService port (ISubjectResolver) resolves an
 // opaque Subject ("provider:localId") into identity's internal user id, which
 // the engine needs for the consent tier (IConsentRepository is keyed by
@@ -20,7 +21,7 @@
 
 #include <authforge/common/model/Subject.h>
 #include <authforge/common/ports/ISubjectResolver.h>
-#include <oauth2/storage/ISubjectMappingRepository.h>
+#include <authforge/identity/ISubjectMappingRepository.h>
 
 #include <memory>
 
@@ -31,7 +32,7 @@ class StorageSubjectResolver : public authforge::common::ports::ISubjectResolver
 {
   public:
     explicit StorageSubjectResolver(
-      std::shared_ptr<::oauth2::ISubjectMappingRepository> subjectMappingRepo
+      std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMappingRepo
     )
         : subjectMappingRepo_(std::move(subjectMappingRepo))
     {
@@ -40,7 +41,7 @@ class StorageSubjectResolver : public authforge::common::ports::ISubjectResolver
     void resolve(const authforge::common::model::Subject &subject, ResolveCallback &&cb) override;
 
   private:
-    std::shared_ptr<::oauth2::ISubjectMappingRepository> subjectMappingRepo_;
+    std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMappingRepo_;
 };
 
 }  // namespace authforge::drogon::adapters

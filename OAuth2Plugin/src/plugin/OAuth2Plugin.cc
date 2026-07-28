@@ -180,74 +180,106 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
 
 void OAuth2Plugin::initStorage(const Json::Value &config)
 {
-    // Phase 4.6a: storage_ (the god IOAuth2Storage) is gone. The plugin now
-    // constructs the per-backend RepositoryBundle (Memory/Postgres/Redis) and
-    // extracts the seven split-repository handles into members. The bundles
-    // own the underlying state; the extracted shared_ptrs keep it alive for
-    // the plugin's lifetime.
+    // Phase 1.5d (Task 39): storage_ (the god IOAuth2Storage) is gone. The
+    // plugin constructs the per-backend RepositoryBundle (Memory/Postgres/
+    // Redis) for the 4 oauth2 repos and extracts those handles into members;
+    // the 3 identity repos are constructed SEPARATELY from the NEW
+    // authforge::identity::* backing stores (PostgresIdentityRepository /
+    // MemoryIdentityRepository), which multiply-inherit all 3 interfaces so a
+    // single shared instance backs roleRepo_/userRepo_/subjectMappingRepo_.
+    // The bundle's own 3 identity accessors are intentionally NOT called
+    // here (they return the legacy oauth2::* types; 1.5e deletes them).
     storageType_ = config.get("storage_type", "memory").asString();
 
-    auto extractFrom = [this](
-                         std::shared_ptr<::authforge::oauth2::repository::IClientRepository> c,
-                         std::shared_ptr<::authforge::oauth2::repository::IGrantRepository> g,
-                         std::shared_ptr<::authforge::oauth2::repository::ITokenRepository> t,
-                         std::shared_ptr<::authforge::oauth2::repository::IConsentRepository> cn,
-                         std::shared_ptr<oauth2::IRoleRepository> r,
-                         std::shared_ptr<oauth2::IUserRepository> u,
-                         std::shared_ptr<oauth2::ISubjectMappingRepository> sm
-                       ) {
+    // Helper: assign the 4 oauth2 repos from a bundle + the 3 identity repos
+    // from a single identity-repo shared_ptr.
+    auto assignOAuth2 = [this](
+                          std::shared_ptr<authforge::oauth2::repository::IClientRepository> c,
+                          std::shared_ptr<authforge::oauth2::repository::IGrantRepository> g,
+                          std::shared_ptr<authforge::oauth2::repository::ITokenRepository> t,
+                          std::shared_ptr<authforge::oauth2::repository::IConsentRepository> cn
+                        ) {
         clientRepo_ = std::move(c);
         grantRepo_ = std::move(g);
         tokenRepo_ = std::move(t);
         consentRepo_ = std::move(cn);
-        roleRepo_ = std::move(r);
-        userRepo_ = std::move(u);
-        subjectMappingRepo_ = std::move(sm);
     };
 
     if (storageType_ == "postgres")
     {
         oauth2::PostgresRepositoryBundle bundle;
         bundle.initFromConfig(config["postgres"]);
-        extractFrom(
+        assignOAuth2(
           bundle.clientRepository(),
           bundle.grantRepository(),
           bundle.tokenRepository(),
-          bundle.consentRepository(),
-          bundle.roleRepository(),
-          bundle.userRepository(),
-          bundle.subjectMappingRepository()
+          bundle.consentRepository()
         );
+
+        // Resolve the same DbClientPtr the bundle's PostgresRepositoryBase
+        // uses (db_client_name from the postgres config block, default
+        // "default"), then construct the NEW identity backing store. Mirrors
+        // OAuth2Server/bootstrap/IdentityAssembly.cc's construction.
+        std::string dbClientName = config["postgres"].get("db_client_name", "default").asString();
+        auto dbClient = drogon::app().getDbClient(dbClientName);
+        auto identityRepo =
+          std::make_shared<authforge::storage::postgres::PostgresIdentityRepository>(dbClient);
+        // One instance backs all 3 identity interfaces (multiple inheritance).
+        roleRepo_ = identityRepo;
+        userRepo_ = identityRepo;
+        subjectMappingRepo_ = identityRepo;
+
         LOG_INFO << "Using PostgreSQL storage backend (RepositoryBundle)";
     }
     else if (storageType_ == "redis")
     {
         std::string clientName = config["redis"].get("client_name", "default").asString();
         oauth2::RedisRepositoryBundle bundle(clientName);
-        extractFrom(
+        assignOAuth2(
           bundle.clientRepository(),
           bundle.grantRepository(),
           bundle.tokenRepository(),
-          bundle.consentRepository(),
-          bundle.roleRepository(),
-          bundle.userRepository(),
-          bundle.subjectMappingRepository()
+          bundle.consentRepository()
         );
+
+        // Phase 1.5c decision: there is NO new Redis identity impl (the
+        // legacy Redis identity repos were always placeholders that returned
+        // nullopt / {"user"}). Fall back to MemoryIdentityRepository so the
+        // identity path stays functional without a real Redis user store.
+        LOG_WARN << "OAuth2Plugin: redis storage_type has no dedicated "
+                    "identity backend; using MemoryIdentityRepository as a "
+                    "placeholder (role lookups default to {\"user\"}, no "
+                    "real user store)";
+        auto identityRepo =
+          std::make_shared<authforge::storage::memory::MemoryIdentityRepository>();
+        if (config.isMember("admin_users"))
+            identityRepo->initAdminRoles(config["admin_users"]);
+        roleRepo_ = identityRepo;
+        userRepo_ = identityRepo;
+        subjectMappingRepo_ = identityRepo;
     }
     else
     {
         oauth2::MemoryRepositoryBundle bundle;
         if (config.isMember("clients"))
             bundle.initFromConfig(config["clients"], config["admin_users"]);
-        extractFrom(
+        assignOAuth2(
           bundle.clientRepository(),
           bundle.grantRepository(),
           bundle.tokenRepository(),
-          bundle.consentRepository(),
-          bundle.roleRepository(),
-          bundle.userRepository(),
-          bundle.subjectMappingRepository()
+          bundle.consentRepository()
         );
+
+        // Memory backend: NEW identity backing store, with the admin role map
+        // populated from the same "admin_users" config block the legacy
+        // MemoryRoleRepository::initFromConfig consumed.
+        auto identityRepo =
+          std::make_shared<authforge::storage::memory::MemoryIdentityRepository>();
+        if (config.isMember("admin_users"))
+            identityRepo->initAdminRoles(config["admin_users"]);
+        roleRepo_ = identityRepo;
+        userRepo_ = identityRepo;
+        subjectMappingRepo_ = identityRepo;
     }
 }
 
@@ -492,11 +524,53 @@ void OAuth2Plugin::getUserInfo(
   std::function<void(std::optional<Json::Value>)> &&callback
 )
 {
-    // Phase 4.6a: routed through userRepo_ (the identity split-repo), no
-    // storage_ reach-in. The identity-side migration to
-    // authforge::identity::IUserRepository is a separate follow-up.
-    if (userRepo_)
-        userRepo_->getUserInfo(userId, std::move(callback));
+    // Phase 1.5d (Task 39): routed through userRepo_ (the NEW
+    // authforge::identity::IUserRepository). That interface has no
+    // getUserInfo(string) overload -- it exposes findById(int32) /
+    // findByPublicSub(string) returning UserData. Replicate the legacy
+    // dispatch (numeric -> findById(stoi); otherwise -> findByPublicSub) and
+    // rebuild the legacy JSON shape ({id, username, email}) the caller
+    // (TokenEndpointController's userinfo endpoint) consumes byte-for-byte.
+    if (!userRepo_)
+    {
+        callback(std::nullopt);
+        return;
+    }
+
+    // Numeric userId -> internal int32 id; otherwise treat as public_sub.
+    bool isNumeric = false;
+    int32_t numericId = 0;
+    try
+    {
+        size_t pos = 0;
+        int parsed = std::stoi(userId, &pos);
+        isNumeric = (pos == userId.length());
+        if (isNumeric)
+            numericId = parsed;
+    }
+    catch (...)
+    {
+        isNumeric = false;
+    }
+
+    auto buildJson =
+      [callback = std::move(callback)](std::optional<authforge::identity::UserData> data) mutable {
+          if (!data)
+          {
+              callback(std::nullopt);
+              return;
+          }
+          Json::Value userInfo;
+          userInfo["id"] = data->id;
+          userInfo["username"] = data->username;
+          userInfo["email"] = data->email;
+          callback(userInfo);
+      };
+
+    if (isNumeric)
+        userRepo_->findById(numericId, std::move(buildJson));
+    else
+        userRepo_->findByPublicSub(userId, std::move(buildJson));
 }
 
 void OAuth2Plugin::revokeAccessToken(

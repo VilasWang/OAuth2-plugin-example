@@ -4,8 +4,6 @@
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <future>
 
-using namespace oauth2;
-
 DROGON_TEST(Integration_P0_Plugin_General_Works)
 {
     // 1. Setup Plugin with Memory Storage

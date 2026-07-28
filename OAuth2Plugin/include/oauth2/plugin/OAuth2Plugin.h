@@ -4,9 +4,16 @@
 #include <oauth2/plugin/OAuth2CleanupService.h>
 #include <oauth2/services/IdentityService.h>
 #include <oauth2/adapters/StorageRoleProvider.h>
-#include <oauth2/storage/IRoleRepository.h>
-#include <oauth2/storage/IUserRepository.h>
-#include <oauth2/storage/ISubjectMappingRepository.h>
+// Phase 1.5d (Task 39): the plugin's 3 identity-side members now hold the NEW
+// authforge::identity::* interfaces (Memory/Postgres impls were widened in
+// 1.5a-c to be a superset of the legacy oauth2::* shapes). The plugin
+// constructs the concrete repos itself (no longer via RepositoryBundle's 3
+// identity accessors), so the concrete-impl headers are included here too.
+#include <authforge/identity/IRoleRepository.h>
+#include <authforge/identity/IUserRepository.h>
+#include <authforge/identity/ISubjectMappingRepository.h>
+#include <authforge/storage/memory/MemoryIdentityRepository.h>
+#include <authforge/storage/postgres/PostgresIdentityRepository.h>
 #include <authforge/oauth2/repository/IConsentRepository.h>
 #include <authforge/oauth2/model/Dto.h>
 #include <authforge/oauth2/jwk/JwkManager.h>
@@ -380,11 +387,14 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     std::shared_ptr<authforge::oauth2::repository::IGrantRepository> grantRepo_;
     std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo_;
     std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consentRepo_;
-    // Identity-side (still on the legacy oauth2::* interfaces; migration to
-    // authforge::identity::* is a separate follow-up).
-    std::shared_ptr<oauth2::IRoleRepository> roleRepo_;
-    std::shared_ptr<oauth2::IUserRepository> userRepo_;
-    std::shared_ptr<oauth2::ISubjectMappingRepository> subjectMappingRepo_;
+    // Phase 1.5d (Task 39): identity-side members now hold the NEW
+    // authforge::identity::* interfaces. All three are populated from a
+    // single PostgresIdentityRepository / MemoryIdentityRepository instance
+    // (each concrete class multiply-inherits all 3 interfaces), so the
+    // shared_ptr conversions are pointer-adjusted aliases of one object.
+    std::shared_ptr<authforge::identity::IRoleRepository> roleRepo_;
+    std::shared_ptr<authforge::identity::IUserRepository> userRepo_;
+    std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMappingRepo_;
     std::shared_ptr<authforge::drogon::OAuth2CleanupService> cleanupService_;
     std::shared_ptr<authforge::oauth2::protocol::TokenService> tokenService_;
     std::shared_ptr<authforge::oauth2::protocol::ClientService> clientService_;

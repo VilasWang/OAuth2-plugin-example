@@ -1,8 +1,11 @@
 #pragma once
 
-#include <oauth2/storage/IRoleRepository.h>
-#include <oauth2/storage/IUserRepository.h>
-#include <oauth2/storage/ISubjectMappingRepository.h>
+// Phase 1.5d (Task 39): the 3 identity-side repos now use the NEW
+// authforge::identity::* interfaces (Memory/Postgres impls widened in
+// 1.5a-c to carry every method this service calls).
+#include <authforge/identity/IRoleRepository.h>
+#include <authforge/identity/IUserRepository.h>
+#include <authforge/identity/ISubjectMappingRepository.h>
 #include <authforge/oauth2/repository/IConsentRepository.h>
 #include <authforge/oauth2/model/UserRef.h>
 #include <memory>
@@ -28,20 +31,19 @@ namespace authforge::identity
 //
 // Phase 4.6a (authforge-sdk-refactor): this service is no longer keyed on the
 // god IOAuth2Storage facade. It now holds the four identity-side split
-// repositories (role / user / subject-mapping / consent) extracted from the
-// per-backend RepositoryBundle. The consent repo is the NEW
-// authforge::oauth2::repository::IConsentRepository (UserRef-based); the int32
-// internalUserId exposed by this service's API is wrapped into a UserRef at the
-// boundary. The other three repos are still on the legacy oauth2::* interfaces
-// (identity-side migration to authforge::identity::* is a separate follow-up).
+// repositories (role / user / subject-mapping / consent). The consent repo is
+// the NEW authforge::oauth2::repository::IConsentRepository (UserRef-based);
+// the int32 internalUserId exposed by this service's API is wrapped into a
+// UserRef at the boundary. Phase 1.5d (Task 39): the other three repos now
+// use the NEW authforge::identity::* interfaces.
 class IdentityService : public std::enable_shared_from_this<IdentityService>
 {
   public:
     struct Repos
     {
-        std::shared_ptr<::oauth2::IRoleRepository> role;
-        std::shared_ptr<::oauth2::IUserRepository> user;
-        std::shared_ptr<::oauth2::ISubjectMappingRepository> subjectMapping;
+        std::shared_ptr<authforge::identity::IRoleRepository> role;
+        std::shared_ptr<authforge::identity::IUserRepository> user;
+        std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMapping;
         std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consent;
     };
 

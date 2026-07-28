@@ -8,13 +8,14 @@
 // (MemoryRoleRepository userRoles_ populated from admin_users config) through
 // the new IRoleProvider port.
 //
-// Phase 4.6a: now backed by ::oauth2::IRoleRepository (the identity split-repo)
-// instead of the god IOAuth2Storage facade. Forwards getRoles(...) to
-// roleRepo->getUserRoles(...). Placed under OAuth2Plugin/include/oauth2/
-// adapters/ alongside the other Adapter-layer port implementations.
+// Phase 1.5d (Task 39): now backed by authforge::identity::IRoleRepository
+// (the NEW identity interface; was the legacy ::oauth2::IRoleRepository).
+// Forwards getRoles(...) to roleRepo->getRoles(...). Placed under
+// OAuth2Plugin/include/oauth2/adapters/ alongside the other Adapter-layer
+// port implementations.
 
 #include <authforge/common/ports/IRoleProvider.h>
-#include <oauth2/storage/IRoleRepository.h>
+#include <authforge/identity/IRoleRepository.h>
 
 #include <memory>
 
@@ -24,7 +25,7 @@ namespace authforge::drogon::adapters
 class StorageRoleProvider : public authforge::common::ports::IRoleProvider
 {
   public:
-    explicit StorageRoleProvider(std::shared_ptr<::oauth2::IRoleRepository> roleRepo)
+    explicit StorageRoleProvider(std::shared_ptr<authforge::identity::IRoleRepository> roleRepo)
         : roleRepo_(std::move(roleRepo))
     {
     }
@@ -44,7 +45,7 @@ class StorageRoleProvider : public authforge::common::ports::IRoleProvider
             cb({});
             return;
         }
-        roleRepo_->getUserRoles(subject, std::move(cb));
+        roleRepo_->getRoles(subject, std::move(cb));
     }
 
     void getRoles(int32_t internalUserId, RolesCallback &&cb) override
@@ -54,11 +55,11 @@ class StorageRoleProvider : public authforge::common::ports::IRoleProvider
             cb({});
             return;
         }
-        roleRepo_->getUserRoles(internalUserId, std::move(cb));
+        roleRepo_->getRoles(internalUserId, std::move(cb));
     }
 
   private:
-    std::shared_ptr<::oauth2::IRoleRepository> roleRepo_;
+    std::shared_ptr<authforge::identity::IRoleRepository> roleRepo_;
 };
 
 }  // namespace authforge::drogon::adapters

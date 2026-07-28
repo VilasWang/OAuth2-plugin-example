@@ -13,7 +13,6 @@
 // storage.
 
 using namespace authforge::common::utils;
-using namespace oauth2;
 
 // ========== SubjectGenerator Tests ==========
 
@@ -49,7 +48,7 @@ DROGON_TEST(Unit_P0_SubjectGenerator_Legacy_Parsing)
 
 DROGON_TEST(Unit_P0_SubjectMapping_Legacy_ProviderIsolation)
 {
-    MemoryRepositoryBundle bundle;
+    oauth2::MemoryRepositoryBundle bundle;
     auto sm = bundle.subjectMappingRepository();
 
     std::promise<void> p1;
@@ -143,7 +142,7 @@ DROGON_TEST(Unit_P0_EdgeCases_Legacy_EmptyVerifier)
 
 DROGON_TEST(Unit_P0_EdgeCases_Legacy_SubjectProviderIsolation)
 {
-    MemoryRepositoryBundle bundle;
+    oauth2::MemoryRepositoryBundle bundle;
     auto sm = bundle.subjectMappingRepository();
 
     sm->createSubjectMapping("testuser", 1, "local", [&](bool) {});

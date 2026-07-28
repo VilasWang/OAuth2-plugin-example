@@ -23,7 +23,11 @@
 #include <authforge/identity/AuthService.h>
 #include <authforge/identity/SessionManager.h>
 
-using namespace oauth2;
+// Phase 1.5d (Task 39): `using namespace oauth2;` was removed -- this TU
+// has no actual oauth2:: symbol references (all calls are fully qualified
+// ::authforge::...). The directive previously compiled only because
+// OAuth2Plugin.h transitively pulled in `namespace oauth2` via the legacy
+// oauth2/storage/I*Repository.h headers, which the plugin no longer includes.
 using namespace authforge::drogon::services;
 using namespace ::authforge::drogon::observability::openapi;
 

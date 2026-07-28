@@ -33,7 +33,7 @@ void IdentityService::getUserRoles(
         callback({});
         return;
     }
-    repos_.role->getUserRoles(userId, std::move(callback));
+    repos_.role->getRoles(userId, std::move(callback));
 }
 
 void IdentityService::ensureSubjectMapping(

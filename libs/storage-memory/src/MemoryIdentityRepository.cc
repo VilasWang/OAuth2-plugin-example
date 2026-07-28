@@ -91,12 +91,18 @@ UserData MemoryIdentityRepository::syntheticUser(int32_t id) const
 // --- IUserRepository placeholder impls (memory backend has no real user store;
 // mirrors the legacy MemoryUserRepository which synthesized JSON on the fly) ---
 
-void MemoryIdentityRepository::findById(int32_t userId, std::function<void(std::optional<UserData>)> &&callback)
+void MemoryIdentityRepository::findById(
+  int32_t userId,
+  std::function<void(std::optional<UserData>)> &&callback
+)
 {
     callback(syntheticUser(userId));
 }
 
-void MemoryIdentityRepository::findByPublicSub(const std::string &publicSub, std::function<void(std::optional<UserData>)> &&callback)
+void MemoryIdentityRepository::findByPublicSub(
+  const std::string &publicSub,
+  std::function<void(std::optional<UserData>)> &&callback
+)
 {
     try
     {
@@ -108,39 +114,61 @@ void MemoryIdentityRepository::findByPublicSub(const std::string &publicSub, std
     }
 }
 
-void MemoryIdentityRepository::findByEmail(const std::string &email, std::function<void(std::optional<UserData>)> &&callback)
+void MemoryIdentityRepository::findByEmail(
+  const std::string &email,
+  std::function<void(std::optional<UserData>)> &&callback
+)
 {
     callback(std::nullopt);
 }
 
-void MemoryIdentityRepository::findByUsername(const std::string &username, std::function<void(std::optional<UserData>)> &&callback)
+void MemoryIdentityRepository::findByUsername(
+  const std::string &username,
+  std::function<void(std::optional<UserData>)> &&callback
+)
 {
     callback(std::nullopt);
 }
 
-void MemoryIdentityRepository::create(const UserData &userData, std::function<void(std::optional<int32_t>, std::string)> &&callback)
+void MemoryIdentityRepository::create(
+  const UserData &userData,
+  std::function<void(std::optional<int32_t>, std::string)> &&callback
+)
 {
     // Memory backend cannot persist; report unsupported (callers fall back to
     // the configured DB-backed impl in production).
     callback(std::nullopt, "");
 }
 
-void MemoryIdentityRepository::updatePasswordHash(int32_t userId, const std::string &newHash, std::function<void(bool)> &&callback)
+void MemoryIdentityRepository::updatePasswordHash(
+  int32_t userId,
+  const std::string &newHash,
+  std::function<void(bool)> &&callback
+)
 {
     callback(false);
 }
 
-void MemoryIdentityRepository::resetFailedLogins(int32_t userId, std::function<void(bool)> &&callback)
+void MemoryIdentityRepository::resetFailedLogins(
+  int32_t userId,
+  std::function<void(bool)> &&callback
+)
 {
     callback(true);
 }
 
-void MemoryIdentityRepository::incrementFailedLogins(int32_t userId, std::function<void(bool)> &&callback)
+void MemoryIdentityRepository::incrementFailedLogins(
+  int32_t userId,
+  std::function<void(bool)> &&callback
+)
 {
     callback(true);
 }
 
-void MemoryIdentityRepository::getUserInfoWithRoles(int32_t userId, std::function<void(std::optional<Json::Value>)> &&callback)
+void MemoryIdentityRepository::getUserInfoWithRoles(
+  int32_t userId,
+  std::function<void(std::optional<Json::Value>)> &&callback
+)
 {
     Json::Value info;
     info["sub"] = std::to_string(userId);
