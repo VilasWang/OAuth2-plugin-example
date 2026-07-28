@@ -35,15 +35,16 @@ cmake_minimum_required(VERSION 3.16)
 # OAuth2Server/test/unit/validation/) keep compiling unchanged until the
 # full M8 namespace sweep (Task 40).
 #
-# HttpResponder.cc still depends on the pre-existing common::error
-# machinery (OAuth2Plugin/include/oauth2/error/*, not yet relocated into
-# authforge::common::error) -- this target therefore links OAuth2Plugin
-# for that header+impl, same as e.g. libs/storage-postgres links
-# authforge::identity for its own Adapter-side implementation. This is a
-# TEMPORARY reverse-looking dependency edge (Adapter -> Adapter) that
-# collapses once the error/ module's own relocation (a separate, later
-# slice/task) lands; it does not violate the Domain-layer rule since
-# libs/drogon is itself an Adapter-layer package.
+# Phase 3 (A4+A5) done: error/filters/validation/adapters/utils/
+# observability all live in this target (or libs/common) now. The ONLY
+# remaining reason this target links OAuth2Plugin is the plugin class
+# itself: 18 files here (OAuth2AuthFilter.h, controller headers,
+# AuditLogger.cc, controller/service .cc) still include
+# <oauth2/plugin/OAuth2Plugin.h>, whose header lives in
+# OAuth2Plugin/include/ until Phase 4 (A6) migrates the plugin class into
+# libs/drogon/plugin/ and this link edge is removed. NOTE for Phase 4:
+# dropping the link also drops the transitive authforge::storage::*
+# edges it carries -- add them explicitly here if still needed.
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
 if(NOT DEFINED OAUTH2_PROJECT_VERSION)
@@ -105,9 +106,8 @@ if(WITH_WEBAUTHN)
     target_compile_definitions(${PROJECT_NAME} PUBLIC WITH_WEBAUTHN)
 endif()
 
-# OAuth2Plugin (temporary, see header note above): HttpResponder.cc calls
-# the pre-existing common::error::{Error,ErrorContext,ErrorHandler,
-# RequestId} machinery, whose headers+impl still live under OAuth2Plugin.
+# OAuth2Plugin (temporary, see header note above): removed in Phase 4 (A6)
+# together with the 18 stale <oauth2/plugin/OAuth2Plugin.h> includes.
 #
 # Task 24 slice 5: DrogonOAuthHttpClient.cc implements
 # authforge::identity::IOAuthHttpClient -- authforge::identity linked

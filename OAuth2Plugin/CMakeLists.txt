@@ -37,6 +37,14 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        # Phase 3 (directory restructure): the plugin's remaining sources
+        # (OAuth2Plugin.h/.cc, IdentityService.cc) include
+        # <authforge/drogon/...> headers that moved into libs/drogon. This
+        # target cannot link authforge::drogon (libs/drogon links THIS
+        # target -- a cycle), so it takes the include dir header-only; the
+        # symbols resolve at final link where every consumer links both.
+        # Dies with this whole target in Phase 4 (A6).
+        ${CMAKE_CURRENT_SOURCE_DIR}/../libs/drogon/include
         # M2b Task 18: the ORM model headers (and their generator-emitted
         # sibling quote-includes) moved to libs/storage-postgres; this
         # private include path is no longer needed here.
