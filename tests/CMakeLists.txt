@@ -234,6 +234,15 @@ set(OAUTH2_CONTRACT_TEST_NAMES
     Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHasRevokeRoundTrip
     Integration_P0_Contract_Functional_ConsentRepository_Redis_SaveHasRevokeRoundTrip
     Integration_P0_Contract_Functional_ConsentRepository_Memory_SaveHasRevokeRoundTrip
+    # UserInfoRepositoryContractTest.cc (遗留事项 L2: re-homed coverage of the
+    # deleted tests/services/AuthServiceGetUserInfoTest.cc onto the live
+    # IUserRepository::getUserInfoWithRoles path; Postgres/Memory only --
+    # identity has no Redis implementation)
+    Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UserWithRoles_ReturnsClaimsAndRoles
+    Integration_P0_Contract_Functional_UserInfoRepository_Postgres_NoRoles_EmptyRolesArray_NameFallsBackToEmail
+    Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UnknownUser_ReturnsNullopt
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_MappedUser_SyntheticClaimsWithConfiguredRoles
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_UnmappedUser_DefaultsToUserRole_NeverNullopt
 )
 
 foreach(_contract_test_name ${OAUTH2_CONTRACT_TEST_NAMES})
