@@ -1,7 +1,7 @@
 #pragma once
 
 #include <authforge/drogon/validation/RuleEngine.h>
-#include <authforge/drogon/validation/Rules.h>
+#include <authforge/drogon/validation/Rule.h>
 #include <string>
 #include <vector>
 #include <optional>

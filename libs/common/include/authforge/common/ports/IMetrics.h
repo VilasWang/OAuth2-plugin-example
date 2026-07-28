@@ -9,7 +9,7 @@
 //
 // Scope note (design.md §5.4's Prometheus-adapter row + §H7 evaluation
 // referenced there): the existing authforge::drogon::observability::Metrics
-// (OAuth2Plugin/include/oauth2/observability/OAuth2Metrics.h) is a static
+// (libs/drogon/include/authforge/drogon/observability/Metrics.h) is a static
 // class with hard-coded metric names/labels (oauth2_requests_total,
 // oauth2_login_failures_total, etc), and all 4 existing config.*.json files
 // use Drogon's native drogon::plugin::PromExporter directly with no custom

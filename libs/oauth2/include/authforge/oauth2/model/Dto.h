@@ -26,6 +26,14 @@
 // TokenIntrospection::toJson() is ported here using Json::Value (jsoncpp),
 // which libs/oauth2 has transitively available via authforge::common
 // (design.md §4.1 rule 1 explicitly allows jsoncpp in the Domain layer).
+//
+// Naming note (design.md §5.8 "文件名 = 主类名", Phase 6 decision): this
+// header intentionally stays an aggregate of six closely-related plain DTO
+// structs and is exempt from the one-class-per-file rule — splitting it into
+// six single-struct headers would touch 13 includers for zero behavioral
+// gain. These are hand-written Domain DTOs, NOT drogon_ctl-generated ORM
+// models (those live in libs/storage-postgres/**/models/ and must never be
+// hand-edited).
 
 #include <authforge/oauth2/model/ClientType.h>
 

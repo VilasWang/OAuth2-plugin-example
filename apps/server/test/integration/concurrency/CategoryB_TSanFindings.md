@@ -72,7 +72,7 @@ read-only afterwards" assumption. The test uses exactly **one** `init()` writer
   under the "cannot-reproduce ⇒ root cause refuted" rule. Its real problem
   (members destroyed with the host object → UAF) is covered by **Task 3
   (Category C / ASan)**.
-- **1.7 (`OAuth2Metrics`)** currently only does `LOG_INFO` with no shared
+- **1.7 (`Metrics`)** currently only does `LOG_INFO` with no shared
   counter, so there is **no reproducible race**. No reproduction case is written
   for 1.7; it is handled as a guardrail in fix task 7.3.
 

@@ -6,7 +6,7 @@
 #include <algorithm>
 
 // NOTE: the original RedisOAuth2Storage emitted an OperationTimer metric here
-// via <authforge/drogon/observability/OAuth2Metrics.h> (owned by OAuth2Plugin). That
+// via <authforge/drogon/observability/Metrics.h> (owned by OAuth2Plugin). That
 // header is not yet relocated to libs/drogon (scheduled for Phase 3 of the
 // authforge-sdk-refactor, see .kiro/specs/authforge-sdk-refactor/
 // DIRECTORY_RESTRUCTURE_PLAN.md §3b). storage-postgres/storage-memory -- the

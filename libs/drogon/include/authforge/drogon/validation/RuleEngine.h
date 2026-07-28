@@ -1,6 +1,6 @@
 #pragma once
 
-#include <authforge/drogon/validation/Rules.h>
+#include <authforge/drogon/validation/Rule.h>
 #include <vector>
 #include <utility>
 

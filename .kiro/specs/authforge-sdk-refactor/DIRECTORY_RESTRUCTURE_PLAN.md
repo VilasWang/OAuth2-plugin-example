@@ -186,6 +186,8 @@
 - `Rules.h` → `Rule.h`（单复数对齐）
 - 其余 §5.8 残余
 
+> **✅ Phase 6 完成（2026-07-28）**：`OAuth2Metrics.h/.cc` → `Metrics.h/.cc`（类名 `Metrics` 不变，唯一真实 includer 为 .cc 自身，另修 3 处活代码注释路径）；`Rules.h` → `Rule.h`（主类 `struct Rule`，3 个 includer 同步：RuleSet.h/RuleEngine.h/EmailNormalizerTest.cc）；`ScopeDecision.h` 核实 `enum class ScopeDecision` 存在 → no-op；`Dto.h` 用户决策保留聚合头 + 文件头追加 §5.8 豁免注释（已澄清：手写领域 DTO，非 drogon_ctl ORM 模型）。§5.8 残余 sweep：扫描 libs 174 个头文件，11 个标记项全部判定无需改名（6 个自由函数工具头 + 4 个有意聚合头 ErrorTypes/EmailService/SocialAuthService/ConfigTypes + Dto.h 已豁免）。CMake GLOB_RECURSE 无需改，reconfigure 即可。全量 build 0 error / LNK4006=0 / C4244=0；**运行时 gate ✅**：`/health` 200（DB connected）、`/.well-known/openid-configuration` 200、`/login` 200 渲染 login.csp。旧名 grep 仅剩 docs/design 历史存档（豁免，与 Phase 5 一致）。回退 tag `restructure-phase5-end`。
+
 ### Phase 7 — 测试层（最后）= B1 + B2
 **一次性 ctest 验证在此阶段末执行**（用户决策 2；前 6 个 phase 末尾的运行时 gate 已覆盖 Drogon 运行时风险，ctest 在此集中验证全部单元/契约/集成测试零回归）。
 

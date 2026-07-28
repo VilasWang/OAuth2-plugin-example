@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <authforge/common/utils/EmailNormalizer.h>
-#include <authforge/drogon/validation/Rules.h>
+#include <authforge/drogon/validation/Rule.h>
 #include <regex>
 #include <string>
 

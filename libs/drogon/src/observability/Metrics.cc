@@ -1,4 +1,4 @@
-#include <authforge/drogon/observability/OAuth2Metrics.h>
+#include <authforge/drogon/observability/Metrics.h>
 #include <drogon/drogon.h>
 #include <drogon/plugins/PromExporter.h>
 
@@ -8,7 +8,7 @@ namespace authforge::drogon::observability
 {
 
 // Thread-safety contract for this component is documented on the Metrics class
-// declaration in OAuth2Metrics.h. In short: metric counters MUST be
+// declaration in Metrics.h. In short: metric counters MUST be
 // thread-safe; any future process-wide shared counter MUST use std::atomic<...>
 // (or a thread-safe metrics library such as Drogon's PromExporter
 // Counter/Gauge, already configured in config.json). Do NOT introduce
