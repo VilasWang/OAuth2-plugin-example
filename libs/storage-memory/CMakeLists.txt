@@ -43,7 +43,11 @@ target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_STORAGE_MEMORY_SOURCES})
 # package depends on the Domain-layer libs/oauth2 (correct direction per design.md
 # §4.1: an Adapter-layer storage package is free to implement Domain interfaces;
 # the Domain has zero dependency back).
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon JsonCpp::JsonCpp authforge::oauth2)
+#
+# Phase 1.5c (Task 39): MemoryIdentityRepository implements the identity
+# repository interfaces (IUser/IRole/ISubjectMapping), so this package also
+# depends on libs/identity (same Adapter->Domain direction).
+target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon JsonCpp::JsonCpp authforge::oauth2 authforge::identity)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
