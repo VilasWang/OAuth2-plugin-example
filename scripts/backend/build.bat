@@ -44,8 +44,26 @@ if %errorlevel% neq 0 (
 )
 
 echo Copying config files...
-copy "..\%OAUTH2_SERVER_DIR%\%CONFIG_FILE%" ".\%OAUTH2_SERVER_DIR%\%BUILD_TYPE%\" /Y
-copy "..\%OAUTH2_SERVER_DIR%\%CONFIG_FILE%" ".\%OAUTH2_SERVER_DIR%\test\%BUILD_TYPE%\" /Y
+REM cmd's copy mishandles the forward slashes used by paths.env values
+REM (apps/server, config/config.json): it silently copies 0 files and
+REM leaves errorlevel 1. Normalize to backslashes first.
+set "CFG_SRC=..\%OAUTH2_SERVER_DIR%\%CONFIG_FILE%"
+set "CFG_SRC=%CFG_SRC:/=\%"
+set "SRV_OUT=.\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%"
+set "SRV_OUT=%SRV_OUT:/=\%"
+copy "%CFG_SRC%" "%SRV_OUT%\" /Y
+if %errorlevel% neq 0 (
+    echo [Error] Failed to copy config to %SRV_OUT%
+    exit /b 1
+)
+REM Phase 5 restructure: tests build under BUILD_DIR/tests (was
+REM OAuth2Server/test) and their config is a flat config.json there
+REM (matches tests/CMakeLists POST_BUILD copy_if_different).
+copy "%CFG_SRC%" ".\%TESTS_BUILD_SUBDIR%\%BUILD_TYPE%\config.json" /Y
+if %errorlevel% neq 0 (
+    echo [Error] Failed to copy config to tests build dir
+    exit /b 1
+)
 
 echo Build completed successfully!
 endlocal

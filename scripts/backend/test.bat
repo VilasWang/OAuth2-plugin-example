@@ -39,7 +39,11 @@ if not exist "%PROJECT_DIR%\%BUILD_DIR%" (
     exit /b 1
 )
 
-set "TEST_WORK_DIR=%PROJECT_DIR%\%BUILD_DIR%\%OAUTH2_SERVER_DIR%\test\%BUILD_TYPE%"
+REM Phase 5 restructure: tests build under BUILD_DIR/tests (was
+REM OAuth2Server/test); their runtime config is a flat config.json there
+REM (tests/CMakeLists POST_BUILD), NOT the source-tree config/ subpath.
+set "TEST_WORK_DIR=%PROJECT_DIR%\%BUILD_DIR%\%TESTS_BUILD_SUBDIR%\%BUILD_TYPE%"
+set "TEST_CONFIG=%TEST_WORK_DIR%\config.json"
 
 cd /d "%PROJECT_DIR%\%BUILD_DIR%"
 
@@ -67,15 +71,18 @@ if not exist "%TEST_WORK_DIR%" (
 )
 
 REM Backup original and use CI config
-copy /Y "%TEST_WORK_DIR%\%CONFIG_FILE%" "%TEST_WORK_DIR%\%CONFIG_FILE%.bak" >nul
-copy /Y "%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%" "%TEST_WORK_DIR%\%CONFIG_FILE%" >nul
+REM cmd's copy mishandles forward slashes from paths.env values; normalize.
+set "CI_CFG_SRC=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%"
+set "CI_CFG_SRC=!CI_CFG_SRC:/=\!"
+copy /Y "%TEST_CONFIG%" "%TEST_CONFIG%.bak" >nul
+copy /Y "!CI_CFG_SRC!" "%TEST_CONFIG%" >nul
 
 ctest -V -C %BUILD_TYPE% %VERBOSE%
 set "CI_EXIT=!errorlevel!"
 
 REM Restore original config immediately
-copy /Y "%TEST_WORK_DIR%\%CONFIG_FILE%.bak" "%TEST_WORK_DIR%\%CONFIG_FILE%" >nul
-del "%TEST_WORK_DIR%\%CONFIG_FILE%.bak" >nul 2>&1
+copy /Y "%TEST_CONFIG%.bak" "%TEST_CONFIG%" >nul
+del "%TEST_CONFIG%.bak" >nul 2>&1
 
 if !CI_EXIT! neq 0 (
     echo [FAIL] Tests failed with %CONFIG_CI_FILE%

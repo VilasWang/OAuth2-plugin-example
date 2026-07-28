@@ -116,9 +116,15 @@ if not exist "%SERVER_EXE%" (
     goto cleanup_and_exit
 )
 
-echo Starting server from %OAUTH2_SERVER_DIR% directory...
-pushd "%PROJECT_DIR%\%OAUTH2_SERVER_DIR%"
-start "" "%SERVER_EXE%" -c %CONFIG_FILE%
+REM Phase 5 restructure: run from the binary's build dir (same convention
+REM as run_server.bat). main.cc has no -c flag -- it probes ./config.json
+REM relative to CWD, and build.bat copies config.json next to the exe. The
+REM old CWD (apps/server) no longer has a root config.json (configs moved
+REM into apps/server/config/).
+set "SERVER_RUN_DIR=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%"
+echo Starting server from %SERVER_RUN_DIR% ...
+pushd "%SERVER_RUN_DIR%"
+start "" "%SERVER_EXE%"
 popd
 
 REM Wait for server to start
@@ -134,7 +140,7 @@ REM resolves to the Windows builtin even when this .bat runs via bash/MSYS
 REM (unlike 'find', which the Unix 'find' shadows).
 tasklist /FI "IMAGENAME eq %SERVER_BINARY_NAME%.exe" 2>NUL | findstr /I "%SERVER_BINARY_NAME%.exe">NUL
 if !errorlevel! neq 0 (
-    echo [FAILED] Server failed to start or crashed. Check logs in %OAUTH2_SERVER_DIR%\logs
+    echo [FAILED] Server failed to start or crashed. Check logs in %SERVER_RUN_DIR%\logs
     set "FINAL_RESULT=1"
     goto cleanup_and_exit
 )
