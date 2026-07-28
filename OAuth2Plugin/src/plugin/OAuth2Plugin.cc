@@ -14,7 +14,7 @@
 // repos are constructed separately from authforge::identity::* backing stores).
 #include <oauth2/storage/MemoryRepositoryBundle.h>
 #include <authforge/storage/postgres/PostgresRepositoryBundle.h>
-#include <oauth2/storage/RedisRepositoryBundle.h>
+#include <authforge/storage/redis/RedisRepositoryBundle.h>
 #include <authforge/oauth2/repository/IClientRepository.h>
 #include <authforge/oauth2/repository/IGrantRepository.h>
 #include <authforge/oauth2/repository/ITokenRepository.h>
@@ -236,7 +236,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     else if (storageType_ == "redis")
     {
         std::string clientName = config["redis"].get("client_name", "default").asString();
-        oauth2::RedisRepositoryBundle bundle(clientName);
+        authforge::storage::redis::RedisRepositoryBundle bundle(clientName);
         assignOAuth2(
           bundle.clientRepository(),
           bundle.grantRepository(),

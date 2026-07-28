@@ -1,6 +1,6 @@
-#include <oauth2/storage/RedisRepositoryBundle.h>
+#include <authforge/storage/redis/RedisRepositoryBundle.h>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 RedisRepositoryBundle::RedisRepositoryBundle(const std::string &redisClientName)
@@ -11,4 +11,4 @@ RedisRepositoryBundle::RedisRepositoryBundle(const std::string &redisClientName)
 {
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

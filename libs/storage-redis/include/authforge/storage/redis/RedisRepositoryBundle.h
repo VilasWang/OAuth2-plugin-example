@@ -8,15 +8,15 @@
 // Phase 1.5e: the 3 identity repos that used to live here are removed; the
 // identity domain now has its own authforge::identity::* backing stores
 // (see OAuth2Plugin.cc initStorage).
-#include <oauth2/storage/RedisClientRepository.h>
-#include <oauth2/storage/RedisGrantRepository.h>
-#include <oauth2/storage/RedisTokenRepository.h>
-#include <oauth2/storage/RedisConsentRepository.h>
+#include <authforge/storage/redis/RedisClientRepository.h>
+#include <authforge/storage/redis/RedisGrantRepository.h>
+#include <authforge/storage/redis/RedisTokenRepository.h>
+#include <authforge/storage/redis/RedisConsentRepository.h>
 
 #include <memory>
 #include <string>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 // Task 27.5: the 4 oauth2-aggregate accessors now expose the NEW authforge::oauth2::repository::*
@@ -83,4 +83,4 @@ class RedisRepositoryBundle
     std::shared_ptr<RedisConsentRepository> consentRepository_;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

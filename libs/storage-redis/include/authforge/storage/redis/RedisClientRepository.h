@@ -7,11 +7,11 @@
 // IOAuth2Storage are untouched and remain the production path used by
 // OAuth2Plugin.cc today.
 #include <authforge/oauth2/repository/IClientRepository.h>
-#include <oauth2/storage/RedisRepositoryBase.h>
+#include <authforge/storage/redis/RedisRepositoryBase.h>
 
 #include <memory>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 // Task 27.5: now implements the NEW Domain-layer interface
@@ -50,4 +50,4 @@ class RedisClientRepository : public IClientRepositoryBase,
     ) override;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

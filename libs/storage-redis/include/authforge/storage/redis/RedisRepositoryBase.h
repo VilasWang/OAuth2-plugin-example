@@ -3,7 +3,7 @@
 #include <drogon/nosql/RedisClient.h>
 #include <string>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 /**
@@ -49,7 +49,7 @@ class RedisRepositoryBase
     virtual ~RedisRepositoryBase() = default;
 
   protected:
-    drogon::nosql::RedisClientPtr redisClient_;
+    ::drogon::nosql::RedisClientPtr redisClient_;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

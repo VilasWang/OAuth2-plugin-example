@@ -67,7 +67,7 @@ target_sources(${PROJECT_NAME} PRIVATE ${PLUGIN_SOURCES})
 # authforge::storage::postgres (M2b Task 18): ORM models relocated out of
 # this target into libs/storage-postgres; every PostgresXxxRepository.cc
 # in src/storage/ now includes them from there.
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2 authforge::storage::postgres authforge::storage::memory)
+target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OpenSSL::Crypto CURL::libcurl authforge::common authforge::oauth2 authforge::storage::postgres authforge::storage::memory authforge::storage::redis)
 
 # Conan provides a STATIC libcurl by default. On Windows the curl headers
 # decorate symbols with __declspec(dllimport) UNLESS CURL_STATICLIB is defined,

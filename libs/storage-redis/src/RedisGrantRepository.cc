@@ -1,10 +1,10 @@
-#include <oauth2/storage/RedisGrantRepository.h>
+#include <authforge/storage/redis/RedisGrantRepository.h>
 #include <drogon/drogon.h>
 #include <json/json.h>
 #include <sstream>
 #include <chrono>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
@@ -16,8 +16,8 @@ using AuthCodeCallback = IGrantRepositoryBase::AuthCodeCallback;
 using VoidCallback = IGrantRepositoryBase::VoidCallback;
 using TransactionCallback = IGrantRepositoryBase::TransactionCallback;
 
-using namespace drogon;
-using namespace drogon::nosql;
+using namespace ::drogon;
+using namespace ::drogon::nosql;
 
 namespace
 {
@@ -478,4 +478,4 @@ void RedisGrantRepository::purgeExpired()
     LOG_DEBUG << "RedisGrantRepository::purgeExpired called (No-op, relying on Redis TTL)";
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

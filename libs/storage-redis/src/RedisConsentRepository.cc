@@ -1,7 +1,7 @@
-#include <oauth2/storage/RedisConsentRepository.h>
+#include <authforge/storage/redis/RedisConsentRepository.h>
 #include <chrono>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
@@ -10,8 +10,8 @@ using UserRef = ::authforge::oauth2::model::UserRef;
 using BoolCallback = IConsentRepositoryBase::BoolCallback;
 using VoidCallback = IConsentRepositoryBase::VoidCallback;
 
-using namespace drogon;
-using namespace drogon::nosql;
+using namespace ::drogon;
+using namespace ::drogon::nosql;
 
 void RedisConsentRepository::hasUserConsent(
   const UserRef &user,
@@ -117,4 +117,4 @@ void RedisConsentRepository::revokeUserConsent(
     );
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

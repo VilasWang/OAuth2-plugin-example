@@ -58,13 +58,13 @@
 #include <memory>
 #include <string>
 
-#include <oauth2/storage/CachedClientRepository.h>
+#include <authforge/storage/redis/CachedClientRepository.h>
 
 #include "CategoryC_DeferredClientRepositorySupport.h"
 #include "ConcurrencyRaceSupport.h"
 
 using namespace oauth2::test::concurrency;
-using oauth2::CachedClientRepository;
+using authforge::storage::redis::CachedClientRepository;
 
 namespace
 {

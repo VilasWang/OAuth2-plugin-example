@@ -87,6 +87,15 @@ add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_POSTGRES_DIR})
 # RepositoryBundle is the memory-storage backend selected by storage_type=memory).
 add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_MEMORY_DIR})
 
+# libs/storage-redis (authforge::storage::redis, Phase 2 of the oauth2 storage
+# refactor): Redis-backed oauth2 repository implementations
+# (RedisRepositoryBase / Redis{Client,Grant,Token,Consent}Repository /
+# RedisRepositoryBundle) + CachedClientRepository (cache decorator), relocated
+# out of OAuth2Plugin/storage/. Added BEFORE OAuth2Plugin because the plugin
+# links this package (RedisRepositoryBundle is the redis-storage backend
+# selected by storage_type=redis).
+add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_REDIS_DIR})
+
 add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
 
 # libs/drogon (authforge::drogon, M3 Task 20): Adapter-layer package for

@@ -20,7 +20,7 @@
 //     from the real seed data other tests already depend on.
 //   - Redis: HSET a client hash directly via the raw RedisClient (the only
 //     way to get data in, since IClientRepository has no write method and
-//     RedisOAuth2Storage/oauth2::RedisClientRepository never gained one either).
+//     RedisOAuth2Storage/authforge::storage::redis::RedisClientRepository never gained one either).
 //   - Memory: authforge::storage::memory::MemoryClientRepository::initFromConfig() -- the one
 //   repository
 //     that DOES have a construction-time write path, so this test builds a
@@ -31,7 +31,7 @@
 #include <drogon/utils/Utilities.h>
 
 #include <authforge/storage/postgres/PostgresClientRepository.h>
-#include <oauth2/storage/RedisClientRepository.h>
+#include <authforge/storage/redis/RedisClientRepository.h>
 #include <authforge/storage/memory/MemoryClientRepository.h>
 
 #include "ContractFixtures.h"
@@ -78,8 +78,8 @@ void runClientRepository_NotFoundContract(
 // validateClient() must not gate on it. Verified true for Postgres and
 // Memory (both branch on ClientType::PUBLIC and short-circuit to `true`
 // before ever looking at the provided secret). Not run against Redis --
-// oauth2::RedisClientRepository never persists/reads a client_type field at all
-// (see oauth2::RedisClientRepository.h/.cc), so there is no PUBLIC/CONFIDENTIAL
+// authforge::storage::redis::RedisClientRepository never persists/reads a client_type field at all
+// (see authforge::storage::redis::RedisClientRepository.h/.cc), so there is no PUBLIC/CONFIDENTIAL
 // branch to exercise on that backend; Redis gets its own, differently-shaped
 // contract test below (KnownClientHashValidationContract) that matches its
 // real (type-agnostic) behavior instead of papering over the difference.
@@ -142,7 +142,7 @@ void runClientRepository_ConfidentialClientValidatesSecretContract(
     CHECK(validEmpty == false);
 }
 
-// Redis-specific: oauth2::RedisClientRepository::validateClient has no notion of
+// Redis-specific: authforge::storage::redis::RedisClientRepository::validateClient has no notion of
 // client_type at all (see its .cc: no PUBLIC/CONFIDENTIAL branch exists).
 // Its REAL contract is: empty secret -> EXISTS check (true iff the client
 // hash exists in Redis, regardless of what "type" it conceptually is); non-
@@ -238,7 +238,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_NotFoundRe
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisClientRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisClientRepository>("default");
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -254,7 +254,8 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
     const std::string hash = ::drogon::utils::getSha256(secret + salt);
 
     // Seed the client hash directly -- IClientRepository has no write
-    // method, and oauth2::RedisClientRepository never gained one (see file header).
+    // method, and authforge::storage::redis::RedisClientRepository never gained one (see file
+    // header).
     waitForVoid([&](auto cb) {
         redis->execCommandAsync(
           [cb](const ::drogon::nosql::RedisResult &) { cb(); },
@@ -267,7 +268,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
         );
     });
 
-    auto repo = std::make_shared<oauth2::RedisClientRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisClientRepository>("default");
     runClientRepository_Redis_KnownClientHashValidationContract(
       TEST_CTX, repo, clientId, secret, "wrong-secret"
     );

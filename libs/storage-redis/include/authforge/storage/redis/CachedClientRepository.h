@@ -24,7 +24,7 @@
 #include <drogon/CacheMap.h>
 #include <memory>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 // Task 27.5: now implements the NEW Domain-layer interface
@@ -71,7 +71,7 @@ class CachedClientRepository : public CachedClientRepositoryBase,
 
   private:
     std::shared_ptr<CachedClientRepositoryBase> impl_;
-    drogon::CacheMap<std::string, ::authforge::oauth2::model::OAuth2Client> clientCache_;
+    ::drogon::CacheMap<std::string, ::authforge::oauth2::model::OAuth2Client> clientCache_;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

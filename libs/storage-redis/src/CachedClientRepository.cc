@@ -1,7 +1,7 @@
-#include <oauth2/storage/CachedClientRepository.h>
+#include <authforge/storage/redis/CachedClientRepository.h>
 #include <drogon/drogon.h>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 // Task 27.5 phase 4.4: callback + DTO aliases now live on the new base
@@ -13,7 +13,7 @@ using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
 
 CachedClientRepository::CachedClientRepository(std::shared_ptr<CachedClientRepositoryBase> impl)
     : impl_(std::move(impl)),
-      clientCache_(drogon::app().getLoop(), 1.0, 4, 60)  // Clean up expired every 60s
+      clientCache_(::drogon::app().getLoop(), 1.0, 4, 60)  // Clean up expired every 60s
 {
 }
 
@@ -49,4 +49,4 @@ void CachedClientRepository::validateClient(
     impl_->validateClient(clientId, clientSecret, std::move(cb));
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

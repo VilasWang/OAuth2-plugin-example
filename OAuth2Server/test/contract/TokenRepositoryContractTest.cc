@@ -32,7 +32,7 @@
 #include <drogon/drogon.h>
 
 #include <authforge/storage/postgres/PostgresTokenRepository.h>
-#include <oauth2/storage/RedisTokenRepository.h>
+#include <authforge/storage/redis/RedisTokenRepository.h>
 #include <authforge/storage/memory/MemoryTokenRepository.h>
 
 #include "ContractFixtures.h"
@@ -150,7 +150,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Redis_AccessToken
     auto redis = getRedisClientOrNull();
     if (!redis)
         return;
-    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -159,7 +159,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Redis_AccessToken
     auto redis = getRedisClientOrNull();
     if (!redis)
         return;
-    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
 
@@ -180,7 +180,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessToke
 //
 // Verified by reading the .cc files (not assumed): Postgres and Memory both
 // genuinely persist and return refresh tokens. Redis's saveRefreshToken()/
-// getRefreshToken() are BOTH no-ops today (oauth2::RedisTokenRepository.cc; the
+// getRefreshToken() are BOTH no-ops today (authforge::storage::redis::RedisTokenRepository.cc; the
 // class header documents this as a pre-existing, verbatim-preserved quirk
 // of the original RedisOAuth2Storage, not something this task introduced or
 // is chartered to fix). A single shared "round trip" assertion function
@@ -243,7 +243,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
     const std::string rtToken = "contract-rt-noop-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "contract-at-for-rt-noop", "vue-client");
 
@@ -327,7 +327,7 @@ DROGON_TEST(
 // between backends (not introduced by this task), and is reported as such
 // rather than glossed over. Redis is deliberately NOT tested here: its
 // SETEX-based TTL means "already expired at save time" collapses to a
-// 1-second grace window (see oauth2::RedisTokenRepository::saveAccessToken's
+// 1-second grace window (see authforge::storage::redis::RedisTokenRepository::saveAccessToken's
 // `ttl = ... : 1` fallback) before Redis itself evicts the key -- asserting
 // anything deterministic about that window would require a real sleep,
 // trading determinism for flakiness for no real benefit (Redis's own
@@ -525,7 +525,7 @@ DROGON_TEST(
 }
 
 // Redis declares supportsCas() == false (verified: its atomicRevokeRefreshToken
-// layers on top of a no-op getRefreshToken, see oauth2::RedisTokenRepository.h's
+// layers on top of a no-op getRefreshToken, see authforge::storage::redis::RedisTokenRepository.h's
 // capability-flag doc comment) -- this test proves the SKIP path itself
 // fires correctly (not a false pass) by asserting the flag first and
 // exiting via `return` with zero further assertions recorded for this case,
@@ -538,7 +538,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisTokenRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
     REQUIRE(repo->supportsCas() == false);
     // Intentionally does not call atomicRevokeRefreshToken(): Redis's own
     // capability flag says this tier does not apply to it. This test's job

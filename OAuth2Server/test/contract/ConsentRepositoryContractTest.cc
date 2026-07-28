@@ -21,7 +21,7 @@
 #include <drogon/drogon.h>
 
 #include <authforge/storage/postgres/PostgresConsentRepository.h>
-#include <oauth2/storage/RedisConsentRepository.h>
+#include <authforge/storage/redis/RedisConsentRepository.h>
 #include <authforge/storage/memory/MemoryConsentRepository.h>
 #include <authforge/oauth2/model/UserRef.h>
 
@@ -144,7 +144,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Redis_SaveHasRe
     UserRef user;
     user.internalUserId = 900001;  // opaque; no FK on this backend
 
-    auto repo = std::make_shared<oauth2::RedisConsentRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisConsentRepository>("default");
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "vue-client", "contract-scope-" + uniqueSuffix()
     );

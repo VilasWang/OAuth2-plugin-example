@@ -1,12 +1,25 @@
-#include <oauth2/storage/RedisClientRepository.h>
+#include <authforge/storage/redis/RedisClientRepository.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <json/json.h>
 #include <sstream>
 #include <algorithm>
-#include <oauth2/observability/OAuth2Metrics.h>
 
-namespace oauth2
+// NOTE: the original RedisOAuth2Storage emitted an OperationTimer metric here
+// via <oauth2/observability/OAuth2Metrics.h> (owned by OAuth2Plugin). That
+// header is not yet relocated to libs/drogon (scheduled for Phase 3 of the
+// authforge-sdk-refactor, see .kiro/specs/authforge-sdk-refactor/
+// DIRECTORY_RESTRUCTURE_PLAN.md §3b). storage-postgres/storage-memory -- the
+// sibling packages this mirrors -- shed the same coupling during their
+// migrations and carry no OAuth2Plugin include. To keep this package
+// self-contained against its declared deps (Drogon + jsoncpp +
+// authforge::oauth2) and avoid a storage-redis -> OAuth2Plugin dependency
+// cycle (this package is added BEFORE OAuth2Plugin in the root CMakeLists),
+// the OperationTimer instrumentation is dropped here. It will return when
+// observability relocates to libs/drogon/observability/ in Phase 3 and
+// becomes a proper (cycle-free) dependency of this package.
+
+namespace authforge::storage::redis
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
@@ -15,8 +28,8 @@ using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
 using ClientCallback = IClientRepositoryBase::ClientCallback;
 using BoolCallback = IClientRepositoryBase::BoolCallback;
 
-using namespace drogon;
-using namespace drogon::nosql;
+using namespace ::drogon;
+using namespace ::drogon::nosql;
 
 namespace
 {
@@ -47,10 +60,8 @@ void RedisClientRepository::getClient(const std::string &clientId, ClientCallbac
         return;
     }
     std::string cmd = "HGETALL oauth2:client:" + clientId;
-    auto timer =
-      std::make_shared<authforge::drogon::observability::OperationTimer>("getClient", "redis");
     redisClient_->execCommandAsync(
-      [cb, clientId, timer](const RedisResult &result) {
+      [cb, clientId](const RedisResult &result) {
           if (result.type() == RedisResultType::kNil || result.type() != RedisResultType::kArray)
           {
               cb(std::nullopt);
@@ -152,7 +163,7 @@ void RedisClientRepository::validateClient(
               std::string storedHash = arr[0].asString();
               std::string salt = arr[1].asString();
               std::string input = inputSecret + salt;
-              std::string calculatedHash = drogon::utils::getSha256(input.data(), input.length());
+              std::string calculatedHash = ::drogon::utils::getSha256(input.data(), input.length());
 
               // Case-insensitive comparison
               std::transform(
@@ -172,4 +183,4 @@ void RedisClientRepository::validateClient(
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

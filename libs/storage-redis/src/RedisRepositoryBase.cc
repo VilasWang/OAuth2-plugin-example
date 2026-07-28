@@ -1,11 +1,11 @@
-#include <oauth2/storage/RedisRepositoryBase.h>
+#include <authforge/storage/redis/RedisRepositoryBase.h>
 #include <drogon/drogon.h>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 RedisRepositoryBase::RedisRepositoryBase(const std::string &redisClientName)
-    : redisClient_(drogon::app().getRedisClient(redisClientName))
+    : redisClient_(::drogon::app().getRedisClient(redisClientName))
 {
     if (redisClient_)
     {
@@ -18,4 +18,4 @@ RedisRepositoryBase::RedisRepositoryBase(const std::string &redisClientName)
     }
 }
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis

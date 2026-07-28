@@ -41,7 +41,7 @@
 #include <drogon/drogon.h>
 
 #include <authforge/storage/postgres/PostgresGrantRepository.h>
-#include <oauth2/storage/RedisGrantRepository.h>
+#include <authforge/storage/redis/RedisGrantRepository.h>
 #include <authforge/storage/memory/MemoryGrantRepository.h>
 
 #include "ContractFixtures.h"
@@ -260,7 +260,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_SaveGetRoun
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -270,7 +270,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_NotFoundRet
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -282,7 +282,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "vue-client"
     );
@@ -296,7 +296,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -306,7 +306,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuth
     if (!redis)
         return;
 
-    auto repo = std::make_shared<oauth2::RedisGrantRepository>("default");
+    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "vue-client");
 }
 

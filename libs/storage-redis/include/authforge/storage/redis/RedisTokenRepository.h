@@ -5,14 +5,14 @@
 // split. This one implements ITokenRepository (REPOSITORY_MAPPING.md #7-14,
 // #29-31, plus the token slice of #32 deleteExpiredData -> purgeExpired,
 // plus the supportsTransactions()/supportsCas() capability flags). It is
-// ADDITIVE: RedisOAuth2Storage / IOAuth2Storage are untouched and remain the
-// production path used by OAuth2Plugin.cc today.
+// ADDITIVE: RedisOAuth2Storage / IOAuth2Storage are untouched and remain
+// the production path used by OAuth2Plugin.cc today.
 #include <authforge/oauth2/repository/ITokenRepository.h>
-#include <oauth2/storage/RedisRepositoryBase.h>
+#include <authforge/storage/redis/RedisRepositoryBase.h>
 
 #include <memory>
 
-namespace oauth2
+namespace authforge::storage::redis
 {
 
 // Task 27.5: now implements the NEW Domain-layer interface
@@ -117,4 +117,4 @@ class RedisTokenRepository : public ITokenRepositoryBase,
     }
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::redis
