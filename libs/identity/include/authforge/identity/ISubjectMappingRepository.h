@@ -35,7 +35,7 @@ class ISubjectMappingRepository
   public:
     virtual ~ISubjectMappingRepository() = default;
 
-    using OptionalIntCallback = std::function<void(std::optional<int64_t>)>;
+    using OptionalIntCallback = std::function<void(std::optional<int32_t>)>;
 
     /**
      * @brief Get the internal user id for an OAuth2/OIDC subject +

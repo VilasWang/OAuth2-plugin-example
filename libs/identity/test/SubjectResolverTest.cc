@@ -22,7 +22,7 @@ class FakeSubjectMappingRepository : public ISubjectMappingRepository
 {
   public:
     // key: "provider:subject" -> internalUserId
-    std::map<std::string, int64_t> mappings;
+    std::map<std::string, int32_t> mappings;
 
     void getInternalUserId(
       const std::string &subject,
@@ -31,7 +31,7 @@ class FakeSubjectMappingRepository : public ISubjectMappingRepository
     ) override
     {
         auto it = mappings.find(provider + ":" + subject);
-        cb(it == mappings.end() ? std::nullopt : std::optional<int64_t>(it->second));
+        cb(it == mappings.end() ? std::nullopt : std::optional<int32_t>(it->second));
     }
 };
 

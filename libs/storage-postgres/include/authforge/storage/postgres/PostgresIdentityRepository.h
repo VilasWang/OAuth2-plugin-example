@@ -75,7 +75,7 @@ class PostgresIdentityRepository : public authforge::identity::IUserRepository,
     ) override;
 
     void findById(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::optional<authforge::identity::UserData>)> &&callback
     ) override;
 
@@ -86,27 +86,27 @@ class PostgresIdentityRepository : public authforge::identity::IUserRepository,
 
     void create(
       const authforge::identity::UserData &userData,
-      std::function<void(std::optional<int64_t>, std::string errorCode)> &&callback
+      std::function<void(std::optional<int32_t>, std::string errorCode)> &&callback
     ) override;
 
     void updatePasswordHash(
-      int64_t userId,
+      int32_t userId,
       const std::string &newHash,
       std::function<void(bool)> &&callback
     ) override;
 
-    void resetFailedLogins(int64_t userId, std::function<void(bool)> &&callback) override;
+    void resetFailedLogins(int32_t userId, std::function<void(bool)> &&callback) override;
 
-    void incrementFailedLogins(int64_t userId, std::function<void(bool)> &&callback) override;
+    void incrementFailedLogins(int32_t userId, std::function<void(bool)> &&callback) override;
 
     void getUserInfoWithRoles(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::optional<Json::Value>)> &&callback
     ) override;
 
     // --- IRoleRepository ---
     void getRoles(
-      int64_t internalUserId,
+      int32_t internalUserId,
       std::function<void(std::vector<std::string>)> &&cb
     ) override;
 
@@ -114,7 +114,7 @@ class PostgresIdentityRepository : public authforge::identity::IUserRepository,
     void getInternalUserId(
       const std::string &subject,
       const std::string &provider,
-      std::function<void(std::optional<int64_t>)> &&cb
+      std::function<void(std::optional<int32_t>)> &&cb
     ) override;
 
   private:

@@ -219,7 +219,7 @@ struct GitHubLoginResult
     // repository-level failure signal ISocialAccountRepository exposes).
     std::string errorCode;
 
-    int64_t userId = 0;      // Internal user id (existing or newly created).
+    int32_t userId = 0;      // Internal user id (existing or newly created).
     std::string username;    // Local username (existing, or "gh_" + github login for new accounts).
     bool isNewUser = false;  // True iff a new local account was created by this call.
 };

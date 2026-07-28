@@ -19,7 +19,7 @@ MfaService::MfaService(
 }
 
 void MfaService::setupSecret(
-  int64_t userId,
+  int32_t userId,
   const std::string &accountLabel,
   std::function<void(std::optional<MfaSetupResult>)> &&callback
 )
@@ -47,7 +47,7 @@ void MfaService::setupSecret(
 }
 
 void MfaService::verifyAndEnable(
-  int64_t userId,
+  int32_t userId,
   const std::string &code,
   std::function<void(std::optional<MfaEnableResult>)> &&callback
 )
@@ -102,7 +102,7 @@ void MfaService::verifyAndEnable(
     );
 }
 
-void MfaService::disable(int64_t userId, std::function<void(bool)> &&callback)
+void MfaService::disable(int32_t userId, std::function<void(bool)> &&callback)
 {
     if (!mfaRepo_)
     {
@@ -113,7 +113,7 @@ void MfaService::disable(int64_t userId, std::function<void(bool)> &&callback)
 }
 
 void MfaService::verifyLoginCode(
-  int64_t userId,
+  int32_t userId,
   const std::string &code,
   std::function<void(bool)> &&callback
 )
@@ -138,7 +138,7 @@ void MfaService::verifyLoginCode(
 }
 
 void MfaService::setPendingBinding(
-  int64_t userId,
+  int32_t userId,
   const std::string &clientId,
   const std::string &redirectUri,
   std::function<void(bool)> &&callback
@@ -153,7 +153,7 @@ void MfaService::setPendingBinding(
 }
 
 void MfaService::getPendingBinding(
-  int64_t userId,
+  int32_t userId,
   std::function<void(std::optional<std::pair<std::string, std::string>>)> &&callback
 )
 {
@@ -172,7 +172,7 @@ void MfaService::getPendingBinding(
     });
 }
 
-void MfaService::clearPendingBinding(int64_t userId, std::function<void(bool)> &&callback)
+void MfaService::clearPendingBinding(int32_t userId, std::function<void(bool)> &&callback)
 {
     if (!mfaRepo_)
     {

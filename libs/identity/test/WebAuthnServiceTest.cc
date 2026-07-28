@@ -18,7 +18,7 @@ using authforge::common::testing::FakeCryptoProvider;
 
 struct StoredCredential
 {
-    int64_t userId = 0;
+    int32_t userId = 0;
     std::string publicKey;
     std::string name;
     int signCount = 0;
@@ -33,7 +33,7 @@ class FakeWebAuthnRepository : public IWebAuthnRepository
     int64_t nextCreatedAt = 1000;
 
     void storeCredential(
-      int64_t userId,
+      int32_t userId,
       const std::string &credentialId,
       const std::string &publicKey,
       const std::string &name,
@@ -88,7 +88,7 @@ class FakeWebAuthnRepository : public IWebAuthnRepository
         cb(true);
     }
 
-    void listCredentials(int64_t userId, ListCredentialsCallback &&cb) override
+    void listCredentials(int32_t userId, ListCredentialsCallback &&cb) override
     {
         std::vector<WebAuthnCredentialSummary> result;
         for (const auto &[credentialId, cred] : credentials)

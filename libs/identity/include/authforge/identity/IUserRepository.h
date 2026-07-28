@@ -14,7 +14,7 @@ namespace authforge::identity
  */
 struct UserData
 {
-    int64_t id;
+    int32_t id;
     std::string username;
     std::string email;
     std::string passwordHash;
@@ -54,7 +54,7 @@ class IUserRepository
      * @brief Find user by internal ID
      */
     virtual void findById(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::optional<UserData>)> &&callback
     ) = 0;
 
@@ -69,7 +69,7 @@ class IUserRepository
      * authforge::oauth2::protocol::TokenService::generateAuthorizationCode's
      * `authCode.userId = subject;`), i.e. the public_sub string, not the
      * internal auto-increment id. MFA/WebAuthn/Social identity services
-     * are keyed by the internal int64_t id, so this method is the
+     * are keyed by the internal int32_t id, so this method is the
      * resolution step every one of those call sites needs before it can
      * call into them.
      */
@@ -94,14 +94,14 @@ class IUserRepository
      */
     virtual void create(
       const UserData &userData,
-      std::function<void(std::optional<int64_t>, std::string errorCode)> &&callback
+      std::function<void(std::optional<int32_t>, std::string errorCode)> &&callback
     ) = 0;
 
     /**
      * @brief Update user's password hash
      */
     virtual void updatePasswordHash(
-      int64_t userId,
+      int32_t userId,
       const std::string &newHash,
       std::function<void(bool)> &&callback
     ) = 0;
@@ -109,18 +109,18 @@ class IUserRepository
     /**
      * @brief Reset failed login count
      */
-    virtual void resetFailedLogins(int64_t userId, std::function<void(bool)> &&callback) = 0;
+    virtual void resetFailedLogins(int32_t userId, std::function<void(bool)> &&callback) = 0;
 
     /**
      * @brief Increment failed login count and optionally lock account
      */
-    virtual void incrementFailedLogins(int64_t userId, std::function<void(bool)> &&callback) = 0;
+    virtual void incrementFailedLogins(int32_t userId, std::function<void(bool)> &&callback) = 0;
 
     /**
      * @brief Get user info with roles (for userinfo endpoint)
      */
     virtual void getUserInfoWithRoles(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::optional<Json::Value>)> &&callback
     ) = 0;
 };

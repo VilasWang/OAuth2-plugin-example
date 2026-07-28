@@ -12,7 +12,7 @@ using namespace ::drogon::orm;
 using authforge::identity::MfaData;
 using drogon_model::oauth2_db::Users;
 
-void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
+void PostgresMfaRepository::getMfaData(int32_t userId, MfaDataCallback &&cb)
 {
     if (!dbClient_)
     {
@@ -20,11 +20,10 @@ void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
         return;
     }
     auto sharedCb = std::make_shared<MfaDataCallback>(std::move(cb));
-    int32_t userId32 = static_cast<int32_t>(userId);
 
     Mapper<Users> mapper(dbClient_);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
       [sharedCb](const Users &user) {
           MfaData data;
           data.secret = user.getValueOfMfaSecret();
@@ -57,19 +56,18 @@ void PostgresMfaRepository::getMfaData(int64_t userId, MfaDataCallback &&cb)
     );
 }
 
-void PostgresMfaRepository::setSecret(int64_t userId, const std::string &secret, BoolCallback &&cb)
+void PostgresMfaRepository::setSecret(int32_t userId, const std::string &secret, BoolCallback &&cb)
 {
     if (!dbClient_)
     {
         cb(false);
         return;
     }
-    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
 
     Mapper<Users> mapper(dbClient_);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
       [sharedCb, secret, self = shared_from_this()](const Users &user) {
           Users updated = user;
           updated.setMfaSecret(secret);
@@ -85,7 +83,7 @@ void PostgresMfaRepository::setSecret(int64_t userId, const std::string &secret,
 }
 
 void PostgresMfaRepository::enable(
-  int64_t userId,
+  int32_t userId,
   const std::vector<std::string> &hashedBackupCodes,
   BoolCallback &&cb
 )
@@ -95,7 +93,6 @@ void PostgresMfaRepository::enable(
         cb(false);
         return;
     }
-    int32_t userId32 = static_cast<int32_t>(userId);
     Json::Value arr(Json::arrayValue);
     for (const auto &code : hashedBackupCodes)
         arr.append(code);
@@ -107,7 +104,7 @@ void PostgresMfaRepository::enable(
 
     Mapper<Users> mapper(dbClient_);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
       [sharedCb, hashedCodesStr, self = shared_from_this()](const Users &user) {
           Users updated = user;
           updated.setMfaEnabled(true);
@@ -123,19 +120,18 @@ void PostgresMfaRepository::enable(
     );
 }
 
-void PostgresMfaRepository::disable(int64_t userId, BoolCallback &&cb)
+void PostgresMfaRepository::disable(int32_t userId, BoolCallback &&cb)
 {
     if (!dbClient_)
     {
         cb(false);
         return;
     }
-    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
 
     Mapper<Users> mapper(dbClient_);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
       [sharedCb, self = shared_from_this()](const Users &user) {
           Users updated = user;
           updated.setMfaEnabled(false);
@@ -153,7 +149,7 @@ void PostgresMfaRepository::disable(int64_t userId, BoolCallback &&cb)
 }
 
 void PostgresMfaRepository::setPendingBinding(
-  int64_t userId,
+  int32_t userId,
   const std::string &clientId,
   const std::string &redirectUri,
   BoolCallback &&cb
@@ -164,12 +160,11 @@ void PostgresMfaRepository::setPendingBinding(
         cb(false);
         return;
     }
-    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
 
     Mapper<Users> mapper(dbClient_);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
       [sharedCb, clientId, redirectUri, self = shared_from_this()](const Users &user) {
           Users updated = user;
           updated.setMfaPendingClientId(clientId);
@@ -185,19 +180,18 @@ void PostgresMfaRepository::setPendingBinding(
     );
 }
 
-void PostgresMfaRepository::clearPendingBinding(int64_t userId, BoolCallback &&cb)
+void PostgresMfaRepository::clearPendingBinding(int32_t userId, BoolCallback &&cb)
 {
     if (!dbClient_)
     {
         cb(false);
         return;
     }
-    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
 
     Mapper<Users> mapper(dbClient_);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
       [sharedCb, self = shared_from_this()](const Users &user) {
           Users updated = user;
           updated.setMfaPendingClientIdToNull();

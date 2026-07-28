@@ -56,7 +56,7 @@ void WebAuthnService::beginRegistration(
 }
 
 void WebAuthnService::finishRegistration(
-  int64_t userId,
+  int32_t userId,
   const std::string &credentialId,
   const std::string &publicKey,
   const std::string &name,
@@ -161,7 +161,7 @@ void WebAuthnService::finishAuthentication(
 }
 
 void WebAuthnService::listCredentials(
-  int64_t userId,
+  int32_t userId,
   std::function<void(std::vector<WebAuthnCredentialSummary>)> &&callback
 )
 {

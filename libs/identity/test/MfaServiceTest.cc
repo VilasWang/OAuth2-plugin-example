@@ -22,22 +22,22 @@ using authforge::common::testing::FakeCryptoProvider;
 class FakeMfaRepository : public IMfaRepository
 {
   public:
-    std::unordered_map<int64_t, MfaData> data;
+    std::unordered_map<int32_t, MfaData> data;
 
-    void getMfaData(int64_t userId, MfaDataCallback &&cb) override
+    void getMfaData(int32_t userId, MfaDataCallback &&cb) override
     {
         auto it = data.find(userId);
         cb(it == data.end() ? std::nullopt : std::make_optional(it->second));
     }
 
-    void setSecret(int64_t userId, const std::string &secret, BoolCallback &&cb) override
+    void setSecret(int32_t userId, const std::string &secret, BoolCallback &&cb) override
     {
         data[userId].secret = secret;
         cb(true);
     }
 
     void enable(
-      int64_t userId,
+      int32_t userId,
       const std::vector<std::string> &hashedBackupCodes,
       BoolCallback &&cb
     ) override
@@ -53,7 +53,7 @@ class FakeMfaRepository : public IMfaRepository
         cb(true);
     }
 
-    void disable(int64_t userId, BoolCallback &&cb) override
+    void disable(int32_t userId, BoolCallback &&cb) override
     {
         auto it = data.find(userId);
         if (it != data.end())
@@ -66,7 +66,7 @@ class FakeMfaRepository : public IMfaRepository
     }
 
     void setPendingBinding(
-      int64_t userId,
+      int32_t userId,
       const std::string &clientId,
       const std::string &redirectUri,
       BoolCallback &&cb
@@ -77,7 +77,7 @@ class FakeMfaRepository : public IMfaRepository
         cb(true);
     }
 
-    void clearPendingBinding(int64_t userId, BoolCallback &&cb) override
+    void clearPendingBinding(int32_t userId, BoolCallback &&cb) override
     {
         auto it = data.find(userId);
         if (it != data.end())

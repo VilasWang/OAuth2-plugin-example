@@ -268,7 +268,7 @@ void AuthService::registerUser(
 
     userRepo_->create(
       newUser,
-      [callback = std::move(callback)](std::optional<int64_t> newUserId, std::string errorCode) {
+      [callback = std::move(callback)](std::optional<int32_t> newUserId, std::string errorCode) {
           // IUserRepository::create() is responsible for default-role
           // assignment (repository-owned concern -- mirrors
           // OAuth2Server/AuthService.cc's registerUser, which assigns the
@@ -290,7 +290,7 @@ void AuthService::registerUser(
 }
 
 void AuthService::getUserInfo(
-  int64_t userId,
+  int32_t userId,
   std::function<void(std::optional<Json::Value>)> &&callback
 )
 {

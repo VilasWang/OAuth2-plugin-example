@@ -30,21 +30,21 @@ class PostgresMfaRepository : public authforge::identity::IMfaRepository,
     {
     }
 
-    void getMfaData(int64_t userId, MfaDataCallback &&cb) override;
-    void setSecret(int64_t userId, const std::string &secret, BoolCallback &&cb) override;
+    void getMfaData(int32_t userId, MfaDataCallback &&cb) override;
+    void setSecret(int32_t userId, const std::string &secret, BoolCallback &&cb) override;
     void enable(
-      int64_t userId,
+      int32_t userId,
       const std::vector<std::string> &hashedBackupCodes,
       BoolCallback &&cb
     ) override;
-    void disable(int64_t userId, BoolCallback &&cb) override;
+    void disable(int32_t userId, BoolCallback &&cb) override;
     void setPendingBinding(
-      int64_t userId,
+      int32_t userId,
       const std::string &clientId,
       const std::string &redirectUri,
       BoolCallback &&cb
     ) override;
-    void clearPendingBinding(int64_t userId, BoolCallback &&cb) override;
+    void clearPendingBinding(int32_t userId, BoolCallback &&cb) override;
 
   private:
     ::drogon::orm::DbClientPtr dbClient_;

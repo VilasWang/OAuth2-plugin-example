@@ -88,7 +88,7 @@ class MfaService
      * if the repository write failed.
      */
     void setupSecret(
-      int64_t userId,
+      int32_t userId,
       const std::string &accountLabel,
       std::function<void(std::optional<MfaSetupResult>)> &&callback
     );
@@ -104,7 +104,7 @@ class MfaService
      * or the repository write failed.
      */
     void verifyAndEnable(
-      int64_t userId,
+      int32_t userId,
       const std::string &code,
       std::function<void(std::optional<MfaEnableResult>)> &&callback
     );
@@ -112,7 +112,7 @@ class MfaService
     /**
      * @brief Disable MFA for a user (clears secret + backup codes).
      */
-    void disable(int64_t userId, std::function<void(bool)> &&callback);
+    void disable(int32_t userId, std::function<void(bool)> &&callback);
 
     /**
      * @brief Verify a TOTP code presented during login against the
@@ -123,7 +123,7 @@ class MfaService
      * verifies against the current (or adjacent) time step.
      */
     void verifyLoginCode(
-      int64_t userId,
+      int32_t userId,
       const std::string &code,
       std::function<void(bool)> &&callback
     );
@@ -134,7 +134,7 @@ class MfaService
      * rationale (identity treats clientId as an opaque string).
      */
     void setPendingBinding(
-      int64_t userId,
+      int32_t userId,
       const std::string &clientId,
       const std::string &redirectUri,
       std::function<void(bool)> &&callback
@@ -146,12 +146,12 @@ class MfaService
      * match what was recorded at login time.
      */
     void getPendingBinding(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::optional<std::pair<std::string, std::string>>)> &&callback
     );
 
     /// Clear the pending binding after MFA verification completes.
-    void clearPendingBinding(int64_t userId, std::function<void(bool)> &&callback);
+    void clearPendingBinding(int32_t userId, std::function<void(bool)> &&callback);
 
   private:
     std::shared_ptr<IMfaRepository> mfaRepo_;

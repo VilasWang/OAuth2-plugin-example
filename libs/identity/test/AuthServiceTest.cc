@@ -60,7 +60,7 @@ class InMemoryUserRepository : public IUserRepository
         cb(std::nullopt);
     }
 
-    void findById(int64_t userId, std::function<void(std::optional<UserData>)> &&cb) override
+    void findById(int32_t userId, std::function<void(std::optional<UserData>)> &&cb) override
     {
         auto it = users_.find(userId);
         cb(it == users_.end() ? std::nullopt : std::optional<UserData>(it->second));
@@ -84,7 +84,7 @@ class InMemoryUserRepository : public IUserRepository
 
     void create(
       const UserData &userData,
-      std::function<void(std::optional<int64_t>, std::string)> &&cb
+      std::function<void(std::optional<int32_t>, std::string)> &&cb
     ) override
     {
         // Mirror PostgresIdentityRepository's uniqueness classification
@@ -106,7 +106,7 @@ class InMemoryUserRepository : public IUserRepository
                 return;
             }
         }
-        int64_t newId = nextId_++;
+        int32_t newId = nextId_++;
         UserData stored = userData;
         stored.id = newId;
         stored.publicSub = "sub-" + std::to_string(newId);
@@ -115,7 +115,7 @@ class InMemoryUserRepository : public IUserRepository
     }
 
     void updatePasswordHash(
-      int64_t userId,
+      int32_t userId,
       const std::string &newHash,
       std::function<void(bool)> &&cb
     ) override
@@ -130,7 +130,7 @@ class InMemoryUserRepository : public IUserRepository
         cb(true);
     }
 
-    void resetFailedLogins(int64_t userId, std::function<void(bool)> &&cb) override
+    void resetFailedLogins(int32_t userId, std::function<void(bool)> &&cb) override
     {
         auto it = users_.find(userId);
         if (it == users_.end())
@@ -143,7 +143,7 @@ class InMemoryUserRepository : public IUserRepository
         cb(true);
     }
 
-    void incrementFailedLogins(int64_t userId, std::function<void(bool)> &&cb) override
+    void incrementFailedLogins(int32_t userId, std::function<void(bool)> &&cb) override
     {
         auto it = users_.find(userId);
         if (it == users_.end())
@@ -156,7 +156,7 @@ class InMemoryUserRepository : public IUserRepository
     }
 
     void getUserInfoWithRoles(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::optional<Json::Value>)> &&cb
     ) override
     {
@@ -176,17 +176,17 @@ class InMemoryUserRepository : public IUserRepository
     // Test helper: directly seed a user record (bypassing create()'s
     // auto-generated publicSub) for tests that need a pre-existing user
     // with a specific password hash/lockout state.
-    int64_t seed(UserData user)
+    int32_t seed(UserData user)
     {
-        int64_t id = nextId_++;
+        int32_t id = nextId_++;
         user.id = id;
         users_[id] = user;
         return id;
     }
 
   private:
-    std::map<int64_t, UserData> users_;
-    int64_t nextId_ = 1;
+    std::map<int32_t, UserData> users_;
+    int32_t nextId_ = 1;
 };
 
 class AuthServiceTest : public ::testing::Test
@@ -278,7 +278,7 @@ TEST_F(AuthServiceTest, LegacyHashVerifiesAndGetsUpgraded)
     legacyUser.email = "erin@example.com";
     legacyUser.passwordHash = legacyHash;
     legacyUser.salt = salt;
-    int64_t userId = repo->seed(legacyUser);
+    int32_t userId = repo->seed(legacyUser);
 
     std::optional<AuthResult> result;
     service->validateUser("erin", "legacy-pw", [&](std::optional<AuthResult> r) { result = r; });
@@ -293,7 +293,7 @@ TEST_F(AuthServiceTest, LegacyHashVerifiesAndGetsUpgraded)
 
 TEST_F(AuthServiceTest, GetUserInfoReturnsClaimsForRegisteredUser)
 {
-    int64_t userId = 0;
+    int32_t userId = 0;
     service->registerUser("frank", "pw", "frank@example.com", [](const std::string &) {});
     repo->findByUsername("frank", [&](std::optional<UserData> u) {
         if (u)

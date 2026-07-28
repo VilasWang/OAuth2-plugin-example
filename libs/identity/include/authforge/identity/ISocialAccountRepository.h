@@ -65,7 +65,7 @@ namespace authforge::identity
  */
 struct SocialAccountLookup
 {
-    int64_t userId = 0;  // Internal user id already linked to this provider+subject.
+    int32_t userId = 0;  // Internal user id already linked to this provider+subject.
     std::string username;
 };
 
@@ -75,7 +75,7 @@ struct SocialAccountLookup
  */
 struct LinkNewSocialAccountResult
 {
-    int64_t userId = 0;
+    int32_t userId = 0;
     std::string username;
 };
 

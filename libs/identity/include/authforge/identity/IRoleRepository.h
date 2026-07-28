@@ -34,7 +34,7 @@ class IRoleRepository
      * Invokes `cb` with the role-name list (empty if the user has no
      * roles or does not exist).
      */
-    virtual void getRoles(int64_t internalUserId, RolesCallback &&cb) = 0;
+    virtual void getRoles(int32_t internalUserId, RolesCallback &&cb) = 0;
 };
 
 }  // namespace authforge::identity

@@ -113,7 +113,7 @@ struct WebAuthnAuthenticationChallenge
  */
 struct WebAuthnAuthResult
 {
-    int64_t userId = 0;     // Internal user id (for the caller's own follow-up lookups).
+    int32_t userId = 0;     // Internal user id (for the caller's own follow-up lookups).
     std::string publicSub;  // users.public_sub -- what the controller today calls "user_id".
     int signCount = 0;      // sign_count AFTER this authentication's increment.
 };
@@ -171,7 +171,7 @@ class WebAuthnService
      * DB_QUERY_ERROR (any other repository failure).
      */
     void finishRegistration(
-      int64_t userId,
+      int32_t userId,
       const std::string &credentialId,
       const std::string &publicKey,
       const std::string &name,
@@ -211,7 +211,7 @@ class WebAuthnService
      * missing).
      */
     void listCredentials(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::vector<WebAuthnCredentialSummary>)> &&callback
     );
 

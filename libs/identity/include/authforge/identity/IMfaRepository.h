@@ -45,25 +45,25 @@ class IMfaRepository
 
     /// Get the MFA state for a user by internal id, or nullopt if the
     /// user does not exist.
-    virtual void getMfaData(int64_t userId, MfaDataCallback &&cb) = 0;
+    virtual void getMfaData(int32_t userId, MfaDataCallback &&cb) = 0;
 
     /// Store a freshly generated TOTP secret (setup step; not yet enabled).
-    virtual void setSecret(int64_t userId, const std::string &secret, BoolCallback &&cb) = 0;
+    virtual void setSecret(int32_t userId, const std::string &secret, BoolCallback &&cb) = 0;
 
     /// Enable MFA and store the hashed backup codes (setup verification step).
     virtual void enable(
-      int64_t userId,
+      int32_t userId,
       const std::vector<std::string> &hashedBackupCodes,
       BoolCallback &&cb
     ) = 0;
 
     /// Disable MFA and clear the secret/backup codes.
-    virtual void disable(int64_t userId, BoolCallback &&cb) = 0;
+    virtual void disable(int32_t userId, BoolCallback &&cb) = 0;
 
     /// Record the OAuth2 client/redirect_uri a login is pending MFA
     /// verification for (so verifyLogin can validate they match).
     virtual void setPendingBinding(
-      int64_t userId,
+      int32_t userId,
       const std::string &clientId,
       const std::string &redirectUri,
       BoolCallback &&cb
@@ -71,7 +71,7 @@ class IMfaRepository
 
     /// Clear the pending client/redirect_uri binding after MFA
     /// verification completes (success or otherwise).
-    virtual void clearPendingBinding(int64_t userId, BoolCallback &&cb) = 0;
+    virtual void clearPendingBinding(int32_t userId, BoolCallback &&cb) = 0;
 };
 
 }  // namespace authforge::identity

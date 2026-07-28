@@ -16,7 +16,7 @@ using drogon_model::oauth2_db::Users;
 using drogon_model::oauth2_db::WebauthnCredentials;
 
 void PostgresWebAuthnRepository::storeCredential(
-  int64_t userId,
+  int32_t userId,
   const std::string &credentialId,
   const std::string &publicKey,
   const std::string &name,
@@ -31,7 +31,7 @@ void PostgresWebAuthnRepository::storeCredential(
     auto sharedCb = std::make_shared<StoreCredentialCallback>(std::move(cb));
 
     WebauthnCredentials cred;
-    cred.setUserId(static_cast<int32_t>(userId));
+    cred.setUserId(userId);
     cred.setCredentialId(credentialId);
     cred.setPublicKey(publicKey);
     cred.setName(name);
@@ -125,7 +125,7 @@ void PostgresWebAuthnRepository::updateSignCount(
     );
 }
 
-void PostgresWebAuthnRepository::listCredentials(int64_t userId, ListCredentialsCallback &&cb)
+void PostgresWebAuthnRepository::listCredentials(int32_t userId, ListCredentialsCallback &&cb)
 {
     if (!dbClient_)
     {
@@ -136,9 +136,7 @@ void PostgresWebAuthnRepository::listCredentials(int64_t userId, ListCredentials
 
     Mapper<WebauthnCredentials> mapper(dbClient_);
     mapper.findBy(
-      Criteria(
-        WebauthnCredentials::Cols::_user_id, CompareOperator::EQ, static_cast<int32_t>(userId)
-      ),
+      Criteria(WebauthnCredentials::Cols::_user_id, CompareOperator::EQ, userId),
       [sharedCb](const std::vector<WebauthnCredentials> &creds) {
           std::vector<WebAuthnCredentialSummary> summaries;
           for (const auto &wc : creds)

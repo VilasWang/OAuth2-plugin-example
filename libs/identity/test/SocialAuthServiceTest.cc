@@ -90,7 +90,7 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
   public:
     // key: provider + "|" + subject
     std::unordered_map<std::string, SocialAccountLookup> linked;
-    int64_t nextUserId = 100;
+    int32_t nextUserId = 100;
     bool failCreate = false;
 
     static std::string key(const std::string &provider, const std::string &subject)

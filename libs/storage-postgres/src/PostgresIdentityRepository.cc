@@ -114,7 +114,7 @@ void PostgresIdentityRepository::findByUsername(
 }
 
 void PostgresIdentityRepository::findById(
-  int64_t userId,
+  int32_t userId,
   std::function<void(std::optional<UserData>)> &&callback
 )
 {
@@ -129,7 +129,7 @@ void PostgresIdentityRepository::findById(
     {
         Mapper<Users> mapper(dbClient_);
         mapper.findOne(
-          Criteria(Users::Cols::_id, CompareOperator::EQ, static_cast<int32_t>(userId)),
+          Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
           [sharedCb](const Users &row) { (*sharedCb)(toUserData(row)); },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
         );
@@ -169,7 +169,7 @@ void PostgresIdentityRepository::findByPublicSub(
 
 void PostgresIdentityRepository::create(
   const UserData &userData,
-  std::function<void(std::optional<int64_t>, std::string)> &&callback
+  std::function<void(std::optional<int32_t>, std::string)> &&callback
 )
 {
     if (!dbClient_)
@@ -186,7 +186,7 @@ void PostgresIdentityRepository::create(
     if (!userData.email.empty())
         newUser.setEmail(userData.email);
 
-    auto sharedCb = std::make_shared<std::function<void(std::optional<int64_t>, std::string)>>(
+    auto sharedCb = std::make_shared<std::function<void(std::optional<int32_t>, std::string)>>(
       std::move(callback)
     );
     auto db = dbClient_;
@@ -197,7 +197,7 @@ void PostgresIdentityRepository::create(
         mapper.insert(
           newUser,
           [sharedCb, db](const Users &inserted) {
-              int64_t newUserId = inserted.getValueOfId();
+              int32_t newUserId = inserted.getValueOfId();
               // Assign default "user" role, mirroring
               // OAuth2Server/AuthService.cc::registerUser's existing
               // behavior. A role-assignment failure is logged but does
@@ -212,7 +212,7 @@ void PostgresIdentityRepository::create(
                         {
                             Mapper<UserRoles> urMapper(db);
                             UserRoles ur;
-                            ur.setUserId(static_cast<int32_t>(newUserId));
+                            ur.setUserId(newUserId);
                             ur.setRoleId(role.getValueOfId());
                             urMapper.insert(
                               ur,
@@ -269,7 +269,7 @@ void PostgresIdentityRepository::create(
 }
 
 void PostgresIdentityRepository::updatePasswordHash(
-  int64_t userId,
+  int32_t userId,
   const std::string &newHash,
   std::function<void(bool)> &&callback
 )
@@ -279,14 +279,13 @@ void PostgresIdentityRepository::updatePasswordHash(
         callback(false);
         return;
     }
-    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
     LOG_DEBUG << "[PG-Identity] updatePasswordHash: userId=" << userId;
 
     Mapper<Users> mapper(dbClient_);
     mapper.findBy(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
-      [sharedCb, userId32, newHash, self = shared_from_this()](const std::vector<Users> &users) {
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+      [sharedCb, userId, newHash, self = shared_from_this()](const std::vector<Users> &users) {
           if (users.empty())
           {
               (*sharedCb)(false);
@@ -313,7 +312,7 @@ void PostgresIdentityRepository::updatePasswordHash(
 }
 
 void PostgresIdentityRepository::resetFailedLogins(
-  int64_t userId,
+  int32_t userId,
   std::function<void(bool)> &&callback
 )
 {
@@ -322,13 +321,12 @@ void PostgresIdentityRepository::resetFailedLogins(
         callback(false);
         return;
     }
-    int32_t userId32 = static_cast<int32_t>(userId);
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
     LOG_DEBUG << "[PG-Identity] resetFailedLogins: userId=" << userId;
 
     Mapper<Users> mapper(dbClient_);
     mapper.findBy(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
       [sharedCb, self = shared_from_this()](const std::vector<Users> &users) {
           if (users.empty())
           {
@@ -356,7 +354,7 @@ void PostgresIdentityRepository::resetFailedLogins(
 }
 
 void PostgresIdentityRepository::incrementFailedLogins(
-  int64_t userId,
+  int32_t userId,
   std::function<void(bool)> &&callback
 )
 {
@@ -366,12 +364,11 @@ void PostgresIdentityRepository::incrementFailedLogins(
         return;
     }
     auto sharedCb = std::make_shared<std::function<void(bool)>>(std::move(callback));
-    int32_t userId32 = static_cast<int32_t>(userId);
 
     Mapper<Users> mapper(dbClient_);
     mapper.findBy(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
-      [sharedCb, userId32, self = shared_from_this()](const std::vector<Users> &users) {
+      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+      [sharedCb, userId, self = shared_from_this()](const std::vector<Users> &users) {
           int failedCount = users.empty() ? 0 : users[0].getValueOfFailedLoginCount();
           int newFailedCount = failedCount + 1;
           int64_t now = std::chrono::duration_cast<std::chrono::seconds>(
@@ -409,7 +406,7 @@ void PostgresIdentityRepository::incrementFailedLogins(
 }
 
 void PostgresIdentityRepository::getUserInfoWithRoles(
-  int64_t userId,
+  int32_t userId,
   std::function<void(std::optional<Json::Value>)> &&callback
 )
 {
@@ -424,10 +421,9 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
 
     try
     {
-        int32_t userId32 = static_cast<int32_t>(userId);
         Mapper<Users>(db).findBy(
-          Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
-          [sharedCb, db, userId32](const std::vector<Users> &users) {
+          Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+          [sharedCb, db, userId](const std::vector<Users> &users) {
               if (users.empty())
               {
                   (*sharedCb)(std::nullopt);
@@ -437,7 +433,7 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
 
               // Split JOIN: UserRoles::findBy + Roles::findBy for each role
               Mapper<UserRoles>(db).findBy(
-                Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, userId32),
+                Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, userId),
                 [sharedCb, db, user](const std::vector<UserRoles> &userRoles) {
                     if (userRoles.empty())
                     {
@@ -501,7 +497,7 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
 }
 
 void PostgresIdentityRepository::getRoles(
-  int64_t internalUserId,
+  int32_t internalUserId,
   std::function<void(std::vector<std::string>)> &&cb
 )
 {
@@ -517,9 +513,7 @@ void PostgresIdentityRepository::getRoles(
     {
         Mapper<UserRoles> urMapper(db);
         urMapper.findBy(
-          Criteria(
-            UserRoles::Cols::_user_id, CompareOperator::EQ, static_cast<int32_t>(internalUserId)
-          ),
+          Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, internalUserId),
           [sharedCb, db](const std::vector<UserRoles> &userRoles) {
               if (userRoles.empty())
               {
@@ -554,7 +548,7 @@ void PostgresIdentityRepository::getRoles(
 void PostgresIdentityRepository::getInternalUserId(
   const std::string &subject,
   const std::string &provider,
-  std::function<void(std::optional<int64_t>)> &&cb
+  std::function<void(std::optional<int32_t>)> &&cb
 )
 {
     if (!dbClient_)
@@ -562,7 +556,7 @@ void PostgresIdentityRepository::getInternalUserId(
         cb(std::nullopt);
         return;
     }
-    auto sharedCb = std::make_shared<std::function<void(std::optional<int64_t>)>>(std::move(cb));
+    auto sharedCb = std::make_shared<std::function<void(std::optional<int32_t>)>>(std::move(cb));
     try
     {
         Mapper<Oauth2SubjectMappings> mapper(dbClient_);
@@ -570,7 +564,7 @@ void PostgresIdentityRepository::getInternalUserId(
           Criteria(Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider) &&
             Criteria(Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject),
           [sharedCb](const Oauth2SubjectMappings &mapping) {
-              (*sharedCb)(static_cast<int64_t>(mapping.getValueOfInternalUserId()));
+              (*sharedCb)(mapping.getValueOfInternalUserId());
           },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
         );

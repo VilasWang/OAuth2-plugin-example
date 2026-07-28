@@ -36,7 +36,7 @@ class IUserRepository;
  */
 struct AuthResult
 {
-    int64_t internalId = 0;      // Internal auto-increment ID (for DB operations)
+    int32_t internalId = 0;      // Internal auto-increment ID (for DB operations)
     std::string publicSub;       // Public UUID subject (for OAuth2 tokens, never expose internalId)
     bool emailVerified = false;  // Whether email is verified
     bool mfaEnabled = false;     // Whether MFA (TOTP) is enabled
@@ -101,7 +101,7 @@ class AuthService
      * @param callback Returns user info JSON (sub/name/email/roles) or
      * nullopt if not found.
      */
-    void getUserInfo(int64_t userId, std::function<void(std::optional<Json::Value>)> &&callback);
+    void getUserInfo(int32_t userId, std::function<void(std::optional<Json::Value>)> &&callback);
 
   private:
     std::shared_ptr<IUserRepository> userRepo_;

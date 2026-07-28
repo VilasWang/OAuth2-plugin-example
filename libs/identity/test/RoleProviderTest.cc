@@ -19,9 +19,9 @@ namespace
 class FakeRoleRepository : public IRoleRepository
 {
   public:
-    std::map<int64_t, std::vector<std::string>> roles;
+    std::map<int32_t, std::vector<std::string>> roles;
 
-    void getRoles(int64_t internalUserId, RolesCallback &&cb) override
+    void getRoles(int32_t internalUserId, RolesCallback &&cb) override
     {
         auto it = roles.find(internalUserId);
         cb(it == roles.end() ? std::vector<std::string>{} : it->second);

@@ -63,7 +63,7 @@ enum class StoreCredentialOutcome
  */
 struct WebAuthnCredentialLookup
 {
-    int64_t userId = 0;     // Internal user id (webauthn_credentials.user_id).
+    int32_t userId = 0;     // Internal user id (webauthn_credentials.user_id).
     std::string publicSub;  // users.public_sub -- what the caller reports back as "user_id".
     int signCount = 0;      // webauthn_credentials.sign_count, as currently stored.
 };
@@ -104,7 +104,7 @@ class IWebAuthnRepository
     /// owned (mirrors the controller's INSERT, which does not pass either
     /// column explicitly and relies on table defaults).
     virtual void storeCredential(
-      int64_t userId,
+      int32_t userId,
       const std::string &credentialId,
       const std::string &publicKey,
       const std::string &name,
@@ -129,7 +129,7 @@ class IWebAuthnRepository
 
     /// List all credentials belonging to `userId`, most recently created
     /// first (listCredentials' SELECT ... ORDER BY created_at DESC).
-    virtual void listCredentials(int64_t userId, ListCredentialsCallback &&cb) = 0;
+    virtual void listCredentials(int32_t userId, ListCredentialsCallback &&cb) = 0;
 };
 
 }  // namespace authforge::identity

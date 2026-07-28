@@ -19,7 +19,7 @@ namespace
 class FakeUserRepository : public IUserRepository
 {
   public:
-    std::map<int64_t, Json::Value> infos;
+    std::map<int32_t, Json::Value> infos;
 
     void findByEmail(
       const std::string &,
@@ -37,7 +37,7 @@ class FakeUserRepository : public IUserRepository
         cb(std::nullopt);
     }
 
-    void findById(int64_t, std::function<void(std::optional<UserData>)> &&cb) override
+    void findById(int32_t, std::function<void(std::optional<UserData>)> &&cb) override
     {
         cb(std::nullopt);
     }
@@ -52,29 +52,29 @@ class FakeUserRepository : public IUserRepository
 
     void create(
       const UserData &,
-      std::function<void(std::optional<int64_t>, std::string)> &&cb
+      std::function<void(std::optional<int32_t>, std::string)> &&cb
     ) override
     {
         cb(std::nullopt, "INTERNAL_ERROR");
     }
 
-    void updatePasswordHash(int64_t, const std::string &, std::function<void(bool)> &&cb) override
+    void updatePasswordHash(int32_t, const std::string &, std::function<void(bool)> &&cb) override
     {
         cb(false);
     }
 
-    void resetFailedLogins(int64_t, std::function<void(bool)> &&cb) override
+    void resetFailedLogins(int32_t, std::function<void(bool)> &&cb) override
     {
         cb(false);
     }
 
-    void incrementFailedLogins(int64_t, std::function<void(bool)> &&cb) override
+    void incrementFailedLogins(int32_t, std::function<void(bool)> &&cb) override
     {
         cb(false);
     }
 
     void getUserInfoWithRoles(
-      int64_t userId,
+      int32_t userId,
       std::function<void(std::optional<Json::Value>)> &&cb
     ) override
     {

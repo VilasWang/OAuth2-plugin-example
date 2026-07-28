@@ -26,7 +26,7 @@ class PostgresWebAuthnRepository : public authforge::identity::IWebAuthnReposito
     }
 
     void storeCredential(
-      int64_t userId,
+      int32_t userId,
       const std::string &credentialId,
       const std::string &publicKey,
       const std::string &name,
@@ -44,7 +44,7 @@ class PostgresWebAuthnRepository : public authforge::identity::IWebAuthnReposito
       BoolCallback &&cb
     ) override;
 
-    void listCredentials(int64_t userId, ListCredentialsCallback &&cb) override;
+    void listCredentials(int32_t userId, ListCredentialsCallback &&cb) override;
 
   private:
     ::drogon::orm::DbClientPtr dbClient_;

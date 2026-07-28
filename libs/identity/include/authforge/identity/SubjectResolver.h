@@ -48,13 +48,13 @@ class SubjectResolver : public authforge::common::ports::ISubjectResolver
         }
         auto [provider, localId] = splitSubject(subject.value());
         repo_->getInternalUserId(
-          localId, provider, [cb = std::move(cb)](std::optional<int64_t> internalUserId) {
+          localId, provider, [cb = std::move(cb)](std::optional<int32_t> internalUserId) {
               if (!internalUserId)
               {
                   cb(std::nullopt);
                   return;
               }
-              cb(static_cast<int32_t>(*internalUserId));
+              cb(*internalUserId);
           }
         );
     }
