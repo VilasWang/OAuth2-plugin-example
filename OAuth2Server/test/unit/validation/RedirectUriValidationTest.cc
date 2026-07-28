@@ -19,7 +19,7 @@ namespace
 std::shared_ptr<GrantRepo> makeSeededGrantRepo(const Json::Value &clientsConfig)
 {
     auto bundle = std::make_shared<oauth2::MemoryRepositoryBundle>();
-    bundle->initFromConfig(clientsConfig, Json::Value::nullSingleton());
+    bundle->initFromConfig(clientsConfig);
     return bundle->grantRepository();
 }
 

@@ -1,18 +1,17 @@
 #pragma once
 
-// Task 10 (design.md §7 / REPOSITORY_MAPPING.md): aggregates the seven Redis
-// repository implementations (4 oauth2 + 3 identity, per Task 7/8) behind a
-// single construction entry point for product assembly code, mirroring
-// PostgresRepositoryBundle from Task 9. This is ADDITIVE -- it does not
-// replace RedisOAuth2Storage/IOAuth2Storage, which remain the production
-// path wired up by OAuth2Plugin.cc today.
+// Task 10 (design.md §7): aggregates the four Redis oauth2 repository
+// implementations behind a single construction entry point for product
+// assembly code, mirroring PostgresRepositoryBundle from Task 9. This is
+// ADDITIVE -- it does not replace RedisOAuth2Storage/IOAuth2Storage, which
+// remain the production path wired up by OAuth2Plugin.cc today.
+// Phase 1.5e: the 3 identity repos that used to live here are removed; the
+// identity domain now has its own authforge::identity::* backing stores
+// (see OAuth2Plugin.cc initStorage).
 #include <oauth2/storage/RedisClientRepository.h>
 #include <oauth2/storage/RedisGrantRepository.h>
 #include <oauth2/storage/RedisTokenRepository.h>
 #include <oauth2/storage/RedisConsentRepository.h>
-#include <oauth2/storage/RedisUserRepository.h>
-#include <oauth2/storage/RedisRoleRepository.h>
-#include <oauth2/storage/RedisSubjectMappingRepository.h>
 
 #include <memory>
 #include <string>
@@ -28,9 +27,10 @@ using ITokenRepository = ::authforge::oauth2::repository::ITokenRepository;
 using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
 
 /**
- * @brief Aggregates all seven Redis repository implementations behind a
- * single constructor call, mirroring PostgresRepositoryBundle's ergonomics
- * (Task 9) as closely as the underlying constructor shapes allow.
+ * @brief Aggregates all four Redis oauth2 repository implementations behind
+ * a single constructor call, mirroring PostgresRepositoryBundle's
+ * ergonomics (Task 9) as closely as the underlying constructor shapes
+ * allow.
  *
  * Design difference from PostgresRepositoryBundle (deliberate, not an
  * oversight): PostgresRepositoryBundle has a default constructor plus a
@@ -76,29 +76,11 @@ class RedisRepositoryBundle
         return consentRepository_;
     }
 
-    std::shared_ptr<IUserRepository> userRepository() const
-    {
-        return userRepository_;
-    }
-
-    std::shared_ptr<IRoleRepository> roleRepository() const
-    {
-        return roleRepository_;
-    }
-
-    std::shared_ptr<ISubjectMappingRepository> subjectMappingRepository() const
-    {
-        return subjectMappingRepository_;
-    }
-
   private:
     std::shared_ptr<RedisClientRepository> clientRepository_;
     std::shared_ptr<RedisGrantRepository> grantRepository_;
     std::shared_ptr<RedisTokenRepository> tokenRepository_;
     std::shared_ptr<RedisConsentRepository> consentRepository_;
-    std::shared_ptr<RedisUserRepository> userRepository_;
-    std::shared_ptr<RedisRoleRepository> roleRepository_;
-    std::shared_ptr<RedisSubjectMappingRepository> subjectMappingRepository_;
 };
 
 }  // namespace oauth2

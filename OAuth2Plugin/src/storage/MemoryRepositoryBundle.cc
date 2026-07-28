@@ -7,20 +7,13 @@ MemoryRepositoryBundle::MemoryRepositoryBundle()
     : clientRepository_(std::make_shared<::authforge::storage::memory::MemoryClientRepository>()),
       grantRepository_(std::make_shared<::authforge::storage::memory::MemoryGrantRepository>()),
       tokenRepository_(std::make_shared<::authforge::storage::memory::MemoryTokenRepository>()),
-      consentRepository_(std::make_shared<::authforge::storage::memory::MemoryConsentRepository>()),
-      userRepository_(std::make_shared<MemoryUserRepository>()),
-      roleRepository_(std::make_shared<MemoryRoleRepository>()),
-      subjectMappingRepository_(std::make_shared<MemorySubjectMappingRepository>())
+      consentRepository_(std::make_shared<::authforge::storage::memory::MemoryConsentRepository>())
 {
 }
 
-void MemoryRepositoryBundle::initFromConfig(
-  const Json::Value &clientsConfig,
-  const Json::Value &adminConfig
-)
+void MemoryRepositoryBundle::initFromConfig(const Json::Value &clientsConfig)
 {
     clientRepository_->initFromConfig(clientsConfig);
-    roleRepository_->initFromConfig(adminConfig);
 }
 
 }  // namespace oauth2

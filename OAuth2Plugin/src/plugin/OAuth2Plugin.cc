@@ -9,7 +9,9 @@
 #include <oauth2/adapters/StorageSubjectResolver.h>
 #include <authforge/oauth2/protocol/AuthorizationService.h>
 // Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
-// per-backend RepositoryBundle and extracts its seven split-repository handles.
+// per-backend RepositoryBundle and extracts its four oauth2 split-repository
+// handles (Phase 1.5e: the bundle's 3 identity accessors are gone; identity
+// repos are constructed separately from authforge::identity::* backing stores).
 #include <oauth2/storage/MemoryRepositoryBundle.h>
 #include <oauth2/storage/PostgresRepositoryBundle.h>
 #include <oauth2/storage/RedisRepositoryBundle.h>
@@ -262,7 +264,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     {
         oauth2::MemoryRepositoryBundle bundle;
         if (config.isMember("clients"))
-            bundle.initFromConfig(config["clients"], config["admin_users"]);
+            bundle.initFromConfig(config["clients"]);
         assignOAuth2(
           bundle.clientRepository(),
           bundle.grantRepository(),

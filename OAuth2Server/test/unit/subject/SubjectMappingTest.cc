@@ -1,8 +1,10 @@
 #include <chrono>
 #include <drogon/drogon_test.h>
 #include <oauth2/utils/SubjectGenerator.h>
+#include <authforge/storage/memory/MemoryIdentityRepository.h>
 #include <oauth2/storage/MemoryRepositoryBundle.h>
 #include <authforge/oauth2/model/UserRef.h>
+#include <authforge/oauth2/model/Dto.h>
 #include <json/json.h>
 
 using namespace authforge::common::utils;
@@ -97,25 +99,23 @@ DROGON_TEST(Unit_P0_SubjectGenerator_IsValidInvalidSubject_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_CreateAndGetMapping_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
-    auto consent = bundle.consentRepository();
-    auto grant = bundle.grantRepository();
-    Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    // Phase 1.5e: retargeted from the legacy oauth2::MemorySubjectMappingRepository
+    // (via MemoryRepositoryBundle::subjectMappingRepository()) to the NEW
+    // authforge::identity::* backing store (MemoryIdentityRepository, which
+    // multiply-inherits ISubjectMappingRepository).
+    authforge::storage::memory::MemoryIdentityRepository sm;
 
     bool createCalled = false;
     bool getCalled = false;
 
     // Create mapping
-    sm->createSubjectMapping("alice", 1, "local", [&](bool success) {
+    sm.createSubjectMapping("alice", 1, "local", [&](bool success) {
         createCalled = true;
         CHECK(success);
     });
 
     // Get mapping
-    sm->getInternalUserId("alice", "local", [&](auto userIdOpt) {
+    sm.getInternalUserId("alice", "local", [&](auto userIdOpt) {
         getCalled = true;
         CHECK(userIdOpt);
         CHECK((*userIdOpt) == (1));
@@ -127,25 +127,19 @@ DROGON_TEST(Unit_P0_SubjectMapping_CreateAndGetMapping_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_ProviderIsolation_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
-    auto consent = bundle.consentRepository();
-    auto grant = bundle.grantRepository();
-    Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    authforge::storage::memory::MemoryIdentityRepository sm;
 
     // Create same subject for different providers
-    sm->createSubjectMapping("alice", 1, "local", [&](bool) {});
-    sm->createSubjectMapping("alice", 2, "google", [&](bool) {});
+    sm.createSubjectMapping("alice", 1, "local", [&](bool) {});
+    sm.createSubjectMapping("alice", 2, "google", [&](bool) {});
 
     // Verify they are isolated
-    sm->getInternalUserId("alice", "local", [&](auto localUserId) {
+    sm.getInternalUserId("alice", "local", [&](auto localUserId) {
         CHECK(localUserId);
         CHECK((*localUserId) == (1));
     });
 
-    sm->getInternalUserId("alice", "google", [&](auto googleUserId) {
+    sm.getInternalUserId("alice", "google", [&](auto googleUserId) {
         CHECK(googleUserId);
         CHECK((*googleUserId) == (2));
     });
@@ -153,38 +147,26 @@ DROGON_TEST(Unit_P0_SubjectMapping_ProviderIsolation_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_GetNonExistentMapping_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
-    auto consent = bundle.consentRepository();
-    auto grant = bundle.grantRepository();
-    Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    authforge::storage::memory::MemoryIdentityRepository sm;
 
-    sm->getInternalUserId("nonexistent", "local", [&](auto userIdOpt) { CHECK(!(userIdOpt)); });
+    sm.getInternalUserId("nonexistent", "local", [&](auto userIdOpt) { CHECK(!(userIdOpt)); });
 }
 
 DROGON_TEST(Unit_P0_SubjectMapping_UpdateExistingMapping_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
-    auto consent = bundle.consentRepository();
-    auto grant = bundle.grantRepository();
-    Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    authforge::storage::memory::MemoryIdentityRepository sm;
 
     // Create initial mapping
-    sm->createSubjectMapping("alice", 1, "local", [&](bool) {});
+    sm.createSubjectMapping("alice", 1, "local", [&](bool) {});
 
     // Try to create same mapping again (should be idempotent in real
     // implementation)
-    sm->createSubjectMapping("alice", 1, "local", [&](bool success) {
+    sm.createSubjectMapping("alice", 1, "local", [&](bool success) {
         CHECK(success);  // Should succeed even if already exists
     });
 
     // Verify the mapping still points to the correct user
-    sm->getInternalUserId("alice", "local", [&](auto userIdOpt) {
+    sm.getInternalUserId("alice", "local", [&](auto userIdOpt) {
         CHECK(userIdOpt);
         CHECK((*userIdOpt) == (1));
     });
@@ -195,12 +177,10 @@ DROGON_TEST(Unit_P0_SubjectMapping_UpdateExistingMapping_Works)
 DROGON_TEST(Unit_P0_UserConsent_SaveAndCheckConsent_Works)
 {
     oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig);
 
     // Save consent
     consent->saveUserConsent(userRef(1), "vue-client", "openid", [&](bool success) {
@@ -221,12 +201,10 @@ DROGON_TEST(Unit_P0_UserConsent_SaveAndCheckConsent_Works)
 DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 {
     oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig);
 
     // Save consent
     consent->saveUserConsent(userRef(1), "vue-client", "profile", [&](bool) {});
@@ -250,12 +228,10 @@ DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 {
     oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig);
 
     authforge::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn123";
@@ -285,12 +261,10 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 {
     oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig);
 
     authforge::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn456";
@@ -325,12 +299,10 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 DROGON_TEST(Unit_P0_AuthorizationTransaction_DeleteTransaction_Works)
 {
     oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
-    Json::Value adminConfig;
-    bundle.initFromConfig(clientsConfig, adminConfig);
+    bundle.initFromConfig(clientsConfig);
 
     authforge::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn789";

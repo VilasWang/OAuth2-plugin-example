@@ -1,16 +1,17 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <oauth2/utils/SubjectGenerator.h>
-#include <oauth2/storage/MemoryRepositoryBundle.h>
+#include <authforge/storage/memory/MemoryIdentityRepository.h>
 #include <oauth2/plugin/OAuth2Plugin.h>
 #include <json/json.h>
 #include <chrono>
 #include <future>
 
-// Phase 4.7b (authforge-sdk-refactor): subject-mapping tests migrated off the
-// god MemoryOAuth2Storage to the per-backend MemoryRepositoryBundle's
-// subjectMappingRepository(). The SubjectGenerator unit tests below need no
-// storage.
+// Phase 1.5e: subject-mapping tests retargeted from the legacy
+// oauth2::MemorySubjectMappingRepository (via MemoryRepositoryBundle's
+// subjectMappingRepository()) to the NEW authforge::identity::* backing
+// store (MemoryIdentityRepository). The SubjectGenerator unit tests below
+// need no storage.
 
 using namespace authforge::common::utils;
 
@@ -48,18 +49,17 @@ DROGON_TEST(Unit_P0_SubjectGenerator_Legacy_Parsing)
 
 DROGON_TEST(Unit_P0_SubjectMapping_Legacy_ProviderIsolation)
 {
-    oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
+    authforge::storage::memory::MemoryIdentityRepository sm;
 
     std::promise<void> p1;
-    sm->createSubjectMapping("alice", 1, "local", [&](bool success) {
+    sm.createSubjectMapping("alice", 1, "local", [&](bool success) {
         CHECK(success);
         p1.set_value();
     });
     p1.get_future().get();
 
     std::promise<void> p2;
-    sm->getInternalUserId("alice", "local", [&](auto userId) {
+    sm.getInternalUserId("alice", "local", [&](auto userId) {
         CHECK(userId.has_value());
         CHECK(*userId == 1);
         p2.set_value();
@@ -68,14 +68,14 @@ DROGON_TEST(Unit_P0_SubjectMapping_Legacy_ProviderIsolation)
 
     // Different provider same subject name
     std::promise<void> p3;
-    sm->createSubjectMapping("alice", 2, "google", [&](bool success) {
+    sm.createSubjectMapping("alice", 2, "google", [&](bool success) {
         CHECK(success);
         p3.set_value();
     });
     p3.get_future().get();
 
     std::promise<void> p4;
-    sm->getInternalUserId("alice", "google", [&](auto userId) {
+    sm.getInternalUserId("alice", "google", [&](auto userId) {
         CHECK(userId.has_value());
         CHECK(*userId == 2);
         p4.set_value();
@@ -142,14 +142,13 @@ DROGON_TEST(Unit_P0_EdgeCases_Legacy_EmptyVerifier)
 
 DROGON_TEST(Unit_P0_EdgeCases_Legacy_SubjectProviderIsolation)
 {
-    oauth2::MemoryRepositoryBundle bundle;
-    auto sm = bundle.subjectMappingRepository();
+    authforge::storage::memory::MemoryIdentityRepository sm;
 
-    sm->createSubjectMapping("testuser", 1, "local", [&](bool) {});
-    sm->createSubjectMapping("testuser", 2, "google", [&](bool) {});
+    sm.createSubjectMapping("testuser", 1, "local", [&](bool) {});
+    sm.createSubjectMapping("testuser", 2, "google", [&](bool) {});
 
     std::promise<void> p;
-    sm->getInternalUserId("testuser", "local", [&](auto id) {
+    sm.getInternalUserId("testuser", "local", [&](auto id) {
         CHECK(id.has_value());
         CHECK(*id == 1);
         p.set_value();
