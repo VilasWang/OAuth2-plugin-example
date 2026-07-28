@@ -79,6 +79,7 @@
 - `IdentityService.h/.cc`：`Repos` 结构 legacy→new；所有方法保持 int32（new 接口已 int32，无 cast）；`getUserRoles(string)`/`getInternalUserId`/`ensureSubjectMapping`/`handleFirstTimeLogin` 调 new 接口
 - `StorageRoleProvider`/`StorageSubjectResolver`：持有的 repo 类型 legacy→new；`getRoles(string)` 调 new 的 string 重载；`resolve()` 调 new `getInternalUserId`
 - plugin 公共转发方法签名保持 int32（间接消费者 TokenEndpointController/SessionController/AuthorizationFilter 不受影响）
+  - **⚠️ 事后修正（Phase 3 期间发现，commit `efd8673` 已修）**：「间接消费者不受影响」只对了一半——编译确实不受影响，但 MfaController/SessionController 保留了 int64 局部变量/lambda 参数（`std::stoll` 解析的 userId、Task 24 slice 4 有意「加宽」的 `onValidated(int64_t internalId)` 桥），喂给已收回 int32 的 new 接口时产生 5 处 C4244 隐式收窄，违反 1.5 目标终态「全链路 int32 零 cast」。修复：两个 controller 的 user-id 局部/参数全部收回 int32_t、`std::stoll`→`std::stoi`（越界即拒为无效 MFA 会话）、删除双向 cast、更新「widened」过时注释。**教训：接口收窄类重构的验收应 grep 消费端残留的宽类型局部变量 + 检查 build log 的 C4244，而非仅确认签名兼容。**
 - 验证：build 绿 + **运行时 gate（强制）**：Memory + Postgres 配置各起一次服务器，跑登录/注册/MFA/外部账号绑定全流程，确认 new 接口写路径（createSubjectMapping/createUserForExternalLogin）在产品里首次可用
 
 **1.5e. 删 legacy（Task 39 收尾，清场）**：
@@ -141,7 +142,10 @@
 - **类名 `OAuth2Plugin` 保留**（全局命名空间 `::OAuth2Plugin`，config 反射依赖）；include 路径 `<oauth2/plugin/OAuth2Plugin.h>` → `<authforge/drogon/plugin/OAuth2Plugin.h>`
 - `libs/drogon/CMakeLists.txt`：把 `OAuth2Plugin` 从 `target_link_libraries(... PUBLIC OAuth2Plugin)` 移除，改 `target_sources` 直接纳入这些源（OBJECT→合并进 STATIC `authforge-drogon`）
 - **顶层 `OAuth2Plugin/CMakeLists.txt` 删除**，`OAuth2Plugin/` 目录清空后删
-- `IdentityService.h/.cc`（services/）迁 `libs/drogon/services/` 或 `apps/server/`
+- `IdentityService.h/.cc`（services/）迁 `libs/drogon/services/`（**已定案，排除 apps/server**）
+  - 定案依据（design.md 推演）：IdentityService 是横跨 oauth2×identity 两个限界上下文的聚合服务（consent/scope 策略属 oauth2 §5.3，subject 映射/首登属 identity），§4.1 铁律 2「oauth2 与 identity 互不编译依赖」排除两个 Domain 包；唯一消费者 OAuth2Plugin.cc（DI 装配器，Phase 4 后住 libs/drogon）排除 apps/server（库不能依赖应用）——Adapter 层是唯一合法落点
+  - 命名空间 `authforge::identity` 本 phase 不动；**Phase 6（A9）改 `authforge::drogon::IdentityService`** 消除路径↔命名空间错配（改动面：自身 2 文件 + OAuth2Plugin.h/.cc 约 12 处，无反射约束）
+  - **设计终态备忘（超出本计划范围，显式记录免遗忘）**：按 design.md §5.2 方案 A，IdentityService 应最终解散——consent+scope 策略入 oauth2 决策服务、subject 映射/首次登录入 identity、插件经 `common::ports` 消费、apps/server 做唯一装配点；属行为级重构，待目录重组全部完成后另立任务
 - 消费者改链：`OAuth2Server` + `OAuth2Server/test` 的 `target_link_libraries` 去掉裸 `OAuth2Plugin`，靠 `authforge::drogon` 传递
 - **Phase 4 末运行时 gate（强制）**：起服务器确认 config 反射仍加载 `OAuth2Plugin` 插件——启动日志必须含 `OAuth2Plugin initialized with storage type: postgres` + `Controller/filter plugin dependencies wired`；curl `/health`→200、`/login`→200（login.csp 渲染）、`/.well-known/openid-configuration`→200。**这是整个计划的关键 gate**——OBJECT→STATIC 合并后符号可见性若出问题，build 完全正常但启动「plugin not found」崩溃，只有运行时能抓到。若失败，回退到 Phase 3 末 tag，改用保守方案（OAuth2Plugin 保留为独立 OBJECT 库，仅迁物理位置不合并）。
 
