@@ -91,27 +91,24 @@ add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_MEMORY_DIR})
 # refactor): Redis-backed oauth2 repository implementations
 # (RedisRepositoryBase / Redis{Client,Grant,Token,Consent}Repository /
 # RedisRepositoryBundle) + CachedClientRepository (cache decorator), relocated
-# out of OAuth2Plugin/storage/. Added BEFORE OAuth2Plugin because the plugin
-# links this package (RedisRepositoryBundle is the redis-storage backend
-# selected by storage_type=redis).
+# out of the old plugin's storage/. Added BEFORE libs/drogon because the
+# plugin class there links this package (RedisRepositoryBundle is the
+# redis-storage backend selected by storage_type=redis).
 add_subdirectory(${OAUTH2_PATH_LIBS_STORAGE_REDIS_DIR})
 
-add_subdirectory(${OAUTH2_PATH_OAUTH2_PLUGIN_DIR})
-
 # libs/drogon (authforge::drogon, M3 Task 20): Adapter-layer package for
-# Drogon-coupled code (plugin/controllers/filters/views). Added AFTER
-# OAuth2Plugin (unlike the Domain-layer libs/* above, which are added
-# BEFORE) because this slice's HttpResponder.cc links against the
-# OAuth2Plugin target for the not-yet-relocated common::error machinery
-# (see libs/drogon/CMakeLists.txt's own header comment) -- the OAuth2Plugin
-# CMake target must already exist when this add_subdirectory runs.
+# Drogon-coupled code (plugin/controllers/filters/views). Phase 4 (A6):
+# absorbed the former OAuth2Plugin OBJECT library (plugin class +
+# IdentityService); the OAuth2Plugin/ directory and its add_subdirectory
+# are gone. Added AFTER the Domain-layer and storage libs above, whose
+# CMake targets it links.
 add_subdirectory(${OAUTH2_PATH_LIBS_DROGON_DIR})
 
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})
 
 # examples/third-party-host (B8b / Task 28b, design.md §1.1/§6): minimal SDK
-# consumer that links ONLY the authforge SDK packages (no OAuth2Plugin /
-# libs/drogon / libs/storage-postgres) and drives the authorization-code flow
+# consumer that links ONLY the authforge SDK packages (no libs/drogon /
+# libs/storage-postgres) and drives the authorization-code flow
 # through the Domain-layer engine -- the smoke gate proving the SDK is
 # independently consumable. Gated by BUILD_EXAMPLES (default ON so CI runs it).
 option(BUILD_EXAMPLES "Build the SDK consumer examples" ON)

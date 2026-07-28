@@ -3,7 +3,7 @@
 #include <authforge/drogon/adapters/DrogonAuditSink.h>
 #include <authforge/storage/postgres/models/Oauth2Clients.h>
 #include <authforge/drogon/error/ErrorResponder.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
 
 #include <drogon/drogon.h>

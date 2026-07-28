@@ -5,7 +5,7 @@
 // userInfo). AutoCreation=false.
 
 #include <drogon/HttpController.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 
 #include <string>
 

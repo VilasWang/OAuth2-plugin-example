@@ -3,8 +3,9 @@ project(OAuth2Server VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
 # Find Dependencies
 find_package(Drogon CONFIG REQUIRED)
-# libcurl: OAuth2Plugin is an OBJECT library, so the SMTP code in
-# EmailService.cc is compiled into THIS executable; link libcurl here too.
+# libcurl: kept explicit (also reaches here transitively via
+# authforge::drogon since Phase 4 merged the old OAuth2Plugin OBJECT lib
+# into that STATIC lib, PUBLIC-linking CURL::libcurl).
 find_package(CURL REQUIRED)
 
 # M3 Task 25 (authforge-sdk-refactor, design.md §6): main.cc's former
@@ -45,7 +46,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     ${FILTER_SRC}
 )
 
-# Link against the Plugin library (defined in root CMakeLists.txt)
 # authforge::drogon (M3 Task 20, verified mechanism -- see PROGRESS.md):
 # linked as a PLAIN static library dependency, NOT whole-archive. All 15
 # controllers + 2 filters + AuthService now live there with
@@ -55,7 +55,11 @@ target_sources(${PROJECT_NAME} PRIVATE
 # was verified end-to-end with a running OAuth2Server.exe and real HTTP
 # requests (/health, /login, /api/admin/dashboard, /api/google/login all
 # behave correctly).
-target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin authforge::drogon CURL::libcurl)
+# Phase 4 (A6): the bare OAuth2Plugin link is gone -- the plugin class
+# merged into authforge::drogon; bootstrap's getPlugin<::OAuth2Plugin>()
+# calls reference its symbols, which keeps the plugin TU (and its Drogon
+# self-registration) alive out of the static lib.
+target_link_libraries(${PROJECT_NAME} PRIVATE authforge::drogon CURL::libcurl)
 
 # Additional includes
 target_include_directories(${PROJECT_NAME} PRIVATE

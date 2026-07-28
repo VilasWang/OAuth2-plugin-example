@@ -1,7 +1,7 @@
 #include <authforge/drogon/controllers/DeviceAuthController.h>
 #include <authforge/storage/postgres/models/Oauth2DeviceCodes.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/error/OAuth2ErrorHandler.h>
 #include <authforge/drogon/error/ErrorResponder.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>

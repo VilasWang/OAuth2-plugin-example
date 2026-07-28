@@ -18,7 +18,7 @@
 #include <authforge/drogon/adapters/OpenSslUuidGenerator.h>
 #include <authforge/drogon/adapters/SystemClock.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>

@@ -7,18 +7,15 @@ option(OAUTH2_TEST_COVERAGE "Enable code coverage reporting" OFF)
 
 # M4 Task 27 (authforge-sdk-refactor, design.md F6 / Testing Strategy):
 # This test binary used to GLOB the plugin/server sources directly into
-# itself (the Task 16 transitional bridge) -- compiling OAuth2Plugin/src/*.cc
-# a second time even though those same sources already live in the
-# OAuth2Plugin OBJECT library and reach this target transitively through
-# authforge::drogon. That double-compilation masked linking-boundary
-# problems and slowed the build. The test now consumes library products
-# only: it links OAuth2Plugin (+ authforge::*) below and no longer
-# compiles any OAuth2Plugin/src or OAuth2Server/{controllers,filters}
-# sources directly. All test #include directives resolve to public headers
-# under OAuth2Plugin/include/oauth2 (verified: no test reaches a src-only
-# private header), so the former OAuth2Plugin/src private include path is
-# dropped too. Whole-archive is not needed (AutoCreation=false controllers
-# are explicitly registered; OAuth2Plugin is an OBJECT lib -- design §5.5).
+# itself (the Task 16 transitional bridge), masking linking-boundary
+# problems and slowing the build. The test now consumes library products
+# only: it links authforge::* below and no longer compiles any plugin or
+# OAuth2Server/{controllers,filters} sources directly. Whole-archive is
+# not needed (AutoCreation=false controllers are explicitly registered).
+# Phase 4 (A6): the OAuth2Plugin OBJECT library is gone -- the plugin
+# class lives in authforge::drogon (STATIC) and its public headers under
+# libs/drogon/include, so the former OAuth2Plugin/include path and the
+# bare OAuth2Plugin link edge are dropped.
 
 # SchemaManager: needed by the SQL-splitter unit test (unit/schema/).
 # Compiled directly into the test target so the splitter can be exercised
@@ -101,21 +98,16 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/../
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/organization
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../OAuth2Plugin/include
 )
 
 # Link libraries
 find_package(OpenSSL REQUIRED)
-# M4 Task 27: the test consumes library products only. OAuth2Plugin (the
-# OBJECT lib) is linked explicitly so every plugin symbol reaches the test
-# through the library rather than via the former direct source compile; it
-# is also reached transitively through authforge::drogon, and CMake
-# de-duplicates the OBJECT-lib objects (no double symbols). Plain link, no
-# whole-archive (AutoCreation=false + OBJECT lib, design §5.5).
-# CURL::libcurl + CURL_STATICLIB are no longer declared on the test target:
-# the test no longer compiles EmailService.cc (or any curl-using source)
-# itself, and OAuth2Plugin PUBLIC-provides both transitively.
-target_link_libraries(${PROJECT_NAME} PRIVATE OAuth2Plugin Drogon::Drogon OpenSSL::Crypto authforge::common authforge::oauth2 authforge::storage::postgres authforge::storage::memory authforge::drogon authforge::identity)
+# M4 Task 27: the test consumes library products only. Phase 4 (A6): the
+# plugin symbols reach the test through authforge::drogon (which absorbed
+# the old OAuth2Plugin OBJECT lib and PUBLIC-provides CURL::libcurl +
+# CURL_STATICLIB transitively). Plain link, no whole-archive
+# (AutoCreation=false + explicit registration in test_main.cc).
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto authforge::common authforge::oauth2 authforge::storage::postgres authforge::storage::memory authforge::drogon authforge::identity)
 
 # Platform compatibility (shared module)
 oauth2_apply_compat(${PROJECT_NAME})

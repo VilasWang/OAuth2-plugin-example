@@ -1,4 +1,4 @@
-#include <oauth2/services/IdentityService.h>
+#include <authforge/drogon/services/IdentityService.h>
 #include <authforge/drogon/utils/SubjectGenerator.h>
 #include <drogon/drogon.h>
 

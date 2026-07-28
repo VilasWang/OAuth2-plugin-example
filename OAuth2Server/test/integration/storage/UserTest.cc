@@ -1,7 +1,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <authforge/storage/postgres/models/Users.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <drogon/utils/Utilities.h>
 #include <iostream>
 #include <string>

@@ -1,5 +1,5 @@
 #include <authforge/drogon/filters/AuthorizationFilter.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/error/ErrorResponder.h>
 #include <authforge/common/error/ErrorTypes.h>
 #include <authforge/drogon/error/RequestId.h>

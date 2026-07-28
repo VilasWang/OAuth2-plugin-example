@@ -1,6 +1,6 @@
 #include "OrganizationService.h"
 #include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 
 #include <authforge/storage/postgres/models/Organizations.h>
 #include <authforge/drogon/error/ErrorResponder.h>

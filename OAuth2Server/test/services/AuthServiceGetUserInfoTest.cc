@@ -3,7 +3,7 @@
 #include <json/json.h>
 #include <future>
 #include <authforge/drogon/AuthService.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 
 using namespace authforge::drogon::services;
 

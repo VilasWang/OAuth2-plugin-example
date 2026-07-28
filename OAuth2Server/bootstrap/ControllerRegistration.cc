@@ -33,7 +33,7 @@
 #include <authforge/drogon/controllers/AuditController.h>
 #include <authforge/drogon/filters/AuthorizationFilter.h>
 #include <authforge/drogon/filters/OAuth2AuthFilter.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 
 namespace bootstrap
 {
@@ -161,12 +161,11 @@ void wireControllerPluginDependencies()
       ->setPlugin(plugin);
 
     // Filters are looked up by the same by-name DrClassMap mechanism their
-    // ADD_METHOD_TO string references use -- these are the OLD
+    // ADD_METHOD_TO string references use -- the
     // authforge::drogon::filters::{AuthorizationFilter,OAuth2AuthFilter} classes
-    // (OAuth2Plugin/include/oauth2/filters/*.h), NOT the libs/drogon
-    // copies (see PROGRESS.md's filter-vs-controller distinction: the
-    // libs/drogon filter copies are not referenced by any ADD_METHOD_TO
-    // string and are dead code for routing purposes).
+    // now live in libs/drogon (include/authforge/drogon/filters/*.h) since the
+    // old OAuth2Plugin/ directory was dissolved in Phase 4 of the directory
+    // restructure.
     drogon::DrClassMap::getSingleInstance<authforge::drogon::filters::AuthorizationFilter>()
       ->setPlugin(plugin);
     drogon::DrClassMap::getSingleInstance<authforge::drogon::filters::OAuth2AuthFilter>()

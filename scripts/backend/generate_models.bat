@@ -12,9 +12,11 @@ if errorlevel 1 (
 )
 
 set PROJECT_DIR=%~dp0..\..
-set MODELS_SRC_DIR=%PROJECT_DIR%\%OAUTH2_PLUGIN_DIR%\%MODELS_SRC_REL_DIR%
-set MODELS_INC_DIR=%PROJECT_DIR%\%OAUTH2_PLUGIN_DIR%\%MODELS_INC_REL_DIR%
-set MODELS_BACKUP=%PROJECT_DIR%\%OAUTH2_PLUGIN_DIR%\%MODELS_BACKUP_REL_DIR%
+REM ORM models live in libs/storage-postgres (M2b Task 18; paths.env rebased
+REM in Phase 4 when the old OAuth2Plugin/ directory was deleted).
+set MODELS_SRC_DIR=%PROJECT_DIR%\%LIBS_STORAGE_POSTGRES_DIR%\%MODELS_SRC_REL_DIR%
+set MODELS_INC_DIR=%PROJECT_DIR%\%LIBS_STORAGE_POSTGRES_DIR%\%MODELS_INC_REL_DIR%
+set MODELS_BACKUP=%PROJECT_DIR%\%LIBS_STORAGE_POSTGRES_DIR%\%MODELS_BACKUP_REL_DIR%
 set MODEL_JSON_DIR=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%
 
 echo.
@@ -47,9 +49,9 @@ if not exist "%MODELS_SRC_DIR%" mkdir "%MODELS_SRC_DIR%"
 
 cd /d "%MODEL_JSON_DIR%"
 if %AUTO_MODE%==1 (
-  echo y | drogon_ctl create model "../%OAUTH2_PLUGIN_DIR%/%MODELS_SRC_REL_DIR%"
+  echo y | drogon_ctl create model "../%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
 ) else (
-  drogon_ctl create model "../%OAUTH2_PLUGIN_DIR%/%MODELS_SRC_REL_DIR%"
+  drogon_ctl create model "../%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
 )
 
 if errorlevel 1 (

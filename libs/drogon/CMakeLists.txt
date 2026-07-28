@@ -36,15 +36,14 @@ cmake_minimum_required(VERSION 3.16)
 # full M8 namespace sweep (Task 40).
 #
 # Phase 3 (A4+A5) done: error/filters/validation/adapters/utils/
-# observability all live in this target (or libs/common) now. The ONLY
-# remaining reason this target links OAuth2Plugin is the plugin class
-# itself: 18 files here (OAuth2AuthFilter.h, controller headers,
-# AuditLogger.cc, controller/service .cc) still include
-# <oauth2/plugin/OAuth2Plugin.h>, whose header lives in
-# OAuth2Plugin/include/ until Phase 4 (A6) migrates the plugin class into
-# libs/drogon/plugin/ and this link edge is removed. NOTE for Phase 4:
-# dropping the link also drops the transitive authforge::storage::*
-# edges it carries -- add them explicitly here if still needed.
+# observability all live in this target (or libs/common) now.
+# Phase 4 (A6) done: the OAuth2Plugin class itself (plugin/ + the
+# IdentityService it assembles, services/) migrated in from the old
+# OAuth2Plugin/ OBJECT library, which is deleted; its link edge here is
+# gone and the dependencies it used to carry transitively (storage
+# bundles, common, oauth2, OpenSSL, CURL) are now linked explicitly
+# below. Class name ::OAuth2Plugin stays in the global namespace --
+# config.json plugin reflection ("name": "OAuth2Plugin") depends on it.
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
 if(NOT DEFINED OAUTH2_PROJECT_VERSION)
@@ -57,6 +56,12 @@ endif()
 project(authforge-drogon VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
 find_package(Drogon CONFIG REQUIRED)
+# Phase 4 (A6): the plugin sources absorbed from the old OAuth2Plugin
+# OBJECT library use OpenSSL (crypto/TOTP) and libcurl (SMTP transport in
+# SmtpEmailService); these were found by OAuth2Plugin/CMakeLists.txt
+# before, now found here.
+find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
 add_library(authforge::drogon ALIAS ${PROJECT_NAME})
@@ -106,16 +111,39 @@ if(WITH_WEBAUTHN)
     target_compile_definitions(${PROJECT_NAME} PUBLIC WITH_WEBAUTHN)
 endif()
 
-# OAuth2Plugin (temporary, see header note above): removed in Phase 4 (A6)
-# together with the 18 stale <oauth2/plugin/OAuth2Plugin.h> includes.
+# Phase 4 (A6): OAuth2Plugin's former link set, inherited explicitly now
+# that the OBJECT library is merged into this STATIC target (the link
+# edge and its transitive deps died with it):
+#   - authforge::storage::{postgres,memory,redis}: OAuth2Plugin.cc's
+#     initStorage() constructs all three bundles.
+#   - authforge::common / authforge::oauth2: adapters + services here
+#     implement common::ports and call oauth2 domain code (pkce, consent).
+#   - OpenSSL::Crypto / CURL::libcurl: crypto utils + SMTP email service.
 #
 # Task 24 slice 5: DrogonOAuthHttpClient.cc implements
 # authforge::identity::IOAuthHttpClient -- authforge::identity linked
-# explicitly here (previously only reached transitively via OAuth2Plugin
-# -> authforge::storage::postgres -> authforge::identity) so the
-# WITH_SOCIAL PUBLIC compile definition it carries is visible to this
-# target without relying on that transitive chain's continued existence.
-target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon OAuth2Plugin authforge::identity)
+# explicitly (not via the storage-postgres transitive chain).
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    Drogon::Drogon
+    OpenSSL::Crypto
+    CURL::libcurl
+    authforge::common
+    authforge::oauth2
+    authforge::identity
+    authforge::storage::postgres
+    authforge::storage::memory
+    authforge::storage::redis
+)
+
+# Conan provides a STATIC libcurl by default. On Windows the curl headers
+# decorate symbols with __declspec(dllimport) UNLESS CURL_STATICLIB is
+# defined, which otherwise yields unresolved __imp_curl_* symbols when
+# linking the static lib. PUBLIC so consumers that include curl headers
+# transitively also get it. No-op on non-Windows. (Moved verbatim from
+# OAuth2Plugin/CMakeLists.txt in Phase 4.)
+if(WIN32)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC CURL_STATICLIB)
+endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 

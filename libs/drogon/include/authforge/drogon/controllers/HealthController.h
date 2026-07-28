@@ -24,7 +24,7 @@
 
 // M3 Task 23 (authforge-sdk-refactor, evaluation H4 "controller/filter 去
 // 单例化"): forward-declared so this header does not need to pull in the
-// full <oauth2/plugin/OAuth2Plugin.h> just to hold a pointer member.
+// full <authforge/drogon/plugin/OAuth2Plugin.h> just to hold a pointer member.
 class OAuth2Plugin;
 
 namespace authforge::drogon::controllers

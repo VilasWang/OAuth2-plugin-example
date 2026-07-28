@@ -22,18 +22,19 @@ set -a
 source "$PATHS_ENV_FILE"
 set +a
 
-# Validation (uses the plugin dir defined in paths.env)
-if [ ! -d "$PROJECT_DIR/$OAUTH2_PLUGIN_DIR" ]; then
-    echo "[Error] Project structure invalid. Could not find $OAUTH2_PLUGIN_DIR at $PROJECT_DIR"
+# Validation (uses the server dir defined in paths.env; the former
+# OAUTH2_PLUGIN_DIR check died with the OAuth2Plugin/ directory in Phase 4)
+if [ ! -d "$PROJECT_DIR/$OAUTH2_SERVER_DIR" ]; then
+    echo "[Error] Project structure invalid. Could not find $OAUTH2_SERVER_DIR at $PROJECT_DIR"
     exit 1
 fi
 
 # Derived absolute paths, built from paths.env values.
 OAUTH2_SERVER_ABS_DIR="$PROJECT_DIR/$OAUTH2_SERVER_DIR"
-OAUTH2_PLUGIN_ABS_DIR="$PROJECT_DIR/$OAUTH2_PLUGIN_DIR"
+LIBS_STORAGE_POSTGRES_ABS_DIR="$PROJECT_DIR/$LIBS_STORAGE_POSTGRES_DIR"
 BUILD_ABS_DIR="$PROJECT_DIR/$BUILD_DIR"
 export OAUTH2_SERVER_ABS_DIR
-export OAUTH2_PLUGIN_ABS_DIR
+export LIBS_STORAGE_POSTGRES_ABS_DIR
 export BUILD_ABS_DIR
 
 # Relocated Docker assets (repo-structure-refactor moved these out of the root

@@ -2,7 +2,7 @@
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
 #include <json/json.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <iostream>
 #include <thread>
 #include <chrono>

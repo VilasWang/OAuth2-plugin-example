@@ -72,7 +72,7 @@ reports/
 build/
 build-*/
 CMakeUserPresets.json
-OAuth2Plugin/models_backup/
+libs/storage-postgres/models_backup/
 
 # Cross-project patterns
 **/node_modules/

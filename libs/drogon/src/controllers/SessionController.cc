@@ -6,7 +6,7 @@
 #include <authforge/drogon/controllers/EmailVerificationController.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/oauth2/jwk/JwkManager.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>

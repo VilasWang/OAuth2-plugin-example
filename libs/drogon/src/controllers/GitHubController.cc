@@ -2,7 +2,7 @@
 #include <drogon/HttpClient.h>
 #include <drogon/drogon.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
 #include <authforge/drogon/error/ErrorResponder.h>
 

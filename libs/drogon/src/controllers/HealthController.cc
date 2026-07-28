@@ -1,5 +1,5 @@
 #include <authforge/drogon/controllers/HealthController.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <drogon/drogon.h>
 #include <json/json.h>
 

@@ -1,7 +1,7 @@
 #include <authforge/drogon/controllers/MfaController.h>
 #include <authforge/drogon/utils/TotpUtils.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/adapters/DrogonAuditSink.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <authforge/drogon/error/ErrorResponder.h>

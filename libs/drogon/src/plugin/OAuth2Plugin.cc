@@ -1,4 +1,4 @@
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/filters/OAuth2AuthFilter.h>
 #include <authforge/oauth2/jwk/JwkManager.h>
 #include <authforge/drogon/adapters/DrogonLogger.h>
@@ -22,7 +22,7 @@
 #include <authforge/oauth2/pkce/Pkce.h>
 // authforge::identity::IdentityService (the thin forwarder over bundle repos) is still
 // constructed here for the scopeRequiresAdminRole pure-function path.
-#include <oauth2/services/IdentityService.h>
+#include <authforge/drogon/services/IdentityService.h>
 #include <drogon/drogon.h>
 
 using namespace drogon;

@@ -1,7 +1,7 @@
 #include <authforge/drogon/observability/AuditLogger.h>
 #include <drogon/drogon.h>
 #include <authforge/drogon/adapters/DrogonLogger.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/storage/postgres/models/AuditLogs.h>
 
 namespace authforge::drogon::observability

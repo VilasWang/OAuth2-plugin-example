@@ -10,9 +10,11 @@ if ! command -v drogon_ctl &>/dev/null; then
     exit 1
 fi
 
-MODELS_SRC_DIR="$OAUTH2_PLUGIN_ABS_DIR/$MODELS_SRC_REL_DIR"
-MODELS_INC_DIR="$OAUTH2_PLUGIN_ABS_DIR/$MODELS_INC_REL_DIR"
-MODELS_BACKUP="$OAUTH2_PLUGIN_ABS_DIR/$MODELS_BACKUP_REL_DIR"
+# ORM models live in libs/storage-postgres (M2b Task 18; paths.env rebased
+# in Phase 4 when the old OAuth2Plugin/ directory was deleted).
+MODELS_SRC_DIR="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_SRC_REL_DIR"
+MODELS_INC_DIR="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_INC_REL_DIR"
+MODELS_BACKUP="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_BACKUP_REL_DIR"
 MODEL_JSON_DIR="$OAUTH2_SERVER_ABS_DIR"
 
 echo ""
@@ -49,9 +51,9 @@ mkdir -p "$MODELS_SRC_DIR"
 
 cd "$MODEL_JSON_DIR"
 if [ $AUTO_MODE -eq 1 ]; then
-    echo "y" | drogon_ctl create model "../$OAUTH2_PLUGIN_DIR/$MODELS_SRC_REL_DIR"
+    echo "y" | drogon_ctl create model "../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 else
-    drogon_ctl create model "../$OAUTH2_PLUGIN_DIR/$MODELS_SRC_REL_DIR"
+    drogon_ctl create model "../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 fi
 
 echo "Moving header files to $MODELS_INC_DIR..."

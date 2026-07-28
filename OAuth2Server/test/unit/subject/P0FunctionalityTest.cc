@@ -2,7 +2,7 @@
 #include <drogon/drogon.h>
 #include <authforge/drogon/utils/SubjectGenerator.h>
 #include <authforge/storage/memory/MemoryIdentityRepository.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <json/json.h>
 #include <chrono>
 #include <future>

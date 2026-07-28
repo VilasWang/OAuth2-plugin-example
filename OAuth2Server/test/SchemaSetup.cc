@@ -1,7 +1,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/orm/DbClient.h>
 #include <drogon/drogon.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <iostream>
 
 using namespace drogon::orm;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <drogon/HttpFilter.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 
 using namespace drogon;
 

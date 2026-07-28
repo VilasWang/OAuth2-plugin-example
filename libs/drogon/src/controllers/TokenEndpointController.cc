@@ -1,6 +1,6 @@
 #include <authforge/drogon/controllers/TokenEndpointController.h>
 #include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/validation/RuleSet.h>
 #include <authforge/drogon/validation/HttpResponder.h>
 #include <authforge/drogon/error/OAuth2ErrorHandler.h>

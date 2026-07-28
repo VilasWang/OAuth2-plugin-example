@@ -4,7 +4,7 @@
 // OAuth2StandardController (OIDC/OAuth2 discovery portion). AutoCreation=false.
 
 #include <drogon/HttpController.h>
-#include <oauth2/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/plugin/OAuth2Plugin.h>
 
 namespace authforge::drogon::controllers
 {
