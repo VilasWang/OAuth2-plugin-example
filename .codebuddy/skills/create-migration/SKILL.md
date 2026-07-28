@@ -14,11 +14,11 @@ When adding, modifying, or dropping database tables/columns/indexes. Triggered b
 
 ## Migration Naming
 
-Pattern: `OAuth2Server/sql/migrations/V{NNN}__descriptive_name.sql`
+Pattern: `apps/server/migrations/V{NNN}__descriptive_name.sql`
 
 Current latest: check existing migrations before creating:
 ```bash
-ls -la OAuth2Server/sql/migrations/
+ls -la apps/server/migrations/
 ```
 
 Determine the next number by finding the highest existing `V{NNN}` prefix.

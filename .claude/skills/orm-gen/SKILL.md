@@ -27,7 +27,7 @@ which drogon_ctl || echo "❌ drogon_ctl not found"
 drogon_ctl version || echo "❌ drogon_ctl not working"
 
 # 4. 检查 models 目录是否存在
-ls OAuth2Server/model.json || echo "❌ model.json not found"
+ls apps/server/model.json || echo "❌ model.json not found"
 ```
 
 ## 完整工作流程
@@ -53,7 +53,7 @@ psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
 
 ```bash
 # 查看当前 ORM 生成配置
-cat OAuth2Server/model.json
+cat apps/server/model.json
 ```
 
 **标准配置**:
@@ -81,7 +81,7 @@ cat OAuth2Server/model.json
 
 ```powershell
 # Windows PowerShell
-cd OAuth2Server
+cd apps/server
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupDir = "models_backup_$timestamp"
 New-Item -ItemType Directory -Path $backupDir | Out-Null
@@ -98,7 +98,7 @@ Write-Host "✅ Models backed up to $backupDir"
 
 ```bash
 # Linux/macOS  
-cd OAuth2Server
+cd apps/server
 timestamp=$(date +%Y%m%d_%H%M%S)
 backup_dir="models_backup_$timestamp"
 mkdir -p $backup_dir
@@ -113,8 +113,8 @@ echo "✅ Models backed up to $backup_dir"
 
 ```powershell
 # Windows PowerShell
-# 检查 OAuth2Server 目录结构
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Server
+# 检查 apps/server 目录结构
+cd d:\work\development\Repos\cpp\projects\authforge\apps\server
 
 # 创建 models 目录（如果不存在）
 if (!(Test-Path "models")) {
@@ -128,7 +128,7 @@ cd models
 
 ```bash
 # Linux/macOS
-cd /path/to/authforge/OAuth2Server
+cd /path/to/authforge/apps/server
 
 # 创建 models 目录（如果不存在）
 mkdir -p models
@@ -173,7 +173,7 @@ scripts/backend/generate_models.bat -y
 
 ```bash
 # 确保在正确的目录
-cd OAuth2Server/models
+cd libs/storage-postgres/src/models
 
 # 执行 drogon_ctl 生成命令
 drogon_ctl create model ../
@@ -309,7 +309,7 @@ head -20 Oauth2Clients.h
 
 ```powershell
 # Windows PowerShell - 新的构建路径
-cd build/OAuth2Server
+cd build/apps/server
 cmake --build . --parallel --config Release
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Build successful" -ForegroundColor Green
@@ -321,7 +321,7 @@ if ($LASTEXITCODE -eq 0) {
 
 ```bash
 # Linux/macOS
-cd build/OAuth2Server
+cd build/apps/server
 cmake --build . --parallel
 if [ $? -eq 0 ]; then
     echo "✅ Build successful"
@@ -437,13 +437,13 @@ psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
 **解决方案**:
 ```bash
 # 检查 model.json 配置
-cat OAuth2Server/model.json
+cat apps/server/model.json
 
 # 确保 tables 数组包含所有需要的表
 # 手动添加缺失的表名
 
 # 重新执行生成
-cd OAuth2Server
+cd apps/server
 drogon_ctl create model .
 ```
 
@@ -487,7 +487,7 @@ psql -h localhost -U oauth2_user -d oauth2_db -c "\d oauth2_clients"
 ### 1. 表结构变更流程
 ```bash
 # 1. 修改 migration SQL 脚本
-vim OAuth2Server/sql/migrations/V002__oauth2_core.sql
+vim apps/server/migrations/V002__oauth2_core.sql
 
 # 2. 重置数据库
 /db-reset
@@ -499,7 +499,7 @@ vim OAuth2Server/sql/migrations/V002__oauth2_core.sql
 /build-and-test
 
 # 5. 运行测试验证
-cd build/OAuth2Server && ctest --output-on-failure
+cd build/apps/server && ctest --output-on-failure
 ```
 
 ### 2. 备份策略
@@ -508,7 +508,7 @@ cd build/OAuth2Server && ctest --output-on-failure
 timestamp=$(date +%Y%m%d_%H%M%S)
 backup_dir="models_backup_$timestamp"
 mkdir -p $backup_dir
-cp OAuth2Server/*.h OAuth2Server/*.cc $backup_dir/
+cp libs/storage-postgres/src/models/*.h libs/storage-postgres/src/models/*.cc $backup_dir/
 
 # 保留最近 5 次备份
 ls -td models_backup_* | tail -n +6 | xargs rm -rf
@@ -534,14 +534,14 @@ ls -td models_backup_* | tail -n +6 | xargs rm -rf
 ```bash
 # .gitignore 配置
 # 自动生成的模型文件可以提交到版本控制
-OAuth2Server/models/*.h
-OAuth2Server/models/*.cc
+libs/storage-postgres/src/models/*.h
+libs/storage-postgres/src/models/*.cc
 
 # 但备份文件应该忽略
 models_backup_*/
 
 # model.json 应该提交
-OAuth2Server/model.json
+apps/server/model.json
 ```
 
 ## 代码审查要点

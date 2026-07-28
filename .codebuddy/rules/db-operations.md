@@ -1,6 +1,6 @@
 ---
 description: DB access must be the async + Mapper + Criteria combo; raw SQL only in 3 exemptions
-paths: "OAuth2Plugin/**,OAuth2Server/**"
+paths: "libs/**,apps/server/**"
 alwaysApply: false
 ---
 
@@ -57,5 +57,5 @@ Anything else as raw SQL is a violation. A PreToolUse hook also guards
 credential placeholders in these files, so failures show up before runtime.
 
 The `CODEBUDDY.md` holds the full statement; this file is the
-path-scoped reminder that loads when you edit `OAuth2Plugin/**` or
-`OAuth2Server/**`.
+path-scoped reminder that loads when you edit `libs/**` or
+`apps/server/**`.

@@ -44,28 +44,28 @@ check_config() {
 }
 
 # 测试各环境配置
-check_config "OAuth2Server/config.json" "http://localhost:5173" "Development (Default)"
-check_config "OAuth2Server/config.dev.json" "http://localhost:5173" "Development"
-check_config "OAuth2Server/config.ci.json" "http://localhost:5173" "CI"
-check_config "OAuth2Server/config.prod.json" "https://your-production-domain.com" "Production"
+check_config "apps/server/config/config.json" "http://localhost:5173" "Development (Default)"
+check_config "apps/server/config/config.dev.json" "http://localhost:5173" "Development"
+check_config "apps/server/config/config.ci.json" "http://localhost:5173" "CI"
+check_config "apps/server/config/config.prod.json" "https://your-production-domain.com" "Production"
 
 # 检查模板文件是否使用了动态变量
 echo "🔍 Checking template file:"
-if [ -f "OAuth2Server/views/login.csp" ]; then
-    if grep -q "frontend_register_url" OAuth2Server/views/login.csp; then
+if [ -f "apps/server/views/login.csp" ]; then
+    if grep -q "frontend_register_url" apps/server/views/login.csp; then
         echo "   ✅ Template uses dynamic variable: [[frontend_register_url]]"
     else
         echo "   ❌ Template still has hardcoded URL"
     fi
 
     # 检查是否还有硬编码的localhost:5173
-    if grep -q "http://localhost:5173/register" OAuth2Server/views/login.csp; then
+    if grep -q "http://localhost:5173/register" apps/server/views/login.csp; then
         echo "   ❌ Template still contains hardcoded localhost:5173/register"
     else
         echo "   ✅ No hardcoded localhost URL found in template"
     fi
 else
-    echo "   ⚠️  login.csp not found at OAuth2Server/views/login.csp"
+    echo "   ⚠️  login.csp not found at apps/server/views/login.csp"
 fi
 
 echo ""

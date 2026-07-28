@@ -11,7 +11,7 @@
                 "config.json"
             ],
             "stopAtEntry": false,
-            "cwd": "${command:cmake.buildDirectory}/OAuth2Server/${command:cmake.buildType}",
+            "cwd": "${command:cmake.buildDirectory}/apps/server/${command:cmake.buildType}",
             "environment": [],
             "console": "externalTerminal",
             "preLaunchTask": "CMake: Build Debug"

@@ -28,17 +28,17 @@ jobs:
           node-version: "20"
 
       - name: Run Frontend Error-Mapping Property Tests (Req 12.5)
-        working-directory: ${{github.workspace}}/OAuth2Frontend
+        working-directory: ${{github.workspace}}/frontends/user
         run: |
-          echo "=== OAuth2Frontend: error-mapping property tests (Property 11/12/13/14) ==="
+          echo "=== frontends/user: error-mapping property tests (Property 11/12/13/14) ==="
           npm ci
           npm run test:unit
         shell: bash
 
       - name: Run Admin Error-Mapping Property Tests (Req 12.5)
-        working-directory: ${{github.workspace}}/OAuth2Admin
+        working-directory: ${{github.workspace}}/frontends/admin
         run: |
-          echo "=== OAuth2Admin: error-mapping property tests (shared errorAdapter source) ==="
+          echo "=== frontends/admin: error-mapping property tests (shared errorAdapter source) ==="
           npm ci
           npm run test:unit
         shell: bash
@@ -72,8 +72,8 @@ jobs:
 
       - name: Add drogon_ctl (Conan package) to PATH
         # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
-        # bare command at BUILD time (see OAuth2Server/CMakeLists.txt and
-        # OAuth2Server/test/CMakeLists.txt), so it must be resolvable on PATH.
+        # bare command at BUILD time (see apps/server/CMakeLists.txt and
+        # apps/server/test/CMakeLists.txt), so it must be resolvable on PATH.
         # Previously this worked because Drogon was installed to C:\Drogon and
         # C:\Drogon\bin was added to GITHUB_PATH. Now that Drogon comes from
         # Conan, its package's bin/ dir (containing drogon_ctl.exe) is not on
@@ -106,8 +106,8 @@ jobs:
         run: |
           # Backup original config and use CI config with memory storage
           # This must happen BEFORE cmake configure so configure_file picks it up
-          mv OAuth2Server/config.json OAuth2Server/config.json.backup
-          cp OAuth2Server/config.ci.json OAuth2Server/config.json
+          mv apps/server/config/config.json apps/server/config/config.json.backup
+          cp apps/server/config/config.ci.json apps/server/config/config.json
         shell: bash
 
       - name: Configure Project CMake
@@ -126,7 +126,7 @@ jobs:
         run: |
           # Explicitly copy CI config to test working directory as a safeguard.
           # Using relative paths to avoid backslash escaping issues in bash on Windows.
-          cp ../OAuth2Server/config.ci.json ./OAuth2Server/test/${{env.BUILD_TYPE}}/config.json
+          cp ../apps/server/config/config.ci.json ./apps/server/test/${{env.BUILD_TYPE}}/config.json
           ctest -V -C ${{env.BUILD_TYPE}} --output-on-failure --timeout 120
         shell: bash
 
@@ -151,7 +151,7 @@ jobs:
       # every environment configuration. It is therefore run here explicitly in
       # addition to executing as part of the full binary above.
       - name: Run Error-Standardization Backend Tests (Req 12.2/12.3/12.4/12.6/12.1)
-        working-directory: ${{github.workspace}}/build/OAuth2Server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
@@ -183,7 +183,7 @@ jobs:
         shell: bash
 
       - name: Run Performance Benchmarks
-        working-directory: ${{github.workspace}}/build/OAuth2Server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
@@ -196,7 +196,7 @@ jobs:
         shell: bash
 
       - name: Run E2E Tests
-        working-directory: ${{github.workspace}}/build/OAuth2Server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
@@ -209,7 +209,7 @@ jobs:
         shell: bash
 
       - name: Run Integration Tests
-        working-directory: ${{github.workspace}}/build/OAuth2Server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
@@ -225,7 +225,7 @@ jobs:
         if: always()
         run: |
           # Restore original config after tests
-          mv OAuth2Server/config.json.backup OAuth2Server/config.json
+          mv apps/server/config/config.json.backup apps/server/config/config.json
         shell: bash
 
       - name: Check manage.sh / manage.ps1 command parity
@@ -241,5 +241,5 @@ jobs:
           name: windows-test-logs
           path: |
             ${{github.workspace}}/build/Testing/
-            ${{github.workspace}}/OAuth2Server/logs/
+            ${{github.workspace}}/apps/server/logs/
           retention-days: 7

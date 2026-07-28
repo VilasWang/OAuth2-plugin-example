@@ -42,7 +42,7 @@ services:
 
   oauth2-admin:
     build:
-      context: ../../OAuth2Admin
+      context: ../../frontends/admin
       dockerfile: Dockerfile
     container_name: oauth2-admin
     restart: always
@@ -99,8 +99,8 @@ services:
       - OAUTH2_SMTP_SSL=${OAUTH2_SMTP_SSL:-true}
     volumes:
       - ../../deploy/keys:/app/keys:ro
-      - ../../OAuth2Server/sql/migrations:/app/sql/migrations:ro
-      - ../../OAuth2Server/sql/seed:/app/sql/seed:ro
+      - ../../apps/server/migrations:/app/sql/migrations:ro
+      - ../../apps/server/seed:/app/sql/seed:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/health"]
       interval: 10s

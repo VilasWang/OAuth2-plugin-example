@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
-project(OAuth2Server VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+# Phase 5 (A7, directory restructure): OAuth2Server/ became apps/server/ and
+# the target/binary was renamed OAuth2Server -> authforge-server. Sources now
+# live under src/ (main.cc, SchemaManager.*, bootstrap/, organization/);
+# config files under config/; versioned SQL under migrations/ + seed/.
+project(authforge-server VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
 # Find Dependencies
 find_package(Drogon CONFIG REQUIRED)
@@ -13,7 +17,7 @@ find_package(CURL REQUIRED)
 # (CorsSetup/SecurityHeaders/ExceptionHandlerSetup/OpenApiSetup/
 # MigrationRunner/ControllerRegistration); main() itself now only wires
 # them together.
-file(GLOB BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/bootstrap/*.cc")
+file(GLOB BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/bootstrap/*.cc")
 
 # M5 Task 30 (authforge-sdk-refactor): product-level Organization management
 # lives under apps/server/src/organization/ (design.md §5.4: Organization CRUD
@@ -22,29 +26,15 @@ file(GLOB BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/bootstrap/*.cc")
 file(GLOB ORGANIZATION_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/organization/*.cc")
 
 add_executable(${PROJECT_NAME}
-    main.cc
-    SchemaManager.cc
+    src/main.cc
+    src/SchemaManager.cc
     ${BOOTSTRAP_SRC}
     ${ORGANIZATION_SRC}
 )
 
-# M3 Task 20 (authforge-sdk-refactor): OAuth2Server/controllers/* and
-# OAuth2Server/filters/* have all been relocated into libs/drogon
-# (authforge::drogon::controllers / authforge::drogon::filters). These two
-# directories are now empty (kept for potential future product-specific
-# controllers); aux_source_directory returns an empty list here, which is
-# harmless.
-aux_source_directory(controllers CTL_SRC)
-aux_source_directory(filters FILTER_SRC)
-
 # Views
 drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/views
                     ${CMAKE_CURRENT_BINARY_DIR})
-
-target_sources(${PROJECT_NAME} PRIVATE 
-    ${CTL_SRC} 
-    ${FILTER_SRC}
-)
 
 # authforge::drogon (M3 Task 20, verified mechanism -- see PROGRESS.md):
 # linked as a PLAIN static library dependency, NOT whole-archive. All 15
@@ -63,17 +53,18 @@ target_link_libraries(${PROJECT_NAME} PRIVATE authforge::drogon CURL::libcurl)
 
 # Additional includes
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/organization
 )
 
 # Compiler compatibility (shared module)
 oauth2_apply_compat(${PROJECT_NAME})
 
-# Copy Swagger UI to build directory
+# Copy Swagger UI to build directory (repo-root docs/, two levels up from
+# apps/server/)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/../docs/backend/api/swagger-ui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/backend/api/swagger-ui"
     "$<TARGET_FILE_DIR:${PROJECT_NAME}>/docs/api/swagger-ui"
 )
 

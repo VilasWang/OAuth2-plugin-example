@@ -15,8 +15,8 @@ Claude自动调用：当检测到控制器代码变更时
 
 ### 1. 检测变更
 - 监控以下文件的变化：
-  - `OAuth2Server/controllers/*.cc` (应用层控制器: OAuth2, WeChat, Google, MFA, Admin 等)
-  - `OAuth2Plugin/src/controllers/*.cc` (插件层控制器: OAuth2StandardController 等)
+  - `libs/drogon/src/controllers/*.cc` (应用层控制器: OAuth2, WeChat, Google, MFA, Admin 等)
+  - `libs/drogon/src/controllers/*.cc` (插件层控制器: OAuth2StandardController 等)
 
 ### 2. 分析路由
 - 解析Drogon路由映射
@@ -27,7 +27,7 @@ Claude自动调用：当检测到控制器代码变更时
 - 确定响应格式
 
 ### 3. 同步OpenAPI规范
-- 更新`OAuth2Server/openapi.yaml`
+- 更新`apps/server/openapi.yaml`
 - 添加新端点
 - 修改现有端点
 - 删除废弃端点

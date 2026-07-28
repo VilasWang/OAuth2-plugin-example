@@ -38,7 +38,7 @@ show_help() {
     echo "  dev-frontend                 Run frontend in dev mode"
     echo "  build-admin                  Build the admin frontend"
     echo "  dev-admin                    Run admin frontend in dev mode"
-    echo "  run-backend [-debug]         Start the OAuth2Server binary"
+    echo "  run-backend [-debug]         Start the authforge-server binary"
     echo "  setup-db                     Create database and run migrations"
     echo "  generate-models              Generate Drogon ORM models"
     echo "  reset-password               Reset admin password to default"

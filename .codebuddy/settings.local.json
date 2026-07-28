@@ -4,7 +4,7 @@
       "Bash(cmd /c \"rmdir /s /q build\")",
       "Bash(scripts\\\\build.bat)",
       "Bash(./scripts/build.bat)",
-      "Bash(./OAuth2Server.exe)",
+      "Bash(./authforge-server.exe)",
       "Edit(.codebuddy/skills/e2e-test/**)",
       "WebSearch",
       "Edit(.codebuddy/skills/docker-integration-test/**)",

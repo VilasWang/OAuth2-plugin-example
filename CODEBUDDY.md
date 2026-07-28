@@ -112,11 +112,11 @@ auto sharedCb = std::make_shared<std::function<void(const ResultType &)>>(
 
 - Sensitive values via env vars: `OAUTH2_DB_PASSWORD`, `OAUTH2_REDIS_PASSWORD`.
 - No-external-DB test build flag: `-DOAUTH2_MEMORY_TESTS_ONLY=ON`.
-- Config files: `OAuth2Server/config*.json` + `config.{dev,ci,prod}.json` overrides.
+- Config files: `apps/server/config/config*.json` + `config.{dev,ci,prod}.json` overrides.
 
 ## Test Architecture
 
-Tests live in `OAuth2Server/test/`; category labels and priorities are defined
+Tests live in `apps/server/test/`; category labels and priorities are defined
 authoritatively in `test/common/test_categories.h`.
 
 - `TestBase.h` provides `TestTransaction` (RAII rollback wrapper) — prefer it

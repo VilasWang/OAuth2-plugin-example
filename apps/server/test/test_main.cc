@@ -1,8 +1,8 @@
 // #define DROGON_TEST_MAIN
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include "../bootstrap/ControllerRegistration.h"
-#include "../bootstrap/IdentityAssembly.h"
+#include "../src/bootstrap/ControllerRegistration.h"
+#include "../src/bootstrap/IdentityAssembly.h"
 #include <authforge/drogon/controllers/HealthController.h>
 #ifdef WITH_SOCIAL
 #include <authforge/drogon/controllers/GoogleController.h>

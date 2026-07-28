@@ -12,7 +12,6 @@ DB_PORT="${OAUTH2_DB_PORT:-5432}"
 
 MIGRATIONS_DIR="$OAUTH2_SERVER_ABS_DIR/$SQL_MIGRATIONS_REL_DIR"
 SEED_DIR="$OAUTH2_SERVER_ABS_DIR/$SQL_SEED_REL_DIR"
-LEGACY_SQL_DIR="$OAUTH2_SERVER_ABS_DIR/$SQL_DIR"
 
 # Check for psql
 if ! command -v psql &>/dev/null; then
@@ -32,7 +31,7 @@ echo "Creating new database..."
 psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
     -c "CREATE DATABASE $DB_NAME;" 2>/dev/null
 
-# Apply migrations (new structure)
+# Apply migrations
 if [ -d "$MIGRATIONS_DIR" ]; then
     echo "Applying migrations from $MIGRATIONS_DIR..."
     for f in "$MIGRATIONS_DIR"/V*.sql; do
@@ -41,13 +40,8 @@ if [ -d "$MIGRATIONS_DIR" ]; then
         psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -f "$f"
     done
 else
-    # Fallback to legacy flat structure
-    echo "Applying SQL schemas from $LEGACY_SQL_DIR..."
-    for f in "$LEGACY_SQL_DIR"/*.sql; do
-        [ -f "$f" ] || continue
-        echo "  Applying $(basename "$f")..."
-        psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -f "$f"
-    done
+    echo "[Error] Migrations directory not found: $MIGRATIONS_DIR"
+    exit 1
 fi
 
 # Apply seed data

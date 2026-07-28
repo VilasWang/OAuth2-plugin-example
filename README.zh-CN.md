@@ -15,10 +15,10 @@
 
 ```
 authforge/
-├── OAuth2Plugin/       # 核心插件库（独立 CMake 库，可供第三方项目集成）
-├── OAuth2Server/       # 授权服务器后端（Drogon C++ 框架）
-├── OAuth2Admin/        # 管理后台前端（Vue 3 + TailwindCSS）
-├── OAuth2Frontend/     # 用户端前端（Vue 3 + Pinia + TailwindCSS）
+├── apps/server/        # 授权服务器后端（Drogon C++ 框架）
+├── libs/               # SDK 库包（authforge::common/oauth2/identity/storage-*/drogon）
+├── frontends/admin/    # 管理后台前端（Vue 3 + TailwindCSS）
+├── frontends/user/     # 用户端前端（Vue 3 + Pinia + TailwindCSS）
 ├── scripts/            # 构建、测试、运维脚本
 ├── docs/               # 项目文档
 └── PRD/                # 产品设计文档
@@ -79,7 +79,7 @@ authforge/
 | 已授权应用管理 | `GET/DELETE /api/me/authorized-apps` |
 | 注销账号 | `DELETE /api/me` |
 
-### Admin 管理后台 (OAuth2Admin)
+### Admin 管理后台 (frontends/admin)
 
 | 模块 | 功能 |
 |------|------|
@@ -127,16 +127,16 @@ docker-compose up -d
 .\manage.ps1 build-backend
 
 # 2. 启动后端（需要 PostgreSQL + Redis）
-cd OAuth2Server
-..\build\OAuth2Server\Debug\OAuth2Server.exe
+cd apps\server
+..\..\build\apps\server\Debug\authforge-server.exe
 
 # 3. 启动管理后台
-cd OAuth2Admin
+cd frontends\admin
 npm install
 npm run dev    # http://localhost:5174/admin/
 
 # 4. 启动用户前端
-cd OAuth2Frontend
+cd frontends\user
 npm install
 npm run dev    # http://localhost:5173
 ```
@@ -164,7 +164,7 @@ npm run dev    # http://localhost:5173
 ### 前端 E2E 测试
 
 ```powershell
-cd OAuth2Admin
+cd frontends\admin
 npx playwright test              # 全量运行（123 tests）
 npx playwright test --ui         # UI 模式调试
 npx playwright test --headed     # 有头浏览器模式
@@ -190,7 +190,7 @@ ctest --output-on-failure
 
 ## API 文档
 
-- **OpenAPI 规范**：[openapi.yaml](OAuth2Server/openapi.yaml)
+- **OpenAPI 规范**：[openapi.yaml](apps/server/openapi.yaml)
 - **Swagger UI**：`http://localhost:5555/docs/api`（需部署 Swagger UI 静态文件）
 - **E2E 测试指南**：[E2E_TESTING_GUIDE.md](docs/admin/e2e-testing-guide.md)
 

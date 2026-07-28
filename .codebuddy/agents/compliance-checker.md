@@ -67,9 +67,9 @@ OAuth2 协议合规性检查代理，确保实现符合 RFC 规范和安全标�
 
 | 优先级 | 路径 | 原因 |
 |--------|------|------|
-| Critical | `OAuth2Plugin/src/controllers/*.cc` | 核心 OAuth2 逻辑 |
-| Critical | `OAuth2Server/controllers/OAuth2Controller.cc` | 授权端点实现 |
-| Critical | `OAuth2Plugin/src/services/*Token*.cc` | Token 生成和验证 |
-| High | `OAuth2Server/filters/*.cc` | 认证中间件 |
-| High | `OAuth2Plugin/src/storage/*.cc` | Token 存储 |
-| Medium | `OAuth2Server/config.*.json` | 配置安全 |
+| Critical | `libs/drogon/src/controllers/*.cc` | 核心 OAuth2 逻辑 |
+| Critical | `libs/drogon/src/controllers/AuthorizationEndpointController.cc` | 授权端点实现 |
+| Critical | `libs/oauth2/src/protocol/Token*.cc` | Token 生成和验证 |
+| High | `libs/drogon/src/filters/*.cc` | 认证中间件 |
+| High | `libs/storage-*/src/*.cc` | Token 存储 |
+| Medium | `apps/server/config/config.*.json` | 配置安全 |

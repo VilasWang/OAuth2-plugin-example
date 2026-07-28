@@ -50,10 +50,11 @@ echo "Generating ORM models..."
 mkdir -p "$MODELS_SRC_DIR"
 
 cd "$MODEL_JSON_DIR"
+# MODEL_JSON_DIR (apps/server) is two levels below the repo root, hence ../..
 if [ $AUTO_MODE -eq 1 ]; then
-    echo "y" | drogon_ctl create model "../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
+    echo "y" | drogon_ctl create model "../../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 else
-    drogon_ctl create model "../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
+    drogon_ctl create model "../../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 fi
 
 echo "Moving header files to $MODELS_INC_DIR..."

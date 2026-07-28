@@ -28,7 +28,7 @@ allowed-tools: Bash
 
 ```powershell
 # Windows
-Get-Process -Name "OAuth2Server" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "authforge-server" -ErrorAction SilentlyContinue | Stop-Process -Force
 ```
 
 ### 2. 删除并重建数据库
@@ -41,11 +41,11 @@ psql -h localhost -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
 
 ### 3. 执行 Migration 脚本
 
-数据库 schema 统一通过 `OAuth2Server/sql/migrations/` 目录管理（V001-V022）。
+数据库 schema 统一通过 `apps/server/migrations/` 目录管理（V001-V022）。
 
 ```powershell
 $env:PGPASSWORD = "123456"
-Get-ChildItem "OAuth2Server\sql\migrations\V*.sql" | Sort-Object Name | ForEach-Object {
+Get-ChildItem "apps\server\migrations\V*.sql" | Sort-Object Name | ForEach-Object {
     psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
     if ($LASTEXITCODE -eq 0) { Write-Host "✅ $($_.Name)" }
     else { Write-Host "❌ $($_.Name)"; exit 1 }
@@ -55,7 +55,7 @@ Get-ChildItem "OAuth2Server\sql\migrations\V*.sql" | Sort-Object Name | ForEach-
 ### 4. 执行 Seed 数据
 
 ```powershell
-Get-ChildItem "OAuth2Server\sql\seed\*.sql" | ForEach-Object {
+Get-ChildItem "apps\server\seed\*.sql" | ForEach-Object {
     psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
     if ($LASTEXITCODE -eq 0) { Write-Host "✅ $($_.Name)" }
     else { Write-Host "⚠️  $($_.Name) (non-critical)" }
@@ -75,7 +75,7 @@ $env:PGPASSWORD = $null
 ## SQL 目录结构
 
 ```
-OAuth2Server/sql/
+apps/server/
 ├── migrations/          # Schema 定义（按版本顺序执行）
 │   ├── V001__schema_migrations.sql
 │   ├── V002__oauth2_core.sql

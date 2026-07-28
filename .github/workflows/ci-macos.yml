@@ -57,8 +57,8 @@ jobs:
 
       - name: Add drogon_ctl (Conan package) to PATH
         # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
-        # bare command at BUILD time (see OAuth2Server/CMakeLists.txt and
-        # OAuth2Server/test/CMakeLists.txt), so it must be resolvable on PATH.
+        # bare command at BUILD time (see apps/server/CMakeLists.txt and
+        # apps/server/test/CMakeLists.txt), so it must be resolvable on PATH.
         # Previously this worked because Drogon was `sudo cmake --install`ed
         # to /usr/local. Now that Drogon comes from Conan, its package's
         # bin/ dir (containing drogon_ctl) is not on PATH by default --
@@ -87,7 +87,7 @@ jobs:
       - name: Configure Project CMake
         run: |
           # Use CI config which uses memory storage instead of Postgres/Redis
-          cp OAuth2Server/config.ci.json OAuth2Server/config.json
+          cp apps/server/config/config.ci.json apps/server/config/config.json
 
           cmake -S . -B build -G "Unix Makefiles" \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \

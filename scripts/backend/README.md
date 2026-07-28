@@ -74,8 +74,8 @@ cd OAuth2Backend/scripts
 ## Running the Server
 
 ```bash
-cd OAuth2Backend/build
-./OAuth2Server
+cd build/apps/server
+./authforge-server
 ```
 
 The server will start on `http://localhost:5555`.

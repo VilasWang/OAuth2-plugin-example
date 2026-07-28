@@ -1,8 +1,8 @@
 ---
 description: Storage/data-access path-scoped pointer to db-operations rule
 globs:
-  - "OAuth2Plugin/**/storage/**"
-  - "OAuth2Server/**/*.cc"
+  - "libs/storage-*/**"
+  - "apps/server/**/*.cc"
 ---
 
 DB access rules (async + Mapper + Criteria combo, the three raw-SQL exemptions)

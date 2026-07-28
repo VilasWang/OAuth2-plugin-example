@@ -2,7 +2,7 @@
 services:
   oauth2-admin:
     build:
-      context: ../../OAuth2Admin
+      context: ../../frontends/admin
       dockerfile: Dockerfile
     container_name: oauth2-admin
     restart: always
@@ -58,9 +58,9 @@ services:
       - OAUTH2_SMTP_FROM_NAME=${OAUTH2_SMTP_FROM_NAME:-OAuth2 Platform}
       - OAUTH2_SMTP_SSL=${OAUTH2_SMTP_SSL:-true}
     volumes:
-      - ../../OAuth2Server/config.json:/app/config.json:ro
-      - ../../OAuth2Server/sql/migrations:/app/sql/migrations:ro
-      - ../../OAuth2Server/sql/seed:/app/sql/seed:ro
+      - ../../apps/server/config/config.json:/app/config.json:ro
+      - ../../apps/server/migrations:/app/sql/migrations:ro
+      - ../../apps/server/seed:/app/sql/seed:ro
     networks:
       - oauth2-net
 
@@ -76,7 +76,11 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ../../OAuth2Server/sql:/docker-entrypoint-initdb.d
+      # Mounted as SUBDIRECTORIES of initdb.d: the postgres entrypoint does
+      # not recurse into subdirectories, so this stays a no-op (same as the
+      # pre-restructure mount of the old sql/ wrapper dir).
+      - ../../apps/server/migrations:/docker-entrypoint-initdb.d/migrations:ro
+      - ../../apps/server/seed:/docker-entrypoint-initdb.d/seed:ro
     networks:
       - oauth2-net
     healthcheck:

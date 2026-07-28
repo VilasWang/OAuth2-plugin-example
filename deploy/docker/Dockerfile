@@ -51,14 +51,17 @@ RUN apt-get update && apt-get install -y \
     libhiredis0.14 libsqlite3-0 libcurl4 libuuid1 ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=backend-builder /app/build/OAuth2Server/OAuth2Server .
-COPY --from=backend-builder /app/OAuth2Server/config.prod.json ./config.json
-COPY --from=backend-builder /app/OAuth2Server/views ./views
-COPY --from=backend-builder /app/OAuth2Server/sql/migrations ./sql/migrations
-COPY --from=backend-builder /app/OAuth2Server/sql/seed ./sql/seed
+# Phase 5 (directory restructure): sources live in apps/server, the binary
+# is authforge-server; the in-container layout (/app/config.json, /app/views,
+# /app/sql/{migrations,seed}) is kept unchanged.
+COPY --from=backend-builder /app/build/apps/server/authforge-server .
+COPY --from=backend-builder /app/apps/server/config/config.prod.json ./config.json
+COPY --from=backend-builder /app/apps/server/views ./views
+COPY --from=backend-builder /app/apps/server/migrations ./sql/migrations
+COPY --from=backend-builder /app/apps/server/seed ./sql/seed
 RUN mkdir -p logs uploads
 EXPOSE 5555
-CMD ["./OAuth2Server"]
+CMD ["./authforge-server"]
 
 # --- Stage 5: Frontend Builder ---
 # Only proxy Node as it was the one failing
@@ -74,15 +77,15 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_CLIENT_ID=$VITE_CLIENT_ID \
     VITE_REDIRECT_URI=$VITE_REDIRECT_URI \
     VITE_GITHUB_CLIENT_ID=$VITE_GITHUB_CLIENT_ID
-WORKDIR /app/OAuth2Frontend
-COPY OAuth2Frontend/package*.json ./
+WORKDIR /app/frontends/user
+COPY frontends/user/package*.json ./
 RUN npm install
-COPY OAuth2Frontend/ .
+COPY frontends/user/ .
 RUN npm run build
 
 # --- Stage 6: Frontend Runtime (Target: frontend-runtime) ---
 FROM nginx:stable-alpine AS frontend-runtime
-COPY --from=frontend-builder /app/OAuth2Frontend/dist /usr/share/nginx/html
-COPY OAuth2Frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=frontend-builder /app/frontends/user/dist /usr/share/nginx/html
+COPY frontends/user/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

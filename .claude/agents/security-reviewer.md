@@ -57,12 +57,12 @@ Automatically after changes to auth flow code (controllers, filters, token handl
 
 | Priority | Paths | Reason |
 |----------|-------|--------|
-| Critical | `OAuth2Plugin/src/controllers/*.cc` | Auth flow endpoints |
-| Critical | `OAuth2Plugin/src/services/*Token*.cc` | Token generation/validation |
-| High | `OAuth2Server/controllers/OAuth2Controller.cc` | Authorization endpoint |
-| High | `OAuth2Server/filters/*.cc` | Auth middleware |
-| High | `OAuth2Plugin/src/storage/*.cc` | Token storage |
-| Medium | `OAuth2Server/config.*.json` | Secret configuration |
+| Critical | `libs/drogon/src/controllers/*.cc` | Auth flow endpoints |
+| Critical | `libs/drogon/src/services/*Token*.cc` | Token generation/validation |
+| High | `libs/drogon/src/controllers/AuthorizationEndpointController.cc` | Authorization endpoint |
+| High | `libs/drogon/src/filters/*.cc` | Auth middleware |
+| High | `libs/storage-postgres/src/*.cc` | Token storage |
+| Medium | `apps/server/config/config.*.json` | Secret configuration |
 
 ## Output Format
 

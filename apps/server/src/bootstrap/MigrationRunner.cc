@@ -14,14 +14,18 @@ void setupMigrations()
 {
     std::filesystem::path migrationsDir;
     // Try relative paths from likely working directories
-    if (std::filesystem::exists("sql/migrations"))
+    // (apps/server/migrations in the repo; sql/migrations kept for the
+    // docker image layout /app/sql/migrations)
+    if (std::filesystem::exists("migrations"))
+        migrationsDir = "migrations";
+    else if (std::filesystem::exists("sql/migrations"))
         migrationsDir = "sql/migrations";
-    else if (std::filesystem::exists("../sql/migrations"))
-        migrationsDir = "../sql/migrations";
-    else if (std::filesystem::exists("../../OAuth2Server/sql/migrations"))
-        migrationsDir = "../../OAuth2Server/sql/migrations";
-    else if (std::filesystem::exists("../../../OAuth2Server/sql/migrations"))
-        migrationsDir = "../../../OAuth2Server/sql/migrations";
+    else if (std::filesystem::exists("../migrations"))
+        migrationsDir = "../migrations";
+    else if (std::filesystem::exists("../../apps/server/migrations"))
+        migrationsDir = "../../apps/server/migrations";
+    else if (std::filesystem::exists("../../../apps/server/migrations"))
+        migrationsDir = "../../../apps/server/migrations";
 
     if (migrationsDir.empty())
     {

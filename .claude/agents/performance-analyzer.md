@@ -107,12 +107,12 @@ Claude 自动调用：当代码变更可能影响性能时
 
 | 优先级 | 路径 | 原因 |
 |--------|------|------|
-| Critical | `OAuth2Plugin/src/storage/*.cc` | 数据访问层，查询性能关键 |
-| Critical | `OAuth2Plugin/src/services/*.cc` | 业务逻辑，可能包含循环查询 |
-| High | `OAuth2Server/controllers/*.cc` | 请求处理入口 |
-| High | `OAuth2Plugin/src/controllers/*.cc` | OAuth2核心逻辑 |
-| Medium | `OAuth2Server/filters/*.cc` | 中间件性能 |
-| Medium | `OAuth2Plugin/src/common/*.cc` | 公共工具函数 |
+| Critical | `libs/storage-postgres/src/*.cc` | 数据访问层，查询性能关键 |
+| Critical | `libs/drogon/src/services/*.cc` | 业务逻辑，可能包含循环查询 |
+| High | `libs/drogon/src/controllers/*.cc` | 请求处理入口 |
+| High | `libs/drogon/src/controllers/*.cc` | OAuth2核心逻辑 |
+| Medium | `libs/drogon/src/filters/*.cc` | 中间件性能 |
+| Medium | `libs/common/src/*.cc` | 公共工具函数 |
 
 ## 性能工具集成
 

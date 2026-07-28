@@ -177,6 +177,8 @@
 
 **5d. scripts/CI/docker 路径对齐**（Task 42/43 范围）：`.github/workflows/ci-*.yml`、`deploy/docker/Dockerfile`、`docker-compose*.yml`、`scripts/backend/*` 里的硬编码 `OAuth2Server`/`build/OAuth2Server` 改新路径（`.codebuddy`/`.claude` 已在 5c 处理，不重复）。这些是 CI/部署关注点，可在本 phase 同 commit 顺带改，或单独 commit。
 
+> **✅ Phase 5 完成（2026-07-28）**：5a `OAuth2Server`→`apps/server`（src/、config/、migrations/、seed/、views/、test/ 内部重组）+ target/产物改名 `authforge-server` + paths.env 全部值更新（`SQL_DIR` key 删除，消费者同步清理）；5b 前端→`frontends/{admin,user}`；5c `.codebuddy`+`.claude` 双侧同步（rules paths 触发器、4 份 settings hook `cd build/apps/server`、agents×6 路径表映射到 libs/实际布局、skills×16 + CODEBUDDY.md/CLAUDE.md；`getPlugin<OAuth2Plugin>()` 类名保留）；5d CI×3/Dockerfile/compose×2/.vscode/tools/README 对齐（容器内 `/app/sql/*` 布局不变）。全量 build 0 error / LNK4006=0 / C4244=0；**运行时 gate ✅**：`/health` 200（DB connected）、`/login` 200 渲染 login.csp、`/.well-known/openid-configuration` 200。回退 tag `restructure-phase4-end`。
+
 ### Phase 6 — 命名一致性收尾 = A9
 - `OAuth2Metrics.h` → 类名 `Metrics`：改名文件为 `Metrics.h` 或类改 `OAuth2Metrics`（按 §5.8「文件名=主类名」定）
 - `ScopeDecision.h`：核实 `ScopeDecision` 类型是否存在；若无，文件改名匹配真实主类（`ScopeValidationSummary`？）

@@ -56,11 +56,11 @@ echo -e "✓ Redis is ready"
 echo -e "\n${GREEN}[2/4] Initializing database...${NC}"
 export PGPASSWORD=$OAUTH2_DB_PASSWORD
 # Apply all migrations in order
-for migration in /app/OAuth2Server/sql/migrations/V*.sql; do
+for migration in /app/sql/migrations/V*.sql; do
     psql -h "$OAUTH2_DB_HOST" -p "${OAUTH2_DB_PORT:-5432}" -U "$OAUTH2_DB_USER" -d "$OAUTH2_DB_NAME" -f "$migration" > /dev/null 2>&1
 done
 # Apply seed data
-for seed in /app/OAuth2Server/sql/seed/*.sql; do
+for seed in /app/sql/seed/*.sql; do
     psql -h "$OAUTH2_DB_HOST" -p "${OAUTH2_DB_PORT:-5432}" -U "$OAUTH2_DB_USER" -d "$OAUTH2_DB_NAME" -f "$seed" > /dev/null 2>&1
 done
 echo -e "✓ Database initialized (migrations + seed)"

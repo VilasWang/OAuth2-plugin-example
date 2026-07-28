@@ -30,17 +30,17 @@ allowed-tools: Read, Write, Bash
 # 使用脚本直接调用 (Linux/macOS)
 scripts/backend/build.sh Release
 scripts/backend/build.sh Debug
-cd build/OAuth2Server && ctest --output-on-failure
+cd build/apps/server && ctest --output-on-failure
 ```
 
 ### 1. 环境准备
 
 ```powershell
-# 检查并停止正在运行的 OAuth2Server 进程（Windows）
-taskkill /F /IM OAuth2Server.exe 2>/dev/null || echo "No running process"
+# 检查并停止正在运行的 authforge-server 进程（Windows）
+taskkill /F /IM authforge-server.exe 2>/dev/null || echo "No running process"
 
 # 或在 Linux/Mac 上
-pkill -9 OAuth2Server 2>/dev/null || echo "No running process"
+pkill -9 authforge-server 2>/dev/null || echo "No running process"
 ```
 
 ### 2. 清理和重建
@@ -48,7 +48,7 @@ pkill -9 OAuth2Server 2>/dev/null || echo "No running process"
 # 删除现有构建目录
 rm -rf build
 mkdir build
-cd build/OAuth2Server
+cd build/apps/server
 ```
 
 ### 3. 依赖检查和安装
@@ -80,7 +80,7 @@ cmake --build . --parallel --config Release
 ### 6. 运行测试
 ```bash
 # 进入构建目录
-cd build/OAuth2Server
+cd build/apps/server
 
 # 基础测试
 ctest --output-on-failure -C Release
@@ -92,12 +92,12 @@ ctest -V -C Release --output-on-failure --timeout 120
 ### 7. 运行服务器（可选）
 ```powershell
 # Windows
-cd build/OAuth2Server/Release
-./OAuth2Server.exe
+cd build/apps/server/Release
+./authforge-server.exe
 
 # Linux/macOS
-cd build/OAuth2Server
-./OAuth2Server
+cd build/apps/server
+./authforge-server
 ```
 
 ## 平台差异
@@ -105,12 +105,12 @@ cd build/OAuth2Server
 ### Windows
 - 使用 `build.bat` 脚本
 - MSVC编译器
-- `OAuth2Server.exe`
+- `authforge-server.exe`
 
 ### Linux/Mac
 - 使用 `build.sh` 脚本
 - GCC/Clang编译器
-- `OAuth2Server` 可执行文件
+- `authforge-server` 可执行文件
 
 ## 测试场景覆盖
 
@@ -145,7 +145,7 @@ cd build/OAuth2Server
 - **权限错误**: 验证数据库用户权限和schema
 
 ### 进程问题
-- **端口占用**: OAuth2Server默认使用5555端口
+- **端口占用**: authforge-server默认使用5555端口
 - **文件锁定**: 确保旧进程已完全停止
 - **僵尸进程**: 使用taskkill/pkill强制终止
 

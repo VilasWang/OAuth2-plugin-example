@@ -14,7 +14,7 @@ Apply these rules to ALL C++ code generated or modified in this project.
 |------|-------------|
 | Layer separation | Controllers (HTTP) -> Plugin/Service (business) -> Storage (data) -> Model (ORM) |
 | Drogon-first | Use Drogon built-ins over third-party libraries |
-| Plugin pattern | Core logic in `OAuth2Plugin`, server wiring in `OAuth2Server` |
+| Plugin pattern | Core logic in `libs/` (drogon, oauth2, storage-*), server wiring in `apps/server` |
 | ORM immutable | NEVER edit files in `models/` -- use `drogon_ctl` to regenerate |
 
 ## Async Programming

@@ -75,10 +75,10 @@ scripts/backend/full_test_docker.bat
 $env:PGPASSWORD='123456'
 psql -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
 psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
-for f in OAuth2Server/sql/migrations/V*.sql; do
+for f in apps/server/migrations/V*.sql; do
     psql -U oauth2_user -d oauth2_db -f "$f"
 done
-for f in OAuth2Server/sql/seed/*.sql; do
+for f in apps/server/seed/*.sql; do
     psql -U oauth2_user -d oauth2_db -f "$f"
 done
 
@@ -93,10 +93,10 @@ done
 .\manage.ps1 build-backend -release
 
 # 停止旧服务
-taskkill /F /IM OAuth2Server.exe 2>$null
+taskkill /F /IM authforge-server.exe 2>$null
 
 # 启动服务
-$serverPath = "build/OAuth2Server/Release/OAuth2Server.exe"
+$serverPath = "build/apps/server/Release/authforge-server.exe"
 if (Test-Path $serverPath) {
     Start-Process -FilePath $serverPath -WindowStyle Hidden
     Write-Host "[+] Server started from: $serverPath"
@@ -155,7 +155,7 @@ curl -s -X GET "http://localhost:5555/api/admin/dashboard" \
 ### 步骤4: 清理环境
 ```bash
 # 停止服务
-taskkill /F /IM OAuth2Server.exe 2>$null
+taskkill /F /IM authforge-server.exe 2>$null
 ```
 
 ## 测试验证标准
@@ -184,8 +184,8 @@ taskkill /F /IM OAuth2Server.exe 2>$null
 netstat -ano | findstr :5555
 
 # 检查服务日志
-cd build/OAuth2Server/Release
-.\OAuth2Server.exe
+cd build/apps/server/Release
+.\authforge-server.exe
 ```
 
 #### 数据库连接失败
@@ -223,9 +223,9 @@ psql -U oauth2_user -d oauth2_db -c "SELECT * FROM oauth2_clients WHERE client_i
 $ErrorActionPreference = "Stop"
 
 # 1. 启动服务
-Write-Host "Starting OAuth2Server..."
-cd build/OAuth2Server/Release
-Start-Process -FilePath ".\OAuth2Server.exe" -WindowStyle Hidden
+Write-Host "Starting authforge-server..."
+cd build/apps/server/Release
+Start-Process -FilePath ".\authforge-server.exe" -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 # 2. 登录
@@ -266,7 +266,7 @@ if ($LoginResp -match "code=([a-f0-9\-]+)") {
 
 # 5. 清理
 Write-Host "Stopping service..."
-taskkill /F /IM OAuth2Server.exe 2>$null
+taskkill /F /IM authforge-server.exe 2>$null
 ```
 
 ## 集成建议

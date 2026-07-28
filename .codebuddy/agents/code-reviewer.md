@@ -82,8 +82,8 @@ model: inherit
 
 ## 特别关注的文件类型
 
-- `OAuth2Server/controllers/*.cc` - OAuth2核心逻辑
-- `OAuth2Plugin/src/controllers/*.cc` - 插件系统
-- `OAuth2Plugin/src/filters/*.cc` - 安全过滤器和中间件
-- `OAuth2Plugin/src/models/*.cc` - 数据模型和数据库操作
-- `OAuth2Plugin/src/services/*.cc` - 业务逻辑服务
+- `libs/drogon/src/controllers/*.cc` - OAuth2核心逻辑
+- `libs/drogon/src/controllers/*.cc` - 插件系统
+- `libs/drogon/src/filters/*.cc` - 安全过滤器和中间件
+- `libs/drogon/src/models/*.cc` - 数据模型和数据库操作
+- `libs/drogon/src/services/*.cc` - 业务逻辑服务

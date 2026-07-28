@@ -36,8 +36,8 @@ check_sensitive_files() {
     fi
 
     # 检查前端 .env 文件
-    if git ls-files | grep "OAuth2Frontend/.env" > /dev/null 2>&1; then
-        echo -e "${RED}❌ ERROR: OAuth2Frontend/.env is tracked${NC}"
+    if git ls-files | grep "frontends/user/.env" > /dev/null 2>&1; then
+        echo -e "${RED}❌ ERROR: frontends/user/.env is tracked${NC}"
         ERRORS=$((ERRORS + 1))
     else
         echo -e "${GREEN}✅ Frontend config.json not tracked${NC}"
@@ -82,11 +82,11 @@ check_example_files() {
     echo "📝 Checking example files..."
 
     # 检查 .env.example 是否存在
-    if [ -f "OAuth2Frontend/.env.example" ]; then
+    if [ -f "frontends/user/.env.example" ]; then
         echo -e "${GREEN}✅ .env.example exists${NC}"
 
         # 检查是否包含真实凭证（而非示例）
-        if grep -E "wx[a-zA-Z0-9]{16,}|sk-[a-zA-Z0-9]{32,}|AIza[a-zA-Z0-9_-]{35}" OAuth2Frontend/.env.example > /dev/null 2>&1; then
+        if grep -E "wx[a-zA-Z0-9]{16,}|sk-[a-zA-Z0-9]{32,}|AIza[a-zA-Z0-9_-]{35}" frontends/user/.env.example > /dev/null 2>&1; then
             echo -e "${RED}❌ ERROR: .env.example may contain real credentials${NC}"
             ERRORS=$((ERRORS + 1))
         fi
@@ -96,7 +96,7 @@ check_example_files() {
     fi
 
     # 检查 config.example.json 是否存在
-    if [ -f "OAuth2Frontend/public/config.example.json" ]; then
+    if [ -f "frontends/user/public/config.example.json" ]; then
         echo -e "${GREEN}✅ config.example.json exists${NC}"
     else
         echo -e "${YELLOW}⚠️  WARNING: config.example.json not found${NC}"
@@ -112,7 +112,7 @@ check_gitignore() {
     # 检查关键规则
     REQUIRED=(
         ".env"
-        "OAuth2Frontend/public/config.json"
+        "frontends/user/public/config.json"
     )
 
     for rule in "${REQUIRED[@]}"; do
@@ -131,9 +131,9 @@ check_file_permissions() {
     echo "🔐 Checking file permissions..."
 
     # 检查配置文件权限
-    if [ -f "OAuth2Server/config.json" ]; then
-        PERMS=$(stat -c "%a" OAuth2Server/config.json 2>/dev/null || stat -f "%A" OAuth2Server/config.json)
-        echo "   OAuth2Server/config.json permissions: $PERMS"
+    if [ -f "apps/server/config/config.json" ]; then
+        PERMS=$(stat -c "%a" apps/server/config/config.json 2>/dev/null || stat -f "%A" apps/server/config/config.json)
+        echo "   apps/server/config/config.json permissions: $PERMS"
     fi
 
     echo ""

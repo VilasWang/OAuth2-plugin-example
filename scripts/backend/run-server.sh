@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run-server.sh - Start the OAuth2Server binary (Linux/macOS)
+# run-server.sh - Start the authforge-server binary (Linux/macOS)
 set -euo pipefail
 
 source "$(dirname "$0")/env_common.sh"

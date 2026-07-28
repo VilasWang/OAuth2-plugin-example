@@ -10,7 +10,7 @@ option(OAUTH2_TEST_COVERAGE "Enable code coverage reporting" OFF)
 # itself (the Task 16 transitional bridge), masking linking-boundary
 # problems and slowing the build. The test now consumes library products
 # only: it links authforge::* below and no longer compiles any plugin or
-# OAuth2Server/{controllers,filters} sources directly. Whole-archive is
+# apps/server controller/filter sources directly. Whole-archive is
 # not needed (AutoCreation=false controllers are explicitly registered).
 # Phase 4 (A6): the OAuth2Plugin OBJECT library is gone -- the plugin
 # class lives in authforge::drogon (STATIC) and its public headers under
@@ -20,7 +20,7 @@ option(OAUTH2_TEST_COVERAGE "Enable code coverage reporting" OFF)
 # SchemaManager: needed by the SQL-splitter unit test (unit/schema/).
 # Compiled directly into the test target so the splitter can be exercised
 # without a running database.
-set(SCHEMA_MGR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../SchemaManager.cc")
+set(SCHEMA_MGR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../src/SchemaManager.cc")
 
 # M3 Task 23 (authforge-sdk-refactor): test_main.cc now calls
 # bootstrap::wireControllerPluginDependencies() (see its own header comment),
@@ -32,8 +32,8 @@ set(SCHEMA_MGR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../SchemaManager.cc")
 # (CorsSetup/SecurityHeaders/etc) are apps/server-only concerns
 # test_main.cc does not use.
 set(BOOTSTRAP_SRC
-    "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrap/ControllerRegistration.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../bootstrap/IdentityAssembly.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/bootstrap/ControllerRegistration.cc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/bootstrap/IdentityAssembly.cc"
 )
 
 # M5 Task 30: the product-level OrganizationController (apps/server/src/
@@ -55,7 +55,7 @@ file(GLOB_RECURSE PERFORMANCE_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/performance/*.c
 # Task 12 (authforge-sdk-refactor, design.md §7.3 / F5): tiered repository
 # contract tests (IClientRepository/IGrantRepository/ITokenRepository/
 # IConsentRepository across Postgres/Redis/Memory). Kept under the existing
-# OAuth2Server/test/ hierarchy (see contract/ContractFixtures.h header for
+# apps/server/test/ hierarchy (see contract/ContractFixtures.h header for
 # the placement rationale) rather than the tasks.md-referenced top-level
 # tests/contract/, which is the M2a-and-later target layout.
 file(GLOB_RECURSE CONTRACT_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/contract/*.cc")
@@ -96,7 +96,7 @@ drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/../views
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/common
-    ${CMAKE_CURRENT_SOURCE_DIR}/../
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/organization
 )
 
@@ -131,17 +131,17 @@ endif()
 # from the test executable directory, so the absolute source path is injected here
 # (CMake normalizes the path with forward slashes, usable by std::ifstream on all
 # platforms). Defined as an absolute path derived from this CMakeLists location.
-get_filename_component(OAUTH2_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+get_filename_component(OAUTH2_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "OAUTH2_DOC_API_REFERENCE=\"${OAUTH2_REPO_ROOT_DIR}/docs/backend/api-reference.md\"")
 
 # Repo-source golden-snapshot directory for the success-response / route-manifest
 # regression test (task 12.4). The committed golden files under
-# OAuth2Server/test/integration/error/golden/ are read (and self-seeded on first
+# apps/server/test/integration/error/golden/ are read (and self-seeded on first
 # run) at test time. Like OAUTH2_DOC_API_REFERENCE above, the test runs from the
 # test executable directory, so the absolute source path is injected here.
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/OAuth2Server/test/integration/error/golden\"")
+    "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/test/integration/error/golden\"")
 
 # Coverage support
 if(OAUTH2_TEST_COVERAGE)
@@ -234,13 +234,13 @@ endforeach()
 if(MSVC OR XCODE)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/../config.json
+        ${CMAKE_CURRENT_SOURCE_DIR}/../config/config.json
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/config.json
     )
 else()
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/../config.json
+        ${CMAKE_CURRENT_SOURCE_DIR}/../config/config.json
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/config.json
     )
 endif()

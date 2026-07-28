@@ -27,7 +27,7 @@ which drogon_ctl || echo "drogon_ctl not found"
 drogon_ctl version || echo "drogon_ctl not working"
 
 # 4. 检查 models 目录是否存在
-ls OAuth2Server/model.json || echo "model.json not found"
+ls apps/server/model.json || echo "model.json not found"
 ```
 
 ## 完整工作流程
@@ -76,7 +76,7 @@ psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
 
 ```powershell
 # Windows PowerShell
-cd OAuth2Server
+cd apps/server
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupDir = "models_backup_$timestamp"
 New-Item -ItemType Directory -Path $backupDir | Out-Null
@@ -108,7 +108,7 @@ scripts/backend/generate_models.bat -y
 
 ```bash
 # 确保在正确的目录
-cd OAuth2Server/models
+cd libs/storage-postgres/src/models
 
 # 执行 drogon_ctl 生成命令
 drogon_ctl create model ../

@@ -48,10 +48,11 @@ echo Generating ORM models...
 if not exist "%MODELS_SRC_DIR%" mkdir "%MODELS_SRC_DIR%"
 
 cd /d "%MODEL_JSON_DIR%"
+REM MODEL_JSON_DIR (apps/server) is two levels below the repo root, hence ../..
 if %AUTO_MODE%==1 (
-  echo y | drogon_ctl create model "../%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
+  echo y | drogon_ctl create model "../../%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
 ) else (
-  drogon_ctl create model "../%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
+  drogon_ctl create model "../../%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
 )
 
 if errorlevel 1 (

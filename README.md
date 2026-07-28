@@ -15,10 +15,10 @@ Production-grade OAuth2.0/OIDC authorization server with full support for RFC 67
 
 ```
 authforge/
-├── OAuth2Plugin/       # Core plugin library (standalone CMake library, reusable by third-party projects)
-├── OAuth2Server/       # Authorization server backend (Drogon C++ framework)
-├── OAuth2Admin/        # Admin console frontend (Vue 3 + TailwindCSS)
-├── OAuth2Frontend/     # User-facing frontend (Vue 3 + Pinia + TailwindCSS)
+├── apps/server/        # Authorization server backend (Drogon C++ framework)
+├── libs/               # SDK library packages (authforge::common/oauth2/identity/storage-*/drogon)
+├── frontends/admin/    # Admin console frontend (Vue 3 + TailwindCSS)
+├── frontends/user/     # User-facing frontend (Vue 3 + Pinia + TailwindCSS)
 ├── scripts/            # Build, test, and operations scripts
 ├── docs/               # Project documentation
 └── PRD/                # Product design documents
@@ -79,7 +79,7 @@ authforge/
 | Authorized Apps | `GET/DELETE /api/me/authorized-apps` |
 | Account Deletion | `DELETE /api/me` |
 
-### Admin Console (OAuth2Admin)
+### Admin Console (frontends/admin)
 
 | Module | Features |
 |--------|----------|
@@ -127,16 +127,16 @@ docker-compose up -d
 .\manage.ps1 build-backend
 
 # 2. Start backend (requires PostgreSQL + Redis)
-cd OAuth2Server
-..\build\OAuth2Server\Release\OAuth2Server.exe
+cd apps\server
+..\..\build\apps\server\Release\authforge-server.exe
 
 # 3. Start admin console
-cd OAuth2Admin
+cd frontends\admin
 npm install
 npm run dev    # http://localhost:5174/admin/
 
 # 4. Start user frontend
-cd OAuth2Frontend
+cd frontends\user
 npm install
 npm run dev    # http://localhost:5173
 ```
@@ -164,7 +164,7 @@ npm run dev    # http://localhost:5173
 ### Frontend E2E Tests
 
 ```powershell
-cd OAuth2Admin
+cd frontends\admin
 npx playwright test              # Full run (123 tests)
 npx playwright test --ui         # UI mode for debugging
 npx playwright test --headed     # Headed browser mode
@@ -190,7 +190,7 @@ ctest --output-on-failure
 
 ## API Documentation
 
-- **OpenAPI Spec**: [openapi.yaml](OAuth2Server/openapi.yaml)
+- **OpenAPI Spec**: [openapi.yaml](apps/server/openapi.yaml)
 - **Swagger UI**: `http://localhost:5555/docs/api` (requires Swagger UI static files)
 - **E2E Testing Guide**: [E2E_TESTING_GUIDE.md](docs/admin/e2e-testing-guide.md)
 

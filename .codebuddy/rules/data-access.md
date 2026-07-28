@@ -1,6 +1,6 @@
 ---
 description: Storage/data-access path-scoped pointer to db-operations rule
-paths: "OAuth2Plugin/**/storage/**,OAuth2Server/**/*.cc"
+paths: "libs/storage-*/**,apps/server/**/*.cc"
 alwaysApply: false
 ---
 

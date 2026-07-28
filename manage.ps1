@@ -19,7 +19,7 @@ function Show-Help {
     Write-Host "  dev-frontend                 Run frontend in dev mode"
     Write-Host "  build-admin                  Build the admin frontend"
     Write-Host "  dev-admin                    Run admin frontend in dev mode"
-    Write-Host "  run-backend [-debug]         Start the OAuth2Server binary"
+    Write-Host "  run-backend [-debug]         Start the authforge-server binary"
     Write-Host "  setup-db                     Create database and run migrations"
     Write-Host "  generate-models              Generate Drogon ORM models"
     Write-Host "  reset-password               Reset admin password to default"
