@@ -14,12 +14,19 @@ struct ClientRegistrationControllerDocs
     ClientRegistrationControllerDocs()
     {
         ::authforge::drogon::observability::openapi::EndpointInfo registerDocs;
-        registerDocs.path = "/api/oauth2/register";
+        // Root cause fix (遗留事项 L3): commit 9796672 ("chore:
+        // clang-format") accidentally rewrote this docs block -- path became
+        // "/api/oauth2/register" and requiresAuth false, drifting from the
+        // REAL route (ADD_METHOD_TO "/oauth2/register" + AuthorizationFilter
+        // in ClientRegistrationController.h). Property4_3_1's whole-spec
+        // fingerprint baseline caught exactly this drift. Keep these two
+        // fields in lockstep with the header's route registration.
+        registerDocs.path = "/oauth2/register";
         registerDocs.method = "POST";
         registerDocs.summary = "Register OAuth2 Client (RFC 7591)";
         registerDocs.description = "Dynamically register a new OAuth2 client.";
         registerDocs.tags = {"OAuth2"};
-        registerDocs.requiresAuth = false;
+        registerDocs.requiresAuth = true;
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(registerDocs);
     }
 };
