@@ -2,7 +2,7 @@
 #include <drogon/drogon_test.h>
 #include <oauth2/utils/SubjectGenerator.h>
 #include <authforge/storage/memory/MemoryIdentityRepository.h>
-#include <oauth2/storage/MemoryRepositoryBundle.h>
+#include <authforge/storage/memory/MemoryRepositoryBundle.h>
 #include <authforge/oauth2/model/UserRef.h>
 #include <authforge/oauth2/model/Dto.h>
 #include <json/json.h>
@@ -176,7 +176,7 @@ DROGON_TEST(Unit_P0_SubjectMapping_UpdateExistingMapping_Works)
 
 DROGON_TEST(Unit_P0_UserConsent_SaveAndCheckConsent_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
+    authforge::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
@@ -200,7 +200,7 @@ DROGON_TEST(Unit_P0_UserConsent_SaveAndCheckConsent_Works)
 
 DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
+    authforge::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
@@ -227,7 +227,7 @@ DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
+    authforge::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
@@ -260,7 +260,7 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
+    authforge::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
@@ -298,7 +298,7 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_DeleteTransaction_Works)
 {
-    oauth2::MemoryRepositoryBundle bundle;
+    authforge::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;

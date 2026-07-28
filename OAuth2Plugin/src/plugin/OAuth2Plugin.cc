@@ -12,7 +12,7 @@
 // per-backend RepositoryBundle and extracts its four oauth2 split-repository
 // handles (Phase 1.5e: the bundle's 3 identity accessors are gone; identity
 // repos are constructed separately from authforge::identity::* backing stores).
-#include <oauth2/storage/MemoryRepositoryBundle.h>
+#include <authforge/storage/memory/MemoryRepositoryBundle.h>
 #include <authforge/storage/postgres/PostgresRepositoryBundle.h>
 #include <authforge/storage/redis/RedisRepositoryBundle.h>
 #include <authforge/oauth2/repository/IClientRepository.h>
@@ -262,7 +262,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     }
     else
     {
-        oauth2::MemoryRepositoryBundle bundle;
+        authforge::storage::memory::MemoryRepositoryBundle bundle;
         if (config.isMember("clients"))
             bundle.initFromConfig(config["clients"]);
         assignOAuth2(

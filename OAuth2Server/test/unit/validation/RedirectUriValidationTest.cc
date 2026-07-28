@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <oauth2/storage/MemoryRepositoryBundle.h>
+#include <authforge/storage/memory/MemoryRepositoryBundle.h>
 #include <authforge/oauth2/repository/IGrantRepository.h>
 #include <authforge/oauth2/model/Dto.h>
 #include <future>
@@ -18,7 +18,7 @@ namespace
 {
 std::shared_ptr<GrantRepo> makeSeededGrantRepo(const Json::Value &clientsConfig)
 {
-    auto bundle = std::make_shared<oauth2::MemoryRepositoryBundle>();
+    auto bundle = std::make_shared<authforge::storage::memory::MemoryRepositoryBundle>();
     bundle->initFromConfig(clientsConfig);
     return bundle->grantRepository();
 }

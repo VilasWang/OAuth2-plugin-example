@@ -3,15 +3,13 @@
 // Task 10 (design.md §7): aggregates the four Memory oauth2 repository
 // implementations behind a single construction/initialization entry point
 // for product assembly code, mirroring PostgresRepositoryBundle (Task 9)
-// and RedisRepositoryBundle (Task 10). This is ADDITIVE -- it does not
-// replace MemoryOAuth2Storage/IOAuth2Storage, which remain the production
-// path wired up by OAuth2Plugin.cc and existing tests today.
+// and RedisRepositoryBundle (Task 10).
 // Phase 1.5e: the 3 identity repos that used to live here are removed; the
 // identity domain now has its own authforge::identity::* backing store
-// (MemoryIdentityRepository), which is constructed separately in
-// OAuth2Plugin.cc initStorage. Accordingly initFromConfig() now takes only
-// the clients config (the admin_users block is consumed by
-// MemoryIdentityRepository::initAdminRoles).
+// (MemoryIdentityRepository), constructed separately in OAuth2Plugin.cc
+// initStorage. Accordingly initFromConfig() takes only the clients config
+// (the admin_users block is consumed by MemoryIdentityRepository::initAdminRoles).
+// Phase 2: relocated from OAuth2Plugin/storage/ into this package.
 #include <authforge/storage/memory/MemoryClientRepository.h>
 #include <authforge/storage/memory/MemoryGrantRepository.h>
 #include <authforge/storage/memory/MemoryTokenRepository.h>
@@ -20,12 +18,12 @@
 #include <json/json.h>
 #include <memory>
 
-namespace oauth2
+namespace authforge::storage::memory
 {
 
-// Task 27.5 (authforge-sdk-refactor): the 4 oauth2-aggregate accessors below
-// expose the NEW Domain-layer repository interfaces
-// (authforge::oauth2::repository::*) that the Memory split-repos implement.
+// The 4 oauth2-aggregate accessors expose the NEW Domain-layer repository
+// interfaces (authforge::oauth2::repository::*) that the Memory split-repos
+// implement.
 using IClientRepository = ::authforge::oauth2::repository::IClientRepository;
 using IGrantRepository = ::authforge::oauth2::repository::IGrantRepository;
 using ITokenRepository = ::authforge::oauth2::repository::ITokenRepository;
@@ -34,10 +32,6 @@ using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
 /**
  * @brief Aggregates all four Memory oauth2 repository implementations
  * behind a single initFromConfig() call.
- *
- * Usage (future product assembly code, not part of Task 10's scope to wire
- * up into OAuth2Plugin.cc -- that remains on IOAuth2Storage per the task's
- * "additive, not a replacement" constraint):
  *
  *   MemoryRepositoryBundle bundle;
  *   bundle.initFromConfig(clientsConfig);
@@ -76,10 +70,10 @@ class MemoryRepositoryBundle
     }
 
   private:
-    std::shared_ptr<::authforge::storage::memory::MemoryClientRepository> clientRepository_;
-    std::shared_ptr<::authforge::storage::memory::MemoryGrantRepository> grantRepository_;
-    std::shared_ptr<::authforge::storage::memory::MemoryTokenRepository> tokenRepository_;
-    std::shared_ptr<::authforge::storage::memory::MemoryConsentRepository> consentRepository_;
+    std::shared_ptr<MemoryClientRepository> clientRepository_;
+    std::shared_ptr<MemoryGrantRepository> grantRepository_;
+    std::shared_ptr<MemoryTokenRepository> tokenRepository_;
+    std::shared_ptr<MemoryConsentRepository> consentRepository_;
 };
 
-}  // namespace oauth2
+}  // namespace authforge::storage::memory
