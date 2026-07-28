@@ -202,6 +202,8 @@
 
 **7c. 终验**：build 绿 + **ctest 全量**（核对 276/277 基线，仅 Property4_3_1 pre-existing 允许失败）+ 运行时 curl 全路由存活 + config 反射插件加载成功。
 
+> **✅ Phase 7 完成（2026-07-28）**：7a 79 文件 git mv（R 状态）`apps/server/test/` → 顶层 `tests/`（`e2e/`→`tests/e2e-backend/`；用户决策：**单二进制 + 目录分流**，二进制改名 `authforge-tests`，ctest 测试名 `OAuth2Tests` 与 45 个 `Contract.` add_test 名单保留不变，按层拆二进制推迟为后续独立任务；用户决策：27 个 unit 测试全部迁 `tests/unit/`，DROGON_TEST 框架不改写）。CMake：顶层 `tests/CMakeLists.txt` 自编排（需自带 `find_package(Drogon)`——imported target 目录作用域，tests/ 已是 apps/server 的兄弟目录）；apps/server 挂载点删除、根 CMakeLists 挂 `add_subdirectory(tests)`。7b：测试侧 `oauth2::test*` → `authforge::test*`（6 头 + 10 cc）；生产侧 EmailService `namespace oauth2` → `authforge::drogon::utils`（5 文件）。**命名空间遮蔽陷阱**：`authforge::test::*` 块内非全限定 `drogon::` 被解析为 `authforge::drogon`，ContractFixtures.h/TestBase.h 内部引用改 `::drogon::` 全限定。外部引用面：CI×3、settings×2、agents×2、skills×2、CLAUDE/CODEBUDDY、docs×4、findings md×2、scripts README、libs 注释侧全量同步（PRD/docs/design/openspec/.kiro 历史存档豁免）。**附带回归修复**：Task 39（58aa738）给 `initAdminRoles` 加的 `isMember("admin_users")` gate 使 legacy「缺键时默认注入 admin→{admin,user}」分支变死代码，`Integration_P0_Plugin_General_Works` 失败——去掉 gate 恢复无条件调用（OAuth2Plugin.cc 两处），该回归因全量 ctest 推迟至 Phase 7 才暴露。全量 build 0 error / LNK4006=0 / C4244=0；**ctest 276/277 基线完全吻合**（唯一失败 = Property4_3_1 pre-existing）；**运行时 gate ✅**：`/health` `/.well-known/openid-configuration` `/login`（渲染 login.csp）全 200，日志含 `OAuth2Plugin initialized with storage type: postgres` + `Controller/filter plugin dependencies wired`。已知注记：`tests/services/AuthServiceGetUserInfoTest.cc` 为死代码（不在任何 GLOB，迁移前后均不编译）。回退 tag `restructure-phase6-end`。
+
 ## Critical files（按阶段）
 
 - **Phase 1**（✅）：删 `OAuth2Plugin/{src/models,include/oauth2/storage/}` 重复模型；改模型 include 调用点

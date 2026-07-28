@@ -116,8 +116,8 @@ auto sharedCb = std::make_shared<std::function<void(const ResultType &)>>(
 
 ## Test Architecture
 
-Tests live in `apps/server/test/`; category labels and priorities are defined
-authoritatively in `test/common/test_categories.h`.
+Tests live in `tests/`; category labels and priorities are defined
+authoritatively in `tests/common/test_categories.h`.
 
 - `TestBase.h` provides `TestTransaction` (RAII rollback wrapper) — prefer it
   over manual rollback so every test reverts its DB changes.

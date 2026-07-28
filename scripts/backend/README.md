@@ -83,7 +83,7 @@ The server will start on `http://localhost:5555`.
 ## Running Tests
 
 ```bash
-cd OAuth2Backend/build
+cd build
 ctest --output-on-failure
 ```
 

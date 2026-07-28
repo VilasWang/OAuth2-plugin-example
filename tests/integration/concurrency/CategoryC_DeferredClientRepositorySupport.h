@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/CategoryC_DeferredClientRepositorySupport.h
+// tests/integration/concurrency/CategoryC_DeferredClientRepositorySupport.h
 //
 // Spec: authforge-sdk-refactor — Task 11 (CachedClientRepository re-arch).
 // New test double for the per-repository cache decorator introduced by
@@ -40,7 +40,7 @@
 
 #include "ConcurrencyRaceSupport.h"  // PendingCallbacks
 
-namespace oauth2::test::concurrency
+namespace authforge::test::concurrency
 {
 // Build a live new-model OAuth2Client (drives the production
 // CachedClientRepository::getClient continuation into its "cache fill" branch,
@@ -95,4 +95,4 @@ class DeferringClientRepository : public ::authforge::oauth2::repository::IClien
   private:
     std::shared_ptr<PendingCallbacks> pending_;
 };
-}  // namespace oauth2::test::concurrency
+}  // namespace authforge::test::concurrency

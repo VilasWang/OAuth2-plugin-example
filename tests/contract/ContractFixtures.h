@@ -1,6 +1,6 @@
 #pragma once
 
-// OAuth2Server/test/contract/ContractFixtures.h
+// tests/contract/ContractFixtures.h
 //
 // Spec: authforge-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
 //
@@ -10,7 +10,7 @@
 //
 // PARAMETERIZATION APPROACH (see task summary for the full rationale):
 // DROGON_TEST (the framework this backend suite is built on, see
-// <drogon/drogon_test.h> and every other test under OAuth2Server/test/) has
+// <drogon/drogon_test.h> and every other test under tests/) has
 // NO parameterized-test facility -- it is a flat macro that expands to one
 // DrObject-derived class per invocation, discovered via DrClassMap and run by
 // name (`-r <exact-name>`, verified against the actual drogon_test.cc
@@ -23,7 +23,7 @@
 // functions (`runXxxContract(TEST_CTX, repo, ...)`) that take a
 // `std::shared_ptr<drogon::test::Case> TEST_CTX` as their first parameter --
 // mirroring the existing convention already used by
-// OAuth2Server/test/integration/error/ApplicationEndpointErrorEnvelopeTest.cc
+// tests/integration/error/ApplicationEndpointErrorEnvelopeTest.cc
 // (`assertErrorEnvelope(TEST_CTX, ...)`) and
 // OAuth2ProtocolEndpointRfcComplianceTest.cc (`assertRfc6749ErrorBody`,
 // `assertLiveRfcError`). CHECK/REQUIRE are macros that reference an
@@ -39,7 +39,7 @@
 // to the shared assertion function -- this is the "N backends x M shared
 // behaviors" cross product materialized as N*M discrete named test cases
 // (required anyway, since CTest-level filtering by label needs individually
-// add_test()-registered names -- see OAuth2Server/test/CMakeLists.txt's
+// add_test()-registered names -- see tests/CMakeLists.txt's
 // CONTRACT_TEST_NAMES loop).
 
 #include <drogon/drogon_test.h>
@@ -55,14 +55,14 @@
 #include <string>
 #include <thread>
 
-namespace oauth2::test::contract
+namespace authforge::test::contract
 {
 
 // ---------------------------------------------------------------------------
 // Backend availability / skip helpers
 //
 // Mirrors the existing pattern in
-// OAuth2Server/test/integration/storage/{Postgres,Redis}StorageTest.cc: a
+// tests/integration/storage/{Postgres,Redis}StorageTest.cc: a
 // missing DB/Redis client (memory-only CI legs, local dev without those
 // services) means the corresponding backend's contract tests SKIP (return
 // early, record zero assertions) rather than fail. This is a deliberate,
@@ -82,16 +82,20 @@ namespace oauth2::test::contract
  * `assert(redisClientsMap_.find(name) != ...)` for the Redis analog,
  * which crashes the whole test process rather than being caught below).
  * The pre-existing convention in
- * OAuth2Server/test/integration/storage/{Postgres,Redis}StorageTest.cc
+ * tests/integration/storage/{Postgres,Redis}StorageTest.cc
  * guards this with an explicit storage-type check BEFORE ever calling
  * getDbClient()/getRedisClient() -- this function previously only had the
  * try/catch half of that pattern, not the storage-type check, so it could
  * still crash the process during a memory-only run instead of skipping
  * cleanly. Mirrors that pre-existing pattern now.
  */
-inline drogon::orm::DbClientPtr getPostgresClientOrNull()
+// NOTE (Phase 7): inside namespace authforge::test::contract, an
+// unqualified `drogon::` would resolve to `authforge::drogon` (the SDK's
+// Drogon-adapter namespace) instead of the global ::drogon framework
+// namespace -- hence the explicit `::drogon::` qualification below.
+inline ::drogon::orm::DbClientPtr getPostgresClientOrNull()
 {
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<::OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         return nullptr;
@@ -99,7 +103,7 @@ inline drogon::orm::DbClientPtr getPostgresClientOrNull()
 
     try
     {
-        return drogon::app().getDbClient();
+        return ::drogon::app().getDbClient();
     }
     catch (...)
     {
@@ -120,9 +124,9 @@ inline drogon::orm::DbClientPtr getPostgresClientOrNull()
  * uncatchable process-terminating assert, not a throw) rather than failing
  * gracefully.
  */
-inline drogon::nosql::RedisClientPtr getRedisClientOrNull()
+inline ::drogon::nosql::RedisClientPtr getRedisClientOrNull()
 {
-    auto plugin = drogon::app().getPlugin<::OAuth2Plugin>();
+    auto plugin = ::drogon::app().getPlugin<::OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
     {
         return nullptr;
@@ -130,7 +134,7 @@ inline drogon::nosql::RedisClientPtr getRedisClientOrNull()
 
     try
     {
-        return drogon::app().getRedisClient("default");
+        return ::drogon::app().getRedisClient("default");
     }
     catch (...)
     {
@@ -219,4 +223,4 @@ inline int64_t nowSeconds()
       .count();
 }
 
-}  // namespace oauth2::test::contract
+}  // namespace authforge::test::contract

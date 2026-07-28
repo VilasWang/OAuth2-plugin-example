@@ -73,7 +73,7 @@ jobs:
       - name: Add drogon_ctl (Conan package) to PATH
         # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
         # bare command at BUILD time (see apps/server/CMakeLists.txt and
-        # apps/server/test/CMakeLists.txt), so it must be resolvable on PATH.
+        # tests/CMakeLists.txt), so it must be resolvable on PATH.
         # Previously this worked because Drogon was installed to C:\Drogon and
         # C:\Drogon\bin was added to GITHUB_PATH. Now that Drogon comes from
         # Conan, its package's bin/ dir (containing drogon_ctl.exe) is not on
@@ -126,7 +126,7 @@ jobs:
         run: |
           # Explicitly copy CI config to test working directory as a safeguard.
           # Using relative paths to avoid backslash escaping issues in bash on Windows.
-          cp ../apps/server/config/config.ci.json ./apps/server/test/${{env.BUILD_TYPE}}/config.json
+          cp ../apps/server/config/config.ci.json ./tests/${{env.BUILD_TYPE}}/config.json
           ctest -V -C ${{env.BUILD_TYPE}} --output-on-failure --timeout 120
         shell: bash
 
@@ -151,74 +151,74 @@ jobs:
       # every environment configuration. It is therefore run here explicitly in
       # addition to executing as part of the full binary above.
       - name: Run Error-Standardization Backend Tests (Req 12.2/12.3/12.4/12.6/12.1)
-        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/tests/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
         run: |
           echo "=== Error-Standardization: property + consistency tests (Req 12.2/12.3) ==="
-          ./OAuth2Test_test.exe -r Property5_ErrorCatalog_EveryEntrySatisfiesInvariants
-          ./OAuth2Test_test.exe -r Property5_ErrorCatalog_CodeAndNumericCodeUnique
-          ./OAuth2Test_test.exe -r Property5_ErrorCatalog_OAuthAllowedSetCoveredExactlyOnce
-          ./OAuth2Test_test.exe -r Property4_HttpStatus_RuntimeEqualsCatalogRegisteredValue
-          ./OAuth2Test_test.exe -r Property4_HttpStatus_CatalogValueMatchesCategoryMapping
-          ./OAuth2Test_test.exe -r Property4_HttpStatus_SameCategoryConsistency
-          ./OAuth2Test_test.exe -r Property3_ErrorEnvelope_SerializationRoundTrip
-          ./OAuth2Test_test.exe -r Property1_ErrorEnvelope_StructuralInvariants
-          ./OAuth2Test_test.exe -r Property2_ErrorEnvelope_NumericCodeCorrectnessAndOmission
-          ./OAuth2Test_test.exe -r Property7_ErrorEnvelope_NonProductionDiagnosticDetails
-          ./OAuth2Test_test.exe -r Property8_ErrorEnvelope_UnmappedExceptionInternalFallback
-          ./OAuth2Test_test.exe -r Property9_OAuth2Error_Rfc6749Compliance
-          ./OAuth2Test_test.exe -r Property10_RequestId_ResolveAndGenerate
+          ./authforge-tests.exe -r Property5_ErrorCatalog_EveryEntrySatisfiesInvariants
+          ./authforge-tests.exe -r Property5_ErrorCatalog_CodeAndNumericCodeUnique
+          ./authforge-tests.exe -r Property5_ErrorCatalog_OAuthAllowedSetCoveredExactlyOnce
+          ./authforge-tests.exe -r Property4_HttpStatus_RuntimeEqualsCatalogRegisteredValue
+          ./authforge-tests.exe -r Property4_HttpStatus_CatalogValueMatchesCategoryMapping
+          ./authforge-tests.exe -r Property4_HttpStatus_SameCategoryConsistency
+          ./authforge-tests.exe -r Property3_ErrorEnvelope_SerializationRoundTrip
+          ./authforge-tests.exe -r Property1_ErrorEnvelope_StructuralInvariants
+          ./authforge-tests.exe -r Property2_ErrorEnvelope_NumericCodeCorrectnessAndOmission
+          ./authforge-tests.exe -r Property7_ErrorEnvelope_NonProductionDiagnosticDetails
+          ./authforge-tests.exe -r Property8_ErrorEnvelope_UnmappedExceptionInternalFallback
+          ./authforge-tests.exe -r Property9_OAuth2Error_Rfc6749Compliance
+          ./authforge-tests.exe -r Property10_RequestId_ResolveAndGenerate
           echo "=== Error-Standardization: security safety isolation (Property 6 / Req 12.4, dev/staging/prod) ==="
           # Config-independent by construction (forces Production_Mode via ErrorContext override).
-          ./OAuth2Test_test.exe -r Property6_ErrorEnvelope_ProductionModeSafetyIsolation
+          ./authforge-tests.exe -r Property6_ErrorEnvelope_ProductionModeSafetyIsolation
           echo "=== Error-Standardization: Application_Endpoint envelope enumeration (Req 12.6) ==="
-          ./OAuth2Test_test.exe -r Integration_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnvelopes
-          ./OAuth2Test_test.exe -r Integration_ApplicationEndpoint_ResponderEntries_AreEnvelopes
-          ./OAuth2Test_test.exe -r Integration_ApplicationEndpoint_UnregisteredCode_FallsBackToEnvelope
+          ./authforge-tests.exe -r Integration_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnvelopes
+          ./authforge-tests.exe -r Integration_ApplicationEndpoint_ResponderEntries_AreEnvelopes
+          ./authforge-tests.exe -r Integration_ApplicationEndpoint_UnregisteredCode_FallsBackToEnvelope
           echo "=== Error-Standardization: catalog<->doc consistency (Req 12.1) ==="
-          ./OAuth2Test_test.exe -r Unit_P0_ErrorCatalogDoc_ApplicationTableMatchesCatalog
-          ./OAuth2Test_test.exe -r Unit_P0_ErrorCatalogDoc_OAuthTableMatchesCatalog
+          ./authforge-tests.exe -r Unit_P0_ErrorCatalogDoc_ApplicationTableMatchesCatalog
+          ./authforge-tests.exe -r Unit_P0_ErrorCatalogDoc_OAuthTableMatchesCatalog
         shell: bash
 
       - name: Run Performance Benchmarks
-        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/tests/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
         run: |
           echo "=== Running Performance Benchmarks ==="
-          ./OAuth2Test_test.exe -r Performance_P1_Benchmark_P0_Legacy_SubjectGenerationPerformance
-          ./OAuth2Test_test.exe -r Performance_P1_Benchmark_SubjectGeneration_StressTest
+          ./authforge-tests.exe -r Performance_P1_Benchmark_P0_Legacy_SubjectGenerationPerformance
+          ./authforge-tests.exe -r Performance_P1_Benchmark_SubjectGeneration_StressTest
           # Omitted legacy memory test
-          ./OAuth2Test_test.exe -r Performance_P1_Benchmark_SubjectParsing_StressTest
+          ./authforge-tests.exe -r Performance_P1_Benchmark_SubjectParsing_StressTest
         shell: bash
 
       - name: Run E2E Tests
-        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/tests/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
         run: |
           echo "=== Running E2E Tests ==="
-          ./OAuth2Test_test.exe -r E2E_P0_OAuth2Flow_AuthCode_Works
-          ./OAuth2Test_test.exe -r Integration_P0_Session_Management_Works
-          ./OAuth2Test_test.exe -r Integration_P0_Client_Authentication_Works
-          ./OAuth2Test_test.exe -r Integration_P1_RedirectUri_Validation_Works
+          ./authforge-tests.exe -r E2E_P0_OAuth2Flow_AuthCode_Works
+          ./authforge-tests.exe -r Integration_P0_Session_Management_Works
+          ./authforge-tests.exe -r Integration_P0_Client_Authentication_Works
+          ./authforge-tests.exe -r Integration_P1_RedirectUri_Validation_Works
         shell: bash
 
       - name: Run Integration Tests
-        working-directory: ${{github.workspace}}/build/apps/server/test/${{env.BUILD_TYPE}}
+        working-directory: ${{github.workspace}}/build/tests/${{env.BUILD_TYPE}}
         env:
           OAUTH2_DB_HOST: ""
           OAUTH2_REDIS_HOST: ""
         run: |
           echo "=== Running Integration Tests ==="
-          ./OAuth2Test_test.exe -r Unit_P1_RedirectUri_MemoryStorage_Works
-          ./OAuth2Test_test.exe -r Unit_P1_RedirectUri_Atomicity_Works
-          ./OAuth2Test_test.exe -r Unit_P1_RedirectUri_EdgeCases_Works
-          ./OAuth2Test_test.exe -r Unit_P1_RedirectUri_SecurityScenarios_Works
+          ./authforge-tests.exe -r Unit_P1_RedirectUri_MemoryStorage_Works
+          ./authforge-tests.exe -r Unit_P1_RedirectUri_Atomicity_Works
+          ./authforge-tests.exe -r Unit_P1_RedirectUri_EdgeCases_Works
+          ./authforge-tests.exe -r Unit_P1_RedirectUri_SecurityScenarios_Works
         shell: bash
 
       - name: Restore original config

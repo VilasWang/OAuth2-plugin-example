@@ -33,9 +33,9 @@ void respondError(
 }
 
 // Lazy accessor for EmailService -- avoids static init order issues.
-::oauth2::IEmailService &getEmailSvc()
+::authforge::drogon::utils::IEmailService &getEmailSvc()
 {
-    return ::oauth2::getEmailService();
+    return ::authforge::drogon::utils::getEmailService();
 }
 
 // Lazily resolve the DbClient. Kept identical to pre-B5 controller behavior.

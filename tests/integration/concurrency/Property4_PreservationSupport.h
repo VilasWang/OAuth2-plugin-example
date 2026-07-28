@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/Property4_PreservationSupport.h
+// tests/integration/concurrency/Property4_PreservationSupport.h
 //
 // Spec: concurrency-lifetime-safety-audit — Task 4 (Property 4: Preservation).
 // Behavioral Equivalence on ¬C(X) — observation-first BASELINE capture on the
@@ -39,7 +39,7 @@
 
 #include "ConcurrencyRaceSupport.h"
 
-namespace oauth2::test::concurrency
+namespace authforge::test::concurrency
 {
 // A cache access in a generated hit/miss sequence.
 enum class CacheOp
@@ -144,4 +144,4 @@ class PreservationInputGen
   private:
     std::mt19937 rng_;
 };
-}  // namespace oauth2::test::concurrency
+}  // namespace authforge::test::concurrency

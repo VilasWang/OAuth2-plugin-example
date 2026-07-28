@@ -3,7 +3,7 @@
 //
 // These tests exercise the framework-agnostic port only; they do not
 // re-verify every property the pre-existing oauth2::error test suite
-// (OAuth2Server/test/unit/error/ErrorCatalogPropertyTest.cc) already covers
+// (tests/unit/error/ErrorCatalogPropertyTest.cc) already covers
 // for the Drogon-dependent original -- that suite continues to test the
 // original OAuth2Plugin/include/oauth2/error/* headers, which Task 13 does
 // not touch. This suite's job is to prove the PORTED copy behaves

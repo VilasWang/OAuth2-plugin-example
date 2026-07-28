@@ -3,7 +3,7 @@
 #include <string>
 #include <functional>
 
-namespace oauth2
+namespace authforge::drogon::utils
 {
 
 /**
@@ -92,4 +92,4 @@ class SmtpEmailService : public IEmailService
  */
 IEmailService &getEmailService();
 
-}  // namespace oauth2
+}  // namespace authforge::drogon::utils

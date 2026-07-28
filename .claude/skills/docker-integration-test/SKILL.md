@@ -115,7 +115,7 @@ docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT COUNT(*)
 ### 步骤4: 后端集成测试
 ```bash
 # 在容器中运行C++测试
-docker exec oauth2-backend /bin/bash -c "cd build/apps/server && ctest --output-on-failure -V"
+docker exec oauth2-backend /bin/bash -c "cd build/tests && ctest --output-on-failure -V"
 ```
 
 ### 步骤5: 前端集成测试

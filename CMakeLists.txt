@@ -106,6 +106,12 @@ add_subdirectory(${OAUTH2_PATH_LIBS_DROGON_DIR})
 
 add_subdirectory(${OAUTH2_PATH_OAUTH2_SERVER_DIR})
 
+# tests/ (Phase 7): repo-level test tree (unit/contract/integration/
+# e2e-backend/security/performance) — single DROGON_TEST binary
+# (authforge-tests) that compiles apps/server sources directly. Mounted
+# after apps/server so all lib targets it links are defined.
+add_subdirectory(tests)
+
 # examples/third-party-host (B8b / Task 28b, design.md §1.1/§6): minimal SDK
 # consumer that links ONLY the authforge SDK packages (no libs/drogon /
 # libs/storage-postgres) and drives the authorization-code flow

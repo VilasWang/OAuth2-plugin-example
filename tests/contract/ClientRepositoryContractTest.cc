@@ -1,4 +1,4 @@
-// OAuth2Server/test/contract/ClientRepositoryContractTest.cc
+// tests/contract/ClientRepositoryContractTest.cc
 //
 // Spec: authforge-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
 //
@@ -40,7 +40,7 @@
 
 using namespace authforge::oauth2::repository;
 using namespace authforge::oauth2::model;
-using namespace oauth2::test::contract;
+using namespace authforge::test::contract;
 using namespace authforge::storage::postgres;
 
 namespace

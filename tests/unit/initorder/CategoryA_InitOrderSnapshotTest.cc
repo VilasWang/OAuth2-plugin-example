@@ -1,4 +1,4 @@
-// OAuth2Server/test/unit/initorder/CategoryA_InitOrderSnapshotTest.cc
+// tests/unit/initorder/CategoryA_InitOrderSnapshotTest.cc
 //
 // Spec: concurrency-lifetime-safety-audit — Task 1 (Category A reproduction).
 // Property 1: Bug Condition — Init-Order Safety (SIOF) — covers 1.1 / 1.2.

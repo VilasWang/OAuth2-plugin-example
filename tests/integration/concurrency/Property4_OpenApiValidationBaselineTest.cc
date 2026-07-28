@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/Property4_OpenApiValidationBaselineTest.cc
+// tests/integration/concurrency/Property4_OpenApiValidationBaselineTest.cc
 //
 // Spec: concurrency-lifetime-safety-audit — Task 4 (Property 4: Preservation).
 // Behavioral Equivalence on ¬C(X). Observation object **3.1**: under the normal
@@ -49,7 +49,7 @@
 #include "Property4_PreservationSupport.h"
 
 using namespace authforge::drogon::observability::openapi;
-using namespace oauth2::test::concurrency;
+using namespace authforge::test::concurrency;
 
 namespace
 {

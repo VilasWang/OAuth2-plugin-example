@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Running pre-commit tests...' && cd build/apps/server && ctest --output-on-failure && echo 'Tests passed, commit allowed' || (echo 'Tests failed, commit blocked' && exit 1)"
+            "command": "echo 'Running pre-commit tests...' && cd build/tests && ctest --output-on-failure && echo 'Tests passed, commit allowed' || (echo 'Tests failed, commit blocked' && exit 1)"
           }
         ]
       },

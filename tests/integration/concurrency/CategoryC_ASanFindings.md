@@ -24,9 +24,9 @@ Shared TSan/ASan gating + the `PendingCallbacks` queue live in
 `ConcurrencyRaceSupport.h` (extended in this task with `kAsanEnabled` and
 `PendingCallbacks`).
 
-These land under `OAuth2Server/test/integration/concurrency/`, auto-collected by
-`GLOB_RECURSE INTEGRATION_TESTS` in `OAuth2Server/test/CMakeLists.txt` and compiled
-into the `OAuth2Test_test` target (ctest name `OAuth2Tests`).
+These land under `tests/integration/concurrency/`, auto-collected by
+`GLOB_RECURSE INTEGRATION_TESTS` in `tests/CMakeLists.txt` and compiled
+into the `authforge-tests` target (ctest name `OAuth2Tests`).
 
 ## Why a deferring storage double (and not `MemoryOAuth2Storage`)
 
@@ -153,7 +153,7 @@ numbers vary by build). Example for the 1.8 `getAccessToken` cache-fill:
 READ of size 8 at 0x... thread T0
     #0 drogon::CacheMap<...>::insert(...) CacheMap.h
     #1 oauth2::CachedOAuth2Storage::getAccessToken(...)::{lambda}::operator()(...) CachedOAuth2Storage.cc:160
-    #2 oauth2::test::concurrency::PendingCallbacks::fireAll() ConcurrencyRaceSupport.h
+    #2 authforge::test::concurrency::PendingCallbacks::fireAll() ConcurrencyRaceSupport.h
     ...
 0x... is located 0 bytes inside of N-byte region freed by thread T0 here:
     #0 operator delete(void*)
@@ -186,7 +186,7 @@ bash scripts/backend/build.sh --asan        # == --sanitizer=address, implies --
 cd build && ctest --output-on-failure -R OAuth2Tests
 
 # Or run only the Category C reproductions directly:
-./OAuth2Server/test/OAuth2Test_test \
+./tests/authforge-tests \
   Integration_Concurrency_1_8_CachedStorage_GetAccessToken_UAF_Repro \
   Integration_Concurrency_1_8_CachedStorage_SaveAccessToken_UAF_Repro \
   Integration_Concurrency_1_8_CachedStorage_RevokeAccessToken_UAF_Repro \
@@ -201,7 +201,7 @@ cd build && ctest --output-on-failure -R OAuth2Tests
 
 CMake plumbing (already in place from Task 0): `-DOAUTH2_SANITIZER=address` →
 `cmake/Sanitizers.cmake::oauth2_apply_sanitizer()` appends
-`-fsanitize=address -g -fno-omit-frame-pointer` to the `OAuth2Test_test` target's
+`-fsanitize=address -g -fno-omit-frame-pointer` to the `authforge-tests` target's
 compile + link options (GCC/Clang + Debug only).
 
 Recommended to fail hard / get full reports (CI gating):

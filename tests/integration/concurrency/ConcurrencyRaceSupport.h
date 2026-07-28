@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/ConcurrencyRaceSupport.h
+// tests/integration/concurrency/ConcurrencyRaceSupport.h
 //
 // Spec: concurrency-lifetime-safety-audit — Task 2 (Category B reproduction).
 // Shared support utilities for the ThreadSanitizer (TSan) data-race
@@ -94,7 +94,7 @@
 #define OAUTH2_ASAN_ENABLED 0
 #endif
 
-namespace oauth2::test::concurrency
+namespace authforge::test::concurrency
 {
 // True only when this translation unit was compiled with -fsanitize=thread.
 // Used as a RUNTIME guard so both code paths compile on every build.
@@ -227,4 +227,4 @@ class InterleavingGenerator
   private:
     std::mt19937 rng_;
 };
-}  // namespace oauth2::test::concurrency
+}  // namespace authforge::test::concurrency

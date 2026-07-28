@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/CategoryC_CachedClientRepositoryUafTest.cc
+// tests/integration/concurrency/CategoryC_CachedClientRepositoryUafTest.cc
 //
 // Spec: authforge-sdk-refactor — Task 11 (缓存装饰器 CachedOAuth2Storage 再架构).
 //
@@ -63,7 +63,7 @@
 #include "CategoryC_DeferredClientRepositorySupport.h"
 #include "ConcurrencyRaceSupport.h"
 
-using namespace oauth2::test::concurrency;
+using namespace authforge::test::concurrency;
 using authforge::storage::redis::CachedClientRepository;
 
 namespace

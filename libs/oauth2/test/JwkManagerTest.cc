@@ -1,6 +1,6 @@
 // M2b Task 17 slice 10 (authforge-sdk-refactor): basic unit tests for the
 // relocated authforge::oauth2::JwkManager. Full concurrency/preservation
-// coverage remains in OAuth2Server/test (Property4_JwkBaselineTest.cc/
+// coverage remains in tests/ (Property4_JwkBaselineTest.cc/
 // CategoryB_JwkManagerRaceTest.cc) -- these are just Domain-layer smoke
 // tests confirming the class works standalone (no Drogon, no injected
 // logger required).

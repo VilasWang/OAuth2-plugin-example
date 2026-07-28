@@ -34,11 +34,11 @@ if (plugin && plugin->getStorageType() == "memory")
 ### Directory Structure
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | `apps/server/test/unit/` | Isolated logic tests |
-| Integration | `apps/server/test/integration/` | API endpoint tests |
-| Security | `apps/server/test/security/` | Injection/exploit tests |
-| E2E | `apps/server/test/e2e/` | Full OAuth2 flow tests |
-| Performance | `apps/server/test/performance/` | Load/stress tests |
+| Unit | `tests/unit/` | Isolated logic tests |
+| Integration | `tests/integration/` | API endpoint tests |
+| Security | `tests/security/` | Injection/exploit tests |
+| E2E | `tests/e2e-backend/` | Full OAuth2 flow tests |
+| Performance | `tests/performance/` | Load/stress tests |
 
 ## Test Template
 

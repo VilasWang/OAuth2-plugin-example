@@ -1,5 +1,22 @@
 cmake_minimum_required(VERSION 3.5)
-project(OAuth2Test_test CXX)
+project(authforge-tests CXX)
+
+# Phase 7 (directory restructure, design.md §6 / Testing Strategy): the
+# backend test suite moved from apps/server/test/ to this top-level tests/
+# tree (contract/ integration/ e2e-backend/ security/ performance/ unit/).
+# Single DROGON_TEST binary retained (user decision): physical layout is
+# tiered, but all tiers compile into one executable so the ctest baseline
+# stays directly comparable. Per-layer binary split is a follow-up task.
+
+# Imported targets are directory-scoped: tests/ is now a SIBLING of
+# apps/server (not its subdirectory), so Drogon::Drogon found there is no
+# longer visible here -- find it in this scope (also provides
+# drogon_create_views()).
+find_package(Drogon CONFIG REQUIRED)
+
+# Server sources consumed by the test binary (SchemaManager/bootstrap/
+# organization) now live one tree away:
+set(AUTHFORGE_SERVER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../apps/server/src")
 
 # Optional flags
 option(OAUTH2_MEMORY_TESTS_ONLY "Build only tests that do not require external databases" OFF)
@@ -20,7 +37,7 @@ option(OAUTH2_TEST_COVERAGE "Enable code coverage reporting" OFF)
 # SchemaManager: needed by the SQL-splitter unit test (unit/schema/).
 # Compiled directly into the test target so the splitter can be exercised
 # without a running database.
-set(SCHEMA_MGR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../src/SchemaManager.cc")
+set(SCHEMA_MGR_SRC "${AUTHFORGE_SERVER_SRC_DIR}/SchemaManager.cc")
 
 # M3 Task 23 (authforge-sdk-refactor): test_main.cc now calls
 # bootstrap::wireControllerPluginDependencies() (see its own header comment),
@@ -32,8 +49,8 @@ set(SCHEMA_MGR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../src/SchemaManager.cc")
 # (CorsSetup/SecurityHeaders/etc) are apps/server-only concerns
 # test_main.cc does not use.
 set(BOOTSTRAP_SRC
-    "${CMAKE_CURRENT_SOURCE_DIR}/../src/bootstrap/ControllerRegistration.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../src/bootstrap/IdentityAssembly.cc"
+    "${AUTHFORGE_SERVER_SRC_DIR}/bootstrap/ControllerRegistration.cc"
+    "${AUTHFORGE_SERVER_SRC_DIR}/bootstrap/IdentityAssembly.cc"
 )
 
 # M5 Task 30: the product-level OrganizationController (apps/server/src/
@@ -42,22 +59,20 @@ set(BOOTSTRAP_SRC
 # Task 29b batch 3: OrganizationService extracted alongside (DB access via
 # Mapper+Criteria); both compile into the test binary.
 set(ORGANIZATION_SRC
-    "${CMAKE_CURRENT_SOURCE_DIR}/../src/organization/OrganizationController.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../src/organization/OrganizationService.cc"
+    "${AUTHFORGE_SERVER_SRC_DIR}/organization/OrganizationController.cc"
+    "${AUTHFORGE_SERVER_SRC_DIR}/organization/OrganizationService.cc"
 )
 
 # Collect hierarchical test sources
 file(GLOB_RECURSE UNIT_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cc")
 file(GLOB_RECURSE INTEGRATION_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/integration/*.cc")
-file(GLOB_RECURSE E2E_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/e2e/*.cc")
+file(GLOB_RECURSE E2E_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/e2e-backend/*.cc")
 file(GLOB_RECURSE SECURITY_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/security/*.cc")
 file(GLOB_RECURSE PERFORMANCE_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/performance/*.cc")
 # Task 12 (authforge-sdk-refactor, design.md §7.3 / F5): tiered repository
 # contract tests (IClientRepository/IGrantRepository/ITokenRepository/
-# IConsentRepository across Postgres/Redis/Memory). Kept under the existing
-# apps/server/test/ hierarchy (see contract/ContractFixtures.h header for
-# the placement rationale) rather than the tasks.md-referenced top-level
-# tests/contract/, which is the M2a-and-later target layout.
+# IConsentRepository across Postgres/Redis/Memory). Phase 7: now at the
+# design §6 target location tests/contract/.
 file(GLOB_RECURSE CONTRACT_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/contract/*.cc")
 
 # Root test sources
@@ -89,15 +104,15 @@ add_executable(${PROJECT_NAME}
     ${ORGANIZATION_SRC}
 )
 
-drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/../views
+drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/../apps/server/views
                     ${CMAKE_CURRENT_BINARY_DIR})
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/common
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src/organization
+    ${AUTHFORGE_SERVER_SRC_DIR}
+    ${AUTHFORGE_SERVER_SRC_DIR}/organization
 )
 
 # Link libraries
@@ -131,17 +146,17 @@ endif()
 # from the test executable directory, so the absolute source path is injected here
 # (CMake normalizes the path with forward slashes, usable by std::ifstream on all
 # platforms). Defined as an absolute path derived from this CMakeLists location.
-get_filename_component(OAUTH2_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
+get_filename_component(OAUTH2_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "OAUTH2_DOC_API_REFERENCE=\"${OAUTH2_REPO_ROOT_DIR}/docs/backend/api-reference.md\"")
 
 # Repo-source golden-snapshot directory for the success-response / route-manifest
 # regression test (task 12.4). The committed golden files under
-# apps/server/test/integration/error/golden/ are read (and self-seeded on first
+# tests/integration/error/golden/ are read (and self-seeded on first
 # run) at test time. Like OAUTH2_DOC_API_REFERENCE above, the test runs from the
 # test executable directory, so the absolute source path is injected here.
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/test/integration/error/golden\"")
+    "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/tests/integration/error/golden\"")
 
 # Coverage support
 if(OAUTH2_TEST_COVERAGE)
@@ -234,13 +249,13 @@ endforeach()
 if(MSVC OR XCODE)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/../config/config.json
+        ${CMAKE_CURRENT_SOURCE_DIR}/../apps/server/config/config.json
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/config.json
     )
 else()
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/../config/config.json
+        ${CMAKE_CURRENT_SOURCE_DIR}/../apps/server/config/config.json
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/config.json
     )
 endif()

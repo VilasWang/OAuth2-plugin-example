@@ -654,7 +654,7 @@ void SessionController::login(
     // pre-Task-24 authforge::drogon::services::AuthService (static,
     // Mapper<Users>-backed) so this controller keeps working unchanged in
     // any binary that has not called setIdentityAuthService() yet (e.g.
-    // OAuth2Server/test/e2e's direct-construction tests, until they are
+    // tests/e2e-backend's direct-construction tests, until they are
     // updated). Both AuthResult shapes carry an int32 internalId (Task 39
     // direction Y), matching onValidated's signature above.
     if (identityAuthService_)

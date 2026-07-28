@@ -91,7 +91,7 @@
 
 ```powershell
 # 在构建完成后执行
-cd OAuth2Server\build
+cd build
 ctest -V -C Release --output-on-failure --timeout 120
 ```
 
@@ -100,8 +100,8 @@ ctest -V -C Release --output-on-failure --timeout 120
 测试可执行文件内部会自动启动 Drogon App 实例（`test_main.cc` 中通过信号量同步），**无需手动启动 OAuth2Server**。
 
 ```powershell
-cd OAuth2Server\build\test\Release
-.\OAuth2Test_test.exe
+cd build\tests\Release
+.\authforge-tests.exe
 ```
 
 ### 方式三：使用 Workflow

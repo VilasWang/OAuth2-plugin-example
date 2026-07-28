@@ -34,9 +34,9 @@ void respondError(
     );
 }
 
-::oauth2::IEmailService &getEmailSvc()
+::authforge::drogon::utils::IEmailService &getEmailSvc()
 {
-    return ::oauth2::getEmailService();
+    return ::authforge::drogon::utils::getEmailService();
 }
 
 ::drogon::orm::DbClientPtr getDbOrRespond(

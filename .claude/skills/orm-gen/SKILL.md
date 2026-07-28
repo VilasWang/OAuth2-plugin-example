@@ -499,7 +499,7 @@ vim apps/server/migrations/V002__oauth2_core.sql
 /build-and-test
 
 # 5. 运行测试验证
-cd build/apps/server && ctest --output-on-failure
+cd build/tests && ctest --output-on-failure
 ```
 
 ### 2. 备份策略

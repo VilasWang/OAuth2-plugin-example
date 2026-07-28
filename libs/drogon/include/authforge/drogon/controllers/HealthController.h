@@ -16,9 +16,8 @@
 //
 // AutoCreation=false: this controller must be explicitly constructed and
 // registered (drogon::app().registerController(make_shared<...>())) by
-// the consumer BEFORE app().run() -- see apps/server's future bootstrap
-// (currently OAuth2Server/main.cc and OAuth2Server/test/test_main.cc
-// during this experiment).
+// the consumer BEFORE app().run() -- see apps/server's bootstrap
+// (apps/server/main.cc and tests/test_main.cc).
 
 #include <drogon/HttpController.h>
 

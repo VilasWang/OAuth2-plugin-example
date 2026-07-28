@@ -40,7 +40,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // anything from libs/drogon without creating a link cycle.
     // initApiDocs() is still called explicitly and unconditionally by every
     // production/test entry point before drogon::app().run() (see
-    // OAuth2Server/main.cc and OAuth2Server/test/test_main.cc), and is
+    // apps/server/main.cc and tests/test_main.cc), and is
     // idempotent (call_once guarded), so doc registration is unaffected by
     // this removal -- it just no longer ALSO happens from inside the plugin.
 
@@ -254,8 +254,12 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                     "real user store)";
         auto identityRepo =
           std::make_shared<authforge::storage::memory::MemoryIdentityRepository>();
-        if (config.isMember("admin_users"))
-            identityRepo->initAdminRoles(config["admin_users"]);
+        // Unconditional call (Phase 7 regression fix): the legacy path always
+        // passed config["admin_users"] (null when absent), and
+        // initAdminRoles' no-config branch injects the default
+        // admin -> {admin, user} mapping. Gating on isMember() made that
+        // branch unreachable and dropped the default admin roles.
+        identityRepo->initAdminRoles(config["admin_users"]);
         roleRepo_ = identityRepo;
         userRepo_ = identityRepo;
         subjectMappingRepo_ = identityRepo;
@@ -277,8 +281,9 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         // MemoryRoleRepository::initFromConfig consumed.
         auto identityRepo =
           std::make_shared<authforge::storage::memory::MemoryIdentityRepository>();
-        if (config.isMember("admin_users"))
-            identityRepo->initAdminRoles(config["admin_users"]);
+        // Unconditional: see the redis-branch note above (missing key -> null
+        // -> initAdminRoles injects the legacy default admin mapping).
+        identityRepo->initAdminRoles(config["admin_users"]);
         roleRepo_ = identityRepo;
         userRepo_ = identityRepo;
         subjectMappingRepo_ = identityRepo;

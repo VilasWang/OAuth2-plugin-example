@@ -1,4 +1,4 @@
-// OAuth2Server/test/unit/utils/EmailServiceSecurityTest.cc
+// tests/unit/utils/EmailServiceSecurityTest.cc
 //
 // Security regression tests for the SMTP email path (PR #2 review, P1).
 //
@@ -22,7 +22,7 @@
 
 #include <string>
 
-using oauth2::SmtpEmailService;
+using authforge::drogon::utils::SmtpEmailService;
 
 namespace
 {

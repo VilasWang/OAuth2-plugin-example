@@ -32,7 +32,7 @@ cmake_minimum_required(VERSION 3.16)
 # pattern as libs/oauth2's JwkManager.h shim from Task 17 slice 10) so
 # existing call sites (RequestValidationFilter, OAuth2StandardController,
 # SessionController, and the unit tests under
-# OAuth2Server/test/unit/validation/) keep compiling unchanged until the
+# tests/unit/validation/) keep compiling unchanged until the
 # full M8 namespace sweep (Task 40).
 #
 # Phase 3 (A4+A5) done: error/filters/validation/adapters/utils/

@@ -10,7 +10,7 @@
 #include <sstream>
 #include <thread>
 
-namespace oauth2
+namespace authforge::drogon::utils
 {
 
 // ============================================================
@@ -286,4 +286,4 @@ IEmailService &getEmailService()
     return *instance;
 }
 
-}  // namespace oauth2
+}  // namespace authforge::drogon::utils

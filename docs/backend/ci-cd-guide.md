@@ -97,7 +97,7 @@ ctest -V -C Release --output-on-failure --timeout 120
 ### 3.5 失败日志上传
 
 测试失败时，CI 会自动打包并上传以下内容作为 Artifact（保留 7 天）：
-- `OAuth2Server/build/Testing/` — CTest 测试报告
+- `build/Testing/` — CTest 测试报告
 - `OAuth2Server/logs/` — 应用运行日志
 
 ---

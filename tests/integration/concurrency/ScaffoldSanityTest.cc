@@ -1,13 +1,13 @@
-// OAuth2Server/test/integration/concurrency/ScaffoldSanityTest.cc
+// tests/integration/concurrency/ScaffoldSanityTest.cc
 //
 // Wave-1 scaffolding sanity test for the concurrency & lifetime safety audit
 // (spec: concurrency-lifetime-safety-audit, Task 0).
 //
 // PURPOSE (scaffolding only — NOT a defect reproduction):
 //   * Verify that the new test directory
-//       OAuth2Server/test/integration/concurrency/
-//     is picked up by the GLOB_RECURSE in OAuth2Server/test/CMakeLists.txt
-//     (INTEGRATION_TESTS) and compiled into the OAuth2Test_test target.
+//       tests/integration/concurrency/
+//     is picked up by the GLOB_RECURSE in tests/CMakeLists.txt
+//     (INTEGRATION_TESTS) and compiled into the authforge-tests target.
 //   * Exercise the build/test pipeline end-to-end under both the normal build
 //     and the TSan / ASan sanitizer builds (OAUTH2_SANITIZER=thread|address).
 //

@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/Property4_JwkBaselineTest.cc
+// tests/integration/concurrency/Property4_JwkBaselineTest.cc
 //
 // Spec: concurrency-lifetime-safety-audit — Task 4 (Property 4: Preservation).
 // Behavioral Equivalence on ¬C(X). Observation object **3.3**: after init, with
@@ -46,7 +46,7 @@
 
 #include "Property4_PreservationSupport.h"
 
-using namespace oauth2::test::concurrency;
+using namespace authforge::test::concurrency;
 using authforge::oauth2::JwkManager;
 
 namespace

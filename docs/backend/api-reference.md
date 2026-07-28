@@ -213,7 +213,7 @@ Authorization: `Bearer {access_token}`
 ## 5. 通用错误码
 
 > **单一权威来源（single source of truth）**：本章节 5.1 与 5.2 的表格由后端 `ErrorCatalog`（`OAuth2Plugin/include/oauth2/error/ErrorCatalog.h`）的 `allEntries()` / `allOAuthEntries()` 生成并由自动化测试校验，请勿手工修改表格行。
-> 任一不一致（缺失/多余条目、HTTP 状态码或 Error_Category 不匹配）都会导致校验测试失败：`OAuth2Test_test -r ErrorCatalogDoc`。
+> 任一不一致（缺失/多余条目、HTTP 状态码或 Error_Category 不匹配）都会导致校验测试失败：`authforge-tests -r ErrorCatalogDoc`。
 
 ### 5.1 应用错误码 (Application Error Codes)
 
@@ -306,6 +306,6 @@ OAuth2 协议端点（OAuth2_Protocol_Endpoint）保持 RFC 6749 §5.2 错误体
 ### 6.4 故障排查
 
 *   **Swagger UI 无法访问**：检查 `docs/api/swagger-ui/` 目录是否存在，确认静态文件服务已启用。
-*   **OpenAPI 生成失败**：运行 `OAuth2Test_test -r OpenApiGenerator` 单元测试，查看具体的注册错误。
+*   **OpenAPI 生成失败**：运行 `authforge-tests -r OpenApiGenerator` 单元测试，查看具体的注册错误。
 *   **文档不一致**：确认是否在 Controller 代码变更后重新运行了生成流程，并提交了最新的 `openapi.json`。
 

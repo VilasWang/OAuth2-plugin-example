@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/CategoryA_StorageLifetimeContractTest.cc
+// tests/integration/concurrency/CategoryA_StorageLifetimeContractTest.cc
 //
 // Spec: concurrency-lifetime-safety-audit — Task 1 (Category A reproduction).
 // Property 1: Bug Condition — Init-Order Safety — covers 1.3 (raw storage

@@ -68,6 +68,5 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     "$<TARGET_FILE_DIR:${PROJECT_NAME}>/docs/api/swagger-ui"
 )
 
-# Enable testing
-enable_testing()
-add_subdirectory(test)
+# Tests moved to top-level tests/ (Phase 7); mounted from the root
+# CMakeLists.txt via add_subdirectory(tests).

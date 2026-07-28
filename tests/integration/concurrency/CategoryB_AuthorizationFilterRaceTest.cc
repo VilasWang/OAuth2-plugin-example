@@ -1,4 +1,4 @@
-// OAuth2Server/test/integration/concurrency/CategoryB_AuthorizationFilterRaceTest.cc
+// tests/integration/concurrency/CategoryB_AuthorizationFilterRaceTest.cc
 //
 // Spec: concurrency-lifetime-safety-audit — Task 2 (Category B reproduction).
 // Property 2: Bug Condition — Data-Race Freedom (TSan) — covers defect 1.4.
@@ -63,7 +63,7 @@
 
 #include "ConcurrencyRaceSupport.h"
 
-using namespace oauth2::test::concurrency;
+using namespace authforge::test::concurrency;
 using authforge::drogon::filters::AuthorizationFilter;
 
 namespace

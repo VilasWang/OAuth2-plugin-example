@@ -6,7 +6,8 @@
 // reset/verification links, MFA notices, etc), per design.md §5.6's port
 // table: "IEmailSender | libcurl SMTP | libcurl 实现". Named IEmailSender
 // (not IEmailService) here to avoid a naming collision with the existing
-// oauth2::IEmailService (OAuth2Plugin/include/oauth2/utils/EmailService.h)
+// authforge::drogon::utils::IEmailService
+// (libs/drogon/include/authforge/drogon/utils/EmailService.h)
 // during the M2a transition period where both may exist side by side; the
 // method shape is intentionally identical to that existing interface
 // (sendEmail(to, subject, body, callback)) so migrating a call site is a

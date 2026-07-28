@@ -16,9 +16,9 @@ Property 2: **Bug Condition — Data-Race Freedom** (TSan). Covers defects **1.4
 | `CategoryB_AuthorizationFilterRaceTest.cc` | **1.4** | Concurrent first-time `AuthorizationFilter::doFilter() → loadConfig()`. |
 | `CategoryB_JwkManagerRaceTest.cc` | **1.5** | One `JwkManager::init()` writer racing many `signJwt()`/`getJwks()` readers. |
 
-These land under `OAuth2Server/test/integration/concurrency/`, auto-collected by
-`GLOB_RECURSE INTEGRATION_TESTS` in `OAuth2Server/test/CMakeLists.txt` and compiled
-into the `OAuth2Test_test` target (ctest name `OAuth2Tests`).
+These land under `tests/integration/concurrency/`, auto-collected by
+`GLOB_RECURSE INTEGRATION_TESTS` in `tests/CMakeLists.txt` and compiled
+into the `authforge-tests` target (ctest name `OAuth2Tests`).
 
 ## The exact unsynchronized accesses under audit
 
@@ -120,14 +120,14 @@ bash scripts/backend/build.sh --tsan        # == --sanitizer=thread, implies --d
 cd build && ctest --output-on-failure -R OAuth2Tests
 
 # Or run only the two Category B reproductions directly:
-./OAuth2Server/test/OAuth2Test_test \
+./tests/authforge-tests \
   Integration_Concurrency_1_4_AuthorizationFilter_LoadConfig_DataRace_Repro \
   Integration_Concurrency_1_5_JwkManager_InitVsSign_DataRace_Repro
 ```
 
 CMake plumbing (already in place from Task 0): `-DOAUTH2_SANITIZER=thread` →
 `cmake/Sanitizers.cmake::oauth2_apply_sanitizer()` appends
-`-fsanitize=thread -g -fno-omit-frame-pointer` to the `OAuth2Test_test` target's
+`-fsanitize=thread -g -fno-omit-frame-pointer` to the `authforge-tests` target's
 compile + link options (GCC/Clang + Debug only).
 
 Optional, to make the run fail hard on the first race (recommended for CI gating):

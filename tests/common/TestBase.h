@@ -5,7 +5,7 @@
 #include <memory>
 #include "test_categories.h"
 
-namespace oauth2::test
+namespace authforge::test
 {
 
 /**
@@ -19,7 +19,9 @@ class TestTransaction
     {
         try
         {
-            dbClient_ = drogon::app().getDbClient(dbName);
+            // ::drogon (not authforge::drogon): see ContractFixtures.h's
+            // Phase 7 qualification note.
+            dbClient_ = ::drogon::app().getDbClient(dbName);
             if (dbClient_)
             {
                 dbClient_->execSqlSync("BEGIN");
@@ -71,7 +73,7 @@ class TestTransaction
     }
 
   private:
-    drogon::orm::DbClientPtr dbClient_;
+    ::drogon::orm::DbClientPtr dbClient_;
     bool active_{false};
 };
 
@@ -92,4 +94,4 @@ class TestBase
     }
 };
 
-}  // namespace oauth2::test
+}  // namespace authforge::test

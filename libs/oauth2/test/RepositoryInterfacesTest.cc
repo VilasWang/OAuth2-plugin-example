@@ -3,7 +3,7 @@
 // interface/contract-shape tests -- minimal in-memory fake implementations
 // exist only to prove the interfaces are usable (compile + basic
 // polymorphic dispatch), NOT full contract tests (those remain
-// OAuth2Server/test/contract/*, which continue exercising the
+// tests/contract/*, which continue exercising the
 // OAuth2Plugin-side implementations until a later slice switches them
 // over). The one behavior worth actually asserting here is
 // ITokenRepository::saveTokenPair's default body, since that's non-trivial
