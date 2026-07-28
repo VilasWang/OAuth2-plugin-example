@@ -689,10 +689,13 @@ void MfaController::verifyLogin(
     // needed here.
     if (mfaService_ && userRepo_)
     {
-        int64_t userId = 0;
+        // int32: user ids are int32 end-to-end (Task 39 direction Y, DB int4);
+        // std::stoi throws out_of_range for values beyond int32, which the
+        // catch below already treats as an invalid MFA session.
+        int32_t userId = 0;
         try
         {
-            userId = std::stoll(mfaToken);
+            userId = std::stoi(mfaToken);
         }
         catch (const std::exception &)
         {
@@ -753,10 +756,10 @@ void MfaController::verifyLogin(
         return;
     }
 
-    int64_t fallbackUserId = 0;
+    int32_t fallbackUserId = 0;
     try
     {
-        fallbackUserId = std::stoll(mfaToken);
+        fallbackUserId = std::stoi(mfaToken);
     }
     catch (const std::exception &)
     {
@@ -922,10 +925,10 @@ void MfaController::verifyLogin(
                                       };
                                       if (clearDb)
                                       {
-                                          int64_t clearUserId = 0;
+                                          int32_t clearUserId = 0;
                                           try
                                           {
-                                              clearUserId = std::stoll(mfaToken);
+                                              clearUserId = std::stoi(mfaToken);
                                           }
                                           catch (const std::exception &)
                                           {

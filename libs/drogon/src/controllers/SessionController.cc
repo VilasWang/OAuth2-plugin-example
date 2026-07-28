@@ -419,13 +419,14 @@ void SessionController::login(
     }
 
     // Task 24 slice 4 (authforge-sdk-refactor): validateUser's continuation
-    // is identical regardless of which AuthService implementation ran it
-    // (only the internalId width differs: authforge::identity::AuthResult
-    // uses int64_t, the pre-Task-24 authforge::drogon::services::AuthResult
-    // uses int). This shared continuation takes the widened representation
-    // so both branches below (new identity::AuthService if injected, else
-    // the legacy drogon::services::AuthService fallback) funnel into the
-    // exact same logic -- no duplicated CHECK 1/2/3 chain to keep in sync.
+    // is identical regardless of which AuthService implementation ran it.
+    // Phase 1.5a (Task 39, direction Y) retracted
+    // authforge::identity::AuthResult.internalId to int32_t (aligned with the
+    // legacy drogon::services::AuthResult and the int4 DB column), so the
+    // previously-widened int64_t bridge here is gone: both branches below
+    // (new identity::AuthService if injected, else the legacy
+    // drogon::services::AuthService fallback) funnel into the exact same
+    // int32 logic -- no duplicated CHECK 1/2/3 chain to keep in sync.
     auto onValidated = [this,
                         req,
                         username,
@@ -438,7 +439,7 @@ void SessionController::login(
                         codeChallengeMethod,
                         callback = std::move(callback)](
                          bool success,
-                         int64_t internalId,
+                         int32_t internalId,
                          std::string publicSub,
                          bool emailVerified,
                          bool mfaEnabled
@@ -499,17 +500,11 @@ void SessionController::login(
                     std::move(callback)
                   );
                 auto db = ::drogon::app().getDbClient();
-                // users.id is a Postgres `integer` (32-bit) column --
-                // narrow explicitly so libpq binds this parameter as
-                // int4, not int8/bigint (Task 24 slice 4: internalId is
-                // int64_t here, widened to match
-                // authforge::identity::AuthResult's type; binding an
-                // 8-byte value against a `WHERE id = $3` integer column
-                // fails at the wire-protocol/type-coercion level, not as
-                // a SQL syntax error).
-                int32_t internalIdInt32 = static_cast<int32_t>(internalId);
+                // users.id is a Postgres `integer` (32-bit) column; internalId
+                // is int32_t all the way through (Task 39 direction Y), so it
+                // binds as int4 with no narrowing step needed.
                 // Task B5: replaced raw SQL with Mapper<Users>
-                Criteria mfaCrit(Users::Cols::_id, CompareOperator::EQ, internalIdInt32);
+                Criteria mfaCrit(Users::Cols::_id, CompareOperator::EQ, internalId);
                 Mapper<Users>(db).findOne(
                   mfaCrit,
                   [req, internalId, sharedCb, db, clientId, redirectUri](const Users &user) {
@@ -660,8 +655,8 @@ void SessionController::login(
     // Mapper<Users>-backed) so this controller keeps working unchanged in
     // any binary that has not called setIdentityAuthService() yet (e.g.
     // OAuth2Server/test/e2e's direct-construction tests, until they are
-    // updated). Both AuthResult shapes are adapted into onValidated's
-    // widened (bool, int64_t, string, bool, bool) signature above.
+    // updated). Both AuthResult shapes carry an int32 internalId (Task 39
+    // direction Y), matching onValidated's signature above.
     if (identityAuthService_)
     {
         identityAuthService_->validateUser(
@@ -699,7 +694,7 @@ void SessionController::login(
               }
               onValidated(
                 true,
-                static_cast<int64_t>(result->internalId),
+                result->internalId,
                 result->publicSub,
                 result->emailVerified,
                 result->mfaEnabled
