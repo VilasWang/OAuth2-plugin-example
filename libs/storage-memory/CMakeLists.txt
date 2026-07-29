@@ -54,18 +54,16 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_RE
 oauth2_apply_compat(${PROJECT_NAME})
 
 include(GNUInstallDirs)
-install(TARGETS ${PROJECT_NAME}
-    EXPORT AuthForgeStorageMemoryTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
 install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(EXPORT AuthForgeStorageMemoryTargets
-    FILE authforge-storage-memoryConfig.cmake
-    NAMESPACE authforge::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/authforge-storage-memory
+# SDK packaging: install-tree + build-tree find_package() config carrying the
+# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
+if(NOT COMMAND authforge_package)
+    include(AuthForgePackage)
+endif()
+authforge_package(
+    TARGET ${PROJECT_NAME}
+    PACKAGE authforge-storage-memory
+    EXPORT_NAME storage::memory
+    DEPENDENCIES Drogon jsoncpp authforge-oauth2 authforge-identity
 )

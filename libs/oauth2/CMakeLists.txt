@@ -62,20 +62,18 @@ oauth2_apply_compat(${PROJECT_NAME})
 # Task 33).
 
 include(GNUInstallDirs)
-install(TARGETS ${PROJECT_NAME}
-    EXPORT AuthForgeOauth2Targets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
 install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(EXPORT AuthForgeOauth2Targets
-    FILE authforge-oauth2Config.cmake
-    NAMESPACE authforge::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/authforge-oauth2
+# SDK packaging: install-tree + build-tree find_package() config carrying the
+# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
+if(NOT COMMAND authforge_package)
+    include(AuthForgePackage)
+endif()
+authforge_package(
+    TARGET ${PROJECT_NAME}
+    PACKAGE authforge-oauth2
+    EXPORT_NAME oauth2
+    DEPENDENCIES OpenSSL authforge-common
 )
 
 # --- Tests (pure unit, no DB/no Drogon) ---

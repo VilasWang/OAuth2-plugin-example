@@ -105,23 +105,25 @@ if(WITH_SOCIAL)
 endif()
 
 # Install rules
-install(TARGETS authforge-identity
-    EXPORT authforge-identity-targets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
-    INCLUDES DESTINATION include
-)
-
 install(DIRECTORY include/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h"
 )
 
-install(EXPORT authforge-identity-targets
-    FILE authforge-identityConfig.cmake
-    NAMESPACE authforge::
-    DESTINATION lib/cmake/authforge-identity
+# SDK packaging: install-tree + build-tree find_package() config carrying the
+# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
+# Note: authforge_package() routes install destinations through GNUInstallDirs
+# (consistent with the other libs/* packages); the header install above keeps
+# this package's original FILES_MATCHING glob.
+if(NOT COMMAND authforge_package)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
+    include(AuthForgePackage)
+endif()
+authforge_package(
+    TARGET authforge-identity
+    PACKAGE authforge-identity
+    EXPORT_NAME identity
+    DEPENDENCIES jsoncpp OpenSSL authforge-common
 )
 
 # --- Tests (pure unit, no DB/no Drogon) ---

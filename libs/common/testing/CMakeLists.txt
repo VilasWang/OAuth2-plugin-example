@@ -59,20 +59,18 @@ oauth2_apply_compat(${PROJECT_NAME})
 # enforced until tools/arch-guard exists (M6, Task 33).
 
 include(GNUInstallDirs)
-install(TARGETS ${PROJECT_NAME}
-    EXPORT AuthForgeCommonTestingTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
 install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(EXPORT AuthForgeCommonTestingTargets
-    FILE authforge-common-testingConfig.cmake
-    NAMESPACE authforge::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/authforge-common-testing
+# SDK packaging: install-tree + build-tree find_package() config carrying the
+# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
+if(NOT COMMAND authforge_package)
+    include(AuthForgePackage)
+endif()
+authforge_package(
+    TARGET ${PROJECT_NAME}
+    PACKAGE authforge-common-testing
+    EXPORT_NAME common::testing
+    DEPENDENCIES OpenSSL authforge-common
 )
 
 # --- Tests (pure unit, no DB/no Drogon) ---

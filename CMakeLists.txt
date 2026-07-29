@@ -121,3 +121,37 @@ option(BUILD_EXAMPLES "Build the SDK consumer examples" ON)
 if(BUILD_EXAMPLES)
     add_subdirectory(examples/third-party-host)
 endif()
+
+# examples/full-stack-host (Task 28a, design.md §1.1/§6): the FULL-STACK SDK
+# smoke. Unlike third-party-host (engine-only, in-tree ALIAS link), this is a
+# standalone project that consumes the ENTIRE product stack through real
+# find_package against THIS build's build-tree package configs (written by
+# authforge_package() under ${CMAKE_BINARY_DIR}/authforge-cmake), boots an HTTP
+# server reusing the product controllers/OAuth2Plugin/views, and drives the
+# authorization-code flow. It is NOT add_subdirectory'd; it is configured +
+# built + run by `ctest --build-and-test` so the true external-consumer
+# find_package path is exercised. The Conan toolchain is forwarded so Drogon/
+# OpenSSL resolve identically; the authforge-cmake root is added to
+# CMAKE_PREFIX_PATH so authforge-drogon + its find_dependency closure resolve.
+# Tagged LABELS "SdkSmoke" (the label M8 Task 39 depends on).
+if(BUILD_EXAMPLES)
+    set(_sdk_smoke_gen_platform "")
+    if(CMAKE_GENERATOR_PLATFORM)
+        set(_sdk_smoke_gen_platform --build-generator-platform "${CMAKE_GENERATOR_PLATFORM}")
+    endif()
+    add_test(
+        NAME SdkSmoke.FullStack
+        COMMAND ${CMAKE_CTEST_COMMAND}
+            --build-and-test
+                "${CMAKE_SOURCE_DIR}/examples/full-stack-host"
+                "${CMAKE_BINARY_DIR}/examples/full-stack-host"
+            --build-generator "${CMAKE_GENERATOR}"
+            ${_sdk_smoke_gen_platform}
+            --build-config "$<CONFIG>"
+            --build-options
+                "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+                "-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/authforge-cmake"
+            --test-command "${CMAKE_CTEST_COMMAND}" -C "$<CONFIG>" --output-on-failure
+    )
+    set_tests_properties(SdkSmoke.FullStack PROPERTIES LABELS "SdkSmoke")
+endif()

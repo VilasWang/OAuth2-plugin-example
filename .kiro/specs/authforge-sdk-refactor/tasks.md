@@ -81,6 +81,7 @@
 - [x] 6. 改造三平台 CI 使用统一 Conan（取消 Linux 源码编译 Drogon），恢复缓存
   - 产出：更新后的 `ci-*.yml`（临时保持现结构，M6 再重构）；`conan.lock` + 内容哈希缓存键
   - 验收：三平台 CI 全绿，构建时间下降（Windows 侧 `conan install` 步骤已本机复现验证；Linux/macOS 仅静态审阅，需在真实 CI 上确认）
+  - **后续统一（2026-07-28）**：构建基座进一步统一为**全平台 Conan + `cmake --preset`**——`conan install --output-folder=build/<preset>` + `cmake --preset` + `cmake --build --preset`，`build/<preset>` 目录约定 + 各平台 debug preset（`windows-msvc-debug`/`linux-debug`/`macos-arm64-debug`）。三平台 CI 均已切到 preset（`ci-*.yml` 的 env `CMAKE_PRESET`/`PRESET_DIR`）。本地脚本 `build/test/run_server/full_test.bat` 4 个 `.bat` 的 `shift` 破坏 `%~dp0` 回归已修（循环前捕获 `SCRIPT_DIR`）。CI 仍是 3 个独立文件（可复用重构见 Task 32）。
 
 ---
 
@@ -254,12 +255,18 @@
   - **phase 4 完成说明（2026-07-21，7 commit）**：god facade + bridge 在生产路径**全面退役**。子阶段：4.1+4.2（`9220225`，reroute `incrementIntrospectCount` + `CleanupService`→`purgeExpired`）；4.3（`8780253`，`OAuth2StandardController` token/client 调用经 plugin 转发法 reroute off god facade）；4.4（`71f47d4`，`CachedClientRepository` port 到新接口）；4.5（`7c9aa04`，identity 角色解析——`IRoleProvider` 加 subject-string 重载，`StorageRoleProvider` 实现之，retire `LegacyRoleResolutionBridge` 的 synthetic-id shim，**PluginTest "Verify Admin Roles" 行为零回归**）；4.6a（`36a55d0`，**核心 pivot**——plugin `initStorage` 改构造 per-backend `RepositoryBundle`，`storage_` 成员 + `getStorage()` 双 accessor 删除，bridge 不再构造，`IdentityService` 改持 4 个 identity repo（role/user/subjectMapping/consent，consent 经 `UserRef` 封装 int32），`AccessToken`/`Client` alias 指向新 model）；4.7 part1（删除 `LegacyStorageRepositoryBridge.h` + 其测试）。**删除的测试**（god-facade-based，覆盖已迁/已修）：6 个 CategoryC UAF + Property4 baseline（缺陷 1.8/1.9/1.11 已修、CachedOAuth2Storage/legacy TokenService 路径已删）+ `AdvancedStorageTest` 迁到 plugin 转发法。验收：每子阶段 `manage.ps1 build-backend -debug` 绿 + `ctest -C Debug`（build 根）**290/290 零回归**。**剩余 4.7 part2**：物理删除 god impl 文件（`{Memory,Postgres,Redis}OAuth2Storage.{h,cc}` + `CachedOAuth2Storage.{h,cc}` + `IOAuth2Storage.h`）+ 迁移/删除剩余 god-impl 存储测试（`Memory/Postgres/Redis StorageTest`、`SubjectMappingTest`、`ScopeValidationTest`、`P0FunctionalityTest`、`RedirectUriValidationTest`）。god impls **在生产已死**（plugin 不再构造），仅这几个测试还引用——属收尾清理，contract tests（phase 1-3）已覆盖 split-repo 层。**4.7 part2 收尾确认（2026-07-28，随目录重组完成）**：god impl 文件（`{Memory,Postgres,Redis}OAuth2Storage.{h,cc}` + `CachedOAuth2Storage.{h,cc}` + `IOAuth2Storage.h`）已在重组 Phase 1.5/2 随存储迁移物理删除，全仓 glob/grep 核实零代码引用（仅剩叙述性注释）；原「待迁移/删除」的存储测试已脱离 god impl 并在 `tests/{unit,integration}` 新位置正常编译通过（含在 ctest 276/277 基线内）。Task 27.5 全部子项完结。
 
 
-- [ ] 28. 创建 `examples/third-party-host`（SDK 冒烟，F1/H1/H5 回归防线）—— 拆为 28a（现在可做）+ 28b（纯引擎，gated on 27.5）
-  - [ ] 28a（待做）：全栈 build-tree smoke + 各 SDK 包 `Config.cmake.in`/`find_dependency`/configure-time `export()` 打包地基（见 PROGRESS.md B8b 段说明）。
+- [x] 28. 创建 `examples/third-party-host`（SDK 冒烟，F1/H1/H5 回归防线）—— 拆为 28a（现在可做）+ 28b（纯引擎，gated on 27.5）
+  - [x] 28a（完成，2026-07-28）：全栈 build-tree smoke + 各 SDK 包 `Config.cmake.in`/`find_dependency`/configure-time `export()` 打包地基（见下方完成说明）。
   - [x] 28b（完成，`154e656`）：纯引擎形态。`examples/third-party-host` 仅链接 4 个 SDK 包（`authforge::oauth2`/`common`/`common::testing`/`storage::memory`，无 OAuth2Plugin/libs/drogon），真实装配引擎（内存仓储 + `FakeCryptoProvider`）+ 程序化跑授权码流核心步骤（`evaluateScopes` → `generateAuthorizationCode` → `exchangeCodeForToken`）。根 CMake 加 `option(BUILD_EXAMPLES ON)`。**关键坑（已修）**：`TokenService` 继承 `enable_shared_from_this`，`exchangeCodeForToken`/`refreshAccessToken` 调 `shared_from_this()`——必须 `std::make_shared`，栈分配会 `bad_weak_ptr`→terminate（exit 3）。详见 PROGRESS.md "B8b / Task 28b" 段。
   - **调研结论（2026-07-11）**：原任务文本自相矛盾——前半"`find_package(authforge-oauth2)` + 实现 3 个端口"= 纯引擎；后半"断言路由注册 + 视图渲染 + config 驱动插件实例化"= 全产品栈。两者在当前包结构下互斥。根因：纯引擎消费者要喂 `AuthorizationService`（吃 `authforge::oauth2::repository::*` 新接口），但现成 Memory 实现绑在 `oauth2::storage::*` 旧接口上（Task 27.5 才迁移）。另：SDK 各包缺 `Config.cmake.in`/`find_dependency`（外部 `find_package` 跨包消费不通）；`OAuth2Plugin` 是 OBJECT 库，install/静态库分发是 §5.7 明确推迟的风险（line 558：v1.x 仅源码集成）。
   - **28a（现在可做，先做）**：全栈 build-tree smoke。样例以 `find_package` 消费整套已验证产品栈（oauth2+plugin+drogon+identity+storage-postgres+common）经 build-tree（line 558「源码集成」），复用 controller/plugin/view，实发 HTTP 跑授权码流；断言路由注册 + 视图渲染 + config 驱动插件实例化。各包加 `Config.cmake.in`/`find_dependency` + configure-time `export()`（build-tree Config，有界机械）。whole-archive 不需要（§5.5）。产出：样例工程 + CTest label `SdkSmoke`（也满足 M8 Task 39 验收对 SdkSmoke 的依赖）+ 打包地基。
   - **28b（gated on 27.5，后做）**：纯引擎形态升级。消费者实现 3 端口（`ISubjectResolver`/`IRoleProvider`/`IUserInfoProvider`）+ 仓储（迁到新接口后）喂 `AuthorizationService`/`TokenService`，自写薄 `/authorize`、`/token`，不依赖 authforge-drogon。验收："仅 `find_package(authforge-oauth2)` + 实现 3 端口即可跑通授权码流"（§1.1 头号目标的真正证明）。
+  - **28a 完成说明（2026-07-28）**：分两段落地并本地实跑验证（Windows/MSVC Release）。
+    - **① 打包地基（8 个 SDK 包）**：新增共享 helper `cmake/AuthForgePackage.cmake`（`authforge_package(TARGET/PACKAGE/EXPORT_NAME/DEPENDENCIES)`）+ 模板 `cmake/AuthForgePackageConfig.cmake.in`（`@PACKAGE_INIT@` + `find_dependency` 闭包块 + `include(<pkg>Targets.cmake)` + `check_required_components`）。每个包（common/common-testing/oauth2/identity/storage-{memory,redis,postgres}/drogon）的裸 `install(EXPORT)` 替换为 helper 调用，同时产出 **install-tree**（`lib/cmake/<pkg>/`）与 **build-tree**（`${CMAKE_BINARY_DIR}/authforge-cmake/<pkg>/`）两套 `Config`+`ConfigVersion`+`Targets`。**修复潜在 bug**：旧 `install(EXPORT ... NAMESPACE authforge::)` 未设 `EXPORT_NAME`，导出名会是 `authforge::authforge-<pkg>`（与 in-tree ALIAS `authforge::<alias>` 及 design §5.5 规范名不符）——helper 对每个 target 设 `EXPORT_NAME` 修正为规范名（如 `authforge::common`/`authforge::storage::memory`/`authforge::drogon`）。drogon 包 Config 的 `find_dependency` 闭包含全部 9 项（Drogon/OpenSSL/CURL + 6 个 authforge 包）。**关键坑（已修）**：`include_guard(GLOBAL)` 使模块 body 只在首个 include 的目录作用域跑一次，普通变量在其他包目录调用函数时不可见 → 模块目录改用 `CACHE INTERNAL` 变量存储，否则模板路径解析为空报 `File /AuthForgePackageConfig.cmake.in does not exist`。
+    - **② 全栈 HTTP smoke**：新增 `examples/full-stack-host`（**独立工程，非 add_subdirectory**），经 `find_package(authforge-drogon CONFIG REQUIRED)` 从 build-tree 消费整套产品栈（`authforge::drogon` PUBLIC 传递 common/oauth2/identity/三 storage/Drogon/OpenSSL/CURL 全闭包），复用 apps/server 的 `bootstrap::{registerAllControllers,wireControllerPluginDependencies,wireIdentityServices}` + OrganizationController + `drogon_create_views(apps/server/views)`（login.csp/consent.csp），加载 memory 配置起真实 HTTP 服务（127.0.0.1:6789），用 in-process `HttpClient` 断言四点：路由注册（`GET /health` 200）、config 驱动插件实例化（`GET /.well-known/openid-configuration` 200 + issuer，由 config `plugins[].OAuth2Plugin` 反射实例化的 discovery 应答）、视图渲染（`GET /login` 200 且 body 含 login.csp 标题）、授权码流入口（`GET /oauth2/authorge` 未登录 302→login）。存储 memory（hermetic，零 DB/Redis；`wireIdentityServices` 无 DB client 时记警告返回，安全）。
+    - **③ CTest 标签 `SdkSmoke`**：根 CMake 用 `add_test(NAME SdkSmoke.FullStack COMMAND ctest --build-and-test ...)` 注册（转发 Conan 工具链 + `-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/authforge-cmake`，内层工程自带 `enable_testing()`+`add_test` 由外层 `--test-command ctest` 驱动），`set_tests_properties(... LABELS SdkSmoke)`——满足 M8 Task 39 对 SdkSmoke 的依赖。用户已定两分叉决策：memory 存储后端 + CTest `--build-and-test` 独立配置（真 find_package build-tree 消费）。`WITH_SOCIAL`/`WITH_WEBAUTHN` 是 `authforge::drogon` 的 PUBLIC compile-def，内层重编 ControllerRegistration.cc 经导出 target 自动继承（同 tests/ 机制），无需转发。
+    - **关键坑（smoke 侧，已修）**：memory 后端 `MemoryClientRepository::initFromConfig` 读的 client 字段是 `type`（默认 CONFIDENTIAL）**非** `client_type`——config 误写 `client_type` 会使 vue-client 变 CONFIDENTIAL，`validateClient` 空 secret 失败返回 `Invalid client_id`；另 `/oauth2/authorize` 的 `state` 强制 8-512 字符。
+    - **验收**：`cmake --preset windows-msvc` configure 干净（8 包全产出 build-tree Config/ConfigVersion/Targets，drogon Targets 导出名为规范 `authforge::drogon`，INTERFACE_LINK_LIBRARIES 全为 `authforge::common` 等规范名）；全栈 `cmake --build` 绿；`ctest -C Release -L SdkSmoke --output-on-failure` **SdkSmoke.FullStack 100% 通过**（内层 find_package build-tree 配置+构建+起 HTTP 四断言全绿）。
 
 ---
 
@@ -345,6 +352,7 @@
 - [ ] 41. 版本重置 v1.0.0 + 文档更新
   - 统一根 CMake 版本；更新 README/CLAUDE.md/集成文档；补 SDK 运行时契约文档（线程/ABI/异常/日志/whole-archive/插件注册，F9/H1）；前端错误码共享源路径更新（L2）
   - 产出：v1.0.0 + 更新文档；验收：版本一致；集成/契约文档齐备
+  - **现状（2026-07-28）**：`cmake/Version.cmake` 版本已是 **1.0.0**、根 `CMakeLists.txt` `project(... VERSION 1.0.0)`。剩余：项目名仍为 `oauth2-plugin-example`（待改 `authforge`）、README/CLAUDE 更新、SDK 运行时契约文档、前端错误码共享源路径。应在 Task 34 api-diff 建基线前收尾。
 
 - [x] 42. scripts/ 路径与命令维护（评审补充点 1）
   - 经 `paths.env`（Task 5 已建）把最终路径值一次性切到新结构；审计 `manage.ps1/.sh`、`scripts/backend/{build,test,run-server,setup-database,validate-openapi}.{sh,bat}`、`scripts/{smoke-parity.ps1,security-check.sh,test-frontend-url-config.sh}`、`scripts/emoji_manager.py`(默认 `../OAuth2Plugin`) 残留硬编码
@@ -357,6 +365,7 @@
   - 更新应用内路径：`config.json` `document_root`、迁移目录、`MigrationRunner` 相对路径探测（`../../OAuth2Server/sql/migrations`→`apps/server/migrations`）；**`config.*.json` 的 `plugins[].name`（OAuth2Plugin/PromExporter）随 H1 决策处理**
   - 产出：更新后 docker/config 与应用路径逻辑；验收：`docker compose up` 全栈健康检查通过；后端从新路径正确加载 config/迁移/插件
   - **进展（2026-07-28，路径对齐部分已随目录重组 Phase 5d 完成，实跑验收未做故不勾）**：`Dockerfile`/`docker-compose.yml`/`docker-compose.prod.yml` COPY/build context 已对齐新布局（容器内 `/app/sql/*` 布局有意不变）；`MigrationRunner` 相对路径探测已改为 `migrations` / `sql/migrations`（docker 布局）/ `../../apps/server/migrations` 等新值并在本机实跑验证（启动日志确认迁移目录命中）；4 份 `config.*.json` 迁至 `apps/server/config/`，`plugins[].name` 按 H1 方案 A 保留 `OAuth2Plugin` 类名零改动，config 反射插件实例化经运行时 gate 验证。**剩余**：`docker compose up` 全栈健康检查实跑验收 + docker 深度重做（重组计划明确列为范围外），完成后再勾选。
+  - **补充发现（2026-07-28）**：`Dockerfile` 后端段仍 `git clone` 源码编译 Drogon + 裸 cmake（`deploy/docker/Dockerfile:21-44`），**未随本仓「全平台 Conan + cmake --preset」统一迁移**，与 CI 的构建路径分叉。docker 的 Conan 化 + preset 化 + `docker compose up` 实跑验收，见搁置的《Docker Conan Preset 迁移》计划，本任务收尾时一并处理。
 
 - [x] 44. .claude / .agent / .vscode 配置与技能维护（评审补充点 3）
   - 更新 `.claude/skills/*/SKILL.md`、`.claude/agents/*.md`、`.claude/MEMORY.md`、`.agent/workflows/*.md`(build/test/start/stop/db-reset)、`.vscode/*`、`.hooks/config.json`、`CLAUDE.md` 的 Repository Layout
@@ -388,6 +397,38 @@
 - [x] L5. 评审问题点 P0 修复（`评审问题点有效性分析报告.md` #1 PKCE/nonce 丢弃 + #2 client_credentials scope 不校验）
   - **完成说明（2026-07-28）**：**P0#1**——`AuthorizationEndpointController::authorize` 原来只读 response_type/client_id/redirect_uri/scope/state，`code_challenge`/`code_challenge_method`/`nonce` 在三个分支全部静默丢弃；现提取三参数并透传：未登录→/login 302 追加、needsConsent→/consent 302 追加（仅非空时）、直发分支传入 `generateAuthorizationCode` 真实值（替代原来的三个 `""`）；直发前补 `require_pkce_for_public` 强制（public client 无 challenge → invalid_request，与 login/consent 路径对齐）。配套链路：`SessionController::showLoginPage` 提取 nonce 进模板数据 → `login.csp` 新增 nonce 隐藏字段 → `ConsentPage.vue` 从 route.query 读 PKCE 三参数并回传 consent 请求。**测试暴露的更深层根因**：`PostgresGrantRepository::saveAuthCode` 从未持久化 code_challenge/code_challenge_method（`getAuthCode` 读回同漏，仅 `consumeAuthCode` 的原生 SQL 正确）——即 Postgres 模式下**所有路径**（含 login/consent）的 PKCE 均被 TokenService 的条件校验（存储 challenge 为空即跳过，RFC 7636 §4.4）静默绕过；已补 saveAuthCode 写入（空→NULL）+ getAuthCode 读回。**P0#2**——`TokenEndpointController` client_credentials 分支原样回显请求 scope（省略时硬编码 "read"）；现以 `Client` 聚合 `allowsAllScopes` 校验注册白名单（RFC 6749 §3.3）：越权（含部分越权，不静默缩窄）→ 400 `invalid_scope`；省略 scope → 授予注册 scope 全集；注册集为空 → `invalid_scope`。seed `dev_backend_client.sql` 补 backend-svc 的 read/write 授权（幂等）。新增集成测试 ×2：`tests/integration/auth/AuthorizePkcePassthroughIntegrationTest.cc`（真实 HTTP 直发路径：seed consent + login 拿 session → authorize 302 直达 redirect_uri 带 code → 无 verifier 交换必须 invalid_grant → 带 verifier 交换成功）、`tests/integration/token/ClientCredentialsScopeValidationTest.cc`（越权/部分越权/合法/省略四段断言，fixture 幂等自给）。
   - **验收核对（含如实残留）**：全量 build 0 error；ctest **295/295 全绿**（两个新用例在单二进制 `OAuth2Tests` 内，用例数 282→284；PKCE 测试曾以 Round A「无 verifier 交换返回 200」精确复现漏洞，saveAuthCode 修复后转绿）。**残留缺口（如实声明，超 P0 范围）**：`oauth2_codes` 表无 nonce 列（V002），整个 libs/storage-postgres 无 nonce 持久化——nonce 现已在 HTTP 层全路径透传但不落库，属 login/consent/直发全路径共有的既有 schema 限制，OIDC nonce 防重放（Core §3.1.3.7）需后续加列 + TokenService id_token 写入 nonce claim 才闭环。
+
+---
+
+## 剩余任务优先级顺序（2026-07-28 盘点，按依赖 + 价值重排）
+
+> 全平台构建基座已统一为 **Conan + `cmake --preset`**（`build/<preset>` 目录约定 + 各平台 debug preset；4 个 `.bat` 的 `shift`/`%~dp0` 回归已修）；三平台 CI 均已切到 preset（仍是 3 个独立文件，可复用重构 = Task 32）。版本号已是 1.0.0。以下为**未完成任务（`[ ]`）**的推进顺序。
+
+**Wave A — 立即可做，护栏 + SDK 地基（无前置阻塞，锁定既有重构成果）**
+1. ~~**Task 33 arch-guard**~~ ✅ **已完成（2026-07-28）**：`tools/arch-guard/arch_guard.py` 强制 Domain 禁 `#include <drogon/`、oauth2↔identity 零互依、Domain 无 `drogon::orm`，已接入 `ci-linux.yml`（违规即 CI 失败）。解锁 Task 32 门禁与 Task 39 验收（arch-guard）。
+2. **Task 28a SDK build-tree smoke + 打包地基**（P0）：各 SDK 包补 `Config.cmake.in`/`find_dependency`/build-tree `export()`（现仅裸 `install(EXPORT)`，无 Config 模板、无传递依赖闭包）；`examples/third-party-host` 增全栈 build-tree smoke（28b 纯引擎已做）。产出 CTest 标签 `SdkSmoke`，补齐 Task 39 验收缺口，是 Task 32/36 的前置。
+
+**Wave B — CI / 构建基础设施**
+3. **Task 32 CI 重构**（依赖 28a + 33）：三独立 workflow → 可复用 `ci.yml` + `_build-test.yml` + `_frontend.yml` + `_sdk-smoke.yml`；三阶段门禁；把 `SdkSmoke` + arch-guard 纳入门禁。
+4. **Task 43 docker 迁 Conan+preset + compose 实跑验收**（P1，独立）：`Dockerfile` 后端段仍源码编译 Drogon + 裸 cmake（`deploy/docker/Dockerfile:21-44`），与全仓约定分叉；COPY 路径已对齐新布局。迁移方案见搁置的《Docker Conan Preset 迁移》计划，收尾 `docker compose up` 全栈健康检查。
+5. **Task 35 migration-check + security.yml + 依赖 EOL 扫描**（P1，独立）。
+
+**Wave C — 版本冻结 + API 稳定**
+6. **Task 41 v1.0.0 收尾 + 文档**（版本号已 1.0.0；剩项目名 `oauth2-plugin-example`→`authforge`、README/CLAUDE、SDK 运行时契约文档、前端错误码共享源路径）。应在 api-diff 建基线前完成。
+7. **Task 34 api-diff**（依赖命名冻结 Task 45 已完成 + Task 41 版本冻结）：SDK 导出头 API 快照 diff + 基线。
+
+**Wave D — 发布管线（依赖 M6 = Task 32-35）**
+8. **Task 36 release.yml**（多架构镜像 + SDK 产物打包，依赖 28a 打包地基）。
+9. **Task 37 Helm + 生产 Compose + 版本化迁移执行器**（含 F10 legacy 密码平滑升级）。
+10. **Task 38 SBOM + 镜像签名 + 自动 CHANGELOG**。
+
+**Backlog（非阻塞，随时可做）**
+- **L1** 测试二进制按层拆分（当前单二进制 `authforge-tests` / ctest 名 `OAuth2Tests`）。
+- **Task 29b 尾** 非 admin controller 残余裸 SQL ≈13-14 处（UserSelfService 6 / PasswordReset 4 / EmailVerification 1 / GitHub 1 / TokenEndpoint 1；HealthController 探活可豁免）。
+- **WITH_IDENTITY=OFF** 暂非可用配置（Task 31 follow-up）。
+- **Task 42** parity-check + Linux/macOS 实跑（待 CI 确认）。
+
+**关键路径**：`{33, 28a}` → `32` → `{36}`；`41` → `34`。Wave A 两项无前置、且分别解锁 CI 门禁与发布打包，建议最先做。
 
 ---
 
