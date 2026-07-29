@@ -839,7 +839,7 @@ void TokenEndpointController::token(
                           Json::Value json;
                           json["access_token"] = tokenStr;
                           json["token_type"] = "Bearer";
-                          json["expires_in"] = accessTokenTtl;
+                          json["expires_in"] = (Json::Int64)accessTokenTtl;
                           json["scope"] = grantedScope;
                           // No refresh_token for client_credentials
                           auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
@@ -1120,7 +1120,7 @@ void TokenEndpointController::token(
                                   Json::Value json;
                                   json["access_token"] = accessTokenStr;
                                   json["token_type"] = "Bearer";
-                                  json["expires_in"] = accessTokenTtl;
+                                  json["expires_in"] = (Json::Int64)accessTokenTtl;
                                   json["refresh_token"] = refreshTokenStr;
                                   if (!scope.empty())
                                   {
