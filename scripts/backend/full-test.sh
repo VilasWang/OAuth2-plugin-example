@@ -83,16 +83,22 @@ echo ""
 echo "========================================"
 echo "Step 5: Starting OAuth2 server"
 echo "========================================"
-EXE_PATH="$BUILD_ABS_DIR/$SERVER_BUILD_SUBDIR/$SERVER_BINARY_NAME"
+# Run from SERVER_BUILD_SUBDIR (build/apps/server): main.cc has no -c flag --
+# it probes ./config.json relative to CWD, and build.sh stages config.json
+# there. Multi-config generators (Ninja Multi-Config / Xcode) nest the binary
+# under a per-config subdir, but config.json still lives in the parent, so we
+# always cd to SERVER_RUN_DIR and invoke the binary by its full path.
+SERVER_RUN_DIR="$BUILD_ABS_DIR/$SERVER_BUILD_SUBDIR"
+EXE_PATH="$SERVER_RUN_DIR/$SERVER_BINARY_NAME"
 if [ ! -f "$EXE_PATH" ]; then
-    EXE_PATH="$BUILD_ABS_DIR/$SERVER_BUILD_SUBDIR/$BUILD_TYPE/$SERVER_BINARY_NAME"
+    EXE_PATH="$SERVER_RUN_DIR/$BUILD_TYPE/$SERVER_BINARY_NAME"
 fi
 if [ ! -f "$EXE_PATH" ]; then
     echo "[FAILED] Server executable not found"
     exit 1
 fi
 
-cd "$(dirname "$EXE_PATH")"
+cd "$SERVER_RUN_DIR"
 "$EXE_PATH" &
 SERVER_PID=$!
 echo "Server started (PID $SERVER_PID), waiting for startup..."
