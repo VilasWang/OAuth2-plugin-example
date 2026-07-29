@@ -819,32 +819,38 @@ void TokenEndpointController::token(
                                  std::chrono::system_clock::now().time_since_epoch()
                     )
                                  .count();
+                    // P1 #6: use the configured TTL instead of a hardcoded 3600 so
+                    // expiresAt and the advertised expires_in stay consistent with
+                    // the real token lifetime (RFC 6749 §5.1).
+                    auto accessTokenTtl = plugin->getAccessTokenTtl();
 
                     authforge::oauth2::model::OAuth2AccessToken token;
                     token.token = authforge::drogon::utils::hashToken(tokenStr);
                     token.clientId = clientId;
                     token.userId = "client:" + clientId;  // M2M: subject is the client itself
                     token.scope = grantedScope;
-                    token.expiresAt = now + 3600;
+                    token.expiresAt = now + accessTokenTtl;
 
                     // Phase 4.3: route through plugin->saveAccessToken (NEW
                     // ITokenRepository) instead of getStorage()->saveAccessToken.
-                    plugin->saveAccessToken(token, [sharedCb, tokenStr, grantedScope]() {
-                        Json::Value json;
-                        json["access_token"] = tokenStr;
-                        json["token_type"] = "Bearer";
-                        json["expires_in"] = 3600;
-                        json["scope"] = grantedScope;
-                        // No refresh_token for client_credentials
-                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                            m->incrementCounter(
-                              "oauth2_requests_total",
-                              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                              static_cast<double>(200)
-                            );
-                        (*sharedCb)(resp);
-                    });
+                    plugin->saveAccessToken(
+                      token, [sharedCb, tokenStr, grantedScope, accessTokenTtl]() {
+                          Json::Value json;
+                          json["access_token"] = tokenStr;
+                          json["token_type"] = "Bearer";
+                          json["expires_in"] = accessTokenTtl;
+                          json["scope"] = grantedScope;
+                          // No refresh_token for client_credentials
+                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                          if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                              m->incrementCounter(
+                                "oauth2_requests_total",
+                                authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                static_cast<double>(200)
+                              );
+                          (*sharedCb)(resp);
+                      }
+                    );
                 }
               );
           });
@@ -893,213 +899,353 @@ void TokenEndpointController::token(
           std::move(callback)
         );
 
-        Mapper<drogon_model::oauth2_db::Oauth2DeviceCodes> mapper(dbClient);
-        mapper.findBy(
-          Criteria(
-            drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
-            CompareOperator::EQ,
-            deviceCodeHash
-          ),
-          [plugin, sharedCb, clientId, deviceCodeHash](
-            const std::vector<drogon_model::oauth2_db::Oauth2DeviceCodes> &results
-          ) {
-              if (results.empty())
+        // P1 #5 (评审问题点 5, RFC 8628 §3.4): device_code redemption previously
+        // only string-matched client_id against the device-code row, skipping
+        // client authentication entirely. RFC 8628 defers to RFC 6749 §3.2.1:
+        // CONFIDENTIAL clients MUST authenticate at the token endpoint; PUBLIC
+        // clients need only identify themselves. Branch on client_type:
+        //   CONFIDENTIAL -> require a valid client_secret (validateClient)
+        //   PUBLIC       -> current behavior (client_id bound to the device row)
+        // The device-code lookup (Mapper::findBy + atomic consume) is the same
+        // for both; wrapped in a local lambda so both paths converge on it.
+        auto runDeviceCodeLookup = [plugin, sharedCb, clientId, deviceCodeHash, dbClient]() {
+            Mapper<drogon_model::oauth2_db::Oauth2DeviceCodes> mapper(dbClient);
+            mapper.findBy(
+              Criteria(
+                drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
+                CompareOperator::EQ,
+                deviceCodeHash
+              ),
+              [plugin, sharedCb, clientId, deviceCodeHash, dbClient](
+                const std::vector<drogon_model::oauth2_db::Oauth2DeviceCodes> &results
+              ) {
+                  if (results.empty())
+                  {
+                      Json::Value error;
+                      error["error"] = "invalid_grant";
+                      error["error_description"] = "Invalid device_code";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k400BadRequest);
+                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                          m->incrementCounter(
+                            "oauth2_requests_total",
+                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            static_cast<double>(400)
+                          );
+                      (*sharedCb)(resp);
+                      return;
+                  }
+
+                  const auto &row = results[0];
+                  std::string storedClientId = row.getValueOfClientId();
+                  std::string status = row.getValueOfStatus();
+                  int64_t expiresAt = row.getValueOfExpiresAt();
+                  std::string scope = row.getValueOfScope();
+                  std::string userId = row.getValueOfUserId();
+
+                  // Verify client_id matches
+                  if (storedClientId != clientId)
+                  {
+                      Json::Value error;
+                      error["error"] = "invalid_grant";
+                      error["error_description"] = "client_id mismatch";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k400BadRequest);
+                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                          m->incrementCounter(
+                            "oauth2_requests_total",
+                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            static_cast<double>(400)
+                          );
+                      (*sharedCb)(resp);
+                      return;
+                  }
+
+                  // Check expiration
+                  auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                               std::chrono::system_clock::now().time_since_epoch()
+                  )
+                               .count();
+                  if (now >= expiresAt)
+                  {
+                      Json::Value error;
+                      error["error"] = "expired_token";
+                      error["error_description"] = "The device_code has expired";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k400BadRequest);
+                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                          m->incrementCounter(
+                            "oauth2_requests_total",
+                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            static_cast<double>(400)
+                          );
+                      (*sharedCb)(resp);
+                      return;
+                  }
+
+                  // Check status
+                  if (status == "pending")
+                  {
+                      Json::Value error;
+                      error["error"] = "authorization_pending";
+                      error["error_description"] = "The authorization request is still pending";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k400BadRequest);
+                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                          m->incrementCounter(
+                            "oauth2_requests_total",
+                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            static_cast<double>(400)
+                          );
+                      (*sharedCb)(resp);
+                      return;
+                  }
+
+                  if (status == "denied")
+                  {
+                      Json::Value error;
+                      error["error"] = "access_denied";
+                      error["error_description"] = "The user denied the authorization request";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k400BadRequest);
+                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                          m->incrementCounter(
+                            "oauth2_requests_total",
+                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            static_cast<double>(400)
+                          );
+                      (*sharedCb)(resp);
+                      return;
+                  }
+
+                  if (status != "approved")
+                  {
+                      Json::Value error;
+                      error["error"] = "invalid_grant";
+                      error["error_description"] = "Invalid device code status";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k400BadRequest);
+                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                          m->incrementCounter(
+                            "oauth2_requests_total",
+                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            static_cast<double>(400)
+                          );
+                      (*sharedCb)(resp);
+                      return;
+                  }
+
+                  // Status is "approved" -- attempt atomic consume before issuing.
+                  // P1 #3: the previous flow trusted the in-memory status read and
+                  // only deleted the row *after* issuance, so two concurrent
+                  // redemptions of the same approved device_code could both issue
+                  // tokens (race). We now atomically transition approved -> consumed
+                  // and gate issuance on the affected row: a concurrent loser's
+                  // UPDATE matches 0 rows and gets invalid_grant (fail-closed).
+                  // Raw SQL (UPDATE ... RETURNING) is used because the Mapper cannot
+                  // express a conditional atomic state transition; this is one of the
+                  // raw-SQL exemptions in .claude/rules/db-operations.md
+                  // (UPDATE ... RETURNING). Pattern mirrors
+                  // PostgresGrantRepository::consumeAuthCode.
+                  // P1 #6: use configured TTLs instead of hardcoded 3600 / 30 days.
+                  auto accessTokenTtl = plugin->getAccessTokenTtl();
+                  auto refreshTokenTtl = plugin->getRefreshTokenTtl();
+                  try
+                  {
+                      dbClient->execSqlAsync(
+                        "UPDATE oauth2_device_codes SET status = 'consumed' "
+                        "WHERE device_code_hash = $1 AND status = 'approved' "
+                        "RETURNING device_code_hash",
+                        [plugin,
+                         sharedCb,
+                         clientId,
+                         userId,
+                         scope,
+                         now,
+                         accessTokenTtl,
+                         refreshTokenTtl](const ::drogon::orm::Result &r) {
+                            if (r.empty())
+                            {
+                                // Lost the race (or row was no longer approved): the
+                                // atomic UPDATE matched nothing. Fail closed.
+                                Json::Value error;
+                                error["error"] = "invalid_grant";
+                                error["error_description"] =
+                                  "device code already consumed or no longer approved";
+                                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                                resp->setStatusCode(::drogon::k400BadRequest);
+                                if (
+                                  auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics()
+                                )
+                                    m->incrementCounter(
+                                      "oauth2_requests_total",
+                                      authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                      static_cast<double>(400)
+                                    );
+                                (*sharedCb)(resp);
+                                return;
+                            }
+
+                            // Won the consume race -- safe to issue.
+                            auto accessTokenStr = authforge::drogon::utils::generateSecureToken();
+                            auto refreshTokenStr = authforge::drogon::utils::generateSecureToken();
+                            std::string familyId =
+                              authforge::drogon::utils::generateSecureToken(16);
+
+                            authforge::oauth2::model::OAuth2AccessToken accessToken;
+                            accessToken.token = authforge::drogon::utils::hashToken(accessTokenStr);
+                            accessToken.clientId = clientId;
+                            accessToken.userId = userId;
+                            accessToken.scope = scope;
+                            accessToken.issuedAt = now;
+                            accessToken.expiresAt = now + accessTokenTtl;
+
+                            authforge::oauth2::model::OAuth2RefreshToken refreshToken;
+                            refreshToken.token =
+                              authforge::drogon::utils::hashToken(refreshTokenStr);
+                            refreshToken.accessToken = accessToken.token;
+                            refreshToken.clientId = clientId;
+                            refreshToken.userId = userId;
+                            refreshToken.scope = scope;
+                            refreshToken.expiresAt = now + refreshTokenTtl;
+                            refreshToken.familyId = familyId;
+
+                            // Phase 4.3: route through plugin->saveTokenPair (NEW
+                            // ITokenRepository) instead of getStorage()->saveTokenPair.
+                            plugin->saveTokenPair(
+                              accessToken,
+                              refreshToken,
+                              [sharedCb, accessTokenStr, refreshTokenStr, scope, accessTokenTtl]() {
+                                  Json::Value json;
+                                  json["access_token"] = accessTokenStr;
+                                  json["token_type"] = "Bearer";
+                                  json["expires_in"] = accessTokenTtl;
+                                  json["refresh_token"] = refreshTokenStr;
+                                  if (!scope.empty())
+                                  {
+                                      json["scope"] = scope;
+                                  }
+
+                                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                                  if (
+                                    auto m =
+                                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics()
+                                  )
+                                      m->incrementCounter(
+                                        "oauth2_requests_total",
+                                        authforge::common::ports::MetricLabels{
+                                          {"endpoint", "token"}
+                                        },
+                                        static_cast<double>(200)
+                                      );
+                                  if (
+                                    auto m =
+                                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics()
+                                  )
+                                      m->setGauge(
+                                        "oauth2_active_tokens",
+                                        authforge::common::ports::MetricLabels{},
+                                        static_cast<double>(1)
+                                      );
+                                  (*sharedCb)(resp);
+                              }
+                            );
+                        },
+                        [sharedCb](const ::drogon::orm::DrogonDbException &e) {
+                            LOG_ERROR << "Device code atomic consume failed: " << e.base().what();
+                            Json::Value error;
+                            error["error"] = "server_error";
+                            error["error_description"] = "Failed to consume device code";
+                            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                            resp->setStatusCode(::drogon::k500InternalServerError);
+                            (*sharedCb)(resp);
+                        },
+                        deviceCodeHash
+                      );
+                  }
+                  catch (const std::exception &e)
+                  {
+                      // db-operations.md requirement: execSqlAsync setup can throw
+                      // (DbClient internal state); surface it to the caller rather
+                      // than escaping into the event loop.
+                      LOG_ERROR << "Device code consume setup failed: " << e.what();
+                      Json::Value error;
+                      error["error"] = "server_error";
+                      error["error_description"] = "Failed to process device code";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k500InternalServerError);
+                      (*sharedCb)(resp);
+                  }
+                  catch (...)
+                  {
+                      Json::Value error;
+                      error["error"] = "server_error";
+                      error["error_description"] = "Failed to process device code";
+                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                      resp->setStatusCode(::drogon::k500InternalServerError);
+                      (*sharedCb)(resp);
+                  }
+              },
+              [sharedCb](const ::drogon::orm::DrogonDbException &e) {
+                  LOG_ERROR << "Device code lookup failed: " << e.base().what();
+                  Json::Value error;
+                  error["error"] = "server_error";
+                  error["error_description"] = "Failed to process device code";
+                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                  resp->setStatusCode(::drogon::k500InternalServerError);
+                  (*sharedCb)(resp);
+              }
+            );
+        };  // end runDeviceCodeLookup
+
+        plugin->getClient(
+          clientId,
+          [plugin,
+           sharedCb,
+           clientId,
+           clientSecret,
+           runDeviceCodeLookup = std::move(runDeviceCodeLookup)](
+            std::optional<authforge::oauth2::model::OAuth2Client> client
+          ) mutable {
+              if (!client)
               {
                   Json::Value error;
-                  error["error"] = "invalid_grant";
-                  error["error_description"] = "Invalid device_code";
+                  error["error"] = "invalid_client";
+                  error["error_description"] = "Client authentication failed";
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(::drogon::k400BadRequest);
-                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                      m->incrementCounter(
-                        "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                        static_cast<double>(400)
-                      );
+                  resp->setStatusCode(::drogon::k401Unauthorized);
                   (*sharedCb)(resp);
                   return;
               }
 
-              const auto &row = results[0];
-              std::string storedClientId = row.getValueOfClientId();
-              std::string status = row.getValueOfStatus();
-              int64_t expiresAt = row.getValueOfExpiresAt();
-              std::string scope = row.getValueOfScope();
-              std::string userId = row.getValueOfUserId();
-
-              // Verify client_id matches
-              if (storedClientId != clientId)
+              // PUBLIC clients: client_id alone suffices (RFC 8628 §3.4 / RFC
+              // 6749 §3.2.1). Proceed straight to the device-code lookup.
+              if (client->clientType == authforge::oauth2::model::ClientType::PUBLIC)
               {
-                  Json::Value error;
-                  error["error"] = "invalid_grant";
-                  error["error_description"] = "client_id mismatch";
-                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(::drogon::k400BadRequest);
-                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                      m->incrementCounter(
-                        "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                        static_cast<double>(400)
-                      );
-                  (*sharedCb)(resp);
+                  runDeviceCodeLookup();
                   return;
               }
 
-              // Check expiration
-              auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                           std::chrono::system_clock::now().time_since_epoch()
-              )
-                           .count();
-              if (now >= expiresAt)
-              {
-                  Json::Value error;
-                  error["error"] = "expired_token";
-                  error["error_description"] = "The device_code has expired";
-                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(::drogon::k400BadRequest);
-                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                      m->incrementCounter(
-                        "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                        static_cast<double>(400)
-                      );
-                  (*sharedCb)(resp);
-                  return;
-              }
-
-              // Check status
-              if (status == "pending")
-              {
-                  Json::Value error;
-                  error["error"] = "authorization_pending";
-                  error["error_description"] = "The authorization request is still pending";
-                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(::drogon::k400BadRequest);
-                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                      m->incrementCounter(
-                        "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                        static_cast<double>(400)
-                      );
-                  (*sharedCb)(resp);
-                  return;
-              }
-
-              if (status == "denied")
-              {
-                  Json::Value error;
-                  error["error"] = "access_denied";
-                  error["error_description"] = "The user denied the authorization request";
-                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(::drogon::k400BadRequest);
-                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                      m->incrementCounter(
-                        "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                        static_cast<double>(400)
-                      );
-                  (*sharedCb)(resp);
-                  return;
-              }
-
-              if (status != "approved")
-              {
-                  Json::Value error;
-                  error["error"] = "invalid_grant";
-                  error["error_description"] = "Invalid device code status";
-                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-                  resp->setStatusCode(::drogon::k400BadRequest);
-                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                      m->incrementCounter(
-                        "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                        static_cast<double>(400)
-                      );
-                  (*sharedCb)(resp);
-                  return;
-              }
-
-              // Status is "approved" �?issue tokens
-              auto accessTokenStr = authforge::drogon::utils::generateSecureToken();
-              auto refreshTokenStr = authforge::drogon::utils::generateSecureToken();
-              std::string familyId = authforge::drogon::utils::generateSecureToken(16);
-
-              authforge::oauth2::model::OAuth2AccessToken accessToken;
-              accessToken.token = authforge::drogon::utils::hashToken(accessTokenStr);
-              accessToken.clientId = clientId;
-              accessToken.userId = userId;
-              accessToken.scope = scope;
-              accessToken.issuedAt = now;
-              accessToken.expiresAt = now + 3600;
-
-              authforge::oauth2::model::OAuth2RefreshToken refreshToken;
-              refreshToken.token = authforge::drogon::utils::hashToken(refreshTokenStr);
-              refreshToken.accessToken = accessToken.token;
-              refreshToken.clientId = clientId;
-              refreshToken.userId = userId;
-              refreshToken.scope = scope;
-              refreshToken.expiresAt = now + (3600 * 24 * 30);
-              refreshToken.familyId = familyId;
-
-              // Phase 4.3: route through plugin->saveTokenPair (NEW
-              // ITokenRepository) instead of getStorage()->saveTokenPair.
-              plugin->saveTokenPair(
-                accessToken,
-                refreshToken,
-                [sharedCb, accessTokenStr, refreshTokenStr, scope, deviceCodeHash]() {
-                    // Mark device code as consumed by deleting it
-                    auto dbClient = ::drogon::app().getDbClient();
-                    if (dbClient)
+              // CONFIDENTIAL clients: require a valid client_secret.
+              plugin->validateClient(
+                clientId,
+                clientSecret,
+                [plugin,
+                 sharedCb,
+                 runDeviceCodeLookup = std::move(runDeviceCodeLookup)](bool valid) mutable {
+                    if (!valid)
                     {
-                        Mapper<drogon_model::oauth2_db::Oauth2DeviceCodes>(dbClient).deleteBy(
-                          Criteria(
-                            drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
-                            CompareOperator::EQ,
-                            deviceCodeHash
-                          ),
-                          [](const size_t) {},
-                          [](const ::drogon::orm::DrogonDbException &e) {
-                              LOG_WARN << "Failed to delete consumed device code: "
-                                       << e.base().what();
-                          }
-                        );
+                        Json::Value error;
+                        error["error"] = "invalid_client";
+                        error["error_description"] = "Client authentication failed";
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                        resp->setStatusCode(::drogon::k401Unauthorized);
+                        (*sharedCb)(resp);
+                        return;
                     }
-
-                    Json::Value json;
-                    json["access_token"] = accessTokenStr;
-                    json["token_type"] = "Bearer";
-                    json["expires_in"] = 3600;
-                    json["refresh_token"] = refreshTokenStr;
-                    if (!scope.empty())
-                    {
-                        json["scope"] = scope;
-                    }
-
-                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                        m->incrementCounter(
-                          "oauth2_requests_total",
-                          authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                          static_cast<double>(200)
-                        );
-                    if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                        m->setGauge(
-                          "oauth2_active_tokens",
-                          authforge::common::ports::MetricLabels{},
-                          static_cast<double>(1)
-                        );
-                    (*sharedCb)(resp);
+                    runDeviceCodeLookup();
                 }
               );
-          },
-          [sharedCb](const ::drogon::orm::DrogonDbException &e) {
-              LOG_ERROR << "Device code lookup failed: " << e.base().what();
-              Json::Value error;
-              error["error"] = "server_error";
-              error["error_description"] = "Failed to process device code";
-              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-              resp->setStatusCode(::drogon::k500InternalServerError);
-              (*sharedCb)(resp);
           }
         );
     }
@@ -1156,6 +1302,12 @@ void TokenEndpointController::userInfo(
         return;
     }
     // First get user roles
+    // P1 #4 (评审问题点 4, intentional): `[this]` is safe here -- Drogon
+    // HttpController<> instances are process-wide singletons whose lifetime
+    // spans the whole process run (same reasoning documented in
+    // AuthorizationFilter.cc doFilter, ~L90). `this` therefore outlives every
+    // async continuation; shared_from_this is not applicable (Drogon manages
+    // controllers via raw pointers). Comment added to deter repeat reports.
     plugin->getUserRoles(userId, [this, userId, callback](std::vector<std::string> roles) {
         // Phase 4.5: route through plugin->getUserInfo (today still the god
         // facade; the identity-side migration to authforge::identity::* is a

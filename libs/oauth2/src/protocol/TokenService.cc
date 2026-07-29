@@ -271,7 +271,10 @@ void TokenService::exchangeCodeForToken(
                             Json::Value json;
                             json["access_token"] = tokenStr;
                             json["token_type"] = "Bearer";
-                            json["expires_in"] = (Json::Int64)(3600);
+                            // P1 #6: advertise the real configured lifetime, not a
+                            // hardcoded 3600 (RFC 6749 §5.1 requires expires_in to
+                            // be the token's actual remaining lifetime).
+                            json["expires_in"] = (Json::Int64)(accessTokenTtl_);
                             json["refresh_token"] = refreshTokenStr;
                             json["roles"] = rolesJson;
 
@@ -285,7 +288,9 @@ void TokenService::exchangeCodeForToken(
                                 idTokenClaims["sub"] = authCode.userId;
                                 idTokenClaims["aud"] = authCode.clientId;
                                 idTokenClaims["iat"] = (Json::Int64)now;
-                                idTokenClaims["exp"] = (Json::Int64)(now + 3600);
+                                // P1 #6: id_token exp follows the access token TTL
+                                // (OIDC Core §2 requires exp to be the real expiry).
+                                idTokenClaims["exp"] = (Json::Int64)(now + accessTokenTtl_);
                                 if (!authCode.nonce.empty())
                                 {
                                     idTokenClaims["nonce"] = authCode.nonce;
@@ -396,7 +401,8 @@ void TokenService::refreshAccessToken(
                 Json::Value json;
                 json["access_token"] = newTokenStr;
                 json["token_type"] = "Bearer";
-                json["expires_in"] = (Json::Int64)3600;
+                // P1 #6: real configured lifetime, not hardcoded 3600.
+                json["expires_in"] = (Json::Int64)accessTokenTtl_;
                 json["refresh_token"] = newRefreshTokenStr;
                 callback(json);
             }
@@ -417,6 +423,13 @@ void TokenService::validateAccessToken(
     }
 
     auto hashedToken = hashToken(*crypto_, token);
+    // P1 #8 (评审问题点 8, intentional): this async callback captures only
+    // [callback] and references neither `this` nor any member -- the body uses
+    // only the parameter `t` and the free function nowSeconds(). shared_from_this
+    // is therefore deliberately NOT captured (it would be dead weight). If a
+    // future change adds member access inside this callback, switch to capturing
+    // `auto self = shared_from_this()` to keep lifetime safety -- that is the
+    // real latent risk here, not a current one.
     tokens_->getAccessToken(
       hashedToken, [callback](std::optional<authforge::oauth2::model::OAuth2AccessToken> t) {
           if (!t || t->revoked)

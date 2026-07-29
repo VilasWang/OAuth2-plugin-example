@@ -229,6 +229,18 @@ void DiscoveryController::jwks(
     auto plugin = resolvePlugin();
     if (!plugin || !plugin->getJwkManager())
     {
+        // P1 #9 (评审问题点 9, intentional): this branch is effectively
+        // unreachable in production -- jwkManager_ is constructed and init()'d
+        // unconditionally in OAuth2Plugin::initAndStart() (even without an OIDC
+        // config), so getJwkManager() is non-null whenever the plugin is loaded.
+        // It is only reached if the plugin itself failed to load, in which case
+        // the whole OAuth2 service is down and JWKS caching is moot.
+        // NOTE: do NOT add `Cache-Control: public, max-age=...` here (the naive
+        // "align with the normal branch" fix). Caching an EMPTY keys array would
+        // make downstream RPs/gateways cache "no verification keys" for an hour,
+        // so id_token verification keeps failing even after the service recovers.
+        // The current no-cache-header behavior is correct (HTTP heuristic
+        // caching does not cache validator-less JSON responses).
         Json::Value empty;
         empty["keys"] = Json::Value(Json::arrayValue);
         auto resp = ::drogon::HttpResponse::newHttpJsonResponse(empty);

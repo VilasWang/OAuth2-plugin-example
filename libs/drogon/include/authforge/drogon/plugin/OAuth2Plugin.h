@@ -90,6 +90,21 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
         return jwkManager_;
     }
 
+    // P1 #6 (评审问题点 6, RFC 6749 §5.1): expose the configured token TTLs so
+    // the controllers' inline issuance paths (client_credentials / device_code)
+    // advertise expires_in matching the real token lifetime instead of a
+    // hardcoded 3600. Set once during initAndStart() (happens-before requests),
+    // read-only thereafter -- same thread-safety reasoning as the members below.
+    long long getAccessTokenTtl() const noexcept
+    {
+        return accessTokenTtl_;
+    }
+
+    long long getRefreshTokenTtl() const noexcept
+    {
+        return refreshTokenTtl_;
+    }
+
     // Returns shared ownership of the storage (defect 1.3 / 1.11 fix). Both
     // overloads return std::shared_ptr<IOAuth2Storage> so callers (e.g. the
     // controller async chains) can capture it and keep the storage alive across
