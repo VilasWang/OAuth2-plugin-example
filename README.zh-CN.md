@@ -128,7 +128,7 @@ docker-compose up -d
 
 # 2. 启动后端（需要 PostgreSQL + Redis）
 cd apps\server
-..\..\build\apps\server\Debug\authforge-server.exe
+..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
 
 # 3. 启动管理后台
 cd frontends\admin
@@ -173,7 +173,7 @@ npx playwright test --headed     # 有头浏览器模式
 ### C++ 单元测试
 
 ```powershell
-cd build
+cd build\windows-msvc
 ctest --output-on-failure
 ```
 

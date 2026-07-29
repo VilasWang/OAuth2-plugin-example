@@ -8,6 +8,12 @@ on:
 
 env:
   BUILD_TYPE: Release
+  # All builds go through Conan + `cmake --preset` (parity with build.sh /
+  # build.bat). The macos-arm64 preset installs into build/macos-arm64
+  # (see CMakePresets.json binaryDir) and carries the Unix Makefiles
+  # generator + CMAKE_OSX_ARCHITECTURES=arm64.
+  CMAKE_PRESET: macos-arm64
+  PRESET_DIR: build/macos-arm64
 
 jobs:
   build-and-test:
@@ -53,7 +59,7 @@ jobs:
         # and all other C++ dependencies are declared in conanfile.py and
         # resolved here instead of being cloned/compiled from source via brew.
         run: |
-          conan install . --output-folder=build --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17 -s arch=armv8
+          conan install . --output-folder=${{env.PRESET_DIR}} --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17 -s arch=armv8
 
       - name: Add drogon_ctl (Conan package) to PATH
         # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
@@ -66,9 +72,9 @@ jobs:
         # folder, so we read it from there instead of hardcoding a Conan
         # cache layout.
         run: |
-          data_file=$(find build -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
+          data_file=$(find ${{env.PRESET_DIR}} -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
           if [ -z "$data_file" ]; then
-            echo "::error::Could not find Drogon-*-data.cmake under build/ (conan install may have failed)"
+            echo "::error::Could not find Drogon-*-data.cmake under ${{env.PRESET_DIR}}/ (conan install may have failed)"
             exit 1
           fi
           drogon_folder=$(grep -E 'set\(drogon_PACKAGE_FOLDER_RELEASE "' "$data_file" | sed -E 's/.*"(.+)".*/\1/')
@@ -89,18 +95,14 @@ jobs:
           # Use CI config which uses memory storage instead of Postgres/Redis
           cp apps/server/config/config.ci.json apps/server/config/config.json
 
-          cmake -S . -B build -G "Unix Makefiles" \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            -DCMAKE_CXX_STANDARD=17 \
-            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
-            -DCMAKE_CXX_EXTENSIONS=OFF \
-            -DBUILD_TESTS=ON \
-            -DOAUTH2_MEMORY_TESTS_ONLY=ON \
-            -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}/build/conan_toolchain.cmake" \
-            -DCMAKE_OSX_ARCHITECTURES=arm64
+          # The preset carries the Unix Makefiles generator, CMAKE_BUILD_TYPE,
+          # CMAKE_OSX_ARCHITECTURES=arm64, and the Conan toolchain file
+          # (build/<preset>/conan_toolchain.cmake). OAUTH2_MEMORY_TESTS_ONLY is
+          # CI-specific, so it is layered on with -D.
+          cmake --preset ${{env.CMAKE_PRESET}} -DOAUTH2_MEMORY_TESTS_ONLY=ON
       - name: Build
-        run: cmake --build build --config ${{env.BUILD_TYPE}}
+        run: cmake --build --preset ${{env.CMAKE_PRESET}}
 
       - name: Run Tests
-        working-directory: ${{github.workspace}}/build
+        working-directory: ${{github.workspace}}/${{env.PRESET_DIR}}
         run: ctest -V -C ${{env.BUILD_TYPE}} --output-on-failure --timeout 120

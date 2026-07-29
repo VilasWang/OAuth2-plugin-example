@@ -9,12 +9,15 @@ Standard build / run / test goes through the unified wrappers
 `./manage.sh` / `./manage.ps1` — see `README.md` "Quick Start", or the
 `/build-and-test` skill. Only the non-obvious flags are listed here:
 
-- Debug build: append `-debug`.  Rebuild Drogon from source: `--build-drogon`.
-  Sanitizers: `--sanitizer=thread|address` (Linux/macOS only).
+- Debug build: append `-debug`.  Sanitizers: `--sanitizer=thread|address`
+  (Linux/macOS only, imply `-debug`).
 - No-external-DB test build: `-DOAUTH2_MEMORY_TESTS_ONLY=ON`.
 - Run C++ tests by label: `ctest -R Unit|Integration|E2E|Security|Performance`.
-- Windows backend builds via Conan (`scripts/backend/build.bat`);
-  Linux/macOS via `scripts/backend/build.sh`.
+- All platforms build through Conan + `cmake --preset`
+  (`scripts/backend/build.bat` on Windows, `scripts/backend/build.sh` on
+  Linux/macOS). Each preset installs to `build/<preset>` (e.g.
+  `build/windows-msvc`, `build/linux-release`, `build/macos-arm64`); see
+  `CMakePresets.json`. `cmake --list-presets` lists them.
 
 ## Architecture
 

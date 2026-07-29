@@ -4,6 +4,7 @@ setlocal enabledelayedexpansion
 call "%~dp0\env_common.bat"
 if errorlevel 1 exit /b 1
 
+set "SCRIPT_DIR=%~dp0"
 set "PROJECT_DIR=%~dp0..\.."
 set BUILD_TYPE=Release
 set VERBOSE=--output-on-failure
@@ -29,23 +30,28 @@ shift
 goto parse_args
 :end_parse
 
+REM Map the build configuration to its Conan-installed CMakePresets.json
+REM preset directory (build/<preset>), matching what build.bat produced.
+call "%SCRIPT_DIR%resolve_preset.bat" %BUILD_TYPE%
+set "PRESET_DIR=%PROJECT_DIR%\%BUILD_DIR%\%CMAKE_PRESET%"
+
 echo ========================================
 echo Running OAuth2 Tests (Dual-Config)
 echo ========================================
 echo Build Type: %BUILD_TYPE%
 
-if not exist "%PROJECT_DIR%\%BUILD_DIR%" (
-    echo [Error] Build directory not found. Please run build.bat first.
+if not exist "%PRESET_DIR%" (
+    echo [Error] Build directory not found: %PRESET_DIR%. Please run build.bat first.
     exit /b 1
 )
 
-REM Phase 5 restructure: tests build under BUILD_DIR/tests (was
+REM Phase 5 restructure: tests build under <preset>/tests (was
 REM OAuth2Server/test); their runtime config is a flat config.json there
 REM (tests/CMakeLists POST_BUILD), NOT the source-tree config/ subpath.
-set "TEST_WORK_DIR=%PROJECT_DIR%\%BUILD_DIR%\%TESTS_BUILD_SUBDIR%\%BUILD_TYPE%"
+set "TEST_WORK_DIR=%PRESET_DIR%\%TESTS_BUILD_SUBDIR%\%BUILD_TYPE%"
 set "TEST_CONFIG=%TEST_WORK_DIR%\config.json"
 
-cd /d "%PROJECT_DIR%\%BUILD_DIR%"
+cd /d "%PRESET_DIR%"
 
 REM --- Run 1: Standard config.json ---
 echo.

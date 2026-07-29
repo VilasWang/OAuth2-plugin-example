@@ -32,6 +32,11 @@ shift
 goto parse_args
 :end_parse
 
+REM Map the build configuration to its Conan-installed CMakePresets.json
+REM preset directory (build/<preset>), matching what build.bat produced.
+call "%SCRIPT_DIR%resolve_preset.bat" %BUILD_TYPE%
+set "PRESET_DIR=%PROJECT_DIR%\%BUILD_DIR%\%CMAKE_PRESET%"
+
 echo.
 echo ========================================
 echo One-Click Build and Test (%BUILD_TYPE%)
@@ -109,7 +114,7 @@ echo ========================================
 echo Step 5: Starting OAuth2 server
 echo ========================================
 
-set "SERVER_EXE=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%\%SERVER_BINARY_NAME%.exe"
+set "SERVER_EXE=%PRESET_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%\%SERVER_BINARY_NAME%.exe"
 if not exist "%SERVER_EXE%" (
     echo [FAILED] Server executable not found at %SERVER_EXE%
     set "FINAL_RESULT=1"
@@ -121,7 +126,7 @@ REM as run_server.bat). main.cc has no -c flag -- it probes ./config.json
 REM relative to CWD, and build.bat copies config.json next to the exe. The
 REM old CWD (apps/server) no longer has a root config.json (configs moved
 REM into apps/server/config/).
-set "SERVER_RUN_DIR=%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%"
+set "SERVER_RUN_DIR=%PRESET_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%"
 echo Starting server from %SERVER_RUN_DIR% ...
 pushd "%SERVER_RUN_DIR%"
 start "" "%SERVER_EXE%"

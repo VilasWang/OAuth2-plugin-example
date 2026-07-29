@@ -37,6 +37,42 @@ export OAUTH2_SERVER_ABS_DIR
 export LIBS_STORAGE_POSTGRES_ABS_DIR
 export BUILD_ABS_DIR
 
+# Resolve the CMakePresets.json preset name for the current OS + build type
+# + sanitizer. All builds go through Conan + `cmake --preset`, and each
+# preset installs to its own build/<preset-name> directory (binaryDir), so
+# downstream scripts derive the actual output dir as
+# "$BUILD_ABS_DIR/$(resolve_cmake_preset ...)".
+#   Usage: PRESET=$(resolve_cmake_preset "$BUILD_TYPE" "$SANITIZER")
+# SANITIZER is optional (off|address|thread); defaults to off.
+resolve_cmake_preset() {
+    local build_type="${1:-Release}"
+    local sanitizer="${2:-off}"
+    local base
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        base="macos-arm64"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        base="linux-release"
+    else
+        echo "[Error] Unsupported OSTYPE for preset resolution: $OSTYPE" >&2
+        return 1
+    fi
+    case "$sanitizer" in
+        address) echo "${base}-asan"; return 0 ;;
+        thread)  echo "${base}-tsan"; return 0 ;;
+    esac
+    if [ "$build_type" = "Debug" ]; then
+        # linux-release -> linux-debug ; macos-arm64 -> macos-arm64-debug
+        if [ "$base" = "linux-release" ]; then
+            echo "linux-debug"
+        else
+            echo "${base}-debug"
+        fi
+    else
+        echo "$base"
+    fi
+}
+export -f resolve_cmake_preset
+
 # Relocated Docker assets (repo-structure-refactor moved these out of the root
 # into deploy/docker/). Scripts must reference them via these variables instead
 # of bare `docker-compose` / `-f Dockerfile`, which assumed root-level files.

@@ -1,147 +1,136 @@
-# Linux Build Guide
+# Backend Build Guide
+
+All platforms (Windows, Linux, macOS) build the backend the same way:
+**Conan resolves the C/C++ dependencies** (Drogon, OpenSSL, jsoncpp, libpq,
+hiredis, ...) and **`cmake --preset` drives the configure/build**. Each preset
+installs into its own `build/<preset-name>` directory (see
+[`CMakePresets.json`](../../CMakePresets.json) `binaryDir`).
+
+The `build.sh` / `build.bat` wrappers pick the right preset automatically from
+the requested configuration, so you normally don't invoke Conan or CMake by
+hand.
+
+## Prerequisites (one-time)
+
+- A C++17 toolchain: MSVC (Windows), GCC/Clang (Linux), Apple Clang (macOS)
+- CMake ≥ 3.21 (required for the preset schema used here)
+- [Conan](https://conan.io/) 2.x (`pipx install conan` or `pip install conan`)
+
+On Linux/macOS the OS build toolchain can be bootstrapped with:
+
+```bash
+./build.sh --install-deps    # apt: git/build-essential/cmake ; brew: git/cmake
+```
+
+C/C++ libraries are **not** installed from apt/brew anymore — they come from
+Conan.
 
 ## Quick Start
 
-### Option 1: Build with Drogon from Source (Recommended)
-
 ```bash
-cd OAuth2Backend/scripts
-./build.sh --build-drogon
+# Linux/macOS
+./build.sh                    # Release build (linux-release / macos-arm64)
+./build.sh --debug            # Debug build   (linux-debug / macos-arm64-debug)
+
+# Sanitizer builds (imply --debug; GCC/Clang only)
+./build.sh --asan             # AddressSanitizer (*-asan preset)
+./build.sh --tsan             # ThreadSanitizer  (*-tsan preset)
 ```
 
-This will:
-1. Clone and build Drogon v1.9.13
-2. Install Drogon to `/usr/local` (requires sudo)
-3. Build OAuth2Backend with system libraries
-4. Build all tests
-
-### Option 2: Build with System Libraries
-
-If you have Drogon already installed:
-
-```bash
-# Install system dependencies
-sudo apt-get install -y \
-    git gcc g++ cmake \
-    libjsoncpp-dev uuid-dev libpq-dev \
-    libssl-dev zlib1g-dev libhiredis-dev
-
-# Build OAuth2Backend
-cd OAuth2Backend/scripts
-./build.sh
+```bat
+REM Windows
+build.bat                     REM Release build (windows-msvc)
+build.bat -debug              REM Debug build   (windows-msvc-debug)
 ```
 
-### Option 3: Build with Conan (Not Recommended)
+## Preset ⇄ build directory mapping
+
+| Platform | Config | Preset | Build directory |
+|----------|--------|--------|-----------------|
+| Windows  | Release | `windows-msvc`        | `build/windows-msvc` |
+| Windows  | Debug   | `windows-msvc-debug`  | `build/windows-msvc-debug` |
+| Linux    | Release | `linux-release`       | `build/linux-release` |
+| Linux    | Debug   | `linux-debug`         | `build/linux-debug` |
+| macOS    | Release | `macos-arm64`         | `build/macos-arm64` |
+| macOS    | Debug   | `macos-arm64-debug`   | `build/macos-arm64-debug` |
+
+Sanitizers map to `linux-release-{asan,tsan}` / `macos-arm64-{asan,tsan}`.
+
+## Manual build (equivalent to the wrappers)
 
 ```bash
-# Install Conan
-pip install conan
-
-# Build with Conan
-cd OAuth2Backend/scripts
-./build.sh --conan
+# Example: Linux release
+conan install . --output-folder=build/linux-release -s build_type=Release -s compiler.cppstd=17 --build=missing
+cmake --preset linux-release
+cmake --build --preset linux-release
 ```
 
-## Build Options
-
-### Basic Usage
-
-```bash
-./build.sh                    # Default: Release build with system libraries
-./build.sh Debug              # Debug build
-./build.sh RelWithDebInfo     # Release with debug info
-```
-
-### Advanced Options
-
-```bash
-# Build Drogon from source
-./build.sh --build-drogon
-
-# Specify custom Drogon version
-./build.sh --build-drogon --drogon-version=v1.9.10
-
-# Specify custom install prefix
-./build.sh --build-drogon --drogon-prefix=/opt/drogon
-
-# Use Conan instead of system libraries
-./build.sh --conan
-
-# Combine options
-./build.sh --build-drogon Debug --drogon-version=v1.9.13
-```
+`cmake --list-presets` shows every preset available on the current host.
 
 ## Running the Server
 
+Use the helper (it resolves the preset directory for you):
+
 ```bash
-cd build/apps/server
+./run-server.sh               # Release ; add --debug for the Debug build
+```
+
+Or run the binary directly from its preset directory, e.g. on Linux release:
+
+```bash
+cd build/linux-release/apps/server
 ./authforge-server
 ```
 
-The server will start on `http://localhost:5555`.
+The server starts on `http://localhost:5555`. `main.cc` has no `-c` flag; it
+loads `./config.json` relative to the working directory, which the build
+wrappers stage next to the binary.
 
 ## Running Tests
 
 ```bash
-cd build
+./test.sh                     # Release ; add --debug for the Debug build
+```
+
+Or invoke `ctest` from the preset directory, e.g. on Linux release:
+
+```bash
+cd build/linux-release
 ctest --output-on-failure
 ```
 
 ## CI/CD Reference
 
-This script follows the same build process as [`.github/workflows/ci-linux.yml`](../../.github/workflows/ci-linux.yml):
+These scripts follow the same Conan + preset process as the CI workflows:
 
-- Uses system libraries via apt-get
-- Builds Drogon from source
-- No Conan dependency on Linux
-- Compatible with Ubuntu 20.04+ and Debian 11+
+- [`.github/workflows/ci-linux.yml`](../../.github/workflows/ci-linux.yml) — `linux-release`
+- [`.github/workflows/ci-macos.yml`](../../.github/workflows/ci-macos.yml) — `macos-arm64`
+- [`.github/workflows/ci-windows.yml`](../../.github/workflows/ci-windows.yml) — `windows-msvc`
 
 ## Troubleshooting
 
-### Missing Dependencies
+### Conan not found
 
-If you see errors about missing libraries:
+Install it and retry: `pipx install conan` (or `pip install conan`). The first
+run also needs a profile: `conan profile detect`.
 
-```bash
-sudo apt-get install -y \
-    git gcc g++ cmake \
-    libjsoncpp-dev uuid-dev libpq-dev \
-    libssl-dev zlib1g-dev libhiredis-dev
-```
+### `cmake --preset` fails to parse
 
-### Permission Denied
+`CMakeUserPresets.json` (Conan-generated, git-ignored) may hold a stale
+`include` to a removed build directory. The build wrappers delete it before
+`conan install`; if you build manually, remove it and re-run `conan install`.
 
-If you get "Permission denied" error:
+### `drogon_ctl` not found at build time
 
-```bash
-chmod +x OAuth2Backend/scripts/build.sh
-```
+`drogon_create_views()`/`drogon_create_model()` call `drogon_ctl` as a bare
+command. `build.sh` adds the Conan package's `bin/` (read from
+`build/<preset>/Drogon-*-data.cmake`) to `PATH` automatically; if you build by
+hand, add that directory to `PATH` first.
 
-### Drogon Not Found
-
-If CMake can't find Drogon:
+### Permission denied on the scripts
 
 ```bash
-# Option 1: Use --build-drogon flag
-./build.sh --build-drogon
-
-# Option 2: Install Drogon manually
-sudo make install  # From Drogon build directory
+chmod +x scripts/backend/build.sh
 ```
 
-### Sudo Password Required
-
-When using `--build-drogon`, sudo is required to install Drogon to `/usr/local`. To avoid this:
-
-```bash
-# Install to user directory
-./build.sh --build-drogon --drogon-prefix=$HOME/.local
-```
-
-## Comparison with Windows
-
-- **Windows**: Uses `build.bat` with Conan (required)
-- **Linux**: Uses `build.sh` with system libraries (recommended)
-- **macOS**: Uses `build.sh` with Homebrew libraries
-
-See [README.md](../../README.md) for more platform-specific information.
+See the top-level [README.md](../../README.md) for the full project overview.

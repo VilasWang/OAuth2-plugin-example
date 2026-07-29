@@ -90,8 +90,8 @@
 ### 方式一：通过 CTest（推荐）
 
 ```powershell
-# 在构建完成后执行
-cd build
+# 在构建完成后执行（目录为 build/<preset>，Windows Release 为 windows-msvc）
+cd build\windows-msvc
 ctest -V -C Release --output-on-failure --timeout 120
 ```
 
@@ -100,7 +100,7 @@ ctest -V -C Release --output-on-failure --timeout 120
 测试可执行文件内部会自动启动 Drogon App 实例（`test_main.cc` 中通过信号量同步），**无需手动启动 OAuth2Server**。
 
 ```powershell
-cd build\tests\Release
+cd build\windows-msvc\tests\Release
 .\authforge-tests.exe
 ```
 

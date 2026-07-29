@@ -118,7 +118,7 @@ cmd_ctest() {
     else
         if [[ ! -d "${build_dir}" ]]; then
             err "build dir not found: ${build_dir}"
-            err "configure first (cmake -S . -B build [-DCMAKE_BUILD_TYPE=${cfg}])"
+            err "configure first (cmake --preset <preset>, e.g. linux-release) then pass --build-dir build/<preset>"
             err "or rerun with --from-fixture to capture against bundled fixtures."
             return 1
         fi

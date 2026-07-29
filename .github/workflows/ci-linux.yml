@@ -8,6 +8,11 @@ on:
 
 env:
   BUILD_TYPE: Release
+  # All builds go through Conan + `cmake --preset` (parity with build.sh /
+  # build.bat). The linux-release preset installs into build/linux-release
+  # (see CMakePresets.json binaryDir).
+  CMAKE_PRESET: linux-release
+  PRESET_DIR: build/linux-release
 
 jobs:
   build-and-test:
@@ -107,7 +112,7 @@ jobs:
         # and all other C++ dependencies are declared in conanfile.py and
         # resolved here instead of being cloned/compiled from source.
         run: |
-          conan install . --output-folder=build --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17
+          conan install . --output-folder=${{env.PRESET_DIR}} --build=missing -s build_type=${{env.BUILD_TYPE}} -s compiler.cppstd=17
 
       - name: Add drogon_ctl (Conan package) to PATH
         # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
@@ -120,9 +125,9 @@ jobs:
         # package folder, so we read it from there instead of hardcoding a
         # Conan cache layout.
         run: |
-          data_file=$(find build -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
+          data_file=$(find ${{env.PRESET_DIR}} -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
           if [ -z "$data_file" ]; then
-            echo "::error::Could not find Drogon-*-data.cmake under build/ (conan install may have failed)"
+            echo "::error::Could not find Drogon-*-data.cmake under ${{env.PRESET_DIR}}/ (conan install may have failed)"
             exit 1
           fi
           drogon_folder=$(grep -oP 'set\(drogon_PACKAGE_FOLDER_RELEASE "\K[^"]+' "$data_file")
@@ -139,11 +144,14 @@ jobs:
           echo "$drogon_bin" >> "$GITHUB_PATH"
 
       - name: Configure Project CMake
+        # The preset carries CMAKE_BUILD_TYPE, C++ standard, and the Conan
+        # toolchain file (build/<preset>/conan_toolchain.cmake), matching the
+        # --output-folder above.
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DBUILD_TESTS=ON -DCMAKE_TOOLCHAIN_FILE="${{github.workspace}}/build/conan_toolchain.cmake"
+          cmake --preset ${{env.CMAKE_PRESET}}
 
       - name: Build
-        run: cmake --build build --config ${{env.BUILD_TYPE}}
+        run: cmake --build --preset ${{env.CMAKE_PRESET}}
 
       - name: Validate OpenAPI Spec
         run: |
@@ -193,7 +201,7 @@ jobs:
           ./tools/manage-parity-check.sh
 
       - name: Test
-        working-directory: ${{github.workspace}}/build
+        working-directory: ${{github.workspace}}/${{env.PRESET_DIR}}
         env:
           OAUTH2_REDIS_PASSWORD: ""
           OAUTH2_DB_HOST: "127.0.0.1"
@@ -221,7 +229,7 @@ jobs:
       # every environment configuration. It is therefore run here explicitly in
       # addition to executing as part of the full binary above.
       - name: Run Error-Standardization Backend Tests (Req 12.2/12.3/12.4/12.6/12.1)
-        working-directory: ${{github.workspace}}/build/tests
+        working-directory: ${{github.workspace}}/${{env.PRESET_DIR}}/tests
         env:
           OAUTH2_REDIS_PASSWORD: ""
           OAUTH2_DB_HOST: "127.0.0.1"
@@ -253,7 +261,7 @@ jobs:
           ./authforge-tests -r Unit_P0_ErrorCatalogDoc_OAuthTableMatchesCatalog
 
       - name: Run Performance Benchmarks
-        working-directory: ${{github.workspace}}/build/tests
+        working-directory: ${{github.workspace}}/${{env.PRESET_DIR}}/tests
         env:
           OAUTH2_REDIS_PASSWORD: ""
           OAUTH2_DB_HOST: "127.0.0.1"
@@ -266,7 +274,7 @@ jobs:
           ./authforge-tests -r Performance_P1_Benchmark_SubjectParsing_StressTest
 
       - name: Run E2E Tests
-        working-directory: ${{github.workspace}}/build/tests
+        working-directory: ${{github.workspace}}/${{env.PRESET_DIR}}/tests
         env:
           OAUTH2_REDIS_PASSWORD: ""
           OAUTH2_DB_HOST: "127.0.0.1"
@@ -279,7 +287,7 @@ jobs:
           ./authforge-tests -r Integration_P1_RedirectUri_Validation_Works
 
       - name: Run Integration Tests
-        working-directory: ${{github.workspace}}/build/tests
+        working-directory: ${{github.workspace}}/${{env.PRESET_DIR}}/tests
         env:
           OAUTH2_REDIS_PASSWORD: ""
           OAUTH2_DB_HOST: "127.0.0.1"
@@ -298,13 +306,13 @@ jobs:
         with:
           name: linux-test-logs
           path: |
-            ${{github.workspace}}/build/Testing/
+            ${{github.workspace}}/${{env.PRESET_DIR}}/Testing/
             ${{github.workspace}}/apps/server/logs/
           retention-days: 7
 
       - name: Generate Performance Report
         if: always()
-        working-directory: ${{github.workspace}}/build/tests
+        working-directory: ${{github.workspace}}/${{env.PRESET_DIR}}/tests
         run: |
           echo "=== Performance Test Summary ===" > performance_report.txt
           echo "Run on: $(date)" >> performance_report.txt

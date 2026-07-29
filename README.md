@@ -128,7 +128,7 @@ docker-compose up -d
 
 # 2. Start backend (requires PostgreSQL + Redis)
 cd apps\server
-..\..\build\apps\server\Release\authforge-server.exe
+..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
 
 # 3. Start admin console
 cd frontends\admin
@@ -173,7 +173,7 @@ npx playwright test --headed     # Headed browser mode
 ### C++ Unit Tests
 
 ```powershell
-cd build
+cd build\windows-msvc
 ctest --output-on-failure
 ```
 

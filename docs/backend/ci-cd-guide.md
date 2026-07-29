@@ -133,9 +133,9 @@ Get-ChildItem "OAuth2Server\sql\seed\*.sql" | ForEach-Object {
     psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
 }
 
-# 3. 构建并运行测试
+# 3. 构建并运行测试（build.bat 走 Conan + cmake --preset，Release 落到 build/windows-msvc）
 .\scripts\backend\build.bat -release
-cd build
+cd build\windows-msvc
 $env:OAUTH2_REDIS_PASSWORD = ""
 ctest -V -C Release --output-on-failure
 ```

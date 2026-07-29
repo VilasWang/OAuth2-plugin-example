@@ -117,7 +117,7 @@ function Invoke-Ctest {
         else {
             if (-not (Test-Path $bd)) {
                 Write-Err "build dir not found: $bd"
-                Write-Err "configure first (cmake -S . -B build [-DCMAKE_BUILD_TYPE=$cfg])"
+                Write-Err 'configure first (cmake --preset <preset>, e.g. windows-msvc) then pass -BuildDir build/<preset>'
                 Write-Err 'or rerun with -FromFixture to capture against bundled fixtures.'
                 exit 1
             }

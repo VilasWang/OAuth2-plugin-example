@@ -1,17 +1,16 @@
 #!/bin/bash
 # build.sh - Build the backend project (Linux/macOS)
-# Uses system package managers (apt/brew) instead of Conan, consistent with CI.
+# All platforms build through Conan + `cmake --preset` (parity with CI and
+# with build.bat on Windows). Each preset installs its dependencies into its
+# own build/<preset-name> directory (see CMakePresets.json binaryDir).
 
 set -e
 
-# Load common environment
+# Load common environment (provides paths.env vars + resolve_cmake_preset)
 source "$(dirname "$0")/env_common.sh"
 
 BUILD_TYPE=Release
-BUILD_DIR="$BUILD_ABS_DIR"
 INSTALL_DEPS=false
-BUILD_DROGON=false
-DROGON_VERSION="v1.9.13"
 SANITIZER=off
 
 # Colors for output
@@ -26,8 +25,8 @@ Show-Help() {
     echo "Options:"
     echo "  --debug             Build in Debug mode"
     echo "  --release           Build in Release mode (default)"
-    echo "  --install-deps      Install system dependencies (requires sudo/brew)"
-    echo "  --build-drogon      Clone and build Drogon from source (as in CI)"
+    echo "  --install-deps      Install the OS build toolchain (compiler, cmake,"
+    echo "                        git). C/C++ libraries come from Conan, not apt/brew."
     echo "  --sanitizer=<kind>  Enable a sanitizer for the test target:"
     echo "                        off (default) | thread (TSan) | address (ASan)"
     echo "                        Implies --debug. TSan and ASan are mutually"
@@ -61,9 +60,6 @@ for arg in "$@"; do
         --install-deps)
             INSTALL_DEPS=true
             ;;
-        --build-drogon)
-            BUILD_DROGON=true
-            ;;
         --help|-h)
             Show-Help
             exit 0
@@ -79,91 +75,93 @@ case "$SANITIZER" in
         ;;
 esac
 
+PRESET="$(resolve_cmake_preset "$BUILD_TYPE" "$SANITIZER")"
+if [ -z "$PRESET" ]; then
+    echo -e "${RED}[Error] Could not resolve a CMake preset for this platform.${NC}"
+    exit 1
+fi
+PRESET_DIR="$BUILD_ABS_DIR/$PRESET"
+
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}Building Project (Linux/macOS) - Config: $BUILD_TYPE${NC}"
+echo -e "${GREEN}Building Project - preset: $PRESET (config: $BUILD_TYPE)${NC}"
 echo -e "${GREEN}========================================${NC}"
 
-# 1. Install System Dependencies (Optional)
+# 1. Install OS build toolchain (optional). C/C++ libraries (Drogon, OpenSSL,
+#    jsoncpp, libpq, hiredis, ...) are resolved by Conan, not the OS package
+#    manager, so this only bootstraps the compiler/cmake/git.
 if [ "$INSTALL_DEPS" = true ]; then
-    echo -e "${YELLOW}[INFO] Installing system dependencies...${NC}"
+    echo -e "${YELLOW}[INFO] Installing OS build toolchain...${NC}"
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         sudo apt-get update
-        sudo apt-get install -y \
-            git gcc g++ cmake libjsoncpp-dev uuid-dev libpq-dev \
-            libssl-dev zlib1g-dev libhiredis-dev redis-tools \
-            libcurl4-openssl-dev
+        sudo apt-get install -y git build-essential cmake pkg-config
     elif [[ "$OSTYPE" == "darwin"* ]]; then
-        brew install git cmake jsoncpp ossp-uuid zlib openssl@3 libpq hiredis curl
+        brew install git cmake pkg-config
     else
         echo -e "${RED}[Error] Unsupported OS type: $OSTYPE${NC}"
         exit 1
     fi
+    echo -e "${YELLOW}[INFO] Conan is required too: 'pipx install conan' or 'pip install conan'.${NC}"
 fi
 
-# 2. Build and Install Drogon (Optional, as in CI)
-if [ "$BUILD_DROGON" = true ]; then
-    echo -e "${YELLOW}[INFO] Building Drogon from source (${DROGON_VERSION})...${NC}"
-    DROGON_TMP_DIR="/tmp/drogon_build"
-    rm -rf "$DROGON_TMP_DIR"
-    git clone --depth 1 --branch ${DROGON_VERSION} https://github.com/drogonframework/drogon "$DROGON_TMP_DIR"
-    cd "$DROGON_TMP_DIR"
-    git submodule update --init --recursive
-    mkdir build && cd build
-    
-    CMAKE_DROGON_FLAGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_EXAMPLES=OFF -DBUILD_MYSQL=OFF"
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        export PostgreSQL_ROOT="$(brew --prefix libpq)"
-        CMAKE_DROGON_FLAGS="$CMAKE_DROGON_FLAGS -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) -DBUILD_POSTGRESQL=ON -DBUILD_REDIS=ON"
-    fi
-    
-    cmake .. $CMAKE_DROGON_FLAGS
-    make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-    sudo make install
-    cd "$PROJECT_DIR"
-    rm -rf "$DROGON_TMP_DIR"
+if ! command -v conan >/dev/null 2>&1; then
+    echo -e "${RED}[Error] Conan not found. Install it (e.g. 'pipx install conan') and retry.${NC}"
+    exit 1
 fi
 
-# 3. Configure and Build Project
-mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
+cd "$PROJECT_DIR"
 
-echo -e "${YELLOW}[INFO] Configuring Project with CMake...${NC}"
-CMAKE_PROJECT_FLAGS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_TESTS=ON -DCMAKE_CXX_STANDARD=17"
+# CMakeUserPresets.json is a Conan-generated, gitignored artifact whose
+# `include` list points at previously-installed build/<dir>/CMakePresets.json
+# files. A stale include to a now-missing folder makes `cmake --preset` fail
+# to parse, so drop it and let `conan install` regenerate a clean one.
+rm -f "$PROJECT_DIR/CMakeUserPresets.json"
 
-if [ "$SANITIZER" != "off" ]; then
-    echo -e "${YELLOW}[INFO] Sanitizer enabled for test target: $SANITIZER${NC}"
-    CMAKE_PROJECT_FLAGS="$CMAKE_PROJECT_FLAGS -DOAUTH2_SANITIZER=$SANITIZER"
+echo -e "${YELLOW}[INFO] Installing dependencies with Conan (preset $PRESET)...${NC}"
+if [ ! -f "$HOME/.conan2/profiles/default" ]; then
+    echo -e "${YELLOW}[INFO] Initializing default conan profile...${NC}"
+    conan profile detect
 fi
 
+CONAN_ARGS=(install . --output-folder="build/$PRESET" -s build_type="$BUILD_TYPE" -s compiler.cppstd=17 --build=missing)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS specific paths
-    export PostgreSQL_ROOT="$(brew --prefix libpq)"
-    CMAKE_PROJECT_FLAGS="$CMAKE_PROJECT_FLAGS -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) -DCURL_ROOT=$(brew --prefix curl) -DCMAKE_FIND_FRAMEWORK=LAST"
+    CONAN_ARGS+=(-s arch=armv8)
+fi
+conan "${CONAN_ARGS[@]}"
+
+# drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a bare
+# command at BUILD time, so its bin/ dir (from the Conan package) must be on
+# PATH. CMakeDeps' Drogon-*-data.cmake records the resolved package folder.
+data_file=$(find "build/$PRESET" -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
+if [ -n "$data_file" ]; then
+    drogon_folder=$(grep -oE 'set\(drogon_PACKAGE_FOLDER_[A-Z]+ "[^"]+"' "$data_file" | sed -E 's/.*"([^"]+)"/\1/' | head -n1)
+    if [ -n "$drogon_folder" ] && [ -x "$drogon_folder/bin/drogon_ctl" ]; then
+        echo -e "${YELLOW}[INFO] Adding drogon_ctl to PATH: $drogon_folder/bin${NC}"
+        export PATH="$drogon_folder/bin:$PATH"
+    fi
 fi
 
-# Configure: run cmake without aborting on error so we can show a friendly hint.
+echo -e "${YELLOW}[INFO] Configuring (cmake --preset $PRESET)...${NC}"
 set +e
-cmake "$PROJECT_DIR" $CMAKE_PROJECT_FLAGS
+cmake --preset "$PRESET"
 CMAKE_CONFIG_RC=$?
 set -e
 if [ $CMAKE_CONFIG_RC -ne 0 ]; then
     echo -e "${RED}[Error] CMake configuration failed.${NC}"
-    echo -e "${YELLOW}Hint: a common cause is a missing Drogon or Jsoncpp system package.${NC}"
-    echo -e "${YELLOW}      build.sh links against system packages (no Conan) on Linux/macOS.${NC}"
-    echo -e "${YELLOW}      Run the one-time prerequisites first:${NC}"
-    echo -e "${YELLOW}        ./manage.sh build-backend --install-deps${NC}"
-    echo -e "${YELLOW}        ./manage.sh build-backend --build-drogon${NC}"
+    echo -e "${YELLOW}Hint: ensure 'conan install' above succeeded and Conan/CMake are installed.${NC}"
+    echo -e "${YELLOW}      One-time toolchain bootstrap: ./manage.sh build-backend --install-deps${NC}"
     exit 1
 fi
 
-echo -e "${YELLOW}[INFO] Building...${NC}"
-cmake --build . --config $BUILD_TYPE -- -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+echo -e "${YELLOW}[INFO] Building (cmake --build --preset $PRESET)...${NC}"
+cmake --build --preset "$PRESET" --config "$BUILD_TYPE" -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 
-# 4. Finalize
+# Finalize: stage config.json next to the server binary (single-config Unix
+# generators put it directly under <preset>/apps/server) and into the tests
+# build dir. main.cc has no -c flag; it probes ./config.json relative to CWD.
 echo -e "${YELLOW}[INFO] Copying config files...${NC}"
-mkdir -p "$BUILD_DIR/$OAUTH2_SERVER_DIR"
-cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$BUILD_DIR/$OAUTH2_SERVER_DIR/"
-mkdir -p "$BUILD_DIR/$OAUTH2_SERVER_DIR/test"
-cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$BUILD_DIR/$OAUTH2_SERVER_DIR/test/"
+mkdir -p "$PRESET_DIR/$SERVER_BUILD_SUBDIR"
+cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$PRESET_DIR/$SERVER_BUILD_SUBDIR/"
+mkdir -p "$PRESET_DIR/$TESTS_BUILD_SUBDIR"
+cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$PRESET_DIR/$TESTS_BUILD_SUBDIR/config.json"
 
-echo -e "${GREEN}Build Completed Successfully!${NC}"
+echo -e "${GREEN}Build Completed Successfully! (preset $PRESET)${NC}"
