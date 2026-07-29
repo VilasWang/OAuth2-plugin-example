@@ -244,6 +244,10 @@ void TokenService::exchangeCodeForToken(
                       token.clientId = authCode.clientId;
                       token.userId = authCode.userId;
                       token.scope = authCode.scope;
+                      // P2 #10: record the real issue time so introspection's
+                      // iat (RFC 7662 §2.2) is populated, not left at the 0
+                      // default (which the introspect endpoint silently omits).
+                      token.issuedAt = now;
                       token.expiresAt = now + accessTokenTtl_;
 
                       auto refreshTokenStr = generateSecureToken(*crypto_);
@@ -383,6 +387,8 @@ void TokenService::refreshAccessToken(
           token.clientId = storedRt->clientId;
           token.userId = storedRt->userId;
           token.scope = storedRt->scope;
+          // P2 #10: record real issue time for introspection iat.
+          token.issuedAt = now;
           token.expiresAt = now + accessTokenTtl_;
 
           auto newRefreshTokenStr = generateSecureToken(*crypto_);

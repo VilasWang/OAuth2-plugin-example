@@ -829,6 +829,7 @@ void TokenEndpointController::token(
                     token.clientId = clientId;
                     token.userId = "client:" + clientId;  // M2M: subject is the client itself
                     token.scope = grantedScope;
+                    token.issuedAt = now;  // P2 #10: introspection iat
                     token.expiresAt = now + accessTokenTtl;
 
                     // Phase 4.3: route through plugin->saveAccessToken (NEW
