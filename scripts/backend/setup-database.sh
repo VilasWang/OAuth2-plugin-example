@@ -28,8 +28,15 @@ psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
     -c "DROP DATABASE IF EXISTS $DB_NAME;" 2>/dev/null || true
 
 echo "Creating new database..."
-psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
-    -c "CREATE DATABASE $DB_NAME;" 2>/dev/null
+# Do NOT swallow stderr here: a missing role, wrong password or unreachable
+# server must surface loudly with actionable guidance (parity with the .bat).
+if ! psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
+    -c "CREATE DATABASE $DB_NAME;"; then
+    echo "[Error] Failed to create database \"$DB_NAME\" as role \"$DB_USER\"." >&2
+    echo "        Verify the role exists, OAUTH2_DB_PASSWORD is correct, and that" >&2
+    echo "        PostgreSQL is reachable at $DB_HOST:$DB_PORT." >&2
+    exit 1
+fi
 
 # Apply migrations
 if [ -d "$MIGRATIONS_DIR" ]; then
