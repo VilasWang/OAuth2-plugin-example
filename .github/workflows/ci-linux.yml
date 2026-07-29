@@ -190,6 +190,14 @@ jobs:
             psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
           done
 
+      - name: Check Architecture Layering (arch-guard)
+        # Static source check: Domain libs (common/oauth2/identity) must stay
+        # framework-agnostic -- no <drogon/...> includes, no drogon::orm, and
+        # oauth2/identity must not include each other. Platform-independent, so
+        # it runs on Linux only (like the other static guards below).
+        run: |
+          python3 tools/arch-guard/arch_guard.py
+
       - name: Check Test Naming Conventions
         run: |
           chmod +x tools/test/scripts/naming_validator.sh

@@ -296,9 +296,10 @@
   - `ci.yml` + `_build-test.yml` + `_frontend.yml` + `_sdk-smoke.yml`；三阶段门禁（快速门/主门/发布门）；SDK 冒烟纳入发布门
   - 产出：重构后 workflows；验收：三平台矩阵全绿；SDK 冒烟纳入门禁
 
-- [ ] 33. 实现 `tools/arch-guard`
+- [x] 33. 实现 `tools/arch-guard`（2026-07-28）
   - 检查 Domain（common/oauth2/identity）禁 `#include <drogon/`（允许 jsoncpp）；oauth2↔identity 无互相 include；Domain 无 `drogon::orm`
   - 产出：arch-guard 脚本 + CI 集成；验收：违规时 CI 失败
+  - **完成说明（2026-07-28）**：新增 `tools/arch-guard/arch_guard.py`（Python，跨平台单实现），扫描三个 Domain 库的生产代码（`include/`+`src/`，排除 `test/`/`testing/`——单测可合法 include `<drogon/drogon_test.h>`）。实现 C/C++ 注释与字符串剥离，避免注释中提及规则文字（如 `libs/common` 的 3 处）误报。三条规则 R1（无 `<drogon/`）/R2（oauth2↔identity 互不 include）/R3（无 `drogon::orm`）违规即 `exit 1`。已接入 `ci-linux.yml`（静态检查平台无关，与 naming_validator/parity-check 一致仅 Linux 跑，置于其前）。本地验证：全绿扫描 79 文件 `exit 0`；注入违规夹具三规则全命中 `exit 1`（file:line 精确、注释行不误报），已删除夹具。
 
 - [ ] 34. 实现 `tools/api-diff`
   - SDK 导出头 API 快照 diff，破坏性变更需版本升级
