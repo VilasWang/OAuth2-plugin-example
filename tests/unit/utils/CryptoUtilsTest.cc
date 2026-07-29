@@ -3,7 +3,7 @@
 
 using namespace authforge::drogon::utils;
 
-DROGON_TEST(Unit_CryptoUtils_GenerateSecureToken)
+DROGON_TEST(Unit_P2_CryptoUtils_GenerateSecureToken)
 {
     auto token = generateSecureToken();
     CHECK(token.length() == 43);  // 32 bytes base64url = 43 chars
@@ -12,14 +12,14 @@ DROGON_TEST(Unit_CryptoUtils_GenerateSecureToken)
     CHECK(token.find('/') == std::string::npos);
 }
 
-DROGON_TEST(Unit_CryptoUtils_GenerateSecureTokenUnique)
+DROGON_TEST(Unit_P2_CryptoUtils_GenerateSecureTokenUnique)
 {
     auto t1 = generateSecureToken();
     auto t2 = generateSecureToken();
     CHECK(t1 != t2);
 }
 
-DROGON_TEST(Unit_CryptoUtils_HashToken)
+DROGON_TEST(Unit_P2_CryptoUtils_HashToken)
 {
     auto hash = hashToken("test-token");
     CHECK(hash.length() == 64);  // SHA-256 hex = 64 chars
@@ -31,14 +31,14 @@ DROGON_TEST(Unit_CryptoUtils_HashToken)
     }
 }
 
-DROGON_TEST(Unit_CryptoUtils_HashTokenDeterministic)
+DROGON_TEST(Unit_P2_CryptoUtils_HashTokenDeterministic)
 {
     auto h1 = hashToken("same-input");
     auto h2 = hashToken("same-input");
     CHECK(h1 == h2);
 }
 
-DROGON_TEST(Unit_CryptoUtils_HashTokenDifferentInputs)
+DROGON_TEST(Unit_P2_CryptoUtils_HashTokenDifferentInputs)
 {
     auto h1 = hashToken("input-a");
     auto h2 = hashToken("input-b");

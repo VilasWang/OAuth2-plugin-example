@@ -46,7 +46,7 @@ jobs:
       - name: Check Test Naming Conventions
         run: |
           chmod +x tools/test/scripts/naming_validator.sh
-          ./tools/test/scripts/naming_validator.sh
+          ./tools/test/scripts/naming_validator.sh tests
 
       - name: Check manage.sh / manage.ps1 command parity
         run: |

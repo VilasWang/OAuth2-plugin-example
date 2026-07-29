@@ -185,6 +185,11 @@ bash scripts/backend/build.sh --asan        # == --sanitizer=address, implies --
 # Run the full suite (ctest name OAuth2Tests) under ASan:
 cd build && ctest --output-on-failure -R OAuth2Tests
 
+# NOTE (2026-07-28, test-naming normalization): the reproduction tests listed
+# below no longer exist in the test sources — they were removed before the
+# repository-wide rename to the [Category]_[Priority]_... convention. The names
+# are kept verbatim as a historical record of the original ASan findings; do
+# not expect them to run against the current binary.
 # Or run only the Category C reproductions directly:
 ./tests/authforge-tests \
   Integration_Concurrency_1_8_CachedStorage_GetAccessToken_UAF_Repro \

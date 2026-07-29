@@ -29,7 +29,7 @@ void cleanupEmail(const std::string &email)
 // and USERNAME_PATTERN guarantee the login dispatcher (find('@')) can never
 // misroute. We verify a valid username row is reachable by exact match, and
 // that an '@'-bearing identifier would route to the email branch instead.
-DROGON_TEST(Integration_Login_Dispatch_IsEmailVersusUsername)
+DROGON_TEST(Integration_P1_Login_Dispatch_IsEmailVersusUsername)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -60,7 +60,7 @@ DROGON_TEST(Integration_Login_Dispatch_IsEmailVersusUsername)
 
 // Covers Finding 3 (password-reset normalization): the lookup key is the
 // canonical email, so a Gmail-alias reset request must find the row.
-DROGON_TEST(Integration_Login_PasswordReset_LooksUpCanonicalEmail)
+DROGON_TEST(Integration_P1_Login_PasswordReset_LooksUpCanonicalEmail)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")

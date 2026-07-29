@@ -31,7 +31,7 @@ void cleanupEmail(const std::string &email)
 // Covers Finding 1 (JSON body) + Finding 5 (missing test):
 // an email-only registration via JSON persists username as NULL and a
 // canonical email, with a non-empty password hash.
-DROGON_TEST(Integration_Registration_EmailOnly_JsonBody)
+DROGON_TEST(Integration_P1_Registration_EmailOnly_JsonBody)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")

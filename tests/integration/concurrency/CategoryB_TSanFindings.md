@@ -121,8 +121,8 @@ cd build && ctest --output-on-failure -R OAuth2Tests
 
 # Or run only the two Category B reproductions directly:
 ./tests/authforge-tests \
-  Integration_Concurrency_1_4_AuthorizationFilter_LoadConfig_DataRace_Repro \
-  Integration_Concurrency_1_5_JwkManager_InitVsSign_DataRace_Repro
+  Integration_P1_Concurrency_1_4_AuthorizationFilter_LoadConfig_DataRace_Repro \
+  Integration_P1_Concurrency_1_5_JwkManager_InitVsSign_DataRace_Repro
 ```
 
 CMake plumbing (already in place from Task 0): `-DOAUTH2_SANITIZER=thread` →

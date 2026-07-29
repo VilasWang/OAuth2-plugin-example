@@ -184,7 +184,7 @@ long countRowsForUser(const std::string &table)
 // login (vue-client) -> verifyLogin (matching binding) -> tokens issued with
 // the frozen response shape -> pending binding cleared.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Integration_MfaCrossClientAuthFix_HappyPath_EndToEnd)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_HappyPath_EndToEnd)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -243,7 +243,7 @@ DROGON_TEST(Integration_MfaCrossClientAuthFix_HappyPath_EndToEnd)
 // rejected with AUTH_INVALID_CREDENTIALS, and no new oauth2_codes /
 // oauth2_access_tokens rows are created for the rejected attempt.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Integration_MfaCrossClientAuthFix_CrossClient_NoRowsCreated)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_CrossClient_NoRowsCreated)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")

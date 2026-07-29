@@ -153,7 +153,7 @@ const std::array<std::string_view, 13> &requiredOAuthCodes()
 }  // namespace
 
 // --- Per-entry invariants: exhaustive sweep over every Application entry. ------
-DROGON_TEST(Property5_ErrorCatalog_EveryEntrySatisfiesInvariants)
+DROGON_TEST(Unit_P0_ErrorCatalog_Property5_EveryEntrySatisfiesInvariants)
 {
     const auto &entries = ErrorCatalog::allEntries();
     REQUIRE(!entries.empty());
@@ -166,7 +166,7 @@ DROGON_TEST(Property5_ErrorCatalog_EveryEntrySatisfiesInvariants)
 }
 
 // --- Catalog-wide uniqueness: code unique and numeric_code unique. ------------
-DROGON_TEST(Property5_ErrorCatalog_CodeAndNumericCodeUnique)
+DROGON_TEST(Unit_P0_ErrorCatalog_Property5_CodeAndNumericCodeUnique)
 {
     const auto &entries = ErrorCatalog::allEntries();
 
@@ -188,7 +188,7 @@ DROGON_TEST(Property5_ErrorCatalog_CodeAndNumericCodeUnique)
 }
 
 // --- find()/findByNumeric() agree with allEntries() (single source of truth). -
-DROGON_TEST(Property5_ErrorCatalog_LookupsResolveToSameEntry)
+DROGON_TEST(Unit_P0_ErrorCatalog_Property5_LookupsResolveToSameEntry)
 {
     const auto &entries = ErrorCatalog::allEntries();
 
@@ -207,7 +207,7 @@ DROGON_TEST(Property5_ErrorCatalog_LookupsResolveToSameEntry)
 
 // --- OAuth2 protocol coverage: each allowed code appears exactly once with a ---
 //     valid HTTP status and a non-empty default error_description.
-DROGON_TEST(Property5_ErrorCatalog_OAuthAllowedSetCoveredExactlyOnce)
+DROGON_TEST(Unit_P0_ErrorCatalog_Property5_OAuthAllowedSetCoveredExactlyOnce)
 {
     const auto &oauthEntries = ErrorCatalog::allOAuthEntries();
     REQUIRE(!oauthEntries.empty());
@@ -243,7 +243,7 @@ DROGON_TEST(Property5_ErrorCatalog_OAuthAllowedSetCoveredExactlyOnce)
 }
 
 // --- Randomized sampling loop (PBT convention): >=100 iterations, fixed seed. --
-DROGON_TEST(Property5_ErrorCatalog_RandomizedSamplingHoldsInvariants)
+DROGON_TEST(Unit_P0_ErrorCatalog_Property5_RandomizedSamplingHoldsInvariants)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0xCA7A106U;
@@ -395,7 +395,7 @@ int expectedHttpStatusFor(const CatalogEntry &e)
 // --- Runtime status equals the catalog-registered status (Req 4.7, 2.7, 7.4). -
 //     For every registered Error_Code, the runtime HTTP status produced by
 //     Error::fromCode(code, ...).toHttpStatusCode() equals the catalog httpStatus.
-DROGON_TEST(Property4_HttpStatus_RuntimeEqualsCatalogRegisteredValue)
+DROGON_TEST(Unit_P0_HttpStatus_Property4_RuntimeEqualsCatalogRegisteredValue)
 {
     const auto &entries = ErrorCatalog::allEntries();
     REQUIRE(!entries.empty());
@@ -419,7 +419,7 @@ DROGON_TEST(Property4_HttpStatus_RuntimeEqualsCatalogRegisteredValue)
 //     per-entry override (方案 A / Requirement 11.4) the oracle is the declared
 //     override value instead of the category default, so 404/409 resource codes
 //     are accepted while every other code is still pinned to its category rule.
-DROGON_TEST(Property4_HttpStatus_CatalogValueMatchesCategoryMapping)
+DROGON_TEST(Unit_P0_HttpStatus_Property4_CatalogValueMatchesCategoryMapping)
 {
     const auto &entries = ErrorCatalog::allEntries();
     REQUIRE(!entries.empty());
@@ -444,7 +444,7 @@ DROGON_TEST(Property4_HttpStatus_CatalogValueMatchesCategoryMapping)
 //     VALIDATION_RESOURCE_CONFLICT->409) are exempt from the single-status rule;
 //     they are instead asserted to equal their registered override value so the
 //     test still catches a genuinely wrong override.
-DROGON_TEST(Property4_HttpStatus_SameCategoryConsistency)
+DROGON_TEST(Unit_P0_HttpStatus_Property4_SameCategoryConsistency)
 {
     const auto &entries = ErrorCatalog::allEntries();
     REQUIRE(!entries.empty());
@@ -505,7 +505,7 @@ DROGON_TEST(Property4_HttpStatus_SameCategoryConsistency)
 
 // --- Determinism (Requirement 4.9, second clause). toHttpStatusCode() returns ---
 //     the same value across repeated calls for the same code.
-DROGON_TEST(Property4_HttpStatus_DeterministicAcrossCalls)
+DROGON_TEST(Unit_P0_HttpStatus_Property4_DeterministicAcrossCalls)
 {
     const auto &entries = ErrorCatalog::allEntries();
     REQUIRE(!entries.empty());
@@ -521,7 +521,7 @@ DROGON_TEST(Property4_HttpStatus_DeterministicAcrossCalls)
 
 // --- Randomized sampling loop (PBT convention): >=100 iterations, fixed seed. --
 //     Re-checks runtime==catalog, catalog==mapping and determinism on random codes.
-DROGON_TEST(Property4_HttpStatus_RandomizedSamplingHoldsInvariants)
+DROGON_TEST(Unit_P0_HttpStatus_Property4_RandomizedSamplingHoldsInvariants)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x4040C0DEU;

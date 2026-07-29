@@ -199,7 +199,7 @@ constexpr const char *kBaseUrl = "http://localhost:5555";
 // Part A: protocol entry point produces RFC 6749 §5.2 errors for every
 // registered protocol code (Requirements 7.2, 11.3; headers per 2.1/2.3).
 // ===========================================================================
-DROGON_TEST(Integration_OAuth2ProtocolEndpoint_EntryPoint_Rfc6749Compliance)
+DROGON_TEST(Integration_P1_OAuth2ProtocolEndpoint_EntryPoint_Rfc6749Compliance)
 {
     const auto &oauthEntries = ErrorCatalog::allOAuthEntries();
     REQUIRE(!oauthEntries.empty());
@@ -234,7 +234,7 @@ DROGON_TEST(Integration_OAuth2ProtocolEndpoint_EntryPoint_Rfc6749Compliance)
 // Part A (boundary): invalid_client emitted via the entry point is HTTP 401 and
 // keeps the RFC §5.2 body shape (Requirement 2.4 / 11.3).
 // ===========================================================================
-DROGON_TEST(Integration_OAuth2ProtocolEndpoint_EntryPoint_InvalidClientIs401Rfc)
+DROGON_TEST(Integration_P1_OAuth2ProtocolEndpoint_EntryPoint_InvalidClientIs401Rfc)
 {
     const std::unordered_set<std::string> allowed = allowedProtocolCodes();
 
@@ -310,7 +310,7 @@ void assertLiveRfcError(
 }  // namespace
 
 // --- B1: client_credentials grant with no client credentials -> invalid_client (401).
-DROGON_TEST(Integration_OAuth2TokenEndpoint_ClientCredentialsNoAuth_Rfc6749InvalidClient)
+DROGON_TEST(Integration_P1_OAuth2TokenEndpoint_ClientCredentialsNoAuth_Rfc6749InvalidClient)
 {
     const std::unordered_set<std::string> allowed = allowedProtocolCodes();
 
@@ -330,7 +330,7 @@ DROGON_TEST(Integration_OAuth2TokenEndpoint_ClientCredentialsNoAuth_Rfc6749Inval
 }
 
 // --- B2: device_code grant with missing parameters -> invalid_request (400).
-DROGON_TEST(Integration_OAuth2TokenEndpoint_DeviceCodeMissingParams_Rfc6749InvalidRequest)
+DROGON_TEST(Integration_P1_OAuth2TokenEndpoint_DeviceCodeMissingParams_Rfc6749InvalidRequest)
 {
     const std::unordered_set<std::string> allowed = allowedProtocolCodes();
 

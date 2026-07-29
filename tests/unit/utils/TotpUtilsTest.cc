@@ -3,7 +3,7 @@
 
 using namespace authforge::common::utils;
 
-DROGON_TEST(Unit_TotpUtils_GenerateSecret)
+DROGON_TEST(Unit_P2_TotpUtils_GenerateSecret)
 {
     auto secret = TotpUtils::generateSecret();
     CHECK(secret.length() == 32);  // 20 bytes base32 = 32 chars
@@ -15,7 +15,7 @@ DROGON_TEST(Unit_TotpUtils_GenerateSecret)
     }
 }
 
-DROGON_TEST(Unit_TotpUtils_GenerateCode)
+DROGON_TEST(Unit_P2_TotpUtils_GenerateCode)
 {
     auto secret = TotpUtils::generateSecret();
     auto code = TotpUtils::generateCode(secret);
@@ -28,7 +28,7 @@ DROGON_TEST(Unit_TotpUtils_GenerateCode)
     }
 }
 
-DROGON_TEST(Unit_TotpUtils_VerifyCode)
+DROGON_TEST(Unit_P2_TotpUtils_VerifyCode)
 {
     auto secret = TotpUtils::generateSecret();
     auto code = TotpUtils::generateCode(secret);
@@ -36,7 +36,7 @@ DROGON_TEST(Unit_TotpUtils_VerifyCode)
     CHECK(TotpUtils::verifyCode(secret, "000000") == false);
 }
 
-DROGON_TEST(Unit_TotpUtils_GenerateBackupCodes)
+DROGON_TEST(Unit_P2_TotpUtils_GenerateBackupCodes)
 {
     auto codes = TotpUtils::generateBackupCodes(10);
     CHECK(codes.size() == 10);
@@ -46,7 +46,7 @@ DROGON_TEST(Unit_TotpUtils_GenerateBackupCodes)
     }
 }
 
-DROGON_TEST(Unit_TotpUtils_OtpAuthUri)
+DROGON_TEST(Unit_P2_TotpUtils_OtpAuthUri)
 {
     auto uri = TotpUtils::generateOtpAuthUri("JBSWY3DPEHPK3PXP", "user@test.com", "TestApp");
     CHECK(uri.find("otpauth://totp/") == 0);

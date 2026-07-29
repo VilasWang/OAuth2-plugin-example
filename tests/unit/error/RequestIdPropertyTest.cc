@@ -125,7 +125,7 @@ drogon::HttpRequestPtr makeRequestWithHeader(const std::string &value)
 
 // Main property test: random valid / invalid / missing headers + generation
 // uniqueness, all in one hand-written loop (>= 100 iterations).
-DROGON_TEST(Property10_RequestId_ResolveAndGenerate)
+DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
 {
     LOG_INFO << "Property 10 RequestId test, fixed seed=0x" << std::hex << kSeed << std::dec;
 
@@ -283,7 +283,7 @@ DROGON_TEST(Property10_RequestId_ResolveAndGenerate)
 }
 
 // Focused example test for the exact length boundary (128 valid, 129 invalid).
-DROGON_TEST(Property10_RequestId_LengthBoundary)
+DROGON_TEST(Unit_P0_RequestId_Property10_LengthBoundary)
 {
     const std::string at128(128, 'a');
     const std::string at129(129, 'a');

@@ -197,7 +197,7 @@ std::string errorCodeOf(const Json::Value &root)
 // through). After the fix it must STILL pass because the matching-binding path
 // is the intended, preserved flow.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property7_MfaCrossClientAuthFix_MatchingBindingIssuesTokens)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property7_MatchingBindingIssuesTokens)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -245,7 +245,7 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_MatchingBindingIssuesTokens)
 // text "verifyLogin: TOTP code is incorrect" (or carries that detail in the
 // envelope's message field).
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property7_MfaCrossClientAuthFix_WrongTotpRejected)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property7_WrongTotpRejected)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -288,7 +288,7 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_WrongTotpRejected)
 // 3.4 — Unknown mfa_token (no matching user id) rejected with
 // AUTH_INVALID_CREDENTIALS.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property7_MfaCrossClientAuthFix_UnknownMfaTokenRejected)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property7_UnknownMfaTokenRejected)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -318,7 +318,7 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_UnknownMfaTokenRejected)
 // 3.5 — Missing required fields rejected with VALIDATION_MISSING_REQUIRED_FIELD.
 // Covers missing mfa_token/code, and missing client_id/redirect_uri.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property7_MfaCrossClientAuthFix_MissingFieldsRejected)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property7_MissingFieldsRejected)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -381,7 +381,7 @@ DROGON_TEST(Property7_MfaCrossClientAuthFix_MissingFieldsRejected)
 // (std::to_string(internalId)) is only relevant when MFA is enabled, so this
 // case primarily pins the non-MFA path.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property7_MfaCrossClientAuthFix_NonMfaLoginUnchanged)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property7_NonMfaLoginUnchanged)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")

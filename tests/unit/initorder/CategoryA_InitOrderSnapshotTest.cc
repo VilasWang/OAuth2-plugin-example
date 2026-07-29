@@ -72,7 +72,7 @@ const std::vector<std::pair<std::string, std::string>> &expectedEndpoints()
 // 1.1 BASELINE: the full OpenApi endpoint set is registered and present.
 // A missing endpoint here is the deterministic stand-in for a SIOF
 // counterexample (global ctor order leaving the registry incomplete).
-DROGON_TEST(Unit_InitOrder_1_1_OpenApiEndpointSet_Complete_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_1_OpenApiEndpointSet_Complete_Baseline)
 {
     Json::Value spec = OpenApiGenerator::generateOpenApiSpec();
 
@@ -93,7 +93,7 @@ DROGON_TEST(Unit_InitOrder_1_1_OpenApiEndpointSet_Complete_Baseline)
 // 1.1 BASELINE: deep snapshot of representative endpoints — params, response
 // examples, security, tags — must be complete. This is the byte-comparable
 // baseline that task 6.4 preservation checks diff against after the SIOF fix.
-DROGON_TEST(Unit_InitOrder_1_1_OpenApiTokenEndpoint_Snapshot_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_1_OpenApiTokenEndpoint_Snapshot_Baseline)
 {
     Json::Value spec = OpenApiGenerator::generateOpenApiSpec();
     REQUIRE(spec.isMember("paths"));
@@ -144,7 +144,7 @@ DROGON_TEST(Unit_InitOrder_1_1_OpenApiTokenEndpoint_Snapshot_Baseline)
 
 // 1.1 BASELINE: discovery + JWKS endpoints registered (these are the endpoints
 // explicitly called out by the task: /.well-known/openid-configuration, JWKS).
-DROGON_TEST(Unit_InitOrder_1_1_OpenApiDiscoveryAndJwks_Snapshot_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_1_OpenApiDiscoveryAndJwks_Snapshot_Baseline)
 {
     Json::Value spec = OpenApiGenerator::generateOpenApiSpec();
     REQUIRE(spec.isMember("paths"));
@@ -215,7 +215,7 @@ FilterOutcome runValidation(const ::drogon::HttpRequestPtr &req)
 // If the global rule map were empty (the SIOF symptom), the violating request
 // would wrongly PASS — so the "Rejected" assertions are the counterexample
 // detectors.
-DROGON_TEST(Unit_InitOrder_1_2_Authorize_RulesComplete_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_2_Authorize_RulesComplete_Baseline)
 {
     // Valid authorize request -> passes.
     auto ok = ::drogon::HttpRequest::newHttpRequest();
@@ -235,7 +235,7 @@ DROGON_TEST(Unit_InitOrder_1_2_Authorize_RulesComplete_Baseline)
     CHECK(runValidation(bad) == FilterOutcome::Rejected);
 }
 
-DROGON_TEST(Unit_InitOrder_1_2_Token_RulesComplete_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_2_Token_RulesComplete_Baseline)
 {
     // Valid token request -> passes.
     auto ok = ::drogon::HttpRequest::newHttpRequest();
@@ -251,7 +251,7 @@ DROGON_TEST(Unit_InitOrder_1_2_Token_RulesComplete_Baseline)
     CHECK(runValidation(bad) == FilterOutcome::Rejected);
 }
 
-DROGON_TEST(Unit_InitOrder_1_2_Login_RulesComplete_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_2_Login_RulesComplete_Baseline)
 {
     // Valid login (body fields fall back to request parameters) -> passes.
     auto ok = ::drogon::HttpRequest::newHttpRequest();
@@ -270,7 +270,7 @@ DROGON_TEST(Unit_InitOrder_1_2_Login_RulesComplete_Baseline)
     CHECK(runValidation(bad) == FilterOutcome::Rejected);
 }
 
-DROGON_TEST(Unit_InitOrder_1_2_Register_RulesComplete_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_2_Register_RulesComplete_Baseline)
 {
     // Valid register -> passes.
     auto ok = ::drogon::HttpRequest::newHttpRequest();
@@ -292,7 +292,7 @@ DROGON_TEST(Unit_InitOrder_1_2_Register_RulesComplete_Baseline)
 // empty/disabled rule set and must PASS through unconditionally. This pins the
 // "no rules => pass" branch so a future regression that accidentally attaches
 // rules to unconfigured paths is caught.
-DROGON_TEST(Unit_InitOrder_1_2_UnconfiguredPath_PassesThrough_Baseline)
+DROGON_TEST(Unit_P1_InitOrder_1_2_UnconfiguredPath_PassesThrough_Baseline)
 {
     auto req = ::drogon::HttpRequest::newHttpRequest();
     req->setMethod(::drogon::Get);

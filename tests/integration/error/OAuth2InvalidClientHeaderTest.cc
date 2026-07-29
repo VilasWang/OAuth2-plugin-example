@@ -67,7 +67,7 @@ bool isServerReachable()
 }  // namespace
 
 // Test introspect endpoint with invalid Basic auth returns WWW-Authenticate header
-DROGON_TEST(Integration_OAuth2InvalidClient_IntrospectReturnsWWWAuthenticateHeader)
+DROGON_TEST(Integration_P1_OAuth2InvalidClient_IntrospectReturnsWWWAuthenticateHeader)
 {
     if (!isServerReachable())
     {
@@ -141,7 +141,7 @@ DROGON_TEST(Integration_OAuth2InvalidClient_IntrospectReturnsWWWAuthenticateHead
 }
 
 // Test revoke endpoint with invalid Basic auth returns WWW-Authenticate header
-DROGON_TEST(Integration_OAuth2InvalidClient_RevokeReturnsWWWAuthenticateHeader)
+DROGON_TEST(Integration_P1_OAuth2InvalidClient_RevokeReturnsWWWAuthenticateHeader)
 {
     if (!isServerReachable())
     {

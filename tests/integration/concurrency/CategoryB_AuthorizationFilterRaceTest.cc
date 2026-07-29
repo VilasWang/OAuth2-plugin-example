@@ -102,7 +102,7 @@ void driveOnce(AuthorizationFilter &filter, std::atomic<int> &denyCount)
 // worker count, producing many distinct concurrent interleavings from a fixed
 // seed (reproducible). A fresh instance per round guarantees initialized_ is
 // false at entry, so every worker takes the unsynchronized init path.
-DROGON_TEST(Integration_Concurrency_1_4_AuthorizationFilter_LoadConfig_DataRace_Repro)
+DROGON_TEST(Integration_P1_Concurrency_1_4_AuthorizationFilter_LoadConfig_DataRace_Repro)
 {
     InterleavingGenerator gen(0x0A04C0DEu);
 

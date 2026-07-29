@@ -251,7 +251,7 @@ bool serverReachable()
 // Cases 2 and 3 below (registered-but-non-whitelisted and cross-client), where
 // the unfixed code DOES issue real tokens.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property1_MfaCrossClientAuthFix_UnregisteredClient)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property1_UnregisteredClient)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -313,7 +313,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_UnregisteredClient)
 // calls validateRedirectUri, and consumeAuthCode's equality check compares the
 // request body against itself (self-referential).
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property1_MfaCrossClientAuthFix_NonWhitelistedRedirectUri)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property1_NonWhitelistedRedirectUri)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -374,7 +374,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_NonWhitelistedRedirectUri)
 // place; before the fix the token IS issued. The assertion below pins the fixed
 // behavior.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property1_MfaCrossClientAuthFix_CrossClientConfusion)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property1_CrossClientConfusion)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -433,7 +433,7 @@ DROGON_TEST(Property1_MfaCrossClientAuthFix_CrossClientConfusion)
 // not at all — the test pins the *fixed* contract that a NULL binding must not
 // be silently treated as "matches anything".
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property1_MfaCrossClientAuthFix_NullPendingBindingRejected)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property1_NullPendingBindingRejected)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")

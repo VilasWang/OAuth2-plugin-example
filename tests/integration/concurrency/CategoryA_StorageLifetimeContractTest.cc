@@ -97,7 +97,7 @@ class RawPtrService
 // service's captured raw pointer DANGLING while the service is still alive and
 // still holding it. The holder has NO way to detect the storage death — that
 // is the documented fragility of the implicit raw-pointer contract.
-DROGON_TEST(Integration_Concurrency_1_3_RawStoragePointer_DanglesAfterReset_Baseline)
+DROGON_TEST(Integration_P1_Concurrency_1_3_RawStoragePointer_DanglesAfterReset_Baseline)
 {
     auto alive = std::make_shared<std::atomic<bool>>(false);
 
@@ -132,7 +132,7 @@ DROGON_TEST(Integration_Concurrency_1_3_RawStoragePointer_DanglesAfterReset_Base
 // storage ALIVE as long as any holder references it, even across the owner's
 // reset(). This documents the post-fix invariant that task 6.4 will re-verify;
 // it PASSES on a shared_ptr model regardless of the production fix state.
-DROGON_TEST(Integration_Concurrency_1_3_SharedStorage_SurvivesReset_TargetContract)
+DROGON_TEST(Integration_P1_Concurrency_1_3_SharedStorage_SurvivesReset_TargetContract)
 {
     auto alive = std::make_shared<std::atomic<bool>>(false);
 

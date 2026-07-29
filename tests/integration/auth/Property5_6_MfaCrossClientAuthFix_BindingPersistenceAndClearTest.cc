@@ -206,7 +206,7 @@ bool serverReachable()
 // Property 6 (Requirement 2.6): SessionController::login persists the pending
 // binding when MFA is required, BEFORE the mfa_required response is sent.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property6_MfaCrossClientAuthFix_LoginPersistsPendingBinding)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property6_LoginPersistsPendingBinding)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -249,7 +249,7 @@ DROGON_TEST(Property6_MfaCrossClientAuthFix_LoginPersistsPendingBinding)
 // LAST login attempt's client_id/redirect_uri. Logging in twice with different
 // clients overwrites the binding (the accepted concurrent-login limitation).
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property6_MfaCrossClientAuthFix_LoginOverwritesPreviousBinding)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property6_LoginOverwritesPreviousBinding)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -297,7 +297,7 @@ DROGON_TEST(Property6_MfaCrossClientAuthFix_LoginOverwritesPreviousBinding)
 // Property 5 (Requirement 2.5): a fully successful verifyLogin clears the
 // pending binding back to NULL, so it cannot be replayed.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property5_MfaCrossClientAuthFix_PendingBindingClearedOnSuccess)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property5_PendingBindingClearedOnSuccess)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -364,7 +364,7 @@ DROGON_TEST(Property5_MfaCrossClientAuthFix_PendingBindingClearedOnSuccess)
 // MUST NOT clear the pending binding — the binding stays so a legitimate retry
 // with the correct client can still succeed.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Property5_MfaCrossClientAuthFix_RejectedVerifyKeepsBinding)
+DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property5_RejectedVerifyKeepsBinding)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")

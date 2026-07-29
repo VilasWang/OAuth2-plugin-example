@@ -299,7 +299,7 @@ jobs:
       #   - Integration_ApplicationEndpoint_* / Req 12.6 endpoint envelope enumeration
       #   - Unit_P0_ErrorCatalogDoc_* / Req 12.1 doc<->catalog consistency
       #
-      # NOTE (Req 12.4, dev/staging/prod): Property6_ErrorEnvelope_ProductionModeSafetyIsolation
+      # NOTE (Req 12.4, dev/staging/prod): Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation
       # forces Production_Mode internally via an ErrorContext override, so it is
       # config-independent BY CONSTRUCTION and asserts the no-leak guarantee under
       # every environment configuration. It is therefore run here explicitly in
@@ -309,26 +309,26 @@ jobs:
         working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests/${{ inputs.test_bin_subdir }}
         run: |
           echo "=== Error-Standardization: property + consistency tests (Req 12.2/12.3) ==="
-          ./${{ inputs.test_exe }} -r Property5_ErrorCatalog_EveryEntrySatisfiesInvariants
-          ./${{ inputs.test_exe }} -r Property5_ErrorCatalog_CodeAndNumericCodeUnique
-          ./${{ inputs.test_exe }} -r Property5_ErrorCatalog_OAuthAllowedSetCoveredExactlyOnce
-          ./${{ inputs.test_exe }} -r Property4_HttpStatus_RuntimeEqualsCatalogRegisteredValue
-          ./${{ inputs.test_exe }} -r Property4_HttpStatus_CatalogValueMatchesCategoryMapping
-          ./${{ inputs.test_exe }} -r Property4_HttpStatus_SameCategoryConsistency
-          ./${{ inputs.test_exe }} -r Property3_ErrorEnvelope_SerializationRoundTrip
-          ./${{ inputs.test_exe }} -r Property1_ErrorEnvelope_StructuralInvariants
-          ./${{ inputs.test_exe }} -r Property2_ErrorEnvelope_NumericCodeCorrectnessAndOmission
-          ./${{ inputs.test_exe }} -r Property7_ErrorEnvelope_NonProductionDiagnosticDetails
-          ./${{ inputs.test_exe }} -r Property8_ErrorEnvelope_UnmappedExceptionInternalFallback
-          ./${{ inputs.test_exe }} -r Property9_OAuth2Error_Rfc6749Compliance
-          ./${{ inputs.test_exe }} -r Property10_RequestId_ResolveAndGenerate
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorCatalog_Property5_EveryEntrySatisfiesInvariants
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorCatalog_Property5_CodeAndNumericCodeUnique
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorCatalog_Property5_OAuthAllowedSetCoveredExactlyOnce
+          ./${{ inputs.test_exe }} -r Unit_P0_HttpStatus_Property4_RuntimeEqualsCatalogRegisteredValue
+          ./${{ inputs.test_exe }} -r Unit_P0_HttpStatus_Property4_CatalogValueMatchesCategoryMapping
+          ./${{ inputs.test_exe }} -r Unit_P0_HttpStatus_Property4_SameCategoryConsistency
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorEnvelope_Property1_StructuralInvariants
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorEnvelope_Property2_NumericCodeCorrectnessAndOmission
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback
+          ./${{ inputs.test_exe }} -r Unit_P0_OAuth2Error_Property9_Rfc6749Compliance
+          ./${{ inputs.test_exe }} -r Unit_P0_RequestId_Property10_ResolveAndGenerate
           echo "=== Error-Standardization: security safety isolation (Property 6 / Req 12.4, dev/staging/prod) ==="
           # Config-independent by construction (forces Production_Mode via ErrorContext override).
-          ./${{ inputs.test_exe }} -r Property6_ErrorEnvelope_ProductionModeSafetyIsolation
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation
           echo "=== Error-Standardization: Application_Endpoint envelope enumeration (Req 12.6) ==="
-          ./${{ inputs.test_exe }} -r Integration_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnvelopes
-          ./${{ inputs.test_exe }} -r Integration_ApplicationEndpoint_ResponderEntries_AreEnvelopes
-          ./${{ inputs.test_exe }} -r Integration_ApplicationEndpoint_UnregisteredCode_FallsBackToEnvelope
+          ./${{ inputs.test_exe }} -r Integration_P0_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnvelopes
+          ./${{ inputs.test_exe }} -r Integration_P0_ApplicationEndpoint_ResponderEntries_AreEnvelopes
+          ./${{ inputs.test_exe }} -r Integration_P0_ApplicationEndpoint_UnregisteredCode_FallsBackToEnvelope
           echo "=== Error-Standardization: catalog<->doc consistency (Req 12.1) ==="
           ./${{ inputs.test_exe }} -r Unit_P0_ErrorCatalogDoc_ApplicationTableMatchesCatalog
           ./${{ inputs.test_exe }} -r Unit_P0_ErrorCatalogDoc_OAuthTableMatchesCatalog

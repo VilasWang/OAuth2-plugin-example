@@ -42,7 +42,7 @@ size_t countOccurrences(const std::string &haystack, const std::string &needle)
 
 // A benign message has exactly the expected headers, all present once, and the
 // header/body separator is a single blank line.
-DROGON_TEST(Unit_EmailSecurity_BuildMime_BenignMessage_WellFormed)
+DROGON_TEST(Unit_P2_EmailSecurity_BuildMime_BenignMessage_WellFormed)
 {
     std::string msg = SmtpEmailService::buildMimeMessage(
       "alice@example.com",
@@ -66,7 +66,7 @@ DROGON_TEST(Unit_EmailSecurity_BuildMime_BenignMessage_WellFormed)
 // the "Bcc:" text cannot start a new header line (it stays as inert inline text
 // on the To: line, which is harmless — the security property is "no new header
 // line", not "these bytes never appear").
-DROGON_TEST(Unit_EmailSecurity_BuildMime_CRLFInRecipient_NoHeaderInjection)
+DROGON_TEST(Unit_P2_EmailSecurity_BuildMime_CRLFInRecipient_NoHeaderInjection)
 {
     std::string msg = SmtpEmailService::buildMimeMessage(
       "victim@example.com\r\nBcc: attacker@evil.com",
@@ -85,7 +85,7 @@ DROGON_TEST(Unit_EmailSecurity_BuildMime_CRLFInRecipient_NoHeaderInjection)
 }
 
 // CRLF injection in the subject must not split into extra headers.
-DROGON_TEST(Unit_EmailSecurity_BuildMime_CRLFInSubject_NoHeaderInjection)
+DROGON_TEST(Unit_P2_EmailSecurity_BuildMime_CRLFInSubject_NoHeaderInjection)
 {
     std::string msg = SmtpEmailService::buildMimeMessage(
       "alice@example.com",
@@ -106,7 +106,7 @@ DROGON_TEST(Unit_EmailSecurity_BuildMime_CRLFInSubject_NoHeaderInjection)
 // Shell metacharacters in the recipient are now just inert text — there is no
 // shell anymore. They must not break message structure (no injected headers).
 // This is the regression test for the original command-injection vector.
-DROGON_TEST(Unit_EmailSecurity_BuildMime_ShellMetacharsInRecipient_Inert)
+DROGON_TEST(Unit_P2_EmailSecurity_BuildMime_ShellMetacharsInRecipient_Inert)
 {
     const std::string maliciousTo = "x'; touch /tmp/pwned; '@example.com";
     std::string msg = SmtpEmailService::buildMimeMessage(
@@ -124,7 +124,7 @@ DROGON_TEST(Unit_EmailSecurity_BuildMime_ShellMetacharsInRecipient_Inert)
 
 // Bare LF (not just CRLF) must also be stripped from header fields so it cannot
 // start a new header line.
-DROGON_TEST(Unit_EmailSecurity_BuildMime_BareLFInFrom_Sanitized)
+DROGON_TEST(Unit_P2_EmailSecurity_BuildMime_BareLFInFrom_Sanitized)
 {
     std::string msg = SmtpEmailService::buildMimeMessage(
       "alice@example.com", "Subject", "Body", "Platform\nX-Evil: yes", "noreply@example.com"
@@ -138,7 +138,7 @@ DROGON_TEST(Unit_EmailSecurity_BuildMime_BareLFInFrom_Sanitized)
 
 // The body MAY legitimately contain newlines; they must be preserved (only
 // HEADER fields are sanitized, not the body).
-DROGON_TEST(Unit_EmailSecurity_BuildMime_BodyNewlinesPreserved)
+DROGON_TEST(Unit_P2_EmailSecurity_BuildMime_BodyNewlinesPreserved)
 {
     std::string msg = SmtpEmailService::buildMimeMessage(
       "alice@example.com", "Subject", "Line1\r\nLine2\r\nLine3", "Platform", "noreply@example.com"

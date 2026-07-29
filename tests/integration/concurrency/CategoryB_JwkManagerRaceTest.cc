@@ -103,7 +103,7 @@ Json::Value emptyConfig()
 // writer-vs-reader interleavings. The fresh instance guarantees the readers
 // can observe the init() write transition (false->true, empty kid_->set,
 // null rsaKey_->set) — exactly the C(X) window.
-DROGON_TEST(Integration_Concurrency_1_5_JwkManager_InitVsSign_DataRace_Repro)
+DROGON_TEST(Integration_P1_Concurrency_1_5_JwkManager_InitVsSign_DataRace_Repro)
 {
     InterleavingGenerator gen(0x0B05C0DEu);
 

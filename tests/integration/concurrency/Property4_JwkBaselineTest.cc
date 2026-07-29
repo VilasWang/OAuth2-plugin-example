@@ -103,7 +103,7 @@ Json::Value sampleClaims()
 
 // 3.3 PRESERVATION (JWKS shape): a single initialized JwkManager exposes exactly
 // one RS256 signing key whose kid matches getKeyId() and whose n/e are present.
-DROGON_TEST(Property4_3_3_Jwks_Shape_Baseline)
+DROGON_TEST(Integration_P1_Jwks_Property4_3_3_Shape_Baseline)
 {
     JwkManager jwk;
     REQUIRE(jwk.init(Json::Value(Json::objectValue)) == true);
@@ -127,7 +127,7 @@ DROGON_TEST(Property4_3_3_Jwks_Shape_Baseline)
 
 // 3.3 PRESERVATION (id_token shape): signJwt produces header.payload.signature
 // with a decodable RS256/JWT/kid header and a claims-preserving payload.
-DROGON_TEST(Property4_3_3_SignJwt_Shape_Baseline)
+DROGON_TEST(Integration_P1_SignJwt_Property4_3_3_Shape_Baseline)
 {
     JwkManager jwk;
     REQUIRE(jwk.init(Json::Value(Json::objectValue)) == true);
@@ -161,7 +161,7 @@ DROGON_TEST(Property4_3_3_SignJwt_Shape_Baseline)
 // initialized instance use the SAME kid and the SAME public modulus, and RS256
 // re-signing the identical payload is deterministic (identical signature). This
 // is exactly the "run-time read-only => consistent key" guarantee.
-DROGON_TEST(Property4_3_3_SameInstance_Consistency_Baseline)
+DROGON_TEST(Integration_P1_SameInstance_Property4_3_3_Consistency_Baseline)
 {
     JwkManager jwk;
     REQUIRE(jwk.init(Json::Value(Json::objectValue)) == true);
@@ -196,7 +196,7 @@ DROGON_TEST(Property4_3_3_SameInstance_Consistency_Baseline)
 // 3.3 PRESERVATION (PBT over random claim payloads): for random-but-reproducible
 // normal claim sets, the signed token keeps the frozen header and round-trips
 // its payload. The signing key/kid stays constant across all of them.
-DROGON_TEST(Property4_3_3_SignJwt_RandomizedClaims_Baseline)
+DROGON_TEST(Integration_P1_SignJwt_Property4_3_3_RandomizedClaims_Baseline)
 {
     JwkManager jwk;
     REQUIRE(jwk.init(Json::Value(Json::objectValue)) == true);

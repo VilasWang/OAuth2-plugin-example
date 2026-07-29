@@ -154,7 +154,7 @@ const std::vector<std::string> &cleanDescriptions()
 }  // namespace
 
 // --- Main property test: random protocol code + description/error_uri variation.
-DROGON_TEST(Property9_OAuth2Error_Rfc6749Compliance)
+DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
 {
     LOG_INFO << "Property 9 OAuth2 RFC 6749 compliance test, fixed seed=0x" << std::hex << kSeed
              << std::dec;
@@ -317,7 +317,7 @@ DROGON_TEST(Property9_OAuth2Error_Rfc6749Compliance)
 
 // --- Focused example: every allowed protocol code with an empty description
 // falls back to its catalog default and yields the RFC 6749 §5.2 shape + headers.
-DROGON_TEST(Property9_OAuth2Error_AllCodesFallbackToCatalogDefault)
+DROGON_TEST(Unit_P0_OAuth2Error_Property9_AllCodesFallbackToCatalogDefault)
 {
     const auto &oauthEntries = ErrorCatalog::allOAuthEntries();
     REQUIRE(!oauthEntries.empty());

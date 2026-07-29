@@ -248,7 +248,7 @@ void assertErrorEnvelope(
 // no Application error body can be non-JSON / unparseable / non-Envelope
 // (Requirement 7.1 / 7.3 / 12.6).
 // ===========================================================================
-DROGON_TEST(Integration_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnvelopes)
+DROGON_TEST(Integration_P0_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnvelopes)
 {
     const auto &entries = ErrorCatalog::allEntries();
     REQUIRE(!entries.empty());
@@ -276,7 +276,7 @@ DROGON_TEST(Integration_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnv
 // respondException() all emit Error Envelopes too (these are the methods the
 // controllers' respondError() helpers actually call).
 // ===========================================================================
-DROGON_TEST(Integration_ApplicationEndpoint_ResponderEntries_AreEnvelopes)
+DROGON_TEST(Integration_P0_ApplicationEndpoint_ResponderEntries_AreEnvelopes)
 {
     auto req = HttpRequest::newHttpRequest();
     req->setPath("/api/some/application/endpoint");
@@ -329,7 +329,7 @@ DROGON_TEST(Integration_ApplicationEndpoint_ResponderEntries_AreEnvelopes)
 // INTERNAL_ERROR and still yields a parseable Error Envelope — it never emits
 // plain text and never leaks the unknown code (design Error Handling / 5.5).
 // ===========================================================================
-DROGON_TEST(Integration_ApplicationEndpoint_UnregisteredCode_FallsBackToEnvelope)
+DROGON_TEST(Integration_P0_ApplicationEndpoint_UnregisteredCode_FallsBackToEnvelope)
 {
     auto req = HttpRequest::newHttpRequest();
     req->setPath("/api/some/application/endpoint");
@@ -392,7 +392,7 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
 }  // namespace
 
 // --- B1: /api/password-reset/request with no email -> VALIDATION Envelope (400).
-DROGON_TEST(Integration_ApplicationEndpoint_Live_PasswordResetRequestMissingEmail_IsEnvelope)
+DROGON_TEST(Integration_P0_ApplicationEndpoint_Live_PasswordResetRequestMissingEmail_IsEnvelope)
 {
     const HttpResponsePtr resp = postForm("/api/password-reset/request", "");
     if (resp == nullptr)
@@ -415,7 +415,7 @@ DROGON_TEST(Integration_ApplicationEndpoint_Live_PasswordResetRequestMissingEmai
 }
 
 // --- B2: /api/password-reset/confirm with no token/password -> VALIDATION Envelope (400).
-DROGON_TEST(Integration_ApplicationEndpoint_Live_PasswordResetConfirmMissingFields_IsEnvelope)
+DROGON_TEST(Integration_P0_ApplicationEndpoint_Live_PasswordResetConfirmMissingFields_IsEnvelope)
 {
     const HttpResponsePtr resp = postForm("/api/password-reset/confirm", "");
     if (resp == nullptr)

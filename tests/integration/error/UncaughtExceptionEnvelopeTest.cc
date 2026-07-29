@@ -156,7 +156,7 @@ const std::vector<std::string> &protocolPaths()
 // Application branch: an uncaught exception yields a Requirement-1 Error
 // Envelope (INTERNAL_ERROR), never a framework default HTML / plain-text body.
 // ============================================================================
-DROGON_TEST(Integration_UncaughtException_ApplicationPath_ReturnsErrorEnvelope)
+DROGON_TEST(Integration_P1_UncaughtException_ApplicationPath_ReturnsErrorEnvelope)
 {
     const CatalogEntry &internalEntry = ErrorCatalog::internalError();
 
@@ -240,7 +240,7 @@ DROGON_TEST(Integration_UncaughtException_ApplicationPath_ReturnsErrorEnvelope)
 // the unified entry's branching is exercised on both sides (Requirement 7.7 /
 // 7.2 / 2.5).
 // ============================================================================
-DROGON_TEST(Integration_UncaughtException_OAuth2Path_ReturnsRfc6749ServerError)
+DROGON_TEST(Integration_P1_UncaughtException_OAuth2Path_ReturnsRfc6749ServerError)
 {
     const OAuthCatalogEntry *serverErrorEntry =
       ErrorCatalog::findOAuth(OAuth2ErrorHandler::SERVER_ERROR);
@@ -298,7 +298,7 @@ DROGON_TEST(Integration_UncaughtException_OAuth2Path_ReturnsRfc6749ServerError)
 // Application paths to the Envelope branch and protocol paths to the RFC branch.
 // Guards against accidental drift in the branching logic (Requirement 7.7).
 // ============================================================================
-DROGON_TEST(Integration_UncaughtException_PathBranching_DecisionTable)
+DROGON_TEST(Integration_P1_UncaughtException_PathBranching_DecisionTable)
 {
     // Application paths -> Envelope branch.
     for (const auto &path : applicationPaths())

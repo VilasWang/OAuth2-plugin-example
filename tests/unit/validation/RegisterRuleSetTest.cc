@@ -22,7 +22,7 @@ static HttpRequestPtr makeRegisterRequest(
     return req;
 }
 
-DROGON_TEST(RegisterRuleSet_RejectsAtSignInUsername)
+DROGON_TEST(Unit_P2_RegisterRuleSet_RejectsAtSignInUsername)
 {
     auto req = makeRegisterRequest("user@name", "Password123", "user@example.com");
     auto errors = RuleSet::registerUser(req);
@@ -33,7 +33,7 @@ DROGON_TEST(RegisterRuleSet_RejectsAtSignInUsername)
     CHECK(hasFormatError == true);
 }
 
-DROGON_TEST(RegisterRuleSet_AcceptsValidUsername)
+DROGON_TEST(Unit_P2_RegisterRuleSet_AcceptsValidUsername)
 {
     auto req = makeRegisterRequest("alice_99", "Password123", "alice@example.com");
     auto errors = RuleSet::registerUser(req);

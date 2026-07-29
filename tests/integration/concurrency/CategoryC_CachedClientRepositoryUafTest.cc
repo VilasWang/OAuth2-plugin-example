@@ -93,7 +93,7 @@ void runDestroyVsCallbackRace(const std::function<void()> &destroyHost, PendingC
 // shared_ptr to the host is reset. The strong `self` capture must keep the
 // host alive for the continuation's duration -- no use-after-free, even
 // under ASan, and the final callback must still fire exactly once.
-DROGON_TEST(Integration_Concurrency_11_CachedClientRepository_GetClient_ClientCache_UAF_Repro)
+DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_ClientCache_UAF_Repro)
 {
     auto pending = std::make_shared<PendingCallbacks>();
     auto host = std::make_shared<CachedClientRepository>(
@@ -125,7 +125,7 @@ DROGON_TEST(Integration_Concurrency_11_CachedClientRepository_GetClient_ClientCa
 // coverage for the new per-repository decorator (not a UAF check by itself,
 // but exercises the cache path that the UAF test above only reaches via the
 // miss path).
-DROGON_TEST(Integration_Concurrency_11_CachedClientRepository_GetClient_CacheHit)
+DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_CacheHit)
 {
     auto pending = std::make_shared<PendingCallbacks>();
     auto host = std::make_shared<CachedClientRepository>(

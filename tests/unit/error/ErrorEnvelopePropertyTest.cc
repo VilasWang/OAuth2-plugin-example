@@ -158,7 +158,7 @@ Error randomRegisteredError(std::mt19937 &gen, bool withDetails)
 // code/category/message/numeric_code/request_id — so details presence does not
 // affect the round-trip assertions but is varied to exercise the encoder.
 // ============================================================================
-DROGON_TEST(Property3_ErrorEnvelope_SerializationRoundTrip)
+DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0xE12C0DEu;
@@ -282,7 +282,7 @@ DROGON_TEST(Property3_ErrorEnvelope_SerializationRoundTrip)
 // entry count is never hard-coded. The detailed-errors override is forced on so
 // the includeDetails=true branch genuinely emits `details`, then restored.
 // ============================================================================
-DROGON_TEST(Property1_ErrorEnvelope_StructuralInvariants)
+DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x51'70C0DEu;
@@ -468,7 +468,7 @@ DROGON_TEST(Property1_ErrorEnvelope_StructuralInvariants)
 // 取值下断言，以证明 numeric_code 的出现与否独立于 details / 生产模式。Catalog 通过
 // ErrorCatalog::allEntries() 泛型遍历，条目数量从不写死。本属性不依赖也不修改
 // ErrorContext override，保持文件对后续 4.5/4.6/4.7 追加属性可干净复用。
-DROGON_TEST(Property2_ErrorEnvelope_NumericCodeCorrectnessAndOmission)
+DROGON_TEST(Unit_P0_ErrorEnvelope_Property2_NumericCodeCorrectnessAndOmission)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x2'4D'C0DEu;
@@ -645,7 +645,7 @@ DROGON_TEST(Property2_ErrorEnvelope_NumericCodeCorrectnessAndOmission)
 // 两条路径都断言无 `details` 键、message 等于 Catalog 默认值、所有字符串字段不含任一敏感
 // 片段。Catalog 通过 allEntries() 泛型遍历，条目数量从不写死。测试结束时务必
 // clearDetailedErrorsOverride()，保持文件对后续 4.6/4.7 追加属性可干净复用。
-DROGON_TEST(Property6_ErrorEnvelope_ProductionModeSafetyIsolation)
+DROGON_TEST(Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x6'5AFE'0DEu;
@@ -882,7 +882,7 @@ DROGON_TEST(Property6_ErrorEnvelope_ProductionModeSafetyIsolation)
 //
 // Catalog 通过 allEntries() 泛型遍历，条目数量从不写死。测试结束时务必
 // clearDetailedErrorsOverride()，保持文件对后续 4.7 追加属性可干净复用。
-DROGON_TEST(Property7_ErrorEnvelope_NonProductionDiagnosticDetails)
+DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x7DE7'A0DEu;
@@ -1150,7 +1150,7 @@ DROGON_TEST(Property7_ErrorEnvelope_NonProductionDiagnosticDetails)
 // includeDetails / Production_Mode 在 true/false 间切换，证明兜底的 category/code/message
 // 与 details 是否出现无关。兜底数值经 ErrorCatalog::internalError() 读取，从不写死。
 // 本属性以 ErrorContext override 切换生产/非生产模式，结束时清除 override 保持文件干净。
-DROGON_TEST(Property8_ErrorEnvelope_UnmappedExceptionInternalFallback)
+DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x8'F00'0DEu;

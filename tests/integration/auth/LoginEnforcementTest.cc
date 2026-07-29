@@ -14,7 +14,7 @@ using namespace drogon::orm;
  * login should return mfa_required instead of auth code.
  * Uses in-process plugin calls (not HTTP client) to avoid port issues.
  */
-DROGON_TEST(Integration_Login_MFA_Enforcement)
+DROGON_TEST(Integration_P1_Login_MFA_Enforcement)
 {
     // Skip if using memory storage (no DB available)
     auto plugin = app().getPlugin<OAuth2Plugin>();
@@ -63,7 +63,7 @@ DROGON_TEST(Integration_Login_MFA_Enforcement)
 /**
  * Test: Email verification field is correctly stored and queryable
  */
-DROGON_TEST(Integration_Login_EmailVerification_Field)
+DROGON_TEST(Integration_P1_Login_EmailVerification_Field)
 {
     // Skip if storage type is memory
     auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
@@ -116,7 +116,7 @@ DROGON_TEST(Integration_Login_EmailVerification_Field)
  * Test: PKCE enforcement config - verify the mechanism exists
  * When require_pkce_for_public is NOT set, PUBLIC clients can login without PKCE
  */
-DROGON_TEST(Integration_Login_PKCE_Config_Exists)
+DROGON_TEST(Integration_P1_Login_PKCE_Config_Exists)
 {
     // Verify the config mechanism works
     auto customCfg = drogon::app().getCustomConfig();
@@ -143,7 +143,7 @@ DROGON_TEST(Integration_Login_PKCE_Config_Exists)
 /**
  * Test: Account lockout fields exist and work
  */
-DROGON_TEST(Integration_Login_AccountLockout_Fields)
+DROGON_TEST(Integration_P1_Login_AccountLockout_Fields)
 {
     // Skip if storage type is memory
     auto plugin = drogon::app().getPlugin<OAuth2Plugin>();

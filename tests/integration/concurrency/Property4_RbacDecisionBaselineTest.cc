@@ -249,7 +249,7 @@ RealFilterResult driveRealFilterNoToken(const std::string &path)
 // 3.7 PRESERVATION (REAL filter, unauthenticated -> 401): the genuine
 // production doFilter() denies a token-less request with 401
 // {"error":"unauthorized"} for any path, before any RBAC/role evaluation.
-DROGON_TEST(Property4_3_7_RealFilter_NoToken_Returns401_Baseline)
+DROGON_TEST(Integration_P1_RealFilter_Property4_3_7_NoToken_Returns401_Baseline)
 {
     for (const std::string &path :
          {"/api/admin/users", "/api/user/profile", "/random/unmatched/path", "/api/public/health"})
@@ -263,7 +263,7 @@ DROGON_TEST(Property4_3_7_RealFilter_NoToken_Returns401_Baseline)
 
 // 3.7 PRESERVATION (admin rule): "/api/admin/.*" requires the "admin" role.
 // admin role -> allow; non-admin role -> 403; no roles -> 403.
-DROGON_TEST(Property4_3_7_AdminRule_RoleGated_Baseline)
+DROGON_TEST(Integration_P1_AdminRule_Property4_3_7_RoleGated_Baseline)
 {
     auto m = makeConfigModel();
 
@@ -275,7 +275,7 @@ DROGON_TEST(Property4_3_7_AdminRule_RoleGated_Baseline)
 }
 
 // 3.7 PRESERVATION (user rule): "/api/user/.*" allows "user" OR "admin".
-DROGON_TEST(Property4_3_7_UserRule_AllowsUserOrAdmin_Baseline)
+DROGON_TEST(Integration_P1_UserRule_Property4_3_7_AllowsUserOrAdmin_Baseline)
 {
     auto m = makeConfigModel();
 
@@ -288,7 +288,7 @@ DROGON_TEST(Property4_3_7_UserRule_AllowsUserOrAdmin_Baseline)
 
 // 3.7 PRESERVATION (default deny): a path matching NO rule and NO public path is
 // denied (403) regardless of how privileged the caller is.
-DROGON_TEST(Property4_3_7_UnmatchedPath_DefaultDeny_Baseline)
+DROGON_TEST(Integration_P1_UnmatchedPath_Property4_3_7_DefaultDeny_Baseline)
 {
     auto m = makeConfigModel();
 
@@ -304,7 +304,7 @@ DROGON_TEST(Property4_3_7_UnmatchedPath_DefaultDeny_Baseline)
 // ANY caller (even with no roles), and it short-circuits BEFORE the RBAC rules —
 // pinning the "public paths first" branch order even though the shipped test
 // config configures none.
-DROGON_TEST(Property4_3_7_PublicPath_AllowsAnyone_Baseline)
+DROGON_TEST(Integration_P1_PublicPath_Property4_3_7_AllowsAnyone_Baseline)
 {
     RbacDecisionModel m = makeConfigModel();
     m.addPublicPath("/public/.*");
@@ -324,7 +324,7 @@ DROGON_TEST(Property4_3_7_PublicPath_AllowsAnyone_Baseline)
 // agrees with the INDEPENDENT string-prefix oracle, and the resulting
 // allow/401/403 decision is stable. This is the byte-comparable decision
 // baseline re-run on F' at 7.4.
-DROGON_TEST(Property4_3_7_Rbac_RandomizedRequests_DecisionStable_Baseline)
+DROGON_TEST(Integration_P1_Rbac_Property4_3_7_RandomizedRequests_DecisionStable_Baseline)
 {
     PreservationInputGen gen(0x3B7C3B7Cu);
     auto m = makeConfigModel();

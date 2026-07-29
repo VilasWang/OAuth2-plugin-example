@@ -190,7 +190,7 @@ FilterOutcome runValidation(const ::drogon::HttpRequestPtr &req)
 // 3.1 PRESERVATION (determinism): the spec generation is byte-identical across
 // repeated calls. The SIOF fix (6.1) must not turn this into partial / order-
 // dependent output.
-DROGON_TEST(Property4_3_1_OpenApiSpec_Deterministic_Baseline)
+DROGON_TEST(Integration_P1_OpenApiSpec_Property4_3_1_Deterministic_Baseline)
 {
     Json::Value spec1 = OpenApiGenerator::generateOpenApiSpec();
     Json::Value spec2 = OpenApiGenerator::generateOpenApiSpec();
@@ -207,7 +207,7 @@ DROGON_TEST(Property4_3_1_OpenApiSpec_Deterministic_Baseline)
 // 3.1 PRESERVATION (whole-spec fingerprint): the complete (path, method) set
 // equals the frozen baseline. This is the byte-comparable artifact diffed F vs
 // F' at 6.4.
-DROGON_TEST(Property4_3_1_OpenApiSpec_PathMethodFingerprint_Baseline)
+DROGON_TEST(Integration_P1_OpenApiSpec_Property4_3_1_PathMethodFingerprint_Baseline)
 {
     Json::Value spec = OpenApiGenerator::generateOpenApiSpec();
     const std::string fp = openApiPathMethodFingerprint(spec);
@@ -219,7 +219,7 @@ DROGON_TEST(Property4_3_1_OpenApiSpec_PathMethodFingerprint_Baseline)
 // configured path must PASS; a request missing a required field must be
 // REJECTED. The SIOF fix (6.2, map -> Meyers singleton) must not change which
 // path has which rules.
-DROGON_TEST(Property4_3_1_ValidationRules_RandomizedOutcomes_Baseline)
+DROGON_TEST(Integration_P1_ValidationRules_Property4_3_1_RandomizedOutcomes_Baseline)
 {
     PreservationInputGen gen(0x04C0FFEEu);
 
@@ -305,7 +305,7 @@ DROGON_TEST(Property4_3_1_ValidationRules_RandomizedOutcomes_Baseline)
 // 3.1 PRESERVATION (negative control): an unconfigured path has no rules and
 // must pass through unconditionally — pinned so the fix does not accidentally
 // attach rules to unconfigured paths.
-DROGON_TEST(Property4_3_1_ValidationRules_UnconfiguredPath_PassThrough_Baseline)
+DROGON_TEST(Integration_P1_ValidationRules_Property4_3_1_UnconfiguredPath_PassThrough_Baseline)
 {
     PreservationInputGen gen(0x1234ABCDu);
     static const std::vector<std::string> unconfigured =

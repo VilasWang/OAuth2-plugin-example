@@ -25,7 +25,7 @@
 
 // Trivial sanity check: no threads, pure assertion. Confirms the new
 // integration/concurrency/ directory is wired into the test target.
-DROGON_TEST(Integration_Concurrency_Scaffold_Sanity)
+DROGON_TEST(Integration_P2_Concurrency_Scaffold_Sanity)
 {
     CHECK(1 + 1 == 2);
 }
@@ -35,7 +35,7 @@ DROGON_TEST(Integration_Concurrency_Scaffold_Sanity)
 // clean under ThreadSanitizer and AddressSanitizer. It only verifies that the
 // instrumented binary can spawn threads and join them; it is NOT a defect
 // reproduction and is expected to PASS in every build configuration.
-DROGON_TEST(Integration_Concurrency_Scaffold_AtomicCounter_NoRace)
+DROGON_TEST(Integration_P2_Concurrency_Scaffold_AtomicCounter_NoRace)
 {
     constexpr int kThreads = 4;
     constexpr int kIncrementsPerThread = 1000;

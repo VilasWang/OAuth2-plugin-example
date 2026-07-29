@@ -35,7 +35,7 @@ using namespace authforge::drogon::adapters;
 // sha256 / sha256Hex
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256Hex_MatchesDrogonGetSha256)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Sha256Hex_MatchesDrogonGetSha256)
 {
     OpenSslCryptoProvider provider;
     const std::string input = "test-token-for-sha256-cross-check";
@@ -79,7 +79,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256Hex_MatchesDrogonGetSha256)
 // task, and is out of Task 14's scope to fix (CryptoUtils.h's call-site
 // migration, including whether to delete this now-superseded dead
 // function, happens later in Task 14's own remaining call-site work).
-DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256_ProducesCorrectDigestLength)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Sha256_ProducesCorrectDigestLength)
 {
     OpenSslCryptoProvider provider;
     const std::string input = "pkce-code-verifier-cross-check-value";
@@ -110,7 +110,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256_ProducesCorrectDigestLength)
     }
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256Hex_Deterministic)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Sha256Hex_Deterministic)
 {
     OpenSslCryptoProvider provider;
     auto h1 = provider.sha256Hex("same-input");
@@ -122,7 +122,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Sha256Hex_Deterministic)
 // base64UrlEncode / base64UrlDecode
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_StringOverload)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_StringOverload)
 {
     OpenSslCryptoProvider provider;
     const std::string input = "hello world! this has some +/= chars after b64";
@@ -137,7 +137,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_StringOverl
     CHECK(ours.find('=') == std::string::npos);
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_BytesOverload)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_BytesOverload)
 {
     OpenSslCryptoProvider provider;
     const unsigned char bytes[] = {0xFF, 0x00, 0xAB, 0xCD, 0xEF, 0x12, 0x34};
@@ -148,13 +148,13 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlEncode_MatchesDrogon_BytesOverlo
     CHECK(ours == theirs);
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlEncode_EmptyInput)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Base64UrlEncode_EmptyInput)
 {
     OpenSslCryptoProvider provider;
     CHECK(provider.base64UrlEncode(std::string()) == "");
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlDecode_RoundTrip)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Base64UrlDecode_RoundTrip)
 {
     OpenSslCryptoProvider provider;
     const std::string original = "round trip this string through base64url!";
@@ -166,7 +166,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlDecode_RoundTrip)
     CHECK(decoded == original);
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlDecode_RejectsInvalidCharacter)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Base64UrlDecode_RejectsInvalidCharacter)
 {
     OpenSslCryptoProvider provider;
     // '+' and '/' are not part of the base64url alphabet (only '-'/'_').
@@ -178,7 +178,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Base64UrlDecode_RejectsInvalidCharacter)
 // secureRandomBytes
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_SecureRandomBytes_SucceedsAndVaries)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_SecureRandomBytes_SucceedsAndVaries)
 {
     OpenSslCryptoProvider provider;
     unsigned char buf1[32] = {0};
@@ -197,7 +197,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_SecureRandomBytes_SucceedsAndVaries)
 // hmacSha256
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_HmacSha256_DeterministicAndCorrectLength)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_HmacSha256_DeterministicAndCorrectLength)
 {
     OpenSslCryptoProvider provider;
     auto mac1 = provider.hmacSha256("secret-key", "message-body");
@@ -207,7 +207,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_HmacSha256_DeterministicAndCorrectLength)
     CHECK(mac1 == mac2);
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_HmacSha256_DifferentKeysDifferentMac)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_HmacSha256_DifferentKeysDifferentMac)
 {
     OpenSslCryptoProvider provider;
     auto mac1 = provider.hmacSha256("key-a", "same-message");
@@ -219,7 +219,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_HmacSha256_DifferentKeysDifferentMac)
 // pbkdf2HmacSha256
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Pbkdf2_DeterministicForSameInputs)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Pbkdf2_DeterministicForSameInputs)
 {
     OpenSslCryptoProvider provider;
     auto key1 = provider.pbkdf2HmacSha256("password123", "somesalt", 10000, 32);
@@ -229,7 +229,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Pbkdf2_DeterministicForSameInputs)
     CHECK(key1 == key2);
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_Pbkdf2_DifferentSaltsDifferentKeys)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Pbkdf2_DifferentSaltsDifferentKeys)
 {
     OpenSslCryptoProvider provider;
     auto key1 = provider.pbkdf2HmacSha256("password123", "salt-a", 10000, 32);
@@ -242,7 +242,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_Pbkdf2_DifferentSaltsDifferentKeys)
 // freshly generated ephemeral RSA key, not a hard-coded fixture key)
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_RsaSign_ValidSignatureVerifiesWithOpenSsl)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_RsaSign_ValidSignatureVerifiesWithOpenSsl)
 {
     OpenSslCryptoProvider provider;
 
@@ -283,7 +283,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_RsaSign_ValidSignatureVerifiesWithOpenSsl
     CHECK(verifyResult == 1);
 }
 
-DROGON_TEST(Unit_OpenSslCryptoProvider_RsaSign_InvalidPemReturnsEmpty)
+DROGON_TEST(Unit_P2_OpenSslCryptoProvider_RsaSign_InvalidPemReturnsEmpty)
 {
     OpenSslCryptoProvider provider;
     auto signature = provider.rsaSign("not a valid pem", "SHA256", "data");
@@ -294,7 +294,7 @@ DROGON_TEST(Unit_OpenSslCryptoProvider_RsaSign_InvalidPemReturnsEmpty)
 // OpenSslUuidGenerator
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_OpenSslUuidGenerator_ProducesRfc4122V4FormatUuid)
+DROGON_TEST(Unit_P2_OpenSslUuidGenerator_ProducesRfc4122V4FormatUuid)
 {
     OpenSslUuidGenerator generator;
     auto uuid = generator.generate();
@@ -307,7 +307,7 @@ DROGON_TEST(Unit_OpenSslUuidGenerator_ProducesRfc4122V4FormatUuid)
     CHECK(std::regex_match(uuid, kUuidV4Pattern));
 }
 
-DROGON_TEST(Unit_OpenSslUuidGenerator_ProducesUniqueValues)
+DROGON_TEST(Unit_P2_OpenSslUuidGenerator_ProducesUniqueValues)
 {
     OpenSslUuidGenerator generator;
     auto u1 = generator.generate();
@@ -319,7 +319,7 @@ DROGON_TEST(Unit_OpenSslUuidGenerator_ProducesUniqueValues)
 // SystemClock
 // ---------------------------------------------------------------------------
 
-DROGON_TEST(Unit_SystemClock_NowSecondsMatchesWallClockWithinTolerance)
+DROGON_TEST(Unit_P2_SystemClock_NowSecondsMatchesWallClockWithinTolerance)
 {
     SystemClock clock;
     auto ours = clock.nowSeconds();
@@ -333,7 +333,7 @@ DROGON_TEST(Unit_SystemClock_NowSecondsMatchesWallClockWithinTolerance)
     CHECK(std::abs(ours - wallClock) <= 2);
 }
 
-DROGON_TEST(Unit_SystemClock_NowMillisecondsIsConsistentWithNowSeconds)
+DROGON_TEST(Unit_P2_SystemClock_NowMillisecondsIsConsistentWithNowSeconds)
 {
     SystemClock clock;
     auto seconds = clock.nowSeconds();
@@ -358,7 +358,7 @@ DROGON_TEST(Unit_SystemClock_NowMillisecondsIsConsistentWithNowSeconds)
 // oauth2::pkce::computeCodeChallenge) and compares it against
 // TokenService::generateSha256Hash's output for the same inputs, proving
 // the two stay in lockstep.
-DROGON_TEST(Unit_TokenService_GenerateSha256Hash_IsRfc7636Conformant)
+DROGON_TEST(Unit_P2_TokenService_GenerateSha256Hash_IsRfc7636Conformant)
 {
     auto correctAlgorithm = [](const std::string &input) -> std::string {
         OpenSslCryptoProvider provider;
@@ -390,7 +390,7 @@ DROGON_TEST(Unit_TokenService_GenerateSha256Hash_IsRfc7636Conformant)
 // OAuth2Plugin::generateSha256Hash (the production call site, relocated off
 // the legacy TokenService in A1) agrees with the spec-correct standalone
 // implementation on the exact example RFC 7636 itself provides.
-DROGON_TEST(Unit_TokenService_GenerateSha256Hash_MatchesRfc7636AppendixBVector)
+DROGON_TEST(Unit_P2_TokenService_GenerateSha256Hash_MatchesRfc7636AppendixBVector)
 {
     const std::string verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
     const std::string expectedChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
