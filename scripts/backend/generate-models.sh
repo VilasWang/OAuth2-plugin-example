@@ -15,7 +15,6 @@ fi
 MODELS_SRC_DIR="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_SRC_REL_DIR"
 MODELS_INC_DIR="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_INC_REL_DIR"
 MODELS_BACKUP="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_BACKUP_REL_DIR"
-MODEL_JSON_DIR="$OAUTH2_SERVER_ABS_DIR"
 
 echo ""
 echo "========================================"
@@ -49,12 +48,14 @@ fi
 echo "Generating ORM models..."
 mkdir -p "$MODELS_SRC_DIR"
 
-cd "$MODEL_JSON_DIR"
-# MODEL_JSON_DIR (apps/server) is two levels below the repo root, hence ../..
+# drogon_ctl reads model.json FROM the target dir and writes output there.
+# Run from the repo root and pass the models dir directly -- no ../.. depth
+# hack, no dependency on any model.json copy under apps/server.
+cd "$PROJECT_DIR"
 if [ $AUTO_MODE -eq 1 ]; then
-    echo "y" | drogon_ctl create model "../../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
+    echo "y" | drogon_ctl create model "$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 else
-    drogon_ctl create model "../../$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
+    drogon_ctl create model "$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 fi
 
 echo "Moving header files to $MODELS_INC_DIR..."
