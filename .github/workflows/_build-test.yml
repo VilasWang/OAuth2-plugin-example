@@ -222,18 +222,41 @@ jobs:
       - name: Wait for services
         if: inputs.use_database
         run: |
+          # Probe with a real query (not just pg_isready): postgres:15-alpine
+          # briefly runs a temporary server during init, so an actual SELECT
+          # against oauth2_db is the authoritative readiness signal. On timeout
+          # we MUST fail (the loop no longer silently passes) and dump container
+          # logs, since docker run -d has no health gate of its own.
           echo "Waiting for Postgres..."
+          pg_ready=false
           for i in $(seq 1 15); do
-            pg_isready -h localhost -U oauth2_user && break
+            if PGPASSWORD=123456 psql -h localhost -U oauth2_user -d oauth2_db -c 'SELECT 1' >/dev/null 2>&1; then
+              pg_ready=true
+              break
+            fi
             echo "  Postgres not ready yet (attempt $i/15)..."
             sleep 2
           done
+          if [ "$pg_ready" != true ]; then
+            echo "::error::Postgres not ready after 30s"
+            docker logs authforge-postgres || true
+            exit 1
+          fi
           echo "Waiting for Redis..."
+          redis_ready=false
           for i in $(seq 1 15); do
-            redis-cli -h localhost ping && break
+            if redis-cli -h localhost ping | grep -q PONG; then
+              redis_ready=true
+              break
+            fi
             echo "  Redis not ready yet (attempt $i/15)..."
             sleep 2
           done
+          if [ "$redis_ready" != true ]; then
+            echo "::error::Redis not ready after 30s"
+            docker logs authforge-redis || true
+            exit 1
+          fi
 
       - name: Initialize Database
         if: inputs.use_database
