@@ -1,0 +1,35 @@
+name: Reusable — Frontend Property Tests
+
+# Reusable workflow (Task 32): the shared Frontend_Error_Module release-readiness
+# gate. Pure vitest + fast-check property tests (errorAdapter / message catalog /
+# cross-app consistency, Requirement 12.5). DB-independent, so this is part of
+# the FAST gate and gates the pipeline early. Called by ci.yml.
+
+on:
+  workflow_call:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run Frontend Error-Mapping Property Tests (Req 12.5)
+        working-directory: ${{ github.workspace }}/frontends/user
+        run: |
+          echo "=== frontends/user: error-mapping property tests (Property 11/12/13/14) ==="
+          npm ci
+          npm run test:unit
+
+      - name: Run Admin Error-Mapping Property Tests (Req 12.5)
+        working-directory: ${{ github.workspace }}/frontends/admin
+        run: |
+          echo "=== frontends/admin: error-mapping property tests (shared errorAdapter source) ==="
+          npm ci
+          npm run test:unit

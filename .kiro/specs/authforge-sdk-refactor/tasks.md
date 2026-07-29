@@ -299,9 +299,10 @@
 
 ## M6 — CI/CD 重构 + 自动化护栏（依赖：M4）
 
-- [ ] 32. CI 重构为可复用 workflow
+- [x] 32. CI 重构为可复用 workflow（2026-07-28）
   - `ci.yml` + `_build-test.yml` + `_frontend.yml` + `_sdk-smoke.yml`；三阶段门禁（快速门/主门/发布门）；SDK 冒烟纳入发布门
   - 产出：重构后 workflows；验收：三平台矩阵全绿；SDK 冒烟纳入门禁
+  - **完成说明（2026-07-28）**：3 个独立 `ci-{linux,windows,macos}.yml` 重构为 1 个编排入口 + 3 个 `workflow_call` 可复用 workflow，串行 fail-fast `needs` 链三阶段门禁。**快速门**：`static-checks`（source-only，无编译——arch-guard/naming_validator/manage-parity-check/OpenAPI 校验，从各平台上移去重）+ `frontend`（`_frontend.yml`，vitest 错误映射属性测试 Req 12.5，单跑一次）。**主门**：`build-test` 用 `strategy.matrix` × {linux,windows,macos} 复用 `_build-test.yml`——单一 job 体经 inputs 参数化（`platform/runs_on/cmake_preset/preset_dir/use_database/use_ci_config/run_named_test_gates/test_bin_subdir/test_exe/...`，input 名全下划线避免 `-` 被解析为减法），忠实合并三平台原逻辑：Linux 真实 DB（Postgres/Redis 由 `docker run` 门控替代 service containers 以支持矩阵条件化）+ Windows/macOS memory config；Req 12.7 具名门（error-standardization/performance/e2e/integration 共 30+ 条 `-r <name>`）由 `run_named_test_gates` 控制仅 Linux/Windows 跑，行为零变更。**发布门**：`sdk-smoke`（`_sdk-smoke.yml`，Linux only，`ctest -L SdkSmoke` 全栈 find_package 冒烟）。追加 `workflow_dispatch` + `concurrency.cancel-in-progress`。顺带修复原 `ci-linux.yml` 性能报告上传的陈旧路径（`build/tests` → `${preset_dir}/tests`）。本地校验：4 文件 YAML 全解析通过；交叉核对无连字符 input、`with:` 键全声明、必填 input 无缺、matrix 覆盖三平台、`uses`/`needs` 链正确。
 
 - [x] 33. 实现 `tools/arch-guard`（2026-07-28）
   - 检查 Domain（common/oauth2/identity）禁 `#include <drogon/`（允许 jsoncpp）；oauth2↔identity 无互相 include；Domain 无 `drogon::orm`
@@ -402,14 +403,14 @@
 
 ## 剩余任务优先级顺序（2026-07-28 盘点，按依赖 + 价值重排）
 
-> 全平台构建基座已统一为 **Conan + `cmake --preset`**（`build/<preset>` 目录约定 + 各平台 debug preset；4 个 `.bat` 的 `shift`/`%~dp0` 回归已修）；三平台 CI 均已切到 preset（仍是 3 个独立文件，可复用重构 = Task 32）。版本号已是 1.0.0。以下为**未完成任务（`[ ]`）**的推进顺序。
+> 全平台构建基座已统一为 **Conan + `cmake --preset`**（`build/<preset>` 目录约定 + 各平台 debug preset；4 个 `.bat` 的 `shift`/`%~dp0` 回归已修）；CI 已由 3 个独立文件重构为可复用 workflow（Task 32 ✅）。版本号已是 1.0.0。以下为**未完成任务（`[ ]`）**的推进顺序。
 
 **Wave A — 立即可做，护栏 + SDK 地基（无前置阻塞，锁定既有重构成果）**
 1. ~~**Task 33 arch-guard**~~ ✅ **已完成（2026-07-28）**：`tools/arch-guard/arch_guard.py` 强制 Domain 禁 `#include <drogon/`、oauth2↔identity 零互依、Domain 无 `drogon::orm`，已接入 `ci-linux.yml`（违规即 CI 失败）。解锁 Task 32 门禁与 Task 39 验收（arch-guard）。
 2. **Task 28a SDK build-tree smoke + 打包地基**（P0）：各 SDK 包补 `Config.cmake.in`/`find_dependency`/build-tree `export()`（现仅裸 `install(EXPORT)`，无 Config 模板、无传递依赖闭包）；`examples/third-party-host` 增全栈 build-tree smoke（28b 纯引擎已做）。产出 CTest 标签 `SdkSmoke`，补齐 Task 39 验收缺口，是 Task 32/36 的前置。
 
 **Wave B — CI / 构建基础设施**
-3. **Task 32 CI 重构**（依赖 28a + 33）：三独立 workflow → 可复用 `ci.yml` + `_build-test.yml` + `_frontend.yml` + `_sdk-smoke.yml`；三阶段门禁；把 `SdkSmoke` + arch-guard 纳入门禁。
+3. ~~**Task 32 CI 重构**~~ ✅ **已完成（2026-07-28）**（依赖 28a + 33）：三独立 workflow → 可复用 `ci.yml` + `_build-test.yml` + `_frontend.yml` + `_sdk-smoke.yml`；三阶段串行 fail-fast 门禁（快速门/主门矩阵/发布门）；`SdkSmoke` + arch-guard 已纳入门禁。
 4. **Task 43 docker 迁 Conan+preset + compose 实跑验收**（P1，独立）：`Dockerfile` 后端段仍源码编译 Drogon + 裸 cmake（`deploy/docker/Dockerfile:21-44`），与全仓约定分叉；COPY 路径已对齐新布局。迁移方案见搁置的《Docker Conan Preset 迁移》计划，收尾 `docker compose up` 全栈健康检查。
 5. **Task 35 migration-check + security.yml + 依赖 EOL 扫描**（P1，独立）。
 

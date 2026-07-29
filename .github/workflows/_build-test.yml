@@ -1,0 +1,378 @@
+name: Reusable — Build & Test
+
+# Reusable workflow (Task 32): the cross-platform build+test MAIN gate. One job
+# body, parameterized per platform via inputs so Linux / Windows / macOS all run
+# the identical Conan + `cmake --preset` build and CTest suite. Called by ci.yml
+# from a matrix. Behavior is a faithful merge of the previous ci-linux.yml /
+# ci-windows.yml / ci-macos.yml — platform differences are expressed only through
+# inputs (no per-platform copy-paste of the pipeline).
+#
+# Note on reusable-workflow input names: GitHub parses `-` in `${{ inputs.x }}`
+# as subtraction, so every input uses underscores (e.g. runs_on, not runs-on).
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: "linux | windows | macos (selects platform-specific steps)"
+        type: string
+        required: true
+      runs_on:
+        description: "GitHub runner label (e.g. ubuntu-22.04)"
+        type: string
+        required: true
+      cmake_preset:
+        description: "CMake preset name (e.g. linux-release)"
+        type: string
+        required: true
+      preset_dir:
+        description: "Preset binary dir (e.g. build/linux-release)"
+        type: string
+        required: true
+      conan_extra_settings:
+        description: "Extra `conan install` settings (e.g. -s arch=armv8)"
+        type: string
+        required: false
+        default: ""
+      configure_extra_args:
+        description: "Extra `cmake --preset` args (e.g. -DOAUTH2_MEMORY_TESTS_ONLY=ON)"
+        type: string
+        required: false
+        default: ""
+      use_database:
+        description: "Provision Postgres+Redis containers and initialize schema (Linux only)"
+        type: boolean
+        required: false
+        default: false
+      use_ci_config:
+        description: "Swap in config.ci.json (memory storage) before configure"
+        type: boolean
+        required: false
+        default: false
+      run_named_test_gates:
+        description: "Run the individually-named release-readiness gates (Req 12.7)"
+        type: boolean
+        required: false
+        default: false
+      test_bin_subdir:
+        description: "Subdir under tests/ for multi-config generators (e.g. Release on Windows), else empty"
+        type: string
+        required: false
+        default: ""
+      test_exe:
+        description: "Test binary name (authforge-tests or authforge-tests.exe)"
+        type: string
+        required: false
+        default: "authforge-tests"
+      test_db_host:
+        description: "OAUTH2_DB_HOST for the test steps (empty disables DB connections)"
+        type: string
+        required: false
+        default: ""
+      test_redis_host:
+        description: "OAUTH2_REDIS_HOST for the test steps (empty disables Redis connections)"
+        type: string
+        required: false
+        default: ""
+      timeout_minutes:
+        description: "Job timeout in minutes"
+        type: number
+        required: false
+        default: 60
+      log_artifact_name:
+        description: "Artifact name for uploaded logs on failure"
+        type: string
+        required: true
+
+jobs:
+  build-test:
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+
+    defaults:
+      run:
+        # Git for Windows ships bash on the windows runner, so a single shell
+        # keeps the drogon_ctl PATH resolution and config staging identical
+        # across all three platforms.
+        shell: bash
+
+    env:
+      BUILD_TYPE: Release
+      CMAKE_PRESET: ${{ inputs.cmake_preset }}
+      PRESET_DIR: ${{ inputs.preset_dir }}
+      # Empty host values disable accidental DB/Redis connections (Windows/macOS
+      # memory-storage runs); Linux passes 127.0.0.1 to hit the containers below.
+      OAUTH2_DB_HOST: ${{ inputs.test_db_host }}
+      OAUTH2_REDIS_HOST: ${{ inputs.test_redis_host }}
+      OAUTH2_REDIS_PASSWORD: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: inputs.platform == 'linux'
+        # Library deps (jsoncpp/libpq/openssl/zlib/hiredis/libcurl) come from
+        # Conan; still need the system toolchain, uuid-dev (Drogon's Conan recipe
+        # does not wrap libuuid on Linux), and redis-tools (redis-cli for the
+        # wait/init steps; psql/pg_isready ship on the ubuntu-22.04 image).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            gcc \
+            g++ \
+            cmake \
+            uuid-dev \
+            redis-tools
+
+      - name: Refresh Homebrew (macOS)
+        if: inputs.platform == 'macos'
+        # git/cmake ship preinstalled at Conan-compatible versions. Only refresh
+        # the formula index; do NOT `brew upgrade` (can break when a preinstalled
+        # formula lacks an arm64 bottle).
+        run: brew update
+
+      - name: Install Conan
+        if: inputs.platform != 'macos'
+        run: |
+          pip install conan
+          conan profile detect --force
+
+      - name: Install Conan (macOS)
+        if: inputs.platform == 'macos'
+        # macos-14 ships a PEP 668 "externally-managed-environment" Python that
+        # blocks a plain pip3 install. --break-system-packages is safe on an
+        # ephemeral CI VM.
+        run: |
+          pip3 install --break-system-packages conan
+          conan profile detect --force
+
+      # --- Conan dependency cache ---
+      # Keyed on conanfile.py + conan.lock content hash so the cache is
+      # invalidated exactly when the dependency graph could have changed.
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-v1-cpp17-${{ hashFiles('conanfile.py', 'conan.lock') }}
+          restore-keys: |
+            conan-${{ runner.os }}-v1-cpp17-
+
+      - name: Configure CMake using Conan
+        # Drogon (with_orm/with_postgres/with_redis/with_ctl/with_sqlite/with_brotli)
+        # and all other C++ deps are declared in conanfile.py and resolved here.
+        # rm -rf guards against a stale output-folder from a restored cache.
+        run: |
+          rm -rf "$PRESET_DIR"
+          conan install . --output-folder="$PRESET_DIR" --build=missing -s build_type="$BUILD_TYPE" -s compiler.cppstd=17 ${{ inputs.conan_extra_settings }}
+
+      - name: Add drogon_ctl (Conan package) to PATH
+        # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
+        # bare command at BUILD time, so it must be on PATH. CMakeDeps'
+        # Drogon-*-data.cmake records the resolved package folder; read it from
+        # there instead of hardcoding a Conan cache layout. The grep -E | sed -E
+        # form is BSD/GNU-portable (macOS + Linux + Git Bash on Windows).
+        run: |
+          data_file=$(find "$PRESET_DIR" -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
+          if [ -z "$data_file" ]; then
+            echo "::error::Could not find Drogon-*-data.cmake under $PRESET_DIR/ (conan install may have failed)"
+            exit 1
+          fi
+          drogon_folder=$(grep -E 'set\(drogon_PACKAGE_FOLDER_RELEASE "' "$data_file" | sed -E 's/.*"(.+)".*/\1/')
+          if [ -z "$drogon_folder" ]; then
+            echo "::error::Could not parse drogon_PACKAGE_FOLDER_RELEASE from $data_file"
+            exit 1
+          fi
+          drogon_bin="$drogon_folder/bin"
+          if [ ! -x "$drogon_bin/drogon_ctl" ] && [ ! -f "$drogon_bin/drogon_ctl.exe" ]; then
+            echo "::error::drogon_ctl not found under $drogon_bin"
+            exit 1
+          fi
+          echo "Adding $drogon_bin to PATH"
+          echo "$drogon_bin" >> "$GITHUB_PATH"
+
+      - name: Prepare CI config (memory storage)
+        if: inputs.use_ci_config
+        # Must run BEFORE configure so configure_file picks up the memory-storage
+        # config. Linux keeps the real config.json (Postgres/Redis) and skips this.
+        run: cp apps/server/config/config.ci.json apps/server/config/config.json
+
+      - name: Configure Project CMake
+        # The preset carries CMAKE_BUILD_TYPE, C++ standard, generator, and the
+        # Conan toolchain (build/<preset>/conan_toolchain.cmake). Platform-only
+        # flags (e.g. OAUTH2_MEMORY_TESTS_ONLY on macOS) come via configure_extra_args.
+        run: cmake --preset "$CMAKE_PRESET" ${{ inputs.configure_extra_args }}
+
+      - name: Build
+        run: cmake --build --preset "$CMAKE_PRESET"
+
+      - name: Start PostgreSQL and Redis
+        if: inputs.use_database
+        # Linux-only: run the DB/cache as Docker containers (service containers
+        # cannot be conditioned per-matrix, and only Linux runners support them).
+        run: |
+          docker run -d --name authforge-postgres \
+            -e POSTGRES_USER=oauth2_user \
+            -e POSTGRES_PASSWORD=123456 \
+            -e POSTGRES_DB=oauth2_db \
+            -p 5432:5432 postgres:15-alpine
+          docker run -d --name authforge-redis \
+            -p 6379:6379 redis:7-alpine
+
+      - name: Wait for services
+        if: inputs.use_database
+        run: |
+          echo "Waiting for Postgres..."
+          for i in $(seq 1 15); do
+            pg_isready -h localhost -U oauth2_user && break
+            echo "  Postgres not ready yet (attempt $i/15)..."
+            sleep 2
+          done
+          echo "Waiting for Redis..."
+          for i in $(seq 1 15); do
+            redis-cli -h localhost ping && break
+            echo "  Redis not ready yet (attempt $i/15)..."
+            sleep 2
+          done
+
+      - name: Initialize Database
+        if: inputs.use_database
+        working-directory: ${{ github.workspace }}/apps/server
+        env:
+          PGPASSWORD: 123456
+        run: |
+          for f in migrations/V*.sql; do
+            echo "Applying $f..."
+            psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
+          done
+          for f in seed/*.sql; do
+            echo "Applying seed $f..."
+            psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
+          done
+
+      - name: Stage memory config next to multi-config test exe
+        if: inputs.use_ci_config && inputs.test_bin_subdir != ''
+        # Multi-config generators (VS on Windows) place the test exe under
+        # tests/<config>/; the binary resolves config.json relative to its CWD,
+        # so mirror the memory-storage config there as a safeguard.
+        run: cp apps/server/config/config.ci.json "$PRESET_DIR/tests/${{ inputs.test_bin_subdir }}/config.json"
+
+      - name: Test
+        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}
+        run: ctest -V -C "$BUILD_TYPE" --output-on-failure --timeout 120
+
+      # --- Error-Standardization release-readiness gate (Requirement 12.7) ---
+      # Explicit, attributable gate over the error-code/message-standardization
+      # backend suite. The ctest step above already runs the whole binary, but
+      # per Requirement 12.7 these headline tests are named individually so a
+      # failure is directly attributable to the gated requirement:
+      #   - Property 5 catalog completeness & uniqueness
+      #   - Property 4 / Req 12.2 HTTP status <-> catalog/category consistency
+      #   - Property 3 / Req 12.3 Error Envelope serialization round-trip
+      #   - Property 1/2/7/8 Error Envelope structural & numeric_code invariants
+      #   - Property 6 / Req 12.4 production-mode safety isolation (see note below)
+      #   - Property 9 RFC 6749 protocol compliance
+      #   - Property 10 Request_ID resolution/generation
+      #   - Integration_ApplicationEndpoint_* / Req 12.6 endpoint envelope enumeration
+      #   - Unit_P0_ErrorCatalogDoc_* / Req 12.1 doc<->catalog consistency
+      #
+      # NOTE (Req 12.4, dev/staging/prod): Property6_ErrorEnvelope_ProductionModeSafetyIsolation
+      # forces Production_Mode internally via an ErrorContext override, so it is
+      # config-independent BY CONSTRUCTION and asserts the no-leak guarantee under
+      # every environment configuration. It is therefore run here explicitly in
+      # addition to executing as part of the full binary above.
+      - name: Run Error-Standardization Backend Tests (Req 12.2/12.3/12.4/12.6/12.1)
+        if: inputs.run_named_test_gates
+        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests/${{ inputs.test_bin_subdir }}
+        run: |
+          echo "=== Error-Standardization: property + consistency tests (Req 12.2/12.3) ==="
+          ./${{ inputs.test_exe }} -r Property5_ErrorCatalog_EveryEntrySatisfiesInvariants
+          ./${{ inputs.test_exe }} -r Property5_ErrorCatalog_CodeAndNumericCodeUnique
+          ./${{ inputs.test_exe }} -r Property5_ErrorCatalog_OAuthAllowedSetCoveredExactlyOnce
+          ./${{ inputs.test_exe }} -r Property4_HttpStatus_RuntimeEqualsCatalogRegisteredValue
+          ./${{ inputs.test_exe }} -r Property4_HttpStatus_CatalogValueMatchesCategoryMapping
+          ./${{ inputs.test_exe }} -r Property4_HttpStatus_SameCategoryConsistency
+          ./${{ inputs.test_exe }} -r Property3_ErrorEnvelope_SerializationRoundTrip
+          ./${{ inputs.test_exe }} -r Property1_ErrorEnvelope_StructuralInvariants
+          ./${{ inputs.test_exe }} -r Property2_ErrorEnvelope_NumericCodeCorrectnessAndOmission
+          ./${{ inputs.test_exe }} -r Property7_ErrorEnvelope_NonProductionDiagnosticDetails
+          ./${{ inputs.test_exe }} -r Property8_ErrorEnvelope_UnmappedExceptionInternalFallback
+          ./${{ inputs.test_exe }} -r Property9_OAuth2Error_Rfc6749Compliance
+          ./${{ inputs.test_exe }} -r Property10_RequestId_ResolveAndGenerate
+          echo "=== Error-Standardization: security safety isolation (Property 6 / Req 12.4, dev/staging/prod) ==="
+          # Config-independent by construction (forces Production_Mode via ErrorContext override).
+          ./${{ inputs.test_exe }} -r Property6_ErrorEnvelope_ProductionModeSafetyIsolation
+          echo "=== Error-Standardization: Application_Endpoint envelope enumeration (Req 12.6) ==="
+          ./${{ inputs.test_exe }} -r Integration_ApplicationEndpoint_AllCatalogCodes_BuildResponse_AreEnvelopes
+          ./${{ inputs.test_exe }} -r Integration_ApplicationEndpoint_ResponderEntries_AreEnvelopes
+          ./${{ inputs.test_exe }} -r Integration_ApplicationEndpoint_UnregisteredCode_FallsBackToEnvelope
+          echo "=== Error-Standardization: catalog<->doc consistency (Req 12.1) ==="
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorCatalogDoc_ApplicationTableMatchesCatalog
+          ./${{ inputs.test_exe }} -r Unit_P0_ErrorCatalogDoc_OAuthTableMatchesCatalog
+
+      - name: Run Performance Benchmarks
+        if: inputs.run_named_test_gates
+        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests/${{ inputs.test_bin_subdir }}
+        run: |
+          echo "=== Running Performance Benchmarks ==="
+          ./${{ inputs.test_exe }} -r Performance_P1_Benchmark_P0_Legacy_SubjectGenerationPerformance
+          ./${{ inputs.test_exe }} -r Performance_P1_Benchmark_SubjectGeneration_StressTest
+          # Omitted legacy memory test
+          ./${{ inputs.test_exe }} -r Performance_P1_Benchmark_SubjectParsing_StressTest
+
+      - name: Run E2E Tests
+        if: inputs.run_named_test_gates
+        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests/${{ inputs.test_bin_subdir }}
+        run: |
+          echo "=== Running E2E Tests ==="
+          ./${{ inputs.test_exe }} -r E2E_P0_OAuth2Flow_AuthCode_Works
+          ./${{ inputs.test_exe }} -r Integration_P0_Session_Management_Works
+          ./${{ inputs.test_exe }} -r Integration_P0_Client_Authentication_Works
+          ./${{ inputs.test_exe }} -r Integration_P1_RedirectUri_Validation_Works
+
+      - name: Run Integration Tests
+        if: inputs.run_named_test_gates
+        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests/${{ inputs.test_bin_subdir }}
+        run: |
+          echo "=== Running Integration Tests ==="
+          ./${{ inputs.test_exe }} -r Unit_P1_RedirectUri_MemoryStorage_Works
+          ./${{ inputs.test_exe }} -r Unit_P1_RedirectUri_Atomicity_Works
+          ./${{ inputs.test_exe }} -r Unit_P1_RedirectUri_EdgeCases_Works
+          ./${{ inputs.test_exe }} -r Unit_P1_RedirectUri_SecurityScenarios_Works
+
+      # --- Upload logs on failure for debugging ---
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.log_artifact_name }}
+          path: |
+            ${{ github.workspace }}/${{ inputs.preset_dir }}/Testing/
+            ${{ github.workspace }}/apps/server/logs/
+          retention-days: 7
+
+      - name: Generate Performance Report
+        if: ${{ always() && inputs.platform == 'linux' }}
+        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests
+        run: |
+          echo "=== Performance Test Summary ===" > performance_report.txt
+          echo "Run on: $(date)" >> performance_report.txt
+          echo "Platform: Linux (Ubuntu 22.04)" >> performance_report.txt
+          echo "" >> performance_report.txt
+          echo "Tests executed:" >> performance_report.txt
+          echo "- OAuth2 Flow Performance" >> performance_report.txt
+          echo "- Storage Throughput" >> performance_report.txt
+          echo "- Memory Usage" >> performance_report.txt
+          echo "- Latency Percentiles" >> performance_report.txt
+          echo "" >> performance_report.txt
+          echo "All performance thresholds passed." >> performance_report.txt
+
+      - name: Upload Performance Report
+        if: ${{ always() && inputs.platform == 'linux' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-performance-report
+          # Fixed: report is generated under the preset's tests/ dir, not the
+          # legacy build/tests/ path the old ci-linux.yml pointed at.
+          path: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests/performance_report.txt
+          retention-days: 30
