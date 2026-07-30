@@ -1,5 +1,13 @@
 # Production Docker Compose
 # Usage: cp .env.docker.example .env.docker && docker-compose -f docker-compose.prod.yml --env-file .env.docker up -d
+#
+# Task 37: services reference the versioned ghcr images published by
+# release.yml (set AUTHFORGE_VERSION to pin; `--build` still works and tags
+# the local build with the same name). Schema migrations run through the
+# one-shot `migrate` service (profile "migrate"), not at app startup:
+#   docker compose -f docker-compose.prod.yml --env-file .env.docker \
+#     --profile migrate run --rm migrate
+# The app itself keeps OAUTH2_AUTO_MIGRATE=false and only self-checks.
 
 services:
   nginx:
@@ -23,6 +31,7 @@ services:
       - oauth2-net
 
   oauth2-frontend:
+    image: ghcr.io/lucaswang420/authforge-frontend:${AUTHFORGE_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
@@ -37,10 +46,16 @@ services:
     restart: always
     expose:
       - "80"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
     networks:
       - oauth2-net
 
   oauth2-admin:
+    image: ghcr.io/lucaswang420/authforge-admin:${AUTHFORGE_VERSION:-latest}
     build:
       context: ../../frontends/admin
       dockerfile: Dockerfile
@@ -48,10 +63,16 @@ services:
     restart: always
     expose:
       - "80"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
     networks:
       - oauth2-net
 
   oauth2-backend:
+    image: ghcr.io/lucaswang420/authforge-backend:${AUTHFORGE_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
@@ -60,6 +81,11 @@ services:
     restart: always
     expose:
       - "5555"
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
     depends_on:
       oauth2-postgres:
         condition: service_healthy
@@ -83,7 +109,9 @@ services:
       - OAUTH2_VUE_REDIRECT_URI=${OAUTH2_VUE_REDIRECT_URI}
       - OAUTH2_VUE_CLIENT_SECRET=${OAUTH2_VUE_CLIENT_SECRET}
       - OAUTH2_GOOGLE_REDIRECT_URI=${OAUTH2_GOOGLE_REDIRECT_URI:-}
-      - OAUTH2_AUTO_MIGRATE=${OAUTH2_AUTO_MIGRATE:-true}
+      # Migrations run via the `migrate` one-shot service (see header);
+      # the app only self-checks the schema at startup.
+      - OAUTH2_AUTO_MIGRATE=${OAUTH2_AUTO_MIGRATE:-false}
       - DETAILED_VALIDATION_ERRORS=${DETAILED_VALIDATION_ERRORS:-false}
       # External auth (optional)
       - OAUTH2_GITHUB_CLIENT_ID=${OAUTH2_GITHUB_CLIENT_ID:-}
@@ -99,14 +127,44 @@ services:
       - OAUTH2_SMTP_SSL=${OAUTH2_SMTP_SSL:-true}
     volumes:
       - ../../deploy/keys:/app/keys:ro
-      - ../../apps/server/migrations:/app/sql/migrations:ro
-      - ../../apps/server/seed:/app/sql/seed:ro
+      # migrations/seed are baked into the image (/app/sql/*) -- no volume
+      # mounts, so the running container matches the released artifact.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5555/health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
+    networks:
+      - oauth2-net
+
+  # One-shot schema migration executor (Task 37). Not started by default:
+  #   docker compose -f docker-compose.prod.yml --env-file .env.docker \
+  #     --profile migrate run --rm migrate
+  # Exit code 0 = schema up to date, 1 = failure (compose surfaces it).
+  migrate:
+    image: ghcr.io/lucaswang420/authforge-backend:${AUTHFORGE_VERSION:-latest}
+    profiles: ["migrate"]
+    command: ["./authforge-server", "--migrate-only"]
+    restart: "no"
+    depends_on:
+      oauth2-postgres:
+        condition: service_healthy
+    environment:
+      - OAUTH2_ENV=${OAUTH2_ENV:-production}
+      - OAUTH2_ISSUER=${OAUTH2_ISSUER}
+      - OAUTH2_JWT_KEY_PATH=${OAUTH2_JWT_KEY_PATH:-/app/keys/signing.pem}
+      - OAUTH2_DB_HOST=${OAUTH2_DB_HOST}
+      - OAUTH2_DB_PORT=${OAUTH2_DB_PORT:-5432}
+      - OAUTH2_DB_NAME=${OAUTH2_DB_NAME}
+      - OAUTH2_DB_USER=${OAUTH2_DB_USER}
+      - OAUTH2_DB_PASSWORD=${OAUTH2_DB_PASSWORD}
+      - OAUTH2_REDIS_HOST=${OAUTH2_REDIS_HOST}
+      - OAUTH2_REDIS_PORT=${OAUTH2_REDIS_PORT:-6379}
+      - OAUTH2_REDIS_PASSWORD=${OAUTH2_REDIS_PASSWORD}
+      - OAUTH2_VUE_CLIENT_SECRET=${OAUTH2_VUE_CLIENT_SECRET}
+    volumes:
+      - ../../deploy/keys:/app/keys:ro
     networks:
       - oauth2-net
 
@@ -143,7 +201,9 @@ services:
     container_name: oauth2-prometheus
     restart: always
     ports:
-      - "9090:9090"
+      # Loopback only: reach it via SSH tunnel / reverse proxy, never the
+      # public interface.
+      - "127.0.0.1:9090:9090"
     volumes:
       - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - promdata:/prometheus

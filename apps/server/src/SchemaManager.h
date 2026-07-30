@@ -28,6 +28,27 @@ class SchemaManager
     static bool migrate(const std::string &migrationsDir);
 
     /**
+     * @brief Run all pending migrations against an explicit DbClient.
+     *
+     * Task 37 (authforge-sdk-refactor): the K8s pre-install/pre-upgrade hook
+     * Job runs `authforge-server --migrate-only`, which constructs its own
+     * DbClient from config instead of relying on drogon::app().run() having
+     * initialized the framework-owned client pool.
+     */
+    static bool migrate(const drogon::orm::DbClientPtr &db, const std::string &migrationsDir);
+
+    /**
+     * @brief Count migration files on disk not yet recorded in
+     * schema_migrations (startup self-check for OAUTH2_AUTO_MIGRATE=false
+     * deployments where migrations run externally via the hook Job).
+     * @return number of pending migrations, or -1 on query/scan error
+     */
+    static int countPendingMigrations(
+      const drogon::orm::DbClientPtr &db,
+      const std::string &migrationsDir
+    );
+
+    /**
      * @brief Split a multi-statement SQL script into individual statements.
      *
      * PostgreSQL prepared statements accept only one statement, so migration

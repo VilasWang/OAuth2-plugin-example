@@ -1,19 +1,12 @@
 #include "SchemaManager.h"
 #include <drogon/drogon.h>
+#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
 #include <regex>
-#include <iomanip>
-
-// Platform-specific SHA-256 implementation
-#ifdef _WIN32
-#include <windows.h>
-#include <bcrypt.h>
-#pragma comment(lib, "bcrypt.lib")
-#endif
 
 namespace schema
 {
@@ -170,9 +163,19 @@ std::vector<std::string> SchemaManager::splitSqlStatements(const std::string &sq
 
 bool SchemaManager::migrate(const std::string &migrationsDir)
 {
+    auto db = drogon::app().getDbClient();
+    if (!db)
+    {
+        LOG_ERROR << "SchemaManager: No database client available";
+        return false;
+    }
+    return migrate(db, migrationsDir);
+}
+
+bool SchemaManager::migrate(const drogon::orm::DbClientPtr &db, const std::string &migrationsDir)
+{
     LOG_INFO << "SchemaManager: Starting migration from " << migrationsDir;
 
-    auto db = drogon::app().getDbClient();
     if (!db)
     {
         LOG_ERROR << "SchemaManager: No database client available";
@@ -227,6 +230,45 @@ bool SchemaManager::migrate(const std::string &migrationsDir)
     }
 
     return true;
+}
+
+int SchemaManager::countPendingMigrations(
+  const drogon::orm::DbClientPtr &db,
+  const std::string &migrationsDir
+)
+{
+    if (!db)
+        return -1;
+
+    auto migrations = scanMigrationFiles(migrationsDir);
+    if (migrations.empty())
+        return 0;
+
+    try
+    {
+        // If schema_migrations doesn't exist yet, every migration is pending.
+        auto reg = db->execSqlSync("SELECT to_regclass('schema_migrations') AS t");
+        if (reg.empty() || reg[0]["t"].isNull())
+            return static_cast<int>(migrations.size());
+
+        auto result = db->execSqlSync("SELECT version FROM schema_migrations");
+        std::vector<int> applied;
+        for (const auto &row : result)
+            applied.push_back(row["version"].as<int>());
+
+        int pending = 0;
+        for (const auto &migration : migrations)
+        {
+            if (std::find(applied.begin(), applied.end(), migration.version) == applied.end())
+                ++pending;
+        }
+        return pending;
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "SchemaManager: Pending-migration check failed: " << e.what();
+        return -1;
+    }
 }
 
 bool SchemaManager::ensureMigrationsTable(const drogon::orm::DbClientPtr &db)
@@ -370,61 +412,14 @@ bool SchemaManager::applyMigration(
 
 std::string SchemaManager::computeChecksum(const std::string &content)
 {
-#ifdef _WIN32
-    // Use Windows BCrypt for SHA-256
-    BCRYPT_ALG_HANDLE hAlg = nullptr;
-    BCRYPT_HASH_HANDLE hHash = nullptr;
-    NTSTATUS status;
-    UCHAR hash[32];  // SHA-256 = 32 bytes
-
-    status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
-    if (!BCRYPT_SUCCESS(status))
-        return "error";
-
-    status = BCryptCreateHash(hAlg, &hHash, nullptr, 0, nullptr, 0, 0);
-    if (!BCRYPT_SUCCESS(status))
-    {
-        BCryptCloseAlgorithmProvider(hAlg, 0);
-        return "error";
-    }
-
-    status = BCryptHashData(
-      hHash,
-      reinterpret_cast<PUCHAR>(const_cast<char *>(content.data())),
-      static_cast<ULONG>(content.size()),
-      0
-    );
-    if (!BCRYPT_SUCCESS(status))
-    {
-        BCryptDestroyHash(hHash);
-        BCryptCloseAlgorithmProvider(hAlg, 0);
-        return "error";
-    }
-
-    status = BCryptFinishHash(hHash, hash, sizeof(hash), 0);
-    BCryptDestroyHash(hHash);
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-
-    if (!BCRYPT_SUCCESS(status))
-        return "error";
-
-    // Convert to hex string
-    std::ostringstream oss;
-    oss << std::hex << std::setfill('0');
-    for (int i = 0; i < 32; ++i)
-    {
-        oss << std::setw(2) << static_cast<int>(hash[i]);
-    }
-    return oss.str();
-#else
-    // Fallback: simple hash for non-Windows (use OpenSSL in production)
-    // This is a placeholder — on Linux/Mac, link against OpenSSL
-    std::hash<std::string> hasher;
-    auto h = hasher(content);
-    std::ostringstream oss;
-    oss << std::hex << std::setfill('0') << std::setw(16) << h;
-    return oss.str();
-#endif
+    // Task 37 (authforge-sdk-refactor): unified on
+    // OpenSslCryptoProvider::sha256Hex() -- the previous implementation was
+    // Windows-only BCrypt with a std::hash placeholder on Linux/macOS, which
+    // made checksums recorded from a K8s migration Job meaningless. Both the
+    // old BCrypt path and sha256Hex() emit lowercase hex, so Windows-recorded
+    // checksums stay stable across this change.
+    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
+    return cryptoProvider.sha256Hex(content);
 }
 
 }  // namespace schema

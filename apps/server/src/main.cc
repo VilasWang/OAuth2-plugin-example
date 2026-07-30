@@ -94,8 +94,27 @@ static Json::Value loadConfiguration(const std::string &configPath)
     return config;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    // Task 37 (authforge-sdk-refactor): --migrate-only runs all pending
+    // schema migrations synchronously and exits 0/1 without starting the
+    // HTTP server. This is the entry point for the Helm
+    // pre-install/pre-upgrade hook Job; regular startup is unaffected.
+    bool migrateOnly = false;
+    for (int i = 1; i < argc; ++i)
+    {
+        if (std::string(argv[i]) == "--migrate-only")
+        {
+            migrateOnly = true;
+        }
+        else
+        {
+            std::cerr << "Unknown argument: " << argv[i] << std::endl
+                      << "Usage: authforge-server [--migrate-only]" << std::endl;
+            return 1;
+        }
+    }
+
     // 1. Locate and load config.json (with env-var overrides)
     std::string configPath = "./config.json";
     if (!std::filesystem::exists(configPath))
@@ -111,6 +130,10 @@ int main()
 
     createLogDirFromConfig(configPath);
     Json::Value config = loadConfiguration(configPath);
+
+    if (migrateOnly)
+        return bootstrap::runMigrateOnly(config);
+
     drogon::app().loadConfigJson(config);
 
     LOG_INFO << "Database host: "

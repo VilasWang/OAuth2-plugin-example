@@ -1,0 +1,144 @@
+# AuthForge Helm chart values.
+#
+# Secrets policy (Task 37 / design F10): sensitive values travel ONLY via
+# Kubernetes Secrets (either rendered from `secrets.*` below or an
+# `secrets.existingSecret` you manage out-of-band). Nothing here is ever
+# written to files or logs by the server; startup logs print DB/Redis hosts
+# only, never passwords.
+
+image:
+  registry: ghcr.io
+  # Images: <registry>/<prefix>-backend / -frontend / -admin (release.yml)
+  prefix: lucaswang420/authforge
+  # Defaults to Chart appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+backend:
+  replicaCount: 1
+  # production enforces https issuer + non-default passwords at startup
+  # (ConfigManager::validate). Use "development" only for local demos.
+  env: production
+  issuer: https://auth.example.com
+  listenPort: 5555
+  frontendUrl: https://auth.example.com
+  corsAllowOrigins: https://auth.example.com
+  vueRedirectUri: https://auth.example.com/callback
+  googleRedirectUri: ""
+  detailedValidationErrors: "false"
+  # Kept false: schema migrations run in the hook Job, the app only
+  # self-checks (MigrationRunner::setupSchemaSelfCheck).
+  autoMigrate: false
+  githubClientId: ""
+  googleClientId: ""
+  smtp:
+    host: ""
+    port: 465
+    user: ""
+    fromName: OAuth2 Platform
+    ssl: "true"
+  # RSA signing key: name of a Secret whose `keyName` entry is the PEM
+  # private key; mounted read-only at /app/keys. Empty = ephemeral key
+  # (dev only -- tokens are invalidated on every restart).
+  jwtKey:
+    existingSecret: ""
+    keyName: signing.pem
+  podAnnotations: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+
+frontend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+admin:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Schema migration hook Job (pre-upgrade always; pre-install only when the
+# database is external -- with the in-chart postgres the DB does not exist
+# yet during pre-install hooks, so first-install migration runs post-install).
+migration:
+  activeDeadlineSeconds: 300
+  backoffLimit: 2
+
+# Sensitive values. Either fill these (rendered into a chart-managed Secret)
+# or point existingSecret at a Secret carrying the same env-var-named keys:
+# OAUTH2_DB_PASSWORD, OAUTH2_REDIS_PASSWORD, OAUTH2_VUE_CLIENT_SECRET,
+# OAUTH2_GITHUB_CLIENT_SECRET, OAUTH2_GOOGLE_CLIENT_SECRET,
+# OAUTH2_SMTP_PASSWORD.
+secrets:
+  existingSecret: ""
+  dbPassword: ""
+  redisPassword: ""
+  vueClientSecret: ""
+  githubClientSecret: ""
+  googleClientSecret: ""
+  smtpPassword: ""
+
+# In-chart PostgreSQL (demo/local). Disable for production and configure
+# externalDatabase instead.
+postgresql:
+  enabled: true
+  image: postgres:15-alpine
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+externalDatabase:
+  host: ""
+  port: 5432
+  name: oauth2_db
+  user: oauth2_user
+
+# In-chart Redis (demo/local). Disable for production and configure
+# externalRedis instead.
+redis:
+  enabled: true
+  image: redis:7-alpine
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+externalRedis:
+  host: ""
+  port: 6379
+
+# Path layout mirrors deploy/nginx/nginx.conf: backend prefixes go to the
+# API, /admin to the console, everything else to the SPA.
+ingress:
+  enabled: false
+  className: ""
+  host: auth.example.com
+  annotations: {}
+  tls: []

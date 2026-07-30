@@ -291,6 +291,65 @@ TEST_F(AuthServiceTest, LegacyHashVerifiesAndGetsUpgraded)
     EXPECT_EQ(reloaded->passwordHash.find("$pbkdf2-sha256$"), 0u);
 }
 
+// F10 migration compatibility (Task 37): after the on-login rehash the same
+// password must keep working through the PBKDF2 branch -- proves the upgrade
+// is lossless end-to-end (seed legacy row -> login -> rehash -> login again).
+TEST_F(AuthServiceTest, LegacyUserCanLoginAgainAfterRehash)
+{
+    std::string salt = "somesalt";
+    UserData legacyUser;
+    legacyUser.username = "gina";
+    legacyUser.email = "gina@example.com";
+    legacyUser.passwordHash = crypto->sha256Hex("legacy-pw" + salt);
+    legacyUser.salt = salt;
+    int32_t userId = repo->seed(legacyUser);
+
+    std::optional<AuthResult> first;
+    service->validateUser("gina", "legacy-pw", [&](std::optional<AuthResult> r) { first = r; });
+    ASSERT_TRUE(first.has_value());
+
+    std::optional<UserData> upgraded;
+    repo->findById(userId, [&](std::optional<UserData> u) { upgraded = u; });
+    ASSERT_TRUE(upgraded.has_value());
+    ASSERT_EQ(upgraded->passwordHash.find("$pbkdf2-sha256$"), 0u);
+
+    // Second login now verifies against the upgraded PBKDF2 hash.
+    std::optional<AuthResult> second;
+    service->validateUser("gina", "legacy-pw", [&](std::optional<AuthResult> r) { second = r; });
+    ASSERT_TRUE(second.has_value());
+
+    // And the hash must be stable -- no re-rehash on the second login.
+    std::optional<UserData> stable;
+    repo->findById(userId, [&](std::optional<UserData> u) { stable = u; });
+    ASSERT_TRUE(stable.has_value());
+    EXPECT_EQ(stable->passwordHash, upgraded->passwordHash);
+}
+
+// F10 migration compatibility (Task 37): a failed login against a legacy row
+// must NOT trigger the upgrade -- the stored hash stays legacy so the user
+// can still authenticate with the correct password later.
+TEST_F(AuthServiceTest, LegacyHashStaysUntouchedOnWrongPassword)
+{
+    std::string salt = "somesalt";
+    std::string legacyHash = crypto->sha256Hex("legacy-pw" + salt);
+
+    UserData legacyUser;
+    legacyUser.username = "hank";
+    legacyUser.email = "hank@example.com";
+    legacyUser.passwordHash = legacyHash;
+    legacyUser.salt = salt;
+    int32_t userId = repo->seed(legacyUser);
+
+    std::optional<AuthResult> result;
+    service->validateUser("hank", "wrong-pw", [&](std::optional<AuthResult> r) { result = r; });
+    EXPECT_FALSE(result.has_value());
+
+    std::optional<UserData> reloaded;
+    repo->findById(userId, [&](std::optional<UserData> u) { reloaded = u; });
+    ASSERT_TRUE(reloaded.has_value());
+    EXPECT_EQ(reloaded->passwordHash, legacyHash);
+}
+
 TEST_F(AuthServiceTest, GetUserInfoReturnsClaimsForRegisteredUser)
 {
     int32_t userId = 0;
