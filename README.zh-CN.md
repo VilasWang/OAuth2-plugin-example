@@ -18,9 +18,11 @@ authforge/
 ├── libs/               # SDK 库包（authforge::common/oauth2/identity/storage-*/drogon）
 ├── frontends/admin/    # 管理后台前端（Vue 3 + TailwindCSS）
 ├── frontends/user/     # 用户端前端（Vue 3 + Pinia + TailwindCSS）
+├── examples/           # SDK 消费示例（find_package 冒烟宿主）
+├── deploy/             # Docker Compose、Helm chart、nginx、可观测性
+├── tests/              # 后端测试套件（单元 / 集成 / 契约）
 ├── scripts/            # 构建、测试、运维脚本
-├── docs/               # 项目文档
-└── PRD/                # 产品设计文档
+└── docs/               # 项目文档
 ```
 
 ### 技术栈
@@ -206,7 +208,6 @@ ctest --output-on-failure
 | [SDK 集成指南](docs/backend/sdk-integration-guide.md) | 发布产物消费（SDK 包 + GHCR 镜像） |
 | [SDK 运行时契约](docs/backend/sdk-runtime-contract.md) | 线程 / ABI / 异常 / 日志承诺 |
 | [CI/CD 流水线](docs/backend/ci-cd-guide.md) | GitHub Actions 配置 |
-| [Admin Console 设计](PRD/admin_console_design.md) | 管理后台产品设计文档 |
 | [账号锁定机制](docs/ops/account-lockout.md) | 锁定规则和重置方法 |
 
 ---
@@ -216,7 +217,7 @@ ctest --output-on-failure
 | 组件 | 最低版本 |
 |------|----------|
 | C++ 编译器 | C++17 (MSVC 2019+ / GCC 9+ / Clang 10+) |
-| CMake | 3.20+ |
+| CMake | 3.23+ |
 | PostgreSQL | 14+ |
 | Redis | 7+ |
 | Node.js | 18+ |

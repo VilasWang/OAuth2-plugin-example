@@ -469,13 +469,13 @@ curl -k https://localhost/admin/
 | 项目 | 值 |
 |------|-----|
 | 容器名 | oauth2-admin |
-| 构建 | OAuth2Admin/Dockerfile |
+| 构建 | frontends/admin/Dockerfile |
 | 基础镜像 | nginx:alpine |
 | 内部端口 | 80 |
 | 访问路径 | `https://your-domain.com/admin/` |
 | 功能 | 应用管理、用户管理、角色/Scope/Token 管理 |
 
-### 后端 API (OAuth2Server)
+### 后端 API (authforge-server)
 
 | 项目 | 值 |
 |------|-----|
@@ -588,12 +588,12 @@ docker exec -it oauth2-postgres sh -c '
 
 ```bash
 # 验证 seed 文件存在
-ls OAuth2Server/sql/seed/dev_*.sql || echo "错误：Seed 文件缺失，请检查项目结构"
+ls apps/server/seed/dev_*.sql || echo "错误：Seed 文件缺失，请检查项目结构"
 
 # 创建管理员账号
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_admin_user.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_admin_console_client.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_vue_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_admin_user.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_admin_console_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_vue_client.sql
 ```
 
 **重要**：生产环境部署后立即修改 admin 密码！

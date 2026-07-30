@@ -231,7 +231,7 @@ INFO  [METRIC] oauth2_login_failures_total reason=bad_credentials
 
 ## 相关文件
 
-- `OAuth2Server/AuthService.cc` - 账号锁定逻辑实现
+- `libs/identity/src/AuthService.cc` - 账号锁定逻辑实现
 - `scripts/backend/test-admin-endpoints.ps1` - 测试脚本（含自动清理）
 - `scripts/backend/reset-account-lockout.ps1` - 手动重置脚本
 - 数据库表：`users` (字段: `failed_login_count`, `locked_until`, `last_failed_login`)

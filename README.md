@@ -18,9 +18,11 @@ authforge/
 ├── libs/               # SDK library packages (authforge::common/oauth2/identity/storage-*/drogon)
 ├── frontends/admin/    # Admin console frontend (Vue 3 + TailwindCSS)
 ├── frontends/user/     # User-facing frontend (Vue 3 + Pinia + TailwindCSS)
+├── examples/           # SDK consumer examples (find_package smoke hosts)
+├── deploy/             # Docker Compose, Helm chart, nginx, observability
+├── tests/              # Backend test suite (unit / integration / contract)
 ├── scripts/            # Build, test, and operations scripts
-├── docs/               # Project documentation
-└── PRD/                # Product design documents
+└── docs/               # Project documentation
 ```
 
 ### Tech Stack
@@ -206,7 +208,6 @@ ctest --output-on-failure
 | [SDK Integration Guide](docs/backend/sdk-integration-guide.md) | Consuming release artifacts (SDK tarball + GHCR images) |
 | [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md) | Threading, ABI, exception, logging promises |
 | [CI/CD Pipeline](docs/backend/ci-cd-guide.md) | GitHub Actions configuration |
-| [Admin Console Design](PRD/admin_console_design.md) | Admin console product design document |
 | [Account Lockout](docs/ops/account-lockout.md) | Lockout rules and reset procedures |
 
 ---
@@ -216,7 +217,7 @@ ctest --output-on-failure
 | Component | Minimum Version |
 |-----------|-----------------|
 | C++ Compiler | C++17 (MSVC 2019+ / GCC 9+ / Clang 10+) |
-| CMake | 3.20+ |
+| CMake | 3.23+ |
 | PostgreSQL | 14+ |
 | Redis | 7+ |
 | Node.js | 18+ |

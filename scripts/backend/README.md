@@ -103,9 +103,8 @@ ctest --output-on-failure
 
 These scripts follow the same Conan + preset process as the CI workflows:
 
-- [`.github/workflows/ci-linux.yml`](../../.github/workflows/ci-linux.yml) — `linux-release`
-- [`.github/workflows/ci-macos.yml`](../../.github/workflows/ci-macos.yml) — `macos-arm64`
-- [`.github/workflows/ci-windows.yml`](../../.github/workflows/ci-windows.yml) — `windows-msvc`
+- [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — platform matrix entry point
+- [`.github/workflows/_build-test.yml`](../../.github/workflows/_build-test.yml) — reusable build+test job (`linux-release` / `macos-arm64` / `windows-msvc` presets)
 
 ## Troubleshooting
 

@@ -212,7 +212,7 @@ Authorization: `Bearer {access_token}`
 
 ## 5. 通用错误码
 
-> **单一权威来源（single source of truth）**：本章节 5.1 与 5.2 的表格由后端 `ErrorCatalog`（`OAuth2Plugin/include/oauth2/error/ErrorCatalog.h`）的 `allEntries()` / `allOAuthEntries()` 生成并由自动化测试校验，请勿手工修改表格行。
+> **单一权威来源（single source of truth）**：本章节 5.1 与 5.2 的表格由后端 `ErrorCatalog`（`libs/common/include/authforge/common/error/ErrorCatalog.h`）的 `allEntries()` / `allOAuthEntries()` 生成并由自动化测试校验，请勿手工修改表格行。
 > 任一不一致（缺失/多余条目、HTTP 状态码或 Error_Category 不匹配）都会导致校验测试失败：`authforge-tests -r ErrorCatalogDoc`。
 
 ### 5.1 应用错误码 (Application Error Codes)
