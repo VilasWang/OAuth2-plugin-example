@@ -203,6 +203,8 @@ ctest --output-on-failure
 | [安全架构](docs/backend/security-architecture.md) | Token 生命周期、加密、防护策略 |
 | [RBAC 权限](docs/backend/rbac-guide.md) | 角色权限配置说明 |
 | [Docker 部署](docs/backend/docker-deployment.md) | 容器化部署方案 |
+| [SDK 集成指南](docs/backend/sdk-integration-guide.md) | 发布产物消费（SDK 包 + GHCR 镜像） |
+| [SDK 运行时契约](docs/backend/sdk-runtime-contract.md) | 线程 / ABI / 异常 / 日志承诺 |
 | [CI/CD 流水线](docs/backend/ci-cd-guide.md) | GitHub Actions 配置 |
 | [Admin Console 设计](PRD/admin_console_design.md) | 管理后台产品设计文档 |
 | [账号锁定机制](docs/ops/account-lockout.md) | 锁定规则和重置方法 |

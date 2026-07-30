@@ -324,10 +324,12 @@
 
 ## M7 — 发布管线（依赖：M6）
 
-- [ ] 36. `release.yml`：多架构镜像 + SDK 产物
+- [x] 36. `release.yml`：多架构镜像 + SDK 产物
   - buildx amd64+arm64 镜像；SDK 库 + 头 + `authforge-*Config.cmake` 打包
   - SDK 集成文档写明 **whole-archive 链接 `authforge-drogon`**（F1/H5）、**插件注册方式**（H1）与 SDK 运行时契约（线程/ABI/异常/日志，F9）
   - 产出：release workflow + 集成文档；验收：tag 触发产出全部产物；第三方按文档集成可跑通
+  - **完成说明（2026-07-28，决策：ghcr.io + 原生 ARM runner + SDK 包仅 Linux x64）**：新增 `.github/workflows/release.yml`——严格 SemVer tag（`v[0-9]+.[0-9]+.[0-9]+`，带后缀 tag 如 v1.0.0-skills-modernization 不触发）+ workflow_dispatch 干跑（构建全量、不推送不发 Release）。五 job：①version-check（tag == cmake/Version.cmake + api-diff 三源一致与 API 面冻结校验）；②sdk-package（复刻 _build-test.yml Linux 序列，`cmake --install` 出 8 静态库+头+lib/cmake configs 打 tar + sha256，并用 examples/full-stack-host 对**安装前缀**做 find_package 消费冒烟——比 SdkSmoke 的 build-tree 验证更贴近第三方真实路径；Conan cache key 加 runner.arch 维度防 amd64/arm64 互毁）；③images（backend/frontend/admin 三镜像 × amd64/arm64 矩阵，arm64 用 ubuntu-24.04-arm **原生构建**替代 buildx QEMU——容器内全量 C++ 编译在模拟下不可行；context/target 与 compose 一一对应，推 `<ver>-<arch>` 中间标签）；④manifest（imagetools 合并出 `<ver>` + `latest` 多架构 manifest，命名 `ghcr.io/lucaswang420/authforge-{backend,frontend,admin}`）；⑤github-release（gh release create 挂 SDK tarball）。集成文档 `docs/backend/sdk-integration-guide.md`：产物清单、ABI 前置警示（引契约 §2）、conan install + CMAKE_PREFIX_PATH 集成步骤、8 包/导出目标清单、whole-archive 口径按现状校准（OBJECT 库 + 反射注册当前不需要；消费方自建静态自注册封装才需，F1/H5/H1）、镜像使用、维护者发布流程；双语 README 文档表挂链。本地验收：release.yml YAML 解析通过；`cmake --install`（Windows build 树代跑）产出 8 库 + 8 套 {Config,ConfigVersion,Targets} + 174 头，布局与文档一致。
+  - **验收缺口（如实记录）**：tag 触发的端到端实跑（GHCR 推送、arm64 原生构建、Release 附件）待首次真实打 tag 或 workflow_dispatch 干跑验证；分支尚未 push，workflow 未在 GitHub 侧执行过。
 
 - [ ] 37. Helm chart + 生产 Compose + 版本化迁移执行器（含 F10）
   - 迁移执行器 + 回滚策略 + 启动自检；secrets 仅经 env/secret store（禁落盘日志）
@@ -424,7 +426,7 @@
 7. ~~**Task 34 api-diff**（依赖命名冻结 Task 45 已完成 + Task 41 版本冻结）：SDK 导出头 API 快照 diff + 基线。~~ ✅ 完成
 
 **Wave D — 发布管线（依赖 M6 = Task 32-35）**
-8. **Task 36 release.yml**（多架构镜像 + SDK 产物打包，依赖 28a 打包地基）。
+8. ~~**Task 36 release.yml**（多架构镜像 + SDK 产物打包，依赖 28a 打包地基）。~~ ✅ 完成（tag 实跑验收待首次发布）
 9. **Task 37 Helm + 生产 Compose + 版本化迁移执行器**（含 F10 legacy 密码平滑升级）。
 10. **Task 38 SBOM + 镜像签名 + 自动 CHANGELOG**。
 

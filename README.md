@@ -203,6 +203,8 @@ ctest --output-on-failure
 | [Security Architecture](docs/backend/security-architecture.md) | Token lifecycle, encryption, protection strategies |
 | [RBAC Guide](docs/backend/rbac-guide.md) | Role permission configuration |
 | [Docker Deployment](docs/backend/docker-deployment.md) | Containerized deployment |
+| [SDK Integration Guide](docs/backend/sdk-integration-guide.md) | Consuming release artifacts (SDK tarball + GHCR images) |
+| [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md) | Threading, ABI, exception, logging promises |
 | [CI/CD Pipeline](docs/backend/ci-cd-guide.md) | GitHub Actions configuration |
 | [Admin Console Design](PRD/admin_console_design.md) | Admin console product design document |
 | [Account Lockout](docs/ops/account-lockout.md) | Lockout rules and reset procedures |
