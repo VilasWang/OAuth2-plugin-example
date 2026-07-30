@@ -26,21 +26,21 @@ NC='\033[0m' # No Color
 check_sensitive_files() {
     echo "📁 Checking for sensitive files in git tracking..."
 
-    # 检查 .env 文件
-    if git ls-files | grep -E "\.env$" > /dev/null 2>&1; then
+    # 检查 .env 文件（仅匹配文件名恰为 .env 的文件，排除 paths.env 等合法文件）
+    if git ls-files | grep -E "(^|/)\.env$" > /dev/null 2>&1; then
         echo -e "${RED}❌ ERROR: .env files found in git tracking${NC}"
-        git ls-files | grep -E "\.env$"
+        git ls-files | grep -E "(^|/)\.env$"
         ERRORS=$((ERRORS + 1))
     else
         echo -e "${GREEN}✅ No .env files tracked${NC}"
     fi
 
-    # 检查前端 .env 文件
-    if git ls-files | grep "frontends/user/.env" > /dev/null 2>&1; then
+    # 检查前端 .env 文件（精确匹配，避免误伤 .env.example）
+    if git ls-files | grep -qx "frontends/user/.env" 2>/dev/null; then
         echo -e "${RED}❌ ERROR: frontends/user/.env is tracked${NC}"
         ERRORS=$((ERRORS + 1))
     else
-        echo -e "${GREEN}✅ Frontend config.json not tracked${NC}"
+        echo -e "${GREEN}✅ Frontend .env not tracked${NC}"
     fi
 
     echo ""
@@ -116,7 +116,8 @@ check_gitignore() {
     )
 
     for rule in "${REQUIRED[@]}"; do
-        if grep -qx "$rule" .gitignore 2>/dev/null; then
+        # 容忍 CRLF 行尾（Windows 本地 checkout）
+        if tr -d '\r' < .gitignore 2>/dev/null | grep -qx "$rule"; then
             echo -e "${GREEN}✅ $rule is ignored${NC}"
         else
             echo -e "${RED}❌ ERROR: $rule is not in .gitignore${NC}"

@@ -37,7 +37,8 @@ cookies.txt
 secrets/
 credentials/
 # Frontend runtime config with production credentials
-OAuth2Frontend/.env
+frontends/user/.env
+frontends/user/public/config.json
 # Deploy secrets
 deploy/nginx/ssl/*.pem
 deploy/keys/*.pem
