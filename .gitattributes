@@ -2,6 +2,11 @@
 *.sh text eol=lf
 docker-quick-verify-debug.sh text eol=lf
 
+# paths.env is `source`d by bash inside the Docker build (env_common.sh); a
+# CRLF working copy from a Windows checkout breaks it with `$'\r': command
+# not found`, so pin it to LF like the shell scripts that consume it.
+paths.env text eol=lf
+
 # Refactor baseline tooling and snapshots: deterministic LF so the
 # cross-platform diff against the P0 baseline does not pick up CRLF noise.
 # (See .kiro/specs/repo-structure-refactor/design.md §12.6 / Property 2.)

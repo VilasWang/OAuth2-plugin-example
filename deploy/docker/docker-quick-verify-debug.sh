@@ -17,10 +17,10 @@ echo "Working Dir: $(pwd)"
 echo "OAUTH2_DB_HOST: $OAUTH2_DB_HOST"
 echo "OAUTH2_REDIS_HOST: $OAUTH2_REDIS_HOST"
 
-if [ -f "/usr/local/include/drogon/drogon.h" ]; then
-    echo -e "✓ Drogon found (headers and library installed)"
+if command -v conan > /dev/null 2>&1; then
+    echo -e "✓ Conan found ($(conan --version)) — C/C++ deps (incl. Drogon) resolved per conanfile.py"
 else
-    echo -e "${RED}✗ Drogon NOT found${NC}"
+    echo -e "${RED}✗ Conan NOT found (required: all C/C++ deps come from Conan)${NC}"
 fi
 
 echo -e "\n${GREEN}[1/4] Waiting for databases...${NC}"
@@ -69,7 +69,8 @@ echo -e "\n${GREEN}[3/4] Building Project...${NC}"
 bash /app/scripts/backend/build.sh --debug
 
 echo -e "\n${GREEN}[4/4] Running test...${NC}"
-cd /app/build
+# build.sh --debug builds via the linux-debug preset (build/<preset> layout).
+cd /app/build/linux-debug
 ctest -V -C Debug --output-on-failure --timeout 120
 
 echo -e "\n${GREEN}✅ SUCCESS: No crash during teardown!${NC}"
