@@ -113,12 +113,11 @@ bool ensurePubDeviceClient()
 bool seedApprovedDeviceCode(const std::string &rawDeviceCode)
 {
     const std::string hash = authforge::drogon::utils::hashToken(rawDeviceCode);
-    const int64_t expiresAt =
-      std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::system_clock::now().time_since_epoch()
-      )
-        .count() +
-      3600;
+    const int64_t expiresAt = std::chrono::duration_cast<std::chrono::seconds>(
+                                std::chrono::system_clock::now().time_since_epoch()
+                              )
+                                .count() +
+                              3600;
     if (!execSql("DELETE FROM oauth2_device_codes WHERE device_code_hash = '" + hash + "'"))
         return false;
     const std::string userCode = hash.substr(0, 8);
@@ -126,8 +125,8 @@ bool seedApprovedDeviceCode(const std::string &rawDeviceCode)
       "INSERT INTO oauth2_device_codes "
       "(device_code_hash, user_code, client_id, scope, status, user_id, "
       "expires_at) VALUES ('" +
-      hash + "', '" + userCode + "', '" + kPubClient +
-      "', 'read', 'approved', '1', " + std::to_string(expiresAt) + ")"
+      hash + "', '" + userCode + "', '" + kPubClient + "', 'read', 'approved', '1', " +
+      std::to_string(expiresAt) + ")"
     );
 }
 }  // namespace

@@ -310,10 +310,9 @@ void AuthorizationEndpointController::authorize(
                     // generateAuthorizationCode).
                     if (!codeChallenge.empty())
                     {
-                        location +=
-                          "&code_challenge=" + ::drogon::utils::urlEncode(codeChallenge) +
-                          "&code_challenge_method=" +
-                          ::drogon::utils::urlEncode(codeChallengeMethod);
+                        location += "&code_challenge=" + ::drogon::utils::urlEncode(codeChallenge) +
+                                    "&code_challenge_method=" +
+                                    ::drogon::utils::urlEncode(codeChallengeMethod);
                     }
                     if (!nonce.empty())
                         location += "&nonce=" + ::drogon::utils::urlEncode(nonce);
@@ -397,8 +396,7 @@ void AuthorizationEndpointController::authorize(
                           if (!codeChallenge.empty())
                           {
                               location +=
-                                "&code_challenge=" +
-                                ::drogon::utils::urlEncode(codeChallenge) +
+                                "&code_challenge=" + ::drogon::utils::urlEncode(codeChallenge) +
                                 "&code_challenge_method=" +
                                 ::drogon::utils::urlEncode(codeChallengeMethod);
                           }

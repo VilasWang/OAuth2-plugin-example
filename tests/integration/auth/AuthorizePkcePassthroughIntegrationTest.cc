@@ -137,8 +137,8 @@ std::string loginAndGetSessionCookie()
     req->setContentTypeCode(CT_APPLICATION_X_FORM);
     req->setBody(
       std::string("username=admin&password=admin&client_id=vue-client") +
-      "&redirect_uri=" + utils::urlEncodeComponent(kRedirectUri) +
-      "&scope=openid&state=" + kState + "&response_type=code&json=true"
+      "&redirect_uri=" + utils::urlEncodeComponent(kRedirectUri) + "&scope=openid&state=" + kState +
+      "&response_type=code&json=true"
     );
     auto resp = sendReq(req);
     if (!resp)
@@ -169,9 +169,7 @@ std::string extractCode(const std::string &location)
     if (pos == std::string::npos)
         return "";
     auto end = location.find('&', pos);
-    return location.substr(
-      pos + 5, end == std::string::npos ? std::string::npos : end - pos - 5
-    );
+    return location.substr(pos + 5, end == std::string::npos ? std::string::npos : end - pos - 5);
 }
 
 HttpResponsePtr exchangeToken(const std::string &code, const std::string &verifier)
@@ -208,9 +206,11 @@ DROGON_TEST(Integration_P0_AuthorizeDirectIssue_PkcePassthrough_TokenEnforcesVer
 
     long inserted = ensureAdminConsent();
     REQUIRE(inserted >= 0);
+
     struct Guard
     {
         bool doDelete;
+
         ~Guard()
         {
             if (doDelete)

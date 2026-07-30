@@ -164,7 +164,9 @@ std::optional<Json::Value> fetchUserInfo(
 // Postgres
 // ===========================================================================
 
-DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UserWithRoles_ReturnsClaimsAndRoles)
+DROGON_TEST(
+  Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UserWithRoles_ReturnsClaimsAndRoles
+)
 {
     auto db = getPostgresClientOrNull();
     if (!db)
@@ -199,7 +201,9 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UserW
     cleanupRole(db, roleId);
 }
 
-DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Postgres_NoRoles_EmptyRolesArray_NameFallsBackToEmail)
+DROGON_TEST(
+  Integration_P0_Contract_Functional_UserInfoRepository_Postgres_NoRoles_EmptyRolesArray_NameFallsBackToEmail
+)
 {
     auto db = getPostgresClientOrNull();
     if (!db)
@@ -227,7 +231,9 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Postgres_NoRol
     cleanupUser(db, user.id);
 }
 
-DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UnknownUser_ReturnsNullopt)
+DROGON_TEST(
+  Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UnknownUser_ReturnsNullopt
+)
 {
     auto db = getPostgresClientOrNull();
     if (!db)
@@ -243,7 +249,9 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Postgres_Unkno
 // Memory
 // ===========================================================================
 
-DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_MappedUser_SyntheticClaimsWithConfiguredRoles)
+DROGON_TEST(
+  Integration_P0_Contract_Functional_UserInfoRepository_Memory_MappedUser_SyntheticClaimsWithConfiguredRoles
+)
 {
     MemoryIdentityRepository repo;
     Json::Value adminCfg;
@@ -268,7 +276,9 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_MappedU
     CHECK((*info)["roles"][1].asString() == "user");
 }
 
-DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_UnmappedUser_DefaultsToUserRole_NeverNullopt)
+DROGON_TEST(
+  Integration_P0_Contract_Functional_UserInfoRepository_Memory_UnmappedUser_DefaultsToUserRole_NeverNullopt
+)
 {
     // No initAdminRoles call at all: even a completely unknown id gets
     // synthetic claims + the {"user"} default role (documented divergence

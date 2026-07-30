@@ -101,7 +101,8 @@ static void loadDotEnv()
 
     if (!getDotEnvVars().empty())
     {
-        std::cout << "Loaded " << getDotEnvVars().size() << " variables from .env file" << std::endl;
+        std::cout << "Loaded " << getDotEnvVars().size() << " variables from .env file"
+                  << std::endl;
     }
 }
 

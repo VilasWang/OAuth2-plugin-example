@@ -107,20 +107,20 @@ bool ensureDeviceClients()
     // getSha256(clientSecret + salt) and compares it (case-insensitively)
     // against the stored client_secret. Seed that exact hash so a correct
     // secret validates.
-    const std::string confHash =
-      ::drogon::utils::getSha256(std::string(kConfSecret) + "p1salt");
+    const std::string confHash = ::drogon::utils::getSha256(std::string(kConfSecret) + "p1salt");
 
     bool ok = true;
     ok &= execSql(
       "INSERT INTO oauth2_clients "
       "(client_id, client_type, client_secret, salt, name, redirect_uris, "
       "allowed_grant_types) VALUES ('" +
-      std::string(kConfClient) +
-      "', 'CONFIDENTIAL', '" + confHash + "', 'p1salt', "
+      std::string(kConfClient) + "', 'CONFIDENTIAL', '" + confHash +
+      "', 'p1salt', "
       "'P1 test confidential device client', '', "
       "'urn:ietf:params:oauth:grant-type:device_code') "
       "ON CONFLICT (client_id) DO UPDATE SET "
-      "client_secret = EXCLUDED.client_secret, salt = EXCLUDED.salt");
+      "client_secret = EXCLUDED.client_secret, salt = EXCLUDED.salt"
+    );
     ok &= execSql(
       "INSERT INTO oauth2_clients "
       "(client_id, client_type, client_secret, salt, name, redirect_uris, "
@@ -128,7 +128,8 @@ bool ensureDeviceClients()
       std::string(kPubClient) +
       "', 'PUBLIC', '', '', 'P1 test public device client', '', "
       "'urn:ietf:params:oauth:grant-type:device_code') "
-      "ON CONFLICT (client_id) DO NOTHING");
+      "ON CONFLICT (client_id) DO NOTHING"
+    );
     return ok;
 }
 
@@ -146,12 +147,11 @@ long long nextDeviceCodeSeq()
 bool seedApprovedDeviceCode(const std::string &clientId, const std::string &rawDeviceCode)
 {
     const std::string hash = authforge::drogon::utils::hashToken(rawDeviceCode);
-    const int64_t expiresAt =
-      std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::system_clock::now().time_since_epoch()
-      )
-        .count() +
-      3600;
+    const int64_t expiresAt = std::chrono::duration_cast<std::chrono::seconds>(
+                                std::chrono::system_clock::now().time_since_epoch()
+                              )
+                                .count() +
+                              3600;
     if (!execSql("DELETE FROM oauth2_device_codes WHERE device_code_hash = '" + hash + "'"))
         return false;
     // user_code must be unique per row; derive a short suffix from the hash.
@@ -160,8 +160,8 @@ bool seedApprovedDeviceCode(const std::string &clientId, const std::string &rawD
       "INSERT INTO oauth2_device_codes "
       "(device_code_hash, user_code, client_id, scope, status, user_id, "
       "expires_at) VALUES ('" +
-      hash + "', '" + userCode + "', '" + clientId +
-      "', 'read', 'approved', '1', " + std::to_string(expiresAt) + ")"
+      hash + "', '" + userCode + "', '" + clientId + "', 'read', 'approved', '1', " +
+      std::to_string(expiresAt) + ")"
     );
 }
 }  // namespace

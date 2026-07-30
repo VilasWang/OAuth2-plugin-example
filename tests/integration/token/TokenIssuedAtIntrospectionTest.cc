@@ -71,9 +71,11 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
 // body client_id/client_secret when the Authorization header is Bearer (not
 // Basic), so we pass the Bearer token in the header and client creds + the
 // token-to-introspect in the body.
-HttpResponsePtr introspectWithBearer(const std::string &bearerToken,
-                                     const std::string &introspectedToken,
-                                     const std::string &clientCreds)
+HttpResponsePtr introspectWithBearer(
+  const std::string &bearerToken,
+  const std::string &introspectedToken,
+  const std::string &clientCreds
+)
 {
     try
     {
@@ -156,9 +158,8 @@ DROGON_TEST(Integration_P2_TokenIssuedAt_ClientCredentials_IntrospectionHasIat)
 
     // 1. Issue a client_credentials token.
     const int64_t before = nowSeconds();
-    auto issueResp = postForm(
-      "/oauth2/token", std::string("grant_type=client_credentials&") + kCredentials
-    );
+    auto issueResp =
+      postForm("/oauth2/token", std::string("grant_type=client_credentials&") + kCredentials);
     REQUIRE(issueResp != nullptr);
     CHECK(issueResp->getStatusCode() == k200OK);
     Json::Value issueBody;
