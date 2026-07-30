@@ -21,7 +21,8 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-github"
-      ]
+      ],
+      "disabled": true
     },
     "docker": {
       "command": "npx",
@@ -30,14 +31,6 @@
         "@modelcontextprotocol/server-docker"
       ],
       "disabled": true
-    },
-    "memory": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
-      ],
-      "disabled": false
     }
   }
 }
