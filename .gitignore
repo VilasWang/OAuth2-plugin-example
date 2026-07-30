@@ -91,15 +91,11 @@ test_admin.txt
 test_oauth2.txt
 build_p12.txt
 
-# Graphify knowledge graph (force-add GRAPH_REPORT.md with: git add -f)
+# Graphify knowledge graph (generated artifacts, local only)
 graphify-out/
 
-# Graphify knowledge graph - only commit the report, ignore generated artifacts
-graphify-out/*
-!graphify-out/GRAPH_REPORT.md
-
-# Codegraph runtime state (PID, socket path - changes every session)
-.codegraph/daemon.pid
+# Codegraph local index & runtime state
+.codegraph/
 
 # Superpowers SDD scratch (task briefs, reports, progress ledger)
 .superpowers/
