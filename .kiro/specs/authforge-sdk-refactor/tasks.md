@@ -310,9 +310,10 @@
   - 产出：arch-guard 脚本 + CI 集成；验收：违规时 CI 失败
   - **完成说明（2026-07-28）**：新增 `tools/arch-guard/arch_guard.py`（Python，跨平台单实现），扫描三个 Domain 库的生产代码（`include/`+`src/`，排除 `test/`/`testing/`——单测可合法 include `<drogon/drogon_test.h>`）。实现 C/C++ 注释与字符串剥离，避免注释中提及规则文字（如 `libs/common` 的 3 处）误报。三条规则 R1（无 `<drogon/`）/R2（oauth2↔identity 互不 include）/R3（无 `drogon::orm`）违规即 `exit 1`。已接入 `ci-linux.yml`（静态检查平台无关，与 naming_validator/parity-check 一致仅 Linux 跑，置于其前）。本地验证：全绿扫描 79 文件 `exit 0`；注入违规夹具三规则全命中 `exit 1`（file:line 精确、注释行不误报），已删除夹具。
 
-- [ ] 34. 实现 `tools/api-diff`
+- [x] 34. 实现 `tools/api-diff`
   - SDK 导出头 API 快照 diff，破坏性变更需版本升级
   - 产出：api-diff 工具 + 基线快照；验收：人为破坏 API 时 CI 告警
+  - **完成说明（2026-07-28）**：`tools/api-diff/api_diff.py`（stdlib-only，与 arch-guard/migration-check 同构惯例）+ `api-baseline.txt` 基线（164 个导出头，v1.0.0）。快照 = 7 个 SDK 库 `libs/*/include` 头文件的"声明骨架"：状态机剥注释（字符串字面量保留——默认参数属 API）→ 反向扫描剥函数体（`{` 回溯至 `)` 判定为函数体，实现级修改不误报）→ 空白归一化。分级：新增头/新增声明行 = ADDITIVE（可 `--update-baseline` 直接确认）；删除头/删除或变更声明行 = BREAKING（同 major 下 `--update-baseline` 拒绝，需先升 major 或 `--force` 走评审提交）。附带三源版本一致性交叉检查（cmake/Version.cmake、根 CMakeLists、conanfile.py，漂移 exit 2）。已接入 ci.yml FAST gate（arch-guard→migration-check→**api-diff**→naming）。验收：正向 164 头零漂移 exit 0；负向四组全命中——注释+函数体内修改零误报（exit 0）、新增导出方法 ADDITIVE exit 1、修改公开签名 BREAKING exit 1 且同 major `--update-baseline` 被 REFUSED、conanfile 版本失谐 exit 2。实现中修复一处自伤 bug：基线元数据注释原用 `#` 前缀导致 `#include`/`#pragma` 骨架行被解析吞掉，改用 `//` 前缀（骨架行经注释剥离后不可能以 `//` 开头，零碰撞）。
 
 - [x] 35. 迁移校验器 + 依赖 EOL 扫描
   - 迁移顺序/幂等/回滚检查；拦截 EOL 依赖（如 OpenSSL 1.1.1）
@@ -420,7 +421,7 @@
 
 **Wave C — 版本冻结 + API 稳定**
 6. ~~**Task 41 v1.0.0 收尾 + 文档**（版本号已 1.0.0；剩项目名 `oauth2-plugin-example`→`authforge`、README/CLAUDE、SDK 运行时契约文档、前端错误码共享源路径）。应在 api-diff 建基线前完成。~~ ✅ 完成
-7. **Task 34 api-diff**（依赖命名冻结 Task 45 已完成 + Task 41 版本冻结）：SDK 导出头 API 快照 diff + 基线。
+7. ~~**Task 34 api-diff**（依赖命名冻结 Task 45 已完成 + Task 41 版本冻结）：SDK 导出头 API 快照 diff + 基线。~~ ✅ 完成
 
 **Wave D — 发布管线（依赖 M6 = Task 32-35）**
 8. **Task 36 release.yml**（多架构镜像 + SDK 产物打包，依赖 28a 打包地基）。

@@ -49,6 +49,12 @@ jobs:
         # destructive SQL, and checksum immutability of applied migrations.
         run: python3 tools/migration-check/migration_check.py
 
+      - name: Check SDK API Surface (api-diff)
+        # SemVer guard over the exported SDK headers (libs/*/include/authforge).
+        # Any drift from tools/api-diff/api-baseline.txt fails; breaking drift
+        # additionally demands a major bump before the baseline can be updated.
+        run: python3 tools/api-diff/api_diff.py
+
       - name: Check Test Naming Conventions
         run: |
           chmod +x tools/test/scripts/naming_validator.sh
