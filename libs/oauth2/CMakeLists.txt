@@ -54,6 +54,12 @@ target_link_libraries(${PROJECT_NAME} PUBLIC authforge::common OpenSSL::Crypto)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
+# Silence MSVC C4996 for std::getenv (JwkManager). PRIVATE so the
+# definition never leaks into the exported SDK interface.
+if(MSVC)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
 oauth2_apply_compat(${PROJECT_NAME})
 
 # --- arch-guard note (see libs/common/CMakeLists.txt's identical note) ---

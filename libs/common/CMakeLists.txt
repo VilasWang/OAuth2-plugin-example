@@ -44,6 +44,12 @@ target_link_libraries(${PROJECT_NAME} PUBLIC JsonCpp::JsonCpp)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
+# Silence MSVC C4996 for std::getenv (ConfigManager/ErrorContext). PRIVATE so
+# the definition never leaks into the exported SDK interface.
+if(MSVC)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
 # Compiler compatibility (shared module) -- same convention as
 # OAuth2Plugin/OAuth2Server, even though libs/common's own sources do not
 # use ORM-generated code; keeps compile flags (e.g. /utf-8 on MSVC)
