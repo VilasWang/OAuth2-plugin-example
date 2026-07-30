@@ -104,9 +104,29 @@ docker pull ghcr.io/lucaswang420/authforge-backend:1.0.0
 1. 确认三源版本一致（`cmake/Version.cmake` 为单一事实源；api-diff 在 CI
    强制其与根 `CMakeLists.txt`、`conanfile.py` 一致）且 API 基线已按
    SemVer 规则更新（`tools/api-diff/`）。
-2. 打严格 SemVer tag：`git tag v1.0.1 && git push origin v1.0.1`。带后缀
+2. （可选）本地刷新 CHANGELOG.md：
+   `git cliff --unreleased --tag vX.Y.Z --prepend CHANGELOG.md`
+   （配置见根目录 `cliff.toml`；发布工作流只生成 Release notes，
+   不会从 tag ref 回推提交）。
+3. 打严格 SemVer tag：`git tag v1.0.1 && git push origin v1.0.1`。带后缀
    的 tag（如 `v1.0.0-rc1`）**不会**触发发布。
-3. `release.yml` 自动执行：tag/版本一致性校验 → SDK 打包 + 安装树消费
+4. `release.yml` 自动执行：tag/版本一致性校验 → SDK 打包 + 安装树消费
    冒烟 → amd64/arm64 原生构建三镜像 → 多架构 manifest（`<ver>` +
-   `latest`）→ GitHub Release 挂 SDK 附件。
-4. `workflow_dispatch` 手动触发 = 干跑（全量构建但不推送、不发 Release）。
+   `latest`）→ cosign keyless 按 digest 签名三镜像 + syft 生成 SPDX
+   SBOM（三镜像 + 源码树）→ GitHub Release（git-cliff 生成 notes，
+   挂 SDK 附件与全部 SBOM）。
+5. `workflow_dispatch` 手动触发 = 干跑（全量构建但不推送、不发 Release）。
+
+### 验证发布产物（消费方）
+
+```sh
+# 镜像签名（keyless：身份 = release.yml 工作流，无需公钥分发）
+cosign verify ghcr.io/lucaswang420/authforge-backend:<ver> \
+  --certificate-identity-regexp \
+    'https://github.com/lucaswang420/[^/]+/.github/workflows/release.yml.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+# SDK tarball 校验和（Release 附件）
+sha256sum -c authforge-sdk-<ver>-linux-x86_64.tar.gz.sha256
+```
+

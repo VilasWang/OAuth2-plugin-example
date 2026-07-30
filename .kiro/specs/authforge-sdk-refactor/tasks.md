@@ -339,8 +339,10 @@
   - **验收缺口（如实记录）**：Compose 侧 ghcr 拉取路径与 `--profile migrate` 实跑未验（镜像未推 ghcr，与 Task 36 同一缺口，待首次发布）；Helm 验收在单节点 kind demo 拓扑（内置 PG/Redis、无 Ingress controller、无 jwtKey Secret），外部 DB + pre-install hook 组合仅 template 级验证。
 
 
-- [ ] 38. SBOM + 镜像签名 + 自动 CHANGELOG
+- [x] 38. SBOM + 镜像签名 + 自动 CHANGELOG
   - 产出：供应链安全产物 + conventional commits → CHANGELOG；验收：release 附带 SBOM 与签名
+  - **完成说明（2026-07-30，决策：syft/anchore + cosign keyless + git-cliff）**：全部接入既有 `release.yml`，不新增 workflow。**签名**——manifest job 合并多架构 manifest 后，`sigstore/cosign-installer` + `cosign sign --yes` 对三镜像**按 digest**（tag 可变、digest 不可变）keyless 签名（GitHub OIDC 身份，`permissions: id-token: write`，记录 Rekor 透明日志，无私钥可泄露）；验签命令写入 Release notes 与 SDK 集成文档 §6。**SBOM**——syft（`anchore/sbom-action/download-syft`，钉 v1.19.0）产 4 份 SPDX JSON：三镜像（从已推送 manifest 的 linux/amd64 切片；GHCR 凭据复用 job 已有 docker login）+ 源码树（`dir:.` 排除 build/stage，覆盖 conan.lock 与两份前端 package-lock.json 的声明依赖面），全部挂 Release 附件。**CHANGELOG**——根目录新增 `cliff.toml`（conventional commits 分组映射 Keep-a-Changelog 节；`tag_pattern` 只认严格 SemVer tag，与 release.yml 触发规则一致，pre-b10/backup/* 等工具 tag 不切段；docs(spec)/chore(spec)/chore(release) 跳过）；github-release job 用 `orhun/git-cliff-action@v4 --latest --strip header` 生成当次 notes（checkout 改 fetch-depth 0）替换 `--generate-notes`，再追加验证指引（cosign verify + sha256sum -c）。**设计取舍**：CHANGELOG.md 保持人工策展，发布前可选 `git cliff --unreleased --tag vX.Y.Z --prepend CHANGELOG.md` 本地刷新——tag 触发的 workflow 不回推提交（tag ref 无分支上下文，绕过评审直推 main 不可取），流程已写入 SDK 集成文档 §6。本地验收：release.yml YAML 解析通过；git-cliff 2.13.1 实跑 `--unreleased --tag v1.0.0` 全历史正确分组（feat→Added/fix→Fixed 等，spec 类提交被跳过）；notes 追加段 heredoc 在 bash 下渲染验证（变量展开 + 代码围栏转义正确）。
+  - **验收缺口（如实记录）**：签名/SBOM/notes 的端到端实跑依赖 tag 触发（GHCR 推送 + OIDC 仅在 GitHub Actions 环境可用），与 Task 36 同一缺口，待首次真实发布验证；cosign verify 的 certificate-identity 正则待首发后按实际 repo 路径核对。
 
 ---
 
@@ -431,7 +433,7 @@
 **Wave D — 发布管线（依赖 M6 = Task 32-35）**
 8. ~~**Task 36 release.yml**（多架构镜像 + SDK 产物打包，依赖 28a 打包地基）。~~ ✅ 完成（tag 实跑验收待首次发布）
 9. ~~**Task 37 Helm + 生产 Compose + 版本化迁移执行器**（含 F10 legacy 密码平滑升级）。~~ ✅ 完成（Docker Desktop K8s 实跑验收通过）
-10. **Task 38 SBOM + 镜像签名 + 自动 CHANGELOG**。
+10. ~~**Task 38 SBOM + 镜像签名 + 自动 CHANGELOG**。~~ ✅ 完成（端到端实跑待首次发布，与 Task 36 同缺口）
 
 **Backlog（非阻塞，随时可做）**
 - **L1** 测试二进制按层拆分（当前单二进制 `authforge-tests` / ctest 名 `OAuth2Tests`）。
