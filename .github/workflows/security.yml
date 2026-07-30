@@ -1,0 +1,45 @@
+name: Security
+
+# Task 35: scheduled + push-time security gate, separate from ci.yml so the
+# weekly cron can flag newly-EOL'd dependencies even when no commits land.
+#
+#   dependency-eol   tools/security/dependency_eol_check.py over conan.lock
+#                    (policy floors: openssl>=3.0, zlib>=1.2.13, libcurl>=8.4.0)
+#   secret-hygiene   scripts/security-check.sh (tracked .env files, hardcoded
+#                    key patterns, .gitignore coverage, config permissions)
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC — catch time-based EOL rollovers
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-eol:
+    name: Dependency EOL Scan
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan conan.lock against EOL policy
+        run: python3 tools/security/dependency_eol_check.py
+
+  secret-hygiene:
+    name: Secret & Sensitive-File Hygiene
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run repository security checks
+        run: |
+          chmod +x scripts/security-check.sh
+          ./scripts/security-check.sh

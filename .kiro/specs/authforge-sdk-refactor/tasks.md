@@ -314,9 +314,10 @@
   - SDK 导出头 API 快照 diff，破坏性变更需版本升级
   - 产出：api-diff 工具 + 基线快照；验收：人为破坏 API 时 CI 告警
 
-- [ ] 35. 迁移校验器 + 依赖 EOL 扫描
+- [x] 35. 迁移校验器 + 依赖 EOL 扫描
   - 迁移顺序/幂等/回滚检查；拦截 EOL 依赖（如 OpenSSL 1.1.1）
   - 产出：`tools/migration-check` + `security.yml`；验收：注入 EOL 依赖时 CI 失败
+  - **完成说明（2026-07-28）**：**migration-check**——`tools/migration-check/migration_check.py`（与 arch-guard 同构：stdlib-only、argparse、退出码 0/1/2），5 条规则针对两条迁移执行路径（SchemaManager 运行时 + CI psql glob）实际依赖但都不校验的假设：M1 文件名严格 `V<三位零填充>__<snake_case>.sql`（不匹配会被 SchemaManager 静默跳过、破坏 CI 字典序 glob）；M2 版本唯一且连续（SchemaManager 对重复版本按文件系统顺序应用=非确定）；M3 幂等（CREATE TABLE/INDEX 须 IF NOT EXISTS、ADD COLUMN 须 IF NOT EXISTS、顶层 INSERT 须 ON CONFLICT、CREATE FUNCTION 须 OR REPLACE、ADD CONSTRAINT 须同文件 DROP CONSTRAINT IF EXISTS 配对）；M4 前向非破坏（禁 DROP TABLE/COLUMN/SCHEMA/DATABASE、TRUNCATE、顶层 DELETE）；M5 不可变性——SHA-256 基线 `baseline.json`（LF 归一化防 CRLF 平台差异；SchemaManager 只写 checksum 从不回读比对，此为补缺）；注释/字符串/美元引号函数体先剥离再匹配（V016 plpgsql 体内 INSERT/DELETE 不误伤）。**EOL 扫描**——`tools/security/dependency_eol_check.py` 解析 `conan.lock` requires+overrides（20 个锁定引用），对照内置安全下限策略（openssl≥3.0 EOL 线、zlib≥1.2.13 CVE-2022-37434、libcurl≥8.4.0 CVE-2023-38545），确定性离线不依赖外部 feed。**接线**——`security.yml`（push/PR + 每周一 cron 03:00 UTC 捕获时间性 EOL 翻转 + dispatch）双 job：dependency-eol + secret-hygiene（复用既有 `scripts/security-check.sh`）；migration-check 作为第 5 个 step 接入 `ci.yml` FAST gate static-checks。**验收实跑**：现有 22 个迁移 M1-M5 全过零误杀；负向注入 8 类违规（坏名/重复版本/断号/非幂等×2/破坏×2/篡改+删除已基线迁移）全部命中 exit 1；注入 openssl/1.1.1w + zlib/1.2.11 假 lock → exit 1 双命中（验收标准达成）；两 YAML safe_load 通过。
 
 ---
 
@@ -414,7 +415,7 @@
 **Wave B — CI / 构建基础设施**
 3. ~~**Task 32 CI 重构**~~ ✅ **已完成（2026-07-28）**（依赖 28a + 33）：三独立 workflow → 可复用 `ci.yml` + `_build-test.yml` + `_frontend.yml` + `_sdk-smoke.yml`；三阶段串行 fail-fast 门禁（快速门/主门矩阵/发布门）；`SdkSmoke` + arch-guard 已纳入门禁。
 4. ~~**Task 43 docker 迁 Conan+preset + compose 实跑验收**~~ ✅ **已完成（2026-07-28）**：Dockerfile 后端段改 `build.sh Release`（Conan+preset 单一构建路径）+ Conan cache mount；runtime apt 清单按 ldd 实测重算（静态链接后仅剩 ca-certificates+curl）；`docker compose up` 后端 `/health`+`/health/ready` 双 200 实跑通过（详见 Task 43 完成说明）。
-5. **Task 35 migration-check + security.yml + 依赖 EOL 扫描**（P1，独立）。
+5. ~~**Task 35 migration-check + security.yml + 依赖 EOL 扫描**~~ ✅ **已完成（2026-07-28）**：`tools/migration-check`（5 规则：命名/连续/幂等/非破坏/checksum 基线）接入 ci.yml FAST gate；`security.yml`（EOL 扫描 + secret 卫生，周一 cron）；负向注入验收全过（详见 Task 35 完成说明）。M6 全部完成，解锁 Wave D。
 
 **Wave C — 版本冻结 + API 稳定**
 6. **Task 41 v1.0.0 收尾 + 文档**（版本号已 1.0.0；剩项目名 `oauth2-plugin-example`→`authforge`、README/CLAUDE、SDK 运行时契约文档、前端错误码共享源路径）。应在 api-diff 建基线前完成。

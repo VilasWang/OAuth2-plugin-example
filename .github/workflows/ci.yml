@@ -43,6 +43,12 @@ jobs:
         # include each other. Pure source scan, platform-independent.
         run: python3 tools/arch-guard/arch_guard.py
 
+      - name: Check Migration Hygiene (migration-check)
+        # Guards the assumptions both migration executors rely on but never
+        # verify: V<NNN> zero-padded contiguous naming, idempotent/non-
+        # destructive SQL, and checksum immutability of applied migrations.
+        run: python3 tools/migration-check/migration_check.py
+
       - name: Check Test Naming Conventions
         run: |
           chmod +x tools/test/scripts/naming_validator.sh
