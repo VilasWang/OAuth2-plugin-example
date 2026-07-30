@@ -92,7 +92,7 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
         req->setPath(path);
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
         req->setBody(body);
-        auto [result, resp] = client->sendRequest(req, /*timeout=*/10.0);
+        auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
         {
             return nullptr;
@@ -118,7 +118,7 @@ HttpResponsePtr postJson(const std::string &path, const Json::Value &json)
         req->setContentTypeCode(CT_APPLICATION_JSON);
         Json::StreamWriterBuilder wb;
         req->setBody(Json::writeString(wb, json));
-        auto [result, resp] = client->sendRequest(req, /*timeout=*/10.0);
+        auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
         {
             return nullptr;

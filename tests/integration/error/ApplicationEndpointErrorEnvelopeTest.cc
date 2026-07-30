@@ -375,7 +375,7 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
         req->setBody(body);
 
-        auto [result, resp] = client->sendRequest(req, /*timeout=*/10.0);
+        auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
         {
             return nullptr;

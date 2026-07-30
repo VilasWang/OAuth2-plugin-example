@@ -65,7 +65,7 @@ HttpResponsePtr sendReq(const HttpRequestPtr &req)
     try
     {
         auto client = HttpClient::newHttpClient(kBaseUrl);
-        auto [result, resp] = client->sendRequest(req, /*timeout=*/10.0);
+        auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
             return nullptr;
         return resp;

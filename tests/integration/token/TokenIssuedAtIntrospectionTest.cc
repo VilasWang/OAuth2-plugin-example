@@ -53,7 +53,7 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
         req->setPath(path);
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
         req->setBody(body);
-        auto [result, resp] = client->sendRequest(req, /*timeout=*/10.0);
+        auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
             return nullptr;
         return resp;
@@ -86,7 +86,7 @@ HttpResponsePtr introspectWithBearer(
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
         req->addHeader("Authorization", "Bearer " + bearerToken);
         req->setBody(std::string("token=") + introspectedToken + "&" + clientCreds);
-        auto [result, resp] = client->sendRequest(req, /*timeout=*/10.0);
+        auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
             return nullptr;
         return resp;
