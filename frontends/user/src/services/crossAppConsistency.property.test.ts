@@ -3,18 +3,18 @@
 // Property 14 — 跨应用映射确定性一致
 // Validates: Requirements 10.7
 //
-// 对任意 Error_Code，在界面语言相同的条件下，OAuth2Frontend 与 OAuth2Admin
+// 对任意 Error_Code，在界面语言相同的条件下，frontends/user 与 frontends/admin
 // 经共享 `errorAdapter` 与共享目录得到的本地化用户信息相同。
 //
 // 设计依据（design.md §AD-5 / §AD-6 / Requirement 8.6）：`errorAdapter` 与
 // `Error_Message_Catalog_FE` 是「单一权威来源（single source of truth）」。
-// OAuth2Admin 复用同一实现来源（在任务 10.2 中接线为 re-export/shim）。因此
+// frontends/admin 复用同一实现来源（在任务 10.2 中接线为 re-export/shim）。因此
 // 「跨应用一致」在本质上等价于「该共享来源对同一 (code, locale) 的映射是
 // 确定性的」：两应用各自的入口最终都调用同一个 `getErrorMessage`。
 //
 // 本测试通过模拟两个应用入口来验证 Property 14：
-//   - frontendPath：OAuth2Frontend 直接使用的共享 `getErrorMessage`。
-//   - adminPath：若 OAuth2Admin 已存在同源 re-export/shim（任务 10.2 产物），
+//   - frontendPath：frontends/user 直接使用的共享 `getErrorMessage`。
+//   - adminPath：若 frontends/admin 已存在同源 re-export/shim（任务 10.2 产物），
 //     则动态导入该 shim 并断言其导出与共享来源指向同一实现；否则回退为对共享
 //     来源的第二次独立求值（确定性），并据“Admin 导入同一模块”这一不变量
 //     得出两应用一致的结论。
@@ -86,7 +86,7 @@ describe('Property 14: 跨应用映射确定性一致', () => {
   // 核心属性：两应用入口（共享来源 + Admin 路径）对同一 (code, locale)
   // 返回相同 message，且该映射是确定性的（多次调用一致）。
   it('两应用经同源 errorAdapter/目录对同一 code+locale 得到相同 message', async () => {
-    // 尝试加载 OAuth2Admin 的同源 re-export/shim（任务 10.2 产物）。若尚未
+    // 尝试加载 frontends/admin 的同源 re-export/shim（任务 10.2 产物）。若尚未
     // 创建则为 undefined，回退到“共享来源确定性”路径。
     const adminGetErrorMessage = await loadAdminGetErrorMessage()
 
@@ -95,10 +95,10 @@ describe('Property 14: 跨应用映射确定性一致', () => {
         fc.constantFrom(...ALL_CODES),
         fc.constantFrom(...LOCALES),
         (code, locale) => {
-          // OAuth2Frontend 入口：直接使用共享 getErrorMessage。
+          // frontends/user 入口：直接使用共享 getErrorMessage。
           const frontendMessage = getErrorMessage(code, locale)
 
-          // OAuth2Admin 入口：使用 Admin 同源 shim（若存在），否则对共享来源
+          // frontends/admin 入口：使用 Admin 同源 shim（若存在），否则对共享来源
           // 再次独立求值（同源 ⇒ 同实现 ⇒ 同结果）。
           const adminMessage = (adminGetErrorMessage ?? getErrorMessage)(
             code,
@@ -136,11 +136,12 @@ describe('Property 14: 跨应用映射确定性一致', () => {
 })
 
 /**
- * 动态加载 OAuth2Admin 的同源 `getErrorMessage`（任务 10.2 接线后的 shim）。
+ * 动态加载管理后台（frontends/admin）的同源 `getErrorMessage`（任务 10.2
+ * 接线后的 shim）。
  *
  * 约定的候选位置（任意一处存在即视为 Admin 复用了同一来源）：
- *   - OAuth2Admin/src/services/messages
- *   - OAuth2Admin/src/services/errorAdapter（若 re-export getErrorMessage）
+ *   - frontends/admin/src/services/messages
+ *   - frontends/admin/src/services/errorAdapter（若 re-export getErrorMessage）
  *
  * 若均不存在（任务 10.2 尚未完成），返回 undefined，由调用方回退到共享来源的
  * 确定性求值，并据“Admin 导入同一模块”的设计不变量得出一致性结论。
@@ -149,9 +150,9 @@ async function loadAdminGetErrorMessage(): Promise<
   ((code: string, locale?: string) => string) | undefined
 > {
   const candidates = [
-    '../../../OAuth2Admin/src/services/messages',
-    '../../../OAuth2Admin/src/services/messages/index',
-    '../../../OAuth2Admin/src/services/errorAdapter',
+    '../../../admin/src/services/messages',
+    '../../../admin/src/services/messages/index',
+    '../../../admin/src/services/errorAdapter',
   ]
   for (const path of candidates) {
     try {

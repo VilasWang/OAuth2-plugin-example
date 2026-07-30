@@ -1,10 +1,9 @@
-# Drogon OAuth2.0 Provider — 全栈授权服务器
+# AuthForge — 全栈 OAuth2/OIDC 授权服务器
 
 [English](README.md)
 
-![Linux CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-linux.yml/badge.svg)
-![Windows CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-windows.yml/badge.svg)
-![macOS CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-macos.yml/badge.svg)
+![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准。包含管理后台、前端客户端和完整的测试体系。
@@ -113,11 +112,11 @@ authforge/
 ### Docker Compose（推荐）
 
 ```bash
-docker-compose up -d
+docker compose -f deploy/docker/docker-compose.yml up -d --build
 ```
 
 - 用户前端：`http://localhost:8080`
-- 管理后台：`http://localhost:5174/admin/`
+- 管理后台：`http://localhost:8081`
 - 后端 API：`http://localhost:5555`
 
 ### 本地开发
@@ -154,10 +153,10 @@ npm run dev    # http://localhost:5173
 ### 后端 API 测试
 
 ```powershell
-# Admin API 全量测试（37 tests）
+# Admin API 全量测试
 .\scripts\backend\test-admin-endpoints.ps1
 
-# OAuth2 核心流程测试（17 tests）
+# OAuth2 核心流程测试
 .\scripts\backend\test-oauth2-endpoints.ps1
 ```
 
@@ -165,7 +164,7 @@ npm run dev    # http://localhost:5173
 
 ```powershell
 cd frontends\admin
-npx playwright test              # 全量运行（123 tests）
+npx playwright test              # 全量运行
 npx playwright test --ui         # UI 模式调试
 npx playwright test --headed     # 有头浏览器模式
 ```
@@ -179,12 +178,12 @@ ctest --output-on-failure
 
 ### 测试覆盖统计
 
-| 测试类型 | 数量 | 覆盖范围 |
-|----------|------|----------|
-| Admin API (PowerShell) | 37 | 全部 Admin 端点 + Organization |
-| OAuth2 Core (PowerShell) | 17 | 认证流程、Token 管理、用户服务 |
-| 前端 E2E (Playwright) | 123 | 管理后台所有页面和交互 |
-| C++ 单元测试 (CTest) | 111 | 核心库逻辑 |
+| 测试类型 | 覆盖范围 |
+|----------|----------|
+| C++ 单元/集成测试 (CTest) | SDK 库、领域服务、存储适配器 |
+| Admin API (PowerShell) | 全部 Admin 端点 + Organization |
+| OAuth2 Core (PowerShell) | 认证流程、Token 管理、用户服务 |
+| 前端 E2E (Playwright) | 管理后台与用户前端的页面和交互 |
 
 ---
 
@@ -229,4 +228,4 @@ MIT License — 详见 [LICENSE](LICENSE)
 
 ---
 
-**项目状态**：生产就绪 | **版本**：v6.0.0
+**项目状态**：生产就绪 | **版本**：v1.0.0

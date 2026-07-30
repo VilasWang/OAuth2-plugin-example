@@ -1,13 +1,13 @@
 /**
  * Error_Message_Catalog_FE — import contract + resolver (mirror of the
- * canonical source in OAuth2Frontend/src/services/messages/index.ts).
+ * canonical source in frontends/user/src/services/messages/index.ts).
  *
- * SINGLE-SOURCE WIRING (task 10.2): OAuth2Admin and OAuth2Frontend are
+ * SINGLE-SOURCE WIRING (task 10.2): frontends/admin and frontends/user are
  * independent npm packages built in isolated Docker contexts, so this catalog
  * is mirrored here to keep a single LOGICAL source while staying build-safe.
  * The cross-app determinism property test (task 9.7) imports this module and
  * asserts it produces identical messages to the Frontend catalog for every
- * (code, locale). Keep this file in lockstep with OAuth2Frontend.
+ * (code, locale). Keep this file in lockstep with frontends/user.
  *
  * Contract (stable):
  *   - `getErrorMessage(code, locale)` → non-empty localized string

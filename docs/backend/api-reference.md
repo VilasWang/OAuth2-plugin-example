@@ -1,6 +1,6 @@
 # OAuth2 API 接口文档
 
-> **完整 API 规范**: 本项目的完整 API 定义位于 [`OAuth2Server/openapi.yaml`](../../OAuth2Server/openapi.yaml)，可通过 Swagger UI 在线浏览：`/docs/api`。
+> **完整 API 规范**: 本项目的完整 API 定义位于 [`apps/server/openapi.yaml`](../../apps/server/openapi.yaml)，可通过 Swagger UI 在线浏览：`/docs/api`。
 
 本服务提供基于 OAuth2.0 标准（RFC 6749）的认证授权服务。
 

@@ -218,11 +218,11 @@ docker-compose -f deploy/docker/docker-compose.yml up -d oauth2-postgres oauth2-
 .\scripts\backend\run_server.bat -debug
 
 # 3. 本地运行前端（新终端）
-cd OAuth2Frontend
+cd frontends/user
 npm run dev
 
 # 4. 本地运行管理后台（新终端）
-cd OAuth2Admin
+cd frontends/admin
 npm run dev
 ```
 

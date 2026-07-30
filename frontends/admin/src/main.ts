@@ -16,7 +16,7 @@ app.use(router)
 // Fire-and-forget: the router's beforeEach guard awaits the deduped
 // ensureSessionRestored() before allowing protected routes, so the one-shot
 // session restoration completes before first render regardless. Top-level
-// await would break the Vite es2020 build target (see OAuth2Frontend pattern).
+// await would break the Vite es2020 build target (see frontends/user pattern).
 useAuthStore().restoreSession()
 
 app.mount('#app')

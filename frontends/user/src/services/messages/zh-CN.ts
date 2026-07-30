@@ -36,7 +36,7 @@ export const zhCN: Record<string, string> = {
   INTERNAL_ERROR: '服务器内部错误',
 
   // --- auth-flow-error-code-gaps: 9 new backend Error_Codes ---
-  // Wording is kept character-for-character identical to OAuth2Admin's
+  // Wording is kept character-for-character identical to frontends/admin's
   // zh-CN.ts (Requirement 9.3) and must equal the catalog's default
   // Client_Safe_Message (Requirement 9.4).
   VALIDATION_USERNAME_TAKEN: '该用户名已被注册',

@@ -27,14 +27,17 @@ Standard build / run / test goes through the unified wrappers
   `initAndStart()` creates the storage, services (TokenService, ClientService,
   IdentityService), JwkManager and CleanupService. Access them via
   `drogon::app().getPlugin<OAuth2Plugin>()`.
-- **Storage Strategy**: `IOAuth2Storage` is the abstract interface; `storage_type`
-  in config selects the backend — `postgres` →
-  `CachedOAuth2Storage(PostgresOAuth2Storage + Redis)` (production), `redis` →
-  `RedisOAuth2Storage` (cache-only), `memory` → `MemoryOAuth2Storage` (testing,
-  no external deps). `CachedOAuth2Storage` wraps any backend with a Redis L2 cache.
-- **Async callbacks**: all storage/service methods are async with
+- **Storage Strategy**: the monolithic `IOAuth2Storage` is retired. `storage_type`
+  in config (`postgres` / `redis` / `memory`) selects the backend;
+  `OAuth2Plugin::initStorage()` constructs the per-backend `RepositoryBundle`
+  (`libs/storage-postgres|redis|memory`) for the 4 oauth2 repositories
+  (client/grant/token/consent) and a separate `authforge::identity` backing
+  store (`PostgresIdentityRepository` / `MemoryIdentityRepository`) for the 3
+  identity repositories (user/role/subject-mapping). `redis` has no dedicated
+  identity backend — it falls back to the memory identity repo as a placeholder.
+- **Async callbacks**: all repository/service methods are async with
   `std::function<void(result)> &&callback` as the last parameter. Services hold
-  `shared_ptr<IOAuth2Storage>` for lifetime; async continuations capture
+  `shared_ptr` repository handles for lifetime; async continuations capture
   `auto self = shared_from_this()` to prevent use-after-free.
 - **Error system**: `Error` → `ErrorCatalog` (single source for error codes and
   messages) → `ErrorResponder` renders JSON error envelopes. Codes are stable

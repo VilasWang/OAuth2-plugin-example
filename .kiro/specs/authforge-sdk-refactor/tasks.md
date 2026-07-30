@@ -352,10 +352,11 @@
   - 用语义化重命名，避免手工替换遗漏（类/文件名的梳理见 Task 45 + design §5.8）
   - 产出：统一命名空间；验收：全量编译 + 测试全绿
 
-- [ ] 41. 版本重置 v1.0.0 + 文档更新
+- [x] 41. 版本重置 v1.0.0 + 文档更新
   - 统一根 CMake 版本；更新 README/CLAUDE.md/集成文档；补 SDK 运行时契约文档（线程/ABI/异常/日志/whole-archive/插件注册，F9/H1）；前端错误码共享源路径更新（L2）
   - 产出：v1.0.0 + 更新文档；验收：版本一致；集成/契约文档齐备
   - **现状（2026-07-28）**：`cmake/Version.cmake` 版本已是 **1.0.0**、根 `CMakeLists.txt` `project(... VERSION 1.0.0)`。剩余：项目名仍为 `oauth2-plugin-example`（待改 `authforge`）、README/CLAUDE 更新、SDK 运行时契约文档、前端错误码共享源路径。应在 Task 34 api-diff 建基线前收尾。
+  - **完成说明（2026-07-28）**：①根 `project()` 改名 `authforge`（DESCRIPTION 同步），`cmake --preset windows-msvc` 重新 configure 通过，全仓 `oauth2-plugin-example` 零残留；②README 双语同步——标题改 AuthForge、徽章改 ci.yml+security.yml（旧三平台 workflow 已删）、compose 命令补 `-f deploy/docker/docker-compose.yml`、admin 端口 5174→8081、页脚 v6.0.0→v1.0.0；硬编码测试计数（37/17/123/111）与实际已严重漂移，一律移除数字只保留覆盖范围描述（防再腐化）；③CLAUDE.md/CODEBUDDY.md Storage Strategy 段落从旧 `IOAuth2Storage/CachedOAuth2Storage` 改写为 RepositoryBundle + 独立 identity 仓储的现实架构（对照 `OAuth2Plugin::initStorage()` 实码核实），CODEBUDDY Layer Separation 同步；④新建 `docs/backend/sdk-runtime-contract.md`（F9 五契约：线程/ABI/异常/日志/依赖 + H1 插件注册与 whole-archive 边界，with_webauthn 已对照 conanfile.py 核实）；⑤前端错误码共享源路径：`crossAppConsistency.property.test.ts` 动态导入候选 `OAuth2Admin/...`→`admin/...`（M8 后唯一实际断裂点），另 7 文件注释中 `OAuth2Frontend|OAuth2Admin`→`frontends/{user,admin}` 批量归一（git diff 核对非注释变更仅 3 条候选路径）；⑥admin `package.json`+lock 版本 0.0.0→1.0.0；⑦docs/backend 4 文件旧路径修复（ci-cd-guide 迁移 glob→`apps/server/migrations`、api-reference openapi 链接、testing-guide、docker-guide cd 命令）。验收：user 前端 vitest 15/15（含跨应用一致性 2 例）、admin 2/2、CMake configure 通过。历史性文档（PRD/、docs/design/pr6-review-fixes-plan.md、完成说明史实）中的旧名有意不改。
 
 - [x] 42. scripts/ 路径与命令维护（评审补充点 1）
   - 经 `paths.env`（Task 5 已建）把最终路径值一次性切到新结构；审计 `manage.ps1/.sh`、`scripts/backend/{build,test,run-server,setup-database,validate-openapi}.{sh,bat}`、`scripts/{smoke-parity.ps1,security-check.sh,test-frontend-url-config.sh}`、`scripts/emoji_manager.py`(默认 `../OAuth2Plugin`) 残留硬编码
@@ -418,7 +419,7 @@
 5. ~~**Task 35 migration-check + security.yml + 依赖 EOL 扫描**~~ ✅ **已完成（2026-07-28）**：`tools/migration-check`（5 规则：命名/连续/幂等/非破坏/checksum 基线）接入 ci.yml FAST gate；`security.yml`（EOL 扫描 + secret 卫生，周一 cron）；负向注入验收全过（详见 Task 35 完成说明）。M6 全部完成，解锁 Wave D。
 
 **Wave C — 版本冻结 + API 稳定**
-6. **Task 41 v1.0.0 收尾 + 文档**（版本号已 1.0.0；剩项目名 `oauth2-plugin-example`→`authforge`、README/CLAUDE、SDK 运行时契约文档、前端错误码共享源路径）。应在 api-diff 建基线前完成。
+6. ~~**Task 41 v1.0.0 收尾 + 文档**（版本号已 1.0.0；剩项目名 `oauth2-plugin-example`→`authforge`、README/CLAUDE、SDK 运行时契约文档、前端错误码共享源路径）。应在 api-diff 建基线前完成。~~ ✅ 完成
 7. **Task 34 api-diff**（依赖命名冻结 Task 45 已完成 + Task 41 版本冻结）：SDK 导出头 API 快照 diff + 基线。
 
 **Wave D — 发布管线（依赖 M6 = Task 32-35）**

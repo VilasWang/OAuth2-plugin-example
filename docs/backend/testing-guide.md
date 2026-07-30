@@ -97,7 +97,7 @@ ctest -V -C Release --output-on-failure --timeout 120
 
 ### 方式二：直接运行测试可执行文件
 
-测试可执行文件内部会自动启动 Drogon App 实例（`test_main.cc` 中通过信号量同步），**无需手动启动 OAuth2Server**。
+测试可执行文件内部会自动启动 Drogon App 实例（`test_main.cc` 中通过信号量同步），**无需手动启动后端服务**。
 
 ```powershell
 cd build\windows-msvc\tests\Release
@@ -297,7 +297,7 @@ curl -X POST http://127.0.0.1:5555/oauth2/login \
 
 ### 9.2 调试技巧
 *   **日志级别**：在 `config.json` 中将 `log_level` 设置为 `DEBUG` 以获取详细输出。
-*   **实时日志**：使用 `Get-Content OAuth2Server/logs/drogon.log -Wait -Tail 20` 监控运行状态。
+*   **实时日志**：使用 `Get-Content apps/server/logs/drogon.log -Wait -Tail 20` 监控运行状态。
 
 ---
 

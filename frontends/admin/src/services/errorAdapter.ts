@@ -1,22 +1,22 @@
 /**
  * Frontend_Error_Module — shared, single source of truth for both
- * OAuth2Frontend and OAuth2Admin (Requirement 8.6).
+ * frontends/user and frontends/admin (Requirement 8.6).
  *
  * SINGLE-SOURCE WIRING (task 10.2 decision)
  * -----------------------------------------
  * The canonical implementation lives in
- *   OAuth2Frontend/src/services/errorAdapter.ts
- *   OAuth2Frontend/src/services/messages/
- * OAuth2Admin and OAuth2Frontend are independent npm packages (no monorepo /
+ *   frontends/user/src/services/errorAdapter.ts
+ *   frontends/user/src/services/messages/
+ * frontends/admin and frontends/user are independent npm packages (no monorepo /
  * workspace) and each is built in an isolated Docker context that copies ONLY
- * its own directory (see OAuth2Admin/Dockerfile `COPY . .`). A cross-app
- * relative import or path alias into OAuth2Frontend would therefore break the
+ * its own directory (see frontends/admin/Dockerfile `COPY . .`). A cross-app
+ * relative import or path alias into frontends/user would therefore break the
  * containerized build. To keep a single LOGICAL source while remaining
  * build-safe, this file mirrors the canonical source byte-for-byte. The
  * cross-app determinism property test (task 9.7,
- * OAuth2Frontend/src/services/crossAppConsistency.property.test.ts) imports
+ * frontends/user/src/services/crossAppConsistency.property.test.ts) imports
  * this module and asserts it returns identical messages for every (code,
- * locale). Keep this file and ./messages in lockstep with OAuth2Frontend.
+ * locale). Keep this file and ./messages in lockstep with frontends/user.
  *
  * `normalizeError` is a pure function that accepts an axios error (or any
  * value) and ALWAYS returns a normalized structure — it NEVER throws
@@ -182,7 +182,7 @@ export const SESSION_EXPIRED_CODE = 'AUTH_TOKEN_EXPIRED'
 
 /**
  * Build a NormalizedError describing an expired session. Shared by both
- * OAuth2Frontend and OAuth2Admin so the 401-refresh-failure path surfaces a
+ * frontends/user and frontends/admin so the 401-refresh-failure path surfaces a
  * single, consistent localized message via the Frontend_Error_Module
  * (Requirement 10.4). Never throws.
  */

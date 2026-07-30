@@ -1,6 +1,6 @@
 /**
  * Frontend_Error_Module — shared, single source of truth for both
- * OAuth2Frontend and OAuth2Admin (Requirement 8.6).
+ * frontends/user and frontends/admin (Requirement 8.6).
  *
  * `normalizeError` is a pure function that accepts an axios error (or any
  * value) and ALWAYS returns a normalized structure — it NEVER throws
@@ -166,7 +166,7 @@ export const SESSION_EXPIRED_CODE = 'AUTH_TOKEN_EXPIRED'
 
 /**
  * Build a NormalizedError describing an expired session. Shared by both
- * OAuth2Frontend and OAuth2Admin so the 401-refresh-failure path surfaces a
+ * frontends/user and frontends/admin so the 401-refresh-failure path surfaces a
  * single, consistent localized message via the Frontend_Error_Module
  * (Requirement 10.4). Never throws.
  */

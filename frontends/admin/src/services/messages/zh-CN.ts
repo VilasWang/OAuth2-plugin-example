@@ -2,7 +2,7 @@
  * Simplified-Chinese (zh-CN) error message resources.
  *
  * Mirror of the canonical source
- *   OAuth2Frontend/src/services/messages/zh-CN.ts
+ *   frontends/user/src/services/messages/zh-CN.ts
  * kept in lockstep to honor the single-logical-source contract (Requirement
  * 8.6 / 10.7). The cross-app determinism property test (task 9.7) asserts both
  * catalogs return identical messages for every (code, locale).
@@ -36,7 +36,7 @@ export const zhCN: Record<string, string> = {
   INTERNAL_ERROR: '服务器内部错误',
 
   // --- auth-flow-error-code-gaps: 9 new backend Error_Codes ---
-  // Mirror of OAuth2Frontend/src/services/messages/zh-CN.ts (Requirement 9.3).
+  // Mirror of frontends/user/src/services/messages/zh-CN.ts (Requirement 9.3).
   VALIDATION_USERNAME_TAKEN: '该用户名已被注册',
   VALIDATION_EMAIL_TAKEN: '该邮箱已被注册',
   VALIDATION_CREDENTIAL_ALREADY_REGISTERED: '该安全密钥已注册，无需重复添加',

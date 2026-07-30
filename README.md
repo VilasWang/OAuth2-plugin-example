@@ -1,10 +1,9 @@
-# Drogon OAuth2.0 Provider — Full-Stack Authorization Server
+# AuthForge — Full-Stack OAuth2/OIDC Authorization Server
 
 [中文文档](README.zh-CN.md)
 
-![Linux CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-linux.yml/badge.svg)
-![Windows CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-windows.yml/badge.svg)
-![macOS CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-macos.yml/badge.svg)
+![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414. Includes admin console, user-facing frontend, and a comprehensive test suite.
@@ -113,11 +112,11 @@ authforge/
 ### Docker Compose (Recommended)
 
 ```bash
-docker-compose up -d
+docker compose -f deploy/docker/docker-compose.yml up -d --build
 ```
 
 - User Frontend: `http://localhost:8080`
-- Admin Console: `http://localhost:5174/admin/`
+- Admin Console: `http://localhost:8081`
 - Backend API: `http://localhost:5555`
 
 ### Local Development
@@ -154,10 +153,10 @@ npm run dev    # http://localhost:5173
 ### Backend API Tests
 
 ```powershell
-# Admin API full tests (37 tests)
+# Admin API full tests
 .\scripts\backend\test-admin-endpoints.ps1
 
-# OAuth2 core flow tests (17 tests)
+# OAuth2 core flow tests
 .\scripts\backend\test-oauth2-endpoints.ps1
 ```
 
@@ -165,7 +164,7 @@ npm run dev    # http://localhost:5173
 
 ```powershell
 cd frontends\admin
-npx playwright test              # Full run (123 tests)
+npx playwright test              # Full run
 npx playwright test --ui         # UI mode for debugging
 npx playwright test --headed     # Headed browser mode
 ```
@@ -179,12 +178,12 @@ ctest --output-on-failure
 
 ### Test Coverage
 
-| Test Type | Count | Scope |
-|-----------|-------|-------|
-| Admin API (PowerShell) | 37 | All Admin endpoints + Organization |
-| OAuth2 Core (PowerShell) | 17 | Auth flows, token management, user services |
-| Frontend E2E (Playwright) | 123 | All admin console pages and interactions |
-| C++ Unit Tests (CTest) | 111 | Core library logic |
+| Test Type | Scope |
+|-----------|-------|
+| C++ Unit/Integration Tests (CTest) | SDK libraries, domain services, storage adapters |
+| Admin API (PowerShell) | All Admin endpoints + Organization |
+| OAuth2 Core (PowerShell) | Auth flows, token management, user services |
+| Frontend E2E (Playwright) | Admin console and user frontend pages/interactions |
 
 ---
 
@@ -229,4 +228,4 @@ MIT License — see [LICENSE](LICENSE)
 
 ---
 
-**Project Status**: Production Ready | **Version**: v6.0.0
+**Project Status**: Production Ready | **Version**: v1.0.0
