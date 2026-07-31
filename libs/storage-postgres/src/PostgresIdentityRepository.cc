@@ -285,7 +285,7 @@ void PostgresIdentityRepository::updatePasswordHash(
     Mapper<Users> mapper(dbClient_);
     mapper.findBy(
       Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
-      [sharedCb, userId, newHash, self = shared_from_this()](const std::vector<Users> &users) {
+      [sharedCb, newHash, self = shared_from_this()](const std::vector<Users> &users) {
           if (users.empty())
           {
               (*sharedCb)(false);
@@ -368,7 +368,7 @@ void PostgresIdentityRepository::incrementFailedLogins(
     Mapper<Users> mapper(dbClient_);
     mapper.findBy(
       Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
-      [sharedCb, userId, self = shared_from_this()](const std::vector<Users> &users) {
+      [sharedCb, self = shared_from_this()](const std::vector<Users> &users) {
           int failedCount = users.empty() ? 0 : users[0].getValueOfFailedLoginCount();
           int newFailedCount = failedCount + 1;
           int64_t now = std::chrono::duration_cast<std::chrono::seconds>(

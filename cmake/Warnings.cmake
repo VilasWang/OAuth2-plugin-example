@@ -38,7 +38,15 @@ function(oauth2_apply_warnings target)
             target_compile_options(${target} PRIVATE /WX)
         endif()
     else()
-        target_compile_options(${target} PRIVATE -Wall -Wextra)
+        # -Wno-missing-field-initializers: -Wextra flags designated/partial
+        # aggregate init (e.g. the OpenAPI descriptor structs), but the
+        # remaining members are value-initialized per the standard, so this
+        # subset is pure noise rather than a defect signal.
+        target_compile_options(${target} PRIVATE
+            -Wall
+            -Wextra
+            -Wno-missing-field-initializers
+        )
         if(AUTHFORGE_WERROR)
             target_compile_options(${target} PRIVATE -Werror)
         endif()
