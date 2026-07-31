@@ -47,6 +47,14 @@ function(oauth2_apply_warnings target)
             -Wextra
             -Wno-missing-field-initializers
         )
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            # -Wno-unused-lambda-capture (Clang-only diagnostic): the async
+            # Drogon callback chains routinely over-capture (req/plugin/ids
+            # kept for lifetime clarity); ~50 sites fire this with zero
+            # behavioural impact and neither MSVC /W4 nor GCC checks it.
+            # Silenced as noise; targeted cleanup can revisit per-site.
+            target_compile_options(${target} PRIVATE -Wno-unused-lambda-capture)
+        endif()
         if(AUTHFORGE_WERROR)
             target_compile_options(${target} PRIVATE -Werror)
         endif()

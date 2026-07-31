@@ -311,7 +311,7 @@ DROGON_TEST(Security_P1_RateLimit_DetectRateLimiting_Limited)
 
     // Rate limiting should be active (even if threshold is high)
     // This test verifies the mechanism exists
-    ;
+    (void)rateLimitDetected;
 }
 
 // ============================================================================
