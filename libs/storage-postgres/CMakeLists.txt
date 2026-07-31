@@ -64,15 +64,17 @@ target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_STORAGE_POSTGRES_SOURCES})
 # The drogon_ctl ORM-generated model sources above are exempt from rewrite
 # (regeneration would lose any hand-edit), so the unused-parameter warnings
 # they emit at /W4 resp. -Wextra (e.g. updateArgs()'s unused `id` /
-# `isForCreation`) are silenced at the SOURCE level here instead of touching
-# generated code or lowering the warning level of the whole target -- the
-# handwritten Postgres*.cc sources below stay at full warning level.
+# `isForCreation`) and the deprecated std::codecvt usage flagged by Clang
+# (-Wdeprecated-declarations) are silenced at the SOURCE level here instead
+# of touching generated code or lowering the warning level of the whole
+# target -- the handwritten Postgres*.cc sources below stay at full warning
+# level.
 if(MSVC)
     set_source_files_properties(${AUTHFORGE_STORAGE_POSTGRES_SOURCES}
         PROPERTIES COMPILE_OPTIONS "/wd4100")
 else()
     set_source_files_properties(${AUTHFORGE_STORAGE_POSTGRES_SOURCES}
-        PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter")
+        PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter;-Wno-deprecated-declarations")
 endif()
 
 # Task 19: PostgresIdentityRepository.cc implements libs/identity's

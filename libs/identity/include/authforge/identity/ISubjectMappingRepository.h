@@ -69,8 +69,8 @@ class ISubjectMappingRepository
      * registration flows need before createSubjectMapping.
      */
     virtual void createUserForExternalLogin(
-      const std::string &externalId,
-      const std::string &provider,
+      const std::string & /*externalId*/,
+      const std::string & /*provider*/,
       OptionalIntCallback &&cb
     )
     {
