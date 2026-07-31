@@ -58,7 +58,9 @@ void IdentityService::ensureSubjectMapping(
     repos_.subjectMapping->getInternalUserId(
       sub,
       provider,
-      [self, this, sub, provider, internalUserId, callback = std::move(callback)](
+      // init-captures: plain capture of structured bindings is a C++20
+      // extension (AppleClang -Wc++20-extensions), copies are C++17-clean
+      [self, this, sub = sub, provider = provider, internalUserId, callback = std::move(callback)](
         auto existingUserId
       ) {
           if (existingUserId)
@@ -101,7 +103,10 @@ void IdentityService::handleFirstTimeLogin(
     repos_.subjectMapping->createUserForExternalLogin(
       sub,
       prov,
-      [self, this, sub, prov, callback = std::move(callback)](std::optional<int32_t> newUserId) {
+      // init-captures: see note above on structured bindings vs C++17
+      [self, this, sub = sub, prov = prov, callback = std::move(callback)](
+        std::optional<int32_t> newUserId
+      ) {
           if (!newUserId || *newUserId == 0)
           {
               LOG_ERROR << "Failed to create user for external login: " << prov << ":" << sub;
