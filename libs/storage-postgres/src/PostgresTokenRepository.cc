@@ -108,7 +108,7 @@ void PostgresTokenRepository::saveTokenPair(
     // reproduced under some CI runners/timings and not deterministically
     // in every environment.
     //
-    // Fix: install a commit callback via newTransaction() and fire the
+    // Fix: install a commit callback on the transaction and fire the
     // caller's callback from there (guaranteed to run only after COMMIT
     // completes). The insert error paths still invoke the caller's
     // callback directly, because Drogon automatically rolls back on error
@@ -124,70 +124,93 @@ void PostgresTokenRepository::saveTokenPair(
         }
     };
 
-    // Use a transaction to ensure both tokens are saved atomically
-    auto transPtr = dbClientMaster_->newTransaction([invokeOnce](bool committed) {
-        if (!committed)
-            LOG_ERROR << "saveTokenPair: transaction commit failed";
-        invokeOnce();
-    });
-
-    auto refreshInsertErrorCb = [invokeOnce](const DrogonDbException &e) {
-        LOG_ERROR << "saveTokenPair (refresh) failed: " << e.base().what();
-        invokeOnce();
-    };
-
-    transPtr->execSqlAsync(
-      "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, expires_at, revoked) "
-      "VALUES ($1, $2, $3, $4, $5, $6)",
-      [transPtr, rt, refreshInsertErrorCb](const ::drogon::orm::Result &) {
-          // Access token saved, now save refresh token. The caller's
-          // callback fires from the commit callback above, not here.
-          if (rt.familyId.empty())
+    // Deadlock fix: the transaction must be acquired asynchronously.
+    // saveTokenPair is reached from inside DB result callbacks (e.g. the
+    // token endpoint's device-code flow issues tokens from within
+    // PgConnection::handleRead on a DbLoop thread). The blocking
+    // newTransaction() overload waits on a future that is only fulfilled by
+    // the DB event loops themselves, so calling it there stalls the loop it
+    // runs on; with every DbLoop blocked this way (two concurrent
+    // redemptions), BEGIN can never be sent and the whole process
+    // deadlocks. newTransactionAsync() delivers the transaction via
+    // callback without ever blocking the calling loop.
+    dbClientMaster_->newTransactionAsync(
+      [invokeOnce, at, rt](const std::shared_ptr<Transaction> &transPtr) {
+          if (!transPtr)
           {
-              transPtr->execSqlAsync(
-                "INSERT INTO oauth2_refresh_tokens "
-                "(token, access_token, client_id, user_id, scope, expires_at, revoked) "
-                "VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                [](const ::drogon::orm::Result &) {},
-                refreshInsertErrorCb,
-                rt.token,
-                rt.accessToken,
-                rt.clientId,
-                rt.userId,
-                rt.scope,
-                rt.expiresAt,
-                rt.revoked
-              );
+              LOG_ERROR << "saveTokenPair: failed to acquire transaction (timeout)";
+              invokeOnce();
+              return;
           }
-          else
-          {
-              transPtr->execSqlAsync(
-                "INSERT INTO oauth2_refresh_tokens "
-                "(token, access_token, client_id, user_id, scope, expires_at, revoked, family_id) "
-                "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                [](const ::drogon::orm::Result &) {},
-                refreshInsertErrorCb,
-                rt.token,
-                rt.accessToken,
-                rt.clientId,
-                rt.userId,
-                rt.scope,
-                rt.expiresAt,
-                rt.revoked,
-                rt.familyId
-              );
-          }
-      },
-      [invokeOnce](const DrogonDbException &e) {
-          LOG_ERROR << "saveTokenPair (access) failed: " << e.base().what();
-          invokeOnce();
-      },
-      at.token,
-      at.clientId,
-      at.userId,
-      at.scope,
-      at.expiresAt,
-      at.revoked
+
+          // Use a transaction to ensure both tokens are saved atomically
+          transPtr->setCommitCallback([invokeOnce](bool committed) {
+              if (!committed)
+                  LOG_ERROR << "saveTokenPair: transaction commit failed";
+              invokeOnce();
+          });
+
+          auto refreshInsertErrorCb = [invokeOnce](const DrogonDbException &e) {
+              LOG_ERROR << "saveTokenPair (refresh) failed: " << e.base().what();
+              invokeOnce();
+          };
+
+          transPtr->execSqlAsync(
+            "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, expires_at, "
+            "revoked) "
+            "VALUES ($1, $2, $3, $4, $5, $6)",
+            [transPtr, rt, refreshInsertErrorCb](const ::drogon::orm::Result &) {
+                // Access token saved, now save refresh token. The caller's
+                // callback fires from the commit callback above, not here.
+                if (rt.familyId.empty())
+                {
+                    transPtr->execSqlAsync(
+                      "INSERT INTO oauth2_refresh_tokens "
+                      "(token, access_token, client_id, user_id, scope, expires_at, revoked) "
+                      "VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                      [](const ::drogon::orm::Result &) {},
+                      refreshInsertErrorCb,
+                      rt.token,
+                      rt.accessToken,
+                      rt.clientId,
+                      rt.userId,
+                      rt.scope,
+                      rt.expiresAt,
+                      rt.revoked
+                    );
+                }
+                else
+                {
+                    transPtr->execSqlAsync(
+                      "INSERT INTO oauth2_refresh_tokens "
+                      "(token, access_token, client_id, user_id, scope, expires_at, revoked, "
+                      "family_id) "
+                      "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                      [](const ::drogon::orm::Result &) {},
+                      refreshInsertErrorCb,
+                      rt.token,
+                      rt.accessToken,
+                      rt.clientId,
+                      rt.userId,
+                      rt.scope,
+                      rt.expiresAt,
+                      rt.revoked,
+                      rt.familyId
+                    );
+                }
+            },
+            [invokeOnce](const DrogonDbException &e) {
+                LOG_ERROR << "saveTokenPair (access) failed: " << e.base().what();
+                invokeOnce();
+            },
+            at.token,
+            at.clientId,
+            at.userId,
+            at.scope,
+            at.expiresAt,
+            at.revoked
+          );
+      }
     );
 }
 
