@@ -402,7 +402,7 @@ DROGON_TEST(E2E_P1_RateLimit_DetectRateLimiting_Limited)
 
     // Rate limiting may or may not be triggered depending on configuration
     // The test verifies the mechanism exists
-    ;
+    (void)rateLimitDetected;
 }
 
 // ============================================================================

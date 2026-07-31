@@ -332,7 +332,7 @@ void AuthService::getUserInfo(
                 Criteria(
                   drogon_model::oauth2_db::UserRoles::Cols::_user_id, CompareOperator::EQ, userId
                 ),
-                [sharedCb, db, user, userId](
+                [sharedCb, db, user](
                   const std::vector<drogon_model::oauth2_db::UserRoles> &userRoles
                 ) {
                     if (userRoles.empty())
