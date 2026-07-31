@@ -4,9 +4,12 @@
 
 ![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
 ![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
+![Release](https://github.com/lucaswang420/authforge/actions/workflows/release.yml/badge.svg)
+![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
+![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414. Includes admin console, user-facing frontend, and a comprehensive test suite.
+Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414 — usable as a **ready-to-run product** (Docker/Helm) or as an **embeddable C++ SDK** (`find_package(authforge-*)`). Includes admin console, user-facing frontend, and a comprehensive test suite.
 
 ---
 
@@ -24,6 +27,28 @@ authforge/
 ├── scripts/            # Build, test, and operations scripts
 └── docs/               # Project documentation
 ```
+
+### SDK Layering
+
+The backend is split into 8 CMake packages with an enforced dependency direction (Domain layer never depends on Drogon; verified by `tools/arch-guard` in CI). Arrows read "depends on":
+
+```mermaid
+graph TD
+    server["authforge-server<br/>(apps/server)"] --> drogon
+    drogon["authforge::drogon<br/>plugin · controllers · filters · views"] --> oauth2
+    drogon --> identity
+    drogon --> memory
+    drogon --> redis
+    drogon --> postgres
+    memory["authforge::storage::memory"] --> oauth2
+    redis["authforge::storage::redis"] --> oauth2
+    postgres["authforge::storage::postgres<br/>(ORM models)"] --> identity
+    oauth2["authforge::oauth2<br/>OAuth2/OIDC engine"] --> common
+    identity["authforge::identity<br/>auth · MFA · WebAuthn · RBAC"] --> common
+    common["authforge::common<br/>shared kernel · ports"]
+```
+
+Optional feature areas are gated by Conan/CMake options (`with_identity` / `with_social` / `with_webauthn`) so SDK consumers can shrink the dependency surface.
 
 ### Tech Stack
 
@@ -111,7 +136,7 @@ authforge/
 
 ## Quick Start
 
-### Docker Compose (Recommended)
+### Path A — Docker Compose (recommended for evaluation)
 
 ```bash
 docker compose -f deploy/docker/docker-compose.yml up -d --build
@@ -121,32 +146,101 @@ docker compose -f deploy/docker/docker-compose.yml up -d --build
 - Admin Console: `http://localhost:8081`
 - Backend API: `http://localhost:5555`
 
-### Local Development
+### Path B — Build from source
+
+The canonical build is Conan 2 + CMake presets (identical to CI):
+
+```bash
+# 1. Resolve locked dependencies (writes toolchain into the preset's build dir)
+conan install . --output-folder=build/linux-release --build=missing \
+  -s build_type=Release -s compiler.cppstd=17
+
+# 2. Configure + build
+#    Presets: linux-release / windows-msvc / macos-arm64 (+ -debug / -asan / -tsan variants)
+cmake --preset linux-release
+cmake --build --preset linux-release
+
+# 3. Run the backend test suite
+ctest --test-dir build/linux-release --output-on-failure
+```
+
+`manage.ps1` (Windows) and `manage.sh` (Linux/macOS) wrap the same flow as convenience commands, e.g. `.\manage.ps1 build-backend`.
+
+To run the full stack locally (backend requires PostgreSQL + Redis):
 
 ```powershell
-# 1. Build backend
-.\manage.ps1 build-backend
-
-# 2. Start backend (requires PostgreSQL + Redis)
+# Backend
 cd apps\server
 ..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
 
-# 3. Start admin console
-cd frontends\admin
-npm install
-npm run dev    # http://localhost:5174/admin/
+# Admin console — http://localhost:5174/admin/
+cd frontends\admin && npm install && npm run dev
 
-# 4. Start user frontend
-cd frontends\user
-npm install
-npm run dev    # http://localhost:5173
+# User frontend — http://localhost:5173
+cd frontends\user && npm install && npm run dev
 ```
+
+### Path C — Consume as an SDK
+
+Embed AuthForge into your own C++ host via `find_package` (SDK tarball from [Releases](https://github.com/lucaswang420/authforge/releases), or `cmake --install` from source):
+
+```cmake
+# Full stack: one package pulls the whole closure (engine + Drogon plugin/controllers)
+find_package(authforge-drogon CONFIG REQUIRED)
+target_link_libraries(my-host PRIVATE authforge::drogon)
+
+# Or engine-only (no Drogon dependency):
+find_package(authforge-oauth2 CONFIG REQUIRED)
+find_package(authforge-storage-memory CONFIG REQUIRED)
+target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::memory)
+```
+
+> v1.x promises **source-level SemVer** for the public headers (`include/authforge/**`), enforced by an api-diff gate in CI — no binary ABI guarantee. Resolve third-party dependencies with the repository's `conanfile.py` + `conan.lock`. Details: [SDK Integration Guide](docs/backend/sdk-integration-guide.md) · [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md); reference consumers: [`examples/full-stack-host`](examples/full-stack-host), [`examples/third-party-host`](examples/third-party-host) (both CI-verified).
 
 ### Default Credentials
 
 | Username | Password | Role |
 |----------|----------|------|
 | admin | admin | admin |
+
+---
+
+## Deployment
+
+| Target | Entry point | Notes |
+|--------|-------------|-------|
+| Docker Compose (dev) | `deploy/docker/docker-compose.yml` | Full stack + PostgreSQL + Redis, single command |
+| Docker Compose (prod) | `deploy/docker/docker-compose.prod.yml` | TLS/nginx, env-file driven secrets |
+| Kubernetes (Helm) | `deploy/helm/authforge` | Chart with values-driven config; schema migration runs as a Helm hook Job |
+
+```bash
+helm install authforge deploy/helm/authforge -f my-values.yaml
+```
+
+Full walkthroughs: [Production Deployment Guide](docs/ops/deployment.md) · [Windows / Docker Desktop](docs/ops/deployment-windows-docker-desktop.md) · [Security Checklist](docs/ops/security-checklist.md)
+
+---
+
+## Releases & Supply Chain Security
+
+Releases are cut from SemVer tags (`vX.Y.Z`) by [`release.yml`](.github/workflows/release.yml):
+
+- **SDK package** — `authforge-sdk-<ver>-linux-x86_64.tar.gz` (8 static libs + headers + CMake package configs) with `.sha256` checksum, attached to the GitHub Release.
+- **Container images** — multi-arch (amd64 + arm64) on GHCR: `ghcr.io/lucaswang420/authforge-{backend,frontend,admin}:<ver>`.
+- **Signatures** — image manifests are signed by digest with cosign (keyless, GitHub OIDC).
+- **SBOMs** — SPDX JSON for each image and the source tree (syft), attached to the Release.
+
+Verify before deploying:
+
+```bash
+# Image signature
+cosign verify ghcr.io/lucaswang420/authforge-backend:<version> \
+  --certificate-identity-regexp 'github.com/lucaswang420/.+/.github/workflows/release.yml' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+# SDK tarball integrity
+sha256sum -c authforge-sdk-<version>-linux-x86_64.tar.gz.sha256
+```
 
 ---
 
@@ -199,16 +293,15 @@ ctest --output-on-failure
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Backend Configuration](docs/backend/configuration-guide.md) | Database, Redis, environment variable setup |
-| [Security Architecture](docs/backend/security-architecture.md) | Token lifecycle, encryption, protection strategies |
-| [RBAC Guide](docs/backend/rbac-guide.md) | Role permission configuration |
-| [Docker Deployment](docs/backend/docker-deployment.md) | Containerized deployment |
-| [SDK Integration Guide](docs/backend/sdk-integration-guide.md) | Consuming release artifacts (SDK tarball + GHCR images) |
-| [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md) | Threading, ABI, exception, logging promises |
-| [CI/CD Pipeline](docs/backend/ci-cd-guide.md) | GitHub Actions configuration |
-| [Account Lockout](docs/ops/account-lockout.md) | Lockout rules and reset procedures |
+**Evaluating** — [Architecture Overview](docs/backend/architecture-overview.md) · [Security Architecture](docs/backend/security-architecture.md) · [RBAC Guide](docs/backend/rbac-guide.md)
+
+**Integrating (SDK)** — [SDK Integration Guide](docs/backend/sdk-integration-guide.md) · [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md) · [API Reference](docs/backend/api-reference.md)
+
+**Operating** — [Production Deployment](docs/ops/deployment.md) · [Configuration Guide](docs/backend/configuration-guide.md) · [Observability](docs/backend/observability.md) · [Account Lockout](docs/ops/account-lockout.md)
+
+**Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md) · [Testing Guide](docs/backend/testing-guide.md) · [CI/CD Pipeline](docs/backend/ci-cd-guide.md)
+
+Full index: [docs/README.md](docs/README.md)
 
 ---
 
@@ -222,6 +315,13 @@ ctest --output-on-failure
 | Redis | 7+ |
 | Node.js | 18+ |
 | Docker | 24+ (optional) |
+
+---
+
+## Contributing & Security
+
+- Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for build, test, and commit conventions.
+- To report a vulnerability, follow [SECURITY.md](SECURITY.md) — please do **not** open a public issue.
 
 ---
 

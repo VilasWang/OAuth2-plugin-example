@@ -4,9 +4,12 @@
 
 ![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
 ![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
+![Release](https://github.com/lucaswang420/authforge/actions/workflows/release.yml/badge.svg)
+![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
+![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准。包含管理后台、前端客户端和完整的测试体系。
+生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(authforge-*)`）集成。包含管理后台、前端客户端和完整的测试体系。
 
 ---
 
@@ -24,6 +27,28 @@ authforge/
 ├── scripts/            # 构建、测试、运维脚本
 └── docs/               # 项目文档
 ```
+
+### SDK 分层架构
+
+后端拆分为 8 个 CMake 包，依赖方向受强制约束（Domain 层永不依赖 Drogon，由 CI 中的 `tools/arch-guard` 把关）。箭头语义为「依赖于」：
+
+```mermaid
+graph TD
+    server["authforge-server<br/>(apps/server)"] --> drogon
+    drogon["authforge::drogon<br/>插件 · 控制器 · 过滤器 · 视图"] --> oauth2
+    drogon --> identity
+    drogon --> memory
+    drogon --> redis
+    drogon --> postgres
+    memory["authforge::storage::memory"] --> oauth2
+    redis["authforge::storage::redis"] --> oauth2
+    postgres["authforge::storage::postgres<br/>(ORM 模型)"] --> identity
+    oauth2["authforge::oauth2<br/>OAuth2/OIDC 引擎"] --> common
+    identity["authforge::identity<br/>认证 · MFA · WebAuthn · RBAC"] --> common
+    common["authforge::common<br/>共享内核 · 端口接口"]
+```
+
+可选特性面由 Conan/CMake 选项门控（`with_identity` / `with_social` / `with_webauthn`），SDK 消费方可据此收缩依赖表面。
 
 ### 技术栈
 
@@ -111,7 +136,7 @@ authforge/
 
 ## 快速开始
 
-### Docker Compose（推荐）
+### 路径 A — Docker Compose（推荐用于评估）
 
 ```bash
 docker compose -f deploy/docker/docker-compose.yml up -d --build
@@ -121,32 +146,101 @@ docker compose -f deploy/docker/docker-compose.yml up -d --build
 - 管理后台：`http://localhost:8081`
 - 后端 API：`http://localhost:5555`
 
-### 本地开发
+### 路径 B — 源码构建
+
+标准构建流程为 Conan 2 + CMake preset（与 CI 完全一致）：
+
+```bash
+# 1. 解析锁定的依赖（将 toolchain 写入 preset 对应的构建目录）
+conan install . --output-folder=build/linux-release --build=missing \
+  -s build_type=Release -s compiler.cppstd=17
+
+# 2. 配置 + 构建
+#    可用 preset：linux-release / windows-msvc / macos-arm64（另有 -debug / -asan / -tsan 变体）
+cmake --preset linux-release
+cmake --build --preset linux-release
+
+# 3. 运行后端测试套件
+ctest --test-dir build/linux-release --output-on-failure
+```
+
+`manage.ps1`（Windows）与 `manage.sh`（Linux/macOS）封装了同一流程，作为便捷命令使用，如 `.\manage.ps1 build-backend`。
+
+本地运行全栈（后端需要 PostgreSQL + Redis）：
 
 ```powershell
-# 1. 编译后端
-.\manage.ps1 build-backend
-
-# 2. 启动后端（需要 PostgreSQL + Redis）
+# 后端
 cd apps\server
 ..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
 
-# 3. 启动管理后台
-cd frontends\admin
-npm install
-npm run dev    # http://localhost:5174/admin/
+# 管理后台 — http://localhost:5174/admin/
+cd frontends\admin && npm install && npm run dev
 
-# 4. 启动用户前端
-cd frontends\user
-npm install
-npm run dev    # http://localhost:5173
+# 用户前端 — http://localhost:5173
+cd frontends\user && npm install && npm run dev
 ```
+
+### 路径 C — 以 SDK 方式集成
+
+通过 `find_package` 将 AuthForge 嵌入自己的 C++ 宿主（SDK 包取自 [Releases](https://github.com/lucaswang420/authforge/releases)，或从源码 `cmake --install`）：
+
+```cmake
+# 全栈：一个包拉取完整闭包（引擎 + Drogon 插件/控制器）
+find_package(authforge-drogon CONFIG REQUIRED)
+target_link_libraries(my-host PRIVATE authforge::drogon)
+
+# 或仅取引擎面（无 Drogon 依赖）：
+find_package(authforge-oauth2 CONFIG REQUIRED)
+find_package(authforge-storage-memory CONFIG REQUIRED)
+target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::memory)
+```
+
+> v1.x 对公共头（`include/authforge/**`）承诺**源码级 SemVer**（CI 中 api-diff 门禁强制），不承诺二进制 ABI。第三方依赖请用仓库的 `conanfile.py` + `conan.lock` 解析。详见 [SDK 集成指南](docs/backend/sdk-integration-guide.md) · [SDK 运行时契约](docs/backend/sdk-runtime-contract.md)；参考消费方：[`examples/full-stack-host`](examples/full-stack-host)、[`examples/third-party-host`](examples/third-party-host)（均由 CI 持续验证）。
 
 ### 默认账号
 
 | 用户名 | 密码 | 角色 |
 |--------|------|------|
 | admin | admin | admin |
+
+---
+
+## 部署
+
+| 目标 | 入口 | 说明 |
+|------|------|------|
+| Docker Compose（开发） | `deploy/docker/docker-compose.yml` | 全栈 + PostgreSQL + Redis，一条命令拉起 |
+| Docker Compose（生产） | `deploy/docker/docker-compose.prod.yml` | TLS/nginx，env 文件驱动的密钥配置 |
+| Kubernetes（Helm） | `deploy/helm/authforge` | values 驱动配置；数据库 Schema 迁移以 Helm hook Job 执行 |
+
+```bash
+helm install authforge deploy/helm/authforge -f my-values.yaml
+```
+
+完整流程：[生产部署指南](docs/ops/deployment.md) · [Windows / Docker Desktop](docs/ops/deployment-windows-docker-desktop.md) · [安全清单](docs/ops/security-checklist.md)
+
+---
+
+## 发布与供应链安全
+
+发布由 SemVer 标签（`vX.Y.Z`）触发 [`release.yml`](.github/workflows/release.yml) 产出：
+
+- **SDK 包** — `authforge-sdk-<ver>-linux-x86_64.tar.gz`（8 个静态库 + 头文件 + CMake 包配置）附 `.sha256` 校验和，挂在 GitHub Release 附件。
+- **容器镜像** — 多架构（amd64 + arm64）发布到 GHCR：`ghcr.io/lucaswang420/authforge-{backend,frontend,admin}:<ver>`。
+- **签名** — 镜像 manifest 按 digest 用 cosign 签名（keyless，GitHub OIDC）。
+- **SBOM** — 每个镜像及源码树的 SPDX JSON（syft 生成），附在 Release 中。
+
+部署前验证：
+
+```bash
+# 镜像签名
+cosign verify ghcr.io/lucaswang420/authforge-backend:<version> \
+  --certificate-identity-regexp 'github.com/lucaswang420/.+/.github/workflows/release.yml' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+# SDK 包完整性
+sha256sum -c authforge-sdk-<version>-linux-x86_64.tar.gz.sha256
+```
 
 ---
 
@@ -199,16 +293,15 @@ ctest --output-on-failure
 
 ## 项目文档
 
-| 文档 | 说明 |
-|------|------|
-| [后端配置指南](docs/backend/configuration-guide.md) | 数据库、Redis、环境变量配置 |
-| [安全架构](docs/backend/security-architecture.md) | Token 生命周期、加密、防护策略 |
-| [RBAC 权限](docs/backend/rbac-guide.md) | 角色权限配置说明 |
-| [Docker 部署](docs/backend/docker-deployment.md) | 容器化部署方案 |
-| [SDK 集成指南](docs/backend/sdk-integration-guide.md) | 发布产物消费（SDK 包 + GHCR 镜像） |
-| [SDK 运行时契约](docs/backend/sdk-runtime-contract.md) | 线程 / ABI / 异常 / 日志承诺 |
-| [CI/CD 流水线](docs/backend/ci-cd-guide.md) | GitHub Actions 配置 |
-| [账号锁定机制](docs/ops/account-lockout.md) | 锁定规则和重置方法 |
+**评估选型** — [架构总览](docs/backend/architecture-overview.md) · [安全架构](docs/backend/security-architecture.md) · [RBAC 权限](docs/backend/rbac-guide.md)
+
+**SDK 集成** — [SDK 集成指南](docs/backend/sdk-integration-guide.md) · [SDK 运行时契约](docs/backend/sdk-runtime-contract.md) · [API 参考](docs/backend/api-reference.md)
+
+**运维部署** — [生产部署指南](docs/ops/deployment.md) · [配置指南](docs/backend/configuration-guide.md) · [可观测性](docs/backend/observability.md) · [账号锁定机制](docs/ops/account-lockout.md)
+
+**参与贡献** — [CONTRIBUTING.md](CONTRIBUTING.md) · [测试指南](docs/backend/testing-guide.md) · [CI/CD 流水线](docs/backend/ci-cd-guide.md)
+
+完整索引：[docs/README.md](docs/README.md)
 
 ---
 
@@ -222,6 +315,13 @@ ctest --output-on-failure
 | Redis | 7+ |
 | Node.js | 18+ |
 | Docker | 24+（可选） |
+
+---
+
+## 贡献与安全
+
+- 欢迎贡献 — 构建、测试、提交规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- 报告安全漏洞请遵循 [SECURITY.md](SECURITY.md) — 请**勿**直接提交公开 issue。
 
 ---
 
