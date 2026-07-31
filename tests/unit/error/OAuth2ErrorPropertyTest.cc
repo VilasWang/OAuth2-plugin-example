@@ -33,6 +33,7 @@
 #include <cctype>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -43,6 +44,16 @@ using namespace authforge::common::error;
 
 namespace
 {
+
+// trantor's LogStream has no overload for iostream manipulators: streaming
+// std::hex would convert the function address to bool and print `1`
+// (AppleClang -Wpointer-bool-conversion). Pre-format the seed instead.
+std::string seedHex(unsigned int seed)
+{
+    std::ostringstream oss;
+    oss << std::hex << seed;
+    return oss.str();
+}
 
 // Fixed, printable seed so any failure is reproducible.
 constexpr unsigned int kSeed = 0x0A07'2E99u;
@@ -156,8 +167,7 @@ const std::vector<std::string> &cleanDescriptions()
 // --- Main property test: random protocol code + description/error_uri variation.
 DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
 {
-    LOG_INFO << "Property 9 OAuth2 RFC 6749 compliance test, fixed seed=0x" << std::hex << kSeed
-             << std::dec;
+    LOG_INFO << "Property 9 OAuth2 RFC 6749 compliance test, fixed seed=0x" << seedHex(kSeed);
 
     const auto &oauthEntries = ErrorCatalog::allOAuthEntries();
     REQUIRE(!oauthEntries.empty());
@@ -194,7 +204,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         const HttpResponsePtr resp = capture(code, description, errorUri);
         if (resp == nullptr)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] null response for code=" << code;
         }
         REQUIRE(resp != nullptr);
@@ -203,7 +213,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         // Content-Type: application/json (typed + raw header).
         if (resp->contentType() != CT_APPLICATION_JSON)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " contentType is not application/json";
         }
         CHECK(resp->contentType() == CT_APPLICATION_JSON);
@@ -215,7 +225,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         // Cache-Control: no-store, Pragma: no-cache.
         if (resp->getHeader("Cache-Control") != "no-store")
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " Cache-Control=" << resp->getHeader("Cache-Control");
         }
         CHECK(resp->getHeader("Cache-Control") == "no-store");
@@ -226,7 +236,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         const bool parsed = parseBody(resp, root);
         if (!parsed)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " body is not valid JSON: " << resp->getBody();
         }
         REQUIRE(parsed);
@@ -236,7 +246,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         REQUIRE(root.isMember("error"));
         if (!root["error"].isString())
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " top-level error is not a string (Envelope leak?)";
         }
         CHECK(root["error"].isString());
@@ -247,7 +257,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         const std::string errorValue = root["error"].asString();
         if (allowedCodes.find(errorValue) == allowedCodes.end())
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] error value '" << errorValue << "' not in allowed protocol set";
         }
         CHECK(allowedCodes.find(errorValue) != allowedCodes.end());
@@ -260,7 +270,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         const std::string desc = root["error_description"].asString();
         if (desc.empty())
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " empty error_description";
         }
         CHECK(!desc.empty());
@@ -276,7 +286,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
             // Empty argument falls back to the catalog default (Requirement 2.8).
             if (desc != catalogDefault)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] code=" << code << " error_description='" << desc
                           << "' != catalog default '" << catalogDefault << "'";
             }
@@ -286,7 +296,7 @@ DROGON_TEST(Unit_P0_OAuth2Error_Property9_Rfc6749Compliance)
         // Client_Safe_Message: no Internal_Detail leakage (Requirement 2.8).
         if (containsInternalDetail(desc))
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " error_description leaks Internal_Detail: " << desc;
         }
         CHECK(!containsInternalDetail(desc));

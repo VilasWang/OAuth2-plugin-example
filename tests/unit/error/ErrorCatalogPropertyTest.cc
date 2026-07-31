@@ -3,6 +3,7 @@
 
 #include <array>
 #include <random>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -31,6 +32,16 @@ using namespace authforge::common::error;
 
 namespace
 {
+
+// trantor's LogStream has no overload for iostream manipulators: streaming
+// std::hex would convert the function address to bool and print `1`
+// (AppleClang -Wpointer-bool-conversion). Pre-format the seed instead.
+std::string seedHex(unsigned int seed)
+{
+    std::ostringstream oss;
+    oss << std::hex << seed;
+    return oss.str();
+}
 
 // Category enum set membership (Error_Category): the 7 stable enum names.
 bool isKnownCategory(ErrorCategory category)
@@ -266,7 +277,7 @@ DROGON_TEST(Unit_P0_ErrorCatalog_Property5_RandomizedSamplingHoldsInvariants)
         if (!checkApplicationEntryInvariants(appEntry))
         {
             // Print the reproduction context: seed, iteration and offending index.
-            LOG_ERROR << "Property 5 failed: seed=0x" << std::hex << kSeed << std::dec
+            LOG_ERROR << "Property 5 failed: seed=0x" << seedHex(kSeed)
                       << " iteration=" << i << " appEntryIndex=" << appIdx
                       << " code=" << std::string(appEntry.code);
             FAULT(
@@ -282,7 +293,7 @@ DROGON_TEST(Unit_P0_ErrorCatalog_Property5_RandomizedSamplingHoldsInvariants)
                              oauthEntry.httpStatus <= 599 && !oauthEntry.defaultErrorDesc.empty();
         if (!oauthOk)
         {
-            LOG_ERROR << "Property 5 failed: seed=0x" << std::hex << kSeed << std::dec
+            LOG_ERROR << "Property 5 failed: seed=0x" << seedHex(kSeed)
                       << " iteration=" << i << " oauthEntryIndex=" << oauthIdx
                       << " error=" << std::string(oauthEntry.error);
             FAULT(
@@ -547,7 +558,7 @@ DROGON_TEST(Unit_P0_HttpStatus_Property4_RandomizedSamplingHoldsInvariants)
                         runtimeStatus == err.toHttpStatusCode();
         if (!ok)
         {
-            LOG_ERROR << "Property 4 failed: seed=0x" << std::hex << kSeed << std::dec
+            LOG_ERROR << "Property 4 failed: seed=0x" << seedHex(kSeed)
                       << " iteration=" << i << " entryIndex=" << idx
                       << " code=" << std::string(e.code) << " (" << categoryName(e.category)
                       << ", numeric " << e.numericCode << ") runtimeStatus=" << runtimeStatus
