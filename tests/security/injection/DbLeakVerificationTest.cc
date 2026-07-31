@@ -20,6 +20,7 @@ namespace db_leak_test
 
 DROGON_TEST(Security_P0_DbLeak_AuthServiceConnectionManagement_Verified)
 {
+    (void)TEST_CTX;
     // Skip this test in memory storage mode (no database)
     auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
     if (plugin && plugin->getStorageType() == "memory")
@@ -36,8 +37,7 @@ DROGON_TEST(Security_P0_DbLeak_AuthServiceConnectionManagement_Verified)
     // [db, callback](const Users &u) { ... }
     // does NOT leak database connections
 
-    // Get initial connection count
-    int initialConnections = 0;
+    // Trigger an initial request to warm up the connection pool
     try
     {
         auto client = drogon::HttpClient::newHttpClient("http://127.0.0.1:5555");

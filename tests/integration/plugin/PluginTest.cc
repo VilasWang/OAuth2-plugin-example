@@ -56,7 +56,7 @@ DROGON_TEST(Integration_P0_Plugin_General_Works)
           "",                     // codeChallenge (empty for non-PKCE test)
           "",                     // codeChallengeMethod (empty for non-PKCE test)
           "",                     // nonce
-          [&](bool success, std::string code, std::string error) {
+          [&](bool success, std::string code, std::string /*error*/) {
               if (success)
               {
                   p.set_value(code);
@@ -164,7 +164,7 @@ DROGON_TEST(Integration_P0_Plugin_General_Works)
           "",                     // codeChallenge (empty for non-PKCE test)
           "",                     // codeChallengeMethod (empty for non-PKCE test)
           "",                     // nonce
-          [&](bool success, std::string code, std::string error) {
+          [&](bool success, std::string code, std::string /*error*/) {
               if (success)
               {
                   p.set_value(code);

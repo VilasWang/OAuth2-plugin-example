@@ -139,7 +139,7 @@ void OAuth2CleanupService::runCleanup()
                   LOG_ERROR << "Error during OAuth2 cleanup: " << e.what();
               }
           },
-          [weakSelf](const std::exception &e) {
+          [weakSelf](const std::exception & /*e*/) {
               auto self = weakSelf.lock();
               if (!self || !self->running_)
                   return;

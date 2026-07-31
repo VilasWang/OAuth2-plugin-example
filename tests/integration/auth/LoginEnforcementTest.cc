@@ -87,7 +87,7 @@ DROGON_TEST(Integration_P1_Login_EmailVerification_Field)
           // Column exists and is readable
           pCheck.set_value(!r.empty());
       },
-      [&](const DrogonDbException &e) {
+      [&](const DrogonDbException & /*e*/) {
           // Column doesn't exist
           pCheck.set_value(false);
       }

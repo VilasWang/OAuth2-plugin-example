@@ -23,6 +23,9 @@ endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
 endif()
+if(NOT COMMAND oauth2_apply_warnings)
+    include(Warnings)
+endif()
 
 project(authforge-common VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
@@ -55,6 +58,9 @@ endif()
 # use ORM-generated code; keeps compile flags (e.g. /utf-8 on MSVC)
 # consistent across every target in the tree.
 oauth2_apply_compat(${PROJECT_NAME})
+
+# First-party warning level (shared module); PRIVATE, no SDK-consumer leak.
+oauth2_apply_warnings(${PROJECT_NAME})
 
 # --- arch-guard note (enforced by tooling in a later M6 task, Task 33) ---
 # This target must never gain a Drogon dependency. There is no automated

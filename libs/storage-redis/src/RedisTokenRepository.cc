@@ -152,13 +152,13 @@ void RedisTokenRepository::getAccessToken(const std::string &token, AccessTokenC
 
 // Verbatim preservation of RedisOAuth2Storage's no-op: Redis mode never
 // actually stored/retrieved refresh tokens.
-void RedisTokenRepository::saveRefreshToken(const OAuth2RefreshToken &token, VoidCallback &&cb)
+void RedisTokenRepository::saveRefreshToken(const OAuth2RefreshToken & /*token*/, VoidCallback &&cb)
 {
     if (cb)
         cb();
 }
 
-void RedisTokenRepository::getRefreshToken(const std::string &token, RefreshTokenCallback &&cb)
+void RedisTokenRepository::getRefreshToken(const std::string & /*token*/, RefreshTokenCallback &&cb)
 {
     if (cb)
         cb(std::nullopt);
@@ -325,7 +325,7 @@ void RedisTokenRepository::incrementIntrospectCount(const std::string &token, Vo
 
     std::string key = "oauth2:token:" + token;
     redisClient_->execCommandAsync(
-      [cb](const RedisResult &result) {
+      [cb](const RedisResult & /*result*/) {
           // Note: Redis doesn't have atomic increment for JSON fields
           // We need to get the JSON, update the field, and set it back
           // For now, this is a no-op in Redis storage to avoid race conditions

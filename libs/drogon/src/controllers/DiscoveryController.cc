@@ -55,7 +55,7 @@ void DiscoveryController::initApiDocsImpl()
 }
 
 void DiscoveryController::metadata(
-  const ::drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr & /*req*/,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
@@ -150,7 +150,7 @@ void DiscoveryController::metadata(
 }
 
 void DiscoveryController::oidcDiscovery(
-  const ::drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr & /*req*/,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
@@ -222,7 +222,7 @@ void DiscoveryController::oidcDiscovery(
 }
 
 void DiscoveryController::jwks(
-  const ::drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr & /*req*/,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {

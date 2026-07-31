@@ -20,6 +20,9 @@ endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
 endif()
+if(NOT COMMAND oauth2_apply_warnings)
+    include(Warnings)
+endif()
 
 project(authforge-storage-memory VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
@@ -52,6 +55,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon JsonCpp::JsonCpp aut
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
 oauth2_apply_compat(${PROJECT_NAME})
+oauth2_apply_warnings(${PROJECT_NAME})
 
 include(GNUInstallDirs)
 install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

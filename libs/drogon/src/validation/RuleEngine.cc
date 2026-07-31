@@ -214,8 +214,8 @@ Result RuleEngine::validateToken(const std::string &token)
 }
 
 std::vector<Result> RuleEngine::validateAll(
-  const std::vector<std::pair<std::string, std::string>> &fieldsAndValues,
-  const std::vector<RuleType> &rules
+  const std::vector<std::pair<std::string, std::string>> & /*fieldsAndValues*/,
+  const std::vector<RuleType> & /*rules*/
 )
 {
     std::vector<Result> results;

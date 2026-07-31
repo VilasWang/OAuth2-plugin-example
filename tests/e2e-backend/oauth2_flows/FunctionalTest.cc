@@ -368,6 +368,7 @@ DROGON_TEST(E2E_P1_Input_LongPassword_Handled)
 
 DROGON_TEST(E2E_P1_RateLimit_DetectRateLimiting_Limited)
 {
+    (void)TEST_CTX;
     // Test: Multiple rapid requests should trigger rate limiting
     // Expected: Should eventually return 429 Too Many Requests
 

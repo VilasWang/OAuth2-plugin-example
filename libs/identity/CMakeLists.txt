@@ -104,6 +104,15 @@ if(WITH_SOCIAL)
     target_compile_definitions(authforge-identity PUBLIC WITH_SOCIAL)
 endif()
 
+# First-party warning level (shared module, same convention as the other
+# libs/*). Guarded for the standalone-configure path, mirroring the
+# oauth2_apply_compat guard before add_subdirectory(test) below.
+if(NOT COMMAND oauth2_apply_warnings)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
+    include(Warnings)
+endif()
+oauth2_apply_warnings(authforge-identity)
+
 # Install rules
 install(DIRECTORY include/
     DESTINATION include

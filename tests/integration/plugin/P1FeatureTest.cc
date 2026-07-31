@@ -39,7 +39,7 @@ DROGON_TEST(Integration_P1_Features_General_Works)
           "",
           "",
           "",  // nonce
-          [&](bool success, std::string code, std::string error) {
+          [&](bool success, std::string code, std::string /*error*/) {
               codeP.set_value(success ? code : "");
           }
         );

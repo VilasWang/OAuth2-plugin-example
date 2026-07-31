@@ -128,7 +128,7 @@ void PostgresGrantRepository::markAuthCodeUsed(const std::string &code, VoidCall
 
         mapper.update(
           updateObj,
-          [sharedCb](const size_t count) {
+          [sharedCb](const size_t /*count*/) {
               if (*sharedCb)
                   (*sharedCb)();
           },

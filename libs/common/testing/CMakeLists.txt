@@ -31,6 +31,9 @@ endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
 endif()
+if(NOT COMMAND oauth2_apply_warnings)
+    include(Warnings)
+endif()
 
 project(authforge-common-testing VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
@@ -53,6 +56,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC authforge::common OpenSSL::Crypto)
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
 oauth2_apply_compat(${PROJECT_NAME})
+oauth2_apply_warnings(${PROJECT_NAME})
 
 # --- arch-guard note (see libs/common/CMakeLists.txt's identical note) ---
 # This target must never gain a Drogon dependency either -- manually
