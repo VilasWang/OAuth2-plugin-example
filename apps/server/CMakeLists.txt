@@ -66,6 +66,9 @@ endif()
 # Compiler compatibility (shared module)
 oauth2_apply_compat(${PROJECT_NAME})
 
+# First-party warning level (shared module, included from the repo root)
+oauth2_apply_warnings(${PROJECT_NAME})
+
 # Copy Swagger UI to build directory (repo-root docs/, two levels up from
 # apps/server/)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

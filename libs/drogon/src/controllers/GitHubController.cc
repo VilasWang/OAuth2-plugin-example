@@ -380,7 +380,7 @@ void GitHubController::login(
                                subject,
                                req](const std::vector<Oauth2SubjectMappings> &mappings) {
                                   auto issueTokens = [this, callbackPtr, req](
-                                                       int userId, const std::string &username
+                                                       int userId, const std::string & /*username*/
                                                      ) {
                                       // Issue access_token and refresh_token
                                       auto plugin = resolvePlugin();

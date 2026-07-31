@@ -255,11 +255,6 @@ void DeviceAuthController::approveDevice(
         return;
     }
 
-    auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                 std::chrono::system_clock::now().time_since_epoch()
-    )
-                 .count();
-
     // Task B5: replaced raw UPDATE SQL with DeviceCodeService
     ::authforge::drogon::services::DeviceCodeService::findByUserCode(
       userCode,

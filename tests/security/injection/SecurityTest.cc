@@ -138,6 +138,7 @@ DROGON_TEST(Security_P0_InputValidation_EmptyCredentials_Prevented)
 
 DROGON_TEST(Security_P0_Auth_InvalidCredentials_Rejected)
 {
+    (void)TEST_CTX;
     // Test: Login with completely invalid credentials
     // Expected: Should fail with error message
     std::string response = makeLoginRequest("invalid_user_xyz", "invalid_pass_xyz");
@@ -285,6 +286,7 @@ DROGON_TEST(Security_P1_Headers_HstsNotSetOnHttp_Present)
 
 DROGON_TEST(Security_P1_RateLimit_DetectRateLimiting_Limited)
 {
+    (void)TEST_CTX;
     // Test: Multiple rapid requests should trigger rate limiting
     // Expected: Should return 429 after threshold
     bool rateLimitDetected = false;

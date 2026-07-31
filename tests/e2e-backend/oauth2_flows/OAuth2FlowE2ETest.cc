@@ -209,7 +209,7 @@ DROGON_TEST(E2E_P0_OAuth2Flow_AuthCode_Works)
             std::promise<HttpResponsePtr> p;
             auto f = p.get_future();
 
-            client->sendRequest(req, [&](ReqResult result, const HttpResponsePtr &resp) {
+            client->sendRequest(req, [&](ReqResult /*result*/, const HttpResponsePtr &resp) {
                 p.set_value(resp);
             });
 
@@ -322,6 +322,7 @@ DROGON_TEST(Integration_P0_Session_Management_Works)
 
 DROGON_TEST(Integration_P0_Client_Authentication_Works)
 {
+    (void)TEST_CTX;
     LOG_INFO << "=== E2E Test: Client Authentication ===";
 
     auto plugin = drogon::app().getPlugin<OAuth2Plugin>();

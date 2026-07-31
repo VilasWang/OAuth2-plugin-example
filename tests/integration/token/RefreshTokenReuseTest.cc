@@ -32,7 +32,7 @@ DROGON_TEST(Integration_P0_RefreshToken_NormalRotation)
           "",
           "",
           "",  // nonce
-          [&](bool success, std::string code, std::string error) {
+          [&](bool success, std::string code, std::string /*error*/) {
               if (success)
                   p.set_value(code);
               else

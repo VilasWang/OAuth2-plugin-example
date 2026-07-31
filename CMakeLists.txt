@@ -10,6 +10,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Version)
 include(Compatibility)
 include(Sanitizers)
+# Warnings.cmake provides oauth2_apply_warnings(target) (/W4 resp.
+# -Wall -Wextra, PRIVATE only) plus the AUTHFORGE_WERROR option (default
+# OFF; the CI pipeline passes -DAUTHFORGE_WERROR=ON). Applied per-target
+# inside each libs/*, apps/server and tests CMakeLists.
+include(Warnings)
 # Paths.cmake parses the top-level paths.env (single source of truth for
 # source/build/SQL/config paths, review H2) and exposes OAUTH2_PATH_* vars.
 include(Paths)

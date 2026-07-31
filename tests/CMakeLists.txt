@@ -127,6 +127,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto aut
 # Platform compatibility (shared module)
 oauth2_apply_compat(${PROJECT_NAME})
 
+# First-party warning level (shared module, included from the repo root)
+oauth2_apply_warnings(${PROJECT_NAME})
+
 # Optional TSan/ASan instrumentation (shared module).
 # Controlled by the cache option OAUTH2_SANITIZER = off|thread|address.
 # GCC/Clang + Debug only; TSan and ASan are mutually exclusive (two builds).

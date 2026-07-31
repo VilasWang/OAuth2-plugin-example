@@ -34,6 +34,9 @@ endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
 endif()
+if(NOT COMMAND oauth2_apply_warnings)
+    include(Warnings)
+endif()
 
 project(authforge-storage-postgres VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 
@@ -57,6 +60,20 @@ target_include_directories(${PROJECT_NAME}
 
 file(GLOB AUTHFORGE_STORAGE_POSTGRES_SOURCES "src/models/*.cc")
 target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_STORAGE_POSTGRES_SOURCES})
+
+# The drogon_ctl ORM-generated model sources above are exempt from rewrite
+# (regeneration would lose any hand-edit), so the unused-parameter warnings
+# they emit at /W4 resp. -Wextra (e.g. updateArgs()'s unused `id` /
+# `isForCreation`) are silenced at the SOURCE level here instead of touching
+# generated code or lowering the warning level of the whole target -- the
+# handwritten Postgres*.cc sources below stay at full warning level.
+if(MSVC)
+    set_source_files_properties(${AUTHFORGE_STORAGE_POSTGRES_SOURCES}
+        PROPERTIES COMPILE_OPTIONS "/wd4100")
+else()
+    set_source_files_properties(${AUTHFORGE_STORAGE_POSTGRES_SOURCES}
+        PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter")
+endif()
 
 # Task 19: PostgresIdentityRepository.cc implements libs/identity's
 # repository interfaces (IUserRepository/IRoleRepository/
@@ -99,6 +116,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC Drogon::Drogon authforge::identity 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
 oauth2_apply_compat(${PROJECT_NAME})
+oauth2_apply_warnings(${PROJECT_NAME})
 
 include(GNUInstallDirs)
 install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

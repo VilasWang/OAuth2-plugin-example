@@ -606,7 +606,7 @@ void PostgresTokenRepository::revokeAccessToken(
     mapper.findOne(
       Criteria(Oauth2AccessTokens::Cols::_token, CompareOperator::EQ, token),
       [sharedCb, now, revokedBy, token, self = shared_from_this()](
-        const Oauth2AccessTokens &found
+        const Oauth2AccessTokens & /*found*/
       ) {
           Oauth2AccessTokens updated;
           updated.setToken(token);

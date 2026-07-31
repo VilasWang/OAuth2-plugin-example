@@ -12,7 +12,7 @@ OAuth2Plugin *HealthController::resolvePlugin() const
 }
 
 void HealthController::health(
-  const ::drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr & /*req*/,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
@@ -56,7 +56,7 @@ void HealthController::health(
 }
 
 void HealthController::healthLive(
-  const ::drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr & /*req*/,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
@@ -68,7 +68,7 @@ void HealthController::healthLive(
 }
 
 void HealthController::healthReady(
-  const ::drogon::HttpRequestPtr &req,
+  const ::drogon::HttpRequestPtr & /*req*/,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
