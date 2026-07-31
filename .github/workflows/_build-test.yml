@@ -280,6 +280,29 @@ jobs:
         # so mirror the memory-storage config there as a safeguard.
         run: cp apps/server/config/config.ci.json "$PRESET_DIR/tests/${{ inputs.test_bin_subdir }}/config.json"
 
+      - name: Pin Drogon IO threads to 4 (Linux+Postgres test leg only)
+        # Root cause of the recurring loopback-timeout failures (see commit
+        # a9841d3): config sets number_of_threads=0 -> hardware_concurrency() =
+        # 2 on the 2-core runner, so the 2 IO workers starve under test-thread
+        # + DB-pool contention during the dense integration-test window,
+        # making loopback requests exceed even the 30s client budget. 4 gives
+        # the HTTP listener headroom independent of the host's core count.
+        # This patches the ephemeral WORK-COPY (build/<preset>/tests/config.json
+        # -- the copy the test binary loads) ONLY; the repo's
+        # apps/server/config/config.json is never modified.
+        if: inputs.use_database
+        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          p = pathlib.Path("config.json")
+          cfg = json.loads(p.read_text())
+          before = cfg.get("app", {}).get("number_of_threads")
+          cfg.setdefault("app", {})["number_of_threads"] = 4
+          p.write_text(json.dumps(cfg, indent=4))
+          print(f"number_of_threads: {before} -> 4 (work-copy only)")
+          PY
+
       - name: Test
         working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}
         run: ctest -V -C "$BUILD_TYPE" --output-on-failure --timeout 120

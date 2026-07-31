@@ -177,6 +177,27 @@ void restoreAdminMfa()
     p.get_future().get();
 }
 
+// Force the admin's pending binding to NULL to model a row that predates the
+// migration (or a previous successful verification that already cleared it).
+// This is fixture scenario-setup, so it runs once BEFORE the HTTP flow -- not
+// in the middle of it -- to avoid a blocking sync DB call interleaved with the
+// loopback requests (which starves the in-process server's IO workers under
+// 2-core CI contention).
+void clearAdminPendingBinding()
+{
+    auto db = app().getDbClient();
+    if (!db)
+        return;
+    std::promise<void> p;
+    db->execSqlAsync(
+      "UPDATE users SET mfa_pending_client_id = NULL, "
+      "mfa_pending_redirect_uri = NULL WHERE username = 'admin'",
+      [&](const Result &) { p.set_value(); },
+      [&](const DrogonDbException &) { p.set_value(); }
+    );
+    p.get_future().get();
+}
+
 // Drive the first-factor login as a given client and return the mfa_token from
 // the mfa_required response. Returns empty string on any failure (caller skips).
 std::string loginForMfaToken(const std::string &clientId, const std::string &redirectUri)
@@ -461,15 +482,9 @@ DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property1_NullPendingBindingRej
 
     // Force the pending binding to NULL to model a row that predates the
     // migration (or a previous successful verification that already cleared it).
-    auto db = app().getDbClient();
-    std::promise<void> pClear;
-    db->execSqlAsync(
-      "UPDATE users SET mfa_pending_client_id = NULL, "
-      "mfa_pending_redirect_uri = NULL WHERE username = 'admin'",
-      [&](const Result &) { pClear.set_value(); },
-      [&](const DrogonDbException &) { pClear.set_value(); }
-    );
-    pClear.get_future().get();
+    // Done as pre-flow fixture setup (not inline between HTTP calls) so no
+    // blocking sync DB call interleaves with the loopback requests.
+    clearAdminPendingBinding();
 
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
