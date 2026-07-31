@@ -482,7 +482,7 @@ void PostgresTokenRepository::introspectToken(
     Mapper<Oauth2AccessTokens> atMapper(dbClientReader_);
     atMapper.findOne(
       Criteria(Oauth2AccessTokens::Cols::_token, CompareOperator::EQ, token),
-      [sharedCb, now, token, self = shared_from_this(), this](
+      [sharedCb, now, token, self = shared_from_this()](
         const Oauth2AccessTokens &accessToken
       ) {
           // 检查是否吊销或过期
