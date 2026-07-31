@@ -251,7 +251,7 @@ RealFilterResult driveRealFilterNoToken(const std::string &path)
 // {"error":"unauthorized"} for any path, before any RBAC/role evaluation.
 DROGON_TEST(Integration_P1_RealFilter_Property4_3_7_NoToken_Returns401_Baseline)
 {
-    for (const std::string &path :
+    for (const char *path :
          {"/api/admin/users", "/api/user/profile", "/random/unmatched/path", "/api/public/health"})
     {
         auto r = driveRealFilterNoToken(path);
