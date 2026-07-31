@@ -144,7 +144,7 @@ ctest -V -C Release --output-on-failure
 
 ## 6. Multi-Platform CI
 
-The project now supports comprehensive multi-platform CI/CD. See [Multi-Platform CI Design](../design/superpowers/specs/2026-04-14-multiplatform-ci-design.md) for detailed information.
+The project now supports comprehensive multi-platform CI/CD. See [Multi-Platform CI Design](../history/design/superpowers/specs/2026-04-14-multiplatform-ci-design.md) for detailed information.
 
 ### Quick Reference
 
@@ -163,7 +163,7 @@ Each platform includes optimized caching and dependency management:
 
 ### Troubleshooting
 
-For common issues, debugging tips, and performance optimization guidance, refer to the [Multi-Platform CI Design](../design/superpowers/specs/2026-04-14-multiplatform-ci-design.md).
+For common issues, debugging tips, and performance optimization guidance, refer to the [Multi-Platform CI Design](../history/design/superpowers/specs/2026-04-14-multiplatform-ci-design.md).
 
 ---
 

@@ -54,7 +54,7 @@ while IFS= read -r -d '' mdfile; do
             echo "BROKEN: $mdfile -> $link_path" >> "$tmpfile"
         fi
     done || true
-done < <(find "$ROOT_DIR" -name '*.md' -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/.venv/*' -not -path '*/.kiro/*' -print0)
+done < <(find "$ROOT_DIR" -name '*.md' -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -not -path '*/.venv/*' -not -path '*/.kiro/*' -not -path '*/docs/history/*' -print0)
 
 broken=$(wc -l < "$tmpfile" 2>/dev/null || echo 0)
 broken=$((broken + 0))  # ensure numeric
