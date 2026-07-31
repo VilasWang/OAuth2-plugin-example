@@ -22,6 +22,7 @@
 
 #include <random>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,16 @@ using authforge::common::error::RequestId;
 
 namespace
 {
+
+// trantor's LogStream has no overload for iostream manipulators: streaming
+// std::hex would convert the function address to bool and print `1`
+// (AppleClang -Wpointer-bool-conversion). Pre-format the seed instead.
+std::string seedHex(unsigned int seed)
+{
+    std::ostringstream oss;
+    oss << std::hex << seed;
+    return oss.str();
+}
 
 // Fixed seed: reproducible across runs; printed on failure for replay.
 constexpr unsigned int kSeed = 0x5EED'1D10u;
@@ -127,7 +138,7 @@ drogon::HttpRequestPtr makeRequestWithHeader(const std::string &value)
 // uniqueness, all in one hand-written loop (>= 100 iterations).
 DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
 {
-    LOG_INFO << "Property 10 RequestId test, fixed seed=0x" << std::hex << kSeed << std::dec;
+    LOG_INFO << "Property 10 RequestId test, fixed seed=0x" << seedHex(kSeed);
 
     std::mt19937 gen(kSeed);
     std::uniform_int_distribution<int> categoryDist(0, 4);
@@ -152,7 +163,7 @@ DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
 
             if (!RequestId::isValid(sample))
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] expected valid sample but isValid==false: " << escapeForLog(sample);
             }
             CHECK(RequestId::isValid(sample) == true);
@@ -161,7 +172,7 @@ DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
             const std::string resolved = RequestId::resolve(req);
             if (resolved != sample)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] valid header not reused. header=" << escapeForLog(sample)
                           << " resolved=" << escapeForLog(resolved);
             }
@@ -215,7 +226,7 @@ DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
             {
                 if (RequestId::isValid(sample))
                 {
-                    LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                    LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                               << " cat=" << label << "] expected invalid sample but isValid==true: "
                               << escapeForLog(sample);
                 }
@@ -229,7 +240,7 @@ DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
             // Resolution must be a freshly generated, valid id (Req 6.1 / 6.4).
             if (!RequestId::isValid(resolved))
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << " cat=" << label
                           << "] resolved id is not valid: " << escapeForLog(resolved)
                           << " (sample=" << escapeForLog(sample) << ")";
@@ -245,7 +256,7 @@ DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
             {
                 if (resolved == sample)
                 {
-                    LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                    LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                               << " cat=" << label
                               << "] invalid header was reused: " << escapeForLog(sample);
                 }
@@ -264,7 +275,7 @@ DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
         const std::string id = RequestId::generate();
         if (!RequestId::isValid(id))
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed)
                       << "] generate() produced invalid id: " << escapeForLog(id);
         }
         CHECK(RequestId::isValid(id) == true);
@@ -275,7 +286,7 @@ DROGON_TEST(Unit_P0_RequestId_Property10_ResolveAndGenerate)
     // Every generated id must be mutually distinct: no collisions in the set.
     if (generatedIds.size() != generatedCount)
     {
-        LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec
+        LOG_ERROR << "[seed=0x" << seedHex(kSeed)
                   << "] generated id collision: produced " << generatedCount << " ids but only "
                   << generatedIds.size() << " unique";
     }

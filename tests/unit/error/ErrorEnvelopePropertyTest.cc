@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -47,6 +48,16 @@ using namespace authforge::common::error;
 // ============================================================================
 namespace
 {
+
+// trantor's LogStream has no overload for iostream manipulators: streaming
+// std::hex would convert the function address to bool and print `1`
+// (AppleClang -Wpointer-bool-conversion). Pre-format the seed instead.
+std::string seedHex(unsigned int seed)
+{
+    std::ostringstream oss;
+    oss << std::hex << seed;
+    return oss.str();
+}
 
 // Serialize a Json::Value to a compact string using JsonCpp's StreamWriter.
 // Matches the production write path (basic types only) so a round-trip through
@@ -162,8 +173,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0xE12C0DEu;
-    LOG_INFO << "Property 3 Error Envelope round-trip test, fixed seed=0x" << std::hex << kSeed
-             << std::dec;
+    LOG_INFO << "Property 3 Error Envelope round-trip test, fixed seed=0x" << seedHex(kSeed);
 
     std::mt19937 gen(kSeed);
 
@@ -188,7 +198,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
         const bool parsed = parseJson(wire, decoded);
         if (!parsed)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] round-trip parse failed for code=" << original.code
                       << " includeDetails=" << includeDetails << " wire=" << wire;
         }
@@ -203,7 +213,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
         // --- code preserved ---------------------------------------------------
         if (!err.isMember("code") || err["code"].asString() != original.code)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code mismatch: expected='" << original.code << "' got='"
                       << err["code"].asString() << "'";
         }
@@ -214,7 +224,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
         const std::string expectedCategory = toString(original.category);
         if (!err.isMember("category") || err["category"].asString() != expectedCategory)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] category mismatch for code=" << original.code << ": expected='"
                       << expectedCategory << "' got='" << err["category"].asString() << "'";
         }
@@ -224,7 +234,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
         // --- message preserved (verbatim, incl. escaped / non-ASCII content) --
         if (!err.isMember("message") || err["message"].asString() != original.message)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] message mismatch for code=" << original.code << ": expected='"
                       << original.message << "' got='" << err["message"].asString() << "'";
         }
@@ -234,7 +244,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
         // --- request_id preserved --------------------------------------------
         if (!err.isMember("request_id") || err["request_id"].asString() != original.requestId)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] request_id mismatch for code=" << original.code << ": expected='"
                       << original.requestId << "' got='" << err["request_id"].asString() << "'";
         }
@@ -246,7 +256,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property3_SerializationRoundTrip)
         const int expectedNumeric = original.numericCode();
         if (!err.isMember("numeric_code") || err["numeric_code"].asInt() != expectedNumeric)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] numeric_code mismatch for code=" << original.code
                       << ": expected=" << expectedNumeric
                       << " present=" << err.isMember("numeric_code")
@@ -286,8 +296,8 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x51'70C0DEu;
-    LOG_INFO << "Property 1 Error Envelope structural-invariant test, fixed seed=0x" << std::hex
-             << kSeed << std::dec;
+    LOG_INFO << "Property 1 Error Envelope structural-invariant test, fixed seed=0x"
+             << seedHex(kSeed);
 
     std::mt19937 gen(kSeed);
 
@@ -344,7 +354,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         REQUIRE(root.isObject());
         if (root.getMemberNames().size() != 1 || !root.isMember("error"))
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] top-level is not a single `error` key for code=" << code
                       << " keys=" << static_cast<int>(root.getMemberNames().size());
         }
@@ -358,7 +368,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         {
             if (kAllowedKeys.find(key) == kAllowedKeys.end())
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] code=" << code << " has disallowed key '" << key << "'";
             }
             CHECK(kAllowedKeys.find(key) != kAllowedKeys.end());
@@ -373,7 +383,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         const std::string codeValue = err["code"].asString();
         if (codeValue.empty() || registeredCodes.find(codeValue) == registeredCodes.end())
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code value not registered / empty: '" << codeValue << "'";
         }
         CHECK(!codeValue.empty());
@@ -385,7 +395,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         const std::string categoryValue = err["category"].asString();
         if (kCategorySet.find(categoryValue) == kCategorySet.end())
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " category not in enum set: '" << categoryValue
                       << "'";
         }
@@ -397,7 +407,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         const std::string messageValue = err["message"].asString();
         if (messageValue.empty() || messageValue.size() > 500)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code
                       << " message length out of [1,500]: " << messageValue.size();
         }
@@ -409,7 +419,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         REQUIRE(err["request_id"].isString());
         if (err["request_id"].asString().empty())
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " request_id is empty";
         }
         CHECK(!err["request_id"].asString().empty());
@@ -423,7 +433,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         REQUIRE(resp != nullptr);
         if (resp->contentType() != ::drogon::CT_APPLICATION_JSON)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " Content-Type is not application/json";
         }
         CHECK(resp->contentType() == ::drogon::CT_APPLICATION_JSON);
@@ -434,7 +444,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property1_StructuralInvariants)
         const bool parsed = parseJson(std::string(resp->getBody()), respRoot);
         if (!parsed)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] code=" << code << " response body is not parseable JSON";
         }
         REQUIRE(parsed);
@@ -472,8 +482,8 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property2_NumericCodeCorrectnessAndOmission)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x2'4D'C0DEu;
-    LOG_INFO << "Property 2 numeric_code correctness/omission test, fixed seed=0x" << std::hex
-             << kSeed << std::dec;
+    LOG_INFO << "Property 2 numeric_code correctness/omission test, fixed seed=0x"
+             << seedHex(kSeed);
 
     std::mt19937 gen(kSeed);
 
@@ -538,7 +548,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property2_NumericCodeCorrectnessAndOmission)
             // equals the catalog entry's numeric code.
             if (!error.hasNumericCode() || error.numericCode() != entry.numericCode)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] PRESENT branch: code=" << code
                           << " hasNumericCode=" << error.hasNumericCode()
                           << " numericCode=" << error.numericCode()
@@ -558,7 +568,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property2_NumericCodeCorrectnessAndOmission)
               err["numeric_code"].asInt() != entry.numericCode
             )
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] PRESENT branch: code=" << code
                           << " present=" << err.isMember("numeric_code")
                           << " value=" << err["numeric_code"].asInt()
@@ -585,7 +595,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property2_NumericCodeCorrectnessAndOmission)
             // Unregistered -> hasNumericCode() is false.
             if (error.hasNumericCode())
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] OMISSION branch: code=" << code
                           << " unexpectedly reports hasNumericCode()=true";
             }
@@ -600,7 +610,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property2_NumericCodeCorrectnessAndOmission)
 
             if (err.isMember("numeric_code"))
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] OMISSION branch: code=" << code
                           << " unexpectedly has numeric_code key (isNull="
                           << err["numeric_code"].isNull() << ")";
@@ -649,8 +659,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x6'5AFE'0DEu;
-    LOG_INFO << "Property 6 production-mode safety-isolation test, fixed seed=0x" << std::hex
-             << kSeed << std::dec;
+    LOG_INFO << "Property 6 production-mode safety-isolation test, fixed seed=0x" << seedHex(kSeed);
 
     std::mt19937 gen(kSeed);
 
@@ -750,7 +759,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation)
             const CatalogEntry *mapped = ErrorCatalog::find(error.code);
             if (mapped == nullptr)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] fromException produced UNREGISTERED code='" << error.code
                           << "' (hint category=" << toString(hint) << ")";
             }
@@ -774,7 +783,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation)
         const bool parsed = parseJson(std::string(resp->getBody()), respRoot);
         if (!parsed)
         {
-            LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+            LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                       << "] buildResponse body is not parseable JSON for code=" << sourceCode;
         }
         REQUIRE(parsed);
@@ -799,7 +808,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation)
             // (a) Production_Mode: `details` is fully omitted (Requirement 5.1).
             if (err.isMember("details"))
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << " via=" << which << "] code=" << sourceCode
                           << " unexpectedly carries `details` in Production_Mode";
             }
@@ -811,7 +820,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation)
             REQUIRE(err["message"].isString());
             if (err["message"].asString() != expectedMessage)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << " via=" << which << "] code=" << sourceCode
                           << " message mismatch: expected catalog default='" << expectedMessage
                           << "' got='" << err["message"].asString() << "'";
@@ -832,7 +841,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property6_ProductionModeSafetyIsolation)
                 {
                     if (value.find(frag) != std::string::npos)
                     {
-                        LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                        LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                                   << " via=" << which << "] code=" << sourceCode << " field '"
                                   << key << "' leaked sensitive fragment '" << frag << "' (value='"
                                   << value << "')";
@@ -886,8 +895,8 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x7DE7'A0DEu;
-    LOG_INFO << "Property 7 non-production diagnostic-details test, fixed seed=0x" << std::hex
-             << kSeed << std::dec;
+    LOG_INFO << "Property 7 non-production diagnostic-details test, fixed seed=0x"
+             << seedHex(kSeed);
 
     std::mt19937 gen(kSeed);
 
@@ -950,7 +959,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
                 // presence assertion below is meaningful.
                 if (error.details != diagnosticText)
                 {
-                    LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                    LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                               << "] fromException did not capture what() as details: code="
                               << sourceCode << " details='" << error.details << "' expected='"
                               << diagnosticText << "'";
@@ -969,7 +978,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
             const bool parsed = parseJson(std::string(resp->getBody()), respRoot);
             if (!parsed)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] buildResponse body is not parseable JSON for code=" << sourceCode;
             }
             REQUIRE(parsed);
@@ -992,7 +1001,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
                 // (a) Non-Production_Mode: `details` is PRESENT (Requirement 5.4).
                 if (!err.isMember("details"))
                 {
-                    LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                    LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                               << " via=" << which << "] code=" << sourceCode
                               << " is missing `details` in non-Production_Mode";
                 }
@@ -1003,7 +1012,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
                 const std::string detailsValue = err["details"].asString();
                 if (detailsValue.empty() || detailsValue.find(diagnosticText) == std::string::npos)
                 {
-                    LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                    LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                               << " via=" << which << "] code=" << sourceCode
                               << " details does not carry diagnostic text: details='"
                               << detailsValue << "' expected to contain='" << diagnosticText << "'";
@@ -1043,7 +1052,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
             const bool parsed = parseJson(std::string(captured->getBody()), respRoot);
             if (!parsed)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] respondValidation body is not parseable JSON";
             }
             REQUIRE(parsed);
@@ -1057,7 +1066,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
             REQUIRE(err["code"].isString());
             if (err["code"].asString() != "VALIDATION_INVALID_INPUT")
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] validation code mismatch: got='" << err["code"].asString()
                           << "' expected='VALIDATION_INVALID_INPUT'";
             }
@@ -1069,7 +1078,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
             const std::string expectedCategory = toString(ErrorCategory::VALIDATION);
             if (err["category"].asString() != expectedCategory)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] validation category mismatch: got='" << err["category"].asString()
                           << "' expected='" << expectedCategory << "'";
             }
@@ -1078,7 +1087,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
             // HTTP 400 for VALIDATION (Requirement 7.4).
             if (captured->statusCode() != ::drogon::k400BadRequest)
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] validation HTTP status mismatch: got="
                           << static_cast<int>(captured->statusCode()) << " expected=400";
             }
@@ -1088,7 +1097,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
             // (Requirement 7.6).
             if (!err.isMember("details"))
             {
-                LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                           << "] validation Envelope missing `details` in non-Production_Mode";
             }
             REQUIRE(err.isMember("details"));
@@ -1100,7 +1109,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
             {
                 if (detailsValue.find(fe.field) == std::string::npos)
                 {
-                    LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                    LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                               << "] validation details missing field name '" << fe.field
                               << "': details='" << detailsValue << "'";
                 }
@@ -1108,7 +1117,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property7_NonProductionDiagnosticDetails)
 
                 if (detailsValue.find(fe.reason) == std::string::npos)
                 {
-                    LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << i
+                    LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << i
                               << "] validation details missing reason '" << fe.reason
                               << "': details='" << detailsValue << "'";
                 }
@@ -1154,8 +1163,8 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
 {
     // Fixed, printable seed so any failure is reproducible.
     constexpr unsigned int kSeed = 0x8'F00'0DEu;
-    LOG_INFO << "Property 8 unmapped-exception internal-fallback test, fixed seed=0x" << std::hex
-             << kSeed << std::dec;
+    LOG_INFO << "Property 8 unmapped-exception internal-fallback test, fixed seed=0x"
+             << seedHex(kSeed);
 
     std::mt19937 gen(kSeed);
 
@@ -1211,7 +1220,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
           // The mapped code is the INTERNAL fallback regardless of exception text.
           if (error.code != expectedCode || error.category != ErrorCategory::INTERNAL)
           {
-              LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << iter
+              LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << iter
                         << " hint=" << toString(hint) << "] fromException did not fall back to "
                         << expectedCode << ": code='" << error.code
                         << "' category=" << toString(error.category) << " what='" << ex.what()
@@ -1238,7 +1247,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
           const bool parsed = parseJson(std::string(captured->getBody()), respRoot);
           if (!parsed)
           {
-              LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << iter
+              LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << iter
                         << "] respondException body is not parseable JSON; what='" << ex.what()
                         << "'";
           }
@@ -1264,7 +1273,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
               REQUIRE(err["category"].isString());
               if (err["category"].asString() != "INTERNAL")
               {
-                  LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << iter
+                  LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << iter
                             << " via=" << which << "] category mismatch: got='"
                             << err["category"].asString() << "' expected='INTERNAL' what='"
                             << ex.what() << "'";
@@ -1276,7 +1285,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
               REQUIRE(err["code"].isString());
               if (err["code"].asString() != expectedCode)
               {
-                  LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << iter
+                  LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << iter
                             << " via=" << which << "] code mismatch: got='"
                             << err["code"].asString() << "' expected='" << expectedCode << "'";
               }
@@ -1286,7 +1295,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
               REQUIRE(err["numeric_code"].isInt());
               if (err["numeric_code"].asInt() != 6001)
               {
-                  LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << iter
+                  LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << iter
                             << " via=" << which
                             << "] numeric_code mismatch: got=" << err["numeric_code"].asInt()
                             << " expected=6001";
@@ -1299,7 +1308,7 @@ DROGON_TEST(Unit_P0_ErrorEnvelope_Property8_UnmappedExceptionInternalFallback)
               REQUIRE(err["message"].isString());
               if (err["message"].asString() != expectedMessage)
               {
-                  LOG_ERROR << "[seed=0x" << std::hex << kSeed << std::dec << " iter=" << iter
+                  LOG_ERROR << "[seed=0x" << seedHex(kSeed) << " iter=" << iter
                             << " via=" << which << "] message mismatch: got='"
                             << err["message"].asString() << "' expected catalog default='"
                             << expectedMessage << "'";
