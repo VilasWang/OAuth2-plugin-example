@@ -27,8 +27,11 @@ confusion bug (P0-1/P0-2). It follows the bug condition methodology's two-phase 
 build scripts. Test target `OAuth2Test_test` (`ctest` name `OAuth2Tests`). New test sources are
 placed under `OAuth2Server/test/integration/auth/`, already collected by the `GLOB_RECURSE
 INTEGRATION_TESTS` glob in `OAuth2Server/test/CMakeLists.txt` — no build-file changes needed.
-Tests use the project's `PropertyN_*` / `DROGON_TEST` naming convention (see
-`OAuth2Server/test/integration/concurrency/Property4_*.cc`).
+Tests use the project's `DROGON_TEST` naming convention
+`[Category]_[Priority]_[Module]_[Feature]_[Scenario]` with the `PropertyN` token in the
+Feature slot, e.g. `Integration_P1_MfaCrossClientAuthFix_Property1_UnregisteredClient`
+(see `tests/integration/auth/Property1_MfaCrossClientAuthFix_ExploratoryTest.cc`; enforced
+by `tools/test/scripts/naming_validator.sh`).
 
 ## Task Dependency Graph
 

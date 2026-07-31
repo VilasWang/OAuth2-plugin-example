@@ -1,0 +1,16 @@
+apiVersion: v2
+name: authforge
+description: >-
+  AuthForge OAuth2/OIDC identity provider: Drogon C++ backend, user-facing
+  SPA and admin console, with a pre-install/pre-upgrade schema-migration
+  hook Job (authforge-server --migrate-only).
+type: application
+# Chart version tracks the app: both bump together on release (Task 37).
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - oauth2
+  - oidc
+  - identity-provider
+sources:
+  - https://github.com/lucaswang420/authforge

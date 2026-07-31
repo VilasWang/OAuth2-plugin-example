@@ -1,0 +1,148 @@
+name: CI
+
+# Task 32: single entry-point CI pipeline composed of reusable workflows, run as
+# three fail-fast gates chained by `needs`:
+#
+#   FAST gate    static-checks  (source-only guards: arch/naming/parity/OpenAPI)
+#                frontend       (_frontend.yml: vitest error-mapping properties)
+#        |
+#        v
+#   MAIN gate    build-test     (_build-test.yml x {linux, windows, macos} matrix)
+#        |
+#        v
+#   RELEASE gate sdk-smoke      (_sdk-smoke.yml: full-stack SDK find_package smoke)
+#
+# The fast gate needs no compilation, so it fails cheap builds early; the main
+# gate's Linux build already covers compile-correctness, so the fast gate does
+# not duplicate a build. workflow_dispatch allows manual runs; concurrency
+# cancels superseded runs on the same ref.
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --- FAST gate --------------------------------------------------------------
+  static-checks:
+    name: Static Checks (source-only)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Architecture Layering (arch-guard)
+        # Domain libs (common/oauth2/identity) must stay framework-agnostic:
+        # no <drogon/...> includes, no drogon::orm, and oauth2/identity must not
+        # include each other. Pure source scan, platform-independent.
+        run: python3 tools/arch-guard/arch_guard.py
+
+      - name: Check Migration Hygiene (migration-check)
+        # Guards the assumptions both migration executors rely on but never
+        # verify: V<NNN> zero-padded contiguous naming, idempotent/non-
+        # destructive SQL, and checksum immutability of applied migrations.
+        run: python3 tools/migration-check/migration_check.py
+
+      - name: Check SDK API Surface (api-diff)
+        # SemVer guard over the exported SDK headers (libs/*/include/authforge).
+        # Any drift from tools/api-diff/api-baseline.txt fails; breaking drift
+        # additionally demands a major bump before the baseline can be updated.
+        run: python3 tools/api-diff/api_diff.py
+
+      - name: Check Test Naming Conventions
+        run: |
+          chmod +x tools/test/scripts/naming_validator.sh
+          ./tools/test/scripts/naming_validator.sh tests
+
+      - name: Check manage.sh / manage.ps1 command parity
+        run: |
+          chmod +x tools/manage-parity-check.sh
+          ./tools/manage-parity-check.sh
+
+      - name: Validate OpenAPI Spec
+        run: |
+          pip install openapi-spec-validator
+          python -m openapi_spec_validator apps/server/openapi.yaml
+
+  frontend:
+    name: Frontend Property Tests
+    uses: ./.github/workflows/_frontend.yml
+
+  # --- MAIN gate --------------------------------------------------------------
+  build-test:
+    name: Build & Test (${{ matrix.platform }})
+    needs: [static-checks, frontend]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runs_on: ubuntu-22.04
+            cmake_preset: linux-release
+            preset_dir: build/linux-release
+            use_database: true
+            use_ci_config: false
+            run_named_test_gates: true
+            test_bin_subdir: ""
+            test_exe: authforge-tests
+            test_db_host: "127.0.0.1"
+            test_redis_host: "127.0.0.1"
+            timeout_minutes: 30
+            log_artifact_name: linux-test-logs
+          - platform: windows
+            runs_on: windows-2022
+            cmake_preset: windows-msvc
+            preset_dir: build/windows-msvc
+            use_database: false
+            use_ci_config: true
+            run_named_test_gates: true
+            test_bin_subdir: Release
+            test_exe: authforge-tests.exe
+            test_db_host: ""
+            test_redis_host: ""
+            timeout_minutes: 60
+            log_artifact_name: windows-test-logs
+          - platform: macos
+            runs_on: macos-14
+            cmake_preset: macos-arm64
+            preset_dir: build/macos-arm64
+            conan_extra_settings: "-s arch=armv8"
+            configure_extra_args: "-DOAUTH2_MEMORY_TESTS_ONLY=ON"
+            use_database: false
+            use_ci_config: true
+            run_named_test_gates: false
+            test_bin_subdir: ""
+            test_exe: authforge-tests
+            test_db_host: ""
+            test_redis_host: ""
+            timeout_minutes: 60
+            log_artifact_name: macos-test-logs
+    uses: ./.github/workflows/_build-test.yml
+    with:
+      platform: ${{ matrix.platform }}
+      runs_on: ${{ matrix.runs_on }}
+      cmake_preset: ${{ matrix.cmake_preset }}
+      preset_dir: ${{ matrix.preset_dir }}
+      conan_extra_settings: ${{ matrix.conan_extra_settings || '' }}
+      configure_extra_args: ${{ matrix.configure_extra_args || '' }}
+      use_database: ${{ matrix.use_database }}
+      use_ci_config: ${{ matrix.use_ci_config }}
+      run_named_test_gates: ${{ matrix.run_named_test_gates }}
+      test_bin_subdir: ${{ matrix.test_bin_subdir }}
+      test_exe: ${{ matrix.test_exe }}
+      test_db_host: ${{ matrix.test_db_host }}
+      test_redis_host: ${{ matrix.test_redis_host }}
+      timeout_minutes: ${{ matrix.timeout_minutes }}
+      log_artifact_name: ${{ matrix.log_artifact_name }}
+
+  # --- RELEASE gate -----------------------------------------------------------
+  sdk-smoke:
+    name: SDK Smoke (full-stack find_package)
+    needs: build-test
+    uses: ./.github/workflows/_sdk-smoke.yml

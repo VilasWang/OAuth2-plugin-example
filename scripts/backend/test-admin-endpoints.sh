@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/common-test-functions.sh"
 BASE_URL="${1:-http://127.0.0.1:5555}"
 ACCESS_TOKEN=""
 
-TOTAL=51
+TOTAL=52
 
 echo "========================================"
 echo "Pre-test Setup"
@@ -240,20 +240,34 @@ run_test "Test 11: GET /api/admin/oidc/keys" test_11
 
 # Test 11b: Single Token Revoke
 test_11b() {
-    local list
-    list=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/tokens?page=1&per_page=10")
-    local count
-    count=$(echo "$list" | jq '.tokens | length')
-    if [ "$count" -eq 0 ]; then
-        echo "    Skipped: no tokens to revoke"
-        return 0
+    # Issue a dedicated throwaway token to revoke. Never pick tokens[0] from the
+    # list here: it is ordered by issued_at DESC, so the first row IS this
+    # script's own live admin session -- revoking its prefix cascades 401s
+    # through every remaining test.
+    local login_resp code tok_resp throwaway
+    login_resp=$(curl -s -X POST "$BASE_URL/oauth2/login" \
+        -d "username=admin&password=admin&client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback&scope=openid+profile+admin&state=admin-test-11b&json=true")
+    code=$(echo "$login_resp" | jq -r '.code')
+    [ -n "$code" ] && [ "$code" != "null" ] || { echo "    no auth code for throwaway token"; return 1; }
+    tok_resp=$(curl -s -X POST "$BASE_URL/oauth2/token" \
+        -d "grant_type=authorization_code&code=$code&redirect_uri=http://localhost:5174/admin/callback&client_id=admin-console&client_secret=")
+    throwaway=$(echo "$tok_resp" | jq -r '.access_token')
+    [ -n "$throwaway" ] && [ "$throwaway" != "null" ] || { echo "    no throwaway access_token"; return 1; }
+
+    # Server stores SHA-256(raw) uppercase hex (CryptoUtils::hashToken);
+    # token_prefix is its first 8 chars, so we can target the throwaway
+    # token deterministically without consulting the list.
+    local hash prefix
+    if command -v sha256sum >/dev/null 2>&1; then
+        hash=$(printf '%s' "$throwaway" | sha256sum | cut -d' ' -f1)
+    else
+        hash=$(printf '%s' "$throwaway" | shasum -a 256 | cut -d' ' -f1)
     fi
-    local prefix
-    prefix=$(echo "$list" | jq -r '.tokens[0].token_prefix')
+    prefix=$(printf '%s' "$hash" | cut -c1-8 | tr '[:lower:]' '[:upper:]')
     local r
     r=$(curl -s -X DELETE -H "$(auth_header)" "$BASE_URL/api/admin/tokens/$prefix")
     assert_json_field "$r" "status" "success" || return 1
-    echo "    Revoked token prefix: $prefix"
+    echo "    Revoked throwaway token prefix: $prefix"
 }
 run_test "Test 11b: DELETE /api/admin/tokens/:tokenPrefix - Single Revoke" test_11b
 

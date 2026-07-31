@@ -117,7 +117,7 @@ function Invoke-Ctest {
         else {
             if (-not (Test-Path $bd)) {
                 Write-Err "build dir not found: $bd"
-                Write-Err "configure first (cmake -S . -B build [-DCMAKE_BUILD_TYPE=$cfg])"
+                Write-Err 'configure first (cmake --preset <preset>, e.g. windows-msvc) then pass -BuildDir build/<preset>'
                 Write-Err 'or rerun with -FromFixture to capture against bundled fixtures.'
                 exit 1
             }
@@ -161,8 +161,8 @@ function Invoke-Playwright {
     $apps = if ($App -eq 'all') { @('admin', 'frontend') } else { @($App) }
     foreach ($a in $apps) {
         $subdir = switch ($a) {
-            'admin'    { 'OAuth2Admin' }
-            'frontend' { 'OAuth2Frontend' }
+            'admin'    { 'frontends/admin' }
+            'frontend' { 'frontends/user' }
         }
         $outFile = Join-Path $outDir ("{0}.txt" -f $a)
         $tmp = New-TemporaryFile
@@ -234,11 +234,11 @@ function Invoke-Endpoints {
         return
     }
 
-    $openapiPath = if ($OpenApi) { $OpenApi } else { Join-Path $RepoRoot 'OAuth2Server\openapi.yaml' }
+    $openapiPath = if ($OpenApi) { $OpenApi } else { Join-Path $RepoRoot 'apps\server\openapi.yaml' }
     if (-not (Test-Path $openapiPath)) {
         Write-Err "OpenAPI file not found: $openapiPath"
         Write-Err '(P0 scaffolding mode B: extract static endpoint signatures from'
-        Write-Err ' OAuth2Server\openapi.yaml. Live status/headers/body capture is'
+        Write-Err ' apps\server\openapi.yaml. Live status/headers/body capture is'
         Write-Err ' backfilled in P7 once docker compose smoke is reachable.)'
         exit 1
     }
@@ -322,7 +322,7 @@ Subcommands:
                -JsonPath <file>          parse pre-collected reporter=json file
                -ListPath <file>          parse pre-collected --list output file
   endpoints    Capture HTTP endpoint baseline. Task 1.4 (scheme B: static
-               OpenAPI signatures from OAuth2Server\openapi.yaml; live
+               OpenAPI signatures from apps\server\openapi.yaml; live
                response capture is backfilled in P7).
                -OpenApi <path>           override the input OpenAPI
                -FromFixture              use bundled mini OpenAPI fixture

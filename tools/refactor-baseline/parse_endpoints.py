@@ -3,7 +3,7 @@
 
 This is the **scaffolding-level** P0 endpoint baseline collector (see
 tasks.md task 1.4, scheme B): it captures the static contract surface from
-`OAuth2Server/openapi.yaml` so that `tools/diff-endpoint-baseline.py` (task
+`apps/server/openapi.yaml` so that `tools/diff-endpoint-baseline.py` (task
 1.5) has a structural target to diff against. Live response capture
 (status, headers, JSON body shape per scenario) will be backfilled in P7
 once docker compose is reorganised and the smoke gate is reachable.
@@ -33,7 +33,7 @@ Usage:
 
 The YAML loader uses PyYAML if available, otherwise falls back to a tiny
 hand-rolled OpenAPI subset parser sufficient for the shape produced by
-`OAuth2Server/openapi.yaml`. This avoids forcing every CI runner to
+`apps/server/openapi.yaml`. This avoids forcing every CI runner to
 install PyYAML just for the P0 scaffolding step.
 
 Spec references:

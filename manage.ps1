@@ -19,7 +19,7 @@ function Show-Help {
     Write-Host "  dev-frontend                 Run frontend in dev mode"
     Write-Host "  build-admin                  Build the admin frontend"
     Write-Host "  dev-admin                    Run admin frontend in dev mode"
-    Write-Host "  run-backend [-debug]         Start the OAuth2Server binary"
+    Write-Host "  run-backend [-debug]         Start the authforge-server binary"
     Write-Host "  setup-db                     Create database and run migrations"
     Write-Host "  generate-models              Generate Drogon ORM models"
     Write-Host "  reset-password               Reset admin password to default"
@@ -43,6 +43,14 @@ if (-not $Action) {
 $ScriptDir = $PSScriptRoot
 if (-not $ScriptDir) { $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 
+# Load paths.env - single source of truth for source/build/SQL/config paths
+# (Task 5 / M0, design.md review H2). Later milestones only need to update
+# paths.env; this script reads the resulting variables instead of
+# hardcoding directory names.
+. "$ScriptDir\scripts\backend\paths-env.ps1"
+$Paths = Import-PathsEnv -PathsEnvFile (Join-Path $ScriptDir "paths.env")
+$ComposeFileAbs = Join-Path $ScriptDir $Paths["COMPOSE_FILE_REL"]
+
 switch ($Action) {
     "build-backend" {
         & "$ScriptDir\scripts\backend\build.bat" "-$($Config.ToLower())"
@@ -51,28 +59,28 @@ switch ($Action) {
         & "$ScriptDir\scripts\backend\test.bat" "-$($Config.ToLower())"
     }
     "build-frontend" {
-        Push-Location "$ScriptDir\OAuth2Frontend"
+        Push-Location "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])"
         try {
             npm install
             npm run build
         } finally { Pop-Location }
     }
     "dev-frontend" {
-        Push-Location "$ScriptDir\OAuth2Frontend"
+        Push-Location "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])"
         try {
             npm install
             npm run dev
         } finally { Pop-Location }
     }
     "build-admin" {
-        Push-Location "$ScriptDir\OAuth2Admin"
+        Push-Location "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])"
         try {
             npm install
             npm run build
         } finally { Pop-Location }
     }
     "dev-admin" {
-        Push-Location "$ScriptDir\OAuth2Admin"
+        Push-Location "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])"
         try {
             npm install
             npm run dev
@@ -111,24 +119,24 @@ switch ($Action) {
     "docker-up" {
         Push-Location $ScriptDir
         try {
-            docker compose -f deploy/docker/docker-compose.yml --project-directory . up -d
+            docker compose -f $ComposeFileAbs --project-directory . up -d
         } finally { Pop-Location }
     }
     "docker-down" {
         Push-Location $ScriptDir
         try {
-            docker compose -f deploy/docker/docker-compose.yml --project-directory . down
+            docker compose -f $ComposeFileAbs --project-directory . down
         } finally { Pop-Location }
     }
     "clean" {
-        if (Test-Path "$ScriptDir\build") {
-            Remove-Item -Recurse -Force "$ScriptDir\build"
+        if (Test-Path "$ScriptDir\$($Paths['BUILD_DIR'])") {
+            Remove-Item -Recurse -Force "$ScriptDir\$($Paths['BUILD_DIR'])"
         }
-        if (Test-Path "$ScriptDir\OAuth2Frontend\dist") {
-            Remove-Item -Recurse -Force "$ScriptDir\OAuth2Frontend\dist"
+        if (Test-Path "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])\dist") {
+            Remove-Item -Recurse -Force "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])\dist"
         }
-        if (Test-Path "$ScriptDir\OAuth2Admin\dist") {
-            Remove-Item -Recurse -Force "$ScriptDir\OAuth2Admin\dist"
+        if (Test-Path "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])\dist") {
+            Remove-Item -Recurse -Force "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])\dist"
         }
         Write-Host "Cleaned build artifacts."
     }

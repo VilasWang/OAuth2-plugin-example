@@ -1,3 +1,8 @@
+---
+name: code-reviewer
+description: 专业的C++代码审查代理，专注于OAuth2实现的代码质量和安全性。
+---
+
 # Code Reviewer Agent
 
 专业的C++代码审查代理，专注于OAuth2实现的代码质量和安全性。
@@ -107,11 +112,11 @@ Claude自动调用：当代码变更需要审查时
 
 ## 特别关注的文件类型
 
-- `OAuth2Server/controllers/*.cc` - OAuth2核心逻辑
-- `OAuth2Plugin/src/controllers/*.cc` - 插件系统
-- `OAuth2Plugin/src/filters/*.cc` - 安全过滤器和中间件
-- `OAuth2Plugin/src/models/*.cc` - 数据模型和数据库操作
-- `OAuth2Plugin/src/services/*.cc` - 业务逻辑服务
+- `libs/drogon/src/controllers/*.cc` - OAuth2核心逻辑
+- `libs/drogon/src/controllers/*.cc` - 插件系统
+- `libs/drogon/src/filters/*.cc` - 安全过滤器和中间件
+- `libs/drogon/src/models/*.cc` - 数据模型和数据库操作
+- `libs/drogon/src/services/*.cc` - 业务逻辑服务
 
 ## 上下文理解
 

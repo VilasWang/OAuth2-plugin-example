@@ -15,7 +15,7 @@
 #                 --build-dir <path>          (default: ./build)
 #                 --from-fixture              use bundled sample output instead
 #                                             of running ctest (offline self-test)
-#   playwright  Capture OAuth2Admin + OAuth2Frontend Playwright PASS list. Task 1.3.
+#   playwright  Capture frontends/admin + frontends/user Playwright PASS list. Task 1.3.
 #   endpoints   Capture HTTP endpoint snapshots. Task 1.4.
 #   all         Run setup + ctest + playwright + endpoints in sequence.
 #   verify      Assert each baseline subdirectory is non-empty. Used by P0 gate (task 1.7).
@@ -118,7 +118,7 @@ cmd_ctest() {
     else
         if [[ ! -d "${build_dir}" ]]; then
             err "build dir not found: ${build_dir}"
-            err "configure first (cmake -S . -B build [-DCMAKE_BUILD_TYPE=${cfg}])"
+            err "configure first (cmake --preset <preset>, e.g. linux-release) then pass --build-dir build/<preset>"
             err "or rerun with --from-fixture to capture against bundled fixtures."
             return 1
         fi
@@ -171,8 +171,8 @@ cmd_playwright() {
     for a in "${apps[@]}"; do
         local subdir
         case "${a}" in
-            admin)    subdir="OAuth2Admin" ;;
-            frontend) subdir="OAuth2Frontend" ;;
+            admin)    subdir="frontends/admin" ;;
+            frontend) subdir="frontends/user" ;;
             *) err "Unknown app: ${a} (expected admin|frontend|all)"; return 64 ;;
         esac
 
@@ -234,12 +234,12 @@ cmd_endpoints() {
     fi
 
     if [[ -z "${openapi_path}" ]]; then
-        openapi_path="${REPO_ROOT}/OAuth2Server/openapi.yaml"
+        openapi_path="${REPO_ROOT}/apps/server/openapi.yaml"
     fi
     if [[ ! -f "${openapi_path}" ]]; then
         err "OpenAPI file not found: ${openapi_path}"
         err "(P0 scaffolding mode B: extract static endpoint signatures from"
-        err " OAuth2Server/openapi.yaml. Live status/headers/body capture is"
+        err " apps/server/openapi.yaml. Live status/headers/body capture is"
         err " backfilled in P7 once docker compose smoke is reachable.)"
         return 1
     fi
@@ -321,7 +321,7 @@ Subcommands:
                       --json <file>              parse reporter=json output
                       --list <file>              parse --list output file
   endpoints    Capture HTTP endpoint baseline. Task 1.4 (scheme B: static
-               OpenAPI signatures from OAuth2Server/openapi.yaml; live
+               OpenAPI signatures from apps/server/openapi.yaml; live
                response capture is backfilled in P7).
                Flags: --openapi <path>          override the input OpenAPI
                       --from-fixture            use bundled mini OpenAPI fixture

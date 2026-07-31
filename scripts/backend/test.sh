@@ -20,42 +20,58 @@ echo "Running OAuth2 Tests"
 echo "========================================"
 echo "Build Type: $BUILD_TYPE"
 
-if [ ! -d "$PROJECT_DIR/build" ]; then
-    echo "[Error] Build directory not found. Please run build.sh first."
+# All builds go through Conan + `cmake --preset`, each installing into its own
+# build/<preset> dir (see CMakePresets.json binaryDir); derive it the same way
+# build.sh does so ctest runs against the matching tree.
+PRESET="$(resolve_cmake_preset "$BUILD_TYPE")"
+if [ -z "$PRESET" ]; then
+    echo "[Error] Could not resolve a CMake preset for this platform."
+    exit 1
+fi
+PRESET_DIR="$BUILD_ABS_DIR/$PRESET"
+
+if [ ! -d "$PRESET_DIR" ]; then
+    echo "[Error] Build directory not found: $PRESET_DIR. Please run build.sh first."
     exit 1
 fi
 
-cd "$PROJECT_DIR/build"
+cd "$PRESET_DIR"
 
 # Run 1: Standard config.json
 echo ""
-echo "[1/2] Running tests with standard config.json..."
+echo "[1/2] Running tests with standard $CONFIG_FILE..."
 ctest --build-config "$BUILD_TYPE" $VERBOSE
 echo "[PASS] Standard config tests successful."
 
 # Run 2: config.ci.json
 echo ""
-echo "[2/2] Running tests with config.ci.json..."
-CI_CONFIG="$PROJECT_DIR/OAuth2Server/config.ci.json"
-TEST_WORK_DIR="$PROJECT_DIR/build/OAuth2Server/test"
+echo "[2/2] Running tests with $CONFIG_CI_FILE..."
+CI_CONFIG="$OAUTH2_SERVER_ABS_DIR/$CONFIG_CI_FILE"
+# build.sh stages the tests' runtime config as a flat config.json under
+# <preset>/tests (single-config Unix generators); fall back to a per-config
+# subdir for multi-config generators.
+TEST_WORK_DIR="$PRESET_DIR/$TESTS_BUILD_SUBDIR"
+if [ ! -f "$TEST_WORK_DIR/$CONFIG_FILE" ] && [ -f "$TEST_WORK_DIR/$BUILD_TYPE/$CONFIG_FILE" ]; then
+    TEST_WORK_DIR="$TEST_WORK_DIR/$BUILD_TYPE"
+fi
 
 if [ ! -f "$CI_CONFIG" ]; then
-    echo "[SKIP] config.ci.json not found, skipping second run."
+    echo "[SKIP] $CONFIG_CI_FILE not found, skipping second run."
     exit 0
 fi
 
 if [ -d "$TEST_WORK_DIR" ]; then
-    cp "$TEST_WORK_DIR/config.json" "$TEST_WORK_DIR/config.json.bak"
-    cp "$CI_CONFIG" "$TEST_WORK_DIR/config.json"
+    cp "$TEST_WORK_DIR/$CONFIG_FILE" "$TEST_WORK_DIR/$CONFIG_FILE.bak"
+    cp "$CI_CONFIG" "$TEST_WORK_DIR/$CONFIG_FILE"
 
     CI_EXIT=0
     ctest --build-config "$BUILD_TYPE" $VERBOSE || CI_EXIT=$?
 
     # Restore original config
-    mv "$TEST_WORK_DIR/config.json.bak" "$TEST_WORK_DIR/config.json"
+    mv "$TEST_WORK_DIR/$CONFIG_FILE.bak" "$TEST_WORK_DIR/$CONFIG_FILE"
 
     if [ $CI_EXIT -ne 0 ]; then
-        echo "[FAIL] Tests failed with config.ci.json"
+        echo "[FAIL] Tests failed with $CONFIG_CI_FILE"
         exit 1
     fi
     echo "[PASS] CI config tests successful."

@@ -1,3 +1,8 @@
+---
+name: test-writer
+description: Generates Drogon-compatible C++ tests for the OAuth2 project. Focuses on coverage gaps and regression protection.
+---
+
 # Test Writer Agent
 
 Generates Drogon-compatible C++ tests for the OAuth2 project. Focuses on coverage gaps and regression protection.
@@ -27,11 +32,11 @@ if (plugin && plugin->getStorageType() == "memory")
 ### Directory Structure
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | `OAuth2Server/test/unit/` | Isolated logic tests |
-| Integration | `OAuth2Server/test/integration/` | API endpoint tests |
-| Security | `OAuth2Server/test/security/` | Injection/exploit tests |
-| E2E | `OAuth2Server/test/e2e/` | Full OAuth2 flow tests |
-| Performance | `OAuth2Server/test/performance/` | Load/stress tests |
+| Unit | `tests/unit/` | Isolated logic tests |
+| Integration | `tests/integration/` | API endpoint tests |
+| Security | `tests/security/` | Injection/exploit tests |
+| E2E | `tests/e2e-backend/` | Full OAuth2 flow tests |
+| Performance | `tests/performance/` | Load/stress tests |
 
 ## Test Template
 

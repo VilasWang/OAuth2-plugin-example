@@ -1,10 +1,9 @@
-# Drogon OAuth2.0 Provider — 全栈授权服务器
+# AuthForge — 全栈 OAuth2/OIDC 授权服务器
 
 [English](README.md)
 
-![Linux CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-linux.yml/badge.svg)
-![Windows CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-windows.yml/badge.svg)
-![macOS CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-macos.yml/badge.svg)
+![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准。包含管理后台、前端客户端和完整的测试体系。
@@ -15,13 +14,15 @@
 
 ```
 authforge/
-├── OAuth2Plugin/       # 核心插件库（独立 CMake 库，可供第三方项目集成）
-├── OAuth2Server/       # 授权服务器后端（Drogon C++ 框架）
-├── OAuth2Admin/        # 管理后台前端（Vue 3 + TailwindCSS）
-├── OAuth2Frontend/     # 用户端前端（Vue 3 + Pinia + TailwindCSS）
+├── apps/server/        # 授权服务器后端（Drogon C++ 框架）
+├── libs/               # SDK 库包（authforge::common/oauth2/identity/storage-*/drogon）
+├── frontends/admin/    # 管理后台前端（Vue 3 + TailwindCSS）
+├── frontends/user/     # 用户端前端（Vue 3 + Pinia + TailwindCSS）
+├── examples/           # SDK 消费示例（find_package 冒烟宿主）
+├── deploy/             # Docker Compose、Helm chart、nginx、可观测性
+├── tests/              # 后端测试套件（单元 / 集成 / 契约）
 ├── scripts/            # 构建、测试、运维脚本
-├── docs/               # 项目文档
-└── PRD/                # 产品设计文档
+└── docs/               # 项目文档
 ```
 
 ### 技术栈
@@ -79,7 +80,7 @@ authforge/
 | 已授权应用管理 | `GET/DELETE /api/me/authorized-apps` |
 | 注销账号 | `DELETE /api/me` |
 
-### Admin 管理后台 (OAuth2Admin)
+### Admin 管理后台 (frontends/admin)
 
 | 模块 | 功能 |
 |------|------|
@@ -113,11 +114,11 @@ authforge/
 ### Docker Compose（推荐）
 
 ```bash
-docker-compose up -d
+docker compose -f deploy/docker/docker-compose.yml up -d --build
 ```
 
 - 用户前端：`http://localhost:8080`
-- 管理后台：`http://localhost:5174/admin/`
+- 管理后台：`http://localhost:8081`
 - 后端 API：`http://localhost:5555`
 
 ### 本地开发
@@ -127,16 +128,16 @@ docker-compose up -d
 .\manage.ps1 build-backend
 
 # 2. 启动后端（需要 PostgreSQL + Redis）
-cd OAuth2Server
-..\build\OAuth2Server\Debug\OAuth2Server.exe
+cd apps\server
+..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
 
 # 3. 启动管理后台
-cd OAuth2Admin
+cd frontends\admin
 npm install
 npm run dev    # http://localhost:5174/admin/
 
 # 4. 启动用户前端
-cd OAuth2Frontend
+cd frontends\user
 npm install
 npm run dev    # http://localhost:5173
 ```
@@ -154,18 +155,18 @@ npm run dev    # http://localhost:5173
 ### 后端 API 测试
 
 ```powershell
-# Admin API 全量测试（37 tests）
+# Admin API 全量测试
 .\scripts\backend\test-admin-endpoints.ps1
 
-# OAuth2 核心流程测试（17 tests）
+# OAuth2 核心流程测试
 .\scripts\backend\test-oauth2-endpoints.ps1
 ```
 
 ### 前端 E2E 测试
 
 ```powershell
-cd OAuth2Admin
-npx playwright test              # 全量运行（123 tests）
+cd frontends\admin
+npx playwright test              # 全量运行
 npx playwright test --ui         # UI 模式调试
 npx playwright test --headed     # 有头浏览器模式
 ```
@@ -173,24 +174,24 @@ npx playwright test --headed     # 有头浏览器模式
 ### C++ 单元测试
 
 ```powershell
-cd build
+cd build\windows-msvc
 ctest --output-on-failure
 ```
 
 ### 测试覆盖统计
 
-| 测试类型 | 数量 | 覆盖范围 |
-|----------|------|----------|
-| Admin API (PowerShell) | 37 | 全部 Admin 端点 + Organization |
-| OAuth2 Core (PowerShell) | 17 | 认证流程、Token 管理、用户服务 |
-| 前端 E2E (Playwright) | 123 | 管理后台所有页面和交互 |
-| C++ 单元测试 (CTest) | 111 | 核心库逻辑 |
+| 测试类型 | 覆盖范围 |
+|----------|----------|
+| C++ 单元/集成测试 (CTest) | SDK 库、领域服务、存储适配器 |
+| Admin API (PowerShell) | 全部 Admin 端点 + Organization |
+| OAuth2 Core (PowerShell) | 认证流程、Token 管理、用户服务 |
+| 前端 E2E (Playwright) | 管理后台与用户前端的页面和交互 |
 
 ---
 
 ## API 文档
 
-- **OpenAPI 规范**：[openapi.yaml](OAuth2Server/openapi.yaml)
+- **OpenAPI 规范**：[openapi.yaml](apps/server/openapi.yaml)
 - **Swagger UI**：`http://localhost:5555/docs/api`（需部署 Swagger UI 静态文件）
 - **E2E 测试指南**：[E2E_TESTING_GUIDE.md](docs/admin/e2e-testing-guide.md)
 
@@ -204,8 +205,9 @@ ctest --output-on-failure
 | [安全架构](docs/backend/security-architecture.md) | Token 生命周期、加密、防护策略 |
 | [RBAC 权限](docs/backend/rbac-guide.md) | 角色权限配置说明 |
 | [Docker 部署](docs/backend/docker-deployment.md) | 容器化部署方案 |
+| [SDK 集成指南](docs/backend/sdk-integration-guide.md) | 发布产物消费（SDK 包 + GHCR 镜像） |
+| [SDK 运行时契约](docs/backend/sdk-runtime-contract.md) | 线程 / ABI / 异常 / 日志承诺 |
 | [CI/CD 流水线](docs/backend/ci-cd-guide.md) | GitHub Actions 配置 |
-| [Admin Console 设计](PRD/admin_console_design.md) | 管理后台产品设计文档 |
 | [账号锁定机制](docs/ops/account-lockout.md) | 锁定规则和重置方法 |
 
 ---
@@ -215,7 +217,7 @@ ctest --output-on-failure
 | 组件 | 最低版本 |
 |------|----------|
 | C++ 编译器 | C++17 (MSVC 2019+ / GCC 9+ / Clang 10+) |
-| CMake | 3.20+ |
+| CMake | 3.23+ |
 | PostgreSQL | 14+ |
 | Redis | 7+ |
 | Node.js | 18+ |
@@ -229,4 +231,4 @@ MIT License — 详见 [LICENSE](LICENSE)
 
 ---
 
-**项目状态**：生产就绪 | **版本**：v6.0.0
+**项目状态**：生产就绪 | **版本**：v1.0.0

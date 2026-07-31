@@ -612,13 +612,15 @@ property-based tests capturing that behavior and assert it is preserved after th
 
 ### Property-Based Tests
 
-Following this project's `PropertyN_*` / `DROGON_TEST` house convention (see
-`OAuth2Server/test/integration/concurrency/Property4_*.cc`), name new bugfix tests
-`PropertyN_MfaCrossClientAuthFix_*` (numbered per the Correctness Properties above, e.g.
-`Property1_MfaCrossClientAuthFix_UnregisteredClientRejected`,
-`Property3_MfaCrossClientAuthFix_MismatchedPendingBindingRejected`,
-`Property4_MfaCrossClientAuthFix_MatchingBindingPreservesTokenIssuance`) so `tasks.md` can reference
-them 1:1 with the Correctness Properties section above.
+Following this project's `DROGON_TEST` house convention
+`[Category]_[Priority]_[Module]_[Feature]_[Scenario]` (enforced by
+`tools/test/scripts/naming_validator.sh`), name new bugfix tests
+`Integration_P1_MfaCrossClientAuthFix_PropertyN_*` — the `PropertyN` token sits in the
+Feature slot, numbered per the Correctness Properties above, e.g.
+`Integration_P1_MfaCrossClientAuthFix_Property1_UnregisteredClientRejected`,
+`Integration_P1_MfaCrossClientAuthFix_Property3_MismatchedPendingBindingRejected`,
+`Integration_P1_MfaCrossClientAuthFix_Property4_MatchingBindingPreservesTokenIssuance` — so
+`tasks.md` can reference them 1:1 with the Correctness Properties section above.
 
 - Generate random registered-client/whitelisted-redirect_uri combinations that do NOT match the
   recorded pending binding and verify all are rejected (Property 3, PBT over the client/redirect_uri

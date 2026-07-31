@@ -4,6 +4,7 @@ setlocal enabledelayedexpansion
 call "%~dp0\env_common.bat"
 if errorlevel 1 exit /b 1
 
+set "SCRIPT_DIR=%~dp0"
 set "PROJECT_DIR=%~dp0..\.."
 set BUILD_TYPE=Release
 set VERBOSE=--output-on-failure
@@ -29,35 +30,44 @@ shift
 goto parse_args
 :end_parse
 
+REM Map the build configuration to its Conan-installed CMakePresets.json
+REM preset directory (build/<preset>), matching what build.bat produced.
+call "%SCRIPT_DIR%resolve_preset.bat" %BUILD_TYPE%
+set "PRESET_DIR=%PROJECT_DIR%\%BUILD_DIR%\%CMAKE_PRESET%"
+
 echo ========================================
 echo Running OAuth2 Tests (Dual-Config)
 echo ========================================
 echo Build Type: %BUILD_TYPE%
 
-if not exist "%PROJECT_DIR%\build" (
-    echo [Error] Build directory not found. Please run build.bat first.
+if not exist "%PRESET_DIR%" (
+    echo [Error] Build directory not found: %PRESET_DIR%. Please run build.bat first.
     exit /b 1
 )
 
-set "TEST_WORK_DIR=%PROJECT_DIR%\build\OAuth2Server\test\%BUILD_TYPE%"
+REM Phase 5 restructure: tests build under <preset>/tests (was
+REM OAuth2Server/test); their runtime config is a flat config.json there
+REM (tests/CMakeLists POST_BUILD), NOT the source-tree config/ subpath.
+set "TEST_WORK_DIR=%PRESET_DIR%\%TESTS_BUILD_SUBDIR%\%BUILD_TYPE%"
+set "TEST_CONFIG=%TEST_WORK_DIR%\config.json"
 
-cd /d "%PROJECT_DIR%\build"
+cd /d "%PRESET_DIR%"
 
 REM --- Run 1: Standard config.json ---
 echo.
-echo [1/2] Running tests with standard config.json...
+echo [1/2] Running tests with standard %CONFIG_FILE%...
 ctest -V -C %BUILD_TYPE% %VERBOSE%
 if !errorlevel! neq 0 (
-    echo [FAIL] Tests failed with standard config.json
+    echo [FAIL] Tests failed with standard %CONFIG_FILE%
     exit /b 1
 )
 echo [PASS] Standard config tests successful.
 
 REM --- Run 2: config.ci.json ---
 echo.
-echo [2/2] Running tests with config.ci.json...
-if not exist "%PROJECT_DIR%\OAuth2Server\config.ci.json" (
-    echo [SKIP] config.ci.json not found, skipping second run.
+echo [2/2] Running tests with %CONFIG_CI_FILE%...
+if not exist "%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%" (
+    echo [SKIP] %CONFIG_CI_FILE% not found, skipping second run.
     goto done
 )
 
@@ -67,18 +77,21 @@ if not exist "%TEST_WORK_DIR%" (
 )
 
 REM Backup original and use CI config
-copy /Y "%TEST_WORK_DIR%\config.json" "%TEST_WORK_DIR%\config.json.bak" >nul
-copy /Y "%PROJECT_DIR%\OAuth2Server\config.ci.json" "%TEST_WORK_DIR%\config.json" >nul
+REM cmd's copy mishandles forward slashes from paths.env values; normalize.
+set "CI_CFG_SRC=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%"
+set "CI_CFG_SRC=!CI_CFG_SRC:/=\!"
+copy /Y "%TEST_CONFIG%" "%TEST_CONFIG%.bak" >nul
+copy /Y "!CI_CFG_SRC!" "%TEST_CONFIG%" >nul
 
 ctest -V -C %BUILD_TYPE% %VERBOSE%
 set "CI_EXIT=!errorlevel!"
 
 REM Restore original config immediately
-copy /Y "%TEST_WORK_DIR%\config.json.bak" "%TEST_WORK_DIR%\config.json" >nul
-del "%TEST_WORK_DIR%\config.json.bak" >nul 2>&1
+copy /Y "%TEST_CONFIG%.bak" "%TEST_CONFIG%" >nul
+del "%TEST_CONFIG%.bak" >nul 2>&1
 
 if !CI_EXIT! neq 0 (
-    echo [FAIL] Tests failed with config.ci.json
+    echo [FAIL] Tests failed with %CONFIG_CI_FILE%
     exit /b 1
 )
 echo [PASS] CI config tests successful.

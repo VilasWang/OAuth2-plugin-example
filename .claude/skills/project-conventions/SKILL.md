@@ -14,7 +14,7 @@ Apply these rules to ALL C++ code generated or modified in this project. Loaded 
 |------|-------------|
 | Layer separation | Controllers (HTTP) -> Plugin/Service (business) -> Storage (data) -> Model (ORM) |
 | Drogon-first | Use Drogon built-ins over third-party libraries |
-| Plugin pattern | Core logic in `OAuth2Plugin`, server wiring in `OAuth2Server` |
+| Plugin pattern | Core logic in `libs/` (drogon, oauth2, storage-*), server wiring in `apps/server` |
 | ORM immutable | NEVER edit files in `models/` -- use `drogon_ctl` to regenerate |
 
 ## Async Programming
@@ -27,7 +27,11 @@ Apply these rules to ALL C++ code generated or modified in this project. Loaded 
 
 ### Lambda Capture Rules
 - `[sharedCb]` -- REQUIRED for callback lifetime
-- `[this]`, `[&var]` -- FORBIDDEN unless PR explains lifetime guarantee
+- `[&var]` -- FORBIDDEN unless PR explains lifetime guarantee
+- `[this]` -- FORBIDDEN (no PR-exemption); use `shared_from_this()` instead — the
+  class must `enable_shared_from_this<T>` and the lambda captures
+  `auto self = shared_from_this()`, holding ownership so `this` stays alive for
+  the whole async continuation.
 
 ### Callback Pattern
 ```cpp
@@ -52,6 +56,7 @@ auto sharedCb = std::make_shared<std::function<void(const ResultType &)>>(
 - All async callbacks MUST handle failure path: `(*sharedCb)(errorResult)`
 - Log levels: `LOG_DEBUG` (dev), `LOG_INFO` (flow), `LOG_WARN` (issues), `LOG_ERROR` (failures)
 - NEVER log passwords, tokens, or secrets
+- Always need try catch for all async callbacks
 
 ## Code Style
 

@@ -291,8 +291,8 @@ Examples:
     parser.add_argument(
         '--path', '-p',
         type=str,
-        default='../OAuth2Plugin',
-        help='Path to project root (default: ../OAuth2Plugin)'
+        default='..',
+        help='Path to project root (default: ..)'
     )
 
     args = parser.parse_args()

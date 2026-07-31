@@ -1,0 +1,25 @@
+# Local/demo overrides for Docker Desktop Kubernetes acceptance runs.
+# Usage:
+#   docker compose -f deploy/docker/docker-compose.yml build   # or docker build the 3 images
+#   docker tag ... ghcr.io/lucaswang420/authforge-{backend,frontend,admin}:1.0.0
+#   helm install authforge deploy/helm/authforge -f deploy/helm/values-local.yaml
+#
+# Demo credentials below are throwaway values for a local cluster only.
+
+backend:
+  env: development
+  issuer: http://localhost:5555
+  frontendUrl: http://localhost:8080
+  corsAllowOrigins: http://localhost:8080
+  vueRedirectUri: http://localhost:8080/callback
+
+image:
+  # Docker Desktop's kind-based cluster serves local images through its
+  # containerd registry mirror on the *pull* path, so Never would fail with
+  # ErrImageNeverPull; IfNotPresent resolves them from the local image store.
+  pullPolicy: IfNotPresent
+
+secrets:
+  dbPassword: local-demo-db-pass
+  redisPassword: local-demo-redis-pass
+  vueClientSecret: local-demo-client-secret

@@ -1,0 +1,109 @@
+name: Reusable — SDK Smoke
+
+# Reusable workflow (Task 32): the SDK RELEASE gate. Builds the full product
+# stack (BUILD_EXAMPLES=ON writes build-tree package configs under
+# ${CMAKE_BINARY_DIR}/authforge-cmake) and runs the SdkSmoke.FullStack test,
+# which uses `ctest --build-and-test` to configure + build + run
+# examples/full-stack-host as a real external find_package consumer. The smoke
+# host boots with memory storage (config/smoke.json), so no database is needed.
+# Runs on Linux only (single authoritative SDK-consumability proof). Called by
+# ci.yml as the final needs-gated stage.
+
+on:
+  workflow_call:
+
+env:
+  BUILD_TYPE: Release
+  CMAKE_PRESET: linux-release
+  PRESET_DIR: build/linux-release
+
+jobs:
+  sdk-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        # Same system toolchain as the main Linux build; no redis-tools needed
+        # because the SDK smoke host uses memory storage.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            gcc \
+            g++ \
+            cmake \
+            uuid-dev
+
+      - name: Install Conan
+        run: |
+          pip install conan
+          conan profile detect --force
+
+      # --- Conan dependency cache (shared key with the build-test jobs) ---
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-v1-cpp17-${{ hashFiles('conanfile.py', 'conan.lock') }}
+          restore-keys: |
+            conan-${{ runner.os }}-v1-cpp17-
+
+      - name: Configure CMake using Conan
+        run: |
+          rm -rf "$PRESET_DIR"
+          conan install . --output-folder="$PRESET_DIR" --build=missing -s build_type="$BUILD_TYPE" -s compiler.cppstd=17
+
+      - name: Add drogon_ctl (Conan package) to PATH
+        # drogon_create_views()/drogon_create_model() invoke `drogon_ctl` as a
+        # bare command at BUILD time; resolve its bin dir from CMakeDeps'
+        # Drogon-*-data.cmake (see _build-test.yml for the rationale).
+        run: |
+          data_file=$(find "$PRESET_DIR" -maxdepth 1 -name 'Drogon-*-data.cmake' | head -n1)
+          if [ -z "$data_file" ]; then
+            echo "::error::Could not find Drogon-*-data.cmake under $PRESET_DIR/ (conan install may have failed)"
+            exit 1
+          fi
+          drogon_folder=$(grep -E 'set\(drogon_PACKAGE_FOLDER_RELEASE "' "$data_file" | sed -E 's/.*"(.+)".*/\1/')
+          if [ -z "$drogon_folder" ]; then
+            echo "::error::Could not parse drogon_PACKAGE_FOLDER_RELEASE from $data_file"
+            exit 1
+          fi
+          drogon_bin="$drogon_folder/bin"
+          if [ ! -x "$drogon_bin/drogon_ctl" ]; then
+            echo "::error::drogon_ctl not found under $drogon_bin"
+            exit 1
+          fi
+          echo "Adding $drogon_bin to PATH"
+          echo "$drogon_bin" >> "$GITHUB_PATH"
+
+      - name: Configure Project CMake
+        # Memory-storage config keeps the main build DB-free; the SDK smoke host
+        # uses its own config/smoke.json regardless. BUILD_EXAMPLES defaults ON,
+        # so configure emits the build-tree package configs the smoke consumes.
+        run: |
+          cp apps/server/config/config.ci.json apps/server/config/config.json
+          cmake --preset "$CMAKE_PRESET"
+
+      - name: Build (full stack -> build-tree package configs)
+        run: cmake --build --preset "$CMAKE_PRESET"
+
+      - name: Run SDK Smoke (SdkSmoke label)
+        working-directory: ${{ github.workspace }}/${{ env.PRESET_DIR }}
+        run: ctest -V -C "$BUILD_TYPE" -L SdkSmoke --output-on-failure --timeout 300
+
+      - name: Upload SDK smoke logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-sdk-smoke-logs
+          path: |
+            ${{ github.workspace }}/${{ env.PRESET_DIR }}/Testing/
+            ${{ github.workspace }}/${{ env.PRESET_DIR }}/examples/full-stack-host/Testing/
+          retention-days: 7

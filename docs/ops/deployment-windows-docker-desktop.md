@@ -145,7 +145,7 @@ DOMAIN=localhost
 
 #### 邮件服务配置（可选）
 
-后端邮件服务有两种模式（由 [EmailService.cc](../../OAuth2Plugin/src/utils/EmailService.cc) 的 `getEmailService()` 决定）：
+后端邮件服务有两种模式（由 [EmailService.cc](../../libs/drogon/src/utils/EmailService.cc) 的 `getEmailService()` 决定）：
 
 | 模式 | 触发条件 | 行为 |
 |------|---------|------|
@@ -216,8 +216,8 @@ services:
       - OAUTH2_FRONTEND_URL=http://localhost:8080
     volumes:
       - ../../deploy/keys:/app/keys:ro  # JWT 密钥
-      - ../../OAuth2Server/sql/migrations:/app/sql/migrations:ro
-      - ../../OAuth2Server/sql/seed:/app/sql/seed:ro
+      - ../../apps/server/migrations:/app/sql/migrations:ro
+      - ../../apps/server/seed:/app/sql/seed:ro
 
   # 其他服务保持不变...
 ```
@@ -299,24 +299,24 @@ docker exec -it oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\dt"
 
 ```Git Bash
 # 执行 seed 脚本
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_admin_user.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_admin_console_client.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_vue_client.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_backend_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_admin_user.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_admin_console_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_vue_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_backend_client.sql
 ```
 
 ```powershell
 # 执行管理员用户 seed
-Get-Content OAuth2Server\sql\seed\dev_admin_user.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
+Get-Content apps\server\seed\dev_admin_user.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
 
 # 执行管理后台客户端 seed
-Get-Content OAuth2Server\sql\seed\dev_admin_console_client.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
+Get-Content apps\server\seed\dev_admin_console_client.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
 
 # 执行 Vue 客户端 seed
-Get-Content OAuth2Server\sql\seed\dev_vue_client.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
+Get-Content apps\server\seed\dev_vue_client.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
 
 # 执行 backend-svc 客户端 seed
-Get-Content OAuth2Server\sql\seed\dev_backend_client.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
+Get-Content apps\server\seed\dev_backend_client.sql | docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db
 ```
 
 验证管理员账号：
@@ -477,12 +477,12 @@ Test Results: 43/55 passed, 12 failed
 
 ```bash
 # 执行必需的 seed 脚本
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_admin_user.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_admin_console_client.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_vue_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_admin_user.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_admin_console_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_vue_client.sql
 
 # 可选：创建测试客户端（提高测试通过率）
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/seed/dev_backend_client.sql
+docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/seed/dev_backend_client.sql
 ```
 
 #### 2. 验证基础服务

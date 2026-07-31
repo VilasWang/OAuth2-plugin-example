@@ -17,10 +17,10 @@ echo "Working Dir: $(pwd)"
 echo "OAUTH2_DB_HOST: $OAUTH2_DB_HOST"
 echo "OAUTH2_REDIS_HOST: $OAUTH2_REDIS_HOST"
 
-if [ -f "/usr/local/include/drogon/drogon.h" ]; then
-    echo -e "✓ Drogon found (headers and library installed)"
+if command -v conan > /dev/null 2>&1; then
+    echo -e "✓ Conan found ($(conan --version)) — C/C++ deps (incl. Drogon) resolved per conanfile.py"
 else
-    echo -e "${RED}✗ Drogon NOT found${NC}"
+    echo -e "${RED}✗ Conan NOT found (required: all C/C++ deps come from Conan)${NC}"
 fi
 
 echo -e "\n${GREEN}[1/4] Waiting for databases...${NC}"
@@ -56,11 +56,11 @@ echo -e "✓ Redis is ready"
 echo -e "\n${GREEN}[2/4] Initializing database...${NC}"
 export PGPASSWORD=$OAUTH2_DB_PASSWORD
 # Apply all migrations in order
-for migration in /app/OAuth2Server/sql/migrations/V*.sql; do
+for migration in /app/sql/migrations/V*.sql; do
     psql -h "$OAUTH2_DB_HOST" -p "${OAUTH2_DB_PORT:-5432}" -U "$OAUTH2_DB_USER" -d "$OAUTH2_DB_NAME" -f "$migration" > /dev/null 2>&1
 done
 # Apply seed data
-for seed in /app/OAuth2Server/sql/seed/*.sql; do
+for seed in /app/sql/seed/*.sql; do
     psql -h "$OAUTH2_DB_HOST" -p "${OAUTH2_DB_PORT:-5432}" -U "$OAUTH2_DB_USER" -d "$OAUTH2_DB_NAME" -f "$seed" > /dev/null 2>&1
 done
 echo -e "✓ Database initialized (migrations + seed)"
@@ -69,7 +69,8 @@ echo -e "\n${GREEN}[3/4] Building Project...${NC}"
 bash /app/scripts/backend/build.sh --debug
 
 echo -e "\n${GREEN}[4/4] Running test...${NC}"
-cd /app/build
+# build.sh --debug builds via the linux-debug preset (build/<preset> layout).
+cd /app/build/linux-debug
 ctest -V -C Debug --output-on-failure --timeout 120
 
 echo -e "\n${GREEN}✅ SUCCESS: No crash during teardown!${NC}"

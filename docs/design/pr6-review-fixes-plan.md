@@ -103,7 +103,7 @@ static HttpRequestPtr makeRegisterRequest(
     return req;
 }
 
-DROGON_TEST(RegisterRuleSet_RejectsAtSignInUsername)
+DROGON_TEST(Unit_P2_RegisterRuleSet_RejectsAtSignInUsername)
 {
     auto req = makeRegisterRequest("user@name", "Password123", "user@example.com");
     auto errors = RuleSet::registerUser(req);
@@ -114,7 +114,7 @@ DROGON_TEST(RegisterRuleSet_RejectsAtSignInUsername)
     CHECK(hasFormatError == true);
 }
 
-DROGON_TEST(RegisterRuleSet_AcceptsValidUsername)
+DROGON_TEST(Unit_P2_RegisterRuleSet_AcceptsValidUsername)
 {
     auto req = makeRegisterRequest("alice_99", "Password123", "alice@example.com");
     auto errors = RuleSet::registerUser(req);
@@ -129,7 +129,7 @@ DROGON_TEST(RegisterRuleSet_AcceptsValidUsername)
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `./manage.sh build-backend && cd build && ctest -R "RegisterRuleSet" --output-on-failure`
-Expected: `RegisterRuleSet_RejectsAtSignInUsername` FAILS (no username format error is emitted today; `AcceptsValidUsername` already passes).
+Expected: `Unit_P2_RegisterRuleSet_RejectsAtSignInUsername` FAILS (no username format error is emitted today; `AcceptsValidUsername` already passes).
 
 - [ ] **Step 3: Implement the regex check**
 
@@ -481,7 +481,7 @@ void cleanupEmail(const std::string &email)
 // Covers Finding 1 (JSON body) + Finding 5 (missing test):
 // an email-only registration via JSON persists username as NULL and a
 // canonical email, with a non-empty password hash.
-DROGON_TEST(Integration_Registration_EmailOnly_JsonBody)
+DROGON_TEST(Integration_P1_Registration_EmailOnly_JsonBody)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -568,7 +568,7 @@ void cleanupEmail(const std::string &email)
 // and USERNAME_PATTERN guarantee the login dispatcher (find('@')) can never
 // misroute. We verify a valid username row is reachable by exact match, and
 // that an '@'-bearing identifier would route to the email branch instead.
-DROGON_TEST(Integration_Login_Dispatch_IsEmailVersusUsername)
+DROGON_TEST(Integration_P1_Login_Dispatch_IsEmailVersusUsername)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")
@@ -598,7 +598,7 @@ DROGON_TEST(Integration_Login_Dispatch_IsEmailVersusUsername)
 
 // Covers Finding 3 (password-reset normalization): the lookup key is the
 // canonical email, so a Gmail-alias reset request must find the row.
-DROGON_TEST(Integration_Login_PasswordReset_LooksUpCanonicalEmail)
+DROGON_TEST(Integration_P1_Login_PasswordReset_LooksUpCanonicalEmail)
 {
     auto plugin = app().getPlugin<OAuth2Plugin>();
     if (!plugin || plugin->getStorageType() == "memory")

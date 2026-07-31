@@ -32,6 +32,11 @@ shift
 goto parse_args
 :end_parse
 
+REM Map the build configuration to its Conan-installed CMakePresets.json
+REM preset directory (build/<preset>), matching what build.bat produced.
+call "%SCRIPT_DIR%resolve_preset.bat" %BUILD_TYPE%
+set "PRESET_DIR=%PROJECT_DIR%\%BUILD_DIR%\%CMAKE_PRESET%"
+
 echo.
 echo ========================================
 echo One-Click Build and Test (%BUILD_TYPE%)
@@ -109,16 +114,22 @@ echo ========================================
 echo Step 5: Starting OAuth2 server
 echo ========================================
 
-set "SERVER_EXE=%PROJECT_DIR%\build\OAuth2Server\%BUILD_TYPE%\OAuth2Server.exe"
+set "SERVER_EXE=%PRESET_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%\%SERVER_BINARY_NAME%.exe"
 if not exist "%SERVER_EXE%" (
     echo [FAILED] Server executable not found at %SERVER_EXE%
     set "FINAL_RESULT=1"
     goto cleanup_and_exit
 )
 
-echo Starting server from OAuth2Server directory...
-pushd "%PROJECT_DIR%\OAuth2Server"
-start "" "%SERVER_EXE%" -c config.json
+REM Phase 5 restructure: run from the binary's build dir (same convention
+REM as run_server.bat). main.cc has no -c flag -- it probes ./config.json
+REM relative to CWD, and build.bat copies config.json next to the exe. The
+REM old CWD (apps/server) no longer has a root config.json (configs moved
+REM into apps/server/config/).
+set "SERVER_RUN_DIR=%PRESET_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%"
+echo Starting server from %SERVER_RUN_DIR% ...
+pushd "%SERVER_RUN_DIR%"
+start "" "%SERVER_EXE%"
 popd
 
 REM Wait for server to start
@@ -132,9 +143,9 @@ REM Check if server is running
 REM Use 'findstr' instead of 'find': MSYS has no 'findstr', so it always
 REM resolves to the Windows builtin even when this .bat runs via bash/MSYS
 REM (unlike 'find', which the Unix 'find' shadows).
-tasklist /FI "IMAGENAME eq OAuth2Server.exe" 2>NUL | findstr /I "OAuth2Server.exe">NUL
+tasklist /FI "IMAGENAME eq %SERVER_BINARY_NAME%.exe" 2>NUL | findstr /I "%SERVER_BINARY_NAME%.exe">NUL
 if !errorlevel! neq 0 (
-    echo [FAILED] Server failed to start or crashed. Check logs in OAuth2Server\logs
+    echo [FAILED] Server failed to start or crashed. Check logs in %SERVER_RUN_DIR%\logs
     set "FINAL_RESULT=1"
     goto cleanup_and_exit
 )
@@ -179,7 +190,7 @@ REM ========================================
 echo ========================================
 echo Step 8: Stopping OAuth2 server
 echo ========================================
-taskkill /F /IM OAuth2Server.exe >nul 2>&1
+taskkill /F /IM %SERVER_BINARY_NAME%.exe >nul 2>&1
 echo [SUCCESS] Server stopped
 echo.
 
@@ -206,9 +217,9 @@ REM Ensure server is stopped even on failure
 REM Use 'findstr' instead of 'find': MSYS has no 'findstr', so it always
 REM resolves to the Windows builtin even when this .bat runs via bash/MSYS
 REM (unlike 'find', which the Unix 'find' shadows).
-tasklist /FI "IMAGENAME eq OAuth2Server.exe" 2>NUL | findstr /I "OAuth2Server.exe">NUL
+tasklist /FI "IMAGENAME eq %SERVER_BINARY_NAME%.exe" 2>NUL | findstr /I "%SERVER_BINARY_NAME%.exe">NUL
 if "!errorlevel!"=="0" (
-    taskkill /F /IM OAuth2Server.exe >nul 2>&1
+    taskkill /F /IM %SERVER_BINARY_NAME%.exe >nul 2>&1
 )
 
 if !FINAL_RESULT! neq 0 (

@@ -27,7 +27,7 @@ which drogon_ctl || echo "❌ drogon_ctl not found"
 drogon_ctl version || echo "❌ drogon_ctl not working"
 
 # 4. 检查 models 目录是否存在
-ls OAuth2Server/model.json || echo "❌ model.json not found"
+ls apps/server/model.json || echo "❌ model.json not found"
 ```
 
 ## 完整工作流程
@@ -39,23 +39,21 @@ ls OAuth2Server/model.json || echo "❌ model.json not found"
 export PGPASSWORD='123456'
 psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
 
-# 预期输出应包含：
-# - oauth2_clients
-# - oauth2_codes
-# - oauth2_access_tokens
-# - oauth2_refresh_tokens
-# - users
-# - roles
-# - permissions
-# - user_roles
-# - role_permissions
+# 预期输出应包含全部19个表：
+# - organizations, users, roles, permissions
+# - user_roles, role_permissions
+# - oauth2_clients, oauth2_codes, oauth2_access_tokens, oauth2_refresh_tokens
+# - oauth2_scopes, oauth2_client_scopes, oauth2_user_consents
+# - oauth2_subject_mappings, audit_logs
+# - email_verification_tokens, password_reset_tokens
+# - oauth2_device_codes, webauthn_credentials
 ```
 
 ### 2. 检查 model.json 配置
 
 ```bash
 # 查看当前 ORM 生成配置
-cat OAuth2Server/model.json
+cat apps/server/model.json
 ```
 
 **标准配置**:
@@ -68,15 +66,13 @@ cat OAuth2Server/model.json
     "user": "test",
     "passwd": "123456",
     "tables": [
-        "users",
-        "roles",
-        "permissions",
-        "user_roles",
-        "role_permissions",
-        "oauth2_clients",
-        "oauth2_codes",
-        "oauth2_access_tokens",
-        "oauth2_refresh_tokens"
+        "organizations", "users", "roles", "permissions",
+        "user_roles", "role_permissions",
+        "oauth2_clients", "oauth2_codes", "oauth2_access_tokens", "oauth2_refresh_tokens",
+        "oauth2_scopes", "oauth2_client_scopes", "oauth2_user_consents",
+        "oauth2_subject_mappings", "audit_logs",
+        "email_verification_tokens", "password_reset_tokens",
+        "oauth2_device_codes", "webauthn_credentials"
     ]
 }
 ```
@@ -85,7 +81,7 @@ cat OAuth2Server/model.json
 
 ```powershell
 # Windows PowerShell
-cd OAuth2Server
+cd apps/server
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupDir = "models_backup_$timestamp"
 New-Item -ItemType Directory -Path $backupDir | Out-Null
@@ -102,7 +98,7 @@ Write-Host "✅ Models backed up to $backupDir"
 
 ```bash
 # Linux/macOS  
-cd OAuth2Server
+cd apps/server
 timestamp=$(date +%Y%m%d_%H%M%S)
 backup_dir="models_backup_$timestamp"
 mkdir -p $backup_dir
@@ -117,8 +113,8 @@ echo "✅ Models backed up to $backup_dir"
 
 ```powershell
 # Windows PowerShell
-# 检查 OAuth2Server 目录结构
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Server
+# 检查 apps/server 目录结构
+cd d:\work\development\Repos\cpp\projects\authforge\apps\server
 
 # 创建 models 目录（如果不存在）
 if (!(Test-Path "models")) {
@@ -132,7 +128,7 @@ cd models
 
 ```bash
 # Linux/macOS
-cd /path/to/authforge/OAuth2Server
+cd /path/to/authforge/apps/server
 
 # 创建 models 目录（如果不存在）
 mkdir -p models
@@ -177,7 +173,7 @@ scripts/backend/generate_models.bat -y
 
 ```bash
 # 确保在正确的目录
-cd OAuth2Server/models
+cd libs/storage-postgres/src/models
 
 # 执行 drogon_ctl 生成命令
 drogon_ctl create model ../
@@ -186,6 +182,7 @@ drogon_ctl create model ../
 **预期输出**:
 ```
 Generating models for tables:
+  - organizations
   - users
   - roles
   - permissions
@@ -195,6 +192,15 @@ Generating models for tables:
   - oauth2_codes
   - oauth2_access_tokens
   - oauth2_refresh_tokens
+  - oauth2_scopes
+  - oauth2_client_scopes
+  - oauth2_user_consents
+  - oauth2_subject_mappings
+  - audit_logs
+  - email_verification_tokens
+  - password_reset_tokens
+  - oauth2_device_codes
+  - webauthn_credentials
 
 Models generated successfully!
 ```
@@ -208,6 +214,7 @@ Get-ChildItem *.h, *.cc | Select-Object Name, LastWriteTime | Format-Table -Auto
 
 # 验证关键文件
 $requiredFiles = @(
+    "Organizations.h", "Organizations.cc",
     "Users.h", "Users.cc",
     "Roles.h", "Roles.cc",
     "Permissions.h", "Permissions.cc",
@@ -216,7 +223,16 @@ $requiredFiles = @(
     "Oauth2Clients.h", "Oauth2Clients.cc",
     "Oauth2Codes.h", "Oauth2Codes.cc",
     "Oauth2AccessTokens.h", "Oauth2AccessTokens.cc",
-    "Oauth2RefreshTokens.h", "Oauth2RefreshTokens.cc"
+    "Oauth2RefreshTokens.h", "Oauth2RefreshTokens.cc",
+    "Oauth2Scopes.h", "Oauth2Scopes.cc",
+    "Oauth2ClientScopes.h", "Oauth2ClientScopes.cc",
+    "Oauth2UserConsents.h", "Oauth2UserConsents.cc",
+    "Oauth2SubjectMappings.h", "Oauth2SubjectMappings.cc",
+    "AuditLogs.h", "AuditLogs.cc",
+    "EmailVerificationTokens.h", "EmailVerificationTokens.cc",
+    "PasswordResetTokens.h", "PasswordResetTokens.cc",
+    "Oauth2DeviceCodes.h", "Oauth2DeviceCodes.cc",
+    "WebauthnCredentials.h", "WebauthnCredentials.cc"
 )
 
 $missingFiles = @()
@@ -241,6 +257,7 @@ ls -lh *.h *.cc | awk '{print $9, $6, $7, $8}'
 
 # 验证关键文件
 required_files=(
+    "Organizations.h" "Organizations.cc"
     "Users.h" "Users.cc"
     "Roles.h" "Roles.cc"
     "Permissions.h" "Permissions.cc"
@@ -250,6 +267,15 @@ required_files=(
     "Oauth2Codes.h" "Oauth2Codes.cc"
     "Oauth2AccessTokens.h" "Oauth2AccessTokens.cc"
     "Oauth2RefreshTokens.h" "Oauth2RefreshTokens.cc"
+    "Oauth2Scopes.h" "Oauth2Scopes.cc"
+    "Oauth2ClientScopes.h" "Oauth2ClientScopes.cc"
+    "Oauth2UserConsents.h" "Oauth2UserConsents.cc"
+    "Oauth2SubjectMappings.h" "Oauth2SubjectMappings.cc"
+    "AuditLogs.h" "AuditLogs.cc"
+    "EmailVerificationTokens.h" "EmailVerificationTokens.cc"
+    "PasswordResetTokens.h" "PasswordResetTokens.cc"
+    "Oauth2DeviceCodes.h" "Oauth2DeviceCodes.cc"
+    "WebauthnCredentials.h" "WebauthnCredentials.cc"
 )
 
 missing_files=()
@@ -283,7 +309,7 @@ head -20 Oauth2Clients.h
 
 ```powershell
 # Windows PowerShell - 新的构建路径
-cd build/OAuth2Server
+cd build/apps/server
 cmake --build . --parallel --config Release
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ Build successful" -ForegroundColor Green
@@ -295,7 +321,7 @@ if ($LASTEXITCODE -eq 0) {
 
 ```bash
 # Linux/macOS
-cd build/OAuth2Server
+cd build/apps/server
 cmake --build . --parallel
 if [ $? -eq 0 ]; then
     echo "✅ Build successful"
@@ -327,6 +353,7 @@ ctest --output-on-failure -C Release
 
 | 表名 | 头文件 | 源文件 | 说明 |
 |------|--------|--------|------|
+| organizations | Organizations.h | Organizations.cc | 组织/租户表 |
 | users | Users.h | Users.cc | 用户账号表 |
 | roles | Roles.h | Roles.cc | 角色表 |
 | permissions | Permissions.h | Permissions.cc | 权限表 |
@@ -336,6 +363,15 @@ ctest --output-on-failure -C Release
 | oauth2_codes | Oauth2Codes.h | Oauth2Codes.cc | OAuth2 授权码表 |
 | oauth2_access_tokens | Oauth2AccessTokens.h | Oauth2AccessTokens.cc | OAuth2 访问令牌表 |
 | oauth2_refresh_tokens | Oauth2RefreshTokens.h | Oauth2RefreshTokens.cc | OAuth2 刷新令牌表 |
+| oauth2_scopes | Oauth2Scopes.h | Oauth2Scopes.cc | OAuth2 作用域表 |
+| oauth2_client_scopes | Oauth2ClientScopes.h | Oauth2ClientScopes.cc | 客户端-作用域关联表 |
+| oauth2_user_consents | Oauth2UserConsents.h | Oauth2UserConsents.cc | 用户授权同意表 |
+| oauth2_subject_mappings | Oauth2SubjectMappings.h | Oauth2SubjectMappings.cc | OAuth2 subject-内部用户映射表 |
+| audit_logs | AuditLogs.h | AuditLogs.cc | 审计日志表 |
+| email_verification_tokens | EmailVerificationTokens.h | EmailVerificationTokens.cc | 邮箱验证令牌表 |
+| password_reset_tokens | PasswordResetTokens.h | PasswordResetTokens.cc | 密码重置令牌表 |
+| oauth2_device_codes | Oauth2DeviceCodes.h | Oauth2DeviceCodes.cc | OAuth2 设备授权码表 |
+| webauthn_credentials | WebauthnCredentials.h | WebauthnCredentials.cc | WebAuthn/Passkey 凭证表 |
 
 ## 故障排除
 
@@ -401,13 +437,13 @@ psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
 **解决方案**:
 ```bash
 # 检查 model.json 配置
-cat OAuth2Server/model.json
+cat apps/server/model.json
 
 # 确保 tables 数组包含所有需要的表
 # 手动添加缺失的表名
 
 # 重新执行生成
-cd OAuth2Server
+cd apps/server
 drogon_ctl create model .
 ```
 
@@ -451,7 +487,7 @@ psql -h localhost -U oauth2_user -d oauth2_db -c "\d oauth2_clients"
 ### 1. 表结构变更流程
 ```bash
 # 1. 修改 migration SQL 脚本
-vim OAuth2Server/sql/migrations/V002__oauth2_core.sql
+vim apps/server/migrations/V002__oauth2_core.sql
 
 # 2. 重置数据库
 /db-reset
@@ -463,7 +499,7 @@ vim OAuth2Server/sql/migrations/V002__oauth2_core.sql
 /build-and-test
 
 # 5. 运行测试验证
-cd build/OAuth2Server && ctest --output-on-failure
+cd build/tests && ctest --output-on-failure
 ```
 
 ### 2. 备份策略
@@ -472,7 +508,7 @@ cd build/OAuth2Server && ctest --output-on-failure
 timestamp=$(date +%Y%m%d_%H%M%S)
 backup_dir="models_backup_$timestamp"
 mkdir -p $backup_dir
-cp OAuth2Server/*.h OAuth2Server/*.cc $backup_dir/
+cp libs/storage-postgres/src/models/*.h libs/storage-postgres/src/models/*.cc $backup_dir/
 
 # 保留最近 5 次备份
 ls -td models_backup_* | tail -n +6 | xargs rm -rf
@@ -498,14 +534,14 @@ ls -td models_backup_* | tail -n +6 | xargs rm -rf
 ```bash
 # .gitignore 配置
 # 自动生成的模型文件可以提交到版本控制
-OAuth2Server/models/*.h
-OAuth2Server/models/*.cc
+libs/storage-postgres/src/models/*.h
+libs/storage-postgres/src/models/*.cc
 
 # 但备份文件应该忽略
 models_backup_*/
 
 # model.json 应该提交
-OAuth2Server/model.json
+apps/server/model.json
 ```
 
 ## 代码审查要点
@@ -551,7 +587,7 @@ Models generated successfully!
 ✅ Tests passed
 ```
 
-且 `ls` 应显示所有 9 张表对应的模型文件（18 个文件：9 个 .h + 9 个 .cc）
+且 `ls` 应显示所有 19 张表对应的模型文件（38 个文件：19 个 .h + 19 个 .cc）
 
 ## 技术细节
 

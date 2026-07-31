@@ -90,18 +90,18 @@
 ### 方式一：通过 CTest（推荐）
 
 ```powershell
-# 在构建完成后执行
-cd OAuth2Server\build
+# 在构建完成后执行（目录为 build/<preset>，Windows Release 为 windows-msvc）
+cd build\windows-msvc
 ctest -V -C Release --output-on-failure --timeout 120
 ```
 
 ### 方式二：直接运行测试可执行文件
 
-测试可执行文件内部会自动启动 Drogon App 实例（`test_main.cc` 中通过信号量同步），**无需手动启动 OAuth2Server**。
+测试可执行文件内部会自动启动 Drogon App 实例（`test_main.cc` 中通过信号量同步），**无需手动启动后端服务**。
 
 ```powershell
-cd OAuth2Server\build\test\Release
-.\OAuth2Test_test.exe
+cd build\windows-msvc\tests\Release
+.\authforge-tests.exe
 ```
 
 ### 方式三：使用 Workflow
@@ -297,7 +297,7 @@ curl -X POST http://127.0.0.1:5555/oauth2/login \
 
 ### 9.2 调试技巧
 *   **日志级别**：在 `config.json` 中将 `log_level` 设置为 `DEBUG` 以获取详细输出。
-*   **实时日志**：使用 `Get-Content OAuth2Server/logs/drogon.log -Wait -Tail 20` 监控运行状态。
+*   **实时日志**：使用 `Get-Content apps/server/logs/drogon.log -Wait -Tail 20` 监控运行状态。
 
 ---
 

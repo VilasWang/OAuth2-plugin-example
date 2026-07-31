@@ -4,12 +4,12 @@
 Per requirements R15.9 / Property 2, this tool is the gate that every phase
 (starting at P3 acceptance gate) runs to assert HTTP behavior equivalence.
 P0 backed it with the static contract layer extracted from
-`OAuth2Server/openapi.yaml`. A future P7 backfill will extend this to a
+`apps/server/openapi.yaml`. A future P7 backfill will extend this to a
 live response capture via `--live <captured-snapshot>`.
 
 Inputs:
   --openapi  <path>    OpenAPI 3.x spec to extract from (default:
-                       OAuth2Server/openapi.yaml).
+                       apps/server/openapi.yaml).
   --baseline <path>    Baseline file produced by parse_endpoints.py
                        (default: tools/refactor-baseline/endpoints/openapi.signature.txt).
   --update-baseline    Overwrite the baseline with the current signature
@@ -42,7 +42,7 @@ sys.path.insert(0, str(BASELINE_DIR))
 
 import parse_endpoints  # type: ignore  # noqa: E402
 
-DEFAULT_OPENAPI = HERE.parent / "OAuth2Server" / "openapi.yaml"
+DEFAULT_OPENAPI = HERE.parent / "apps" / "server" / "openapi.yaml"
 DEFAULT_BASELINE = BASELINE_DIR / "endpoints" / "openapi.signature.txt"
 
 

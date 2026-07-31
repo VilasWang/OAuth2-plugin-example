@@ -6,6 +6,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 MANAGE="$PROJECT_DIR/manage.sh"
 
+# Load paths.env (repo root) - single source of truth for source/build/SQL
+# /config paths (Task 5 / M0, design.md review H2).
+PATHS_ENV_FILE="$PROJECT_DIR/paths.env"
+if [ ! -f "$PATHS_ENV_FILE" ]; then
+    echo "[Error] paths.env not found at $PATHS_ENV_FILE"
+    exit 1
+fi
+set -a
+# shellcheck disable=SC1090
+source "$PATHS_ENV_FILE"
+set +a
+COMPOSE_FILE_ABS="$PROJECT_DIR/$COMPOSE_FILE_REL"
+
 SERVER_PID=""
 RESULT=0
 
@@ -17,7 +30,7 @@ cleanup() {
     fi
     # Ensure docker is down (compose file was relocated to deploy/docker/)
     cd "$PROJECT_DIR"
-    docker-compose -f "$PROJECT_DIR/deploy/docker/docker-compose.yml" down 2>/dev/null || true
+    docker-compose -f "$COMPOSE_FILE_ABS" down 2>/dev/null || true
 }
 trap cleanup EXIT
 

@@ -1,0 +1,179 @@
+{
+    "rdbms": "postgresql",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "dbname": "oauth2_db",
+    "user": "oauth2_user",
+    "passwd": "123456",
+    "tables": [
+        "organizations",
+        "users",
+        "roles",
+        "permissions",
+        "user_roles",
+        "role_permissions",
+        "oauth2_clients",
+        "oauth2_access_tokens",
+        "oauth2_refresh_tokens",
+        "oauth2_codes",
+        "oauth2_scopes",
+        "oauth2_client_scopes",
+        "oauth2_user_consents",
+        "oauth2_subject_mappings",
+        "audit_logs",
+        "email_verification_tokens",
+        "password_reset_tokens",
+        "oauth2_device_codes",
+        "webauthn_credentials"
+    ],
+    "relationships": {
+        "enabled": true,
+        "items": [
+            {
+                "type": "has many",
+                "original_table_name": "oauth2_clients",
+                "original_table_alias": "client",
+                "original_key": "client_id",
+                "target_table_name": "oauth2_access_tokens",
+                "target_table_alias": "accessTokens",
+                "target_key": "client_id",
+                "enable_reverse": true
+            },
+            {
+                "type": "has many",
+                "original_table_name": "oauth2_clients",
+                "original_table_alias": "client",
+                "original_key": "client_id",
+                "target_table_name": "oauth2_refresh_tokens",
+                "target_table_alias": "refreshTokens",
+                "target_key": "client_id",
+                "enable_reverse": true
+            },
+            {
+                "type": "has many",
+                "original_table_name": "oauth2_clients",
+                "original_table_alias": "client",
+                "original_key": "client_id",
+                "target_table_name": "oauth2_codes",
+                "target_table_alias": "authCodes",
+                "target_key": "client_id",
+                "enable_reverse": true
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "oauth2_access_tokens",
+                "target_table_alias": "accessTokens",
+                "target_key": "user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "many to many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "pivot_table": {
+                    "table_name": "user_roles",
+                    "original_key": "user_id",
+                    "target_key": "role_id"
+                },
+                "target_table_name": "roles",
+                "target_table_alias": "role",
+                "target_key": "id",
+                "enable_reverse": true
+            },
+            {
+                "type": "many to many",
+                "original_table_name": "roles",
+                "original_table_alias": "role",
+                "original_key": "id",
+                "pivot_table": {
+                    "table_name": "role_permissions",
+                    "original_key": "role_id",
+                    "target_key": "permission_id"
+                },
+                "target_table_name": "permissions",
+                "target_table_alias": "permission",
+                "target_key": "id",
+                "enable_reverse": true
+            },
+            {
+                "type": "many to many",
+                "original_table_name": "oauth2_clients",
+                "original_table_alias": "client",
+                "original_key": "client_id",
+                "pivot_table": {
+                    "table_name": "oauth2_client_scopes",
+                    "original_key": "client_id",
+                    "target_key": "scope_name"
+                },
+                "target_table_name": "oauth2_scopes",
+                "target_table_alias": "scope",
+                "target_key": "name",
+                "enable_reverse": true
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "oauth2_user_consents",
+                "target_table_alias": "userConsents",
+                "target_key": "internal_user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "oauth2_subject_mappings",
+                "target_table_alias": "subjectMappings",
+                "target_key": "internal_user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "email_verification_tokens",
+                "target_table_alias": "emailVerificationTokens",
+                "target_key": "user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "password_reset_tokens",
+                "target_table_alias": "passwordResetTokens",
+                "target_key": "user_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "oauth2_clients",
+                "original_table_alias": "client",
+                "original_key": "client_id",
+                "target_table_name": "oauth2_device_codes",
+                "target_table_alias": "deviceCodes",
+                "target_key": "client_id",
+                "enable_reverse": false
+            },
+            {
+                "type": "has many",
+                "original_table_name": "users",
+                "original_table_alias": "user",
+                "original_key": "id",
+                "target_table_name": "webauthn_credentials",
+                "target_table_alias": "webauthnCredentials",
+                "target_key": "user_id",
+                "enable_reverse": false
+            }
+        ]
+    }
+}

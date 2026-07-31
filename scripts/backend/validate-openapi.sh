@@ -50,7 +50,7 @@ fi
 
 # 2. Run OpenAPI tests
 print_section "Running OpenAPI Tests"
-cd "$PROJECT_DIR/build"
+cd "$BUILD_ABS_DIR"
 if ctest -C Debug --output-on-failure; then
     check_result 0 "Tests passed"
 else
@@ -62,10 +62,10 @@ print_section "Validating OpenAPI JSON"
 
 # Find openapi.json in common build locations
 SEARCH_PATHS=(
-    "$PROJECT_DIR/build/OAuth2Server/test/Debug/docs/api/openapi.json"
-    "$PROJECT_DIR/build/OAuth2Server/test/docs/api/openapi.json"
-    "$PROJECT_DIR/build/OAuth2Server/docs/api/openapi.json"
-    "$PROJECT_DIR/OAuth2Server/docs/api/openapi.json"
+    "$BUILD_ABS_DIR/$OAUTH2_SERVER_DIR/test/Debug/docs/api/openapi.json"
+    "$BUILD_ABS_DIR/$OAUTH2_SERVER_DIR/test/docs/api/openapi.json"
+    "$BUILD_ABS_DIR/$OAUTH2_SERVER_DIR/docs/api/openapi.json"
+    "$OAUTH2_SERVER_ABS_DIR/docs/api/openapi.json"
 )
 
 OPENAPI_FILE=""

@@ -1,0 +1,568 @@
+#include <authforge/drogon/admin/ClientManagementService.h>
+
+#include <authforge/storage/postgres/models/Oauth2Clients.h>
+#include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
+
+#include <drogon/drogon.h>
+#include <drogon/utils/Utilities.h>
+
+#include <atomic>
+#include <mutex>
+#include <sstream>
+
+namespace authforge::drogon::admin
+{
+
+namespace
+{
+// Emit an Application error via the unified ErrorResponder entry point so the
+// body is always an Error Envelope (Requirement 7.1 / 7.3 / 7.5). Verbatim
+// from the pre-29b ClientAdminController's anonymous-namespace helper --
+// behavior unchanged.
+void respondError(
+  const ::drogon::HttpRequestPtr &req,
+  const ClientManagementService::ResponseCallback &cb,
+  std::string code,
+  std::string detailForLog = ""
+)
+{
+    ::authforge::common::error::ErrorResponder::respond(
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
+    );
+}
+
+// Lazily resolve the DbClient the way the controllers used to (global lookup).
+// Kept identical so connection-error behavior is unchanged.
+::drogon::orm::DbClientPtr getDbOrRespond(
+  const ::drogon::HttpRequestPtr &req,
+  const ClientManagementService::ResponseCallback &cb
+)
+{
+    try
+    {
+        return ::drogon::app().getDbClient();
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_CONNECTION_ERROR", "Database unavailable");
+        return nullptr;
+    }
+}
+}  // namespace
+
+// Bring the ORM + model names into scope for the out-of-class method
+// definitions below (mirrors PostgresClientRepository.cc's same pattern). These
+// must live INSIDE the authforge::drogon::admin namespace so the method bodies
+// (which are in this namespace) can see them. NOTE: `drogon::` and
+// `drogon_model::` MUST be globally qualified (::) here -- inside
+// authforge::drogon::admin, a bare `drogon::` resolves to authforge::drogon
+// first (the namespace-visibility trap documented in design.md §5.5 / Task 20).
+using namespace ::drogon::orm;
+using namespace ::drogon_model::oauth2_db;
+
+void ClientManagementService::listClients(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
+{
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    // Mapper::findBy with an empty Criteria returns all rows (matches the
+    // original `SELECT ... ORDER BY client_id`). ORDER BY client_id is applied
+    // post-fetch since Mapper doesn't carry an order API here; the original
+    // ORDER BY client_id was only a stable-display ordering, not a behavioral
+    // contract (Admin API tests don't depend on order).
+    Mapper<Oauth2Clients> mapper(db);
+    mapper.findBy(
+      Criteria(),
+      [cb](const std::vector<Oauth2Clients> &rows) {
+          Json::Value json;
+          json["status"] = "success";
+          Json::Value clients(Json::arrayValue);
+          for (const auto &row : rows)
+          {
+              Json::Value client;
+              client["client_id"] = row.getValueOfClientId();
+              client["client_type"] = row.getValueOfClientType();
+              client["name"] = row.getValueOfName();
+              client["redirect_uris"] = row.getValueOfRedirectUris();
+              client["allowed_grant_types"] = row.getValueOfAllowedGrantTypes();
+              clients.append(client);
+          }
+          json["clients"] = clients;
+          json["total"] = static_cast<int>(rows.size());
+          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to fetch clients: ") + e.base().what()
+          );
+      }
+    );
+}
+
+void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
+{
+    std::string name;
+    std::string redirectUris;
+    std::string allowedGrantTypes = "authorization_code";
+    std::string clientType = "CONFIDENTIAL";
+
+    auto jsonBody = req->getJsonObject();
+    if (jsonBody)
+    {
+        name = jsonBody->get("name", "").asString();
+        redirectUris = jsonBody->get("redirect_uris", "").asString();
+        allowedGrantTypes = jsonBody->get("allowed_grant_types", "authorization_code").asString();
+        clientType = jsonBody->get("client_type", "CONFIDENTIAL").asString();
+    }
+
+    std::string clientId = ::drogon::utils::getUuid();
+    std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string secretHash = ::authforge::drogon::utils::hashToken(clientSecret);
+    std::string salt = ::drogon::utils::getUuid().substr(0, 36);
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Oauth2Clients row;
+    row.setClientId(clientId);
+    row.setClientType(clientType);
+    row.setClientSecret(secretHash);
+    row.setSalt(salt);
+    row.setName(name);
+    row.setRedirectUris(redirectUris);
+    row.setAllowedGrantTypes(allowedGrantTypes);
+
+    Mapper<Oauth2Clients> mapper(db);
+    mapper.insert(
+      row,
+      [cb, clientId, clientSecret](const Oauth2Clients &) {
+          Json::Value json;
+          json["status"] = "success";
+          json["message"] = "Client created successfully";
+          json["client_id"] = clientId;
+          json["client_secret"] = clientSecret;  // Only returned once at creation time
+          json["note"] = "Store the client_secret securely. It will not be shown again.";
+          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+          resp->setStatusCode(::drogon::k201Created);
+          (*cb)(resp);
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to create client: ") + e.base().what()
+          );
+      }
+    );
+}
+
+void ClientManagementService::getClient(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &clientId
+)
+{
+    if (clientId.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "clientId is required");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Clients> mapper(db);
+    mapper.findOne(
+      Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
+      [cb, req, clientId, db](const Oauth2Clients &row) {
+          Json::Value json;
+          json["status"] = "success";
+          json["client_id"] = row.getValueOfClientId();
+          json["client_type"] = row.getValueOfClientType();
+          json["name"] = row.getValueOfName();
+          json["redirect_uris"] = row.getValueOfRedirectUris();
+          json["allowed_grant_types"] = row.getValueOfAllowedGrantTypes();
+
+          // Fetch scopes for this client (separate query -- JOIN-in-a-single-
+          // query is forbidden per db-operations.md; the original code already
+          // did this as a second execSqlAsync).
+          Mapper<Oauth2ClientScopes> scopeMapper(db);
+          scopeMapper.findBy(
+            Criteria(Oauth2ClientScopes::Cols::_client_id, CompareOperator::EQ, clientId),
+            [json, cb](const std::vector<Oauth2ClientScopes> &scopeRows) mutable {
+                Json::Value scopes(Json::arrayValue);
+                for (const auto &scopeRow : scopeRows)
+                {
+                    scopes.append(scopeRow.getValueOfScopeName());
+                }
+                Json::Value resp = json;
+                resp["scopes"] = scopes;
+                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(resp));
+            },
+            [json, cb](const ::drogon::orm::DrogonDbException &) mutable {
+                // Return client info even if scope query fails (preserved behavior)
+                Json::Value resp = json;
+                resp["scopes"] = Json::Value(Json::arrayValue);
+                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(resp));
+            }
+          );
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          // NoRowsException is a subclass of DrogonDbException -- matches the
+          // original "empty result -> not found" branch.
+          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
+          (void)e;
+      }
+    );
+}
+
+void ClientManagementService::updateClient(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &clientId
+)
+{
+    if (clientId.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "clientId is required");
+        return;
+    }
+
+    auto jsonBody = req->getJsonObject();
+    if (!jsonBody)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "Invalid JSON body");
+        return;
+    }
+
+    // Track which fields the request wants to change (matches the original
+    // dynamic SET-clause builder). Mapper::update persists the whole row, so
+    // we only set the fields that are present to avoid clobbering others.
+    bool hasName = jsonBody->isMember("name");
+    bool hasRedirectUris = jsonBody->isMember("redirect_uris");
+    bool hasGrantTypes = jsonBody->isMember("allowed_grant_types");
+    if (!hasName && !hasRedirectUris && !hasGrantTypes)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "No fields to update");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Clients> mapper(db);
+    mapper.findOne(
+      Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
+      [cb, req, clientId, jsonBody, hasName, hasRedirectUris, hasGrantTypes, db](
+        Oauth2Clients row
+      ) {
+          if (hasName)
+          {
+              row.setName((*jsonBody)["name"].asString());
+          }
+          if (hasRedirectUris)
+          {
+              row.setRedirectUris((*jsonBody)["redirect_uris"].asString());
+          }
+          if (hasGrantTypes)
+          {
+              row.setAllowedGrantTypes((*jsonBody)["allowed_grant_types"].asString());
+          }
+          Mapper<Oauth2Clients> updateMapper(db);
+          updateMapper.update(
+            row,
+            [cb, req, clientId](const size_t) {
+                Json::Value json;
+                json["status"] = "success";
+                json["message"] = "Client updated successfully";
+                json["client_id"] = clientId;
+                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to update client: ") + e.base().what()
+                );
+            }
+          );
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          // Row not found -- equivalent to the original affectedRows==0 branch.
+          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
+          (void)e;
+      }
+    );
+}
+
+void ClientManagementService::deleteClient(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &clientId
+)
+{
+    if (clientId.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "clientId is required");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Clients> mapper(db);
+    mapper.deleteBy(
+      Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
+      [cb, req, clientId](const size_t affected) {
+          if (affected == 0)
+          {
+              respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
+              return;
+          }
+          Json::Value json;
+          json["status"] = "success";
+          json["message"] = "Client deleted successfully";
+          json["client_id"] = clientId;
+          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to delete client: ") + e.base().what()
+          );
+      }
+    );
+}
+
+void ClientManagementService::resetClientSecret(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &clientId
+)
+{
+    if (clientId.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "clientId is required");
+        return;
+    }
+
+    std::string newSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string newSecretHash = ::authforge::drogon::utils::hashToken(newSecret);
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Clients> mapper(db);
+    mapper.findOne(
+      Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
+      [cb, req, clientId, newSecret, newSecretHash, db](Oauth2Clients row) {
+          row.setClientSecret(newSecretHash);
+          Mapper<Oauth2Clients> updateMapper(db);
+          updateMapper.update(
+            row,
+            [cb, clientId, newSecret](const size_t) {
+                Json::Value json;
+                json["status"] = "success";
+                json["message"] = "Client secret reset successfully";
+                json["client_id"] = clientId;
+                json["client_secret"] = newSecret;
+                json["note"] = "Store the new client_secret securely. It will not be shown again.";
+                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to reset client secret: ") + e.base().what()
+                );
+            }
+          );
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
+          (void)e;
+      }
+    );
+}
+
+void ClientManagementService::getClientScopes(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &clientId
+)
+{
+    if (clientId.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "clientId is required");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2ClientScopes> mapper(db);
+    mapper.findBy(
+      Criteria(Oauth2ClientScopes::Cols::_client_id, CompareOperator::EQ, clientId),
+      [cb](const std::vector<Oauth2ClientScopes> &rows) {
+          Json::Value json;
+          json["status"] = "success";
+          Json::Value scopes(Json::arrayValue);
+          for (const auto &row : rows)
+          {
+              scopes.append(row.getValueOfScopeName());
+          }
+          json["scopes"] = scopes;
+          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req,
+            cb,
+            "DB_QUERY_ERROR",
+            std::string("Failed to fetch client scopes: ") + e.base().what()
+          );
+      }
+    );
+}
+
+void ClientManagementService::updateClientScopes(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &clientId
+)
+{
+    if (clientId.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "clientId is required");
+        return;
+    }
+
+    auto jsonBody = req->getJsonObject();
+    if (!jsonBody || !jsonBody->isMember("scopes") || !(*jsonBody)["scopes"].isArray())
+    {
+        respondError(
+          req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Request body must contain a 'scopes' array"
+        );
+        return;
+    }
+
+    std::vector<std::string> scopes;
+    for (const auto &scope : (*jsonBody)["scopes"])
+    {
+        if (scope.isString())
+        {
+            scopes.push_back(scope.asString());
+        }
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    // Preserve the original transactional semantics: delete existing scopes for
+    // the client, then insert the new set atomically. db->newTransaction() is
+    // used (Mapper operates on the transaction's DbClient connection via the
+    // same Mapper<T> API -- the only raw-SQL exemption here would be none; we
+    // use Mapper deleteBy + insert on the transaction connection).
+    auto transaction = db->newTransaction();
+    Mapper<Oauth2ClientScopes> mapper(transaction);
+    mapper.deleteBy(
+      Criteria(Oauth2ClientScopes::Cols::_client_id, CompareOperator::EQ, clientId),
+      [cb, req, clientId, scopes, transaction](const size_t) {
+          if (scopes.empty())
+          {
+              Json::Value json;
+              json["status"] = "success";
+              json["message"] = "Scopes updated";
+              json["scopes"] = Json::Value(Json::arrayValue);
+              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+              return;
+          }
+
+          auto remaining = std::make_shared<std::atomic<int>>(static_cast<int>(scopes.size()));
+          auto insertedScopes = std::make_shared<std::vector<std::string>>();
+          auto mu = std::make_shared<std::mutex>();
+
+          for (const auto &scopeName : scopes)
+          {
+              Oauth2ClientScopes scopeRow;
+              scopeRow.setClientId(clientId);
+              scopeRow.setScopeName(scopeName);
+              Mapper<Oauth2ClientScopes> insertMapper(transaction);
+              insertMapper.insert(
+                scopeRow,
+                [cb, scopeName, remaining, insertedScopes, mu](const Oauth2ClientScopes &) {
+                    {
+                        std::lock_guard<std::mutex> lock(*mu);
+                        insertedScopes->push_back(scopeName);
+                    }
+                    if (remaining->fetch_sub(1) == 1)
+                    {
+                        Json::Value json;
+                        json["status"] = "success";
+                        json["message"] = "Scopes updated";
+                        Json::Value scopesJson(Json::arrayValue);
+                        {
+                            std::lock_guard<std::mutex> lock(*mu);
+                            for (const auto &s : *insertedScopes)
+                            {
+                                scopesJson.append(s);
+                            }
+                        }
+                        json["scopes"] = scopesJson;
+                        (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                    }
+                },
+                [cb, req, remaining](const ::drogon::orm::DrogonDbException &e) {
+                    if (remaining->fetch_sub(1) == 1)
+                    {
+                        respondError(
+                          req,
+                          cb,
+                          "DB_QUERY_ERROR",
+                          std::string("Failed to assign some scopes: ") + e.base().what()
+                        );
+                    }
+                }
+              );
+          }
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req,
+            cb,
+            "DB_QUERY_ERROR",
+            std::string("Failed to clear existing scopes: ") + e.base().what()
+          );
+      }
+    );
+}
+
+}  // namespace authforge::drogon::admin

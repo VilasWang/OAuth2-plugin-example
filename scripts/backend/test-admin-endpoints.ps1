@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $passed = 0
 $failed = 0
-$total = 51
+$total = 52
 
 # Import common functions
 . "$PSScriptRoot\common-test-functions.ps1"
@@ -297,16 +297,34 @@ Test-Endpoint "Test 11: GET /api/admin/oidc/keys" {
 
 Test-Endpoint "Test 11b: DELETE /api/admin/tokens/:tokenPrefix - Single Revoke" {
     $h = Get-AuthHeaders
-    # Get a token prefix from the token list
-    $list = Invoke-RestMethod -Uri "$BaseUrl/api/admin/tokens?page=1&per_page=10" -Method Get -Headers $h
-    if ($list.tokens.Count -eq 0) {
-        Write-Host "    Skipped: no tokens to revoke"
-        return
+    # Issue a dedicated throwaway token to revoke. Never pick tokens[0] from the
+    # list here: it is ordered by issued_at DESC, so the first row IS this
+    # script's own live admin session -- revoking its prefix cascades 401s
+    # through every remaining test.
+    $loginBody = @{
+        username = 'admin'; password = 'admin'
+        client_id = 'admin-console'
+        redirect_uri = 'http://localhost:5174/admin/callback'
+        scope = 'openid profile admin'
+        state = 'admin-test-11b'; json = 'true'
     }
-    $prefix = $list.tokens[0].token_prefix
+    $login = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body $loginBody
+    if (-not $login.code) { throw "no auth code for throwaway token" }
+    $tok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
+        grant_type = 'authorization_code'; code = $login.code
+        redirect_uri = 'http://localhost:5174/admin/callback'
+        client_id = 'admin-console'; client_secret = ''
+    }
+    if (-not $tok.access_token) { throw "no throwaway access_token" }
+    # Server stores SHA-256(raw) uppercase hex (CryptoUtils::hashToken);
+    # token_prefix is its first 8 chars, so we can target the throwaway
+    # token deterministically without consulting the list.
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $hash = ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($tok.access_token)) | ForEach-Object { $_.ToString('X2') }) -join ''
+    $prefix = $hash.Substring(0, 8)
     $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/tokens/$prefix" -Method Delete -Headers $h
     if ($r.status -ne "success") { throw "status != success" }
-    Write-Host "    Revoked token prefix: $prefix"
+    Write-Host "    Revoked throwaway token prefix: $prefix"
 }
 
 # ========================================

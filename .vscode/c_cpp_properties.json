@@ -4,8 +4,7 @@
             "name": "Windows",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/OAuth2Plugin/**",
-                "${workspaceFolder}/OAuth2Server/**",
+                "${workspaceFolder}/apps/server/**",
                 "${env:ProgramFiles}/drogon/include",
                 "${env:ProgramFiles}/PostgreSQL/13/include",
                 "${env:ProgramFiles}/PostgreSQL/13/include/server",

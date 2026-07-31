@@ -218,11 +218,11 @@ docker-compose -f deploy/docker/docker-compose.yml up -d oauth2-postgres oauth2-
 .\scripts\backend\run_server.bat -debug
 
 # 3. 本地运行前端（新终端）
-cd OAuth2Frontend
+cd frontends/user
 npm run dev
 
 # 4. 本地运行管理后台（新终端）
-cd OAuth2Admin
+cd frontends/admin
 npm run dev
 ```
 
@@ -257,10 +257,11 @@ docker-compose -f deploy/docker/docker-compose.debug.yml up -d
 # 进入容器
 docker-compose -f deploy/docker/docker-compose.debug.yml exec debug-env bash
 
-# 在容器内编译和调试
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-gdb build/OAuth2Server/OAuth2Server
+# 在容器内编译和调试（与宿主机一致，走 Conan + cmake --preset）
+conan install . --output-folder=build/linux-debug -s build_type=Debug -s compiler.cppstd=17 --build=missing
+cmake --preset linux-debug
+cmake --build --preset linux-debug
+gdb build/linux-debug/apps/server/authforge-server
 ```
 
 ---

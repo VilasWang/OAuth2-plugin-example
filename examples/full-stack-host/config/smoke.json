@@ -1,0 +1,64 @@
+{
+    "listeners": [
+        {
+            "address": "127.0.0.1",
+            "port": 6789,
+            "https": false
+        }
+    ],
+    "db_clients": [],
+    "redis_clients": [],
+    "app": {
+        "number_of_threads": 1,
+        "enable_session": true,
+        "session_timeout": 3600,
+        "document_root": "./",
+        "load_dynamic_views": false,
+        "log": {
+            "use_spdlog": false,
+            "log_level": "WARN",
+            "display_local_time": true
+        },
+        "run_as_daemon": false,
+        "handle_sig_term": false,
+        "relaunch_on_error": false
+    },
+    "plugins": [
+        {
+            "name": "OAuth2Plugin",
+            "dependencies": [],
+            "config": {
+                "storage_type": "memory",
+                "redis": {
+                    "client_name": "default"
+                },
+                "postgres": {
+                    "db_client_name": "default"
+                },
+                "clients": {
+                    "vue-client": {
+                        "type": "PUBLIC",
+                        "secret": "123456",
+                        "redirect_uri": "http://localhost:5173/callback",
+                        "allowed_scopes": ["openid", "profile", "email"]
+                    }
+                },
+                "admin_users": {
+                    "admin": ["admin", "user"]
+                },
+                "tokens": {
+                    "auth_code_ttl": 600,
+                    "access_token_ttl": 3600,
+                    "refresh_token_ttl": 2592000
+                },
+                "cleanup_interval_seconds": 3600
+            }
+        }
+    ],
+    "custom_config": {
+        "frontend": {
+            "url": "http://localhost:5173",
+            "register_path": "/register"
+        }
+    }
+}

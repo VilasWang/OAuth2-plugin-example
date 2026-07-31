@@ -2,14 +2,19 @@
 # Naming validator for DROGON_TEST
 # Usage: ./naming_validator.sh <directory_to_scan>
 
-TARGET_DIR=${1:-"OAuth2Backend/test"}
+TARGET_DIR=${1:-"tests"}
 
 echo "Scanning directory: $TARGET_DIR for naming violations..."
 
-# Find all DROGON_TEST macro usages, extract the name inside parentheses
-invalid_names=$(grep -rh "DROGON_TEST(" "$TARGET_DIR" --include="*.cc" | \
-    sed 's/.*DROGON_TEST(\([^)]*\)).*/\1/' | \
-    grep -vE '^(Unit|Integration|E2E|Performance|Security|API|Database|Acceptance)_P[0-3]_')
+# Extract every DROGON_TEST name. Multiline-aware: clang-format may wrap the
+# name onto the line after `DROGON_TEST(`, so a line-by-line grep|sed both
+# misses those names and emits garbage. -z treats the file as one buffer,
+# (?m)^\s* anchors the macro at line start (skips // comment mentions), and
+# \K keeps only the identifier token. Each record is `file.cc:TestName`, so
+# the compliance filter anchors on the colon (keeping the file for diagnostics).
+invalid_names=$(grep -rzoP '(?m)^\s*DROGON_TEST\(\s*\K\w+' "$TARGET_DIR" --include="*.cc" | \
+    tr '\0' '\n' | \
+    grep -vE ':(Unit|Integration|E2E|Performance|Security|API|Database|Acceptance)_P[0-3]_')
 
 if [ -n "$invalid_names" ]; then
     echo ""

@@ -72,17 +72,17 @@ CI 在同一 Job 中自动启动 Postgres 和 Redis 容器，并通过健康检�
 
 ```bash
 # 按顺序执行所有 migration 文件
-for f in OAuth2Server/sql/migrations/V*.sql; do
+for f in apps/server/migrations/V*.sql; do
     psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
 done
 
 # 执行 seed 数据（开发/测试环境）
-for f in OAuth2Server/sql/seed/*.sql; do
+for f in apps/server/seed/*.sql; do
     psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
 done
 ```
 
-> **注意**: 旧的 `sql/001_*.sql` ~ `sql/004_*.sql` 文件已废弃并删除，所有 schema 定义统一在 `sql/migrations/` 目录中管理。
+> **注意**: 旧的 `sql/001_*.sql` ~ `sql/004_*.sql` 文件已废弃并删除，所有 schema 定义统一在 `apps/server/migrations/` 目录中管理。
 
 ### 3.4 测试执行
 
@@ -97,8 +97,8 @@ ctest -V -C Release --output-on-failure --timeout 120
 ### 3.5 失败日志上传
 
 测试失败时，CI 会自动打包并上传以下内容作为 Artifact（保留 7 天）：
-- `OAuth2Server/build/Testing/` — CTest 测试报告
-- `OAuth2Server/logs/` — 应用运行日志
+- `build/Testing/` — CTest 测试报告
+- `apps/server/logs/` — 应用运行日志
 
 ---
 
@@ -126,16 +126,16 @@ docker run -d -p 6379:6379 redis:alpine
 
 # 2. 初始化数据库
 $env:PGPASSWORD = "123456"
-Get-ChildItem "OAuth2Server\sql\migrations\V*.sql" | Sort-Object Name | ForEach-Object {
+Get-ChildItem "apps\server\migrations\V*.sql" | Sort-Object Name | ForEach-Object {
     psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
 }
-Get-ChildItem "OAuth2Server\sql\seed\*.sql" | ForEach-Object {
+Get-ChildItem "apps\server\seed\*.sql" | ForEach-Object {
     psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
 }
 
-# 3. 构建并运行测试
+# 3. 构建并运行测试（build.bat 走 Conan + cmake --preset，Release 落到 build/windows-msvc）
 .\scripts\backend\build.bat -release
-cd build
+cd build\windows-msvc
 $env:OAUTH2_REDIS_PASSWORD = ""
 ctest -V -C Release --output-on-failure
 ```

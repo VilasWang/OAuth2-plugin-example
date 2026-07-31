@@ -10,10 +10,11 @@ if ! command -v drogon_ctl &>/dev/null; then
     exit 1
 fi
 
-MODELS_SRC_DIR="$PROJECT_DIR/OAuth2Plugin/src/models"
-MODELS_INC_DIR="$PROJECT_DIR/OAuth2Plugin/include/oauth2/models"
-MODELS_BACKUP="$PROJECT_DIR/OAuth2Plugin/models_backup"
-MODEL_JSON_DIR="$PROJECT_DIR/OAuth2Server"
+# ORM models live in libs/storage-postgres (M2b Task 18; paths.env rebased
+# in Phase 4 when the old OAuth2Plugin/ directory was deleted).
+MODELS_SRC_DIR="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_SRC_REL_DIR"
+MODELS_INC_DIR="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_INC_REL_DIR"
+MODELS_BACKUP="$LIBS_STORAGE_POSTGRES_ABS_DIR/$MODELS_BACKUP_REL_DIR"
 
 echo ""
 echo "========================================"
@@ -47,11 +48,14 @@ fi
 echo "Generating ORM models..."
 mkdir -p "$MODELS_SRC_DIR"
 
-cd "$MODEL_JSON_DIR"
+# drogon_ctl reads model.json FROM the target dir and writes output there.
+# Run from the repo root and pass the models dir directly -- no ../.. depth
+# hack, no dependency on any model.json copy under apps/server.
+cd "$PROJECT_DIR"
 if [ $AUTO_MODE -eq 1 ]; then
-    echo "y" | drogon_ctl create model "../OAuth2Plugin/src/models"
+    echo "y" | drogon_ctl create model "$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 else
-    drogon_ctl create model "../OAuth2Plugin/src/models"
+    drogon_ctl create model "$LIBS_STORAGE_POSTGRES_DIR/$MODELS_SRC_REL_DIR"
 fi
 
 echo "Moving header files to $MODELS_INC_DIR..."

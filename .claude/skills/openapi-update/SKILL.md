@@ -15,12 +15,12 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
 ## 工作流程
 
 1. **分析当前控制器**
-   - 读取`OAuth2Server/controllers/OAuth2Controller.cc`
-   - 读取`OAuth2Server/controllers/WeChatController.cc`
+   - 读取`libs/drogon/src/controllers/AuthorizationEndpointController.cc`
+   - 读取`libs/drogon/src/controllers/WeChatController.cc`
    - 识别所有路由端点和参数
 
 2. **比较现有OpenAPI规范**
-   - 读取`OAuth2Server/openapi.yaml`
+   - 读取`apps/server/openapi.yaml`
    - 检查是否有新的端点
    - 检查是否有参数变更
    - 检查是否有响应格式变更
@@ -40,7 +40,7 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
 
 ```bash
 # 使用验证脚本（Linux/macOS）
-scripts/backend/validate-openapi.sh OAuth2Server/openapi.yaml
+scripts/backend/validate-openapi.sh apps/server/openapi.yaml
 
 # 或手动验证 YAML 语法
 # 检查缩进是否正确
@@ -52,7 +52,7 @@ scripts/backend/validate-openapi.sh OAuth2Server/openapi.yaml
 ```powershell
 # 检查 YAML 语法
 try {
-    $yaml = Get-Content "OAuth2Server/openapi.yaml" -Raw
+    $yaml = Get-Content "apps/server/openapi.yaml" -Raw
     Write-Host "✅ YAML syntax valid"
 } catch {
     Write-Host "❌ YAML syntax error: $_"
@@ -112,7 +112,7 @@ foreach ($field in $requiredFields) {
 
 ```bash
 # 更新规范后提交到 Git
-git add OAuth2Server/openapi.yaml
+git add apps/server/openapi.yaml
 git commit -m "docs: update OpenAPI specification for endpoint changes"
 
 # 如果有重大变更，更新 API 版本号

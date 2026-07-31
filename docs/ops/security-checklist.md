@@ -21,13 +21,13 @@ secrets/
 credentials/
 
 # Frontend runtime config with production credentials
-OAuth2Frontend/public/config.json
+frontends/user/public/config.json
 ```
 
 ### 2. 安全文件结构
 
 ```
-OAuth2Frontend/
+frontends/user/
 ├── .env                    # ❌ 被忽略 - 包含实际凭证
 ├── .env.example            # ✅ 可提交 - 仅包含示例
 ├── public/
@@ -43,7 +43,7 @@ OAuth2Frontend/
 ### 开发环境配置
 
 - [ ] **从不提交** `.env` 文件到版本控制
-- [ ] **从不提交** `OAuth2Frontend/public/config.json` 到版本控制
+- [ ] **从不提交** `frontends/user/public/config.json` 到版本控制
 - [ ] **仅提交** `.env.example` 和 `config.example.json` 作为模板
 - [ ] 确保 `.env.example` 和 `config.example.json` 仅包含占位符，不含真实凭证
 
@@ -63,7 +63,7 @@ OAuth2Frontend/
 git ls-files | grep "\.env$"
 
 # 检查是否有前端 config.json 被跟踪
-git ls-files | grep "OAuth2Frontend/public/config.json"
+git ls-files | grep "frontends/user/public/config.json"
 
 # 检查当前 git 状态
 git status
@@ -79,12 +79,12 @@ git diff --no-ext-diff | grep -i "secret\|password\|token\|api_key\|appid"
 ```bash
 # 1. 从 git 历史中移除敏感文件
 git filter-branch --force --index-filter \
-  "git rm --cached --ignore-unmatch OAuth2Frontend/.env" \
+  "git rm --cached --ignore-unmatch frontends/user/.env" \
   --prune-empty --tag-name-filter cat -- --all
 
 # 2. 从 git 历史中移除前端配置
 git filter-branch --force --index-filter \
-  "git rm --cached --ignore-unmatch OAuth2Frontend/public/config.json" \
+  "git rm --cached --ignore-unmatch frontends/user/public/config.json" \
   --prune-empty --tag-name-filter cat -- --all
 
 # 3. 强制推送到远程（⚠️ 谨慎操作）
@@ -113,7 +113,7 @@ git gc --prune=now --aggressive
 # Pre-commit hook to prevent sensitive files from being committed
 
 # 检查是否有 .env 文件被提交
-if git diff --cached --name-only | grep -E "\.env$|OAuth2Frontend/public/config\.json"; then
+if git diff --cached --name-only | grep -E "\.env$|frontends/user/public/config\.json"; then
     echo "❌ 错误: 尝试提交敏感配置文件！"
     echo "   请检查 .gitignore 配置"
     exit 1
@@ -145,27 +145,27 @@ chmod +x .git/hooks/pre-commit
 
 ```bash
 # 1. 验证没有使用示例配置
-grep -r "YOUR_" OAuth2Frontend/dist/
-grep -r "your-domain.com" OAuth2Frontend/dist/
+grep -r "YOUR_" frontends/user/dist/
+grep -r "your-domain.com" frontends/user/dist/
 
 # 2. 验证环境变量已设置
 env | grep VITE_
 
 # 3. 验证生产构建不包含开发配置
-cat OAuth2Frontend/dist/config.json 2>/dev/null || echo "✅ config.json 不存在于构建中"
+cat frontends/user/dist/config.json 2>/dev/null || echo "✅ config.json 不存在于构建中"
 ```
 
 ### 后端部署检查
 
 ```bash
 # 1. 验证配置文件权限
-ls -la OAuth2Server/config*.json
+ls -la apps/server/config/config*.json
 
 # 2. 验证日志目录权限
-ls -la OAuth2Server/logs/
+ls -la apps/server/logs/
 
 # 3. 验证数据库密码不为空
-grep "passwd" OAuth2Server/config.json | grep '""'
+grep "passwd" apps/server/config/config.json | grep '""'
 ```
 
 ## 🔄 密钥轮换计划

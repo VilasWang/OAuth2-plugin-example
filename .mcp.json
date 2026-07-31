@@ -21,21 +21,16 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-github"
-      ]
+      ],
+      "disabled": true
     },
     "docker": {
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-docker"
-      ]
-    },
-    "memory": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
-      ]
+      ],
+      "disabled": true
     }
   }
 }

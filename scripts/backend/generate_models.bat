@@ -12,10 +12,11 @@ if errorlevel 1 (
 )
 
 set PROJECT_DIR=%~dp0..\..
-set MODELS_SRC_DIR=%PROJECT_DIR%\OAuth2Plugin\src\models
-set MODELS_INC_DIR=%PROJECT_DIR%\OAuth2Plugin\include\oauth2\models
-set MODELS_BACKUP=%PROJECT_DIR%\OAuth2Plugin\models_backup
-set MODEL_JSON_DIR=%PROJECT_DIR%\OAuth2Server
+REM ORM models live in libs/storage-postgres (M2b Task 18; paths.env rebased
+REM in Phase 4 when the old OAuth2Plugin/ directory was deleted).
+set MODELS_SRC_DIR=%PROJECT_DIR%\%LIBS_STORAGE_POSTGRES_DIR%\%MODELS_SRC_REL_DIR%
+set MODELS_INC_DIR=%PROJECT_DIR%\%LIBS_STORAGE_POSTGRES_DIR%\%MODELS_INC_REL_DIR%
+set MODELS_BACKUP=%PROJECT_DIR%\%LIBS_STORAGE_POSTGRES_DIR%\%MODELS_BACKUP_REL_DIR%
 
 echo.
 echo ========================================
@@ -45,11 +46,14 @@ if exist "%MODELS_SRC_DIR%" (
 echo Generating ORM models...
 if not exist "%MODELS_SRC_DIR%" mkdir "%MODELS_SRC_DIR%"
 
-cd /d "%MODEL_JSON_DIR%"
+REM drogon_ctl reads model.json FROM the target dir and writes output there.
+REM Run from the repo root and pass the models dir directly -- no ../.. depth
+REM hack, no dependency on any model.json copy under apps/server.
+cd /d "%PROJECT_DIR%"
 if %AUTO_MODE%==1 (
-  echo y | drogon_ctl create model "../OAuth2Plugin/src/models"
+  echo y | drogon_ctl create model "%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
 ) else (
-  drogon_ctl create model "../OAuth2Plugin/src/models"
+  drogon_ctl create model "%LIBS_STORAGE_POSTGRES_DIR%/%MODELS_SRC_REL_DIR%"
 )
 
 if errorlevel 1 (

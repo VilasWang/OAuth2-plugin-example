@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+# authforge SDK package config template (authforge-sdk-refactor Task 28a).
+# configure_package_config_file() expands this once per package into both an
+# install-tree and a build-tree <pkg>Config.cmake. The find_dependency() block
+# below is generated from the package's declared transitive closure so an
+# external `find_package(<pkg>)` resolves every third-party and sibling
+# authforge dependency the exported IMPORTED targets reference.
+include(CMakeFindDependencyMacro)
+
+@AUTHFORGE_FIND_DEPENDENCY_BLOCK@
+include("${CMAKE_CURRENT_LIST_DIR}/@AUTHFORGE_PKG_NAME@Targets.cmake")
+
+check_required_components(@AUTHFORGE_PKG_NAME@)

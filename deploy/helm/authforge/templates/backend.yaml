@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "authforge.fullname" . }}-backend
+  labels:
+    {{- include "authforge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "authforge.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "authforge.labels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+      annotations:
+        # Roll pods when the rendered env changes.
+        checksum/config: {{ include "authforge.backendConfigData" . | sha256sum }}
+        {{- if not .Values.secrets.existingSecret }}
+        checksum/secret: {{ include "authforge.backendSecretData" . | sha256sum }}
+        {{- end }}
+        {{- with .Values.backend.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: {{ include "authforge.backendImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.listenPort }}
+          {{- include "authforge.backendEnvFrom" . | nindent 10 }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          {{- if .Values.backend.jwtKey.existingSecret }}
+          volumeMounts:
+            - name: jwt-key
+              mountPath: /app/keys
+              readOnly: true
+          {{- end }}
+      {{- if .Values.backend.jwtKey.existingSecret }}
+      volumes:
+        - name: jwt-key
+          secret:
+            secretName: {{ .Values.backend.jwtKey.existingSecret }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "authforge.fullname" . }}-backend
+  labels:
+    {{- include "authforge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "authforge.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: {{ .Values.backend.listenPort }}
+      targetPort: http
+---
+{{/*
+Fixed-name alias Service: the frontend/admin nginx images hardcode
+`proxy_pass http://oauth2-backend:5555` (the compose service name) and
+nginx refuses to start when that name does not resolve. Keeping the alias
+lets the published images run unmodified. One release per namespace.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-backend
+  labels:
+    {{- include "authforge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "authforge.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: 5555
+      targetPort: http

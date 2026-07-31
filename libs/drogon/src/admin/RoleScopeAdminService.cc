@@ -1,0 +1,593 @@
+#include <authforge/drogon/admin/RoleScopeAdminService.h>
+
+#include <authforge/storage/postgres/models/Roles.h>
+#include <authforge/storage/postgres/models/Oauth2Scopes.h>
+#include <authforge/storage/postgres/models/UserRoles.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+
+#include <drogon/drogon.h>
+#include <trantor/utils/Date.h>
+
+#include <unordered_map>
+#include <unordered_set>
+
+namespace authforge::drogon::admin
+{
+
+namespace
+{
+void respondError(
+  const ::drogon::HttpRequestPtr &req,
+  const RoleScopeAdminService::ResponseCallback &cb,
+  std::string code,
+  std::string detailForLog = ""
+)
+{
+    ::authforge::common::error::ErrorResponder::respond(
+      req,
+      [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
+      std::move(code),
+      std::move(detailForLog)
+    );
+}
+
+using namespace ::drogon::orm;
+using namespace ::drogon_model::oauth2_db;
+
+::drogon::orm::DbClientPtr getDbOrRespond(
+  const ::drogon::HttpRequestPtr &req,
+  const RoleScopeAdminService::ResponseCallback &cb
+)
+{
+    try
+    {
+        return ::drogon::app().getDbClient();
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_CONNECTION_ERROR", "Database unavailable");
+        return nullptr;
+    }
+}
+
+Json::Value roleRowToJson(const Roles &row, int userCount)
+{
+    Json::Value role;
+    role["id"] = row.getValueOfId();
+    role["name"] = row.getValueOfName();
+    role["description"] = row.getValueOfDescription();
+    role["user_count"] = userCount;
+    role["created_at"] = row.getValueOfCreatedAt().toDbString();
+    return role;
+}
+
+Json::Value scopeRowToJson(const Oauth2Scopes &row)
+{
+    Json::Value scope;
+    scope["id"] = row.getValueOfId();
+    scope["name"] = row.getValueOfName();
+    scope["description"] = row.getValueOfDescription();
+    scope["mapped_role"] = row.getValueOfMappedRole();
+    scope["is_default"] = row.getValueOfIsDefault();
+    scope["requires_admin_role"] = row.getValueOfRequiresAdminRole();
+    return scope;
+}
+}  // namespace
+
+void RoleScopeAdminService::listRoles(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
+{
+    // Original: a single SELECT...LEFT JOIN user_roles...GROUP BY...COUNT(DISTINCT).
+    // db-operations.md forbids JOIN-in-a-single-query, so split into:
+    //   (1) fetch all roles
+    //   (2) fetch all user_roles for those role_ids (Criteria::In), aggregate
+    //       distinct user counts in-memory.
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Roles> mapper(db);
+    mapper.findBy(
+      Criteria(),
+      [cb, req, db](const std::vector<Roles> &roles) {
+          if (roles.empty())
+          {
+              Json::Value json;
+              json["status"] = "success";
+              json["roles"] = Json::Value(Json::arrayValue);
+              json["total"] = 0;
+              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+              return;
+          }
+          std::vector<int32_t> roleIds;
+          roleIds.reserve(roles.size());
+          for (const auto &r : roles)
+          {
+              roleIds.push_back(r.getValueOfId());
+          }
+          Mapper<UserRoles> urMapper(db);
+          urMapper.findBy(
+            Criteria(UserRoles::Cols::_role_id, CompareOperator::In, roleIds),
+            [cb, req, roles](const std::vector<UserRoles> &userRoles) {
+                // Count DISTINCT users per role (the original used
+                // COUNT(DISTINCT ur.user_id)).
+                std::unordered_map<int32_t, std::unordered_set<int32_t>> perRole;
+                for (const auto &ur : userRoles)
+                {
+                    perRole[ur.getValueOfRoleId()].insert(ur.getValueOfUserId());
+                }
+                Json::Value json;
+                json["status"] = "success";
+                Json::Value rolesJson(Json::arrayValue);
+                for (const auto &r : roles)
+                {
+                    int count = 0;
+                    auto it = perRole.find(r.getValueOfId());
+                    if (it != perRole.end())
+                    {
+                        count = static_cast<int>(it->second.size());
+                    }
+                    rolesJson.append(roleRowToJson(r, count));
+                }
+                json["roles"] = rolesJson;
+                json["total"] = static_cast<int>(roles.size());
+                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to fetch roles: ") + e.base().what()
+                );
+            }
+          );
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to fetch roles: ") + e.base().what()
+          );
+      }
+    );
+}
+
+void RoleScopeAdminService::createRole(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
+{
+    auto jsonBody = req->getJsonObject();
+    if (!jsonBody || !jsonBody->isMember("name"))
+    {
+        respondError(
+          req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Request body must contain 'name'"
+        );
+        return;
+    }
+
+    std::string name = (*jsonBody)["name"].asString();
+    std::string description = jsonBody->get("description", "").asString();
+
+    if (name.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Role name cannot be empty");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    // Check existing name first to return proper 409 (matches original flow).
+    Mapper<Roles> mapper(db);
+    mapper.findOne(
+      Criteria(Roles::Cols::_name, CompareOperator::EQ, name),
+      [cb, req](const Roles &) {
+          respondError(req, cb, "VALIDATION_RESOURCE_CONFLICT", "Role name already exists");
+      },
+      [cb, req, db, name, description](const ::drogon::orm::DrogonDbException &) {
+          // NoRows -> name is free, proceed to insert.
+          Roles row;
+          row.setName(name);
+          row.setDescription(description);
+          Mapper<Roles> insertMapper(db);
+          insertMapper.insert(
+            row,
+            [cb, req](const Roles &inserted) {
+                Json::Value json;
+                json["status"] = "success";
+                json["message"] = "Role created successfully";
+                json["id"] = inserted.getValueOfId();
+                json["name"] = inserted.getValueOfName();
+                json["description"] = inserted.getValueOfDescription();
+                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                resp->setStatusCode(::drogon::k201Created);
+                (*cb)(resp);
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to create role: ") + e.base().what()
+                );
+            }
+          );
+      }
+    );
+}
+
+void RoleScopeAdminService::updateRole(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &roleId
+)
+{
+    auto jsonBody = req->getJsonObject();
+    if (!jsonBody)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "Invalid JSON body");
+        return;
+    }
+    if (!jsonBody->isMember("description"))
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "No updatable fields provided");
+        return;
+    }
+    std::string description = (*jsonBody)["description"].asString();
+
+    int32_t id = 0;
+    try
+    {
+        id = std::stoi(roleId);
+    }
+    catch (...)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "roleId must be an integer");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Roles> mapper(db);
+    mapper.findOne(
+      Criteria(Roles::Cols::_id, CompareOperator::EQ, id),
+      [cb, req, description, db](Roles row) {
+          row.setDescription(description);
+          Mapper<Roles> updateMapper(db);
+          updateMapper.update(
+            row,
+            [cb, req](const size_t) {
+                Json::Value json;
+                json["status"] = "success";
+                json["message"] = "Role updated successfully";
+                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to update role: ") + e.base().what()
+                );
+            }
+          );
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &) {
+          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Role not found");
+      }
+    );
+}
+
+void RoleScopeAdminService::deleteRole(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &roleId
+)
+{
+    int32_t id = 0;
+    try
+    {
+        id = std::stoi(roleId);
+    }
+    catch (...)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "roleId must be an integer");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    // Built-in roles (admin, user) cannot be deleted (original WHERE clause).
+    Mapper<Roles> mapper(db);
+    mapper.deleteBy(
+      Criteria(Roles::Cols::_id, CompareOperator::EQ, id) &&
+        Criteria(
+          Roles::Cols::_name, CompareOperator::NotIn, std::vector<std::string>{"admin", "user"}
+        ),
+      [cb, req](const size_t affected) {
+          if (affected == 0)
+          {
+              respondError(
+                req,
+                cb,
+                "VALIDATION_RESOURCE_NOT_FOUND",
+                "Role not found or cannot delete built-in roles"
+              );
+              return;
+          }
+          Json::Value json;
+          json["status"] = "success";
+          json["message"] = "Role deleted successfully";
+          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to delete role: ") + e.base().what()
+          );
+      }
+    );
+}
+
+void RoleScopeAdminService::listScopes(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
+{
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Scopes> mapper(db);
+    mapper.findBy(
+      Criteria(),
+      [cb](const std::vector<Oauth2Scopes> &rows) {
+          Json::Value json;
+          json["status"] = "success";
+          Json::Value scopes(Json::arrayValue);
+          for (const auto &row : rows)
+          {
+              scopes.append(scopeRowToJson(row));
+          }
+          json["scopes"] = scopes;
+          json["total"] = static_cast<int>(rows.size());
+          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to fetch scopes: ") + e.base().what()
+          );
+      }
+    );
+}
+
+void RoleScopeAdminService::createScope(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
+{
+    auto jsonBody = req->getJsonObject();
+    if (!jsonBody || !jsonBody->isMember("name"))
+    {
+        respondError(
+          req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Request body must contain 'name'"
+        );
+        return;
+    }
+
+    std::string name = (*jsonBody)["name"].asString();
+    std::string description = jsonBody->get("description", "").asString();
+    std::string mappedRole = jsonBody->get("mapped_role", "").asString();
+    bool isDefault = jsonBody->get("is_default", false).asBool();
+    bool requiresAdminRole = jsonBody->get("requires_admin_role", false).asBool();
+
+    if (name.empty())
+    {
+        respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "Scope name cannot be empty");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Scopes> mapper(db);
+    mapper.findOne(
+      Criteria(Oauth2Scopes::Cols::_name, CompareOperator::EQ, name),
+      [cb, req](const Oauth2Scopes &) {
+          respondError(req, cb, "VALIDATION_RESOURCE_CONFLICT", "Scope name already exists");
+      },
+      [cb, req, db, name, description, mappedRole, isDefault, requiresAdminRole](
+        const ::drogon::orm::DrogonDbException &
+      ) {
+          Oauth2Scopes row;
+          row.setName(name);
+          row.setDescription(description);
+          if (mappedRole.empty())
+          {
+              row.setMappedRoleToNull();
+          }
+          else
+          {
+              row.setMappedRole(mappedRole);
+          }
+          row.setIsDefault(isDefault);
+          row.setRequiresAdminRole(requiresAdminRole);
+          Mapper<Oauth2Scopes> insertMapper(db);
+          insertMapper.insert(
+            row,
+            [cb, req](const Oauth2Scopes &inserted) {
+                Json::Value json;
+                json["status"] = "success";
+                json["message"] = "Scope created successfully";
+                json["id"] = inserted.getValueOfId();
+                json["name"] = inserted.getValueOfName();
+                json["description"] = inserted.getValueOfDescription();
+                json["mapped_role"] = inserted.getValueOfMappedRole();
+                json["is_default"] = inserted.getValueOfIsDefault();
+                json["requires_admin_role"] = inserted.getValueOfRequiresAdminRole();
+                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                resp->setStatusCode(::drogon::k201Created);
+                (*cb)(resp);
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to create scope: ") + e.base().what()
+                );
+            }
+          );
+      }
+    );
+}
+
+void RoleScopeAdminService::updateScope(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &scopeId
+)
+{
+    auto jsonBody = req->getJsonObject();
+    if (!jsonBody)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "Invalid JSON body");
+        return;
+    }
+    bool hasDescription = jsonBody->isMember("description");
+    bool hasMappedRole = jsonBody->isMember("mapped_role");
+    bool hasIsDefault = jsonBody->isMember("is_default");
+    bool hasRequiresAdmin = jsonBody->isMember("requires_admin_role");
+    if (!hasDescription && !hasMappedRole && !hasIsDefault && !hasRequiresAdmin)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "No updatable fields provided");
+        return;
+    }
+
+    int32_t id = 0;
+    try
+    {
+        id = std::stoi(scopeId);
+    }
+    catch (...)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "scopeId must be an integer");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Scopes> mapper(db);
+    mapper.findOne(
+      Criteria(Oauth2Scopes::Cols::_id, CompareOperator::EQ, id),
+      [cb, req, jsonBody, hasDescription, hasMappedRole, hasIsDefault, hasRequiresAdmin, db](
+        Oauth2Scopes row
+      ) {
+          if (hasDescription)
+          {
+              row.setDescription((*jsonBody)["description"].asString());
+          }
+          if (hasMappedRole)
+          {
+              row.setMappedRole((*jsonBody)["mapped_role"].asString());
+          }
+          if (hasIsDefault)
+          {
+              row.setIsDefault((*jsonBody)["is_default"].asBool());
+          }
+          if (hasRequiresAdmin)
+          {
+              row.setRequiresAdminRole((*jsonBody)["requires_admin_role"].asBool());
+          }
+          Mapper<Oauth2Scopes> updateMapper(db);
+          updateMapper.update(
+            row,
+            [cb, req](const size_t) {
+                Json::Value json;
+                json["status"] = "success";
+                json["message"] = "Scope updated successfully";
+                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+            },
+            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                respondError(
+                  req,
+                  cb,
+                  "DB_QUERY_ERROR",
+                  std::string("Failed to update scope: ") + e.base().what()
+                );
+            }
+          );
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &) {
+          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Scope not found");
+      }
+    );
+}
+
+void RoleScopeAdminService::deleteScope(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &scopeId
+)
+{
+    int32_t id = 0;
+    try
+    {
+        id = std::stoi(scopeId);
+    }
+    catch (...)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "scopeId must be an integer");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    Mapper<Oauth2Scopes> mapper(db);
+    mapper.deleteBy(
+      Criteria(Oauth2Scopes::Cols::_id, CompareOperator::EQ, id) &&
+        Criteria(
+          Oauth2Scopes::Cols::_name,
+          CompareOperator::NotIn,
+          std::vector<std::string>{"openid", "profile", "email", "admin"}
+        ),
+      [cb, req](const size_t affected) {
+          if (affected == 0)
+          {
+              respondError(
+                req,
+                cb,
+                "VALIDATION_RESOURCE_NOT_FOUND",
+                "Scope not found or cannot delete built-in scopes"
+              );
+              return;
+          }
+          Json::Value json;
+          json["status"] = "success";
+          json["message"] = "Scope deleted successfully";
+          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+      },
+      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+          respondError(
+            req, cb, "DB_QUERY_ERROR", std::string("Failed to delete scope: ") + e.base().what()
+          );
+      }
+    );
+}
+
+}  // namespace authforge::drogon::admin

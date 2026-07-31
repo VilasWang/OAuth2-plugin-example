@@ -1,0 +1,233 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "conan-base",
+      "hidden": true,
+      "description": "Shared settings for all Conan-driven presets. Run `conan install . --output-folder=build/<preset-name> -s build_type=<Release|Debug> -s compiler.cppstd=17 --build=missing` for the matching preset name BEFORE running `cmake --preset <preset-name>`, so that build/<preset-name>/conan_toolchain.cmake exists.",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "linux-release",
+      "inherits": "conan-base",
+      "displayName": "Linux Release (Conan)",
+      "description": "conan install . --output-folder=build/linux-release -s build_type=Release -s compiler.cppstd=17 --build=missing",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-release/conan_toolchain.cmake"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "inherits": "linux-release",
+      "displayName": "Linux Debug (Conan)",
+      "description": "conan install . --output-folder=build/linux-debug -s build_type=Debug -s compiler.cppstd=17 --build=missing",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-debug/conan_toolchain.cmake"
+      }
+    },
+    {
+      "name": "linux-release-asan",
+      "inherits": "linux-release",
+      "displayName": "Linux Release + AddressSanitizer",
+      "description": "conan install . --output-folder=build/linux-release-asan -s build_type=Debug -s compiler.cppstd=17 --build=missing. Sanitizers are applied via cmake/Sanitizers.cmake (GCC/Clang only, Debug recommended).",
+      "binaryDir": "${sourceDir}/build/linux-release-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-release-asan/conan_toolchain.cmake",
+        "OAUTH2_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "linux-release-tsan",
+      "inherits": "linux-release",
+      "displayName": "Linux Release + ThreadSanitizer",
+      "description": "conan install . --output-folder=build/linux-release-tsan -s build_type=Debug -s compiler.cppstd=17 --build=missing. Sanitizers are applied via cmake/Sanitizers.cmake (GCC/Clang only, Debug recommended).",
+      "binaryDir": "${sourceDir}/build/linux-release-tsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-release-tsan/conan_toolchain.cmake",
+        "OAUTH2_SANITIZER": "thread"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "inherits": "conan-base",
+      "displayName": "Windows MSVC (Conan)",
+      "description": "conan install . --output-folder=build/windows-msvc -s build_type=Release -s compiler.cppstd=17 --build=missing",
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "binaryDir": "${sourceDir}/build/windows-msvc",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc/conan_toolchain.cmake",
+        "CMAKE_POLICY_DEFAULT_CMP0091": "NEW"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "inherits": "windows-msvc",
+      "displayName": "Windows MSVC Debug (Conan)",
+      "description": "conan install . --output-folder=build/windows-msvc-debug -s build_type=Debug -s compiler.cppstd=17 --build=missing. Visual Studio is a multi-config generator; build with --config Debug.",
+      "binaryDir": "${sourceDir}/build/windows-msvc-debug",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-debug/conan_toolchain.cmake",
+        "CMAKE_POLICY_DEFAULT_CMP0091": "NEW"
+      }
+    },
+    {
+      "name": "windows-msvc-asan",
+      "inherits": "windows-msvc",
+      "displayName": "Windows MSVC + AddressSanitizer",
+      "description": "conan install . --output-folder=build/windows-msvc-asan -s build_type=Debug -s compiler.cppstd=17 --build=missing. NOTE: cmake/Sanitizers.cmake currently only implements GCC/Clang -fsanitize flags; on real MSVC this preset configures and builds but emits a CMake WARNING and does NOT instrument the binary (no functional sanitizer yet).",
+      "binaryDir": "${sourceDir}/build/windows-msvc-asan",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-asan/conan_toolchain.cmake",
+        "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
+        "OAUTH2_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "windows-msvc-tsan",
+      "inherits": "windows-msvc",
+      "displayName": "Windows MSVC + ThreadSanitizer",
+      "description": "conan install . --output-folder=build/windows-msvc-tsan -s build_type=Debug -s compiler.cppstd=17 --build=missing. NOTE: MSVC has no ThreadSanitizer runtime; cmake/Sanitizers.cmake emits a CMake WARNING and does NOT instrument the binary. Prefer linux-release-tsan or macos-arm64-tsan for real TSan coverage.",
+      "binaryDir": "${sourceDir}/build/windows-msvc-tsan",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-tsan/conan_toolchain.cmake",
+        "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
+        "OAUTH2_SANITIZER": "thread"
+      }
+    },
+    {
+      "name": "macos-arm64",
+      "inherits": "conan-base",
+      "displayName": "macOS arm64 Release (Conan)",
+      "description": "conan install . --output-folder=build/macos-arm64 -s build_type=Release -s compiler.cppstd=17 -s arch=armv8 --build=missing",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/macos-arm64",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/macos-arm64/conan_toolchain.cmake"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "macos-arm64-debug",
+      "inherits": "macos-arm64",
+      "displayName": "macOS arm64 Debug (Conan)",
+      "description": "conan install . --output-folder=build/macos-arm64-debug -s build_type=Debug -s compiler.cppstd=17 -s arch=armv8 --build=missing",
+      "binaryDir": "${sourceDir}/build/macos-arm64-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/macos-arm64-debug/conan_toolchain.cmake"
+      }
+    },
+    {
+      "name": "macos-arm64-asan",
+      "inherits": "macos-arm64",
+      "displayName": "macOS arm64 + AddressSanitizer",
+      "description": "conan install . --output-folder=build/macos-arm64-asan -s build_type=Debug -s compiler.cppstd=17 -s arch=armv8 --build=missing. Sanitizers are applied via cmake/Sanitizers.cmake (GCC/Clang only, Debug recommended).",
+      "binaryDir": "${sourceDir}/build/macos-arm64-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/macos-arm64-asan/conan_toolchain.cmake",
+        "OAUTH2_SANITIZER": "address"
+      }
+    },
+    {
+      "name": "macos-arm64-tsan",
+      "inherits": "macos-arm64",
+      "displayName": "macOS arm64 + ThreadSanitizer",
+      "description": "conan install . --output-folder=build/macos-arm64-tsan -s build_type=Debug -s compiler.cppstd=17 -s arch=armv8 --build=missing. Sanitizers are applied via cmake/Sanitizers.cmake (GCC/Clang only, Debug recommended).",
+      "binaryDir": "${sourceDir}/build/macos-arm64-tsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/macos-arm64-tsan/conan_toolchain.cmake",
+        "OAUTH2_SANITIZER": "thread"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release"
+    },
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "linux-release-asan",
+      "configurePreset": "linux-release-asan"
+    },
+    {
+      "name": "linux-release-tsan",
+      "configurePreset": "linux-release-tsan"
+    },
+    {
+      "name": "windows-msvc",
+      "configurePreset": "windows-msvc",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-msvc-debug",
+      "configurePreset": "windows-msvc-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-msvc-asan",
+      "configurePreset": "windows-msvc-asan",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-msvc-tsan",
+      "configurePreset": "windows-msvc-tsan",
+      "configuration": "Debug"
+    },
+    {
+      "name": "macos-arm64",
+      "configurePreset": "macos-arm64"
+    },
+    {
+      "name": "macos-arm64-debug",
+      "configurePreset": "macos-arm64-debug"
+    },
+    {
+      "name": "macos-arm64-asan",
+      "configurePreset": "macos-arm64-asan"
+    },
+    {
+      "name": "macos-arm64-tsan",
+      "configurePreset": "macos-arm64-tsan"
+    }
+  ]
+}

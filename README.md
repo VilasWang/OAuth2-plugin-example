@@ -1,10 +1,9 @@
-# Drogon OAuth2.0 Provider — Full-Stack Authorization Server
+# AuthForge — Full-Stack OAuth2/OIDC Authorization Server
 
 [中文文档](README.zh-CN.md)
 
-![Linux CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-linux.yml/badge.svg)
-![Windows CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-windows.yml/badge.svg)
-![macOS CI](https://github.com/lucaswang420/authforge/actions/workflows/ci-macos.yml/badge.svg)
+![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414. Includes admin console, user-facing frontend, and a comprehensive test suite.
@@ -15,13 +14,15 @@ Production-grade OAuth2.0/OIDC authorization server with full support for RFC 67
 
 ```
 authforge/
-├── OAuth2Plugin/       # Core plugin library (standalone CMake library, reusable by third-party projects)
-├── OAuth2Server/       # Authorization server backend (Drogon C++ framework)
-├── OAuth2Admin/        # Admin console frontend (Vue 3 + TailwindCSS)
-├── OAuth2Frontend/     # User-facing frontend (Vue 3 + Pinia + TailwindCSS)
+├── apps/server/        # Authorization server backend (Drogon C++ framework)
+├── libs/               # SDK library packages (authforge::common/oauth2/identity/storage-*/drogon)
+├── frontends/admin/    # Admin console frontend (Vue 3 + TailwindCSS)
+├── frontends/user/     # User-facing frontend (Vue 3 + Pinia + TailwindCSS)
+├── examples/           # SDK consumer examples (find_package smoke hosts)
+├── deploy/             # Docker Compose, Helm chart, nginx, observability
+├── tests/              # Backend test suite (unit / integration / contract)
 ├── scripts/            # Build, test, and operations scripts
-├── docs/               # Project documentation
-└── PRD/                # Product design documents
+└── docs/               # Project documentation
 ```
 
 ### Tech Stack
@@ -79,7 +80,7 @@ authforge/
 | Authorized Apps | `GET/DELETE /api/me/authorized-apps` |
 | Account Deletion | `DELETE /api/me` |
 
-### Admin Console (OAuth2Admin)
+### Admin Console (frontends/admin)
 
 | Module | Features |
 |--------|----------|
@@ -113,11 +114,11 @@ authforge/
 ### Docker Compose (Recommended)
 
 ```bash
-docker-compose up -d
+docker compose -f deploy/docker/docker-compose.yml up -d --build
 ```
 
 - User Frontend: `http://localhost:8080`
-- Admin Console: `http://localhost:5174/admin/`
+- Admin Console: `http://localhost:8081`
 - Backend API: `http://localhost:5555`
 
 ### Local Development
@@ -127,16 +128,16 @@ docker-compose up -d
 .\manage.ps1 build-backend
 
 # 2. Start backend (requires PostgreSQL + Redis)
-cd OAuth2Server
-..\build\OAuth2Server\Release\OAuth2Server.exe
+cd apps\server
+..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
 
 # 3. Start admin console
-cd OAuth2Admin
+cd frontends\admin
 npm install
 npm run dev    # http://localhost:5174/admin/
 
 # 4. Start user frontend
-cd OAuth2Frontend
+cd frontends\user
 npm install
 npm run dev    # http://localhost:5173
 ```
@@ -154,18 +155,18 @@ npm run dev    # http://localhost:5173
 ### Backend API Tests
 
 ```powershell
-# Admin API full tests (37 tests)
+# Admin API full tests
 .\scripts\backend\test-admin-endpoints.ps1
 
-# OAuth2 core flow tests (17 tests)
+# OAuth2 core flow tests
 .\scripts\backend\test-oauth2-endpoints.ps1
 ```
 
 ### Frontend E2E Tests
 
 ```powershell
-cd OAuth2Admin
-npx playwright test              # Full run (123 tests)
+cd frontends\admin
+npx playwright test              # Full run
 npx playwright test --ui         # UI mode for debugging
 npx playwright test --headed     # Headed browser mode
 ```
@@ -173,24 +174,24 @@ npx playwright test --headed     # Headed browser mode
 ### C++ Unit Tests
 
 ```powershell
-cd build
+cd build\windows-msvc
 ctest --output-on-failure
 ```
 
 ### Test Coverage
 
-| Test Type | Count | Scope |
-|-----------|-------|-------|
-| Admin API (PowerShell) | 37 | All Admin endpoints + Organization |
-| OAuth2 Core (PowerShell) | 17 | Auth flows, token management, user services |
-| Frontend E2E (Playwright) | 123 | All admin console pages and interactions |
-| C++ Unit Tests (CTest) | 111 | Core library logic |
+| Test Type | Scope |
+|-----------|-------|
+| C++ Unit/Integration Tests (CTest) | SDK libraries, domain services, storage adapters |
+| Admin API (PowerShell) | All Admin endpoints + Organization |
+| OAuth2 Core (PowerShell) | Auth flows, token management, user services |
+| Frontend E2E (Playwright) | Admin console and user frontend pages/interactions |
 
 ---
 
 ## API Documentation
 
-- **OpenAPI Spec**: [openapi.yaml](OAuth2Server/openapi.yaml)
+- **OpenAPI Spec**: [openapi.yaml](apps/server/openapi.yaml)
 - **Swagger UI**: `http://localhost:5555/docs/api` (requires Swagger UI static files)
 - **E2E Testing Guide**: [E2E_TESTING_GUIDE.md](docs/admin/e2e-testing-guide.md)
 
@@ -204,8 +205,9 @@ ctest --output-on-failure
 | [Security Architecture](docs/backend/security-architecture.md) | Token lifecycle, encryption, protection strategies |
 | [RBAC Guide](docs/backend/rbac-guide.md) | Role permission configuration |
 | [Docker Deployment](docs/backend/docker-deployment.md) | Containerized deployment |
+| [SDK Integration Guide](docs/backend/sdk-integration-guide.md) | Consuming release artifacts (SDK tarball + GHCR images) |
+| [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md) | Threading, ABI, exception, logging promises |
 | [CI/CD Pipeline](docs/backend/ci-cd-guide.md) | GitHub Actions configuration |
-| [Admin Console Design](PRD/admin_console_design.md) | Admin console product design document |
 | [Account Lockout](docs/ops/account-lockout.md) | Lockout rules and reset procedures |
 
 ---
@@ -215,7 +217,7 @@ ctest --output-on-failure
 | Component | Minimum Version |
 |-----------|-----------------|
 | C++ Compiler | C++17 (MSVC 2019+ / GCC 9+ / Clang 10+) |
-| CMake | 3.20+ |
+| CMake | 3.23+ |
 | PostgreSQL | 14+ |
 | Redis | 7+ |
 | Node.js | 18+ |
@@ -229,4 +231,4 @@ MIT License — see [LICENSE](LICENSE)
 
 ---
 
-**Project Status**: Production Ready | **Version**: v6.0.0
+**Project Status**: Production Ready | **Version**: v1.0.0

@@ -10,9 +10,8 @@ DB_PASSWORD="${OAUTH2_DB_PASSWORD:-123456}"
 DB_HOST="${OAUTH2_DB_HOST:-localhost}"
 DB_PORT="${OAUTH2_DB_PORT:-5432}"
 
-MIGRATIONS_DIR="$PROJECT_DIR/OAuth2Server/sql/migrations"
-SEED_DIR="$PROJECT_DIR/OAuth2Server/sql/seed"
-LEGACY_SQL_DIR="$PROJECT_DIR/OAuth2Server/sql"
+MIGRATIONS_DIR="$OAUTH2_SERVER_ABS_DIR/$SQL_MIGRATIONS_REL_DIR"
+SEED_DIR="$OAUTH2_SERVER_ABS_DIR/$SQL_SEED_REL_DIR"
 
 # Check for psql
 if ! command -v psql &>/dev/null; then
@@ -29,10 +28,17 @@ psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
     -c "DROP DATABASE IF EXISTS $DB_NAME;" 2>/dev/null || true
 
 echo "Creating new database..."
-psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
-    -c "CREATE DATABASE $DB_NAME;" 2>/dev/null
+# Do NOT swallow stderr here: a missing role, wrong password or unreachable
+# server must surface loudly with actionable guidance (parity with the .bat).
+if ! psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
+    -c "CREATE DATABASE $DB_NAME;"; then
+    echo "[Error] Failed to create database \"$DB_NAME\" as role \"$DB_USER\"." >&2
+    echo "        Verify the role exists, OAUTH2_DB_PASSWORD is correct, and that" >&2
+    echo "        PostgreSQL is reachable at $DB_HOST:$DB_PORT." >&2
+    exit 1
+fi
 
-# Apply migrations (new structure)
+# Apply migrations
 if [ -d "$MIGRATIONS_DIR" ]; then
     echo "Applying migrations from $MIGRATIONS_DIR..."
     for f in "$MIGRATIONS_DIR"/V*.sql; do
@@ -41,13 +47,8 @@ if [ -d "$MIGRATIONS_DIR" ]; then
         psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -f "$f"
     done
 else
-    # Fallback to legacy flat structure
-    echo "Applying SQL schemas from $LEGACY_SQL_DIR..."
-    for f in "$LEGACY_SQL_DIR"/*.sql; do
-        [ -f "$f" ] || continue
-        echo "  Applying $(basename "$f")..."
-        psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -f "$f"
-    done
+    echo "[Error] Migrations directory not found: $MIGRATIONS_DIR"
+    exit 1
 fi
 
 # Apply seed data

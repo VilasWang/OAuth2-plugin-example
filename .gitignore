@@ -37,7 +37,8 @@ cookies.txt
 secrets/
 credentials/
 # Frontend runtime config with production credentials
-OAuth2Frontend/.env
+frontends/user/.env
+frontends/user/public/config.json
 # Deploy secrets
 deploy/nginx/ssl/*.pem
 deploy/keys/*.pem
@@ -72,7 +73,7 @@ reports/
 build/
 build-*/
 CMakeUserPresets.json
-OAuth2Plugin/models_backup/
+libs/storage-postgres/models_backup/
 
 # Cross-project patterns
 **/node_modules/
@@ -91,15 +92,11 @@ test_admin.txt
 test_oauth2.txt
 build_p12.txt
 
-# Graphify knowledge graph (force-add GRAPH_REPORT.md with: git add -f)
+# Graphify knowledge graph (generated artifacts, local only)
 graphify-out/
 
-# Graphify knowledge graph - only commit the report, ignore generated artifacts
-graphify-out/*
-!graphify-out/GRAPH_REPORT.md
-
-# Codegraph runtime state (PID, socket path - changes every session)
-.codegraph/daemon.pid
+# Codegraph local index & runtime state
+.codegraph/
 
 # Superpowers SDD scratch (task briefs, reports, progress ledger)
 .superpowers/
