@@ -16,7 +16,7 @@
 //     redirect to /consent)
 //
 // This mirrors a design that was drafted but never implemented in this
-// codebase (see docs/design/superpowers/specs/2026-05-06-oauth2-security-
+// codebase (see docs/history/design/superpowers/specs/2026-05-06-oauth2-security-
 // compliance-design-v5.1.md's ScopeValidationStatus/ScopeCheckResult/
 // ScopeValidationSummary) -- ScopeDecisionEngine.h (this slice) is a
 // fresh, Domain-layer (Drogon-free) implementation of that same shape,

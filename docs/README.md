@@ -1,19 +1,43 @@
 # Documentation Index
 
-This directory contains all project documentation, organized by audience and domain.
+Start here and pick your track. File names use **kebab-case**; cross-references
+use relative paths.
 
-## Structure
+## Evaluating AuthForge
 
-| Directory | Audience | Contents |
-|-----------|----------|----------|
-| [backend/](backend/) | Backend developers | API reference, architecture, configuration, security guides |
-| [admin/](admin/) | Admin panel developers | E2E testing, admin panel documentation |
-| [frontend/](frontend/) | Frontend developers | Design docs, implementation plans |
-| [ops/](ops/) | Operations / DevOps | Deployment, security checklist, account lockout |
-| [design/](design/) | Architects / Tech leads | Superpowers plans, specs, and analysis |
+- [Project README](../README.md) — features, quick start, tech stack
+- [Architecture Overview](backend/architecture-overview.md) — package layering, request flow
+- [Security Architecture](backend/security-architecture.md) — token lifecycle, protection strategies
+- [RBAC Guide](backend/rbac-guide.md) — roles, permissions, triple-scope control
 
-## Conventions
+## Integrating (SDK consumers)
 
-- File names use **kebab-case** (e.g., `api-reference.md`, not `API_REFERENCE.md`).
-- Each subdirectory targets a specific audience or concern.
-- Cross-references between docs use relative paths.
+- [SDK Integration Guide](backend/sdk-integration-guide.md) — release artifacts, `find_package` wiring
+- [SDK Runtime Contract](backend/sdk-runtime-contract.md) — threading / ABI / exception / logging promises
+- [API Reference](backend/api-reference.md) — endpoints, error catalog
+- [Plugin Integration](backend/plugin-integration.md) — hosting `OAuth2Plugin` in a Drogon app
+- [OIDC Guide](backend/oidc-guide.md) · [Google](backend/google-guide.md) / [WeChat](backend/wechat-guide.md) social login
+
+## Operating
+
+- [Production Deployment](ops/deployment.md) — Docker Compose / Helm walkthrough
+- [Windows / Docker Desktop](ops/deployment-windows-docker-desktop.md)
+- [Configuration Guide](backend/configuration-guide.md) — config files, env vars, secrets
+- [Observability](backend/observability.md) — metrics, audit logging, health checks
+- [Security Checklist](ops/security-checklist.md) · [Verification Checklist](ops/verification-checklist.md)
+- [Account Lockout](ops/account-lockout.md) — lockout rules and reset procedures
+- [Data Persistence](backend/data-persistence.md) · [Data Consistency](backend/data-consistency.md)
+
+## Contributing
+
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — build, conventions, CI gates
+- [Testing Guide](backend/testing-guide.md) — test tree, categories, how to run
+- [CI/CD Pipeline](backend/ci-cd-guide.md) — workflows, release pipeline
+- [Documentation Standards](backend/documentation-standards.md)
+- Frontend: [admin E2E guide](admin/e2e-testing-guide.md) · [admin test cases](admin/test-cases.md) · [user test cases](frontend/test-cases.md)
+
+## Archive
+
+Historical PRDs, design documents, and iteration plans live under
+[history/](history/README.md) — kept for traceability, not current-state
+reference.
