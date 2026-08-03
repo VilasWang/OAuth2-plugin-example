@@ -17,48 +17,38 @@ To implement real WeChat login, you need:
 
 You need to provide the server with your `AppID` and `AppSecret` so it can exchange the authorization code for an access token.
 
-**File**: `OAuth2Server/controllers/WeChatController.cc`
+**Config**: `apps/server/config/config.json` → `plugins[OAuth2Plugin].config.external_auth.wechat`
 
-Open this file and find the following lines at the top:
+The `WeChatController` (`libs/drogon/src/controllers/WeChatController.cc`) reads these values from the plugin config at runtime, under `external_auth.wechat`:
 
-```cpp
-// TODO: REPLACE WITH YOUR REAL CREDENTIALS
-const std::string WECHAT_APPID = "YOUR_WECHAT_APPID";
-const std::string WECHAT_SECRET = "YOUR_WECHAT_SECRET";
+```json
+{
+    "external_auth": {
+        "wechat": {
+            "appid": "YOUR_WECHAT_APPID",
+            "secret": "YOUR_WECHAT_SECRET"
+        }
+    }
+}
 ```
 
 1.  Replace `YOUR_WECHAT_APPID` with your **AppID**.
 2.  Replace `YOUR_WECHAT_SECRET` with your **AppSecret**.
-3.  **Rebuild the Backend**:
+3.  **Rebuild the Backend** (run from the repo root):
     ```powershell
-    cd OAuth2Server
-    build.bat
+    .\manage.ps1 build-backend
     ```
 
 ---
 
 ## 3. Frontend Configuration
 
-The frontend initiates the login by redirecting the user to WeChat's QR Code page.
+The current user frontend (`frontends/user/`) does not ship a "Login with WeChat" entry point — only the backend `/api/wechat/login` endpoint is implemented. To add WeChat login to the SPA, follow the same Vite build-time env pattern used for the existing GitHub social login (a `VITE_WECHAT_APPID` consumed in `frontends/user/src/pages/auth/LoginPage.vue`) and redirect the user to WeChat's QR-code authorization page, then call the backend `/api/wechat/login` endpoint with the returned `code`.
 
-**File**: `OAuth2Frontend/src/views/Login.vue`
+When wiring the redirect, note:
 
-Find the `loginWithWeChat` function:
-
-```javascript
-const loginWithWeChat = () => {
-    localStorage.setItem('auth_provider', 'wechat');
-    
-    // TODO: VALIDATE CONFIGURATION
-    const APPID = "YOUR_WECHAT_APPID"; 
-    const REDIRECT_URI = encodeURIComponent("http://your-domain.com/callback"); 
-    // ...
-}
-```
-
-1.  Replace `YOUR_WECHAT_APPID` with the **same AppID** used in the backend.
-2.  Replace `http://your-domain.com/callback` with your **actual callback URL**.
-    *   This URL must match the **Authorized Callback Domain** set in the WeChat Console.
+1.  Use the **same AppID** configured in the backend (`external_auth.wechat.appid`).
+2.  Set the **callback URL** to match the **Authorized Callback Domain** registered in the WeChat Console.
     *   Example: If your authorized domain is `passport.example.com`, your callback URL might be `http://passport.example.com/callback`.
 
 ---

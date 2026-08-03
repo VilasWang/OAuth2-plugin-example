@@ -310,7 +310,7 @@ ctest --output-on-failure
 | 组件 | 最低版本 |
 |------|----------|
 | C++ 编译器 | C++17 (MSVC 2019+ / GCC 9+ / Clang 10+) |
-| CMake | 3.23+ |
+| CMake | 3.21+ |
 | PostgreSQL | 14+ |
 | Redis | 7+ |
 | Node.js | 18+ |

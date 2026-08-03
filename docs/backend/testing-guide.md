@@ -16,7 +16,7 @@
 > [INFO] **快速启动基础设施**：如果你使用 Docker，可以单独启动 postgres 和 redis 容器:
 > ```powershell
 > docker run -d -p 5432:5432 -e POSTGRES_USER=oauth2_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=oauth2_db postgres:15-alpine
-> docker run -d -p 6379:6379 redis:alpine redis-server --requirepass 123456
+> docker run -d -p 6379:6379 redis:7-alpine redis-server --requirepass 123456
 > ```
 
 ---
@@ -27,20 +27,20 @@
 
 | 测试文件 | 覆盖范围 |
 |---|---|
-| `MemoryStorageTest.cc` | 验证 `MemoryOAuth2Storage` 的所有 CRUD 接口（Auth Code、Token、Refresh Token 等），无需外部依赖 |
 | `ConfigTest.cc` | 验证 `config.json` 的正确加载、RBAC 规则解析及插件配置读取 |
 | `EnvConfigTest.cc` | 验证 `loadConfigWithEnv()` 函数能正确将环境变量注入 JSON 配置（`EnvInjectionVerify` 测试） |
-| `HodorTest.cc` | 验证 Hodor 插件的速率限制功能和 IP 提取策略 |
+
+> 单元测试位于 `tests/unit/` 下，按领域分目录（`config/`、`error/`、`utils/`、`validation/` 等）。
 
 ### Level 2 — 集成测试（需要 Redis / PostgreSQL）
 
 | 测试文件 | 覆盖范围 | 依赖 |
 |---|---|---|
-| `RedisStorageTest.cc` | 验证 `RedisOAuth2Storage` 与真实 Redis 的交互（SETEX/GET/原子 Lua 脚本）| Redis |
-| `PostgresStorageTest.cc` | 验证 `PostgresOAuth2Storage` 与真实 Postgres 的交互（Auth Code/Token CRUD）| Postgres |
 | `AdvancedStorageTest.cc` | 验证已撤销/已过期 Token 的拒绝逻辑，以及并发场景下的数据正确性 | Redis / Postgres |
 | `UserTest.cc` | 验证用户注册、密码验证（`AuthService`）及 RBAC 角色查询全流程 | Postgres |
-| `PluginTest.cc` | 验证 `OAuth2Plugin` 核心业务流程，包括：`TestReplayAttack`（防重放）、完整 Code→Token 交换、客户端校验 | Postgres / Redis |
+| `PluginTest.cc` | 验证 `OAuth2Plugin` 核心业务流程（内存存储下的插件初始化与基本功能）| Postgres / Redis |
+
+> 集成测试位于 `tests/integration/` 下（`storage/`、`auth/`、`token/`、`concurrency/`、`error/` 等），另有契约测试位于 `tests/contract/`。
 
 ### Level 3 — 端到端集成测试
 
@@ -104,14 +104,20 @@ cd build\windows-msvc\tests\Release
 .\authforge-tests.exe
 ```
 
-### 方式三：使用 Workflow
+### 方式三：使用 manage 脚本
+
+`manage.ps1`（Windows）/ `manage.sh`（Linux/macOS）封装了与 CI 相同的构建+测试流程：
 
 ```powershell
-# 执行完整的单元测试和集成测试
-/test
+# 构建并运行后端测试套件（与 manage.sh test-backend 等价）
+.\manage.ps1 test-backend
 
-# 执行包含数据库重置的完整 E2E 流程
-/test-e2e
+# 完整循环：构建 + 单元/集成测试 + 管理端点 API 测试
+.\manage.ps1 full-test
+
+# 仅跑管理端点 / OAuth2 端点的 API 脚本
+.\manage.ps1 test-admin-endpoints
+.\manage.ps1 test-oauth2-endpoints
 ```
 
 ---
@@ -119,20 +125,20 @@ cd build\windows-msvc\tests\Release
 ## 4. 测试输出示例
 
 ```
-All tests passed (54 assertions in 11 tests)
+All tests passed (N assertions in M tests)
 ```
 
 如果出现失败，失败的测试名称和断言位置会被打印：
 ```
-In test case RedisStorageTest
-  RedisStorageTest.cc:63  FAILED:
-    CHECK(c.has_value())
+In test case SomeTestName
+  SomeTestFile.cc:63  FAILED:
+    CHECK(c.has_optional())
 ```
 
 **常见失败原因**：
 - Redis 或 PostgreSQL 服务未启动 → 检查服务是否可达
 - Redis 密码不匹配 → 检查 `config.json` 中的 `passwd` 字段
-- 数据库未初始化 → 执行 `sql/` 目录下的 SQL 脚本
+- 数据库未初始化 → 执行 `apps/server/migrations/` 目录下的迁移脚本（后端在 `OAUTH2_AUTO_MIGRATE=true` 时也会自动执行）
 
 ---
 

@@ -14,48 +14,35 @@ To implement real Google login, you need:
 
 ## 2. Backend Configuration
 
-You need to provide the server with your `Client ID` and `Client Secret` so it can exchange the authorization code for an access token.
+You need to provide the server with your `Client ID` and your `Client Secret` so it can exchange the authorization code for an access token.
 
-**File**: `OAuth2Server/controllers/GoogleController.cc`
+**Config**: `apps/server/config/config.json` → `plugins[OAuth2Plugin].config.external_auth.google`
 
-Open this file and find the following lines at the top:
+The `GoogleController` (`libs/drogon/src/controllers/GoogleController.cc`) reads these values from the plugin config at runtime, under `external_auth.google`:
 
-```cpp
-// TODO: REPLACE WITH YOUR REAL GOOGLE CREDENTIALS
-const std::string GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
-const std::string GOOGLE_CLIENT_SECRET = "YOUR_GOOGLE_CLIENT_SECRET";
+```json
+{
+    "external_auth": {
+        "google": {
+            "client_id": "YOUR_GOOGLE_CLIENT_ID",
+            "client_secret": "YOUR_GOOGLE_CLIENT_SECRET"
+        }
+    }
+}
 ```
 
 1.  Replace `YOUR_GOOGLE_CLIENT_ID` with your **Client ID**.
 2.  Replace `YOUR_GOOGLE_CLIENT_SECRET` with your **Client Secret**.
-3.  **Rebuild the Backend**:
+3.  **Rebuild the Backend** (run from the repo root):
     ```powershell
-    cd OAuth2Server
-    build.bat
+    .\manage.ps1 build-backend
     ```
 
 ---
 
 ## 3. Frontend Configuration
 
-The frontend initiates the login by redirecting the user to Google's OAuth2 authorization page.
-
-**File**: `OAuth2Frontend/src/views/Login.vue`
-
-Find the `loginWithGoogle` function:
-
-```javascript
-const loginWithGoogle = () => {
-    localStorage.setItem('auth_provider', 'google');
-    
-    // TODO: REPLACE WITH YOUR GOOGLE CLIENT ID
-    const CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"; 
-    // ...
-}
-```
-
-1.  Replace `YOUR_GOOGLE_CLIENT_ID` with your **Client ID**.
-2.  Ensure the `REDIRECT_URI` matches what you configured in the Google Cloud Console.
+The current user frontend (`frontends/user/`) does not ship a "Login with Google" button — only the backend `/api/google/login` endpoint is implemented (and GitHub is the social login wired into `frontends/user/src/pages/auth/LoginPage.vue` via `VITE_GITHUB_CLIENT_ID`). To add Google login to the SPA, follow the same Vite build-time env pattern (e.g. a `VITE_GOOGLE_CLIENT_ID` consumed in `LoginPage.vue`) and call the backend `/api/google/login` endpoint with the authorization `code`.
 
 ---
 

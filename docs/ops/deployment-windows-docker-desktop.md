@@ -763,7 +763,7 @@ docker system df
    git pull
 
    # 复制环境变量（只复制一次）
-   cp .env.docker.example .env.docker
+   cp deploy/env/docker.env.example .env.docker
    # 编辑 .env.docker 设置生产密码
 
    # 使用生产配置启动

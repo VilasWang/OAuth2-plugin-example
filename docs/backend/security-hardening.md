@@ -29,7 +29,7 @@
 
 Hodor 插件通过 `config.json` 配置，支持动态调整限制参数而无需重新编译。
 
-详细配置参见 `docs/superpowers/specs/2026-04-13-hodor-rate-limiter-migration-design.md`。
+详细配置参见 `docs/history/design/superpowers/specs/2026-04-13-hodor-rate-limiter-migration-design.md`（已归档）。
 
 ---
 

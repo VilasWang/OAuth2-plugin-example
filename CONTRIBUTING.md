@@ -8,7 +8,7 @@ workflow, conventions, and CI gates a change must pass.
 | Tool | Version |
 |------|---------|
 | C++ compiler | C++17 (MSVC 2022 / GCC 9+ / Clang 10+) |
-| CMake | 3.23+ |
+| CMake | 3.21+ |
 | Conan | 2.x |
 | Node.js | 18+ (frontends only) |
 | PostgreSQL / Redis | 14+ / 7+ (optional — see memory-only tests below) |

@@ -310,7 +310,7 @@ Full index: [docs/README.md](docs/README.md)
 | Component | Minimum Version |
 |-----------|-----------------|
 | C++ Compiler | C++17 (MSVC 2019+ / GCC 9+ / Clang 10+) |
-| CMake | 3.23+ |
+| CMake | 3.21+ |
 | PostgreSQL | 14+ |
 | Redis | 7+ |
 | Node.js | 18+ |

@@ -17,7 +17,7 @@ The application supports overriding critical configuration values using environm
 
 ### How It Works
 
-1. **Loader Hook**: At startup, `main.cc` uses `common::config::ConfigManager::loadConfiguration()`.
+1. **Loader Hook**: At startup, `main.cc`'s `loadConfiguration()` helper calls `common::config::ConfigManager::load()` then `ConfigManager::validate()`.
 2. **Parsing**: It reads the base `config.json` into a `Json::Value` object.
 3. **Injection**: It checks for the existence of the supported environment variables. If found, it updates the corresponding nodes in the `Json::Value` object in memory.
 4. **Load**: Drogon directly loads this modified configuration object using `drogon::app().loadConfigJson(config)`. No temporary files are created on disk.
@@ -32,24 +32,26 @@ The project includes a `docker-compose.yml` for orchestrating the full stack.
 
 ### Service Stack
 
-- **oauth2-backend**: The Drogon backend (Builds from `Dockerfile`).
-- **oauth2-postgres**: PostgreSQL 15 (Auto-initialized via `sql/` scripts).
-- **oauth2-redis**: Redis with password protection.
+- **oauth2-frontend**: Vue SPA + Nginx (Builds from `deploy/docker/Dockerfile`, target `frontend-runtime`).
+- **oauth2-admin**: Admin console frontend (Builds from `frontends/admin/Dockerfile`).
+- **oauth2-backend**: The Drogon backend (Builds from `deploy/docker/Dockerfile`, target `backend-runtime`).
+- **oauth2-postgres**: PostgreSQL 15 (schema applied by the backend on startup via `OAUTH2_AUTO_MIGRATE=true`, reading `apps/server/migrations/`).
+- **oauth2-redis**: Redis 7 with password protection.
 - **oauth2-prometheus**: Metrics collection agent.
 
 ### Quick Start
 
 ```bash
-# Build and Start
-docker-compose up -d --build
+# Build and Start (run from the repo root)
+docker-compose -f deploy/docker/docker-compose.yml up -d --build
 
 # Check Logs
-docker-compose logs -f oauth2-backend
+docker-compose -f deploy/docker/docker-compose.yml logs -f oauth2-backend
 
 # Stop
-docker-compose down
+docker-compose -f deploy/docker/docker-compose.yml down
 ```
 
 ### Config Handling in Docker
 
-The `Dockerfile` copies `config.json` to the container. The `docker-compose.yml` injects the environment variables defined in the `environment` section, effectively overriding the file-based defaults at runtime.
+`docker-compose.yml` mounts `apps/server/config/config.json` into the container read-only. The `environment` section injects the environment variables (see §1), which override the file-based defaults at runtime via `ConfigManager::load()` + env injection.

@@ -8,9 +8,11 @@
 
 | 镜像用途 | 镜像名称 | 标签 | 构建目标 (--target) | 说明 |
 |---------|---------|------|--------------------|---------|
-| 生产后端 | `oauth2-backend` | `v1.9.13` | `backend-runtime` | 仅包含运行时，体积小 |
-| 调试后端 | `oauth2-backend-debug` | `v1.9.13` | `backend-dev` | 包含完整编译工具链 |
+| 生产后端 | `oauth2-backend` | `<ver>`（当前 `v1.0.0`） | `backend-runtime` | 仅包含运行时，体积小 |
+| 调试后端 | `oauth2-backend-debug` | `<ver>`（当前 `v1.0.0`） | `backend-dev` | 包含完整编译工具链 |
 | 生产前端 | `oauth2-frontend` | `latest` | `frontend-runtime` | Nginx + 静态资源 |
+
+> 版本号由 `cmake/Version.cmake` 统一定义（当前 `OAUTH2_PROJECT_VERSION = 1.0.0`），生产镜像以 GHCR 多架构镜像发布，详见 [Releases & Supply Chain Security](../../README.md#releases--supply-chain-security)。
 
 ### 1.2 容器命名规范
 
@@ -39,7 +41,7 @@
 | -------- | ---- | -------- | -------- |
 | `docker-compose.yml` | 标准开发环境 | 6 | 日常开发和集成测试 |
 | `docker-compose.debug.yml` | 调试环境 | 3 | 深度调试和问题排查 |
-| `docker-compose.prod.yml` | 生产环境 | 7 | 生产部署（含Nginx） |
+| `docker-compose.prod.yml` | 生产环境 | 8 | 生产部署（含 Nginx 与 migrate 迁移作业） |
 
 **重要提示**: 所有docker-compose命令需要在**项目根目录**执行，并使用 `-f deploy/docker/docker-compose.yml` 指定配置文件路径。
 
@@ -65,7 +67,7 @@ docker image prune -f
 
     ```powershell
     # 使用统一 Dockerfile 的 backend-dev 目标构建
-    docker build -f deploy/docker/Dockerfile --target backend-dev -t oauth2-backend-debug:v1.9.13 .
+    docker build -f deploy/docker/Dockerfile --target backend-dev -t oauth2-backend-debug:v1.0.0 .
     ```
 
 - **启动服务** (在项目根目录):
@@ -135,7 +137,7 @@ docker image prune -f
 
     ```powershell
     # 复制示例配置文件
-    cp deploy/env/.env.docker.example .env.docker
+    cp deploy/env/docker.env.example .env.docker
     
     # 编辑 .env.docker 文件，设置生产环境参数
     # 必需的环境变量：
