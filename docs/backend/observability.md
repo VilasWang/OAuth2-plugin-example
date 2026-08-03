@@ -10,16 +10,22 @@
 
 | 指标名称 | 类型 | 标签 (Labels) | 说明 |
 |----------|------|--------------|------|
-| `oauth2_requests_total` | Counter | `type` (authorize/token), `client_id` | OAuth2 请求总数 |
-| `oauth2_errors_total` | Counter | `type` (invalid_grant/server_error...), `client_id` | 错误发生次数 |
-| `oauth2_latency_seconds` | Histogram | `step` (database/validate), `backend` (redis/postgres) | 关键步骤耗时分布 |
-| `oauth2_active_tokens` | Gauge | `client_id` | 当前活跃（未过期）Token 估算值 |
+| `oauth2_requests_total` | Counter | `endpoint`, `status` | OAuth2 请求总数 |
+| `oauth2_login_failures_total` | Counter | `reason` | 登录失败次数 |
+| `oauth2_introspect_requests_total` | Counter | `client_id` | Token Introspection 请求总数 |
+| `oauth2_introspect_errors_total` | Counter | `client_id`, `error` | Introspection 错误次数 |
+| `oauth2_revocation_requests_total` | Counter | `client_id` | Token Revocation 请求总数 |
+| `oauth2_revocation_errors_total` | Counter | `client_id`, `error` | Revocation 错误次数 |
+| `oauth2_latency_seconds` | Histogram | `operation`, `storage` | 关键步骤（含存储后端）耗时分布 |
+| `oauth2_active_tokens` | Gauge | — | 当前活跃（未过期）Token 估算值 |
+
+> 指标由 `libs/drogon/src/observability/Metrics.cc` 与 `libs/drogon/src/adapters/DrogonMetrics.cc` 统一发射（经 `LOG_INFO` 的 `[METRIC]` 结构化日志，供 PromExporter/日志采集端消费），定义见 `libs/drogon/include/authforge/drogon/observability/Metrics.h`。
 
 ### 1.2 监控面板示例 (Grafana)
 
 建议配置以下面板：
 
-- **QPS & Error Rate**: `rate(oauth2_requests_total[1m])` vs `rate(oauth2_errors_total[1m])`
+- **QPS & Error Rate**: `rate(oauth2_requests_total[1m])` vs `rate(oauth2_login_failures_total[1m])`
 - **P99 Latency**: `histogram_quantile(0.99, rate(oauth2_latency_seconds_bucket[1m]))`
 - **Business**: Active Tokens trend.
 

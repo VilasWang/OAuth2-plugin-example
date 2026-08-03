@@ -6,12 +6,12 @@
 
 ## 1. 服务栈架构
 
-`docker-compose.yml` 编排以下 5 个服务：
+`docker-compose.yml` 编排以下 6 个服务：
 
 ```
 Internet
     │
-    │ :8080
+    │ :8080 / :8081
     ▼
 ┌────────────────────────┐
 │  oauth2-frontend│  Vue 前端 (Nginx)
@@ -37,10 +37,11 @@ prometheus
 
 | 服务 | 镜像/构建 | 对外端口 | 说明 |
 |---|---|---|---|
-| `oauth2-frontend` | `./OAuth2Frontend` Dockerfile 构建 | `8080:80` | Vue SPA (用户端) + Nginx |
-| `oauth2-backend` | `./Dockerfile` 构建 | `5555:5555` | Drogon C++ 后端 |
+| `oauth2-frontend` | `deploy/docker/Dockerfile` (`frontend-runtime`) | `8080:80` | Vue SPA (用户端) + Nginx |
+| `oauth2-admin` | `frontends/admin/Dockerfile` | `8081:80` | 管理后台前端 |
+| `oauth2-backend` | `deploy/docker/Dockerfile` (`backend-runtime`) | `5555:5555` | Drogon C++ 后端 |
 | `oauth2-postgres` | `postgres:15-alpine` | `5433:5432` | PostgreSQL（宿主机 5433，避开本地冲突）|
-| `oauth2-redis` | `redis:alpine` | `6380:6379` | Redis（宿主机 6380，避开本地冲突）|
+| `oauth2-redis` | `redis:7-alpine` | `6380:6379` | Redis（宿主机 6380，避开本地冲突）|
 | `oauth2-prometheus` | `prom/prometheus:latest` | `9090:9090` | 指标采集 |
 
 ---
@@ -50,39 +51,44 @@ prometheus
 详见 [Docker 容器和镜像规范指南](docker-guide.md)。
 
 ```bash
-# 第一次或代码变更后：重新构建并启动
-docker-compose up -d --build
+# 第一次或代码变更后：重新构建并启动（在项目根目录执行）
+docker-compose -f deploy/docker/docker-compose.yml up -d --build
 
 # 后续启动（无代码变更）
-docker-compose up -d
+docker-compose -f deploy/docker/docker-compose.yml up -d
 
 # 查看服务状态
-docker-compose ps
+docker-compose -f deploy/docker/docker-compose.yml ps
 
 # 实时查看后端日志
-docker-compose logs -f oauth2-backend
+docker-compose -f deploy/docker/docker-compose.yml logs -f oauth2-backend
 
 # 停止所有服务
-docker-compose down
+docker-compose -f deploy/docker/docker-compose.yml down
 
 # 停止并删除数据卷（数据库会被清空）
-docker-compose down -v
+docker-compose -f deploy/docker/docker-compose.yml down -v
 ```
 
 ---
 
 ## 3. 环境变量与密钥注入
 
-`oauth2-backend` 在 `docker-compose.yml` 的 `environment` 节中通过环境变量注入敏感配置，**完全覆盖 `config.json` 中的默认值**：
+`oauth2-backend` 在 `docker-compose.yml` 的 `environment` 节中通过环境变量注入敏感配置，**完全覆盖 `config.json` 中的默认值**。开发环境默认值（仅用于本地评估）如下：
 
 ```yaml
 environment:
   - OAUTH2_DB_HOST=oauth2-postgres         # 指向 Docker 内网的 postgres 服务名
   - OAUTH2_DB_NAME=oauth2_db
-  - OAUTH2_DB_PASSWORD=postgres_secret_pass
+  - OAUTH2_DB_PASSWORD=123456
   - OAUTH2_REDIS_HOST=oauth2-redis
   - OAUTH2_REDIS_PASSWORD=redis_secret_pass
-  - OAUTH2_VUE_CLIENT_SECRET=vue_secret_prod
+  - OAUTH2_VUE_CLIENT_SECRET=123456
+  - OAUTH2_AUTO_MIGRATE=true               # 启动时自动执行 apps/server/migrations
+  - OAUTH2_FRONTEND_URL=http://localhost:8080
+  # SMTP 配置经 ${OAUTH2_SMTP_*:-} 占位从 .env.docker 注入；留空则回退到控制台模式
+  - OAUTH2_SMTP_HOST=${OAUTH2_SMTP_HOST:-}
+  ...
 ```
 
 > [WARNING]️ **生产环境安全提示**：
@@ -92,15 +98,19 @@ environment:
 
 ### 使用 `.env` 文件（推荐）
 
-在项目根目录创建 `.env`（已在 `.gitignore` 中排除）：
+仓库提供了示例文件 `deploy/env/docker.env.example`（以及 `deploy/env/server.env.example`）。复制为 `.env.docker`（已在 `.gitignore` 中排除）并填入生产值：
 
 ```env
 OAUTH2_DB_PASSWORD=your_strong_password
 OAUTH2_REDIS_PASSWORD=your_redis_password
 OAUTH2_VUE_CLIENT_SECRET=your_client_secret
+# SMTP（留空则后端回退到控制台模式）
+OAUTH2_SMTP_HOST=
+OAUTH2_SMTP_PORT=465
+...
 ```
 
-然后 `docker-compose.yml` 中通过 `${VAR_NAME}` 引用即可。
+然后 `docker-compose.yml` 中通过 `${VAR_NAME:-default}` 引用即可。
 
 ---
 
@@ -114,14 +124,15 @@ volumes:
   redisdata: # Redis RDB / AOF 文件
 ```
 
-数据库初始化 SQL 通过 Volume Mount 自动执行：
+数据库初始化由后端在启动时自动完成（`OAUTH2_AUTO_MIGRATE=true`，按文件名顺序执行 `apps/server/migrations/V*.sql`，再执行 `apps/server/seed/*.sql`）。`docker-compose.yml` 同时把迁移与种子脚本挂进 postgres 容器的子目录：
 
 ```yaml
 volumes:
-  - ./OAuth2Server/sql:/docker-entrypoint-initdb.d
+  - ../../apps/server/migrations:/docker-entrypoint-initdb.d/migrations:ro
+  - ../../apps/server/seed:/docker-entrypoint-initdb.d/seed:ro
 ```
 
-`docker-entrypoint-initdb.d` 目录下的 `.sql` 文件在容器**首次启动**时按文件名字母序自动执行。
+> [WARNING]️ **注意**：postgres entrypoint **不会**递归进入 `/docker-entrypoint-initdb.d` 的子目录，因此这两个挂载对首次初始化是 **no-op**，真正的 schema 初始化由后端的 `OAUTH2_AUTO_MIGRATE` 完成。
 
 ---
 

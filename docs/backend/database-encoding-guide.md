@@ -124,7 +124,7 @@ SQL files contained Chinese comments that displayed as garbled text when execute
 
 All Chinese comments in SQL files have been replaced with English equivalents to avoid encoding display issues:
 
-**Modified File**: `sql/migrations/V006__oauth2_scopes.sql` (previously `sql/004_oauth2_scopes.sql`)
+**Modified File**: `apps/server/migrations/V006__oauth2_scopes.sql` (previously `sql/004_oauth2_scopes.sql`)
 
 **Changes**:
 
@@ -139,7 +139,7 @@ SQL files now execute cleanly without garbled output:
 
 ```text
 DROP TABLE
-psql:sql/migrations/V002__oauth2_core.sql:5: NOTICE:  table "oauth2_access_tokens" does not exist
+psql:apps/server/migrations/V002__oauth2_core.sql:5: NOTICE:  table "oauth2_access_tokens" does not exist
 DROP TABLE
 CREATE TABLE
 ```
@@ -162,8 +162,7 @@ To display characters correctly in Windows console:
 
 Both settings are now included in:
 
-- `scripts/setup_database.bat`
-- `scripts/check_db_encoding.bat`
+- `scripts/backend/setup_database.bat`
 
 ## Conclusion
 

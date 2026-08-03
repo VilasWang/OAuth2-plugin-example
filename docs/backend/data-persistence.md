@@ -4,7 +4,7 @@
 
 ## 1. 设计目标
 
-- **存储解耦**：通过 `IOAuth2Storage` 接口抽象，支持内存、PostgreSQL、Redis 等多种存储后端。
+- **存储解耦**：通过仓储接口（`libs/oauth2/include/authforge/oauth2/repository/` 下的 `IClientRepository`、`IGrantRepository`、`ITokenRepository` 等）抽象，支持内存、PostgreSQL、Redis 等多种存储后端，各后端以 `*RepositoryBundle` 装配实现。
 - **数据持久化**：确保 Client 信息、Token、Auth Code 等关键数据不丢失。
 - **安全加固**：Client Secret 绝不明文存储，强制使用 SHA256 加盐哈希。
 - **异步高性能**：底层操作全部采用 `execSqlAsync` 和 `execCommandAsync`，基于回调机制，充分利用 Drogon 的非阻塞 I/O 能力。
@@ -17,21 +17,21 @@
 
 ### 2.1 Database Schema
 
-请在 PostgreSQL 中创建以下表结构：
+由迁移脚本 `apps/server/migrations/V002__oauth2_core.sql` 创建（幂等，`IF NOT EXISTS`；后续迁移会追加 scopes、device codes、lockout 等列）。核心表结构如下：
 
 #### 客户端表 (`oauth2_clients`)
 
 存储接入的客户端应用信息。
 
 ```sql
-CREATE TABLE oauth2_clients (
-    client_id       VARCHAR(64) PRIMARY KEY,
-    client_secret   VARCHAR(128) NOT NULL, -- 存储 SHA256(secret + salt) 的 Hex 字符串
-    salt            VARCHAR(64) DEFAULT '', -- 随机盐值 (可选，建议使用)
-    redirect_uris   TEXT NOT NULL,          -- JSON 数组格式: '["http://..."]'
-    allowed_scopes  TEXT,                   -- JSON 数组格式: '["openid", "profile"]'
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS oauth2_clients (
+    client_id       VARCHAR(50) PRIMARY KEY,
+    client_type     VARCHAR(20) NOT NULL DEFAULT 'CONFIDENTIAL',
+    client_secret   VARCHAR(100) NOT NULL, -- 存储 SHA256(secret + salt) 的 Hex 字符串
+    salt            VARCHAR(50) NOT NULL,  -- 随机盐值
+    name            VARCHAR(100),
+    redirect_uris   TEXT,                  -- 逗号分隔或 JSON 数组
+    allowed_grant_types TEXT               -- 允许的 grant_type 列表
 );
 ```
 
@@ -40,47 +40,52 @@ CREATE TABLE oauth2_clients (
 短期有效的授权凭证。
 
 ```sql
-CREATE TABLE oauth2_codes (
-    code            VARCHAR(64) PRIMARY KEY,
-    client_id       VARCHAR(64) NOT NULL REFERENCES oauth2_clients(client_id),
-    user_id         VARCHAR(128) NOT NULL,
+CREATE TABLE IF NOT EXISTS oauth2_codes (
+    code            VARCHAR(100) PRIMARY KEY,
+    client_id       VARCHAR(50) NOT NULL REFERENCES oauth2_clients(client_id),
+    user_id         VARCHAR(50),
     scope           TEXT,
-    redirect_uri    TEXT NOT NULL,
-    code_challenge  VARCHAR(128),         -- PKCE 支持
-    code_challenge_method VARCHAR(10),     -- S256 / plain
-    expires_at      BIGINT NOT NULL,      -- Unix Timestamp
-    used            BOOLEAN DEFAULT FALSE, -- 防重放攻击
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    redirect_uri    TEXT,
+    code_challenge  VARCHAR(128),          -- PKCE 支持
+    code_challenge_method VARCHAR(10),      -- S256 / plain
+    expires_at      BIGINT NOT NULL,       -- Unix Timestamp
+    used            BOOLEAN DEFAULT FALSE  -- 防重放攻击
 );
-CREATE INDEX idx_auth_codes_expires ON oauth2_codes(expires_at);
 ```
 
 #### 访问令牌表 (`oauth2_access_tokens`)
 
 ```sql
-CREATE TABLE oauth2_access_tokens (
-    token           VARCHAR(128) PRIMARY KEY,
-    client_id       VARCHAR(64) NOT NULL REFERENCES oauth2_clients(client_id),
-    user_id         VARCHAR(128) NOT NULL,
+CREATE TABLE IF NOT EXISTS oauth2_access_tokens (
+    token           VARCHAR(100) PRIMARY KEY,
+    client_id       VARCHAR(50) NOT NULL REFERENCES oauth2_clients(client_id),
+    user_id         VARCHAR(50),
     scope           TEXT,
     expires_at      BIGINT NOT NULL,
     revoked         BOOLEAN DEFAULT FALSE,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    issued_at       BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::BIGINT,
+    issuer          VARCHAR(255) NOT NULL DEFAULT 'https://oauth.example.com',
+    audience        VARCHAR(255),
+    not_before      BIGINT DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::BIGINT,
+    introspect_count INTEGER DEFAULT 0,
+    revoked_at      BIGINT,
+    revoked_by      VARCHAR(50)
 );
 ```
 
 #### 刷新令牌表 (`oauth2_refresh_tokens`)
 
 ```sql
-CREATE TABLE oauth2_refresh_tokens (
-    token           VARCHAR(128) PRIMARY KEY,
-    access_token    VARCHAR(128) NOT NULL REFERENCES oauth2_access_tokens(token),
-    client_id       VARCHAR(64) NOT NULL,
-    user_id         VARCHAR(128) NOT NULL,
+CREATE TABLE IF NOT EXISTS oauth2_refresh_tokens (
+    token           VARCHAR(100) PRIMARY KEY,
+    access_token    VARCHAR(100) NOT NULL, -- 关联的访问令牌（无外键约束，按值引用）
+    client_id       VARCHAR(50) NOT NULL REFERENCES oauth2_clients(client_id),
+    user_id         VARCHAR(50),
     scope           TEXT,
     expires_at      BIGINT NOT NULL,
     revoked         BOOLEAN DEFAULT FALSE,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    revoked_at      BIGINT,
+    revoked_by      VARCHAR(50)
 );
 ```
 
@@ -143,7 +148,7 @@ HSET oauth2:client:vue-client secret "42a121b66fb9f1d4f73125788f42eb6799110c6aea
 
 ### 4.2 代码实现
 
-位于 `RedisOAuth2Storage::validateClient` 和 `PostgresOAuth2Storage::validateClient` 中。
+位于 `RedisClientRepository::validateClient` 和 `PostgresClientRepository::validateClient` 中。
 
 ```cpp
 // 核心逻辑示例
@@ -162,29 +167,22 @@ return lower(calculatedHash) == lower(storedHash);
 
 | 存储后端 | 清理策略 | 实现机制 | 频率 |
 |----------|----------|----------|------|
-| **Redis** | **TTL 自动清理** | 依赖 Redis 原生 `EXPIRE` 机制，无需应用层干预。 | 实时 |
-| **PostgreSQL**| **定期删除** | 通过 `OAuth2Plugin` 调度器执行 `Storage::deleteExpiredData`。 | 每 1 小时 |
-| **Memory** | **定期扫描** | 通过 `OAuth2Plugin` 调度器遍历 Map 并移除过期项。 | 每 1 小时 |
+| **Redis** | **TTL 自动清理** | 依赖 Redis 原生 `SETEX`/`EXPIRE` 机制，无需应用层干预。 | 实时 |
+| **PostgreSQL**| **定期删除** | 由 `OAuth2CleanupService` 调用 `IGrantRepository` / `ITokenRepository` 的清理方法删除过期 Auth Code、Access/Refresh Token。 | 默认每 1 小时 |
+| **Memory** | **定期扫描** | 同上，由 `OAuth2CleanupService` 触发各仓储的过期清理。 | 默认每 1 小时 |
 
 ### 5.2 调度器实现
 
-在 `OAuth2Plugin::initAndStart` 中，系统会注册一个定时任务：
+清理由独立的 `OAuth2CleanupService`（`libs/drogon/src/plugin/OAuth2CleanupService.cc`）承担，在 `OAuth2Plugin::initAndStart` 中创建并启动，间隔由插件配置项 `cleanup_interval_seconds` 控制（默认 `3600`，见 `config.json`）：
 
 ```cpp
-// 每 3600 秒 (1小时) 执行一次
-drogon::app().getLoop()->runEvery(3600.0, [this]() {
-    LOG_DEBUG << "Running periodic data cleanup...";
-    storage_->deleteExpiredData();
-});
+cleanupService_ = std::make_shared<OAuth2CleanupService>(grantRepo_, tokenRepo_);
+double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble();
+cleanupService_->start(cleanupInterval);
 ```
+
+服务内部用 `drogon::app().getLoop()->runEvery(interval, ...)` 周期触发，并通过 `weak_from_this()` 防止在销毁后回调。
 
 ### 5.3 接口定义
 
-`IOAuth2Storage` 接口新增了清理方法：
-
-```cpp
-/**
- * @brief 删除所有过期的 Auth Codes, Access Tokens 和 Refresh Tokens
- */
-virtual void deleteExpiredData() = 0;
-```
+清理不再集中于单一的 `IOAuth2Storage::deleteExpiredData`；而是按仓储拆分，由 `IGrantRepository`（Auth Code）与 `ITokenRepository`（Access/Refresh Token）各自提供过期删除方法，由 `OAuth2CleanupService` 编排调用。

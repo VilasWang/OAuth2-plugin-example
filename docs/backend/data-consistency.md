@@ -20,11 +20,11 @@
 
 ## 2. 解决方案：Atomic Consume (原子消费)
 
-本系统在 `IOAuth2Storage` 接口层引入了 `consumeAuthCode(code)` 方法，强制要求存储后端实现 **"检查并更新" (Check-and-Set)** 的原子操作。
+本系统在 `IGrantRepository` 接口层引入了 `consumeAuthCode(code)` 方法，强制要求存储后端实现 **"检查并更新" (Check-and-Set)** 的原子操作。
 
 ### 2.1 业务流程重构
 
-`OAuth2Plugin::exchangeCodeForToken` 的逻辑已重构为：
+`TokenService::exchangeCodeForToken` 的逻辑已重构为（由 `OAuth2Plugin` 之上的 token 端点 controller 调用）：
 
 1. **Atomic Consume**: 调用存储层的 `consumeAuthCode`。
 2. **Result Check**:
@@ -85,5 +85,5 @@ return std::nullopt;
 
 系统包含专门的并发与重放测试用例：
 
-- `PluginTest.cc`: `TestReplayAttack` 模拟同一次 Code 的两次交换请求，验证第二次必然失败。
+- `GrantRepositoryContractTest.cc`: `..._ConsumeAuthCode_SingleUse` 契约测试对同一 Code 调用两次 `consumeAuthCode`，验证第二次必然返回 `nullopt`（Postgres 与 Redis 两个后端各一份）。
 - `AdvancedStorageTest.cc`: 验证底层存储对已撤销/已过期数据的拒绝逻辑。

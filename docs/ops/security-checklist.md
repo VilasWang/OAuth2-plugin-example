@@ -26,26 +26,22 @@ frontends/user/public/config.json
 
 ### 2. 安全文件结构
 
+前端（`frontends/user/`）采用 Vite 构建时配置：`VITE_*` 变量在 `npm run build` 时被内联进 SPA bundle，生产 Docker 构建中通过构建参数注入（见 `deploy/docker/Dockerfile` 与 `docker-compose.prod.yml`）。不存在运行时加载的 `config.json`。
+
 ```
 frontends/user/
-├── .env                    # ❌ 被忽略 - 包含实际凭证
-├── .env.example            # ✅ 可提交 - 仅包含示例
-├── public/
-│   ├── config.json         # ❌ 被忽略 - 包含实际凭证
-│   └── config.example.json # ✅ 可提交 - 仅包含示例
-└── src/
-    └── config/
-        └── auth.config.js  # ✅ 可提交 - 不含敏感信息
+├── .env                # ❌ 被忽略 - 本地实际值（.gitignore 规则）
+├── .env.example        # ✅ 可提交 - 仅占位符示例
+└── src/                # 业务代码通过 import.meta.env.VITE_* 读取（构建时内联）
 ```
 
 ## 🔒 安全检查清单
 
 ### 开发环境配置
 
-- [ ] **从不提交** `.env` 文件到版本控制
-- [ ] **从不提交** `frontends/user/public/config.json` 到版本控制
-- [ ] **仅提交** `.env.example` 和 `config.example.json` 作为模板
-- [ ] 确保 `.env.example` 和 `config.example.json` 仅包含占位符，不含真实凭证
+- [ ] **从不提交** `.env` / `.env.local` / `.env.docker` 文件到版本控制
+- [ ] **仅提交** `.env.example` 作为模板
+- [ ] 确保 `.env.example` 仅包含占位符，不含真实凭证
 
 ### 生产环境配置
 
@@ -62,8 +58,8 @@ frontends/user/
 # 检查是否有 .env 文件被跟踪
 git ls-files | grep "\.env$"
 
-# 检查是否有前端 config.json 被跟踪
-git ls-files | grep "frontends/user/public/config.json"
+# 检查是否有前端 .env 被跟踪（应仅 .env.example 可见）
+git ls-files | grep "frontends/user/.*\.env"
 
 # 检查当前 git 状态
 git status
@@ -82,9 +78,9 @@ git filter-branch --force --index-filter \
   "git rm --cached --ignore-unmatch frontends/user/.env" \
   --prune-empty --tag-name-filter cat -- --all
 
-# 2. 从 git 历史中移除前端配置
+# 2. 从 git 历史中移除前端本地配置
 git filter-branch --force --index-filter \
-  "git rm --cached --ignore-unmatch frontends/user/public/config.json" \
+  "git rm --cached --ignore-unmatch frontends/user/.env" \
   --prune-empty --tag-name-filter cat -- --all
 
 # 3. 强制推送到远程（⚠️ 谨慎操作）
@@ -113,7 +109,7 @@ git gc --prune=now --aggressive
 # Pre-commit hook to prevent sensitive files from being committed
 
 # 检查是否有 .env 文件被提交
-if git diff --cached --name-only | grep -E "\.env$|frontends/user/public/config\.json"; then
+if git diff --cached --name-only | grep -E "(^|/)\.env$|frontends/user/\.env"; then
     echo "❌ 错误: 尝试提交敏感配置文件！"
     echo "   请检查 .gitignore 配置"
     exit 1

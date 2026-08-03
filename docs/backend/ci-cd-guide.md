@@ -6,23 +6,28 @@
 
 ## 1. 流水线概览
 
-CI 配置位于 `.github/workflows/ci.yml`，由两个 Job 组成：
+CI 配置位于 `.github/workflows/ci.yml`，由三个 fail-fast 串联的 Job（含一条可复用工作流矩阵）组成：
 
 ```
-Push/PR 到 master
+Push/PR 到 master (及 workflow_dispatch)
         │
-        ├── Job 1: build-and-test (ubuntu-latest)
-        │     ├── 安装系统依赖
-        │     ├── 安装 Conan (依赖管理)
-        │     ├── 配置并构建 Drogon (带缓存)
-        │     ├── 编译项目 (Release)
-        │     ├── 等待 Postgres/Redis Service 就绪
-        │     ├── 初始化数据库 Schema
-        │     ├── 运行 ctest
-        │     └── [失败时] 上传测试日志 Artifact
+        ├── FAST gate
+        │     ├── static-checks (ubuntu-22.04) — 源码级守卫：
+        │     │     arch-guard / migration-check / api-diff /
+        │     │     测试命名 / manage 脚本对等 / OpenAPI 校验
+        │     └── frontend (_frontend.yml) — 前端属性测试
         │
-        └── Job 2: docker-build (ubuntu-latest)
-              └── docker build（验证 Dockerfile 可正常构建）
+        ├── MAIN gate
+        │     └── build-test (_build-test.yml × {linux, windows, macos} 矩阵)
+        │           ├── 安装系统依赖 / Conan
+        │           ├── 配置并构建 (Conan + cmake --preset，带缓存)
+        │           ├── [linux] 启动 Postgres/Redis 容器并等待就绪
+        │           ├── [linux] 初始化数据库 Schema
+        │           ├── 运行 ctest + 命名发布门禁
+        │           └── [失败时] 上传测试日志 Artifact
+        │
+        └── RELEASE gate
+              └── sdk-smoke (_sdk-smoke.yml) — 全栈 find_package 冒烟
 ```
 
 ---
@@ -35,34 +40,42 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 ```
 
 - **Push to master**：每次合并到 master 后自动触发全量检查。
 - **Pull Request**：每次 PR 创建/更新时在合并前自动触发，作为门禁检查。
+- **workflow_dispatch**：支持手动触发。
+- **并发控制**：同一分支的新运行会取消其进行中的旧运行。
 
 ---
 
-## 3. 核心 Job 详解：`build-and-test`
+## 3. 核心 Job 详解：`build-test`
 
-### 3.1 Service Containers
+`build-test` 是一条可复用工作流（`_build-test.yml`），由 `ci.yml` 以 `{linux, windows, macos}` 矩阵调用，三个平台执行同一套 Conan + `cmake --preset` 构建与 CTest 测试，仅在需要时通过矩阵输入启用数据库。
 
-CI 在同一 Job 中自动启动 Postgres 和 Redis 容器，并通过健康检查确保服务就绪：
+### 3.1 Service Containers（仅 linux 矩阵腿）
+
+CI 在 Linux 矩阵腿中用 Docker 容器启动 Postgres 和 Redis，并通过真实查询（非仅 `pg_isready`）确保就绪：
 
 | Service | 镜像 | 端口 | 密码 |
 |---|---|---|---|
 | PostgreSQL | `postgres:15-alpine` | `5432` | `123456` |
-| Redis | `redis:alpine` | `6379` | 无（CI 环境简化配置）|
+| Redis | `redis:7-alpine` | `6379` | 无（CI 环境简化配置）|
 
-> [WARNING]️ **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `OAUTH2_REDIS_PASSWORD=""` 覆盖。
+> [WARNING]️ **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `OAUTH2_REDIS_PASSWORD=""` 覆盖。Windows/macOS 矩阵腿 `use_database=false`，改用内存存储配置（`config.ci.json`）。
 
 ### 3.2 构建缓存策略
 
-为加速 CI 构建速度，设置了两个缓存层：
+为加速 CI 构建速度，对 Conan 依赖做缓存：
 
 | 缓存 | 缓存键 | 内容 |
 |---|---|---|
-| **Conan 依赖缓存** | `conan-{OS}-{conanfile.txt hash}` | `~/.conan2` 目录（第三方依赖）|
-| **Drogon 构建缓存** | `drogon-{OS}-{DROGON_VERSION}-{BUILD_TYPE}` | Drogon 编译产物 |
+| **Conan 依赖缓存** | `conan-{OS}-v1-cpp17-{conanfile.py + conan.lock hash}` | `~/.conan2` 目录（第三方依赖，含 Drogon）|
 
 初次构建约需 **15-20 分钟**；缓存命中后降至 **3-5 分钟**。
 
@@ -102,16 +115,9 @@ ctest -V -C Release --output-on-failure --timeout 120
 
 ---
 
-## 4. Job 2: `docker-build`
+## 4. 镜像构建与签名
 
-验证 `Dockerfile` 在每次 CI 运行时均可成功构建镜像，防止 Dockerfile 残留导致部署失败：
-
-```yaml
-- name: Build the Docker image
-  run: docker build . --file Dockerfile --tag oauth2-backend:v1.9.13
-```
-
-此 Job **不推送**镜像到 Registry，仅验证构建可行性。
+CI 流水线本身不构建 Docker 镜像。容器镜像的多架构构建、推送 GHCR、cosign 签名与 syft SBOM 由 `release.yml` 在打 SemVer Tag（`vX.Y.Z`）时完成。详见 [Releases & Supply Chain Security](../../README.md#releases--supply-chain-security)。
 
 ---
 
@@ -121,8 +127,8 @@ ctest -V -C Release --output-on-failure --timeout 120
 
 ```powershell
 # 1. 启动基础设施（CI 中使用 Service Container，本地用 Docker）
-docker run -d -p 5432:5432 -e POSTGRES_USER=test -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=oauth2_db postgres:15-alpine
-docker run -d -p 6379:6379 redis:alpine
+docker run -d -p 5432:5432 -e POSTGRES_USER=oauth2_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=oauth2_db postgres:15-alpine
+docker run -d -p 6379:6379 redis:7-alpine
 
 # 2. 初始化数据库
 $env:PGPASSWORD = "123456"
@@ -142,36 +148,23 @@ ctest -V -C Release --output-on-failure
 
 ---
 
-## 6. Multi-Platform CI
+## 6. 多平台矩阵
 
-The project now supports comprehensive multi-platform CI/CD. See [Multi-Platform CI Design](../history/design/superpowers/specs/2026-04-14-multiplatform-ci-design.md) for detailed information.
+多平台 CI 已合并进 `ci.yml` 的 `build-test` Job，通过 `include` 矩阵在同一套可复用工作流（`_build-test.yml`）上跑三个平台。历史设计文档见 [Multi-Platform CI Design](../history/design/superpowers/specs/2026-04-14-multiplatform-ci-design.md)（已归档）。
 
 ### Quick Reference
 
-- **Workflow File:** `.github/workflows/ci-multiplatform.yml`
+- **Workflow File:** `.github/workflows/ci.yml`（调用 `_build-test.yml`）
 - **Platforms:** Linux (ubuntu-22.04), Windows (windows-2022), macOS (macos-14)
 - **Trigger:** Push to master, pull requests, manual workflow dispatch
 - **Runtime:** ~15-20 minutes cold cache, ~3-5 minutes warm cache per platform
 
 ### Platform-Specific Features
 
-Each platform includes optimized caching and dependency management:
+每个平台的差异仅通过矩阵输入表达（无复制粘贴的流水线）：
 
-- **Linux:** System dependencies via apt, Docker services for PostgreSQL/Redis
-- **Windows:** Conan package management, MSVC 2022 compiler
-- **macOS:** Homebrew dependencies, architecture-specific builds (x86_64), OpenSSL@1.1
-
-### Troubleshooting
-
-For common issues, debugging tips, and performance optimization guidance, refer to the [Multi-Platform CI Design](../history/design/superpowers/specs/2026-04-14-multiplatform-ci-design.md).
+- **Linux:** 系统依赖经 apt 安装；用 Docker 容器跑 PostgreSQL/Redis；执行数据库初始化与命名发布门禁
+- **Windows:** Conan 依赖管理，MSVC 2022 编译器；内存存储配置（`use_ci_config`），无外部 DB
+- **macOS:** Homebrew（仅 `brew update`）；arm64 构建（`-s arch=armv8`，runner 为 `macos-14`）；内存存储配置
 
 ---
-
-## 7. 未来扩展建议
-
-| 功能 | 说明 |
-|---|---|
-| **Docker 镜像发布** | 在 `docker-build` Job 中添加 `docker push` 步骤，推送至 GitHub Container Registry (ghcr.io) |
-| **E2E 浏览器测试** | 添加 Job 运行 Playwright/Cypress 对前端 OAuth2 流程做端到端测试 |
-| **安全扫描** | 集成 `trivy` 对 Docker 镜像进行漏洞扫描 |
-| **Release 自动化** | 通过 `release.yml` 在打 Git tag 时自动创建 GitHub Release 并上传构建产物 |

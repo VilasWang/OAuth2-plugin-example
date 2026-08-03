@@ -21,35 +21,34 @@ The project has been refactored into a core Plugin Library and a Demo Server to 
 ```text
 HTTP request
   |
-  |-- OAuth2Server (Demo Server Application)
-  |   |-- App Controllers: OAuth2Controller (login UI/API), AdminController, GoogleController
-  |   `-- Services: AuthService (local app authentication)
+  |-- authforge-server (apps/server — demo server binary)
+  |   `-- AuthService: local app authentication (libs/drogon/src/AuthService.cc)
   |
-  `-- OAuth2Plugin (Standalone CMake Library)
+  `-- authforge::drogon (libs/drogon — standalone SDK package, target authforge::drogon)
       |-- Plugin Core
       |   `-- OAuth2Plugin: initialization and lifecycle manager
       |
       |-- Protocol Controllers & Filters (Auto-registered)
-      |   |-- OAuth2StandardController: handles /oauth2/authorize, /token, /userinfo
-      |   `-- Filters: OAuth2Middleware, ValidationFilter, AuthorizationFilter
+      |   |-- AuthorizationEndpointController / TokenEndpointController / DiscoveryController:
+      |   |       handles /oauth2/authorize, /token, /.well-known/*, /userinfo
+      |   `-- Filters: AuthorizationFilter, OAuth2AuthFilter
       |
-      |-- Service Layer (Core Business Logic)
+      |-- Service Layer (Core Business Logic, libs/oauth2)
       |   |-- TokenService: PKCE, code/token generation and exchange
       |   |-- ClientService: client credentials and redirect URI validation
       |   `-- IdentityService: RBAC, subject mapping, and user consent
       |
-      `-- Storage Layer
-          |-- IOAuth2Storage: asynchronous storage interface
-          |-- MemoryOAuth2Storage: in-process test storage
-          |-- PostgresOAuth2Storage: persistent storage
-          |-- RedisOAuth2Storage: Redis-only storage
-          `-- CachedOAuth2Storage: PostgreSQL storage with L1 Memory & L2 Redis Cache
+      `-- Storage Layer (per-repository ports + bundle per backend)
+          |-- I{Client,Grant,Token,Consent,UserInfo}Repository: storage ports (libs/oauth2)
+          |-- MemoryRepositoryBundle: in-process test storage (libs/storage-memory)
+          |-- PostgresRepositoryBundle: persistent storage (libs/storage-postgres)
+          `-- RedisRepositoryBundle: Redis storage (libs/storage-redis)
 ```
 
 ## 3. Authorization-Code Flow
 
 ```text
-Vue SPA                 OAuth2Server (App)        OAuth2Plugin (Core)        Storage
+Vue SPA                 authforge-server (App)     OAuth2Plugin (Core)        Storage
   |                          |                            |                     |
   | GET /oauth2/authorize    |                            |                     |
   |------------------------------------------------------>| validate client     |
@@ -83,10 +82,11 @@ Vue SPA                 OAuth2Server (App)        OAuth2Plugin (Core)        Sto
 
 | storage_type | Implementation | Typical use |
 |---|---|---|
-| memory | MemoryOAuth2Storage | Unit tests and quick local demos |
-| redis | RedisOAuth2Storage | Fast ephemeral token storage |
-| postgres | PostgresOAuth2Storage | Durable production storage |
-| postgres with cache | CachedOAuth2Storage | PostgreSQL source of truth with L1 Memory and L2 Redis Cache |
+| memory | `MemoryRepositoryBundle` | Unit tests and quick local demos |
+| redis | `RedisRepositoryBundle` | Fast ephemeral token storage (client cache via `RedisClientRepository`) |
+| postgres | `PostgresRepositoryBundle` | Durable production storage |
+
+> 每个 `*RepositoryBundle` 同时装配同一后端下的 client / grant / token / consent / userinfo 五个仓储实现（见各 `libs/storage-*/include` 下的头文件）。
 
 ## 5. Frontend and Backend Integration
 
