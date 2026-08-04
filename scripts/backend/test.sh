@@ -5,13 +5,16 @@ set -euo pipefail
 source "$(dirname "$0")/env_common.sh"
 
 BUILD_TYPE="Release"
+# Default to minimal output: only failed tests print their log, plus the
+# final pass/fail/total summary line. Pass -q/--quiet to suppress even the
+# per-test START/PASS lines (-Q = summary only).
 VERBOSE="--output-on-failure"
 
 for arg in "$@"; do
     case "$arg" in
         --debug|-debug) BUILD_TYPE="Debug" ;;
         --release|-release) BUILD_TYPE="Release" ;;
-        -q|--quiet) VERBOSE="" ;;
+        -q|--quiet) VERBOSE="-Q" ;;
     esac
 done
 

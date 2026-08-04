@@ -63,7 +63,24 @@ LOG_INFO << "Processing request"; // 输出: [ReqId: abc-123] Processing request
 
 ### 3.2 日志级别
 
-建议生产环境设置 LogLevel 为 `INFO`，调试环境为 `DEBUG`。
+系统统一使用六级日志，等级与 Drogon/Trantor 的内置级别一一对应（trace < debug < info < warn < error < fatal）：
+
+| 等级 | 含义 | 典型场景 |
+|------|------|----------|
+| `trace` | 最细粒度追踪 | 函数入参 / 出参、循环迭代、逐行执行轨迹，用于深度调试定位 |
+| `debug` | 调试信息 | 变量值、分支走向、内部状态变化，开发阶段排查问题用 |
+| `info` | 常规信息 | 服务启动 / 停止、关键流程节点、用户登录、任务完成等正常业务事件 |
+| `warn` | 警告 | 可恢复的异常、降级处理、配置使用默认值、资源接近阈值等，系统仍能正常运行 |
+| `error` | 错误 | 功能失败、请求异常、数据库连接失败等，影响单次操作但服务整体可用 |
+| `fatal` | 致命错误 | 导致服务崩溃、无法继续运行的严重故障，需立即告警并人工介入 |
+
+**约定**：
+
+- 生产环境默认开启 `info` 及以上级别；`trace`/`debug` 按需动态开启。
+- 等级越高输出越少，`fatal` 应极少出现。
+- `apps/server/config/config.prod.json` 默认为 `INFO`，`config.dev.json` 默认为 `DEBUG`，`config.json`/`config.ci.json` 默认为 `DEBUG`。
+
+**动态调整**：修改配置文件 `app.log.log_level` 字段即可，可选值为 `TRACE`/`DEBUG`/`INFO`/`WARN`/`ERROR`/`FATAL`（不区分大小写）：
 
 ```json
 "app": {
@@ -72,3 +89,11 @@ LOG_INFO << "Processing request"; // 输出: [ReqId: abc-123] Processing request
     }
 }
 ```
+
+**代码约定**：
+
+- Domain 层（`libs/common`、`libs/oauth2`、`libs/identity`）**不得**直接使用 Drogon 的 `LOG_*` 宏，必须经 `authforge::common::ports::ILogger` 端口（design.md §5.6），以便单元测试可用 `FakeLogger` 捕获并断言。
+- Adapter / 基础设施层（`libs/drogon`、`libs/storage-*`、`apps/server`）可直接使用 `LOG_*` 宏。
+- 六级对应关系：`LogLevel::Trace`→`LOG_TRACE`、`Debug`→`LOG_DEBUG`、`Info`→`LOG_INFO`、`Warn`→`LOG_WARN`、`Error`→`LOG_ERROR`、`Fatal`→`LOG_FATAL`。
+
+> 关于测试输出的最小化策略（ctest 默认仅打印失败用例与汇总），见 [testing-guide.md](./testing-guide.md)。

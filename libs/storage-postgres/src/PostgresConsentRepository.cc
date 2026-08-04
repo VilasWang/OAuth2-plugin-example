@@ -76,10 +76,10 @@ void PostgresConsentRepository::saveUserConsent(
         mapper.insert(
           consent,
           [sharedCb](const Oauth2UserConsents &insertedConsent) {
-              LOG_DEBUG << "Saved user consent: user_id="
-                        << insertedConsent.getValueOfInternalUserId()
-                        << " client=" << insertedConsent.getValueOfClientId()
-                        << " scope=" << insertedConsent.getValueOfScopeName();
+              LOG_INFO << "Saved user consent: user_id="
+                       << insertedConsent.getValueOfInternalUserId()
+                       << " client=" << insertedConsent.getValueOfClientId()
+                       << " scope=" << insertedConsent.getValueOfScopeName();
               (*sharedCb)(true);
           },
           [sharedCb](const DrogonDbException &e) {
@@ -125,7 +125,7 @@ void PostgresConsentRepository::revokeUserConsent(
             Criteria(Oauth2UserConsents::Cols::_client_id, CompareOperator::EQ, clientId) &&
             Criteria(Oauth2UserConsents::Cols::_scope_name, CompareOperator::EQ, scope),
           [sharedCb](const size_t count) {
-              LOG_DEBUG << "Revoked user consent: deleted " << count << " record(s)";
+              LOG_INFO << "Revoked user consent: deleted " << count << " record(s)";
               (*sharedCb)();
           },
           [sharedCb](const DrogonDbException &e) {

@@ -129,14 +129,15 @@ void OAuth2CleanupService::runCleanup()
                   return;
               }
               // Lock acquired - proceed with cleanup
-              LOG_DEBUG << "Running periodic data cleanup (lock acquired)...";
+              LOG_INFO << "Running periodic data cleanup (lock acquired)...";
               try
               {
                   self->doPurge();
               }
               catch (const std::exception &e)
               {
-                  LOG_ERROR << "Error during OAuth2 cleanup: " << e.what();
+                  // Recoverable: background task retries on the next tick.
+                  LOG_WARN << "Error during OAuth2 cleanup: " << e.what();
               }
           },
           [weakSelf](const std::exception & /*e*/) {
@@ -144,14 +145,15 @@ void OAuth2CleanupService::runCleanup()
               if (!self || !self->running_)
                   return;
               // Redis not available - run cleanup anyway (single instance mode)
-              LOG_DEBUG << "Running periodic data cleanup (no Redis lock)...";
+              LOG_INFO << "Running periodic data cleanup (no Redis lock)...";
               try
               {
                   self->doPurge();
               }
               catch (const std::exception &ex)
               {
-                  LOG_ERROR << "Error during OAuth2 cleanup: " << ex.what();
+                  // Recoverable: background task retries on the next tick.
+                  LOG_WARN << "Error during OAuth2 cleanup: " << ex.what();
               }
           },
           "SET oauth2:cleanup:lock %s NX EX %d",
@@ -162,18 +164,20 @@ void OAuth2CleanupService::runCleanup()
     catch (...)
     {
         // Redis not configured - run cleanup without lock
-        LOG_DEBUG << "Running periodic data cleanup (no Redis)...";
+        LOG_INFO << "Running periodic data cleanup (no Redis)...";
         try
         {
             doPurge();
         }
         catch (const std::exception &e)
         {
-            LOG_ERROR << "Error during OAuth2 cleanup: " << e.what();
+            // Recoverable: doPurge() already ran; next tick retries.
+            LOG_WARN << "Error during OAuth2 cleanup: " << e.what();
         }
         catch (...)
         {
-            LOG_ERROR << "Unknown error during OAuth2 cleanup";
+            // Recoverable: same swallow-and-continue as above.
+            LOG_WARN << "Unknown error during OAuth2 cleanup";
         }
     }
 }

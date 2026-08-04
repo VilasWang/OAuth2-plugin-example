@@ -305,7 +305,7 @@ jobs:
 
       - name: Test
         working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}
-        run: ctest -V -C "$BUILD_TYPE" --output-on-failure --timeout 120
+        run: ctest -C "$BUILD_TYPE" --output-on-failure --timeout 120
 
       # --- Error-Standardization release-readiness gate (Requirement 12.7) ---
       # Explicit, attributable gate over the error-code/message-standardization

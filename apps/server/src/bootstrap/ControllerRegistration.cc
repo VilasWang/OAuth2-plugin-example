@@ -134,9 +134,11 @@ void wireControllerPluginDependencies()
     auto plugin = drogon::app().getPlugin<OAuth2Plugin>();
     if (!plugin)
     {
-        LOG_ERROR << "wireControllerPluginDependencies: OAuth2Plugin not found; "
-                     "controllers/filters will fall back to per-request "
-                     "getPlugin<OAuth2Plugin>() lookups";
+        // Recoverable: an explicit per-request getPlugin<OAuth2Plugin>()
+        // fallback exists, so startup continues (just less efficiently).
+        LOG_WARN << "wireControllerPluginDependencies: OAuth2Plugin not found; "
+                    "controllers/filters will fall back to per-request "
+                    "getPlugin<OAuth2Plugin>() lookups";
         return;
     }
 

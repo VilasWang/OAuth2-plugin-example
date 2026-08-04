@@ -959,7 +959,9 @@ void MfaController::verifyLogin(
                                                     [sendSuccess](
                                                       const ::drogon::orm::DrogonDbException &e
                                                     ) {
-                                                        LOG_ERROR
+                                                        // Recoverable: the
+                                                        // request still succeeds.
+                                                        LOG_WARN
                                                           << "verifyLogin: failed to clear MFA "
                                                              "pending binding: "
                                                           << e.base().what();
@@ -970,9 +972,11 @@ void MfaController::verifyLogin(
                                             [sendSuccess](
                                               const ::drogon::orm::DrogonDbException &e
                                             ) {
-                                                LOG_ERROR << "verifyLogin: failed to find user for "
-                                                             "MFA pending clear: "
-                                                          << e.base().what();
+                                                // Recoverable: the request
+                                                // still succeeds.
+                                                LOG_WARN << "verifyLogin: failed to find user for "
+                                                            "MFA pending clear: "
+                                                         << e.base().what();
                                                 sendSuccess();
                                             }
                                           );

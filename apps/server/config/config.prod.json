@@ -104,7 +104,7 @@
             "logfile_base_name": "oauth2_prod",
             "log_size_limit": 100000000,
             "max_files": 10,
-            "log_level": "WARN",
+            "log_level": "INFO",
             "display_local_time": true
         },
         "run_as_daemon": false,

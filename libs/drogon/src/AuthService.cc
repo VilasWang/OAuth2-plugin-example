@@ -85,7 +85,7 @@ void AuthService::validateUser(
                         *resetUser,
                         [resetUser](const size_t) {},
                         [resetUser](const ::drogon::orm::DrogonDbException &e) {
-                            LOG_DEBUG << "Failed to reset failed login counter: "
+                            LOG_ERROR << "Failed to reset failed login counter: "
                                       << e.base().what();
                         }
                       );
@@ -173,19 +173,19 @@ void AuthService::validateUser(
               }
           },
           [sharedCb](const DrogonDbException &e) {
-              LOG_WARN << "Validate User Failed: " << e.base().what();
+              LOG_ERROR << "Validate User Failed: " << e.base().what();
               (*sharedCb)(std::nullopt);
           }
         );
     }
     catch (const std::exception &e)
     {
-        LOG_WARN << "Validate User Init Failed: " << e.what();
+        LOG_ERROR << "Validate User Init Failed: " << e.what();
         (*sharedCb)(std::nullopt);
     }
     catch (...)
     {
-        LOG_WARN << "Validate User Init Unknown Exception";
+        LOG_ERROR << "Validate User Init Unknown Exception";
         (*sharedCb)(std::nullopt);
     }
 }
@@ -258,11 +258,15 @@ void AuthService::registerUser(
                                   (*sharedCb)("");  // Success
                               },
                               [sharedCb](const DrogonDbException &e) {
-                                  LOG_ERROR << "Assign Role Failed: " << e.base().what();
+                                  // Recoverable: the user has already been
+                                  // created; role assignment is a side effect.
+                                  // WARN is correct (not ERROR) because the
+                                  // registration itself succeeds.
+                                  LOG_WARN << "Assign Role Failed: " << e.base().what();
                                   (*sharedCb)("");  // Treat as success
                                                     // for now (User
                                                     // created), but log
-                                                    // error
+                                                    // warning
                               }
                             );
                         }
@@ -272,7 +276,8 @@ void AuthService::registerUser(
                         }
                     },
                     [sharedCb](const DrogonDbException &e) {
-                        LOG_ERROR << "Default Role 'user' not found: " << e.base().what();
+                        // Recoverable: user created without a role.
+                        LOG_WARN << "Default Role 'user' not found: " << e.base().what();
                         (*sharedCb)("");  // User created w/o role
                     }
                   );
@@ -369,8 +374,10 @@ void AuthService::getUserInfo(
                           (*sharedCb)(json);
                       },
                       [sharedCb, user](const DrogonDbException &e) {
-                          LOG_DEBUG << "User " << user.getValueOfPublicSub()
-                                    << " has no roles: " << e.base().what();
+                          // Recoverable degradation: roles can't be loaded, so
+                          // the user proceeds with an empty role set.
+                          LOG_WARN << "User " << user.getValueOfPublicSub()
+                                   << " has no roles: " << e.base().what();
                           Json::Value json;
                           json["sub"] = user.getValueOfPublicSub();
                           std::string displayName = user.getValueOfUsername();
@@ -395,19 +402,19 @@ void AuthService::getUserInfo(
               );
           },
           [sharedCb](const DrogonDbException &e) {
-              LOG_WARN << "Get User Info Failed: " << e.base().what();
+              LOG_ERROR << "Get User Info Failed: " << e.base().what();
               (*sharedCb)(std::nullopt);
           }
         );
     }
     catch (const std::exception &e)
     {
-        LOG_WARN << "Get User Info Init Failed: " << e.what();
+        LOG_ERROR << "Get User Info Init Failed: " << e.what();
         (*sharedCb)(std::nullopt);
     }
     catch (...)
     {
-        LOG_WARN << "Get User Info Init Unknown Exception";
+        LOG_ERROR << "Get User Info Init Unknown Exception";
         (*sharedCb)(std::nullopt);
     }
 }

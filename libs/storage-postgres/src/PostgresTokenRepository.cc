@@ -238,7 +238,7 @@ void PostgresTokenRepository::getAccessToken(const std::string &token, AccessTok
               (*sharedCb)(t);
           },
           [sharedCb](const DrogonDbException &e) {
-              LOG_DEBUG << "getAccessToken not found/error: " << e.base().what();
+              LOG_WARN << "getAccessToken not found/error: " << e.base().what();
               (*sharedCb)(std::nullopt);
           }
         );
@@ -331,7 +331,7 @@ void PostgresTokenRepository::getRefreshToken(const std::string &token, RefreshT
               (*sharedCb)(t);
           },
           [sharedCb](const DrogonDbException &e) {
-              LOG_DEBUG << "getRefreshToken not found/error: " << e.base().what();
+              LOG_WARN << "getRefreshToken not found/error: " << e.base().what();
               (*sharedCb)(std::nullopt);
           }
         );
@@ -367,7 +367,7 @@ void PostgresTokenRepository::revokeRefreshToken(const std::string &token, VoidC
         mapper.update(
           updateObj,
           [sharedCb, token](const size_t count) {
-              LOG_DEBUG << "Revoked refresh token: " << token << ", affected rows: " << count;
+              LOG_INFO << "Revoked refresh token: " << token << ", affected rows: " << count;
               if (*sharedCb)
                   (*sharedCb)();
           },
@@ -595,13 +595,13 @@ void PostgresTokenRepository::incrementIntrospectCount(const std::string &token,
               updated,
               [sharedCb](const size_t) { (*sharedCb)(); },
               [sharedCb](const DrogonDbException &e) {
-                  LOG_DEBUG << "incrementIntrospectCount update failed: " << e.base().what();
+                  LOG_ERROR << "incrementIntrospectCount update failed: " << e.base().what();
                   (*sharedCb)();
               }
             );
       },
       [sharedCb](const DrogonDbException &e) {
-          LOG_DEBUG << "incrementIntrospectCount find failed: " << e.base().what();
+          LOG_ERROR << "incrementIntrospectCount find failed: " << e.base().what();
           (*sharedCb)();
       }
     );
@@ -656,20 +656,20 @@ void PostgresTokenRepository::revokeAccessToken(
                           .update(
                             rtUpdated,
                             [sharedCb](const size_t) {
-                                LOG_DEBUG << "Token revoked successfully (checked both tables)";
+                                LOG_INFO << "Token revoked successfully (checked both tables)";
                                 (*sharedCb)();
                             },
                             [sharedCb](const DrogonDbException &) { (*sharedCb)(); }
                           );
                     },
                     [sharedCb](const DrogonDbException &) {
-                        LOG_DEBUG << "Token revoked successfully (access token only)";
+                        LOG_INFO << "Token revoked successfully (access token only)";
                         (*sharedCb)();
                     }
                   );
               },
               [sharedCb, token, self](const DrogonDbException &e) {
-                  LOG_DEBUG << "Access token revocation audit failed: " << e.base().what();
+                  LOG_ERROR << "Access token revocation audit failed: " << e.base().what();
                   // Fallback: simple revoked=true without audit columns
                   Oauth2AccessTokens simpleUpdate;
                   simpleUpdate.setToken(token);
@@ -762,7 +762,7 @@ void PostgresTokenRepository::purgeExpired()
               }
           },
           [](const DrogonDbException &e) {
-              LOG_DEBUG << "Token archival skipped (function may not exist): " << e.base().what();
+              LOG_WARN << "Token archival skipped (function may not exist): " << e.base().what();
           }
         );
     }

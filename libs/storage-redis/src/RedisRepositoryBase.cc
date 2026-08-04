@@ -10,7 +10,7 @@ RedisRepositoryBase::RedisRepositoryBase(const std::string &redisClientName)
     if (redisClient_)
     {
         redisClient_->setTimeout(3.0);
-        LOG_DEBUG << "RedisRepositoryBase initialized with client: " << redisClientName;
+        LOG_INFO << "RedisRepositoryBase initialized with client: " << redisClientName;
     }
     else
     {

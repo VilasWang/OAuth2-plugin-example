@@ -11,10 +11,15 @@
 // slice ("每类端口一个 PR、单 PR 调用点数设上限") rather than folding it into
 // ICryptoProvider's migration. This task only declares the port shape.
 //
-// Level set mirrors Drogon's LOG_* macro names 1:1 (TRACE is omitted --
-// grep across the Domain call sites design.md's audit covers shows no
-// LOG_TRACE usage in the migration scope) so a call-site migration is a
-// mechanical macro-to-method-call rename, not a redesign.
+// Level set mirrors Drogon's LOG_* macro names 1:1 (Trace/Debug/Info/Warn/
+// Error/Fatal), so a call-site migration is a mechanical macro-to-method-call
+// rename, not a redesign. Trace was originally omitted on the assumption that
+// no LOG_TRACE existed in the migration scope; that assumption no longer holds
+// -- the generated ORM model headers emit LOG_TRACE for SQL strings, and Trace
+// is now the documented tier for the finest-grained tracing (function args/
+// return values, SQL, per-iteration detail) per the repo logging standard
+// (docs/backend/observability.md §3.2). Order matches Drogon/Trantor's own
+// severity ordering: Trace < Debug < Info < Warn < Error < Fatal.
 
 #include <string>
 
@@ -23,6 +28,7 @@ namespace authforge::common::ports
 
 enum class LogLevel
 {
+    Trace,
     Debug,
     Info,
     Warn,
