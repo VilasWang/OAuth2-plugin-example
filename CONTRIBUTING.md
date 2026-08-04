@@ -60,6 +60,31 @@ npx playwright test                                # E2E
   enforces this in CI.
 - No emoji in code or program output (use `[+]` / `[-]` / `[!]`).
 
+### Logging
+
+Six log levels mirror Drogon/Trantor (trace < debug < info < warn < error <
+fatal). Full definitions and typical use cases are in
+[docs/backend/observability.md §3.2](docs/backend/observability.md). Quick
+guide:
+
+| Level | When to use |
+|-------|-------------|
+| `trace` | Function args/return values, SQL strings, per-iteration detail — deep debugging only |
+| `debug` | Variable values, branch decisions, internal-state dumps — dev troubleshooting |
+| `info` | Startup/shutdown, login, task completion, key flow checkpoints, audit-worthy normal events |
+| `warn` | Recoverable failure, degraded-but-working path, default value used, resource near threshold |
+| `error` | Single operation/request failed (DB error callback, unhandled exception), service still up |
+| `fatal` | Service cannot continue (startup config/migration failure) — must be rare |
+
+Rules:
+
+- **Domain layer must log through the `ILogger` port** (`authforge::common::ports::ILogger`), not Drogon's `LOG_*` macros, so tests can assert on output via `FakeLogger`. The adapter/infra layers (`libs/drogon`, `libs/storage-*`, `apps/server`) may use `LOG_*` directly. `LogLevel::Trace` routes to `LOG_TRACE`.
+- **Pick the level by impact, not verbosity**: a caught exception that still succeeds is `warn`, not `error`; a routine cache-miss or 401 is usually `debug`/`info`, not `warn`. When an operation fails outright with no fallback, use `error`.
+- Production runs at `info` by default; `trace`/`debug` are enabled on demand. Adjust via `app.log.log_level` in the Drogon config (values: `TRACE`/`DEBUG`/`INFO`/`WARN`/`ERROR`/`FATAL`).
+- **Test output is minimal by default**: `ctest` prints only failed tests' logs plus the pass/fail/total summary. Add `--verbose` (`-V`) to see every test, or `-Q` (`manage.sh test-backend -q`) for summary only.
+
+> **Known audit residue**: a handful of call sites remain at a level that's a policy judgement rather than a clear-cut bug (e.g. the `[METRIC]` log-based metric emissions at `info`, routine 401/403 denials at `warn`). These are intentionally left for a deliberate follow-up decision; when you touch such a site, consider whether its level matches the table above.
+
 ## Commit & PR Conventions
 
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/):

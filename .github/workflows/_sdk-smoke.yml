@@ -96,7 +96,7 @@ jobs:
 
       - name: Run SDK Smoke (SdkSmoke label)
         working-directory: ${{ github.workspace }}/${{ env.PRESET_DIR }}
-        run: ctest -V -C "$BUILD_TYPE" -L SdkSmoke --output-on-failure --timeout 300
+        run: ctest -C "$BUILD_TYPE" -L SdkSmoke --output-on-failure --timeout 300
 
       - name: Upload SDK smoke logs on failure
         if: failure()

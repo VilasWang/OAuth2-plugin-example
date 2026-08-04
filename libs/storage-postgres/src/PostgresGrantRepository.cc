@@ -98,7 +98,7 @@ void PostgresGrantRepository::getAuthCode(const std::string &code, AuthCodeCallb
           },
           [sharedCb](const DrogonDbException &e) {
               // Not found or error
-              LOG_DEBUG << "getAuthCode not found or error: " << e.base().what();
+              LOG_WARN << "getAuthCode not found or error: " << e.base().what();
               (*sharedCb)(std::nullopt);
           }
         );
@@ -170,7 +170,7 @@ void PostgresGrantRepository::consumeAuthCode(
       [sharedCb, redirectUri, code](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
-              LOG_DEBUG << "[SECURITY] Auth code not found or already used: " << code.substr(0, 8);
+              LOG_WARN << "[SECURITY] Auth code not found or already used: " << code.substr(0, 8);
               (*sharedCb)(std::nullopt);
               return;
           }

@@ -92,8 +92,10 @@
 ```powershell
 # 在构建完成后执行（目录为 build/<preset>，Windows Release 为 windows-msvc）
 cd build\windows-msvc
-ctest -V -C Release --output-on-failure --timeout 120
+ctest -C Release --output-on-failure --timeout 120
 ```
+
+> **输出策略**：默认仅打印失败用例的日志与末尾汇总（`成功数 / 失败数 / 总数`）。如需查看每个用例（含通过用例）的完整输出，加 `--verbose`（`-V`）；如需完全静默、只看汇总行，加 `-Q`。`manage.sh test-backend -q` / `manage.ps1 test-backend -q` 等价于 `-Q`。
 
 ### 方式二：直接运行测试可执行文件
 
@@ -302,7 +304,7 @@ curl -X POST http://127.0.0.1:5555/oauth2/login \
 *   **PowerShell 脚本限制**：如提示“禁止运行脚本”，请使用 `-ExecutionPolicy Bypass` 参数。
 
 ### 9.2 调试技巧
-*   **日志级别**：在 `config.json` 中将 `log_level` 设置为 `DEBUG` 以获取详细输出。
+*   **日志级别**：排错时可在 `config.json` 中临时将 `log_level` 调为 `DEBUG`（甚至 `TRACE`）以获取详细输出，定位完成后调回 `INFO`。完整的六级语义与约定见 [observability.md §3.2](./observability.md)。
 *   **实时日志**：使用 `Get-Content apps/server/logs/drogon.log -Wait -Tail 20` 监控运行状态。
 
 ---

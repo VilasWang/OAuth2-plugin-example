@@ -7,6 +7,9 @@ if errorlevel 1 exit /b 1
 set "SCRIPT_DIR=%~dp0"
 set "PROJECT_DIR=%~dp0..\.."
 set BUILD_TYPE=Release
+REM Default to minimal output: only failed tests print their log, plus the
+REM final pass/fail/total summary line. Pass -q to suppress even the
+REM per-test START/PASS lines (-Q = summary only).
 set VERBOSE=--output-on-failure
 
 :parse_args
@@ -22,7 +25,7 @@ if /i "%1"=="-release" (
     goto parse_args
 )
 if /i "%1"=="-q" (
-    set VERBOSE=
+    set VERBOSE=-Q
     shift
     goto parse_args
 )
@@ -56,7 +59,7 @@ cd /d "%PRESET_DIR%"
 REM --- Run 1: Standard config.json ---
 echo.
 echo [1/2] Running tests with standard %CONFIG_FILE%...
-ctest -V -C %BUILD_TYPE% %VERBOSE%
+ctest -C %BUILD_TYPE% %VERBOSE%
 if !errorlevel! neq 0 (
     echo [FAIL] Tests failed with standard %CONFIG_FILE%
     exit /b 1
@@ -83,7 +86,7 @@ set "CI_CFG_SRC=!CI_CFG_SRC:/=\!"
 copy /Y "%TEST_CONFIG%" "%TEST_CONFIG%.bak" >nul
 copy /Y "!CI_CFG_SRC!" "%TEST_CONFIG%" >nul
 
-ctest -V -C %BUILD_TYPE% %VERBOSE%
+ctest -C %BUILD_TYPE% %VERBOSE%
 set "CI_EXIT=!errorlevel!"
 
 REM Restore original config immediately

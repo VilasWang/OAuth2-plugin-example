@@ -220,9 +220,12 @@ void PostgresIdentityRepository::create(
                                   (*sharedCb)(newUserId, "");
                               },
                               [sharedCb, newUserId](const DrogonDbException &e) {
-                                  LOG_ERROR << "PostgresIdentityRepository::create: role "
-                                               "assignment failed: "
-                                            << e.base().what();
+                                  // Recoverable: user is already created; role
+                                  // assignment is a side effect (callback reports
+                                  // success with empty error string).
+                                  LOG_WARN << "PostgresIdentityRepository::create: role "
+                                              "assignment failed: "
+                                           << e.base().what();
                                   (*sharedCb)(newUserId, "");
                               }
                             );
@@ -233,9 +236,10 @@ void PostgresIdentityRepository::create(
                         }
                     },
                     [sharedCb, newUserId](const DrogonDbException &e) {
-                        LOG_ERROR << "PostgresIdentityRepository::create: default role 'user' "
-                                     "not found: "
-                                  << e.base().what();
+                        // Recoverable: user created without a role.
+                        LOG_WARN << "PostgresIdentityRepository::create: default role 'user' "
+                                    "not found: "
+                                 << e.base().what();
                         (*sharedCb)(newUserId, "");
                     }
                   );

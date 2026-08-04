@@ -10,6 +10,9 @@ void DrogonLogger::log(LogLevel level, const std::string &message)
 {
     switch (level)
     {
+        case LogLevel::Trace:
+            LOG_TRACE << message;
+            break;
         case LogLevel::Debug:
             LOG_DEBUG << message;
             break;

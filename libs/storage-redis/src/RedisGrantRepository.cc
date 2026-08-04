@@ -226,10 +226,10 @@ void RedisGrantRepository::consumeAuthCode(
               // attempt)
               if (!requestUri.empty())
               {
-                  LOG_DEBUG << "[SECURITY] Auth code consumption failed "
-                            << "(code not found, expired, or redirect_uri "
-                               "mismatch): "
-                            << codeStr;
+                  LOG_WARN << "[SECURITY] Auth code consumption failed "
+                           << "(code not found, expired, or redirect_uri "
+                              "mismatch): "
+                           << codeStr;
               }
               cb(std::nullopt);
               return;

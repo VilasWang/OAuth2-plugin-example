@@ -47,3 +47,17 @@ TEST(FakeLoggerTest, ClearRemovesAllEntries)
     logger.clear();
     EXPECT_EQ(logger.count(), 0u);
 }
+
+TEST(FakeLoggerTest, CapturesTraceLevel)
+{
+    // Regression guard for the six-level LogLevel set: Trace must round-trip
+    // through ILogger like any other level (previously the enum lacked Trace
+    // and the DrogonLogger adapter silently dropped trace calls).
+    FakeLogger logger;
+    logger.log(LogLevel::Trace, "finest-grained detail");
+
+    ASSERT_EQ(logger.count(), 1u);
+    EXPECT_EQ(logger.entries()[0].level, LogLevel::Trace);
+    EXPECT_EQ(logger.entries()[0].message, "finest-grained detail");
+    EXPECT_TRUE(logger.hasMessageContaining(LogLevel::Trace, "finest"));
+}
