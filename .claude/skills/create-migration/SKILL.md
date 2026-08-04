@@ -16,12 +16,12 @@ When adding, modifying, or dropping database tables/columns/indexes. Triggered b
 
 Pattern: `apps/server/migrations/V{NNN}__descriptive_name.sql`
 
-Current latest: `V018__webauthn.sql` -- next migration starts at **V019**.
-
-Check existing migrations before creating:
+Check existing migrations before creating to determine the next number:
 ```bash
-ls -la apps/server/migrations/
+ls -1 apps/server/migrations/ | sort | tail -1
 ```
+
+The next migration number is one higher than the latest file found above.
 
 ## File Template
 
