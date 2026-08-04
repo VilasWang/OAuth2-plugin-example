@@ -429,6 +429,7 @@ namespace authforge::common::ports
 {
 enum class LogLevel
 {
+Trace,
 Debug,
 Info,
 Warn,
