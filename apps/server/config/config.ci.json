@@ -122,7 +122,7 @@
                     "vue-client": {
                         "client_type": "PUBLIC",
                         "secret": "123456",
-                        "redirect_uri": "http://localhost:5173/callback",
+                        "redirect_uri": "http://localhost:5173/callback,http://localhost:8080/callback",
                         "allowed_scopes": ["openid", "profile", "email"]
                     }
                 },
@@ -151,7 +151,9 @@
         "cors": {
             "allow_origins": [
                 "http://localhost:5173",
-                "http://127.0.0.1:5173",
+                "http://localhost:5174",
+                "http://localhost:8080",
+                "http://localhost:8081",
                 "https://editor.swagger.io"
             ]
         },
@@ -160,6 +162,10 @@
             "register_path": "/register"
         },
         "external_auth": {
+            "github": {
+                "client_id": "YOUR_GITHUB_CLIENT_ID",
+                "client_secret": "YOUR_GITHUB_CLIENT_SECRET"
+            },
             "wechat": {
                 "appid": "YOUR_WECHAT_APPID",
                 "secret": "YOUR_WECHAT_SECRET"
