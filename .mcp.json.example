@@ -5,7 +5,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://oauth2_user:123456@127.0.0.1:5432/oauth2_db"
+        "postgresql://oauth2_user:${OAUTH2_DB_PASSWORD:-123456}@${OAUTH2_DB_HOST:-127.0.0.1}:${OAUTH2_DB_PORT:-5432}/oauth2_db"
       ]
     },
     "redis": {
@@ -13,7 +13,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-redis",
-        "redis://:123456@127.0.0.1:6379/0"
+        "redis://:${OAUTH2_REDIS_PASSWORD:-123456}@${OAUTH2_REDIS_HOST:-127.0.0.1}:${OAUTH2_REDIS_PORT:-6379}/0"
       ]
     },
     "github": {
