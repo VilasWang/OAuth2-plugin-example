@@ -54,6 +54,34 @@ void respondError(
     );
 }
 
+// Shorthand for the (very common) DB-exception path: report a DB_QUERY_ERROR
+// with a "github login: <ctx>: <what>" detail string. Collapses the ~6 places
+// that previously spelled this template out inline.
+void respondDbError(
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
+  const char *ctx,
+  const ::drogon::orm::DrogonDbException &e
+)
+{
+    respondError(
+      req, cb, "DB_QUERY_ERROR", std::string("github login: ") + ctx + ": " + e.base().what()
+    );
+}
+
+// Same as above but for a generic std::exception (used by the try/catch guards
+// around synchronous Mapper construction inside async callbacks, where the
+// thrown type is not necessarily a DrogonDbException).
+void respondDbError(
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
+  const char *ctx,
+  const std::exception &e
+)
+{
+    respondError(req, cb, "DB_QUERY_ERROR", std::string("github login: ") + ctx + ": " + e.what());
+}
+
 struct GitHubControllerDocs
 {
     GitHubControllerDocs()
@@ -199,9 +227,7 @@ void GitHubController::issueTokensForUser(
     catch (const std::exception &e)
     {
         LOG_ERROR << "GitHubController::issueTokensForUser Mapper exception: " << e.what();
-        respondError(
-          req, callbackPtr, "DB_QUERY_ERROR", std::string("github login: failed to issue tokens: ") + e.what()
-        );
+        respondDbError(req, callbackPtr, "failed to issue tokens", e);
     }
     catch (...)
     {
@@ -232,18 +258,17 @@ void GitHubController::persistAccessToken(
     atModel.setIssuedAt(now);
     atModel.setExpiresAt(now + 3600);
 
+    // Guard: the issueTokensForUser caller's try/catch wraps this whole call,
+    // so synchronous throws from this Mapper construction ARE caught upstream.
+    // The inner persistRefreshToken() call, however, runs in the insert's async
+    // success callback (outside this caller's reach) and carries its own guard.
     Mapper<Oauth2AccessTokens>(db).insert(
       atModel,
       [this, req, callbackPtr, accessToken, refreshToken, userId](const Oauth2AccessTokens &) {
           persistRefreshToken(req, callbackPtr, accessToken, refreshToken, userId);
       },
       [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            callbackPtr,
-            "DB_QUERY_ERROR",
-            std::string("github login: failed to create access token: ") + e.base().what()
-          );
+          respondDbError(req, callbackPtr, "failed to create access token", e);
       }
     );
 }
@@ -270,25 +295,38 @@ void GitHubController::persistRefreshToken(
     rtModel.setScope("openid profile email");
     rtModel.setExpiresAt(now + 2592000);
 
-    Mapper<Oauth2RefreshTokens>(db).insert(
-      rtModel,
-      [callbackPtr, accessToken, refreshToken](const Oauth2RefreshTokens &) {
-          Json::Value result;
-          result["access_token"] = accessToken;
-          result["refresh_token"] = refreshToken;
-          result["token_type"] = "Bearer";
-          result["expires_in"] = 3600;
-          (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
-      },
-      [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            callbackPtr,
-            "DB_QUERY_ERROR",
-            std::string("github login: failed to create refresh token: ") + e.base().what()
-          );
-      }
-    );
+    // Guard: this Mapper construction runs inside the access-token insert's
+    // async success callback, so the caller's try/catch cannot reach it. A
+    // synchronous throw here (e.g. DbClient in a bad state) would escape into
+    // the Drogon event loop and abort the process; catch and convert to a
+    // normal error response instead.
+    try
+    {
+        Mapper<Oauth2RefreshTokens>(db).insert(
+          rtModel,
+          [callbackPtr, accessToken, refreshToken](const Oauth2RefreshTokens &) {
+              Json::Value result;
+              result["access_token"] = accessToken;
+              result["refresh_token"] = refreshToken;
+              result["token_type"] = "Bearer";
+              result["expires_in"] = 3600;
+              (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
+          },
+          [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
+              respondDbError(req, callbackPtr, "failed to create refresh token", e);
+          }
+        );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "GitHubController::persistRefreshToken Mapper exception: " << e.what();
+        respondDbError(req, callbackPtr, "failed to create refresh token", e);
+    }
+    catch (...)
+    {
+        LOG_ERROR << "GitHubController::persistRefreshToken Mapper unknown exception";
+        respondError(req, callbackPtr, "DB_QUERY_ERROR", "github login: failed to create refresh token");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -390,6 +428,20 @@ void GitHubController::fetchGitHubUserInfo(
               }
 
               auto githubData = resp2->getJsonObject();
+              // GitHub can return a non-JSON body (e.g. an HTML error page on
+              // a 5xx), in which case getJsonObject() yields an empty
+              // shared_ptr; dereferencing it would crash. Mirror the null
+              // check already done for the token response above.
+              if (!githubData)
+              {
+                  respondError(
+                    req,
+                    callbackPtr,
+                    "VALIDATION_INVALID_INPUT",
+                    "github login: GitHub returned non-JSON user info"
+                  );
+                  return;
+              }
               std::string githubLogin = (*githubData).get("login", "").asString();
               std::string githubEmail = (*githubData).get("email", "").asString();
               int64_t githubId = (*githubData).get("id", 0).asInt64();
@@ -462,21 +514,14 @@ void GitHubController::resolveSubjectMapping(
               }
           },
           [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-              respondError(
-                req,
-                callbackPtr,
-                "DB_QUERY_ERROR",
-                std::string("github login: database error during account linking: ") + e.base().what()
-              );
+              respondDbError(req, callbackPtr, "database error during account linking", e);
           }
         );
     }
     catch (const std::exception &e)
     {
         LOG_ERROR << "GitHubController::login Mapper exception: " << e.what();
-        respondError(
-          req, callbackPtr, "DB_QUERY_ERROR", std::string("github login: database error: ") + e.what()
-        );
+        respondDbError(req, callbackPtr, "database error", e);
     }
     catch (...)
     {
@@ -492,26 +537,40 @@ void GitHubController::linkExistingUser(
 )
 {
     // Step 4a: existing mapping -- look up the user, then issue tokens.
-    // The username is read but not used by issueTokensForUser (the original
-    // issueTokens lambda took it and ignored it); the findBy is preserved
-    // verbatim so behaviour is identical to the pre-refactor code, including
-    // the (defensive) case where the row is unexpectedly absent.
+    //
+    // NOTE: this findBy is preserved verbatim from the pre-refactor code even
+    // though its result is unused. The original issueTokens lambda took a
+    // `username` parameter but never read it; dropping the lookup would be a
+    // behaviour change (it would also remove the "user row actually exists"
+    // guard that today surfaces a DB error via the error callback if the row
+    // is missing). Keeping it is the strictly-equivalent choice; the (void)
+    // suppresses the unused-result warning.
     auto db = ::drogon::app().getDbClient();
-    Mapper<Users>(db).findBy(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
-      [this, req, callbackPtr, userId](const std::vector<Users> &users) {
-          (void)users;  // username unused; match original no-op-on-empty behaviour
-          issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
-      },
-      [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            callbackPtr,
-            "DB_QUERY_ERROR",
-            std::string("github login: failed to fetch user: ") + e.base().what()
-          );
-      }
-    );
+    // Guard: runs inside the subject-mapping findBy's async success callback;
+    // the caller's try/catch cannot reach it.
+    try
+    {
+        Mapper<Users>(db).findBy(
+          Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+          [this, req, callbackPtr, userId](const std::vector<Users> &users) {
+              (void)users;  // username unused; match original no-op-on-empty behaviour
+              issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+          },
+          [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
+              respondDbError(req, callbackPtr, "failed to fetch user", e);
+          }
+        );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "GitHubController::linkExistingUser Mapper exception: " << e.what();
+        respondDbError(req, callbackPtr, "failed to fetch user", e);
+    }
+    catch (...)
+    {
+        LOG_ERROR << "GitHubController::linkExistingUser Mapper unknown exception";
+        respondError(req, callbackPtr, "DB_QUERY_ERROR", "github login: failed to fetch user");
+    }
 }
 
 void GitHubController::createNewLinkedUser(
@@ -538,49 +597,73 @@ void GitHubController::createNewLinkedUser(
       "RETURNING id",
       [this, req, callbackPtr, db, provider, subject, username](const ::drogon::orm::Result &userResult) {
           int32_t userId = userResult[0]["id"].as<int32_t>();
-          // Create subject mapping
-          Oauth2SubjectMappings mapping;
-          mapping.setSubject(subject);
-          mapping.setInternalUserId(userId);
-          mapping.setProvider(provider);
-          Mapper<Oauth2SubjectMappings>(db).insert(
-            mapping,
-            [this, req, callbackPtr, db, userId, username](const Oauth2SubjectMappings &) {
-                // Assign default 'user' role. Mirroring the original code:
-                // both the success and error callbacks proceed to token
-                // issuance (best-effort role grant -- a role-insert failure is
-                // logged via the Mapper but must not block login).
-                UserRoles ur;
-                ur.setUserId(userId);
-                Mapper<UserRoles>(db).insert(
-                  ur,
-                  [this, req, callbackPtr, userId, username](const UserRoles &) {
-                      issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
-                  },
-                  [this, req, callbackPtr, userId](const ::drogon::orm::DrogonDbException &) {
-                      // Best-effort: role grant failed, but the account exists
-                      // and is linked -- proceed with login.
-                      issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
-                  }
-                );
-            },
-            [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  callbackPtr,
-                  "DB_QUERY_ERROR",
-                  std::string("github login: failed to link GitHub account: ") + e.base().what()
-                );
-            }
-          );
+          // Create subject mapping.
+          // Guard: runs inside the execSqlAsync success callback; caller's
+          // try/catch cannot reach it.
+          try
+          {
+              Oauth2SubjectMappings mapping;
+              mapping.setSubject(subject);
+              mapping.setInternalUserId(userId);
+              mapping.setProvider(provider);
+              Mapper<Oauth2SubjectMappings>(db).insert(
+                mapping,
+                [this, req, callbackPtr, db, userId, username](const Oauth2SubjectMappings &) {
+                    // Assign default 'user' role. Mirroring the original code:
+                    // both the success and error callbacks proceed to token
+                    // issuance (best-effort role grant -- a role-insert failure
+                    // is logged via the Mapper but must not block login).
+                    //
+                    // Guard: runs inside the subject-mapping insert's async
+                    // success callback; caller's try/catch cannot reach it.
+                    UserRoles ur;
+                    ur.setUserId(userId);
+                    try
+                    {
+                        Mapper<UserRoles>(db).insert(
+                          ur,
+                          [this, req, callbackPtr, userId, username](const UserRoles &) {
+                              issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                          },
+                          [this, req, callbackPtr, userId](const ::drogon::orm::DrogonDbException &) {
+                              // Best-effort: role grant failed, but the account
+                              // exists and is linked -- proceed with login.
+                              issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                          }
+                        );
+                    }
+                    catch (const std::exception &e)
+                    {
+                        LOG_ERROR << "GitHubController::createNewLinkedUser UserRoles Mapper exception: "
+                                  << e.what();
+                        // Best-effort, same as the async error path above.
+                        issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                    }
+                    catch (...)
+                    {
+                        LOG_ERROR << "GitHubController::createNewLinkedUser UserRoles Mapper unknown exception";
+                        issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                    }
+                },
+                [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
+                    respondDbError(req, callbackPtr, "failed to link GitHub account", e);
+                }
+              );
+          }
+          catch (const std::exception &e)
+          {
+              LOG_ERROR << "GitHubController::createNewLinkedUser SubjectMappings Mapper exception: "
+                        << e.what();
+              respondDbError(req, callbackPtr, "failed to link GitHub account", e);
+          }
+          catch (...)
+          {
+              LOG_ERROR << "GitHubController::createNewLinkedUser SubjectMappings Mapper unknown exception";
+              respondError(req, callbackPtr, "DB_QUERY_ERROR", "github login: failed to link GitHub account");
+          }
       },
       [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            callbackPtr,
-            "DB_QUERY_ERROR",
-            std::string("github login: failed to create user account: ") + e.base().what()
-          );
+          respondDbError(req, callbackPtr, "failed to create user account", e);
       },
       username,
       passwordHash,
