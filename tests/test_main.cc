@@ -1,6 +1,31 @@
 // #define DROGON_TEST_MAIN
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
+
+// gcov flush helper: this binary uses std::_Exit() to skip Drogon's crashy
+// teardown (see the _Exit calls below), but _Exit() bypasses atexit handlers
+// -- including libgcov's __gcov_exit that writes runtime counters to .gcda.
+// Without an explicit flush, gcov reads zero counts for every instrumented
+// TU even though the tests ran (the .gcda is written by libgcov's structure
+// path, but the runtime arc counters are never flushed).
+//
+// Declared manually under extern "C" rather than #include <gcov.h>: gcc's
+// <gcov.h> (at least through gcc 13) does NOT wrap its declarations in
+// extern "C", so in C++ it would generate a mangled symbol that libgcov.a
+// (which exports the unmangled C symbol __gcov_dump) does not provide,
+// causing a link error. __gcov_dump() is the gcc >= 11 API; the older
+// __gcov_flush() is the pre-11 name.
+#if defined(__GNUC__)
+extern "C" void __gcov_dump(void);
+static void flushGcovIfInstrumented()
+{
+    __gcov_dump();  // gcc >= 11; flushes all arc counters to .gcda files
+}
+#else
+static void flushGcovIfInstrumented()
+{
+}
+#endif
 #include "../src/bootstrap/ControllerRegistration.h"
 #include "../src/bootstrap/IdentityAssembly.h"
 #include <authforge/drogon/controllers/HealthController.h>
@@ -396,6 +421,7 @@ int main(int argc, char **argv)
     )
     {
         std::cerr << "TIMEOUT: drogon app failed to start within 60s!" << std::endl;
+        flushGcovIfInstrumented();  // _Exit bypasses atexit -> flush before exiting
         std::_Exit(1);
         return 1;
     }
@@ -456,6 +482,7 @@ int main(int argc, char **argv)
     if (status == 0)
     {
         std::cout << "Tests passed, using fast exit to avoid teardown SegFault..." << std::endl;
+        flushGcovIfInstrumented();  // _Exit bypasses atexit -> flush gcov counters
         std::_Exit(0);
     }
 
