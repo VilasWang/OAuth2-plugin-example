@@ -489,4 +489,137 @@ TEST(GitHubAuthServiceTest, Login_RepositoryCreateFailure_ReturnsDbError)
     EXPECT_EQ(result.errorCode, "DB_QUERY_ERROR");
 }
 
+// ---------------------------------------------------------------------------
+// Coverage additions (P1): null-httpClient guards for each provider,
+// token-exchange non-200 (GitHub/WeChat -- Google already had it), the
+// userinfo non-200 branch (GitHub), and WeChat errcode==0 treated as
+// success. These pin the documented branching behavior.
+// ---------------------------------------------------------------------------
+
+// Google: null httpClient guard -> NET_CONNECTION_FAILED.
+TEST(GoogleAuthServiceTest, Login_NullHttpClient_ReturnsNetError)
+{
+    GoogleAuthService svc(nullptr, "client-id", "client-secret", "https://example.test/cb");
+    GoogleLoginResult result;
+    svc.login("code", [&](GoogleLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+}
+
+// Google: userinfo fetch returns non-200 with transportOk=true. The
+// service does NOT check statusCode on the userinfo step (only on token
+// exchange), so the profile is still returned -- pin this deliberate
+// behavior so a future refactor does not silently start rejecting.
+TEST(GoogleAuthServiceTest, Login_UserInfoNon200_StillReturnsProfile)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gtok-1";
+    http->postFormResponses.push_back(okJson(tokenBody));
+    Json::Value userBody;
+    userBody["sub"] = "s1";
+    // userinfo returns 500 but transportOk=true -> profile returned anyway.
+    http->getResponses.push_back(okJson(userBody, 500));
+
+    GoogleAuthService svc(http, "client-id", "client-secret", "https://example.test/cb");
+    GoogleLoginResult result;
+    svc.login("code", [&](GoogleLoginResult r) { result = std::move(r); });
+    EXPECT_TRUE(result.errorCode.empty());
+    EXPECT_EQ(result.profile.sub, "s1");
+}
+
+// GitHub: null httpClient guard -> INTERNAL_ERROR.
+TEST(GitHubAuthServiceTest, Login_NullHttpClient_ReturnsInternalError)
+{
+    auto repo = std::make_shared<FakeSocialAccountRepository>();
+    GitHubAuthService svc(nullptr, repo, "client-id", "client-secret");
+    GitHubLoginResult result;
+    svc.login("code", [&](GitHubLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "INTERNAL_ERROR");
+}
+
+// GitHub: null accountRepo guard -> INTERNAL_ERROR.
+TEST(GitHubAuthServiceTest, Login_NullAccountRepo_ReturnsInternalError)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    GitHubAuthService svc(http, nullptr, "client-id", "client-secret");
+    GitHubLoginResult result;
+    svc.login("code", [&](GitHubLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "INTERNAL_ERROR");
+}
+
+// GitHub: token exchange returns non-200 -> NET_CONNECTION_FAILED.
+TEST(GitHubAuthServiceTest, Login_TokenExchangeNon200_ReturnsNetError)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    http->postFormResponses.push_back(okJson(Json::Value(Json::objectValue), 400));
+    auto repo = std::make_shared<FakeSocialAccountRepository>();
+    GitHubAuthService svc(http, repo, "client-id", "client-secret");
+    GitHubLoginResult result;
+    svc.login("code", [&](GitHubLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+}
+
+// GitHub: userinfo returns non-200 -> NET_CONNECTION_FAILED (GitHub DOES
+// check statusCode on the userinfo step, unlike Google).
+TEST(GitHubAuthServiceTest, Login_UserInfoNon200_ReturnsNetError)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "ghtok-1";
+    http->postFormResponses.push_back(okJson(tokenBody));
+    Json::Value userBody;
+    userBody["login"] = "user1";
+    userBody["id"] = 7;
+    http->getResponses.push_back(okJson(userBody, 500));
+
+    auto repo = std::make_shared<FakeSocialAccountRepository>();
+    GitHubAuthService svc(http, repo, "client-id", "client-secret");
+    GitHubLoginResult result;
+    svc.login("code", [&](GitHubLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+}
+
+// WeChat: null httpClient guard -> NET_CONNECTION_FAILED.
+TEST(WeChatAuthServiceTest, Login_NullHttpClient_ReturnsNetError)
+{
+    WeChatAuthService svc(nullptr, "appid", "secret");
+    WeChatLoginResult result;
+    svc.login("code", [&](WeChatLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+}
+
+// WeChat: token body includes errcode=0 (explicitly zero) alongside valid
+// access_token/openid -> treated as success. Pins the `errcode != 0`
+// condition's complement.
+TEST(WeChatAuthServiceTest, Login_ErrCodeZero_TreatedAsSuccess)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "wxtok";
+    tokenBody["openid"] = "openid-1";
+    tokenBody["errcode"] = 0;  // explicitly success
+    http->getResponses.push_back(okJson(tokenBody));
+    Json::Value userBody;
+    userBody["openid"] = "openid-1";
+    userBody["nickname"] = "nick";
+    http->getResponses.push_back(okJson(userBody));
+
+    WeChatAuthService svc(http, "appid", "secret");
+    WeChatLoginResult result;
+    svc.login("code", [&](WeChatLoginResult r) { result = std::move(r); });
+    EXPECT_TRUE(result.errorCode.empty());
+    EXPECT_EQ(result.profile.openid, "openid-1");
+}
+
+// WeChat: token exchange returns non-200 -> NET_CONNECTION_FAILED.
+TEST(WeChatAuthServiceTest, Login_TokenExchangeNon200_ReturnsNetError)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    http->getResponses.push_back(okJson(Json::Value(Json::objectValue), 400));
+    WeChatAuthService svc(http, "appid", "secret");
+    WeChatLoginResult result;
+    svc.login("code", [&](WeChatLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+}
+
 #endif  // WITH_SOCIAL

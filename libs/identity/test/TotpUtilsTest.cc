@@ -134,3 +134,43 @@ TEST(TotpUtilsTest, GenerateBackupCodes_DefaultCountIsTen)
     auto codes = generateBackupCodes(crypto);
     EXPECT_EQ(codes.size(), 10u);
 }
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P1): generateCode empty/invalid-secret guard,
+// lowercase base32 decoding, and generateBackupCodes count=0 / custom N.
+// ---------------------------------------------------------------------------
+
+// generateCode: an empty/undecodable secret yields an empty string
+// (TotpUtils.cc:118 key.empty() early-return).
+TEST(TotpUtilsTest, GenerateCode_InvalidSecret_ReturnsEmpty)
+{
+    EXPECT_TRUE(generateCode("!!!", 1234567890).empty());
+    EXPECT_TRUE(generateCode("", 1234567890).empty());
+}
+
+// base32Decode accepts lowercase (TotpUtils.cc:57-58); a lowercase secret
+// decodes and round-trips with generateCode/verifyCode.
+TEST(TotpUtilsTest, VerifyCode_LowercaseBase32Secret_RoundTrips)
+{
+    const std::string lower = "gezdgnbvgy3tqojqgezdgnbvgy3tqojq";  // lowercase of kSecretBase32
+    const int64_t now = 1000000;
+    std::string code = generateCode(lower, now);
+    EXPECT_FALSE(code.empty());
+    EXPECT_TRUE(verifyCode(lower, code, now));
+}
+
+// generateBackupCodes: count=0 returns an empty vector (edge case).
+TEST(TotpUtilsTest, GenerateBackupCodes_CountZero_ReturnsEmpty)
+{
+    FakeCryptoProvider crypto;
+    auto codes = generateBackupCodes(crypto, 0);
+    EXPECT_TRUE(codes.empty());
+}
+
+// generateBackupCodes: a custom count (5) returns exactly that many codes.
+TEST(TotpUtilsTest, GenerateBackupCodes_CountFive_ReturnsFiveCodes)
+{
+    FakeCryptoProvider crypto;
+    auto codes = generateBackupCodes(crypto, 5);
+    EXPECT_EQ(codes.size(), 5u);
+}

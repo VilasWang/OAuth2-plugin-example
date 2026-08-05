@@ -295,3 +295,132 @@ DROGON_TEST(
     REQUIRE((*info)["roles"].size() == 1u);
     CHECK((*info)["roles"][0].asString() == "user");
 }
+
+// ===========================================================================
+// Coverage additions (P1) -- Memory backend initAdminRoles parsing branches
+// (null config -> default 'admin' user; roles as a string rather than an
+// array) and the IUserRepository placeholder impls (synthetic findById,
+// non-numeric findByPublicSub -> nullopt, the nullopt findByEmail/
+// findByUsername, the unsupported create, and the no-op updatePasswordHash).
+// ===========================================================================
+
+// initAdminRoles: a null config seeds the default 'admin' user with
+// {"admin","user"} (MemoryIdentityRepository.cc:36-40).
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_InitAdminRoles_NullConfig_DefaultsAdminUser)
+{
+    MemoryIdentityRepository repo;
+    repo.initAdminRoles(Json::Value());  // null -> default admin
+
+    auto roles = waitForValue<std::vector<std::string>>([&](auto cb) {
+        repo.getRoles(std::string("admin"), std::move(cb));
+    });
+    REQUIRE(roles.size() == 2u);
+    CHECK(roles[0] == "admin");
+    CHECK(roles[1] == "user");
+}
+
+// initAdminRoles: roles provided as a STRING (not an array) still register
+// (MemoryIdentityRepository.cc:30-33).
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_InitAdminRoles_RolesAsString)
+{
+    MemoryIdentityRepository repo;
+    Json::Value adminCfg;
+    adminCfg["string-role-user"] = "superadmin";  // string, not array
+    repo.initAdminRoles(adminCfg);
+
+    auto roles = waitForValue<std::vector<std::string>>([&](auto cb) {
+        repo.getRoles(std::string("string-role-user"), std::move(cb));
+    });
+    REQUIRE(roles.size() == 1u);
+    CHECK(roles[0] == "superadmin");
+}
+
+// findById: synthesizes a user record for any id (placeholder impl,
+// MemoryIdentityRepository.cc:94-100).
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindById_SyntheticUser)
+{
+    MemoryIdentityRepository repo;
+    auto user = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+        repo.findById(123, std::move(cb));
+    });
+    REQUIRE(user.has_value());
+    CHECK(user->id == 123);
+    CHECK(user->username == "user_123");
+    CHECK(user->email == "user_123@example.com");
+}
+
+// findByPublicSub: a non-numeric public sub returns nullopt (stoi catch,
+// MemoryIdentityRepository.cc:102-115).
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByPublicSub_NonNumeric_ReturnsNullopt)
+{
+    MemoryIdentityRepository repo;
+    auto user = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+        repo.findByPublicSub("not-a-number", std::move(cb));
+    });
+    CHECK(!user.has_value());
+}
+
+// findByPublicSub: a numeric public sub resolves to the synthetic user.
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByPublicSub_Numeric_SyntheticUser)
+{
+    MemoryIdentityRepository repo;
+    auto user = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+        repo.findByPublicSub("42", std::move(cb));
+    });
+    REQUIRE(user.has_value());
+    CHECK(user->id == 42);
+}
+
+// findByEmail / findByUsername: placeholder impls always return nullopt
+// (MemoryIdentityRepository.cc:117-131).
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByEmailAndUsername_ReturnNullopt)
+{
+    MemoryIdentityRepository repo;
+
+    auto byEmail = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+        repo.findByEmail("anyone@example.com", std::move(cb));
+    });
+    CHECK(!byEmail.has_value());
+
+    auto byUsername = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+        repo.findByUsername("anyone", std::move(cb));
+    });
+    CHECK(!byUsername.has_value());
+}
+
+// create: the memory backend cannot persist -> returns {nullopt, ""}
+// (MemoryIdentityRepository.cc:133-141).
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_Create_ReturnsNulloptUnsupported)
+{
+    MemoryIdentityRepository repo;
+    authforge::identity::UserData ud;
+    ud.username = "new";
+    std::optional<int32_t> newId;
+    std::string errCode = "unset";
+    repo.create(ud, [&](std::optional<int32_t> id, std::string ec) {
+        newId = id;
+        errCode = ec;
+    });
+    CHECK(!newId.has_value());
+    CHECK(errCode == "");
+}
+
+// updatePasswordHash: placeholder impl returns false (unsupported,
+// MemoryIdentityRepository.cc:143-150). reset/incrementFailedLogins return
+// true (fire-and-forget no-ops).
+DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_PasswordAndLoginMethods_PlaceholderReturns)
+{
+    MemoryIdentityRepository repo;
+
+    bool pwUpdated = true;
+    repo.updatePasswordHash(1, "hash", [&](bool ok) { pwUpdated = ok; });
+    CHECK(pwUpdated == false);
+
+    bool reset = false;
+    repo.resetFailedLogins(1, [&](bool ok) { reset = ok; });
+    CHECK(reset == true);
+
+    bool incremented = false;
+    repo.incrementFailedLogins(1, [&](bool ok) { incremented = ok; });
+    CHECK(incremented == true);
+}

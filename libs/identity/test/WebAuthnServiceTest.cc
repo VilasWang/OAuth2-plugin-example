@@ -31,6 +31,9 @@ class FakeWebAuthnRepository : public IWebAuthnRepository
   public:
     std::unordered_map<std::string, StoredCredential> credentials;  // keyed by credential_id
     int64_t nextCreatedAt = 1000;
+    // P1 coverage knob: force storeCredential to report a generic Error so
+    // the DB_QUERY_ERROR branch in finishRegistration is reachable.
+    bool forceStoreError = false;
 
     void storeCredential(
       int32_t userId,
@@ -40,6 +43,11 @@ class FakeWebAuthnRepository : public IWebAuthnRepository
       StoreCredentialCallback &&cb
     ) override
     {
+        if (forceStoreError)
+        {
+            cb(StoreCredentialOutcome::Error);
+            return;
+        }
         if (credentials.count(credentialId) != 0)
         {
             cb(StoreCredentialOutcome::DuplicateCredentialId);
@@ -340,4 +348,90 @@ TEST(WebAuthnServiceTest, ListCredentials_ReflectsSignCountAfterAuthentication)
     ASSERT_EQ(result.size(), 1u);
     EXPECT_EQ(result[0].signCount, 1);
     EXPECT_TRUE(result[0].lastUsedAt.has_value());
+}
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P1): null-dependency guards for every method
+// (WebAuthnService.cc:45,66,109,126,168), the StoreCredentialOutcome::Error
+// -> DB_QUERY_ERROR branch (cc:96-99), and custom rpId/rpName propagation.
+// Null-guard tests construct WebAuthnService directly with nullptr deps.
+// ---------------------------------------------------------------------------
+
+// beginRegistration: null crypto guard -> nullopt (cc:45).
+TEST(WebAuthnServiceTest, BeginRegistration_NullCrypto_ReturnsNullopt)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::optional<WebAuthnRegistrationChallenge> result = WebAuthnRegistrationChallenge{};
+    svc.beginRegistration([&](auto r) { result = std::move(r); });
+    EXPECT_FALSE(result.has_value());
+}
+
+// beginAuthentication: null crypto guard -> nullopt (cc:109).
+TEST(WebAuthnServiceTest, BeginAuthentication_NullCrypto_ReturnsNullopt)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::optional<WebAuthnAuthenticationChallenge> result = WebAuthnAuthenticationChallenge{};
+    svc.beginAuthentication([&](auto r) { result = std::move(r); });
+    EXPECT_FALSE(result.has_value());
+}
+
+// finishRegistration: null repo guard -> INTERNAL_ERROR (cc:66).
+TEST(WebAuthnServiceTest, FinishRegistration_NullRepo_ReturnsInternalError)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::string err = "none";
+    svc.finishRegistration(42, "cred-1", "pubkey-1", "Laptop", [&](const std::string &e) { err = e; });
+    EXPECT_EQ(err, "INTERNAL_ERROR");
+}
+
+// finishRegistration: storeCredential returns Error -> DB_QUERY_ERROR
+// (cc:96-99). The default Error arm was unreachable with the original fake.
+TEST(WebAuthnServiceTest, FinishRegistration_StoreError_ReturnsDbQueryError)
+{
+    auto repo = std::make_shared<FakeWebAuthnRepository>();
+    repo->forceStoreError = true;
+    auto svc = makeService(repo);
+    std::string err = "none";
+    svc->finishRegistration(42, "cred-1", "pubkey-1", "Laptop", [&](const std::string &e) { err = e; });
+    EXPECT_EQ(err, "DB_QUERY_ERROR");
+}
+
+// finishAuthentication: null repo guard -> nullopt (cc:126).
+TEST(WebAuthnServiceTest, FinishAuthentication_NullRepo_ReturnsNullopt)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::optional<WebAuthnAuthResult> result = WebAuthnAuthResult{};
+    svc.finishAuthentication("cred-1", [&](auto r) { result = std::move(r); });
+    EXPECT_FALSE(result.has_value());
+}
+
+// listCredentials: null repo guard -> empty vector (cc:168).
+TEST(WebAuthnServiceTest, ListCredentials_NullRepo_ReturnsEmpty)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::vector<WebAuthnCredentialSummary> result;
+    result.push_back({});  // sentinel so emptiness is observable
+    svc.listCredentials(42, [&](auto r) { result = std::move(r); });
+    EXPECT_TRUE(result.empty());
+}
+
+// Constructor: custom rpId/rpName propagate into begin-registration and
+// begin-authentication challenges (cc:28-39,52-54,116-117). The existing
+// tests only exercise the default values.
+TEST(WebAuthnServiceTest, Constructor_CustomRpIdAndRpName_PropagatedToChallenges)
+{
+    auto repo = std::make_shared<FakeWebAuthnRepository>();
+    auto crypto = std::make_shared<FakeCryptoProvider>();
+    WebAuthnService svc(repo, crypto, "auth.example.com", "Custom Issuer");
+
+    std::optional<WebAuthnRegistrationChallenge> reg;
+    svc.beginRegistration([&](auto r) { reg = std::move(r); });
+    ASSERT_TRUE(reg.has_value());
+    EXPECT_EQ(reg->rpId, "auth.example.com");
+    EXPECT_EQ(reg->rpName, "Custom Issuer");
+
+    std::optional<WebAuthnAuthenticationChallenge> auth;
+    svc.beginAuthentication([&](auto r) { auth = std::move(r); });
+    ASSERT_TRUE(auth.has_value());
+    EXPECT_EQ(auth->rpId, "auth.example.com");
 }
