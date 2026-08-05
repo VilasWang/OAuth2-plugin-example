@@ -33,6 +33,7 @@ target_link_libraries(authforge-identity-test
 set_target_properties(authforge-identity-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
 oauth2_apply_compat(authforge-identity-test)
+oauth2_apply_gcov(authforge-identity-test)
 
 include(GoogleTest)
 gtest_discover_tests(authforge-identity-test)

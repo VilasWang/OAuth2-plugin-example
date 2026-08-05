@@ -161,13 +161,13 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/tests/integration/error/golden\"")
 
-# Coverage support
+# Coverage support: delegate to oauth2_apply_gcov (cmake/Coverage.cmake).
+# The instrumented first-party libraries (each lib calls oauth2_apply_gcov
+# too) are linked into this binary, so their .gcda files are written when
+# the tests run; this call additionally instruments the test-compiled
+# sources (test_main.cc, SchemaManager.cc, bootstrap/*.cc, organization/*.cc).
 if(OAUTH2_TEST_COVERAGE)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(${PROJECT_NAME} PRIVATE --coverage -fno-inline -fno-inline-small-functions -fno-default-inline)
-        target_link_options(${PROJECT_NAME} PRIVATE --coverage)
-        message(STATUS "Code coverage enabled for ${PROJECT_NAME}")
-    endif()
+    oauth2_apply_gcov(${PROJECT_NAME})
 endif()
 
 add_test(NAME OAuth2Tests COMMAND ${PROJECT_NAME} WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}>)

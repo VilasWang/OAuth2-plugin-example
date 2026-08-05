@@ -119,6 +119,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_RE
 
 oauth2_apply_compat(${PROJECT_NAME})
 oauth2_apply_warnings(${PROJECT_NAME})
+oauth2_apply_gcov(${PROJECT_NAME})
 
 include(GNUInstallDirs)
 install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

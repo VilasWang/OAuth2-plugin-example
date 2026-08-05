@@ -73,6 +73,11 @@ reports/
 # Build artifacts
 build/
 build-*/
+
+# Code coverage reports (gcov output via gcovr; local-only, never tracked)
+coverage-report/
+coverage-summary.txt
+coverage-summary.json
 CMakeUserPresets.json
 libs/storage-postgres/models_backup/
 

@@ -112,6 +112,7 @@ if(NOT COMMAND oauth2_apply_warnings)
     include(Warnings)
 endif()
 oauth2_apply_warnings(authforge-identity)
+oauth2_apply_gcov(authforge-identity)
 
 # Install rules
 install(DIRECTORY include/

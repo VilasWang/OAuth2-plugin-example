@@ -24,6 +24,7 @@ target_link_libraries(authforge-oauth2-test
 set_target_properties(authforge-oauth2-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
 oauth2_apply_compat(authforge-oauth2-test)
+oauth2_apply_gcov(authforge-oauth2-test)
 
 include(GoogleTest)
 gtest_discover_tests(authforge-oauth2-test)
