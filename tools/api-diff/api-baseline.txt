@@ -1318,6 +1318,9 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 === libs/drogon/include/authforge/drogon/controllers/GitHubController.h
 #pragma once
 #include <drogon/HttpController.h>
+#include <functional>
+#include <memory>
+#include <string>
 class OAuth2Plugin;
 #ifdef WITH_SOCIAL
 namespace authforge::identity
@@ -1344,11 +1347,63 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 private:
+using CallbackPtr = std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
 #ifdef WITH_SOCIAL
 authforge::identity::GitHubAuthService *gitHubAuthService_ = nullptr;
 #endif
+void issueTokensForUser(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+int64_t userId
+);
+void persistAccessToken(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+std::string accessToken,
+std::string refreshToken,
+int64_t userId
+);
+void persistRefreshToken(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+std::string accessToken,
+std::string refreshToken,
+int64_t userId
+);
+void exchangeCodeForToken(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+const std::string &clientId,
+const std::string &clientSecret,
+const std::string &code
+);
+void fetchGitHubUserInfo(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+const std::string &accessToken
+);
+void resolveSubjectMapping(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+const std::string &githubLogin,
+const std::string &githubEmail,
+int64_t githubId
+);
+void linkExistingUser(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+int32_t userId
+);
+void createNewLinkedUser(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+const std::string &githubLogin,
+const std::string &githubEmail,
+const std::string &provider,
+const std::string &subject
+);
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/GoogleController.h
