@@ -39,61 +39,105 @@ async function handleMfa() {
 
 <template>
   <div>
+    <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">Sign in to your account</h1>
-      <p class="mt-2 text-sm text-gray-500">
-        Or <router-link to="/register" class="text-indigo-600 font-medium hover:text-indigo-500">create a new account</router-link>
+      <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">Sign in to your account</h1>
+      <p class="mt-2 text-sm text-neutral-500">
+        Or
+        <router-link to="/register" class="text-sky-600 font-medium hover:text-sky-700 transition-colors">
+          create a new account
+        </router-link>
       </p>
     </div>
 
-    <AppAlert v-if="auth.error" type="error" class="mb-6">{{ auth.error }}</AppAlert>
+    <AppAlert v-if="auth.error" type="error" class="mb-6" dismissible>
+      {{ auth.error }}
+    </AppAlert>
 
     <!-- MFA Challenge -->
     <form v-if="showMfa" @submit.prevent="handleMfa" class="space-y-6">
       <div class="text-center py-4">
-        <div class="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span class="text-2xl">🔐</span>
+        <div class="w-14 h-14 rounded-2xl bg-sky-50 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-sky-600" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v4H4a2 2 0 00-2 2v4a2 2 0 002 2h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2V6a4 4 0 00-4-4zm1.5 6.5a1 1 0 11-2 0 1 1 0 012 0zM4 14h12v4H4v-4z"/>
+          </svg>
         </div>
-        <h2 class="text-lg font-semibold text-gray-900">Two-Factor Authentication</h2>
-        <p class="text-sm text-gray-500 mt-1">Enter the 6-digit code from your authenticator app</p>
+        <h2 class="text-lg font-semibold text-neutral-900">Two-Factor Authentication</h2>
+        <p class="text-sm text-neutral-500 mt-1">Enter the 6-digit code from your authenticator app</p>
       </div>
       <div>
-        <input v-model="mfaCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
-          class="block w-full px-4 py-4 text-center text-2xl tracking-[0.5em] font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-          placeholder="000000" />
+        <input
+          v-model="mfaCode"
+          type="text"
+          inputmode="numeric"
+          maxlength="6"
+          autocomplete="one-time-code"
+          class="block w-full px-4 py-4 text-center text-2xl tracking-[0.5em] font-mono border border-neutral-300 rounded-lg
+                 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
+          placeholder="000000"
+        />
       </div>
-      <AppButton type="submit" :loading="auth.loading" :disabled="mfaCode.length !== 6" class="w-full">
+      <AppButton type="submit" :loading="auth.loading" :disabled="mfaCode.length !== 6" block>
         Verify Code
       </AppButton>
-      <button type="button" @click="showMfa = false; mfaCode = ''" class="w-full text-sm text-gray-500 hover:text-gray-700">
-        ← Back to login
+      <button
+        type="button"
+        @click="showMfa = false; mfaCode = ''"
+        class="w-full text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
+      >
+        Back to sign in
       </button>
     </form>
 
     <!-- Login Form -->
     <form v-else @submit.prevent="handleLogin" class="space-y-5">
-      <AppInput v-model="username" label="Email or Username" placeholder="you@example.com" required autocomplete="username" />
-      <AppInput v-model="password" label="Password" type="password" placeholder="Enter your password" required autocomplete="current-password" />
+      <AppInput
+        v-model="username"
+        label="Email or Username"
+        placeholder="you@example.com"
+        required
+        autocomplete="username"
+      />
+
+      <AppInput
+        v-model="password"
+        label="Password"
+        type="password"
+        placeholder="Enter your password"
+        required
+        autocomplete="current-password"
+      />
 
       <div class="flex justify-end">
-        <router-link to="/forgot-password" class="text-sm text-indigo-600 hover:text-indigo-500 font-medium">
+        <router-link to="/forgot-password" class="text-sm text-sky-600 hover:text-sky-700 font-medium transition-colors">
           Forgot password?
         </router-link>
       </div>
 
-      <AppButton type="submit" :loading="auth.loading" class="w-full">
+      <AppButton type="submit" :loading="auth.loading" block>
         Sign In
       </AppButton>
 
       <!-- Social Login Divider -->
-      <div class="relative my-6">
-        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
-        <div class="relative flex justify-center text-sm"><span class="px-3 bg-white text-gray-400">or continue with</span></div>
+      <div v-if="GITHUB_CLIENT_ID" class="relative my-6">
+        <div class="absolute inset-0 flex items-center">
+          <div class="w-full border-t border-neutral-200" />
+        </div>
+        <div class="relative flex justify-center text-sm">
+          <span class="px-3 bg-white text-neutral-400">or continue with</span>
+        </div>
       </div>
 
       <!-- GitHub Login -->
-      <a :href="githubAuthUrl" class="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      <a
+        v-if="GITHUB_CLIENT_ID"
+        :href="githubAuthUrl"
+        class="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-neutral-300
+               rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+      >
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
         Sign in with GitHub
       </a>
     </form>

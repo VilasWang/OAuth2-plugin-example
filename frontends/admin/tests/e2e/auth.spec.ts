@@ -13,7 +13,7 @@ test.describe('Authentication', () => {
 
   test('shows login form with correct elements', async ({ page }) => {
     await page.goto('/admin/login')
-    await expect(page.locator('h1')).toContainText('OAuth2 Admin Console')
+    await expect(page.locator('h1')).toContainText('AuthForge Admin')
     await expect(page.locator('input[type="text"]')).toBeVisible()
     await expect(page.locator('input[type="password"]')).toBeVisible()
     await expect(page.locator('button[type="submit"]')).toContainText('Sign in')
@@ -22,7 +22,7 @@ test.describe('Authentication', () => {
   test('successful login navigates to dashboard', async ({ page }) => {
     await loginAsAdmin(page)
     await expect(page).toHaveURL(/\/admin\//)
-    await expect(page.locator('h2')).toContainText('Dashboard')
+    await expect(page.locator('h2:has-text("Dashboard")')).toBeVisible()
   })
 
   test('shows error on login failure', async ({ page }) => {
@@ -42,8 +42,8 @@ test.describe('Authentication', () => {
     await page.fill('input[type="password"]', 'wrong')
     await page.click('button[type="submit"]')
 
-    await expect(page.locator('.bg-red-50')).toBeVisible()
-    await expect(page.locator('.text-red-600')).toContainText('用户名或密码错误')
+    await expect(page.locator('[role="alert"]')).toBeVisible()
+    await expect(page.locator('[role="alert"]')).toContainText('用户名或密码错误')
   })
 
   test('denies access for non-admin users', async ({ page }) => {
@@ -67,7 +67,7 @@ test.describe('Authentication', () => {
     await page.click('button[type="submit"]')
 
     // Should show error about admin role
-    await expect(page.locator('.text-red-600')).toContainText('Admin role required')
+    await expect(page.locator('[role="alert"]')).toContainText('Admin role required')
   })
 
   test('handles MFA required response', async ({ page }) => {
@@ -140,7 +140,7 @@ test.describe('Authentication', () => {
     await page.fill('input[type="text"]', 'nonexistent')
     await page.fill('input[type="password"]', 'password')
     await page.click('button[type="submit"]')
-    await expect(page.locator('.bg-red-50')).toBeVisible()
+    await expect(page.locator('[role="alert"]')).toBeVisible()
     await expect(page).toHaveURL(/\/admin\/login/)
   })
 

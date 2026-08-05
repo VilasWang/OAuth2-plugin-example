@@ -52,16 +52,18 @@ test.describe('Navigation & Layout', () => {
     // Dashboard
     await page.click('nav a:has-text("Dashboard")')
     await expect(page).toHaveURL(/\/admin\/$/)
-    await expect(page.locator('h2')).toContainText('Dashboard')
+    await expect(page.locator('h2:has-text("Dashboard")')).toBeVisible()
   })
 
   test('top bar shows user info', async ({ page }) => {
-    // The sidebar user section shows the user's email
-    await expect(page.locator('aside').getByText('admin@example.com')).toBeVisible()
+    // The header bar shows the user's display name (username or fallback "Admin")
+    await expect(page.locator('header')).toContainText('Admin')
   })
 
   test('logout clears session and redirects to login', async ({ page }) => {
-    // Logout button says "Sign out" in the sidebar
+    // Sign out button is inside the user dropdown in the header
+    // First click the avatar/user button to open the dropdown
+    await page.locator('header button').filter({ has: page.locator('.rounded-full') }).click()
     const logoutBtn = page.locator('button:has-text("Sign out")')
     await expect(logoutBtn).toBeVisible()
     await logoutBtn.click()
@@ -72,8 +74,8 @@ test.describe('Navigation & Layout', () => {
     // Navigate to Applications and check active state
     await page.click('nav a:has-text("Applications")')
     const activeLink = page.locator('nav a:has-text("Applications")')
-    // Active links have bg-gray-800 class
-    await expect(activeLink).toHaveClass(/bg-gray-800/)
+    // Active links have bg-sky-50 class
+    await expect(activeLink).toHaveClass(/bg-sky-50/)
   })
 
   test('responsive layout at mobile width', async ({ page }) => {

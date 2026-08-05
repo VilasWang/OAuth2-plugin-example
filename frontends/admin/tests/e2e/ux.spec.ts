@@ -91,7 +91,7 @@ test.describe('UX Polish', () => {
       })
       await loginAsAdmin(page)
       // The failures card should have red color class when > 0
-      const redText = page.locator('.text-red-600')
+      const redText = page.locator('.text-rose-600')
       await expect(redText.first()).toBeVisible({ timeout: 3000 })
     })
 
