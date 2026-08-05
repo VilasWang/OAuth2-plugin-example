@@ -410,3 +410,24 @@ TEST(MfaServiceTest, PendingBinding_SetGetClear_RoundTrips)
     EXPECT_TRUE(afterClear->first.empty());
     EXPECT_TRUE(afterClear->second.empty());
 }
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P3): a custom issuerName flows into the otpauth URI
+// (MfaService.cc:34). The existing tests use the default "OAuth2Server".
+// ---------------------------------------------------------------------------
+
+TEST(MfaServiceTest, SetupSecret_CustomIssuerName_FlowsIntoOtpAuthUri)
+{
+    auto repo = std::make_shared<FakeMfaRepository>();
+    auto clock = std::make_shared<FakeClock>();
+    auto crypto = std::make_shared<FakeCryptoProvider>();
+    // Construct with a custom issuer name.
+    MfaService svc(repo, crypto, clock, "AcmeCorp");
+
+    std::optional<MfaSetupResult> result;
+    svc.setupSecret(42, "alice@example.com", [&](auto r) { result = std::move(r); });
+    ASSERT_TRUE(result.has_value());
+    // The URI's path segment is "issuer:account" and the query carries issuer=...
+    EXPECT_NE(result->otpAuthUri.find("AcmeCorp:alice@example.com"), std::string::npos);
+    EXPECT_NE(result->otpAuthUri.find("&issuer=AcmeCorp"), std::string::npos);
+}

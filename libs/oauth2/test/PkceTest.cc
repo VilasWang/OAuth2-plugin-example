@@ -110,4 +110,50 @@ TEST(PkceTest, IsValidCodeChallengeFormat_InvalidCharset_ReturnsFalse)
     EXPECT_FALSE(isValidCodeChallengeFormat("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw/cM+padding"));
 }
 
+// ---------------------------------------------------------------------------
+// Coverage additions (P2/P3): plain-mismatch / unknown-method-mismatch
+// negative cases, acceptance of every legal unreserved special char, and
+// the code_challenge length boundaries (previously only verifier was tested
+// at the boundaries).
+// ---------------------------------------------------------------------------
+
+// verifyCodeVerifier: plain method with a MISMATCHING verifier fails.
+TEST(PkceTest, VerifyCodeVerifier_Plain_Mismatch_Fails)
+{
+    FakeCryptoProvider crypto;
+    PkceChallenge challenge(kValidVerifier, "plain");
+    EXPECT_FALSE(verifyCodeVerifier("a-different-verifier-of-suitable-length-here", challenge, crypto));
+}
+
+// Note: verifyCodeVerifier with an UNKNOWN method is NOT testable here --
+// PkceChallenge's constructor validates the method at construction time
+// (only "S256"/"plain" accepted), so a challenge carrying any other method
+// cannot exist to verify against. The computeCodeChallenge unknown-method
+// fallback path is covered by ComputeCodeChallenge_UnknownMethod_FallsBackToIdentity above.
+
+// isValidCodeVerifierFormat: every one of the four legal unreserved
+// specials [-._~] is accepted (the existing charset test only proved '+'
+// is rejected).
+TEST(PkceTest, IsValidCodeVerifierFormat_AllLegalSpecials_ReturnsTrue)
+{
+    EXPECT_TRUE(isValidCodeVerifierFormat(std::string(43, '-')));
+    EXPECT_TRUE(isValidCodeVerifierFormat(std::string(43, '.')));
+    EXPECT_TRUE(isValidCodeVerifierFormat(std::string(43, '_')));
+    EXPECT_TRUE(isValidCodeVerifierFormat(std::string(43, '~')));
+}
+
+// isValidCodeChallengeFormat: length boundaries (43 and 128) accepted.
+TEST(PkceTest, IsValidCodeChallengeFormat_BoundaryLengths_43And128_ReturnTrue)
+{
+    EXPECT_TRUE(isValidCodeChallengeFormat(std::string(43, 'a')));
+    EXPECT_TRUE(isValidCodeChallengeFormat(std::string(128, 'a')));
+}
+
+// isValidCodeChallengeFormat: too short (42) and too long (129) rejected.
+TEST(PkceTest, IsValidCodeChallengeFormat_TooShortAndTooLong_ReturnFalse)
+{
+    EXPECT_FALSE(isValidCodeChallengeFormat(std::string(42, 'a')));
+    EXPECT_FALSE(isValidCodeChallengeFormat(std::string(129, 'a')));
+}
+
 }  // namespace
