@@ -4,7 +4,6 @@ import { setupAuthenticatedMocks, loginAsAdmin } from './helpers/mock-api'
 test.describe('Error Handling', () => {
   test('401 on API call shows error on dashboard', async ({ page }) => {
     await setupAuthenticatedMocks(page)
-    // Override stats to return 401 AFTER initial setup
     await page.route('**/api/admin/dashboard/stats', async (route) => {
       await route.fulfill({
         status: 401,
@@ -16,10 +15,8 @@ test.describe('Error Handling', () => {
     })
     await loginAsAdmin(page)
     await page.waitForLoadState('networkidle')
-    // Dashboard should still render — error displayed
     await expect(page.locator('h2:has-text("Dashboard")')).toBeVisible()
-    const errorBanner = page.locator('.bg-red-50')
-    await expect(errorBanner.first()).toBeVisible()
+    await expect(page.locator('[role="alert"]').first()).toBeVisible()
   })
 
   test('500 response shows error banner on dashboard', async ({ page }) => {
@@ -36,8 +33,7 @@ test.describe('Error Handling', () => {
     await loginAsAdmin(page)
     await page.waitForLoadState('networkidle')
     await expect(page.locator('h2:has-text("Dashboard")')).toBeVisible()
-    const errorBanner = page.locator('.bg-red-50')
-    await expect(errorBanner.first()).toBeVisible()
+    await expect(page.locator('[role="alert"]').first()).toBeVisible()
   })
 
   test('network failure on health shows unhealthy', async ({ page }) => {
@@ -52,7 +48,6 @@ test.describe('Error Handling', () => {
 
   test('403 forbidden shows error on users page', async ({ page }) => {
     await setupAuthenticatedMocks(page)
-    // Override users API before navigation
     await page.route('**/api/admin/users', async (route) => {
       await route.fulfill({
         status: 403,
@@ -65,6 +60,7 @@ test.describe('Error Handling', () => {
     await loginAsAdmin(page)
     await page.click('nav a:has-text("Users")')
     await page.waitForLoadState('networkidle')
+    // UsersPage uses inline error banner with bg-red-50
     const errorElement = page.locator('.bg-red-50, .text-red-700')
     await expect(errorElement.first()).toBeVisible()
   })

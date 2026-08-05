@@ -9,7 +9,7 @@ test.describe('Dashboard', () => {
 
   test('displays stats cards with real data', async ({ page }) => {
     await expect(page.locator('text=Total Users')).toBeVisible()
-    await expect(page.locator('p:has-text("Applications")').first()).toBeVisible()
+    await expect(page.locator('text=Applications').first()).toBeVisible()
     await expect(page.locator('text=Active Tokens')).toBeVisible()
     await expect(page.locator('text=Failures Today')).toBeVisible()
     // Check actual values from mock
@@ -34,10 +34,10 @@ test.describe('Dashboard', () => {
   test('displays quick action links', async ({ page }) => {
     await expect(page.locator('text=Quick Actions')).toBeVisible()
     const main = page.locator('main')
-    await expect(main.locator('a[href="/admin/applications"] p')).toBeVisible()
-    await expect(main.locator('a[href="/admin/users"] p')).toBeVisible()
-    await expect(main.locator('a[href="/admin/roles"] p')).toBeVisible()
-    await expect(main.locator('a[href="/admin/scopes"] p')).toBeVisible()
+    await expect(main.locator('a[href="/admin/applications"]')).toBeVisible()
+    await expect(main.locator('a[href="/admin/users"]')).toBeVisible()
+    await expect(main.locator('a[href="/admin/roles"]')).toBeVisible()
+    await expect(main.locator('a[href="/admin/scopes"]')).toBeVisible()
   })
 
   test('quick action links navigate correctly', async ({ page }) => {
@@ -89,7 +89,7 @@ test.describe('Dashboard - unhealthy state', () => {
       })
     })
     await loginAsAdmin(page)
-    const banner = page.locator('.bg-red-50')
+    const banner = page.locator('[role="alert"]')
     await expect(banner).toBeVisible()
     // INTERNAL_ERROR is mapped to its localized message; the raw backend
     // message is intentionally NOT surfaced to the UI.

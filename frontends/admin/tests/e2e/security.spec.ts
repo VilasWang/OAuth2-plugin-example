@@ -22,7 +22,7 @@ test.describe('Security', () => {
       await page.waitForTimeout(500)
       // Should stay on login page with error
       await expect(page).toHaveURL(/\/admin\/login/)
-      const errorEl = page.locator('.bg-red-50, .text-red-600')
+      const errorEl = page.locator('[role="alert"]')
       await expect(errorEl.first()).toBeVisible()
     })
 

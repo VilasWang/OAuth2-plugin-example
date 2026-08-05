@@ -13,7 +13,7 @@ test.describe('User Detail Page', () => {
 
   test('displays user detail page with correct info', async ({ page }) => {
     await expect(page.locator('h2')).toContainText('admin')
-    await expect(page.locator('text=admin@example.com')).toBeVisible()
+    await expect(page.locator('input[type="email"]')).toHaveValue('admin@example.com')
   })
 
   test('shows status badges', async ({ page }) => {
