@@ -247,15 +247,26 @@ In test case SomeTestName
 
 ### 代码覆盖率
 
-```
-[待 Clang source-based coverage 实测]
+实测行覆盖率（gcov，gcc 13.3 Debug 构建，WSL Ubuntu 24.04，Postgres+Redis 激活，全测试套件通过 449/450；排除 ORM 自动生成的 `models/`）：
 
-当前仅有结构性估算（基于测试对源码分支的覆盖分析），尚无 instrumentation 实测。
-项目已在 tests/CMakeLists.txt 提供 OAUTH2_TEST_COVERAGE 选项（GCC/Clang --coverage）；
-计划新增 Clang source-based coverage 构建以产出逐文件行/分支覆盖率报告。
-```
+| 库 | 行覆盖 | 备注 |
+|---|---|---|
+| libs/common | **98.8%** (686/694) | ErrorCatalog/Result/值对象，已较全 |
+| libs/identity | **96.7%** (1132/1171) | Auth/Mfa/WebAuthn/Social/Totp/Session，本次重点补强 |
+| libs/storage-memory | **97.1%** (443/456) | Memory 后端全方法覆盖（CI 必跑路径） |
+| libs/oauth2 | **89.6%** (815/910) | TokenService/AuthService/ClientService/JwkManager/Pkce，本次重点补强 |
+| libs/storage-redis | 46.7% (321/688) | 契约测试覆盖 getClient/validate/grant/token/consent 主路径；Lua 脚本与 transaction CRUD 待补 |
+| libs/storage-postgres | 39.8% (1160/2912) | 契约测试覆盖主路径；lockout 阈值/revokeTokenFamily/审计回退分支待补 |
+| libs/drogon | 32.5% (2534/7800) | validation 100%、error 92%、adapters 68%、observability 70%；controllers 36%、admin 0%、services 5%（需 HTTP 集成测试） |
+| **整体** | **48.5%** (7091/14631) | — |
 
-> 覆盖率目标：>95%。覆盖盲区主要为：(1) 22 个 Controller（约 8.5k LOC，需 HTTP 集成测试）；(2) ORM 自动生成的 `libs/storage-postgres/src/models/*.cc`（drogon_ctl 生成，不应手测，已从覆盖率分母排除）。
+> 逐文件 HTML 报告生成方式：`gcovr build/<preset> --root . --filter "libs/" --exclude "libs/storage-postgres/src/models/" --html-details -o coverage-report/index.html`（需先以 `-DOAUTH2_TEST_COVERAGE=ON` 构建 + 跑测试；`coverage-report/` 已在 `.gitignore`）。
+
+#### 覆盖率工具链
+
+- `cmake/Coverage.cmake`（`oauth2_apply_gcov(target)`）给每个 first-party 库 + 测试可执行文件加 `-fprofile-arcs -ftest-coverage` 并链接 libgcov。
+- `tests/test_main.cc` 在两处 `std::_Exit()` 前显式调用 `__gcov_dump()`：因为 `_Exit` 绕过 `atexit`，libgcov 的计数器 flush 不会自动执行（否则 gcov 读到全 0 计数）。这是 Drogon 测试框架 fast-exit 与 gcov 的已知交互，需在测试 main 里手动补 flush。
+- 覆盖率目标：>95%。当前主要盲区：(1) 22 个 Controller（约 8.5k LOC，需 HTTP 集成测试）；(2) admin/services/plugin（DB 耦合，需集成测试）；(3) ORM 自动生成的 `libs/storage-postgres/src/models/*.cc`（已从分母排除）。
 
 ---
 
