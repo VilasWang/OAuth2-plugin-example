@@ -435,3 +435,26 @@ TEST(WebAuthnServiceTest, Constructor_CustomRpIdAndRpName_PropagatedToChallenges
     ASSERT_TRUE(auth.has_value());
     EXPECT_EQ(auth->rpId, "auth.example.com");
 }
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P3): beginAuthentication produces a different
+// challenge on each call (mirror of the existing registration test).
+// ---------------------------------------------------------------------------
+
+// beginAuthentication: two consecutive calls yield distinct challenges
+// (WebAuthnService.cc:105-119, mirrors BeginRegistration_TwoCallsProduceDifferentChallenges).
+TEST(WebAuthnServiceTest, BeginAuthentication_TwoCallsProduceDifferentChallenges)
+{
+    auto repo = std::make_shared<FakeWebAuthnRepository>();
+    auto svc = makeService(repo);
+
+    std::optional<WebAuthnAuthenticationChallenge> first;
+    svc->beginAuthentication([&](auto r) { first = std::move(r); });
+    std::optional<WebAuthnAuthenticationChallenge> second;
+    svc->beginAuthentication([&](auto r) { second = std::move(r); });
+
+    ASSERT_TRUE(first.has_value());
+    ASSERT_TRUE(second.has_value());
+    EXPECT_FALSE(first->challenge.empty());
+    EXPECT_NE(first->challenge, second->challenge);
+}

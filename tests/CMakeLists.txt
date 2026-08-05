@@ -292,6 +292,10 @@ set(OAUTH2_CONTRACT_TEST_NAMES
     Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByEmailAndUsername_ReturnNullopt
     Integration_P0_Contract_Functional_UserInfoRepository_Memory_Create_ReturnsNulloptUnsupported
     Integration_P0_Contract_Functional_UserInfoRepository_Memory_PasswordAndLoginMethods_PlaceholderReturns
+    # Coverage additions (P2/P3): Memory consent revoke-nonexistent no-op
+    # and per-scope independence.
+    Integration_P0_Contract_Functional_ConsentRepository_Memory_RevokeNonexistent_IsNoOp
+    Integration_P0_Contract_Functional_ConsentRepository_Memory_PerScopeIndependence
 )
 
 foreach(_contract_test_name ${OAUTH2_CONTRACT_TEST_NAMES})

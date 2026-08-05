@@ -151,3 +151,103 @@ DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_Cache
     CHECK(pending->empty());
     CHECK(delivered.load(std::memory_order_relaxed) == 2);
 }
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P2): cache behavior the UAF/CacheHit tests did not
+// reach -- a MISS (impl returns nullopt) must NOT be cached, so the next
+// call still consults impl_; and validateClient is a pure pass-through
+// (never consults/fills the cache).
+// ---------------------------------------------------------------------------
+
+// A deferred IClientRepository whose getClient returns Nullopt (a cache MISS
+// that must not be cached). Mirrors DeferringClientRepository's shape but
+// yields std::nullopt instead of a live client.
+class DeferringMissingClientRepository : public ::authforge::oauth2::repository::IClientRepository
+{
+  public:
+    explicit DeferringMissingClientRepository(std::shared_ptr<PendingCallbacks> pending)
+        : pending_(std::move(pending))
+    {
+    }
+
+    void getClient(
+      const std::string & /*clientId*/,
+      ::authforge::oauth2::repository::IClientRepository::ClientCallback &&cb
+    ) override
+    {
+        ++getClientCalls;
+        pending_->enqueue([cb = std::move(cb)]() { cb(std::nullopt); });
+    }
+
+    void validateClient(
+      const std::string &,
+      const std::string &,
+      ::authforge::oauth2::repository::IClientRepository::BoolCallback &&cb
+    ) override
+    {
+        pending_->enqueue([cb = std::move(cb)]() { cb(false); });
+    }
+
+    int getClientCalls = 0;
+
+  private:
+    std::shared_ptr<PendingCallbacks> pending_;
+};
+
+// getClient: when impl_ returns nullopt the result must NOT be cached, so a
+// second call for the same id still hits impl_ (CachedClientRepository.cc:34
+// -- the cache insert is guarded by `if (client)`). Without this guard a
+// missing client would poison the cache for 60s.
+DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_CacheMissNullopt_NotCached)
+{
+    auto pending = std::make_shared<PendingCallbacks>();
+    auto impl = std::make_shared<DeferringMissingClientRepository>(pending);
+    auto host = std::make_shared<CachedClientRepository>(impl);
+
+    std::optional<::authforge::oauth2::model::OAuth2Client> first;
+    host->getClient(
+      "client-missing", [&first](std::optional<::authforge::oauth2::model::OAuth2Client> c) {
+          first = std::move(c);
+      }
+    );
+    REQUIRE(pending->size() == 1);
+    pending->drainAll();
+    CHECK(!first.has_value());
+    CHECK(impl->getClientCalls == 1);
+
+    // Second call: a MISS must not have been cached, so impl_ is consulted
+    // again (a new continuation is parked).
+    std::optional<::authforge::oauth2::model::OAuth2Client> second;
+    host->getClient(
+      "client-missing", [&second](std::optional<::authforge::oauth2::model::OAuth2Client> c) {
+          second = std::move(c);
+      }
+    );
+    CHECK(pending->size() == 1);  // impl_ was hit again, not the cache
+    pending->drainAll();
+    CHECK(!second.has_value());
+    CHECK(impl->getClientCalls == 2);
+}
+
+// validateClient: a pure pass-through that never consults the cache. Two
+// calls both reach impl_ (no short-circuit on a cached value).
+DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_ValidateClient_IsPassThrough)
+{
+    auto pending = std::make_shared<PendingCallbacks>();
+    auto impl = std::make_shared<DeferringClientRepository>(pending);
+    auto host = std::make_shared<CachedClientRepository>(impl);
+
+    bool first = true;
+    host->validateClient("client-pt", "secret", [&first](bool v) { first = v; });
+    REQUIRE(pending->size() == 1);
+    pending->drainAll();
+    CHECK(first == true);  // DeferringClientRepository.validateClient returns true
+
+    bool second = false;
+    host->validateClient("client-pt", "secret", [&second](bool v) { second = v; });
+    // validateClient is a pass-through: it parks a second continuation on
+    // impl_ (it did NOT short-circuit via any cache).
+    CHECK(pending->size() == 1);
+    pending->drainAll();
+    CHECK(second == true);
+}
