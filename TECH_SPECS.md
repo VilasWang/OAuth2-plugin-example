@@ -19,51 +19,21 @@
 | Storage 层 | 数据访问 | `IOAuth2Storage.h` 接口，Strategy 模式 |
 | Model 层 | ORM 映射 | 禁止修改 ORM 类，用 `drogon_ctl` 重新生成 |
 
-### [MUST] 异步编程规范
+### 异步编程规范
 
-| 接口类型 | 优先级 | 说明 |
-|----------|--------|------|
-| 异步回调 | [+] 最高 | `Mapper::findOne`, `execSqlAsync` |
-| 同步接口 | [!] 限制 | `Mapper::findBy` with future（非必要禁止） |
-| 协程接口 | [-] 禁止 | `CoroMapper`（严格禁止使用） |
+> 完整规则见 [`.claude/rules/db-operations.md`](.claude/rules/db-operations.md)（权威源头），本节不重复。
 
-**Lambda 捕获规范**:
-- [+] 捕获 `sharedCb`: `[sharedCb]`
-- [-] 捕获裸指针: `[this]`, `[&var]`
-- 如需使用裸指针，必须在 PR 中说明生命周期保障方案 (`shared_from_this`, `weak_ptr`)
+要点：async callback 优先（`Mapper::findOne` / `execSqlAsync`）、`Mapper::findBy`-with-future 受限、`CoroMapper` 禁止；Callback 用 `std::make_shared<CallbackType>(std::move(cb))` 管理生命周期；每个 `Mapper<...>(dbClient)` 构造独立 try-catch。
+
+**关于 `[this]` 捕获**：分层级 —— Domain 服务层禁止 `[this]`，须用 `shared_from_this()`；Controller 层允许 `[this]`（`HttpController` 是进程级单例，见 `TokenEndpointController.cc:1306`）。旧版本文件把 `[this]` 列为全局禁令，与 controller 层实践冲突，已移除该条。详见 `AGENTS.md`。
 
 ---
 
 ## 二、数据访问规范
 
-### [MUST] ORM 使用规范
+> 完整规则见 [`.claude/rules/db-operations.md`](.claude/rules/db-operations.md)（权威源头），本节不重复。
 
-| 操作 | 禁止 | 推荐 |
-| :--- | :--- | :--- |
-| SELECT | raw SQL | `Mapper::findBy` |
-| INSERT | raw INSERT | `Mapper::insert` |
-| UPDATE | raw UPDATE | `Mapper::update` |
-| JOIN | JOIN 查询 | 拆分查询或 `Criteria::In` |
-
-**允许使用 raw SQL 的特殊情况**:
-- [+] PostgreSQL `UPDATE ... RETURNING` (原子操作)
-- [+] DDL 操作 (表结构变更，需用 SchemaSetup.cc)
-- [+] 批量操作优化 (需说明必要性)
-- [+] 测试代码清理
-
-### 关键规范
-
-| 规范项 | 要求 |
-|--------|------|
-| Callback 生命周期 | 使用 `std::make_shared<CallbackType>(std::move(cb))` |
-| 替代 JOIN | 拆分为多个 ORM 查询或使用 `Criteria::In` |
-| 错误处理 | 所有异步回调都有错误处理分支 |
-| Lambda 捕获 | 捕获 `[sharedCb]` 而非裸指针 |
-
-### [MUST] 数据库连接管理
-- 读写分离: `dbClientMaster_` (写), `dbClientReader_` (读)
-- 连接池配置在 `config.json` 中
-- 异步操作使用共享的 DbClientPtr
+要点：DB 操作必须 async callback + Mapper + Criteria 三件套；raw SQL 仅 6 种豁免（DDL / `UPDATE ... RETURNING` / 文档化批量 / `INSERT ... ON CONFLICT` / `SELECT 1` 探活 / 显式事务 `COMMIT`）；JOIN 禁用，拆查询或 `Criteria::In`；读写分离 `dbClientMaster_`（写）/ `dbClientReader_`（读），连接池配置在 `config.json`。
 
 ---
 
