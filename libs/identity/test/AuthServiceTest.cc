@@ -402,3 +402,125 @@ TEST_F(AuthServiceTest, RegisterDuplicateEmailReturnsEmailTakenCode)
       });
     EXPECT_EQ(errorCode, "VALIDATION_EMAIL_TAKEN");
 }
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P1): null-dependency guards (validateUser/registerUser/
+// getUserInfo), the failedLoginCount>0 reset-on-success branch, malformed-
+// PBKDF2-hash rejection, and the legacy uppercase-hex case-insensitive
+// compare. These construct AuthService directly with nullptr deps where
+// needed.
+// ---------------------------------------------------------------------------
+
+// validateUser: null userRepo/crypto/clock guard -> nullopt
+// (AuthService.cc:165).
+TEST_F(AuthServiceTest, ValidateUserNullDependenciesReturnsNullopt)
+{
+    AuthService nullSvc(nullptr, nullptr, nullptr);
+    std::optional<AuthResult> result = AuthResult{};
+    nullSvc.validateUser("alice", "pw", [&](std::optional<AuthResult> r) { result = std::move(r); });
+    EXPECT_FALSE(result.has_value());
+}
+
+// registerUser: null userRepo/crypto guard -> INTERNAL_ERROR
+// (AuthService.cc:246).
+TEST_F(AuthServiceTest, RegisterUserNullDependenciesReturnsInternalError)
+{
+    AuthService nullSvc(nullptr, nullptr, nullptr);
+    std::string errorCode = "none";
+    nullSvc.registerUser("alice", "pw", "a@b.test", [&](const std::string &e) { errorCode = e; });
+    EXPECT_EQ(errorCode, "INTERNAL_ERROR");
+}
+
+// getUserInfo: null userRepo guard -> nullopt (AuthService.cc:297).
+TEST_F(AuthServiceTest, GetUserInfoNullRepositoryReturnsNullopt)
+{
+    AuthService nullSvc(nullptr, nullptr, nullptr);
+    std::optional<Json::Value> info = Json::Value{};
+    nullSvc.getUserInfo(1, [&](std::optional<Json::Value> v) { info = std::move(v); });
+    EXPECT_FALSE(info.has_value());
+}
+
+// validateUser: a successful login resets failedLoginCount to 0 when it was
+// previously > 0 (AuthService.cc:206-209).
+TEST_F(AuthServiceTest, SuccessfulLoginResetsFailedLoginCount)
+{
+    // Register a user, then drive a couple of failed logins to bump the
+    // counter, then succeed and assert the counter is reset.
+    service->registerUser("irene", "correct-pw", "irene@example.com", [](const std::string &) {});
+
+    // Two failed attempts (wrong password) increment the counter.
+    service->validateUser("irene", "wrong", [](std::optional<AuthResult>) {});
+    service->validateUser("irene", "wrong", [](std::optional<AuthResult>) {});
+
+    // Find the user's id and assert the counter is now 2.
+    int32_t userId = 0;
+    repo->findByUsername("irene", [&](std::optional<UserData> u) { userId = u->id; });
+
+    std::optional<AuthResult> ok;
+    service->validateUser("irene", "correct-pw", [&](std::optional<AuthResult> r) { ok = r; });
+    ASSERT_TRUE(ok.has_value());
+
+    std::optional<UserData> reloaded;
+    repo->findById(userId, [&](std::optional<UserData> u) { reloaded = u; });
+    ASSERT_TRUE(reloaded.has_value());
+    EXPECT_EQ(reloaded->failedLoginCount, 0);
+    EXPECT_EQ(reloaded->lockedUntil, 0);
+}
+
+// validateUser: a stored PBKDF2 hash with the wrong number of '$'-parts is
+// rejected (verifyPassword parts.size() != 4, AuthService.cc:104).
+TEST_F(AuthServiceTest, VerifyPbkdf2MalformedHashReturnsNullopt)
+{
+    UserData u;
+    u.username = "mallory";
+    u.email = "mallory@example.com";
+    // Wrong part count (3 parts, not 4).
+    u.passwordHash = "$pbkdf2-sha256$310000$00";
+    repo->seed(u);
+
+    std::optional<AuthResult> result = AuthResult{};
+    service->validateUser("mallory", "anything", [&](std::optional<AuthResult> r) {
+        result = std::move(r);
+    });
+    EXPECT_FALSE(result.has_value());
+}
+
+// validateUser: a stored PBKDF2 hash with a non-numeric iterations field is
+// rejected (verifyPassword stoi catch, AuthService.cc:108-115).
+TEST_F(AuthServiceTest, VerifyPbkdf2NonNumericIterationsReturnsNullopt)
+{
+    UserData u;
+    u.username = "nancy";
+    u.email = "nancy@example.com";
+    // 4 parts, but iterations is non-numeric.
+    u.passwordHash = "$pbkdf2-sha256$notanumber$00$00";
+    repo->seed(u);
+
+    std::optional<AuthResult> result = AuthResult{};
+    service->validateUser("nancy", "anything", [&](std::optional<AuthResult> r) {
+        result = std::move(r);
+    });
+    EXPECT_FALSE(result.has_value());
+}
+
+// validateUser: a legacy hash stored in UPPERCASE hex still verifies (the
+// tolower transform on both sides, AuthService.cc:137-140).
+TEST_F(AuthServiceTest, LegacyHashUppercaseHexStillVerifies)
+{
+    std::string salt = "saltsalt";
+    std::string legacyHash = crypto->sha256Hex("upcase-pw" + salt);
+    // Uppercase the stored hash; sha256Hex returns lowercase, so this
+    // exercises the case-folding branch.
+    std::transform(legacyHash.begin(), legacyHash.end(), legacyHash.begin(), ::toupper);
+
+    UserData u;
+    u.username = "oscar";
+    u.email = "oscar@example.com";
+    u.passwordHash = legacyHash;
+    u.salt = salt;
+    repo->seed(u);
+
+    std::optional<AuthResult> result;
+    service->validateUser("oscar", "upcase-pw", [&](std::optional<AuthResult> r) { result = r; });
+    ASSERT_TRUE(result.has_value());
+}

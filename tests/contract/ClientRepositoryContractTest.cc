@@ -321,3 +321,89 @@ DROGON_TEST(
       TEST_CTX, repo, "mem-confidential-client", "test-secret", "wrong-secret"
     );
 }
+
+// ===========================================================================
+// Coverage additions (P1) -- Memory backend initFromConfig parsing
+// branches the original tests did not exercise: redirect_uri as a single
+// string vs array, allowed_scopes single-string, the vue-client default-
+// scopes fallback, the invalid-type -> CONFIDENTIAL fallback, and a null
+// config being a no-op.
+// ===========================================================================
+
+DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_RedirectUri_SingleString)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    Json::Value cfg;
+    cfg["single-uri-client"]["secret"] = "s";
+    cfg["single-uri-client"]["redirect_uri"] = "http://localhost/single";  // string, not array
+    repo->initFromConfig(cfg);
+
+    auto client = waitForValue<std::optional<OAuth2Client>>([&](auto cb) {
+        repo->getClient("single-uri-client", std::move(cb));
+    });
+    REQUIRE(client.has_value());
+    REQUIRE(client->redirectUris.size() == 1u);
+    CHECK(client->redirectUris[0] == "http://localhost/single");
+}
+
+DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_AllowedScopes_SingleString)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    Json::Value cfg;
+    cfg["single-scope-client"]["secret"] = "s";
+    cfg["single-scope-client"]["allowed_scopes"] = "openid";  // string, not array
+    repo->initFromConfig(cfg);
+
+    auto client = waitForValue<std::optional<OAuth2Client>>([&](auto cb) {
+        repo->getClient("single-scope-client", std::move(cb));
+    });
+    REQUIRE(client.has_value());
+    REQUIRE(client->allowedScopes.size() == 1u);
+    CHECK(client->allowedScopes[0] == "openid");
+}
+
+DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_VueClient_DefaultScopes)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    Json::Value cfg;
+    // vue-client with NO allowed_scopes -> default scopes injected.
+    cfg["vue-client"]["type"] = "PUBLIC";
+    repo->initFromConfig(cfg);
+
+    auto client = waitForValue<std::optional<OAuth2Client>>([&](auto cb) {
+        repo->getClient("vue-client", std::move(cb));
+    });
+    REQUIRE(client.has_value());
+    REQUIRE(client->allowedScopes.size() == 3u);
+    CHECK(client->allowedScopes[0] == "openid");
+    CHECK(client->allowedScopes[1] == "profile");
+    CHECK(client->allowedScopes[2] == "email");
+}
+
+DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_InvalidType_DefaultsToConfidential)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    Json::Value cfg;
+    cfg["bad-type-client"]["type"] = "TOTALLY_INVALID";
+    cfg["bad-type-client"]["secret"] = "s";
+    repo->initFromConfig(cfg);
+
+    auto client = waitForValue<std::optional<OAuth2Client>>([&](auto cb) {
+        repo->getClient("bad-type-client", std::move(cb));
+    });
+    REQUIRE(client.has_value());
+    // Invalid type falls back to CONFIDENTIAL -> a non-empty secret is
+    // required for validateClient to pass.
+    CHECK(client->clientType == ::authforge::oauth2::model::ClientType::CONFIDENTIAL);
+}
+
+DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_NullConfig_NoOp)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    repo->initFromConfig(Json::Value());  // null -> early return, no clients
+
+    auto client = waitForValue<std::optional<OAuth2Client>>([&](auto cb) {
+        repo->getClient("any-client", std::move(cb));
+    });
+    CHECK(!client.has_value());
+}

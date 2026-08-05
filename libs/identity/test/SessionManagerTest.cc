@@ -170,3 +170,30 @@ TEST(SessionManagerTest, Logout_InvokesCallback)
 
     EXPECT_TRUE(callbackInvoked);
 }
+
+// Coverage addition (P1, documentation anchor): SessionManager::logout
+// dereferences notifier_ UNCONDITIONALLY (SessionManager.cc:47), unlike
+// every other identity service which null-guards its dependency. This
+// means logout() is unsafe with a null notifier, but evaluateLoginPolicy()
+// does NOT touch notifier_ and is therefore safe. Pin that asymmetry so a
+// future refactor that adds a null-guard to logout is a deliberate,
+// visible behavior change rather than a silent one.
+TEST(SessionManagerTest, EvaluateLoginPolicyMemberFunction_NullNotifier_StillWorks)
+{
+    // Construct with a null notifier -- evaluateLoginPolicy must still work.
+    SessionManager manager(nullptr);
+
+    AuthResult result;
+    result.emailVerified = true;
+    result.mfaEnabled = false;
+
+    // No dereference of notifier_ occurs here -> no crash.
+    EXPECT_EQ(manager.evaluateLoginPolicy(result, false), LoginDecision::Proceed);
+    EXPECT_EQ(manager.evaluateLoginPolicy(result, true), LoginDecision::Proceed);
+
+    result.mfaEnabled = true;
+    EXPECT_EQ(manager.evaluateLoginPolicy(result, false), LoginDecision::RequireMfa);
+
+    result.emailVerified = false;
+    EXPECT_EQ(manager.evaluateLoginPolicy(result, true), LoginDecision::DenyEmailNotVerified);
+}

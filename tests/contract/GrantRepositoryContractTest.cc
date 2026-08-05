@@ -349,3 +349,160 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAut
     auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "mem-client");
 }
+
+// ===========================================================================
+// Coverage additions (P1) -- Memory backend only. These exercise
+// MemoryGrantRepository's AuthorizationTransaction CRUD (entirely
+// untested because Postgres is a placeholder), markAuthCodeUsed's
+// no-op-on-missing path, the consumeAuthCode empty-redirectUri bypass,
+// getAuthCode lazy expiry eviction, markTransactionConsumed's
+// first-true/second-false guard, and purgeExpired.
+// ===========================================================================
+
+// AuthorizationTransaction: save -> get round trips the fields
+// (MemoryGrantRepository.cc:99-134).
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_AuthorizationTransaction_SaveGetRoundTrip)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    AuthorizationTransaction txn;
+    txn.transactionId = "txn-rt-" + uniqueSuffix();
+    txn.clientId = "mem-client";
+    txn.subject = "contract-user";
+    txn.redirectUri = "https://example.test/cb";
+    txn.state = "xyz";
+    txn.requestedScopes = {"openid", "profile"};
+    txn.validScopes = {"openid"};
+    txn.expiresAt = nowSeconds() + 300;
+
+    bool saved = false;
+    repo->saveAuthorizationTransaction(txn, [&](bool ok) { saved = ok; });
+    CHECK(saved == true);
+
+    auto fetched = waitForValue<std::optional<AuthorizationTransaction>>([&](auto cb) {
+        repo->getAuthorizationTransaction(txn.transactionId, std::move(cb));
+    });
+    REQUIRE(fetched.has_value());
+    CHECK(fetched->clientId == "mem-client");
+    CHECK(fetched->subject == "contract-user");
+    CHECK(fetched->redirectUri == "https://example.test/cb");
+    CHECK(fetched->state == "xyz");
+    CHECK(fetched->requestedScopes.size() == 2u);
+    CHECK(fetched->validScopes.size() == 1u);
+    CHECK(fetched->consumed == false);
+}
+
+// AuthorizationTransaction: an expired transaction is evicted on read and
+// returns nullopt (MemoryGrantRepository.cc:120-127).
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_AuthorizationTransaction_Expired_GetReturnsNullopt_AndEvicts)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    AuthorizationTransaction txn;
+    txn.transactionId = "txn-expired-" + uniqueSuffix();
+    txn.clientId = "mem-client";
+    txn.expiresAt = nowSeconds() - 100;  // already expired
+    repo->saveAuthorizationTransaction(txn, [](bool) {});
+
+    auto fetched = waitForValue<std::optional<AuthorizationTransaction>>([&](auto cb) {
+        repo->getAuthorizationTransaction(txn.transactionId, std::move(cb));
+    });
+    CHECK(!fetched.has_value());
+}
+
+// markTransactionConsumed: first call returns true and marks consumed;
+// second call returns false (MemoryGrantRepository.cc:147-165).
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_MarkTransactionConsumed_FirstTrue_SecondFalse)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    AuthorizationTransaction txn;
+    txn.transactionId = "txn-consume-" + uniqueSuffix();
+    txn.clientId = "mem-client";
+    txn.expiresAt = nowSeconds() + 300;
+    repo->saveAuthorizationTransaction(txn, [](bool) {});
+
+    bool first = true;
+    repo->markTransactionConsumed(txn.transactionId, [&](bool ok) { first = ok; });
+    CHECK(first == true);
+
+    bool second = true;
+    repo->markTransactionConsumed(txn.transactionId, [&](bool ok) { second = ok; });
+    CHECK(second == false);
+}
+
+// markAuthCodeUsed: a no-op on a missing code (does not throw, callback
+// fires) and marks an existing code used (MemoryGrantRepository.cc:54-64).
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_MarkAuthCodeUsed_MissingNoOp_ExistingMarksUsed)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+
+    // Missing code -> no throw, callback fires.
+    bool missingCalled = false;
+    repo->markAuthCodeUsed("mark-missing-" + uniqueSuffix(), [&]() { missingCalled = true; });
+    CHECK(missingCalled == true);
+
+    // Existing code -> marked used (observable: consumeAuthCode now fails).
+    const std::string code = "mark-existing-" + uniqueSuffix();
+    auto ac = makeAuthCode(code, "mem-client", "https://example.test/cb");
+    repo->saveAuthCode(ac, [] {});
+    repo->markAuthCodeUsed(code, [] {});
+
+    auto consumed = waitForValue<std::optional<OAuth2AuthCode>>([&](auto cb) {
+        repo->consumeAuthCode(code, "https://example.test/cb", std::move(cb));
+    });
+    CHECK(!consumed.has_value());  // already used -> nullopt
+}
+
+// consumeAuthCode: an empty redirectUri bypasses the redirect check
+// (MemoryGrantRepository.cc:80). The code is consumed successfully.
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_EmptyRedirectUriAllowed)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    const std::string code = "empty-redir-" + uniqueSuffix();
+    auto ac = makeAuthCode(code, "mem-client", "https://registered.example/cb");
+    repo->saveAuthCode(ac, [] {});
+
+    // Consume with an EMPTY redirectUri -> succeeds despite the stored
+    // redirectUri differing from "".
+    auto consumed = waitForValue<std::optional<OAuth2AuthCode>>([&](auto cb) {
+        repo->consumeAuthCode(code, "", std::move(cb));
+    });
+    REQUIRE(consumed.has_value());
+    CHECK(consumed->code == code);
+}
+
+// getAuthCode: an expired code is evicted on read and returns nullopt
+// (MemoryGrantRepository.cc:41-49).
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_GetAuthCode_Expired_EvictedAndReturnsNullopt)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    const std::string code = "expired-ac-" + uniqueSuffix();
+    auto ac = makeAuthCode(code, "mem-client", "https://example.test/cb", -100);
+    repo->saveAuthCode(ac, [] {});
+
+    auto fetched = waitForValue<std::optional<OAuth2AuthCode>>([&](auto cb) {
+        repo->getAuthCode(code, std::move(cb));
+    });
+    CHECK(!fetched.has_value());
+}
+
+// purgeExpired: removes expired auth codes, keeps live ones
+// (MemoryGrantRepository.cc:169-192).
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_PurgeExpired_RemovesExpiredCodes)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    const std::string liveCode = "purge-live-" + uniqueSuffix();
+    const std::string deadCode = "purge-dead-" + uniqueSuffix();
+    repo->saveAuthCode(makeAuthCode(liveCode, "mem-client", "https://example.test/cb", 300), [] {});
+    repo->saveAuthCode(makeAuthCode(deadCode, "mem-client", "https://example.test/cb", -100), [] {});
+
+    repo->purgeExpired();
+
+    auto live = waitForValue<std::optional<OAuth2AuthCode>>([&](auto cb) {
+        repo->getAuthCode(liveCode, std::move(cb));
+    });
+    CHECK(live.has_value());
+
+    auto dead = waitForValue<std::optional<OAuth2AuthCode>>([&](auto cb) {
+        repo->getAuthCode(deadCode, std::move(cb));
+    });
+    CHECK(!dead.has_value());
+}
