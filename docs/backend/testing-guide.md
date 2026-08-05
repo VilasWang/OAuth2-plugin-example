@@ -23,24 +23,28 @@
 
 ## 2. 测试分层
 
-### Level 1 — 单元测试（无网络 I/O）
+测试编译为**两类可执行文件**：
 
-| 测试文件 | 覆盖范围 |
-|---|---|
-| `ConfigTest.cc` | 验证 `config.json` 的正确加载、RBAC 规则解析及插件配置读取 |
-| `EnvConfigTest.cc` | 验证 `loadConfigWithEnv()` 函数能正确将环境变量注入 JSON 配置（`EnvInjectionVerify` 测试） |
+1. **按库的 gtest 二进制文件**（Domain 层，纯单元测试，无 DB/无 Drogon）：
+   - `libs/common/test/authforge-common-test` — `ConfigManager`、`ErrorCatalog`、`Result`、值对象
+   - `libs/common/testing/test/authforge-common-testing-test` — 假实现（`FakeClock`/`FakeCryptoProvider`/`FakeLogger` 等）的确定性验证
+   - `libs/oauth2/test/authforge-oauth2-test` — `TokenService`/`AuthorizationService`/`ClientService`/`JwkManager`/`Pkce`/`ScopeDecisionEngine`/`TokenCrypto`
+   - `libs/identity/test/authforge-identity-test` — `AuthService`/`MfaService`/`TotpUtils`/`SessionManager`/`WebAuthnService`/社交登录（Google/WeChat/GitHub）
+   - 这些用 gtest（非 `DROGON_TEST`），由各 lib 的 `test/CMakeLists.txt` 通过 `gtest_discover_tests` 注册为独立 ctest 条目。
 
-> 单元测试位于 `tests/unit/` 下，按领域分目录（`config/`、`error/`、`utils/`、`validation/` 等）。
+2. **主测试二进制文件 `tests/authforge-tests`**（`DROGON_TEST` 框架，包含所有需要 Drogon/DB 的层级）：
 
-### Level 2 — 集成测试（需要 Redis / PostgreSQL）
+| 层级 | 目录 | 覆盖范围 | 外部依赖 |
+|---|---|---|---|
+| **Level 1 — 单元测试** | `tests/unit/`（`config/`、`error/`、`utils/`、`validation/`、`plugin/`、`schema/`、`subject/`、`initorder/`） | 纯逻辑：错误信封、密码哈希、PKCE/CryptoUtils、RuleSet 校验、配置加载、OpenAPI 生成 | 无 |
+| **Level 2 — 契约测试** | `tests/contract/` | 跨后端（Postgres/Redis/Memory）的仓储契约一致性：`IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository`/`IUserRepository` | Memory 必跑；Postgres/Redis 在 `getPostgresClientOrNull()`/`getRedisClientOrNull()` 返回空时自动 skip |
+| **Level 3 — 集成测试** | `tests/integration/`（`auth/`、`token/`、`storage/`、`concurrency/`、`error/`、`plugin/`） | 完整业务流程、并发竞态、错误信封、插件组装 | Postgres / Redis（memory-only 模式 `-DOAUTH2_MEMORY_TESTS_ONLY=ON` 下跑 Memory 子集） |
+| **Level 4 — 安全测试** | `tests/security/` | SQL 注入、XSS、命令注入、CORS、Token 安全、速率限制 | Postgres / Redis |
+| **Level 5 — E2E/功能** | `tests/e2e-backend/`、`tests/performance/` | OAuth2 完整流程、性能基准 | Postgres + Redis + Drogon App |
 
-| 测试文件 | 覆盖范围 | 依赖 |
-|---|---|---|
-| `AdvancedStorageTest.cc` | 验证已撤销/已过期 Token 的拒绝逻辑，以及并发场景下的数据正确性 | Redis / Postgres |
-| `UserTest.cc` | 验证用户注册、密码验证（`AuthService`）及 RBAC 角色查询全流程 | Postgres |
-| `PluginTest.cc` | 验证 `OAuth2Plugin` 核心业务流程（内存存储下的插件初始化与基本功能）| Postgres / Redis |
+> 内存模式：配置 `-DOAUTH2_MEMORY_TESTS_ONLY=ON` 可在**无外部 DB** 时跑完整套件（Postgres/Redis 测试自动 skip）——这是 Windows CI 的做法。
 
-> 集成测试位于 `tests/integration/` 下（`storage/`、`auth/`、`token/`、`concurrency/`、`error/` 等），另有契约测试位于 `tests/contract/`。
+> 安全测试用例数、功能测试用例数与覆盖清单见各目录下的测试文件头注释；本节不再硬编码具体数量（数量随迭代增长，统一以 §7 的实测统计为准）。
 
 ### Level 3 — 端到端集成测试
 
@@ -230,36 +234,28 @@ In test case SomeTestName
 
 ## 7. 测试覆盖率总结
 
-### 总体测试状态 (2026-04-21)
+### 总体测试状态
 
-| 测试类别 | 通过 | 失败 | 总计 | 通过率 |
+> 以下数字为**实测统计**（Windows MSVC Release 构建，无外部 DB，Postgres/Redis 测试 skip）。在带 Postgres+Redis 的环境（如 Linux CI 或本地 WSL+Docker）下，被 skip 的契约/集成测试会激活，ctest 条目数会进一步增加。
+
+| 测试来源 | 通过 | 失败 | 总计 | 通过率 |
 |---------|------|------|------|--------|
-| **单元测试** | ~15 | 0 | ~15 | 100% [PASS] |
-| **集成测试** | ~8 | 0 | ~8 | 100% [PASS] |
-| **E2E 测试** | 1 | 0 | 1 | 100% [PASS] |
-| **安全测试** | 18 | 0 | 18 | 100% [PASS] |
-| **功能测试** | 21 | 0 | 21 | 100% [PASS] |
-| **总计** | **~63** | **0** | **~63** | **100% [PASS]** |
+| **按库 gtest 二进制**（common 40 + common-testing 43 + oauth2 151 + identity 130） | 364 | 0 | 364 | 100% |
+| **主测试二进制 ctest 条目**（含 Contract 标签 + OAuth2Tests 全量） | 450 | 0 | 450 | 100% |
 
-### 代码覆盖率估算
+> 注：两列数字有重叠关系——主二进制内含所有 `DROGON_TEST` 单元/集成测试（作为一个 `OAuth2Tests` 条目运行）；按库 gtest 二进制是 Domain 层的纯单元测试，独立编译运行。`450` 条 ctest 中 84 条带 `Contract` 标签（可用 `ctest -L Contract` 单独跑）。
+
+### 代码覆盖率
 
 ```
-Controller 层: ████████████████████ 90%+
-Service 层:   ██████████████████ 80%+
-Storage 层:  ████████████████ 70%+
-Plugin 层:   ████████████████████ 85%+
+[待 Clang source-based coverage 实测]
 
-总体覆盖率:   ≈ 80% (目标达成 [PASS])
+当前仅有结构性估算（基于测试对源码分支的覆盖分析），尚无 instrumentation 实测。
+项目已在 tests/CMakeLists.txt 提供 OAUTH2_TEST_COVERAGE 选项（GCC/Clang --coverage）；
+计划新增 Clang source-based coverage 构建以产出逐文件行/分支覆盖率报告。
 ```
 
-### 生产就绪评估
-
-**系统状态**: [INFO] **生产就绪**
-
-- [PASS] 所有关键安全漏洞已修复 (10/10)
-- [PASS] 所有测试通过 (63/63 = 100%)
-- [PASS] 无阻塞性 Bug 影响生产部署
-- [PASS] 剩余 17 个 Bug 均为低风险或边缘情况
+> 覆盖率目标：>95%。覆盖盲区主要为：(1) 22 个 Controller（约 8.5k LOC，需 HTTP 集成测试）；(2) ORM 自动生成的 `libs/storage-postgres/src/models/*.cc`（drogon_ctl 生成，不应手测，已从覆盖率分母排除）。
 
 ---
 
