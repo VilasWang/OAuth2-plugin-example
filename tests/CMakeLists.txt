@@ -161,6 +161,19 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/tests/integration/error/golden\"")
 
+# In-process DB seeding paths (coverage push, docs/history/design/
+# http-integration-test-coverage-plan.md Phase 1 / B1 fix): the test binary
+# needs to locate the migration SQL (apps/server/migrations/V*.sql) and the
+# dev seed SQL (apps/server/seed/*.sql) at runtime so the in-process seeder
+# (tests/common/StorageSeed.h) can apply them when a real Postgres is
+# configured. Without this, admin integration tests cannot authenticate (no
+# seeded admin user) outside the Linux CI shell step. Absolute paths derived
+# from this CMakeLists location (forward slashes, usable by std::ifstream
+# cross-platform). See OAUTH2_GOLDEN_DIR above for the same pattern.
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    "OAUTH2_MIGRATIONS_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/migrations\""
+    "OAUTH2_SEED_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/seed\"")
+
 # Coverage support: delegate to oauth2_apply_gcov (cmake/Coverage.cmake).
 # The instrumented first-party libraries (each lib calls oauth2_apply_gcov
 # too) are linked into this binary, so their .gcda files are written when
