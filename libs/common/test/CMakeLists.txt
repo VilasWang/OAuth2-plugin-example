@@ -18,6 +18,7 @@ target_link_libraries(authforge-common-test PRIVATE authforge::common GTest::gte
 set_target_properties(authforge-common-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
 oauth2_apply_compat(authforge-common-test)
+oauth2_apply_gcov(authforge-common-test)
 
 include(GoogleTest)
 gtest_discover_tests(authforge-common-test)

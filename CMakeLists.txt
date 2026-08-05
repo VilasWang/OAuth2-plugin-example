@@ -10,6 +10,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Version)
 include(Compatibility)
 include(Sanitizers)
+# Coverage.cmake provides oauth2_apply_gcov(target) + the OAUTH2_TEST_COVERAGE
+# option (GCC/Clang, Debug). Applied per-target inside each libs/* and tests
+# CMakeLists so the STATIC libraries themselves are instrumented (not just the
+# test binary that links them). See cmake/Coverage.cmake for the rationale.
+include(Coverage)
 # Warnings.cmake provides oauth2_apply_warnings(target) (/W4 resp.
 # -Wall -Wextra, PRIVATE only) plus the AUTHFORGE_WERROR option (default
 # OFF; the CI pipeline passes -DAUTHFORGE_WERROR=ON). Applied per-target
