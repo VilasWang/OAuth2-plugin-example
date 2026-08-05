@@ -59,6 +59,14 @@ class GitHubController : public ::drogon::HttpController<GitHubController, false
     );
 
   private:
+    // Intentional [this] capture: like every Drogon HttpController in this
+    // codebase (see TokenEndpointController.cc:1306-1311 for the canonical
+    // rationale), GitHubController is a process-wide singleton managed by
+    // Drogon via raw pointer; it lives for the whole process and is NOT a
+    // shared_ptr, so shared_from_this() is unavailable and capturing `this`
+    // in async callbacks is safe. Every step helper below therefore captures
+    // `this` (plus req/callbackPtr) rather than a self shared_ptr.
+
     // Shared ownership wrapper around the drogon response callback, so that
     // the innermost callback of an async chain can still invoke the original
     // response callback regardless of nesting depth (TECH_SPECS.md §一
