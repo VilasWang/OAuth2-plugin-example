@@ -37,6 +37,9 @@ DELETE	/api/me	200,401,404	-	User Profile	yes
 GET	/api/me/authorized-apps	200,401	-	User Profile	yes
 DELETE	/api/me/authorized-apps/{clientId}	200,401,404	-	User Profile	yes
 PUT	/api/me/password	200,400,401,404	-	User Profile	yes
+GET	/api/me/webauthn/credentials	200,401	-	WebAuthn	yes
+POST	/api/me/webauthn/register/begin	200,401	-	WebAuthn	yes
+POST	/api/me/webauthn/register/finish	201,400,401	-	WebAuthn	yes
 GET	/api/orgs	200,401	-	Organization	yes
 POST	/api/orgs	201,400,401,409	-	Organization	yes
 POST	/api/orgs/{orgId}/users	200,401	-	Organization	yes
@@ -62,8 +65,5 @@ POST	/oauth2/register	201,400,401	-	Dynamic Registration,OAuth2	yes
 POST	/oauth2/revoke	200,400,401	application/json	OAuth2,Token	yes
 POST	/oauth2/token	200,400,401	application/json	OAuth2,Token	no
 GET	/oauth2/userinfo	200,400,401,404	application/json	OAuth2,User	yes
-GET	/oauth2/webauthn/credentials	200,401	-	WebAuthn	yes
-POST	/oauth2/webauthn/login/begin	200	-	WebAuthn	no
-POST	/oauth2/webauthn/login/finish	200,400,401	-	WebAuthn	no
-POST	/oauth2/webauthn/register/begin	200,401	-	WebAuthn	yes
-POST	/oauth2/webauthn/register/finish	201,400,401	-	WebAuthn	yes
+POST	/oauth2/webauthn/authenticate/begin	200	-	WebAuthn	no
+POST	/oauth2/webauthn/authenticate/finish	200,400,401	-	WebAuthn	no
