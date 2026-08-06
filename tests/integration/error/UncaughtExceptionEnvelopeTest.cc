@@ -123,7 +123,7 @@ const std::vector<std::string> &applicationPaths()
       "/api/admin/users",
       "/api/user/profile",
       "/api/user/sessions",
-      "/api/webauthn/register/options",
+      "/api/me/webauthn/register/begin",
       "/api/organizations",
       "/api/clients",
       "/health",
