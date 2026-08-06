@@ -12,7 +12,7 @@ REFRESH_TOKEN=""
 AUTH_CODE=""
 ADMIN_PASSWORD="admin"  # Track current admin password across tests
 
-TOTAL=55
+TOTAL=56
 
 echo "========================================"
 echo "Pre-test Setup"
@@ -161,8 +161,11 @@ run_test "Test 10: Client Credentials" test_10
 # Test 11: Token Introspection
 test_11() {
     [ -n "$ACCESS_TOKEN" ] || { echo "    skipped: no token"; return 1; }
+    # RFC 7662: introspect authenticates the CALLING CLIENT via client
+    # credentials (Basic header or body client_id/client_secret), NOT a
+    # user Bearer token. No Authorization header is sent.
     local r
-    r=$(curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/oauth2/introspect" \
+    r=$(curl -s -X POST "$BASE_URL/oauth2/introspect" \
         -d "token=$ACCESS_TOKEN&client_id=vue-client&client_secret=123456")
     local active
     active=$(echo "$r" | jq -r '.active')
@@ -174,9 +177,10 @@ run_test "Test 11: Token Introspection" test_11
 # Test 12: Token Revocation
 test_12() {
     [ -n "$ACCESS_TOKEN" ] || { echo "    skipped: no token"; return 1; }
-    curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/oauth2/revoke" \
+    # RFC 7009: revoke authenticates the calling client via body credentials.
+    curl -s -X POST "$BASE_URL/oauth2/revoke" \
         -d "token=$ACCESS_TOKEN&client_id=vue-client&client_secret=123456" >/dev/null
-    # Verify revoked
+    # Verify revoked (Bearer header here checks userinfo rejects the token)
     local code
     code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/oauth2/userinfo")
     [ "$code" = "401" ] || { echo "    token should be revoked but userinfo returned $code"; return 1; }
@@ -706,11 +710,9 @@ run_test "Test 41: POST /oauth2/token - Expired auth code" test_41
 
 # Test 42: Introspect - Malformed token
 test_42() {
-    local tok
-    tok=$(get_user_token "$BASE_URL" "admin" "admin")
-    [ -n "$tok" ] || { echo "    skipped: no token"; return 1; }
+    # RFC 7662: client-credential auth via body only; no Bearer header needed.
     local r
-    r=$(curl -s -X POST -H "Authorization: Bearer $tok" "$BASE_URL/oauth2/introspect" \
+    r=$(curl -s -X POST "$BASE_URL/oauth2/introspect" \
         -d "token=not-a-real-token-at-all&client_id=vue-client&client_secret=123456")
     local active
     active=$(echo "$r" | jq -r '.active')
@@ -724,16 +726,35 @@ test_43() {
     local tok
     tok=$(get_user_token "$BASE_URL" "admin" "admin")
     [ -n "$tok" ] || { echo "    skipped: no token"; return 1; }
+    # RFC 7009: client-credential auth via body only; no Bearer header needed.
     # Revoke once
-    curl -s -X POST -H "Authorization: Bearer $tok" "$BASE_URL/oauth2/revoke" \
+    curl -s -X POST "$BASE_URL/oauth2/revoke" \
         -d "token=$tok&client_id=vue-client&client_secret=123456" >/dev/null
     # Revoke again
     local code
-    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $tok" \
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
         "$BASE_URL/oauth2/revoke" -d "token=$tok&client_id=vue-client&client_secret=123456")
     echo "    Second revocation: $code"
 }
 run_test "Test 43: POST /oauth2/revoke - Already revoked (idempotent)" test_43
+
+# Test 44: Introspect - Missing client credentials
+test_44() {
+    # RFC 7662 SS2.1: without client credentials the endpoint MUST return
+    # 401 with the RFC 6749 SS5.2 error body {"error":"invalid_client"}
+    # plus WWW-Authenticate: Basic realm=... (not an Error-Envelope).
+    local code body wwwauth
+    code=$(curl -s -o /tmp/introspect_no_creds.$$ -D /tmp/introspect_hdrs.$$ -w '%{http_code}' \
+        -X POST "$BASE_URL/oauth2/introspect" -d "token=some-token")
+    body=$(cat /tmp/introspect_no_creds.$$)
+    wwwauth=$(grep -i '^WWW-Authenticate:' /tmp/introspect_hdrs.$$ | head -n 1)
+    rm -f /tmp/introspect_no_creds.$$ /tmp/introspect_hdrs.$$
+    [ "$code" = "401" ] || { echo "    expected 401, got $code"; return 1; }
+    echo "$body" | jq -e '.error == "invalid_client"' >/dev/null \
+        || { echo "    expected invalid_client error body, got: $body"; return 1; }
+    echo "    401 + invalid_client body returned ($wwwauth)"
+}
+run_test "Test 44: POST /oauth2/introspect - Missing client credentials" test_44
 
 # Post-test Cleanup
 echo ""
