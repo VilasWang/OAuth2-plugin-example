@@ -76,6 +76,28 @@ void HealthController::healthReady(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
+    // Memory storage mode: no DbClient is (or should be) configured, and
+    // drogon::app().getDbClient() below hits an uncatchable assert()
+    // (process-terminating, not a throw -- see IdentityAssembly.cc:65-67 and
+    // tests/contract/ContractFixtures.h:77-91 for the documented Drogon trap).
+    // Memory storage is a fully supported, intentionally-healthy deployment
+    // mode (config.ci.json uses it; plugin->getStorageType()=="memory" is
+    // reported as "database":"connected" by the basic /health handler above).
+    // So in memory mode the readiness probe reports 200 ready rather than
+    // 503 -- returning 503 would make orchestration drain healthy memory
+    // pods. Mirrors the storage-type guard convention used by
+    // IdentityAssembly::wireIdentityServices() and ContractFixtures.
+    auto plugin = resolvePlugin();
+    if (plugin && plugin->getStorageType() == "memory")
+    {
+        Json::Value json;
+        json["status"] = "ok";
+        json["database"] = "not_configured";
+        json["redis"] = "not_configured";
+        (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+        return;
+    }
+
     try
     {
         auto db = ::drogon::app().getDbClient();

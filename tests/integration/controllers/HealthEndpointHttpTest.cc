@@ -61,27 +61,28 @@ DROGON_TEST(Integration_P0_Health_Basic_Returns200WithStorageType)
 // /health/ready branches on DB availability:
 //  - Postgres configured + up     -> 200 {status:ok, database:connected, redis:connected}
 //  - Postgres configured + down   -> 503 {status:unhealthy, database:disconnected}
-//  - memory mode (no db_clients)  -> 503 (the getDbClient() catch(...) branch)
-// Assert the response is one of these shapes; the exact status depends on the
-// run environment, so check the body shape rather than a hard status.
+//  - memory mode (no db_clients)  -> 200 {status:ok, database:not_configured, redis:not_configured}
+//    (HealthController now guards getDbClient() with a storage-type check;
+//     memory mode is intentionally-healthy, not degraded.)
+// Assert the response shape for each environment.
 DROGON_TEST(Integration_P1_Health_Ready_ReturnsPlausibleStatus)
 {
-    // SKIP under memory mode: healthReady() calls drogon::app().getDbClient()
-    // (HealthController.cc:81), and in memory mode db_clients is empty -- the
-    // framework hits an uncatchable assert (process-terminating, not a throw;
-    // see tests/contract/ContractFixtures.h:77-91 for the documented trap).
-    // The /health/ready route is genuinely only meaningful when a DB is
-    // configured, so skipping it under memory is correct behavior.
+    auto resp = sendGet("/health/ready");
+    REQUIRE(resp != nullptr);
+
     if (!postgresAvailable())
     {
-        CHECK(true);
+        // Memory mode: 200 with the not_configured shape (no longer crashes).
+        CHECK(statusIs(resp, drogon::k200OK));
+        Json::Value body;
+        REQUIRE(parseJsonBody(resp, body));
+        CHECK(body["status"].asString() == "ok");
+        CHECK(body["database"].asString() == "not_configured");
+        CHECK(body["redis"].asString() == "not_configured");
         return;
     }
 
-    auto resp = sendGet("/health/ready");
-    REQUIRE(resp != nullptr);
-    // Status is either 200 (DB+Redis up) or 503 (DB down). Under Postgres with
-    // Redis also up, expect 200.
+    // Postgres mode: 200 (DB+Redis up) or 503 (DB down).
     const auto code = resp->getStatusCode();
     CHECK((code == drogon::k200OK || code == drogon::k503ServiceUnavailable));
     Json::Value body;
