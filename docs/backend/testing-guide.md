@@ -247,26 +247,55 @@ In test case SomeTestName
 
 ### 代码覆盖率
 
-实测行覆盖率（gcov，gcc 13.3 Debug 构建，WSL Ubuntu 24.04，Postgres+Redis 激活，全测试套件通过 449/450；排除 ORM 自动生成的 `models/`）：
+实测行覆盖率（gcov，gcc 13.3 Debug 构建，WSL Ubuntu 24.04，Postgres+Redis 激活；排除 ORM 自动生成的 `models/`）：
 
 | 库 | 行覆盖 | 备注 |
 |---|---|---|
-| libs/common | **98.8%** (686/694) | ErrorCatalog/Result/值对象，已较全 |
-| libs/identity | **96.7%** (1132/1171) | Auth/Mfa/WebAuthn/Social/Totp/Session，本次重点补强 |
-| libs/storage-memory | **97.1%** (443/456) | Memory 后端全方法覆盖（CI 必跑路径） |
-| libs/oauth2 | **89.6%** (815/910) | TokenService/AuthService/ClientService/JwkManager/Pkce，本次重点补强 |
-| libs/storage-redis | 46.7% (321/688) | 契约测试覆盖 getClient/validate/grant/token/consent 主路径；Lua 脚本与 transaction CRUD 待补 |
-| libs/storage-postgres | 39.8% (1160/2912) | 契约测试覆盖主路径；lockout 阈值/revokeTokenFamily/审计回退分支待补 |
-| libs/drogon | 32.5% (2534/7800) | validation 100%、error 92%、adapters 68%、observability 70%；controllers 36%、admin 0%、services 5%（需 HTTP 集成测试） |
-| **整体** | **48.5%** (7091/14631) | — |
+| libs/common | 98.8% (686/694) | ErrorCatalog/Result/值对象（由 per-lib gtest 二进制 `authforge-common-test` 驱动） |
+| libs/identity | **96.9%** (590/609) | Auth/Mfa/WebAuthn/Social/Totp/Session |
+| libs/storage-memory | **97.1%** (431/444) | Memory 后端全方法覆盖（CI 必跑路径） |
+| libs/oauth2 | **92.9%** (625/673) | TokenService/AuthService/ClientService/JwkManager/Pkce |
+| libs/storage-redis | 46.2% (306/663) | 契约测试覆盖 getClient/validate/grant/token/consent 主路径；Lua 脚本与 transaction CRUD 待补 |
+| libs/storage-postgres | 39.9% (661/1657) | 契约测试覆盖主路径；lockout 阈值/revokeTokenFamily/审计回退分支待补 |
+| libs/drogon | **46.8%** (4207/8998) | admin 0%→55-69%、admin 控制器 0%→91-100%（本次 HTTP 集成测试补强）；剩余盲区：社交 OAuth 控制器（GitHub/WeChat/Google 6-16%）、WebAuthn 9.9%、UserSelfService 10.3% |
+| **整体** | **52.9%** (7138/13502) | — |
 
-> 逐文件 HTML 报告生成方式：`gcovr build/<preset> --root . --filter "libs/" --exclude "libs/storage-postgres/src/models/" --html-details -o coverage-report/index.html`（需先以 `-DOAUTH2_TEST_COVERAGE=ON` 构建 + 跑测试；`coverage-report/` 已在 `.gitignore`）。
+> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试（`tests/integration/admin/*` + `tests/common/HttpTestClient.h` 的 admin 登录 recipe + `tests/common/StorageSeed.h` 的进程内 seeder）将 admin 服务从 0% 提升到 55-69%，admin 控制器从 0% 提升到 91-100%。
+
+#### ⚠️ 实测覆盖率必须跑全部 5 个测试二进制
+
+实测数字依赖**全部 5 个测试二进制**都执行（仅跑主二进制 `authforge-tests` 会漏掉 4 个 per-lib gtest 二进制贡献的 domain 层覆盖率，common 会被低估到 ~60%）：
+
+1. `libs/common/test/authforge-common-test`（40 用例）
+2. `libs/common/testing/test/authforge-common-testing-test`（43 用例）
+3. `libs/identity/test/authforge-identity-test`（130 用例）
+4. `libs/oauth2/test/authforge-oauth2-test`（151 用例）
+5. `tests/authforge-tests`（450 条 ctest，含所有 `DROGON_TEST` 单元/集成/契约/admin HTTP 测试）
+
+在 coverage 构建目录下依次运行这 5 个二进制后再聚合 `.gcda`。
+
+#### ⚠️ gcovr 路径匹配 bug —— 用 `scripts/measure_coverage.py` 代替
+
+`gcovr 8.6` 对部分文件（如 `ClientManagementService.cc`）会误报 **0%**：raw `gcov` 明确显示 `Lines executed:55.79% of 328`，但 gcovr 的 `--print-summary` 只列出文件名不带百分比（gcovr 的源路径匹配对含绝对路径 + Drogon 头文件的 `.gcov` 输出处理不一致）。这是 gcovr 的已知路径匹配问题，不是零计数 bug（gcov flush 工作正常，见下）。
+
+**可靠的聚合方式**：`scripts/measure_coverage.py` 直接用 `gcov -j`（JSON 格式，每文件 `{file, lines[{count, unexecuted_block}]}`）聚合，绕过 gcovr 的文本路径匹配。用法：
+
+```bash
+cd <repo>
+# 先跑全部 5 个二进制（见上一节），再生成 JSON + 聚合：
+find build/linux-coverage/libs -path "*/src/*" -name "*.gcda" ! -path "*/models/*" \
+  | xargs -I{} bash -c 'cd "$(dirname {})" && gcov -j "$(basename {})" >/dev/null 2>&1'
+find build/linux-coverage/libs -path "*/src/*" -name "*.gcov.json.gz" ! -path "*/models/*" \
+  | python3 scripts/measure_coverage.py
+```
+
+gcovr 仍可用于生成逐文件 HTML 报告（`--html-details`），但**汇总百分比以 `scripts/measure_coverage.py` 为准**。
 
 #### 覆盖率工具链
 
 - `cmake/Coverage.cmake`（`oauth2_apply_gcov(target)`）给每个 first-party 库 + 测试可执行文件加 `-fprofile-arcs -ftest-coverage` 并链接 libgcov。
-- `tests/test_main.cc` 在两处 `std::_Exit()` 前显式调用 `__gcov_dump()`：因为 `_Exit` 绕过 `atexit`，libgcov 的计数器 flush 不会自动执行（否则 gcov 读到全 0 计数）。这是 Drogon 测试框架 fast-exit 与 gcov 的已知交互，需在测试 main 里手动补 flush。
-- 覆盖率目标：>95%。当前主要盲区：(1) 22 个 Controller（约 8.5k LOC，需 HTTP 集成测试）；(2) admin/services/plugin（DB 耦合，需集成测试）；(3) ORM 自动生成的 `libs/storage-postgres/src/models/*.cc`（已从分母排除）。
+- `tests/test_main.cc` 在两处 `std::_Exit()` 前显式调用 `__gcov_dump()`：因为 `_Exit` 绕过 `atexit`，libgcov 的计数器 flush 不会自动执行（否则 gcov 读到全 0 计数）。这是 Drogon 测试框架 fast-exit 与 gcov 的已知交互，需在测试 main 里手动补 flush。（注：4 个 per-lib gtest 二进制正常退出，不走 `_Exit`，因此它们不需要手动 flush。）
+- 覆盖率当前阶段性目标：60%（本轮 52.9%）。剩余盲区集中在难以 HTTP 测试的控制器：社交 OAuth（GitHub/WeChat/Google，需外部 provider mock）、WebAuthn 典礼、UserSelfService（需逆向 auth 前置 filter）。ORM 自动生成的 `libs/storage-postgres/src/models/*.cc` 已从分母排除。
 
 ---
 
