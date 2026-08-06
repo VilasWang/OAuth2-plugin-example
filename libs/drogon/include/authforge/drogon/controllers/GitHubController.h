@@ -88,31 +88,15 @@ class GitHubController : public ::drogon::HttpController<GitHubController, false
     // longer copy-pasted across two divergent paths. Behaviour is identical
     // to the pre-refactor implementation; only structure changed.
 
-    // Mint access + refresh tokens for @p userId and persist them, then emit
-    // the JSON token response via @p callbackPtr. Shared by both the
-    // WITH_SOCIAL path (GitHubAuthService yields a userId) and the fallback
-    // path (raw HttpClient + DB find-or-create). Collapses the two near-
-    // verbatim `issueTokens` lambdas that previously lived inline.
+    // Mint access + refresh tokens for @p userId and persist them via
+    // OAuth2Plugin::saveTokenPair (the storage-abstraction route that works
+    // across Memory/Postgres/Redis), then emit the JSON token response via
+    // @p callbackPtr. Shared by both the WITH_SOCIAL path
+    // (GitHubAuthService yields a userId) and the fallback path (raw HttpClient
+    // + DB find-or-create).
     void issueTokensForUser(
       const ::drogon::HttpRequestPtr &req,
       const CallbackPtr &callbackPtr,
-      int64_t userId
-    );
-
-    // Persist an access token; on success persist the matching refresh token,
-    // then emit the token response. (Inner steps of issueTokensForUser.)
-    void persistAccessToken(
-      const ::drogon::HttpRequestPtr &req,
-      const CallbackPtr &callbackPtr,
-      std::string accessToken,
-      std::string refreshToken,
-      int64_t userId
-    );
-    void persistRefreshToken(
-      const ::drogon::HttpRequestPtr &req,
-      const CallbackPtr &callbackPtr,
-      std::string accessToken,
-      std::string refreshToken,
       int64_t userId
     );
 

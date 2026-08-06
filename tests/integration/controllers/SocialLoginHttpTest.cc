@@ -169,25 +169,58 @@ DROGON_TEST(Integration_P1_WeChatLogin_MissingCode_Returns400)
 }
 
 // ===========================================================================
-// GitHub (/api/github/login) -- ERROR PATHS ONLY (review B1)
+// GitHub (/api/github/login)
 // ===========================================================================
 //
-// GitHubController::issueTokensForUser calls drogon::app().getDbClient()
-// (GitHubController.cc:251), which under memory storage hits an uncatchable
-// assert() that crashes the whole authforge-tests process. A successful
-// GitHubAuthService::login result triggers that path. Therefore the GitHub
-// cases here configure the fake to return ERRORS only -- never a success --
-// unless the case is postgresAvailable()-gated (none here). This still covers
-// the controller's request parsing, the `if(service_)` injection branch, and
-// the error-envelope response shaping.
+// GitHubController::issueTokensForUser now routes token issuance through
+// OAuth2Plugin::saveTokenPair (the storage abstraction) instead of calling
+// drogon::app().getDbClient() directly. The old direct path crashed the
+// process under memory storage via an uncatchable getDbClient() assert
+// (review B1), so the GitHub happy-path was previously untestable. With the
+// saveTokenPair fix, the happy-path runs in BOTH memory and Postgres modes
+// (saveTokenPair -> MemoryTokenRepository in memory mode, which is DB-free).
 
-// Missing code -> 400 (controller validation, service not called -> no crash).
+// Happy path: fake token exchange + userinfo, FakeSocialAccountRepository
+// pre-seeded with a linked user, controller mints tokens via
+// plugin->saveTokenPair and returns {access_token, refresh_token, token_type,
+// expires_in}. Runs in memory mode (the GitHub blocker is resolved).
+DROGON_TEST(Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectGitHubFake();
+    // Token exchange response.
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gh-tok-test";
+    tokenBody["token_type"] = "bearer";
+    tokenBody["scope"] = "user";
+    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    // Userinfo response.
+    Json::Value userBody;
+    userBody["id"] = 12345;
+    userBody["login"] = "gh-test-user";
+    userBody["email"] = "gh@example.com";
+    userBody["name"] = "GH Test";
+    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k200OK));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body.isMember("access_token"));
+    CHECK(body.isMember("refresh_token"));
+    CHECK(body["token_type"].asString() == "Bearer");
+    CHECK(body.isMember("expires_in"));
+}
+
+// Missing code -> 400 (controller validation, service not called).
 DROGON_TEST(Integration_P1_GitHubLogin_MissingCode_Returns400)
 {
     SOCIAL_SKIP_GUARD;
 
     injectGitHubFake();
-    auto resp = sendPostForm("/api/github/login", "notcode=xyz");
+    auto resp = sendPostForm("/api/github/login", "state=xyz");
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k400BadRequest));
 }

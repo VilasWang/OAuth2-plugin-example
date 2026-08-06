@@ -12,8 +12,11 @@
 #include <authforge/identity/SocialAuthService.h>
 #endif  // WITH_SOCIAL
 
-#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
-#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
+// OAuth2 token DTOs for issueTokensForUser -> plugin->saveTokenPair (the
+// storage-abstraction route; replaces the former direct Mapper<Oauth2Access/
+//RefreshTokens> persistence).
+#include <authforge/oauth2/model/Dto.h>
+
 #include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
 #include <authforge/storage/postgres/models/UserRoles.h>
 #include <authforge/storage/postgres/models/Users.h>
@@ -217,116 +220,59 @@ void GitHubController::issueTokensForUser(
         respondError(req, callbackPtr, "INTERNAL_ERROR", "github login: OAuth2Plugin not available");
         return;
     }
-    std::string accessToken = ::authforge::drogon::utils::generateSecureToken();
-    std::string refreshToken = ::authforge::drogon::utils::generateSecureToken();
-
-    try
-    {
-        persistAccessToken(req, callbackPtr, accessToken, refreshToken, userId);
-    }
-    catch (const std::exception &e)
-    {
-        LOG_ERROR << "GitHubController::issueTokensForUser Mapper exception: " << e.what();
-        respondDbError(req, callbackPtr, "failed to issue tokens", e);
-    }
-    catch (...)
-    {
-        LOG_ERROR << "GitHubController::issueTokensForUser Mapper unknown exception";
-        respondError(req, callbackPtr, "DB_QUERY_ERROR", "github login: failed to issue tokens");
-    }
-}
-
-void GitHubController::persistAccessToken(
-  const ::drogon::HttpRequestPtr &req,
-  const CallbackPtr &callbackPtr,
-  std::string accessToken,
-  std::string refreshToken,
-  int64_t userId
-)
-{
+    // Phase 4 follow-up (coverage push, product defect B): route token issuance
+    // through OAuth2Plugin::saveTokenPair (the same API TokenEndpointController's
+    // device-code flow uses, TokenEndpointController.cc:1116) instead of calling
+    // drogon::app().getDbClient() + Mapper<Oauth2AccessTokens/RefreshTokens>
+    // directly. The direct path (a) bypassed the storage abstraction so memory
+    // storage mode crashed the process via an uncatchable getDbClient() assert,
+    // and (b) made the happy-path untestable. saveTokenPair forwards to the
+    // ITokenRepository selected by storage_type (Memory/Postgres/Redis), so this
+    // now works in every storage mode and is mock-testable.
+    auto accessTokenStr = ::authforge::drogon::utils::generateSecureToken();
+    auto refreshTokenStr = ::authforge::drogon::utils::generateSecureToken();
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
     )
                  .count();
-    auto db = ::drogon::app().getDbClient();
+    const long long accessTokenTtl = plugin->getAccessTokenTtl();
+    const long long refreshTokenTtl = plugin->getRefreshTokenTtl();
+    const std::string clientId = "vue-client";
+    const std::string scope = "openid profile email";
 
-    Oauth2AccessTokens atModel;
-    atModel.setToken(accessToken);
-    atModel.setClientId("vue-client");
-    atModel.setUserId(std::to_string(userId));
-    atModel.setScope("openid profile email");
-    atModel.setIssuedAt(now);
-    atModel.setExpiresAt(now + 3600);
+    authforge::oauth2::model::OAuth2AccessToken accessToken;
+    // Preserve GitHub's pre-existing behavior of storing the raw (unhashed)
+    // token value; hashing it would change what already-issued tokens look up
+    // against and is out of scope for this storage-abstraction fix. (The
+    // canonical token-endpoint path hashes via hashToken; GitHub can be aligned
+    // separately.)
+    accessToken.token = accessTokenStr;
+    accessToken.clientId = clientId;
+    accessToken.userId = std::to_string(userId);
+    accessToken.scope = scope;
+    accessToken.issuedAt = now;
+    accessToken.expiresAt = now + accessTokenTtl;
 
-    // Guard: the issueTokensForUser caller's try/catch wraps this whole call,
-    // so synchronous throws from this Mapper construction ARE caught upstream.
-    // The inner persistRefreshToken() call, however, runs in the insert's async
-    // success callback (outside this caller's reach) and carries its own guard.
-    Mapper<Oauth2AccessTokens>(db).insert(
-      atModel,
-      [this, req, callbackPtr, accessToken, refreshToken, userId](const Oauth2AccessTokens &) {
-          persistRefreshToken(req, callbackPtr, accessToken, refreshToken, userId);
-      },
-      [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-          respondDbError(req, callbackPtr, "failed to create access token", e);
+    authforge::oauth2::model::OAuth2RefreshToken refreshToken;
+    refreshToken.token = refreshTokenStr;
+    refreshToken.accessToken = accessTokenStr;
+    refreshToken.clientId = clientId;
+    refreshToken.userId = std::to_string(userId);
+    refreshToken.scope = scope;
+    refreshToken.expiresAt = now + refreshTokenTtl;
+
+    plugin->saveTokenPair(
+      accessToken,
+      refreshToken,
+      [callbackPtr, accessTokenStr, refreshTokenStr, accessTokenTtl]() {
+          Json::Value result;
+          result["access_token"] = accessTokenStr;
+          result["refresh_token"] = refreshTokenStr;
+          result["token_type"] = "Bearer";
+          result["expires_in"] = (Json::Int64)accessTokenTtl;
+          (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
       }
     );
-}
-
-void GitHubController::persistRefreshToken(
-  const ::drogon::HttpRequestPtr &req,
-  const CallbackPtr &callbackPtr,
-  std::string accessToken,
-  std::string refreshToken,
-  int64_t userId
-)
-{
-    auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                 std::chrono::system_clock::now().time_since_epoch()
-    )
-                 .count();
-    auto db = ::drogon::app().getDbClient();
-
-    Oauth2RefreshTokens rtModel;
-    rtModel.setToken(refreshToken);
-    rtModel.setAccessToken(accessToken);
-    rtModel.setClientId("vue-client");
-    rtModel.setUserId(std::to_string(userId));
-    rtModel.setScope("openid profile email");
-    rtModel.setExpiresAt(now + 2592000);
-
-    // Guard: this Mapper construction runs inside the access-token insert's
-    // async success callback, so the caller's try/catch cannot reach it. A
-    // synchronous throw here (e.g. DbClient in a bad state) would escape into
-    // the Drogon event loop and abort the process; catch and convert to a
-    // normal error response instead.
-    try
-    {
-        Mapper<Oauth2RefreshTokens>(db).insert(
-          rtModel,
-          [callbackPtr, accessToken, refreshToken](const Oauth2RefreshTokens &) {
-              Json::Value result;
-              result["access_token"] = accessToken;
-              result["refresh_token"] = refreshToken;
-              result["token_type"] = "Bearer";
-              result["expires_in"] = 3600;
-              (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
-          },
-          [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
-              respondDbError(req, callbackPtr, "failed to create refresh token", e);
-          }
-        );
-    }
-    catch (const std::exception &e)
-    {
-        LOG_ERROR << "GitHubController::persistRefreshToken Mapper exception: " << e.what();
-        respondDbError(req, callbackPtr, "failed to create refresh token", e);
-    }
-    catch (...)
-    {
-        LOG_ERROR << "GitHubController::persistRefreshToken Mapper unknown exception";
-        respondError(req, callbackPtr, "DB_QUERY_ERROR", "github login: failed to create refresh token");
-    }
 }
 
 // ---------------------------------------------------------------------------
