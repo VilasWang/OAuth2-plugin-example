@@ -45,7 +45,7 @@ struct WebAuthnControllerDocs
     WebAuthnControllerDocs()
     {
         ::authforge::drogon::observability::openapi::EndpointInfo regBeginDocs;
-        regBeginDocs.path = "/oauth2/webauthn/register/begin";
+        regBeginDocs.path = "/api/me/webauthn/register/begin";
         regBeginDocs.method = "POST";
         regBeginDocs.summary = "WebAuthn Register Begin";
         regBeginDocs.description = "Start WebAuthn registration.";
@@ -54,7 +54,7 @@ struct WebAuthnControllerDocs
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
 
         ::authforge::drogon::observability::openapi::EndpointInfo regFinishDocs;
-        regFinishDocs.path = "/oauth2/webauthn/register/finish";
+        regFinishDocs.path = "/api/me/webauthn/register/finish";
         regFinishDocs.method = "POST";
         regFinishDocs.summary = "WebAuthn Register Finish";
         regFinishDocs.description = "Finish WebAuthn registration.";
@@ -63,25 +63,25 @@ struct WebAuthnControllerDocs
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
 
         ::authforge::drogon::observability::openapi::EndpointInfo loginBeginDocs;
-        loginBeginDocs.path = "/oauth2/webauthn/login/begin";
+        loginBeginDocs.path = "/oauth2/webauthn/authenticate/begin";
         loginBeginDocs.method = "POST";
-        loginBeginDocs.summary = "WebAuthn Login Begin";
-        loginBeginDocs.description = "Start WebAuthn login.";
+        loginBeginDocs.summary = "WebAuthn Authenticate Begin";
+        loginBeginDocs.description = "Start WebAuthn authentication.";
         loginBeginDocs.tags = {"WebAuthn"};
         loginBeginDocs.requiresAuth = false;
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
 
         ::authforge::drogon::observability::openapi::EndpointInfo loginFinishDocs;
-        loginFinishDocs.path = "/oauth2/webauthn/login/finish";
+        loginFinishDocs.path = "/oauth2/webauthn/authenticate/finish";
         loginFinishDocs.method = "POST";
-        loginFinishDocs.summary = "WebAuthn Login Finish";
-        loginFinishDocs.description = "Finish WebAuthn login.";
+        loginFinishDocs.summary = "WebAuthn Authenticate Finish";
+        loginFinishDocs.description = "Finish WebAuthn authentication.";
         loginFinishDocs.tags = {"WebAuthn"};
         loginFinishDocs.requiresAuth = false;
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
 
         ::authforge::drogon::observability::openapi::EndpointInfo credentialsDocs;
-        credentialsDocs.path = "/oauth2/webauthn/credentials";
+        credentialsDocs.path = "/api/me/webauthn/credentials";
         credentialsDocs.method = "GET";
         credentialsDocs.summary = "List WebAuthn Credentials";
         credentialsDocs.description = "List registered WebAuthn credentials.";
