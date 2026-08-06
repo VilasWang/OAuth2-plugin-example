@@ -65,12 +65,15 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
     }
 }
 
-// Introspect is gated by OAuth2AuthFilter (requires a Bearer access token in
-// the Authorization header to pass the filter) AND then authenticates the
-// client inside the controller. extractClientCredentials falls back to POST
-// body client_id/client_secret when the Authorization header is Bearer (not
-// Basic), so we pass the Bearer token in the header and client creds + the
-// token-to-introspect in the body.
+// Introspect (RFC 7662) authenticates the CALLING CLIENT via HTTP Basic or
+// form-posted client_id/client_secret -- it is NOT gated by OAuth2AuthFilter
+// (that filter demands a resource-owner Bearer token, which is the wrong auth
+// model for a protocol endpoint; it was removed in the introspect/revoke
+// RFC-compliance fix). extractClientCredentials reads client_id/client_secret
+// from the POST body when the Authorization header is not Basic, so we pass
+// the token-to-introspect + the client creds in the body. (The helper still
+// accepts a bearerToken param for historical compatibility with the previous
+// Bearer+body-creds model, but that header is now ignored by the route.)
 HttpResponsePtr introspectWithBearer(
   const std::string &bearerToken,
   const std::string &introspectedToken,
