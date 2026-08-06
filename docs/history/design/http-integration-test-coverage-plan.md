@@ -77,3 +77,66 @@ aggregates new coverage, rebuild + measure vs 80%.
 - Refactoring admin services to be memory-capable.
 - Windows/macOS Postgres legs (infeasible).
 - Frontend, perf/e2e expansion, last-15% error-branch chase (deferred to Phase 6).
+
+## Measurement results (2026-08-06, after Phase 1 + Phase 2 + Phase 3a)
+
+Method: `scripts/measure_coverage.py` aggregates gcov JSON (`gcov -j`) across
+all `libs/*/src/*.cc` (models excluded). This bypasses a gcovr 8.6 path-matching
+bug that reported some files as 0% when raw gcov showed nonzero coverage (the
+fast-exit `__gcov_dump()` flush in test_main.cc works correctly -- no zero-count
+issue). The baseline measurement requires running ALL FIVE test binaries:
+4 per-library gtest binaries (common/common-testing/identity/oauth2) + the main
+authforge-tests binary -- the per-lib binaries drive the 89-98% domain coverage.
+
+Overall libs/ line coverage: **48.5% (7091/14631 baseline) -> 52.9% (7138/13502)**.
+
+The denominator shrank slightly (14631->13502) due to refactors since the
+baseline was recorded; the covered-line count rose from 7091 to 7138 + the
+admin layer's contribution is clearly visible per-file.
+
+Per-library (current):
+
+| Library | Covered/Total | % | Baseline % |
+|---|---|---|---|
+| common | 318/458 | 69.4% | 98.8% (gap: per-lib gtest binary coverage of utils not fully aggregated here) |
+| identity | 590/609 | 96.9% | 96.7% |
+| oauth2 | 625/673 | 92.9% | 89.6% |
+| storage-memory | 431/444 | 97.1% | 97.1% |
+| storage-postgres | 661/1657 | 39.9% | 39.8% |
+| storage-redis | 306/663 | 46.2% | 46.7% |
+| **drogon** | **4207/8998** | **46.8%** | 32.5% (big jump from admin/controller tests) |
+
+Admin layer (was 0% in baseline -- the Phase 2 win, all via the new HTTP tests):
+
+| File | Covered/Total | % |
+|---|---|---|
+| ClientManagementService.cc | 183/328 | 55.8% |
+| UserAdminService.cc | 258/459 | 56.2% |
+| RoleScopeAdminService.cc | 208/361 | 57.6% |
+| TokenManagementService.cc | 125/198 | 63.1% |
+| AuditService.cc | 113/164 | 68.9% |
+| (+ admin controllers ClientAdmin 91.8%, UserAdmin 95.3%, RoleScopeAdmin 95.9%, TokenAdmin 100%, Audit 100%) |
+
+### Path to 80%
+
+To reach 80% (10802/13502 lines) from 52.9% (7138) needs **+3664 covered lines**.
+The remaining drogon gap is concentrated in hard-to-test controllers:
+- UserSelfServiceController 10.3% (406 lines, needs an auth pre-filter that
+  sets `userId` request attribute -- the auth mechanism must be reverse-engineered)
+- WebAuthnController 9.9% (423 lines, WebAuthn ceremony -- complex)
+- GitHubController 5.9% / WeChatController 14.3% / GoogleController 16.3%
+  (social OAuth -- requires external provider mocking or live OAuth, very hard)
+- DeviceAuthController 16.0% (device flow -- partially covered, expandable)
+- MfaController 30.0% (563 lines -- expandable, MFA enrollment/verify flows)
+- storage-postgres 39.9% (996 uncovered lines -- depth branches, expandable)
+
+Realistic incremental targets (no external-OAuth mocking):
+- Phase 3b: MfaController + DeviceAuthController expansion (~+400 lines)
+- Phase 4: storage-postgres depth branches (~+400 lines)
+- UserSelfServiceController (if auth pre-filter is tractable) (~+250 lines)
+Total achievable without social/WebAuthn: ~+1050 lines -> ~60% overall.
+
+Reaching 80% would require either (a) mocking external OAuth providers for the
+social controllers (~+700 lines), or (b) a refactor making those controllers
+unit-testable without HTTP, or (c) accepting 80% is not reachable by HTTP tests
+alone for this codebase's social-auth surface. Decision deferred to the user.
