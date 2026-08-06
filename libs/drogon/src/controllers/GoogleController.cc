@@ -118,34 +118,15 @@ void GoogleController::login(
 
     try
     {
-        // Try to get code from POST body first, then fallback to query parameter
-        std::string code;
-
-        // Check Content-Type and parse accordingly
-        auto contentType = req->getHeader("Content-Type");
-        if (contentType.find("application/x-www-form-urlencoded") != std::string::npos)
-        {
-            // Parse from POST body
-            auto body = req->getBody();
-            // Simple parsing for "code=xxx" format
-            size_t codePos = body.find("code=");
-            if (codePos != std::string::npos)
-            {
-                size_t valueStart = codePos + 5;  // "code=" length
-                size_t valueEnd = body.find("&", valueStart);
-                if (valueEnd == std::string::npos)
-                {
-                    valueEnd = body.length();
-                }
-                code = body.substr(valueStart, valueEnd - valueStart);
-            }
-        }
-
-        // Fallback to query parameter
-        if (code.empty())
-        {
-            code = req->getParameter("code");
-        }
+        // Extract the authorization code from a form-urlencoded body
+        // (Drogon parses application/x-www-form-urlencoded bodies into
+        // getParameter automatically) or a query parameter. The previous
+        // hand-rolled body.find("code=") parser was buggy: it matched the
+        // substring anywhere (so "notcode=xyz" parsed as code="xyz") and did
+        // not URL-decode (so "code=abc%3Ddef" passed the still-encoded value
+        // to the upstream token exchange, which would fail). Drogon's
+        // getParameter handles both correctly.
+        std::string code = req->getParameter("code");
 
         if (code.empty())
         {
