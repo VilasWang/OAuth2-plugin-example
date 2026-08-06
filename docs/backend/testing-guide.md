@@ -256,11 +256,11 @@ In test case SomeTestName
 | libs/storage-memory | **97.1%** (431/444) | Memory 后端全方法覆盖（CI 必跑路径） |
 | libs/oauth2 | **92.9%** (625/673) | TokenService/AuthService/ClientService/JwkManager/Pkce |
 | libs/storage-redis | 46.2% (306/663) | 契约测试覆盖 getClient/validate/grant/token/consent 主路径；Lua 脚本与 transaction CRUD 待补 |
-| libs/storage-postgres | 42.5% (705/1657) | 契约测试覆盖主路径；剩余盲区为事务/错误回退分支（需注入故障才能触发） |
-| libs/drogon | **49.8%** (4477/8998) | admin 0%→55-69%、admin 控制器 0%→91-100%、authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器补强；剩余盲区：社交 OAuth 控制器（GitHub 5.9%/WeChat 14.3%/Google 16.3%，需外部 provider mock）、WebAuthn 9.9%（需典礼脚手架） |
-| **整体** | **55.2%** (7452/13502) | 本轮从 48.5% 基线提升 +6.7pp（admin 层从 0% 起，是最大单项增量） |
+| libs/storage-postgres | 43.9% (727/1657) | 契约测试覆盖主路径；剩余盲区为事务/错误回退分支（需注入故障才能触发） |
+| libs/drogon | **52.5%** (4720/8998) | admin 0%→55-69%、admin 控制器 0%→91-100%；authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器补强；社交 OAuth 控制器经 mock 注入补强（Google 16.3%→42.8%、WeChat 14.3%→35.2%、GitHub 5.9%→17.3%）；WebAuthn 9.9%→39.2%（非加密 stub，无需 authenticator） |
+| **整体** | **57.2%** (7717/13502) | 本轮从 48.5% 基线提升 +8.7pp |
 
-> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试（`tests/integration/admin/*` + `tests/common/HttpTestClient.h` 的 admin 登录 recipe + `tests/common/StorageSeed.h` 的进程内 seeder）将 admin 服务从 0% 提升到 55-69%，admin 控制器从 0% 提升到 91-100%；并补强了 authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器的可测分支。剩余盲区集中在需要外部 mock 的社交 OAuth 与 WebAuthn 控制器——不引入 mock 框架的现实上限约 55-60%。
+> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/authforge/identity/testing/` 的共享 Fake）将整体提升到 57.2%。社交 OAuth 的 Google/WeChat 经 mock 注入可在 memory 模式下跑（注入路径不写 DB）；GitHub happy-path 因 `issueTokensForUser` 直连 `getDbClient()`（memory 模式会 assert 崩溃）仅覆盖错误路径；WebAuthn 为非加密 stub，Postgres 模式下完整可测。剩余盲区：GitHub token-issuance 分支（需产品代码重构才能 mock）、storage-postgres 事务/错误回退分支（需故障注入）。
 
 #### ⚠️ 实测覆盖率必须跑全部 5 个测试二进制
 
