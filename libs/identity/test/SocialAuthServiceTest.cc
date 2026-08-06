@@ -8,148 +8,24 @@
 #include <authforge/identity/IOAuthHttpClient.h>
 #include <authforge/identity/ISocialAccountRepository.h>
 #include <authforge/identity/SocialAuthService.h>
+// Shared test doubles (promoted from this file's former anonymous-namespace
+// fakes): FakeOAuthHttpClient, FakeSocialAccountRepository, okJson(),
+// transportFailure(). See libs/identity/include/authforge/identity/testing/.
+#include <authforge/identity/testing/FakeOAuthHttpClient.h>
+#include <authforge/identity/testing/FakeSocialAccountRepository.h>
 
 #include <gtest/gtest.h>
 
 #include <deque>
 #include <unordered_map>
 
-namespace
-{
-
+// Bring the service types (GoogleAuthService, etc.) and the shared test
+// doubles (FakeOAuthHttpClient, okJson, ...) into reach at global scope for
+// the TEST bodies below. Previously these resolved via an anonymous-namespace
+// `using namespace` plus local fake definitions; the fakes now live in
+// authforge::identity::testing, so expose both namespaces globally.
 using namespace authforge::identity;
-
-// ---------------------------------------------------------------------
-// FakeOAuthHttpClient
-// ---------------------------------------------------------------------
-//
-// Scripted fake: each call to postForm()/getWithBearerToken() pops the
-// next queued OAuthHttpResult and records the call for assertions. Two
-// separate queues (postForm vs getWithBearerToken) mirror the real
-// providers' call sequence (token exchange first, then userinfo fetch)
-// without needing to inspect URLs to decide which canned response to
-// return.
-class FakeOAuthHttpClient : public IOAuthHttpClient
-{
-  public:
-    std::deque<OAuthHttpResult> postFormResponses;
-    std::deque<OAuthHttpResult> getResponses;
-
-    struct PostFormCall
-    {
-        std::string url;
-        std::vector<std::pair<std::string, std::string>> params;
-    };
-
-    struct GetCall
-    {
-        std::string url;
-        std::string bearerToken;
-    };
-
-    std::vector<PostFormCall> postFormCalls;
-    std::vector<GetCall> getCalls;
-
-    void postForm(
-      const std::string &url,
-      const std::vector<std::pair<std::string, std::string>> &params,
-      ResultCallback &&cb
-    ) override
-    {
-        postFormCalls.push_back({url, params});
-        if (postFormResponses.empty())
-            throw std::runtime_error("FakeOAuthHttpClient: postForm response queue exhausted");
-        OAuthHttpResult result = postFormResponses.front();
-        postFormResponses.pop_front();
-        cb(std::move(result));
-    }
-
-    void getWithBearerToken(
-      const std::string &url,
-      const std::string &bearerToken,
-      ResultCallback &&cb
-    ) override
-    {
-        getCalls.push_back({url, bearerToken});
-        if (getResponses.empty())
-            throw std::runtime_error(
-              "FakeOAuthHttpClient: getWithBearerToken response queue exhausted"
-            );
-        OAuthHttpResult result = getResponses.front();
-        getResponses.pop_front();
-        cb(std::move(result));
-    }
-};
-
-// ---------------------------------------------------------------------
-// FakeSocialAccountRepository
-// ---------------------------------------------------------------------
-
-class FakeSocialAccountRepository : public ISocialAccountRepository
-{
-  public:
-    // key: provider + "|" + subject
-    std::unordered_map<std::string, SocialAccountLookup> linked;
-    int32_t nextUserId = 100;
-    bool failCreate = false;
-
-    static std::string key(const std::string &provider, const std::string &subject)
-    {
-        return provider + "|" + subject;
-    }
-
-    void findLinkedUser(
-      const std::string &provider,
-      const std::string &subject,
-      LookupCallback &&cb
-    ) override
-    {
-        auto it = linked.find(key(provider, subject));
-        cb(it == linked.end() ? std::nullopt : std::make_optional(it->second));
-    }
-
-    void createLinkedUser(
-      const std::string &provider,
-      const std::string &subject,
-      const std::string &username,
-      const std::string & /*email*/,
-      CreateCallback &&cb
-    ) override
-    {
-        if (failCreate)
-        {
-            cb(std::nullopt);
-            return;
-        }
-        SocialAccountLookup entry;
-        entry.userId = nextUserId++;
-        entry.username = username;
-        linked[key(provider, subject)] = entry;
-
-        LinkNewSocialAccountResult result;
-        result.userId = entry.userId;
-        result.username = entry.username;
-        cb(result);
-    }
-};
-
-OAuthHttpResult okJson(const Json::Value &body, int statusCode = 200)
-{
-    OAuthHttpResult result;
-    result.transportOk = true;
-    result.statusCode = statusCode;
-    result.body = body;
-    return result;
-}
-
-OAuthHttpResult transportFailure()
-{
-    OAuthHttpResult result;
-    result.transportOk = false;
-    return result;
-}
-
-}  // namespace
+using namespace authforge::identity::testing;
 
 // ============================== Google ==============================
 
