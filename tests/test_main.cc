@@ -491,6 +491,14 @@ int main(int argc, char **argv)
     // 2. OS will clean up all resources (thread, memory, files, etc.)
     // 3. The thread will be terminated by OS when process exits
     // 4. No need for graceful framework shutdown in test environment
+    //
+    // NOTE (issue 8 investigation, 2026-08): the SegFault this fast-exit was
+    // added to dodge is NO LONGER REPRODUCIBLE -- the root cause was mitigated
+    // in commit 6bc8881 ("resolve Windows CI teardown SegFault") via a
+    // try-catch in OAuth2CleanupService::stop() + queueInLoop(quit()) called
+    // exactly once. With _Exit disabled the suite runs to a clean exit 0.
+    // The _Exit is retained as belt-and-suspenders for now (removing it is a
+    // separate decision; it forces the manual __gcov_dump() flush above).
     if (status == 0)
     {
         std::cout << "Tests passed, using fast exit to avoid teardown SegFault..." << std::endl;
