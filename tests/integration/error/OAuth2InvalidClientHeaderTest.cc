@@ -40,7 +40,7 @@ bool isServerReachable()
 {
     try
     {
-        auto client = HttpClient::newHttpClient("http://127.0.0.1:8080");
+        auto client = HttpClient::newHttpClient("http://127.0.0.1:5555");
         auto req = HttpRequest::newHttpRequest();
         req->setPath("/health");
         req->setMethod(Get);
@@ -76,7 +76,7 @@ DROGON_TEST(Integration_P1_OAuth2InvalidClient_IntrospectReturnsWWWAuthenticateH
         return;
     }
 
-    auto client = HttpClient::newHttpClient("http://127.0.0.1:8080");
+    auto client = HttpClient::newHttpClient("http://127.0.0.1:5555");
     auto req = HttpRequest::newHttpRequest();
     req->setPath("/oauth2/introspect");
     req->setMethod(Post);
@@ -150,7 +150,7 @@ DROGON_TEST(Integration_P1_OAuth2InvalidClient_RevokeReturnsWWWAuthenticateHeade
         return;
     }
 
-    auto client = HttpClient::newHttpClient("http://127.0.0.1:8080");
+    auto client = HttpClient::newHttpClient("http://127.0.0.1:5555");
     auto req = HttpRequest::newHttpRequest();
     req->setPath("/oauth2/revoke");
     req->setMethod(Post);
