@@ -13,13 +13,25 @@
 // <gcov.h> (at least through gcc 13) does NOT wrap its declarations in
 // extern "C", so in C++ it would generate a mangled symbol that libgcov.a
 // (which exports the unmangled C symbol __gcov_dump) does not provide,
-// causing a link error. __gcov_dump() is the gcc >= 11 API; the older
-// __gcov_flush() is the pre-11 name.
-#if defined(__GNUC__)
+// causing a link error. __gcov_dump() is the gcc >= 11 / clang >= 14 API;
+// the older __gcov_flush() is the pre-11/pre-14 name.
+//
+// Guarded by AUTHFORGE_GCOV_INSTRUMENTED (defined by cmake/Coverage.cmake's
+// oauth2_apply_gcov ONLY when OAUTH2_TEST_COVERAGE=ON actually applies the
+// -fprofile-arcs/-ftest-coverage flags and links libgcov). Guarding with
+// `defined(__GNUC__)` broke plain GCC/Clang CI builds: AppleClang also
+// defines __GNUC__, but without coverage instrumentation __gcov_dump is
+// never linked -> undefined-symbol link errors (linux + macos CI jobs).
+#if defined(AUTHFORGE_GCOV_INSTRUMENTED)
 extern "C" void __gcov_dump(void);
+extern "C" void __gcov_flush(void);
 static void flushGcovIfInstrumented()
 {
-    __gcov_dump();  // gcc >= 11; flushes all arc counters to .gcda files
+#if defined(__clang__) && __clang_major__ < 14
+    __gcov_flush();  // older clang only provides the pre-14 flush API
+#else
+    __gcov_dump();  // gcc >= 11 / clang >= 14; flushes arc counters to .gcda
+#endif
 }
 #else
 static void flushGcovIfInstrumented()

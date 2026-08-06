@@ -79,6 +79,15 @@ function(oauth2_apply_gcov target)
         "OAUTH2_TEST_COVERAGE=ON: applying gcov flags to '${target}' (compile + link)")
     target_compile_options(${target} PRIVATE ${_flags})
     target_link_options(${target} PRIVATE ${_flags})
+    # Macro gate for gcov-specific code (e.g. tests/test_main.cc's explicit
+    # __gcov_dump() flush before std::_Exit). Guarding that code with
+    # `defined(__GNUC__)` instead broke non-coverage GCC/Clang builds:
+    # AppleClang also defines __GNUC__, but without -fprofile-arcs/-lgcov the
+    # __gcov_dump symbol is never linked -> undefined-reference link errors
+    # (seen in CI linux/macos jobs). This macro is defined EXACTLY when the
+    # instrumentation (and thus the libgcov link below) is active, keeping the
+    # symbol reference and its supply in lockstep.
+    target_compile_definitions(${target} PRIVATE AUTHFORGE_GCOV_INSTRUMENTED=1)
     # The gcov runtime (libgcov.a, providing __gcov_init/__gcov_exit/
     # __gcov_merge_*). gcc's --coverage driver normally pulls this in
     # implicitly at link time, but link it explicitly via target_link_libraries
