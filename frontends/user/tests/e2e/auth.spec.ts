@@ -235,12 +235,11 @@ test.describe('MFA Validation', () => {
     await page.locator('input[autocomplete="current-password"]').fill('password123')
     await page.locator('button[type="submit"]').click()
     await page.waitForTimeout(500)
-    const backButton = page.locator('button:has-text("Back to login")')
-    if (await backButton.isVisible()) {
-      await backButton.click()
-      // MFA form should be hidden, login form visible
-      await expect(page.locator('input[inputmode="numeric"]')).not.toBeVisible()
-      await expect(page.locator('input[autocomplete="username"]')).toBeVisible()
-    }
+    const backButton = page.locator('button:has-text("Back to sign in")')
+    await expect(backButton).toBeVisible()
+    await backButton.click()
+    // MFA form should be hidden, login form visible
+    await expect(page.locator('input[inputmode="numeric"]')).not.toBeVisible()
+    await expect(page.locator('input[autocomplete="username"]')).toBeVisible()
   })
 })

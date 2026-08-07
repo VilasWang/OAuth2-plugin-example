@@ -56,8 +56,10 @@ test.describe('Navigation & Layout', () => {
   })
 
   test('top bar shows user info', async ({ page }) => {
-    // The header bar shows the user's display name (username or fallback "Admin")
-    await expect(page.locator('header')).toContainText('Admin')
+    // The header bar shows the user's display name from the userinfo 'name'
+    // claim (backend sets it to the username). Assert the real value, not the
+    // 'Admin' fallback, so a userinfo failure cannot pass silently.
+    await expect(page.locator('header')).toContainText('admin')
   })
 
   test('logout clears session and redirects to login', async ({ page }) => {

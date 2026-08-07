@@ -61,11 +61,15 @@ onUnmounted(() => {
         role="dialog"
         aria-modal="true"
         :aria-label="title"
-        @click.self="emit('close')"
         @keydown="handleKeydown"
       >
-        <!-- Backdrop -->
-        <div class="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm" aria-hidden="true" />
+        <!-- Backdrop: clicking it closes the modal (covers the full viewport,
+             so outer clicks land here, not on the container) -->
+        <div
+          class="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm"
+          aria-hidden="true"
+          @click="emit('close')"
+        />
 
         <!-- Panel -->
         <div
