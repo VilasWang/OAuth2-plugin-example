@@ -249,6 +249,11 @@ void TokenService::exchangeCodeForToken(
                       // default (which the introspect endpoint silently omits).
                       token.issuedAt = now;
                       token.expiresAt = now + self->accessTokenTtl_;
+                      // F-016: stamp the configured issuer at issuance so
+                      // introspection's iss matches the discovery document
+                      // (previously the column was never written and the DB
+                      // default leaked a hardcoded example.com URL).
+                      token.issuer = self->issuer_;
 
                       auto refreshTokenStr = generateSecureToken(*self->crypto_);
                       auto familyId = generateSecureToken(*self->crypto_, 16);
@@ -405,6 +410,8 @@ void TokenService::refreshAccessToken(
           // P2 #10: record real issue time for introspection iat.
           token.issuedAt = now;
           token.expiresAt = now + self->accessTokenTtl_;
+          // F-016: same issuer stamping as the authorization_code path above.
+          token.issuer = self->issuer_;
 
           auto newRefreshTokenStr = generateSecureToken(*self->crypto_);
           authforge::oauth2::model::OAuth2RefreshToken newRt;

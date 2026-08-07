@@ -201,7 +201,7 @@
                     "vue-client": {
                         "client_type": "PUBLIC",
                         "secret": "123456",
-                        "redirect_uri": "http://localhost:5173/callback,http://localhost:8080/callback",
+                        "redirect_uri": "http://127.0.0.1:5173/callback,http://127.0.0.1:8080/callback",
                         "allowed_scopes": ["openid", "profile", "email"]
                     }
                 },
@@ -223,7 +223,8 @@
         },
         "auth": {
             "require_email_verification": true,
-            "require_pkce_for_public": true
+            "require_pkce_for_public": true,
+            "allow_http_redirect_uri": false
         },
         "rbac_rules": {
             "/api/admin/.*": [

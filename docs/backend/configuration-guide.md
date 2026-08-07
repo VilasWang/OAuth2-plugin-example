@@ -55,3 +55,30 @@ docker-compose -f deploy/docker/docker-compose.yml down
 ### Config Handling in Docker
 
 `docker-compose.yml` mounts `apps/server/config/config.json` into the container read-only. The `environment` section injects the environment variables (see §1), which override the file-based defaults at runtime via `ConfigManager::load()` + env injection.
+
+## 3. Storage Backend Selection
+
+The OAuth2 plugin's `config.storage_type` selects the persistence backend:
+
+| `storage_type` | Status | Notes |
+|---|---|---|
+| `postgres` | **Supported (the only production backend)** | Full token persistence, refresh-token rotation, reuse detection. |
+| `redis` | **DEPRECATED** | Historically never persisted refresh tokens (`saveRefreshToken`/`getRefreshToken` were no-ops), so rotation and reuse-detection were silently non-functional. The mode still boots for backward compatibility and logs an ERROR at startup, but the `refresh_token` grant is rejected with `unsupported_grant_type`. Do not use for new deployments. |
+| `memory` | Testing only | Intended for unit/integration tests, not production. |
+
+Target architecture: **Postgres as the storage layer, with Redis returning later as a cache layer in front of Postgres** (tracked as a separate architecture issue; no standalone Redis storage mode will be revived).
+
+## 4. Issuer Configuration
+
+`config.metadata.issuer` (custom config) is the single source of truth for the server's issuer URL. It is read once at startup by `OAuth2Plugin` and used consistently for:
+
+- the `iss` claim stamped on access tokens at issuance time (authorization_code, refresh_token, client_credentials, device_code grants),
+- the introspection response `iss` (backfilled from the configured issuer when a stored row carries none),
+- the discovery documents (`/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server`).
+
+Constraints:
+
+- A trailing slash is normalized away automatically; do not rely on it.
+- Defaults to `http://localhost:5555` when unset; a `LOG_WARN` is emitted in that case.
+- Production deployments **MUST** configure an `https://` issuer; a plain-`http` issuer on a non-loopback host logs a startup warning.
+- The introspection `iss` and the discovery `issuer` are guaranteed byte-identical (OIDC Discovery §3 requirement).

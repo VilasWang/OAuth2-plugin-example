@@ -53,6 +53,7 @@ class Oauth2DeviceCodes
         static const std::string _user_id;
         static const std::string _expires_at;
         static const std::string _interval_seconds;
+        static const std::string _last_polled_at;
         static const std::string _created_at;
     };
 
@@ -179,6 +180,15 @@ class Oauth2DeviceCodes
     void setIntervalSeconds(const int32_t &pIntervalSeconds) noexcept;
     void setIntervalSecondsToNull() noexcept;
 
+    /**  For column last_polled_at  */
+    ///Get the value of the column last_polled_at, returns the default value if the column is null
+    const int64_t &getValueOfLastPolledAt() const noexcept;
+    ///Return a shared_ptr object pointing to the column const value, or an empty shared_ptr object if the column is null
+    const std::shared_ptr<int64_t> &getLastPolledAt() const noexcept;
+    ///Set the value of the column last_polled_at
+    void setLastPolledAt(const int64_t &pLastPolledAt) noexcept;
+    void setLastPolledAtToNull() noexcept;
+
     /**  For column created_at  */
     ///Get the value of the column created_at, returns the default value if the column is null
     const ::trantor::Date &getValueOfCreatedAt() const noexcept;
@@ -189,7 +199,7 @@ class Oauth2DeviceCodes
     void setCreatedAtToNull() noexcept;
 
 
-    static size_t getColumnNumber() noexcept {  return 9;  }
+    static size_t getColumnNumber() noexcept {  return 10;  }
     static const std::string &getColumnName(size_t index) noexcept(false);
 
     Json::Value toJson() const;
@@ -223,6 +233,7 @@ class Oauth2DeviceCodes
     std::shared_ptr<std::string> userId_;
     std::shared_ptr<int64_t> expiresAt_;
     std::shared_ptr<int32_t> intervalSeconds_;
+    std::shared_ptr<int64_t> lastPolledAt_;
     std::shared_ptr<::trantor::Date> createdAt_;
     struct MetaData
     {
@@ -235,7 +246,7 @@ class Oauth2DeviceCodes
         const bool notNull_;
     };
     static const std::vector<MetaData> metaData_;
-    bool dirtyFlag_[9]={ false };
+    bool dirtyFlag_[10]={ false };
   public:
     static const std::string &sqlForFindingByPrimaryKey()
     {
@@ -295,9 +306,15 @@ class Oauth2DeviceCodes
         {
             needSelection=true;
         }
-        sql += "created_at,";
+        sql += "last_polled_at,";
         ++parametersCount;
         if(!dirtyFlag_[8])
+        {
+            needSelection=true;
+        }
+        sql += "created_at,";
+        ++parametersCount;
+        if(!dirtyFlag_[9])
         {
             needSelection=true;
         }
@@ -361,6 +378,15 @@ class Oauth2DeviceCodes
             sql +="default,";
         }
         if(dirtyFlag_[8])
+        {
+            n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
+            sql.append(placeholderStr, n);
+        }
+        else
+        {
+            sql +="default,";
+        }
+        if(dirtyFlag_[9])
         {
             n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
             sql.append(placeholderStr, n);

@@ -59,6 +59,25 @@ void respondError(
       std::move(detailForLog)
     );
 }
+
+// F-007 (RFC 6749 §4.1.2.1): errors raised while processing an
+// authorization request are delivered as a 302 back to the client's
+// (verified) redirect_uri with error/error_description/state in the query.
+void sendOAuthErrorRedirect(
+  const std::function<void(const ::drogon::HttpResponsePtr &)> &cb,
+  const std::string &redirectUri,
+  const std::string &error,
+  const std::string &description,
+  const std::string &state
+)
+{
+    std::string location = redirectUri + "?error=" + error;
+    if (!description.empty())
+        location += "&error_description=" + ::drogon::utils::urlEncode(description);
+    if (!state.empty())
+        location += "&state=" + ::drogon::utils::urlEncode(state);
+    cb(::drogon::HttpResponse::newRedirectionResponse(location));
+}
 }  // namespace
 
 }  // namespace authforge::drogon::controllers
@@ -552,9 +571,15 @@ void SessionController::login(
                 return;
             }
 
-            // === CHECK 3: PKCE enforcement for PUBLIC clients ===
-            bool requirePkce = false;
-            if (customCfg.isMember("auth") && customCfg["auth"].isMember("require_pkce_for_public"))
+            // === CHECK 3: PKCE enforcement ===
+            // F-011 (RFC 9700 §2.1.1): PKCE is MANDATORY for all OAuth 2.0
+            // authorization_code clients, so the code default is true when the
+            // config key is absent; auth.require_pkce_for_public can still
+            // opt a deployment out explicitly.
+            bool requirePkce = true;
+            if (
+              customCfg.isMember("auth") && customCfg["auth"].isMember("require_pkce_for_public")
+            )
             {
                 requirePkce = customCfg["auth"]["require_pkce_for_public"].asBool();
             }
@@ -562,6 +587,41 @@ void SessionController::login(
             {
                 LOG_WARN << "[SECURITY] PUBLIC client " << clientId
                          << " login without PKCE (enforcement enabled)";
+                // F-007 (RFC 6749 §4.1.2.1): this error belongs to the
+                // authorization request, so it is redirected back to the
+                // client -- but only after redirect_uri is verified, since
+                // /oauth2/login does not re-validate it earlier in the flow
+                // (avoids an open-redirect vector).
+                auto pkcePlugin = resolvePlugin();
+                if (pkcePlugin && !clientId.empty() && !redirectUri.empty())
+                {
+                    pkcePlugin->validateRedirectUri(
+                      clientId,
+                      redirectUri,
+                      [req, redirectUri, state, callback = std::move(callback)](
+                        bool validUri
+                      ) mutable {
+                          if (validUri)
+                          {
+                              sendOAuthErrorRedirect(
+                                callback,
+                                redirectUri,
+                                "invalid_request",
+                                "PKCE (code_challenge) is required for public clients",
+                                state
+                              );
+                              return;
+                          }
+                          respondError(
+                            req,
+                            std::move(callback),
+                            "VALIDATION_MISSING_REQUIRED_FIELD",
+                            "login: PKCE (code_challenge) is required for public clients"
+                          );
+                      }
+                    );
+                    return;
+                }
                 respondError(
                   req,
                   std::move(callback),
@@ -828,11 +888,16 @@ void SessionController::consent(
                       ) mutable {
                           if (!success)
                           {
-                              respondError(
-                                req,
-                                std::move(callback),
-                                "INTERNAL_ERROR",
-                                "consent: failed to generate authorization code: " + error
+                              LOG_ERROR << "consent: failed to generate authorization code: "
+                                        << error;
+                              // F-007: server_error redirects back to the
+                              // client per RFC 6749 §4.1.2.1.
+                              sendOAuthErrorRedirect(
+                                callback,
+                                redirectUri,
+                                "server_error",
+                                "Failed to generate authorization code",
+                                state
                               );
                               return;
                           }
@@ -868,11 +933,15 @@ void SessionController::consent(
                 ) mutable {
                     if (!success)
                     {
-                        respondError(
-                          req,
-                          std::move(callback),
-                          "INTERNAL_ERROR",
-                          "consent: failed to generate authorization code: " + error
+                        LOG_ERROR << "consent: failed to generate authorization code: " << error;
+                        // F-007: server_error redirects back to the client
+                        // per RFC 6749 §4.1.2.1.
+                        sendOAuthErrorRedirect(
+                          callback,
+                          redirectUri,
+                          "server_error",
+                          "Failed to generate authorization code",
+                          state
                         );
                         return;
                     }

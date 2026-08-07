@@ -6,9 +6,11 @@
 #include <authforge/drogon/error/ErrorResponder.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <authforge/drogon/services/DeviceCodeService.h>
+#include <authforge/oauth2/model/Client.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <chrono>
+#include <optional>
 
 namespace authforge::drogon::controllers
 {
@@ -87,6 +89,47 @@ std::string getVerificationUri()
     }
     return "http://localhost:5555/oauth2/device";
 }
+
+// F-015 (RFC 8628 §3.2.1 defers to RFC 6749 §3.2.1): the device
+// authorization endpoint MUST authenticate CONFIDENTIAL clients. Extract
+// credentials the same way TokenEndpointController::extractClientCredentials
+// does (HTTP Basic preferred, POST body fallback).
+struct DeviceClientCredentials
+{
+    std::string clientId;
+    std::string clientSecret;
+    std::string authScheme;
+};
+
+DeviceClientCredentials extractDeviceClientCredentials(const ::drogon::HttpRequestPtr &req)
+{
+    DeviceClientCredentials creds;
+    auto authHeader = req->getHeader("Authorization");
+    if (!authHeader.empty() && authHeader.find("Basic ") == 0)
+    {
+        creds.authScheme = "Basic";
+        try
+        {
+            auto decoded = ::drogon::utils::base64Decode(authHeader.substr(6));
+            auto colonPos = decoded.find(':');
+            if (colonPos != std::string::npos)
+            {
+                creds.clientId = decoded.substr(0, colonPos);
+                creds.clientSecret = decoded.substr(colonPos + 1);
+            }
+        }
+        catch (...)
+        {
+            LOG_ERROR << "Failed to decode Basic Auth header";
+        }
+    }
+    else
+    {
+        creds.clientId = req->getParameter("client_id");
+        creds.clientSecret = req->getParameter("client_secret");
+    }
+    return creds;
+}
 }  // namespace
 
 OAuth2Plugin *DeviceAuthController::resolvePlugin() const
@@ -128,8 +171,11 @@ void DeviceAuthController::deviceAuthorization(
 {
     LOG_DEBUG << "Device authorization request received";
 
-    // Extract parameters
-    std::string clientId = req->getParameter("client_id");
+    // Extract parameters. F-015: credentials come from Basic header or body
+    // (client_id may be supplied either way).
+    auto credentials = extractDeviceClientCredentials(req);
+    std::string clientId = credentials.clientId;
+    std::string clientSecret = credentials.clientSecret;
     std::string scope = req->getParameter("scope");
 
     if (clientId.empty())
@@ -153,15 +199,68 @@ void DeviceAuthController::deviceAuthorization(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
-    plugin->validateClient(clientId, "", [plugin, clientId, scope, sharedCb](bool valid) {
-        if (!valid)
-        {
-            ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-              std::move(*sharedCb), "invalid_client", "Unknown client_id"
-            );
-            return;
-        }
+    // F-015 (RFC 8628 §3.2.1 / RFC 6749 §3.2.1): authenticate the client.
+    // Previously this called validateClient(clientId, ""), which accepted any
+    // existing client without a secret. Branch on client_type instead:
+    //   CONFIDENTIAL -> require + validate client_secret
+    //   PUBLIC       -> client_id existence check only
+    plugin->getClient(
+      clientId,
+      [plugin, clientId, clientSecret, scope, sharedCb](
+        std::optional<authforge::oauth2::model::OAuth2Client> client
+      ) {
+          if (!client)
+          {
+              ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                std::move(*sharedCb), "invalid_client", "Unknown client_id"
+              );
+              return;
+          }
 
+          auto proceedDeviceAuth = [clientId, scope, sharedCb]() {
+              deviceAuthorizationInner(clientId, scope, sharedCb);
+          };
+
+          if (
+            client->clientType == authforge::oauth2::model::ClientType::CONFIDENTIAL
+          )
+          {
+              if (clientSecret.empty())
+              {
+                  ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                    std::move(*sharedCb),
+                    "invalid_client",
+                    "Client authentication required for device authorization"
+                  );
+                  return;
+              }
+              plugin->validateClient(
+                clientId, clientSecret, [proceedDeviceAuth, sharedCb](bool valid) {
+                    if (!valid)
+                    {
+                        ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                          std::move(*sharedCb), "invalid_client", "Client authentication failed"
+                        );
+                        return;
+                    }
+                    proceedDeviceAuth();
+                }
+              );
+              return;
+          }
+
+          // PUBLIC client: existence verified via getClient above.
+          proceedDeviceAuth();
+      }
+    );
+}
+
+void DeviceAuthController::deviceAuthorizationInner(
+  const std::string &clientId,
+  const std::string &scope,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &sharedCb
+)
+{
         // Generate device_code and user_code
         std::string deviceCode = ::authforge::drogon::utils::generateSecureToken();
         std::string deviceCodeHash = ::authforge::drogon::utils::hashToken(deviceCode);
@@ -212,7 +311,6 @@ void DeviceAuthController::deviceAuthorization(
               (*sharedCb)(resp);
           }
         );
-    });
 }
 
 void DeviceAuthController::approveDevice(

@@ -90,7 +90,7 @@ Location: http://localhost:5173/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=xyz12
 }
 ```
 
-*(注：`refresh_token` 字段当前已支持通过 `grant_type=refresh_token` 换取新的 Access Token。仅 `refresh_token` 的持久化存储（Postgres 后端）在部分配置下为 pass-through，Redis/Memory 后端暂不存储。)*
+*(注：`grant_type=refresh_token` 需先通过客户端认证（F-003，RFC 6749 §3.2.1/§6）：CONFIDENTIAL 客户端必须携带 `client_secret`（body 或 Basic 头），缺失或错误返回 401 `invalid_client`；PUBLIC 客户端仅校验 `client_id` 存在。refresh token 持久化仅 Postgres 后端支持；`storage_type="redis"` 已弃用，该模式下 refresh grant 返回 `unsupported_grant_type`（F-005）。)*
 
 **失败 (400/401)**:
 

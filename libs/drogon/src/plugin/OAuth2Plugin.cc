@@ -95,6 +95,25 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     {
         issuer = customConfig["metadata"]["issuer"].asString();
     }
+    // F-016: normalize a trailing slash once, at the single startup read, so
+    // every consumer (token issuance, introspection backfill, discovery) sees
+    // the same byte string and discovery endpoints never produce
+    // "https://issuer//oauth2/...".
+    while (issuer.size() > 1 && issuer.back() == '/')
+        issuer.pop_back();
+    issuer_ = issuer;
+    // F-016: an http:// issuer is only sane for local development; anything
+    // else means tokens/discovery will advertise a non-TLS issuer in a
+    // deployment that is presumably reachable over the network.
+    if (issuer.rfind("http://", 0) == 0 &&
+        issuer.find("localhost") == std::string::npos &&
+        issuer.find("127.0.0.1") == std::string::npos &&
+        issuer.find("[::1]") == std::string::npos)
+    {
+        LOG_WARN << "OAuth2Plugin: metadata.issuer \"" << issuer
+                 << "\" uses plain http on a non-loopback host; production "
+                    "deployments MUST configure an https:// issuer";
+    }
 
     // Initialize Services
     // M3 Task 24 slice 2 (authforge-sdk-refactor): tokenService_/
@@ -235,6 +254,18 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     }
     else if (storageType_ == "redis")
     {
+        // F-005: standalone Redis storage is DEPRECATED. Its refresh-token
+        // persistence was always a no-op (rotation/reuse-cascade silently
+        // non-functional); the supported production topology is postgres
+        // storage + (future) redis cache layer. The mode still boots for
+        // backward compatibility, but refresh_token grant is rejected
+        // explicitly (see refreshAccessToken) instead of failing with a
+        // misleading invalid_grant.
+        LOG_ERROR << "OAuth2Plugin: storage_type=\"redis\" is DEPRECATED and "
+                     "will be removed. Refresh-token rotation is NOT "
+                     "functional in this mode (refresh_token grant is "
+                     "rejected). Use storage_type=\"postgres\"; Redis will "
+                     "return only as a cache layer in front of Postgres.";
         std::string clientName = config["redis"].get("client_name", "default").asString();
         authforge::storage::redis::RedisRepositoryBundle bundle(clientName);
         assignOAuth2(
@@ -392,6 +423,23 @@ void OAuth2Plugin::refreshAccessToken(
   std::function<void(const Json::Value &)> &&callback
 )
 {
+    // F-005: the standalone Redis backend never persisted refresh tokens
+    // (saveRefreshToken/getRefreshToken are no-ops), so rotation and
+    // reuse-detection silently do not work there. That mode is deprecated
+    // (postgres storage + redis cache is the target architecture); reject
+    // the grant explicitly instead of surfacing a misleading invalid_grant.
+    if (storageType_ == "redis")
+    {
+        Json::Value err;
+        err["error"] = "unsupported_grant_type";
+        err["error_description"] =
+          "refresh_token grant is not supported with storage_type=\"redis\" "
+          "(deprecated mode without refresh-token persistence); use "
+          "storage_type=\"postgres\"";
+        if (callback)
+            callback(err);
+        return;
+    }
     tokenService_->refreshAccessToken(refreshToken, clientId, std::move(callback));
 }
 

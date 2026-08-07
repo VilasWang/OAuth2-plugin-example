@@ -43,6 +43,9 @@ void PostgresTokenRepository::saveAccessToken(const OAuth2AccessToken &token, Vo
         newToken.setScope(token.scope);
         newToken.setExpiresAt(token.expiresAt);
         newToken.setRevoked(token.revoked);
+        // F-016: persist the issuer stamped at issuance (previously never
+        // written, so every row carried the schema's hardcoded default).
+        newToken.setIssuer(token.issuer);
 
         mapper.insert(
           newToken,
@@ -165,8 +168,8 @@ void PostgresTokenRepository::saveTokenPair(
 
           transPtr->execSqlAsync(
             "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, expires_at, "
-            "revoked) "
-            "VALUES ($1, $2, $3, $4, $5, $6)",
+            "revoked, issuer) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7)",
             [transPtr, rt, refreshInsertErrorCb](const ::drogon::orm::Result &) {
                 // Access token saved, now save refresh token. The caller's
                 // callback fires from the commit callback above, not here.
@@ -216,7 +219,8 @@ void PostgresTokenRepository::saveTokenPair(
             at.userId,
             at.scope,
             at.expiresAt,
-            at.revoked
+            at.revoked,
+            at.issuer  // F-016: write the issuance-time issuer, not the schema default
           );
       }
     );
@@ -564,7 +568,10 @@ void PostgresTokenRepository::introspectToken(
                 introspection.tokenType = "Bearer";
                 introspection.exp = expiresAt;
                 introspection.iat = now;
-                introspection.iss = "https://oauth.example.com";
+                // F-016: no hardcoded issuer here anymore; an empty iss lets
+                // the introspect controller backfill from the configured
+                // issuer (keeps iss byte-identical to the discovery document).
+                introspection.iss = "";
                 introspection.aud = "";
                 introspection.nbf = now;
                 introspection.sub = refreshToken.getValueOfUserId();

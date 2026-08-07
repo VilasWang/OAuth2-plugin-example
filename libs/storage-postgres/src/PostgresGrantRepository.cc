@@ -177,10 +177,13 @@ void PostgresGrantRepository::consumeAuthCode(
 
           auto row = r[0];
 
-          // Validate redirect_uri matches (RFC 6749 Section 4.1.3)
+          // Validate redirect_uri matches (RFC 6749 Section 4.1.3).
+          // F-009: if a redirect_uri was recorded at authorization time it is
+          // REQUIRED at the token endpoint and MUST be identical -- a missing
+          // or divergent value must fail the exchange, not slip through.
           std::string storedRedirectUri =
             row["redirect_uri"].isNull() ? "" : row["redirect_uri"].as<std::string>();
-          if (!redirectUri.empty() && redirectUri != storedRedirectUri)
+          if (!storedRedirectUri.empty() && redirectUri != storedRedirectUri)
           {
               LOG_WARN << "[SECURITY] redirect_uri mismatch in token exchange. "
                        << "Expected: " << storedRedirectUri << ", Got: " << redirectUri;

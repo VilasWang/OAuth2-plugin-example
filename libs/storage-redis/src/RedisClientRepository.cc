@@ -1,4 +1,5 @@
 #include <authforge/storage/redis/RedisClientRepository.h>
+#include <authforge/common/utils/ConstantTimeCompare.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <json/json.h>
@@ -171,8 +172,20 @@ void RedisClientRepository::validateClient(
               );
               std::transform(storedHash.begin(), storedHash.end(), storedHash.begin(), ::tolower);
 
-              LOG_DEBUG << "validateClient match result: " << (calculatedHash == storedHash);
-              cb(calculatedHash == storedHash);
+              // F-004 (OAuth 2.0 Security BCP §4.9): constant-time compare.
+              // The previous std::string::operator== short-circuits on the
+              // first differing byte (timing side channel). The debug log
+              // that printed the match result was removed for the same
+              // reason (comparison-outcome leakage).
+              size_t cmpLen = (calculatedHash.length() < storedHash.length())
+                                ? calculatedHash.length()
+                                : storedHash.length();
+              bool match =
+                (::authforge::common::utils::constantTimeMemcmp(
+                   calculatedHash.c_str(), storedHash.c_str(), cmpLen
+                 ) == 0) &&
+                calculatedHash.length() == storedHash.length();
+              cb(match);
           },
           [cb](const RedisException &e) {
               LOG_ERROR << "Redis validateClient HMGET error: " << e.what();

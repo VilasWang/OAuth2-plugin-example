@@ -372,6 +372,17 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
         return storageType_;
     }
 
+    // F-016: the configured issuer URL (custom config metadata.issuer, default
+    // http://localhost:5555, trailing slash normalized at startup). Read once
+    // in initAndStart(); controllers use it to stamp issuer on access tokens
+    // (client_credentials/device paths) and to backfill introspection iss when
+    // a storage backend returns none -- keeping it byte-identical to the
+    // discovery document's issuer.
+    const std::string &getIssuer() const
+    {
+        return issuer_;
+    }
+
     // ========== Observability Ports (M8 Task 40, decision b) ==========
     // Expose the Adapter-side IAuditSink / IMetrics instances so Drogon-layer
     // code (libs/drogon controllers) can emit audit events / metrics through
@@ -437,6 +448,9 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     std::shared_ptr<authforge::oauth2::protocol::AuthorizationService> authorizationService_;
 
     std::string storageType_;
+
+    // F-016: configured issuer, read once in initAndStart() (see getIssuer()).
+    std::string issuer_;
 
     // TTL Configuration (Seconds)
     // Note: These are set once during initAndStart() and only read afterwards

@@ -14,6 +14,28 @@
 using namespace authforge::drogon::controllers;
 using namespace authforge::drogon::observability::openapi;
 
+namespace
+{
+// F-007 (RFC 6749 §4.1.2.1): once client_id and redirect_uri have been
+// verified, every authorization-endpoint error MUST be delivered as a 302
+// back to the client's redirect_uri with error/error_description/state in
+// the query -- never as a direct JSON/HTML 4xx.
+::drogon::HttpResponsePtr buildAuthorizeErrorRedirect(
+  const std::string &redirectUri,
+  const std::string &error,
+  const std::string &description,
+  const std::string &state
+)
+{
+    std::string location = redirectUri + "?error=" + error;
+    if (!description.empty())
+        location += "&error_description=" + ::drogon::utils::urlEncode(description);
+    if (!state.empty())
+        location += "&state=" + ::drogon::utils::urlEncode(state);
+    return ::drogon::HttpResponse::newRedirectionResponse(location);
+}
+}  // namespace
+
 namespace authforge::drogon::controllers
 {
 
@@ -261,6 +283,30 @@ void AuthorizationEndpointController::authorize(
                     return;
                 }
 
+                // F-013 (RFC 7636 §4.2): code_challenge_method, when present,
+                // MUST be "plain" or "S256"; omitted defaults to "plain".
+                // client_id/redirect_uri are already verified above, so per the
+                // F-007 rule the error is redirected back to the client.
+                if (!codeChallengeMethod.empty())
+                {
+                    if (codeChallengeMethod != "plain" && codeChallengeMethod != "S256")
+                    {
+                        callback(
+                          buildAuthorizeErrorRedirect(
+                            redirectUri,
+                            "invalid_request",
+                            "code_challenge_method must be 'plain' or 'S256'",
+                            state
+                          )
+                        );
+                        return;
+                    }
+                }
+                else if (!codeChallenge.empty())
+                {
+                    codeChallengeMethod = "plain";
+                }
+
                 std::vector<std::string> requestedScopes;
                 std::stringstream ss(scope);
                 std::string scopeItem;
@@ -351,6 +397,8 @@ void AuthorizationEndpointController::authorize(
                       {
                           // Tier 1 (scope_not_allowed_for_client) -> invalid_scope;
                           // Tier 2 (admin_role_required) -> access_denied.
+                          // F-007: client_id/redirect_uri are verified, so the
+                          // error goes back to the client as a 302 redirect.
                           std::string error = "invalid_scope";
                           std::string desc = summary.invalidReasons.empty()
                                                ? "scope validation failed"
@@ -359,14 +407,7 @@ void AuthorizationEndpointController::authorize(
                           {
                               error = "access_denied";
                           }
-                          Json::Value jsonErr;
-                          jsonErr["error"] = error;
-                          jsonErr["error_description"] = desc;
-                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(jsonErr);
-                          resp->setStatusCode(
-                            authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(error)
-                          );
-                          callback(resp);
+                          callback(buildAuthorizeErrorRedirect(redirectUri, error, desc, state));
                           return;
                       }
 
@@ -414,7 +455,9 @@ void AuthorizationEndpointController::authorize(
                       // login path enforced this, so a returning user's
                       // /oauth2/authorize replay bypassed the policy).
                       auto customConfig = ::drogon::app().getCustomConfig();
-                      bool requirePkce = false;
+                      // F-011 (RFC 9700 §2.1.1): PKCE mandatory by default
+                      // for all authorization_code clients.
+                      bool requirePkce = true;
                       if (
                         customConfig.isMember("auth") &&
                         customConfig["auth"].isMember("require_pkce_for_public")
@@ -426,17 +469,16 @@ void AuthorizationEndpointController::authorize(
                       {
                           LOG_WARN << "[SECURITY] client " << clientId
                                    << " re-authorization without PKCE (enforcement enabled)";
-                          Json::Value jsonErr;
-                          jsonErr["error"] = "invalid_request";
-                          jsonErr["error_description"] =
-                            "PKCE (code_challenge) is required for public clients";
-                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(jsonErr);
-                          resp->setStatusCode(
-                            authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(
-                              "invalid_request"
+                          // F-007: PKCE-required is a post-validation error ->
+                          // 302 back to the client, not a direct 400.
+                          callback(
+                            buildAuthorizeErrorRedirect(
+                              redirectUri,
+                              "invalid_request",
+                              "PKCE (code_challenge) is required for public clients",
+                              state
                             )
                           );
-                          callback(resp);
                           return;
                       }
 
@@ -455,13 +497,16 @@ void AuthorizationEndpointController::authorize(
                             if (!success)
                             {
                                 LOG_ERROR << "Failed to generate authorization code: " << error;
-                                Json::Value jsonErr;
-                                jsonErr["error"] = "server_error";
-                                jsonErr["error_description"] =
-                                  "Failed to generate authorization code";
-                                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(jsonErr);
-                                resp->setStatusCode(::drogon::k500InternalServerError);
-                                callback(resp);
+                                // F-007: server_error also redirects back to
+                                // the client per RFC 6749 §4.1.2.1.
+                                callback(
+                                  buildAuthorizeErrorRedirect(
+                                    redirectUri,
+                                    "server_error",
+                                    "Failed to generate authorization code",
+                                    state
+                                  )
+                                );
                                 return;
                             }
 

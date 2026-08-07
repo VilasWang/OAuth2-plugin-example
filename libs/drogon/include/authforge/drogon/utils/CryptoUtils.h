@@ -226,4 +226,39 @@ inline std::string hashToken(const std::string &rawToken)
     return hex;
 }
 
+/**
+ * @brief Hash a client_secret for secure storage (salted)
+ *
+ * Computes lowercase hex SHA-256 of (secret + salt). This is the ONLY
+ * sanctioned write-path algorithm for client secrets and is byte-compatible
+ * with every read/validation path:
+ *  - PostgresClientRepository::validateClient computes
+ *    getSha256(secret + salt) and lowercases both sides before a
+ *    constant-time compare;
+ *  - RedisClientRepository::validateClient does the same;
+ *  - the dev seed SQL rows store lowercase salted hashes.
+ *
+ * Historical note (F-002 fix): the write paths previously used hashToken()
+ * (UNSALTED UPPERCASE hex), which could never match the salted validation
+ * paths -- every dynamically registered confidential client was permanently
+ * unable to authenticate. RFC 6749 §10.6 / OAuth 2.0 Security BCP §4.9.1
+ * require the salt, hence the salted form is the canonical one.
+ *
+ * Do NOT use hashToken() for client secrets; it remains only for
+ * access/refresh token storage hashes (exact-match lookup keys).
+ *
+ * @param clientSecret The raw client secret (as returned to the client)
+ * @param salt The per-client random salt stored alongside the hash
+ * @return Lowercase hex SHA-256 hash of (clientSecret + salt)
+ */
+inline std::string hashClientSecretWithSalt(const std::string &clientSecret, const std::string &salt)
+{
+    std::string hex = detail::cryptoProvider().sha256Hex(clientSecret + salt);
+    for (char &c : hex)
+    {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return hex;
+}
+
 }  // namespace authforge::drogon::utils

@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS oauth2_access_tokens (
     expires_at BIGINT NOT NULL,
     revoked BOOLEAN DEFAULT FALSE,
     issued_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::BIGINT,
-    issuer VARCHAR(255) NOT NULL DEFAULT 'https://oauth.example.com',
+    issuer VARCHAR(255) NOT NULL DEFAULT '',
     audience VARCHAR(255),
     not_before BIGINT DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)::BIGINT,
     introspect_count INTEGER DEFAULT 0,

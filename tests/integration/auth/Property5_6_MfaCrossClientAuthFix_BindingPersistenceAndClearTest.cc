@@ -42,7 +42,7 @@ using namespace drogon::orm;
 namespace
 {
 constexpr const char *kBaseUrl = "http://127.0.0.1:5555";
-constexpr const char *kVueRedirectUri = "http://localhost:5173/callback";
+constexpr const char *kVueRedirectUri = "http://127.0.0.1:5173/callback";
 
 bool parseBody(const HttpResponsePtr &resp, Json::Value &out)
 {
@@ -284,12 +284,12 @@ DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property6_LoginOverwritesPrevio
     }
 
     // Second login with a different client/redirect_uri overwrites the binding.
-    REQUIRE(!loginForMfaToken("vue-client", "http://localhost:8080/callback").empty());
+    REQUIRE(!loginForMfaToken("vue-client", "http://127.0.0.1:8080/callback").empty());
     {
         PendingBinding pb = readPendingBinding();
         REQUIRE(!pb.isNull);
         CHECK(pb.clientId == "vue-client");
-        CHECK(pb.redirectUri == "http://localhost:8080/callback");
+        CHECK(pb.redirectUri == "http://127.0.0.1:8080/callback");
     }
 }
 
@@ -399,7 +399,7 @@ DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_Property5_RejectedVerifyKeepsBi
     body["mfa_token"] = mfaToken;
     body["code"] = code;
     body["client_id"] = "admin-console";
-    body["redirect_uri"] = "http://localhost:5174/admin/callback";
+    body["redirect_uri"] = "http://127.0.0.1:5174/admin/callback";
     body["scope"] = "openid profile email";
     auto resp = postJson("/oauth2/mfa/verify", body);
     REQUIRE(resp != nullptr);

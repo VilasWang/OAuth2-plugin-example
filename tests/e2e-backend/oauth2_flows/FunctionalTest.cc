@@ -301,12 +301,15 @@ DROGON_TEST(E2E_P0_Token_InvalidRefreshToken_Denied)
 {
     // Test: Refresh token with invalid/expired refresh token
     // Expected: Should return invalid_grant error
+    // F-003: the refresh grant now authenticates the client first, so the
+    // confidential client's secret is included to reach the grant check.
     std::string response = makeRequest(
       "POST",
       "/oauth2/token",
       "grant_type=refresh_token&"
       "refresh_token=invalid_refresh_token&"
-      "client_id=vue-client"
+      "client_id=vue-client&"
+      "client_secret=123456"
     );
 
     CHECK(response.find("invalid_grant") != std::string::npos);
@@ -320,10 +323,28 @@ DROGON_TEST(E2E_P0_Token_MissingRefreshToken_Denied)
       "POST",
       "/oauth2/token",
       "grant_type=refresh_token&"
-      "client_id=vue-client"
+      "client_id=vue-client&"
+      "client_secret=123456"
     );
 
     CHECK(response.find("error") != std::string::npos);
+}
+
+DROGON_TEST(E2E_P0_Token_RefreshWithoutClientAuth_Denied)
+{
+    // Test (F-003, RFC 6749 SS3.2.1/SS6): refresh_token grant for a
+    // CONFIDENTIAL client without client credentials
+    // Expected: 401 with invalid_client (client authentication enforced
+    // before the refresh token is even looked up)
+    std::string response = makeRequest(
+      "POST",
+      "/oauth2/token",
+      "grant_type=refresh_token&"
+      "refresh_token=some_refresh_token&"
+      "client_id=vue-client"
+    );
+
+    CHECK(response.find("invalid_client") != std::string::npos);
 }
 
 // ============================================================================

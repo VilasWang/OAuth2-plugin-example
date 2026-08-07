@@ -67,6 +67,15 @@ class DeviceAuthController : public ::drogon::HttpController<DeviceAuthControlle
      */
     static std::string generateUserCode();
 
+    // F-015: device-code generation body, invoked by deviceAuthorization()
+    // after client authentication (CONFIDENTIAL: secret validated; PUBLIC:
+    // client_id existence verified).
+    static void deviceAuthorizationInner(
+      const std::string &clientId,
+      const std::string &scope,
+      const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &sharedCb
+    );
+
     OAuth2Plugin *plugin_ = nullptr;
     OAuth2Plugin *resolvePlugin() const;
 };

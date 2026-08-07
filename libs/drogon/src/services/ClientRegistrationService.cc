@@ -5,6 +5,7 @@
 #include <authforge/drogon/error/ErrorResponder.h>
 #include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/drogon/validation/RuleSet.h>
 
 #include <drogon/drogon.h>
 
@@ -104,6 +105,25 @@ void ClientRegistrationService::registerClient(
         return;
     }
 
+    // F-014: enforce the redirect_uri scheme policy (https required,
+    // loopback IP-literal exemption, auth.allow_http_redirect_uri override)
+    // at registration time, per RFC 8252 §7.3 / RFC 9700 §2.1.
+    for (Json::ArrayIndex i = 0; i < redirectUrisArray.size(); ++i)
+    {
+        std::string uri = redirectUrisArray[i].asString();
+        auto uriError = ::authforge::drogon::validation::RuleSet::validateRedirectUri(uri);
+        if (uriError)
+        {
+            respondError(
+              req,
+              sharedCb,
+              "VALIDATION_FORMAT_ERROR",
+              "registerClient: invalid redirect_uri '" + uri + "': " + *uriError
+            );
+            return;
+        }
+    }
+
     std::string allowedGrantTypes;
     Json::Value grantTypesArray(Json::arrayValue);
     if (jsonBody->isMember("grant_types") && (*jsonBody)["grant_types"].isArray())
@@ -140,8 +160,13 @@ void ClientRegistrationService::registerClient(
 
     std::string clientId = ::drogon::utils::getUuid();
     std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
-    std::string secretHash = ::authforge::drogon::utils::hashToken(clientSecret);
+    // F-002: salt FIRST, then salted hash. The validation paths
+    // (Postgres/RedisClientRepository::validateClient) compute
+    // sha256(secret + salt), so storing an unsalted hash made every
+    // registered client permanently unable to authenticate.
     std::string salt = ::drogon::utils::getUuid().substr(0, 36);
+    std::string secretHash =
+      ::authforge::drogon::utils::hashClientSecretWithSalt(clientSecret, salt);
 
     auto now = std::chrono::system_clock::now();
     auto issuedAt =

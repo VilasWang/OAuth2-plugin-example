@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+#### OAuth/OIDC 合規審計 Batch 0 — P0 安全修復 (#21–#25)
+
+- **F-002 (#21)**：client_secret 哈希寫入路徑統一為「有鹽小寫 SHA-256」，
+  與校驗路徑一致（此前寫入用無鹽大寫 SHA-256，導致動態註冊/管理端
+  創建的客戶端永遠無法通過 token 認證）。註冊與管理端 reset 路徑同步
+  輪換 salt；新增 `utils::hashClientSecretWithSalt`。
+- **F-003 (#22)**：`refresh_token` grant 增加客戶端認證（RFC 6749
+  §3.2.1/§6）：CONFIDENTIAL 客戶端缺失/錯誤 secret 返回 401
+  `invalid_client`（含 `WWW-Authenticate: Basic`），PUBLIC 客戶端僅校驗
+  client_id 存在。
+- **F-004 (#23)**：Redis 後端 client_secret 比較改為常量時間比較；三個
+  存儲後端統一使用 `authforge::common::utils::constantTimeMemcmp`；刪除
+  洩漏比較結果的 LOG_DEBUG。
+- **F-005 (#24)**：獨立 Redis 存儲模式正式棄用：啟動時 LOG_ERROR 明示，
+  該模式下 refresh_token grant 返回 `unsupported_grant_type`（替代誤導性
+  的 invalid_grant）。目標架構為 Postgres 存儲 + Redis 緩存（另立
+  issue）。文檔見 `docs/backend/configuration-guide.md` §3。
+- **F-016 (#25)**：issuer 一致性修復：access token 簽發時寫入配置的
+  issuer（此前從不寫入，introspect 返回 schema 硬編碼默認值）；刪除
+  Postgres/Redis/Memory 三後端硬編碼的 `https://oauth.example.com`；
+  introspect 空 iss 由配置的 issuer 兜底；discovery 對 issuer 尾斜線歸一
+  化；非 localhost 的 http issuer 啟動告警。introspect `iss` 與 discovery
+  `issuer` 字節一致（OIDC Discovery §3）。
+
+#### OAuth/OIDC 合規審計 Batch 1 — 協議正確性 (#26/#28/#31/#33/#34/#35/#36)
+
+- **F-007 (#26)**：授權端點錯誤按 RFC 6749 §4.1.2.1 分流 —— client_id 未知
+  /redirect_uri 無效仍直接 4xx，其餘錯誤（invalid_scope、PKCE-required、
+  server_error 等）改為 302 重定向到已驗證的 redirect_uri 並回顯 state。
+- **F-006 (#28)**：資源端點 401（攜帶無效/過期憑證）發出 RFC 6750 §3
+  `WWW-Authenticate: Bearer realm, error="invalid_token"` 挑戰。
+- **F-015 (#31)**：`device_authorization` 端點按 client_type 分支認證
+  （RFC 8628 §3.1.1）：CONFIDENTIAL 需 client_secret，PUBLIC 僅校驗存在
+  （此前以空 secret 調用 validateClient，機密客戶端無法發起 device flow）。
+- **F-011 (#33)**：PKCE 預設改為強制（RFC 9700 §2.1.1），`config.json`/
+  `config.dev.json`/`config.ci.json`/`config.prod.json` 顯式
+  `require_pkce_for_public: true`。
+- **F-012 (#34)**：device flow 輪詢過快返回 `slow_down`（RFC 8628 §3.5），
+  `oauth2_device_codes` 新增 `last_polled_at` 列並每次輪詢更新；
+  `slow_down` 時將 interval 遞增 5 秒並持久化。
+- **F-008/F-009/F-013 (#35)**：token 端點 validation gate 發 RFC 6749 §5.2
+  `error: invalid_request` 信封（此前用應用信封 VALIDATION_INVALID_INPUT）；
+  authorization_code 兌換時若授權時綁定了 redirect_uri 則請求必須攜帶且匹配
+  （§4.1.3，此前空 redirect_uri 可繞過比較）；authorize 端校驗
+  `code_challenge_method ∈ {plain, S256}`（RFC 7636 §4.3）。
+- **F-014 (#36)**：redirect_uri 強制 https（RFC 8252 §7.3），豁免僅
+  `http://127.0.0.1`/`http://[::1]` loopback IP 字面量（端口通配，`localhost`
+  不豁免）；新增配置開關 `auth.allow_http_redirect_uri`（dev 開/prod 關）；
+  seed 與測試中 `localhost` redirect_uri 同步改為 `127.0.0.1`。
+
 ### Changed
 
 #### 依賴升級 (Dependencies)

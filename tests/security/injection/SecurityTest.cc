@@ -230,7 +230,7 @@ DROGON_TEST(Security_P0_Token_InvalidRefreshToken_Rejected)
     req->setContentTypeCode(drogon::CT_APPLICATION_X_FORM);
     req->setBody(
       "grant_type=refresh_token&refresh_token=invalid_token&"
-      "client_id=vue-client"
+      "client_id=vue-client&client_secret=123456"
     );
 
     auto [res, resp] = client->sendRequest(req);
