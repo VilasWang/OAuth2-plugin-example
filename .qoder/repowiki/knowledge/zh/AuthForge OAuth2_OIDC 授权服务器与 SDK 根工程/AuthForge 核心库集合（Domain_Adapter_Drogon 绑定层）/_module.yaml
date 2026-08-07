@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: libs
+title: AuthForge 核心库集合（Domain/Adapter/Drogon 绑定层）
+scope:
+    - libs/
+source_files: []
+depends_on: []
+related_to:
+    - path: examples
+    - path: frontends
+    - path: tests
+    - path: tools

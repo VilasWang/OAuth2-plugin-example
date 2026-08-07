@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: tests
+title: OAuth2 后端测试套件（单元/集成/契约/E2E/安全/性能）
+scope:
+    - tests/
+source_files: []
+depends_on: []
+related_to:
+    - path: libs
+    - path: tools
