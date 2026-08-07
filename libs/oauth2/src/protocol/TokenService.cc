@@ -177,7 +177,7 @@ void TokenService::exchangeCodeForToken(
     clients_->validateClient(
       clientId,
       clientSecret,
-      [self, this, code, clientId, redirectUri, codeVerifier, callback = std::move(callback)](
+      [self, code, clientId, redirectUri, codeVerifier, callback = std::move(callback)](
         bool isValid
       ) mutable {
           if (!isValid)
@@ -186,10 +186,10 @@ void TokenService::exchangeCodeForToken(
               return;
           }
 
-          grants_->consumeAuthCode(
-            hashToken(*crypto_, code),
+          self->grants_->consumeAuthCode(
+            hashToken(*self->crypto_, code),
             redirectUri,
-            [self, this, callback = std::move(callback), clientId, codeVerifier](
+            [self, callback = std::move(callback), clientId, codeVerifier](
               std::optional<authforge::oauth2::model::OAuth2AuthCode> authCodeOpt
             ) {
                 if (!authCodeOpt)
@@ -208,7 +208,7 @@ void TokenService::exchangeCodeForToken(
                     // PKCE was used - validate code_verifier.
                     if (
                       codeVerifier.empty() ||
-                      !validatePkceCodeVerifier(
+                      !self->validatePkceCodeVerifier(
                         codeVerifier, authCodeOpt->codeChallenge, authCodeOpt->codeChallengeMethod
                       )
                     )
@@ -231,16 +231,16 @@ void TokenService::exchangeCodeForToken(
                 }
 
                 auto authCode = *authCodeOpt;
-                resolveRoles(
+                self->resolveRoles(
                   authCode.userId,
-                  [self, this, callback, authCode, now](std::vector<std::string> roles) {
+                  [self, callback, authCode, now](std::vector<std::string> roles) {
                       Json::Value rolesJson(Json::arrayValue);
                       for (const auto &r : roles)
                           rolesJson.append(r);
 
-                      auto tokenStr = generateSecureToken(*crypto_);
+                      auto tokenStr = generateSecureToken(*self->crypto_);
                       authforge::oauth2::model::OAuth2AccessToken token;
-                      token.token = hashToken(*crypto_, tokenStr);
+                      token.token = hashToken(*self->crypto_, tokenStr);
                       token.clientId = authCode.clientId;
                       token.userId = authCode.userId;
                       token.scope = authCode.scope;
@@ -248,24 +248,23 @@ void TokenService::exchangeCodeForToken(
                       // iat (RFC 7662 §2.2) is populated, not left at the 0
                       // default (which the introspect endpoint silently omits).
                       token.issuedAt = now;
-                      token.expiresAt = now + accessTokenTtl_;
+                      token.expiresAt = now + self->accessTokenTtl_;
 
-                      auto refreshTokenStr = generateSecureToken(*crypto_);
-                      auto familyId = generateSecureToken(*crypto_, 16);
+                      auto refreshTokenStr = generateSecureToken(*self->crypto_);
+                      auto familyId = generateSecureToken(*self->crypto_, 16);
                       authforge::oauth2::model::OAuth2RefreshToken refreshToken;
-                      refreshToken.token = hashToken(*crypto_, refreshTokenStr);
+                      refreshToken.token = hashToken(*self->crypto_, refreshTokenStr);
                       refreshToken.accessToken = token.token;
                       refreshToken.clientId = authCode.clientId;
                       refreshToken.userId = authCode.userId;
                       refreshToken.scope = authCode.scope;
-                      refreshToken.expiresAt = now + refreshTokenTtl_;
+                      refreshToken.expiresAt = now + self->refreshTokenTtl_;
                       refreshToken.familyId = familyId;
 
-                      tokens_->saveTokenPair(
+                      self->tokens_->saveTokenPair(
                         token,
                         refreshToken,
                         [self,
-                         this,
                          callback,
                          tokenStr,
                          refreshTokenStr,
@@ -278,7 +277,7 @@ void TokenService::exchangeCodeForToken(
                                 // hand out were never stored, so issuing
                                 // them anyway would be a silent failure
                                 // (introspection/refresh lookups all miss).
-                                audit(
+                                self->audit(
                                   "token_issued",
                                   "failure",
                                   authCode.userId,
@@ -294,36 +293,36 @@ void TokenService::exchangeCodeForToken(
                             // P1 #6: advertise the real configured lifetime, not a
                             // hardcoded 3600 (RFC 6749 §5.1 requires expires_in to
                             // be the token's actual remaining lifetime).
-                            json["expires_in"] = (Json::Int64)(accessTokenTtl_);
+                            json["expires_in"] = (Json::Int64)(self->accessTokenTtl_);
                             json["refresh_token"] = refreshTokenStr;
                             json["roles"] = rolesJson;
 
                             if (
-                              jwkManager_ && jwkManager_->isInitialized() &&
+                              self->jwkManager_ && self->jwkManager_->isInitialized() &&
                               authCode.scope.find("openid") != std::string::npos
                             )
                             {
                                 Json::Value idTokenClaims;
-                                idTokenClaims["iss"] = issuer_;
+                                idTokenClaims["iss"] = self->issuer_;
                                 idTokenClaims["sub"] = authCode.userId;
                                 idTokenClaims["aud"] = authCode.clientId;
                                 idTokenClaims["iat"] = (Json::Int64)now;
                                 // P1 #6: id_token exp follows the access token TTL
                                 // (OIDC Core §2 requires exp to be the real expiry).
-                                idTokenClaims["exp"] = (Json::Int64)(now + accessTokenTtl_);
+                                idTokenClaims["exp"] = (Json::Int64)(now + self->accessTokenTtl_);
                                 if (!authCode.nonce.empty())
                                 {
                                     idTokenClaims["nonce"] = authCode.nonce;
                                 }
 
-                                std::string idToken = jwkManager_->signJwt(idTokenClaims);
+                                std::string idToken = self->jwkManager_->signJwt(idTokenClaims);
                                 if (!idToken.empty())
                                 {
                                     json["id_token"] = idToken;
                                 }
                             }
 
-                            audit("token_issued", "success", authCode.userId, "token", "");
+                            self->audit("token_issued", "success", authCode.userId, "token", "");
                             callback(json);
                         }
                       );
@@ -352,26 +351,26 @@ void TokenService::refreshAccessToken(
     auto self = shared_from_this();
     tokens_->atomicRevokeRefreshToken(
       hashedRt,
-      [self, this, callback = std::move(callback), clientId, hashedRt](
+      [self, callback = std::move(callback), clientId, hashedRt](
         std::optional<authforge::oauth2::model::OAuth2RefreshToken> storedRt
       ) mutable {
           if (!storedRt)
           {
-              tokens_->getRefreshToken(
+              self->tokens_->getRefreshToken(
                 hashedRt,
-                [self, this, callback = std::move(callback)](
+                [self, callback = std::move(callback)](
                   std::optional<authforge::oauth2::model::OAuth2RefreshToken> maybeRevoked
                 ) {
                     if (maybeRevoked && maybeRevoked->revoked && !maybeRevoked->familyId.empty())
                     {
-                        audit(
+                        self->audit(
                           "refresh_token_reuse_detected",
                           "failure",
                           maybeRevoked->userId,
                           "token_family",
                           maybeRevoked->familyId
                         );
-                        tokens_->revokeTokenFamily(maybeRevoked->familyId, [callback]() {
+                        self->tokens_->revokeTokenFamily(maybeRevoked->familyId, [callback]() {
                             callback(makeError("invalid_grant", "Token reuse detected"));
                         });
                     }
@@ -397,28 +396,28 @@ void TokenService::refreshAccessToken(
               return;
           }
 
-          auto newTokenStr = generateSecureToken(*crypto_);
+          auto newTokenStr = generateSecureToken(*self->crypto_);
           authforge::oauth2::model::OAuth2AccessToken token;
-          token.token = hashToken(*crypto_, newTokenStr);
+          token.token = hashToken(*self->crypto_, newTokenStr);
           token.clientId = storedRt->clientId;
           token.userId = storedRt->userId;
           token.scope = storedRt->scope;
           // P2 #10: record real issue time for introspection iat.
           token.issuedAt = now;
-          token.expiresAt = now + accessTokenTtl_;
+          token.expiresAt = now + self->accessTokenTtl_;
 
-          auto newRefreshTokenStr = generateSecureToken(*crypto_);
+          auto newRefreshTokenStr = generateSecureToken(*self->crypto_);
           authforge::oauth2::model::OAuth2RefreshToken newRt;
-          newRt.token = hashToken(*crypto_, newRefreshTokenStr);
+          newRt.token = hashToken(*self->crypto_, newRefreshTokenStr);
           newRt.accessToken = token.token;
           newRt.clientId = storedRt->clientId;
           newRt.userId = storedRt->userId;
           newRt.scope = storedRt->scope;
-          newRt.expiresAt = now + refreshTokenTtl_;
+          newRt.expiresAt = now + self->refreshTokenTtl_;
           newRt.familyId = storedRt->familyId;
 
-          tokens_->saveTokenPair(
-            token, newRt, [self, this, callback, newTokenStr, newRefreshTokenStr, storedRt](bool ok) {
+          self->tokens_->saveTokenPair(
+            token, newRt, [self, callback, newTokenStr, newRefreshTokenStr, storedRt](bool ok) {
                 if (!ok)
                 {
                     // Same silent-failure guard as exchangeCodeForToken:
@@ -426,12 +425,12 @@ void TokenService::refreshAccessToken(
                     callback(makeError("server_error", "Failed to persist token pair"));
                     return;
                 }
-                audit("token_refreshed", "success", storedRt->userId, "token", "");
+                self->audit("token_refreshed", "success", storedRt->userId, "token", "");
                 Json::Value json;
                 json["access_token"] = newTokenStr;
                 json["token_type"] = "Bearer";
                 // P1 #6: real configured lifetime, not hardcoded 3600.
-                json["expires_in"] = (Json::Int64)accessTokenTtl_;
+                json["expires_in"] = (Json::Int64)self->accessTokenTtl_;
                 json["refresh_token"] = newRefreshTokenStr;
                 callback(json);
             }
