@@ -23,32 +23,30 @@
 
 ## 2. 测试分层
 
-### Level 1 — 单元测试（无网络 I/O）
+测试编译为**两类可执行文件**：
 
-| 测试文件 | 覆盖范围 |
-|---|---|
-| `ConfigTest.cc` | 验证 `config.json` 的正确加载、RBAC 规则解析及插件配置读取 |
-| `EnvConfigTest.cc` | 验证 `loadConfigWithEnv()` 函数能正确将环境变量注入 JSON 配置（`EnvInjectionVerify` 测试） |
+1. **按库的 gtest 二进制文件**（Domain 层，纯单元测试，无 DB/无 Drogon）：
+   - `libs/common/test/authforge-common-test` — `ConfigManager`、`ErrorCatalog`、`Result`、值对象
+   - `libs/common/testing/test/authforge-common-testing-test` — 假实现（`FakeClock`/`FakeCryptoProvider`/`FakeLogger` 等）的确定性验证
+   - `libs/oauth2/test/authforge-oauth2-test` — `TokenService`/`AuthorizationService`/`ClientService`/`JwkManager`/`Pkce`/`ScopeDecisionEngine`/`TokenCrypto`
+   - `libs/identity/test/authforge-identity-test` — `AuthService`/`MfaService`/`TotpUtils`/`SessionManager`/`WebAuthnService`/社交登录（Google/WeChat/GitHub）
+   - 这些用 gtest（非 `DROGON_TEST`），由各 lib 的 `test/CMakeLists.txt` 通过 `gtest_discover_tests` 注册为独立 ctest 条目。
 
-> 单元测试位于 `tests/unit/` 下，按领域分目录（`config/`、`error/`、`utils/`、`validation/` 等）。
+2. **主测试二进制文件 `tests/authforge-tests`**（`DROGON_TEST` 框架，包含所有需要 Drogon/DB 的层级）：
 
-### Level 2 — 集成测试（需要 Redis / PostgreSQL）
+| 层级 | 目录 | 覆盖范围 | 外部依赖 |
+|---|---|---|---|
+| **Level 1 — 单元测试** | `tests/unit/`（`config/`、`error/`、`utils/`、`validation/`、`plugin/`、`schema/`、`subject/`、`initorder/`） | 纯逻辑：错误信封、密码哈希、PKCE/CryptoUtils、RuleSet 校验、配置加载、OpenAPI 生成 | 无 |
+| **Level 2 — 契约测试** | `tests/contract/` | 跨后端（Postgres/Redis/Memory）的仓储契约一致性：`IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository`/`IUserRepository` | Memory 必跑；Postgres/Redis 在 `getPostgresClientOrNull()`/`getRedisClientOrNull()` 返回空时自动 skip |
+| **Level 3 — 集成测试** | `tests/integration/`（`auth/`、`token/`、`storage/`、`concurrency/`、`error/`、`plugin/`） | 完整业务流程、并发竞态、错误信封、插件组装 | Postgres / Redis（memory-only 模式 `-DOAUTH2_MEMORY_TESTS_ONLY=ON` 下跑 Memory 子集） |
+| **Level 4 — 安全测试** | `tests/security/` | SQL 注入、XSS、命令注入、CORS、Token 安全、速率限制 | Postgres / Redis |
+| **Level 5 — E2E/功能** | `tests/e2e-backend/`、`tests/performance/` | OAuth2 完整流程、性能基准 | Postgres + Redis + Drogon App |
 
-| 测试文件 | 覆盖范围 | 依赖 |
-|---|---|---|
-| `AdvancedStorageTest.cc` | 验证已撤销/已过期 Token 的拒绝逻辑，以及并发场景下的数据正确性 | Redis / Postgres |
-| `UserTest.cc` | 验证用户注册、密码验证（`AuthService`）及 RBAC 角色查询全流程 | Postgres |
-| `PluginTest.cc` | 验证 `OAuth2Plugin` 核心业务流程（内存存储下的插件初始化与基本功能）| Postgres / Redis |
+> 内存模式：配置 `-DOAUTH2_MEMORY_TESTS_ONLY=ON` 可在**无外部 DB** 时跑完整套件（Postgres/Redis 测试自动 skip）——这是 Windows CI 的做法。
 
-> 集成测试位于 `tests/integration/` 下（`storage/`、`auth/`、`token/`、`concurrency/`、`error/` 等），另有契约测试位于 `tests/contract/`。
+> 安全测试用例数、功能测试用例数与覆盖清单见各目录下的测试文件头注释；本节不再硬编码具体数量（数量随迭代增长，统一以 §7 的实测统计为准）。
 
-### Level 3 — 端到端集成测试
-
-| 测试文件 | 覆盖范围 | 依赖 |
-|---|---|---|
-| `IntegrationE2ETest.cc` | 模拟完整 OAuth2 授权码流程：HTTP 请求 → 授权 → 登录 → 换 Token → UserInfo 验证 | Postgres + Redis + 运行中的 Drogon App |
-
-### Level 4 — 安全测试 (Security Tests)
+### Level 4 补充明细 — 安全测试 (Security Tests)
 
 | 测试文件 | 覆盖范围 | 测试数量 |
 |---|---|---|
@@ -64,7 +62,11 @@
 - [PASS] 速率限制: 暴力破解防护
 - [PASS] 健康检查: 信息泄露检查
 
-### Level 5 — 功能测试 (Functional Tests)
+### Level 5 补充明细 — E2E / 功能测试 (Functional Tests)
+
+| 测试文件 | 覆盖范围 | 依赖 |
+|---|---|---|
+| `IntegrationE2ETest.cc` | 模拟完整 OAuth2 授权码流程：HTTP 请求 → 授权 → 登录 → 换 Token → UserInfo 验证 | Postgres + Redis + 运行中的 Drogon App |
 
 | 测试文件 | 覆盖范围 | 测试数量 |
 |---|---|---|
@@ -230,36 +232,68 @@ In test case SomeTestName
 
 ## 7. 测试覆盖率总结
 
-### 总体测试状态 (2026-04-21)
+### 总体测试状态
 
-| 测试类别 | 通过 | 失败 | 总计 | 通过率 |
+> 以下数字为**实测统计**（Windows MSVC Release 构建，无外部 DB，Postgres/Redis 测试 skip）。在带 Postgres+Redis 的环境（如 Linux CI 或本地 WSL+Docker）下，被 skip 的契约/集成测试会激活，ctest 条目数会进一步增加。
+
+| 测试来源 | 通过 | 失败 | 总计 | 通过率 |
 |---------|------|------|------|--------|
-| **单元测试** | ~15 | 0 | ~15 | 100% [PASS] |
-| **集成测试** | ~8 | 0 | ~8 | 100% [PASS] |
-| **E2E 测试** | 1 | 0 | 1 | 100% [PASS] |
-| **安全测试** | 18 | 0 | 18 | 100% [PASS] |
-| **功能测试** | 21 | 0 | 21 | 100% [PASS] |
-| **总计** | **~63** | **0** | **~63** | **100% [PASS]** |
+| **按库 gtest 二进制**（common 40 + common-testing 43 + oauth2 151 + identity 130） | 364 | 0 | 364 | 100% |
+| **主测试二进制 ctest 条目**（含 Contract 标签 + OAuth2Tests 全量） | 450 | 0 | 450 | 100% |
 
-### 代码覆盖率估算
+> 注：两列数字有重叠关系——主二进制内含所有 `DROGON_TEST` 单元/集成测试（作为一个 `OAuth2Tests` 条目运行）；按库 gtest 二进制是 Domain 层的纯单元测试，独立编译运行。`450` 条 ctest 中 84 条带 `Contract` 标签（可用 `ctest -L Contract` 单独跑）。
 
+### 代码覆盖率
+
+实测行覆盖率（gcov，gcc 13.3 Debug 构建，WSL Ubuntu 24.04，Postgres+Redis 激活；排除 ORM 自动生成的 `models/`；测量于 7ba8068，全部 5 个测试二进制均已执行）：
+
+| 库 | 行覆盖 | 备注 |
+|---|---|---|
+| libs/common | 69.4% (318/458) | ErrorCatalog/ErrorTypes/ErrorContext/ConfigManager（由 per-lib gtest 二进制 `authforge-common-test` 驱动）；ConfigManager 环境相关分支与 ErrorCatalog 部分分支未覆盖 |
+| libs/identity | **96.9%** (590/609) | Auth/Mfa/WebAuthn/Social/Totp/Session |
+| libs/storage-memory | **97.1%** (431/444) | Memory 后端全方法覆盖（CI 必跑路径） |
+| libs/oauth2 | **92.1%** (627/681) | TokenService/AuthService/ClientService/JwkManager/Pkce |
+| libs/storage-redis | 46.2% (306/663) | 契约测试覆盖 getClient/validate/grant/token/consent 主路径；Lua 脚本与 transaction CRUD 待补 |
+| libs/storage-postgres | 43.9% (727/1657) | 契约测试覆盖主路径；剩余盲区为事务/错误回退分支（需注入故障才能触发） |
+| libs/drogon | **53.5%** (4807/8978) | admin 0%→55-69%、admin 控制器 0%→91-100%；authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器补强；社交 OAuth 控制器经 mock 注入补强（Google 38.3%、WeChat 30.6%、GitHub 32.5%）；WebAuthn 39.2%（非加密 stub，无需 authenticator） |
+| **整体** | **57.9%** (7806/13490) | 上表逐库求和（`scripts/measure_coverage.py` 的 OVERALL 即逐库之和）；从 48.5% 基线提升 +9.4pp |
+
+> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/authforge/identity/testing/` 的共享 Fake）将整体提升到 57.9%。社交 OAuth 的 Google/WeChat/GitHub 均可经 mock 注入在 memory 模式下跑（注入路径不写 DB）；其中 GitHub happy-path 最初因 `issueTokensForUser` 直连 `getDbClient()` 无法在 memory 模式覆盖，随后已重构为经 `OAuth2Plugin::saveTokenPair` 存储抽象持久化（见 `SocialLoginHttpTest.cc` 的 `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens`），happy-path 现已可测（GitHubController 从 5.9% 提升到 32.5%）；WebAuthn 为非加密 stub，Postgres 模式下完整可测。注：此前文档的 58.8% 系旧逐库数字求和（其中 common 的 98.8% 为陈旧数据，现 `libs/common/src` 仅 4 个源文件 458 行，实测 69.4%）；本表已全部替换为 7ba8068 的实测值。剩余盲区：storage-postgres 事务/错误回退分支（需故障注入）。
+
+#### ⚠️ 实测覆盖率必须跑全部 5 个测试二进制
+
+实测数字依赖**全部 5 个测试二进制**都执行（仅跑主二进制 `authforge-tests` 会漏掉 4 个 per-lib gtest 二进制贡献的 domain 层覆盖率，common 会被低估到 ~60%）：
+
+1. `libs/common/test/authforge-common-test`（40 用例）
+2. `libs/common/testing/test/authforge-common-testing-test`（43 用例）
+3. `libs/identity/test/authforge-identity-test`（130 用例）
+4. `libs/oauth2/test/authforge-oauth2-test`（151 用例）
+5. `tests/authforge-tests`（450 条 ctest，含所有 `DROGON_TEST` 单元/集成/契约/admin HTTP 测试）
+
+在 coverage 构建目录下依次运行这 5 个二进制后再聚合 `.gcda`。
+
+#### ⚠️ gcovr 路径匹配 bug —— 用 `scripts/measure_coverage.py` 代替
+
+`gcovr 8.6` 对部分文件（如 `ClientManagementService.cc`）会误报 **0%**：raw `gcov` 明确显示 `Lines executed:55.79% of 328`，但 gcovr 的 `--print-summary` 只列出文件名不带百分比（gcovr 的源路径匹配对含绝对路径 + Drogon 头文件的 `.gcov` 输出处理不一致）。这是 gcovr 的已知路径匹配问题，不是零计数 bug（gcov flush 工作正常，见下）。
+
+**可靠的聚合方式**：`scripts/measure_coverage.py` 直接用 `gcov -j`（JSON 格式，每文件 `{file, lines[{count, unexecuted_block}]}`）聚合，绕过 gcovr 的文本路径匹配。用法：
+
+```bash
+cd <repo>
+# 先跑全部 5 个二进制（见上一节），再生成 JSON + 聚合：
+find build/linux-coverage/libs -path "*/src/*" -name "*.gcda" ! -path "*/models/*" \
+  | xargs -I{} bash -c 'cd "$(dirname {})" && gcov -j "$(basename {})" >/dev/null 2>&1'
+find build/linux-coverage/libs -path "*/src/*" -name "*.gcov.json.gz" ! -path "*/models/*" \
+  | python3 scripts/measure_coverage.py
 ```
-Controller 层: ████████████████████ 90%+
-Service 层:   ██████████████████ 80%+
-Storage 层:  ████████████████ 70%+
-Plugin 层:   ████████████████████ 85%+
 
-总体覆盖率:   ≈ 80% (目标达成 [PASS])
-```
+gcovr 仍可用于生成逐文件 HTML 报告（`--html-details`），但**汇总百分比以 `scripts/measure_coverage.py` 为准**。
 
-### 生产就绪评估
+#### 覆盖率工具链
 
-**系统状态**: [INFO] **生产就绪**
-
-- [PASS] 所有关键安全漏洞已修复 (10/10)
-- [PASS] 所有测试通过 (63/63 = 100%)
-- [PASS] 无阻塞性 Bug 影响生产部署
-- [PASS] 剩余 17 个 Bug 均为低风险或边缘情况
+- `cmake/Coverage.cmake`（`oauth2_apply_gcov(target)`）给每个 first-party 库 + 测试可执行文件加 `-fprofile-arcs -ftest-coverage`，并显式链接 libgcov（仅 GCC；Clang 的 profile 运行时由 `-fprofile-arcs` 链接选项自动提供，无 libgcov）。
+- `tests/test_main.cc` 在两处 `std::_Exit()` 前显式调用 `__gcov_dump()`：因为 `_Exit` 绕过 `atexit`，libgcov 的计数器 flush 不会自动执行（否则 gcov 读到全 0 计数）。这是 Drogon 测试框架 fast-exit 与 gcov 的已知交互，需在测试 main 里手动补 flush。（注：4 个 per-lib gtest 二进制正常退出，不走 `_Exit`，因此它们不需要手动 flush。）
+- 覆盖率当前阶段性目标：60%（7ba8068 实测 57.9%）。剩余盲区集中在难以 HTTP 测试的分支：WebAuthn 典礼/加密深分支、UserSelfService（需逆向 auth 前置 filter）、storage-postgres 事务/错误回退分支（需故障注入）。社交 OAuth 控制器已可通过 `SocialMockFixture.h` 的 Fake 注入在 memory 模式下覆盖（GitHub happy-path 经 `saveTokenPair` 存储抽象重构后不再依赖 `getDbClient()`）。ORM 自动生成的 `libs/storage-postgres/src/models/*.cc` 已从分母排除。
 
 ---
 

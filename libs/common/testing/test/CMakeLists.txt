@@ -19,6 +19,7 @@ set_target_properties(authforge-common-testing-test PROPERTIES
 )
 
 oauth2_apply_compat(authforge-common-testing-test)
+oauth2_apply_gcov(authforge-common-testing-test)
 
 include(GoogleTest)
 gtest_discover_tests(authforge-common-testing-test)

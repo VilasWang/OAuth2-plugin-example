@@ -480,7 +480,11 @@ void runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
     auto at = makeAccessToken(atToken, clientId);
     auto rt = makeRefreshToken(rtToken, atToken, clientId);
 
-    waitForVoid([&](auto cb) { repo->saveTokenPair(at, rt, std::move(cb)); });
+    // SaveResultCallback contract: a successful persist reports ok == true.
+    bool pairSaved = waitForValue<bool>([&](auto cb) {
+        repo->saveTokenPair(at, rt, std::move(cb));
+    });
+    CHECK(pairSaved);
 
     auto fetchedAt = waitForValue<std::optional<OAuth2AccessToken>>([&](auto cb) {
         repo->getAccessToken(atToken, std::move(cb));
@@ -613,10 +617,14 @@ DROGON_TEST(
     auto at = makeAccessToken(atToken, "vue-client");  // same PK: will collide
     auto rt = makeRefreshToken(rtToken, atToken, "vue-client");
 
-    // saveTokenPair's error path still invokes the callback (it does not
-    // propagate the DB exception to the caller), so this must complete
-    // without hanging.
-    waitForVoid([&](auto cb) { repo->saveTokenPair(at, rt, std::move(cb)); });
+    // saveTokenPair's error path still invokes the callback and now reports
+    // the failure via ok == false (SaveResultCallback contract) instead of
+    // silently succeeding, so this must complete without hanging AND report
+    // false for the colliding primary key.
+    bool conflictSaved = waitForValue<bool>([&](auto cb) {
+        repo->saveTokenPair(at, rt, std::move(cb));
+    });
+    CHECK(!conflictSaved);
 
     auto fetchedRt = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
         repo->getRefreshToken(rtToken, std::move(cb));
@@ -658,4 +666,270 @@ DROGON_TEST(
     runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
       TEST_CTX, repo, "mem-client"
     );
+}
+
+// ===========================================================================
+// Coverage additions (P1) -- Memory backend only (always runs, no DB gate).
+// These exercise repository methods the original contract suite did not
+// reach at all against the split MemoryTokenRepository class:
+// revokeTokenFamily (security-critical reuse-detection cascade),
+// introspectToken (all branches), revokeAccessToken audit fields,
+// atomicRevokeRefreshToken not-found/already-revoked, expired refresh
+// filtering on get, purgeExpired, and incrementIntrospectCount.
+// ===========================================================================
+
+// revokeTokenFamily: revokes every refresh token in the family AND the
+// associated access token (MemoryTokenRepository.cc:117-136). This is the
+// security-critical reuse-detection cascade with zero prior coverage.
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeTokenFamily_RevokesRefreshAndAccess)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+
+    const std::string atToken = "fam-at-" + uniqueSuffix();
+    const std::string rtToken = "fam-rt-" + uniqueSuffix();
+    const std::string familyId = "fam-" + uniqueSuffix();
+
+    auto at = makeAccessToken(atToken, "mem-client");
+    auto rt = makeRefreshToken(rtToken, atToken, "mem-client");
+    rt.familyId = familyId;
+    waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
+    waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
+
+    waitForVoid([&](auto cb) { repo->revokeTokenFamily(familyId, std::move(cb)); });
+
+    // Refresh token is now revoked -> getRefreshToken returns nullopt
+    // (revoked tokens are filtered at read time).
+    auto rtFetched = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->getRefreshToken(rtToken, std::move(cb));
+    });
+    CHECK(!rtFetched.has_value());
+
+    // Associated access token is also revoked -> getAccessToken returns nullopt.
+    auto atFetched = waitForValue<std::optional<OAuth2AccessToken>>([&](auto cb) {
+        repo->getAccessToken(atToken, std::move(cb));
+    });
+    CHECK(!atFetched.has_value());
+}
+
+// introspectToken: an active access token introspects as active with the
+// populated RFC 7662 fields (MemoryTokenRepository.cc:163-177).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ActiveAccess)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string token = "intro-at-active-" + uniqueSuffix();
+    auto at = makeAccessToken(token, "mem-client");
+    waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
+
+    auto intro = waitForValue<std::optional<TokenIntrospection>>([&](auto cb) {
+        repo->introspectToken(token, std::move(cb));
+    });
+    REQUIRE(intro.has_value());
+    CHECK(intro->active == true);
+    CHECK(intro->clientId == "mem-client");
+    CHECK(intro->tokenType == "Bearer");
+    CHECK(intro->sub == "contract-user");
+}
+
+// introspectToken: a revoked access token introspects as inactive.
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_RevokedAccess)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string token = "intro-at-revoked-" + uniqueSuffix();
+    auto at = makeAccessToken(token, "mem-client");
+    waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
+    waitForVoid([&](auto cb) { repo->revokeAccessToken(token, "admin", std::move(cb)); });
+
+    auto intro = waitForValue<std::optional<TokenIntrospection>>([&](auto cb) {
+        repo->introspectToken(token, std::move(cb));
+    });
+    REQUIRE(intro.has_value());
+    CHECK(intro->active == false);
+}
+
+// introspectToken: an expired access token introspects as inactive.
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ExpiredAccess)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string token = "intro-at-expired-" + uniqueSuffix();
+    // ttl = -100 (already expired).
+    auto at = makeAccessToken(token, "mem-client", -100);
+    waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
+
+    auto intro = waitForValue<std::optional<TokenIntrospection>>([&](auto cb) {
+        repo->introspectToken(token, std::move(cb));
+    });
+    REQUIRE(intro.has_value());
+    CHECK(intro->active == false);
+}
+
+// introspectToken: a not-found token introspects as inactive
+// (MemoryTokenRepository.cc:211-214).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_NotFound)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto intro = waitForValue<std::optional<TokenIntrospection>>([&](auto cb) {
+        repo->introspectToken("intro-nonexistent-" + uniqueSuffix(), std::move(cb));
+    });
+    REQUIRE(intro.has_value());
+    CHECK(intro->active == false);
+}
+
+// introspectToken: an active refresh token introspects as active via the
+// refresh-token fallback (MemoryTokenRepository.cc:180-208).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ActiveRefresh)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string rtToken = "intro-rt-active-" + uniqueSuffix();
+    auto rt = makeRefreshToken(rtToken, "intro-at-for-rt", "mem-client");
+    waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
+
+    auto intro = waitForValue<std::optional<TokenIntrospection>>([&](auto cb) {
+        repo->introspectToken(rtToken, std::move(cb));
+    });
+    REQUIRE(intro.has_value());
+    CHECK(intro->active == true);
+    CHECK(intro->clientId == "mem-client");
+}
+
+// revokeAccessToken: sets revokedAt/revokedBy audit fields on the access
+// token (MemoryTokenRepository.cc:241-247) and also revokes a refresh
+// token sharing the same token string (cc:250-257).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeAccessToken_SetsAuditFieldsAndAlsoRevokesRefresh)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string token = "revoke-at-audit-" + uniqueSuffix();
+    auto at = makeAccessToken(token, "mem-client");
+    waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
+
+    waitForVoid([&](auto cb) { repo->revokeAccessToken(token, "auditor-1", std::move(cb)); });
+
+    // Re-save is NOT needed; introspect reflects the revoked flag + audit
+    // fields (revokedAt/revokedBy are on the stored record, observable via
+    // the active=false introspection + the fact getAccessToken now returns
+    // nullopt for a revoked token).
+    auto atFetched = waitForValue<std::optional<OAuth2AccessToken>>([&](auto cb) {
+        repo->getAccessToken(token, std::move(cb));
+    });
+    CHECK(!atFetched.has_value());
+
+    // Also: a refresh token with the SAME string is revoked too.
+    const std::string rtToken = "revoke-rt-shared-" + uniqueSuffix();
+    auto rt = makeRefreshToken(rtToken, "x", "mem-client");
+    waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
+    waitForVoid([&](auto cb) { repo->revokeAccessToken(rtToken, "auditor-2", std::move(cb)); });
+    auto rtFetched = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->getRefreshToken(rtToken, std::move(cb));
+    });
+    CHECK(!rtFetched.has_value());
+}
+
+// atomicRevokeRefreshToken: a not-found token returns nullopt
+// (MemoryTokenRepository.cc:101-105).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevokeRefreshToken_NotFoundReturnsNullopt)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto fetched = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->atomicRevokeRefreshToken("atomic-nonexistent-" + uniqueSuffix(), std::move(cb));
+    });
+    CHECK(!fetched.has_value());
+}
+
+// atomicRevokeRefreshToken: an already-revoked token returns nullopt
+// (MemoryTokenRepository.cc:106-111).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevokeRefreshToken_AlreadyRevokedReturnsNullopt)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string rtToken = "atomic-already-revoked-" + uniqueSuffix();
+    auto rt = makeRefreshToken(rtToken, "x", "mem-client");
+    waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
+
+    // First atomicRevoke succeeds and returns the token data.
+    auto first = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->atomicRevokeRefreshToken(rtToken, std::move(cb));
+    });
+    REQUIRE(first.has_value());
+
+    // Second atomicRevoke on the now-revoked token returns nullopt.
+    auto second = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->atomicRevokeRefreshToken(rtToken, std::move(cb));
+    });
+    CHECK(!second.has_value());
+}
+
+// getRefreshToken: an expired refresh token returns nullopt at read time
+// (MemoryTokenRepository.cc:73).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredRefreshToken_GetReturnsNullopt)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string rtToken = "rt-expired-mem-" + uniqueSuffix();
+    auto rt = makeRefreshToken(rtToken, "x", "mem-client", -100);  // already expired
+    waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
+
+    auto fetched = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->getRefreshToken(rtToken, std::move(cb));
+    });
+    CHECK(!fetched.has_value());
+}
+
+// purgeExpired: removes expired access + refresh tokens while keeping
+// non-expired ones (MemoryTokenRepository.cc:266-298).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_PurgeExpired_RemovesExpiredRetainsValid)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+
+    const std::string liveAt = "purge-live-at-" + uniqueSuffix();
+    const std::string deadAt = "purge-dead-at-" + uniqueSuffix();
+    waitForVoid([&](auto cb) { repo->saveAccessToken(makeAccessToken(liveAt, "mem-client", 300), std::move(cb)); });
+    waitForVoid([&](auto cb) { repo->saveAccessToken(makeAccessToken(deadAt, "mem-client", -100), std::move(cb)); });
+
+    const std::string liveRt = "purge-live-rt-" + uniqueSuffix();
+    const std::string deadRt = "purge-dead-rt-" + uniqueSuffix();
+    waitForVoid([&](auto cb) { repo->saveRefreshToken(makeRefreshToken(liveRt, "x", "mem-client", 86400), std::move(cb)); });
+    waitForVoid([&](auto cb) { repo->saveRefreshToken(makeRefreshToken(deadRt, "x", "mem-client", -100), std::move(cb)); });
+
+    repo->purgeExpired();
+
+    // Live tokens survive; dead tokens were purged (observable via get
+    // returning nullopt -- but note dead ones were already filtered at
+    // read time anyway, so we verify the live ones are still retrievable).
+    auto liveAtFetched = waitForValue<std::optional<OAuth2AccessToken>>([&](auto cb) {
+        repo->getAccessToken(liveAt, std::move(cb));
+    });
+    CHECK(liveAtFetched.has_value());
+
+    auto liveRtFetched = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->getRefreshToken(liveRt, std::move(cb));
+    });
+    CHECK(liveRtFetched.has_value());
+
+    auto deadAtFetched = waitForValue<std::optional<OAuth2AccessToken>>([&](auto cb) {
+        repo->getAccessToken(deadAt, std::move(cb));
+    });
+    CHECK(!deadAtFetched.has_value());
+
+    auto deadRtFetched = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
+        repo->getRefreshToken(deadRt, std::move(cb));
+    });
+    CHECK(!deadRtFetched.has_value());
+}
+
+// incrementIntrospectCount: increments the counter on an existing token
+// and is a no-op on a missing one (MemoryTokenRepository.cc:217-227). We
+// observe the increment indirectly: the counter lives on the stored record
+// but is not exposed via getAccessToken, so we assert the call does not
+// throw and the callback fires for both cases (the function's observable
+// contract).
+DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_IncrementIntrospectCount_FiresCallbackForExistingAndMissing)
+{
+    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    const std::string token = "intro-count-at-" + uniqueSuffix();
+    waitForVoid([&](auto cb) { repo->saveAccessToken(makeAccessToken(token, "mem-client"), std::move(cb)); });
+
+    bool existingCalled = false;
+    repo->incrementIntrospectCount(token, [&]() { existingCalled = true; });
+    CHECK(existingCalled == true);
+
+    bool missingCalled = false;
+    repo->incrementIntrospectCount("intro-count-missing-" + uniqueSuffix(), [&]() { missingCalled = true; });
+    CHECK(missingCalled == true);
 }

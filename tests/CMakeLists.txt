@@ -161,13 +161,26 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/tests/integration/error/golden\"")
 
-# Coverage support
+# In-process DB seeding paths (coverage push, docs/history/design/
+# http-integration-test-coverage-plan.md Phase 1 / B1 fix): the test binary
+# needs to locate the migration SQL (apps/server/migrations/V*.sql) and the
+# dev seed SQL (apps/server/seed/*.sql) at runtime so the in-process seeder
+# (tests/common/StorageSeed.h) can apply them when a real Postgres is
+# configured. Without this, admin integration tests cannot authenticate (no
+# seeded admin user) outside the Linux CI shell step. Absolute paths derived
+# from this CMakeLists location (forward slashes, usable by std::ifstream
+# cross-platform). See OAUTH2_GOLDEN_DIR above for the same pattern.
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    "OAUTH2_MIGRATIONS_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/migrations\""
+    "OAUTH2_SEED_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/seed\"")
+
+# Coverage support: delegate to oauth2_apply_gcov (cmake/Coverage.cmake).
+# The instrumented first-party libraries (each lib calls oauth2_apply_gcov
+# too) are linked into this binary, so their .gcda files are written when
+# the tests run; this call additionally instruments the test-compiled
+# sources (test_main.cc, SchemaManager.cc, bootstrap/*.cc, organization/*.cc).
 if(OAUTH2_TEST_COVERAGE)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(${PROJECT_NAME} PRIVATE --coverage -fno-inline -fno-inline-small-functions -fno-default-inline)
-        target_link_options(${PROJECT_NAME} PRIVATE --coverage)
-        message(STATUS "Code coverage enabled for ${PROJECT_NAME}")
-    endif()
+    oauth2_apply_gcov(${PROJECT_NAME})
 endif()
 
 add_test(NAME OAuth2Tests COMMAND ${PROJECT_NAME} WORKING_DIRECTORY $<TARGET_FILE_DIR:${PROJECT_NAME}>)
@@ -246,6 +259,56 @@ set(OAUTH2_CONTRACT_TEST_NAMES
     Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UnknownUser_ReturnsNullopt
     Integration_P0_Contract_Functional_UserInfoRepository_Memory_MappedUser_SyntheticClaimsWithConfiguredRoles
     Integration_P0_Contract_Functional_UserInfoRepository_Memory_UnmappedUser_DefaultsToUserRole_NeverNullopt
+    # Coverage additions (P1, authforge coverage push): the Memory backend's
+    # split-repository methods not reached by the original contract suite --
+    # revokeTokenFamily (security-critical reuse cascade), introspectToken
+    # branches, revokeAccessToken audit fields, atomicRevokeRefreshToken
+    # not-found/already-revoked, expired-refresh filtering, purgeExpired,
+    # incrementIntrospectCount, AuthorizationTransaction CRUD, markAuthCodeUsed,
+    # markTransactionConsumed, consumeAuthCode empty-redirectUri bypass,
+    # getAuthCode lazy eviction, MemoryClientRepository initFromConfig parsing
+    # branches, MemoryIdentityRepository initAdminRoles + IUserRepository
+    # placeholder impls. Memory-only (no DB gate) so they run unconditionally.
+    # TokenRepository (Memory)
+    Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeTokenFamily_RevokesRefreshAndAccess
+    Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ActiveAccess
+    Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_RevokedAccess
+    Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ExpiredAccess
+    Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_NotFound
+    Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ActiveRefresh
+    Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeAccessToken_SetsAuditFieldsAndAlsoRevokesRefresh
+    Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevokeRefreshToken_NotFoundReturnsNullopt
+    Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevokeRefreshToken_AlreadyRevokedReturnsNullopt
+    Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredRefreshToken_GetReturnsNullopt
+    Integration_P0_Contract_Functional_TokenRepository_Memory_PurgeExpired_RemovesExpiredRetainsValid
+    Integration_P0_Contract_Functional_TokenRepository_Memory_IncrementIntrospectCount_FiresCallbackForExistingAndMissing
+    # GrantRepository (Memory)
+    Integration_P0_Contract_Functional_GrantRepository_Memory_AuthorizationTransaction_SaveGetRoundTrip
+    Integration_P0_Contract_Functional_GrantRepository_Memory_AuthorizationTransaction_Expired_GetReturnsNullopt_AndEvicts
+    Integration_P0_Contract_Functional_GrantRepository_Memory_MarkTransactionConsumed_FirstTrue_SecondFalse
+    Integration_P0_Contract_Functional_GrantRepository_Memory_MarkAuthCodeUsed_MissingNoOp_ExistingMarksUsed
+    Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_EmptyRedirectUriAllowed
+    Integration_P0_Contract_Functional_GrantRepository_Memory_GetAuthCode_Expired_EvictedAndReturnsNullopt
+    Integration_P0_Contract_Functional_GrantRepository_Memory_PurgeExpired_RemovesExpiredCodes
+    # ClientRepository (Memory) initFromConfig parsing branches
+    Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_RedirectUri_SingleString
+    Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_AllowedScopes_SingleString
+    Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_VueClient_DefaultScopes
+    Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_InvalidType_DefaultsToConfidential
+    Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_NullConfig_NoOp
+    # UserInfoRepository (Memory) initAdminRoles + placeholder impls
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_InitAdminRoles_NullConfig_DefaultsAdminUser
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_InitAdminRoles_RolesAsString
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindById_SyntheticUser
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByPublicSub_NonNumeric_ReturnsNullopt
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByPublicSub_Numeric_SyntheticUser
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByEmailAndUsername_ReturnNullopt
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_Create_ReturnsNulloptUnsupported
+    Integration_P0_Contract_Functional_UserInfoRepository_Memory_PasswordAndLoginMethods_PlaceholderReturns
+    # Coverage additions (P2/P3): Memory consent revoke-nonexistent no-op
+    # and per-scope independence.
+    Integration_P0_Contract_Functional_ConsentRepository_Memory_RevokeNonexistent_IsNoOp
+    Integration_P0_Contract_Functional_ConsentRepository_Memory_PerScopeIndependence
 )
 
 foreach(_contract_test_name ${OAUTH2_CONTRACT_TEST_NAMES})

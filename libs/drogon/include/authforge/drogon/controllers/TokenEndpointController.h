@@ -38,17 +38,27 @@ class TokenEndpointController : public ::drogon::HttpController<TokenEndpointCon
       ::drogon::Get,
       "authforge::drogon::filters::OAuth2AuthFilter"
     );
+    // RFC 7662 (introspection) and RFC 7009 (revocation) authenticate the
+    // CALLING CLIENT (via HTTP Basic or form client_id/client_secret), NOT a
+    // resource-owner access token. These routes therefore intentionally do NOT
+    // carry OAuth2AuthFilter (which would demand a Bearer user token and
+    // short-circuit with an AUTH_TOKEN_INVALID Error Envelope before the
+    // handler's RFC 6749 §5.2 invalid_client path could run -- see
+    // OAuth2ErrorHandler::sendErrorResponse, already RFC-compliant). The
+    // handlers do their own client auth via extractClientCredentials +
+    // plugin->validateClient. (Product-defect fix: previously these were
+    // registered behind OAuth2AuthFilter, which both violated the RFC client-
+    // credential model and masked the RFC-compliant error path the
+    // OAuth2InvalidClientHeaderTest exercises.)
     ADD_METHOD_TO(
       TokenEndpointController::introspect,
       "/oauth2/introspect",
-      ::drogon::Post,
-      "authforge::drogon::filters::OAuth2AuthFilter"
+      ::drogon::Post
     );
     ADD_METHOD_TO(
       TokenEndpointController::revoke,
       "/oauth2/revoke",
-      ::drogon::Post,
-      "authforge::drogon::filters::OAuth2AuthFilter"
+      ::drogon::Post
     );
     METHOD_LIST_END
 

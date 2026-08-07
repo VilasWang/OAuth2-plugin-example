@@ -1,6 +1,49 @@
 // #define DROGON_TEST_MAIN
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
+
+// gcov flush helper: this binary uses std::_Exit() to skip Drogon's crashy
+// teardown (see the _Exit calls below), but _Exit() bypasses atexit handlers
+// -- including libgcov's __gcov_exit that writes runtime counters to .gcda.
+// Without an explicit flush, gcov reads zero counts for every instrumented
+// TU even though the tests ran (the .gcda is written by libgcov's structure
+// path, but the runtime arc counters are never flushed).
+//
+// Declared manually under extern "C" rather than #include <gcov.h>: gcc's
+// <gcov.h> (at least through gcc 13) does NOT wrap its declarations in
+// extern "C", so in C++ it would generate a mangled symbol that libgcov.a
+// (which exports the unmangled C symbol __gcov_dump) does not provide,
+// causing a link error. __gcov_dump() is the gcc >= 11 / clang >= 14 API;
+// the older __gcov_flush() is the pre-11/pre-14 name.
+//
+// Guarded by AUTHFORGE_GCOV_INSTRUMENTED (defined by cmake/Coverage.cmake's
+// oauth2_apply_gcov ONLY when OAUTH2_TEST_COVERAGE=ON actually applies the
+// -fprofile-arcs/-ftest-coverage flags and links libgcov). Guarding with
+// `defined(__GNUC__)` broke plain GCC/Clang CI builds: AppleClang also
+// defines __GNUC__, but without coverage instrumentation __gcov_dump is
+// never linked -> undefined-symbol link errors (linux + macos CI jobs).
+#if defined(AUTHFORGE_GCOV_INSTRUMENTED)
+extern "C" void __gcov_dump(void);
+extern "C" void __gcov_flush(void);
+static void flushGcovIfInstrumented()
+{
+    // __gcov_dump is the gcc >= 11 / clang >= 14 API; __gcov_flush is the
+    // older name (gcc < 11 / clang < 14). Both version boundaries must be
+    // checked -- guarding only the clang one leaves gcc 9/10 (still within
+    // CONTRIBUTING.md's supported range) with an undefined __gcov_dump
+    // reference at link time.
+#if (defined(__clang__) && __clang_major__ < 14) || \
+    (!defined(__clang__) && defined(__GNUC__) && __GNUC__ < 11)
+    __gcov_flush();  // gcc < 11 / older clang: pre-dump flush API only
+#else
+    __gcov_dump();  // gcc >= 11 / clang >= 14; flushes arc counters to .gcda
+#endif
+}
+#else
+static void flushGcovIfInstrumented()
+{
+}
+#endif
 #include "../src/bootstrap/ControllerRegistration.h"
 #include "../src/bootstrap/IdentityAssembly.h"
 #include <authforge/drogon/controllers/HealthController.h>
@@ -396,6 +439,7 @@ int main(int argc, char **argv)
     )
     {
         std::cerr << "TIMEOUT: drogon app failed to start within 60s!" << std::endl;
+        flushGcovIfInstrumented();  // _Exit bypasses atexit -> flush before exiting
         std::_Exit(1);
         return 1;
     }
@@ -453,9 +497,18 @@ int main(int argc, char **argv)
     // 2. OS will clean up all resources (thread, memory, files, etc.)
     // 3. The thread will be terminated by OS when process exits
     // 4. No need for graceful framework shutdown in test environment
+    //
+    // NOTE (issue 8 investigation, 2026-08): the SegFault this fast-exit was
+    // added to dodge is NO LONGER REPRODUCIBLE -- the root cause was mitigated
+    // in commit 6bc8881 ("resolve Windows CI teardown SegFault") via a
+    // try-catch in OAuth2CleanupService::stop() + queueInLoop(quit()) called
+    // exactly once. With _Exit disabled the suite runs to a clean exit 0.
+    // The _Exit is retained as belt-and-suspenders for now (removing it is a
+    // separate decision; it forces the manual __gcov_dump() flush above).
     if (status == 0)
     {
         std::cout << "Tests passed, using fast exit to avoid teardown SegFault..." << std::endl;
+        flushGcovIfInstrumented();  // _Exit bypasses atexit -> flush gcov counters
         std::_Exit(0);
     }
 

@@ -60,6 +60,12 @@
       {
         "scheme" : "bearer",
         "type" : "http"
+      },
+      "clientCredentialsAuth" : 
+      {
+        "description" : "OAuth2 client authentication (RFC 6749 §2.3): client_id and client_secret via HTTP Basic Authorization header or POST body parameters.",
+        "scheme" : "basic",
+        "type" : "http"
       }
     }
   },
@@ -982,6 +988,69 @@
         ]
       }
     },
+    "/api/me/webauthn/credentials" : 
+    {
+      "get" : 
+      {
+        "description" : "List registered WebAuthn credentials.",
+        "operationId" : "get_api_me_webauthn_credentials",
+        "responses" : null,
+        "security" : 
+        {
+          "bearerAuth" : 
+          [
+            "bearerAuth"
+          ]
+        },
+        "summary" : "List WebAuthn Credentials",
+        "tags" : 
+        [
+          "WebAuthn"
+        ]
+      }
+    },
+    "/api/me/webauthn/register/begin" : 
+    {
+      "post" : 
+      {
+        "description" : "Start WebAuthn registration.",
+        "operationId" : "post_api_me_webauthn_register_begin",
+        "responses" : null,
+        "security" : 
+        {
+          "bearerAuth" : 
+          [
+            "bearerAuth"
+          ]
+        },
+        "summary" : "WebAuthn Register Begin",
+        "tags" : 
+        [
+          "WebAuthn"
+        ]
+      }
+    },
+    "/api/me/webauthn/register/finish" : 
+    {
+      "post" : 
+      {
+        "description" : "Finish WebAuthn registration.",
+        "operationId" : "post_api_me_webauthn_register_finish",
+        "responses" : null,
+        "security" : 
+        {
+          "bearerAuth" : 
+          [
+            "bearerAuth"
+          ]
+        },
+        "summary" : "WebAuthn Register Finish",
+        "tags" : 
+        [
+          "WebAuthn"
+        ]
+      }
+    },
     "/api/orgs" : 
     {
       "get" : 
@@ -1557,9 +1626,9 @@
         },
         "security" : 
         {
-          "bearerAuth" : 
+          "clientCredentialsAuth" : 
           [
-            "bearerAuth"
+            "clientCredentialsAuth"
           ]
         },
         "summary" : "Introspect token",
@@ -1828,9 +1897,9 @@
         },
         "security" : 
         {
-          "bearerAuth" : 
+          "clientCredentialsAuth" : 
           [
-            "bearerAuth"
+            "clientCredentialsAuth"
           ]
         },
         "summary" : "Revoke token",
@@ -2031,91 +2100,28 @@
         ]
       }
     },
-    "/oauth2/webauthn/credentials" : 
+    "/oauth2/webauthn/authenticate/begin" : 
     {
-      "get" : 
+      "post" : 
       {
-        "description" : "List registered WebAuthn credentials.",
-        "operationId" : "get_oauth2_webauthn_credentials",
+        "description" : "Start WebAuthn authentication.",
+        "operationId" : "post_oauth2_webauthn_authenticate_begin",
         "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List WebAuthn Credentials",
+        "summary" : "WebAuthn Authenticate Begin",
         "tags" : 
         [
           "WebAuthn"
         ]
       }
     },
-    "/oauth2/webauthn/login/begin" : 
+    "/oauth2/webauthn/authenticate/finish" : 
     {
       "post" : 
       {
-        "description" : "Start WebAuthn login.",
-        "operationId" : "post_oauth2_webauthn_login_begin",
+        "description" : "Finish WebAuthn authentication.",
+        "operationId" : "post_oauth2_webauthn_authenticate_finish",
         "responses" : null,
-        "summary" : "WebAuthn Login Begin",
-        "tags" : 
-        [
-          "WebAuthn"
-        ]
-      }
-    },
-    "/oauth2/webauthn/login/finish" : 
-    {
-      "post" : 
-      {
-        "description" : "Finish WebAuthn login.",
-        "operationId" : "post_oauth2_webauthn_login_finish",
-        "responses" : null,
-        "summary" : "WebAuthn Login Finish",
-        "tags" : 
-        [
-          "WebAuthn"
-        ]
-      }
-    },
-    "/oauth2/webauthn/register/begin" : 
-    {
-      "post" : 
-      {
-        "description" : "Start WebAuthn registration.",
-        "operationId" : "post_oauth2_webauthn_register_begin",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "WebAuthn Register Begin",
-        "tags" : 
-        [
-          "WebAuthn"
-        ]
-      }
-    },
-    "/oauth2/webauthn/register/finish" : 
-    {
-      "post" : 
-      {
-        "description" : "Finish WebAuthn registration.",
-        "operationId" : "post_oauth2_webauthn_register_finish",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "WebAuthn Register Finish",
+        "summary" : "WebAuthn Authenticate Finish",
         "tags" : 
         [
           "WebAuthn"

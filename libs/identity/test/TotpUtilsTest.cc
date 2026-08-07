@@ -134,3 +134,82 @@ TEST(TotpUtilsTest, GenerateBackupCodes_DefaultCountIsTen)
     auto codes = generateBackupCodes(crypto);
     EXPECT_EQ(codes.size(), 10u);
 }
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P1): generateCode empty/invalid-secret guard,
+// lowercase base32 decoding, and generateBackupCodes count=0 / custom N.
+// ---------------------------------------------------------------------------
+
+// generateCode: an empty/undecodable secret yields an empty string
+// (TotpUtils.cc:118 key.empty() early-return).
+TEST(TotpUtilsTest, GenerateCode_InvalidSecret_ReturnsEmpty)
+{
+    EXPECT_TRUE(generateCode("!!!", 1234567890).empty());
+    EXPECT_TRUE(generateCode("", 1234567890).empty());
+}
+
+// base32Decode accepts lowercase (TotpUtils.cc:57-58); a lowercase secret
+// decodes and round-trips with generateCode/verifyCode.
+TEST(TotpUtilsTest, VerifyCode_LowercaseBase32Secret_RoundTrips)
+{
+    const std::string lower = "gezdgnbvgy3tqojqgezdgnbvgy3tqojq";  // lowercase of kSecretBase32
+    const int64_t now = 1000000;
+    std::string code = generateCode(lower, now);
+    EXPECT_FALSE(code.empty());
+    EXPECT_TRUE(verifyCode(lower, code, now));
+}
+
+// generateBackupCodes: count=0 returns an empty vector (edge case).
+TEST(TotpUtilsTest, GenerateBackupCodes_CountZero_ReturnsEmpty)
+{
+    FakeCryptoProvider crypto;
+    auto codes = generateBackupCodes(crypto, 0);
+    EXPECT_TRUE(codes.empty());
+}
+
+// generateBackupCodes: a custom count (5) returns exactly that many codes.
+TEST(TotpUtilsTest, GenerateBackupCodes_CountFive_ReturnsFiveCodes)
+{
+    FakeCryptoProvider crypto;
+    auto codes = generateBackupCodes(crypto, 5);
+    EXPECT_EQ(codes.size(), 5u);
+}
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P3): negative-direction skew rejection (mirror of the
+// existing +90 test), and a generated code that requires leading-zero
+// padding to 6 digits (formatSixDigits's zero-pad branch).
+// ---------------------------------------------------------------------------
+
+// verifyCode: now - 90 (two steps before) is beyond the -1 skew window and
+// must be rejected -- the existing test only covers the +90 direction.
+TEST(TotpUtilsTest, VerifyCode_BeyondNegativeSkewWindow_ReturnsFalse)
+{
+    int64_t now = 1700000000;
+    std::string code = generateCode(kSecretBase32, now);
+    EXPECT_FALSE(verifyCode(kSecretBase32, code, now - 90));
+}
+
+// generateCode: every generated code is exactly 6 digits, including values
+// < 100000 which require leading-zero padding (formatSixDigits, cc:107-113).
+// We sample many time steps to maximize the chance of hitting a sub-100000
+// OTP and assert the length invariant holds throughout.
+TEST(TotpUtilsTest, GenerateCode_AlwaysSixDigits_WithLeadingZeroPadding)
+{
+    bool sawShortCode = false;
+    // Sample a wide range of time steps (not a property test, just a
+    // generous sweep so a < 100000 OTP is very likely exercised).
+    for (int64_t t = 0; t < 2000; ++t)
+    {
+        std::string code = generateCode(kSecretBase32, t * 30);
+        if (code.length() != 6)
+            sawShortCode = true;
+        // Must be all digits.
+        for (char c : code)
+        {
+            bool isDigit = (c >= '0' && c <= '9');
+            EXPECT_TRUE(isDigit);
+        }
+    }
+    EXPECT_FALSE(sawShortCode);
+}

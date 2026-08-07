@@ -61,6 +61,8 @@ oauth2_apply_compat(${PROJECT_NAME})
 
 # First-party warning level (shared module); PRIVATE, no SDK-consumer leak.
 oauth2_apply_warnings(${PROJECT_NAME})
+# gcov instrumentation (no-op unless -DOAUTH2_TEST_COVERAGE=ON); PRIVATE.
+oauth2_apply_gcov(${PROJECT_NAME})
 
 # --- arch-guard note (enforced by tooling in a later M6 task, Task 33) ---
 # This target must never gain a Drogon dependency. There is no automated

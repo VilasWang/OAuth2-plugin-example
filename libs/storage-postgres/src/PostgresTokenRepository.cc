@@ -16,6 +16,7 @@ using OAuth2AccessToken = ::authforge::oauth2::model::OAuth2AccessToken;
 using OAuth2RefreshToken = ::authforge::oauth2::model::OAuth2RefreshToken;
 using TokenIntrospection = ::authforge::oauth2::model::TokenIntrospection;
 using VoidCallback = ITokenRepositoryBase::VoidCallback;
+using SaveResultCallback = ITokenRepositoryBase::SaveResultCallback;
 using AccessTokenCallback = ITokenRepositoryBase::AccessTokenCallback;
 using RefreshTokenCallback = ITokenRepositoryBase::RefreshTokenCallback;
 using TokenIntrospectionCallback = ITokenRepositoryBase::TokenIntrospectionCallback;
@@ -73,16 +74,19 @@ void PostgresTokenRepository::saveAccessToken(const OAuth2AccessToken &token, Vo
 void PostgresTokenRepository::saveTokenPair(
   const OAuth2AccessToken &at,
   const OAuth2RefreshToken &rt,
-  VoidCallback &&cb
+  SaveResultCallback &&cb
 )
 {
     if (!dbClientMaster_)
     {
+        // Failure: no backend to persist into. Reporting false (not true,
+        // and not silently dropping the callback) is exactly the
+        // ITokenRepository::SaveResultCallback contract.
         if (cb)
-            cb();
+            cb(false);
         return;
     }
-    auto sharedCb = std::make_shared<VoidCallback>(std::move(cb));
+    auto sharedCb = std::make_shared<SaveResultCallback>(std::move(cb));
 
     // Exemption (db-operations.md §3): Documented batch operation.
     // saveTokenPair inserts both access and refresh tokens within a single
@@ -115,12 +119,16 @@ void PostgresTokenRepository::saveTokenPair(
     // and its own documentation states the commit callback "will never be
     // executed" if the transaction is rolled back.
     auto invoked = std::make_shared<bool>(false);
-    auto invokeOnce = [sharedCb, invoked]() {
+    // ok must be true ONLY when the transaction actually committed. Every
+    // failure path below reports false so callers (token endpoint,
+    // GitHub/social login) can surface a real error instead of handing
+    // out tokens that were never persisted.
+    auto invokeOnce = [sharedCb, invoked](bool ok) {
         if (!*invoked)
         {
             *invoked = true;
             if (*sharedCb)
-                (*sharedCb)();
+                (*sharedCb)(ok);
         }
     };
 
@@ -139,7 +147,7 @@ void PostgresTokenRepository::saveTokenPair(
           if (!transPtr)
           {
               LOG_ERROR << "saveTokenPair: failed to acquire transaction (timeout)";
-              invokeOnce();
+              invokeOnce(false);
               return;
           }
 
@@ -147,12 +155,12 @@ void PostgresTokenRepository::saveTokenPair(
           transPtr->setCommitCallback([invokeOnce](bool committed) {
               if (!committed)
                   LOG_ERROR << "saveTokenPair: transaction commit failed";
-              invokeOnce();
+              invokeOnce(committed);
           });
 
           auto refreshInsertErrorCb = [invokeOnce](const DrogonDbException &e) {
               LOG_ERROR << "saveTokenPair (refresh) failed: " << e.base().what();
-              invokeOnce();
+              invokeOnce(false);
           };
 
           transPtr->execSqlAsync(
@@ -201,7 +209,7 @@ void PostgresTokenRepository::saveTokenPair(
             },
             [invokeOnce](const DrogonDbException &e) {
                 LOG_ERROR << "saveTokenPair (access) failed: " << e.base().what();
-                invokeOnce();
+                invokeOnce(false);
             },
             at.token,
             at.clientId,

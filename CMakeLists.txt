@@ -10,6 +10,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Version)
 include(Compatibility)
 include(Sanitizers)
+# Coverage.cmake provides oauth2_apply_gcov(target) + the OAUTH2_TEST_COVERAGE
+# option (GCC/Clang, Debug). Applied per-target inside each libs/* and tests
+# CMakeLists so the STATIC libraries themselves are instrumented (not just the
+# test binary that links them). See cmake/Coverage.cmake for the rationale.
+include(Coverage)
 # Warnings.cmake provides oauth2_apply_warnings(target) (/W4 resp.
 # -Wall -Wextra, PRIVATE only) plus the AUTHFORGE_WERROR option (default
 # OFF; the CI pipeline passes -DAUTHFORGE_WERROR=ON). Applied per-target
@@ -33,8 +38,11 @@ enable_testing()
 # options are threaded into these as WITH_* cache vars by conanfile.py's
 # generate(). All default ON to preserve today's build behavior; turning
 # WITH_SOCIAL/WITH_WEBAUTHN OFF shrinks the dependency surface (the social
-# controllers + WebAuthn controllers/services drop out of the build, and
-# libcbor is no longer required).
+# controllers + WebAuthn controllers/services drop out of the build). NOTE:
+# libcbor is NOT a dependency at all today -- the WebAuthn controller is a
+# non-cryptographic stub (WebAuthnService.h:44-56) that consumes no CBOR; the
+# dead libcbor require was removed from conanfile.py. Re-add it when real
+# WebAuthn crypto lands.
 #
 # WITH_IDENTITY is declared for symmetry with conanfile.py's `with_identity`
 # and currently defaults ON; flipping it OFF is NOT yet a working

@@ -1358,20 +1358,6 @@ const ::drogon::HttpRequestPtr &req,
 const CallbackPtr &callbackPtr,
 int64_t userId
 );
-void persistAccessToken(
-const ::drogon::HttpRequestPtr &req,
-const CallbackPtr &callbackPtr,
-std::string accessToken,
-std::string refreshToken,
-int64_t userId
-);
-void persistRefreshToken(
-const ::drogon::HttpRequestPtr &req,
-const CallbackPtr &callbackPtr,
-std::string accessToken,
-std::string refreshToken,
-int64_t userId
-);
 void exchangeCodeForToken(
 const ::drogon::HttpRequestPtr &req,
 const CallbackPtr &callbackPtr,
@@ -1804,14 +1790,12 @@ TokenEndpointController::userInfo,
 ADD_METHOD_TO(
 TokenEndpointController::introspect,
 "/oauth2/introspect",
-::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+::drogon::Post
 );
 ADD_METHOD_TO(
 TokenEndpointController::revoke,
 "/oauth2/revoke",
-::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+::drogon::Post
 );
 METHOD_LIST_END
 void token(
@@ -2381,6 +2365,11 @@ std::string defaultValue;
 std::string enumValues;
 std::string format;
 };
+enum class AuthType
+{
+Bearer,
+ClientCredentials
+};
 struct EndpointInfo
 {
 std::string path;
@@ -2392,6 +2381,7 @@ std::vector<ParameterInfo> parameters;
 std::map<int, std::string> responses;
 std::map<int, Json::Value> responseExamples;
 bool requiresAuth;
+AuthType authType = AuthType::Bearer;
 };
 class OpenApiGenerator
 {
@@ -2507,7 +2497,7 @@ std::function<void()> &&callback
 void saveTokenPair(
 const authforge::oauth2::model::OAuth2AccessToken &accessToken,
 const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
-std::function<void()> &&callback
+std::function<void(bool ok)> &&callback
 );
 void getUserInfo(
 const std::string &userId,
@@ -3829,6 +3819,124 @@ std::string rpId_;
 std::string rpName_;
 };
 }
+=== libs/identity/include/authforge/identity/testing/FakeOAuthHttpClient.h
+#pragma once
+#include <authforge/identity/IOAuthHttpClient.h>
+#include <deque>
+#include <json/json.h>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+namespace authforge::identity::testing
+{
+class FakeOAuthHttpClient : public IOAuthHttpClient
+{
+public:
+std::deque<OAuthHttpResult> postFormResponses;
+std::deque<OAuthHttpResult> getResponses;
+struct PostFormCall
+{
+std::string url;
+std::vector<std::pair<std::string, std::string>> params;
+};
+struct GetCall
+{
+std::string url;
+std::string bearerToken;
+};
+std::vector<PostFormCall> postFormCalls;
+std::vector<GetCall> getCalls;
+void postForm(
+const std::string &url,
+const std::vector<std::pair<std::string, std::string>> &params,
+ResultCallback &&cb) override
+;
+void getWithBearerToken(
+const std::string &url,
+const std::string &bearerToken,
+ResultCallback &&cb) override
+;
+};
+inline OAuthHttpResult okJson(const Json::Value &body, int statusCode = 200)
+;
+inline OAuthHttpResult transportFailure()
+;
+}
+=== libs/identity/include/authforge/identity/testing/FakeSocialAccountRepository.h
+#pragma once
+#include <authforge/identity/ISocialAccountRepository.h>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_map>
+namespace authforge::identity::testing
+{
+class FakeSocialAccountRepository : public ISocialAccountRepository
+{
+public:
+std::unordered_map<std::string, SocialAccountLookup> linked;
+int32_t nextUserId = 100;
+bool failCreate = false;
+static std::string key(const std::string &provider, const std::string &subject)
+;
+void findLinkedUser(
+const std::string &provider,
+const std::string &subject,
+LookupCallback &&cb) override
+;
+void createLinkedUser(
+const std::string &provider,
+const std::string &subject,
+const std::string &username,
+const std::string & ,
+CreateCallback &&cb) override
+;
+};
+}
+=== libs/identity/include/authforge/identity/testing/FakeWebAuthnRepository.h
+#pragma once
+#include <authforge/identity/IWebAuthnRepository.h>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+namespace authforge::identity::testing
+{
+struct StoredCredential
+{
+int32_t userId = 0;
+std::string publicKey;
+std::string name;
+int signCount = 0;
+int64_t createdAt = 0;
+std::optional<int64_t> lastUsedAt;
+};
+class FakeWebAuthnRepository : public IWebAuthnRepository
+{
+public:
+std::unordered_map<std::string, StoredCredential> credentials;
+int64_t nextCreatedAt = 1000;
+bool forceStoreError = false;
+void storeCredential(
+int32_t userId,
+const std::string &credentialId,
+const std::string &publicKey,
+const std::string &name,
+StoreCredentialCallback &&cb) override
+;
+void findByCredentialId(const std::string &credentialId, CredentialLookupCallback &&cb) override
+;
+void updateSignCount(
+const std::string &credentialId,
+int newSignCount,
+BoolCallback &&cb) override
+;
+void listCredentials(int32_t userId, ListCredentialsCallback &&cb) override
+;
+};
+}
 === libs/oauth2/include/authforge/oauth2/access/ScopeDecision.h
 #pragma once
 #include <string>
@@ -4483,6 +4591,7 @@ std::function<void(std::optional<authforge::oauth2::model::OAuth2RefreshToken>)>
 using VoidCallback = std::function<void()>;
 using TokenIntrospectionCallback =
 std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)>;
+using SaveResultCallback = std::function<void(bool ok)>;
 virtual void saveAccessToken(
 const authforge::oauth2::model::OAuth2AccessToken &token,
 VoidCallback &&cb
@@ -4491,7 +4600,7 @@ virtual void getAccessToken(const std::string &token, AccessTokenCallback &&cb) 
 virtual void saveTokenPair(
 const authforge::oauth2::model::OAuth2AccessToken &at,
 const authforge::oauth2::model::OAuth2RefreshToken &rt,
-VoidCallback &&cb
+SaveResultCallback &&cb
 )
 ;
 virtual void saveRefreshToken(
@@ -5093,7 +5202,7 @@ void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override
 void saveTokenPair(
 const ::authforge::oauth2::model::OAuth2AccessToken &at,
 const ::authforge::oauth2::model::OAuth2RefreshToken &rt,
-VoidCallback &&cb
+SaveResultCallback &&cb
 ) override;
 void saveRefreshToken(
 const ::authforge::oauth2::model::OAuth2RefreshToken &token,

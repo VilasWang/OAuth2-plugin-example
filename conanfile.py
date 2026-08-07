@@ -11,9 +11,13 @@ Notable options beyond plain dependency pinning:
     (F9). They default to True to preserve today's build behavior; setting
     them to False lets a consumer shrink the dependency surface once the
     corresponding milestone (M2.5/M5) lands the conditional compilation.
-  - with_webauthn additionally pulls in the extra crypto/CBOR dependencies
-    FIDO2 needs, declared explicitly rather than left as a transitive
-    surprise.
+  - with_webauthn additionally pulls in the extra crypto dependencies
+    FIDO2 needs (declared explicitly rather than left as a transitive
+    surprise). NOTE: a real WebAuthn implementation will require CBOR
+    decoding for attestation/assertion objects, but the current controller
+    is a non-cryptographic stub (see WebAuthnService.h:44-56) and consumes
+    no CBOR; the libcbor dependency was removed as dead (zero #include).
+    It should be re-added when real WebAuthn crypto lands.
 """
 
 from conan import ConanFile
@@ -55,12 +59,10 @@ class AuthForgeConan(ConanFile):
         self.requires("libcurl/8.6.0")
         self.requires("brotli/1.1.0")
         self.requires("zlib/1.3.1", override=True)
-
-        # WebAuthn/FIDO2 (identity SDK) needs CBOR encoding for attestation
-        # objects; declared explicitly per design.md §5.6/§9.1 (F9) instead
-        # of relying on it being pulled in transitively.
-        if self.options.with_webauthn:
-            self.requires("libcbor/0.13.0")
+        # NOTE: libcbor/0.13.0 was declared here "for attestation" but the
+        # current WebAuthn controller is a non-cryptographic stub that consumes
+        # zero CBOR (no #include <cbor/...> anywhere, see CMakeLists.txt:42).
+        # Removed as dead. Re-add when real WebAuthn crypto lands.
 
     def build_requirements(self):
         self.test_requires("gtest/1.14.0")

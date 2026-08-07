@@ -65,6 +65,7 @@ endif()
 
 oauth2_apply_compat(${PROJECT_NAME})
 oauth2_apply_warnings(${PROJECT_NAME})
+oauth2_apply_gcov(${PROJECT_NAME})
 
 # --- arch-guard note (see libs/common/CMakeLists.txt's identical note) ---
 # This target must never gain a Drogon dependency, and must never depend

@@ -274,7 +274,9 @@ TEST(ITokenRepositoryTest, SaveTokenPair_DefaultBody_SavesAccessThenRefreshSeque
     OAuth2RefreshToken rt;
     bool completed = false;
 
-    repo.saveTokenPair(at, rt, [&]() { completed = true; });
+    // SaveResultCallback: the default body (sequential Memory/Redis-style
+    // save) always reports ok == true.
+    repo.saveTokenPair(at, rt, [&](bool ok) { completed = ok; });
 
     ASSERT_TRUE(completed);
     ASSERT_EQ(impl.callOrder.size(), 2u);

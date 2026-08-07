@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $passed = 0
 $failed = 0
-$total = 55
+$total = 56
 $adminPassword = "admin"  # Track current admin password across tests
 
 # Import common functions
@@ -200,15 +200,15 @@ Test-Endpoint "Test 10: Client Credentials" {
 # ========================================
 Test-Endpoint "Test 11: Token Introspection" {
     if (-not $accessToken) { throw "skipped: no token" }
-    # Introspect endpoint has OAuth2Middleware, so needs Bearer token
-    # Plus client credentials for the actual introspection
-    $headers = @{ Authorization = "Bearer $accessToken" }
+    # RFC 7662: introspect authenticates the CALLING CLIENT via client
+    # credentials (Basic header or body client_id/client_secret), NOT a
+    # user Bearer token. No Authorization header is sent.
     $body = @{
         token = $accessToken
         client_id = 'vue-client'
         client_secret = '123456'
     }
-    $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Headers $headers -Body $body
+    $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body
     if ($r.active -ne $true) { throw "active != true" }
     Write-Host "    Active: $($r.active), Sub: $($r.sub), Scope: $($r.scope)"
 }
@@ -218,13 +218,16 @@ Test-Endpoint "Test 11: Token Introspection" {
 # ========================================
 Test-Endpoint "Test 12: Token Revocation" {
     if (-not $accessToken) { throw "skipped: no token" }
+    # RFC 7009: revoke authenticates the calling client via body
+    # credentials; the Bearer header below is only reused afterwards to
+    # verify the revoked token is rejected by /oauth2/userinfo.
     $headers = @{ Authorization = "Bearer $accessToken" }
     $body = @{
         token = $accessToken
         client_id = 'vue-client'
         client_secret = '123456'
     }
-    Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Headers $headers -Body $body -UseBasicParsing | Out-Null
+    Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Body $body -UseBasicParsing | Out-Null
 
     # Verify: try to use the revoked token - should get 401
     try {
@@ -890,31 +893,51 @@ Test-Endpoint "Test 41: POST /oauth2/token - Expired/used authorization code" {
 
 Test-Endpoint "Test 42: POST /oauth2/introspect - Malformed token" {
     # Introspection of a malformed token: may return active=false or an error
-    $tok = Get-UserToken -BaseUrl $BaseUrl -Username "admin" -Password $adminPassword
-    $h = @{ Authorization = "Bearer $tok" }
     $body = @{ token = "not-a-real-token-at-all"; client_id = "vue-client"; client_secret = "123456" }
     try {
-        $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Headers $h -Body $body
+        $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body
         if ($r.active -ne $false) { throw "malformed token should be active=false" }
         Write-Host "    Correctly returned active=false for malformed token"
     } catch {
         $code = $_.Exception.Response.StatusCode
-        Write-Host "    Got status: $code (token rejected by middleware)"
+        Write-Host "    Got status: $code (token rejected by introspection handler)"
     }
 }
 
 Test-Endpoint "Test 43: POST /oauth2/revoke - Already revoked token (idempotent)" {
     $tok = Get-UserToken -BaseUrl $BaseUrl -Username "admin" -Password $adminPassword
-    $h = @{ Authorization = "Bearer $tok" }
+    # RFC 7009: client-credential auth via body only; no Bearer header needed.
     $body = @{ token = $tok; client_id = "vue-client"; client_secret = "123456" }
     # Revoke once
-    Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Headers $h -Body $body -UseBasicParsing | Out-Null
+    Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Body $body -UseBasicParsing | Out-Null
     # Revoke again - should succeed (idempotent)
     try {
-        Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Headers $h -Body $body -UseBasicParsing | Out-Null
+        Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Body $body -UseBasicParsing | Out-Null
         Write-Host "    Second revocation succeeded (idempotent)"
     } catch {
         Write-Host "    Second revocation returned: $($_.Exception.Response.StatusCode)"
+    }
+}
+
+Test-Endpoint "Test 44: POST /oauth2/introspect - Missing client credentials" {
+    # RFC 7662 SS2.1: without client credentials the endpoint MUST return
+    # 401 with the RFC 6749 SS5.2 error body {"error":"invalid_client"}
+    # plus WWW-Authenticate: Basic realm=... (not an Error-Envelope).
+    $body = @{ token = "some-token" }
+    try {
+        Invoke-WebRequest -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Out-Null
+        throw "introspect without client credentials should fail"
+    } catch {
+        $resp = $_.Exception.Response
+        if ($resp.StatusCode -ne "Unauthorized") { throw "expected 401, got $($resp.StatusCode)" }
+        $wwwAuth = $resp.Headers["WWW-Authenticate"]
+        $respBody = ""
+        try {
+            $sr = [System.IO.StreamReader]::new($resp.GetResponseStream())
+            $respBody = $sr.ReadToEnd()
+        } catch {}
+        if ($respBody -notmatch '"error"\s*:\s*"invalid_client"') { throw "expected invalid_client error body, got: $respBody" }
+        Write-Host "    401 + invalid_client body returned (WWW-Authenticate: $wwwAuth)"
     }
 }
 

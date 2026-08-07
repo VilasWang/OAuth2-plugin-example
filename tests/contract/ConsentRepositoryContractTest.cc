@@ -164,3 +164,53 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_SaveHasR
       TEST_CTX, repo, user, "mem-client", "contract-scope-" + uniqueSuffix()
     );
 }
+
+// ===========================================================================
+// Coverage additions (P2/P3, Memory backend): revokeUserConsent of a key
+// that was never stored is a safe no-op (erase returns 0), and consents are
+// independent per (user, client, scope) -- revoking one does not affect a
+// consent recorded under a different scope.
+// ===========================================================================
+
+DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_RevokeNonexistent_IsNoOp)
+{
+    UserRef user;
+    user.internalUserId = 900010;
+    auto repo = std::make_shared<authforge::storage::memory::MemoryConsentRepository>();
+
+    const std::string scope = "revokescope-" + uniqueSuffix();
+    // Revoke a consent that was never saved -> must not throw and the
+    // callback must fire.
+    bool called = false;
+    repo->revokeUserConsent(user, "mem-client", scope, [&]() { called = true; });
+    CHECK(called == true);
+
+    // hasUserConsent still reports false for the never-saved consent.
+    bool has = true;
+    repo->hasUserConsent(user, "mem-client", scope, [&](bool v) { has = v; });
+    CHECK(has == false);
+}
+
+DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_PerScopeIndependence)
+{
+    UserRef user;
+    user.internalUserId = 900011;
+    auto repo = std::make_shared<authforge::storage::memory::MemoryConsentRepository>();
+    const std::string scopeA = "scope-a-" + uniqueSuffix();
+    const std::string scopeB = "scope-b-" + uniqueSuffix();
+
+    waitForValue<bool>([&](auto cb) { repo->saveUserConsent(user, "mem-client", scopeA, std::move(cb)); });
+    waitForValue<bool>([&](auto cb) { repo->saveUserConsent(user, "mem-client", scopeB, std::move(cb)); });
+
+    // Revoke only scopeA.
+    waitForVoid([&](auto cb) { repo->revokeUserConsent(user, "mem-client", scopeA, std::move(cb)); });
+
+    bool hasA = true;
+    repo->hasUserConsent(user, "mem-client", scopeA, [&](bool v) { hasA = v; });
+    CHECK(hasA == false);
+
+    // scopeB is unaffected.
+    bool hasB = false;
+    repo->hasUserConsent(user, "mem-client", scopeB, [&](bool v) { hasB = v; });
+    CHECK(hasB == true);
+}

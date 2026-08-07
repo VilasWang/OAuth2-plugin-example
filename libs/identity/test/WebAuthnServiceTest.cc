@@ -5,107 +5,21 @@
 #include <authforge/common/testing/FakeCryptoProvider.h>
 #include <authforge/identity/IWebAuthnRepository.h>
 #include <authforge/identity/WebAuthnService.h>
+// Shared test double (promoted from this file's former anonymous-namespace
+// fake): FakeWebAuthnRepository + StoredCredential. See
+// libs/identity/include/authforge/identity/testing/.
+#include <authforge/identity/testing/FakeWebAuthnRepository.h>
 
 #include <gtest/gtest.h>
 
-#include <unordered_map>
-
-namespace
-{
+#include <memory>
 
 using namespace authforge::identity;
 using authforge::common::testing::FakeCryptoProvider;
+using authforge::identity::testing::FakeWebAuthnRepository;
 
-struct StoredCredential
+namespace
 {
-    int32_t userId = 0;
-    std::string publicKey;
-    std::string name;
-    int signCount = 0;
-    int64_t createdAt = 0;
-    std::optional<int64_t> lastUsedAt;
-};
-
-class FakeWebAuthnRepository : public IWebAuthnRepository
-{
-  public:
-    std::unordered_map<std::string, StoredCredential> credentials;  // keyed by credential_id
-    int64_t nextCreatedAt = 1000;
-
-    void storeCredential(
-      int32_t userId,
-      const std::string &credentialId,
-      const std::string &publicKey,
-      const std::string &name,
-      StoreCredentialCallback &&cb
-    ) override
-    {
-        if (credentials.count(credentialId) != 0)
-        {
-            cb(StoreCredentialOutcome::DuplicateCredentialId);
-            return;
-        }
-
-        StoredCredential cred;
-        cred.userId = userId;
-        cred.publicKey = publicKey;
-        cred.name = name;
-        cred.signCount = 0;
-        cred.createdAt = nextCreatedAt++;
-        credentials[credentialId] = cred;
-        cb(StoreCredentialOutcome::Success);
-    }
-
-    void findByCredentialId(const std::string &credentialId, CredentialLookupCallback &&cb) override
-    {
-        auto it = credentials.find(credentialId);
-        if (it == credentials.end())
-        {
-            cb(std::nullopt);
-            return;
-        }
-        WebAuthnCredentialLookup lookup;
-        lookup.userId = it->second.userId;
-        lookup.publicSub = "sub-" + std::to_string(it->second.userId);
-        lookup.signCount = it->second.signCount;
-        cb(lookup);
-    }
-
-    void updateSignCount(
-      const std::string &credentialId,
-      int newSignCount,
-      BoolCallback &&cb
-    ) override
-    {
-        auto it = credentials.find(credentialId);
-        if (it == credentials.end())
-        {
-            cb(false);
-            return;
-        }
-        it->second.signCount = newSignCount;
-        it->second.lastUsedAt = 12345;
-        cb(true);
-    }
-
-    void listCredentials(int32_t userId, ListCredentialsCallback &&cb) override
-    {
-        std::vector<WebAuthnCredentialSummary> result;
-        for (const auto &[credentialId, cred] : credentials)
-        {
-            if (cred.userId != userId)
-                continue;
-            WebAuthnCredentialSummary summary;
-            summary.credentialId = credentialId;
-            summary.name = cred.name;
-            summary.signCount = cred.signCount;
-            summary.createdAt = cred.createdAt;
-            summary.lastUsedAt = cred.lastUsedAt;
-            result.push_back(summary);
-        }
-        cb(std::move(result));
-    }
-};
 
 std::shared_ptr<WebAuthnService> makeService(std::shared_ptr<FakeWebAuthnRepository> repo)
 {
@@ -340,4 +254,113 @@ TEST(WebAuthnServiceTest, ListCredentials_ReflectsSignCountAfterAuthentication)
     ASSERT_EQ(result.size(), 1u);
     EXPECT_EQ(result[0].signCount, 1);
     EXPECT_TRUE(result[0].lastUsedAt.has_value());
+}
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P1): null-dependency guards for every method
+// (WebAuthnService.cc:45,66,109,126,168), the StoreCredentialOutcome::Error
+// -> DB_QUERY_ERROR branch (cc:96-99), and custom rpId/rpName propagation.
+// Null-guard tests construct WebAuthnService directly with nullptr deps.
+// ---------------------------------------------------------------------------
+
+// beginRegistration: null crypto guard -> nullopt (cc:45).
+TEST(WebAuthnServiceTest, BeginRegistration_NullCrypto_ReturnsNullopt)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::optional<WebAuthnRegistrationChallenge> result = WebAuthnRegistrationChallenge{};
+    svc.beginRegistration([&](auto r) { result = std::move(r); });
+    EXPECT_FALSE(result.has_value());
+}
+
+// beginAuthentication: null crypto guard -> nullopt (cc:109).
+TEST(WebAuthnServiceTest, BeginAuthentication_NullCrypto_ReturnsNullopt)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::optional<WebAuthnAuthenticationChallenge> result = WebAuthnAuthenticationChallenge{};
+    svc.beginAuthentication([&](auto r) { result = std::move(r); });
+    EXPECT_FALSE(result.has_value());
+}
+
+// finishRegistration: null repo guard -> INTERNAL_ERROR (cc:66).
+TEST(WebAuthnServiceTest, FinishRegistration_NullRepo_ReturnsInternalError)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::string err = "none";
+    svc.finishRegistration(42, "cred-1", "pubkey-1", "Laptop", [&](const std::string &e) { err = e; });
+    EXPECT_EQ(err, "INTERNAL_ERROR");
+}
+
+// finishRegistration: storeCredential returns Error -> DB_QUERY_ERROR
+// (cc:96-99). The default Error arm was unreachable with the original fake.
+TEST(WebAuthnServiceTest, FinishRegistration_StoreError_ReturnsDbQueryError)
+{
+    auto repo = std::make_shared<FakeWebAuthnRepository>();
+    repo->forceStoreError = true;
+    auto svc = makeService(repo);
+    std::string err = "none";
+    svc->finishRegistration(42, "cred-1", "pubkey-1", "Laptop", [&](const std::string &e) { err = e; });
+    EXPECT_EQ(err, "DB_QUERY_ERROR");
+}
+
+// finishAuthentication: null repo guard -> nullopt (cc:126).
+TEST(WebAuthnServiceTest, FinishAuthentication_NullRepo_ReturnsNullopt)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::optional<WebAuthnAuthResult> result = WebAuthnAuthResult{};
+    svc.finishAuthentication("cred-1", [&](auto r) { result = std::move(r); });
+    EXPECT_FALSE(result.has_value());
+}
+
+// listCredentials: null repo guard -> empty vector (cc:168).
+TEST(WebAuthnServiceTest, ListCredentials_NullRepo_ReturnsEmpty)
+{
+    WebAuthnService svc(nullptr, nullptr);
+    std::vector<WebAuthnCredentialSummary> result;
+    result.push_back({});  // sentinel so emptiness is observable
+    svc.listCredentials(42, [&](auto r) { result = std::move(r); });
+    EXPECT_TRUE(result.empty());
+}
+
+// Constructor: custom rpId/rpName propagate into begin-registration and
+// begin-authentication challenges (cc:28-39,52-54,116-117). The existing
+// tests only exercise the default values.
+TEST(WebAuthnServiceTest, Constructor_CustomRpIdAndRpName_PropagatedToChallenges)
+{
+    auto repo = std::make_shared<FakeWebAuthnRepository>();
+    auto crypto = std::make_shared<FakeCryptoProvider>();
+    WebAuthnService svc(repo, crypto, "auth.example.com", "Custom Issuer");
+
+    std::optional<WebAuthnRegistrationChallenge> reg;
+    svc.beginRegistration([&](auto r) { reg = std::move(r); });
+    ASSERT_TRUE(reg.has_value());
+    EXPECT_EQ(reg->rpId, "auth.example.com");
+    EXPECT_EQ(reg->rpName, "Custom Issuer");
+
+    std::optional<WebAuthnAuthenticationChallenge> auth;
+    svc.beginAuthentication([&](auto r) { auth = std::move(r); });
+    ASSERT_TRUE(auth.has_value());
+    EXPECT_EQ(auth->rpId, "auth.example.com");
+}
+
+// ---------------------------------------------------------------------------
+// Coverage additions (P3): beginAuthentication produces a different
+// challenge on each call (mirror of the existing registration test).
+// ---------------------------------------------------------------------------
+
+// beginAuthentication: two consecutive calls yield distinct challenges
+// (WebAuthnService.cc:105-119, mirrors BeginRegistration_TwoCallsProduceDifferentChallenges).
+TEST(WebAuthnServiceTest, BeginAuthentication_TwoCallsProduceDifferentChallenges)
+{
+    auto repo = std::make_shared<FakeWebAuthnRepository>();
+    auto svc = makeService(repo);
+
+    std::optional<WebAuthnAuthenticationChallenge> first;
+    svc->beginAuthentication([&](auto r) { first = std::move(r); });
+    std::optional<WebAuthnAuthenticationChallenge> second;
+    svc->beginAuthentication([&](auto r) { second = std::move(r); });
+
+    ASSERT_TRUE(first.has_value());
+    ASSERT_TRUE(second.has_value());
+    EXPECT_FALSE(first->challenge.empty());
+    EXPECT_NE(first->challenge, second->challenge);
 }
