@@ -48,9 +48,12 @@
 
 ## 5. 依赖声明
 
-- WebAuthn（FIDO2）所需的额外加密 / CBOR 依赖（`libcbor`）由根
-  `conanfile.py` 的 **`with_webauthn` option 显式声明**，不作为传递依赖的
-  隐式惊喜；`with_identity` / `with_social` 同理各自 gate 对应特性面。
+- 特性面依赖由根 `conanfile.py` 的 **`with_webauthn` / `with_identity` /
+  `with_social` option 显式 gate**，不作为传递依赖的隐式惊喜。
+  NOTE: 真实 WebAuthn（FIDO2）需要的 CBOR 解码依赖（`libcbor`）曾在此
+  声明，但当前 WebAuthn 控制器是非加密 stub（不消费任何 CBOR），
+  `libcbor` 已作为死依赖移除；待真实 WebAuthn 加密落地时需重新添加
+  （详见 `conanfile.py` 对应注释）。
 - 关闭选项（如 `-o with_webauthn=False`）会同步映射到 CMake 侧
   `WITH_*` 变量并裁剪对应编译面，消费者可据此收缩依赖表面。
 

@@ -480,7 +480,11 @@ void runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
     auto at = makeAccessToken(atToken, clientId);
     auto rt = makeRefreshToken(rtToken, atToken, clientId);
 
-    waitForVoid([&](auto cb) { repo->saveTokenPair(at, rt, std::move(cb)); });
+    // SaveResultCallback contract: a successful persist reports ok == true.
+    bool pairSaved = waitForValue<bool>([&](auto cb) {
+        repo->saveTokenPair(at, rt, std::move(cb));
+    });
+    CHECK(pairSaved);
 
     auto fetchedAt = waitForValue<std::optional<OAuth2AccessToken>>([&](auto cb) {
         repo->getAccessToken(atToken, std::move(cb));
@@ -613,10 +617,14 @@ DROGON_TEST(
     auto at = makeAccessToken(atToken, "vue-client");  // same PK: will collide
     auto rt = makeRefreshToken(rtToken, atToken, "vue-client");
 
-    // saveTokenPair's error path still invokes the callback (it does not
-    // propagate the DB exception to the caller), so this must complete
-    // without hanging.
-    waitForVoid([&](auto cb) { repo->saveTokenPair(at, rt, std::move(cb)); });
+    // saveTokenPair's error path still invokes the callback and now reports
+    // the failure via ok == false (SaveResultCallback contract) instead of
+    // silently succeeding, so this must complete without hanging AND report
+    // false for the colliding primary key.
+    bool conflictSaved = waitForValue<bool>([&](auto cb) {
+        repo->saveTokenPair(at, rt, std::move(cb));
+    });
+    CHECK(!conflictSaved);
 
     auto fetchedRt = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
         repo->getRefreshToken(rtToken, std::move(cb));

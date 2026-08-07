@@ -98,5 +98,14 @@ function(oauth2_apply_gcov target)
     # but every final executable (the *-test binaries and authforge-tests)
     # also calls oauth2_apply_gcov, so the runtime resolves at the
     # executable's link.
-    target_link_libraries(${target} PRIVATE gcov)
+    #
+    # GCC-only: libgcov is a GCC artifact. Clang/AppleClang ship NO libgcov
+    # -- their gcov-style runtime (libclang_rt.profile) is pulled in
+    # automatically by the -fprofile-arcs LINK option above. Emitting
+    # `-lgcov` on Clang breaks the build outright on macOS
+    # (`ld: library not found for -lgcov`) and mixes GCC's libgcov.a with
+    # clang's profile runtime on Linux (unsupported combination).
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_link_libraries(${target} PRIVATE gcov)
+    endif()
 endfunction()

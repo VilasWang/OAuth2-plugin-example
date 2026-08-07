@@ -36,6 +36,12 @@ use relative paths.
 - [Documentation Standards](backend/documentation-standards.md)
 - Frontend: [admin E2E guide](admin/e2e-testing-guide.md) · [admin test cases](admin/test-cases.md) · [user test cases](frontend/test-cases.md)
 
+## Productization
+
+- [Productization Evolution Plan](productization-evolution/productization-evolution-plan.md) — roadmap, priorities, risks (companion to the research report)
+- [Benchmark Facility Design](productization-evolution/benchmark-facility-design.md) — Phase 0 HTTP performance baseline design
+- [Productization Research](productization-evolution/productization-research.md) — market/competitor/pricing analysis (input to the evolution plan)
+
 ## Archive
 
 Historical PRDs, design documents, and iteration plans live under

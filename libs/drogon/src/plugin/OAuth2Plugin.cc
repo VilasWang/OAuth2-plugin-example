@@ -519,11 +519,20 @@ void OAuth2Plugin::saveAccessToken(
 void OAuth2Plugin::saveTokenPair(
   const authforge::oauth2::model::OAuth2AccessToken &accessToken,
   const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
-  std::function<void()> &&callback
+  std::function<void(bool ok)> &&callback
 )
 {
     if (tokenRepo_)
+    {
         tokenRepo_->saveTokenPair(accessToken, refreshToken, std::move(callback));
+        return;
+    }
+    // No token repository configured: report failure instead of dropping
+    // the callback (dropping it leaves the HTTP request hanging until
+    // client timeout).
+    LOG_ERROR << "saveTokenPair: no token repository configured";
+    if (callback)
+        callback(false);
 }
 
 void OAuth2Plugin::getUserInfo(

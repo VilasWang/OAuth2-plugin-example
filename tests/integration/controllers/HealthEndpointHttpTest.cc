@@ -10,8 +10,9 @@
 //   GET /health        -> health()      (plugin storage_type in body; no DB call)
 //   GET /health/live   -> healthLive()  (always 200, pure metadata)
 //   GET /health/ready  -> healthReady() (DB + Redis probe; under memory mode
-//                          getDbClient() is not configured, so this returns 503
-//                          -- the catch(...) branch at HealthController.cc:139)
+//                          HealthController guards getDbClient() with a
+//                          storage-type check and returns 200 with
+//                          database/redis = "not_configured" instead of 503)
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>

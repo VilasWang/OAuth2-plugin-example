@@ -60,6 +60,12 @@
       {
         "scheme" : "bearer",
         "type" : "http"
+      },
+      "clientCredentialsAuth" : 
+      {
+        "description" : "OAuth2 client authentication (RFC 6749 §2.3): client_id and client_secret via HTTP Basic Authorization header or POST body parameters.",
+        "scheme" : "basic",
+        "type" : "http"
       }
     }
   },
@@ -1620,9 +1626,9 @@
         },
         "security" : 
         {
-          "bearerAuth" : 
+          "clientCredentialsAuth" : 
           [
-            "bearerAuth"
+            "clientCredentialsAuth"
           ]
         },
         "summary" : "Introspect token",
@@ -1891,9 +1897,9 @@
         },
         "security" : 
         {
-          "bearerAuth" : 
+          "clientCredentialsAuth" : 
           [
-            "bearerAuth"
+            "clientCredentialsAuth"
           ]
         },
         "summary" : "Revoke token",

@@ -28,6 +28,11 @@ components:
     bearerAuth:
       scheme: bearer
       type: http
+    clientCredentialsAuth:
+      description: 'OAuth2 client authentication (RFC 6749 §2.3): client_id and client_secret
+        via HTTP Basic Authorization header or POST body parameters.'
+      scheme: basic
+      type: http
 info:
   description: OAuth2.0 authorization server with token management
   title: OAuth2 Authorization Server API
@@ -1385,7 +1390,7 @@ paths:
         '401':
           description: Authentication failed
       security:
-      - bearerAuth: []
+      - clientCredentialsAuth: []
       summary: Introspect token
       tags:
       - OAuth2
@@ -1551,7 +1556,7 @@ paths:
         '401':
           description: Authentication failed
       security:
-      - bearerAuth: []
+      - clientCredentialsAuth: []
       summary: Revoke token
       tags:
       - OAuth2

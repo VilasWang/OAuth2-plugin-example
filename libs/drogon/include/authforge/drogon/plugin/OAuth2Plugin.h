@@ -141,7 +141,11 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     void saveTokenPair(
       const authforge::oauth2::model::OAuth2AccessToken &accessToken,
       const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
-      std::function<void()> &&callback
+      // ok == false means the pair was NOT persisted (backend failure or
+      // no token repository configured). Callers MUST return an error to
+      // the client in that case; the callback is ALWAYS invoked (no
+      // request hang), even when tokenRepo_ is absent.
+      std::function<void(bool ok)> &&callback
     );
     // Phase 4.5: getUserInfo forwarding (today via storage_; the identity-side
     // migration to authforge::identity::IUserRepository is a separate

@@ -125,6 +125,19 @@ Json::Value OpenApiGenerator::generateOpenApiSpec()
     bearerAuth["type"] = "http";
     bearerAuth["scheme"] = "bearer";
     securitySchemes["bearerAuth"] = bearerAuth;
+    // OAuth2 client authentication (RFC 6749 §2.3): used by RFC 7662
+    // introspection and RFC 7009 revocation -- these authenticate the
+    // CLIENT (client_id/client_secret via HTTP Basic or POST body), NOT a
+    // user bearer token. Declaring bearerAuth for them misleads SDK
+    // consumers.
+    Json::Value clientCredentialsAuth;
+    clientCredentialsAuth["type"] = "http";
+    clientCredentialsAuth["scheme"] = "basic";
+    clientCredentialsAuth["description"] =
+      "OAuth2 client authentication (RFC 6749 §2.3): client_id and "
+      "client_secret via HTTP Basic Authorization header or POST body "
+      "parameters.";
+    securitySchemes["clientCredentialsAuth"] = clientCredentialsAuth;
     spec["components"]["securitySchemes"] = securitySchemes;
 
     return spec;
@@ -192,11 +205,17 @@ Json::Value OpenApiGenerator::generatePathItem(const EndpointInfo &endpoint)
     // Security
     if (endpoint.requiresAuth)
     {
+        // Scheme selection: user-token endpoints use bearerAuth; RFC
+        // 7662/7009-style client-authenticated endpoints (introspect,
+        // revoke) use clientCredentialsAuth. The array carries the scheme
+        // name to match the pre-existing generated snapshot shape.
+        const char *schemeName = (endpoint.authType == AuthType::ClientCredentials)
+                                   ? "clientCredentialsAuth"
+                                   : "bearerAuth";
         Json::Value security;
         Json::Value scheme(Json::arrayValue);
-        // Using bearerAuth based on existing openapi.yaml
-        scheme.append("bearerAuth");
-        security["bearerAuth"] = scheme;
+        scheme.append(schemeName);
+        security[schemeName] = scheme;
         pathItem["security"] = security;
     }
 
