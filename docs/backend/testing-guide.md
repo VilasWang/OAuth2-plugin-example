@@ -245,20 +245,20 @@ In test case SomeTestName
 
 ### 代码覆盖率
 
-实测行覆盖率（gcov，gcc 13.3 Debug 构建，WSL Ubuntu 24.04，Postgres+Redis 激活；排除 ORM 自动生成的 `models/`）：
+实测行覆盖率（gcov，gcc 13.3 Debug 构建，WSL Ubuntu 24.04，Postgres+Redis 激活；排除 ORM 自动生成的 `models/`；测量于 7ba8068，全部 5 个测试二进制均已执行）：
 
 | 库 | 行覆盖 | 备注 |
 |---|---|---|
-| libs/common | 98.8% (686/694) | ErrorCatalog/Result/值对象（由 per-lib gtest 二进制 `authforge-common-test` 驱动） |
+| libs/common | 69.4% (318/458) | ErrorCatalog/ErrorTypes/ErrorContext/ConfigManager（由 per-lib gtest 二进制 `authforge-common-test` 驱动）；ConfigManager 环境相关分支与 ErrorCatalog 部分分支未覆盖 |
 | libs/identity | **96.9%** (590/609) | Auth/Mfa/WebAuthn/Social/Totp/Session |
 | libs/storage-memory | **97.1%** (431/444) | Memory 后端全方法覆盖（CI 必跑路径） |
-| libs/oauth2 | **92.9%** (625/673) | TokenService/AuthService/ClientService/JwkManager/Pkce |
+| libs/oauth2 | **92.1%** (627/681) | TokenService/AuthService/ClientService/JwkManager/Pkce |
 | libs/storage-redis | 46.2% (306/663) | 契约测试覆盖 getClient/validate/grant/token/consent 主路径；Lua 脚本与 transaction CRUD 待补 |
 | libs/storage-postgres | 43.9% (727/1657) | 契约测试覆盖主路径；剩余盲区为事务/错误回退分支（需注入故障才能触发） |
-| libs/drogon | **52.5%** (4720/8998) | admin 0%→55-69%、admin 控制器 0%→91-100%；authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器补强；社交 OAuth 控制器经 mock 注入补强（Google 16.3%→42.8%、WeChat 14.3%→35.2%、GitHub 5.9%→17.3%）；WebAuthn 9.9%→39.2%（非加密 stub，无需 authenticator） |
-| **整体** | **58.8%** (8085/13738) | 上表逐库求和（`scripts/measure_coverage.py` 的 OVERALL 即逐库之和）；本轮从 48.5% 基线提升 +10.3pp |
+| libs/drogon | **53.5%** (4807/8978) | admin 0%→55-69%、admin 控制器 0%→91-100%；authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器补强；社交 OAuth 控制器经 mock 注入补强（Google 38.3%、WeChat 30.6%、GitHub 32.5%）；WebAuthn 39.2%（非加密 stub，无需 authenticator） |
+| **整体** | **57.9%** (7806/13490) | 上表逐库求和（`scripts/measure_coverage.py` 的 OVERALL 即逐库之和）；从 48.5% 基线提升 +9.4pp |
 
-> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/authforge/identity/testing/` 的共享 Fake）将整体提升到 58.8%。社交 OAuth 的 Google/WeChat/GitHub 均可经 mock 注入在 memory 模式下跑（注入路径不写 DB）；其中 GitHub happy-path 最初因 `issueTokensForUser` 直连 `getDbClient()` 无法在 memory 模式覆盖，随后已重构为经 `OAuth2Plugin::saveTokenPair` 存储抽象持久化（见 `SocialLoginHttpTest.cc` 的 `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens`），happy-path 现已可测；WebAuthn 为非加密 stub，Postgres 模式下完整可测。注：上表逐库数字测量于 GitHub 重构之前，GitHubController 的实际覆盖率略高于表内 17.3%。剩余盲区：storage-postgres 事务/错误回退分支（需故障注入）。
+> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/authforge/identity/testing/` 的共享 Fake）将整体提升到 57.9%。社交 OAuth 的 Google/WeChat/GitHub 均可经 mock 注入在 memory 模式下跑（注入路径不写 DB）；其中 GitHub happy-path 最初因 `issueTokensForUser` 直连 `getDbClient()` 无法在 memory 模式覆盖，随后已重构为经 `OAuth2Plugin::saveTokenPair` 存储抽象持久化（见 `SocialLoginHttpTest.cc` 的 `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens`），happy-path 现已可测（GitHubController 从 5.9% 提升到 32.5%）；WebAuthn 为非加密 stub，Postgres 模式下完整可测。注：此前文档的 58.8% 系旧逐库数字求和（其中 common 的 98.8% 为陈旧数据，现 `libs/common/src` 仅 4 个源文件 458 行，实测 69.4%）；本表已全部替换为 7ba8068 的实测值。剩余盲区：storage-postgres 事务/错误回退分支（需故障注入）。
 
 #### ⚠️ 实测覆盖率必须跑全部 5 个测试二进制
 
@@ -293,7 +293,7 @@ gcovr 仍可用于生成逐文件 HTML 报告（`--html-details`），但**汇�
 
 - `cmake/Coverage.cmake`（`oauth2_apply_gcov(target)`）给每个 first-party 库 + 测试可执行文件加 `-fprofile-arcs -ftest-coverage`，并显式链接 libgcov（仅 GCC；Clang 的 profile 运行时由 `-fprofile-arcs` 链接选项自动提供，无 libgcov）。
 - `tests/test_main.cc` 在两处 `std::_Exit()` 前显式调用 `__gcov_dump()`：因为 `_Exit` 绕过 `atexit`，libgcov 的计数器 flush 不会自动执行（否则 gcov 读到全 0 计数）。这是 Drogon 测试框架 fast-exit 与 gcov 的已知交互，需在测试 main 里手动补 flush。（注：4 个 per-lib gtest 二进制正常退出，不走 `_Exit`，因此它们不需要手动 flush。）
-- 覆盖率当前阶段性目标：60%（本轮 58.8%）。剩余盲区集中在难以 HTTP 测试的分支：WebAuthn 典礼/加密深分支、UserSelfService（需逆向 auth 前置 filter）、storage-postgres 事务/错误回退分支（需故障注入）。社交 OAuth 控制器已可通过 `SocialMockFixture.h` 的 Fake 注入在 memory 模式下覆盖（GitHub happy-path 经 `saveTokenPair` 存储抽象重构后不再依赖 `getDbClient()`）。ORM 自动生成的 `libs/storage-postgres/src/models/*.cc` 已从分母排除。
+- 覆盖率当前阶段性目标：60%（7ba8068 实测 57.9%）。剩余盲区集中在难以 HTTP 测试的分支：WebAuthn 典礼/加密深分支、UserSelfService（需逆向 auth 前置 filter）、storage-postgres 事务/错误回退分支（需故障注入）。社交 OAuth 控制器已可通过 `SocialMockFixture.h` 的 Fake 注入在 memory 模式下覆盖（GitHub happy-path 经 `saveTokenPair` 存储抽象重构后不再依赖 `getDbClient()`）。ORM 自动生成的 `libs/storage-postgres/src/models/*.cc` 已从分母排除。
 
 ---
 
