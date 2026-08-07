@@ -76,8 +76,10 @@ void MemoryGrantRepository::consumeAuthCode(
         if (!it->second.used)
         {
             // CRITICAL: Validate redirect_uri matches authorization
-            // Per OAuth2 RFC 6749 Section 4.1.3
-            if (!redirectUri.empty() && redirectUri != it->second.redirectUri)
+            // Per OAuth2 RFC 6749 Section 4.1.3.
+            // F-009: a redirect_uri recorded at authorization time is
+            // REQUIRED at the token endpoint and MUST be identical.
+            if (!it->second.redirectUri.empty() && redirectUri != it->second.redirectUri)
             {
                 LOG_WARN << "[SECURITY] redirect_uri mismatch in token exchange. "
                          << "Expected: " << it->second.redirectUri << ", Got: " << redirectUri

@@ -11,7 +11,12 @@ inline const char *CLIENT_ID_PATTERN = "^[a-zA-Z0-9._-]{1,128}$";
 inline const size_t CLIENT_ID_MIN_LEN = 1;
 inline const size_t CLIENT_ID_MAX_LEN = 128;
 
-inline const char *REDIRECT_URI_PATTERN = "^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/[^\\s]*)?$";
+// F-014: host may also be an IPv6 literal (RFC 8252 §7.3 loopback
+// exemption requires the [::1] form). Scheme policy (https-required,
+// loopback IP exemption, auth.allow_http_redirect_uri override) is enforced
+// beyond this shape check in RuleEngine::validateRedirectUri.
+inline const char *REDIRECT_URI_PATTERN =
+  "^https?://(\\[[a-fA-F0-9:.]+\\]|[a-zA-Z0-9.-]+)(:[0-9]+)?(/[^\\s]*)?$";
 inline const size_t REDIRECT_URI_MIN_LEN = 10;
 inline const size_t REDIRECT_URI_MAX_LEN = 2048;
 

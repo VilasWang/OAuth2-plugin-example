@@ -40,6 +40,7 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <authforge/drogon/utils/CryptoUtils.h>
 
 #include <json/json.h>
 
@@ -69,7 +70,9 @@ constexpr const char *kTestBaseUrl = "http://127.0.0.1:5555";
 // client.sql) and its registered redirect URI. The 2-step admin login recipe
 // (login -> token -> bearer) uses these for both legs.
 constexpr const char *kAdminClientId = "admin-console";
-constexpr const char *kAdminRedirectUri = "http://localhost:5174/admin/callback";
+// F-014: the seed registers the loopback IP literal (RFC 8252 §7.3), not
+// "localhost" -- the authorize/login validators now reject the hostname form.
+constexpr const char *kAdminRedirectUri = "http://127.0.0.1:5174/admin/callback";
 
 // ---------------------------------------------------------------------------
 // Server reachability probe
@@ -335,13 +338,24 @@ inline std::optional<std::string> loginAsAdmin()
     if (!serverReachable())
         return std::nullopt;
 
+    // F-011: PKCE is mandatory (auth.require_pkce_for_public defaults true),
+    // so this recipe always runs the S256 flow. generateSecureToken(32)
+    // yields a 43-char base64url string -- a valid RFC 7636 §4.1 verifier
+    // charset-wise -- and CryptoUtils::computeCodeChallenge matches the
+    // server's spec-correct BASE64URL(SHA256(verifier)) verification.
+    const std::string codeVerifier = ::authforge::drogon::utils::generateSecureToken(32);
+    const std::string codeChallenge =
+      ::authforge::drogon::utils::computeCodeChallenge(codeVerifier, "S256");
+
     // Step 1: login -> authorization code.
     const std::string loginForm =
       "username=admin&password=admin"
       "&client_id=" +
       std::string(kAdminClientId) +
       "&redirect_uri=" + std::string(kAdminRedirectUri) +
-      "&scope=openid profile admin&state=t1";
+      "&scope=openid profile admin&state=t1"
+      "&code_challenge=" + codeChallenge +
+      "&code_challenge_method=S256";
     auto loginResp = sendPostForm("/oauth2/login?json=true", loginForm);
     if (!loginResp || loginResp->getStatusCode() != ::drogon::k200OK)
         return std::nullopt;
@@ -363,7 +377,8 @@ inline std::optional<std::string> loginAsAdmin()
       code +
       "&redirect_uri=" + std::string(kAdminRedirectUri) +
       "&client_id=" + std::string(kAdminClientId) +
-      "&client_secret=";  // admin-console is a PUBLIC client -> empty secret
+      "&client_secret="  // admin-console is a PUBLIC client -> empty secret
+      "&code_verifier=" + codeVerifier;
     auto tokenResp = sendPostForm("/oauth2/token", tokenForm);
     if (!tokenResp || tokenResp->getStatusCode() != ::drogon::k200OK)
         return std::nullopt;

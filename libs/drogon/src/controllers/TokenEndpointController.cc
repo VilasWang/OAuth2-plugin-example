@@ -2,7 +2,6 @@
 #include <authforge/drogon/adapters/DrogonAuditSink.h>
 #include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/validation/RuleSet.h>
-#include <authforge/drogon/validation/HttpResponder.h>
 #include <authforge/drogon/error/OAuth2ErrorHandler.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
@@ -403,6 +402,17 @@ void TokenEndpointController::introspect(
                 {
                     response["iss"] = introspection->iss;
                 }
+                else
+                {
+                    // F-016: backfill from the configured issuer when the
+                    // storage row carries none (legacy rows / backends that
+                    // never persisted issuer), so introspection iss is always
+                    // byte-identical to the discovery document's issuer.
+                    const auto &cfgIssuer =
+                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getIssuer();
+                    if (!cfgIssuer.empty())
+                        response["iss"] = cfgIssuer;
+                }
                 if (!introspection->scope.empty())
                 {
                     response["scope"] = introspection->scope;
@@ -556,9 +566,15 @@ void TokenEndpointController::token(
     // Use ValidatorHelper for consistent validation
     auto errors = authforge::drogon::validation::RuleSet::oauth2Token(req);
 
-    // Return validation errors if any
-    if (authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    // F-008 (RFC 6749 §5.2): /oauth2/token is a protocol endpoint, so
+    // validation failures MUST be RFC 6749 error envelopes
+    // (error: invalid_request), not the application JSON Error Envelope
+    // emitted by HttpResponder.
+    if (!errors.empty())
     {
+        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+          std::move(callback), "invalid_request", errors[0]
+        );
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_requests_total",
@@ -678,34 +694,100 @@ void TokenEndpointController::token(
     }
     else if (grantType == "refresh_token")
     {
-        std::string refreshTokenStr = refreshToken;
-        plugin->refreshAccessToken(
-          refreshTokenStr, clientId, [callback = std::move(callback)](const Json::Value &result) {
-              if (result.isMember("error"))
+        // F-003 (RFC 6749 §3.2.1 / §6): the token endpoint MUST authenticate
+        // the client on the refresh_token grant as well. Previously this
+        // branch relied solely on TokenService's stored client_id string
+        // comparison, so anyone holding a leaked refresh token (plus the
+        // non-secret client_id) could mint fresh access tokens.
+        // - CONFIDENTIAL clients: require + validate the client_secret.
+        // - PUBLIC clients: client_id existence check only (RFC 6749 §10.2).
+        std::string authScheme =
+          (!authHeader.empty() && authHeader.substr(0, 6) == "Basic ") ? "Basic" : "";
+        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+          std::move(callback)
+        );
+
+        plugin->getClient(
+          clientId,
+          [plugin, clientId, clientSecret, refreshToken, authScheme, sharedCb](
+            std::optional<authforge::oauth2::model::OAuth2Client> client
+          ) {
+              auto respondInvalidClient = [sharedCb, authScheme](const std::string &desc) {
+                  authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                    [sharedCb](const ::drogon::HttpResponsePtr &r) { (*sharedCb)(r); },
+                    "invalid_client",
+                    desc,
+                    "",
+                    authScheme
+                  );
+              };
+
+              if (!client)
               {
-                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
-                  std::string errorCode = result.get("error", "").asString();
-                  ::drogon::HttpStatusCode statusCode =
-                    authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
-                  resp->setStatusCode(statusCode);
-                  if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                      m->incrementCounter(
-                        "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                        static_cast<double>(static_cast<int>(statusCode))
-                      );
-                  callback(resp);
+                  respondInvalidClient("Unknown client_id");
                   return;
               }
 
-              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
-              if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                  m->incrementCounter(
-                    "oauth2_requests_total",
-                    authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                    static_cast<double>(200)
+              auto proceedRefresh = [plugin, clientId, refreshToken, sharedCb]() {
+                  plugin->refreshAccessToken(
+                    refreshToken, clientId, [sharedCb](const Json::Value &result) {
+                        if (result.isMember("error"))
+                        {
+                            auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
+                            std::string errorCode = result.get("error", "").asString();
+                            ::drogon::HttpStatusCode statusCode =
+                              authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(
+                                errorCode
+                              );
+                            resp->setStatusCode(statusCode);
+                            if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                                m->incrementCounter(
+                                  "oauth2_requests_total",
+                                  authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                  static_cast<double>(static_cast<int>(statusCode))
+                                );
+                            (*sharedCb)(resp);
+                            return;
+                        }
+
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
+                        if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                            m->incrementCounter(
+                              "oauth2_requests_total",
+                              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                              static_cast<double>(200)
+                            );
+                        (*sharedCb)(resp);
+                    }
                   );
-              callback(resp);
+              };
+
+              if (client->clientType == authforge::oauth2::model::ClientType::CONFIDENTIAL)
+              {
+                  if (clientSecret.empty())
+                  {
+                      respondInvalidClient(
+                        "Client authentication required for refresh_token grant"
+                      );
+                      return;
+                  }
+                  plugin->validateClient(
+                    clientId,
+                    clientSecret,
+                    [proceedRefresh, respondInvalidClient](bool valid) {
+                        if (!valid)
+                        {
+                            respondInvalidClient("Client authentication failed");
+                            return;
+                        }
+                        proceedRefresh();
+                    }
+                  );
+                  return;
+              }
+
+              // PUBLIC client: existence verified via getClient above.
+              proceedRefresh();
           }
         );
     }
@@ -840,6 +922,10 @@ void TokenEndpointController::token(
                     token.scope = grantedScope;
                     token.issuedAt = now;  // P2 #10: introspection iat
                     token.expiresAt = now + accessTokenTtl;
+                    // F-016: M2M tokens get the configured issuer too (the
+                    // controller constructs these tokens outside TokenService,
+                    // so the stamp happens here via plugin->getIssuer()).
+                    token.issuer = plugin->getIssuer();
 
                     // Phase 4.3: route through plugin->saveAccessToken (NEW
                     // ITokenRepository) instead of getStorage()->saveAccessToken.
@@ -996,18 +1082,84 @@ void TokenEndpointController::token(
                   // Check status
                   if (status == "pending")
                   {
-                      Json::Value error;
-                      error["error"] = "authorization_pending";
-                      error["error_description"] = "The authorization request is still pending";
-                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
-                      resp->setStatusCode(::drogon::k400BadRequest);
-                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                          m->incrementCounter(
-                            "oauth2_requests_total",
-                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
-                            static_cast<double>(400)
+                      auto respondPending = [sharedCb]() {
+                          Json::Value error;
+                          error["error"] = "authorization_pending";
+                          error["error_description"] =
+                            "The authorization request is still pending";
+                          auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                          resp->setStatusCode(::drogon::k400BadRequest);
+                          if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                              m->incrementCounter(
+                                "oauth2_requests_total",
+                                authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                static_cast<double>(400)
+                              );
+                          (*sharedCb)(resp);
+                      };
+
+                      // F-012 (RFC 8628 §3.5): a poll arriving sooner than
+                      // interval_seconds after the previous one gets
+                      // slow_down, and the server SHOULD increase the
+                      // interval by 5 seconds and persist it. Every poll
+                      // records last_polled_at (raw UPDATE is a db-operations
+                      // exemption: read-modify-write on a polled timestamp).
+                      int intervalSeconds = row.getValueOfIntervalSeconds();
+                      int64_t lastPolledAt = row.getValueOfLastPolledAt();
+                      bool tooFast = lastPolledAt > 0 && (now - lastPolledAt) < intervalSeconds;
+
+                      if (tooFast)
+                      {
+                          int newInterval = intervalSeconds + 5;
+                          auto respondSlowDown = [sharedCb, newInterval]() {
+                              Json::Value error;
+                              error["error"] = "slow_down";
+                              error["error_description"] =
+                                "Polling too frequently; increase the polling interval";
+                              error["interval"] = newInterval;
+                              auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                              resp->setStatusCode(::drogon::k400BadRequest);
+                              if (
+                                auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics()
+                              )
+                                  m->incrementCounter(
+                                    "oauth2_requests_total",
+                                    authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                    static_cast<double>(400)
+                                  );
+                              (*sharedCb)(resp);
+                          };
+                          dbClient->execSqlAsync(
+                            "UPDATE oauth2_device_codes "
+                            "SET interval_seconds = $2, last_polled_at = $3 "
+                            "WHERE device_code_hash = $1",
+                            [respondSlowDown](const ::drogon::orm::Result &) { respondSlowDown(); },
+                            [respondSlowDown](const DrogonDbException &e) {
+                                LOG_ERROR << "slow_down: failed to persist interval bump: "
+                                          << e.base().what();
+                                // Protocol response still goes out (the client
+                                // backs off either way).
+                                respondSlowDown();
+                            },
+                            deviceCodeHash,
+                            newInterval,
+                            static_cast<int64_t>(now)
                           );
-                      (*sharedCb)(resp);
+                          return;
+                      }
+
+                      dbClient->execSqlAsync(
+                        "UPDATE oauth2_device_codes SET last_polled_at = $2 "
+                        "WHERE device_code_hash = $1",
+                        [respondPending](const ::drogon::orm::Result &) { respondPending(); },
+                        [respondPending](const DrogonDbException &e) {
+                            LOG_ERROR << "device poll: failed to persist last_polled_at: "
+                                      << e.base().what();
+                            respondPending();
+                        },
+                        deviceCodeHash,
+                        static_cast<int64_t>(now)
+                      );
                       return;
                   }
 
@@ -1109,6 +1261,9 @@ void TokenEndpointController::token(
                             accessToken.scope = scope;
                             accessToken.issuedAt = now;
                             accessToken.expiresAt = now + accessTokenTtl;
+                            // F-016: device-code tokens are constructed here
+                            // (outside TokenService), stamp the issuer too.
+                            accessToken.issuer = plugin->getIssuer();
 
                             authforge::oauth2::model::OAuth2RefreshToken refreshToken;
                             refreshToken.token =

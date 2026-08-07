@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $passed = 0
 $failed = 0
-$total = 56
+$total = 57
 $adminPassword = "admin"  # Track current admin password across tests
 
 # Import common functions
@@ -71,6 +71,7 @@ Test-Endpoint "Test 3: OIDC Discovery" {
     if (-not $r.issuer) { throw "missing issuer" }
     if (-not $r.jwks_uri) { throw "missing jwks_uri" }
     if (-not $r.scopes_supported) { throw "missing scopes_supported" }
+    $script:discoveryIssuer = $r.issuer
     Write-Host "    Issuer: $($r.issuer)"
 }
 
@@ -92,6 +93,7 @@ Test-Endpoint "Test 4: JWKS" {
 $authCode = $null
 $accessToken = $null
 $refreshToken = $null
+$discoveryIssuer = $null
 
 Test-Endpoint "Test 5: OAuth2 Login" {
     $body = @{
@@ -179,6 +181,35 @@ Test-Endpoint "Test 9: Token Refresh" {
 }
 
 # ========================================
+# Test 9b: Token Refresh - Confidential client without secret (F-003, 401)
+# ========================================
+Test-Endpoint "Test 9b: Token Refresh - Missing client_secret (401)" {
+    if (-not $refreshToken) { throw "skipped: no refresh_token" }
+    # F-003 (RFC 6749 SS6/SS3.2.1): refreshing with a CONFIDENTIAL client
+    # now requires client authentication; omitting the secret MUST yield
+    # 401 invalid_client (+ WWW-Authenticate: Basic).
+    $body = @{
+        grant_type = 'refresh_token'
+        refresh_token = $refreshToken
+        client_id = 'vue-client'
+    }
+    try {
+        Invoke-WebRequest -Uri "$BaseUrl/oauth2/token" -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Out-Null
+        throw "refresh without client_secret should fail for confidential client"
+    } catch {
+        $resp = $_.Exception.Response
+        if ($resp.StatusCode -ne "Unauthorized") { throw "expected 401, got $($resp.StatusCode)" }
+        $respBody = ""
+        try {
+            $sr = [System.IO.StreamReader]::new($resp.GetResponseStream())
+            $respBody = $sr.ReadToEnd()
+        } catch {}
+        if ($respBody -notmatch '"error"\s*:\s*"invalid_client"') { throw "expected invalid_client, got: $respBody" }
+        Write-Host "    401 + invalid_client returned for unauthenticated refresh"
+    }
+}
+
+# ========================================
 # Test 10: Client Credentials Grant
 # ========================================
 Test-Endpoint "Test 10: Client Credentials" {
@@ -210,7 +241,10 @@ Test-Endpoint "Test 11: Token Introspection" {
     }
     $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body
     if ($r.active -ne $true) { throw "active != true" }
-    Write-Host "    Active: $($r.active), Sub: $($r.sub), Scope: $($r.scope)"
+    # F-016: introspection iss MUST be byte-identical to the discovery issuer
+    if (-not $r.iss) { throw "introspection missing iss claim" }
+    if ($discoveryIssuer -and $r.iss -cne $discoveryIssuer) { throw "iss '$($r.iss)' != discovery issuer '$discoveryIssuer'" }
+    Write-Host "    Active: $($r.active), Sub: $($r.sub), Scope: $($r.scope), Iss: $($r.iss)"
 }
 
 # ========================================

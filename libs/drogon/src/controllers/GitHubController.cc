@@ -252,6 +252,9 @@ void GitHubController::issueTokensForUser(
     accessToken.scope = scope;
     accessToken.issuedAt = now;
     accessToken.expiresAt = now + accessTokenTtl;
+    // F-016: stamp the configured issuer (same as the token endpoint's
+    // controller-constructed paths).
+    accessToken.issuer = plugin->getIssuer();
 
     authforge::oauth2::model::OAuth2RefreshToken refreshToken;
     refreshToken.token = refreshTokenStr;

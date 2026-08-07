@@ -265,7 +265,7 @@ set(OAUTH2_CONTRACT_TEST_NAMES
     # branches, revokeAccessToken audit fields, atomicRevokeRefreshToken
     # not-found/already-revoked, expired-refresh filtering, purgeExpired,
     # incrementIntrospectCount, AuthorizationTransaction CRUD, markAuthCodeUsed,
-    # markTransactionConsumed, consumeAuthCode empty-redirectUri bypass,
+    # markTransactionConsumed, consumeAuthCode empty-redirectUri rejected when bound (F-009),
     # getAuthCode lazy eviction, MemoryClientRepository initFromConfig parsing
     # branches, MemoryIdentityRepository initAdminRoles + IUserRepository
     # placeholder impls. Memory-only (no DB gate) so they run unconditionally.
@@ -287,7 +287,7 @@ set(OAUTH2_CONTRACT_TEST_NAMES
     Integration_P0_Contract_Functional_GrantRepository_Memory_AuthorizationTransaction_Expired_GetReturnsNullopt_AndEvicts
     Integration_P0_Contract_Functional_GrantRepository_Memory_MarkTransactionConsumed_FirstTrue_SecondFalse
     Integration_P0_Contract_Functional_GrantRepository_Memory_MarkAuthCodeUsed_MissingNoOp_ExistingMarksUsed
-    Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_EmptyRedirectUriAllowed
+    Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_EmptyRedirectUriRejectedWhenBound
     Integration_P0_Contract_Functional_GrantRepository_Memory_GetAuthCode_Expired_EvictedAndReturnsNullopt
     Integration_P0_Contract_Functional_GrantRepository_Memory_PurgeExpired_RemovesExpiredCodes
     # ClientRepository (Memory) initFromConfig parsing branches

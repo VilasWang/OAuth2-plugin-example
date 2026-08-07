@@ -11,6 +11,21 @@ using namespace authforge::drogon::observability::openapi;
 namespace authforge::drogon::controllers
 {
 
+namespace
+{
+// F-016: normalize a trailing slash so the advertised issuer (and every
+// endpoint URL derived from it) is byte-identical to the issuer OAuth2Plugin
+// stamps on tokens at startup (which applies the same normalization). Without
+// this, metadata.issuer="https://auth.example.com/" produced
+// "https://auth.example.com//oauth2/token" and an iss/issuer mismatch.
+std::string normalizeIssuer(std::string url)
+{
+    while (url.size() > 1 && url.back() == '/')
+        url.pop_back();
+    return url;
+}
+}  // namespace
+
 ::OAuth2Plugin *DiscoveryController::resolvePlugin() const
 {
     return plugin_ ? plugin_ : ::drogon::app().getPlugin<::OAuth2Plugin>();
@@ -76,7 +91,7 @@ void DiscoveryController::metadata(
     auto customConfig = ::drogon::app().getCustomConfig();
     if (customConfig.isMember("metadata") && customConfig["metadata"].isMember("issuer"))
     {
-        baseUrl = customConfig["metadata"]["issuer"].asString();
+        baseUrl = normalizeIssuer(customConfig["metadata"]["issuer"].asString());
     }
     if (baseUrl.empty())
     {
@@ -159,7 +174,7 @@ void DiscoveryController::oidcDiscovery(
     auto customConfig = ::drogon::app().getCustomConfig();
     if (customConfig.isMember("metadata") && customConfig["metadata"].isMember("issuer"))
     {
-        baseUrl = customConfig["metadata"]["issuer"].asString();
+        baseUrl = normalizeIssuer(customConfig["metadata"]["issuer"].asString());
     }
     if (baseUrl.empty())
     {

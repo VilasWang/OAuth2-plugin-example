@@ -1,31 +1,14 @@
 #include <authforge/storage/memory/MemoryClientRepository.h>
+#include <authforge/common/utils/ConstantTimeCompare.h>
 #include <drogon/drogon.h>
-
-namespace
-{
-/**
- * @brief Constant-time memory comparison to prevent timing attacks
- * Returns 0 if buffers are equal, non-zero otherwise.
- * Verbatim copy from MemoryOAuth2Storage.cc's anonymous-namespace helper.
- */
-inline int constantTimeMemcmp(const void *s1, const void *s2, size_t n)
-{
-    const unsigned char *p1 = static_cast<const unsigned char *>(s1);
-    const unsigned char *p2 = static_cast<const unsigned char *>(s2);
-    int result = 0;
-    size_t i;
-
-    for (i = 0; i < n; ++i)
-    {
-        result |= p1[i] ^ p2[i];
-    }
-
-    return result;
-}
-}  // namespace
 
 namespace authforge::storage::memory
 {
+
+// F-004: constant-time comparison now comes from the shared
+// authforge::common::utils::constantTimeMemcmp (previously a verbatim
+// anonymous-namespace copy lived here and in the Postgres/Redis backends).
+using ::authforge::common::utils::constantTimeMemcmp;
 
 // Task 27.5: callback type aliases now live on the new base interface
 // (authforge::oauth2::repository::IClientRepository); bring them into scope

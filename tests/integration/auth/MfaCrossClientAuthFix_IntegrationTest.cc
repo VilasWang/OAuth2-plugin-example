@@ -35,8 +35,8 @@ using namespace drogon::orm;
 namespace
 {
 constexpr const char *kBaseUrl = "http://127.0.0.1:5555";
-constexpr const char *kVueRedirectUri = "http://localhost:5173/callback";
-constexpr const char *kAdminRedirectUri = "http://localhost:5174/admin/callback";
+constexpr const char *kVueRedirectUri = "http://127.0.0.1:5173/callback";
+constexpr const char *kAdminRedirectUri = "http://127.0.0.1:5174/admin/callback";
 
 bool parseBody(const HttpResponsePtr &resp, Json::Value &out)
 {

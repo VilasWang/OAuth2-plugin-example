@@ -44,7 +44,7 @@ using namespace drogon::orm;
 namespace
 {
 constexpr const char *kBaseUrl = "http://127.0.0.1:5555";
-constexpr const char *kRedirectUri = "http://localhost:5173/callback";
+constexpr const char *kRedirectUri = "http://127.0.0.1:5173/callback";
 constexpr const char *kState = "pkce_e2e_state_01";
 // 43-char PKCE verifier; with method "plain" the challenge is the verifier
 // itself (RFC 7636 §4.2), which keeps the test free of base64url/sha256

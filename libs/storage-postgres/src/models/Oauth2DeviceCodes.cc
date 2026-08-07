@@ -22,6 +22,7 @@ const std::string Oauth2DeviceCodes::Cols::_status = "\"status\"";
 const std::string Oauth2DeviceCodes::Cols::_user_id = "\"user_id\"";
 const std::string Oauth2DeviceCodes::Cols::_expires_at = "\"expires_at\"";
 const std::string Oauth2DeviceCodes::Cols::_interval_seconds = "\"interval_seconds\"";
+const std::string Oauth2DeviceCodes::Cols::_last_polled_at = "\"last_polled_at\"";
 const std::string Oauth2DeviceCodes::Cols::_created_at = "\"created_at\"";
 const std::string Oauth2DeviceCodes::primaryKeyName = "device_code_hash";
 const bool Oauth2DeviceCodes::hasPrimaryKey = true;
@@ -36,6 +37,7 @@ const std::vector<typename Oauth2DeviceCodes::MetaData> Oauth2DeviceCodes::metaD
 {"user_id","std::string","character varying",50,0,0,0},
 {"expires_at","int64_t","bigint",8,0,0,1},
 {"interval_seconds","int32_t","integer",4,0,0,0},
+{"last_polled_at","int64_t","bigint",8,0,0,0},
 {"created_at","::trantor::Date","timestamp without time zone",0,0,0,0}
 };
 const std::string &Oauth2DeviceCodes::getColumnName(size_t index) noexcept(false)
@@ -79,6 +81,10 @@ Oauth2DeviceCodes::Oauth2DeviceCodes(const Row &r, const ssize_t indexOffset) no
         {
             intervalSeconds_=std::make_shared<int32_t>(r["interval_seconds"].as<int32_t>());
         }
+        if(!r["last_polled_at"].isNull())
+        {
+            lastPolledAt_=std::make_shared<int64_t>(r["last_polled_at"].as<int64_t>());
+        }
         if(!r["created_at"].isNull())
         {
             auto timeStr = r["created_at"].as<std::string>();
@@ -105,7 +111,7 @@ Oauth2DeviceCodes::Oauth2DeviceCodes(const Row &r, const ssize_t indexOffset) no
     else
     {
         size_t offset = (size_t)indexOffset;
-        if(offset + 9 > r.size())
+        if(offset + 10 > r.size())
         {
             LOG_FATAL << "Invalid SQL result for this model";
             return;
@@ -154,6 +160,11 @@ Oauth2DeviceCodes::Oauth2DeviceCodes(const Row &r, const ssize_t indexOffset) no
         index = offset + 8;
         if(!r[index].isNull())
         {
+            lastPolledAt_=std::make_shared<int64_t>(r[index].as<int64_t>());
+        }
+        index = offset + 9;
+        if(!r[index].isNull())
+        {
             auto timeStr = r[index].as<std::string>();
             struct tm stm;
             memset(&stm,0,sizeof(stm));
@@ -180,7 +191,7 @@ Oauth2DeviceCodes::Oauth2DeviceCodes(const Row &r, const ssize_t indexOffset) no
 
 Oauth2DeviceCodes::Oauth2DeviceCodes(const Json::Value &pJson, const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 10)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -254,7 +265,15 @@ Oauth2DeviceCodes::Oauth2DeviceCodes(const Json::Value &pJson, const std::vector
         dirtyFlag_[8] = true;
         if(!pJson[pMasqueradingVector[8]].isNull())
         {
-            auto timeStr = pJson[pMasqueradingVector[8]].asString();
+            lastPolledAt_=std::make_shared<int64_t>((int64_t)pJson[pMasqueradingVector[8]].asInt64());
+        }
+    }
+    if(!pMasqueradingVector[9].empty() && pJson.isMember(pMasqueradingVector[9]))
+    {
+        dirtyFlag_[9] = true;
+        if(!pJson[pMasqueradingVector[9]].isNull())
+        {
+            auto timeStr = pJson[pMasqueradingVector[9]].asString();
             struct tm stm;
             memset(&stm,0,sizeof(stm));
             auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
@@ -343,9 +362,17 @@ Oauth2DeviceCodes::Oauth2DeviceCodes(const Json::Value &pJson) noexcept(false)
             intervalSeconds_=std::make_shared<int32_t>((int32_t)pJson["interval_seconds"].asInt64());
         }
     }
-    if(pJson.isMember("created_at"))
+    if(pJson.isMember("last_polled_at"))
     {
         dirtyFlag_[8]=true;
+        if(!pJson["last_polled_at"].isNull())
+        {
+            lastPolledAt_=std::make_shared<int64_t>((int64_t)pJson["last_polled_at"].asInt64());
+        }
+    }
+    if(pJson.isMember("created_at"))
+    {
+        dirtyFlag_[9]=true;
         if(!pJson["created_at"].isNull())
         {
             auto timeStr = pJson["created_at"].asString();
@@ -374,7 +401,7 @@ Oauth2DeviceCodes::Oauth2DeviceCodes(const Json::Value &pJson) noexcept(false)
 void Oauth2DeviceCodes::updateByMasqueradedJson(const Json::Value &pJson,
                                             const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 10)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -447,7 +474,15 @@ void Oauth2DeviceCodes::updateByMasqueradedJson(const Json::Value &pJson,
         dirtyFlag_[8] = true;
         if(!pJson[pMasqueradingVector[8]].isNull())
         {
-            auto timeStr = pJson[pMasqueradingVector[8]].asString();
+            lastPolledAt_=std::make_shared<int64_t>((int64_t)pJson[pMasqueradingVector[8]].asInt64());
+        }
+    }
+    if(!pMasqueradingVector[9].empty() && pJson.isMember(pMasqueradingVector[9]))
+    {
+        dirtyFlag_[9] = true;
+        if(!pJson[pMasqueradingVector[9]].isNull())
+        {
+            auto timeStr = pJson[pMasqueradingVector[9]].asString();
             struct tm stm;
             memset(&stm,0,sizeof(stm));
             auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
@@ -535,9 +570,17 @@ void Oauth2DeviceCodes::updateByJson(const Json::Value &pJson) noexcept(false)
             intervalSeconds_=std::make_shared<int32_t>((int32_t)pJson["interval_seconds"].asInt64());
         }
     }
-    if(pJson.isMember("created_at"))
+    if(pJson.isMember("last_polled_at"))
     {
         dirtyFlag_[8] = true;
+        if(!pJson["last_polled_at"].isNull())
+        {
+            lastPolledAt_=std::make_shared<int64_t>((int64_t)pJson["last_polled_at"].asInt64());
+        }
+    }
+    if(pJson.isMember("created_at"))
+    {
+        dirtyFlag_[9] = true;
         if(!pJson["created_at"].isNull())
         {
             auto timeStr = pJson["created_at"].asString();
@@ -754,6 +797,28 @@ void Oauth2DeviceCodes::setIntervalSecondsToNull() noexcept
     dirtyFlag_[7] = true;
 }
 
+const int64_t &Oauth2DeviceCodes::getValueOfLastPolledAt() const noexcept
+{
+    static const int64_t defaultValue = int64_t();
+    if(lastPolledAt_)
+        return *lastPolledAt_;
+    return defaultValue;
+}
+const std::shared_ptr<int64_t> &Oauth2DeviceCodes::getLastPolledAt() const noexcept
+{
+    return lastPolledAt_;
+}
+void Oauth2DeviceCodes::setLastPolledAt(const int64_t &pLastPolledAt) noexcept
+{
+    lastPolledAt_ = std::make_shared<int64_t>(pLastPolledAt);
+    dirtyFlag_[8] = true;
+}
+void Oauth2DeviceCodes::setLastPolledAtToNull() noexcept
+{
+    lastPolledAt_.reset();
+    dirtyFlag_[8] = true;
+}
+
 const ::trantor::Date &Oauth2DeviceCodes::getValueOfCreatedAt() const noexcept
 {
     static const ::trantor::Date defaultValue = ::trantor::Date();
@@ -768,12 +833,12 @@ const std::shared_ptr<::trantor::Date> &Oauth2DeviceCodes::getCreatedAt() const 
 void Oauth2DeviceCodes::setCreatedAt(const ::trantor::Date &pCreatedAt) noexcept
 {
     createdAt_ = std::make_shared<::trantor::Date>(pCreatedAt);
-    dirtyFlag_[8] = true;
+    dirtyFlag_[9] = true;
 }
 void Oauth2DeviceCodes::setCreatedAtToNull() noexcept
 {
     createdAt_.reset();
-    dirtyFlag_[8] = true;
+    dirtyFlag_[9] = true;
 }
 
 void Oauth2DeviceCodes::updateId(const uint64_t id)
@@ -791,6 +856,7 @@ const std::vector<std::string> &Oauth2DeviceCodes::insertColumns() noexcept
         "user_id",
         "expires_at",
         "interval_seconds",
+        "last_polled_at",
         "created_at"
     };
     return inCols;
@@ -888,6 +954,17 @@ void Oauth2DeviceCodes::outputArgs(drogon::orm::internal::SqlBinder &binder) con
     }
     if(dirtyFlag_[8])
     {
+        if(getLastPolledAt())
+        {
+            binder << getValueOfLastPolledAt();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
+    if(dirtyFlag_[9])
+    {
         if(getCreatedAt())
         {
             binder << getValueOfCreatedAt();
@@ -937,6 +1014,10 @@ const std::vector<std::string> Oauth2DeviceCodes::updateColumns() const
     if(dirtyFlag_[8])
     {
         ret.push_back(getColumnName(8));
+    }
+    if(dirtyFlag_[9])
+    {
+        ret.push_back(getColumnName(9));
     }
     return ret;
 }
@@ -1033,6 +1114,17 @@ void Oauth2DeviceCodes::updateArgs(drogon::orm::internal::SqlBinder &binder) con
     }
     if(dirtyFlag_[8])
     {
+        if(getLastPolledAt())
+        {
+            binder << getValueOfLastPolledAt();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
+    if(dirtyFlag_[9])
+    {
         if(getCreatedAt())
         {
             binder << getValueOfCreatedAt();
@@ -1110,6 +1202,14 @@ Json::Value Oauth2DeviceCodes::toJson() const
     {
         ret["interval_seconds"]=Json::Value();
     }
+    if(getLastPolledAt())
+    {
+        ret["last_polled_at"]=(Json::Int64)getValueOfLastPolledAt();
+    }
+    else
+    {
+        ret["last_polled_at"]=Json::Value();
+    }
     if(getCreatedAt())
     {
         ret["created_at"]=getCreatedAt()->toDbStringLocal();
@@ -1130,7 +1230,7 @@ Json::Value Oauth2DeviceCodes::toMasqueradedJson(
     const std::vector<std::string> &pMasqueradingVector) const
 {
     Json::Value ret;
-    if(pMasqueradingVector.size() == 9)
+    if(pMasqueradingVector.size() == 10)
     {
         if(!pMasqueradingVector[0].empty())
         {
@@ -1222,13 +1322,24 @@ Json::Value Oauth2DeviceCodes::toMasqueradedJson(
         }
         if(!pMasqueradingVector[8].empty())
         {
-            if(getCreatedAt())
+            if(getLastPolledAt())
             {
-                ret[pMasqueradingVector[8]]=getCreatedAt()->toDbStringLocal();
+                ret[pMasqueradingVector[8]]=(Json::Int64)getValueOfLastPolledAt();
             }
             else
             {
                 ret[pMasqueradingVector[8]]=Json::Value();
+            }
+        }
+        if(!pMasqueradingVector[9].empty())
+        {
+            if(getCreatedAt())
+            {
+                ret[pMasqueradingVector[9]]=getCreatedAt()->toDbStringLocal();
+            }
+            else
+            {
+                ret[pMasqueradingVector[9]]=Json::Value();
             }
         }
         return ret;
@@ -1297,6 +1408,14 @@ Json::Value Oauth2DeviceCodes::toMasqueradedJson(
     else
     {
         ret["interval_seconds"]=Json::Value();
+    }
+    if(getLastPolledAt())
+    {
+        ret["last_polled_at"]=(Json::Int64)getValueOfLastPolledAt();
+    }
+    else
+    {
+        ret["last_polled_at"]=Json::Value();
     }
     if(getCreatedAt())
     {
@@ -1371,9 +1490,14 @@ bool Oauth2DeviceCodes::validateJsonForCreation(const Json::Value &pJson, std::s
         if(!validJsonOfField(7, "interval_seconds", pJson["interval_seconds"], err, true))
             return false;
     }
+    if(pJson.isMember("last_polled_at"))
+    {
+        if(!validJsonOfField(8, "last_polled_at", pJson["last_polled_at"], err, true))
+            return false;
+    }
     if(pJson.isMember("created_at"))
     {
-        if(!validJsonOfField(8, "created_at", pJson["created_at"], err, true))
+        if(!validJsonOfField(9, "created_at", pJson["created_at"], err, true))
             return false;
     }
     return true;
@@ -1382,7 +1506,7 @@ bool Oauth2DeviceCodes::validateMasqueradedJsonForCreation(const Json::Value &pJ
                                                            const std::vector<std::string> &pMasqueradingVector,
                                                            std::string &err)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 10)
     {
         err = "Bad masquerading vector";
         return false;
@@ -1480,6 +1604,14 @@ bool Oauth2DeviceCodes::validateMasqueradedJsonForCreation(const Json::Value &pJ
                   return false;
           }
       }
+      if(!pMasqueradingVector[9].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[9]))
+          {
+              if(!validJsonOfField(9, pMasqueradingVector[9], pJson[pMasqueradingVector[9]], err, true))
+                  return false;
+          }
+      }
     }
     catch(const Json::LogicError &e)
     {
@@ -1535,9 +1667,14 @@ bool Oauth2DeviceCodes::validateJsonForUpdate(const Json::Value &pJson, std::str
         if(!validJsonOfField(7, "interval_seconds", pJson["interval_seconds"], err, false))
             return false;
     }
+    if(pJson.isMember("last_polled_at"))
+    {
+        if(!validJsonOfField(8, "last_polled_at", pJson["last_polled_at"], err, false))
+            return false;
+    }
     if(pJson.isMember("created_at"))
     {
-        if(!validJsonOfField(8, "created_at", pJson["created_at"], err, false))
+        if(!validJsonOfField(9, "created_at", pJson["created_at"], err, false))
             return false;
     }
     return true;
@@ -1546,7 +1683,7 @@ bool Oauth2DeviceCodes::validateMasqueradedJsonForUpdate(const Json::Value &pJso
                                                          const std::vector<std::string> &pMasqueradingVector,
                                                          std::string &err)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 10)
     {
         err = "Bad masquerading vector";
         return false;
@@ -1600,6 +1737,11 @@ bool Oauth2DeviceCodes::validateMasqueradedJsonForUpdate(const Json::Value &pJso
       if(!pMasqueradingVector[8].empty() && pJson.isMember(pMasqueradingVector[8]))
       {
           if(!validJsonOfField(8, pMasqueradingVector[8], pJson[pMasqueradingVector[8]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[9].empty() && pJson.isMember(pMasqueradingVector[9]))
+      {
+          if(!validJsonOfField(9, pMasqueradingVector[9], pJson[pMasqueradingVector[9]], err, false))
               return false;
       }
     }
@@ -1751,6 +1893,17 @@ bool Oauth2DeviceCodes::validJsonOfField(size_t index,
             }
             break;
         case 8:
+            if(pJson.isNull())
+            {
+                return true;
+            }
+            if(!pJson.isInt64())
+            {
+                err="Type error in the "+fieldName+" field";
+                return false;
+            }
+            break;
+        case 9:
             if(pJson.isNull())
             {
                 return true;

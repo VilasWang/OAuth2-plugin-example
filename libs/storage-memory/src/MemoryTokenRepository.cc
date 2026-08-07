@@ -31,8 +31,9 @@ void MemoryTokenRepository::saveAccessToken(const OAuth2AccessToken &token, Void
     OAuth2AccessToken tokenWithDefaults = token;
     if (tokenWithDefaults.issuedAt == 0)
         tokenWithDefaults.issuedAt = getCurrentTimestamp();
-    if (tokenWithDefaults.issuer.empty())
-        tokenWithDefaults.issuer = "https://oauth.example.com";
+    // F-016: no hardcoded fallback issuer anymore; callers stamp the
+    // configured issuer at issuance, and the introspect controller backfills
+    // an empty iss.
     if (tokenWithDefaults.notBefore == 0)
         tokenWithDefaults.notBefore = getCurrentTimestamp();
 

@@ -286,10 +286,10 @@ void RedisTokenRepository::introspectToken(
           else
               introspection.iat = now;
 
+          // F-016: no hardcoded fallback issuer; an empty iss lets the
+          // introspect controller backfill from the configured issuer.
           if (json.isMember("issuer"))
               introspection.iss = json["issuer"].asString();
-          else
-              introspection.iss = "https://oauth.example.com";
 
           if (json.isMember("audience"))
               introspection.aud = json["audience"].asString();

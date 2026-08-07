@@ -65,8 +65,8 @@ namespace
 // (IPv4 only), and resolving "localhost" can yield IPv6 ::1 on Windows, which
 // then hangs in SYN_SENT against an IPv4-only listener.
 constexpr const char *kBaseUrl = "http://127.0.0.1:5555";
-constexpr const char *kVueRedirectUri = "http://localhost:5173/callback";
-constexpr const char *kAdminRedirectUri = "http://localhost:5174/admin/callback";
+constexpr const char *kVueRedirectUri = "http://127.0.0.1:5173/callback";
+constexpr const char *kAdminRedirectUri = "http://127.0.0.1:5174/admin/callback";
 
 // Parse a response body as JSON. Returns false on parse failure (matches the
 // helper used by OAuth2ProtocolEndpointRfcComplianceTest).

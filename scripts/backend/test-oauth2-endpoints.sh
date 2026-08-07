@@ -10,9 +10,10 @@ BASE_URL="${1:-http://127.0.0.1:5555}"
 ACCESS_TOKEN=""
 REFRESH_TOKEN=""
 AUTH_CODE=""
+DISCOVERY_ISSUER=""
 ADMIN_PASSWORD="admin"  # Track current admin password across tests
 
-TOTAL=56
+TOTAL=57
 
 echo "========================================"
 echo "Pre-test Setup"
@@ -55,7 +56,8 @@ test_3() {
     assert_json_exists "$r" "issuer" || return 1
     assert_json_exists "$r" "jwks_uri" || return 1
     assert_json_exists "$r" "scopes_supported" || return 1
-    echo "    Issuer: $(echo "$r" | jq -r '.issuer')"
+    DISCOVERY_ISSUER=$(echo "$r" | jq -r '.issuer')
+    echo "    Issuer: $DISCOVERY_ISSUER"
 }
 run_test "Test 3: OIDC Discovery" test_3
 
@@ -143,6 +145,25 @@ test_9() {
 }
 run_test "Test 9: Token Refresh" test_9
 
+# Test 9b: Token Refresh - Missing client_secret (F-003, 401)
+test_9b() {
+    [ -n "$REFRESH_TOKEN" ] || { echo "    skipped: no refresh_token"; return 1; }
+    # F-003 (RFC 6749 SS6/SS3.2.1): refreshing with a CONFIDENTIAL client
+    # now requires client authentication; omitting the secret MUST yield
+    # 401 invalid_client (+ WWW-Authenticate: Basic).
+    local code body
+    code=$(curl -s -o /tmp/refresh_no_secret.$$ -w '%{http_code}' \
+        -X POST "$BASE_URL/oauth2/token" \
+        -d "grant_type=refresh_token&refresh_token=$REFRESH_TOKEN&client_id=vue-client")
+    body=$(cat /tmp/refresh_no_secret.$$)
+    rm -f /tmp/refresh_no_secret.$$
+    [ "$code" = "401" ] || { echo "    expected 401, got $code"; return 1; }
+    echo "$body" | jq -e '.error == "invalid_client"' >/dev/null \
+        || { echo "    expected invalid_client error body, got: $body"; return 1; }
+    echo "    401 + invalid_client returned for unauthenticated refresh"
+}
+run_test "Test 9b: Token Refresh - Missing client_secret (401)" test_9b
+
 # Test 10: Client Credentials
 test_10() {
     local r
@@ -170,7 +191,14 @@ test_11() {
     local active
     active=$(echo "$r" | jq -r '.active')
     [ "$active" = "true" ] || { echo "    active != true"; return 1; }
-    echo "    Active: $active, Sub: $(echo "$r" | jq -r '.sub')"
+    # F-016: introspection iss MUST be byte-identical to the discovery issuer
+    local iss
+    iss=$(echo "$r" | jq -r '.iss')
+    [ -n "$iss" ] && [ "$iss" != "null" ] || { echo "    introspection missing iss claim"; return 1; }
+    if [ -n "$DISCOVERY_ISSUER" ]; then
+        [ "$iss" = "$DISCOVERY_ISSUER" ] || { echo "    iss '$iss' != discovery issuer '$DISCOVERY_ISSUER'"; return 1; }
+    fi
+    echo "    Active: $active, Sub: $(echo "$r" | jq -r '.sub'), Iss: $iss"
 }
 run_test "Test 11: Token Introspection" test_11
 

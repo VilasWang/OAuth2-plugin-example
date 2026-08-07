@@ -65,6 +65,15 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
                   );
                   error.message = "Invalid or expired token";
                   auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+                  // F-006 (RFC 6750 §3): the request carried Bearer
+                  // credentials that failed validation, so the 401 MUST carry
+                  // a WWW-Authenticate challenge with error="invalid_token".
+                  // (The no-credentials branch above intentionally sends none.)
+                  resp->addHeader(
+                    "WWW-Authenticate",
+                    "Bearer realm=\"authforge\", error=\"invalid_token\", "
+                    "error_description=\"Invalid or expired token\""
+                  );
                   fcb(resp);
                   return;
               }

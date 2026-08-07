@@ -451,22 +451,31 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_MarkAuthCo
     CHECK(!consumed.has_value());  // already used -> nullopt
 }
 
-// consumeAuthCode: an empty redirectUri bypasses the redirect check
-// (MemoryGrantRepository.cc:80). The code is consumed successfully.
-DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_EmptyRedirectUriAllowed)
+// consumeAuthCode (F-009, RFC 6749 §4.1.3): when a redirect_uri was recorded
+// at authorization time, the token request MUST carry it AND it must match.
+// Previously an empty request redirectUri bypassed the comparison; now it is
+// rejected. The code is NOT consumed (single-use preserved for a valid match).
+DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_EmptyRedirectUriRejectedWhenBound)
 {
     auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
-    const std::string code = "empty-redir-" + uniqueSuffix();
+    const std::string code = "bound-redir-" + uniqueSuffix();
     auto ac = makeAuthCode(code, "mem-client", "https://registered.example/cb");
     repo->saveAuthCode(ac, [] {});
 
-    // Consume with an EMPTY redirectUri -> succeeds despite the stored
-    // redirectUri differing from "".
+    // Consume with an EMPTY redirectUri while a redirect_uri is bound -> reject
+    // (nullopt). The stored redirect is non-empty, so the request must echo it.
     auto consumed = waitForValue<std::optional<OAuth2AuthCode>>([&](auto cb) {
         repo->consumeAuthCode(code, "", std::move(cb));
     });
-    REQUIRE(consumed.has_value());
-    CHECK(consumed->code == code);
+    REQUIRE(!consumed.has_value());
+
+    // The code is still consumable with the correct redirect_uri (not burned
+    // by the failed attempt).
+    auto consumedOk = waitForValue<std::optional<OAuth2AuthCode>>([&](auto cb) {
+        repo->consumeAuthCode(code, "https://registered.example/cb", std::move(cb));
+    });
+    REQUIRE(consumedOk.has_value());
+    CHECK(consumedOk->code == code);
 }
 
 // getAuthCode: an expired code is evicted on read and returns nullopt

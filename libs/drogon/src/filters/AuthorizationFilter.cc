@@ -152,6 +152,16 @@ void AuthorizationFilter::doFilter(
               );
               error.message = "Invalid or expired token";
               auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+              // F-006 (RFC 6750 §3): credentials were presented (Bearer
+              // header or access_token parameter) but failed validation --
+              // the 401 MUST carry a WWW-Authenticate challenge with
+              // error="invalid_token". The missing-credentials branch sends
+              // no such header.
+              resp->addHeader(
+                "WWW-Authenticate",
+                "Bearer realm=\"authforge\", error=\"invalid_token\", "
+                "error_description=\"Invalid or expired token\""
+              );
               (*denyCbPtr)(resp);
               return;
           }

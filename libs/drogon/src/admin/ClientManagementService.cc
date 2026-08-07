@@ -4,12 +4,14 @@
 #include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
 #include <authforge/drogon/error/ErrorResponder.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/drogon/validation/RuleSet.h>
 
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <sstream>
 
 namespace authforge::drogon::admin
@@ -52,6 +54,24 @@ void respondError(
         respondError(req, cb, "DB_CONNECTION_ERROR", "Database unavailable");
         return nullptr;
     }
+}
+
+// F-014: enforce the redirect_uri scheme policy (https required, loopback
+// IP-literal exemption, auth.allow_http_redirect_uri override) on the
+// comma-separated redirect_uris column value.
+std::optional<std::string> validateRedirectUriList(const std::string &list)
+{
+    std::stringstream ss(list);
+    std::string item;
+    while (std::getline(ss, item, ','))
+    {
+        if (item.empty())
+            continue;
+        auto err = ::authforge::drogon::validation::RuleSet::validateRedirectUri(item);
+        if (err)
+            return "invalid redirect_uri '" + item + "': " + *err;
+    }
+    return std::nullopt;
 }
 }  // namespace
 
@@ -123,10 +143,23 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
         clientType = jsonBody->get("client_type", "CONFIDENTIAL").asString();
     }
 
+    // F-014: reject non-compliant redirect URIs at creation time.
+    if (!redirectUris.empty())
+    {
+        if (auto uriError = validateRedirectUriList(redirectUris))
+        {
+            respondError(req, cb, "VALIDATION_FORMAT_ERROR", "createClient: " + *uriError);
+            return;
+        }
+    }
+
     std::string clientId = ::drogon::utils::getUuid();
     std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
-    std::string secretHash = ::authforge::drogon::utils::hashToken(clientSecret);
+    // F-002: salt FIRST, then salted hash -- validateClient computes
+    // sha256(secret + salt); an unsalted stored hash never matches.
     std::string salt = ::drogon::utils::getUuid().substr(0, 36);
+    std::string secretHash =
+      ::authforge::drogon::utils::hashClientSecretWithSalt(clientSecret, salt);
 
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -259,6 +292,16 @@ void ClientManagementService::updateClient(
         return;
     }
 
+    // F-014: reject non-compliant redirect URIs at update time.
+    if (hasRedirectUris)
+    {
+        if (auto uriError = validateRedirectUriList((*jsonBody)["redirect_uris"].asString()))
+        {
+            respondError(req, cb, "VALIDATION_FORMAT_ERROR", "updateClient: " + *uriError);
+            return;
+        }
+    }
+
     auto db = getDbOrRespond(req, cb);
     if (!db)
     {
@@ -365,7 +408,11 @@ void ClientManagementService::resetClientSecret(
     }
 
     std::string newSecret = ::authforge::drogon::utils::generateSecureToken();
-    std::string newSecretHash = ::authforge::drogon::utils::hashToken(newSecret);
+    // F-002: reset MUST also rotate the salt and hash with it; the old
+    // implementation kept the stale salt and stored an unsalted hash.
+    std::string newSalt = ::drogon::utils::getUuid().substr(0, 36);
+    std::string newSecretHash =
+      ::authforge::drogon::utils::hashClientSecretWithSalt(newSecret, newSalt);
 
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -376,8 +423,9 @@ void ClientManagementService::resetClientSecret(
     Mapper<Oauth2Clients> mapper(db);
     mapper.findOne(
       Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
-      [cb, req, clientId, newSecret, newSecretHash, db](Oauth2Clients row) {
+      [cb, req, clientId, newSecret, newSecretHash, newSalt, db](Oauth2Clients row) {
           row.setClientSecret(newSecretHash);
+          row.setSalt(newSalt);
           Mapper<Oauth2Clients> updateMapper(db);
           updateMapper.update(
             row,

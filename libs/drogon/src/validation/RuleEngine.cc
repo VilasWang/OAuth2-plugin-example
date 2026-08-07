@@ -1,10 +1,56 @@
 #include <authforge/drogon/validation/RuleEngine.h>
 #include <regex>
+#include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 
 namespace authforge::drogon::validation
 {
+
+namespace
+{
+// F-014 (RFC 8252 §7.3 / RFC 9700 §2.1): redirect URIs must use https.
+// Exemptions:
+//   - loopback IP literals http://127.0.0.1 and http://[::1] (any port;
+//     "localhost" is deliberately NOT exempt per RFC 8252 §7.3);
+//   - plain http when auth.allow_http_redirect_uri is enabled (dev escape
+//     hatch; must stay off in production).
+Result validateRedirectUriScheme(const std::string &uri)
+{
+    if (uri.rfind("https://", 0) == 0)
+        return Result::success();
+
+    if (uri.rfind("http://", 0) == 0)
+    {
+        // Loopback IP literal exemption (port wildcard: the character after
+        // the host must be ':' (port) or '/' (path) or end-of-string).
+        auto isLoopbackHost = [&uri](const char *prefix) {
+            const size_t n = std::char_traits<char>::length(prefix);
+            if (uri.rfind(prefix, 0) != 0)
+                return false;
+            return uri.size() == n || uri[n] == ':' || uri[n] == '/';
+        };
+        if (isLoopbackHost("http://127.0.0.1") || isLoopbackHost("http://[::1]"))
+            return Result::success();
+
+        auto cfg = ::drogon::app().getCustomConfig();
+        if (
+          cfg.isMember("auth") && cfg["auth"].isMember("allow_http_redirect_uri") &&
+          cfg["auth"]["allow_http_redirect_uri"].asBool()
+        )
+        {
+            return Result::success();
+        }
+    }
+
+    return Result::failure(
+      "redirect_uri",
+      "Must use https (http allowed only for loopback IP literals "
+      "127.0.0.1/[::1])"
+    );
+}
+}  // namespace
+
 
 // Result static methods
 Result Result::success()
@@ -128,6 +174,11 @@ Result RuleEngine::validateRedirectUri(const std::string &uri)
     {
         return Result::failure("redirect_uri", "Must be a valid HTTP/HTTPS URL");
     }
+
+    // F-014: scheme policy on top of the shape check.
+    auto result3 = validateRedirectUriScheme(uri);
+    if (!result3.ok)
+        return result3;
 
     return length(uri, "redirect_uri", REDIRECT_URI_MIN_LEN, REDIRECT_URI_MAX_LEN);
 }
