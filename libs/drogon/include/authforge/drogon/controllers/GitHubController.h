@@ -85,8 +85,11 @@ class GitHubController : public ::drogon::HttpController<GitHubController, false
     // 7 nested async callbacks (callback hell). Each step below is the body
     // of one of those callbacks, lifted into a named member so the flow reads
     // top-to-bottom and shared logic (token issuance, error responses) is no
-    // longer copy-pasted across two divergent paths. Behaviour is identical
-    // to the pre-refactor implementation; only structure changed.
+    // longer copy-pasted across two divergent paths. NOTE: behaviour is NOT
+    // byte-identical to the pre-refactor implementation -- token persistence
+    // was later re-routed through OAuth2Plugin::saveTokenPair (storage
+    // abstraction) and its failure path now returns an error instead of
+    // silently succeeding; see issueTokensForUser below.
 
     // Mint access + refresh tokens for @p userId and persist them via
     // OAuth2Plugin::saveTokenPair (the storage-abstraction route that works

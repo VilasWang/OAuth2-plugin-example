@@ -110,13 +110,15 @@ inline std::shared_ptr<FakeOAuthHttpClient> injectWeChatFake()
 // can pre-seed linked accounts or set failCreate. The http shared_ptr is
 // accessible via the returned repo's... no -- return both via out-params.
 //
-// IMPORTANT (review B1): GitHubController::issueTokensForUser calls
-// drogon::app().getDbClient() (GitHubController.cc:251), which under memory
-// storage hits an uncatchable assert() that crashes the whole test process.
-// Therefore a GitHub fake MUST be configured to return an ERROR result
-// (transport failure, or a service error code) -- NEVER a success -- unless the
-// test is gated on postgresAvailable(). Callers must not queue a successful
-// token+userinfo exchange under memory mode.
+// NOTE (supersedes the old "review B1" warning): issueTokensForUser USED to
+// call drogon::app().getDbClient() directly, which under memory storage hit
+// an uncatchable assert() -- so GitHub fakes had to return errors only.
+// Token issuance was since re-routed through OAuth2Plugin::saveTokenPair
+// (the storage abstraction; MemoryTokenRepository in memory mode), so the
+// GitHub HAPPY PATH is now safe and testable in every storage mode -- see
+// Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens. Queueing successful
+// token+userinfo exchanges is allowed; only the legacy fallback path still
+// touches the DB directly.
 struct GitHubFakeHandle
 {
     std::shared_ptr<FakeOAuthHttpClient> http;

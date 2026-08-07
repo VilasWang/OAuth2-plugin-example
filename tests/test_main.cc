@@ -27,8 +27,14 @@ extern "C" void __gcov_dump(void);
 extern "C" void __gcov_flush(void);
 static void flushGcovIfInstrumented()
 {
-#if defined(__clang__) && __clang_major__ < 14
-    __gcov_flush();  // older clang only provides the pre-14 flush API
+    // __gcov_dump is the gcc >= 11 / clang >= 14 API; __gcov_flush is the
+    // older name (gcc < 11 / clang < 14). Both version boundaries must be
+    // checked -- guarding only the clang one leaves gcc 9/10 (still within
+    // CONTRIBUTING.md's supported range) with an undefined __gcov_dump
+    // reference at link time.
+#if (defined(__clang__) && __clang_major__ < 14) || \
+    (!defined(__clang__) && defined(__GNUC__) && __GNUC__ < 11)
+    __gcov_flush();  // gcc < 11 / older clang: pre-dump flush API only
 #else
     __gcov_dump();  // gcc >= 11 / clang >= 14; flushes arc counters to .gcda
 #endif

@@ -193,6 +193,12 @@ void TokenEndpointController::initApiDocsImpl()
            {401, "Authentication failed"}};
         introspectEndpoint.responseExamples = {{200, successExample}};
         introspectEndpoint.requiresAuth = true;  // Requires client credentials
+        // RFC 7662 §2.1: the introspection endpoint authenticates the CLIENT
+        // (client_id/client_secret, HTTP Basic or POST body) -- NOT a user
+        // bearer token. Declare clientCredentialsAuth so the generated
+        // OpenAPI spec does not mislead SDK consumers into sending Bearer.
+        introspectEndpoint.authType =
+          authforge::drogon::observability::openapi::AuthType::ClientCredentials;
         OpenApiGenerator::addEndpoint(introspectEndpoint);
     }
 
@@ -219,6 +225,9 @@ void TokenEndpointController::initApiDocsImpl()
            {400, "Invalid request"},
            {401, "Authentication failed"}};
         revokeEndpoint.requiresAuth = true;  // Requires client credentials
+        // RFC 7009 §2.1: same client-authentication model as introspect.
+        revokeEndpoint.authType =
+          authforge::drogon::observability::openapi::AuthType::ClientCredentials;
         OpenApiGenerator::addEndpoint(revokeEndpoint);
     }
 }
@@ -1116,7 +1125,23 @@ void TokenEndpointController::token(
                             plugin->saveTokenPair(
                               accessToken,
                               refreshToken,
-                              [sharedCb, accessTokenStr, refreshTokenStr, scope, accessTokenTtl]() {
+                              [sharedCb, accessTokenStr, refreshTokenStr, scope, accessTokenTtl](bool ok) {
+                                  if (!ok)
+                                  {
+                                      // Persistence failed: do NOT hand out
+                                      // tokens that were never stored (silent
+                                      // failure -- later introspection/refresh
+                                      // would all miss). Report server_error
+                                      // like the other DB failure paths here.
+                                      LOG_ERROR << "Device code flow: saveTokenPair failed";
+                                      Json::Value error;
+                                      error["error"] = "server_error";
+                                      error["error_description"] = "Failed to persist token pair";
+                                      auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
+                                      resp->setStatusCode(::drogon::k500InternalServerError);
+                                      (*sharedCb)(resp);
+                                      return;
+                                  }
                                   Json::Value json;
                                   json["access_token"] = accessTokenStr;
                                   json["token_type"] = "Bearer";

@@ -45,6 +45,12 @@ class ITokenRepository
     using VoidCallback = std::function<void()>;
     using TokenIntrospectionCallback =
       std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)>;
+    /// Completion callback for saveTokenPair: @p ok is true only if BOTH
+    /// tokens were durably persisted. Callers MUST treat ok == false as
+    /// "no usable token was issued" and surface an error to the end user
+    /// (returning 200 + tokens that were never stored is a silent-failure
+    /// defect: subsequent introspection/refresh lookups all miss).
+    using SaveResultCallback = std::function<void(bool ok)>;
 
     // ========== Access Token Operations ==========
 
@@ -66,17 +72,26 @@ class ITokenRepository
      * A PostgreSQL-backed implementation should override this to use a
      * database transaction for real atomicity.
      *
+     * Error reporting: the callback receives false when the pair was NOT
+     * fully persisted (transaction timeout, INSERT failure, commit
+     * failure, missing backend client). Implementations that override
+     * this MUST report false on every failure path -- invoking the
+     * callback with true after a failed write is exactly the
+     * silent-failure defect this signature exists to prevent. The default
+     * body reports true because saveAccessToken/saveRefreshToken carry no
+     * error channel and the Memory/Redis backends never fail them.
+     *
      * Original: IOAuth2Storage::saveTokenPair.
      */
     virtual void saveTokenPair(
       const authforge::oauth2::model::OAuth2AccessToken &at,
       const authforge::oauth2::model::OAuth2RefreshToken &rt,
-      VoidCallback &&cb
+      SaveResultCallback &&cb
     )
     {
         // Default: sequential (non-transactional) for Memory/Redis.
         saveAccessToken(at, [this, rt, cb = std::move(cb)]() mutable {
-            saveRefreshToken(rt, std::move(cb));
+            saveRefreshToken(rt, [cb = std::move(cb)]() { cb(true); });
         });
     }
 

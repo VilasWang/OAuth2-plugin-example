@@ -2365,6 +2365,11 @@ std::string defaultValue;
 std::string enumValues;
 std::string format;
 };
+enum class AuthType
+{
+Bearer,
+ClientCredentials
+};
 struct EndpointInfo
 {
 std::string path;
@@ -2376,6 +2381,7 @@ std::vector<ParameterInfo> parameters;
 std::map<int, std::string> responses;
 std::map<int, Json::Value> responseExamples;
 bool requiresAuth;
+AuthType authType = AuthType::Bearer;
 };
 class OpenApiGenerator
 {
@@ -2491,7 +2497,7 @@ std::function<void()> &&callback
 void saveTokenPair(
 const authforge::oauth2::model::OAuth2AccessToken &accessToken,
 const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
-std::function<void()> &&callback
+std::function<void(bool ok)> &&callback
 );
 void getUserInfo(
 const std::string &userId,
@@ -4585,6 +4591,7 @@ std::function<void(std::optional<authforge::oauth2::model::OAuth2RefreshToken>)>
 using VoidCallback = std::function<void()>;
 using TokenIntrospectionCallback =
 std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)>;
+using SaveResultCallback = std::function<void(bool ok)>;
 virtual void saveAccessToken(
 const authforge::oauth2::model::OAuth2AccessToken &token,
 VoidCallback &&cb
@@ -4593,7 +4600,7 @@ virtual void getAccessToken(const std::string &token, AccessTokenCallback &&cb) 
 virtual void saveTokenPair(
 const authforge::oauth2::model::OAuth2AccessToken &at,
 const authforge::oauth2::model::OAuth2RefreshToken &rt,
-VoidCallback &&cb
+SaveResultCallback &&cb
 )
 ;
 virtual void saveRefreshToken(
@@ -5195,7 +5202,7 @@ void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override
 void saveTokenPair(
 const ::authforge::oauth2::model::OAuth2AccessToken &at,
 const ::authforge::oauth2::model::OAuth2RefreshToken &rt,
-VoidCallback &&cb
+SaveResultCallback &&cb
 ) override;
 void saveRefreshToken(
 const ::authforge::oauth2::model::OAuth2RefreshToken &token,

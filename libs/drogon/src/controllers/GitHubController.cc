@@ -264,7 +264,18 @@ void GitHubController::issueTokensForUser(
     plugin->saveTokenPair(
       accessToken,
       refreshToken,
-      [callbackPtr, accessTokenStr, refreshTokenStr, accessTokenTtl]() {
+      [req, callbackPtr, accessTokenStr, refreshTokenStr, accessTokenTtl](bool ok) {
+          if (!ok)
+          {
+              // Persistence failed: returning 200 + these tokens would be a
+              // silent failure (they were never stored, so userinfo /
+              // introspection / refresh lookups all miss). Surface a real
+              // error instead.
+              respondError(
+                req, callbackPtr, "INTERNAL_ERROR", "github login: failed to persist token pair"
+              );
+              return;
+          }
           Json::Value result;
           result["access_token"] = accessTokenStr;
           result["refresh_token"] = refreshTokenStr;

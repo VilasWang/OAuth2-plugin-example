@@ -63,6 +63,16 @@ struct ParameterInfo
     std::string format;        // OpenAPI format (e.g., "int64", "email", "uuid")
 };
 
+// Authentication style of an endpoint -- selects the OpenAPI security scheme
+// emitted when requiresAuth == true.
+enum class AuthType
+{
+    Bearer,            // Authorization: Bearer <user access token>
+    ClientCredentials  // OAuth2 client authentication (RFC 6749 §2.3 /
+                       // RFC 7662 / RFC 7009): client_id + client_secret via
+                       // HTTP Basic or POST body parameters
+};
+
 struct EndpointInfo
 {
     std::string path;
@@ -74,6 +84,9 @@ struct EndpointInfo
     std::map<int, std::string> responses;
     std::map<int, Json::Value> responseExamples;  // NEW: Response examples
     bool requiresAuth;
+    // Only meaningful when requiresAuth == true. Defaults to Bearer so
+    // pre-existing registrations keep their generated output unchanged.
+    AuthType authType = AuthType::Bearer;
 };
 
 class OpenApiGenerator

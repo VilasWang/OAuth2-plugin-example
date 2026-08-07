@@ -59,7 +59,7 @@ class PostgresTokenRepository : public ITokenRepositoryBase,
     void saveTokenPair(
       const ::authforge::oauth2::model::OAuth2AccessToken &at,
       const ::authforge::oauth2::model::OAuth2RefreshToken &rt,
-      VoidCallback &&cb
+      SaveResultCallback &&cb
     ) override;
 
     void saveRefreshToken(

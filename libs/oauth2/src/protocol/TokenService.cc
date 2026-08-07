@@ -271,7 +271,23 @@ void TokenService::exchangeCodeForToken(
                          refreshTokenStr,
                          rolesJson,
                          authCode,
-                         now]() {
+                         now](bool ok) {
+                            if (!ok)
+                            {
+                                // Persistence failed: the tokens we would
+                                // hand out were never stored, so issuing
+                                // them anyway would be a silent failure
+                                // (introspection/refresh lookups all miss).
+                                audit(
+                                  "token_issued",
+                                  "failure",
+                                  authCode.userId,
+                                  "token",
+                                  ""
+                                );
+                                callback(makeError("server_error", "Failed to persist token pair"));
+                                return;
+                            }
                             Json::Value json;
                             json["access_token"] = tokenStr;
                             json["token_type"] = "Bearer";
@@ -402,7 +418,14 @@ void TokenService::refreshAccessToken(
           newRt.familyId = storedRt->familyId;
 
           tokens_->saveTokenPair(
-            token, newRt, [this, callback, newTokenStr, newRefreshTokenStr, storedRt]() {
+            token, newRt, [self, this, callback, newTokenStr, newRefreshTokenStr, storedRt](bool ok) {
+                if (!ok)
+                {
+                    // Same silent-failure guard as exchangeCodeForToken:
+                    // never hand out a rotated pair that was never stored.
+                    callback(makeError("server_error", "Failed to persist token pair"));
+                    return;
+                }
                 audit("token_refreshed", "success", storedRt->userId, "token", "");
                 Json::Value json;
                 json["access_token"] = newTokenStr;
