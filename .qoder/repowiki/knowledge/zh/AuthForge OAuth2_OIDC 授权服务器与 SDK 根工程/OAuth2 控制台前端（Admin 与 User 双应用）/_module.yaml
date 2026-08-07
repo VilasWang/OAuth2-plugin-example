@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: frontends
+title: OAuth2 控制台前端（Admin 与 User 双应用）
+scope:
+    - frontends/
+source_files: []
+depends_on: []
+related_to:
+    - path: libs
