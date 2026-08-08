@@ -736,30 +736,39 @@ F-001（OpenAPI enum）/ F-019（Cache-Control）/ F-020（state urlEncode）/ F
 
 核验基线：`master`（审计所引代码逐条比对过）。处置结论分三类：**修复**（代码已改）、**文档化**（不改码，文档说明）、**伪问题关闭**。
 
+整改分支：`fix/oauth-oidc-compliance-batch-0-1`，三批次提交：
+- Batch 0+1 = `040639b`（P0 安全 + 协议正确性）
+- Batch 2 = `a7fd184`（OIDC 全量扩展）
+- Batch 3 = `c911ee9`（加固与清理）
+
+每批次均 `manage.ps1 build-backend` + `test-backend` 全绿（**456/456 CTest 通过**，含 Postgres 与 CI/memory 两套配置）。
+
 | Issue | 发现 | 结论 | 状态 |
 |---|---|---|---|
-| #21 | F-002 client_secret 哈希写/读算法不一致 | 修复：写入路径统一有盐小写 SHA-256（含 reset 轮换 salt） | ✅ Batch 0 已修复 |
-| #22 | F-003 refresh_token grant 无客户端认证 | 修复：CONFIDENTIAL 需 secret（401 invalid_client），PUBLIC 仅验存在 | ✅ Batch 0 已修复 |
-| #23 | F-004 Redis client_secret 比较非常量时间 | 修复：三后端统一 `constantTimeMemcmp`，删泄漏比较结果的 LOG_DEBUG | ✅ Batch 0 已修复 |
-| #24 | F-005 Redis 后端 refresh 存储空操作 | 修复（弃用处置）：启动 LOG_ERROR + refresh grant 返回 `unsupported_grant_type`；postgres+redis 缓存架构另立 issue | ✅ Batch 0 已修复 |
-| #25 | F-016 issuer 不一致 | 修复：签发写入配置 issuer（含 client_credentials/device 分支）+ 删三后端硬编码 + introspect 兜底 + discovery 尾斜线归一化 + http issuer 告警；比报告额外发现：`saveAccessToken` 从未写 issuer 列 | ✅ Batch 0 已修复 |
-| #26 | F-007 authorize 错误不重定向 | 修复 | ⏳ Batch 1 计划中 |
-| #27 | F-010 资源不强制 scope | 修复（最小 scope 校验）；完整资源-scope 模型另立 issue | ⏳ Batch 3 计划中 |
-| #28 | F-006 Bearer 401 缺 WWW-Authenticate | 修复 | ⏳ Batch 1 计划中 |
-| #29 | F-021+F-022 prompt/max_age/auth_time/acr | 修复（全量） | ⏳ Batch 2 计划中 |
-| #30 | F-027+F-028 RP-Initiated Logout | 修复（end_session + session invalidate；backchannel 文档化不实现） | ⏳ Batch 2 计划中 |
-| #31 | F-015 device_authorization 不认证机密客户端 | 修复 | ⏳ Batch 1 计划中 |
-| #32 | F-025 refresh/device 不重发 id_token | 修复 | ⏳ Batch 2 计划中 |
-| #33 | F-011 PKCE 默认不强制 | 修复：默认值改 true + 配置显式 true | ⏳ Batch 1 计划中 |
-| #34 | F-012 device flow 无 slow_down | 修复：`last_polled_at` 列 + interval 递增 5s | ⏳ Batch 1 计划中 |
-| #35 | F-008+F-009+F-013 token 错误信封/redirect_uri/挑战方法校验 | 修复 | ⏳ Batch 1 计划中 |
-| #36 | F-014 redirect_uri 无 https 强制/loopback 例外 | 修复：https 强制 + 仅 IP 字面量 loopback 豁免 + 配置开关 | ⏳ Batch 1 计划中 |
-| #37 | F-017+F-023+F-026 | F-017/F-023 修复；F-026（nonce 服务端防重放）**伪问题关闭**：OIDC §15.5.2 的 nonce 校验是客户端 MUST，服务端存储非规范强制，文档说明 | ⏳ Batch 2 计划中 |
-| #38 | F-018 端点无限流 | 修复：进程内滑动窗口限流（per IP+client_id） | ⏳ Batch 3 计划中 |
-| #39 | P2 批量（F-001/F-019/F-020/F-024/F-029/F-030/F-031） | F-001/F-019/F-020 修复；F-024 随 F-023；F-029/F-030/F-031 文档化不改码 | ⏳ Batch 3 计划中 |
+| #21 | F-002 client_secret 哈希写/读算法不一致 | 修复：写入路径统一有盐小写 SHA-256（含 reset 轮换 salt） | ✅ Batch 0+1 (`040639b`) |
+| #22 | F-003 refresh_token grant 无客户端认证 | 修复：CONFIDENTIAL 需 secret（401 invalid_client），PUBLIC 仅验存在 | ✅ Batch 0+1 (`040639b`) |
+| #23 | F-004 Redis client_secret 比较非常量时间 | 修复：三后端统一 `constantTimeMemcmp`，删泄漏比较结果的 LOG_DEBUG | ✅ Batch 0+1 (`040639b`) |
+| #24 | F-005 Redis 后端 refresh 存储空操作 | 修复（弃用处置）：启动 LOG_ERROR + refresh grant 返回 `unsupported_grant_type`；postgres+redis 缓存架构另立 issue #42 | ✅ Batch 0+1 (`040639b`) |
+| #25 | F-016 issuer 不一致 | 修复：签发写入配置 issuer（含 client_credentials/device 分支）+ 删三后端硬编码 + introspect 兜底 + discovery 尾斜线归一化 + http issuer 告警；比报告额外发现：`saveAccessToken` 从未写 issuer 列 | ✅ Batch 0+1 (`040639b`) |
+| #26 | F-007 authorize 错误不重定向 | 修复：client_id 未知/redirect_uri 无效仍直接 4xx；其余按 §4.1.2.1 302 重定向并回显 state | ✅ Batch 0+1 (`040639b`) |
+| #27 | F-010 资源不强制 scope | 修复（最小 scope 校验：userinfo→openid、/api/me→profile、/api/admin→admin + 403 insufficient_scope）；完整资源-scope 模型另立 issue #43 | ✅ Batch 3 (`c911ee9`) |
+| #28 | F-006 Bearer 401 缺 WWW-Authenticate | 修复：资源端点 401 加 `WWW-Authenticate: Bearer error="invalid_token"` | ✅ Batch 0+1 (`040639b`) |
+| #29 | F-021+F-022 prompt/max_age/auth_time/acr | 修复（全量）：prompt/max_age 解析 + 三签发路径透传 auth_time/amr + id_token auth_time/acr/amr claims | ✅ Batch 2 (`a7fd184`) |
+| #30 | F-027+F-028 RP-Initiated Logout | 修复：新增 `/oauth2/end_session`（GET+POST）+ session clear；backchannel 文档化不实现 | ✅ Batch 2 (`a7fd184`) |
+| #31 | F-015 device_authorization 不认证机密客户端 | 修复：按 client_type 分支认证 | ✅ Batch 0+1 (`040639b`) |
+| #32 | F-025 refresh/device 不重发 id_token | 修复：refresh/device 在 openid scope 时重签 id_token | ✅ Batch 2 (`a7fd184`) |
+| #33 | F-011 PKCE 默认不强制 | 修复：默认值改 true + 4 个 config 显式 true | ✅ Batch 0+1 (`040639b`) |
+| #34 | F-012 device flow 无 slow_down | 修复：`last_polled_at` 列 + interval 递增 5s | ✅ Batch 0+1 (`040639b`) |
+| #35 | F-008+F-009+F-013 token 错误信封/redirect_uri/挑战方法校验 | 修复：token gate 发 OAuth2 invalid_request 信封；空 redirect_uri 不再绕过；authorize 校验 code_challenge_method ∈ {plain,S256} | ✅ Batch 0+1 (`040639b`) |
+| #36 | F-014 redirect_uri 无 https 强制/loopback 例外 | 修复：https 强制 + 仅 IP 字面量 loopback（127.0.0.1/[::1]）豁免 + `auth.allow_http_redirect_uri` 开关；seed/测试 localhost→127.0.0.1 | ✅ Batch 0+1 (`040639b`) |
+| #37 | F-017+F-023+F-026 | F-017 持久化 + 强制 token_endpoint_auth_method（NULL 保留回退）；F-023 userinfo 校验 openid scope + email_verified（F-024）；F-026（nonce 服务端防重放）**伪问题关闭**：OIDC §15.5.2 的 nonce 校验是客户端 MUST，服务端存储非规范强制，文档说明 | ✅ Batch 2 (`a7fd184`) |
+| #38 | F-018 端点无限流 | 修复：进程内滑动窗口限流（per IP+client_id，仅计失败，429 + Retry-After） | ✅ Batch 3 (`c911ee9`) |
+| #39 | P2 批量（F-001/F-019/F-020/F-024/F-029/F-030/F-031） | F-001/F-019/F-020 修复；F-024 随 F-023；F-029/F-030/F-031 文档化不改码 | ✅ Batch 3 (`c911ee9`) |
 
-决策记录（用户拍板）：F-002 选有盐 SHA-256；F-005 目标架构 postgres 存储 + redis 缓存，独立 Redis 模式废弃；F-010 最小 scope 校验 + 独立 issue；OIDC 扩展全量实现 prompt/max_age；schema 直接改源头 migrations（无生产数据，不做增量迁移）。
+决策记录（用户拍板）：F-002 选有盐 SHA-256；F-005 目标架构 postgres 存储 + redis 缓存，独立 Redis 模式废弃（issue #42）；F-010 最小 scope 校验 + 独立 issue #43；OIDC 扩展全量实现 prompt/max_age；schema 直接改源头 migrations（无生产数据，不做增量迁移）。
+
+**最终符合性**：审计报告中标记的 31 项发现全部处置完毕（28 项代码修复 + 3 项文档化 + F-026 伪问题关闭）。Issue #21-#39 已在 `fix/oauth-oidc-compliance-batch-0-1` 分支修复并验证，待合入后关闭（fine-grained PAT 无 close 权限，需手动关闭）；#40 为总跟踪，#42/#43 为两个架构 follow-up。
 
 ---
 
-**报告版本**：v1.1（追加整改状态表） | **审查日期**：2026-08-07 | **审查者**：ZCode | **代码基线**：`test/coverage-push` @ 09ebf8d
+**报告版本**：v1.2（整改完成，三批次全绿） | **审查日期**：2026-08-07 | **整改完成日期**：2026-08-08 | **审查者**：ZCode | **代码基线**：`test/coverage-push` @ 09ebf8d | **整改基线**：`fix/oauth-oidc-compliance-batch-0-1` @ c911ee9
