@@ -699,9 +699,12 @@ void AuthorizationEndpointController::authorize(
                                 return;
                             }
 
-                            std::string location = redirectUri + "?code=" + code;
+                            // F-020 (RFC 6749 §4.1.2/§4.1.3): urlEncode the
+                            // code and state so special chars survive the query.
+                            std::string location =
+                              redirectUri + "?code=" + ::drogon::utils::urlEncode(code);
                             if (!state.empty())
-                                location += "&state=" + state;
+                                location += "&state=" + ::drogon::utils::urlEncode(state);
                             auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
                             if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                                 m->incrementCounter(

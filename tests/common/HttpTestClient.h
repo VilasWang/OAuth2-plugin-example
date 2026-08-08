@@ -331,7 +331,7 @@ inline bool statusIs(const ::drogon::HttpResponsePtr &resp, ::drogon::HttpStatus
 // Returns the access token, or nullopt on any failure (memory mode, wrong
 // credentials, server unreachable, malformed response).
 // ---------------------------------------------------------------------------
-inline std::optional<std::string> loginAsAdmin()
+inline std::optional<std::string> loginAsAdminWithScope(const std::string &scope)
 {
     if (!postgresAvailable())
         return std::nullopt;
@@ -353,7 +353,7 @@ inline std::optional<std::string> loginAsAdmin()
       "&client_id=" +
       std::string(kAdminClientId) +
       "&redirect_uri=" + std::string(kAdminRedirectUri) +
-      "&scope=openid profile admin&state=t1"
+      "&scope=" + scope + "&state=t1"
       "&code_challenge=" + codeChallenge +
       "&code_challenge_method=S256";
     auto loginResp = sendPostForm("/oauth2/login?json=true", loginForm);
@@ -389,6 +389,15 @@ inline std::optional<std::string> loginAsAdmin()
     if (accessToken.empty())
         return std::nullopt;
     return accessToken;
+}
+
+// Default admin login: requests the full `openid profile admin` scope set
+// (the scopes the admin-console seed grants). Most tests want this. Tests that
+// need a NARROWER token for F-010 insufficient_scope coverage call
+// loginAsAdminWithScope() directly with a subset (e.g. "openid" only).
+inline std::optional<std::string> loginAsAdmin()
+{
+    return loginAsAdminWithScope("openid profile admin");
 }
 
 // ---------------------------------------------------------------------------

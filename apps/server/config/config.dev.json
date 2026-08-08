@@ -185,7 +185,11 @@
     "custom_config": {
         "auth": {
             "require_pkce_for_public": true,
-            "allow_http_redirect_uri": true
+            "allow_http_redirect_uri": true,
+            "rate_limit": {
+                "max_failures": 30,
+                "window_seconds": 60
+            }
         },
         "rbac_rules": {
             "/api/admin/.*": [

@@ -95,6 +95,10 @@ Location: http://localhost:5173/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=xyz12
 }
 ```
 
+**响应头（F-019，RFC 6749 §5.1 / RFC 7009 §2.2.1）**：所有 token / introspect /
+revoke 成功響應都帶 `Cache-Control: no-store` 與 `Pragma: no-cache`，禁止中間
+代理緩存含憑證的響應體。
+
 *(注：`grant_type=refresh_token` 需先通过客户端认证（F-003，RFC 6749 §3.2.1/§6）：CONFIDENTIAL 客户端必须携带 `client_secret`（body 或 Basic 头），缺失或错误返回 401 `invalid_client`；PUBLIC 客户端仅校验 `client_id` 存在。refresh token 持久化仅 Postgres 后端支持；`storage_type="redis"` 已弃用，该模式下 refresh grant 返回 `unsupported_grant_type`（F-005）。)*
 
 **失败 (400/401)**:
@@ -106,11 +110,21 @@ Location: http://localhost:5173/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=xyz12
 }
 ```
 
-**失败 (429 Too Many Requests)**:
-请求频率过高，触发限流。
+**失败 (429 Too Many Requests)** — F-018 限流：`/oauth2/token`、
+`/oauth2/introspect`、`/oauth2/revoke` 與 device_code 輪詢共享一個進程內滑動窗口
+限流器，按 `(client_ip, client_id)` 分桶。窗口內（默認 60s）**失敗**計數達閾值
+（默認 30，可經 `custom_config["auth"]["rate_limit"]` 配置 `max_failures` /
+`window_seconds`）後，後續請求返回 429。僅計失敗（認證/校驗失敗），成功清零。
 
-```text
-Too Many Requests
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 42
+Content-Type: application/json
+
+{
+  "error": "invalid_request",
+  "error_description": "Too many failed attempts; please retry later"
+}
 ```
 
 ---
@@ -159,6 +173,40 @@ token（subject `client:*`）。響應附帶
   "error_description": "The access token does not have the openid scope required for userinfo"
 }
 ```
+
+### 3.x 路徑→required-scope 映射（F-010 最小資源-scope 模型）
+
+`OAuth2AuthFilter` / `AuthorizationFilter` 在 access token 校驗通過後，按請求
+路徑強制最小 required-scope（RFC 6750 §3.1）。token scope 不足時返回 403，
+響應附帶 `WWW-Authenticate: Bearer realm="authforge", error="insufficient_scope",
+scope="<required>"`，其中 `scope` 屬性命名解鎖該資源所需的 scope。
+
+| 路徑 | Required Scope | 備註 |
+|---|---|---|
+| `/oauth2/userinfo` | `openid` | 與 userinfo handler 內的 F-023 檢查並存（defense-in-depth） |
+| `/api/me`、`/api/me/*` | `profile` | 經 `OAuth2AuthFilter` |
+| `/api/admin/*` | `admin` | 經 `AuthorizationFilter`，**疊加在既有 RBAC 角色檢查之上**（scope 閘門先跑，角色閘門後跑，兩者都須通過） |
+
+> **完整資源-scope 授權模型為後續工作**（獨立 issue「完整資源-scope 授權模型」）。
+> 當前僅上述最小映射；其餘 `/api/*` 路徑仍僅由既有 RBAC 規則（`rbac_rules`）
+> 把關，不額外要求特定 scope。Scope 匹配為空格分隔 token 的精確匹配
+> （`authforge::drogon::utils::hasScope()`），避免 `openidprofile` 誤過
+> `openid`/`profile`。
+
+### 3.y 客戶端管理（F-030：admin-only，無 RFC 7592 自管理）
+
+客戶端註冊與管理**僅**經 admin API `/api/admin/clients/*`（需 admin scope +
+admin 角色）。本服務**不**實作 RFC 7592 動態客戶端管理的
+`registration_access_token` 自管理端點 —— 客戶端無法自助查看/修改自身註冊
+信息。需要變更的客戶端須聯繫管理員經 admin API 處理。
+
+### 3.z nonce 重放防護（F-026：客戶端責任）
+
+OIDC Core §15.5.2 規定 nonce 重放檢查為**客戶端 MUST**：服務端在 id_token 中
+**回顯**（echo）客戶端提交的 nonce，但**不**為其存儲或做服務端重放檢查。客戶端
+必須（1）為每次認證請求生成唯一的 nonce，（2）在收到 id_token 後比對回顯值與
+本地 nonce，並（3）拒絕重複或缺失 nonce 的 id_token。本服務遵循此分工，不
+提供服務端 nonce 重放防護。
 
 ---
 

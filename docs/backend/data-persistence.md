@@ -186,3 +186,23 @@ cleanupService_->start(cleanupInterval);
 ### 5.3 接口定义
 
 清理不再集中于单一的 `IOAuth2Storage::deleteExpiredData`；而是按仓储拆分，由 `IGrantRepository`（Auth Code）与 `ITokenRepository`（Access/Refresh Token）各自提供过期删除方法，由 `OAuth2CleanupService` 编排调用。
+
+## 6. 存儲後端選型與 Memory 後端警告 (F-031)
+
+> **⚠️ Memory 存儲後端僅供測試 / 開發使用，生產環境禁用。**
+
+`storage_type="memory"`（見 `config.ci.json`）將所有 client / token / code /
+consent 數據保存在進程內存中，**密鑰（client_secret）以明文存儲**（不經
+SHA-256 加鹽哈希），且：
+
+- 進程重啟即丟失全部數據（無持久化）；
+- 無多用戶 / 多實例共享（每個進程一份獨立狀態）；
+- 無事務、無原子 CAS 保證（測試樁實現）；
+- Memory identity 倉庫永遠從 `findByUsername` 返回 `nullopt`，因此 admin
+  登入鏈路在該模式下不可用（`loginAsAdmin()` 返回 `nullopt`，依賴它的集成
+  測試會乾淨跳過）。
+
+**生產部署必須使用 `storage_type="postgres"`**（Postgres 是唯一受支持的生產
+存儲後端；獨立 Redis 存儲模式已棄用，見 F-005 / configuration-guide §3）。
+Memory 後端存在的唯一目的是讓 Windows / macOS CI 環境在無 Postgres 時仍能
+跑通不依賴 DB 的測試用例（contract 測試、純單測、協議錯誤信封測試等）。

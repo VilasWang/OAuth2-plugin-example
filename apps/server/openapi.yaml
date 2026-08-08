@@ -78,6 +78,12 @@ paths:
           description: List of OAuth2 clients
         '401':
           description: Unauthorized
+        '403':
+          description: 'insufficient_scope / insufficient permissions -- the access
+            token lacks the `admin` scope OR the user lacks the admin role (RFC 6750
+            §3; on a scope failure accompanied by WWW-Authenticate: Bearer
+            error="insufficient_scope", scope="admin"). F-010: /api/admin/* requires
+            the `admin` scope in addition to the RBAC admin role.'
       security:
       - bearerAuth: []
       summary: List OAuth2 Clients
@@ -933,6 +939,10 @@ paths:
           description: User profile
         '401':
           description: Unauthorized
+        '403':
+          description: 'insufficient_scope -- the access token lacks the `profile`
+            scope (RFC 6750 §3; accompanied by WWW-Authenticate: Bearer
+            error="insufficient_scope", scope="profile"). F-010.'
         '404':
           description: User not found
       security:
@@ -1426,6 +1436,11 @@ paths:
           description: Invalid request
         '401':
           description: Authentication failed
+        '429':
+          description: 'Too Many Requests -- F-018 rate limit tripped by repeated
+            failed authentication/validation attempts for this (client_ip, client_id).
+            Accompanied by a Retry-After header and an OAuth2-style {error:
+            invalid_request, error_description} body.'
       security:
       - clientCredentialsAuth: []
       summary: Introspect token
@@ -1668,6 +1683,11 @@ paths:
           description: Invalid request
         '401':
           description: Authentication failed
+        '429':
+          description: 'Too Many Requests -- F-018 rate limit tripped by repeated
+            failed authentication/validation attempts for this (client_ip, client_id).
+            Accompanied by a Retry-After header and an OAuth2-style {error:
+            invalid_request, error_description} body.'
       security:
       - clientCredentialsAuth: []
       summary: Revoke token
@@ -1689,6 +1709,7 @@ paths:
           - authorization_code
           - refresh_token
           - client_credentials
+          - urn:ietf:params:oauth:grant-type:device_code
           type: string
       - description: Authorization code (required for grant_type=authorization_code)
         in: query
@@ -1730,7 +1751,18 @@ paths:
                 refresh_token: ref_123456789
                 scope: openid profile
                 token_type: Bearer
-          description: Token response with access_token and refresh_token
+          description: 'Token response with access_token and refresh_token. F-019
+            (RFC 6749 §5.1): success responses carry Cache-Control: no-store and
+            Pragma: no-cache and MUST NOT be cached.'
+          headers:
+            Cache-Control:
+              description: Always "no-store" -- token responses MUST NOT be cached.
+              schema:
+                type: string
+            Pragma:
+              description: Always "no-cache" (HTTP/1.0 back-compat fallback).
+              schema:
+                type: string
         '400':
           content:
             application/json:
@@ -1740,6 +1772,11 @@ paths:
           description: Invalid request
         '401':
           description: Authentication failed
+        '429':
+          description: 'Too Many Requests -- F-018 rate limit tripped by repeated
+            failed authentication/validation attempts for this (client_ip, client_id),
+            including device_code polling. Accompanied by a Retry-After header and
+            an OAuth2-style {error: invalid_request, error_description} body.'
       summary: Exchange authorization code for access token
       tags:
       - OAuth2

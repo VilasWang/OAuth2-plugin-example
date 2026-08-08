@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $passed = 0
 $failed = 0
-$total = 57
+$total = 58
 $adminPassword = "admin"  # Track current admin password across tests
 
 # Import common functions
@@ -150,14 +150,42 @@ Test-Endpoint "Test 7: UserInfo" {
 }
 
 # ========================================
-# Test 8: Admin Dashboard
+# Test 8: Admin Dashboard (F-010: requires admin scope -- use admin-console token)
 # ========================================
 Test-Endpoint "Test 8: Admin Dashboard" {
-    if (-not $accessToken) { throw "skipped: no token" }
-    $headers = @{ Authorization = "Bearer $accessToken" }
+    # F-010: /api/admin/* now requires the `admin` scope on the access token
+    # (in addition to the RBAC admin role). The vue-client token from Test 6
+    # carries only `openid profile`, so it would 403 here -- obtain a proper
+    # admin-scoped token via the admin-console client instead.
+    $adminToken = Get-AdminToken -BaseUrl $BaseUrl
+    if (-not $adminToken) { throw "no admin token" }
+    $headers = @{ Authorization = "Bearer $adminToken" }
     $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/dashboard" -Method Get -Headers $headers
     if ($r.status -ne "success") { throw "status != success" }
     Write-Host "    Message: $($r.message)"
+}
+
+# ========================================
+# Test 8b: Insufficient scope on /api/admin (F-010, 403 insufficient_scope)
+# ========================================
+Test-Endpoint "Test 8b: /api/admin without admin scope -> 403 insufficient_scope" {
+    if (-not $accessToken) { throw "skipped: no token" }
+    # The vue-client token carries only `openid profile` (no admin scope) ->
+    # F-010 rejects with 403 + WWW-Authenticate: Bearer error="insufficient_scope".
+    $headers = @{ Authorization = "Bearer $accessToken" }
+    try {
+        $null = Invoke-RestMethod -Uri "$BaseUrl/api/admin/dashboard" -Method Get -Headers $headers
+        throw "expected 403, got success"
+    } catch [System.Net.WebException] {
+        $resp = $_.Exception.Response
+        if ($null -eq $resp) { throw "no HTTP response" }
+        $code = [int]$resp.StatusCode
+        if ($code -ne 403) { throw "expected 403, got $code" }
+        $wwwAuth = $resp.Headers["WWW-Authenticate"]
+        if ($wwwAuth -notmatch 'insufficient_scope') { throw "WWW-Authenticate missing insufficient_scope: $wwwAuth" }
+        if ($wwwAuth -notmatch 'scope="admin"') { throw "WWW-Authenticate missing scope=admin: $wwwAuth" }
+        Write-Host "    403 insufficient_scope (scope=admin) confirmed"
+    }
 }
 
 # ========================================

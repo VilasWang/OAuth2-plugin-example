@@ -84,6 +84,11 @@ class TokenEndpointController : public ::drogon::HttpController<TokenEndpointCon
 
     static ::drogon::HttpResponsePtr createSuccessResponse();
 
+    // F-019 (RFC 6749 §5.1 / RFC 7009 §2.2.1): stamps Cache-Control: no-store
+    // and Pragma: no-cache on a token/introspect/revoke success response so
+    // intermediaries never cache token-bearing or revocation-status bodies.
+    static void applyNoStoreHeaders(const ::drogon::HttpResponsePtr &resp);
+
     static ClientCredentials extractClientCredentials(const ::drogon::HttpRequestPtr &req);
 
     // F-017 (RFC 7591 §2 / RFC 6749 §3.2.1): enforce the client's declared
@@ -99,6 +104,27 @@ class TokenEndpointController : public ::drogon::HttpController<TokenEndpointCon
       const ClientCredentials &creds,
       bool secretInBody
     );
+
+    // F-018 (RFC 6749 §5.2 has no rate-limit error; use HTTP 429): builds the
+    // (ip, client_id) key the process-wide rate limiter is bucketed on. `ip`
+    // is the request peer (X-Forwarded-For preferred, matching the audit-sink
+    // convention); `clientId` is best-effort (Basic-auth/POST-body/param).
+    static std::string rateLimitKey(const ::drogon::HttpRequestPtr &req, const std::string &clientId);
+
+    // F-018: returns a non-null 429 response (Retry-After + OAuth2 error
+    // envelope) iff the (ip, client_id) bucket is currently over threshold;
+    // returns nullptr when the request may proceed. Callers MUST call
+    // recordRateLimitSuccess / recordRateLimitFailure after the work completes
+    // so legitimate users do not accumulate stale failures.
+    static ::drogon::HttpResponsePtr checkRateLimited(
+      const ::drogon::HttpRequestPtr &req,
+      const std::string &clientId
+    );
+
+    // F-018: record the outcome for the (ip, client_id) bucket. Success resets
+    // the failure counter; failure increments it.
+    static void recordRateLimitSuccess(const ::drogon::HttpRequestPtr &req, const std::string &clientId);
+    static void recordRateLimitFailure(const ::drogon::HttpRequestPtr &req, const std::string &clientId);
 
     ::OAuth2Plugin *plugin_ = nullptr;
 
