@@ -86,6 +86,20 @@ class TokenEndpointController : public ::drogon::HttpController<TokenEndpointCon
 
     static ClientCredentials extractClientCredentials(const ::drogon::HttpRequestPtr &req);
 
+    // F-017 (RFC 7591 §2 / RFC 6749 §3.2.1): enforce the client's declared
+    // token-endpoint auth method. Returns an error description string when the
+    // request's auth method conflicts with the declared one (caller emits an
+    // invalid_client 401), or an empty string when the request is acceptable.
+    // `declaredMethod` is the client's stored tokenEndpointAuthMethod (""
+    // / unset preserves the legacy lenient Basic->body fallback). `creds`
+    // is the request's extracted credentials; `secretInBody` flags whether a
+    // client_secret appeared in the POST body (vs the Authorization header).
+    static std::string enforceClientAuthMethod(
+      const std::string &declaredMethod,
+      const ClientCredentials &creds,
+      bool secretInBody
+    );
+
     ::OAuth2Plugin *plugin_ = nullptr;
 
     ::OAuth2Plugin *resolvePlugin() const;

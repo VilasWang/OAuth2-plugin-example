@@ -10,7 +10,10 @@
 #include <authforge/oauth2/jwk/JwkManager.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
+#include <chrono>
 #include <functional>
+#include <json/json.h>
+#include <sstream>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <authforge/drogon/validation/RuleSet.h>
 #include <authforge/drogon/validation/HttpResponder.h>
@@ -470,6 +473,20 @@ void SessionController::login(
         if (success)
         {
             req->session()->insert("userId", std::to_string(internalId));
+            // F-021/F-022 (OIDC Core §2/§3.1.3.7): record the auth_time and
+            // amr on the session so the authorization-code issuance paths
+            // (silent re-auth in AuthorizationEndpointController, the
+            // /oauth2/consent handler here) can thread them onto the code,
+            // and so the id_token eventually carries auth_time/acr/amr.
+            // Password-only login = amr "pwd"; the MFA verify handler
+            // (MfaController::verifyLogin) appends "mfa" and refreshes
+            // auth_time when the second factor completes.
+            auto nowSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                             std::chrono::system_clock::now().time_since_epoch()
+            )
+                             .count();
+            req->session()->insert("auth_time", static_cast<int64_t>(nowSecs));
+            req->session()->insert("amr", std::string("pwd"));
 
             // Audit: login success
             ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
@@ -640,6 +657,19 @@ void SessionController::login(
                 return;
             }
 
+            // F-022 (OIDC Core §3.1.3.7): read the auth_time/amr we just
+            // recorded on the session (password-only -> "pwd") so the
+            // authorization code carries them to the id_token issuance path.
+            int64_t sessAuthTime = 0;
+            std::string sessAmr;
+            if (req->session())
+            {
+                if (req->session()->find("auth_time"))
+                    sessAuthTime = req->session()->get<int64_t>("auth_time");
+                if (req->session()->find("amr"))
+                    sessAmr = req->session()->get<std::string>("amr");
+            }
+
             plugin->generateAuthorizationCode(
               clientId,
               publicSub,
@@ -680,7 +710,9 @@ void SessionController::login(
                   }
                   auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
                   callback(resp);
-              }
+              },
+              sessAuthTime,
+              sessAmr
             );
         }
         else
@@ -784,6 +816,20 @@ void SessionController::consent(
     std::string codeChallenge = params["code_challenge"];
     std::string codeChallengeMethod = params["code_challenge_method"];
     std::string nonce = params["nonce"];
+    // F-022 (OIDC Core §3.1.3.7): read auth_time/amr from the session so the
+    // consent-issued code carries them to the id_token. Consent always
+    // follows a login that populated these on the session; if absent (e.g.
+    // a direct POST without a session), pass 0/"" and the id_token omits
+    // auth_time/amr (acceptable per OIDC -- they are conditionally required).
+    int64_t sessAuthTime = 0;
+    std::string sessAmr;
+    if (req->session())
+    {
+        if (req->session()->find("auth_time"))
+            sessAuthTime = req->session()->get<int64_t>("auth_time");
+        if (req->session()->find("amr"))
+            sessAmr = req->session()->get<std::string>("amr");
+    }
 
     if (action == "deny")
     {
@@ -817,6 +863,8 @@ void SessionController::consent(
        codeChallengeMethod,
        nonce,
        req,
+       sessAuthTime,
+       sessAmr,
        callback = std::move(callback)](std::optional<int32_t> internalUserId) mutable {
           if (!internalUserId)
           {
@@ -858,6 +906,8 @@ void SessionController::consent(
                  firstScope,
                  scopes,
                  req,
+                 sessAuthTime,
+                 sessAmr,
                  callback = std::move(callback)](bool success) mutable {
                     if (!success)
                     {
@@ -913,7 +963,9 @@ void SessionController::consent(
                                 static_cast<double>(302)
                               );
                           callback(resp);
-                      }
+                      },
+                      sessAuthTime,
+                      sessAmr
                     );
                 }
               );
@@ -957,7 +1009,9 @@ void SessionController::consent(
                           static_cast<double>(302)
                         );
                     callback(resp);
-                }
+                },
+                sessAuthTime,
+                sessAmr
               );
           }
       }
@@ -999,6 +1053,13 @@ void SessionController::logout(
         return;
     }
 
+    // F-028 (OIDC RP-Initiated Logout): terminate the server-side session in
+    // addition to revoking the access token. logout() is called with a bearer
+    // token (API-style), so the session may be absent (e.g. M2M callers); the
+    // guard keeps that path a no-op rather than a crash.
+    if (req->session())
+        req->session()->clear();
+
     // Revoke the access token
     // Task 24 slice 4: prefer the injected authforge::identity::SessionManager
     // (its logout() forwards to a real IBackchannelLogoutNotifier
@@ -1035,6 +1096,141 @@ void SessionController::logout(
           }
       }
     );
+}
+
+void SessionController::endSession(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+)
+{
+    // F-027 (OIDC RP-Initiated Logout 1.0 §2): terminate the user's session
+    // at the OP and (optionally) redirect to a registered post_logout_redirect_uri.
+    // Accepts both GET (link-based) and POST (form-based) per §2.1.
+    auto params = req->getParameters();
+    std::string idTokenHint = params["id_token_hint"];
+    std::string postLogoutRedirectUri = params["post_logout_redirect_uri"];
+    std::string state = params["state"];
+
+    // Validate post_logout_redirect_uri: if id_token_hint is present, decode
+    // its payload (no signature verification -- this is a hint, per §2.2 the
+    // server MAY skip verification when TLS already authenticated the RP) to
+    // find the client_id/aud, then require the redirect URI to be one of that
+    // client's registered redirect_uris. If id_token_hint is absent, only
+    // accept the redirect URI when it is empty (the spec allows the server to
+    // require pre-registration; this server does so for safety).
+    auto plugin = resolvePlugin();
+
+    if (!postLogoutRedirectUri.empty())
+    {
+        // Resolve the client_id from the id_token_hint's aud claim when
+        // available, then check registration. Without a hint we cannot safely
+        // attribute the URI to a client -> reject.
+        std::string hintClientId;
+        if (!idTokenHint.empty())
+        {
+            // Decode the JWT payload (second segment) without verifying the
+            // signature. base64url-decode + json parse; tolerate any failure
+            // by leaving hintClientId empty (falls through to the 400 below).
+            try
+            {
+                size_t firstDot = idTokenHint.find('.');
+                size_t secondDot =
+                  idTokenHint.find('.', firstDot == std::string::npos ? 0 : firstDot + 1);
+                if (firstDot != std::string::npos && secondDot != std::string::npos)
+                {
+                    std::string payloadB64 =
+                      idTokenHint.substr(firstDot + 1, secondDot - firstDot - 1);
+                    // drogon's base64Decode requires standard padding; add it.
+                    std::string padded = payloadB64;
+                    while (padded.size() % 4)
+                        padded += '=';
+                    // base64url -> base64: - -> +, _ -> /
+                    for (char &c : padded)
+                    {
+                        if (c == '-')
+                            c = '+';
+                        else if (c == '_')
+                            c = '/';
+                    }
+                    std::string payloadJson = ::drogon::utils::base64Decode(padded);
+                    Json::CharReaderBuilder builder;
+                    Json::Value payload;
+                    std::istringstream iss(payloadJson);
+                    if (Json::parseFromStream(builder, iss, &payload, nullptr))
+                    {
+                        if (payload.isMember("aud") && payload["aud"].isString())
+                            hintClientId = payload["aud"].asString();
+                    }
+                }
+            }
+            catch (const std::exception &e)
+            {
+                LOG_DEBUG << "endSession: failed to decode id_token_hint payload: " << e.what();
+            }
+        }
+
+        // Async: validateRedirectUri resolves the client's registered URIs.
+        // Without an id_token_hint (no client to attribute the URI to) we
+        // reject immediately -- this server requires pre-registration per
+        // §2.3 ("the OP MAY require pre-registration").
+        if (hintClientId.empty())
+        {
+            auto resp = ::drogon::HttpResponse::newHttpResponse();
+            resp->setStatusCode(::drogon::k400BadRequest);
+            resp->setBody(
+              "post_logout_redirect_uri requires a valid id_token_hint for client identification"
+            );
+            callback(resp);
+            return;
+        }
+        if (!plugin)
+        {
+            auto resp = ::drogon::HttpResponse::newHttpResponse();
+            resp->setStatusCode(::drogon::k500InternalServerError);
+            resp->setBody("OAuth2 Plugin not loaded");
+            callback(resp);
+            return;
+        }
+        plugin->validateRedirectUri(
+          hintClientId,
+          postLogoutRedirectUri,
+          [req, postLogoutRedirectUri, state, callback = std::move(callback)](bool valid) mutable {
+              if (!valid)
+              {
+                  // §2.3: an invalid/unregistered post_logout_redirect_uri is a
+                  // client error -> 400 (do NOT redirect to it).
+                  auto resp = ::drogon::HttpResponse::newHttpResponse();
+                  resp->setStatusCode(::drogon::k400BadRequest);
+                  resp->setBody(
+                    "post_logout_redirect_uri is not registered for the id_token_hint client"
+                  );
+                  callback(resp);
+                  return;
+              }
+              // Terminate the server-side session (F-027/F-028).
+              if (req->session())
+                  req->session()->clear();
+              std::string location = postLogoutRedirectUri;
+              if (!state.empty())
+                  location += (location.find('?') == std::string::npos ? "?" : "&") +
+                              std::string("state=") + ::drogon::utils::urlEncode(state);
+              auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
+              resp->setStatusCode(::drogon::k302Found);
+              callback(resp);
+          }
+        );
+        return;
+    }
+
+    // No post_logout_redirect_uri: terminate the session and return a 200 body.
+    if (req->session())
+        req->session()->clear();
+
+    Json::Value json;
+    json["message"] = "Logged out successfully";
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+    resp->setStatusCode(::drogon::k200OK);
+    callback(resp);
 }
 
 void SessionController::registerUser(

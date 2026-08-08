@@ -81,6 +81,10 @@ void PostgresClientRepository::getClient(const std::string &clientId, ClientCall
 
               client.clientSecretHash = row.getValueOfClientSecret();
               client.salt = row.getValueOfSalt();
+              // F-017: read the declared token-endpoint auth method so the
+              // token/introspect/revoke endpoints can enforce it. Empty (NULL
+              // column) preserves the legacy lenient Basic->body fallback.
+              client.tokenEndpointAuthMethod = row.getValueOfTokenEndpointAuthMethod();
 
               std::string uris = row.getValueOfRedirectUris();
               LOG_DEBUG << "Postgres getClient: Redirect URIs -> " << uris;

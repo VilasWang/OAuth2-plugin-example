@@ -50,6 +50,14 @@ HttpResponsePtr postTokenForm(const std::string &body)
         req->setMethod(Post);
         req->setPath("/oauth2/token");
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
+        // F-017: backend-svc is seeded with token_endpoint_auth_method=
+        // client_secret_basic, so its secret MUST arrive via HTTP Basic
+        // (sending it in the body is now rejected). Encode the same
+        // backend-svc/test-secret pair as Basic auth here.
+        req->addHeader(
+          "Authorization",
+          "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
+        );
         req->setBody(body);
         auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
@@ -96,7 +104,11 @@ bool ensureBackendSvcScopes()
     return p.get_future().get();
 }
 
-constexpr const char *kCredentials = "client_id=backend-svc&client_secret=test-secret";
+// F-017: backend-svc is seeded client_secret_basic, so the secret travels
+// in the Authorization header (set in postTokenForm), not the body. Keep
+// client_id in the body for clients that key off it; the secret is omitted
+// here to satisfy the client_secret_basic enforcement.
+constexpr const char *kCredentials = "client_id=backend-svc";
 }  // namespace
 
 DROGON_TEST(Integration_P0_ClientCredentials_ScopeValidation_RejectsUnregisteredScope)

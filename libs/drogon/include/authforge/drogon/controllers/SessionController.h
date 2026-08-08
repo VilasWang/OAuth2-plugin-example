@@ -65,6 +65,11 @@ class SessionController : public ::drogon::HttpController<SessionController, fal
       ::drogon::Post,
       "authforge::drogon::filters::OAuth2AuthFilter"
     );
+    // F-027 (OIDC RP-Initiated Logout 1.0): GET + POST so RP form-posts and
+    // link-based logout both work; no auth filter -- the endpoint is reachable
+    // unauthenticated (it terminates whatever session is present, if any).
+    ADD_METHOD_TO(SessionController::endSession, "/oauth2/end_session", ::drogon::Get);
+    ADD_METHOD_TO(SessionController::endSession, "/oauth2/end_session", ::drogon::Post);
     ADD_METHOD_TO(SessionController::registerUser, "/api/register", ::drogon::Post);
     METHOD_LIST_END
 
@@ -81,6 +86,10 @@ class SessionController : public ::drogon::HttpController<SessionController, fal
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void logout(
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+    );
+    void endSession(
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );

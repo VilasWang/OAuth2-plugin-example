@@ -1183,3 +1183,215 @@ TEST(TokenServiceTest, ValidatePkceCodeVerifier_EmptyMethod_DefaultsToPlain)
     EXPECT_TRUE(svc->validatePkceCodeVerifier("matching", "matching", ""));
     EXPECT_FALSE(svc->validatePkceCodeVerifier("matching", "different", ""));
 }
+
+// ============================================================================
+// F-022 (OIDC Core §2/§3.1.3.7): id_token auth_time / amr / acr claims.
+// ============================================================================
+
+// Helper: decode a JWT payload (middle segment) into a Json::Value, using the
+// FakeCryptoProvider's base64UrlDecode. Mirrors the inline decode in the
+// existing id_token tests.
+namespace
+{
+Json::Value decodeIdTokenPayload(
+  const std::string &idToken,
+  authforge::common::testing::FakeCryptoProvider &crypto
+)
+{
+    size_t firstDot = idToken.find('.');
+    size_t secondDot = idToken.find('.', firstDot + 1);
+    std::string payloadB64 = idToken.substr(firstDot + 1, secondDot - firstDot - 1);
+    auto decoded = crypto.base64UrlDecode(payloadB64);
+    Json::Value claims;
+    Json::CharReaderBuilder builder;
+    std::string errs;
+    std::istringstream is(std::string(decoded.begin(), decoded.end()));
+    Json::parseFromStream(builder, is, &claims, &errs);
+    return claims;
+}
+}  // namespace
+
+// F-022: when the auth code carries auth_time + amr="pwd", the id_token
+// includes auth_time, amr=["pwd"], and acr=1 (password-only).
+TEST(TokenServiceTest, ExchangeCode_OpenIdScope_AuthTimeAndAmrPwd_StampsIdTokenClaims)
+{
+    auto clients = makeSeededClients();
+    auto grants = std::make_shared<FakeGrantRepo>();
+    auto tokens = std::make_shared<FakeTokenRepo>();
+    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
+    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
+    svc->setJwkManager(jwk);
+
+    const std::string redirectUri = "https://example.test/cb";
+    const int64_t authTime = 1700000000;
+    std::string rawCode;
+    // Pass authTime + amr via the trailing generateAuthorizationCode args.
+    svc->generateAuthorizationCode(
+      "test-client", "alice", "openid", redirectUri, "", "", "", [&](bool, std::string code, std::string) { rawCode = std::move(code); },
+      authTime, "pwd"
+    );
+
+    Json::Value r;
+    svc->exchangeCodeForToken(
+      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) { r = j; }
+    );
+    ASSERT_TRUE(r.isMember("id_token"));
+    Json::Value claims = decodeIdTokenPayload(r["id_token"].asString(), *crypto);
+    EXPECT_EQ(claims["auth_time"].asInt64(), authTime);
+    ASSERT_TRUE(claims.isMember("amr"));
+    ASSERT_EQ(claims["amr"].size(), 1u);
+    EXPECT_EQ(claims["amr"][0].asString(), "pwd");
+    EXPECT_EQ(claims["acr"].asInt64(), 1);  // password-only -> acr 1
+}
+
+// F-022: when the auth code carries amr="pwd mfa", acr=2 (MFA).
+TEST(TokenServiceTest, ExchangeCode_OpenIdScope_AmrPwdMfa_AcrIsMfaLevel)
+{
+    auto clients = makeSeededClients();
+    auto grants = std::make_shared<FakeGrantRepo>();
+    auto tokens = std::make_shared<FakeTokenRepo>();
+    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
+    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
+    svc->setJwkManager(jwk);
+
+    const std::string redirectUri = "https://example.test/cb";
+    std::string rawCode;
+    svc->generateAuthorizationCode(
+      "test-client", "alice", "openid", redirectUri, "", "", "", [&](bool, std::string code, std::string) { rawCode = std::move(code); },
+      1700000000, "pwd mfa"
+    );
+
+    Json::Value r;
+    svc->exchangeCodeForToken(
+      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) { r = j; }
+    );
+    ASSERT_TRUE(r.isMember("id_token"));
+    Json::Value claims = decodeIdTokenPayload(r["id_token"].asString(), *crypto);
+    ASSERT_TRUE(claims.isMember("amr"));
+    EXPECT_EQ(claims["amr"].size(), 2u);
+    EXPECT_EQ(claims["acr"].asInt64(), 2);  // MFA -> acr 2
+}
+
+// F-022: when auth_time is 0 and amr is empty (legacy defaults), the id_token
+// omits auth_time/amr/acr entirely.
+TEST(TokenServiceTest, ExchangeCode_OpenIdScope_NoAuthTimeNoAmr_OmitsClaims)
+{
+    auto clients = makeSeededClients();
+    auto grants = std::make_shared<FakeGrantRepo>();
+    auto tokens = std::make_shared<FakeTokenRepo>();
+    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
+    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
+    svc->setJwkManager(jwk);
+
+    const std::string redirectUri = "https://example.test/cb";
+    std::string rawCode = issueAuthCode(*svc, "test-client", "alice", "openid", redirectUri);
+    Json::Value r;
+    svc->exchangeCodeForToken(
+      rawCode, "test-client", "secret", redirectUri, "", [&](const Json::Value &j) { r = j; }
+    );
+    ASSERT_TRUE(r.isMember("id_token"));
+    Json::Value claims = decodeIdTokenPayload(r["id_token"].asString(), *crypto);
+    EXPECT_FALSE(claims.isMember("auth_time"));
+    EXPECT_FALSE(claims.isMember("amr"));
+    EXPECT_FALSE(claims.isMember("acr"));
+}
+
+// F-022: the auth_time/amr persisted on a saved code round-trip through the
+// grant repository (the persistence path that PostgresGrantRepository uses).
+// FakeGrantRepo stores the DTO by value, so the fields survive -- this test
+// pins the contract the Postgres/Memory backends must honor.
+TEST(TokenServiceTest, GenerateAuthCode_PersistsAuthTimeAndAmr_OnGrant)
+{
+    auto clients = makeSeededClients();
+    auto grants = std::make_shared<FakeGrantRepo>();
+    auto tokens = std::make_shared<FakeTokenRepo>();
+    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
+
+    const std::string redirectUri = "https://example.test/cb";
+    const int64_t authTime = 1700000123;
+    std::string rawCode;
+    svc->generateAuthorizationCode(
+      "test-client", "alice", "openid", redirectUri, "", "", "", [&](bool, std::string code, std::string) { rawCode = std::move(code); },
+      authTime, "pwd mfa"
+    );
+    ASSERT_FALSE(rawCode.empty());
+
+    // The grant repo stored the hashed code; look it up by the hashed form
+    // (FakeCryptoProvider hashes via hashToken). Read it back and assert.
+    auto it = grants->codes.find(hashToken(*crypto, rawCode));
+    ASSERT_NE(it, grants->codes.end());
+    EXPECT_EQ(it->second.authTime, authTime);
+    EXPECT_EQ(it->second.amr, "pwd mfa");
+}
+
+// ============================================================================
+// F-025 (OIDC Core §12): refresh_token grant re-issues an id_token when the
+// refresh token's scope includes "openid" and the JwkManager is wired.
+// ============================================================================
+
+// F-025: refresh with openid scope + JwkManager -> id_token in the response
+// (no nonce, since refresh does not carry one).
+TEST(TokenServiceTest, RefreshToken_OpenIdScope_WithJwkManager_ReissuesIdToken)
+{
+    auto clients = makeSeededClients();
+    auto grants = std::make_shared<FakeGrantRepo>();
+    auto tokens = std::make_shared<FakeTokenRepo>();
+    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
+    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
+    svc->setJwkManager(jwk);
+
+    // Seed a refresh token whose scope includes openid.
+    OAuth2RefreshToken rt;
+    rt.token = hashToken(*crypto, "raw-rt");
+    rt.accessToken = "at";
+    rt.clientId = "test-client";
+    rt.userId = "alice";
+    rt.scope = "openid profile";
+    rt.expiresAt = std::numeric_limits<int64_t>::max();
+    tokens->refreshTokens[rt.token] = rt;
+
+    Json::Value r;
+    svc->refreshAccessToken("raw-rt", "test-client", [&](const Json::Value &j) { r = j; });
+    EXPECT_FALSE(r.isMember("error"));
+    ASSERT_TRUE(r.isMember("id_token")) << "refresh with openid scope must re-issue id_token";
+    Json::Value claims = decodeIdTokenPayload(r["id_token"].asString(), *crypto);
+    EXPECT_EQ(claims["sub"].asString(), "alice");
+    EXPECT_EQ(claims["aud"].asString(), "test-client");
+    EXPECT_FALSE(claims.isMember("nonce"));  // §12: no nonce on refresh
+}
+
+// F-025: refresh with a NON-openid scope must NOT issue an id_token.
+TEST(TokenServiceTest, RefreshToken_NonOpenIdScope_OmitsIdToken)
+{
+    auto clients = makeSeededClients();
+    auto grants = std::make_shared<FakeGrantRepo>();
+    auto tokens = std::make_shared<FakeTokenRepo>();
+    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
+    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
+    svc->setJwkManager(jwk);
+
+    OAuth2RefreshToken rt;
+    rt.token = hashToken(*crypto, "raw-rt");
+    rt.accessToken = "at";
+    rt.clientId = "test-client";
+    rt.userId = "alice";
+    rt.scope = "profile";  // no openid
+    rt.expiresAt = std::numeric_limits<int64_t>::max();
+    tokens->refreshTokens[rt.token] = rt;
+
+    Json::Value r;
+    svc->refreshAccessToken("raw-rt", "test-client", [&](const Json::Value &j) { r = j; });
+    EXPECT_FALSE(r.isMember("error"));
+    EXPECT_FALSE(r.isMember("id_token"));
+}

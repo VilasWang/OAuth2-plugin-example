@@ -213,13 +213,16 @@ Test-Endpoint "Test 9b: Token Refresh - Missing client_secret (401)" {
 # Test 10: Client Credentials Grant
 # ========================================
 Test-Endpoint "Test 10: Client Credentials" {
+    # F-017: backend-svc is seeded token_endpoint_auth_method=client_secret_basic,
+    # so its secret MUST travel via HTTP Basic (body form is now rejected).
+    $basicAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("backend-svc:test-secret"))
+    $headers = @{ Authorization = "Basic $basicAuth" }
     $body = @{
         grant_type = 'client_credentials'
         client_id = 'backend-svc'
-        client_secret = 'test-secret'
         scope = 'read'
     }
-    $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body $body
+    $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body $body -Headers $headers
     if (-not $r.access_token) { throw "no access_token" }
     if ($r.refresh_token) { throw "client_credentials should NOT have refresh_token" }
     if ($r.scope -ne "read") { throw "scope mismatch" }
@@ -306,7 +309,7 @@ Test-Endpoint "Test 14: User Profile" {
     $tokenBody = @{
         grant_type = 'authorization_code'; code = $login.code
         redirect_uri = 'http://127.0.0.1:5173/callback'
-        client_id = 'vue-client'; client_secret = '123456'
+        client_id = 'vue-client'
     }
     $tok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body $tokenBody
     $script:accessToken = $tok.access_token
@@ -373,7 +376,7 @@ Test-Endpoint "Test 17: Password Change" {
         $restoreTok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
             grant_type = 'authorization_code'; code = $restoreLogin.code
             redirect_uri = 'http://127.0.0.1:5173/callback'
-            client_id = 'vue-client'; client_secret = '123456'
+            client_id = 'vue-client'
         }
         $restoreHeaders = @{ Authorization = "Bearer $($restoreTok.access_token)"; "Content-Type" = "application/json" }
         Invoke-RestMethod -Uri "$BaseUrl/api/me/password" -Method Put -Body '{"old_password":"NewPass123!","new_password":"admin"}' -Headers $restoreHeaders | Out-Null
@@ -927,7 +930,8 @@ Test-Endpoint "Test 41: POST /oauth2/token - Expired/used authorization code" {
 
 Test-Endpoint "Test 42: POST /oauth2/introspect - Malformed token" {
     # Introspection of a malformed token: may return active=false or an error
-    $body = @{ token = "not-a-real-token-at-all"; client_id = "vue-client"; client_secret = "123456" }
+    # F-017: vue-client is PUBLIC (token_endpoint_auth_method='none'); no secret.
+    $body = @{ token = "not-a-real-token-at-all"; client_id = "vue-client" }
     try {
         $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body
         if ($r.active -ne $false) { throw "malformed token should be active=false" }
@@ -941,7 +945,8 @@ Test-Endpoint "Test 42: POST /oauth2/introspect - Malformed token" {
 Test-Endpoint "Test 43: POST /oauth2/revoke - Already revoked token (idempotent)" {
     $tok = Get-UserToken -BaseUrl $BaseUrl -Username "admin" -Password $adminPassword
     # RFC 7009: client-credential auth via body only; no Bearer header needed.
-    $body = @{ token = $tok; client_id = "vue-client"; client_secret = "123456" }
+    # F-017: vue-client is PUBLIC (token_endpoint_auth_method='none'); no secret.
+    $body = @{ token = $tok; client_id = "vue-client" }
     # Revoke once
     Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Body $body -UseBasicParsing | Out-Null
     # Revoke again - should succeed (idempotent)

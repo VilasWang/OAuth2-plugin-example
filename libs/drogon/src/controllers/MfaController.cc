@@ -531,7 +531,24 @@ void MfaController::verifyLogin(
     // exchangeCodeForToken orchestration (an oauth2-domain concern, see
     // MfaService.h's own scope-boundary comment on why this stays outside
     // that class) is written once, not duplicated per path.
-    auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken](
+    // F-021/F-022 (OIDC Core §3.1.3.7): MFA verify completes the second
+    // factor, so the issued code/refresh tokens reflect both password and
+    // MFA. auth_time = now (the moment authentication fully completed) and
+    // amr = "pwd mfa" (acr will be "2" = MFA in the id_token). Also refresh
+    // the session's auth_time/amr so a subsequent authorize silent re-auth
+    // in the same browser session picks up the MFA-elevated values.
+    auto mfaNowSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now().time_since_epoch()
+    )
+                        .count();
+    int64_t mfaAuthTime = static_cast<int64_t>(mfaNowSecs);
+    std::string mfaAmr = "pwd mfa";
+    if (req->session())
+    {
+        req->session()->insert("auth_time", mfaAuthTime);
+        req->session()->insert("amr", mfaAmr);
+    }
+    auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken, mfaAuthTime, mfaAmr](
                             std::string publicSub,
                             std::string pendingClientId,
                             std::string pendingRedirectUri,
@@ -550,6 +567,8 @@ void MfaController::verifyLogin(
            pendingRedirectUri,
            scope,
            nonce,
+           mfaAuthTime,
+           mfaAmr,
            clearPendingBinding](bool validClient) {
               if (!validClient)
               {
@@ -575,6 +594,8 @@ void MfaController::verifyLogin(
                  pendingRedirectUri,
                  scope,
                  nonce,
+                 mfaAuthTime,
+                 mfaAmr,
                  clearPendingBinding](bool validUri) {
                     if (!validUri)
                     {
@@ -672,7 +693,9 @@ void MfaController::verifyLogin(
                                 clearPendingBinding(std::move(sendSuccess));
                             }
                           );
-                      }
+                      },
+                      mfaAuthTime,
+                      mfaAmr
                     );
                 }
               );
@@ -770,7 +793,7 @@ void MfaController::verifyLogin(
     auto db = ::drogon::app().getDbClient();
     Mapper<drogon_model::oauth2_db::Users>(db).findBy(
       Criteria(drogon_model::oauth2_db::Users::Cols::_id, CompareOperator::EQ, fallbackUserId),
-      [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin](
+      [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin, mfaAuthTime, mfaAmr](
         const std::vector<drogon_model::oauth2_db::Users> &users
       ) {
           if (users.empty())
@@ -804,7 +827,9 @@ void MfaController::verifyLogin(
                  pendingRedirectUri,
                  scope,
                  nonce,
-                 mfaToken](bool validClient) {
+                 mfaToken,
+                 mfaAuthTime,
+                 mfaAmr](bool validClient) {
                     if (!validClient)
                     {
                         respondError(
@@ -829,7 +854,9 @@ void MfaController::verifyLogin(
                        pendingRedirectUri,
                        scope,
                        nonce,
-                       mfaToken](bool validUri) {
+                       mfaToken,
+                       mfaAuthTime,
+                       mfaAmr](bool validUri) {
                           if (!validUri)
                           {
                               respondError(
@@ -987,7 +1014,9 @@ void MfaController::verifyLogin(
                                       }
                                   }
                                 );
-                            }
+                            },
+                            mfaAuthTime,
+                            mfaAmr
                           );
                       }
                     );

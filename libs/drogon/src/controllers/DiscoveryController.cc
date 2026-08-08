@@ -220,6 +220,21 @@ void DiscoveryController::oidcDiscovery(
     discovery["code_challenge_methods_supported"].append("S256");
     discovery["code_challenge_methods_supported"].append("plain");
 
+    // F-022 (OIDC Core §3.1.2.1 / §5.1): advertise prompt/max_age support and
+    // the auth_time/acr/amr claims the id_token now carries.
+    discovery["prompt_values_supported"] = Json::Value(Json::arrayValue);
+    discovery["prompt_values_supported"].append("none");
+    discovery["prompt_values_supported"].append("login");
+    discovery["prompt_values_supported"].append("consent");
+    discovery["prompt_values_supported"].append("select_account");
+
+    discovery["acr_values_supported"] = Json::Value(Json::arrayValue);
+    discovery["acr_values_supported"].append("1");  // password-only
+    discovery["acr_values_supported"].append("2");  // MFA
+
+    // F-027 (OIDC RP-Initiated Logout 1.0): the end_session endpoint URL.
+    discovery["end_session_endpoint"] = baseUrl + "/oauth2/end_session";
+
     discovery["claims_supported"] = Json::Value(Json::arrayValue);
     discovery["claims_supported"].append("sub");
     discovery["claims_supported"].append("name");
@@ -230,6 +245,11 @@ void DiscoveryController::oidcDiscovery(
     discovery["claims_supported"].append("exp");
     discovery["claims_supported"].append("iat");
     discovery["claims_supported"].append("nonce");
+    // F-022: auth_time/acr/amr are conditionally emitted on the id_token
+    // (auth_time when set, acr/amr when the session recorded an amr).
+    discovery["claims_supported"].append("auth_time");
+    discovery["claims_supported"].append("acr");
+    discovery["claims_supported"].append("amr");
 
     auto resp = ::drogon::HttpResponse::newHttpJsonResponse(discovery);
     resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);

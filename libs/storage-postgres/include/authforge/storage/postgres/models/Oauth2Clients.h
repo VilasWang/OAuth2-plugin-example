@@ -58,6 +58,7 @@ class Oauth2Clients
         static const std::string _name;
         static const std::string _redirect_uris;
         static const std::string _allowed_grant_types;
+        static const std::string _token_endpoint_auth_method;
         static const std::string _backchannel_logout_uri;
         static const std::string _backchannel_logout_session_required;
         static const std::string _org_id;
@@ -178,6 +179,16 @@ class Oauth2Clients
     void setAllowedGrantTypes(std::string &&pAllowedGrantTypes) noexcept;
     void setAllowedGrantTypesToNull() noexcept;
 
+    /**  For column token_endpoint_auth_method  */
+    ///Get the value of the column token_endpoint_auth_method, returns the default value if the column is null
+    const std::string &getValueOfTokenEndpointAuthMethod() const noexcept;
+    ///Return a shared_ptr object pointing to the column const value, or an empty shared_ptr object if the column is null
+    const std::shared_ptr<std::string> &getTokenEndpointAuthMethod() const noexcept;
+    ///Set the value of the column token_endpoint_auth_method
+    void setTokenEndpointAuthMethod(const std::string &pTokenEndpointAuthMethod) noexcept;
+    void setTokenEndpointAuthMethod(std::string &&pTokenEndpointAuthMethod) noexcept;
+    void setTokenEndpointAuthMethodToNull() noexcept;
+
     /**  For column backchannel_logout_uri  */
     ///Get the value of the column backchannel_logout_uri, returns the default value if the column is null
     const std::string &getValueOfBackchannelLogoutUri() const noexcept;
@@ -207,7 +218,7 @@ class Oauth2Clients
     void setOrgIdToNull() noexcept;
 
 
-    static size_t getColumnNumber() noexcept {  return 10;  }
+    static size_t getColumnNumber() noexcept {  return 11;  }
     static const std::string &getColumnName(size_t index) noexcept(false);
 
     Json::Value toJson() const;
@@ -260,6 +271,7 @@ class Oauth2Clients
     std::shared_ptr<std::string> name_;
     std::shared_ptr<std::string> redirectUris_;
     std::shared_ptr<std::string> allowedGrantTypes_;
+    std::shared_ptr<std::string> tokenEndpointAuthMethod_;
     std::shared_ptr<std::string> backchannelLogoutUri_;
     std::shared_ptr<bool> backchannelLogoutSessionRequired_;
     std::shared_ptr<int32_t> orgId_;
@@ -274,7 +286,7 @@ class Oauth2Clients
         const bool notNull_;
     };
     static const std::vector<MetaData> metaData_;
-    bool dirtyFlag_[10]={ false };
+    bool dirtyFlag_[11]={ false };
   public:
     static const std::string &sqlForFindingByPrimaryKey()
     {
@@ -330,16 +342,21 @@ class Oauth2Clients
         }
         if(dirtyFlag_[7])
         {
+            sql += "token_endpoint_auth_method,";
+            ++parametersCount;
+        }
+        if(dirtyFlag_[8])
+        {
             sql += "backchannel_logout_uri,";
             ++parametersCount;
         }
         sql += "backchannel_logout_session_required,";
         ++parametersCount;
-        if(!dirtyFlag_[8])
+        if(!dirtyFlag_[9])
         {
             needSelection=true;
         }
-        if(dirtyFlag_[9])
+        if(dirtyFlag_[10])
         {
             sql += "org_id,";
             ++parametersCount;
@@ -404,11 +421,16 @@ class Oauth2Clients
             n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
             sql.append(placeholderStr, n);
         }
+        if(dirtyFlag_[9])
+        {
+            n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
+            sql.append(placeholderStr, n);
+        }
         else
         {
             sql +="default,";
         }
-        if(dirtyFlag_[9])
+        if(dirtyFlag_[10])
         {
             n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
             sql.append(placeholderStr, n);
