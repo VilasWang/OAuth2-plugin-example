@@ -781,17 +781,17 @@ F-001（OpenAPI enum）/ F-019（Cache-Control）/ F-020（state urlEncode）/ F
 
 ### 9.1 复查结论概览
 
-**合规：85/90 检查点 ✅ COMPLIANT**（含 1 项 ➖ N/A：RFC 9068 JWT access token——access token 为 opaque 设计）。所有 F-001–F-031 整改项在当前代码中**均已落地、无回退**，关键修复点（F-002 写读哈希一致、F-003 refresh 客户端认证、F-011 PKCE 默认强制、F-013/§4.6 S256 正确算法、F-016 issuer 一致、F-017 auth_method 强制、F-018 限流、F-019 no-store、F-020 urlEncode、F-022 prompt/max_age/auth_time/acr/amr、F-023 userinfo openid、F-025 refresh id_token、F-027 end_session）经直接代码复核确认存在且端到端连通。
+**合规：88/90 检查点 ✅ COMPLIANT**（含 1 项 ➖ N/A：RFC 9068 JWT access token——access token 为 opaque 设计）。R-1/R-4/R-5 三项新发现已快速修复（见下表处置列），R-2/R-3 记录在案留待 follow-up。所有 F-001–F-031 整改项在当前代码中**均已落地、无回退**，关键修复点（F-002 写读哈希一致、F-003 refresh 客户端认证、F-011 PKCE 默认强制、F-013/§4.6 S256 正确算法、F-016 issuer 一致、F-017 auth_method 强制、F-018 限流、F-019 no-store、F-020 urlEncode、F-022 prompt/max_age/auth_time/acr/amr、F-023 userinfo openid、F-025 refresh id_token、F-027 end_session）经直接代码复核确认存在且端到端连通。
 
 **5 项待处置（均为新发现，非回退，无 1 项是整改前已报告的 F-xxx 漏修）**：
 
-| ID | 发现 | 风险 | 性质 |
-|---|---|---|---|
-| **R-1** | `acr` claim 以 JSON **整数**签发（`TokenService.cc:367`、`OAuth2Plugin.cc:778` `Json::Int64`），但 OIDC Core §2 规定 `acr` 为**字符串**，且 discovery `acr_values_supported` 广告的是字符串 `"1"`/`"2"`——id_token 与 discovery 类型/值不匹配 | 中 | 新发现，整改引入 |
-| **R-2** | `/oauth2/register` 路由在所有 config 的 `rbac_rules` 均无对应条目，`AuthorizationFilter` 默认拒绝 → 动态注册端点**对所有用户（含 admin）返回 403**；实际客户端创建走 `/api/admin/clients`（匹配 `/api/admin/.*`）。注册能力存在但端点不可达 | 低（功能不可用，但无安全影响） | 预先存在（master 上即如此），非本批引入；属文档/配置与实现不一致 |
-| **R-3** | `RedisGrantRepository::saveAuthCode`（`RedisGrantRepository.cc:48`）不持久化 `code_challenge`/`code_challenge_method`/`nonce`/`auth_time`/`amr`——Redis 部署下 PKCE 校验被静默跳过、id_token 丢失 nonce/auth_time/amr | 高（**仅 Redis 部署**；Postgres/Memory 正确） | 预先存在（Redis grant 存储历来不完整）；F-005 已声明独立 Redis 模式废弃，故实际爆炸半径=坚持用废弃 Redis 模式的人 |
-| **R-4** | discovery `prompt_values_supported` 含 `select_account`（`DiscoveryController.cc:229`），但 authorize 端无对应分支（仅 none/login/consent 被处理，`AuthorizationEndpointController.cc:282-284`）——advertised-but-not-honored | 低 | 新发现，整改引入 |
-| **R-5** | RFC 8414 `metadata()`（`DiscoveryController.cc:72-165`）缺 `subject_types_supported`（RFC 8414 §2 REQUIRED），且两份 discovery 文档均未广告 `registration_endpoint`（尽管 `/oauth2/register` 已实现） | 低 | 预先存在（metadata 路径）+ 一致性 |
+| ID | 发现 | 风险 | 性质 | 处置 |
+|---|---|---|---|---|
+| **R-1** | `acr` claim 以 JSON **整数**签发（`TokenService.cc:367`、`OAuth2Plugin.cc:778` `Json::Int64`），但 OIDC Core §2 规定 `acr` 为**字符串**，且 discovery `acr_values_supported` 广告的是字符串 `"1"`/`"2"`——id_token 与 discovery 类型/值不匹配 | 中 | 新发现，整改引入 | ✅ **已修**：改为 `Json::String`（"1"/"2"），两处签发点 + 2 个单测断言同步 |
+| **R-2** | `/oauth2/register` 路由在所有 config 的 `rbac_rules` 均无对应条目，`AuthorizationFilter` 默认拒绝 → 动态注册端点**对所有用户（含 admin）返回 403**；实际客户端创建走 `/api/admin/clients`（匹配 `/api/admin/.*`）。注册能力存在但端点不可达 | 低（功能不可用，但无安全影响） | 预先存在（master 上即如此），非本批引入；属文档/配置与实现不一致 | 📌 **记录**：非合规硬伤，是端点可达性问题。建议二选一——在 `rbac_rules` 加 `"/oauth2/register": ["admin"]`，或文档明确该端点仅供 admin、实际用 `/api/admin/clients`。留待 follow-up。 |
+| **R-3** | `RedisGrantRepository::saveAuthCode`（`RedisGrantRepository.cc:48`）不持久化 `code_challenge`/`code_challenge_method`/`nonce`/`auth_time`/`amr`——Redis 部署下 PKCE 校验被静默跳过、id_token 丢失 nonce/auth_time/amr | 高（**仅 Redis 部署**；Postgres/Memory 正确） | 预先存在（Redis grant 存储历来不完整）；F-005 已声明独立 Redis 模式废弃，故实际爆炸半径=坚持用废弃 Redis 模式的人 | 📌 **记录**：由架构 follow-up issue #42 覆盖（目标架构 Postgres 存储 + Redis 仅作缓存，grant 走 Postgres）。本轮不修——独立 Redis 存储模式已废弃（启动 LOG_ERROR + refresh grant 返回 unsupported_grant_type）。 |
+| **R-4** | discovery `prompt_values_supported` 含 `select_account`（`DiscoveryController.cc:229`），但 authorize 端无对应分支（仅 none/login/consent 被处理，`AuthorizationEndpointController.cc:282-284`）——advertised-but-not-honored | 低 | 新发现，整改引入 | ✅ **已修**：从 discovery `prompt_values_supported` 与 OpenAPI prompt 参数描述移除 `select_account`（只广告实际支持的 none/login/consent） |
+| **R-5** | RFC 8414 `metadata()`（`DiscoveryController.cc:72-165`）缺 `subject_types_supported`（RFC 8414 §2 REQUIRED），且两份 discovery 文档均未广告 `registration_endpoint`（尽管 `/oauth2/register` 已实现） | 低 | 预先存在（metadata 路径）+ 一致性 | ✅ **已修**：metadata() 补 `subject_types_supported=["public"]`；metadata() 与 oidcDiscovery() 均补 `registration_endpoint` |
 
 ### 9.2 低风险提示（非缺陷，记录在案）
 
@@ -803,16 +803,16 @@ F-001（OpenAPI enum）/ F-019（Cache-Control）/ F-020（state urlEncode）/ F
 - **`access_denied`** 在 ErrorCatalog 映射为 403（RFC 6749 §5.2 列在 400）——仅用于资源侧/撤销所有权拒绝，authorize 端的 access_denied 走 302 重定向，无安全影响。
 - **OAuth2Plugin 与 DiscoveryController 各自独立 fallback `http://localhost:5555`**——当前一致，但两处字面量可能漂移。
 
-### 9.3 建议处置
+### 9.3 处置结果
 
-- **R-1（acr 类型）**：建议立即修——`Json::Int64(...)` → `Json::String(...)`（2 处）。改动极小、无破坏性、消除 id_token 与 discovery 的类型不一致。**推荐本轮修。**
-- **R-4（select_account）**：建议从 `prompt_values_supported` 移除 `select_account`（或在 authorize 实现账户选择分支）。改动极小。**推荐本轮修。**
-- **R-5（discovery 字段）**：建议补 `subject_types_supported` 到 RFC 8414 `metadata()`、补 `registration_endpoint` 到两份文档。**推荐本轮修。**
-- **R-2（register RBAC）**：建议在 `rbac_rules` 加 `"/oauth2/register": ["admin"]`（或文档明确该端点仅供 admin、实际用 `/api/admin/clients`）。**可选**——非合规硬伤，是功能可达性问题。
-- **R-3（Redis grant）**：与 F-005 一致——独立 Redis 存储模式已废弃，目标架构为 Postgres+Redis 缓存（issue #42）。**不在本轮修**，由 #42 覆盖（届时 Redis 仅作缓存，grant 走 Postgres）。
+- **R-1（acr 类型）** ✅ **已修**：`TokenService.cc` + `OAuth2Plugin.cc` 两处 `Json::Int64(...)` → 字符串 `"1"`/`"2"`；2 个单测断言（`TokenServiceTest`）同步为 `asString()`。
+- **R-4（select_account）** ✅ **已修**：从 `DiscoveryController.cc` 的 `prompt_values_supported` 与 `AuthorizationEndpointController.cc`/`openapi.yaml` 的 prompt 参数描述移除 `select_account`（只广告实际支持的 none/login/consent）。
+- **R-5（discovery 字段）** ✅ **已修**：`DiscoveryController.cc` 的 RFC 8414 `metadata()` 补 `subject_types_supported=["public"]`；`metadata()` 与 `oidcDiscovery()` 均补 `registration_endpoint`。
+- **R-2（register RBAC）** 📌 **记录在案**：非合规硬伤（端点可达性问题，预先存在）。建议 follow-up 二选一——`rbac_rules` 加 `"/oauth2/register": ["admin"]`，或文档明确实际用 `/api/admin/clients`。本轮不改码。
+- **R-3（Redis grant）** 📌 **记录在案**：由架构 follow-up issue #42 覆盖（目标 Postgres 存储 + Redis 仅缓存，grant 走 Postgres）。本轮不修——独立 Redis 存储模式已废弃。
 
 ### 9.4 未回退确认
 
 逐项确认无整改前已报告的 F-xxx 出现回退：F-002 写读哈希一致（`ClientRegistrationService.cc:204-220` 写有盐小写 SHA-256 ↔ `PostgresClientRepository.cc:213-243` 读同算法常量时间比较）、F-003 refresh 认证（`TokenEndpointController.cc:1037-1134` 按 client_type 分支）、F-011 PKCE（代码与 4 个 config 默认 true）、F-013 method 校验（`AuthorizationEndpointController.cc:375-393`）、§4.6 S256 正确算法（`Pkce.cc:17-21` base64url(raw digest)）、F-016 issuer 一致（无 `oauth.example.com` 残留）、F-017 强制（`enforceClientAuthMethod`）、F-018 限流（`RateLimiter` 失败计数 429）、F-019 no-store（`applyNoStoreHeaders` 全成功响应）、F-020 urlEncode（4 处签发重定向）、F-022 prompt/max_age/auth_time/amr（`AuthorizationEndpointController.cc` + `SessionController.cc:484-489` + `MfaController.cc:540-550`）、F-023 userinfo openid（`TokenEndpointController.cc:1879-1898`）、F-025 refresh/device id_token、F-027 end_session（`SessionController.cc:1105-1227` + session clear）——均存在且端到端连通。
 
-**整体结论**：整改有效，14 个 RFC 规范的 ~90 检查点中 85 项合规、1 项不适用、5 项待处置（其中 R-1/R-4/R-5 建议本轮快速修，R-2 可选，R-3 由 #42 覆盖）。无整改回退，无新引入的安全回归。
+**整体结论**：整改有效，14 个 RFC 规范的 ~90 检查点中 88 项合规、1 项不适用、R-1/R-4/R-5 三项新发现已修复、R-2/R-3 两项记录在案（R-2 留待 follow-up，R-3 由 issue #42 覆盖）。无整改回退，无新引入的安全回归。

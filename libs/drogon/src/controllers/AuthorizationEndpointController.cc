@@ -89,7 +89,7 @@ void AuthorizationEndpointController::initApiDocsImpl()
         authforge::drogon::observability::openapi::ParameterLocation::QUERY,
         false},
        {"prompt",
-        "Space-separated prompt values (none|login|consent|select_account). "
+        "Space-separated prompt values (none|login|consent). "
         "none forbids UI; login forces re-auth; consent forces the consent "
         "screen (OIDC Core §3.1.2.1).",
         authforge::drogon::observability::openapi::ParameterType::STRING,

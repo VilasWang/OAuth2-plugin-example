@@ -1243,7 +1243,9 @@ TEST(TokenServiceTest, ExchangeCode_OpenIdScope_AuthTimeAndAmrPwd_StampsIdTokenC
     ASSERT_TRUE(claims.isMember("amr"));
     ASSERT_EQ(claims["amr"].size(), 1u);
     EXPECT_EQ(claims["amr"][0].asString(), "pwd");
-    EXPECT_EQ(claims["acr"].asInt64(), 1);  // password-only -> acr 1
+    // R-1 (OIDC Core §2): acr is a STRING claim ("1"=password, "2"=MFA),
+    // matching discovery's acr_values_supported strings.
+    EXPECT_EQ(claims["acr"].asString(), "1");  // password-only -> acr "1"
 }
 
 // F-022: when the auth code carries amr="pwd mfa", acr=2 (MFA).
@@ -1273,7 +1275,8 @@ TEST(TokenServiceTest, ExchangeCode_OpenIdScope_AmrPwdMfa_AcrIsMfaLevel)
     Json::Value claims = decodeIdTokenPayload(r["id_token"].asString(), *crypto);
     ASSERT_TRUE(claims.isMember("amr"));
     EXPECT_EQ(claims["amr"].size(), 2u);
-    EXPECT_EQ(claims["acr"].asInt64(), 2);  // MFA -> acr 2
+    // R-1: acr is a STRING ("2" for MFA), not an integer.
+    EXPECT_EQ(claims["acr"].asString(), "2");  // MFA -> acr "2"
 }
 
 // F-022: when auth_time is 0 and amr is empty (legacy defaults), the id_token

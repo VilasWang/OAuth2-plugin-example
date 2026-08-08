@@ -775,7 +775,9 @@ std::string OAuth2Plugin::signIdToken(
                     break;
                 }
             }
-            claims["acr"] = Json::Int64(mfa ? 2 : 1);
+            // R-1 (OIDC Core §2): acr is a STRING claim (discovery advertises
+            // "1"/"2"); emit as string, not integer.
+            claims["acr"] = mfa ? "2" : "1";
         }
     }
     return jwkManager_->signJwt(claims);
