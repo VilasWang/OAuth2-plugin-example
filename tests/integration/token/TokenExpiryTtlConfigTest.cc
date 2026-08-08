@@ -60,6 +60,12 @@ HttpResponsePtr postTokenForm(const std::string &body)
         req->setMethod(Post);
         req->setPath("/oauth2/token");
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
+        // F-017: backend-svc is seeded client_secret_basic; send the secret
+        // via HTTP Basic instead of the body.
+        req->addHeader(
+          "Authorization",
+          "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
+        );
         req->setBody(body);
         auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
@@ -136,7 +142,9 @@ bool ensureBackendSvcScopes()
     return p.get_future().get();
 }
 
-constexpr const char *kCredentials = "client_id=backend-svc&client_secret=test-secret";
+// F-017: backend-svc is seeded client_secret_basic; the secret is sent via
+// HTTP Basic in postTokenForm, so the body only carries client_id.
+constexpr const char *kCredentials = "client_id=backend-svc";
 }  // namespace
 
 DROGON_TEST(Integration_P1_TokenExpiry_ClientCredentials_ExpiresInMatchesConfig)

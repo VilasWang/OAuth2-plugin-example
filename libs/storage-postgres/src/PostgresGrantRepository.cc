@@ -47,6 +47,19 @@ void PostgresGrantRepository::saveAuthCode(const OAuth2AuthCode &code, VoidCallb
         }
         newCode.setExpiresAt(code.expiresAt);
         newCode.setUsed(code.used);
+        // F-021/F-022 (OIDC Core §3.1.3.7): persist the session-carried
+        // auth_time + amr so the token endpoint can stamp them into the
+        // id_token at code exchange. Only set when present (non-zero / non-
+        // empty); legacy callers that still pass defaults leave the columns
+        // NULL, matching the schema's nullable contract.
+        if (code.authTime > 0)
+        {
+            newCode.setAuthTime(code.authTime);
+        }
+        if (!code.amr.empty())
+        {
+            newCode.setAmr(code.amr);
+        }
 
         mapper.insert(
           newCode,
@@ -94,6 +107,12 @@ void PostgresGrantRepository::getAuthCode(const std::string &code, AuthCodeCallb
                 row.getCodeChallengeMethod() ? row.getValueOfCodeChallengeMethod() : "";
               c.expiresAt = row.getValueOfExpiresAt();  // int64_t
               c.used = row.getValueOfUsed();
+              // F-022: load auth_time/amr so the token endpoint can stamp
+              // them into the id_token. getValueOf* returns a safe default
+              // (0 / empty string) when the column is NULL, which matches
+              // the DTO's default-initialized fields.
+              c.authTime = row.getValueOfAuthTime();
+              c.amr = row.getValueOfAmr();
               (*sharedCb)(c);
           },
           [sharedCb](const DrogonDbException &e) {
@@ -162,11 +181,14 @@ void PostgresGrantRepository::consumeAuthCode(
 
     // Atomic CAS: UPDATE ... WHERE used=false RETURNING *
     // This prevents race conditions where two concurrent requests consume the same code
+    // F-022: RETURNING now also selects auth_time/amr so the consumed code
+    // carries them to the id_token issuance path.
     dbClientMaster_->execSqlAsync(
       "UPDATE oauth2_codes SET used = true "
       "WHERE code = $1 AND used = false "
       "RETURNING code, client_id, user_id, scope, redirect_uri, "
-      "code_challenge, code_challenge_method, expires_at",
+      "code_challenge, code_challenge_method, expires_at, "
+      "auth_time, amr",
       [sharedCb, redirectUri, code](const ::drogon::orm::Result &r) {
           if (r.empty())
           {
@@ -204,6 +226,10 @@ void PostgresGrantRepository::consumeAuthCode(
                                     : row["code_challenge_method"].as<std::string>();
           c.expiresAt = row["expires_at"].as<int64_t>();
           c.used = true;
+          // F-022: load auth_time/amr from the consumed row. The columns
+          // are nullable; treat NULL as the DTO default (0 / empty).
+          c.authTime = row["auth_time"].isNull() ? 0 : row["auth_time"].as<int64_t>();
+          c.amr = row["amr"].isNull() ? "" : row["amr"].as<std::string>();
           (*sharedCb)(c);
       },
       [sharedCb, code](const DrogonDbException &e) {

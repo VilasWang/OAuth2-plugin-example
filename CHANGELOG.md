@@ -59,6 +59,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   不豁免）；新增配置開關 `auth.allow_http_redirect_uri`（dev 開/prod 關）；
   seed 與測試中 `localhost` redirect_uri 同步改為 `127.0.0.1`。
 
+#### OAuth/OIDC 合規審計 Batch 2 — OIDC 全量擴展 (#29/#30/#32/#37)
+
+- **F-021/F-022 (#29)**：`prompt` / `max_age` / `auth_time` / `acr` / `amr`
+  全量支持。登入成功寫入 session `auth_time`/`amr`（MFA 完成追加 `mfa`）；
+  authorize 解析 `prompt`（none/login/consent/select_account）與 `max_age`，
+  按 OIDC Core §3.1.2.1 強制（none+其他值 400；prompt=none 無 session →
+  302 `login_required`/`consent_required`；prompt=login/max_age 超齡 → 強制
+  重認證；prompt=consent → 強制同意頁）。授權碼持久化 `auth_time`/`amr`
+  （PostgresGrantRepository save/get/consumeAuthCode）；兌換時 id_token 增發
+  `auth_time`（>0 時）、`amr`（JSON 陣列）、`acr`（1=password / 2=MFA）。
+  discovery 新增 `prompt_values_supported`、`acr_values_supported`、
+  `end_session_endpoint`，`claims_supported` 補 auth_time/acr/amr。
+- **F-025 (#32)**：`refresh_token` 與 `device_code` grant 在 scope 含 openid
+  且 JwkManager 可用時重發 id_token（OIDC Core §12，refresh 無 nonce）。
+  新增 `OAuth2Plugin::signIdToken()` 助手集中簽發邏輯。
+- **F-027/F-028 (#30)**：新增 `/oauth2/end_session`（GET+POST）RP-Initiated
+  Logout 端點：校驗 `id_token_hint`、`post_logout_redirect_uri` 須為該客戶端
+  註冊 redirect_uri、回顯 `state`、`session()->clear()`；合法 302，否則 400。
+  現有 `SessionController::logout` 補 `session()->clear()`（F-028）。
+- **F-017 (#37)**：`token_endpoint_auth_method` 持久化 + 強制。
+  `oauth2_clients` 新增列（NULL 保留舊寬容 Basic→body 回退）。DTO/Client
+  聚合暴露該字段；註冊/管理端持久化並回顯（PUBLIC 默認 `none`，CONFIDENTIAL
+  默認 `client_secret_basic`）。token/introspect/revoke 按聲明方法強制
+  （basic 僅接 Basic 頭 / post 僅接 body / none 拒絕任何 secret）。
+  seed 顯式賦值（vue-client/admin-console='none'，backend-svc='client_secret_basic'）。
+- **F-023/F-024 (#37)**：userinfo 要求 access token scope 含 openid，否則
+  403 + `WWW-Authenticate: Bearer error="insufficient_scope"`；M2M token
+  （subject `client:*`）直接拒。順帶返回 `email_verified` 聲明。
+
 ### Changed
 
 #### 依賴升級 (Dependencies)

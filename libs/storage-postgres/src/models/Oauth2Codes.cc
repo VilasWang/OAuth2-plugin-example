@@ -23,6 +23,8 @@ const std::string Oauth2Codes::Cols::_code_challenge = "\"code_challenge\"";
 const std::string Oauth2Codes::Cols::_code_challenge_method = "\"code_challenge_method\"";
 const std::string Oauth2Codes::Cols::_expires_at = "\"expires_at\"";
 const std::string Oauth2Codes::Cols::_used = "\"used\"";
+const std::string Oauth2Codes::Cols::_auth_time = "\"auth_time\"";
+const std::string Oauth2Codes::Cols::_amr = "\"amr\"";
 const std::string Oauth2Codes::primaryKeyName = "code";
 const bool Oauth2Codes::hasPrimaryKey = true;
 const std::string Oauth2Codes::tableName = "\"oauth2_codes\"";
@@ -36,7 +38,9 @@ const std::vector<typename Oauth2Codes::MetaData> Oauth2Codes::metaData_={
 {"code_challenge","std::string","character varying",128,0,0,0},
 {"code_challenge_method","std::string","character varying",10,0,0,0},
 {"expires_at","int64_t","bigint",8,0,0,1},
-{"used","bool","boolean",1,0,0,0}
+{"used","bool","boolean",1,0,0,0},
+{"auth_time","int64_t","bigint",8,0,0,0},
+{"amr","std::string","character varying",128,0,0,0}
 };
 const std::string &Oauth2Codes::getColumnName(size_t index) noexcept(false)
 {
@@ -83,11 +87,19 @@ Oauth2Codes::Oauth2Codes(const Row &r, const ssize_t indexOffset) noexcept
         {
             used_=std::make_shared<bool>(r["used"].as<bool>());
         }
+        if(!r["auth_time"].isNull())
+        {
+            authTime_=std::make_shared<int64_t>(r["auth_time"].as<int64_t>());
+        }
+        if(!r["amr"].isNull())
+        {
+            amr_=std::make_shared<std::string>(r["amr"].as<std::string>());
+        }
     }
     else
     {
         size_t offset = (size_t)indexOffset;
-        if(offset + 9 > r.size())
+        if(offset + 11 > r.size())
         {
             LOG_FATAL << "Invalid SQL result for this model";
             return;
@@ -138,13 +150,23 @@ Oauth2Codes::Oauth2Codes(const Row &r, const ssize_t indexOffset) noexcept
         {
             used_=std::make_shared<bool>(r[index].as<bool>());
         }
+        index = offset + 9;
+        if(!r[index].isNull())
+        {
+            authTime_=std::make_shared<int64_t>(r[index].as<int64_t>());
+        }
+        index = offset + 10;
+        if(!r[index].isNull())
+        {
+            amr_=std::make_shared<std::string>(r[index].as<std::string>());
+        }
     }
 
 }
 
 Oauth2Codes::Oauth2Codes(const Json::Value &pJson, const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 11)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -219,6 +241,22 @@ Oauth2Codes::Oauth2Codes(const Json::Value &pJson, const std::vector<std::string
         if(!pJson[pMasqueradingVector[8]].isNull())
         {
             used_=std::make_shared<bool>(pJson[pMasqueradingVector[8]].asBool());
+        }
+    }
+    if(!pMasqueradingVector[9].empty() && pJson.isMember(pMasqueradingVector[9]))
+    {
+        dirtyFlag_[9] = true;
+        if(!pJson[pMasqueradingVector[9]].isNull())
+        {
+            authTime_=std::make_shared<int64_t>((int64_t)pJson[pMasqueradingVector[9]].asInt64());
+        }
+    }
+    if(!pMasqueradingVector[10].empty() && pJson.isMember(pMasqueradingVector[10]))
+    {
+        dirtyFlag_[10] = true;
+        if(!pJson[pMasqueradingVector[10]].isNull())
+        {
+            amr_=std::make_shared<std::string>(pJson[pMasqueradingVector[10]].asString());
         }
     }
 }
@@ -297,12 +335,28 @@ Oauth2Codes::Oauth2Codes(const Json::Value &pJson) noexcept(false)
             used_=std::make_shared<bool>(pJson["used"].asBool());
         }
     }
+    if(pJson.isMember("auth_time"))
+    {
+        dirtyFlag_[9]=true;
+        if(!pJson["auth_time"].isNull())
+        {
+            authTime_=std::make_shared<int64_t>((int64_t)pJson["auth_time"].asInt64());
+        }
+    }
+    if(pJson.isMember("amr"))
+    {
+        dirtyFlag_[10]=true;
+        if(!pJson["amr"].isNull())
+        {
+            amr_=std::make_shared<std::string>(pJson["amr"].asString());
+        }
+    }
 }
 
 void Oauth2Codes::updateByMasqueradedJson(const Json::Value &pJson,
                                             const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 11)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -378,6 +432,22 @@ void Oauth2Codes::updateByMasqueradedJson(const Json::Value &pJson,
             used_=std::make_shared<bool>(pJson[pMasqueradingVector[8]].asBool());
         }
     }
+    if(!pMasqueradingVector[9].empty() && pJson.isMember(pMasqueradingVector[9]))
+    {
+        dirtyFlag_[9] = true;
+        if(!pJson[pMasqueradingVector[9]].isNull())
+        {
+            authTime_=std::make_shared<int64_t>((int64_t)pJson[pMasqueradingVector[9]].asInt64());
+        }
+    }
+    if(!pMasqueradingVector[10].empty() && pJson.isMember(pMasqueradingVector[10]))
+    {
+        dirtyFlag_[10] = true;
+        if(!pJson[pMasqueradingVector[10]].isNull())
+        {
+            amr_=std::make_shared<std::string>(pJson[pMasqueradingVector[10]].asString());
+        }
+    }
 }
 
 void Oauth2Codes::updateByJson(const Json::Value &pJson) noexcept(false)
@@ -451,6 +521,22 @@ void Oauth2Codes::updateByJson(const Json::Value &pJson) noexcept(false)
         if(!pJson["used"].isNull())
         {
             used_=std::make_shared<bool>(pJson["used"].asBool());
+        }
+    }
+    if(pJson.isMember("auth_time"))
+    {
+        dirtyFlag_[9] = true;
+        if(!pJson["auth_time"].isNull())
+        {
+            authTime_=std::make_shared<int64_t>((int64_t)pJson["auth_time"].asInt64());
+        }
+    }
+    if(pJson.isMember("amr"))
+    {
+        dirtyFlag_[10] = true;
+        if(!pJson["amr"].isNull())
+        {
+            amr_=std::make_shared<std::string>(pJson["amr"].asString());
         }
     }
 }
@@ -678,6 +764,55 @@ void Oauth2Codes::setUsedToNull() noexcept
     dirtyFlag_[8] = true;
 }
 
+const int64_t &Oauth2Codes::getValueOfAuthTime() const noexcept
+{
+    static const int64_t defaultValue = int64_t();
+    if(authTime_)
+        return *authTime_;
+    return defaultValue;
+}
+const std::shared_ptr<int64_t> &Oauth2Codes::getAuthTime() const noexcept
+{
+    return authTime_;
+}
+void Oauth2Codes::setAuthTime(const int64_t &pAuthTime) noexcept
+{
+    authTime_ = std::make_shared<int64_t>(pAuthTime);
+    dirtyFlag_[9] = true;
+}
+void Oauth2Codes::setAuthTimeToNull() noexcept
+{
+    authTime_.reset();
+    dirtyFlag_[9] = true;
+}
+
+const std::string &Oauth2Codes::getValueOfAmr() const noexcept
+{
+    static const std::string defaultValue = std::string();
+    if(amr_)
+        return *amr_;
+    return defaultValue;
+}
+const std::shared_ptr<std::string> &Oauth2Codes::getAmr() const noexcept
+{
+    return amr_;
+}
+void Oauth2Codes::setAmr(const std::string &pAmr) noexcept
+{
+    amr_ = std::make_shared<std::string>(pAmr);
+    dirtyFlag_[10] = true;
+}
+void Oauth2Codes::setAmr(std::string &&pAmr) noexcept
+{
+    amr_ = std::make_shared<std::string>(std::move(pAmr));
+    dirtyFlag_[10] = true;
+}
+void Oauth2Codes::setAmrToNull() noexcept
+{
+    amr_.reset();
+    dirtyFlag_[10] = true;
+}
+
 void Oauth2Codes::updateId(const uint64_t id)
 {
 }
@@ -693,7 +828,9 @@ const std::vector<std::string> &Oauth2Codes::insertColumns() noexcept
         "code_challenge",
         "code_challenge_method",
         "expires_at",
-        "used"
+        "used",
+        "auth_time",
+        "amr"
     };
     return inCols;
 }
@@ -799,6 +936,28 @@ void Oauth2Codes::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
+    if(dirtyFlag_[9])
+    {
+        if(getAuthTime())
+        {
+            binder << getValueOfAuthTime();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
+    if(dirtyFlag_[10])
+    {
+        if(getAmr())
+        {
+            binder << getValueOfAmr();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
 }
 
 const std::vector<std::string> Oauth2Codes::updateColumns() const
@@ -839,6 +998,14 @@ const std::vector<std::string> Oauth2Codes::updateColumns() const
     if(dirtyFlag_[8])
     {
         ret.push_back(getColumnName(8));
+    }
+    if(dirtyFlag_[9])
+    {
+        ret.push_back(getColumnName(9));
+    }
+    if(dirtyFlag_[10])
+    {
+        ret.push_back(getColumnName(10));
     }
     return ret;
 }
@@ -944,6 +1111,28 @@ void Oauth2Codes::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
+    if(dirtyFlag_[9])
+    {
+        if(getAuthTime())
+        {
+            binder << getValueOfAuthTime();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
+    if(dirtyFlag_[10])
+    {
+        if(getAmr())
+        {
+            binder << getValueOfAmr();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
 }
 Json::Value Oauth2Codes::toJson() const
 {
@@ -1020,6 +1209,22 @@ Json::Value Oauth2Codes::toJson() const
     {
         ret["used"]=Json::Value();
     }
+    if(getAuthTime())
+    {
+        ret["auth_time"]=(Json::Int64)getValueOfAuthTime();
+    }
+    else
+    {
+        ret["auth_time"]=Json::Value();
+    }
+    if(getAmr())
+    {
+        ret["amr"]=getValueOfAmr();
+    }
+    else
+    {
+        ret["amr"]=Json::Value();
+    }
     return ret;
 }
 
@@ -1032,7 +1237,7 @@ Json::Value Oauth2Codes::toMasqueradedJson(
     const std::vector<std::string> &pMasqueradingVector) const
 {
     Json::Value ret;
-    if(pMasqueradingVector.size() == 9)
+    if(pMasqueradingVector.size() == 11)
     {
         if(!pMasqueradingVector[0].empty())
         {
@@ -1133,6 +1338,28 @@ Json::Value Oauth2Codes::toMasqueradedJson(
                 ret[pMasqueradingVector[8]]=Json::Value();
             }
         }
+        if(!pMasqueradingVector[9].empty())
+        {
+            if(getAuthTime())
+            {
+                ret[pMasqueradingVector[9]]=(Json::Int64)getValueOfAuthTime();
+            }
+            else
+            {
+                ret[pMasqueradingVector[9]]=Json::Value();
+            }
+        }
+        if(!pMasqueradingVector[10].empty())
+        {
+            if(getAmr())
+            {
+                ret[pMasqueradingVector[10]]=getValueOfAmr();
+            }
+            else
+            {
+                ret[pMasqueradingVector[10]]=Json::Value();
+            }
+        }
         return ret;
     }
     LOG_ERROR << "Masquerade failed";
@@ -1208,6 +1435,22 @@ Json::Value Oauth2Codes::toMasqueradedJson(
     {
         ret["used"]=Json::Value();
     }
+    if(getAuthTime())
+    {
+        ret["auth_time"]=(Json::Int64)getValueOfAuthTime();
+    }
+    else
+    {
+        ret["auth_time"]=Json::Value();
+    }
+    if(getAmr())
+    {
+        ret["amr"]=getValueOfAmr();
+    }
+    else
+    {
+        ret["amr"]=Json::Value();
+    }
     return ret;
 }
 
@@ -1273,13 +1516,23 @@ bool Oauth2Codes::validateJsonForCreation(const Json::Value &pJson, std::string 
         if(!validJsonOfField(8, "used", pJson["used"], err, true))
             return false;
     }
+    if(pJson.isMember("auth_time"))
+    {
+        if(!validJsonOfField(9, "auth_time", pJson["auth_time"], err, true))
+            return false;
+    }
+    if(pJson.isMember("amr"))
+    {
+        if(!validJsonOfField(10, "amr", pJson["amr"], err, true))
+            return false;
+    }
     return true;
 }
 bool Oauth2Codes::validateMasqueradedJsonForCreation(const Json::Value &pJson,
                                                      const std::vector<std::string> &pMasqueradingVector,
                                                      std::string &err)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 11)
     {
         err = "Bad masquerading vector";
         return false;
@@ -1372,6 +1625,22 @@ bool Oauth2Codes::validateMasqueradedJsonForCreation(const Json::Value &pJson,
                   return false;
           }
       }
+      if(!pMasqueradingVector[9].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[9]))
+          {
+              if(!validJsonOfField(9, pMasqueradingVector[9], pJson[pMasqueradingVector[9]], err, true))
+                  return false;
+          }
+      }
+      if(!pMasqueradingVector[10].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[10]))
+          {
+              if(!validJsonOfField(10, pMasqueradingVector[10], pJson[pMasqueradingVector[10]], err, true))
+                  return false;
+          }
+      }
     }
     catch(const Json::LogicError &e)
     {
@@ -1432,13 +1701,23 @@ bool Oauth2Codes::validateJsonForUpdate(const Json::Value &pJson, std::string &e
         if(!validJsonOfField(8, "used", pJson["used"], err, false))
             return false;
     }
+    if(pJson.isMember("auth_time"))
+    {
+        if(!validJsonOfField(9, "auth_time", pJson["auth_time"], err, false))
+            return false;
+    }
+    if(pJson.isMember("amr"))
+    {
+        if(!validJsonOfField(10, "amr", pJson["amr"], err, false))
+            return false;
+    }
     return true;
 }
 bool Oauth2Codes::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
                                                    const std::vector<std::string> &pMasqueradingVector,
                                                    std::string &err)
 {
-    if(pMasqueradingVector.size() != 9)
+    if(pMasqueradingVector.size() != 11)
     {
         err = "Bad masquerading vector";
         return false;
@@ -1492,6 +1771,16 @@ bool Oauth2Codes::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
       if(!pMasqueradingVector[8].empty() && pJson.isMember(pMasqueradingVector[8]))
       {
           if(!validJsonOfField(8, pMasqueradingVector[8], pJson[pMasqueradingVector[8]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[9].empty() && pJson.isMember(pMasqueradingVector[9]))
+      {
+          if(!validJsonOfField(9, pMasqueradingVector[9], pJson[pMasqueradingVector[9]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[10].empty() && pJson.isMember(pMasqueradingVector[10]))
+      {
+          if(!validJsonOfField(10, pMasqueradingVector[10], pJson[pMasqueradingVector[10]], err, false))
               return false;
       }
     }
@@ -1649,6 +1938,36 @@ bool Oauth2Codes::validJsonOfField(size_t index,
             if(!pJson.isBool())
             {
                 err="Type error in the "+fieldName+" field";
+                return false;
+            }
+            break;
+        case 9:
+            if(pJson.isNull())
+            {
+                return true;
+            }
+            if(!pJson.isInt64())
+            {
+                err="Type error in the "+fieldName+" field";
+                return false;
+            }
+            break;
+        case 10:
+            if(pJson.isNull())
+            {
+                return true;
+            }
+            if(!pJson.isString())
+            {
+                err="Type error in the "+fieldName+" field";
+                return false;
+            }
+            if(pJson.isString() && std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
+                .from_bytes(pJson.asCString()).size() > 128)
+            {
+                err="String length exceeds limit for the " +
+                    fieldName +
+                    " field (the maximum value is 128)";
                 return false;
             }
             break;

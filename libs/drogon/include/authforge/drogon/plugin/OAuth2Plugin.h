@@ -185,7 +185,9 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
       const std::string &codeChallenge,
       const std::string &codeChallengeMethod,
       const std::string &nonce,
-      std::function<void(bool, std::string, std::string)> &&callback
+      std::function<void(bool, std::string, std::string)> &&callback,
+      int64_t authTime = 0,
+      const std::string &amr = ""
     );
 
     /**
@@ -408,6 +410,22 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
     {
         return authorizationService_;
     }
+
+    // F-025 (OIDC Core §12): sign an id_token for the refresh_token and
+    // device_code grant paths (which issue tokens outside TokenService and
+    // therefore cannot reuse its inline id_token signing). Builds the
+    // standard claims (iss/sub/aud/iat/exp) and signs with the configured
+    // JwkManager. Returns an empty string when the JwkManager is not
+    // initialized (callers then omit id_token, matching the
+    // authorization_code path's behavior). authTime/amr, when non-default,
+    // are carried over so RPs that requested max_age still get auth_time on
+    // refresh-issued id_tokens.
+    std::string signIdToken(
+      const std::string &subject,
+      const std::string &clientId,
+      int64_t authTime = 0,
+      const std::string &amr = ""
+    ) const;
 
   private:
     // Phase 4.6a: storage_ (the god IOAuth2Storage) is gone. The plugin now

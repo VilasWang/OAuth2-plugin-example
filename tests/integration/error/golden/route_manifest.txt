@@ -35,6 +35,7 @@ GET /health/ready
 GET /login
 GET /metrics
 GET /oauth2/authorize
+GET /oauth2/end_session
 GET /oauth2/userinfo
 OPTIONS /api/github/login
 OPTIONS /api/google/login
@@ -63,6 +64,7 @@ POST /api/wechat/login
 POST /oauth2/consent
 POST /oauth2/device/approve
 POST /oauth2/device_authorization
+POST /oauth2/end_session
 POST /oauth2/introspect
 POST /oauth2/login
 POST /oauth2/logout

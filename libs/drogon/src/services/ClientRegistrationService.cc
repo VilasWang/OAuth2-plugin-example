@@ -56,7 +56,44 @@ void ClientRegistrationService::registerClient(
     std::string clientName = (*jsonBody).get("client_name", "").asString();
     std::string clientType = (*jsonBody).get("client_type", "CONFIDENTIAL").asString();
     std::string tokenEndpointAuthMethod =
-      (*jsonBody).get("token_endpoint_auth_method", "client_secret_basic").asString();
+      (*jsonBody).get("token_endpoint_auth_method", "").asString();
+    // F-017 (RFC 7591 §2 / RFC 6749 §3.2.1): apply per-type defaults when the
+    // client omits the field. PUBLIC clients can only use "none" (they have no
+    // secret); CONFIDENTIAL default to "client_secret_basic". An explicit
+    // value from the client is validated against the allowlist below.
+    if (tokenEndpointAuthMethod.empty())
+    {
+        tokenEndpointAuthMethod =
+          (clientType == "PUBLIC") ? "none" : "client_secret_basic";
+    }
+    // Validate the (possibly client-supplied) method against the OIDC set we
+    // enforce at the token endpoint.
+    if (
+      tokenEndpointAuthMethod != "none" &&
+      tokenEndpointAuthMethod != "client_secret_basic" &&
+      tokenEndpointAuthMethod != "client_secret_post"
+    )
+    {
+        respondError(
+          req,
+          sharedCb,
+          "VALIDATION_FORMAT_ERROR",
+          "registerClient: token_endpoint_auth_method must be one of: none, "
+          "client_secret_basic, client_secret_post"
+        );
+        return;
+    }
+    // PUBLIC clients cannot declare a secret-bearing method (they have none).
+    if (clientType == "PUBLIC" && tokenEndpointAuthMethod != "none")
+    {
+        respondError(
+          req,
+          sharedCb,
+          "VALIDATION_FORMAT_ERROR",
+          "registerClient: PUBLIC clients must use token_endpoint_auth_method='none'"
+        );
+        return;
+    }
 
     if (clientName.empty())
     {
@@ -184,6 +221,9 @@ void ClientRegistrationService::registerClient(
         client.setName(clientName);
         client.setRedirectUris(redirectUris);
         client.setAllowedGrantTypes(allowedGrantTypes);
+        // F-017: persist the declared token-endpoint auth method so the
+        // token/introspect/revoke endpoints can enforce it.
+        client.setTokenEndpointAuthMethod(tokenEndpointAuthMethod);
 
         Mapper<Oauth2Clients> mapper(db);
         mapper.insert(

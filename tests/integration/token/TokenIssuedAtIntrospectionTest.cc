@@ -52,6 +52,15 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
         req->setMethod(Post);
         req->setPath(path);
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
+        // F-017: backend-svc is seeded client_secret_basic; send the secret
+        // via HTTP Basic (the /oauth2/token path enforces it).
+        if (path == "/oauth2/token")
+        {
+            req->addHeader(
+              "Authorization",
+              "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
+            );
+        }
         req->setBody(body);
         auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
@@ -66,20 +75,19 @@ HttpResponsePtr postForm(const std::string &path, const std::string &body)
 }
 
 // Introspect (RFC 7662) authenticates the CALLING CLIENT via HTTP Basic or
-// form-posted client_id/client_secret -- it is NOT gated by OAuth2AuthFilter
-// (that filter demands a resource-owner Bearer token, which is the wrong auth
-// model for a protocol endpoint; it was removed in the introspect/revoke
-// RFC-compliance fix). extractClientCredentials reads client_id/client_secret
-// from the POST body when the Authorization header is not Basic, so we pass
-// the token-to-introspect + the client creds in the body. (The helper still
-// accepts a bearerToken param for historical compatibility with the previous
-// Bearer+body-creds model, but that header is now ignored by the route.)
+// form-posted client_id/client_secret -- it is NOT gated by OAuth2AuthFilter.
+// F-017: backend-svc is seeded client_secret_basic, so this helper now sends
+// the backend-svc client credentials via HTTP Basic (the introspect handler
+// enforces the declared method). The bearerToken param is retained for
+// signature compatibility but is no longer sent (the route keys off the
+// Basic header + body client creds, not a Bearer token).
 HttpResponsePtr introspectWithBearer(
   const std::string &bearerToken,
   const std::string &introspectedToken,
   const std::string &clientCreds
 )
 {
+    (void)bearerToken;  // no longer attached (see comment above)
     try
     {
         auto client = HttpClient::newHttpClient(kBaseUrl);
@@ -87,7 +95,10 @@ HttpResponsePtr introspectWithBearer(
         req->setMethod(Post);
         req->setPath("/oauth2/introspect");
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
-        req->addHeader("Authorization", "Bearer " + bearerToken);
+        req->addHeader(
+          "Authorization",
+          "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
+        );
         req->setBody(std::string("token=") + introspectedToken + "&" + clientCreds);
         auto [result, resp] = client->sendRequest(req, /*timeout=*/30.0);
         if (result != ReqResult::Ok || resp == nullptr)
@@ -131,7 +142,10 @@ bool ensureBackendSvcScopes()
     return p.get_future().get();
 }
 
-constexpr const char *kCredentials = "client_id=backend-svc&client_secret=test-secret";
+// F-017: backend-svc is seeded client_secret_basic; the secret is sent via
+// HTTP Basic in postForm/introspectWithBearer, so the body only carries
+// client_id.
+constexpr const char *kCredentials = "client_id=backend-svc";
 
 int64_t nowSeconds()
 {

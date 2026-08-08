@@ -82,3 +82,57 @@ Constraints:
 - Defaults to `http://localhost:5555` when unset; a `LOG_WARN` is emitted in that case.
 - Production deployments **MUST** configure an `https://` issuer; a plain-`http` issuer on a non-loopback host logs a startup warning.
 - The introspection `iss` and the discovery `issuer` are guaranteed byte-identical (OIDC Discovery §3 requirement).
+
+## 5. Client Token-Endpoint Auth Method (F-017)
+
+Each client declares how it authenticates at `/oauth2/token`, `/oauth2/introspect`,
+and `/oauth2/revoke` via the `oauth2_clients.token_endpoint_auth_method` column:
+
+| Value | Semantics |
+|---|---|
+| `client_secret_basic` | Secret MUST travel in the `Authorization: Basic` header; body `client_secret` is rejected. |
+| `client_secret_post` | Secret MUST travel in the POST body; a Basic header is rejected. |
+| `none` | PUBLIC client; any `client_secret` is rejected. |
+| NULL / empty | Legacy lenient fallback: Basic header is accepted, body secret is accepted (Basic→body fallback). |
+
+Defaults applied at registration/admin-creation when the field is omitted:
+
+- `PUBLIC` clients → `none` (they have no secret).
+- `CONFIDENTIAL` clients → `client_secret_basic`.
+
+The seed clients are explicit: `vue-client` and `admin-console` → `none`;
+`backend-svc` → `client_secret_basic`. Existing clients with a NULL value preserve
+the pre-Batch-2 behavior so deployments are not broken by the upgrade.
+
+## 6. OIDC prompt / max_age / auth_time (F-022)
+
+The authorization endpoint honors the OIDC Core §3.1.2.1 `prompt` and `max_age`
+parameters:
+
+- **`prompt=none`**: forbids any UI. With no session → 302 `error=login_required`;
+  with consent required → `error=consent_required`. The error is redirected back to
+  the verified `redirect_uri` with `state` echoed. Combining `none` with another
+  value (e.g. `none login`) returns a direct 400 (self-contradictory).
+- **`prompt=login`**: forces re-authentication even if a session exists.
+- **`prompt=consent`**: forces the consent screen even if prior consent covers the
+  requested scopes.
+- **`max_age=<seconds>`**: if the session's `auth_time` (set at login / MFA verify)
+  is older than `max_age`, re-authentication is forced.
+
+`auth_time` and `amr` are persisted on the authorization code and stamped into the
+id_token at exchange: `auth_time` (when >0), `amr` (JSON array when set), and `acr`
+(`1` = password-only, `2` = MFA). The discovery document advertises
+`prompt_values_supported`, `acr_values_supported`, and the claims.
+
+## 7. RP-Initiated Logout (F-027) & Session Invalidation (F-028)
+
+`/oauth2/end_session` (GET + POST) terminates the server-side session. To redirect
+after logout, the client supplies a `post_logout_redirect_uri` that MUST be one of
+the client's registered redirect URIs; the client is identified via the
+`id_token_hint`'s `aud` claim (signature not verified per §2.2). Without a valid
+hint + registered URI the request is rejected with 400; on success it redirects
+(302) with `state` echoed, or returns 200 when no redirect URI was supplied.
+
+`POST /oauth2/logout` (the existing API logout) additionally calls
+`session()->clear()` (F-028), so the server-side session is terminated alongside
+the access-token revocation.

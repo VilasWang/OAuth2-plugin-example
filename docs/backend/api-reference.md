@@ -34,6 +34,11 @@
 | `redirect_uri` | 是 | 回调地址 (需完全匹配) | `http://localhost:5173/callback` |
 | `scope` | 否 | 申请的权限范围 | `openid profile` |
 | `state` | 建议 | 防止 CSRF 的随机串 | `xyz123` |
+| `code_challenge` | 否 | PKCE code challenge（PUBLIC 客户端默认强制） | `dBjftJeZ4CVK...` |
+| `code_challenge_method` | 否 | `plain` 或 `S256`（提供 challenge 时默认 `plain`） | `S256` |
+| `nonce` | 否 | OIDC nonce（防重放），openid scope 时回显到 id_token | `n-0S6_WzA2Mj` |
+| `prompt` | 否 | OIDC 提示值，空格分隔：`none`/`login`/`consent`/`select_account`（§3.1.2.1）。`none` 禁止 UI；`login` 强制重认证；`consent` 强制同意页。`none` 与其他值并用 → 400 | `none` |
+| `max_age` | 否 | 認證最大允許年齡（秒）。session auth_time 超齡 → 強制重認證 | `3600` |
 
 ### 响应
 
@@ -131,6 +136,7 @@ Authorization: `Bearer {access_token}`
   "sub": "admin",
   "name": "admin",
   "email": "admin@example.com",
+  "email_verified": true,
   "picture": "..."
 }
 ```
@@ -142,6 +148,42 @@ Authorization: `Bearer {access_token}`
   "error": "invalid_token"
 }
 ```
+
+**失敗 (403 Forbidden)** — F-023：access token scope 不含 `openid`，或為 M2M
+token（subject `client:*`）。響應附帶
+`WWW-Authenticate: Bearer error="insufficient_scope"`：
+
+```json
+{
+  "error": "insufficient_scope",
+  "error_description": "The access token does not have the openid scope required for userinfo"
+}
+```
+
+---
+
+## 3.1 RP-Initiated Logout 端點 (End Session Endpoint)
+
+OIDC RP-Initiated Logout 1.0 §2 — 終止用戶的 server-side session，並（可選）重
+定向到客戶端註冊的 `post_logout_redirect_uri`。
+
+- **URL**: `/oauth2/end_session`
+- **Method**: `GET`（鏈接式）或 `POST`（表單式）
+- **Access**: 公開（不需 Bearer token）
+
+### 請求參數 (Query/Form)
+
+| 參數名 | 必選 | 描述 |
+|---|---|---|
+| `id_token_hint` | 否* | 此前簽發的 id_token，其 `aud` 聲明標識客戶端用於校驗 `post_logout_redirect_uri`（按 §2.2 不驗簽名）。*提供 `post_logout_redirect_uri` 時必需 |
+| `post_logout_redirect_uri` | 否 | 登出後重定向 URI，須為 `id_token_hint` 客戶端註冊的 redirect_uri，否則 400 |
+| `state` | 否 | 不透明值，原樣回顯到重定向 URI |
+
+### 響應
+
+- **200 OK**：未提供 `post_logout_redirect_uri` 時，返回 `{ "message": "Logged out successfully" }`，session 已清除。
+- **302 Found**：提供並校驗通過的 `post_logout_redirect_uri`（附 `state`）。
+- **400 Bad Request**：`post_logout_redirect_uri` 未註冊 / 缺 `id_token_hint` 無法標識客戶端。
 
 ---
 

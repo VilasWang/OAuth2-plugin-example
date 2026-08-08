@@ -113,6 +113,8 @@ void ClientManagementService::listClients(const ::drogon::HttpRequestPtr &req, R
               client["name"] = row.getValueOfName();
               client["redirect_uris"] = row.getValueOfRedirectUris();
               client["allowed_grant_types"] = row.getValueOfAllowedGrantTypes();
+              // F-017: surface the declared token-endpoint auth method.
+              client["token_endpoint_auth_method"] = row.getValueOfTokenEndpointAuthMethod();
               clients.append(client);
           }
           json["clients"] = clients;
@@ -133,6 +135,7 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
     std::string redirectUris;
     std::string allowedGrantTypes = "authorization_code";
     std::string clientType = "CONFIDENTIAL";
+    std::string tokenEndpointAuthMethod;
 
     auto jsonBody = req->getJsonObject();
     if (jsonBody)
@@ -141,6 +144,14 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
         redirectUris = jsonBody->get("redirect_uris", "").asString();
         allowedGrantTypes = jsonBody->get("allowed_grant_types", "authorization_code").asString();
         clientType = jsonBody->get("client_type", "CONFIDENTIAL").asString();
+        tokenEndpointAuthMethod = jsonBody->get("token_endpoint_auth_method", "").asString();
+    }
+    // F-017: apply per-type defaults (PUBLIC -> none, CONFIDENTIAL ->
+    // client_secret_basic) when the admin omits the field.
+    if (tokenEndpointAuthMethod.empty())
+    {
+        tokenEndpointAuthMethod =
+          (clientType == "PUBLIC") ? "none" : "client_secret_basic";
     }
 
     // F-014: reject non-compliant redirect URIs at creation time.
@@ -175,16 +186,19 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
     row.setName(name);
     row.setRedirectUris(redirectUris);
     row.setAllowedGrantTypes(allowedGrantTypes);
+    // F-017: persist the declared token-endpoint auth method.
+    row.setTokenEndpointAuthMethod(tokenEndpointAuthMethod);
 
     Mapper<Oauth2Clients> mapper(db);
     mapper.insert(
       row,
-      [cb, clientId, clientSecret](const Oauth2Clients &) {
+      [cb, clientId, clientSecret, tokenEndpointAuthMethod](const Oauth2Clients &) {
           Json::Value json;
           json["status"] = "success";
           json["message"] = "Client created successfully";
           json["client_id"] = clientId;
           json["client_secret"] = clientSecret;  // Only returned once at creation time
+          json["token_endpoint_auth_method"] = tokenEndpointAuthMethod;
           json["note"] = "Store the client_secret securely. It will not be shown again.";
           auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
           resp->setStatusCode(::drogon::k201Created);
@@ -227,6 +241,8 @@ void ClientManagementService::getClient(
           json["name"] = row.getValueOfName();
           json["redirect_uris"] = row.getValueOfRedirectUris();
           json["allowed_grant_types"] = row.getValueOfAllowedGrantTypes();
+          // F-017: surface the declared token-endpoint auth method.
+          json["token_endpoint_auth_method"] = row.getValueOfTokenEndpointAuthMethod();
 
           // Fetch scopes for this client (separate query -- JOIN-in-a-single-
           // query is forbidden per db-operations.md; the original code already

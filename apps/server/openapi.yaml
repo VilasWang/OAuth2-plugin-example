@@ -1263,11 +1263,48 @@ paths:
         required: false
         schema:
           type: string
+      - description: PKCE code challenge (RFC 7636). Required for public clients
+          when auth.require_pkce_for_public is enabled (default true).
+        in: query
+        name: code_challenge
+        required: false
+        schema:
+          type: string
+      - description: PKCE code challenge method ('plain' or 'S256')
+        in: query
+        name: code_challenge_method
+        required: false
+        schema:
+          type: string
+      - description: OIDC nonce (anti-replay). Echoed in the id_token when openid
+          scope is requested.
+        in: query
+        name: nonce
+        required: false
+        schema:
+          type: string
+      - description: 'OIDC prompt values, space-separated (none|login|consent|
+          select_account). none forbids UI; login forces re-auth; consent forces
+          the consent screen. Combining none with another value returns 400.
+          (OIDC Core §3.1.2.1)'
+        in: query
+        name: prompt
+        required: false
+        schema:
+          type: string
+      - description: Maximum allowable age in seconds of the user's authentication.
+          If the session auth_time is older, re-authentication is forced.
+        in: query
+        name: max_age
+        required: false
+        schema:
+          type: integer
       responses:
         '302':
-          description: Redirect to client with authorization code
+          description: Redirect to client with authorization code (or an error=
+            redirect for prompt=none / invalid_scope / etc.)
         '400':
-          description: Invalid request
+          description: Invalid request (malformed prompt, missing required params)
       summary: Request authorization
       tags:
       - OAuth2
@@ -1532,6 +1569,82 @@ paths:
       tags:
       - OAuth2
       - Dynamic Registration
+  /oauth2/end_session:
+    get:
+      description: 'OIDC RP-Initiated Logout 1.0 §2. Terminates the user''s server-side
+        session and (optionally) redirects to a registered post_logout_redirect_uri.
+        post_logout_redirect_uri MUST be registered for the client identified by
+        id_token_hint (its aud claim); without a hint the request is rejected with
+        400 when a redirect URI is supplied. Accepts both GET (link-based) and POST
+        (form-based).'
+      operationId: get_oauth2_end_session
+      parameters:
+      - description: Previously issued id_token hinting at the client/session to
+          terminate. The aud claim identifies the client for validating
+          post_logout_redirect_uri (signature not verified per §2.2).
+        in: query
+        name: id_token_hint
+        required: false
+        schema:
+          type: string
+      - description: URI to redirect to after logout. Must be registered for the
+          id_token_hint client; rejected with 400 otherwise.
+        in: query
+        name: post_logout_redirect_uri
+        required: false
+        schema:
+          type: string
+      - description: Opaque value echoed back to the post_logout_redirect_uri.
+        in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Logged out (no post_logout_redirect_uri supplied)
+        '302':
+          description: Redirect to the validated post_logout_redirect_uri (with state)
+        '400':
+          description: post_logout_redirect_uri not registered / no id_token_hint
+      summary: RP-Initiated Logout
+      tags:
+      - OAuth2
+      - OIDC
+    post:
+      description: OIDC RP-Initiated Logout (POST form-based variant; see GET for
+        semantics).
+      operationId: post_oauth2_end_session
+      parameters:
+      - description: Previously issued id_token hint.
+        in: query
+        name: id_token_hint
+        required: false
+        schema:
+          type: string
+      - description: Registered post-logout redirect URI.
+        in: query
+        name: post_logout_redirect_uri
+        required: false
+        schema:
+          type: string
+      - description: Opaque state value.
+        in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Logged out
+        '302':
+          description: Redirect to post_logout_redirect_uri
+        '400':
+          description: Invalid post_logout_redirect_uri
+      summary: RP-Initiated Logout (POST)
+      tags:
+      - OAuth2
+      - OIDC
   /oauth2/revoke:
     post:
       description: RFC 7009 OAuth 2.0 Token Revocation. Revokes an access or refresh
@@ -1633,9 +1746,10 @@ paths:
       - Token
   /oauth2/userinfo:
     get:
-      description: Returns information about the authenticated user. Provides user
-        profile data including username, email, and assigned roles according to OpenID
-        Connect standards.
+      description: 'Returns information about the authenticated user. F-023 (OIDC
+        Core §5.3): the access token''s scope MUST include openid; M2M tokens
+        (client_credentials, subject client:*) are rejected with 403. The response
+        includes the email_verified claim (F-024) when an email is present.'
       operationId: get_oauth2_userinfo
       responses:
         '200':
@@ -1643,6 +1757,7 @@ paths:
             application/json:
               example:
                 email: john@example.com
+                email_verified: true
                 name: john_doe
                 roles:
                 - user
@@ -1653,6 +1768,9 @@ paths:
           description: Invalid User ID format
         '401':
           description: Invalid or expired access token
+        '403':
+          description: 'insufficient_scope -- the access token lacks the openid scope
+            (RFC 6750 §3; accompanied by WWW-Authenticate: Bearer error="insufficient_scope")'
         '404':
           content:
             application/json:

@@ -80,6 +80,14 @@ class Client
         return dto_.allowedScopes;
     }
 
+    // F-017 (RFC 7591 §2): the client's declared token-endpoint auth method
+    // (client_secret_basic | client_secret_post | none). Empty/unset
+    // preserves the legacy lenient Basic->body fallback.
+    const std::string &tokenEndpointAuthMethod() const noexcept
+    {
+        return dto_.tokenEndpointAuthMethod;
+    }
+
     /// True iff `redirectUri` exactly matches one of this client's
     /// registered redirect URIs (RFC 6749 §3.1.2.3 requires exact match,
     /// not prefix/pattern matching).

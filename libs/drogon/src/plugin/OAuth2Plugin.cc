@@ -388,7 +388,9 @@ void OAuth2Plugin::generateAuthorizationCode(
   const std::string &codeChallenge,
   const std::string &codeChallengeMethod,
   const std::string &nonce,
-  std::function<void(bool, std::string, std::string)> &&callback
+  std::function<void(bool, std::string, std::string)> &&callback,
+  int64_t authTime,
+  const std::string &amr
 )
 {
     tokenService_->generateAuthorizationCode(
@@ -399,7 +401,9 @@ void OAuth2Plugin::generateAuthorizationCode(
       codeChallenge,
       codeChallengeMethod,
       nonce,
-      std::move(callback)
+      std::move(callback),
+      authTime,
+      amr
     );
 }
 
@@ -628,6 +632,10 @@ void OAuth2Plugin::getUserInfo(
           userInfo["id"] = data->id;
           userInfo["username"] = data->username;
           userInfo["email"] = data->email;
+          // F-024 (OIDC Core §5.1): expose email_verified so RPs can tell
+          // verified from unverified email addresses. UserData carries this
+          // from the users row (Task 39 widened the identity repository).
+          userInfo["email_verified"] = data->emailVerified;
           callback(userInfo);
       };
 
@@ -673,6 +681,74 @@ std::string OAuth2Plugin::generateSha256Hash(const std::string &input)
     // authforge::oauth2::pkce Domain package.
     static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
     return authforge::oauth2::pkce::computeCodeChallenge(input, "S256", cryptoProvider);
+}
+
+std::string OAuth2Plugin::signIdToken(
+  const std::string &subject,
+  const std::string &clientId,
+  int64_t authTime,
+  const std::string &amr
+) const
+{
+    // F-025 (OIDC Core §12): refresh_token and device_code grants issue
+    // tokens outside TokenService, so they cannot reuse its inline id_token
+    // signing. This helper centralizes the claim set + signing so both
+    // paths (and any future one) build identical id_tokens. Returns "" when
+    // the JwkManager is not initialized, which callers map to "omit
+    // id_token" (matching the authorization_code path in
+    // TokenService::exchangeCodeForToken).
+    if (!jwkManager_ || !jwkManager_->isInitialized())
+        return "";
+
+    auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                 std::chrono::system_clock::now().time_since_epoch()
+    )
+                 .count();
+    Json::Value claims;
+    claims["iss"] = issuer_;
+    claims["sub"] = subject;
+    claims["aud"] = clientId;
+    claims["iat"] = static_cast<Json::Int64>(now);
+    // OIDC Core §2: id_token exp follows the access-token TTL (the longest
+    // the access token remains usable, so the id_token stays valid for the
+    // same window).
+    claims["exp"] = static_cast<Json::Int64>(now + accessTokenTtl_);
+    // F-022: carry auth_time/amr when available (refresh tokens issued from
+    // an MFA-elevated login keep acr=2). On refresh/device these are often
+    // absent (the refresh DTO does not persist them), in which case they are
+    // omitted -- acceptable per OIDC §12 (auth_time is only required when
+    // the original auth request had max_age).
+    if (authTime > 0)
+        claims["auth_time"] = static_cast<Json::Int64>(authTime);
+    if (!amr.empty())
+    {
+        Json::Value amrArray(Json::arrayValue);
+        size_t s = 0;
+        while (s < amr.size())
+        {
+            size_t e = amr.find(' ', s);
+            if (e == std::string::npos)
+                e = amr.size();
+            if (e > s)
+                amrArray.append(amr.substr(s, e - s));
+            s = e + 1;
+        }
+        if (!amrArray.empty())
+        {
+            claims["amr"] = amrArray;
+            bool mfa = false;
+            for (const auto &v : amrArray)
+            {
+                if (v.asString() == "mfa")
+                {
+                    mfa = true;
+                    break;
+                }
+            }
+            claims["acr"] = Json::Int64(mfa ? 2 : 1);
+        }
+    }
+    return jwkManager_->signJwt(claims);
 }
 
 bool OAuth2Plugin::scopeRequiresAdminRole(const std::string &scope)

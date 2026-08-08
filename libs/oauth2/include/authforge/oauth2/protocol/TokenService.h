@@ -111,7 +111,9 @@ class TokenService : public std::enable_shared_from_this<TokenService>
       const std::string &codeChallenge,
       const std::string &codeChallengeMethod,
       const std::string &nonce,
-      std::function<void(bool, std::string, std::string)> &&callback
+      std::function<void(bool, std::string, std::string)> &&callback,
+      int64_t authTime = 0,
+      const std::string &amr = ""
     );
 
     /// Exchange an authorization code for an access/refresh token pair.

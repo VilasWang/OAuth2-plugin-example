@@ -57,6 +57,11 @@ struct OAuth2Client
     std::string salt;
     std::vector<std::string> redirectUris;
     std::vector<std::string> allowedScopes;
+    // F-017 (RFC 7591 §2 / RFC 6749 §3.2.1): the client's declared token-
+    // endpoint authentication method. "" / unset preserves the legacy lenient
+    // Basic->body fallback (NULL column); explicit values are enforced at
+    // token/introspect/revoke (client_secret_basic | client_secret_post | none).
+    std::string tokenEndpointAuthMethod;
 };
 
 /**
@@ -74,6 +79,12 @@ struct OAuth2AuthCode
     std::string nonce;                // OIDC nonce (anti-replay)
     int64_t expiresAt;                // Unix timestamp (seconds)
     bool used = false;
+    // F-021/F-022 (OIDC Core §2/§3.1.3.7): carried from the login session
+    // (set on session at login time) to the id_token at code exchange.
+    // authTime = epoch seconds of the user's most recent authentication;
+    // amr = space-separated Authentication Method References ("pwd", "mfa").
+    int64_t authTime = 0;
+    std::string amr;
 };
 
 /**
