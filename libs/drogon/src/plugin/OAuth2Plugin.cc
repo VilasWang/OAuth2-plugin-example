@@ -23,6 +23,9 @@
 // authforge::identity::IdentityService (the thin forwarder over bundle repos) is still
 // constructed here for the scopeRequiresAdminRole pure-function path.
 #include <authforge/drogon/services/IdentityService.h>
+// F-018: process-wide sliding-window rate limiter (token/introspect/revoke/
+// device-polling). Header-only, framework-free; configured once at startup.
+#include <authforge/common/utils/RateLimiter.h>
 #include <drogon/drogon.h>
 
 using namespace drogon;
@@ -113,6 +116,33 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
         LOG_WARN << "OAuth2Plugin: metadata.issuer \"" << issuer
                  << "\" uses plain http on a non-loopback host; production "
                     "deployments MUST configure an https:// issuer";
+    }
+
+    // F-018: configure the process-wide failure rate limiter for the token
+    // / introspect / revoke / device-code-polling endpoints. Reads
+    // custom_config["auth"]["rate_limit"] once at startup; if absent the
+    // built-in defaults stand (30 failures per (ip+client_id) per 60s). The
+    // limiter is a function-local singleton, so this single configure() call
+    // is seen by all four controllers that consult it.
+    {
+        authforge::common::utils::RateLimiterConfig rlCfg =
+          authforge::common::utils::RateLimiterConfig::defaults();
+        if (customConfig.isMember("auth") &&
+            customConfig["auth"].isMember("rate_limit") &&
+            customConfig["auth"]["rate_limit"].isObject())
+        {
+            const auto &rl = customConfig["auth"]["rate_limit"];
+            if (rl.isMember("max_failures") && rl["max_failures"].isUInt())
+                rlCfg.maxFailures =
+                  static_cast<std::size_t>(rl["max_failures"].asUInt());
+            if (rl.isMember("window_seconds") && rl["window_seconds"].isUInt())
+                rlCfg.windowSeconds =
+                  std::chrono::seconds(rl["window_seconds"].asUInt());
+        }
+        authforge::common::utils::RateLimiter::instance().configure(rlCfg);
+        LOG_DEBUG << "OAuth2Plugin: rate limiter configured (max_failures="
+                  << rlCfg.maxFailures
+                  << ", window_seconds=" << rlCfg.windowSeconds.count() << ")";
     }
 
     // Initialize Services

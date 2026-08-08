@@ -13,7 +13,7 @@ AUTH_CODE=""
 DISCOVERY_ISSUER=""
 ADMIN_PASSWORD="admin"  # Track current admin password across tests
 
-TOTAL=57
+TOTAL=58
 
 echo "========================================"
 echo "Pre-test Setup"
@@ -119,14 +119,36 @@ test_7() {
 }
 run_test "Test 7: UserInfo" test_7
 
-# Test 8: Admin Dashboard
+# Test 8: Admin Dashboard (F-010: requires admin scope -- use admin-console token)
 test_8() {
-    [ -n "$ACCESS_TOKEN" ] || { echo "    skipped: no token"; return 1; }
+    # F-010: /api/admin/* now requires the `admin` scope on the access token.
+    # The vue-client token (Test 6) carries only `openid profile`, so obtain
+    # a proper admin-scoped token via the admin-console client.
+    local admin_token
+    admin_token=$(get_admin_token "$BASE_URL" admin admin)
+    [ -n "$admin_token" ] || { echo "    no admin token"; return 1; }
     local r
-    r=$(curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "$BASE_URL/api/admin/dashboard")
+    r=$(curl -s -H "Authorization: Bearer $admin_token" "$BASE_URL/api/admin/dashboard")
     assert_json_field "$r" "status" "success" || return 1
 }
 run_test "Test 8: Admin Dashboard" test_8
+
+# Test 8b: Insufficient scope on /api/admin (F-010, 403 insufficient_scope)
+test_8b() {
+    [ -n "$ACCESS_TOKEN" ] || { echo "    skipped: no token"; return 1; }
+    # The vue-client token carries only `openid profile` (no admin scope) ->
+    # F-010 rejects with 403 + WWW-Authenticate: Bearer error="insufficient_scope".
+    local code www_auth
+    code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $ACCESS_TOKEN" \
+        "$BASE_URL/api/admin/dashboard")
+    [ "$code" = "403" ] || { echo "    expected 403, got $code"; return 1; }
+    www_auth=$(curl -s -D - -o /dev/null -H "Authorization: Bearer $ACCESS_TOKEN" \
+        "$BASE_URL/api/admin/dashboard" | grep -i "^WWW-Authenticate:")
+    echo "$www_auth" | grep -q "insufficient_scope" || { echo "    missing insufficient_scope: $www_auth"; return 1; }
+    echo "$www_auth" | grep -q 'scope="admin"' || { echo "    missing scope=admin: $www_auth"; return 1; }
+    echo "    403 insufficient_scope (scope=admin) confirmed"
+}
+run_test "Test 8b: /api/admin without admin scope -> 403 insufficient_scope" test_8b
 
 # Test 9: Token Refresh
 test_9() {

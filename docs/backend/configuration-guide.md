@@ -136,3 +136,51 @@ hint + registered URI the request is rejected with 400; on success it redirects
 `POST /oauth2/logout` (the existing API logout) additionally calls
 `session()->clear()` (F-028), so the server-side session is terminated alongside
 the access-token revocation.
+
+## 8. Rate Limiting (F-018)
+
+The token, introspect, revoke, and device-code-polling endpoints share a
+process-wide, in-memory sliding-window rate limiter that buckets on
+`(client_ip, client_id)`. After `max_failures` (default **30**) authentication /
+validation failures within a rolling `window_seconds` (default **60**), subsequent
+attempts return **HTTP 429** with a `Retry-After` header and an OAuth2-style
+`{error, error_description}` body. Only **failures** are counted; a successful
+request clears the bucket, so legitimate load (and the integration-test suite,
+which makes many sequential successful requests) is never throttled.
+
+Configure via `custom_config.auth.rate_limit` (all four `config*.json` files ship
+the defaults explicitly):
+
+```json
+"custom_config": {
+  "auth": {
+    "require_pkce_for_public": true,
+    "allow_http_redirect_uri": true,
+    "rate_limit": {
+      "max_failures": 30,
+      "window_seconds": 60
+    }
+  }
+}
+```
+
+Both keys are optional; if the `rate_limit` object is absent the built-in defaults
+(30 / 60) apply. The limiter is a function-local singleton (`RateLimiter::instance()`
+in `libs/common/include/authforge/common/utils/RateLimiter.h`), so all four
+protected endpoints share one counter map per process. This is a minimal
+brute-force / token-probing guard; for multi-instance deployments a shared
+store (Redis) would be required (future work).
+
+## 9. JWKS Key Rotation (F-029 — future ops task)
+
+The JWKS endpoint (`/oauth2/.well-known/jwks.json`) currently serves a **single
+static `kid`**, initialized once at plugin startup from the configured JWK
+material (`OAuth2Plugin::initAndStart()` → `JwkManager::init()`). **Key rotation
+is not implemented**: there is no rotation schedule, no kid-rollover window, and
+no dual-key publication. Tokens signed by the current key validate for their
+full lifetime; rotating the key invalidates all outstanding tokens signed by the
+predecessor.
+
+Production rotation is tracked as a future ops task. Until then, operators
+treating key compromise as in-scope should restart the server with new JWK
+material (and accept that all previously-issued tokens become invalid).

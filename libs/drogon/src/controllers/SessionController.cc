@@ -696,9 +696,11 @@ void SessionController::login(
                       return;
                   }
 
-                  std::string location = redirectUri + "?code=" + code;
+                  // F-020 (RFC 6749 §4.1.2/§4.1.3): urlEncode code + state.
+                  std::string location =
+                    redirectUri + "?code=" + ::drogon::utils::urlEncode(code);
                   if (!state.empty())
-                      location += "&state=" + state;
+                      location += "&state=" + ::drogon::utils::urlEncode(state);
                   if (req->getParameter("json") == "true")
                   {
                       Json::Value ret;
@@ -836,7 +838,7 @@ void SessionController::consent(
         std::string location =
           redirectUri + "?error=access_denied&error_description=User+denied+consent";
         if (!state.empty())
-            location += "&state=" + state;
+            location += "&state=" + ::drogon::utils::urlEncode(state);
         auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
         callback(resp);
         return;
@@ -952,9 +954,11 @@ void SessionController::consent(
                               return;
                           }
 
-                          std::string location = redirectUri + "?code=" + code;
+                          // F-020 (RFC 6749 §4.1.2/§4.1.3): urlEncode code + state.
+                          std::string location =
+                            redirectUri + "?code=" + ::drogon::utils::urlEncode(code);
                           if (!state.empty())
-                              location += "&state=" + state;
+                              location += "&state=" + ::drogon::utils::urlEncode(state);
                           auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
                           if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                               m->incrementCounter(

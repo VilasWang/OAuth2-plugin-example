@@ -88,6 +88,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   403 + `WWW-Authenticate: Bearer error="insufficient_scope"`；M2M token
   （subject `client:*`）直接拒。順帶返回 `email_verified` 聲明。
 
+#### OAuth/OIDC 合規審計 Batch 3 — 加固與清理 (#27/#38/#39)
+
+- **F-010 (#27)**：最小路徑→required-scope 強制（`OAuth2AuthFilter` /
+  `AuthorizationFilter`）。`/oauth2/userinfo`→`openid`、`/api/me` 與
+  `/api/me/*`→`profile`、`/api/admin/*`→`admin` scope（與既有 RBAC 角色檢查
+  並存，scope 閘門先跑）。不足時 403 + RFC 6750 §3.1 `WWW-Authenticate:
+  Bearer error="insufficient_scope", scope="<required>"`。新增框架無關的
+  `authforge::drogon::utils::hasScope()` 助手（空格分隔 token 精確匹配，
+  避免 `openidprofile` 誤過 `openid`）。完整資源-scope 授權模型為後續工作
+  （見 `docs/backend/api-reference.md`）。整合測試覆蓋：openid-only token
+  訪問 `/api/me` → 403、openid+profile token（無 admin）訪問 `/api/admin` →
+  403、預設 admin token（含 admin scope）仍可訪問受保護路由。
+- **F-018 (#38)**：進程內滑動窗口限流。`/oauth2/token`、`/oauth2/introspect`、
+  `/oauth2/revoke` 與 device_code 輪詢共享一個 `RateLimiter` 單例（函數局部
+  static），按 (client_ip, client_id) 分桶；窗口內失敗計數達閾值（默認 30
+  次/60s，可經 `custom_config["auth"]["rate_limit"]` 配置）→ 429 +
+  `Retry-After` + OAuth2 錯誤信封。**僅計失敗**（認證/校驗失敗），成功清零
+  ——整合測試套件（大量連續成功請求）不受影響。整合測試覆蓋：35 次連續
+  失敗的 token 請求觸發 429。
+- **F-019 (#39)**：token/introspect/revoke 所有成功響應加 `Cache-Control:
+  no-store` + `Pragma: no-cache`（RFC 6749 §5.1 / RFC 7009 §2.2.1）。
+  新增 `TokenEndpointController::applyNoStoreHeaders()` 助手，覆蓋 6 個成功
+  返回點（revoke 2 處經 `createSuccessResponse`、introspect 2 處、token
+  authorization_code/refresh/client_credentials/device_code 各 1 處）。
+- **F-020 (#39)**：authorize 終態重定向的 `state`/`code` 經 urlEncode
+  （`AuthorizationEndpointController.cc`、`SessionController.cc`）。（Batch 3
+  前置作業，由父會話完成。）
+- **F-001 (#39)**：`openapi.yaml` token grant_type enum 補
+  `urn:ietf:params:oauth:grant-type:device_code`。（Batch 3 前置作業。）
+- **F-024 驗收**：確認 userinfo 返回 `email_verified`（Batch 2 已實現於
+  `TokenEndpointController.cc:1753`，本次僅驗收）。
+- **F-026（文檔化，不實現）**：nonce 服端防重放非 OIDC 規範強制
+  （OIDC §15.5.2 是客戶端 MUST），服務端僅回顯 nonce、不存儲用於重放檢查
+  ——見 `docs/backend/api-reference.md`。
+- **F-029 / F-030 / F-031（文檔化，不改碼）**：
+  - F-029：JWKS 金鑰輪轉為後續運維工作（當前單一靜態 kid，init-once）——
+    見 `docs/backend/configuration-guide.md`。
+  - F-030：客戶端管理僅經 `/api/admin/clients/*`（admin-only），無 RFC 7592
+    `registration_access_token` 自管理——見 `docs/backend/api-reference.md`。
+  - F-031：Memory 存儲後端僅供測試/開發，明文存儲密鑰，生產禁用——見
+    `docs/backend/data-persistence.md`。
+
 ### Changed
 
 #### 依賴升級 (Dependencies)

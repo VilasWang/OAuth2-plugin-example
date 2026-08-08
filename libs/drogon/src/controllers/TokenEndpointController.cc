@@ -6,9 +6,11 @@
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
 #include <authforge/oauth2/model/Client.h>
+#include <authforge/common/utils/RateLimiter.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <mutex>
 #include <sstream>
@@ -235,7 +237,98 @@ void TokenEndpointController::initApiDocsImpl()
 {
     auto resp = ::drogon::HttpResponse::newHttpResponse();
     resp->setStatusCode(::drogon::k200OK);
+    // F-019 (RFC 6749 §5.1 / RFC 7009 §2.2.1): token-introspect-revoke
+    // success responses MUST NOT be cached. no-store is the normative cache
+    // directive; Pragma: no-cache is the HTTP/1.0 back-compat fallback.
+    applyNoStoreHeaders(resp);
     return resp;
+}
+
+void TokenEndpointController::applyNoStoreHeaders(const ::drogon::HttpResponsePtr &resp)
+{
+    // F-019 (RFC 6749 §5.1 / RFC 7009 §2.2.1): token, introspection, and
+    // revocation success responses carry credentials / token metadata and
+    // MUST NOT be stored by caches. `Cache-Control: no-store` is the
+    // normative directive (RFC 7234 §5.2.2.5); `Pragma: no-cache` is sent
+    // as the HTTP/1.0 back-compat fallback for legacy intermediaries.
+    // addHeader() appends (does not overwrite), which is correct here -- a
+    // caller that already set a stricter directive keeps it.
+    resp->addHeader("Cache-Control", "no-store");
+    resp->addHeader("Pragma", "no-cache");
+}
+
+// ---------------------------------------------------------------------------
+// F-018: rate-limiting helpers.
+//
+// The token / introspect / revoke / device-code-polling endpoints are the
+// high-value targets for credential brute-force and token probing, so they
+// share a process-wide sliding-window failure counter bucketed per
+// (client_ip, client_id). After `max_failures` (default 30) inside the
+// rolling window (default 60s), the bucket is throttled and subsequent
+// attempts get HTTP 429 + Retry-After. ONLY failures are counted -- a
+// legitimate client that eventually authenticates has its bucket cleared
+// (recordRateLimitSuccess), so the integration-test suite (which makes
+// many sequential SUCCESSFUL token requests) is never throttled.
+// ---------------------------------------------------------------------------
+
+std::string TokenEndpointController::rateLimitKey(
+  const ::drogon::HttpRequestPtr &req,
+  const std::string &clientId
+)
+{
+    // IP convention matches DrogonAuditSink: X-Forwarded-For, then X-Real-IP,
+    // then the TCP peer. Behind a reverse proxy the operator is responsible
+    // for setting X-Forwarded-For correctly (and stripping client-supplied
+    // values at the edge).
+    std::string ip = req->getHeader("X-Forwarded-For");
+    if (ip.empty())
+        ip = req->getHeader("X-Real-IP");
+    if (ip.empty())
+        ip = req->getPeerAddr().toIp();
+    // client_id may be empty (malformed request) -- still bucket on IP alone
+    // so a brute-forcer who omits client_id is throttled per source IP. The
+    // composite key keeps different clients on the same IP independent.
+    return ip + "|" + (clientId.empty() ? std::string{"-"} : clientId);
+}
+
+::drogon::HttpResponsePtr TokenEndpointController::checkRateLimited(
+  const ::drogon::HttpRequestPtr &req,
+  const std::string &clientId
+)
+{
+    auto key = rateLimitKey(req, clientId);
+    auto retry = authforge::common::utils::RateLimiter::instance().checkThrottled(key);
+    if (retry.count() <= 0)
+        return nullptr;
+    // RFC 6749 §5.2 has no rate-limit error code, so the response is HTTP 429
+    // with an OAuth2-style {error, error_description} body (error=
+    // "invalid_request" is the closest §5.2 bucket for a malformed-traffic
+    // rejection) plus the standard Retry-After header.
+    Json::Value body;
+    body["error"] = "invalid_request";
+    body["error_description"] = "Too many failed attempts; please retry later";
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(body);
+    resp->setStatusCode(::drogon::k429TooManyRequests);
+    resp->addHeader("Retry-After", std::to_string(retry.count()));
+    // 429 responses must not be cached either.
+    applyNoStoreHeaders(resp);
+    return resp;
+}
+
+void TokenEndpointController::recordRateLimitSuccess(
+  const ::drogon::HttpRequestPtr &req,
+  const std::string &clientId
+)
+{
+    authforge::common::utils::RateLimiter::instance().recordSuccess(rateLimitKey(req, clientId));
+}
+
+void TokenEndpointController::recordRateLimitFailure(
+  const ::drogon::HttpRequestPtr &req,
+  const std::string &clientId
+)
+{
+    authforge::common::utils::RateLimiter::instance().recordFailure(rateLimitKey(req, clientId));
 }
 
 ClientCredentials TokenEndpointController::extractClientCredentials(
@@ -339,12 +432,41 @@ void TokenEndpointController::introspect(
         return;
     }
 
+    // F-018: rate-limit gate (per (ip, client_id)). Consulted after the
+    // client-credentials extraction so the bucket is accurate. A 429
+    // short-circuits here; the throttled attempt itself is not counted.
+    if (auto rlResp = checkRateLimited(req, clientId))
+    {
+        callback(rlResp);
+        return;
+    }
+
+    // F-018: wrap the callback so the final response status drives success /
+    // failure accounting (2xx clears the bucket; 4xx/5xx records a failure).
+    // Wrapped in std::function so all downstream captures keep seeing a
+    // std::function (matches the original `callback` type the grant branches
+    // already expect, and lets the existing nested-lambda patterns compile
+    // unchanged).
+    std::function<void(const ::drogon::HttpResponsePtr &)> rateAwareCallback =
+      [req, clientId, originalCallback = std::move(callback)](
+        const ::drogon::HttpResponsePtr &resp) mutable {
+          if (resp)
+          {
+              auto code = resp->getStatusCode();
+              if (code >= ::drogon::k200OK && code < ::drogon::k300MultipleChoices)
+                  recordRateLimitSuccess(req, clientId);
+              else
+                  recordRateLimitFailure(req, clientId);
+          }
+          originalCallback(resp);
+      };
+
     // Get OAuth2 plugin
     auto plugin = resolvePlugin();
     if (!plugin)
     {
         authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-          std::move(callback), "server_error", "OAuth2 plugin not available"
+          std::move(rateAwareCallback), "server_error", "OAuth2 plugin not available"
         );
         return;
     }
@@ -354,7 +476,7 @@ void TokenEndpointController::introspect(
     if (!validationErrors.empty())
     {
         authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-          std::move(callback), "invalid_request", validationErrors[0]
+          std::move(rateAwareCallback), "invalid_request", validationErrors[0]
         );
         return;
     }
@@ -368,7 +490,7 @@ void TokenEndpointController::introspect(
     bool secretInBody = req->getParameters().count("client_secret") > 0;
     plugin->getClient(
       clientId,
-      [plugin, token, clientId, clientSecret, authScheme, secretInBody, credentials, callback = std::move(callback)](
+      [plugin, token, clientId, clientSecret, authScheme, secretInBody, credentials, callback = std::move(rateAwareCallback)](
         std::optional<authforge::oauth2::model::OAuth2Client> client
       ) mutable {
           // F-017: enforce the declared auth method. Only enforce when the
@@ -441,6 +563,9 @@ void TokenEndpointController::introspect(
                     response["active"] = false;
                     auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
                     resp->setStatusCode(::drogon::k200OK);
+                    // F-019: introspection responses must not be cached even
+                    // when active=false (RFC 7667 §2.2 + RFC 7009 §2.2.1).
+                    applyNoStoreHeaders(resp);
                     callback(resp);
                     return;
                 }
@@ -499,6 +624,9 @@ void TokenEndpointController::introspect(
 
                 auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
                 resp->setStatusCode(::drogon::k200OK);
+                // F-019 (RFC 7667 §2.2): introspection responses carry token
+                // metadata and MUST NOT be cached.
+                applyNoStoreHeaders(resp);
                 callback(resp);
             }
           );
@@ -529,12 +657,37 @@ void TokenEndpointController::revoke(
         return;
     }
 
+    // F-018: rate-limit gate (per (ip, client_id)). Consulted after the
+    // client-credentials extraction so the bucket is accurate.
+    if (auto rlResp = checkRateLimited(req, clientId))
+    {
+        callback(rlResp);
+        return;
+    }
+
+    // F-018: wrap the callback so the final response status drives success /
+    // failure accounting (2xx clears the bucket; 4xx/5xx records a failure).
+    // Wrapped in std::function (see introspect for the same rationale).
+    std::function<void(const ::drogon::HttpResponsePtr &)> rateAwareCallback =
+      [req, clientId, originalCallback = std::move(callback)](
+        const ::drogon::HttpResponsePtr &resp) mutable {
+          if (resp)
+          {
+              auto code = resp->getStatusCode();
+              if (code >= ::drogon::k200OK && code < ::drogon::k300MultipleChoices)
+                  recordRateLimitSuccess(req, clientId);
+              else
+                  recordRateLimitFailure(req, clientId);
+          }
+          originalCallback(resp);
+      };
+
     // Get OAuth2 plugin
     auto plugin = resolvePlugin();
     if (!plugin)
     {
         authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-          std::move(callback), "server_error", "OAuth2 plugin not available"
+          std::move(rateAwareCallback), "server_error", "OAuth2 plugin not available"
         );
         return;
     }
@@ -544,7 +697,7 @@ void TokenEndpointController::revoke(
     if (!validationErrors.empty())
     {
         authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-          std::move(callback), "invalid_request", validationErrors[0]
+          std::move(rateAwareCallback), "invalid_request", validationErrors[0]
         );
         return;
     }
@@ -557,7 +710,7 @@ void TokenEndpointController::revoke(
     bool secretInBody = req->getParameters().count("client_secret") > 0;
     plugin->getClient(
       clientId,
-      [plugin, token, clientId, clientSecret, authScheme, secretInBody, credentials, callback = std::move(callback)](
+      [plugin, token, clientId, clientSecret, authScheme, secretInBody, credentials, callback = std::move(rateAwareCallback)](
         std::optional<authforge::oauth2::model::OAuth2Client> client
       ) mutable {
           if (client)
@@ -771,8 +924,45 @@ void TokenEndpointController::token(
     // success. clientId may legitimately be empty here for some flows (e.g.
     // device_code discovers it from the body); in that case skip enforcement
     // (the branches that need client auth already re-resolve the client).
+    //
+    // F-018: rate-limit gate. Consulted AFTER clientId resolution so the
+    // (ip, client_id) bucket is accurate; the validation gate above already
+    // rejected structurally-invalid requests. A 429 short-circuits here --
+    // no grant work is done, so neither success nor failure is recorded for
+    // the throttled attempt itself (the bucket stays over threshold from the
+    // prior failures that put it there).
+    if (auto rlResp = checkRateLimited(req, clientId))
+    {
+        callback(rlResp);
+        return;
+    }
+    // F-018: wrap the callback so the FINAL response status determines
+    // success vs failure accounting. A 2xx response clears the (ip,
+    // client_id) failure bucket; any 4xx/5xx response records a failure.
+    // This is the single chokepoint -- every grant branch (authorization_
+    // code, refresh, client_credentials, device_code) funnels its response
+    // through `sharedCb`, so the accounting is uniform without per-branch
+    // instrumentation. The validation-gate early-returns above are NOT
+    // rate-counted (they fire before this wrap) -- structurally malformed
+    // requests are not auth failures and counting them would let a single
+    // buggy client throttle legitimate users on a shared IP.
+    auto rlReq = req;
+    auto rlClientId = clientId;
+    auto rateAwareCallback =
+      [rlReq, rlClientId, originalCallback = std::move(callback)](
+        const ::drogon::HttpResponsePtr &resp) mutable {
+          if (resp)
+          {
+              auto code = resp->getStatusCode();
+              if (code >= ::drogon::k200OK && code < ::drogon::k300MultipleChoices)
+                  recordRateLimitSuccess(rlReq, rlClientId);
+              else
+                  recordRateLimitFailure(rlReq, rlClientId);
+          }
+          originalCallback(resp);
+      };
     auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-      std::move(callback)
+      std::move(rateAwareCallback)
     );
     // F-017: dispatchGrant is held via shared_ptr so the getClient callback
     // can capture it by value (the callback may run AFTER this function
@@ -836,6 +1026,8 @@ void TokenEndpointController::token(
                     authforge::common::ports::MetricLabels{},
                     static_cast<double>(1)
                   );
+              // F-019 (RFC 6749 §5.1): token responses MUST NOT be cached.
+              applyNoStoreHeaders(resp);
               callback(resp);
           }
         );
@@ -905,6 +1097,8 @@ void TokenEndpointController::token(
                               authforge::common::ports::MetricLabels{{"endpoint", "token"}},
                               static_cast<double>(200)
                             );
+                        // F-019 (RFC 6749 §5.1): token responses MUST NOT be cached.
+                        applyNoStoreHeaders(resp);
                         (*sharedCb)(resp);
                     }
                   );
@@ -1092,6 +1286,8 @@ void TokenEndpointController::token(
                                 authforge::common::ports::MetricLabels{{"endpoint", "token"}},
                                 static_cast<double>(200)
                               );
+                          // F-019 (RFC 6749 §5.1): token responses MUST NOT be cached.
+                          applyNoStoreHeaders(resp);
                           (*sharedCb)(resp);
                       }
                     );
@@ -1489,6 +1685,9 @@ void TokenEndpointController::token(
                                         authforge::common::ports::MetricLabels{},
                                         static_cast<double>(1)
                                       );
+                                  // F-019 (RFC 6749 §5.1): device-code token
+                                  // responses MUST NOT be cached.
+                                  applyNoStoreHeaders(resp);
                                   (*sharedCb)(resp);
                               }
                             );
