@@ -587,6 +587,14 @@ explicit Result(std::in_place_index_t<1> tag, Args &&...args)
 std::variant<T, E> storage_;
 };
 }
+=== libs/common/include/authforge/common/utils/ConstantTimeCompare.h
+#pragma once
+#include <cstddef>
+namespace authforge::common::utils
+{
+inline int constantTimeMemcmp(const void *s1, const void *s2, std::size_t n)
+;
+}
 === libs/common/include/authforge/common/utils/EmailNormalizer.h
 #pragma once
 #include <algorithm>
@@ -596,6 +604,48 @@ namespace authforge::common::utils
 {
 inline std::string normalizeEmail(const std::string &input)
 ;
+}
+=== libs/common/include/authforge/common/utils/RateLimiter.h
+#pragma once
+#include <chrono>
+#include <deque>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+namespace authforge::common::utils
+{
+struct RateLimiterConfig
+{
+std::size_t maxFailures = 30;
+std::chrono::seconds windowSeconds{60};
+static RateLimiterConfig defaults() noexcept
+;
+};
+class RateLimiter
+{
+public:
+static RateLimiter &instance()
+;
+void configure(const RateLimiterConfig &cfg)
+;
+std::chrono::seconds checkThrottled(std::string_view key)
+;
+void recordFailure(std::string_view key)
+;
+void recordSuccess(std::string_view key)
+;
+void reset()
+;
+private:
+RateLimiter() = default;
+using TimePoint = std::chrono::steady_clock::time_point;
+void purgeOldLocked(std::deque<TimePoint> &bucket, const TimePoint &now)
+;
+std::mutex mutex_;
+RateLimiterConfig config_{RateLimiterConfig::defaults()};
+std::unordered_map<std::string, std::deque<TimePoint>> buckets_;
+};
 }
 === libs/drogon/include/authforge/drogon/AuthService.h
 #pragma once
@@ -1240,6 +1290,11 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 private:
 static std::string generateUserCode();
+static void deviceAuthorizationInner(
+const std::string &clientId,
+const std::string &scope,
+const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &sharedCb
+);
 OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
 };
@@ -1668,6 +1723,8 @@ SessionController::logout,
 ::drogon::Post,
 "authforge::drogon::filters::OAuth2AuthFilter"
 );
+ADD_METHOD_TO(SessionController::endSession, "/oauth2/end_session", ::drogon::Get);
+ADD_METHOD_TO(SessionController::endSession, "/oauth2/end_session", ::drogon::Post);
 ADD_METHOD_TO(SessionController::registerUser, "/api/register", ::drogon::Post);
 METHOD_LIST_END
 void showLoginPage(
@@ -1683,6 +1740,10 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 void logout(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+);
+void endSession(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
@@ -1817,7 +1878,20 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 private:
 static void initApiDocsImpl();
 static ::drogon::HttpResponsePtr createSuccessResponse();
+static void applyNoStoreHeaders(const ::drogon::HttpResponsePtr &resp);
 static ClientCredentials extractClientCredentials(const ::drogon::HttpRequestPtr &req);
+static std::string enforceClientAuthMethod(
+const std::string &declaredMethod,
+const ClientCredentials &creds,
+bool secretInBody
+);
+static std::string rateLimitKey(const ::drogon::HttpRequestPtr &req, const std::string &clientId);
+static ::drogon::HttpResponsePtr checkRateLimited(
+const ::drogon::HttpRequestPtr &req,
+const std::string &clientId
+);
+static void recordRateLimitSuccess(const ::drogon::HttpRequestPtr &req, const std::string &clientId);
+static void recordRateLimitFailure(const ::drogon::HttpRequestPtr &req, const std::string &clientId);
 ::OAuth2Plugin *plugin_ = nullptr;
 ::OAuth2Plugin *resolvePlugin() const;
 };
@@ -2516,7 +2590,9 @@ const std::string &redirectUri,
 const std::string &codeChallenge,
 const std::string &codeChallengeMethod,
 const std::string &nonce,
-std::function<void(bool, std::string, std::string)> &&callback
+std::function<void(bool, std::string, std::string)> &&callback,
+int64_t authTime = 0,
+const std::string &amr = ""
 );
 void exchangeCodeForToken(
 const std::string &code,
@@ -2584,6 +2660,8 @@ std::function<void()> &&callback
 );
 const std::string &getStorageType() const
 ;
+const std::string &getIssuer() const
+;
 std::shared_ptr<authforge::common::ports::IAuditSink> getAuditSink() const
 ;
 std::shared_ptr<authforge::common::ports::IMetrics> getMetrics() const
@@ -2591,6 +2669,12 @@ std::shared_ptr<authforge::common::ports::IMetrics> getMetrics() const
 std::shared_ptr<authforge::oauth2::protocol::AuthorizationService>
 getAuthorizationService() const
 ;
+std::string signIdToken(
+const std::string &subject,
+const std::string &clientId,
+int64_t authTime = 0,
+const std::string &amr = ""
+) const;
 private:
 std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo_;
 std::shared_ptr<authforge::oauth2::repository::IGrantRepository> grantRepo_;
@@ -2610,6 +2694,7 @@ std::shared_ptr<authforge::common::ports::IMetrics> metrics_;
 std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver_;
 std::shared_ptr<authforge::oauth2::protocol::AuthorizationService> authorizationService_;
 std::string storageType_;
+std::string issuer_;
 long long authCodeTtl_{600};
 long long accessTokenTtl_{3600};
 long long refreshTokenTtl_{3600 * 24 * 30};
@@ -2828,6 +2913,8 @@ inline std::string generateSecureToken(size_t bytes = 32)
 ;
 inline std::string hashToken(const std::string &rawToken)
 ;
+inline std::string hashClientSecretWithSalt(const std::string &clientSecret, const std::string &salt)
+;
 }
 === libs/drogon/include/authforge/drogon/utils/EmailService.h
 #pragma once
@@ -2904,6 +2991,17 @@ const std::string &salt = ""
 );
 static bool needsRehash(const std::string &storedHash);
 };
+}
+=== libs/drogon/include/authforge/drogon/utils/ScopeChecker.h
+#pragma once
+#include <string>
+#include <string_view>
+namespace authforge::drogon::utils
+{
+inline bool hasScope(std::string_view tokenScopes, std::string_view requiredScope)
+;
+inline bool hasAllScopes(std::string_view tokenScopes, std::string_view requiredScopes)
+;
 }
 === libs/drogon/include/authforge/drogon/utils/SubjectGenerator.h
 #pragma once
@@ -3007,7 +3105,8 @@ namespace authforge::drogon::validation
 inline const char *CLIENT_ID_PATTERN = "^[a-zA-Z0-9._-]{1,128}$";
 inline const size_t CLIENT_ID_MIN_LEN = 1;
 inline const size_t CLIENT_ID_MAX_LEN = 128;
-inline const char *REDIRECT_URI_PATTERN = "^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/[^\\s]*)?$";
+inline const char *REDIRECT_URI_PATTERN =
+"^https?://(\\[[a-fA-F0-9:.]+\\]|[a-zA-Z0-9.-]+)(:[0-9]+)?(/[^\\s]*)?$";
 inline const size_t REDIRECT_URI_MIN_LEN = 10;
 inline const size_t REDIRECT_URI_MAX_LEN = 2048;
 inline const char *SCOPE_PATTERN = "^[a-zA-Z0-9: ]+$";
@@ -4102,6 +4201,8 @@ const std::vector<std::string> &redirectUris() const noexcept
 ;
 const std::vector<std::string> &allowedScopes() const noexcept
 ;
+const std::string &tokenEndpointAuthMethod() const noexcept
+;
 bool isRegisteredRedirectUri(const std::string &redirectUri) const
 ;
 bool allowsScope(const std::string &scope) const
@@ -4147,6 +4248,7 @@ std::string clientSecretHash;
 std::string salt;
 std::vector<std::string> redirectUris;
 std::vector<std::string> allowedScopes;
+std::string tokenEndpointAuthMethod;
 };
 struct OAuth2AuthCode
 {
@@ -4160,6 +4262,8 @@ std::string codeChallengeMethod;
 std::string nonce;
 int64_t expiresAt;
 bool used = false;
+int64_t authTime = 0;
+std::string amr;
 };
 struct OAuth2AccessToken
 {
@@ -4412,7 +4516,9 @@ const std::string &redirectUri,
 const std::string &codeChallenge,
 const std::string &codeChallengeMethod,
 const std::string &nonce,
-std::function<void(bool, std::string, std::string)> &&callback
+std::function<void(bool, std::string, std::string)> &&callback,
+int64_t authTime = 0,
+const std::string &amr = ""
 );
 void exchangeCodeForToken(
 const std::string &code,
@@ -5962,6 +6068,7 @@ static const std::string _salt;
 static const std::string _name;
 static const std::string _redirect_uris;
 static const std::string _allowed_grant_types;
+static const std::string _token_endpoint_auth_method;
 static const std::string _backchannel_logout_uri;
 static const std::string _backchannel_logout_session_required;
 static const std::string _org_id;
@@ -6023,6 +6130,11 @@ const std::shared_ptr<std::string> &getAllowedGrantTypes() const noexcept;
 void setAllowedGrantTypes(const std::string &pAllowedGrantTypes) noexcept;
 void setAllowedGrantTypes(std::string &&pAllowedGrantTypes) noexcept;
 void setAllowedGrantTypesToNull() noexcept;
+const std::string &getValueOfTokenEndpointAuthMethod() const noexcept;
+const std::shared_ptr<std::string> &getTokenEndpointAuthMethod() const noexcept;
+void setTokenEndpointAuthMethod(const std::string &pTokenEndpointAuthMethod) noexcept;
+void setTokenEndpointAuthMethod(std::string &&pTokenEndpointAuthMethod) noexcept;
+void setTokenEndpointAuthMethodToNull() noexcept;
 const std::string &getValueOfBackchannelLogoutUri() const noexcept;
 const std::shared_ptr<std::string> &getBackchannelLogoutUri() const noexcept;
 void setBackchannelLogoutUri(const std::string &pBackchannelLogoutUri) noexcept;
@@ -6086,6 +6198,7 @@ std::shared_ptr<std::string> salt_;
 std::shared_ptr<std::string> name_;
 std::shared_ptr<std::string> redirectUris_;
 std::shared_ptr<std::string> allowedGrantTypes_;
+std::shared_ptr<std::string> tokenEndpointAuthMethod_;
 std::shared_ptr<std::string> backchannelLogoutUri_;
 std::shared_ptr<bool> backchannelLogoutSessionRequired_;
 std::shared_ptr<int32_t> orgId_;
@@ -6100,7 +6213,7 @@ const bool isPrimaryKey_;
 const bool notNull_;
 };
 static const std::vector<MetaData> metaData_;
-bool dirtyFlag_[10]={ false };
+bool dirtyFlag_[11]={ false };
 public:
 static const std::string &sqlForFindingByPrimaryKey()
 ;
@@ -6159,6 +6272,8 @@ static const std::string _code_challenge;
 static const std::string _code_challenge_method;
 static const std::string _expires_at;
 static const std::string _used;
+static const std::string _auth_time;
+static const std::string _amr;
 };
 static const int primaryKeyNumber;
 static const std::string tableName;
@@ -6226,6 +6341,15 @@ const bool &getValueOfUsed() const noexcept;
 const std::shared_ptr<bool> &getUsed() const noexcept;
 void setUsed(const bool &pUsed) noexcept;
 void setUsedToNull() noexcept;
+const int64_t &getValueOfAuthTime() const noexcept;
+const std::shared_ptr<int64_t> &getAuthTime() const noexcept;
+void setAuthTime(const int64_t &pAuthTime) noexcept;
+void setAuthTimeToNull() noexcept;
+const std::string &getValueOfAmr() const noexcept;
+const std::shared_ptr<std::string> &getAmr() const noexcept;
+void setAmr(const std::string &pAmr) noexcept;
+void setAmr(std::string &&pAmr) noexcept;
+void setAmrToNull() noexcept;
 static size_t getColumnNumber() noexcept ;
 static const std::string &getColumnName(size_t index) noexcept(false);
 Json::Value toJson() const;
@@ -6258,6 +6382,8 @@ std::shared_ptr<std::string> codeChallenge_;
 std::shared_ptr<std::string> codeChallengeMethod_;
 std::shared_ptr<int64_t> expiresAt_;
 std::shared_ptr<bool> used_;
+std::shared_ptr<int64_t> authTime_;
+std::shared_ptr<std::string> amr_;
 struct MetaData
 {
 const std::string colName_;
@@ -6269,7 +6395,7 @@ const bool isPrimaryKey_;
 const bool notNull_;
 };
 static const std::vector<MetaData> metaData_;
-bool dirtyFlag_[9]={ false };
+bool dirtyFlag_[11]={ false };
 public:
 static const std::string &sqlForFindingByPrimaryKey()
 ;
@@ -6327,6 +6453,7 @@ static const std::string _status;
 static const std::string _user_id;
 static const std::string _expires_at;
 static const std::string _interval_seconds;
+static const std::string _last_polled_at;
 static const std::string _created_at;
 };
 static const int primaryKeyNumber;
@@ -6389,6 +6516,10 @@ const int32_t &getValueOfIntervalSeconds() const noexcept;
 const std::shared_ptr<int32_t> &getIntervalSeconds() const noexcept;
 void setIntervalSeconds(const int32_t &pIntervalSeconds) noexcept;
 void setIntervalSecondsToNull() noexcept;
+const int64_t &getValueOfLastPolledAt() const noexcept;
+const std::shared_ptr<int64_t> &getLastPolledAt() const noexcept;
+void setLastPolledAt(const int64_t &pLastPolledAt) noexcept;
+void setLastPolledAtToNull() noexcept;
 const ::trantor::Date &getValueOfCreatedAt() const noexcept;
 const std::shared_ptr<::trantor::Date> &getCreatedAt() const noexcept;
 void setCreatedAt(const ::trantor::Date &pCreatedAt) noexcept;
@@ -6424,6 +6555,7 @@ std::shared_ptr<std::string> status_;
 std::shared_ptr<std::string> userId_;
 std::shared_ptr<int64_t> expiresAt_;
 std::shared_ptr<int32_t> intervalSeconds_;
+std::shared_ptr<int64_t> lastPolledAt_;
 std::shared_ptr<::trantor::Date> createdAt_;
 struct MetaData
 {
@@ -6436,7 +6568,7 @@ const bool isPrimaryKey_;
 const bool notNull_;
 };
 static const std::vector<MetaData> metaData_;
-bool dirtyFlag_[9]={ false };
+bool dirtyFlag_[10]={ false };
 public:
 static const std::string &sqlForFindingByPrimaryKey()
 ;
