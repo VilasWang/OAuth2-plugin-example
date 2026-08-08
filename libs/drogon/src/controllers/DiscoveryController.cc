@@ -119,6 +119,10 @@ void DiscoveryController::metadata(
     metadata["revocation_endpoint_auth_methods_supported"].append("client_secret_post");
     metadata["revocation_endpoint_auth_methods_supported"].append("client_secret_basic");
 
+    // R-5: registration_endpoint is implemented (POST /oauth2/register, admin
+    // gated) -- advertise it so clients can discover it.
+    metadata["registration_endpoint"] = baseUrl + "/oauth2/register";
+
     // OpenID Connect support (partial, based on what we implement)
     metadata["scopes_supported"] = Json::Value(Json::arrayValue);
     metadata["scopes_supported"].append("openid");
@@ -137,6 +141,11 @@ void DiscoveryController::metadata(
     metadata["grant_types_supported"].append("refresh_token");
     metadata["grant_types_supported"].append("client_credentials");
     metadata["grant_types_supported"].append("urn:ietf:params:oauth:grant-type:device_code");
+
+    // R-5 (RFC 8414 §2 REQUIRED): subject_types_supported. Only "public" is
+    // implemented (no pairwise pseudonymous subject support).
+    metadata["subject_types_supported"] = Json::Value(Json::arrayValue);
+    metadata["subject_types_supported"].append("public");
 
     // PKCE support
     metadata["code_challenge_methods_supported"] = Json::Value(Json::arrayValue);
@@ -190,6 +199,9 @@ void DiscoveryController::oidcDiscovery(
     discovery["jwks_uri"] = baseUrl + "/.well-known/jwks.json";
     discovery["introspection_endpoint"] = baseUrl + "/oauth2/introspect";
     discovery["revocation_endpoint"] = baseUrl + "/oauth2/revoke";
+    // R-5: registration_endpoint is implemented (POST /oauth2/register, admin
+    // gated) -- advertise it.
+    discovery["registration_endpoint"] = baseUrl + "/oauth2/register";
 
     discovery["scopes_supported"] = Json::Value(Json::arrayValue);
     discovery["scopes_supported"].append("openid");
@@ -222,11 +234,13 @@ void DiscoveryController::oidcDiscovery(
 
     // F-022 (OIDC Core §3.1.2.1 / §5.1): advertise prompt/max_age support and
     // the auth_time/acr/amr claims the id_token now carries.
+    // R-4: only the values the authorize endpoint actually honors are
+    // advertised -- select_account is NOT implemented (no account-picker
+    // branch), so it is omitted to avoid an advertised-but-not-honored gap.
     discovery["prompt_values_supported"] = Json::Value(Json::arrayValue);
     discovery["prompt_values_supported"].append("none");
     discovery["prompt_values_supported"].append("login");
     discovery["prompt_values_supported"].append("consent");
-    discovery["prompt_values_supported"].append("select_account");
 
     discovery["acr_values_supported"] = Json::Value(Json::arrayValue);
     discovery["acr_values_supported"].append("1");  // password-only

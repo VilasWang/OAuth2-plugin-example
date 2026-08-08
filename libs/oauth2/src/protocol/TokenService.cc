@@ -364,7 +364,11 @@ void TokenService::exchangeCodeForToken(
                                                 break;
                                             }
                                         }
-                                        idTokenClaims["acr"] = Json::Int64(mfa ? 2 : 1);
+                                        // R-1 (OIDC Core §2): acr is a STRING
+                                        // claim, and discovery advertises string
+                                        // values "1"/"2" -- emit as string, not
+                                        // integer.
+                                        idTokenClaims["acr"] = mfa ? "2" : "1";
                                     }
                                 }
 
