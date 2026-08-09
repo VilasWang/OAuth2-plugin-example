@@ -64,7 +64,7 @@ if ! command -v wrk >/dev/null 2>&1; then
     echo "       Alpine:        apk add --no-cache wrk"
     exit 2
 fi
-WRK_VERSION="$(wrk --version 2>&1 | head -1)"
+WRK_VERSION="$(wrk --version 2>&1 | head -1 || true)"
 if ! command -v python3 >/dev/null 2>&1; then
     echo "[run] ERROR: python3 not found (needed for parse-wrk.py)."
     exit 2

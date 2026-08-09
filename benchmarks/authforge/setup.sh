@@ -34,6 +34,12 @@ source "$PATHS_ENV_FILE"
 set +a
 COMPOSE_FILE_ABS="$REPO_ROOT/$COMPOSE_FILE_REL"
 
+# cd to repo root before any docker compose call: build-context relative paths
+# in the compose file (e.g. context: ../..) resolve against the CWD, not against
+# --project-directory, so a wrong CWD makes buildx bake look in the wrong place
+# (e.g. lstat /home/<user>/deploy). manage.sh does the same (cd "$SCRIPT_DIR").
+cd "$REPO_ROOT"
+
 echo "[setup] compose file: $COMPOSE_FILE_ABS"
 
 # --- clean volume for determinism (skip if KEEP_VOLUME=1) ---
@@ -43,9 +49,14 @@ if [ "${KEEP_VOLUME:-0}" != "1" ]; then
         --remove-orphans >/dev/null 2>&1 || true
 fi
 
-# --- boot the full stack ---
-echo "[setup] bringing up the stack (docker compose up -d)..."
-docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" up -d
+# --- boot the benchmark target (backend + postgres + redis only) ---
+# Only the backend, its PG and Redis deps are load-tested. The admin/frontend
+# SPAs and Prometheus are irrelevant to backend throughput (design D1/N4) and
+# are deliberately NOT started — this also avoids building their (slow, separate)
+# images. Same service-subset pattern as scripts/backend/full-test-docker.sh:55.
+echo "[setup] bringing up backend + postgres + redis (docker compose up -d)..."
+docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" up -d \
+    oauth2-postgres oauth2-redis oauth2-backend
 
 # --- poll /health/ready until 200 or timeout ---
 # postgres storage mode requires DB + Redis both reachable for /health/ready

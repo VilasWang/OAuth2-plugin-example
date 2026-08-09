@@ -24,6 +24,10 @@ source "$PATHS_ENV_FILE"
 set +a
 COMPOSE_FILE_ABS="$REPO_ROOT/$COMPOSE_FILE_REL"
 
+# cd to repo root before docker compose (see setup.sh for rationale: build
+# contexts and relative paths resolve against CWD, not --project-directory).
+cd "$REPO_ROOT"
+
 if [ "${KEEP_VOLUME:-0}" = "1" ]; then
     echo "[teardown] stopping stack (volumes kept, KEEP_VOLUME=1)..."
     docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" down
