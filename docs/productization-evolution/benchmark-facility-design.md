@@ -169,7 +169,7 @@
 | # | 场景 | 端点 (方法) | 请求形态 | 种子数据 | 测什么 | 对脚本的取舍 |
 |---|------|------------|---------|---------|--------|------------|
 | S1 | **discovery** | `GET /.well-known/openid-configuration` + `GET /.well-known/jwks.json` | 无 header / 无 body | 无 | 纯框架吞吐量（JSON 构造 + RSA 公钥读）；无 DB/Redis，看 Drogon 天花板。**可同时在 memory 模式跑作对比基线** | ✅ 直接用 Test 3/4 形态 |
-| S2 | **client_credentials** | `POST /oauth2/token` | body: `grant_type=client_credentials&client_id=backend-svc&client_secret=test-secret&scope=read` | seed SQL 的 `backend-svc` | 最简单的 token 签发：客户端认证 + RS256 签发 access_token。单步、无用户态依赖，最接近"签发吞吐量" | ✅ 直接用 Test 10 形态 |
+| S2 | **client_credentials** | `POST /oauth2/token` | header `Authorization: Basic base64("backend-svc:test-secret")`；body: `grant_type=client_credentials&scope=read` | seed SQL 的 `backend-svc` | 最简单的 token 签发：客户端认证 + RS256 签发 access_token。单步、无用户态依赖，最接近"签发吞吐量"。⚠️ **必须 HTTP Basic**（F-017：backend-svc 声明 client_secret_basic，body-post secret 返回 401） | ✅ 用 Test 10 形态；⚠️ **改 Basic 认证**（见 B.2） |
 | S3 | **introspect (active token)** | `POST /oauth2/introspect` | body: `token=<活跃AT>&client_id=vue-client&client_secret=123456` | 需先取**活跃** AT（S2 或 S4 产出） | token 验签（RS256）+ 查活跃状态。⚠️ **必须用活跃 token**——无效 token 早返回 `{active:false}` 是快路径，会虚高（脚本 Test 42 测的就是这条快路径，**基准弃用**） | ✅ 用 Test 11（active）形态；❌ 弃 Test 42（malformed） |
 | S4 | **auth_code (两步，含 PKCE)** | `POST /oauth2/login` → `POST /oauth2/token` | Step1: `username=<bench_user_N>&password=<pw>&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=<每VU唯一>&code_challenge=<S256>&code_challenge_method=S256&json=true` → 解析 `.code`；Step2: `grant_type=authorization_code&code=<code>&redirect_uri=...&client_id=vue-client&client_secret=123456&code_verifier=<verifier>` | **N 个预 seed 独立用户**（见 D4），不是单一 admin | **最重路径**：密码验签（PBKDF2，`AuthService.cc`）+ auth_code 签发与存储 + token 签发。Lua 串两步，`json=true` 拿 JSON 避免跟 302。⚠️ **必须发 PKCE**（见 D5 修正：`require_pkce_for_public=true` 是 shipped 默认） | ⚠️ 用 Test 5/6 **形态**；❌ **不用 admin/admin 单用户**（见 D4 lockout）；⚠️ **必须带 `code_challenge`/`code_verifier`**（见 D5） |
 | S5 | **refresh_token** | `POST /oauth2/token` | body: `grant_type=refresh_token&refresh_token=<RT>&client_id=vue-client&client_secret=123456` | 每 VU 独立 RT 池，**每 RT 仅用一次**（旋转家族） | refresh 旋转（V008 迁移家族逻辑）+ 新 token 签发 | ⚠️ 用 Test 9 **形态**；❌ **不用单一 RT 串行**（见 D4 家族作废） |
@@ -432,12 +432,16 @@ GET /.well-known/openid-configuration
 GET /.well-known/jwks.json
 ```
 
-### B.2 S2 client_credentials
+### B.2 S2 client_credentials（⚠️ 必须用 HTTP Basic，非 body post secret）
 ```
 POST /oauth2/token
+Authorization: Basic base64("backend-svc:test-secret")    # = YmFja2VuZC1zdmM6dGVzdC1zZWNyZXQ=
 Content-Type: application/x-www-form-urlencoded
-Body: grant_type=client_credentials&client_id=backend-svc&client_secret=test-secret&scope=read
+Body: grant_type=client_credentials&scope=read
 → 200 {access_token, token_type:"Bearer", expires_in, scope}   # 无 refresh_token
+⚠️ seed 的 backend-svc 声明 token_endpoint_auth_method=client_secret_basic，F-017 强制要求
+   HTTP Basic 认证——把 client_secret 放 body 里会返回 401 invalid_client
+   （2026-08-09 实测确认；原版误用 body-post 形式）
 ```
 
 ### B.3 S3 introspect（⚠️ 必须用**活跃** token；调用方 client 凭证，非 bearer）
