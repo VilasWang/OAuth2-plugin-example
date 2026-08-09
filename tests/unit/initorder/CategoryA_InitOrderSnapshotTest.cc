@@ -171,6 +171,24 @@ DROGON_TEST(Unit_P1_InitOrder_1_1_OpenApiDiscoveryAndJwks_Snapshot_Baseline)
     CHECK(paths["/oauth2/introspect"]["post"].isMember("security"));
     REQUIRE(paths.isMember("/oauth2/revoke"));
     CHECK(paths["/oauth2/revoke"]["post"].isMember("security"));
+
+    // Issue #41: per OpenAPI 3.0.3 §securityRequirement, `security` MUST be
+    // an ARRAY of Security Requirement Objects, each { scheme: [scopes] }.
+    // Regression guard against the former malformed object shape
+    // ({ "bearerAuth": ["bearerAuth"] }).
+    {
+        Json::Value userinfoSec = paths["/oauth2/userinfo"]["get"]["security"];
+        CHECK(userinfoSec.isArray());
+        REQUIRE(userinfoSec.size() >= 1);
+        REQUIRE(userinfoSec[0].isMember("bearerAuth"));
+        CHECK(userinfoSec[0]["bearerAuth"].isArray());  // scope list
+
+        Json::Value introspectSec = paths["/oauth2/introspect"]["post"]["security"];
+        CHECK(introspectSec.isArray());
+        REQUIRE(introspectSec.size() >= 1);
+        REQUIRE(introspectSec[0].isMember("clientCredentialsAuth"));
+        CHECK(introspectSec[0]["clientCredentialsAuth"].isArray());
+    }
 }
 
 // ---------------------------------------------------------------------------

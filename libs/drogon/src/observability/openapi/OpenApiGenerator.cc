@@ -207,16 +207,21 @@ Json::Value OpenApiGenerator::generatePathItem(const EndpointInfo &endpoint)
     {
         // Scheme selection: user-token endpoints use bearerAuth; RFC
         // 7662/7009-style client-authenticated endpoints (introspect,
-        // revoke) use clientCredentialsAuth. The array carries the scheme
-        // name to match the pre-existing generated snapshot shape.
+        // revoke) use clientCredentialsAuth.
+        //
+        // OpenAPI 3.0 §securityRequirement: the `security` field MUST be an
+        // ARRAY of Security Requirement Objects, each `{ schemeName: [scopes] }`
+        // -- an empty scope list for scope-less HTTP schemes. (Issue #41: the
+        // previous code emitted an object { scheme: [scheme] }, which is
+        // malformed and broke Swagger UI / SDK codegen.)
         const char *schemeName = (endpoint.authType == AuthType::ClientCredentials)
                                    ? "clientCredentialsAuth"
                                    : "bearerAuth";
-        Json::Value security;
-        Json::Value scheme(Json::arrayValue);
-        scheme.append(schemeName);
-        security[schemeName] = scheme;
-        pathItem["security"] = security;
+        Json::Value securityReq(Json::objectValue);
+        securityReq[schemeName] = Json::Value(Json::arrayValue);  // empty scope list
+        Json::Value securityArr(Json::arrayValue);
+        securityArr.append(securityReq);
+        pathItem["security"] = securityArr;
     }
 
     Json::Value result;
