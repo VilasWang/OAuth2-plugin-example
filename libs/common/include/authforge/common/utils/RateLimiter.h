@@ -96,8 +96,17 @@ class RateLimiter
     {
         std::lock_guard<std::mutex> lock(mutex_);
         auto now = std::chrono::steady_clock::now();
-        auto &bucket = buckets_[std::string(key)];
+        // operator[] inserts an empty bucket for a previously-unseen key, so
+        // an attacker spamming unique keys through this (the hot pre-auth
+        // path) WITHOUT ever triggering a failure would grow buckets_
+        // unboundedly (the prior sweep was only on recordFailure). Detect the
+        // insertion and run the cap sweep here too.
+        std::string keyStr(key);
+        bool inserted = (buckets_.find(keyStr) == buckets_.end());
+        auto &bucket = buckets_[std::move(keyStr)];
         purgeOldLocked(bucket, now);
+        if (inserted && buckets_.size() > config_.maxBuckets)
+            sweepLocked(now);
         if (bucket.size() >= config_.maxFailures && !bucket.empty())
         {
             // The oldest surviving failure rolls off at now+window - oldest.
@@ -157,8 +166,15 @@ class RateLimiter
             bucket.pop_front();
     }
 
-    // Review MINOR #1: drop every bucket whose entries have all aged out of
-    // the window (or is empty). Called when buckets_.size() exceeds the cap.
+    // Review MINOR #1 (round 2): drop every bucket whose entries have all
+    // aged out of the window (or is empty). If, after that purge, the bucket
+    // count STILL exceeds the cap (many distinct keys each holding in-window
+    // failures under a distributed attack), evict the buckets with the OLDEST
+    // most-recent failure until under cap -- those keys are least likely to
+    // be re-throttled soon, so dropping them frees the most memory at the
+    // lowest behavioral cost. Called from both recordFailure AND the
+    // checkThrottled insert path, since the latter is the no-failure growth
+    // vector an attacker can drive without ever tripping recordFailure.
     void sweepLocked(const TimePoint &now)
     {
         for (auto it = buckets_.begin(); it != buckets_.end();)
@@ -168,6 +184,26 @@ class RateLimiter
                 it = buckets_.erase(it);
             else
                 ++it;
+        }
+        // Cap enforcement: if still over, evict by oldest last-failure time.
+        while (buckets_.size() > config_.maxBuckets)
+        {
+            auto victim = buckets_.end();
+            // (TimePoint::max)() -- parens defeat the Windows `max` macro.
+            TimePoint victimLast = (TimePoint::max)();
+            for (auto it = buckets_.begin(); it != buckets_.end(); ++it)
+            {
+                // bucket is non-empty here (empty ones were erased above);
+                // back() is its most-recent failure.
+                if (it->second.back() < victimLast)
+                {
+                    victimLast = it->second.back();
+                    victim = it;
+                }
+            }
+            if (victim == buckets_.end())
+                break;  // nothing to evict (shouldn't happen)
+            buckets_.erase(victim);
         }
     }
 

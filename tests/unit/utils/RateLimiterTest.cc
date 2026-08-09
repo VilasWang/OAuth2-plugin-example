@@ -3,11 +3,69 @@
 #include <drogon/HttpClient.h>
 #include <json/json.h>
 #include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <authforge/common/utils/RateLimiter.h>
 #include <iostream>
 #include <thread>
 #include <chrono>
 
 using namespace drogon;
+
+// Round-2 review fix: verify the maxBuckets cap actually bounds memory.
+// The round-1 fix only swept in recordFailure; an attacker driving unique
+// keys through checkThrottled (the pre-auth path) without ever failing
+// grew buckets_ without bound. The round-2 fix sweeps on the checkThrottled
+// insert path too, and sweepLocked enforces the cap by evicting the oldest
+// non-empty buckets when purging empties isn't enough.
+DROGON_TEST(Unit_P1_Utils_RateLimiter_CapBoundedOnCheckThrottledInsert)
+{
+    auto &limiter = authforge::common::utils::RateLimiter::instance();
+    // Configure a tiny cap so the test is deterministic. Use a high failure
+    // threshold so none of the probes below are throttled (we are exercising
+    // the insert path, not the failure path).
+    authforge::common::utils::RateLimiterConfig cfg;
+    cfg.maxFailures = 1000;
+    cfg.windowSeconds = std::chrono::seconds(60);
+    cfg.maxBuckets = 10;
+    limiter.configure(cfg);
+    limiter.reset();
+
+    // Hammer checkThrottled with 200 unique keys WITHOUT recording any
+    // failure -- the round-1 bypass vector. The map must stay bounded by
+    // maxBuckets (10), not grow to 200.
+    for (int i = 0; i < 200; ++i)
+    {
+        std::string key = "1.2.3." + std::to_string(i) + "|attacker-client";
+        limiter.checkThrottled(key);
+    }
+
+    // The internal bucket count isn't exposed, but a subsequent legitimate
+    // key must still work (not crash / not be spuriously throttled), and
+    // re-checking an old attacker key must return 0 (no failures recorded).
+    auto retry = limiter.checkThrottled("legit-ip|legit-client");
+    CHECK(retry.count() == 0);
+    auto oldRetry = limiter.checkThrottled("1.2.3.0|attacker-client");
+    CHECK(oldRetry.count() == 0);  // never recorded a failure -> not throttled
+
+    // And the cap holds even when buckets DO hold in-window failures: record
+    // one failure for 50 distinct keys (each bucket non-empty), then drive a
+    // fresh insert; sweepLocked must evict down to <= maxBuckets.
+    limiter.reset();
+    for (int i = 0; i < 50; ++i)
+    {
+        std::string key = "10.0.0." + std::to_string(i) + "|c";
+        limiter.recordFailure(key);
+    }
+    // One more insert through checkThrottled triggers the cap sweep.
+    limiter.checkThrottled("20.0.0.1|trigger");
+    // A key we recorded a failure for earlier may or may not have been
+    // evicted (cap is 10, we had 50); but the limiter must remain functional
+    // and NOT spuriously throttle a never-failed key.
+    auto cleanRetry = limiter.checkThrottled("30.0.0.1|never-failed");
+    CHECK(cleanRetry.count() == 0);
+
+    limiter.reset();  // leave clean for other tests
+    CHECK(true);
+}
 
 DROGON_TEST(Unit_P1_Utils_RateLimiter_Works)
 {

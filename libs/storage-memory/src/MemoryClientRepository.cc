@@ -146,8 +146,9 @@ void MemoryClientRepository::validateClient(
     bool valid = (constantTimeMemcmp(clientSecret.c_str(), storedHash.c_str(), cmpLen) == 0) &&
                  clientSecret.length() == storedHash.length();
 
-    LOG_DEBUG << "MemoryClientRepository validateClient: Secret validation "
-              << (valid ? "PASSED" : "FAILED");
+    // Review MINOR #3 (round 2): no match-result LOG_DEBUG -- the Postgres
+    // and Redis paths removed theirs for parity (the result is already
+    // observable via the HTTP status; match-result logging is pure noise).
     cb(valid);
 }
 
