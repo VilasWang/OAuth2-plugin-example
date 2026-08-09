@@ -238,8 +238,10 @@ void PostgresClientRepository::validateClient(
                   LOG_WARN << "Postgres validateClient: Secret MISMATCH for client " << clientId;
               }
 
-              LOG_DEBUG << "Postgres validateClient: Secret validation "
-                        << (match ? "PASSED" : "FAILED");
+              // Review MINOR #3: do not LOG_DEBUG the match result -- the
+              // Redis path dropped this line in F-004 for parity (the result
+              // is already observable via the HTTP status, so this is a
+              // uniformity fix, not a timing-side-channel fix).
               (*sharedCb)(match);
           },
           [sharedCb, clientId](const DrogonDbException &e) {

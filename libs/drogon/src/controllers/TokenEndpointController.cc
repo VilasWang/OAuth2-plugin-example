@@ -5,6 +5,7 @@
 #include <authforge/drogon/error/OAuth2ErrorHandler.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
+#include <authforge/drogon/utils/ScopeChecker.h>
 #include <authforge/oauth2/model/Client.h>
 #include <authforge/common/utils/RateLimiter.h>
 #include <drogon/drogon.h>
@@ -1656,7 +1657,7 @@ void TokenEndpointController::token(
                                   // flow constructs tokens outside TokenService,
                                   // so it cannot reuse that class's inline
                                   // signing). No nonce on device flow.
-                                  if (scope.find("openid") != std::string::npos)
+                                  if (authforge::drogon::utils::hasScope(scope, "openid"))
                                   {
                                       std::string idToken =
                                         plugin->signIdToken(userId, clientId);
@@ -1876,7 +1877,7 @@ void TokenEndpointController::userInfo(
     // whose scope includes "openid". M2M tokens (client_credentials) carry a
     // "client:<id>" subject and have no user identity -- reject them here too.
     std::string scope = attrs->get<std::string>("scope");
-    if (scope.find("openid") == std::string::npos || userId.rfind("client:", 0) == 0)
+    if (!authforge::drogon::utils::hasScope(scope, "openid") || userId.rfind("client:", 0) == 0)
     {
         auto resp = ::drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(::drogon::k403Forbidden);
