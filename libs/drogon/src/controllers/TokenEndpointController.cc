@@ -961,7 +961,7 @@ void TokenEndpointController::token(
           }
           originalCallback(resp);
       };
-    auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+    auto dispatchCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
       std::move(rateAwareCallback)
     );
     // F-017: dispatchGrant is held via shared_ptr so the getClient callback
@@ -981,11 +981,11 @@ void TokenEndpointController::token(
                      redirectUri,
                      refreshToken,
                      codeVerifier,
-                     sharedCb,
+                     dispatchCb,
                      authHeader]() mutable {
         // Re-bind `callback` for the existing dispatch body (unchanged below).
         std::function<void(const ::drogon::HttpResponsePtr &)> callback =
-          [sharedCb](const ::drogon::HttpResponsePtr &r) { (*sharedCb)(r); };
+          [dispatchCb](const ::drogon::HttpResponsePtr &r) { (*dispatchCb)(r); };
 
         if (grantType == "authorization_code")
         {
@@ -1043,18 +1043,18 @@ void TokenEndpointController::token(
         // - PUBLIC clients: client_id existence check only (RFC 6749 §10.2).
         std::string authScheme =
           (!authHeader.empty() && authHeader.substr(0, 6) == "Basic ") ? "Basic" : "";
-        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+        auto refreshCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
           std::move(callback)
         );
 
         plugin->getClient(
           clientId,
-          [plugin, clientId, clientSecret, refreshToken, authScheme, sharedCb](
+          [plugin, clientId, clientSecret, refreshToken, authScheme, refreshCb](
             std::optional<authforge::oauth2::model::OAuth2Client> client
           ) {
-              auto respondInvalidClient = [sharedCb, authScheme](const std::string &desc) {
+              auto respondInvalidClient = [refreshCb, authScheme](const std::string &desc) {
                   authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-                    [sharedCb](const ::drogon::HttpResponsePtr &r) { (*sharedCb)(r); },
+                    [refreshCb](const ::drogon::HttpResponsePtr &r) { (*refreshCb)(r); },
                     "invalid_client",
                     desc,
                     "",
@@ -1068,9 +1068,9 @@ void TokenEndpointController::token(
                   return;
               }
 
-              auto proceedRefresh = [plugin, clientId, refreshToken, sharedCb]() {
+              auto proceedRefresh = [plugin, clientId, refreshToken, refreshCb]() {
                   plugin->refreshAccessToken(
-                    refreshToken, clientId, [sharedCb](const Json::Value &result) {
+                    refreshToken, clientId, [refreshCb](const Json::Value &result) {
                         if (result.isMember("error"))
                         {
                             auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
@@ -1086,7 +1086,7 @@ void TokenEndpointController::token(
                                   authforge::common::ports::MetricLabels{{"endpoint", "token"}},
                                   static_cast<double>(static_cast<int>(statusCode))
                                 );
-                            (*sharedCb)(resp);
+                            (*refreshCb)(resp);
                             return;
                         }
 
@@ -1099,7 +1099,7 @@ void TokenEndpointController::token(
                             );
                         // F-019 (RFC 6749 §5.1): token responses MUST NOT be cached.
                         applyNoStoreHeaders(resp);
-                        (*sharedCb)(resp);
+                        (*refreshCb)(resp);
                     }
                   );
               };
@@ -1816,7 +1816,7 @@ void TokenEndpointController::token(
     // leave dispatchGrant empty when the inline callback dereferences it.
     plugin->getClient(
       clientId,
-      [plugin, req, clientId, clientSecret, authHeader, sharedCb, dispatchGrant](
+      [plugin, req, clientId, clientSecret, authHeader, dispatchCb, dispatchGrant](
         std::optional<authforge::oauth2::model::OAuth2Client> client
       ) mutable {
           if (client)
@@ -1836,7 +1836,7 @@ void TokenEndpointController::token(
                   error["error_description"] = methodErr;
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(error);
                   resp->setStatusCode(::drogon::k401Unauthorized);
-                  (*sharedCb)(resp);
+                  (*dispatchCb)(resp);
                   return;
               }
           }
