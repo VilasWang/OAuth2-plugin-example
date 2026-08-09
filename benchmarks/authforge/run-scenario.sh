@@ -84,8 +84,9 @@ GIT_BRANCH="$(cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD 2>/dev/null || 
 DATE_TAG="$(date -u +%Y%m%d)"
 export BENCH_GIT_SHA="$GIT_SHA" BENCH_GIT_BRANCH="$GIT_BRANCH"
 
-# CPU count for the -t heuristic (min(cores, conns/16) rounded up)
-CPU_CORES="$(nproc 2>/dev/null || echo 4)"
+# CPU count for the -t heuristic (min(cores, conns/16) rounded up).
+# nproc is Linux; sysctl -n hw.ncpu covers macOS/BSD; fall back to 4.
+CPU_CORES="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)"
 
 mkdir -p "$RESULTS_DIR"
 

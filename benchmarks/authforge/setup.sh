@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # benchmarks/authforge/setup.sh
 #
-# Boot the AuthForge full stack (postgres + redis + backend) as the benchmark
-# target, then gate on /health/ready and validate that the seed data the S1/S2
-# scenarios depend on is reachable. Part of benchmark-facility-design.md M1.
+# Boot the AuthForge target stack (postgres + redis + backend) as the benchmark
+# target, then gate on /health/ready, apply seed SQL (the stack does NOT
+# auto-seed), and validate that the seed data the S1/S2 scenarios depend on is
+# reachable. Part of benchmark-facility-design.md M1.
 #
-# Reuses: deploy/docker/docker-compose.yml (backend:5555 + PG15 + Redis7 +
-# Prometheus, OAUTH2_AUTO_MIGRATE=true), paths.env (path single source of
-# truth). The seed/*.sql files (including bench_users.sql) are auto-injected by
-# the postgres entrypoint on a fresh pgdata volume.
+# Reuses: deploy/docker/docker-compose.yml (backend:5555 + PG15 + Redis7,
+# OAUTH2_AUTO_MIGRATE=true), paths.env (path single source of truth). Seed SQL
+# is applied explicitly via `docker exec ... psql` — see the inline note below
+# for why (postgres does not recurse into initdb.d subdirs; the app's
+# MigrationRunner runs schema only, never seed).
 #
 # Usage:
 #   bash benchmarks/authforge/setup.sh
@@ -131,10 +133,15 @@ fi
 # backend-svc is seeded by dev_backend_client.sql (applied above). A 200 +
 # access_token proves the token endpoint + RS256 signing + postgres client
 # lookup are all wired.
-echo "[setup] validating seed: POST /oauth2/token (client_credentials, backend-svc)..."
+#
+# Uses HTTP Basic auth (not body-post secret): the seeded backend-svc declares
+# token_endpoint_auth_method=client_secret_basic, so F-017 rejects a body-posted
+# client_secret with 401 invalid_client. Same form as s2-client-credentials.lua.
+echo "[setup] validating seed: POST /oauth2/token (client_credentials, backend-svc, HTTP Basic)..."
 SEED_RESP="$(curl -s -X POST "$TARGET_URL/oauth2/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "grant_type=client_credentials&client_id=backend-svc&client_secret=test-secret&scope=read" 2>/dev/null || true)"
+    -H "Authorization: Basic YmFja2VuZC1zdmM6dGVzdC1zZWNyZXQ=" \
+    -d "grant_type=client_credentials&scope=read" 2>/dev/null || true)"
 AT="$(python3 -c "import sys,json; print(json.loads(sys.argv[1]).get('access_token',''))" "$SEED_RESP" 2>/dev/null || true)"
 if [ -z "$AT" ]; then
     echo "[setup] ERROR: seed validation failed — no access_token in response:"
@@ -159,22 +166,42 @@ fi
 # without a schema change. The first login of each legacy-hash user triggers a
 # PBKDF2 rehash (AuthService.cc:94-122); M2's setup will call warmup_bench_users
 # BEFORE timed runs so that CPU cost lands in warmup, not measured throughput.
+#
+# S256 PKCE is REQUIRED here (F-011 / RFC 9700 §2.1.1): vue-client is PUBLIC and
+# require_pkce_for_public=true in all shipped configs, so a login without
+# code_challenge is rejected. Each user gets its own code_verifier + the derived
+# S256 code_challenge (the /login step only needs the challenge; M2's token
+# exchange step will also need the verifier).
 warmup_bench_users() {
     local n="${1:-512}"
-    echo "[setup] warming up $n bench users (PBKDF2 rehash, first login)..."
+    echo "[setup] warming up $n bench users (PBKDF2 rehash + PKCE, first login)..."
     local ok=0 fail=0
     for i in $(seq 0 $((n-1))); do
-        local uname
+        local uname verifier challenge code login_code
         uname="$(printf 'bench_user_%04d' "$i")"
-        if curl -s -o /dev/null -X POST "$TARGET_URL/oauth2/login" \
-            -d "username=${uname}&password=admin&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=warmup-${i}&json=true" \
-            2>/dev/null; then
+        # generate a random S256 PKCE pair (43-128 char verifier; base64url of 32 random bytes)
+        read -r verifier challenge <<EOF
+$(python3 -c "
+import os, base64, hashlib
+v = base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode()
+c = base64.urlsafe_b64encode(hashlib.sha256(v.encode()).digest()).rstrip(b'=').decode()
+print(v, c)
+")"
+EOF
+        # check the HTTP status, not just curl's exit code (curl returns 0 for HTTP 401/500)
+        login_code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$TARGET_URL/oauth2/login" \
+            -d "username=${uname}&password=admin&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=warmup-${i}&code_challenge=${challenge}&code_challenge_method=S256&json=true" \
+            2>/dev/null || echo 000)"
+        if [ "$login_code" = "200" ]; then
             ok=$((ok+1))
         else
             fail=$((fail+1))
         fi
     done
     echo "[setup] warmup: $ok ok, $fail failed"
+    if [ "$fail" -gt 0 ]; then
+        echo "[setup] WARN: $fail users failed warmup — check F-011 PKCE / seed / lockout"
+    fi
 }
 
 echo "[setup] done. target=$TARGET_URL  (bench users seeded; run warmup_bench_users before M2 auth_code scenarios)"
