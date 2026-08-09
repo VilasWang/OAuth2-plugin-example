@@ -65,7 +65,7 @@
 | 资产 | 复用方式 |
 |------|---------|
 | `deploy/docker/docker-compose.yml`（backend + PG15 + Redis7 + Prometheus） | 直接作为压测 target 的起停栈 |
-| `apps/server/seed/*.sql`（backend-svc、vue-client 客户端） | **客户端**种子数据，PG initdb 自动注入。⚠️ `admin/admin` 用户**仅冒烟用，不用于压测**——需**新增 N 个压测用户**（见 D4，lockout 脆弱） |
+| `apps/server/seed/*.sql`（backend-svc、vue-client 客户端） | **客户端**种子数据。⚠️ **docker-compose 栈不自动 seed**（PG 不递归 initdb.d 子目录、应用 MigrationRunner 只跑迁移）——本设施 `setup.sh` 显式 `psql -f` 注入。⚠️ `admin/admin` 用户**仅冒烟用，不用于压测**——需**新增 N 个压测用户**（见 D4，lockout 脆弱） |
 | `scripts/smoke-parity.{sh,ps1}` 的 boot→`/health/ready`→teardown 模式 | setup/teardown 生命周期模板 |
 | `apps/server/src/main.cc` 的 `--migrate-only` + `OAUTH2_AUTO_MIGRATE=true` | schema 复现的确定性门 |
 | `/metrics`（Prometheus exporter，`config.json:135-138`）+ compose 的 `oauth2-prometheus` 服务 | 压测期间的资源观测（标签 `{endpoint}`/`{client_id}`/`{error}`，见 §5.4） |
@@ -113,14 +113,14 @@
 ### D4 — 种子数据：复用 SQL 客户端 + **新增 N 个压测专用用户**（不能只用 admin）
 
 **依据（关键约束）**：
-1. **账户锁定已实现且会触发**：`libs/drogon/src/AuthService.cc:149-156` 实现渐进锁定——5 次失败→1 分钟、10→5 分钟、15→30 分钟、20+→1 小时。`scripts/backend/common-test-functions.sh` 的 `reset_admin_account` 在测试前后都清 `failed_login_count=0`，恰恰证明**单 admin 在重复登录下是脆弱的**。基准在高并发下，即便成功率 99.9%，单一 admin 的偶发失败（网络抖动、超时）累计会很快撞 5 次阈值，导致 login 场景跑几秒就锁死、基准崩溃。
+1. **账户锁定已实现且会触发**：`libs/drogon/src/AuthService.cc:149-157` 实现渐进锁定——5 次失败→1 分钟、10→5 分钟、15→30 分钟、20+→1 小时。`scripts/backend/common-test-functions.sh` 的 `reset_admin_account` 在测试前后都清 `failed_login_count=0`，恰恰证明**单 admin 在重复登录下是脆弱的**。基准在高并发下，即便成功率 99.9%，单一 admin 的偶发失败（网络抖动、超时）累计会很快撞 5 次阈值，导致 login 场景跑几秒就锁死、基准崩溃。
 2. **refresh token 旋转家族**：V008 迁移引入家族旋转——旧 RT 用一次即作废**整个家族**。脚本 Test 9 只调用一次所以无碍；基准若多 VU 共享一个 RT，第二次起全失败。
-3. **seed SQL 注入机制**：`deploy/docker/docker-compose.yml:82-83` 将 `seed/` 挂到 PG 的 `/docker-entrypoint-initdb.d/seed:ro`，fresh `pgdata` volume 时 PG 自动执行顶层 `.sql`（注释 `:79-81` 说明不递归子目录）。
+3. **seed SQL 注入机制（⚠️ 评审修正 2026-08-08）**：原版误称"PG initdb 自动执行 seed"。**实际**：`deploy/docker/docker-compose.yml:82-83` 将 `seed/` 挂到 PG 的 `/docker-entrypoint-initdb.d/seed:ro`，但 PG entrypoint **不递归子目录**（注释 `:79-81` 明确说明这是 no-op），且应用内 `MigrationRunner`（`OAUTH2_AUTO_MIGRATE=true`）**只跑 schema 迁移、不跑 seed**。故 **docker-compose 栈不会自动 seed**——seed 必须显式 `psql -f seed/*.sql` 注入（参照 `scripts/backend/setup-database.sh` 与 `deploy/docker/docker-quick-verify-debug.sh:62-64`）。本设施的 `setup.sh` 已实现此显式 seed 步骤（带迁移竞态重试）。
 
 **决策**：
 - **客户端凭证**：复用 `seed/*.sql`（`backend-svc`/`vue-client`）—— 客户端无锁定问题，直接用。
 - **用户**：**预 seed N 个压测专用独立用户**（如 `bench_user_0000..9999`，N ≥ 预期并发 VU 数 × 轮换系数），每 VU 绑定不同用户。两种 seed 方式：
-  - **方式 A（推荐，确定性）**：写一个 `apps/server/seed/bench_users.sql`（参照 `dev_admin_user.sql` 的 `INSERT ... ON CONFLICT DO NOTHING` 模式），随 initdb 自动注入。密码用与 admin 相同的 legacy SHA256+salt 哈希（`PasswordHasher.cc` 接受，首次登录后透明 rehash 为 PBKDF2）——但**注意**：批量 seed 的用户首次 login 会触发 PBKDF2 rehash，给首档引入噪声，故 **warmup 阶段必须先把这些用户各登录一次完成 rehash**。
+  - **方式 A（推荐，确定性）**：写一个 `apps/server/seed/bench_users.sql`（参照 `dev_admin_user.sql` 的 `INSERT ... ON CONFLICT DO NOTHING` 模式），由 `setup.sh` 显式 `psql` 注入（**不是** initdb 自动）。密码用与 admin 相同的 legacy SHA256+salt 哈希（`PasswordHasher.cc` 接受，首次登录后透明 rehash 为 PBKDF2）——但**注意**：批量 seed 的用户首次 login 会触发 PBKDF2 rehash，给首档引入噪声，故 **warmup 阶段必须先把这些用户各登录一次完成 rehash**。
   - **方式 B（灵活）**：基准 setup 阶段调 `POST /api/register` 批量注册 N 用户（脚本 Test 13 已验证此端点可用），密码统一。更慢但不需要改 seed SQL。
 - **每次压测前用 fresh volume**（`docker compose down -v` 清卷再 `up`），保证 schema + 种子确定性。运行中重置用 `scripts/backend/setup-database.sh`（drop+recreate+migrate+seed）。
 - **refresh token 池**：每 VU 维护独立 RT 池，**每 RT 仅用一次**；池预填充经 S4 流获取的 RT，大小 ≥ 单档测量期内的刷新次数。
@@ -134,11 +134,18 @@
 | auth_code 客户端（PUBLIC） | `vue-client`，secret `123456`（PUBLIC 忽略），redirect `http://localhost:5173/callback` | S4/S5/S6 | `seed/dev_vue_client.sql:5-21` |
 | ⚠️ `admin` / `admin` | —— | **仅用于冒烟验证，不用于压测** | `seed/dev_admin_user.sql`（锁定脆弱） |
 
-### D5 — 不在压测路径上做 PKCE 强制（除非专门测 PKCE）
+### D5 — 主基准 auth_code 场景**必须发 PKCE**（已按代码库现状修正）
 
-**依据**：`custom_config.auth.require_pkce_for_public` 在所有 shipped config（`config.json`/`config.dev.json`/`config.ci.json`）中**未设置（默认 OFF）**，故 `vue-client`（PUBLIC）的 auth_code 流 PKCE 可选。
+> **⚠️ 评审修正（2026-08-08 核实）**：本节原版（2026-08-05）误称"PKCE 默认 OFF"，与代码库相反。OAuth2/OIDC 合规批修复（F-011 / RFC 9700 §2.1.1）已把 PKCE 设为 PUBLIC 客户端强制。已据实重写。
 
-**决策**：主基准的 auth_code 场景**不发 PKCE**（最短路径，测核心开销）；另设一个**补充场景 `auth_code_pkce`** 专门测 S256 PKCE 的额外开销（`code_verifier` 校验 `OAuth2Plugin.cc:592-610`）。
+**依据**（已逐条核实，branch `fix/oauth-oidc-compliance-batch-0-1` @ `34b33e0`）：
+- `custom_config.auth.require_pkce_for_public` 在**全部四个** shipped config 中**显式为 `true`**：`config.json:174`、`config.dev.json:187`、`config.ci.json:143`、`config.prod.json:226`。
+- 代码默认值也是 `true`：`SessionController.cc:596` `bool requirePkce = true;`（注释 "F-011 (RFC 9700 §2.1.1): PKCE is MANDATORY"）、`AuthorizationEndpointController.cc:649` 同理。仅当 config 显式 `false` 时才 opt-out。
+- 强制点：`SessionController.cc:603` `if (requirePkce && codeChallenge.empty())` 直接返回错误——**不发自 code_challenge 的 login 请求会被拒**。
+
+**决策**（已修正）：
+- 主基准的 auth_code 场景（S4）**默认发 S256 PKCE**（`code_challenge` + 换 token 时带 `code_verifier`），与真实部署配置一致。
+- 另设补充场景 `s4b-no-pkce`：把 PKCE 开销隔离测出来——但需**临时设 `require_pkce_for_public=false`** 才能跑（改 config 或注入专用 config），**结果必须标注"非默认配置下的基线"**，不能与默认配置的 S4 混淆。
 
 ---
 
@@ -164,12 +171,12 @@
 | S1 | **discovery** | `GET /.well-known/openid-configuration` + `GET /.well-known/jwks.json` | 无 header / 无 body | 无 | 纯框架吞吐量（JSON 构造 + RSA 公钥读）；无 DB/Redis，看 Drogon 天花板。**可同时在 memory 模式跑作对比基线** | ✅ 直接用 Test 3/4 形态 |
 | S2 | **client_credentials** | `POST /oauth2/token` | body: `grant_type=client_credentials&client_id=backend-svc&client_secret=test-secret&scope=read` | seed SQL 的 `backend-svc` | 最简单的 token 签发：客户端认证 + RS256 签发 access_token。单步、无用户态依赖，最接近"签发吞吐量" | ✅ 直接用 Test 10 形态 |
 | S3 | **introspect (active token)** | `POST /oauth2/introspect` | body: `token=<活跃AT>&client_id=vue-client&client_secret=123456` | 需先取**活跃** AT（S2 或 S4 产出） | token 验签（RS256）+ 查活跃状态。⚠️ **必须用活跃 token**——无效 token 早返回 `{active:false}` 是快路径，会虚高（脚本 Test 42 测的就是这条快路径，**基准弃用**） | ✅ 用 Test 11（active）形态；❌ 弃 Test 42（malformed） |
-| S4 | **auth_code (两步)** | `POST /oauth2/login` → `POST /oauth2/token` | Step1: `username=<bench_user_N>&password=<pw>&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=<每VU唯一>&json=true` → 解析 `.code`；Step2: `grant_type=authorization_code&code=<code>&redirect_uri=...&client_id=vue-client&client_secret=123456` | **N 个预 seed 独立用户**（见 D4），不是单一 admin | **最重路径**：密码验签（PBKDF2，`AuthService.cc`）+ auth_code 签发与存储 + token 签发。Lua 串两步，`json=true` 拿 JSON 避免跟 302 | ⚠️ 用 Test 5/6 **形态**；❌ **不用 admin/admin 单用户**（见 D4 lockout） |
+| S4 | **auth_code (两步，含 PKCE)** | `POST /oauth2/login` → `POST /oauth2/token` | Step1: `username=<bench_user_N>&password=<pw>&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=<每VU唯一>&code_challenge=<S256>&code_challenge_method=S256&json=true` → 解析 `.code`；Step2: `grant_type=authorization_code&code=<code>&redirect_uri=...&client_id=vue-client&client_secret=123456&code_verifier=<verifier>` | **N 个预 seed 独立用户**（见 D4），不是单一 admin | **最重路径**：密码验签（PBKDF2，`AuthService.cc`）+ auth_code 签发与存储 + token 签发。Lua 串两步，`json=true` 拿 JSON 避免跟 302。⚠️ **必须发 PKCE**（见 D5 修正：`require_pkce_for_public=true` 是 shipped 默认） | ⚠️ 用 Test 5/6 **形态**；❌ **不用 admin/admin 单用户**（见 D4 lockout）；⚠️ **必须带 `code_challenge`/`code_verifier`**（见 D5） |
 | S5 | **refresh_token** | `POST /oauth2/token` | body: `grant_type=refresh_token&refresh_token=<RT>&client_id=vue-client&client_secret=123456` | 每 VU 独立 RT 池，**每 RT 仅用一次**（旋转家族） | refresh 旋转（V008 迁移家族逻辑）+ 新 token 签发 | ⚠️ 用 Test 9 **形态**；❌ **不用单一 RT 串行**（见 D4 家族作废） |
 | S6 | **userinfo** | `GET /oauth2/userinfo` | header: `Authorization: Bearer <活跃用户AT>` | 需经 S4 拿**用户** AT（client_credentials 的 AT subject=`client:<id>`，userinfo 无对应记录） | bearer 过滤（`OAuth2AuthFilter`）+ 用户记录查询。挂 filter，比 introspect 多一层 | ✅ 用 Test 7 形态 |
 
 **补充场景**（次要，数据驱动后决定是否纳入主报告）：
-- **auth_code_pkce**（S4 变体，发 S256 `code_verifier`）：测 PKCE 强制路径的额外开销。
+- **s4b-no-pkce**（S4 变体，**不发** PKCE）：隔离 PKCE 的额外开销——⚠️ 需临时设 `require_pkce_for_public=false`（见 D5 修正），结果是"非默认配置下的基线"，不能与默认配置的 S4 混淆。
 - **discovery_memory**（S1 在 `config.ci.json` memory 模式下）：纯框架基线，对照 DB/Redis 的开销占比。
 - **revoke**（`POST /oauth2/revoke`）：补 RFC 7009 覆盖；属"写"端点，优先级低于核心流。
 
@@ -386,7 +393,7 @@ benchmarks/
 |------|------|------|------|
 | **driver 先于 target 打满**（wrk 单机打不到 10万 QPS） | 高 | 数字为下限，证伪不了承重假设 | AC4 监控 driver CPU；超 80% 则换更强 driver 或分布式打（多 wrk 实例聚合）；声明"driver 受限" |
 | **承重数字被证伪**（如 P99 实测 >2ms） | 高 | 调研报告卖点失实 | 这正是本设施的价值——**诚实修正**调研报告 §3.1，把卖点收敛到真正领先维度（如稳态内存、QPS/瓦）；绝不对外夸大 |
-| **⚠️ login 场景账户锁定**（渐进锁定 5/10/15/20 次失败→1m/5m/30m/1h，`AuthService.cc:149-156`） | **高** | 单一/少数用户在高并发下偶发失败累计→锁定→login 场景崩溃，数字失效 | D4 决策：**预 seed N 个独立压测用户**（≥ 并发 VU 数 × 轮换系数），每 VU 绑不同用户；失败计数自然分散；监控 `oauth2_*_errors_total{error}` 异常飙升即中止 |
+| **⚠️ login 场景账户锁定**（渐进锁定 5/10/15/20 次失败→1m/5m/30m/1h，`AuthService.cc:149-157`） | **高** | 单一/少数用户在高并发下偶发失败累计→锁定→login 场景崩溃，数字失效 | D4 决策：**预 seed N 个独立压测用户**（≥ 并发 VU 数 × 轮换系数），每 VU 绑不同用户；失败计数自然分散；监控 `oauth2_*_errors_total{error}` 异常飙升即中止 |
 | **⚠️ refresh token 旋转家族作废**（V008：旧 RT 复用→整家族失效） | **高** | 多 VU 共享 RT 或单 RT 重复用→第二次起全失败，S5 场景数字为 0 | 每 VU 独立 RT 池，**每 RT 仅用一次**；池预填充 ≥ 单档测量期刷新次数 |
 | **⚠️ introspect 测到快路径**（无效 token 早返回 `{active:false}`，非完整验签） | **中** | S3 若混入无效 token，吞吐虚高、不反映真实验签开销 | S3 **只用活跃 token**（S2/S4 产出）；明确弃用脚本的 malformed-token 路径（Test 42）；脚本里校验 `active:true` 的 Test 11 形态才是对的 |
 | **PG/Redis 成瓶颈，测的是 DB 不是 server** | 中 | 数字反映 DB 配置非 server | AC6 监控后端 CPU；固定 PG 连接池（config 默认 10）；记录后端规格；必要时声明"DB-bound" |
@@ -409,7 +416,7 @@ benchmarks/
 | admin-console 客户端 | `admin-console`，redirect `http://localhost:5174/admin/callback`，scope `openid profile admin` | （补充：register 场景需 admin token） | `seed/dev_admin_console_client.sql:5-20` |
 | Token TTL | access 3600s，refresh 2592000s（30d），auth code 600s | 种子 token 有效期预算；S5 的 RT 池需在 30d 内有效 | `config.json:163-167` |
 
-**种子注入机制**：PG initdb 自动跑 `seed/*.sql`（fresh volume，`docker-compose.yml:82-83`）；或 `scripts/backend/setup-database.sh`（drop+recreate+migrate+seed，运行中重置）。**应用内 `MigrationRunner` 只跑 schema 迁移，不跑 seed**——seed 必须经 initdb 或 setup 脚本。
+**种子注入机制（⚠️ 评审修正 2026-08-08）**：docker-compose 栈**不会**自动跑 `seed/*.sql`——PG entrypoint 把 `seed/` 挂到 `/docker-entrypoint-initdb.d/seed:ro` 但**不递归子目录**（`docker-compose.yml:79-81` 明示 no-op），应用内 `MigrationRunner` 只跑 schema 迁移不跑 seed。seed 必须显式注入：本设施 `benchmarks/authforge/setup.sh` 用 `docker exec ... psql -f seed/*.sql`（带迁移竞态重试）；或 `scripts/backend/setup-database.sh`（drop+recreate+migrate+seed，运行中重置）。
 
 **⚠️ 压测用户 rehash 注意**：若用方式 A（SQL 直插 legacy SHA256 哈希），首次登录会触发 PBKDF2 rehash（CPU 密集，`AuthService.cc:120-145`），给首档引入噪声——**warmup 必须先把所有压测用户各登录一次完成 rehash**，或 seed SQL 直接写 PBKDF2 哈希。
 
@@ -442,23 +449,26 @@ Body: token=<活跃AT>&client_id=vue-client&client_secret=123456
 ⚠️ 不要用无效/malformed token（走早返回快路径，吞吐虚高；脚本 Test 42 测的是这条，基准弃用）
 ```
 
-### B.4 S4 auth_code 两步（⚠️ 用预 seed 压测用户，**不是 admin**）
+### B.4 S4 auth_code 两步（⚠️ 用预 seed 压测用户，**不是 admin**；**默认发 PKCE**）
 ```
 # Step 1: 拿 code（username 用 bench_user_NNNN，每 VU 不同，避免 lockout）
+# ⚠️ 必须带 PKCE（D5 修正：require_pkce_for_public=true 是 shipped 默认）
 POST /oauth2/login
 Body: username=bench_user_<N>&password=<统一密码>&client_id=vue-client
       &redirect_uri=http://127.0.0.1:5173/callback
-      &scope=openid+profile&state=<每VU唯一, 8-512 chars, 无 ?#&>&json=true
+      &scope=openid+profile&state=<每VU唯一, 8-512 chars, 无 ?#&>
+      &code_challenge=<S256 哈希>&code_challenge_method=S256&json=true
 → 200 {"code":"...", "location":"..."}     # json=true 避免 302
 
-# Step 2: 换 token
+# Step 2: 换 token（带 code_verifier，服务器重算 challenge 比对）
 POST /oauth2/token
 Body: grant_type=authorization_code&code=<code>
       &redirect_uri=http://127.0.0.1:5173/callback
       &client_id=vue-client&client_secret=123456
+      &code_verifier=<原始 verifier, 43-128 字符>
 → 200 {access_token, refresh_token, id_token, ...}
 ```
-（PKCE 变体 S4b：Step1 加 `&code_challenge=<S256>&code_challenge_method=S256`，Step2 加 `&code_verifier=<verifier>`）
+（补充场景 s4b-no-pkce：**不发** PKCE 以隔离其开销——⚠️ 需临时设 `require_pkce_for_public=false`，结果标注"非默认配置基线"，见 D5 修正）
 （⚠️ `admin/admin` 仅用于冒烟验证，不用于压测——渐进锁定 5/10/15/20 次失败即触发，见 D4）
 
 ### B.5 S5 refresh_token（⚠️ 每 VU 独立 RT，每 RT 仅用一次）

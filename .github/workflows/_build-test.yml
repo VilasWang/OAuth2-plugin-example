@@ -397,28 +397,3 @@ jobs:
             ${{ github.workspace }}/apps/server/logs/
           retention-days: 7
 
-      - name: Generate Performance Report
-        if: ${{ always() && inputs.platform == 'linux' }}
-        working-directory: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests
-        run: |
-          echo "=== Performance Test Summary ===" > performance_report.txt
-          echo "Run on: $(date)" >> performance_report.txt
-          echo "Platform: Linux (Ubuntu 22.04)" >> performance_report.txt
-          echo "" >> performance_report.txt
-          echo "Tests executed:" >> performance_report.txt
-          echo "- OAuth2 Flow Performance" >> performance_report.txt
-          echo "- Storage Throughput" >> performance_report.txt
-          echo "- Memory Usage" >> performance_report.txt
-          echo "- Latency Percentiles" >> performance_report.txt
-          echo "" >> performance_report.txt
-          echo "All performance thresholds passed." >> performance_report.txt
-
-      - name: Upload Performance Report
-        if: ${{ always() && inputs.platform == 'linux' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-performance-report
-          # Fixed: report is generated under the preset's tests/ dir, not the
-          # legacy build/tests/ path the old ci-linux.yml pointed at.
-          path: ${{ github.workspace }}/${{ inputs.preset_dir }}/tests/performance_report.txt
-          retention-days: 30
