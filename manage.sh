@@ -118,11 +118,21 @@ case "$ACTION" in
         ;;
     docker-up)
         cd "$SCRIPT_DIR"
-        docker compose -f "$COMPOSE_FILE_ABS" --project-directory . up -d
+        # Workaround for compose v5.3.1 buildx-bake relative-path bug (#45):
+        # layer an absolute-path override so build contexts/bind mounts resolve
+        # correctly regardless of compose version. Harmless on unaffected versions.
+        OVERRIDE="$(bash "$SCRIPT_DIR/scripts/docker/compose-override.sh" "$COMPOSE_FILE_ABS")"
+        docker compose -f "$COMPOSE_FILE_ABS" -f "$OVERRIDE" --project-directory . up -d
+        rm -f "$OVERRIDE"
         ;;
     docker-down)
         cd "$SCRIPT_DIR"
-        docker compose -f "$COMPOSE_FILE_ABS" --project-directory . down
+        # Override is not needed for `down` (no build/path resolution), but
+        # layering it keeps the invocation uniform and avoids a divergence if
+        # the compose file gains build-keyed services later.
+        OVERRIDE="$(bash "$SCRIPT_DIR/scripts/docker/compose-override.sh" "$COMPOSE_FILE_ABS")"
+        docker compose -f "$COMPOSE_FILE_ABS" -f "$OVERRIDE" --project-directory . down
+        rm -f "$OVERRIDE"
         ;;
     clean)
         rm -rf "$SCRIPT_DIR/$BUILD_DIR"

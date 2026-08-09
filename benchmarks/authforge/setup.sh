@@ -44,10 +44,20 @@ cd "$REPO_ROOT"
 
 echo "[setup] compose file: $COMPOSE_FILE_ABS"
 
+# --- #45: layer an absolute-path override for compose v5.3.1's buildx-bake
+# relative-path resolution bug. Generated from the real compose file so it
+# tracks service/mount changes; harmless on unaffected compose versions.
+# The override is only strictly needed by `up`/`build`, but we attach it to
+# every compose invocation here for uniformity.
+OVERRIDE_FILE="$(bash "$REPO_ROOT/scripts/docker/compose-override.sh" "$COMPOSE_FILE_ABS")"
+COMPOSE_ARGS=(-f "$COMPOSE_FILE_ABS")
+[ -n "$OVERRIDE_FILE" ] && [ -f "$OVERRIDE_FILE" ] && COMPOSE_ARGS+=(-f "$OVERRIDE_FILE")
+trap 'rm -f "$OVERRIDE_FILE"' EXIT
+
 # --- clean volume for determinism (skip if KEEP_VOLUME=1) ---
 if [ "${KEEP_VOLUME:-0}" != "1" ]; then
     echo "[setup] resetting volumes (docker compose down -v) for schema/seed determinism..."
-    docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" down -v \
+    docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" down -v \
         --remove-orphans >/dev/null 2>&1 || true
 fi
 
@@ -57,7 +67,7 @@ fi
 # are deliberately NOT started — this also avoids building their (slow, separate)
 # images. Same service-subset pattern as scripts/backend/full-test-docker.sh:55.
 echo "[setup] bringing up backend + postgres + redis (docker compose up -d)..."
-docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" up -d \
+docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" up -d \
     oauth2-postgres oauth2-redis oauth2-backend
 
 # --- poll /health/ready until 200 or timeout ---
@@ -77,7 +87,7 @@ done
 if [ "$READY" != "1" ]; then
     echo "[setup] ERROR: target did not become ready within ~120s (last code: $CODE)"
     echo "[setup] dumping backend logs (last 40 lines):"
-    docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" logs --tail=40 oauth2-backend 2>/dev/null || true
+    docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" logs --tail=40 oauth2-backend 2>/dev/null || true
     exit 1
 fi
 
@@ -98,7 +108,7 @@ fi
 # (ON CONFLICT DO NOTHING), so retries are safe.
 SEED_DIR_HOST="$REPO_ROOT/$OAUTH2_SERVER_DIR/seed"
 echo "[setup] applying seed SQL from $SEED_DIR_HOST ..."
-PG_CONTAINER="$(docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" ps -q oauth2-postgres 2>/dev/null || true)"
+PG_CONTAINER="$(docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" ps -q oauth2-postgres 2>/dev/null || true)"
 if [ -z "$PG_CONTAINER" ]; then
     echo "[setup] ERROR: could not resolve the postgres container to apply seed."
     exit 1
@@ -125,7 +135,7 @@ done
 if [ "$SEED_APPLIED" != "1" ]; then
     echo "[setup] ERROR: seed did not apply cleanly within ~60s ($SEED_FAIL file(s) failing; likely migrations unfinished)."
     echo "[setup] dumping backend migration logs (last 30 lines):"
-    docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" logs --tail=30 oauth2-backend 2>/dev/null || true
+    docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" logs --tail=30 oauth2-backend 2>/dev/null || true
     exit 1
 fi
 
