@@ -1,2139 +1,1678 @@
 {
-  "components" : 
-  {
-    "schemas" : 
-    {
-      "Error" : 
-      {
-        "properties" : 
-        {
-          "category" : 
-          {
-            "type" : "string"
+  "components": {
+    "schemas": {
+      "Error": {
+        "properties": {
+          "category": {
+            "type": "string"
           },
-          "code" : 
-          {
-            "type" : "integer"
+          "code": {
+            "type": "integer"
           },
-          "details" : 
-          {
-            "type" : "string"
+          "details": {
+            "type": "string"
           },
-          "message" : 
-          {
-            "type" : "string"
+          "message": {
+            "type": "string"
           },
-          "request_id" : 
-          {
-            "type" : "string"
+          "request_id": {
+            "type": "string"
           }
         },
-        "type" : "object"
+        "type": "object"
       },
-      "TokenResponse" : 
-      {
-        "properties" : 
-        {
-          "access_token" : 
-          {
-            "type" : "string"
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string"
           },
-          "expires_in" : 
-          {
-            "type" : "integer"
+          "expires_in": {
+            "type": "integer"
           },
-          "refresh_token" : 
-          {
-            "type" : "string"
+          "refresh_token": {
+            "type": "string"
           },
-          "token_type" : 
-          {
-            "type" : "string"
+          "token_type": {
+            "type": "string"
           }
         },
-        "type" : "object"
+        "type": "object"
       }
     },
-    "securitySchemes" : 
-    {
-      "bearerAuth" : 
-      {
-        "scheme" : "bearer",
-        "type" : "http"
+    "securitySchemes": {
+      "bearerAuth": {
+        "scheme": "bearer",
+        "type": "http"
       },
-      "clientCredentialsAuth" : 
-      {
-        "description" : "OAuth2 client authentication (RFC 6749 §2.3): client_id and client_secret via HTTP Basic Authorization header or POST body parameters.",
-        "scheme" : "basic",
-        "type" : "http"
+      "clientCredentialsAuth": {
+        "description": "OAuth2 client authentication (RFC 6749 \u00a72.3): client_id and client_secret via HTTP Basic Authorization header or POST body parameters.",
+        "scheme": "basic",
+        "type": "http"
       }
     }
   },
-  "info" : 
-  {
-    "description" : "OAuth2.0 authorization server with token management",
-    "title" : "OAuth2 Authorization Server API",
-    "version" : "1.0.0"
+  "info": {
+    "description": "OAuth2.0 authorization server with token management",
+    "title": "OAuth2 Authorization Server API",
+    "version": "1.0.0"
   },
-  "openapi" : "3.0.0",
-  "paths" : 
-  {
-    "/.well-known/jwks.json" : 
-    {
-      "get" : 
-      {
-        "description" : "Returns the public keys used by this server to sign JWTs.",
-        "operationId" : "get_.well-known_jwks.json",
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "schema" : 
-                {
-                  "type" : "object"
+  "openapi": "3.0.0",
+  "paths": {
+    "/.well-known/jwks.json": {
+      "get": {
+        "description": "Returns the public keys used by this server to sign JWTs.",
+        "operationId": "get_.well-known_jwks.json",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             },
-            "description" : "JSON Web Key Set"
+            "description": "JSON Web Key Set"
           }
         },
-        "summary" : "JSON Web Key Set",
-        "tags" : 
-        [
+        "summary": "JSON Web Key Set",
+        "tags": [
           "OpenID Connect",
           "Security"
         ]
       }
     },
-    "/.well-known/openid-configuration" : 
-    {
-      "get" : 
-      {
-        "description" : "Returns OIDC discovery metadata including endpoints and supported scopes.",
-        "operationId" : "get_.well-known_openid-configuration",
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "schema" : 
-                {
-                  "type" : "object"
+    "/.well-known/openid-configuration": {
+      "get": {
+        "description": "Returns OIDC discovery metadata including endpoints and supported scopes.",
+        "operationId": "get_.well-known_openid-configuration",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             },
-            "description" : "OIDC Provider Metadata"
+            "description": "OIDC Provider Metadata"
           }
         },
-        "summary" : "OpenID Connect Discovery",
-        "tags" : 
-        [
+        "summary": "OpenID Connect Discovery",
+        "tags": [
           "OpenID Connect"
         ]
       }
     },
-    "/api/admin/clients" : 
-    {
-      "get" : 
-      {
-        "description" : "Get a paginated list of registered OAuth2 clients.",
-        "operationId" : "get_api_admin_clients",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List OAuth2 Clients",
-        "tags" : 
-        [
+    "/api/admin/clients": {
+      "get": {
+        "description": "Get a paginated list of registered OAuth2 clients.",
+        "operationId": "get_api_admin_clients",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List OAuth2 Clients",
+        "tags": [
           "Admin",
           "Clients"
         ]
       },
-      "post" : 
-      {
-        "description" : "Register a new OAuth2 client.",
-        "operationId" : "post_api_admin_clients",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Create OAuth2 Client",
-        "tags" : 
-        [
+      "post": {
+        "description": "Register a new OAuth2 client.",
+        "operationId": "post_api_admin_clients",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create OAuth2 Client",
+        "tags": [
           "Admin",
           "Clients"
         ]
       }
     },
-    "/api/admin/clients/{clientId}" : 
-    {
-      "delete" : 
-      {
-        "description" : "Delete a specific OAuth2 client.",
-        "operationId" : "delete_api_admin_clients_{clientId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Delete OAuth2 Client",
-        "tags" : 
-        [
+    "/api/admin/clients/{clientId}": {
+      "delete": {
+        "description": "Delete a specific OAuth2 client.",
+        "operationId": "delete_api_admin_clients_{clientId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete OAuth2 Client",
+        "tags": [
           "Admin",
           "Clients"
         ]
       },
-      "get" : 
-      {
-        "description" : "Get details of a specific OAuth2 client by ID.",
-        "operationId" : "get_api_admin_clients_{clientId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get Client Details",
-        "tags" : 
-        [
+      "get": {
+        "description": "Get details of a specific OAuth2 client by ID.",
+        "operationId": "get_api_admin_clients_{clientId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get Client Details",
+        "tags": [
           "Admin",
           "Clients"
         ]
       },
-      "put" : 
-      {
-        "description" : "Update details of a specific OAuth2 client.",
-        "operationId" : "put_api_admin_clients_{clientId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Update OAuth2 Client",
-        "tags" : 
-        [
+      "put": {
+        "description": "Update details of a specific OAuth2 client.",
+        "operationId": "put_api_admin_clients_{clientId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update OAuth2 Client",
+        "tags": [
           "Admin",
           "Clients"
         ]
       }
     },
-    "/api/admin/clients/{clientId}/reset-secret" : 
-    {
-      "post" : 
-      {
-        "description" : "Reset the secret of a specific OAuth2 client.",
-        "operationId" : "post_api_admin_clients_{clientId}_reset-secret",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Reset Client Secret",
-        "tags" : 
-        [
+    "/api/admin/clients/{clientId}/reset-secret": {
+      "post": {
+        "description": "Reset the secret of a specific OAuth2 client.",
+        "operationId": "post_api_admin_clients_{clientId}_reset-secret",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Reset Client Secret",
+        "tags": [
           "Admin",
           "Clients"
         ]
       }
     },
-    "/api/admin/clients/{clientId}/scopes" : 
-    {
-      "get" : 
-      {
-        "description" : "Get the assigned scopes for an OAuth2 client.",
-        "operationId" : "get_api_admin_clients_{clientId}_scopes",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get Client Scopes",
-        "tags" : 
-        [
+    "/api/admin/clients/{clientId}/scopes": {
+      "get": {
+        "description": "Get the assigned scopes for an OAuth2 client.",
+        "operationId": "get_api_admin_clients_{clientId}_scopes",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get Client Scopes",
+        "tags": [
           "Admin",
           "Clients"
         ]
       },
-      "put" : 
-      {
-        "description" : "Update the assigned scopes for an OAuth2 client.",
-        "operationId" : "put_api_admin_clients_{clientId}_scopes",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Update Client Scopes",
-        "tags" : 
-        [
+      "put": {
+        "description": "Update the assigned scopes for an OAuth2 client.",
+        "operationId": "put_api_admin_clients_{clientId}_scopes",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update Client Scopes",
+        "tags": [
           "Admin",
           "Clients"
         ]
       }
     },
-    "/api/admin/dashboard/stats" : 
-    {
-      "get" : 
-      {
-        "description" : "Get dashboard statistics including user count, client count, active tokens, and failure metrics.",
-        "operationId" : "get_api_admin_dashboard_stats",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get Dashboard Stats",
-        "tags" : 
-        [
+    "/api/admin/dashboard/stats": {
+      "get": {
+        "description": "Get dashboard statistics including user count, client count, active tokens, and failure metrics.",
+        "operationId": "get_api_admin_dashboard_stats",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get Dashboard Stats",
+        "tags": [
           "Admin",
           "Dashboard"
         ]
       }
     },
-    "/api/admin/logs" : 
-    {
-      "get" : 
-      {
-        "description" : "Get a paginated list of system audit logs.",
-        "operationId" : "get_api_admin_logs",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List Audit Logs",
-        "tags" : 
-        [
+    "/api/admin/logs": {
+      "get": {
+        "description": "Get a paginated list of system audit logs.",
+        "operationId": "get_api_admin_logs",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Audit Logs",
+        "tags": [
           "Admin",
           "Logs"
         ]
       }
     },
-    "/api/admin/oidc/keys" : 
-    {
-      "get" : 
-      {
-        "description" : "Get information about OIDC signing keys.",
-        "operationId" : "get_api_admin_oidc_keys",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get OIDC Keys Info",
-        "tags" : 
-        [
+    "/api/admin/oidc/keys": {
+      "get": {
+        "description": "Get information about OIDC signing keys.",
+        "operationId": "get_api_admin_oidc_keys",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get OIDC Keys Info",
+        "tags": [
           "Admin",
           "OIDC"
         ]
       }
     },
-    "/api/admin/roles" : 
-    {
-      "get" : 
-      {
-        "description" : "Get a list of all roles with user counts.",
-        "operationId" : "get_api_admin_roles",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List Roles",
-        "tags" : 
-        [
-          "Admin",
-          "Roles"
-        ]
-      },
-      "post" : 
-      {
-        "description" : "Create a new role. Built-in roles cannot be duplicated.",
-        "operationId" : "post_api_admin_roles",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Create Role",
-        "tags" : 
-        [
-          "Admin",
-          "Roles"
-        ]
-      }
-    },
-    "/api/admin/roles/{roleId}" : 
-    {
-      "delete" : 
-      {
-        "description" : "Delete a role. Built-in roles (admin, user) cannot be deleted.",
-        "operationId" : "delete_api_admin_roles_{roleId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Delete Role",
-        "tags" : 
-        [
-          "Admin",
-          "Roles"
-        ]
-      },
-      "put" : 
-      {
-        "description" : "Update a role's description.",
-        "operationId" : "put_api_admin_roles_{roleId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Update Role",
-        "tags" : 
-        [
-          "Admin",
-          "Roles"
-        ]
-      }
-    },
-    "/api/admin/scopes" : 
-    {
-      "get" : 
-      {
-        "description" : "Get a list of all available scopes.",
-        "operationId" : "get_api_admin_scopes",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List Scopes",
-        "tags" : 
-        [
-          "Admin",
-          "Scopes"
-        ]
-      },
-      "post" : 
-      {
-        "description" : "Create a new OAuth2 scope.",
-        "operationId" : "post_api_admin_scopes",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Create Scope",
-        "tags" : 
-        [
-          "Admin",
-          "Scopes"
-        ]
-      }
-    },
-    "/api/admin/scopes/{scopeId}" : 
-    {
-      "delete" : 
-      {
-        "description" : "Delete a scope. Built-in scopes cannot be deleted.",
-        "operationId" : "delete_api_admin_scopes_{scopeId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Delete Scope",
-        "tags" : 
-        [
-          "Admin",
-          "Scopes"
-        ]
-      },
-      "put" : 
-      {
-        "description" : "Update a scope's properties.",
-        "operationId" : "put_api_admin_scopes_{scopeId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Update Scope",
-        "tags" : 
-        [
-          "Admin",
-          "Scopes"
-        ]
-      }
-    },
-    "/api/admin/tokens" : 
-    {
-      "get" : 
-      {
-        "description" : "Get a list of active OAuth2 tokens.",
-        "operationId" : "get_api_admin_tokens",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List Tokens",
-        "tags" : 
-        [
-          "Admin",
-          "Tokens"
-        ]
-      }
-    },
-    "/api/admin/tokens/revoke-by-client" : 
-    {
-      "post" : 
-      {
-        "description" : "Revoke all tokens issued to a specific client.",
-        "operationId" : "post_api_admin_tokens_revoke-by-client",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Revoke Tokens By Client",
-        "tags" : 
-        [
-          "Admin",
-          "Tokens"
-        ]
-      }
-    },
-    "/api/admin/tokens/revoke-by-user" : 
-    {
-      "post" : 
-      {
-        "description" : "Revoke all tokens issued for a specific user.",
-        "operationId" : "post_api_admin_tokens_revoke-by-user",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Revoke Tokens By User",
-        "tags" : 
-        [
-          "Admin",
-          "Tokens"
-        ]
-      }
-    },
-    "/api/admin/tokens/{tokenPrefix}" : 
-    {
-      "delete" : 
-      {
-        "description" : "Revoke a specific token by its prefix.",
-        "operationId" : "delete_api_admin_tokens_{tokenPrefix}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Revoke Token",
-        "tags" : 
-        [
-          "Admin",
-          "Tokens"
-        ]
-      }
-    },
-    "/api/admin/users" : 
-    {
-      "get" : 
-      {
-        "description" : "Get a paginated list of users.",
-        "operationId" : "get_api_admin_users",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List Users",
-        "tags" : 
-        [
-          "Admin",
-          "Users"
-        ]
-      }
-    },
-    "/api/admin/users/{userId}" : 
-    {
-      "get" : 
-      {
-        "description" : "Get detailed information about a specific user including roles and account status.",
-        "operationId" : "get_api_admin_users_{userId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get User Detail",
-        "tags" : 
-        [
-          "Admin",
-          "Users"
-        ]
-      },
-      "put" : 
-      {
-        "description" : "Update user information (email, email_verified).",
-        "operationId" : "put_api_admin_users_{userId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Update User",
-        "tags" : 
-        [
-          "Admin",
-          "Users"
-        ]
-      }
-    },
-    "/api/admin/users/{userId}/disable" : 
-    {
-      "put" : 
-      {
-        "description" : "Disable a specific user account.",
-        "operationId" : "put_api_admin_users_{userId}_disable",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Disable User",
-        "tags" : 
-        [
-          "Admin",
-          "Users"
-        ]
-      }
-    },
-    "/api/admin/users/{userId}/enable" : 
-    {
-      "post" : 
-      {
-        "description" : "Enable a disabled user account by resetting lockout state.",
-        "operationId" : "post_api_admin_users_{userId}_enable",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Enable User",
-        "tags" : 
-        [
-          "Admin",
-          "Users"
-        ]
-      }
-    },
-    "/api/admin/users/{userId}/roles" : 
-    {
-      "get" : 
-      {
-        "description" : "Get the roles assigned to a specific user.",
-        "operationId" : "get_api_admin_users_{userId}_roles",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get User Roles",
-        "tags" : 
-        [
-          "Admin",
-          "Users"
-        ]
-      },
-      "put" : 
-      {
-        "description" : "Assign roles to a specific user.",
-        "operationId" : "put_api_admin_users_{userId}_roles",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Assign User Roles",
-        "tags" : 
-        [
-          "Admin",
-          "Users"
-        ]
-      }
-    },
-    "/api/github/login" : 
-    {
-      "post" : 
-      {
-        "description" : "Exchange GitHub authorization code for user information.",
-        "operationId" : "post_api_github_login",
-        "parameters" : 
-        [
+    "/api/admin/roles": {
+      "get": {
+        "description": "Get a list of all roles with user counts.",
+        "operationId": "get_api_admin_roles",
+        "responses": null,
+        "security": [
           {
-            "description" : "Authorization code from GitHub OAuth2 callback",
-            "in" : "query",
-            "name" : "code",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Roles",
+        "tags": [
+          "Admin",
+          "Roles"
+        ]
+      },
+      "post": {
+        "description": "Create a new role. Built-in roles cannot be duplicated.",
+        "operationId": "post_api_admin_roles",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create Role",
+        "tags": [
+          "Admin",
+          "Roles"
+        ]
+      }
+    },
+    "/api/admin/roles/{roleId}": {
+      "delete": {
+        "description": "Delete a role. Built-in roles (admin, user) cannot be deleted.",
+        "operationId": "delete_api_admin_roles_{roleId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete Role",
+        "tags": [
+          "Admin",
+          "Roles"
+        ]
+      },
+      "put": {
+        "description": "Update a role's description.",
+        "operationId": "put_api_admin_roles_{roleId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update Role",
+        "tags": [
+          "Admin",
+          "Roles"
+        ]
+      }
+    },
+    "/api/admin/scopes": {
+      "get": {
+        "description": "Get a list of all available scopes.",
+        "operationId": "get_api_admin_scopes",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Scopes",
+        "tags": [
+          "Admin",
+          "Scopes"
+        ]
+      },
+      "post": {
+        "description": "Create a new OAuth2 scope.",
+        "operationId": "post_api_admin_scopes",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create Scope",
+        "tags": [
+          "Admin",
+          "Scopes"
+        ]
+      }
+    },
+    "/api/admin/scopes/{scopeId}": {
+      "delete": {
+        "description": "Delete a scope. Built-in scopes cannot be deleted.",
+        "operationId": "delete_api_admin_scopes_{scopeId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete Scope",
+        "tags": [
+          "Admin",
+          "Scopes"
+        ]
+      },
+      "put": {
+        "description": "Update a scope's properties.",
+        "operationId": "put_api_admin_scopes_{scopeId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update Scope",
+        "tags": [
+          "Admin",
+          "Scopes"
+        ]
+      }
+    },
+    "/api/admin/tokens": {
+      "get": {
+        "description": "Get a list of active OAuth2 tokens.",
+        "operationId": "get_api_admin_tokens",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Tokens",
+        "tags": [
+          "Admin",
+          "Tokens"
+        ]
+      }
+    },
+    "/api/admin/tokens/revoke-by-client": {
+      "post": {
+        "description": "Revoke all tokens issued to a specific client.",
+        "operationId": "post_api_admin_tokens_revoke-by-client",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke Tokens By Client",
+        "tags": [
+          "Admin",
+          "Tokens"
+        ]
+      }
+    },
+    "/api/admin/tokens/revoke-by-user": {
+      "post": {
+        "description": "Revoke all tokens issued for a specific user.",
+        "operationId": "post_api_admin_tokens_revoke-by-user",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke Tokens By User",
+        "tags": [
+          "Admin",
+          "Tokens"
+        ]
+      }
+    },
+    "/api/admin/tokens/{tokenPrefix}": {
+      "delete": {
+        "description": "Revoke a specific token by its prefix.",
+        "operationId": "delete_api_admin_tokens_{tokenPrefix}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke Token",
+        "tags": [
+          "Admin",
+          "Tokens"
+        ]
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "description": "Get a paginated list of users.",
+        "operationId": "get_api_admin_users",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Users",
+        "tags": [
+          "Admin",
+          "Users"
+        ]
+      }
+    },
+    "/api/admin/users/{userId}": {
+      "get": {
+        "description": "Get detailed information about a specific user including roles and account status.",
+        "operationId": "get_api_admin_users_{userId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get User Detail",
+        "tags": [
+          "Admin",
+          "Users"
+        ]
+      },
+      "put": {
+        "description": "Update user information (email, email_verified).",
+        "operationId": "put_api_admin_users_{userId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update User",
+        "tags": [
+          "Admin",
+          "Users"
+        ]
+      }
+    },
+    "/api/admin/users/{userId}/disable": {
+      "put": {
+        "description": "Disable a specific user account.",
+        "operationId": "put_api_admin_users_{userId}_disable",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Disable User",
+        "tags": [
+          "Admin",
+          "Users"
+        ]
+      }
+    },
+    "/api/admin/users/{userId}/enable": {
+      "post": {
+        "description": "Enable a disabled user account by resetting lockout state.",
+        "operationId": "post_api_admin_users_{userId}_enable",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Enable User",
+        "tags": [
+          "Admin",
+          "Users"
+        ]
+      }
+    },
+    "/api/admin/users/{userId}/roles": {
+      "get": {
+        "description": "Get the roles assigned to a specific user.",
+        "operationId": "get_api_admin_users_{userId}_roles",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get User Roles",
+        "tags": [
+          "Admin",
+          "Users"
+        ]
+      },
+      "put": {
+        "description": "Assign roles to a specific user.",
+        "operationId": "put_api_admin_users_{userId}_roles",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Assign User Roles",
+        "tags": [
+          "Admin",
+          "Users"
+        ]
+      }
+    },
+    "/api/github/login": {
+      "post": {
+        "description": "Exchange GitHub authorization code for user information.",
+        "operationId": "post_api_github_login",
+        "parameters": [
+          {
+            "description": "Authorization code from GitHub OAuth2 callback",
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "schema" : 
-                {
-                  "type" : "object"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             },
-            "description" : "GitHub user info retrieved successfully"
+            "description": "GitHub user info retrieved successfully"
           },
-          "400" : 
-          {
-            "description" : "Invalid request (missing or invalid code)"
+          "400": {
+            "description": "Invalid request (missing or invalid code)"
           },
-          "502" : 
-          {
-            "description" : "Failed to contact GitHub API"
+          "502": {
+            "description": "Failed to contact GitHub API"
           }
         },
-        "summary" : "GitHub OAuth2 Login",
-        "tags" : 
-        [
+        "summary": "GitHub OAuth2 Login",
+        "tags": [
           "External Auth",
           "GitHub"
         ]
       }
     },
-    "/api/google/login" : 
-    {
-      "post" : 
-      {
-        "description" : "Exchange Google authorization code for user information. This endpoint handles the server-side OAuth2 flow with Google Identity Platform.",
-        "operationId" : "post_api_google_login",
-        "parameters" : 
-        [
+    "/api/google/login": {
+      "post": {
+        "description": "Exchange Google authorization code for user information. This endpoint handles the server-side OAuth2 flow with Google Identity Platform.",
+        "operationId": "post_api_google_login",
+        "parameters": [
           {
-            "description" : "Authorization code from Google OAuth2 callback (required)",
-            "in" : "query",
-            "name" : "code",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Authorization code from Google OAuth2 callback (required)",
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "email" : "john.doe@gmail.com",
-                  "name" : "John Doe",
-                  "picture" : "https://lh3.googleusercontent.com/...",
-                  "sub" : "123456789012345678901"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "email": "john.doe@gmail.com",
+                  "name": "John Doe",
+                  "picture": "https://lh3.googleusercontent.com/...",
+                  "sub": "123456789012345678901"
                 }
               }
             },
-            "description" : "Google user info retrieved successfully"
+            "description": "Google user info retrieved successfully"
           },
-          "400" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "error" : "Missing code parameter"
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Missing code parameter"
                 }
               }
             },
-            "description" : "Invalid request (missing or invalid code)"
+            "description": "Invalid request (missing or invalid code)"
           },
-          "502" : 
-          {
-            "description" : "Failed to contact Google API"
+          "502": {
+            "description": "Failed to contact Google API"
           }
         },
-        "summary" : "Google OAuth2 Login",
-        "tags" : 
-        [
+        "summary": "Google OAuth2 Login",
+        "tags": [
           "External Auth",
           "Google"
         ]
       }
     },
-    "/api/me" : 
-    {
-      "delete" : 
-      {
-        "description" : "Soft-delete the current user's account.",
-        "operationId" : "delete_api_me",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Delete Account",
-        "tags" : 
-        [
+    "/api/me": {
+      "delete": {
+        "description": "Soft-delete the current user's account.",
+        "operationId": "delete_api_me",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete Account",
+        "tags": [
           "User Profile"
         ]
       },
-      "get" : 
-      {
-        "description" : "Get current user's profile information.",
-        "operationId" : "get_api_me",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get User Profile",
-        "tags" : 
-        [
+      "get": {
+        "description": "Get current user's profile information.",
+        "operationId": "get_api_me",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get User Profile",
+        "tags": [
           "User Profile"
         ]
       }
     },
-    "/api/me/authorized-apps" : 
-    {
-      "get" : 
-      {
-        "description" : "List OAuth2 clients authorized by the current user.",
-        "operationId" : "get_api_me_authorized-apps",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List Authorized Apps",
-        "tags" : 
-        [
+    "/api/me/authorized-apps": {
+      "get": {
+        "description": "List OAuth2 clients authorized by the current user.",
+        "operationId": "get_api_me_authorized-apps",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Authorized Apps",
+        "tags": [
           "User Profile"
         ]
       }
     },
-    "/api/me/authorized-apps/{clientId}" : 
-    {
-      "delete" : 
-      {
-        "description" : "Revoke the current user's authorization for a specific OAuth2 client.",
-        "operationId" : "delete_api_me_authorized-apps_{clientId}",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Revoke App Authorization",
-        "tags" : 
-        [
+    "/api/me/authorized-apps/{clientId}": {
+      "delete": {
+        "description": "Revoke the current user's authorization for a specific OAuth2 client.",
+        "operationId": "delete_api_me_authorized-apps_{clientId}",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Revoke App Authorization",
+        "tags": [
           "User Profile"
         ]
       }
     },
-    "/api/me/password" : 
-    {
-      "put" : 
-      {
-        "description" : "Change the current user's password.",
-        "operationId" : "put_api_me_password",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Change Password",
-        "tags" : 
-        [
+    "/api/me/password": {
+      "put": {
+        "description": "Change the current user's password.",
+        "operationId": "put_api_me_password",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Change Password",
+        "tags": [
           "User Profile"
         ]
       }
     },
-    "/api/me/webauthn/credentials" : 
-    {
-      "get" : 
-      {
-        "description" : "List registered WebAuthn credentials.",
-        "operationId" : "get_api_me_webauthn_credentials",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List WebAuthn Credentials",
-        "tags" : 
-        [
+    "/api/me/webauthn/credentials": {
+      "get": {
+        "description": "List registered WebAuthn credentials.",
+        "operationId": "get_api_me_webauthn_credentials",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List WebAuthn Credentials",
+        "tags": [
           "WebAuthn"
         ]
       }
     },
-    "/api/me/webauthn/register/begin" : 
-    {
-      "post" : 
-      {
-        "description" : "Start WebAuthn registration.",
-        "operationId" : "post_api_me_webauthn_register_begin",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "WebAuthn Register Begin",
-        "tags" : 
-        [
+    "/api/me/webauthn/register/begin": {
+      "post": {
+        "description": "Start WebAuthn registration.",
+        "operationId": "post_api_me_webauthn_register_begin",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "WebAuthn Register Begin",
+        "tags": [
           "WebAuthn"
         ]
       }
     },
-    "/api/me/webauthn/register/finish" : 
-    {
-      "post" : 
-      {
-        "description" : "Finish WebAuthn registration.",
-        "operationId" : "post_api_me_webauthn_register_finish",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "WebAuthn Register Finish",
-        "tags" : 
-        [
+    "/api/me/webauthn/register/finish": {
+      "post": {
+        "description": "Finish WebAuthn registration.",
+        "operationId": "post_api_me_webauthn_register_finish",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "WebAuthn Register Finish",
+        "tags": [
           "WebAuthn"
         ]
       }
     },
-    "/api/orgs" : 
-    {
-      "get" : 
-      {
-        "description" : "List all organizations.",
-        "operationId" : "get_api_orgs",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "List Organizations",
-        "tags" : 
-        [
+    "/api/orgs": {
+      "get": {
+        "description": "List all organizations.",
+        "operationId": "get_api_orgs",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Organizations",
+        "tags": [
           "Organization"
         ]
       },
-      "post" : 
-      {
-        "description" : "Create a new organization.",
-        "operationId" : "post_api_orgs",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Create Organization",
-        "tags" : 
-        [
+      "post": {
+        "description": "Create a new organization.",
+        "operationId": "post_api_orgs",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create Organization",
+        "tags": [
           "Organization"
         ]
       }
     },
-    "/api/orgs/{orgId}/users" : 
-    {
-      "post" : 
-      {
-        "description" : "Add a user to an organization.",
-        "operationId" : "post_api_orgs_{orgId}_users",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Add User to Organization",
-        "tags" : 
-        [
+    "/api/orgs/{orgId}/users": {
+      "post": {
+        "description": "Add a user to an organization.",
+        "operationId": "post_api_orgs_{orgId}_users",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Add User to Organization",
+        "tags": [
           "Organization"
         ]
       }
     },
-    "/api/password-reset/confirm" : 
-    {
-      "post" : 
-      {
-        "description" : "Confirm a password reset using the token sent via email.",
-        "operationId" : "post_api_password-reset_confirm",
-        "responses" : null,
-        "summary" : "Confirm Password Reset",
-        "tags" : 
-        [
+    "/api/password-reset/confirm": {
+      "post": {
+        "description": "Confirm a password reset using the token sent via email.",
+        "operationId": "post_api_password-reset_confirm",
+        "responses": null,
+        "summary": "Confirm Password Reset",
+        "tags": [
           "User Verification"
         ]
       }
     },
-    "/api/password-reset/request" : 
-    {
-      "post" : 
-      {
-        "description" : "Request a password reset link to be sent via email.",
-        "operationId" : "post_api_password-reset_request",
-        "responses" : null,
-        "summary" : "Request Password Reset",
-        "tags" : 
-        [
+    "/api/password-reset/request": {
+      "post": {
+        "description": "Request a password reset link to be sent via email.",
+        "operationId": "post_api_password-reset_request",
+        "responses": null,
+        "summary": "Request Password Reset",
+        "tags": [
           "User Verification"
         ]
       }
     },
-    "/api/register" : 
-    {
-      "post" : 
-      {
-        "description" : "Registers a new user account into the system.",
-        "operationId" : "post_api_register",
-        "parameters" : 
-        [
+    "/api/register": {
+      "post": {
+        "description": "Registers a new user account into the system.",
+        "operationId": "post_api_register",
+        "parameters": [
           {
-            "description" : "Desired username (required)",
-            "in" : "query",
-            "name" : "username",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Desired username (required)",
+            "in": "query",
+            "name": "username",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Strong password (required)",
-            "in" : "query",
-            "name" : "password",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Strong password (required)",
+            "in": "query",
+            "name": "password",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Email address (optional)",
-            "in" : "query",
-            "name" : "email",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Email address (optional)",
+            "in": "query",
+            "name": "email",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "message" : "User registered successfully",
-                  "status" : "success"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "User registered successfully",
+                  "status": "success"
                 }
               }
             },
-            "description" : "User registered successfully"
+            "description": "User registered successfully"
           },
-          "400" : 
-          {
-            "description" : "Invalid registration data"
+          "400": {
+            "description": "Invalid registration data"
           }
         },
-        "summary" : "Register new user",
-        "tags" : 
-        [
+        "summary": "Register new user",
+        "tags": [
           "User",
           "Registration"
         ]
       }
     },
-    "/api/verify-email" : 
-    {
-      "get" : 
-      {
-        "description" : "Verify an email address using a token.",
-        "operationId" : "get_api_verify-email",
-        "responses" : null,
-        "summary" : "Verify Email",
-        "tags" : 
-        [
+    "/api/verify-email": {
+      "get": {
+        "description": "Verify an email address using a token.",
+        "operationId": "get_api_verify-email",
+        "responses": null,
+        "summary": "Verify Email",
+        "tags": [
           "User Verification"
         ]
       }
     },
-    "/api/verify-email/resend" : 
-    {
-      "post" : 
-      {
-        "description" : "Resend the email verification link.",
-        "operationId" : "post_api_verify-email_resend",
-        "responses" : null,
-        "summary" : "Resend Verification Email",
-        "tags" : 
-        [
+    "/api/verify-email/resend": {
+      "post": {
+        "description": "Resend the email verification link.",
+        "operationId": "post_api_verify-email_resend",
+        "responses": null,
+        "summary": "Resend Verification Email",
+        "tags": [
           "User Verification"
         ]
       }
     },
-    "/api/wechat/login" : 
-    {
-      "post" : 
-      {
-        "description" : "Exchange WeChat authorization code for user information. This endpoint handles the server-side OAuth2 flow with WeChat Open Platform.",
-        "operationId" : "post_api_wechat_login",
-        "parameters" : 
-        [
+    "/api/wechat/login": {
+      "post": {
+        "description": "Exchange WeChat authorization code for user information. This endpoint handles the server-side OAuth2 flow with WeChat Open Platform.",
+        "operationId": "post_api_wechat_login",
+        "parameters": [
           {
-            "description" : "Authorization code from WeChat OAuth2 callback (required)",
-            "in" : "query",
-            "name" : "code",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Authorization code from WeChat OAuth2 callback (required)",
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "headimgurl" : "https://thirdwx.qlogo.cn/...",
-                  "nickname" : "WeChat User",
-                  "openid" : "oXXXXXXXXXXXXXXXXXXXXXXXXXX"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "headimgurl": "https://thirdwx.qlogo.cn/...",
+                  "nickname": "WeChat User",
+                  "openid": "oXXXXXXXXXXXXXXXXXXXXXXXXXX"
                 }
               }
             },
-            "description" : "WeChat user info retrieved successfully"
+            "description": "WeChat user info retrieved successfully"
           },
-          "400" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "error" : "Missing code parameter"
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Missing code parameter"
                 }
               }
             },
-            "description" : "Invalid request (missing or invalid code)"
+            "description": "Invalid request (missing or invalid code)"
           },
-          "502" : 
-          {
-            "description" : "Failed to contact WeChat API"
+          "502": {
+            "description": "Failed to contact WeChat API"
           }
         },
-        "summary" : "WeChat OAuth2 Login",
-        "tags" : 
-        [
+        "summary": "WeChat OAuth2 Login",
+        "tags": [
           "External Auth",
           "WeChat"
         ]
       }
     },
-    "/docs/api/" : 
-    {
-      "get" : 
-      {
-        "description" : "Serves the Swagger UI HTML page for interactive API documentation.",
-        "operationId" : "get_docs_api_",
-        "responses" : null,
-        "summary" : "Swagger UI",
-        "tags" : 
-        [
+    "/docs/api/": {
+      "get": {
+        "description": "Serves the Swagger UI HTML page for interactive API documentation.",
+        "operationId": "get_docs_api_",
+        "responses": null,
+        "summary": "Swagger UI",
+        "tags": [
           "Documentation"
         ]
       }
     },
-    "/docs/api/openapi.json" : 
-    {
-      "get" : 
-      {
-        "description" : "Returns the dynamically generated OpenAPI 3.0 specification in JSON format.",
-        "operationId" : "get_docs_api_openapi.json",
-        "responses" : null,
-        "summary" : "Get OpenAPI Specification",
-        "tags" : 
-        [
+    "/docs/api/openapi.json": {
+      "get": {
+        "description": "Returns the dynamically generated OpenAPI 3.0 specification in JSON format.",
+        "operationId": "get_docs_api_openapi.json",
+        "responses": null,
+        "summary": "Get OpenAPI Specification",
+        "tags": [
           "Documentation"
         ]
       }
     },
-    "/health" : 
-    {
-      "get" : 
-      {
-        "description" : "Returns the health status of the service.",
-        "operationId" : "get_health",
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "status" : "ok",
-                  "version" : "1.0.0"
+    "/health": {
+      "get": {
+        "description": "Returns the health status of the service.",
+        "operationId": "get_health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok",
+                  "version": "1.0.0"
                 }
               }
             },
-            "description" : "Service is healthy"
+            "description": "Service is healthy"
           }
         },
-        "summary" : "Health check",
-        "tags" : 
-        [
+        "summary": "Health check",
+        "tags": [
           "System"
         ]
       }
     },
-    "/oauth2/authorize" : 
-    {
-      "get" : 
-      {
-        "description" : "OAuth2 authorization endpoint - initiates authorization flow",
-        "operationId" : "get_oauth2_authorize",
-        "parameters" : 
-        [
+    "/oauth2/authorize": {
+      "get": {
+        "description": "OAuth2 authorization endpoint - initiates authorization flow",
+        "operationId": "get_oauth2_authorize",
+        "parameters": [
           {
-            "description" : "Client identifier (required)",
-            "in" : "query",
-            "name" : "client_id",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Client identifier (required)",
+            "in": "query",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Redirect URI (required)",
-            "in" : "query",
-            "name" : "redirect_uri",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Redirect URI (required)",
+            "in": "query",
+            "name": "redirect_uri",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Response type, must be 'code' (required)",
-            "in" : "query",
-            "name" : "response_type",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Response type, must be 'code' (required)",
+            "in": "query",
+            "name": "response_type",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Requested scope (optional)",
-            "in" : "query",
-            "name" : "scope",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Requested scope (optional)",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Opaque value to maintain state between request and callback (recommended)",
-            "in" : "query",
-            "name" : "state",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Opaque value to maintain state between request and callback (recommended)",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "302" : 
-          {
-            "description" : "Redirect to client with authorization code"
+        "responses": {
+          "302": {
+            "description": "Redirect to client with authorization code"
           },
-          "400" : 
-          {
-            "description" : "Invalid request"
+          "400": {
+            "description": "Invalid request"
           }
         },
-        "summary" : "Request authorization",
-        "tags" : 
-        [
+        "summary": "Request authorization",
+        "tags": [
           "OAuth2",
           "Authorization"
         ]
       }
     },
-    "/oauth2/consent" : 
-    {
-      "post" : 
-      {
-        "description" : "Submit user consent for requested scopes. Redirects back to client.",
-        "operationId" : "post_oauth2_consent",
-        "parameters" : 
-        [
+    "/oauth2/consent": {
+      "post": {
+        "description": "Submit user consent for requested scopes. Redirects back to client.",
+        "operationId": "post_oauth2_consent",
+        "parameters": [
           {
-            "description" : "Client identifier (required)",
-            "in" : "query",
-            "name" : "client_id",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Client identifier (required)",
+            "in": "query",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "User identifier (required)",
-            "in" : "query",
-            "name" : "user_id",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "User identifier (required)",
+            "in": "query",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Requested scope to consent (required)",
-            "in" : "query",
-            "name" : "scope",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Requested scope to consent (required)",
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Redirect URI (required)",
-            "in" : "query",
-            "name" : "redirect_uri",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Redirect URI (required)",
+            "in": "query",
+            "name": "redirect_uri",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Opaque value to maintain state",
-            "in" : "query",
-            "name" : "state",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Opaque value to maintain state",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Action to perform: 'approve' or 'deny' (required)",
-            "in" : "query",
-            "name" : "action",
-            "required" : true,
-            "schema" : 
-            {
-              "enum" : 
-              [
+            "description": "Action to perform: 'approve' or 'deny' (required)",
+            "in": "query",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
                 "approve",
                 "deny"
               ],
-              "type" : "string"
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "302" : 
-          {
-            "description" : "Redirect to client with authorization code or error"
+        "responses": {
+          "302": {
+            "description": "Redirect to client with authorization code or error"
           }
         },
-        "summary" : "Submit user consent",
-        "tags" : 
-        [
+        "summary": "Submit user consent",
+        "tags": [
           "OAuth2",
           "Consent"
         ]
       }
     },
-    "/oauth2/device/verify" : 
-    {
-      "get" : 
-      {
-        "description" : "Display device verification page.",
-        "operationId" : "get_oauth2_device_verify",
-        "responses" : null,
-        "summary" : "Verify Device (GET)",
-        "tags" : 
-        [
+    "/oauth2/device/verify": {
+      "get": {
+        "description": "Display device verification page.",
+        "operationId": "get_oauth2_device_verify",
+        "responses": null,
+        "summary": "Verify Device (GET)",
+        "tags": [
           "OAuth2",
           "Device Flow"
         ]
       },
-      "post" : 
-      {
-        "description" : "Submit device verification code.",
-        "operationId" : "post_oauth2_device_verify",
-        "responses" : null,
-        "summary" : "Verify Device (POST)",
-        "tags" : 
-        [
+      "post": {
+        "description": "Submit device verification code.",
+        "operationId": "post_oauth2_device_verify",
+        "responses": null,
+        "summary": "Verify Device (POST)",
+        "tags": [
           "OAuth2",
           "Device Flow"
         ]
       }
     },
-    "/oauth2/device_authorization" : 
-    {
-      "post" : 
-      {
-        "description" : "Request device authorization.",
-        "operationId" : "post_oauth2_device_authorization",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Device Authorization",
-        "tags" : 
-        [
-          "OAuth2",
-          "Device Flow"
-        ]
-      }
-    },
-    "/oauth2/introspect" : 
-    {
-      "post" : 
-      {
-        "description" : "RFC 7662 OAuth 2.0 Token Introspection. Returns information about a token.",
-        "operationId" : "post_oauth2_introspect",
-        "parameters" : 
-        [
+    "/oauth2/device_authorization": {
+      "post": {
+        "description": "Request device authorization.",
+        "operationId": "post_oauth2_device_authorization",
+        "responses": null,
+        "security": [
           {
-            "description" : "The string value of the token (required)",
-            "in" : "query",
-            "name" : "token",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Device Authorization",
+        "tags": [
+          "OAuth2",
+          "Device Flow"
+        ]
+      }
+    },
+    "/oauth2/introspect": {
+      "post": {
+        "description": "RFC 7662 OAuth 2.0 Token Introspection. Returns information about a token.",
+        "operationId": "post_oauth2_introspect",
+        "parameters": [
+          {
+            "description": "The string value of the token (required)",
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "active" : true,
-                  "client_id" : "client_123",
-                  "exp" : 1680000000,
-                  "scope" : "read write",
-                  "sub" : "user_456",
-                  "token_type" : "Bearer"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "active": true,
+                  "client_id": "client_123",
+                  "exp": 1680000000,
+                  "scope": "read write",
+                  "sub": "user_456",
+                  "token_type": "Bearer"
                 }
               }
             },
-            "description" : "Token status and metadata"
+            "description": "Token status and metadata"
           },
-          "400" : 
-          {
-            "description" : "Invalid request"
+          "400": {
+            "description": "Invalid request"
           },
-          "401" : 
-          {
-            "description" : "Authentication failed"
+          "401": {
+            "description": "Authentication failed"
           }
         },
-        "security" : 
-        {
-          "clientCredentialsAuth" : 
-          [
-            "clientCredentialsAuth"
-          ]
-        },
-        "summary" : "Introspect token",
-        "tags" : 
-        [
+        "security": [
+          {
+            "clientCredentialsAuth": []
+          }
+        ],
+        "summary": "Introspect token",
+        "tags": [
           "OAuth2",
           "Token"
         ]
       }
     },
-    "/oauth2/login" : 
-    {
-      "post" : 
-      {
-        "description" : "Authenticates user credentials and generates an authorization code. Usually called by the frontend login page during the authorization code flow.",
-        "operationId" : "post_oauth2_login",
-        "parameters" : 
-        [
+    "/oauth2/login": {
+      "post": {
+        "description": "Authenticates user credentials and generates an authorization code. Usually called by the frontend login page during the authorization code flow.",
+        "operationId": "post_oauth2_login",
+        "parameters": [
           {
-            "description" : "User's account username (required)",
-            "in" : "query",
-            "name" : "username",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "User's account username (required)",
+            "in": "query",
+            "name": "username",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "User's password (required)",
-            "in" : "query",
-            "name" : "password",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "User's password (required)",
+            "in": "query",
+            "name": "password",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Client identifier matches the requesting app (required)",
-            "in" : "query",
-            "name" : "client_id",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Client identifier matches the requesting app (required)",
+            "in": "query",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Redirect URI matching the registered client (required)",
-            "in" : "query",
-            "name" : "redirect_uri",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Redirect URI matching the registered client (required)",
+            "in": "query",
+            "name": "redirect_uri",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Requested scope, space-separated (optional)",
-            "in" : "query",
-            "name" : "scope",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Requested scope, space-separated (optional)",
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Opaque value to maintain state (recommended)",
-            "in" : "query",
-            "name" : "state",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Opaque value to maintain state (recommended)",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "redirect_uri" : "http://127.0.0.1:5173/callback?code=xyz123",
-                  "status" : "success"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "redirect_uri": "http://127.0.0.1:5173/callback?code=xyz123",
+                  "status": "success"
                 }
               }
             },
-            "description" : "Authentication successful (JSON with redirect_uri)"
+            "description": "Authentication successful (JSON with redirect_uri)"
           },
-          "302" : 
-          {
-            "description" : "Redirect with authorization code (if requested via browser)"
+          "302": {
+            "description": "Redirect with authorization code (if requested via browser)"
           },
-          "401" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "error" : "invalid_client"
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "invalid_client"
                 }
               }
             },
-            "description" : "Authentication failed"
+            "description": "Authentication failed"
           }
         },
-        "summary" : "Authenticate user",
-        "tags" : 
-        [
+        "summary": "Authenticate user",
+        "tags": [
           "OAuth2",
           "Authentication"
         ]
       }
     },
-    "/oauth2/mfa/disable" : 
-    {
-      "post" : 
-      {
-        "description" : "Disable MFA for the authenticated user.",
-        "operationId" : "post_oauth2_mfa_disable",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Disable MFA",
-        "tags" : 
-        [
+    "/oauth2/mfa/disable": {
+      "post": {
+        "description": "Disable MFA for the authenticated user.",
+        "operationId": "post_oauth2_mfa_disable",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Disable MFA",
+        "tags": [
           "MFA"
         ]
       }
     },
-    "/oauth2/mfa/setup" : 
-    {
-      "post" : 
-      {
-        "description" : "Initiate MFA setup by generating a TOTP secret.",
-        "operationId" : "post_oauth2_mfa_setup",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Setup MFA",
-        "tags" : 
-        [
+    "/oauth2/mfa/setup": {
+      "post": {
+        "description": "Initiate MFA setup by generating a TOTP secret.",
+        "operationId": "post_oauth2_mfa_setup",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Setup MFA",
+        "tags": [
           "MFA"
         ]
       }
     },
-    "/oauth2/mfa/setup/verify" : 
-    {
-      "post" : 
-      {
-        "description" : "Verify a TOTP code to finalize MFA setup.",
-        "operationId" : "post_oauth2_mfa_setup_verify",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Verify MFA Setup",
-        "tags" : 
-        [
+    "/oauth2/mfa/setup/verify": {
+      "post": {
+        "description": "Verify a TOTP code to finalize MFA setup.",
+        "operationId": "post_oauth2_mfa_setup_verify",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Verify MFA Setup",
+        "tags": [
           "MFA"
         ]
       }
     },
-    "/oauth2/mfa/verify" : 
-    {
-      "post" : 
-      {
-        "description" : "Verify MFA code during login.",
-        "operationId" : "post_oauth2_mfa_verify",
-        "responses" : null,
-        "summary" : "Verify MFA Code (Login)",
-        "tags" : 
-        [
+    "/oauth2/mfa/verify": {
+      "post": {
+        "description": "Verify MFA code during login.",
+        "operationId": "post_oauth2_mfa_verify",
+        "responses": null,
+        "summary": "Verify MFA Code (Login)",
+        "tags": [
           "MFA"
         ]
       }
     },
-    "/oauth2/register" : 
-    {
-      "post" : 
-      {
-        "description" : "Dynamic client registration.",
-        "operationId" : "post_oauth2_register",
-        "responses" : null,
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Register Client",
-        "tags" : 
-        [
+    "/oauth2/register": {
+      "post": {
+        "description": "Dynamic client registration.",
+        "operationId": "post_oauth2_register",
+        "responses": null,
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Register Client",
+        "tags": [
           "OAuth2",
           "Dynamic Registration"
         ]
       }
     },
-    "/oauth2/revoke" : 
-    {
-      "post" : 
-      {
-        "description" : "RFC 7009 OAuth 2.0 Token Revocation. Revokes an access or refresh token.",
-        "operationId" : "post_oauth2_revoke",
-        "parameters" : 
-        [
+    "/oauth2/revoke": {
+      "post": {
+        "description": "RFC 7009 OAuth 2.0 Token Revocation. Revokes an access or refresh token.",
+        "operationId": "post_oauth2_revoke",
+        "parameters": [
           {
-            "description" : "The token that the client wants to get revoked (required)",
-            "in" : "query",
-            "name" : "token",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "The token that the client wants to get revoked (required)",
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "schema" : 
-                {
-                  "type" : "object"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             },
-            "description" : "Token revoked successfully or token did not exist"
+            "description": "Token revoked successfully or token did not exist"
           },
-          "400" : 
-          {
-            "description" : "Invalid request"
+          "400": {
+            "description": "Invalid request"
           },
-          "401" : 
-          {
-            "description" : "Authentication failed"
+          "401": {
+            "description": "Authentication failed"
           }
         },
-        "security" : 
-        {
-          "clientCredentialsAuth" : 
-          [
-            "clientCredentialsAuth"
-          ]
-        },
-        "summary" : "Revoke token",
-        "tags" : 
-        [
+        "security": [
+          {
+            "clientCredentialsAuth": []
+          }
+        ],
+        "summary": "Revoke token",
+        "tags": [
           "OAuth2",
           "Token"
         ]
       }
     },
-    "/oauth2/token" : 
-    {
-      "post" : 
-      {
-        "description" : "OAuth2 token endpoint - exchanges authorization code or refresh token for access token.",
-        "operationId" : "post_oauth2_token",
-        "parameters" : 
-        [
+    "/oauth2/token": {
+      "post": {
+        "description": "OAuth2 token endpoint - exchanges authorization code or refresh token for access token.",
+        "operationId": "post_oauth2_token",
+        "parameters": [
           {
-            "description" : "Type of grant being requested",
-            "in" : "query",
-            "name" : "grant_type",
-            "required" : true,
-            "schema" : 
-            {
-              "enum" : 
-              [
+            "description": "Type of grant being requested",
+            "in": "query",
+            "name": "grant_type",
+            "required": true,
+            "schema": {
+              "enum": [
                 "authorization_code",
                 "refresh_token",
                 "client_credentials"
               ],
-              "type" : "string"
+              "type": "string"
             }
           },
           {
-            "description" : "Authorization code (required for grant_type=authorization_code)",
-            "in" : "query",
-            "name" : "code",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Authorization code (required for grant_type=authorization_code)",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Refresh token (required for grant_type=refresh_token)",
-            "in" : "query",
-            "name" : "refresh_token",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Refresh token (required for grant_type=refresh_token)",
+            "in": "query",
+            "name": "refresh_token",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Client identifier (required)",
-            "in" : "query",
-            "name" : "client_id",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Client identifier (required)",
+            "in": "query",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Client secret (required for confidential clients)",
-            "in" : "query",
-            "name" : "client_secret",
-            "required" : true,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Client secret (required for confidential clients)",
+            "in": "query",
+            "name": "client_secret",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
           {
-            "description" : "Redirect URI (required for authorization_code grant)",
-            "in" : "query",
-            "name" : "redirect_uri",
-            "required" : false,
-            "schema" : 
-            {
-              "type" : "string"
+            "description": "Redirect URI (required for authorization_code grant)",
+            "in": "query",
+            "name": "redirect_uri",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "access_token" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                  "expires_in" : 3600,
-                  "refresh_token" : "ref_123456789",
-                  "scope" : "openid profile",
-                  "token_type" : "Bearer"
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                  "expires_in": 3600,
+                  "refresh_token": "ref_123456789",
+                  "scope": "openid profile",
+                  "token_type": "Bearer"
                 }
               }
             },
-            "description" : "Token response with access_token and refresh_token"
+            "description": "Token response with access_token and refresh_token"
           },
-          "400" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "error" : "invalid_grant",
-                  "error_description" : "Invalid authorization code"
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "invalid_grant",
+                  "error_description": "Invalid authorization code"
                 }
               }
             },
-            "description" : "Invalid request"
+            "description": "Invalid request"
           },
-          "401" : 
-          {
-            "description" : "Authentication failed"
+          "401": {
+            "description": "Authentication failed"
           }
         },
-        "summary" : "Exchange authorization code for access token",
-        "tags" : 
-        [
+        "summary": "Exchange authorization code for access token",
+        "tags": [
           "OAuth2",
           "Token"
         ]
       }
     },
-    "/oauth2/userinfo" : 
-    {
-      "get" : 
-      {
-        "description" : "Returns information about the authenticated user. Provides user profile data including username, email, and assigned roles according to OpenID Connect standards.",
-        "operationId" : "get_oauth2_userinfo",
-        "responses" : 
-        {
-          "200" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "email" : "john@example.com",
-                  "name" : "john_doe",
-                  "roles" : 
-                  [
+    "/oauth2/userinfo": {
+      "get": {
+        "description": "Returns information about the authenticated user. Provides user profile data including username, email, and assigned roles according to OpenID Connect standards.",
+        "operationId": "get_oauth2_userinfo",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "email": "john@example.com",
+                  "name": "john_doe",
+                  "roles": [
                     "user",
                     "admin"
                   ],
-                  "sub" : "1"
+                  "sub": "1"
                 }
               }
             },
-            "description" : "User information retrieved successfully"
+            "description": "User information retrieved successfully"
           },
-          "400" : 
-          {
-            "description" : "Invalid User ID format"
+          "400": {
+            "description": "Invalid User ID format"
           },
-          "401" : 
-          {
-            "description" : "Invalid or expired access token"
+          "401": {
+            "description": "Invalid or expired access token"
           },
-          "404" : 
-          {
-            "content" : 
-            {
-              "application/json" : 
-              {
-                "example" : 
-                {
-                  "error" : "User not found"
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "User not found"
                 }
               }
             },
-            "description" : "User not found"
+            "description": "User not found"
           }
         },
-        "security" : 
-        {
-          "bearerAuth" : 
-          [
-            "bearerAuth"
-          ]
-        },
-        "summary" : "Get user information",
-        "tags" : 
-        [
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get user information",
+        "tags": [
           "OAuth2",
           "User"
         ]
       }
     },
-    "/oauth2/webauthn/authenticate/begin" : 
-    {
-      "post" : 
-      {
-        "description" : "Start WebAuthn authentication.",
-        "operationId" : "post_oauth2_webauthn_authenticate_begin",
-        "responses" : null,
-        "summary" : "WebAuthn Authenticate Begin",
-        "tags" : 
-        [
+    "/oauth2/webauthn/authenticate/begin": {
+      "post": {
+        "description": "Start WebAuthn authentication.",
+        "operationId": "post_oauth2_webauthn_authenticate_begin",
+        "responses": null,
+        "summary": "WebAuthn Authenticate Begin",
+        "tags": [
           "WebAuthn"
         ]
       }
     },
-    "/oauth2/webauthn/authenticate/finish" : 
-    {
-      "post" : 
-      {
-        "description" : "Finish WebAuthn authentication.",
-        "operationId" : "post_oauth2_webauthn_authenticate_finish",
-        "responses" : null,
-        "summary" : "WebAuthn Authenticate Finish",
-        "tags" : 
-        [
+    "/oauth2/webauthn/authenticate/finish": {
+      "post": {
+        "description": "Finish WebAuthn authentication.",
+        "operationId": "post_oauth2_webauthn_authenticate_finish",
+        "responses": null,
+        "summary": "WebAuthn Authenticate Finish",
+        "tags": [
           "WebAuthn"
         ]
       }
     }
   },
-  "servers" : 
-  [
+  "servers": [
     {
-      "description" : "Default server (relative path)",
-      "url" : "/"
+      "description": "Default server (relative path)",
+      "url": "/"
     }
   ]
 }
