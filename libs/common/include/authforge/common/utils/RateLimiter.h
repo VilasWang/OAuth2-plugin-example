@@ -45,6 +45,14 @@ struct RateLimiterConfig
 {
     std::size_t maxFailures = 30;     // threshold before 429 is returned
     std::chrono::seconds windowSeconds{60};  // rolling window length
+    // Review MINOR #1 (unbounded memory growth): a hard cap on the number of
+    // distinct (ip+client_id) buckets retained. A key that records one failure
+    // and is never touched again would otherwise linger indefinitely; under a
+    // distributed attack with many unique keys the map grows without bound.
+    // When recordFailure() pushes the bucket count past this cap, a full sweep
+    // drops every bucket whose entries have all aged out of the window (plus
+    // empty buckets). Sized well above legitimate single-host load.
+    std::size_t maxBuckets = 10000;
 
     static RateLimiterConfig defaults() noexcept
     {
@@ -112,6 +120,12 @@ class RateLimiter
         auto &bucket = buckets_[std::string(key)];
         purgeOldLocked(bucket, now);
         bucket.push_back(now);
+        // Review MINOR #1: bound memory. When the bucket count exceeds the
+        // cap, sweep every bucket once and drop those with no in-window
+        // failures. Triggered on recordFailure (the growth path under attack),
+        // not on the hot checkThrottled path.
+        if (buckets_.size() > config_.maxBuckets)
+            sweepLocked(now);
     }
 
     // Record a successful attempt for `key`. Resets that key's failure counter
@@ -141,6 +155,20 @@ class RateLimiter
         auto cutoff = now - config_.windowSeconds;
         while (!bucket.empty() && bucket.front() < cutoff)
             bucket.pop_front();
+    }
+
+    // Review MINOR #1: drop every bucket whose entries have all aged out of
+    // the window (or is empty). Called when buckets_.size() exceeds the cap.
+    void sweepLocked(const TimePoint &now)
+    {
+        for (auto it = buckets_.begin(); it != buckets_.end();)
+        {
+            purgeOldLocked(it->second, now);
+            if (it->second.empty())
+                it = buckets_.erase(it);
+            else
+                ++it;
+        }
     }
 
     std::mutex mutex_;

@@ -27,6 +27,31 @@ Json::Value makeError(const std::string &error, const std::string &desc = "")
         json["error_description"] = desc;
     return json;
 }
+
+// Review MINOR #2: token-exact scope membership. OAuth scopes are
+// space-separated tokens (RFC 6749 §3.3); a substring match would let
+// `myopenid` falsely satisfy an `openid` check. libs/oauth2 cannot depend
+// on libs/drogon's ScopeChecker (wrong dependency direction), so this is a
+// framework-free equivalent. Mirrors authforge::drogon::utils::hasScope.
+bool scopeContains(std::string_view scopes, std::string_view required)
+{
+    if (required.empty())
+        return true;
+    std::string_view s = scopes;
+    while (!s.empty())
+    {
+        while (!s.empty() && (s.front() == ' ' || s.front() == '\t'))
+            s.remove_prefix(1);
+        if (s.empty())
+            break;
+        auto pos = s.find(' ');
+        std::string_view tok = (pos == std::string_view::npos) ? s : s.substr(0, pos);
+        if (tok == required)
+            return true;
+        s = (pos == std::string_view::npos) ? std::string_view{} : s.substr(pos);
+    }
+    return false;
+}
 }  // namespace
 
 TokenService::TokenService(
@@ -310,7 +335,7 @@ void TokenService::exchangeCodeForToken(
 
                             if (
                               self->jwkManager_ && self->jwkManager_->isInitialized() &&
-                              authCode.scope.find("openid") != std::string::npos
+                              scopeContains(authCode.scope, "openid")
                             )
                             {
                                 Json::Value idTokenClaims;
@@ -500,7 +525,7 @@ void TokenService::refreshAccessToken(
                 // required on refresh-issued id_tokens).
                 if (
                   self->jwkManager_ && self->jwkManager_->isInitialized() &&
-                  storedRt->scope.find("openid") != std::string::npos
+                  scopeContains(storedRt->scope, "openid")
                 )
                 {
                     Json::Value idTokenClaims;

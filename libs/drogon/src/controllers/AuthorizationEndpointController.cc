@@ -29,7 +29,10 @@ namespace
   const std::string &state
 )
 {
-    std::string location = redirectUri + "?error=" + error;
+    // Review NIT #5: urlEncode `error` for defensive consistency with the
+  // error_description/state params (encoded on the next lines). OAuth2 error
+  // values are ASCII-safe tokens today, so this is belt-and-suspenders.
+  std::string location = redirectUri + "?error=" + ::drogon::utils::urlEncode(error);
     if (!description.empty())
         location += "&error_description=" + ::drogon::utils::urlEncode(description);
     if (!state.empty())
