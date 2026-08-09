@@ -85,9 +85,20 @@ class SchemaManager
     static std::vector<int> getAppliedVersions(const drogon::orm::DbClientPtr &db);
 
     /**
-     * @brief Execute a single migration file and record it
+     * @brief Execute a single migration file and record it.
+     *
+     * Runs against an already-open transaction (the single transaction owned
+     * by migrate()), so that all migrations in a run share one connection and
+     * one transaction. This fixes #46: per-migration transactions could run on
+     * different pool connections, and a later migration's transaction snapshot
+     * failed to see an earlier migration's committed tables.
+     *
+     * Does NOT commit or roll back -- the caller owns the transaction lifetime.
      */
-    static bool applyMigration(const drogon::orm::DbClientPtr &db, const MigrationFile &migration);
+    static bool applyMigration(
+      const drogon::orm::DbClientPtr &trans,
+      const MigrationFile &migration
+    );
 
     /**
      * @brief Compute SHA-256 checksum of file content

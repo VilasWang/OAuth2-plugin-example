@@ -3,6 +3,7 @@
 #include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
@@ -182,24 +183,57 @@ bool SchemaManager::migrate(const drogon::orm::DbClientPtr &db, const std::strin
         return false;
     }
 
-    // Step 1: Ensure schema_migrations table exists
-    if (!ensureMigrationsTable(db))
-    {
-        return false;
-    }
-
-    // Step 2: Scan for migration files
+    // Scan for migration files first -- a missing directory should not open a
+    // transaction (and a no-op run should not hold a write transaction).
     auto migrations = scanMigrationFiles(migrationsDir);
     if (migrations.empty())
     {
         LOG_INFO << "SchemaManager: No migration files found in " << migrationsDir;
-        return true;
+        // Still ensure the tracking table exists (idempotent).
+        return ensureMigrationsTable(db);
     }
 
-    // Step 3: Get already-applied versions
-    auto applied = getAppliedVersions(db);
+    // #46: run the ENTIRE migration pass inside ONE transaction on ONE
+    // connection. The previous per-migration transactions could run on
+    // different pool connections; a later migration's transaction snapshot
+    // then failed to see an earlier migration's committed tables, failing
+    // (e.g.) V3 because it could not see V2's tables. A single transaction
+    // makes all DDL visible within the run and commits atomically -- either
+    // every pending migration lands or none does.
+    //
+    // A Transaction IS-A DbClient, so it can be passed to the helpers below in
+    // place of the pool client.
+    auto trans = db->newTransaction();
+    if (!trans)
+    {
+        LOG_ERROR << "SchemaManager: Failed to begin transaction";
+        return false;
+    }
 
-    // Step 4: Filter and apply unapplied migrations
+    // On any failure path: roll back explicitly so the atomic all-or-nothing
+    // guarantee holds even though `trans` is still in scope when we return.
+    auto rollbackAndReturn = [&trans]() {
+        try
+        {
+            trans->rollback();
+        }
+        catch (const std::exception &e)
+        {
+            LOG_ERROR << "SchemaManager: rollback failed: " << e.what();
+        }
+        return false;
+    };
+
+    // Step 1: Ensure schema_migrations table exists (inside the transaction)
+    if (!ensureMigrationsTable(trans))
+    {
+        return rollbackAndReturn();
+    }
+
+    // Step 2: Get already-applied versions (inside the transaction)
+    auto applied = getAppliedVersions(trans);
+
+    // Step 3: Filter and apply unapplied migrations
     int appliedCount = 0;
     for (const auto &migration : migrations)
     {
@@ -210,14 +244,34 @@ bool SchemaManager::migrate(const drogon::orm::DbClientPtr &db, const std::strin
             continue;
         }
 
-        // Step 5: Apply and record
-        if (!applyMigration(db, migration))
+        if (!applyMigration(trans, migration))
         {
             LOG_ERROR << "SchemaManager: Migration V" << std::to_string(migration.version)
                       << " failed. Stopping.";
-            return false;
+            return rollbackAndReturn();
         }
         ++appliedCount;
+    }
+
+    // Commit. Drogon commits asynchronously when the Transaction shared_ptr is
+    // destroyed (no public commit() method). To make the commit OBSERVABLE --
+    // so the caller (notably `--migrate-only`, which may exit the process
+    // right after this returns) can rely on the schema actually being durable
+    // -- register a commit callback that fulfills a promise and block on it.
+    std::shared_ptr<std::promise<bool>> commitPromise = std::make_shared<std::promise<bool>>();
+    std::future<bool> commitFuture = commitPromise->get_future();
+    trans->setCommitCallback([commitPromise](bool committed) {
+        commitPromise->set_value(committed);
+    });
+
+    // Drop the last reference so the destructor enqueues the COMMIT.
+    trans.reset();
+
+    const bool committed = commitFuture.get();
+    if (!committed)
+    {
+        LOG_ERROR << "SchemaManager: Transaction commit failed";
+        return false;
     }
 
     if (appliedCount > 0)
@@ -351,7 +405,7 @@ std::vector<int> SchemaManager::getAppliedVersions(const drogon::orm::DbClientPt
 }
 
 bool SchemaManager::applyMigration(
-  const drogon::orm::DbClientPtr &db,
+  const drogon::orm::DbClientPtr &trans,
   const MigrationFile &migration
 )
 {
@@ -380,20 +434,18 @@ bool SchemaManager::applyMigration(
 
     try
     {
-        // Execute migration SQL within a transaction. PostgreSQL prepared
+        // Execute migration SQL against the caller's transaction (#46: the
+        // whole run shares one transaction/connection). PostgreSQL prepared
         // statements accept only one statement, so split the file on
-        // top-level semicolons and execute each statement separately.
-        // The whole migration runs inside one transaction: if any statement
-        // fails, the transaction rolls back and the version is not recorded.
-        auto trans = db->newTransaction();
-
+        // top-level semicolons and execute each statement separately. If any
+        // statement fails it throws; the caller rolls back the transaction.
         auto statements = splitSqlStatements(sql);
         for (const auto &stmt : statements)
         {
             trans->execSqlSync(stmt);
         }
 
-        // Record the migration
+        // Record the migration (same transaction)
         trans->execSqlSync(
           "INSERT INTO schema_migrations (version, filename, checksum) VALUES ($1, $2, $3)",
           migration.version,
