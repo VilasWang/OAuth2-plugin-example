@@ -2661,6 +2661,10 @@ const std::string &token,
 const std::string &revokedBy,
 std::function<void()> &&callback
 );
+void revokeRefreshToken(
+const std::string &token,
+std::function<void()> &&callback
+);
 const std::string &getStorageType() const
 ;
 const std::string &getIssuer() const
@@ -8518,6 +8522,73 @@ std::shared_ptr<RedisCachedClientRepositoryBase> impl_;
 ::drogon::nosql::RedisClientPtr redisClient_;
 std::shared_ptr<::authforge::common::ports::IMetrics> metrics_;
 int clientTtlSeconds_;
+void emitMetric(const char *outcome) const;
+};
+}
+=== libs/storage-redis/include/authforge/storage/redis/RedisCachedTokenRepository.h
+#pragma once
+#include <authforge/common/ports/IMetrics.h>
+#include <authforge/oauth2/repository/ITokenRepository.h>
+#include <drogon/nosql/RedisClient.h>
+#include <atomic>
+#include <memory>
+#include <string>
+namespace authforge::storage::redis
+{
+using RedisCachedTokenRepositoryBase = ::authforge::oauth2::repository::ITokenRepository;
+class RedisCachedTokenRepository : public RedisCachedTokenRepositoryBase,
+public std::enable_shared_from_this<RedisCachedTokenRepository>
+{
+public:
+RedisCachedTokenRepository(
+std::shared_ptr<RedisCachedTokenRepositoryBase> impl,
+::drogon::nosql::RedisClientPtr redisClient,
+std::shared_ptr<::authforge::common::ports::IMetrics> metrics = nullptr,
+int accessTokenMaxTtlSeconds = 60
+);
+void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override;
+void introspectToken(const std::string &token, TokenIntrospectionCallback &&cb) override;
+void revokeAccessToken(
+const std::string &token,
+const std::string &revokedBy,
+VoidCallback &&cb
+) override;
+void saveAccessToken(
+const ::authforge::oauth2::model::OAuth2AccessToken &token,
+VoidCallback &&cb
+) override;
+void saveTokenPair(
+const ::authforge::oauth2::model::OAuth2AccessToken &at,
+const ::authforge::oauth2::model::OAuth2RefreshToken &rt,
+SaveResultCallback &&cb
+) override
+;
+void saveRefreshToken(
+const ::authforge::oauth2::model::OAuth2RefreshToken &token,
+VoidCallback &&cb
+) override
+;
+void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override
+;
+void revokeRefreshToken(const std::string &token, VoidCallback &&cb) override
+;
+void atomicRevokeRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override
+;
+void revokeTokenFamily(const std::string &familyId, VoidCallback &&cb) override
+;
+void incrementIntrospectCount(const std::string &token, VoidCallback &&cb) override
+;
+void purgeExpired() override
+;
+bool supportsTransactions() const override
+;
+bool supportsCas() const override
+;
+private:
+std::shared_ptr<RedisCachedTokenRepositoryBase> impl_;
+::drogon::nosql::RedisClientPtr redisClient_;
+std::shared_ptr<::authforge::common::ports::IMetrics> metrics_;
+int accessTokenMaxTtlSeconds_;
 void emitMetric(const char *outcome) const;
 };
 }

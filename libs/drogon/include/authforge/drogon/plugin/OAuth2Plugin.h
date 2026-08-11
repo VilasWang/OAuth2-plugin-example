@@ -365,6 +365,17 @@ class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
       std::function<void()> &&callback
     );
 
+    /**
+     * @brief Revoke a refresh token (RFC 7009 §2.1 — the revocation endpoint
+     * must revoke ANY token type). Used by the revoke handler after
+     * revokeAccessToken so a refresh token presented to /oauth2/revoke is
+     * actually revoked (C3 fix).
+     */
+    void revokeRefreshToken(
+      const std::string &token,
+      std::function<void()> &&callback
+    );
+
     // ========== Storage Access ==========
     // Phase 4.6a: getStorage() (god-IOAuth2Storage accessor) removed; storage_
     // is gone. Use the split-repo forwarding methods above.
