@@ -32,14 +32,15 @@ authorization model**. The concrete shortcomings, all verified in the current co
 4. **Scope matching is exact-token, no implication.** `admin` does not imply `profile` or
    `openid` (`ScopeChecker.h:22-44`). A resource model that wants implication (an admin token
    satisfying `profile`-gated resources) must add that layer.
-5. **The `admin` scope list is triple-hardcoded** (`IdentityService.cc:227-240`,
-   `ScopeDecisionEngine.cc:6-24`, comments in `ScopeDecisionEngine.h:42`) and does **not**
+5. **The `admin` scope list is triple-hardcoded** (`libs/drogon/src/services/IdentityService.cc:227-240`,
+   `libs/oauth2/src/access/ScopeDecisionEngine.cc:6-23`, comments in `ScopeDecisionEngine.h:42`) and does **not**
    consult the DB column `oauth2_scopes.requires_admin_role` that exists for exactly this
    purpose — a known drift risk.
 6. **Three independent `insufficient_scope` emitters** (`OAuth2AuthFilter.cc:58-64`,
-   `AuthorizationFilter.cc:223-229`, `TokenEndpointController.cc:1885-1889`), one of which
-   (the controller) omits the `scope="..."` WWW-Authenticate attribute and bypasses
-   `ErrorResponder`.
+   `AuthorizationFilter.cc:223-229`, `TokenEndpointController.cc:1885-1889` — the latter is the
+   **userinfo** endpoint, not the token issuer), one of which
+   (the controller's userinfo path) omits the `scope="..."` WWW-Authenticate attribute and bypasses
+   `ErrorResponder` (it constructs `HttpResponse` directly).
 
 This design defines the **complete** model: a single declarative registry of
 `(path, method) → required-scopes`, finer-grained scopes, consistent downscoping, scope
@@ -94,12 +95,16 @@ standard mappings.
 See the companion analysis (this section summarizes; full file:line evidence in the explore
 report). Key facts the design builds on:
 
-- **Scope catalog** (`V006__oauth2_scopes.sql`): `openid`, `profile`, `email`, `admin`,
-  `read`, `write` are seeded; columns `mapped_role`, `is_default`, `requires_admin_role`
-  exist but `requires_admin_role` is **not consulted at runtime** today.
+- **Scope catalog** (`V006__oauth2_scopes.sql:46-53`): `openid`, `profile`, `email`, `admin`,
+  `read`, `write` are seeded as **real default scope rows** (not merely placeholders — `read`/`write`
+  are inserted at `V006:52-53`); columns `mapped_role`, `is_default`, `requires_admin_role`
+  exist but `requires_admin_role` is **not consulted at runtime** today (confirmed:
+  `IdentityService::scopeRequiresAdminRole` hardcodes the admin list instead of reading the column).
+  > **Note (decision #2, §10.1):** the legacy `read`/`write` rows are scheduled for removal when
+  > `V006` is rewritten; this paragraph documents *today's* catalog only.
 - **Scope transport**: space-joined `TEXT` column on every grant/token table
   (`V002__oauth2_core.sql`); no normalized token↔scope table.
-- **`EndpointInfo`** (`OpenApiGenerator.h:76-90`) already has `requiresAuth` + `authType`
+- **`EndpointInfo`** (`libs/drogon/include/authforge/drogon/observability/openapi/OpenApiGenerator.h:76-90`) already has `requiresAuth` + `authType`
   per endpoint, filled per-controller in `initApiDocsImpl()`. **This is the natural home for a
   `requiredScopes` field** — it is per-endpoint and filled at the source that already knows the
   path.
@@ -109,7 +114,10 @@ report). Key facts the design builds on:
   `ADD_METHOD_TO`. The filter does not receive the route handler pointer; it sees only
   `req->path()` and `req->method()`.
 - **`drogon::app().getHandlersInfo()`** exposes the full route table at runtime (path, method,
-  filter names) — the project does not currently use it.
+  filter names). It is **already used** by
+  `tests/integration/error/SuccessResponseGoldenSnapshotTest.cc:355` to build the route-manifest
+  golden snapshot (`Requirement 11.1`) — so the introspection foundation for V1 self-reflection
+  already exists.
 
 ---
 
@@ -193,8 +201,13 @@ scopes (`openid`, `profile`, `email`) untouched:
 | `audit:read` | `/api/admin/logs`, `/dashboard` | read-only |
 | `admin` | **super-scope** — implies all `*:read`/`*:write` above | implication root |
 
-The `read`/`write` rows seeded in `V006` become legacy aliases mapped to a default resource,
-or are deprecated in favor of the prefixed forms. The OIDC scopes (`openid`/`profile`/`email`)
+> **Superseded by decision #2 (§10.1):** drop the legacy `read`/`write` rows outright —
+> no alias mapping. This paragraph's alias/deprecation wording is retained only as historical
+> context; the actual implementation rewrites `V006` to remove `read`/`write` (see §6).
+
+The `read`/`write` rows originally seeded in `V006` were *intended* to become legacy aliases
+mapped to a default resource, or deprecated in favor of the prefixed forms. The OIDC scopes
+(`openid`/`profile`/`email`)
 are **never** implied by `admin` — a user-info request still requires an actual user token
 (RFC 6749 §3.3; this also matches the existing `client:`-subject rejection in
 `TokenEndpointController.cc:1880`).
@@ -262,10 +275,15 @@ inline userinfo check is kept as defense-in-depth but routed through the same em
 
 ## 6. Data model changes
 
-Minimal. Add seed rows for the new resource scopes to `V006__oauth2_scopes.sql` (a new
-migration `V0nn__resource_scopes.sql`; the existing file is idempotent `ON CONFLICT DO
-NOTHING` so additive rows are safe). Set `requires_admin_role = true` on the admin family so
-the DB column (not a constant) drives Tier-2. No new tables; no token-format change.
+> **Superseded by decision #2 (§10.1):** do **not** additively append rows to `V006`.
+> Instead **rewrite `V006__oauth2_scopes.sql`** to drop the legacy `read`/`write` rows and
+> seed only the prefixed resource scopes; no alias mapping. The "additive `ON CONFLICT DO
+> NOTHING`" wording below is retained only as historical context.
+
+Minimal. Rewrite `V006__oauth2_scopes.sql` to remove the legacy `read`/`write` rows and seed
+the new resource scopes (prefixed `<resource>:read|write` forms) directly. Set
+`requires_admin_role = true` on the admin family so the DB column (not a constant) drives
+Tier-2. No new tables; no token-format change.
 
 ---
 
@@ -288,6 +306,11 @@ the DB column (not a constant) drives Tier-2. No new tables; no token-format cha
 | Implication graph has a cycle | Resolver validates DAG at startup; reject cyclic config. |
 | Operators rely on the blanket `admin` and don't mint leaf scopes | Implication makes `admin` still sufficient; no breakage. |
 | OpenAPI `x-required-scopes` extension ignored by existing consumers | Additive; non-breaking for consumers that ignore unknown fields. |
+| **Consistency check is one-directional** → a route that drops its auth filter silently loses its gate, OR a registry entry with no backing route becomes dead config | Make the check **bidirectional**: (a) every auth-filtered route has a registry entry; (b) every registry entry resolves to a real `ADD_METHOD_TO` route — orphan entries LOG_FATAL too. (Requires `HttpHandlerInfo` to expose the filter names actually attached to each route; if it does **not**, fall back to reverse validation: every registry entry must match a known route path+method.) |
+| **`getHandlersInfo()` may not expose filter names** | Confirm whether `HttpHandlerInfo` carries the attached filter list before relying on the startup check above. If not available, drive the consistency check from the *registry* side (validate that every registry entry maps to a registered handler) rather than the handler side. |
+| **`V006` rewrite breaks deployed DBs / migration rollback** | Decision #2 assumes no issued tokens reference `read`/`write`, but the migration framework still needs a rollback path. Provide an explicit down-migration (`DROP` the removed rows) and document that rewrite is destructive; gate behind a major version bump if production data may exist. |
+| **`x-required-scopes` overlaps with #41's `security` semantics** | Clarify in §5.8: `security` answers *"does this endpoint require auth?"*; `x-required-scopes` answers *"which specific scopes?"*. Keep them orthogonal so generated SDKs don't misinterpret one as the other. |
+| **Concurrent `initApiDocsImpl()` population of the shared registry** | Multiple controllers each `call_once` populate the same global `ResourceScopeRegistry`. Ensure population completes inside a single `registerBeginningAdvice` batch (or guard writes) so the "immutable after startup" contract holds without data races. |
 
 ---
 
@@ -332,3 +355,57 @@ Phase 1 implementation begins** (per the issue workflow, #43 is an architecture 
 
 These are decisions only the user can make; the recommended defaults above let implementation
 proceed once confirmed.
+
+---
+
+## 10.1 Decisions (user sign-off — 2026-08-11)
+
+All four open questions are **resolved**; implementation may proceed starting Phase 1.
+
+1. **Scope-prefix scheme → `:` (colon).**
+   Confirmed: colon is the industry-standard separator (RFC 6749 scope-token grammar,
+   GitHub/Google API conventions) and aligns with the existing `admin:read` hint in
+   `ScopeDecisionEngine.cc`. Adopt `<resource>:<action>` (e.g. `users:read`,
+   `clients:write`). No dot-separated variant.
+
+2. **Legacy `read`/`write` → drop immediately, no compatibility layer.**
+   There are **no existing users / no deployed tokens** to break. Do **not** add alias mapping
+   or deprecation logging (this supersedes the §5.3 alias note and the §7 grandfathering
+   promise). Rewrite `V006__oauth2_scopes.sql` and the runtime scope handling so the only
+   seeded scopes are the OIDC standard set (`openid`, `profile`, `email`) plus the new
+   `<resource>:<action>` family and the `admin` super-scope. The bare `read`/`write` rows are
+   removed outright. See §7 update below.
+
+3. **Registry source → Option A (controller-declared, code-as-config).**
+   Confirmed: extend `EndpointInfo` with `requiredScopes`/`impliedBy` and populate from each
+   controller's `initApiDocsImpl()`. No `config.json` block, no hybrid override layer.
+   **Action item — admin frontend must be reviewed for impact:** the new `<resource>:<action>`
+   scope vocabulary changes what the management UI displays and edits. Specifically verify and
+   adjust:
+   - `frontends/admin/src/pages/scopes/ScopesPage.vue` — scope catalog UI must reflect the
+     dropped `read`/`write` and the new prefixed scopes; `requires_admin_role` toggle should be
+     surfaced if not already.
+   - `frontends/admin/src/pages/applications/ApplicationDetailPage.vue` — the per-client
+     allowed-scopes selector must offer the new vocabulary.
+   - `frontends/user/src/pages/oauth/ConsentPage.vue` — the consent screen renders the
+     requested scope list to the end user; bare `read`/`write` labels must be replaced with
+     human-readable `<resource>:<action>` descriptions (i18n strings in
+     `frontends/*/src/services/messages/`).
+   - Any e2e fixtures in `frontends/admin/tests/e2e/*` / `frontends/user/tests/e2e/*` that
+     hardcode `read`/`write` scopes.
+   This frontend review is a sub-task of Phase 3 (granularity) and must complete before that
+   phase ships.
+
+4. **Admin super-scope name → keep `admin`.**
+   Confirmed: bare `admin` remains the implication root that satisfies all
+   `<resource>:<action>` requirements. No `admin:*` variant, no legacy demotion of `admin`.
+
+### §7 backward-compatibility update (superseded by decision #2)
+
+- The "grandfathered via alias mapping for at least one release, with a deprecation log" bullet
+  for legacy `read`/`write` is **withdrawn** — those scopes are removed outright (no users to
+  break).
+- All other §7 guarantees stand: a token carrying only `admin` continues to work (implication,
+  §5.4); existing OIDC flows (`openid`/`profile`/`email`) are unchanged; the error shape
+  (`AUTHZ_INSUFFICIENT_PERMISSIONS`, HTTP 403) is unchanged and the `WWW-Authenticate scope=`
+  attribute becomes consistently present.
