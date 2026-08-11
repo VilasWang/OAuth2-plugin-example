@@ -20,6 +20,27 @@ C_RED='\033[0;31m'
 C_YELLOW='\033[1;33m'
 C_NC='\033[0m'
 
+# ---------------------------------------------------------------------------
+# PKCE (RFC 7636) helpers — required since F-011/RFC 9700 §2.1.1 made PKCE
+# mandatory for PUBLIC clients. Both vue-client and admin-console are PUBLIC,
+# so every authorization-code login must carry code_challenge and every token
+# exchange must carry the matching code_verifier.
+# ---------------------------------------------------------------------------
+
+# generate_pkce_verifier — emits a cryptographically-random code_verifier (43-128
+# chars of the unreserved set [A-Za-z0-9-._~]). Uses openssl for the randomness.
+generate_pkce_verifier() {
+    # 32 random bytes -> base64url -> strip padding -> unreserved-only (~64 chars).
+    openssl rand 32 | openssl base64 -A | tr '+/' '-_' | tr -d '='
+}
+
+# pkce_s256_challenge <verifier> — computes the S256 code_challenge:
+# base64url(SHA256(verifier)) with padding stripped (RFC 7636 §4.2).
+pkce_s256_challenge() {
+    local verifier="$1"
+    printf '%s' "$verifier" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '='
+}
+
 # assert_status <actual_code> <expected_code> <context>
 assert_status() {
     local actual="$1"
@@ -178,36 +199,51 @@ assert_status_in() {
 }
 
 # get_user_token <base_url> <username> <password>
-# Returns access_token on stdout
+# Returns access_token on stdout.
+# F-011/RFC 7636 (RFC 9700 §2.1.1): PKCE is mandatory for PUBLIC clients.
+# vue-client is PUBLIC, so the login MUST carry code_challenge (S256) and the
+# token exchange MUST carry the matching code_verifier. Without PKCE the login
+# redirects with error=invalid_request (code_challenge required).
 get_user_token() {
     local base_url="$1" username="$2" password="$3"
     local state="token-${username}-$$"
+    # PKCE S256: generate a random verifier + its challenge.
+    local verifier challenge
+    verifier=$(generate_pkce_verifier)
+    challenge=$(pkce_s256_challenge "$verifier")
     local login_resp
     login_resp=$(curl -s -X POST "$base_url/oauth2/login" \
-        -d "username=$username&password=$password&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=$state&json=true")
+        -d "username=$username&password=$password&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=$state&code_challenge=$challenge&code_challenge_method=S256&json=true")
     local code
     code=$(echo "$login_resp" | jq -r '.code')
     [ -n "$code" ] && [ "$code" != "null" ] || return 1
     local tok_resp
+    # F-017: vue-client is seeded token_endpoint_auth_method='none' (PUBLIC);
+    # the 'none' method REJECTS any client_secret, so none is sent. PKCE
+    # code_verifier is the client-authentication substitute for PUBLIC clients.
     tok_resp=$(curl -s -X POST "$base_url/oauth2/token" \
-        -d "grant_type=authorization_code&code=$code&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client&client_secret=123456")
+        -d "grant_type=authorization_code&code=$code&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client&code_verifier=$verifier")
     echo "$tok_resp" | jq -r '.access_token'
 }
 
 # get_admin_token <base_url> <username> <password>
-# Gets admin-scoped token via admin-console client
+# Gets admin-scoped token via admin-console client (also a PUBLIC client, so
+# PKCE applies the same way as get_user_token).
 get_admin_token() {
     local base_url="$1" username="$2" password="$3"
     local state="adm-$$"
+    local verifier challenge
+    verifier=$(generate_pkce_verifier)
+    challenge=$(pkce_s256_challenge "$verifier")
     local login_resp
     login_resp=$(curl -s -X POST "$base_url/oauth2/login" \
-        -d "username=$username&password=$password&client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback&scope=openid+profile+admin&state=$state&json=true")
+        -d "username=$username&password=$password&client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback&scope=openid+profile+admin&state=$state&code_challenge=$challenge&code_challenge_method=S256&json=true")
     local code
     code=$(echo "$login_resp" | jq -r '.code')
     [ -n "$code" ] && [ "$code" != "null" ] || return 1
     local tok_resp
     tok_resp=$(curl -s -X POST "$base_url/oauth2/token" \
-        -d "grant_type=authorization_code&code=$code&redirect_uri=http://localhost:5174/admin/callback&client_id=admin-console&client_secret=")
+        -d "grant_type=authorization_code&code=$code&redirect_uri=http://localhost:5174/admin/callback&client_id=admin-console&client_secret=&code_verifier=$verifier")
     echo "$tok_resp" | jq -r '.access_token'
 }
 

@@ -78,10 +78,17 @@ test_4() {
 run_test "Test 4: JWKS" test_4
 
 # Test 5: OAuth2 Login
+# F-011/RFC 7636 (RFC 9700 §2.1.1): PKCE mandatory for PUBLIC clients.
+# vue-client is PUBLIC → login must carry code_challenge; Test 6 must carry
+# the matching code_verifier. The global PKCE_VERIFIER is set here and
+# consumed by test_6.
 test_5() {
+    PKCE_VERIFIER=$(generate_pkce_verifier)
+    local challenge
+    challenge=$(pkce_s256_challenge "$PKCE_VERIFIER")
     local r
     r=$(curl -s -X POST "$BASE_URL/oauth2/login" \
-        -d "username=admin&password=admin&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=test-state-12345678&json=true")
+        -d "username=admin&password=admin&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=test-state-12345678&code_challenge=$challenge&code_challenge_method=S256&json=true")
     AUTH_CODE=$(echo "$r" | jq -r '.code')
     [ -n "$AUTH_CODE" ] && [ "$AUTH_CODE" != "null" ] || { echo "    no auth code returned"; return 1; }
     echo "    Code: ${AUTH_CODE:0:20}... (${#AUTH_CODE} chars)"
@@ -93,7 +100,7 @@ test_6() {
     [ -n "$AUTH_CODE" ] || { echo "    skipped: no auth code"; return 1; }
     local r
     r=$(curl -s -X POST "$BASE_URL/oauth2/token" \
-        -d "grant_type=authorization_code&code=$AUTH_CODE&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client")
+        -d "grant_type=authorization_code&code=$AUTH_CODE&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client&code_verifier=$PKCE_VERIFIER")
     ACCESS_TOKEN=$(echo "$r" | jq -r '.access_token')
     REFRESH_TOKEN=$(echo "$r" | jq -r '.refresh_token')
     [ -n "$ACCESS_TOKEN" ] && [ "$ACCESS_TOKEN" != "null" ] || { echo "    no access_token"; return 1; }
@@ -170,13 +177,17 @@ run_test "Test 9: Token Refresh" test_9
 # Test 9b: Token Refresh - Missing client_secret (F-003, 401)
 test_9b() {
     [ -n "$REFRESH_TOKEN" ] || { echo "    skipped: no refresh_token"; return 1; }
-    # F-003 (RFC 6749 SS6/SS3.2.1): refreshing with a CONFIDENTIAL client
-    # now requires client authentication; omitting the secret MUST yield
-    # 401 invalid_client (+ WWW-Authenticate: Basic).
+    # F-003 (RFC 6749 §6 / §3.2.1): a CONFIDENTIAL client MUST authenticate
+    # on the refresh_token grant; omitting the secret MUST yield 401
+    # invalid_client. PUBLIC clients (like vue-client) are exempt (RFC 6749
+    # §10.2: client_id existence check only), so this test uses backend-svc
+    # (CONFIDENTIAL) to exercise the F-003 secret requirement. The refresh
+    # token itself belongs to vue-client, so the secret check fires (401)
+    # before any client_id↔token binding check.
     local code body
     code=$(curl -s -o /tmp/refresh_no_secret.$$ -w '%{http_code}' \
         -X POST "$BASE_URL/oauth2/token" \
-        -d "grant_type=refresh_token&refresh_token=$REFRESH_TOKEN&client_id=vue-client")
+        -d "grant_type=refresh_token&refresh_token=$REFRESH_TOKEN&client_id=backend-svc")
     body=$(cat /tmp/refresh_no_secret.$$)
     rm -f /tmp/refresh_no_secret.$$
     [ "$code" = "401" ] || { echo "    expected 401, got $code"; return 1; }
@@ -208,14 +219,18 @@ run_test "Test 10: Client Credentials" test_10
 # Test 11: Token Introspection
 test_11() {
     [ -n "$ACCESS_TOKEN" ] || { echo "    skipped: no token"; return 1; }
-    # RFC 7662: introspect authenticates the CALLING CLIENT via client
+    # RFC 7662 §2.1: introspect authenticates the CALLING CLIENT via client
     # credentials (Basic header or body client_id/client_secret), NOT a
     # user Bearer token. No Authorization header is sent.
-    # F-017: vue-client is seeded token_endpoint_auth_method='none' (PUBLIC),
-    # so NO client_secret is sent -- the 'none' method rejects any secret.
+    # RFC 7662 §4 / TokenEndpointController.cc:428: ALL callers must supply a
+    # client_secret (introspection is protected against token enumeration).
+    # vue-client is PUBLIC (no secret) and cannot call introspect; use
+    # backend-svc (CONFIDENTIAL, secret "test-secret"). F-017: backend-svc is
+    # seeded token_endpoint_auth_method=client_secret_basic, so authenticate
+    # via HTTP Basic (-u), not a body client_secret.
     local r
-    r=$(curl -s -X POST "$BASE_URL/oauth2/introspect" \
-        -d "token=$ACCESS_TOKEN&client_id=vue-client")
+    r=$(curl -s -u "backend-svc:test-secret" -X POST "$BASE_URL/oauth2/introspect" \
+        -d "token=$ACCESS_TOKEN")
     local active
     active=$(echo "$r" | jq -r '.active')
     [ "$active" = "true" ] || { echo "    active != true"; return 1; }
@@ -233,8 +248,12 @@ run_test "Test 11: Token Introspection" test_11
 # Test 12: Token Revocation
 test_12() {
     [ -n "$ACCESS_TOKEN" ] || { echo "    skipped: no token"; return 1; }
-    # RFC 7009: revoke authenticates the calling client.
-    # F-017: vue-client is PUBLIC (token_endpoint_auth_method='none'); no secret.
+    # RFC 7009 §2.1: revoke authenticates the calling client AND enforces token
+    # ownership — only the token's issuing client may revoke it. The token was
+    # issued to vue-client (PUBLIC), so vue-client must be the caller. RFC 7009
+    # §2.1 exempts PUBLIC clients from client_secret at the revocation endpoint
+    # ("if the client is a public client, then it does not authenticate"), so
+    # client_id alone authenticates a PUBLIC caller.
     curl -s -X POST "$BASE_URL/oauth2/revoke" \
         -d "token=$ACCESS_TOKEN&client_id=vue-client" >/dev/null
     # Verify revoked (Bearer header here checks userinfo rejects the token)
@@ -260,15 +279,18 @@ run_test "Test 13: User Registration" test_13
 
 # Test 14: User Profile
 test_14() {
-    # Need a fresh token (previous was revoked)
+    # Need a fresh token (previous was revoked). PKCE (F-011/RFC 7636).
+    local verifier challenge
+    verifier=$(generate_pkce_verifier)
+    challenge=$(pkce_s256_challenge "$verifier")
     local login_resp
     login_resp=$(curl -s -X POST "$BASE_URL/oauth2/login" \
-        -d "username=admin&password=admin&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=test-state-12345678&json=true")
+        -d "username=admin&password=admin&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=test-state-12345678&code_challenge=$challenge&code_challenge_method=S256&json=true")
     local code
     code=$(echo "$login_resp" | jq -r '.code')
     local tok_resp
     tok_resp=$(curl -s -X POST "$BASE_URL/oauth2/token" \
-        -d "grant_type=authorization_code&code=$code&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client")
+        -d "grant_type=authorization_code&code=$code&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client&code_verifier=$verifier")
     ACCESS_TOKEN=$(echo "$tok_resp" | jq -r '.access_token')
 
     local r
@@ -307,16 +329,19 @@ test_17() {
     assert_json_exists "$r" "message" || return 1
     echo "    $(echo "$r" | jq -r '.message')"
 
-    # Restore password
+    # Restore password. PKCE (F-011/RFC 7636) required for the restore login.
+    local restore_verifier restore_challenge
+    restore_verifier=$(generate_pkce_verifier)
+    restore_challenge=$(pkce_s256_challenge "$restore_verifier")
     local login_resp
     login_resp=$(curl -s -X POST "$BASE_URL/oauth2/login" \
-        -d "username=admin&password=NewPass123!&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid&state=restore-pw-state1&json=true" 2>/dev/null) || true
+        -d "username=admin&password=NewPass123!&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid&state=restore-pw-state1&code_challenge=$restore_challenge&code_challenge_method=S256&json=true" 2>/dev/null) || true
     local restore_code
     restore_code=$(echo "$login_resp" | jq -r '.code // empty')
     if [ -n "$restore_code" ] && [ "$restore_code" != "null" ]; then
         local tok_resp
         tok_resp=$(curl -s -X POST "$BASE_URL/oauth2/token" \
-            -d "grant_type=authorization_code&code=$restore_code&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client")
+            -d "grant_type=authorization_code&code=$restore_code&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client&code_verifier=$restore_verifier")
         local restore_token
         restore_token=$(echo "$tok_resp" | jq -r '.access_token')
         curl -s -X PUT -H "Authorization: Bearer $restore_token" -H "Content-Type: application/json" \
@@ -325,6 +350,11 @@ test_17() {
     else
         echo "    NOTE: Could not restore password (run setup-database.sh to reset)"
     fi
+    # Defense-in-depth: unconditionally reset the admin account so downstream
+    # tests (20+) that depend on the seeded admin/admin credentials see the
+    # correct password regardless of whether the API restore path above
+    # succeeded (the restore can race or fail silently under load).
+    reset_admin_account >/dev/null 2>&1 || true
 }
 run_test "Test 17: Password Change" test_17
 
@@ -382,11 +412,17 @@ run_test "Test 19: POST /oauth2/consent - No session" test_19
 # Test 20: Dynamic Client Registration
 REG_CLIENT_ID=""
 test_20() {
-    [ -n "$ACCESS_TOKEN" ] || { ACCESS_TOKEN=$(get_user_token "$BASE_URL" "admin" "admin"); }
+    # /oauth2/register is behind AuthorizationFilter and requires the `admin`
+    # RBAC role (config.json rbac_rules). get_admin_token (admin-console
+    # client, admin scope) yields the right token; the vue-client user token
+    # (openid profile only) is insufficient.
+    local admin_tok
+    admin_tok=$(get_admin_token "$BASE_URL" "admin" "admin")
+    [ -n "$admin_tok" ] || { echo "    skipped: no admin token"; return 1; }
     local ts
     ts=$(date +%s)
     local r
-    r=$(curl -s -X POST -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+    r=$(curl -s -X POST -H "Authorization: Bearer $admin_tok" -H "Content-Type: application/json" \
         -d "{\"client_name\":\"Test DynReg $ts\",\"redirect_uris\":[\"http://localhost:4000/callback\"],\"grant_types\":[\"authorization_code\"]}" \
         "$BASE_URL/oauth2/register")
     assert_json_exists "$r" "client_id" || return 1
@@ -398,10 +434,13 @@ run_test "Test 20: POST /oauth2/register - Register Client" test_20
 
 # Test 20b: Register - Missing client_name (400)
 test_20b() {
-    [ -n "$ACCESS_TOKEN" ] || { ACCESS_TOKEN=$(get_user_token "$BASE_URL" "admin" "admin"); }
+    # Same admin-role requirement as test_20 (AuthorizationFilter + rbac_rules).
+    local admin_tok
+    admin_tok=$(get_admin_token "$BASE_URL" "admin" "admin")
+    [ -n "$admin_tok" ] || { echo "    skipped: no admin token"; return 1; }
     local code
     code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-        -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $admin_tok" -H "Content-Type: application/json" \
         -d '{"redirect_uris":["http://localhost/cb"]}' "$BASE_URL/oauth2/register")
     assert_status "$code" "400" || return 1
     echo "    Correctly returned 400 for missing client_name"
@@ -767,10 +806,16 @@ run_test "Test 41: POST /oauth2/token - Expired auth code" test_41
 
 # Test 42: Introspect - Malformed token
 test_42() {
-    # RFC 7662: client-credential auth via body only; no Bearer header needed.
+    # RFC 7662 §2.1: the introspection endpoint authenticates the calling
+    # CLIENT (not the resource owner). vue-client is PUBLIC (no secret) and
+    # cannot authenticate here; use backend-svc (CONFIDENTIAL, secret
+    # "test-secret") via HTTP Basic (F-017: client_secret_basic). The token
+    # is a valid-format but nonexistent 43-char string (>= TOKEN_MIN_LEN 32)
+    # so the request passes input validation and the introspection result is
+    # active=false (token not in the store).
     local r
-    r=$(curl -s -X POST "$BASE_URL/oauth2/introspect" \
-        -d "token=not-a-real-token-at-all&client_id=vue-client")
+    r=$(curl -s -u "backend-svc:test-secret" -X POST "$BASE_URL/oauth2/introspect" \
+        -d "token=not-a-real-token-but-long-enough-to-pass-min-len-check-XYZ")
     local active
     active=$(echo "$r" | jq -r '.active')
     [ "$active" = "false" ] || { echo "    malformed token should be active=false, got $active"; return 1; }
@@ -783,11 +828,14 @@ test_43() {
     local tok
     tok=$(get_user_token "$BASE_URL" "admin" "admin")
     [ -n "$tok" ] || { echo "    skipped: no token"; return 1; }
-    # RFC 7009: client-credential auth via body only; no Bearer header needed.
+    # RFC 7009 §2.1: revoke requires the caller to be the token's owner. The
+    # token was issued to vue-client (PUBLIC); vue-client revokes it
+    # (client_id only, no secret — PUBLIC clients are exempt from auth at
+    # the revocation endpoint).
     # Revoke once
     curl -s -X POST "$BASE_URL/oauth2/revoke" \
         -d "token=$tok&client_id=vue-client" >/dev/null
-    # Revoke again
+    # Revoke again (idempotent)
     local code
     code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
         "$BASE_URL/oauth2/revoke" -d "token=$tok&client_id=vue-client")

@@ -650,7 +650,14 @@ void TokenEndpointController::revoke(
     auto clientSecret = credentials.clientSecret;
     auto authScheme = credentials.authScheme;
 
-    if (clientId.empty() || clientSecret.empty())
+    // RFC 7009 §2.1: a client_id is always required so the server can identify
+    // the caller and enforce token ownership. A client_secret is required ONLY
+    // for CONFIDENTIAL clients — PUBLIC clients (token_endpoint_auth_method=
+    // 'none') are explicitly exempted from client authentication at the
+    // revocation endpoint ("if the client is a public client, then it does not
+    // authenticate"). The client-type check happens below (after the client
+    // lookup), so here we only reject a completely missing client_id.
+    if (clientId.empty())
     {
         authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_client", "Client authentication required", "", authScheme
