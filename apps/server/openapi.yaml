@@ -1489,6 +1489,21 @@ paths:
         required: false
         schema:
           type: string
+      - description: PKCE code challenge (RFC 7636). REQUIRED for PUBLIC clients
+          (vue-client, admin-console) when auth.require_pkce_for_public is
+          enabled (default true, F-011 / RFC 9700 §2.1.1). The matching
+          code_verifier must be sent on the /oauth2/token exchange.
+        in: query
+        name: code_challenge
+        required: false
+        schema:
+          type: string
+      - description: 'PKCE code challenge method: S256 (recommended) or plain.'
+        in: query
+        name: code_challenge_method
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           content:
@@ -1555,15 +1570,58 @@ paths:
       - MFA
   /oauth2/mfa/verify:
     post:
-      description: Verify MFA code during login.
+      description: Verify MFA (TOTP) code during login. Completes the
+        authorization-code issuance started by /oauth2/login when MFA was
+        required. The PKCE code_verifier (C4, RFC 7636) must be supplied so
+        the internally-generated code passes PKCE verification against the
+        code_challenge persisted on the session during the first-factor
+        login step.
       operationId: post_oauth2_mfa_verify
+      parameters:
+      - description: The MFA pending token returned by /oauth2/login when
+          mfa_required was true (required).
+        in: query
+        name: mfa_token
+        required: true
+        schema:
+          type: string
+      - description: The 6-digit TOTP code from the user's authenticator
+          (required).
+        in: query
+        name: code
+        required: true
+        schema:
+          type: string
+      - description: The client_id from the original login (required, must
+          match the first-factor login).
+        in: query
+        name: client_id
+        required: true
+        schema:
+          type: string
+      - description: The redirect_uri from the original login (required,
+          must match).
+        in: query
+        name: redirect_uri
+        required: true
+        schema:
+          type: string
+      - description: PKCE code_verifier matching the code_challenge sent on
+          the first-factor /oauth2/login step (C4, RFC 7636). Required for
+          PUBLIC clients.
+        in: query
+        name: code_verifier
+        required: false
+        schema:
+          type: string
       responses:
         '200':
-          description: MFA verification successful
+          description: MFA verification successful — returns the token pair
+            (access_token, refresh_token, id_token).
         '400':
-          description: Invalid request
+          description: Invalid request (missing mfa_token/code, malformed TOTP)
         '401':
-          description: Invalid MFA code
+          description: Invalid MFA code or client/redirect mismatch
       summary: Verify MFA Code (Login)
       tags:
       - MFA
@@ -1662,8 +1720,14 @@ paths:
       - OIDC
   /oauth2/revoke:
     post:
-      description: RFC 7009 OAuth 2.0 Token Revocation. Revokes an access or refresh
-        token.
+      description: "RFC 7009 OAuth 2.0 Token Revocation. Revokes an access OR
+        refresh token (C3 fix — refresh tokens are now actually revoked, not
+        silently no-op'd). The caller must be the token's owning client
+        (ownership enforced via introspection). CONFIDENTIAL clients
+        authenticate via client_secret (HTTP Basic or body); PUBLIC clients
+        (token_endpoint_auth_method='none') authenticate with client_id only
+        (RFC 7009 §2.1 exempts them from client authentication at this
+        endpoint)."
       operationId: post_oauth2_revoke
       parameters:
       - description: The token that the client wants to get revoked (required)
@@ -1729,15 +1793,27 @@ paths:
         required: true
         schema:
           type: string
-      - description: Client secret (required for confidential clients)
+      - description: Client secret (required for CONFIDENTIAL clients with
+          token_endpoint_auth_method=client_secret_post; FORBIDDEN for PUBLIC
+          clients whose method is 'none' — F-017 rejects a secret sent by a
+          'none' client).
         in: query
         name: client_secret
-        required: true
+        required: false
         schema:
           type: string
       - description: Redirect URI (required for authorization_code grant)
         in: query
         name: redirect_uri
+        required: false
+        schema:
+          type: string
+      - description: PKCE code_verifier (RFC 7636). Required for the
+          authorization_code grant when the corresponding /oauth2/login (or
+          /oauth2/authorize) request sent a code_challenge. The server
+          verifies SHA-256(code_verifier) == the stored code_challenge.
+        in: query
+        name: code_verifier
         required: false
         schema:
           type: string

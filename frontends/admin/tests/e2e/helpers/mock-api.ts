@@ -162,6 +162,13 @@ export async function setupAuthenticatedMocks(page: Page) {
     })
   })
 
+  // Token revocation (RFC 7009) — logout now POSTs both access + refresh
+  // tokens here via fetch({keepalive:true}). The mock accepts any token;
+  // the auth.ts logout tolerates failure regardless.
+  await page.route('**/oauth2/revoke', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+  })
+
   // Admin clients
   await page.route('**/api/admin/clients', async (route) => {
     if (route.request().method() === 'GET') {

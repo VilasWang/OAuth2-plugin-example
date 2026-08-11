@@ -121,18 +121,37 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
+    // RFC 7009: revoke BOTH the access token (so it can no longer be used
+    // immediately) and the refresh token (so it can no longer mint new
+    // access tokens). The server's revoke handler (C3 fix) now actually
+    // revokes a refresh token presented here — previously it was a silent
+    // no-op. Both revokes use fetch({keepalive:true}) so they survive page
+    // teardown (navigation/tab-close), which axios would cancel mid-flight.
     try {
-      const token = getAccessToken()
-      if (token) {
-        // RFC 7009: revoke the access token so it can no longer be used.
-        await http.post('/oauth2/revoke', new URLSearchParams({
-          token,
-          client_id: CLIENT_ID,
+      const access = getAccessToken()
+      const refresh = localStorage.getItem('refresh_token')
+      const body = (token: string) =>
+        new URLSearchParams({ token, client_id: CLIENT_ID })
+      // Fire both revokes; keepalive ensures delivery even on fast navigation.
+      const revokes: Promise<Response>[] = []
+      if (access) {
+        revokes.push(fetch('/oauth2/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body(access),
+          keepalive: true,
         }))
       }
+      if (refresh) {
+        revokes.push(fetch('/oauth2/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body(refresh),
+          keepalive: true,
+        }))
+      }
+      await Promise.all(revokes)
       // OIDC RP-Initiated Logout (F-027): clear the server-side session.
-      // The SPA does not persist the id_token (memory only), so no
-      // id_token_hint is available; the endpoint still clears the session.
       await http.post('/oauth2/end_session', new URLSearchParams({
         client_id: CLIENT_ID,
         post_logout_redirect_uri: REDIRECT_URI,
