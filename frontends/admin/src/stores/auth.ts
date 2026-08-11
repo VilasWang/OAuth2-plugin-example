@@ -97,8 +97,12 @@ export const useAuthStore = defineStore('auth', () => {
       })
 
       if (loginResp.data.mfa_required) {
-        // MFA required - return the mfa_token for the MFA step.
-        // Note: PKCE verifier is not threaded through MFA yet (backend gap).
+        // MFA required: the backend persists the code_challenge on the
+        // session (C4 fix, SessionController) so verifyLogin can thread it
+        // onto the code it generates at MFA completion. Stash our verifier
+        // too — the future admin MFA-completion call must send code_verifier
+        // so the exchange passes PKCE verification (RFC 7636).
+        sessionStorage.setItem('pkce_code_verifier', pkce.verifier)
         return { mfaRequired: true, mfaToken: loginResp.data.mfa_token }
       }
 
@@ -187,25 +191,37 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Logout: revoke the refresh token server-side, then clear local state.
+   * Logout: revoke BOTH the access + refresh tokens server-side (RFC 7009),
+   * then clear local state. The server's revoke handler (C3 fix) now actually
+   * revokes a refresh token presented here (previously a silent no-op).
    *
-   * Previously this function only cleared local state without notifying the
-   * backend, leaving the refresh token valid server-side until natural expiry
-   * (a security gap — the persisted refresh token in sessionStorage remained
-   * usable to mint new access tokens). Now we POST to /oauth2/revoke (RFC 7009)
-   * to invalidate the token before clearing it. Errors are swallowed because
-   * logout must succeed client-side regardless of backend availability.
+   * C5: revokes use fetch({keepalive:true}) rather than axios so they survive
+   * page teardown — browsers cancel in-flight XHR on navigation/tab-close, but
+   * keepalive fetches are flushed. Errors are swallowed because logout must
+   * succeed client-side regardless of backend availability.
    */
   async function logout() {
     try {
-      if (refreshToken.value) {
-        await axios.post('/oauth2/revoke', new URLSearchParams({
-          token: refreshToken.value,
-          client_id: 'admin-console',
-        }), {
+      const access = accessToken.value
+      const refresh = refreshToken.value
+      const revokes: Promise<Response>[] = []
+      if (access) {
+        revokes.push(fetch('/oauth2/revoke', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        })
+          body: new URLSearchParams({ token: access, client_id: 'admin-console' }),
+          keepalive: true,
+        }))
       }
+      if (refresh) {
+        revokes.push(fetch('/oauth2/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ token: refresh, client_id: 'admin-console' }),
+          keepalive: true,
+        }))
+      }
+      await Promise.all(revokes)
     } catch {
       // Best-effort: proceed to clear local state even if revoke fails.
     }
