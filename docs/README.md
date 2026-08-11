@@ -39,8 +39,11 @@ use relative paths.
 ## Productization
 
 - [Productization Evolution Plan](productization-evolution/productization-evolution-plan.md) — roadmap, priorities, risks (companion to the research report)
-- [Benchmark Facility Design](productization-evolution/benchmark-facility-design.md) — Phase 0 HTTP performance baseline design
+- [Progress Status](productization-evolution/progress-status.md) — what's done, in-progress, and not started across all phases
+- [Next-Phase Implementation Plan](productization-evolution/next-phase-implementation-plan.md) — detailed action items for the immediate next stage
+- [IAM Architecture Audit](productization-evolution/iam-architecture-audit.md) — codebase-wide IAM capability audit with file:line evidence
 - [Productization Research](productization-evolution/productization-research.md) — market/competitor/pricing analysis (input to the evolution plan)
+- [Benchmark Facility Design](productization-evolution/in-progress/benchmark-facility-design.md) — Phase 0 HTTP performance baseline design (M1 done, M2–M4 pending)
 
 ## Archive
 

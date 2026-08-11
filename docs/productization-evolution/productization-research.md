@@ -12,7 +12,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 
 **核心结论**: AuthForge 的 C++ 技术栈带来了天然的**极致性能**和**超低资源消耗**优势，适合走「高性能/边缘计算身份基础设施」的差异化产品化路线。建议采用 **Open Core + 双轨商业模式**（社区版开源 + 企业版/云托管商业化），以 SDK 嵌入许可和托管云服务作为主要收入来源。
 
-> ⚠️ **承重假设风险（务必先读）**：本报告的核心商业叙事（"极致性能 / 超低资源"，见 §3.1）压在一组**未经端到端基准实测**的性能数字上。代码库当前**没有任何 HTTP 级性能基准设施**——现有 `tests/performance/benchmark/PerformanceBenchmark.cc` 仅测进程内 `SubjectGenerator` 字符串操作，不触 HTTP/DB/Redis。在 Phase 0 基准设施（见 [演进方案 §1.3 / §三 Phase 0](productization-evolution-plan.md)）产出可复现数据前，本报告 §3.1 / §3.2 / §5.3 的性能数字为**工程估算，不可作为对外承诺**（不得用于 README 徽章、博客、定价页）。详见 [基准设施设计文档](benchmark-facility-design.md)。
+> ⚠️ **承重假设风险（务必先读）**：本报告的核心商业叙事（"极致性能 / 超低资源"，见 §3.1）压在一组**未经端到端基准实测**的性能数字上。代码库当前**没有任何 HTTP 级性能基准设施**——现有 `tests/performance/benchmark/PerformanceBenchmark.cc` 仅测进程内 `SubjectGenerator` 字符串操作，不触 HTTP/DB/Redis。在 Phase 0 基准设施（见 [演进方案 §1.3 / §三 Phase 0](productization-evolution-plan.md)）产出可复现数据前，本报告 §3.1 / §3.2 / §5.3 的性能数字为**工程估算，不可作为对外承诺**（不得用于 README 徽章、博客、定价页）。详见 [基准设施设计文档](in-progress/benchmark-facility-design.md)。
 
 ---
 
@@ -284,7 +284,7 @@ Phase 3 (12-24 月): 云托管探索
 
 | 优先级 | 工作项 | 目标 | 落地状态校准 |
 |--------|--------|------|------------|
-| P0 | 性能基准测试套件 | 发布 AuthForge vs Keycloak/Ory/Auth0 对比报告 | **当前空白**：代码库无 HTTP 级基准（`tests/performance/` 仅进程内微基准）。→ 见 [基准设施设计文档](benchmark-facility-design.md)；竞品对比建议后置到 Phase 0.5 |
+| P0 | 性能基准测试套件 | 发布 AuthForge vs Keycloak/Ory/Auth0 对比报告 | **当前空白**：代码库无 HTTP 级基准（`tests/performance/` 仅进程内微基准）。→ 见 [基准设施设计文档](in-progress/benchmark-facility-design.md)；竞品对比建议后置到 Phase 0.5 |
 | P0 | SDK 文档站 | 完整的 C++ SDK 集成指南 + API 参考 | **内容已就绪**（§3.4）；待办收敛为"**文档站化 + 版本切换 + 中文本地化**" |
 | P0 | Benchmark 可复现 | 提供一键式 benchmark 脚本, 第三方可验证 | **当前空白**；随性能基准套件一并交付（同设计文档） |
 | P1 | Helm Chart 优化 | 一条命令部署, 默认安全配置 | **chart 已具备生产能力**（§3.4）；待办收敛为"**补 HPA/PDB/NetworkPolicy/chart-tests + 非占位镜像 namespace + 非 ephemeral 默认存储**" |

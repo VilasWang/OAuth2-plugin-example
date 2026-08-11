@@ -3,8 +3,8 @@
 > **版本**: v1.0
 > **日期**: 2026-08-05
 > **文档性质**: 技术设计（Phase 1 落地蓝图，**非代码**——实施见 §七 milestone，各 milestone 单独立项）
-> **上游规划**: [演进方案 §三 Phase 1](productization-evolution-plan.md)「多语言 HTTP 客户端 SDK」
-> **姊妹设计**: [基准设施设计](benchmark-facility-design.md)（Phase 0，与本设施协同——见附录 D）
+> **上游规划**: [演进方案 §三 Phase 1](../productization-evolution-plan.md)「多语言 HTTP 客户端 SDK」
+> **姊妹设计**: [基准设施设计](../in-progress/benchmark-facility-design.md)（Phase 0，与本设施协同——见附录 D）
 > **承重背景**: 本设施的**前提**是 OpenAPI spec 治理——当前 spec 处于"两源漂移 + 一个死文件"状态（见 §二），不先治 spec 就生成客户端等于在流沙上盖楼。
 
 ---
@@ -304,7 +304,7 @@ clients/
 - **依赖**：M1 + M2。
 
 ### M4 — 文档与端到端示例
-- **做**：`clients/{python,go}/README.md`；一个端到端示例：用 Python 客户端复现[基准设计](benchmark-facility-design.md)的 S2 client_credentials 场景——闭环"性能数据 + 多语言工具"（附录 D）。
+- **做**：`clients/{python,go}/README.md`；一个端到端示例：用 Python 客户端复现[基准设计](../in-progress/benchmark-facility-design.md)的 S2 client_credentials 场景——闭环"性能数据 + 多语言工具"（附录 D）。
 - **验收**：示例可跑。
 - **依赖**：M1 + M3（+ 基准设施 M1 数据）。
 
@@ -368,7 +368,7 @@ jobs：
 
 ## 附录 D：与基准设施设计的协同
 
-[基准设施设计](benchmark-facility-design.md)的 Phase 0 产出可复现性能数据，但第三方复现需要"数据 + 工具"齐备：
+[基准设施设计](../in-progress/benchmark-facility-design.md)的 Phase 0 产出可复现性能数据，但第三方复现需要"数据 + 工具"齐备：
 - 基准设施给 wrk 脚本（C++ 开发者/性能工程师用）。
 - **本设施的 clients/ auth 层给非 C++ 开发者用**——Python/Go 开发者可用客户端发同样的请求，复现 S2 client_credentials 等场景，不必学 wrk。
 - M4 的端到端示例正是此协同的闭环：Python 客户端复现基准 S2 场景。
@@ -385,10 +385,10 @@ Phase 1 客户端 SDK（py/go）──请求工具──┘ C++ 工程师(wrk) +
 
 | 上游 | 关系 |
 |------|------|
-| [调研报告](productization-research.md) §3.2「API 稳定性」卖点 | 本设施 D4（oasdiff）补其工程证据 |
-| [调研报告](productization-research.md) §3.3 差距「多语言 SDK」 | 本设施是此差距的填补 |
-| [演进方案](productization-evolution-plan.md) §三 Phase 1 | 本设施是 Phase 1 的落地设计 |
-| [基准设施设计](benchmark-facility-design.md) | 姊妹设计，附录 D 协同 |
+| [调研报告](../productization-research.md) §3.2「API 稳定性」卖点 | 本设施 D4（oasdiff）补其工程证据 |
+| [调研报告](../productization-research.md) §3.3 差距「多语言 SDK」 | 本设施是此差距的填补 |
+| [演进方案](../productization-evolution-plan.md) §三 Phase 1 | 本设施是 Phase 1 的落地设计 |
+| [基准设施设计](../in-progress/benchmark-facility-design.md) | 姊妹设计，附录 D 协同 |
 
 ---
 
