@@ -80,6 +80,13 @@ async function saveChanges() {
   try {
     const body: any = {}
     if (editName.value !== (client.value.name || '')) {
+      // RFC 7591 §2.2: client_name is required; the backend now rejects
+      // empty names with 400. Validate client-side for better UX.
+      if (!editName.value.trim()) {
+        showError('应用名称不能为空')
+        saving.value = false
+        return
+      }
       body.name = editName.value
     }
     const uris = editRedirectUris.value.split('\n').map(s => s.trim()).filter(s => s).join(',')
@@ -232,6 +239,17 @@ onMounted(() => {
 
       <!-- Auth Config Tab -->
       <div v-if="activeTab === 'auth'" class="bg-white shadow rounded-lg p-6 space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Token Endpoint Auth Method</label>
+          <div class="px-3 py-2 bg-gray-50 rounded-md text-sm font-mono text-gray-700 inline-block">
+            {{ client.token_endpoint_auth_method || '(not set)' }}
+          </div>
+          <p class="text-xs text-gray-500 mt-1">
+            How this client authenticates at the token endpoint. PUBLIC clients use <code>none</code>;
+            CONFIDENTIAL clients use <code>client_secret_basic</code> or <code>client_secret_post</code>.
+            Set automatically based on client type.
+          </p>
+        </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Redirect URIs (one per line)</label>
           <textarea

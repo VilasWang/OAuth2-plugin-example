@@ -67,4 +67,13 @@ export const zhCN: Record<string, string> = {
   authorization_pending: '授权尚未完成，请稍后重试',
   slow_down: '轮询过于频繁，请降低频率',
   expired_token: '设备码已过期，请重新发起授权',
+
+  // --- RFC 6750 (Bearer Token Usage) §3.1 WWW-Authenticate error codes ---
+  invalid_token: '提供的访问令牌无效或已过期',
+  insufficient_scope: '权限不足，缺少所需的 scope',
+
+  // --- OIDC Core 1.0 §3.1.2.6 authorization-error codes ---
+  login_required: '需要重新登录以完成授权',
+  consent_required: '需要用户同意才能完成授权',
+  interaction_required: '需要用户交互才能完成授权',
 }

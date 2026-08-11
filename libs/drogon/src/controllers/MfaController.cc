@@ -464,6 +464,7 @@ void MfaController::verifyLogin(
 {
     std::string mfaToken, code;
     std::string clientId, redirectUri, scope, nonce;
+    std::string codeVerifier;  // C4 (RFC 7636): PKCE verifier for the MFA-completed code exchange
     if (req->contentType() == ::drogon::CT_APPLICATION_JSON)
     {
         auto json = req->getJsonObject();
@@ -475,6 +476,7 @@ void MfaController::verifyLogin(
             redirectUri = json->get("redirect_uri", "").asString();
             scope = json->get("scope", "").asString();
             nonce = json->get("nonce", "").asString();
+            codeVerifier = json->get("code_verifier", "").asString();
         }
     }
     else
@@ -485,6 +487,7 @@ void MfaController::verifyLogin(
         redirectUri = req->getParameter("redirect_uri");
         scope = req->getParameter("scope");
         nonce = req->getParameter("nonce");
+        codeVerifier = req->getParameter("code_verifier");
     }
 
     if (mfaToken.empty() || code.empty())
@@ -548,7 +551,7 @@ void MfaController::verifyLogin(
         req->session()->insert("auth_time", mfaAuthTime);
         req->session()->insert("amr", mfaAmr);
     }
-    auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken, mfaAuthTime, mfaAmr](
+    auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken, mfaAuthTime, mfaAmr, codeVerifier](
                             std::string publicSub,
                             std::string pendingClientId,
                             std::string pendingRedirectUri,
@@ -569,7 +572,8 @@ void MfaController::verifyLogin(
            nonce,
            mfaAuthTime,
            mfaAmr,
-           clearPendingBinding](bool validClient) {
+           clearPendingBinding,
+           codeVerifier](bool validClient) {
               if (!validClient)
               {
                   respondError(
@@ -596,7 +600,8 @@ void MfaController::verifyLogin(
                  nonce,
                  mfaAuthTime,
                  mfaAmr,
-                 clearPendingBinding](bool validUri) {
+                 clearPendingBinding,
+                 codeVerifier](bool validUri) {
                     if (!validUri)
                     {
                         respondError(
@@ -619,13 +624,30 @@ void MfaController::verifyLogin(
                         return;
                     }
 
+                    // C4 (RFC 7636): read the first-factor PKCE challenge back
+                    // from the session (SessionController::login stored it when
+                    // MFA was triggered) and thread it onto the code generation.
+                    // The client supplies the matching code_verifier (extracted
+                    // above), passed to exchangeCodeForToken below. Without this
+                    // the MFA path generated+exchanged with empty PKCE params.
+                    std::string sessCodeChallenge;
+                    std::string sessCodeChallengeMethod;
+                    if (req->session())
+                    {
+                        if (req->session()->find("mfa_code_challenge"))
+                            sessCodeChallenge = req->session()->get<std::string>("mfa_code_challenge");
+                        if (req->session()->find("mfa_code_challenge_method"))
+                            sessCodeChallengeMethod =
+                              req->session()->get<std::string>("mfa_code_challenge_method");
+                    }
+
                     plugin->generateAuthorizationCode(
                       clientId,
                       publicSub,
                       scope,
                       redirectUri,
-                      "",
-                      "",
+                      sessCodeChallenge,
+                      sessCodeChallengeMethod,
                       nonce,
                       [sharedCb,
                        req,
@@ -633,7 +655,8 @@ void MfaController::verifyLogin(
                        clientId,
                        redirectUri,
                        publicSub,
-                       clearPendingBinding](
+                       clearPendingBinding,
+                       codeVerifier](
                         bool success, std::string authCode, std::string genError
                       ) {
                           if (!success)
@@ -652,7 +675,7 @@ void MfaController::verifyLogin(
                             clientId,
                             "",
                             redirectUri,
-                            "",
+                            codeVerifier,
                             [sharedCb, req, publicSub, clearPendingBinding](
                               const Json::Value &tokenResult
                             ) {
