@@ -8486,6 +8486,41 @@ std::shared_ptr<CachedClientRepositoryBase> impl_;
 ::drogon::CacheMap<std::string, ::authforge::oauth2::model::OAuth2Client> clientCache_;
 };
 }
+=== libs/storage-redis/include/authforge/storage/redis/RedisCachedClientRepository.h
+#pragma once
+#include <authforge/common/ports/IMetrics.h>
+#include <authforge/oauth2/repository/IClientRepository.h>
+#include <drogon/nosql/RedisClient.h>
+#include <atomic>
+#include <memory>
+#include <string>
+namespace authforge::storage::redis
+{
+using RedisCachedClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
+class RedisCachedClientRepository : public RedisCachedClientRepositoryBase,
+public std::enable_shared_from_this<RedisCachedClientRepository>
+{
+public:
+RedisCachedClientRepository(
+std::shared_ptr<RedisCachedClientRepositoryBase> impl,
+::drogon::nosql::RedisClientPtr redisClient,
+std::shared_ptr<::authforge::common::ports::IMetrics> metrics = nullptr,
+int clientTtlSeconds = 300
+);
+void getClient(const std::string &clientId, ClientCallback &&cb) override;
+void validateClient(
+const std::string &clientId,
+const std::string &clientSecret,
+BoolCallback &&cb
+) override;
+private:
+std::shared_ptr<RedisCachedClientRepositoryBase> impl_;
+::drogon::nosql::RedisClientPtr redisClient_;
+std::shared_ptr<::authforge::common::ports::IMetrics> metrics_;
+int clientTtlSeconds_;
+void emitMetric(const char *outcome) const;
+};
+}
 === libs/storage-redis/include/authforge/storage/redis/RedisClientRepository.h
 #pragma once
 #include <authforge/oauth2/repository/IClientRepository.h>
