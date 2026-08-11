@@ -806,24 +806,34 @@ void TokenEndpointController::revoke(
                     return;
                 }
 
-                // Has permission, execute revocation
+                // Has permission, execute revocation. C3 (RFC 7009 §2.1): the
+                // revocation endpoint must revoke ANY token type. revokeAccessToken
+                // only touches oauth2_access_tokens (+ its nested refresh-token
+                // cascade fires only when the access-token lookup hits). A token
+                // presented here may be a refresh token; revokeAccessToken is a
+                // silent no-op for those. Follow it with revokeRefreshToken so a
+                // refresh token is actually revoked. One of the two is always a
+                // no-op (the token is one type or the other), and RFC 7009 §2.2
+                // mandates 200 regardless.
                 plugin->revokeAccessToken(
-                  token, clientId, [clientId, callback = std::move(callback), token]() mutable {
-                      ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
-                        ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                        "token_revoked",
-                        "success",
-                        nullptr,
-                        clientId,
-                        "token",
-                        token
-                      );
-                      if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
-                          m->incrementCounter(
-                            "oauth2_revocation_requests_total",
-                            authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                  token, clientId, [plugin, clientId, token, callback = std::move(callback)]() mutable {
+                      plugin->revokeRefreshToken(token, [clientId, token, callback = std::move(callback)]() mutable {
+                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                            "token_revoked",
+                            "success",
+                            nullptr,
+                            clientId,
+                            "token",
+                            token
                           );
-                      callback(createSuccessResponse());
+                          if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
+                              m->incrementCounter(
+                                "oauth2_revocation_requests_total",
+                                authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                              );
+                          callback(createSuccessResponse());
+                      });
                   }
                 );
             }

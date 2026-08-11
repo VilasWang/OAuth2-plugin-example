@@ -16,6 +16,7 @@
 #include <authforge/storage/postgres/PostgresRepositoryBundle.h>
 #include <authforge/storage/redis/RedisRepositoryBundle.h>
 #include <authforge/storage/redis/RedisCachedClientRepository.h>
+#include <authforge/storage/redis/RedisCachedTokenRepository.h>
 #include <authforge/oauth2/repository/IClientRepository.h>
 #include <authforge/oauth2/repository/IGrantRepository.h>
 #include <authforge/oauth2/repository/ITokenRepository.h>
@@ -282,6 +283,8 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         // Phase 2; grant/consent are not cached).
         std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo =
           bundle.clientRepository();
+        std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo =
+          bundle.tokenRepository();
         bool cacheEnabled =
           config.isMember("cache") && config["cache"].isMember("enabled") &&
           config["cache"]["enabled"].asBool();
@@ -290,11 +293,14 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             std::string redisName =
               config["cache"].get("redis_client_name", "default").asString();
             int clientTtl = 300;
-            if (config["cache"].isMember("ttl_seconds") &&
-                config["cache"]["ttl_seconds"].isMember("client") &&
-                config["cache"]["ttl_seconds"]["client"].isInt())
+            int accessTokenMaxTtl = 60;
+            if (config["cache"].isMember("ttl_seconds"))
             {
-                clientTtl = config["cache"]["ttl_seconds"]["client"].asInt();
+                const auto &ttl = config["cache"]["ttl_seconds"];
+                if (ttl.isMember("client") && ttl["client"].isInt())
+                    clientTtl = ttl["client"].asInt();
+                if (ttl.isMember("access_token_max") && ttl["access_token_max"].isInt())
+                    accessTokenMaxTtl = ttl["access_token_max"].asInt();
             }
             ::drogon::nosql::RedisClientPtr redisClient;
             try
@@ -311,18 +317,25 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                          << redisName << "' unavailable (" << e.what()
                          << "); cache decorator will pass through to Postgres";
             }
+            // Phase 1: client cache.
             clientRepo = std::make_shared<authforge::storage::redis::RedisCachedClientRepository>(
               bundle.clientRepository(), redisClient, metrics_, clientTtl
             );
-            LOG_INFO << "OAuth2Plugin: Redis client cache ENABLED for client lookups"
+            // Phase 2: token cache (getAccessToken + introspectToken + revoke
+            // invalidation + negative cache). grant/consent stay unwrapped
+            // (§5.2: not cached).
+            tokenRepo = std::make_shared<authforge::storage::redis::RedisCachedTokenRepository>(
+              bundle.tokenRepository(), redisClient, metrics_, accessTokenMaxTtl
+            );
+            LOG_INFO << "OAuth2Plugin: Redis cache ENABLED (client + token lookups)"
                      << " (redis_client_name='" << redisName << "', client_ttl=" << clientTtl
-                     << "s)";
+                     << "s, access_token_max_ttl=" << accessTokenMaxTtl << "s)";
         }
 
         assignOAuth2(
           clientRepo,
           bundle.grantRepository(),
-          bundle.tokenRepository(),
+          tokenRepo,
           bundle.consentRepository()
         );
 
@@ -760,6 +773,26 @@ void OAuth2Plugin::revokeAccessToken(
 )
 {
     tokenService_->revokeAccessToken(token, revokedBy, std::move(callback));
+}
+
+void OAuth2Plugin::revokeRefreshToken(
+  const std::string &token,
+  std::function<void()> &&callback
+)
+{
+    // C3 (RFC 7009 §2.1): the revocation endpoint must be able to revoke ANY
+    // token type (access or refresh). TokenService wraps access-token revoke
+    // but not refresh; forward directly to the token repository. The caller
+    // (TokenEndpointController::revoke) invokes this after revokeAccessToken
+    // so that a refresh token presented to /oauth2/revoke is actually
+    // revoked rather than silently no-op'd by the access-token-only path.
+    if (!tokenRepo_)
+    {
+        if (callback)
+            callback();
+        return;
+    }
+    tokenRepo_->revokeRefreshToken(token, std::move(callback));
 }
 
 bool OAuth2Plugin::validatePkceCodeVerifier(

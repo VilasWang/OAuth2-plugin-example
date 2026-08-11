@@ -1,9 +1,9 @@
 # Design: Postgres Storage + Redis Cache Layer (#42)
 
-**Status:** Revised — Phase 1 implementation in progress
+**Status:** Phase 1 + Phase 2 implemented (2026-08-11)
 **Author:** ZCode
 **Created:** 2026-08-09
-**Revised:** 2026-08-11 (closed G1/G2/G3, folded S1–S5, added N1–N3 — see §11 + §12)
+**Revised:** 2026-08-11 (closed G1/G2/G3, folded S1–S5, added N1–N3 — see §11 + §12; Phase 2 token cache implemented with C1/C6/C7 review fixes — see §13)
 **Tracks:** GitHub issue #42 (successor to deprecated standalone Redis storage mode, F-005/#24)
 **Related:** [`oauth-oidc-compliance-audit.md`](../done/oauth-oidc-compliance-audit.md) (F-005), [`iam-architecture-audit.md`](../iam-architecture-audit.md)
 
@@ -597,3 +597,47 @@ questions when it starts.
 
 The design is now implementation-ready for Phase 1. G1/G2/G3 + S1–S5 (from §11) and N1–N3
 (from §12) are all closed; §10 records the locked decisions.
+
+---
+
+## 13. Phase 2 implementation record (2026-08-11)
+
+Phase 2 (token cache) is implemented. A subagent code review of the Phase-2 plan surfaced 4
+critical + 3 important issues; all real ones were fixed before implementation, and the accepted
+ones are documented below.
+
+### 13.1 Implementation summary
+
+- **`RedisCachedTokenRepository`** (`libs/storage-redis/`): implements `ITokenRepository`,
+  wraps the Postgres impl. Caches `getAccessToken` + `introspectToken` only; all other methods
+  are pure pass-through.
+- **Cache keys** (additive to Phase 1's client key): `token:access:{hash}` →
+  `JSON(OAuth2AccessToken)`, `token:introspect:{hash}` → `JSON(TokenIntrospection)`,
+  `token:revoked:{hash}` → `"1"` (negative cache, 60s fixed per N3).
+- **Wiring**: `OAuth2Plugin::initStorage` wraps `bundle.tokenRepository()` in the decorator
+  when `cache.enabled`; reads `ttl_seconds.access_token_max` (default 60s).
+- **Tests**: `RedisCachedTokenRepositoryTest.cc` — 5 cases (getAccessToken miss→hit, C1
+  revoked-not-served, N2 discriminator, null-Redis pass-through, saveAccessToken warming);
+  35 assertions; full suite 467 cases / 57,379 assertions green.
+
+### 13.2 Review findings (all closed)
+
+| # | Finding | Resolution |
+|---|---|---|
+| **C1** | `getAccessToken` would serve revoked tokens (no `token:revoked` check) | **Fixed.** `getAccessToken` checks `EXISTS token:revoked:{hash}` on every return (hit + before fill); a revoked token returns `nullopt` immediately. |
+| **C2** | `revokeTokenFamily` pass-through leaves family tokens cached | **Accepted (locked G1, §10.5).** The ≤60s TTL-bounded convergence window is the locked decision. With C1 fixed, single-token revoke is safe; family-revoke keeps the accepted window. |
+| **C3** | Server `/oauth2/revoke` never revoked refresh tokens (RFC 7009 §2.1 gap) | **Fixed (server-side).** The revoke handler now calls both `revokeAccessToken` AND `revokeRefreshToken`; one is always a no-op, but a refresh token presented to `/oauth2/revoke` is now actually revoked. |
+| **C4** | MFA login bypassed PKCE entirely (server-internal code gen with empty PKCE) | **Fixed (server-side, session-based).** `SessionController::login` persists `code_challenge`/`code_challenge_method` on the session; `MfaController::verifyLogin` reads them back + accepts `code_verifier` from the request, threading PKCE through the MFA completion. No DB migration (session-based, matching the existing userId/auth_time/amr pattern). |
+| **C5** | Fire-and-forget logout revoke dropped by page teardown | **Fixed (frontend).** Both SPAs use `fetch(url, {keepalive:true})` for the logout revoke so it survives navigation/tab-close. |
+| **C6** | `OAuth2AccessToken`/`TokenIntrospection` had no JSON serializer | **Fixed.** Complete 13-field + 10-field (de)serializers in `RedisCachedTokenRepository.cc`; round-trip fidelity verified by Test 1. |
+| **C7** | TTL `min(remaining, 60s)` unguarded for `remaining ≤ 0` | **Fixed.** Cache write skipped when `remaining ≤ 0` (Redis rejects `EX ≤ 0`); an already-expired token is not cached. |
+
+### 13.3 N2 discriminator (introspectToken)
+
+`introspectToken` caches its result **only when** `result.active` AND `EXISTS token:access:{hash}`
+(an access-cache entry exists). The access key can only be populated by `getAccessToken` /
+`saveAccessToken`, both of which are access-token-only by construction — so its presence proves
+the introspection did NOT come from the refresh-token fallthrough. Cold-start false-negatives
+(access cache not yet populated) are safe (just suboptimal — the next introspect after the access
+cache warms up will cache). `saveAccessToken` proactively warms the access cache, closing the
+cold-start window for newly-issued tokens.
