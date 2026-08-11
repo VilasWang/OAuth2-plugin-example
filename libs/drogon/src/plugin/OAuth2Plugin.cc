@@ -15,6 +15,7 @@
 #include <authforge/storage/memory/MemoryRepositoryBundle.h>
 #include <authforge/storage/postgres/PostgresRepositoryBundle.h>
 #include <authforge/storage/redis/RedisRepositoryBundle.h>
+#include <authforge/storage/redis/RedisCachedClientRepository.h>
 #include <authforge/oauth2/repository/IClientRepository.h>
 #include <authforge/oauth2/repository/IGrantRepository.h>
 #include <authforge/oauth2/repository/ITokenRepository.h>
@@ -168,7 +169,10 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // authforge::common::ports::* (getAuditSink()/getMetrics()) instead of
     // AuditLogger/Metrics statics.
     auditSink_ = auditSink;
-    metrics_ = std::make_shared<authforge::drogon::adapters::DrogonMetrics>();
+    // #42 Phase 1: metrics_ is now constructed in initStorage() (above) so the
+    // Redis cache decorator can receive it at bundle-construction time. The
+    // redundant construction that used to live here is removed; metrics_ is
+    // already set by the time execution reaches this point.
 
     // Phase 4.5: roles resolve through StorageRoleProvider's subject-string
     // overload (supportsSubjectLookup()=true) -- byte-equivalent to the legacy
@@ -242,6 +246,12 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     // here (they return the legacy oauth2::* types; 1.5e deletes them).
     storageType_ = config.get("storage_type", "memory").asString();
 
+    // #42 Phase 1: construct the IMetrics port once here (not later in
+    // initAndStart) so the Redis cache decorator below can receive it. The
+    // assignment is idempotent — initAndStart no longer re-creates it.
+    if (!metrics_)
+        metrics_ = std::make_shared<authforge::drogon::adapters::DrogonMetrics>();
+
     // Helper: assign the 4 oauth2 repos from a bundle + the 3 identity repos
     // from a single identity-repo shared_ptr.
     auto assignOAuth2 = [this](
@@ -260,8 +270,57 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     {
         authforge::storage::postgres::PostgresRepositoryBundle bundle;
         bundle.initFromConfig(config["postgres"]);
+
+        // #42 Phase 1: optionally wrap the client repository in the Redis L2
+        // cache decorator (design postgres-redis-cache-design.md §5.1/§5.6).
+        // Default OFF (cache.enabled defaults to false). When ON, fetch the
+        // configured Redis client by name (S3: redis_client_name actually
+        // drives getRedisClient, default "default") and construct the decorator
+        // around the plain Postgres client impl. A null Redis client is legal:
+        // the decorator soft-fails to Postgres (§5.5). Token/grant/consent
+        // repos pass through unwrapped in Phase 1 (§5.2: token caching is
+        // Phase 2; grant/consent are not cached).
+        std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo =
+          bundle.clientRepository();
+        bool cacheEnabled =
+          config.isMember("cache") && config["cache"].isMember("enabled") &&
+          config["cache"]["enabled"].asBool();
+        if (cacheEnabled)
+        {
+            std::string redisName =
+              config["cache"].get("redis_client_name", "default").asString();
+            int clientTtl = 300;
+            if (config["cache"].isMember("ttl_seconds") &&
+                config["cache"]["ttl_seconds"].isMember("client") &&
+                config["cache"]["ttl_seconds"]["client"].isInt())
+            {
+                clientTtl = config["cache"]["ttl_seconds"]["client"].asInt();
+            }
+            ::drogon::nosql::RedisClientPtr redisClient;
+            try
+            {
+                redisClient = ::drogon::app().getRedisClient(redisName);
+            }
+            catch (const std::exception &e)
+            {
+                // Soft-fail: cache disabled at runtime, plain Postgres path used.
+                // Not an error — a deployment may enable the config flag before
+                // standing up the Redis instance; the decorator handles a null
+                // client as a pure pass-through (§5.5).
+                LOG_WARN << "OAuth2Plugin: cache.enabled=true but Redis client '"
+                         << redisName << "' unavailable (" << e.what()
+                         << "); cache decorator will pass through to Postgres";
+            }
+            clientRepo = std::make_shared<authforge::storage::redis::RedisCachedClientRepository>(
+              bundle.clientRepository(), redisClient, metrics_, clientTtl
+            );
+            LOG_INFO << "OAuth2Plugin: Redis client cache ENABLED for client lookups"
+                     << " (redis_client_name='" << redisName << "', client_ttl=" << clientTtl
+                     << "s)";
+        }
+
         assignOAuth2(
-          bundle.clientRepository(),
+          clientRepo,
           bundle.grantRepository(),
           bundle.tokenRepository(),
           bundle.consentRepository()

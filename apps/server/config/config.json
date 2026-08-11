@@ -149,6 +149,14 @@
                 "postgres": {
                     "db_client_name": "default"
                 },
+                "cache": {
+                    "enabled": false,
+                    "redis_client_name": "default",
+                    "ttl_seconds": {
+                        "client": 300,
+                        "access_token_max": 60
+                    }
+                },
                 "clients": {
                     "vue-client": {
                         "client_type": "PUBLIC",
