@@ -107,9 +107,10 @@ DROGON_TEST(Unit_P1_InitOrder_1_1_OpenApiTokenEndpoint_Snapshot_Baseline)
     REQUIRE(token.isMember("tags"));
     CHECK(token["tags"].size() == 2);
 
-    // The token endpoint registers exactly 6 query parameters.
+    // The token endpoint registers its query parameters. Updated for PKCE
+    // (RFC 7636): code_verifier added on the authorization_code grant.
     REQUIRE(token.isMember("parameters"));
-    CHECK(token["parameters"].size() == 6);
+    CHECK(token["parameters"].size() == 7);
 
     // Collect parameter names to assert the complete set (order-independent).
     std::set<std::string> paramNames;
@@ -119,7 +120,8 @@ DROGON_TEST(Unit_P1_InitOrder_1_1_OpenApiTokenEndpoint_Snapshot_Baseline)
         CHECK(p["in"].asString() == "query");
     }
     const std::set<std::string> expectedParams =
-      {"grant_type", "code", "refresh_token", "client_id", "client_secret", "redirect_uri"};
+      {"grant_type", "code", "refresh_token", "client_id", "client_secret",
+       "redirect_uri", "code_verifier"};
     CHECK(paramNames == expectedParams);
 
     // grant_type advertises its enum values (completeness of param metadata).
