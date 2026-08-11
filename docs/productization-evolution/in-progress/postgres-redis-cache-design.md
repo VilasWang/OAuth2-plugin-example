@@ -5,7 +5,7 @@
 **Created:** 2026-08-09
 **Revised:** 2026-08-11 (closed G1/G2/G3, folded S1–S5, added N1–N3 — see §11 + §12)
 **Tracks:** GitHub issue #42 (successor to deprecated standalone Redis storage mode, F-005/#24)
-**Related:** `oauth-oidc-compliance-audit.md` (F-005), `iam-architecture-audit.md`
+**Related:** [`oauth-oidc-compliance-audit.md`](../done/oauth-oidc-compliance-audit.md) (F-005), [`iam-architecture-audit.md`](../iam-architecture-audit.md)
 
 ---
 

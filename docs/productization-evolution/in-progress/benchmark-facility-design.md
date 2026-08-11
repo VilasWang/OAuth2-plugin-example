@@ -3,8 +3,8 @@
 > **版本**: v1.0
 > **日期**: 2026-08-05
 > **文档性质**: 技术设计（Phase 0 落地蓝图，**非代码**——实施见 §七 milestone，各 milestone 单独立项）
-> **上游规划**: [演进方案 §三 Phase 0](productization-evolution-plan.md)
-> **承重背景**: 本设施是验证 [调研报告](productization-research.md) §3.1/§3.2 性能声明的唯一手段——代码库当前无任何 HTTP 级基准（见 §二背景）。
+> **上游规划**: [演进方案 §三 Phase 0](../productization-evolution-plan.md)
+> **承重背景**: 本设施是验证 [调研报告](../productization-research.md) §3.1/§3.2 性能声明的唯一手段——代码库当前无任何 HTTP 级基准（见 §二背景）。
 
 ---
 
@@ -518,8 +518,8 @@ Authorization: Bearer <AT>     # 必须是 S4 的用户 AT，非 S2 的 client_c
 
 | 上游 | 关系 |
 |------|------|
-| [调研报告](productization-research.md) §3.1/§3.2 | 本设施的**验证对象**；M4 据实测修订其数字 |
-| [演进方案](productization-evolution-plan.md) §三 Phase 0 | 本设施是 Phase 0 的**落地设计**；本文档 §七 milestone = Phase 0 的实施分解 |
+| [调研报告](../productization-research.md) §3.1/§3.2 | 本设施的**验证对象**；M4 据实测修订其数字 |
+| [演进方案](../productization-evolution-plan.md) §三 Phase 0 | 本设施是 Phase 0 的**落地设计**；本文档 §七 milestone = Phase 0 的实施分解 |
 | 演进方案 §4.1 Benchmark 工作流 | 本文档 §四/§五是其展开 |
 | 演进方案 §四 立即动作 1 | 本文档 = 该动作的详细蓝图 |
 

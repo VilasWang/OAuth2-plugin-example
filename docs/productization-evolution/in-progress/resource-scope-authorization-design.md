@@ -4,7 +4,7 @@
 **Author:** ZCode
 **Created:** 2026-08-09
 **Tracks:** GitHub issue #43 (successor to F-010 / #27 minimal scope enforcement)
-**Related:** `oauth-oidc-compliance-audit.md` (F-010), `iam-architecture-audit.md`
+**Related:** [`oauth-oidc-compliance-audit.md`](../done/oauth-oidc-compliance-audit.md) (F-010), [`iam-architecture-audit.md`](../iam-architecture-audit.md)
 
 ---
 
@@ -290,8 +290,14 @@ Tier-2. No new tables; no token-format change.
 ## 7. Backward compatibility
 
 - A token carrying only `admin` continues to work (implication, §5.4).
-- A token carrying the legacy `read`/`write` is grandfathered via alias mapping (§5.3) for at
-  least one release, with a deprecation log the first time the alias fires.
+- > **Superseded by decision #2 (§10.1):** there is **no** grandfathering alias for the legacy
+  > `read`/`write` scopes. Decision #2 adopts *drop-legacy-outright* — `V006` is rewritten to
+  > remove the `read`/`write` rows and there is no alias mapping, so a token carrying only the
+  > legacy `read`/`write` will no longer be granted any resource access after the rewrite. The
+  > original one-release grandfathering wording below is retained only as historical context.
+- A token carrying the legacy `read`/`write` was *originally* planned to be grandfathered via
+  alias mapping (§5.3) for at least one release, with a deprecation log the first time the alias
+  fires. **(Superseded — see note above.)**
 - Existing OIDC flows (`openid`/`profile`/`email`) are unchanged.
 - The error shape (`AUTHZ_INSUFFICIENT_PERMISSIONS`, HTTP 403) is unchanged; only the
   `WWW-Authenticate scope=` attribute becomes consistently present.

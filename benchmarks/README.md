@@ -8,7 +8,7 @@ Its purpose is to turn the load-bearing performance claims in the
 (QPS / latency / memory / cold-start) from **assertions into measurements**.
 
 > Full design (scenario matrix, methodology, acceptance criteria): see
-> [benchmark-facility-design.md](../docs/productization-evolution/benchmark-facility-design.md).
+> [benchmark-facility-design.md](../docs/productization-evolution/in-progress/benchmark-facility-design.md).
 > This README is the **how-to-run** companion; the design doc is the **why**.
 
 ## Scope of M1 (current)
