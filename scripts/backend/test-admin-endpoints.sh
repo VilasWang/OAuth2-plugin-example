@@ -29,17 +29,24 @@ auth_header() {
 }
 
 # Setup: Admin Login + Token
+# F-011/RFC 7636 (RFC 9700 §2.1.1): PKCE mandatory for PUBLIC clients.
+# admin-console is PUBLIC → login carries code_challenge, token exchange
+# carries the matching code_verifier. client_secret is empty (PUBLIC client,
+# token_endpoint_auth_method='none' — F-017 rejects any secret).
 test_setup_login() {
+    local verifier challenge
+    verifier=$(generate_pkce_verifier)
+    challenge=$(pkce_s256_challenge "$verifier")
     local login_resp
     login_resp=$(curl -s -X POST "$BASE_URL/oauth2/login" \
-        -d "username=admin&password=admin&client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback&scope=openid+profile+admin&state=admin-test-state&json=true")
+        -d "username=admin&password=admin&client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback&scope=openid+profile+admin&state=admin-test-state&code_challenge=$challenge&code_challenge_method=S256&json=true")
     local code
     code=$(echo "$login_resp" | jq -r '.code')
     [ -n "$code" ] && [ "$code" != "null" ] || { echo "    no auth code from login"; return 1; }
 
     local tok_resp
     tok_resp=$(curl -s -X POST "$BASE_URL/oauth2/token" \
-        -d "grant_type=authorization_code&code=$code&redirect_uri=http://localhost:5174/admin/callback&client_id=admin-console&client_secret=")
+        -d "grant_type=authorization_code&code=$code&redirect_uri=http://localhost:5174/admin/callback&client_id=admin-console&client_secret=&code_verifier=$verifier")
     ACCESS_TOKEN=$(echo "$tok_resp" | jq -r '.access_token')
     [ -n "$ACCESS_TOKEN" ] && [ "$ACCESS_TOKEN" != "null" ] || { echo "    no access_token"; return 1; }
     echo "    Token: ${ACCESS_TOKEN:0:16}..."
@@ -243,14 +250,17 @@ test_11b() {
     # Issue a dedicated throwaway token to revoke. Never pick tokens[0] from the
     # list here: it is ordered by issued_at DESC, so the first row IS this
     # script's own live admin session -- revoking its prefix cascades 401s
-    # through every remaining test.
-    local login_resp code tok_resp throwaway
+    # through every remaining test. PKCE (F-011/RFC 7636) required for the
+    # admin-console PUBLIC client.
+    local login_resp code tok_resp throwaway verifier challenge
+    verifier=$(generate_pkce_verifier)
+    challenge=$(pkce_s256_challenge "$verifier")
     login_resp=$(curl -s -X POST "$BASE_URL/oauth2/login" \
-        -d "username=admin&password=admin&client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback&scope=openid+profile+admin&state=admin-test-11b&json=true")
+        -d "username=admin&password=admin&client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback&scope=openid+profile+admin&state=admin-test-11b&code_challenge=$challenge&code_challenge_method=S256&json=true")
     code=$(echo "$login_resp" | jq -r '.code')
     [ -n "$code" ] && [ "$code" != "null" ] || { echo "    no auth code for throwaway token"; return 1; }
     tok_resp=$(curl -s -X POST "$BASE_URL/oauth2/token" \
-        -d "grant_type=authorization_code&code=$code&redirect_uri=http://localhost:5174/admin/callback&client_id=admin-console&client_secret=")
+        -d "grant_type=authorization_code&code=$code&redirect_uri=http://localhost:5174/admin/callback&client_id=admin-console&client_secret=&code_verifier=$verifier")
     throwaway=$(echo "$tok_resp" | jq -r '.access_token')
     [ -n "$throwaway" ] && [ "$throwaway" != "null" ] || { echo "    no throwaway access_token"; return 1; }
 
@@ -584,13 +594,18 @@ test_38() {
 }
 run_test "Test 38: POST /api/admin/roles - Empty name (400)" test_38
 
-# Test 39: Client update with empty body
+# Test 39: Client update with empty body (no updatable fields → 400)
 test_39() {
-    local r
-    r=$(curl -s -X PUT -H "$(auth_header)" -H "Content-Type: application/json" \
+    # The server validates that at least one updatable field (name,
+    # redirect_uris, allowed_grant_types) is present in the body. An empty
+    # body {} is a "no fields to update" client error (400), not a silent
+    # no-op success. This matches the updateClient validation gate
+    # (ClientManagementService.cc) and is stricter-but-correct.
+    local code
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H "$(auth_header)" -H "Content-Type: application/json" \
         -d '{}' "$BASE_URL/api/admin/clients/vue-client")
-    assert_json_field "$r" "status" "success" || return 1
-    echo "    Empty body update accepted (no-op)"
+    assert_status "$code" "400" || return 1
+    echo "    Empty body update correctly rejected with 400"
 }
 run_test "Test 39: PUT /api/admin/clients/:id - Empty body" test_39
 
@@ -618,22 +633,32 @@ run_test "Test 41: POST /api/admin/tokens/revoke-by-client - Non-existent" test_
 
 # Test 42: Unauthorized Access - New endpoints
 test_42() {
-    local endpoints=(
+    # Each endpoint is probed with its correct HTTP method. The auth gate
+    # runs before the method/handler, so a missing-token request must return
+    # 401 (or 403) regardless of whether the method is otherwise valid. POST
+    # endpoints get a JSON body; GET endpoints get no body.
+    local post_endpoints=(
         "$BASE_URL/api/admin/clients"
         "$BASE_URL/api/me/mfa/setup"
+    )
+    local get_endpoints=(
         "$BASE_URL/api/me/authorized-apps"
         "$BASE_URL/api/me/webauthn/credentials"
     )
     local all_blocked=true
-    for ep in "${endpoints[@]}"; do
+    for ep in "${post_endpoints[@]}"; do
         local code
         code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Content-Type: application/json" -d '{}' "$ep" 2>/dev/null || true)
-        # For GET endpoints, retry without body
-        if [ "$code" = "000" ] || [ -z "$code" ]; then
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$ep" 2>/dev/null || true)
-        fi
         if [ "$code" != "401" ] && [ "$code" != "403" ]; then
-            echo "    WARNING: $ep returned $code"
+            echo "    WARNING: POST $ep returned $code"
+            all_blocked=false
+        fi
+    done
+    for ep in "${get_endpoints[@]}"; do
+        local code
+        code=$(curl -s -o /dev/null -w '%{http_code}' "$ep" 2>/dev/null || true)
+        if [ "$code" != "401" ] && [ "$code" != "403" ]; then
+            echo "    WARNING: GET $ep returned $code"
             all_blocked=false
         fi
     done

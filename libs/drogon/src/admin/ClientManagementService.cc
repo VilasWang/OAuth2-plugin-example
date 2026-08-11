@@ -154,6 +154,18 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
           (clientType == "PUBLIC") ? "none" : "client_secret_basic";
     }
 
+    // RFC 7591 §2.2: client_name is a REQUIRED field of a registration
+    // request. Reject empty/missing names with 400 rather than silently
+    // creating a nameless client (which the test Test 6d correctly expects
+    // and which the pre-fix code accepted with 201).
+    if (name.empty())
+    {
+        respondError(
+          req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "createClient: name is required"
+        );
+        return;
+    }
+
     // F-014: reject non-compliant redirect URIs at creation time.
     if (!redirectUris.empty())
     {

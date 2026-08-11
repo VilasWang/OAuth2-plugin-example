@@ -237,6 +237,9 @@
             "/api/user/.*": [
                 "user",
                 "admin"
+            ],
+            "/oauth2/register": [
+                "admin"
             ]
         },
         "cors": {
