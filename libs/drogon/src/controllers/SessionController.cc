@@ -189,9 +189,39 @@ struct OAuth2ControllerDocs
               ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
             stateParam.required = false;
 
-            loginEndpoint.parameters = {
-              usernameParam, passwordParam, clientIdParam, redirectUriParam, scopeParam, stateParam
-            };
+            // PKCE (RFC 7636 / F-011): code_challenge is REQUIRED for PUBLIC
+            // clients (vue-client, admin-console) when require_pkce_for_public
+            // is enabled (default). The matching code_verifier goes on the
+            // /oauth2/token exchange. Declared in the generated openapi.json
+            // so client generators emit PKCE-aware clients.
+            ::authforge::drogon::observability::openapi::ParameterInfo codeChallengeParam;
+            codeChallengeParam.name = "code_challenge";
+            codeChallengeParam.description =
+              "PKCE code challenge (RFC 7636). Required for PUBLIC clients when "
+              "auth.require_pkce_for_public is enabled (default true).";
+            codeChallengeParam.type =
+              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            codeChallengeParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+            codeChallengeParam.required = false;
+
+            ::authforge::drogon::observability::openapi::ParameterInfo codeChallengeMethodParam;
+            codeChallengeMethodParam.name = "code_challenge_method";
+            codeChallengeMethodParam.description = "PKCE method: S256 (recommended) or plain.";
+            codeChallengeMethodParam.type =
+              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            codeChallengeMethodParam.location =
+              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+            codeChallengeMethodParam.required = false;
+
+            loginEndpoint.parameters = {usernameParam,
+                                        passwordParam,
+                                        clientIdParam,
+                                        redirectUriParam,
+                                        scopeParam,
+                                        stateParam,
+                                        codeChallengeParam,
+                                        codeChallengeMethodParam};
             loginEndpoint.responses =
               {{200, "Authentication successful (JSON with redirect_uri)"},
                {302, "Redirect with authorization code (if requested via browser)"},

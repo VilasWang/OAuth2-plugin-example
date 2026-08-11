@@ -78,9 +78,40 @@ struct MfaControllerDocs
         verifyDocs.path = "/oauth2/mfa/verify";
         verifyDocs.method = "POST";
         verifyDocs.summary = "Verify MFA Code (Login)";
-        verifyDocs.description = "Verify MFA code during login.";
+        verifyDocs.description =
+          "Verify MFA (TOTP) code during login. Completes the authorization-code "
+          "issuance started by /oauth2/login when MFA was required. The PKCE "
+          "code_verifier (C4, RFC 7636) must be supplied so the internally-"
+          "generated code passes PKCE verification against the code_challenge "
+          "persisted on the session during the first-factor login step.";
         verifyDocs.tags = {"MFA"};
         verifyDocs.requiresAuth = false;
+
+        // Parameters (were missing entirely — the endpoint had no documented
+        // parameters, so client generators emitted clients that didn't send
+        // mfa_token/code/client_id/redirect_uri/code_verifier).
+        auto mkStrParam = [](const char *name, const char *desc, bool required) {
+            ::authforge::drogon::observability::openapi::ParameterInfo p;
+            p.name = name;
+            p.description = desc;
+            p.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            p.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+            p.required = required;
+            return p;
+        };
+        verifyDocs.parameters = {
+          mkStrParam("mfa_token", "The MFA pending token returned by /oauth2/login when mfa_required was true.", true),
+          mkStrParam("code", "The 6-digit TOTP code from the user's authenticator.", true),
+          mkStrParam("client_id", "The client_id from the original login (must match).", true),
+          mkStrParam("redirect_uri", "The redirect_uri from the original login (must match).", true),
+          mkStrParam("code_verifier",
+                     "PKCE code_verifier (RFC 7636) matching the code_challenge sent on "
+                     "the first-factor /oauth2/login step. Required for PUBLIC clients.",
+                     false),
+        };
+        verifyDocs.responses = {{200, "MFA verification successful — returns the token pair"},
+                                {400, "Invalid request (missing mfa_token/code, malformed TOTP)"},
+                                {401, "Invalid MFA code or client/redirect mismatch"}};
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyDocs);
     }
 };

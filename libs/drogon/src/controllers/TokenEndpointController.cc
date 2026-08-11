@@ -99,11 +99,15 @@ void TokenEndpointController::initApiDocsImpl()
 
         authforge::drogon::observability::openapi::ParameterInfo clientSecretParam;
         clientSecretParam.name = "client_secret";
-        clientSecretParam.description = "Client secret (required for confidential clients)";
+        clientSecretParam.description =
+          "Client secret (required for CONFIDENTIAL clients with "
+          "token_endpoint_auth_method=client_secret_post; FORBIDDEN for PUBLIC "
+          "clients whose method is 'none' — F-017 rejects a secret sent by a "
+          "'none' client).";
         clientSecretParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
         clientSecretParam.location =
           authforge::drogon::observability::openapi::ParameterLocation::QUERY;
-        clientSecretParam.required = true;
+        clientSecretParam.required = false;
 
         authforge::drogon::observability::openapi::ParameterInfo redirectUriParam;
         redirectUriParam.name = "redirect_uri";
@@ -113,13 +117,26 @@ void TokenEndpointController::initApiDocsImpl()
           authforge::drogon::observability::openapi::ParameterLocation::QUERY;
         redirectUriParam.required = false;
 
+        // PKCE (RFC 7636): code_verifier required on the authorization_code
+        // grant when the corresponding /oauth2/login sent a code_challenge.
+        authforge::drogon::observability::openapi::ParameterInfo codeVerifierParam;
+        codeVerifierParam.name = "code_verifier";
+        codeVerifierParam.description =
+          "PKCE code verifier (RFC 7636). Required for the authorization_code "
+          "grant when the authorize step sent a code_challenge.";
+        codeVerifierParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        codeVerifierParam.location =
+          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        codeVerifierParam.required = false;
+
         tokenEndpoint.parameters =
           {grantTypeParam,
            codeParam,
            refreshParam,
            clientIdParam,
            clientSecretParam,
-           redirectUriParam};
+           redirectUriParam,
+           codeVerifierParam};
         tokenEndpoint.responses =
           {{200, "Token response with access_token and refresh_token"},
            {400, "Invalid request"},
