@@ -5,6 +5,7 @@
 #include <json/json.h>
 
 #include <sstream>
+#include <string_view>
 
 namespace authforge::storage::redis
 {
@@ -68,6 +69,11 @@ bool deserializeClient(const std::string &jsonStr, OAuth2Client &out)
         return false;
 
     out.clientId = root["clientId"].asString();
+    // PR #47 review (Owner #1, defense-in-depth): a structurally-valid-but-
+    // empty clientId would produce a blank OAuth2Client that masks the real
+    // (non-empty) entry in the backing repo. Reject it as a miss.
+    if (out.clientId.empty())
+        return false;
     try
     {
         out.clientType =
@@ -118,9 +124,11 @@ void RedisCachedClientRepository::emitMetric(const char *outcome) const
 {
     if (!metrics_)
         return;
-    const auto &labels = outcome[0] == 'h'   ? kHitLabels
-                         : outcome[0] == 'm' ? kMissLabels
-                                              : kErrorLabels;
+    // PR #47 review (Owner #3): explicit string compare is clearer than the
+    // first-character dispatch and survives a label rename.
+    const auto &labels = std::string_view(outcome) == "hit"   ? kHitLabels
+                         : std::string_view(outcome) == "miss" ? kMissLabels
+                                                               : kErrorLabels;
     metrics_->incrementCounter("authforge_cache_total", labels);
 }
 

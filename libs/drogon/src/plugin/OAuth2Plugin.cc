@@ -343,6 +343,17 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     }
     else if (storageType_ == "redis")
     {
+        // PR #47 review (Owner #2): if cache.enabled=true but the storage
+        // backend is not postgres, the cache decorator is never applied (it
+        // only wraps the Postgres client repo). Warn so operators don't
+        // silently get no caching.
+        if (config.isMember("cache") && config["cache"].isMember("enabled") &&
+            config["cache"]["enabled"].asBool())
+        {
+            LOG_WARN << "OAuth2Plugin: cache.enabled=true is ignored for "
+                         "storage_type=\"redis\"; the cache layer is only "
+                         "applied to the postgres backend";
+        }
         // F-005: standalone Redis storage is DEPRECATED. Its refresh-token
         // persistence was always a no-op (rotation/reuse-cascade silently
         // non-functional); the supported production topology is postgres
@@ -386,6 +397,14 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     }
     else
     {
+        // PR #47 review (Owner #2): same no-op warning as the redis branch.
+        if (config.isMember("cache") && config["cache"].isMember("enabled") &&
+            config["cache"]["enabled"].asBool())
+        {
+            LOG_WARN << "OAuth2Plugin: cache.enabled=true is ignored for "
+                         "storage_type=\"memory\"; the cache layer is only "
+                         "applied to the postgres backend";
+        }
         authforge::storage::memory::MemoryRepositoryBundle bundle;
         if (config.isMember("clients"))
             bundle.initFromConfig(config["clients"]);
