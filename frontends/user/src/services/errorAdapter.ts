@@ -26,6 +26,21 @@ import {
   DEFAULT_LOCALE,
 } from './messages'
 
+/** Backend Error_Code for rate limiting (maps to the localized throttling message). */
+const RATE_LIMITED_CODE = 'VALIDATION_RATE_LIMITED'
+
+/**
+ * Detect the token-endpoint rate-limit response shape: a body whose top-level
+ * `error` is the string `"invalid_request"` (the RFC 6749 code the rate limiter
+ * emits per F-018). Only this specific body on a 429 triggers the throttling
+ * message remap; a 429 with any other error code keeps its own code/message.
+ */
+function isRateLimitBody(data: unknown): boolean {
+  if (!isObject(data)) return false
+  const err = data['error']
+  return typeof err === 'string' && err === 'invalid_request'
+}
+
 export interface NormalizedError {
   /** Error_Code, OAuth2 protocol code, or a reserved fallback code. */
   code: string
@@ -99,6 +114,24 @@ export function normalizeError(err: unknown, locale?: string): NormalizedError {
   const status = responseObj['status']
   const httpStatus = typeof status === 'number' ? status : 0
   const data = responseObj['data']
+
+  // F-018: the token endpoint emits RFC 6749 `{"error":"invalid_request"}`
+  // with HTTP 429 when the (ip, client_id) failure bucket overflows. The
+  // generic "请求参数缺失或无效" message for `invalid_request` is misleading
+  // for a rate-limit response, so remap to the dedicated throttling message.
+  // Only applies when the body's error code IS `invalid_request` — a 429
+  // carrying a different code (e.g. `access_denied`) keeps that code.
+  if (httpStatus === 429 && isRateLimitBody(data)) {
+    const requestId = isObject(data) && isNonEmptyString(data['request_id'])
+      ? data['request_id']
+      : ''
+    return {
+      code: RATE_LIMITED_CODE,
+      message: getErrorMessage(RATE_LIMITED_CODE, loc),
+      request_id: requestId,
+      httpStatus,
+    }
+  }
 
   if (isObject(data)) {
     const envelopeError = data['error']

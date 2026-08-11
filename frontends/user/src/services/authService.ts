@@ -1,21 +1,46 @@
 import http, { setTokens, clearTokens, getAccessToken } from './http'
+import { generatePkcePair } from '../utils/pkce'
 import type { LoginResult, TokenResponse } from '../types'
 
 const CLIENT_ID = import.meta.env.VITE_CLIENT_ID || 'vue-client'
 const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || window.location.origin + '/callback'
 
+/**
+ * Session-storage key for the PKCE code_verifier in the browser-redirect flow.
+ *
+ * The SPA POST-login flow (authService.login) keeps the verifier in a closure
+ * across the two-step login+exchange, so it never needs to persist. But when a
+ * third-party app initiates `/oauth2/authorize` → browser redirect → CallbackPage,
+ * the page reloads and the verifier must survive it. The authorize redirect is
+ * the only place this key is written/read.
+ */
+const PKCE_VERIFIER_KEY = 'pkce_code_verifier'
+
 export const authService = {
   async login(username: string, password: string, scope = 'openid profile email'): Promise<LoginResult> {
+    // PKCE (RFC 7636): generate a verifier/challenge pair so the backend's
+    // `require_pkce_for_public` enforcement (F-011) does not reject the login.
+    // The verifier stays in this closure — `json:'true'` makes /oauth2/login
+    // return JSON (not a browser redirect), so the page does not reload and
+    // the closure survives to the token-exchange step below.
+    const pkce = await generatePkcePair()
+
     const resp = await http.post('/oauth2/login', new URLSearchParams({
       username, password,
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
       scope,
       state: crypto.randomUUID(),
+      code_challenge: pkce.challenge,
+      code_challenge_method: pkce.method,
       json: 'true',
     }))
 
     if (resp.data.mfa_required) {
+      // MFA path: stash the verifier so verifyMfa() can thread it through to
+      // the MFA code-exchange. Stored in sessionStorage (not memory) because
+      // the MFA challenge may span a page interaction boundary.
+      sessionStorage.setItem(PKCE_VERIFIER_KEY, pkce.verifier)
       return { mfaRequired: true, mfaToken: resp.data.mfa_token }
     }
 
@@ -27,6 +52,7 @@ export const authService = {
       code,
       redirect_uri: REDIRECT_URI,
       client_id: CLIENT_ID,
+      code_verifier: pkce.verifier,
     }))
 
     setTokens(tokenResp.data.access_token, tokenResp.data.refresh_token)
@@ -34,12 +60,21 @@ export const authService = {
   },
 
   async verifyMfa(mfaToken: string, code: string): Promise<LoginResult> {
-    const resp = await http.post<TokenResponse>('/oauth2/mfa/verify', new URLSearchParams({
+    // The PKCE verifier generated during login() — needed if the backend
+    // MFA path threads the challenge through to the token exchange.
+    // Read and clear immediately (one-shot use per RFC 7636 §4.4).
+    const codeVerifier = sessionStorage.getItem(PKCE_VERIFIER_KEY) || ''
+    if (codeVerifier) sessionStorage.removeItem(PKCE_VERIFIER_KEY)
+
+    const params = new URLSearchParams({
       mfa_token: mfaToken,
       code,
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
-    }))
+    })
+    if (codeVerifier) params.set('code_verifier', codeVerifier)
+
+    const resp = await http.post<TokenResponse>('/oauth2/mfa/verify', params)
     if (resp.data.access_token) {
       setTokens(resp.data.access_token, resp.data.refresh_token)
       return { success: true }
@@ -47,13 +82,25 @@ export const authService = {
     return { error: 'MFA verification failed' }
   },
 
+  /**
+   * Exchange an authorization code for tokens (browser-redirect flow).
+   * Called by CallbackPage after `/oauth2/authorize` redirects back with
+   * `?code=...`. The PKCE verifier was stashed in sessionStorage before the
+   * authorize redirect (see exchangeCode callers).
+   */
   async exchangeCode(code: string): Promise<void> {
-    const resp = await http.post<TokenResponse>('/oauth2/token', new URLSearchParams({
+    const codeVerifier = sessionStorage.getItem(PKCE_VERIFIER_KEY) || ''
+    if (codeVerifier) sessionStorage.removeItem(PKCE_VERIFIER_KEY)
+
+    const params = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       redirect_uri: REDIRECT_URI,
       client_id: CLIENT_ID,
-    }))
+    })
+    if (codeVerifier) params.set('code_verifier', codeVerifier)
+
+    const resp = await http.post<TokenResponse>('/oauth2/token', params)
     setTokens(resp.data.access_token, resp.data.refresh_token)
   },
 
@@ -77,11 +124,19 @@ export const authService = {
     try {
       const token = getAccessToken()
       if (token) {
+        // RFC 7009: revoke the access token so it can no longer be used.
         await http.post('/oauth2/revoke', new URLSearchParams({
           token,
           client_id: CLIENT_ID,
         }))
       }
+      // OIDC RP-Initiated Logout (F-027): clear the server-side session.
+      // The SPA does not persist the id_token (memory only), so no
+      // id_token_hint is available; the endpoint still clears the session.
+      await http.post('/oauth2/end_session', new URLSearchParams({
+        client_id: CLIENT_ID,
+        post_logout_redirect_uri: REDIRECT_URI,
+      }))
     } catch {} finally {
       clearTokens()
     }

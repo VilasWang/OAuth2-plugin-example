@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import axios from 'axios'
 import { normalizeError, sessionExpiredError } from '../services/errorAdapter'
 import type { NormalizedError } from '../services/errorAdapter'
+import { generatePkcePair } from '../utils/pkce'
 
 // Refresh token is persisted in sessionStorage so a page refresh can restore the
 // session without re-prompting credentials. The access token stays in memory only
@@ -73,6 +74,13 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username: string, password: string) {
     loginError.value = ''
     try {
+      // PKCE (RFC 7636): generate a verifier/challenge pair so the backend's
+      // `require_pkce_for_public` enforcement (F-011) does not reject the
+      // login. The verifier stays in this closure — `json:'true'` makes
+      // /oauth2/login return JSON (not a browser redirect), so the page does
+      // not reload and the closure survives to the token-exchange step below.
+      const pkce = await generatePkcePair()
+
       // Step 1: Login and get auth code
       const loginResp = await axios.post('/oauth2/login', new URLSearchParams({
         username,
@@ -81,13 +89,16 @@ export const useAuthStore = defineStore('auth', () => {
         redirect_uri: window.location.origin + '/admin/callback',
         scope: 'openid profile admin',
         state: crypto.randomUUID(),
+        code_challenge: pkce.challenge,
+        code_challenge_method: pkce.method,
         json: 'true',
       }), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
 
       if (loginResp.data.mfa_required) {
-        // MFA required - return the mfa_token for the MFA step
+        // MFA required - return the mfa_token for the MFA step.
+        // Note: PKCE verifier is not threaded through MFA yet (backend gap).
         return { mfaRequired: true, mfaToken: loginResp.data.mfa_token }
       }
 
@@ -102,6 +113,7 @@ export const useAuthStore = defineStore('auth', () => {
         code,
         redirect_uri: window.location.origin + '/admin/callback',
         client_id: 'admin-console',
+        code_verifier: pkce.verifier,
       }), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
@@ -174,7 +186,29 @@ export const useAuthStore = defineStore('auth', () => {
     return refreshInFlight
   }
 
-  function logout() {
+  /**
+   * Logout: revoke the refresh token server-side, then clear local state.
+   *
+   * Previously this function only cleared local state without notifying the
+   * backend, leaving the refresh token valid server-side until natural expiry
+   * (a security gap — the persisted refresh token in sessionStorage remained
+   * usable to mint new access tokens). Now we POST to /oauth2/revoke (RFC 7009)
+   * to invalidate the token before clearing it. Errors are swallowed because
+   * logout must succeed client-side regardless of backend availability.
+   */
+  async function logout() {
+    try {
+      if (refreshToken.value) {
+        await axios.post('/oauth2/revoke', new URLSearchParams({
+          token: refreshToken.value,
+          client_id: 'admin-console',
+        }), {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        })
+      }
+    } catch {
+      // Best-effort: proceed to clear local state even if revoke fails.
+    }
     accessToken.value = null
     refreshToken.value = null
     user.value = null

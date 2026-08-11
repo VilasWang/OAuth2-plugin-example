@@ -547,13 +547,27 @@ void SessionController::login(
                 Criteria mfaCrit(Users::Cols::_id, CompareOperator::EQ, internalId);
                 Mapper<Users>(db).findOne(
                   mfaCrit,
-                  [req, internalId, sharedCb, db, clientId, redirectUri](const Users &user) {
+                  [req, internalId, sharedCb, db, clientId, redirectUri, codeChallenge, codeChallengeMethod](const Users &user) {
                       Users mfaUpdated = user;
                       mfaUpdated.setMfaPendingClientId(clientId);
                       mfaUpdated.setMfaPendingRedirectUri(redirectUri);
                       Mapper<Users>(db).update(
                         mfaUpdated,
-                        [req, internalId, sharedCb](const size_t) {
+                        [req, internalId, sharedCb, codeChallenge, codeChallengeMethod](const size_t) {
+                            // C4 (RFC 7636): persist the first-factor PKCE
+                            // challenge on the session so MfaController::
+                            // verifyLogin can thread it onto the authorization
+                            // code it generates at MFA completion. Without this,
+                            // the MFA path issued tokens with empty PKCE params
+                            // (no protection for PUBLIC clients — F-011 gap).
+                            // Session-based (not a DB column) because the
+                            // challenge is short-lived and the session already
+                            // carries userId/auth_time/amr across the MFA pause.
+                            if (req->session())
+                            {
+                                req->session()->insert("mfa_code_challenge", codeChallenge);
+                                req->session()->insert("mfa_code_challenge_method", codeChallengeMethod);
+                            }
                             Json::Value mfaResp;
                             mfaResp["mfa_required"] = true;
                             mfaResp["mfa_token"] = std::to_string(internalId);

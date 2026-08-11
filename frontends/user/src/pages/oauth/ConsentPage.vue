@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
@@ -30,36 +29,46 @@ const scopeDescriptions: Record<string, string> = {
   admin: 'Administrative access',
 }
 
-async function handleConsent(action: 'approve' | 'deny') {
+/**
+ * Submit consent via a native form POST (not XHR).
+ *
+ * The backend returns a real HTTP 302 redirect to the client's redirect_uri
+ * with ?code=... (F-020). An XHR/fetch would auto-follow this redirect and
+ * land on an opaque cross-origin response, preventing the browser from
+ * navigating. A native form POST lets the browser handle the 302 directly,
+ * correctly redirecting the top-level window to the client application.
+ * This is the standard browser pattern for OAuth2 consent submission.
+ */
+function handleConsent(action: 'approve' | 'deny') {
   loading.value = true
-  try {
-    const params = new URLSearchParams({
-      client_id: clientId,
-      user_id: auth.user?.sub || '',
-      scope,
-      redirect_uri: redirectUri,
-      state,
-      action,
-    })
-    if (codeChallenge) {
-      params.set('code_challenge', codeChallenge)
-      params.set('code_challenge_method', codeChallengeMethod)
-    }
-    if (nonce) params.set('nonce', nonce)
-    const resp = await axios.post('/oauth2/consent', params)
-    // Server returns redirect_uri with code
-    if (resp.data?.redirect_uri) {
-      window.location.href = resp.data.redirect_uri
-    }
-  } catch (e: any) {
-    // If 302 redirect, browser handles it
-    if (e.response?.status === 302) {
-      const location = e.response.headers?.location
-      if (location) window.location.href = location
-    }
-  } finally {
-    loading.value = false
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = '/oauth2/consent'
+  form.enctype = 'application/x-www-form-urlencoded'
+
+  const fields: Record<string, string> = {
+    client_id: clientId,
+    user_id: auth.user?.sub || '',
+    scope,
+    redirect_uri: redirectUri,
+    state,
+    action,
   }
+  if (codeChallenge) {
+    fields.code_challenge = codeChallenge
+    fields.code_challenge_method = codeChallengeMethod
+  }
+  if (nonce) fields.nonce = nonce
+
+  for (const [key, value] of Object.entries(fields)) {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = key
+    input.value = value
+    form.appendChild(input)
+  }
+  document.body.appendChild(form)
+  form.submit()
 }
 </script>
 

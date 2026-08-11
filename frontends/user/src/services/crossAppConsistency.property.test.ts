@@ -60,6 +60,14 @@ const OAUTH2_PROTOCOL_CODES = [
   'authorization_pending',
   'slow_down',
   'expired_token',
+  // RFC 6750 §3.1 (WWW-Authenticate Bearer errors) + OIDC Core §3.1.2.6
+  // (prompt-related authorization errors) — added during the OAuth/OIDC
+  // compliance alignment.
+  'invalid_token',
+  'insufficient_scope',
+  'login_required',
+  'consent_required',
+  'interaction_required',
 ] as const
 
 // 保留回退键，亦应在两应用间一致映射。
