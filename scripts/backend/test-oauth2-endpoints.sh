@@ -265,6 +265,48 @@ test_12() {
 }
 run_test "Test 12: Token Revocation" test_12
 
+# Test 12b: Revoke a REFRESH token, then it must NOT be usable to refresh
+# (C3 / RFC 7009 §2.1 — the revocation endpoint must revoke ANY token type).
+# This closes the coverage gap that hid the C3 hash bug: previously the script
+# only revoked access tokens (Test 12/43), so a refresh-token revoke that was
+# a silent no-op went undetected.
+TOTAL=$((TOTAL + 1))
+test_12b() {
+    # Mint a fresh token pair so this test is independent of Test 12's state.
+    local verifier challenge login_resp code tok_resp rt rt2
+    verifier=$(generate_pkce_verifier)
+    challenge=$(pkce_s256_challenge "$verifier")
+    login_resp=$(curl -s -X POST "$BASE_URL/oauth2/login" \
+        -d "username=admin&password=admin&client_id=vue-client&redirect_uri=http://127.0.0.1:5173/callback&scope=openid+profile&state=t12b&code_challenge=$challenge&code_challenge_method=S256&json=true")
+    code=$(echo "$login_resp" | jq -r '.code')
+    [ -n "$code" ] && [ "$code" != "null" ] || { echo "    no auth code"; return 1; }
+    tok_resp=$(curl -s -X POST "$BASE_URL/oauth2/token" \
+        -d "grant_type=authorization_code&code=$code&redirect_uri=http://127.0.0.1:5173/callback&client_id=vue-client&code_verifier=$verifier")
+    rt=$(echo "$tok_resp" | jq -r '.refresh_token')
+    [ -n "$rt" ] && [ "$rt" != "null" ] || { echo "    no refresh_token"; return 1; }
+    # Rotate once to get a current (un-rotated) refresh token.
+    rt2=$(curl -s -X POST "$BASE_URL/oauth2/token" \
+        -d "grant_type=refresh_token&refresh_token=$rt&client_id=vue-client" | jq -r '.refresh_token')
+    [ -n "$rt2" ] && [ "$rt2" != "null" ] || { echo "    refresh rotation failed"; return 1; }
+
+    # Revoke the refresh token (vue-client owns it; PUBLIC, client_id only).
+    curl -s -o /dev/null -X POST "$BASE_URL/oauth2/revoke" \
+        -d "token=$rt2&client_id=vue-client"
+
+    # RFC 7009 §2.1 + RFC 6749 §6: the revoked refresh token MUST NOT mint new
+    # tokens. Expect an error (invalid_grant — reuse detected / revoked).
+    local refresh_after
+    refresh_after=$(curl -s -X POST "$BASE_URL/oauth2/token" \
+        -d "grant_type=refresh_token&refresh_token=$rt2&client_id=vue-client")
+    local err has_at
+    err=$(echo "$refresh_after" | jq -r '.error // empty')
+    has_at=$(echo "$refresh_after" | jq -r '.access_token // empty')
+    [ -n "$err" ] || { echo "    refresh after revoke succeeded (no error) — C3 FAILED"; return 1; }
+    [ -z "$has_at" ] || { echo "    refresh after revoke returned a new access_token — C3 FAILED"; return 1; }
+    echo "    Revoked refresh token correctly rejected: error=$err"
+}
+run_test "Test 12b: Revoke refresh token -> refresh fails (C3/RFC 7009)" test_12b
+
 # Test 13: User Registration
 test_13() {
     local ts
