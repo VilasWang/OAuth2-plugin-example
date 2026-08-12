@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
     authforge::drogon::controllers::DiscoveryController::initApiDocs();
     bootstrap::setupOpenApi();
 
-    // Swagger UI is available at http://localhost:8080/docs/api/swagger-ui/
+    // Swagger UI is available at http://localhost:5555/docs/api
     // Static files are served from document_root configured in config.json
 
     // 5. Database migrations (opt-in via OAUTH2_AUTO_MIGRATE=true)

@@ -166,6 +166,7 @@ generated JSON 更糟（71 操作中 **0** 个 requestBody、仅 4 个 response 
 **依据**：§2.4-1——grep 全仓零引用；唯一被用的是其兄弟 `swagger-ui/` 目录（`apps/server/CMakeLists.txt:76-77` 复制它，但 JSON 本身不复制）。
 
 **决策**：删除 `docs/backend/api/openapi.json`，保留 `docs/backend/api/swagger-ui/`。
+**状态**：✅ 已完成（2026-08-12，文件已删；全仓 grep 兜底仍零引用，`swagger-initializer.js` 指向 live 路由 `/docs/api/openapi.json` 不受影响）。
 **风险**：低。删除前实施时再跑一次全仓 grep 兜底（确认仍零引用）。`swagger-initializer.js:6` 指向 `/docs/api/openapi.json` 路由（live 生成的，不是这个死文件），不受影响。
 
 ### D3 — 引入 YAML↔代码一致性门（**治本设计**）
@@ -347,7 +348,7 @@ jobs：
 |------|------|--------|------|---------|--------|-------|------|
 | generated JSON | `apps/server/docs/api/openapi.json` | 58 | `OpenApiGenerator.cc` 启动生成 | 否（指纹测试间接） | Swagger UI | 当前 | **降级**为派生产物（D1） |
 | 手维护 YAML | `apps/server/openapi.yaml` | 56 | 人工编辑 | 是（`openapi-spec-validator`） | 端点签名门 + 客户端生成 | 当前 | **唯一权威**（D1） |
-| 死孤儿 JSON | `docs/backend/api/openapi.json` | 8 | generated JSON 旧快照 | 否 | **零引用** | 3 月前 | **删除**（D2） |
+| 死孤儿 JSON | `docs/backend/api/openapi.json` | 8 | generated JSON 旧快照 | 否 | **零引用** | 3 月前 | ✅ **已删除**（D2，2026-08-12） |
 
 ---
 
