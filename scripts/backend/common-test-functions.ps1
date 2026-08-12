@@ -1,5 +1,45 @@
 # Common functions for test scripts
 
+# ---------------------------------------------------------------------------
+# PKCE (RFC 7636) helpers — required since F-011/RFC 9700 §2.1.1 made PKCE
+# mandatory for PUBLIC clients (vue-client, admin-console are both PUBLIC).
+# PowerShell port of the bash generate_pkce_verifier/pkce_s256_challenge in
+# common-test-functions.sh.
+# ---------------------------------------------------------------------------
+
+function ConvertTo-Base64Url {
+    param([byte[]]$Bytes)
+    return [Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+}
+
+# Generate a 43-char code_verifier (32 random bytes -> base64url, RFC 7636 §4.1).
+function New-PkceVerifier {
+    $bytes = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    return ConvertTo-Base64Url $bytes
+}
+
+# Compute the S256 code_challenge for a verifier (RFC 7636 §4.2).
+function New-PkceChallenge {
+    param([string]$Verifier)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $digest = $sha256.ComputeHash([Text.Encoding]::ASCII.GetBytes($Verifier))
+        return ConvertTo-Base64Url $digest
+    } finally {
+        $sha256.Dispose()
+    }
+}
+
+# Generate a verifier + S256 challenge pair. Returns a hashtable with
+# 'verifier' and 'challenge' keys (the caller sends challenge on the authorize
+# step, verifier on the token exchange).
+function New-PkcePair {
+    $verifier = New-PkceVerifier
+    $challenge = New-PkceChallenge $verifier
+    return @{ verifier = $verifier; challenge = $challenge }
+}
+
 function Get-PostgresContainer {
     # Try to find a running postgres container, suppress Docker errors
     try {
@@ -98,17 +138,22 @@ function Get-UserToken {
         [string]$Username,
         [string]$Password
     )
+    # F-011/RFC 7636: PKCE mandatory for PUBLIC clients. vue-client is PUBLIC
+    # ('none' auth method) -> NO client_secret (F-017 rejects a secret from a
+    # 'none' client); PKCE code_verifier is the substitute.
+    $pkce = New-PkcePair
     $loginBody = @{
         username = $Username; password = $Password
         client_id = 'vue-client'
         redirect_uri = 'http://127.0.0.1:5173/callback'
         scope = 'openid profile'; state = "token-$Username-$(Get-Random)"; json = 'true'
+        code_challenge = $pkce.challenge; code_challenge_method = 'S256'
     }
     $login = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body $loginBody
     $tok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
         grant_type = 'authorization_code'; code = $login.code
         redirect_uri = 'http://127.0.0.1:5173/callback'
-        client_id = 'vue-client'; client_secret = '123456'
+        client_id = 'vue-client'; code_verifier = $pkce.verifier
     }
     return $tok.access_token
 }
@@ -119,17 +164,20 @@ function Get-AdminToken {
         [string]$Username = "admin",
         [string]$Password = "admin"
     )
+    # admin-console is PUBLIC too -> PKCE required, no client_secret.
+    $pkce = New-PkcePair
     $loginBody = @{
         username = $Username; password = $Password
         client_id = 'admin-console'
         redirect_uri = 'http://localhost:5174/admin/callback'
         scope = 'openid profile admin'; state = "adm-$(Get-Random)"; json = 'true'
+        code_challenge = $pkce.challenge; code_challenge_method = 'S256'
     }
     $login = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body $loginBody
     $tok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
         grant_type = 'authorization_code'; code = $login.code
         redirect_uri = 'http://localhost:5174/admin/callback'
-        client_id = 'admin-console'; client_secret = ''
+        client_id = 'admin-console'; code_verifier = $pkce.verifier
     }
     return $tok.access_token
 }

@@ -42,19 +42,25 @@ Write-Host ""
 $accessToken = $null
 
 Test-Endpoint "Setup: Admin Login + Token" {
+    # F-011/RFC 7636 (RFC 9700 §2.1.1): PKCE mandatory for PUBLIC clients.
+    # admin-console is PUBLIC → login carries code_challenge, token exchange
+    # carries the matching code_verifier. client_secret is empty (PUBLIC client,
+    # token_endpoint_auth_method='none' — F-017 rejects any secret).
+    $pkce = New-PkcePair
     $loginBody = @{
         username = 'admin'; password = 'admin'
         client_id = 'admin-console'
         redirect_uri = 'http://localhost:5174/admin/callback'
         scope = 'openid profile admin'
         state = 'admin-test-state'; json = 'true'
+        code_challenge = $pkce.challenge; code_challenge_method = 'S256'
     }
     $login = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body $loginBody
     if (-not $login.code) { throw "no auth code from login" }
     $tok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
         grant_type = 'authorization_code'; code = $login.code
         redirect_uri = 'http://localhost:5174/admin/callback'
-        client_id = 'admin-console'; client_secret = ''
+        client_id = 'admin-console'; client_secret = ''; code_verifier = $pkce.verifier
     }
     if (-not $tok.access_token) { throw "no access_token" }
     $script:accessToken = $tok.access_token
@@ -172,7 +178,7 @@ Test-Endpoint "Test 6c: POST /api/admin/clients - Create Client" {
     Write-Host "    Created: client_id=$($r.client_id)"
 }
 
-Test-Endpoint "Test 6d: POST /api/admin/clients - Create with missing name (400)" {
+Test-Endpoint "Test 6d: POST /api/admin/clients - Missing name (400)" {
     $h = Get-AuthHeaders
     try {
         $body = @{ redirect_uris = "http://localhost/cb" } | ConvertTo-Json
@@ -181,10 +187,7 @@ Test-Endpoint "Test 6d: POST /api/admin/clients - Create with missing name (400)
     } catch {
         if ($_.Exception.Response.StatusCode -eq "BadRequest") {
             Write-Host "    Correctly returned 400 for missing name"
-        } else {
-            # Server may accept and use defaults — clean up if a client was created
-            Write-Host "    Server accepted (uses defaults for missing fields — no strict validation)"
-        }
+        } else { throw "expected 400, got: $($_.Exception.Response.StatusCode)" }
     }
 }
 
@@ -301,19 +304,22 @@ Test-Endpoint "Test 11b: DELETE /api/admin/tokens/:tokenPrefix - Single Revoke" 
     # list here: it is ordered by issued_at DESC, so the first row IS this
     # script's own live admin session -- revoking its prefix cascades 401s
     # through every remaining test.
+    # PKCE (F-011/RFC 7636) required for the admin-console PUBLIC client.
+    $pkce = New-PkcePair
     $loginBody = @{
         username = 'admin'; password = 'admin'
         client_id = 'admin-console'
         redirect_uri = 'http://localhost:5174/admin/callback'
         scope = 'openid profile admin'
         state = 'admin-test-11b'; json = 'true'
+        code_challenge = $pkce.challenge; code_challenge_method = 'S256'
     }
     $login = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body $loginBody
     if (-not $login.code) { throw "no auth code for throwaway token" }
     $tok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
         grant_type = 'authorization_code'; code = $login.code
         redirect_uri = 'http://localhost:5174/admin/callback'
-        client_id = 'admin-console'; client_secret = ''
+        client_id = 'admin-console'; client_secret = ''; code_verifier = $pkce.verifier
     }
     if (-not $tok.access_token) { throw "no throwaway access_token" }
     # Server stores SHA-256(raw) uppercase hex (CryptoUtils::hashToken);
@@ -668,19 +674,20 @@ Test-Endpoint "Test 38: POST /api/admin/roles - Empty name (400)" {
 }
 
 Test-Endpoint "Test 39: PUT /api/admin/clients/:id - Empty body" {
+    # The server validates that at least one updatable field (name,
+    # redirect_uris, allowed_grant_types) is present in the body. An empty
+    # body {} is a "no fields to update" client error (400), not a silent
+    # no-op success. This matches the updateClient validation gate
+    # (ClientManagementService.cc) and is stricter-but-correct.
     $h = Get-AuthHeaders
     $body = '{}'
     try {
-        $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/vue-client" -Method Put -Headers $h -Body $body
-        if ($r.status -ne "success") { throw "empty body update failed" }
-        Write-Host "    Empty body update accepted (no-op)"
+        Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/vue-client" -Method Put -Headers $h -Body $body -ErrorAction Stop
+        throw "should have returned 400"
     } catch {
-        $code = $_.Exception.Response.StatusCode
-        if ($code -eq "BadRequest") {
-            Write-Host "    Server rejected empty body: 400"
-        } else {
-            Write-Host "    Got status: $code"
-        }
+        if ($_.Exception.Response.StatusCode -eq "BadRequest") {
+            Write-Host "    Empty body update correctly rejected with 400"
+        } else { throw "expected 400, got: $($_.Exception.Response.StatusCode)" }
     }
 }
 
@@ -701,26 +708,40 @@ Test-Endpoint "Test 41: POST /api/admin/tokens/revoke-by-client - Non-existent c
 }
 
 Test-Endpoint "Test 42: Unauthorized Access - New endpoints require auth" {
-    $endpoints = @(
-        @{ Uri = "$BaseUrl/api/admin/clients"; Method = "Post"; Body = '{}' },
-        @{ Uri = "$BaseUrl/api/me/mfa/setup"; Method = "Post" },
-        @{ Uri = "$BaseUrl/api/me/authorized-apps"; Method = "Get" },
-        @{ Uri = "$BaseUrl/api/me/webauthn/credentials"; Method = "Get" }
+    # Each endpoint is probed with its correct HTTP method. The auth gate
+    # runs before the method/handler, so a missing-token request must return
+    # 401 (or 403) regardless of whether the method is otherwise valid. POST
+    # endpoints get a JSON body; GET endpoints get no body.
+    $postEndpoints = @(
+        "$BaseUrl/api/admin/clients"
+        "$BaseUrl/api/me/mfa/setup"
+    )
+    $getEndpoints = @(
+        "$BaseUrl/api/me/authorized-apps"
+        "$BaseUrl/api/me/webauthn/credentials"
     )
     $allBlocked = $true
-    foreach ($ep in $endpoints) {
+    foreach ($ep in $postEndpoints) {
         try {
-            if ($ep.Body) {
-                Invoke-RestMethod -Uri $ep.Uri -Method $ep.Method -ContentType 'application/json' -Body $ep.Body -ErrorAction Stop
-            } else {
-                Invoke-RestMethod -Uri $ep.Uri -Method $ep.Method -ErrorAction Stop
-            }
-            Write-Host "    SECURITY: $($ep.Uri) accessible without auth!" -ForegroundColor Red
+            Invoke-RestMethod -Uri $ep -Method Post -ContentType 'application/json' -Body '{}' -ErrorAction Stop
+            Write-Host "    SECURITY: POST $ep accessible without auth!" -ForegroundColor Red
             $allBlocked = $false
         } catch {
             $status = $_.Exception.Response.StatusCode
             if ($status -ne "Unauthorized" -and $status -ne "Forbidden") {
-                Write-Host "    WARNING: $($ep.Uri) returned $status" -ForegroundColor Yellow
+                Write-Host "    WARNING: POST $ep returned $status" -ForegroundColor Yellow
+            }
+        }
+    }
+    foreach ($ep in $getEndpoints) {
+        try {
+            Invoke-RestMethod -Uri $ep -Method Get -ErrorAction Stop
+            Write-Host "    SECURITY: GET $ep accessible without auth!" -ForegroundColor Red
+            $allBlocked = $false
+        } catch {
+            $status = $_.Exception.Response.StatusCode
+            if ($status -ne "Unauthorized" -and $status -ne "Forbidden") {
+                Write-Host "    WARNING: GET $ep returned $status" -ForegroundColor Yellow
             }
         }
     }
