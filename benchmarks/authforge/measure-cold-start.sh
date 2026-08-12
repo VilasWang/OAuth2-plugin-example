@@ -48,6 +48,18 @@ COMPOSE_ARGS=(-f "$COMPOSE_FILE_ABS")
 cleanup() { rm -f "$OVERRIDE_FILE"; }
 trap cleanup EXIT
 
+# --- benchmark config swap (same as setup.sh) ---
+BENCH_CONFIG="$REPO_ROOT/${OAUTH2_SERVER_DIR:-apps/server}/config/config.bench.json"
+DEV_CONFIG="$REPO_ROOT/${OAUTH2_SERVER_DIR:-apps/server}/config/config.json"
+DEV_CONFIG_BACKUP="$REPO_ROOT/${OAUTH2_SERVER_DIR:-apps/server}/config/config.json.dev-backup"
+if [ -f "$BENCH_CONFIG" ] && [ ! -f "$DEV_CONFIG_BACKUP" ]; then
+    cp "$DEV_CONFIG" "$DEV_CONFIG_BACKUP"
+    cp "$BENCH_CONFIG" "$DEV_CONFIG"
+    echo "[cold-start] using benchmark config (config.bench.json)"
+    # Restore on exit (cold-start is a standalone script, not followed by run-scenario)
+    trap 'rm -f "$OVERRIDE_FILE"; [ -f "$DEV_CONFIG_BACKUP" ] && cp "$DEV_CONFIG_BACKUP" "$DEV_CONFIG" && rm -f "$DEV_CONFIG_BACKUP"' EXIT
+fi
+
 echo "[cold-start] mode: $([ "$PRE_MIGRATED" = "1" ] && echo "pre-migrated (--migrate-only)" || echo "auto-migrate (OAUTH2_AUTO_MIGRATE=true)")"
 
 # --- ensure DB is up (postgres + redis) but backend is NOT running ---

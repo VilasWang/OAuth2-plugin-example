@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "scenario": "s5-refresh-token",
+  "concurrency": 16,
+  "threads": 1,
+  "duration_s": 10,
+  "qps": 1473.86,
+  "latency_us": {
+    "p50": 5040.0,
+    "p75": 5780.0,
+    "p90": 6560.0,
+    "p99": 8410.0
+  },
+  "total_requests": 19999,
+  "error_rate": 0.0,
+  "error_count": 0,
+  "socket_errors": {},
+  "non_2xx_responses": null,
+  "driver": {
+    "cpu_pct": 6.8,
+    "limited": false
+  },
+  "env": {
+    "date": "2026-08-12T14:04:56+00:00",
+    "git_sha": "1702246",
+    "git_branch": "feat/benchmark-m2-m3-s3-s6",
+    "target_image": "",
+    "target_config": "config.json",
+    "target_spec": "",
+    "driver_spec": "",
+    "network": "localhost-cross-container",
+    "wrk_version": "wrk debian/4.1.0-4build2 [epoll] Copyright (C) 2012 Will Glozer"
+  }
+}
