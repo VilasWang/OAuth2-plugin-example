@@ -151,11 +151,12 @@ mkdir -p "$RESULTS_DIR"
 #   WRK_NTHREADS — not known until per-level; set inside the loop below
 export WRK_LIB_DIR="$BENCH_DIR/lib"
 
-# Auto-detect benchmark config: if the bench compose override exists, the
-# stack was started with config.bench.json (set by setup.sh). Record this in
-# the result JSON's env.target_config field.
-if [ -f "$REPO_ROOT/deploy/docker/docker-compose.bench.yml" ]; then
-    export BENCH_TARGET_CONFIG="${BENCH_TARGET_CONFIG:-config.bench.json}"
+# Auto-detect benchmark config swap: setup.sh backs up config.json to
+# config.json.dev-backup and copies config.bench.json over it. Detect the
+# backup file's presence to record the correct target_config in result JSONs.
+# (BENCH_TARGET_CONFIG from setup.sh is lost across separate process invocations.)
+if [ -f "$REPO_ROOT/apps/server/config/config.json.dev-backup" ]; then
+    export BENCH_TARGET_CONFIG="config.bench.json"
 fi
 
 echo "[run] scenario=$SCENARIO_NAME  target=$TARGET_URL  wrk=$WRK_VERSION"
@@ -208,18 +209,6 @@ for CONN in "${LEVELS[@]}"; do
         fi
     fi
 
-    # --- observe: start background resource collectors (M3, design §5.4) ---
-    STATS_FILE=""
-    METRICS_FILE=""
-    if [ "$OBSERVE" -eq 1 ]; then
-        STATS_FILE="$RESULTS_DIR/${DATE_TAG}-${GIT_SHA}-${SCENARIO_NAME}-c${CONN}-docker-stats.tsv"
-        METRICS_FILE="$RESULTS_DIR/${DATE_TAG}-${GIT_SHA}-${SCENARIO_NAME}-c${CONN}-metrics.txt"
-        bash "$BENCH_DIR/observe/docker-stats.sh" "$STATS_FILE" "${DURATION_S}s" &
-        STATS_PID=$!
-        bash "$BENCH_DIR/observe/scrape-metrics.sh" "$TARGET_URL" "$METRICS_FILE" "${DURATION_S}s" &
-        METRICS_PID=$!
-    fi
-
     # --- warmup (discarded) ---
     echo "  warmup ${WARMUP_S}s (discarded)..."
     wrk -t"$THREADS" -c"$CONN" -d"${WARMUP_S}s" -s "$SCENARIO_PATH" "$TARGET_URL" \
@@ -236,6 +225,23 @@ for CONN in "${LEVELS[@]}"; do
         else
             echo "  reseed WARN: postgres container not found before measured run"
         fi
+    fi
+
+    # --- observe: start background resource collectors (M3, design §5.4) ---
+    # Started AFTER warmup + reseed so the collection window exactly covers the
+    # measured run (not the discarded warmup). Each observer self-terminates
+    # after DURATION_S seconds; run-scenario.sh also kills them after wrk finishes.
+    STATS_FILE=""
+    METRICS_FILE=""
+    STATS_PID=""
+    METRICS_PID=""
+    if [ "$OBSERVE" -eq 1 ]; then
+        STATS_FILE="$RESULTS_DIR/${DATE_TAG}-${GIT_SHA}-${SCENARIO_NAME}-c${CONN}-docker-stats.tsv"
+        METRICS_FILE="$RESULTS_DIR/${DATE_TAG}-${GIT_SHA}-${SCENARIO_NAME}-c${CONN}-metrics.txt"
+        bash "$BENCH_DIR/observe/docker-stats.sh" "$STATS_FILE" "${DURATION_S}s" &
+        STATS_PID=$!
+        bash "$BENCH_DIR/observe/scrape-metrics.sh" "$TARGET_URL" "$METRICS_FILE" "${DURATION_S}s" &
+        METRICS_PID=$!
     fi
 
     # --- measured run ---
