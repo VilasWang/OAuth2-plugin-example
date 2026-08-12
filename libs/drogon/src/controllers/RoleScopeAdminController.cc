@@ -1,6 +1,7 @@
 #include <authforge/drogon/controllers/RoleScopeAdminController.h>
 #include <authforge/drogon/admin/RoleScopeAdminService.h>
 #include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <authforge/drogon/authz/ResourceScopeRegistry.h>
 
 #include <memory>
 
@@ -16,84 +17,74 @@ namespace authforge::drogon::controllers
 
 namespace
 {
-struct RoleScopeAdminControllerDocs
+namespace openapi = ::authforge::drogon::observability::openapi;
+
+// #43 resource-scope authorization: declare one EndpointInfo with its
+// requiredScopes + impliedBy. All role/scope-admin routes are admin-gated; the
+// `admin` super-scope (in impliedBy) satisfies any of them. `tags` is a
+// parameter because this controller mixes the Scopes and Roles tag groups.
+openapi::EndpointInfo adminEp(
+  const char *path,
+  const char *method,
+  const char *summary,
+  const char *description,
+  std::vector<std::string> tags,
+  std::vector<std::string> requiredScopes)
 {
-    RoleScopeAdminControllerDocs()
-    {
-        ::authforge::drogon::observability::openapi::EndpointInfo listScopes;
-        listScopes.path = "/api/admin/scopes";
-        listScopes.method = "GET";
-        listScopes.summary = "List Scopes";
-        listScopes.description = "Get a list of all available scopes.";
-        listScopes.tags = {"Admin", "Scopes"};
-        listScopes.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listScopes);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo listRoles;
-        listRoles.path = "/api/admin/roles";
-        listRoles.method = "GET";
-        listRoles.summary = "List Roles";
-        listRoles.description = "Get a list of all roles with user counts.";
-        listRoles.tags = {"Admin", "Roles"};
-        listRoles.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listRoles);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo createRole;
-        createRole.path = "/api/admin/roles";
-        createRole.method = "POST";
-        createRole.summary = "Create Role";
-        createRole.description = "Create a new role. Built-in roles cannot be duplicated.";
-        createRole.tags = {"Admin", "Roles"};
-        createRole.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(createRole);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo updateRole;
-        updateRole.path = "/api/admin/roles/{roleId}";
-        updateRole.method = "PUT";
-        updateRole.summary = "Update Role";
-        updateRole.description = "Update a role's description.";
-        updateRole.tags = {"Admin", "Roles"};
-        updateRole.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateRole);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo deleteRole;
-        deleteRole.path = "/api/admin/roles/{roleId}";
-        deleteRole.method = "DELETE";
-        deleteRole.summary = "Delete Role";
-        deleteRole.description = "Delete a role. Built-in roles (admin, user) cannot be deleted.";
-        deleteRole.tags = {"Admin", "Roles"};
-        deleteRole.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteRole);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo createScope;
-        createScope.path = "/api/admin/scopes";
-        createScope.method = "POST";
-        createScope.summary = "Create Scope";
-        createScope.description = "Create a new OAuth2 scope.";
-        createScope.tags = {"Admin", "Scopes"};
-        createScope.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(createScope);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo updateScope;
-        updateScope.path = "/api/admin/scopes/{scopeId}";
-        updateScope.method = "PUT";
-        updateScope.summary = "Update Scope";
-        updateScope.description = "Update a scope's properties.";
-        updateScope.tags = {"Admin", "Scopes"};
-        updateScope.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateScope);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo deleteScope;
-        deleteScope.path = "/api/admin/scopes/{scopeId}";
-        deleteScope.method = "DELETE";
-        deleteScope.summary = "Delete Scope";
-        deleteScope.description = "Delete a scope. Built-in scopes cannot be deleted.";
-        deleteScope.tags = {"Admin", "Scopes"};
-        deleteScope.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteScope);
-    }
-} g_roleScopeAdminControllerDocs;
+    openapi::EndpointInfo ep;
+    ep.path = path;
+    ep.method = method;
+    ep.summary = summary;
+    ep.description = description;
+    ep.tags = std::move(tags);
+    ep.requiresAuth = true;
+    ep.requiredScopes = std::move(requiredScopes);
+    ep.impliedBy = {"admin"};
+    return ep;
+}
 }  // namespace
+
+void RoleScopeAdminController::initApiDocs()
+{
+    static std::once_flag docsOnce;
+    std::call_once(docsOnce, [] { initApiDocsImpl(); });
+}
+
+void RoleScopeAdminController::initApiDocsImpl()
+{
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/scopes", "GET", "List Scopes",
+              "Get a list of all available scopes.", {"Admin", "Scopes"}, {"roles:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/scopes", "POST", "Create Scope",
+              "Create a new OAuth2 scope.", {"Admin", "Scopes"}, {"roles:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/scopes/{scopeId}", "PUT", "Update Scope",
+              "Update a scope's properties.", {"Admin", "Scopes"}, {"roles:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/scopes/{scopeId}", "DELETE", "Delete Scope",
+              "Delete a scope. Built-in scopes cannot be deleted.", {"Admin", "Scopes"},
+              {"roles:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/roles", "GET", "List Roles",
+              "Get a list of all roles with user counts.", {"Admin", "Roles"}, {"roles:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/roles", "POST", "Create Role",
+              "Create a new role. Built-in roles cannot be duplicated.", {"Admin", "Roles"},
+              {"roles:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/roles/{roleId}", "PUT", "Update Role",
+              "Update a role's description.", {"Admin", "Roles"}, {"roles:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/roles/{roleId}", "DELETE", "Delete Role",
+              "Delete a role. Built-in roles (admin, user) cannot be deleted.", {"Admin", "Roles"},
+              {"roles:write"}));
+    // #43 discovery endpoint.
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/scopes/resources", "GET", "Scope-Resource Matrix",
+              "Discovery: the (path, method) -> required-scopes authorization matrix.",
+              {"Admin", "Scopes"}, {"roles:read"}));
+}
 
 using RoleScopeService = ::authforge::drogon::admin::RoleScopeAdminService;
 
@@ -179,6 +170,35 @@ void RoleScopeAdminController::deleteScope(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     RoleScopeService::deleteScope(req, sharedCb, scopeId);
+}
+
+void RoleScopeAdminController::scopeResources(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+)
+{
+    // #43 discovery: return the (path, method) -> required-scopes matrix from
+    // the central ResourceScopeRegistry. Read-only; no DB access needed.
+    Json::Value resources(Json::arrayValue);
+    for (const auto &entry : authforge::drogon::authz::ResourceScopeRegistry::snapshot())
+    {
+        Json::Value e;
+        e["path"] = entry.path;
+        e["method"] = entry.method;
+        Json::Value scopes(Json::arrayValue);
+        for (const auto &s : entry.requirement.scopes)
+            scopes.append(s);
+        e["required_scopes"] = scopes;
+        Json::Value implied(Json::arrayValue);
+        for (const auto &s : entry.requirement.impliedBy)
+            implied.append(s);
+        e["implied_by"] = implied;
+        resources.append(e);
+    }
+    Json::Value body;
+    body["resources"] = resources;
+    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(body);
+    callback(resp);
 }
 
 }  // namespace authforge::drogon::controllers

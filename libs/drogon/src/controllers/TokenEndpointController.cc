@@ -177,6 +177,10 @@ void TokenEndpointController::initApiDocsImpl()
            {404, "User not found"}};
         userInfoEndpoint.responseExamples = {{200, successExample}, {404, errorExample}};
         userInfoEndpoint.requiresAuth = true;
+        // #43: OIDC Core §5.3 -- the UserInfo endpoint requires an access
+        // token carrying the `openid` scope. No impliedBy (a bare `admin`
+        // token does NOT satisfy userinfo; it needs an actual user token).
+        userInfoEndpoint.requiredScopes = {"openid"};
         OpenApiGenerator::addEndpoint(userInfoEndpoint);
     }
 
@@ -1907,19 +1911,49 @@ void TokenEndpointController::userInfo(
     }
     userId = attrs->get<std::string>("userId");
 
-    // F-023 (OIDC Core §5.3): the UserInfo endpoint requires an access token
-    // whose scope includes "openid". M2M tokens (client_credentials) carry a
-    // "client:<id>" subject and have no user identity -- reject them here too.
+    // F-023 / #43 R2 (OIDC Core §5.3): the UserInfo endpoint requires a
+    // user access token whose scope includes "openid". Two distinct rejection
+    // conditions -- kept as SEPARATE RFC 6750 error paths (R2: do not conflate
+    // a token-type mismatch with a scope insufficiency):
+    //
+    //   1. M2M (client_credentials) tokens carry a "client:<id>" subject and
+    //      have no user identity -> 401 invalid_token (the token is a valid
+    //      bearer but is the wrong TOKEN TYPE for a user-info resource).
+    //   2. A user token lacking the "openid" scope -> 403 insufficient_scope.
+    //      This is defense-in-depth: OAuth2AuthFilter already enforces the
+    //      openid requirement via the ResourceScopeRegistry, but the handler
+    //      keeps the check so userinfo is correct even if the filter gate is
+    //      ever bypassed.
     std::string scope = attrs->get<std::string>("scope");
-    if (!authforge::drogon::utils::hasScope(scope, "openid") || userId.rfind("client:", 0) == 0)
+    if (userId.rfind("client:", 0) == 0)
+    {
+        auto resp = ::drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(::drogon::k401Unauthorized);
+        resp->addHeader(
+          "WWW-Authenticate",
+          "Bearer realm=\"authforge\", error=\"invalid_token\", "
+          "error_description=\"userinfo requires a user access token, not a client token\""
+        );
+        Json::Value err;
+        err["error"] = "invalid_token";
+        err["error_description"] = "Client-credentials tokens have no user identity for userinfo";
+        resp->setContentTypeCode(::drogon::CT_APPLICATION_JSON);
+        Json::StreamWriterBuilder w;
+        resp->setBody(Json::writeString(w, err));
+        callback(resp);
+        return;
+    }
+    if (!authforge::drogon::utils::hasScope(scope, "openid"))
     {
         auto resp = ::drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(::drogon::k403Forbidden);
-        // RFC 6750 §3: WWW-Authenticate challenge with insufficient_scope.
+        // RFC 6750 §3: WWW-Authenticate challenge with insufficient_scope,
+        // including the scope attribute naming what is needed.
         resp->addHeader(
           "WWW-Authenticate",
           "Bearer realm=\"authforge\", error=\"insufficient_scope\", "
-          "error_description=\"userinfo requires an openid-scoped user access token\""
+          "error_description=\"userinfo requires an openid-scoped user access token\", "
+          "scope=\"openid\""
         );
         Json::Value err;
         err["error"] = "insufficient_scope";

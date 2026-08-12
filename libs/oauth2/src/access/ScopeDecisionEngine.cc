@@ -3,31 +3,19 @@
 namespace authforge::oauth2::access
 {
 
-bool isAdminScope(const std::string &scope)
-{
-    // Reproduces IdentityService::scopeRequiresAdminRole
-    // (OAuth2Plugin/src/services/IdentityService.cc) exactly: same
-    // hardcoded list, same "exact match OR prefix followed by ':'"
-    // semantics (e.g. "admin:read:extra" matches via the "admin:" prefix
-    // rule, not just the literal "admin:read" entry).
-    static const std::vector<std::string> adminScopes =
-      {"admin", "admin:read", "admin:write", "user:manage", "settings:manage"};
-
-    for (const auto &adminScope : adminScopes)
-    {
-        if (scope == adminScope || scope.find(adminScope + ":") == 0)
-        {
-            return true;
-        }
-    }
-    return false;
-}
+// #43 §5.5: the hardcoded isAdminScope() function is REMOVED. The Tier-2
+// admin-role check is now driven by the `scopeRequiresAdmin` predicate
+// supplied by the caller (AuthorizationService), which is backed by the DB
+// oauth2_scopes.requires_admin_role column loaded at startup. This removes
+// the drift risk: a new admin scope added to the catalog is automatically
+// enforced without a code change here.
 
 ScopeCheckResult evaluateScope(
   const std::string &scope,
   const authforge::oauth2::model::Client &client,
   bool hasAdminRole,
-  bool hasConsent
+  bool hasConsent,
+  const std::function<bool(const std::string &)> &scopeRequiresAdmin
 )
 {
     ScopeCheckResult result;
@@ -40,7 +28,7 @@ ScopeCheckResult evaluateScope(
         return result;
     }
 
-    if (isAdminScope(scope) && !hasAdminRole)
+    if (scopeRequiresAdmin(scope) && !hasAdminRole)
     {
         result.decision = ScopeDecision::Invalid;
         result.reason = "admin_role_required";
@@ -62,7 +50,8 @@ ScopeValidationSummary evaluateScopes(
   const std::vector<std::string> &scopes,
   const authforge::oauth2::model::Client &client,
   bool hasAdminRole,
-  const std::function<bool(const std::string &)> &hasConsentForScope
+  const std::function<bool(const std::string &)> &hasConsentForScope,
+  const std::function<bool(const std::string &)> &scopeRequiresAdmin
 )
 {
     ScopeValidationSummary summary;
@@ -80,11 +69,12 @@ ScopeValidationSummary evaluateScopes(
         // still be Invalid?") to decide whether hasConsentForScope needs
         // to be invoked at all.
         const bool passesAllowlistAndRole =
-          evaluateScope(scope, client, hasAdminRole, /*hasConsent=*/true).decision !=
-          ScopeDecision::Invalid;
+          evaluateScope(scope, client, hasAdminRole, /*hasConsent=*/true, scopeRequiresAdmin)
+            .decision != ScopeDecision::Invalid;
 
         const bool hasConsent = passesAllowlistAndRole && hasConsentForScope(scope);
-        ScopeCheckResult result = evaluateScope(scope, client, hasAdminRole, hasConsent);
+        ScopeCheckResult result =
+          evaluateScope(scope, client, hasAdminRole, hasConsent, scopeRequiresAdmin);
 
         switch (result.decision)
         {

@@ -91,7 +91,14 @@ async function deleteScope(scope: any) {
   }
 }
 
-const BUILTIN_SCOPES = ['openid', 'profile', 'email', 'admin']
+// #43: system-seeded scopes are non-deletable (mirrors the backend's
+// RoleScopeAdminService protected list + the V006 seed). The legacy bare
+// 'read'/'write' are dropped; the resource-prefixed family is now built-in.
+const BUILTIN_SCOPES = [
+  'openid', 'profile', 'email', 'admin',
+  'users:read', 'users:write', 'clients:read', 'clients:write',
+  'tokens:read', 'tokens:write', 'roles:read', 'roles:write', 'audit:read',
+]
 
 onMounted(fetchScopes)
 </script>

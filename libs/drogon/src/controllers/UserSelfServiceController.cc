@@ -41,60 +41,54 @@ void respondError(
 
 struct UserSelfServiceControllerDocs
 {
-    UserSelfServiceControllerDocs()
-    {
-        ::authforge::drogon::observability::openapi::EndpointInfo getProfile;
-        getProfile.path = "/api/me";
-        getProfile.method = "GET";
-        getProfile.summary = "Get User Profile";
-        getProfile.description = "Get current user's profile information.";
-        getProfile.tags = {"User Profile"};
-        getProfile.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getProfile);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo deleteAccount;
-        deleteAccount.path = "/api/me";
-        deleteAccount.method = "DELETE";
-        deleteAccount.summary = "Delete Account";
-        deleteAccount.description = "Soft-delete the current user's account.";
-        deleteAccount.tags = {"User Profile"};
-        deleteAccount.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteAccount);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo changePassword;
-        changePassword.path = "/api/me/password";
-        changePassword.method = "PUT";
-        changePassword.summary = "Change Password";
-        changePassword.description = "Change the current user's password.";
-        changePassword.tags = {"User Profile"};
-        changePassword.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(changePassword);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo listAuthorizedApps;
-        listAuthorizedApps.path = "/api/me/authorized-apps";
-        listAuthorizedApps.method = "GET";
-        listAuthorizedApps.summary = "List Authorized Apps";
-        listAuthorizedApps.description = "List OAuth2 clients authorized by the current user.";
-        listAuthorizedApps.tags = {"User Profile"};
-        listAuthorizedApps.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
-          listAuthorizedApps
-        );
-
-        ::authforge::drogon::observability::openapi::EndpointInfo revokeApp;
-        revokeApp.path = "/api/me/authorized-apps/{clientId}";
-        revokeApp.method = "DELETE";
-        revokeApp.summary = "Revoke App Authorization";
-        revokeApp.description =
-          "Revoke the current user's authorization for a specific OAuth2 client.";
-        revokeApp.tags = {"User Profile"};
-        revokeApp.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(revokeApp);
-    }
+    // #43: replaced by UserSelfServiceController::initApiDocsImpl(). The
+    // former static-init side-effect registration is removed (defect 1.1
+    // SIOF). DO NOT add endpoint registrations here.
 };
 
-UserSelfServiceControllerDocs docs_;
+namespace openapi = ::authforge::drogon::observability::openapi;
+
+// #43 resource-scope authorization: all /api/me routes require the OIDC
+// `profile` scope. NO impliedBy -- a bare `admin` token does NOT satisfy
+// these (a self-service request always needs an actual user token, per
+// RFC 6749 §3.3 / OIDC Core §5.4).
+openapi::EndpointInfo selfServiceEp(
+  const char *path, const char *method, const char *summary, const char *description)
+{
+    openapi::EndpointInfo ep;
+    ep.path = path;
+    ep.method = method;
+    ep.summary = summary;
+    ep.description = description;
+    ep.tags = {"User Profile"};
+    ep.requiresAuth = true;
+    ep.requiredScopes = {"profile"};
+    // impliedBy intentionally empty (see comment above).
+    return ep;
+}
 }  // namespace
+
+void UserSelfServiceController::initApiDocs()
+{
+    static std::once_flag docsOnce;
+    std::call_once(docsOnce, [] { initApiDocsImpl(); });
+}
+
+void UserSelfServiceController::initApiDocsImpl()
+{
+    openapi::OpenApiGenerator::addEndpoint(
+      selfServiceEp("/api/me", "GET", "Get User Profile", "Get current user's profile information."));
+    openapi::OpenApiGenerator::addEndpoint(
+      selfServiceEp("/api/me", "DELETE", "Delete Account", "Soft-delete the current user's account."));
+    openapi::OpenApiGenerator::addEndpoint(
+      selfServiceEp("/api/me/password", "PUT", "Change Password", "Change the current user's password."));
+    openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
+      "/api/me/authorized-apps", "GET", "List Authorized Apps",
+      "List OAuth2 clients authorized by the current user."));
+    openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
+      "/api/me/authorized-apps/{clientId}", "DELETE", "Revoke App Authorization",
+      "Revoke the current user's authorization for a specific OAuth2 client."));
+}
 
 void UserSelfServiceController::getProfile(
   const ::drogon::HttpRequestPtr &req,

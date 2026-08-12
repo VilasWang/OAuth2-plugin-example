@@ -87,6 +87,19 @@ struct EndpointInfo
     // Only meaningful when requiresAuth == true. Defaults to Bearer so
     // pre-existing registrations keep their generated output unchanged.
     AuthType authType = AuthType::Bearer;
+
+    // Resource-scope authorization model (#43): the OAuth2 scopes a token
+    // MUST carry (per ScopeMatch semantics, see authz/ScopeResolver.h) to
+    // access this endpoint. Empty = no scope requirement at this layer
+    // (the endpoint may still require a valid token + RBAC role). Consumed
+    // by ResourceScopeRegistry at startup and emitted as the OpenAPI
+    // x-required-scopes extension.
+    std::vector<std::string> requiredScopes;
+    // Super-scopes whose presence on the token satisfies this endpoint's
+    // requirement even when the exact requiredScopes are absent (e.g. an
+    // "admin" super-scope satisfies "users:read"). Per-requirement, NOT a
+    // global graph -- avoids the hardcoded implication list.
+    std::vector<std::string> impliedBy;
 };
 
 class OpenApiGenerator
@@ -109,6 +122,11 @@ class OpenApiGenerator
 
     // Helper function to convert ParameterLocation to string
     static std::string parameterLocationToString(ParameterLocation location);
+
+    // Read-only access to the registered endpoint set. Used by
+    // ResourceScopeRegistry (#43) to build the (path, method) -> scopes
+    // matrix at startup from the same single source that drives OpenAPI.
+    static const std::vector<EndpointInfo> &endpoints();
 
   private:
     static std::vector<EndpointInfo> &getEndpoints();

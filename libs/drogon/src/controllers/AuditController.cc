@@ -15,34 +15,53 @@ namespace authforge::drogon::controllers
 
 namespace
 {
-struct AuditControllerDocs
-{
-    AuditControllerDocs()
-    {
-        ::authforge::drogon::observability::openapi::EndpointInfo listLogs;
-        listLogs.path = "/api/admin/logs";
-        listLogs.method = "GET";
-        listLogs.summary = "List Audit Logs";
-        listLogs.description = "Get a paginated list of system audit logs.";
-        listLogs.tags = {"Admin", "Logs"};
-        listLogs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listLogs);
+namespace openapi = ::authforge::drogon::observability::openapi;
 
-        ::authforge::drogon::observability::openapi::EndpointInfo getDashboardStats;
-        getDashboardStats.path = "/api/admin/dashboard/stats";
-        getDashboardStats.method = "GET";
-        getDashboardStats.summary = "Get Dashboard Stats";
-        getDashboardStats.description =
-          "Get dashboard statistics including user count, client count, active tokens, and failure "
-          "metrics.";
-        getDashboardStats.tags = {"Admin", "Dashboard"};
-        getDashboardStats.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
-          getDashboardStats
-        );
-    }
-} g_auditControllerDocs;
+// #43 resource-scope authorization: declare one EndpointInfo with its
+// requiredScopes + impliedBy. All audit/dashboard routes are admin-gated; the
+// `admin` super-scope (in impliedBy) satisfies any of them. `tags` is a
+// parameter because this controller mixes the Logs and Dashboard tag groups.
+openapi::EndpointInfo adminEp(
+  const char *path,
+  const char *method,
+  const char *summary,
+  const char *description,
+  std::vector<std::string> tags,
+  std::vector<std::string> requiredScopes)
+{
+    openapi::EndpointInfo ep;
+    ep.path = path;
+    ep.method = method;
+    ep.summary = summary;
+    ep.description = description;
+    ep.tags = std::move(tags);
+    ep.requiresAuth = true;
+    ep.requiredScopes = std::move(requiredScopes);
+    ep.impliedBy = {"admin"};
+    return ep;
+}
 }  // namespace
+
+void AuditController::initApiDocs()
+{
+    static std::once_flag docsOnce;
+    std::call_once(docsOnce, [] { initApiDocsImpl(); });
+}
+
+void AuditController::initApiDocsImpl()
+{
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/dashboard", "GET", "Get Dashboard",
+              "Get the admin dashboard overview page.", {"Admin", "Dashboard"}, {"audit:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/logs", "GET", "List Audit Logs",
+              "Get a paginated list of system audit logs.", {"Admin", "Logs"}, {"audit:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/dashboard/stats", "GET", "Get Dashboard Stats",
+              "Get dashboard statistics including user count, client count, active tokens, and "
+              "failure metrics.",
+              {"Admin", "Dashboard"}, {"audit:read"}));
+}
 
 using AuditSvc = ::authforge::drogon::admin::AuditService;
 
