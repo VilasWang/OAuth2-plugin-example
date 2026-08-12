@@ -1,6 +1,6 @@
 # 产品化演进进展总览
 
-> **更新日期**: 2026-08-11
+> **更新日期**: 2026-08-12
 > **维护约定**: 每次完成一个工作项或里程碑后更新本文件。开始新工作前先查本文件确认当前状态。
 > **上游规划**: [productization-evolution-plan.md](productization-evolution-plan.md)（总体路线图）
 > **代码依据**: [iam-architecture-audit.md](iam-architecture-audit.md)（IAM 业务能力审计）
@@ -15,7 +15,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 |-------|------|--------|------|
 | **Phase 0** — 可信度基线 | 🟡 进行中 | ~25% | benchmark 设施 M1（skeleton + S1/S2）已交付验证；M2–M4（S3–S6 场景 + 竞品对比 + 报告）待做；承重假设（10万 QPS / <2ms P99 / 50–120MB）**尚未验证** |
 | **Phase 1** — 产品化基础 + 社区启动 | ⬜ 未开始 | 0% | 文档站、多语言客户端 SDK（含 spec 治理地基）、技术博客均未启动 |
-| **Phase 2** — 企业版 | ⬜ 未开始（设计中） | ~5% | #42 缓存层 Phase 1 已交付（基础设施类）；#43 授权模型草案完成；SAML/LDAP/SCIM 完全空白 |
+| **Phase 2** — 企业版 | ⬜ 未开始（设计中） | ~5% | #42 缓存层 Phase 1+2 已交付（基础设施类）；#43 授权模型草案完成；SAML/LDAP/SCIM 完全空白 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
 
 **横切工作流（不绑定单一 Phase）**:
@@ -23,7 +23,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 工作流 | 状态 | 完成度 | 说明 |
 |--------|------|--------|------|
 | OAuth/OIDC 合规审计 | ✅ 已完成 | 100% | 31 项偏差（F-001..F-031）+ 5 项复扫发现全部处置（PR #44 合并 2026-08-09） |
-| 架构改进（#42 缓存层） | 🟡 进行中 | ~40% | Phase 1（client-cache）已交付（PR #47）；Phase 2（token cache）设计中 |
+| 架构改进（#42 缓存层） | 🟡 进行中 | ~50% | Phase 1（client-cache）已交付（PR #47）；Phase 2（token cache）已交付（commit 8765ad7）；Phase 3/4 未开始 |
 | 架构改进（#43 授权模型） | 🟡 设计中 | ~15% | 完整设计方案完成，待实现 |
 | 异步回调评估 | ✅ 已完成（评估） | 100% | 评估报告产出；决策：暂不动手（C++17 锁定，协程排除） |
 
@@ -46,9 +46,9 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | **Phase 0.5: 竞品对比** | ⬜ 未开始 | — | Keycloak/Ory/Zitadel 同环境压测 |
 | **结果入仓** | ⬜ 未开始 | `benchmarks/results/` 仅 `.gitkeep` | 首次数据落盘 |
 
-**已知环境问题（阻塞 benchmark 但非产品 bug）**:
-- **#45**: docker compose v5.3.1 相对路径解析错误，需 absolute-path override
-- **#46**: SchemaManager 冷启动迁移竞态（V3 看不到 V2 的已提交表）
+**已知环境问题（曾阻塞 benchmark，现已修复）**:
+- **#45**: docker compose v5.3.1 相对路径解析错误 → 已修复（e37e627，auto-generate absolute-path compose override）
+- **#46**: SchemaManager 冷启动迁移竞态（V3 看不到 V2 的已提交表） → 已修复（6ffcd27，单事务完成全部 migration）
 
 ### 2.2 Phase 1 — 产品化基础 + 社区启动
 
@@ -56,7 +56,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 |--------|------|----------------|--------|
 | **独立文档站**（Docusaurus/VitePress） | ⬜ 未开始 | — | 选型 + 立项 |
 | **OpenAPI spec 治理**（Layer 1 前置） | ⬜ 未开始 | `apps/server/openapi.yaml` 当前"路径全、内容稀疏"（D1.5）；死孤儿 `docs/backend/api/openapi.json` 未删 | 定 YAML 单源 + 删死文件 + YAML↔代码一致性门 + oasdiff 门 |
-| **OpenAPI bug（#41）** | 🟡 待确认 | security 字段 object→array bug 曾修于 `fix/openapi-security-field-41` 分支；clientCredentialsAuth 缺失已在 `7a8473e` 修 | 确认合并状态 |
+| **OpenAPI bug（#41）** | ✅ 已修复 | security 字段 object→array shape 已修（de03a19，入 master）；clientCredentialsAuth 缺失已在 `7a8473e` 修；b99ef5b 进一步补登 PKCE/MFA 参数 | — |
 | **Python 客户端 SDK** | ⬜ 未开始 | 阻塞于 spec 治理 | openapi-python-client 生成 + 手写 auth 层 |
 | **Go 客户端 SDK** | ⬜ 未开始 | 阻塞于 spec 治理 | oapi-codegen 生成 + 手写 auth 层 |
 | **README 性能徽章** | ⬜ 未开始 | 阻塞于 Phase 0 数据 | — |
@@ -114,7 +114,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | Phase | 状态 | 内容 |
 |-------|------|------|
 | Phase 1（client-cache） | ✅ 已交付 | `RedisCachedClientRepository` cache-aside decorator + config + 4 集成测试（PR #47，commit 86bc86e + d7d837b） |
-| Phase 2（token cache） | 🟡 设计完成 | `RedisCachedTokenRepository`：introspectToken 缓存 + revoke invalidation + negative cache；N2（introspect 需 access-vs-refresh 判别器）+ N3（access-token 负缓存固定 60s TTL）已分析 |
+| Phase 2（token cache） | ✅ 已交付 | `RedisCachedTokenRepository`（commit 8765ad7）：getAccessToken + introspectToken 缓存（access-only，N2 判别器）+ revoke invalidation + negative cache（N3，60s TTL）；含 C1/C6/C7 review fixes |
 | Phase 3（移除独立 Redis 模式） | ⬜ 未开始 | BREAKING 变更，删除 `storage_type="redis"` |
 | Phase 4（consent cache + L1+L2） | ⬜ 未开始 | 远期优化 |
 
@@ -143,11 +143,11 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | Issue | 标题 | 状态 | 对应工作项 |
 |-------|------|------|-----------|
 | **#40** | OAuth/OIDC Compliance Audit 追踪 | 🟡 待关闭 | 全部发现已修复，待人工关闭 |
-| **#41** | OpenApiGenerator security 字段 bug | 🟡 待确认 | client-sdk Phase 1 前置（spec 治理） |
-| **#42** | Postgres + Redis 缓存层 | 🟡 开放 | Phase 1 已交付，Phase 2 待实现 |
+| **#41** | OpenApiGenerator security 字段 bug | ✅ 已修复 | de03a19（security 字段 shape）+ b99ef5b（PKCE/MFA 参数） |
+| **#42** | Postgres + Redis 缓存层 | 🟡 开放 | Phase 1+2 已交付，Phase 3/4 未开始 |
 | **#43** | 资源-作用域授权模型 | 🟡 开放 | 设计完成，待实现 |
-| **#45** | docker compose v5.3.1 路径解析 | 🟡 开放 | benchmark 环境问题（非产品 bug） |
-| **#46** | SchemaManager 冷启动迁移竞态 | 🟡 开放 | benchmark 环境问题（非产品 bug） |
+| **#45** | docker compose v5.3.1 路径解析 | ✅ 已修复 | e37e627（auto-generate absolute-path override） |
+| **#46** | SchemaManager 冷启动迁移竞态 | ✅ 已修复 | 6ffcd27（单事务完成全部 migration） |
 
 ---
 
@@ -157,6 +157,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 |------|--------|----------|
 | 2026-08-09 | OAuth/OIDC 合规审计 — 31 项偏差全部修复 | PR #44 (fb775ed) |
 | 2026-08-11 | #42 缓存层 Phase 1 — client-cache decorator | PR #47 (86bc86e, d7d837b) |
+| 2026-08-12 | #41/#45/#46 修复 + #42 缓存层 Phase 2 token cache | de03a19, 6ffcd27, e37e627, 8765ad7 |
 | 2026-08-09 | benchmark 设施 M1 — skeleton + S1/S2 验证 green | 0d54bbd, 518d3e3, ac832ac |
 | 2026-08-05 | 产品化演进方案 + benchmark/client-sdk 设计文档 | a6d570c |
 

@@ -26,7 +26,7 @@
 - **安全机制: 轮转 (Rotation)**
   - 每次刷新时，不仅颁发新的 Access Token，也会 **颁发新的 Refresh Token**。
   - 旧的 Refresh Token 立即失效。
-  - **检测机制**: 如果检测到旧 Refresh Token 被再次使用，系统可视为 Token 泄露，并级联撤销该用户的所有关联 Token（TODO Feature）。
+  - **检测机制**: 如果检测到旧 Refresh Token 被再次使用，系统可视为 Token 泄露，并级联撤销该 `token_family` 下的所有关联 Token（已实现，见 §7.2）。
 
 ## 3. 密钥管理 (Secrets Management)
 
@@ -43,7 +43,7 @@
 ## 4. 最佳实践建议
 
 - **HTTPS**: 生产环境 **必须** 启用 HTTPS/TLS，否则 OAuth2 毫无安全性可言。
-- **PKCE**: 对于移动端/SPA 客户端，建议开启 PKCE (Proof Key for Code Exchange) 模式（本后端已在数据库预留字段支持，需升级 Plugin 逻辑启用）。
+- **PKCE**: 对于移动端/SPA 客户端，建议开启 PKCE (Proof Key for Code Exchange) 模式（本后端已实现并对 PUBLIC 客户端默认强制启用，支持 `plain` 与 `S256`）。
 - **IP 白名单**: 对于高权限 Client，建议限制 Token 兑换的源 IP。
 
 ## 5. Token 存储安全 (Token Storage)
