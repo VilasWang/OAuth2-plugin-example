@@ -15,61 +15,59 @@ namespace authforge::drogon::controllers
 
 namespace
 {
-struct TokenAdminControllerDocs
+namespace openapi = ::authforge::drogon::observability::openapi;
+
+// #43 resource-scope authorization: declare one EndpointInfo with its
+// requiredScopes + impliedBy. All token-admin routes are admin-gated; the
+// `admin` super-scope (in impliedBy) satisfies any of them. `tags` is a
+// parameter because this controller mixes the Tokens and OIDC tag groups.
+openapi::EndpointInfo adminEp(
+  const char *path,
+  const char *method,
+  const char *summary,
+  const char *description,
+  std::vector<std::string> tags,
+  std::vector<std::string> requiredScopes)
 {
-    TokenAdminControllerDocs()
-    {
-        ::authforge::drogon::observability::openapi::EndpointInfo listTokens;
-        listTokens.path = "/api/admin/tokens";
-        listTokens.method = "GET";
-        listTokens.summary = "List Tokens";
-        listTokens.description = "Get a list of active OAuth2 tokens.";
-        listTokens.tags = {"Admin", "Tokens"};
-        listTokens.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listTokens);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo revokeTokensByClient;
-        revokeTokensByClient.path = "/api/admin/tokens/revoke-by-client";
-        revokeTokensByClient.method = "POST";
-        revokeTokensByClient.summary = "Revoke Tokens By Client";
-        revokeTokensByClient.description = "Revoke all tokens issued to a specific client.";
-        revokeTokensByClient.tags = {"Admin", "Tokens"};
-        revokeTokensByClient.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
-          revokeTokensByClient
-        );
-
-        ::authforge::drogon::observability::openapi::EndpointInfo revokeTokensByUser;
-        revokeTokensByUser.path = "/api/admin/tokens/revoke-by-user";
-        revokeTokensByUser.method = "POST";
-        revokeTokensByUser.summary = "Revoke Tokens By User";
-        revokeTokensByUser.description = "Revoke all tokens issued for a specific user.";
-        revokeTokensByUser.tags = {"Admin", "Tokens"};
-        revokeTokensByUser.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
-          revokeTokensByUser
-        );
-
-        ::authforge::drogon::observability::openapi::EndpointInfo revokeToken;
-        revokeToken.path = "/api/admin/tokens/{tokenPrefix}";
-        revokeToken.method = "DELETE";
-        revokeToken.summary = "Revoke Token";
-        revokeToken.description = "Revoke a specific token by its prefix.";
-        revokeToken.tags = {"Admin", "Tokens"};
-        revokeToken.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(revokeToken);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo getOidcKeys;
-        getOidcKeys.path = "/api/admin/oidc/keys";
-        getOidcKeys.method = "GET";
-        getOidcKeys.summary = "Get OIDC Keys Info";
-        getOidcKeys.description = "Get information about OIDC signing keys.";
-        getOidcKeys.tags = {"Admin", "OIDC"};
-        getOidcKeys.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getOidcKeys);
-    }
-} g_tokenAdminControllerDocs;
+    openapi::EndpointInfo ep;
+    ep.path = path;
+    ep.method = method;
+    ep.summary = summary;
+    ep.description = description;
+    ep.tags = std::move(tags);
+    ep.requiresAuth = true;
+    ep.requiredScopes = std::move(requiredScopes);
+    ep.impliedBy = {"admin"};
+    return ep;
+}
 }  // namespace
+
+void TokenAdminController::initApiDocs()
+{
+    static std::once_flag docsOnce;
+    std::call_once(docsOnce, [] { initApiDocsImpl(); });
+}
+
+void TokenAdminController::initApiDocsImpl()
+{
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/tokens", "GET", "List Tokens",
+              "Get a list of active OAuth2 tokens.", {"Admin", "Tokens"}, {"tokens:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/tokens/revoke-by-client", "POST", "Revoke Tokens By Client",
+              "Revoke all tokens issued to a specific client.", {"Admin", "Tokens"},
+              {"tokens:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/tokens/revoke-by-user", "POST", "Revoke Tokens By User",
+              "Revoke all tokens issued for a specific user.", {"Admin", "Tokens"},
+              {"tokens:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/tokens/{tokenPrefix}", "DELETE", "Revoke Token",
+              "Revoke a specific token by its prefix.", {"Admin", "Tokens"}, {"tokens:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/oidc/keys", "GET", "Get OIDC Keys Info",
+              "Get information about OIDC signing keys.", {"Admin", "OIDC"}, {"audit:read"}));
+}
 
 using TokenService = ::authforge::drogon::admin::TokenManagementService;
 

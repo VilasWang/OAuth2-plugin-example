@@ -72,6 +72,15 @@ class TokenAdminController : public ::drogon::HttpController<TokenAdminControlle
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
+
+    // #43 resource-scope authorization: explicit, order-independent endpoint
+    // + scope-requirement registration (replaces the former file-scope
+    // static-init struct, defect 1.1 SIOF). Called from main()/test_main()
+    // alongside the other controllers' initApiDocs().
+    static void initApiDocs();
+
+  private:
+    static void initApiDocsImpl();
 };
 
 }  // namespace authforge::drogon::controllers

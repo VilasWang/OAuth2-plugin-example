@@ -559,12 +559,20 @@ void RoleScopeAdminService::deleteScope(
     }
 
     Mapper<Oauth2Scopes> mapper(db);
+    // #43: system-seeded scopes are non-deletable. The list mirrors the
+    // V006 seed (OIDC standard + admin super-scope + resource-prefixed
+    // family). Deleting one would break the resource-scope authorization
+    // matrix that ResourceScopeRegistry depends on.
     mapper.deleteBy(
       Criteria(Oauth2Scopes::Cols::_id, CompareOperator::EQ, id) &&
         Criteria(
           Oauth2Scopes::Cols::_name,
           CompareOperator::NotIn,
-          std::vector<std::string>{"openid", "profile", "email", "admin"}
+          std::vector<std::string>{
+            "openid",      "profile",       "email",        "admin",
+            "users:read",  "users:write",   "clients:read", "clients:write",
+            "tokens:read", "tokens:write",  "roles:read",   "roles:write",
+            "audit:read"}
         ),
       [cb, req](const size_t affected) {
           if (affected == 0)

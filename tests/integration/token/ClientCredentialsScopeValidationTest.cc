@@ -1,18 +1,19 @@
 // tests/integration/token/ClientCredentialsScopeValidationTest.cc
 //
-// P0 #2 (评审问题点有效性分析报告, review finding 2 / RFC 6749 §3.3): the
-// client_credentials grant used to echo the requested scope back unchecked
-// (and hardcoded "read" when omitted), so any authenticated client could
-// self-assign e.g. "admin". The handler now validates against the client's
-// registered allowlist (oauth2_client_scopes):
+// P0 #2 / #43 (RFC 6749 §3.3): the client_credentials grant validates the
+// requested scope against the client's registered allowlist
+// (oauth2_client_scopes):
 //   - requested scope not covered by the allowlist -> 400 invalid_scope
 //   - allowed requested scope -> granted verbatim
 //   - omitted scope -> defaults to the full registered scope set
 //
+// #43: the legacy bare 'read'/'write' scopes are dropped; the test now uses
+// the resource-prefixed vocabulary (tokens:read, tokens:write, ...).
+//
 // Fixture: seed client `backend-svc` (CONFIDENTIAL, secret "test-secret",
 // grant client_credentials -- apps/server/seed/dev_backend_client.sql). The
-// scope grants (read/write) are ensured idempotently below so the test does
-// not depend on the seed script having been re-run after the P0 #2 change.
+// scope grants are ensured idempotently below so the test does not depend on
+// the seed script having been re-run.
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
@@ -22,6 +23,8 @@
 
 #include <chrono>
 #include <future>
+#include <set>
+#include <sstream>
 #include <string>
 #include <thread>
 
@@ -31,6 +34,14 @@ using namespace drogon::orm;
 namespace
 {
 constexpr const char *kBaseUrl = "http://127.0.0.1:5555";
+
+// The resource scopes granted to backend-svc (mirrors dev_backend_client.sql
+// post-#43). Must stay in sync with the seed file.
+const std::set<std::string> &backendSvcScopes()
+{
+    static const std::set<std::string> s = {"tokens:read", "tokens:write", "clients:read", "users:read"};
+    return s;
+}
 
 bool parseBody(const HttpResponsePtr &resp, Json::Value &out)
 {
@@ -51,9 +62,7 @@ HttpResponsePtr postTokenForm(const std::string &body)
         req->setPath("/oauth2/token");
         req->setContentTypeCode(CT_APPLICATION_X_FORM);
         // F-017: backend-svc is seeded with token_endpoint_auth_method=
-        // client_secret_basic, so its secret MUST arrive via HTTP Basic
-        // (sending it in the body is now rejected). Encode the same
-        // backend-svc/test-secret pair as Basic auth here.
+        // client_secret_basic, so its secret MUST arrive via HTTP Basic.
         req->addHeader(
           "Authorization",
           "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
@@ -82,18 +91,20 @@ bool serverReachable()
     return false;
 }
 
-// Idempotently grant read/write to backend-svc (mirrors
-// dev_backend_client.sql) so this test is self-sufficient on databases
-// seeded before the P0 #2 seed change. Returns false on SQL failure.
+// Idempotently grant the resource scopes to backend-svc (mirrors
+// dev_backend_client.sql post-#43). Returns false on SQL failure.
 bool ensureBackendSvcScopes()
 {
     auto db = app().getDbClient();
     if (!db)
         return false;
     std::promise<bool> p;
+    // Exemption (db-operations.md): idempotent INSERT...SELECT...ON CONFLICT
+    // bulk-grant of the seed scope set (one of the 6 raw-SQL exemptions).
     db->execSqlAsync(
       "INSERT INTO oauth2_client_scopes (client_id, scope_name) "
-      "SELECT 'backend-svc', name FROM oauth2_scopes WHERE name IN ('read', 'write') "
+      "SELECT 'backend-svc', name FROM oauth2_scopes "
+      "WHERE name IN ('tokens:read', 'tokens:write', 'clients:read', 'users:read') "
       "ON CONFLICT (client_id, scope_name) DO NOTHING",
       [&](const Result &) { p.set_value(true); },
       [&](const DrogonDbException &e) {
@@ -104,10 +115,20 @@ bool ensureBackendSvcScopes()
     return p.get_future().get();
 }
 
-// F-017: backend-svc is seeded client_secret_basic, so the secret travels
-// in the Authorization header (set in postTokenForm), not the body. Keep
-// client_id in the body for clients that key off it; the secret is omitted
-// here to satisfy the client_secret_basic enforcement.
+// Split a space-delimited scope string into a set for exact-membership checks
+// (avoids the substring trap: find("read") would match "tokens:read").
+std::set<std::string> scopeSet(const std::string &spaceDelimited)
+{
+    std::set<std::string> result;
+    std::istringstream iss(spaceDelimited);
+    std::string token;
+    while (iss >> token)
+        result.insert(token);
+    return result;
+}
+
+// F-017: backend-svc is seeded client_secret_basic, so the secret travels in
+// the Authorization header (set in postTokenForm), not the body.
 constexpr const char *kCredentials = "client_id=backend-svc";
 }  // namespace
 
@@ -143,11 +164,11 @@ DROGON_TEST(Integration_P0_ClientCredentials_ScopeValidation_RejectsUnregistered
         CHECK(!body.isMember("access_token"));
     }
 
-    // Negative: a partially-exceeding list ("read admin") must also be
+    // Negative: a partially-exceeding list ("tokens:read admin") must also be
     // rejected outright, not silently narrowed.
     {
         auto resp = postTokenForm(
-          std::string("grant_type=client_credentials&") + kCredentials + "&scope=read%20admin"
+          std::string("grant_type=client_credentials&") + kCredentials + "&scope=tokens:read%20admin"
         );
         REQUIRE(resp != nullptr);
         CHECK(resp->getStatusCode() == k400BadRequest);
@@ -159,18 +180,18 @@ DROGON_TEST(Integration_P0_ClientCredentials_ScopeValidation_RejectsUnregistered
     // Positive: a granted scope is issued verbatim.
     {
         auto resp = postTokenForm(
-          std::string("grant_type=client_credentials&") + kCredentials + "&scope=read"
+          std::string("grant_type=client_credentials&") + kCredentials + "&scope=tokens:read"
         );
         REQUIRE(resp != nullptr);
         CHECK(resp->getStatusCode() == k200OK);
         Json::Value body;
         REQUIRE(parseBody(resp, body));
         CHECK(body.isMember("access_token"));
-        CHECK(body["scope"].asString() == "read");
+        CHECK(body["scope"].asString() == "tokens:read");
     }
 
-    // Omitted scope: defaults to the full registered set (read/write, order
-    // not guaranteed by the join) -- not the pre-fix hardcoded "read".
+    // Omitted scope: defaults to the full registered set (order not guaranteed
+    // by the join).
     {
         auto resp = postTokenForm(std::string("grant_type=client_credentials&") + kCredentials);
         REQUIRE(resp != nullptr);
@@ -178,8 +199,7 @@ DROGON_TEST(Integration_P0_ClientCredentials_ScopeValidation_RejectsUnregistered
         Json::Value body;
         REQUIRE(parseBody(resp, body));
         CHECK(body.isMember("access_token"));
-        const std::string granted = body["scope"].asString();
-        CHECK(granted.find("read") != std::string::npos);
-        CHECK(granted.find("write") != std::string::npos);
+        // Exact set match (not substring) to avoid the tokens:read/read trap.
+        CHECK(scopeSet(body["scope"].asString()) == backendSvcScopes());
     }
 }

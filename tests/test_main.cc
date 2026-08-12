@@ -76,6 +76,7 @@ static void flushGcovIfInstrumented()
 #include <authforge/drogon/controllers/AuthorizationEndpointController.h>
 #include <authforge/drogon/controllers/TokenEndpointController.h>
 #include <authforge/drogon/controllers/DiscoveryController.h>
+#include <authforge/drogon/authz/ResourceScopeRegistry.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -380,6 +381,22 @@ int main(int argc, char **argv)
     authforge::drogon::controllers::AuthorizationEndpointController::initApiDocs();
     authforge::drogon::controllers::TokenEndpointController::initApiDocs();
     authforge::drogon::controllers::DiscoveryController::initApiDocs();
+    // #43: admin + user-self-service controllers declare per-route scopes.
+    authforge::drogon::controllers::UserAdminController::initApiDocs();
+    authforge::drogon::controllers::ClientAdminController::initApiDocs();
+    authforge::drogon::controllers::TokenAdminController::initApiDocs();
+    authforge::drogon::controllers::RoleScopeAdminController::initApiDocs();
+    authforge::drogon::controllers::AuditController::initApiDocs();
+    authforge::drogon::controllers::UserSelfServiceController::initApiDocs();
+    // #43: build the resource-scope registry from the declared EndpointInfo.
+    authforge::drogon::authz::ResourceScopeRegistry::buildFromEndpoints();
+    // #43: catch-all prefix so all /api/me/* subpaths (MFA, WebAuthn, ...)
+    // inherit the `profile` scope, matching the old OAuth2AuthFilter behavior.
+    {
+        authforge::drogon::authz::ResourceScopeRequirement profileReq;
+        profileReq.scopes = {"profile"};
+        authforge::drogon::authz::ResourceScopeRegistry::registerPrefix("/api/me", profileReq);
+    }
 
     std::promise<void> p1;
     std::future<void> f1 = p1.get_future();

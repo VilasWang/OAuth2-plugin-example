@@ -143,7 +143,7 @@ DROGON_TEST(Integration_P1_OidcBatch3_TokenEndpoint_RateLimitsAfterFailureThresh
         // invalid_client -> recorded as a failure against (ip, client_id).
         std::string form =
           "grant_type=client_credentials&client_id=" + syntheticClientId +
-          "&client_secret=anything&scope=read";
+          "&client_secret=anything&scope=tokens:read";
         auto resp = sendPostForm("/oauth2/token", form);
         if (!resp)
             continue;

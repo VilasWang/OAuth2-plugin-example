@@ -59,6 +59,11 @@ void OpenApiGenerator::addEndpoint(const EndpointInfo &endpoint)
     getEndpoints().push_back(endpoint);
 }
 
+const std::vector<EndpointInfo> &OpenApiGenerator::endpoints()
+{
+    return getEndpoints();
+}
+
 Json::Value OpenApiGenerator::generateOpenApiSpec()
 {
     Json::Value spec;
@@ -222,6 +227,33 @@ Json::Value OpenApiGenerator::generatePathItem(const EndpointInfo &endpoint)
         Json::Value securityArr(Json::arrayValue);
         securityArr.append(securityReq);
         pathItem["security"] = securityArr;
+    }
+
+    // Resource-scope authorization model (#43): emit the concrete scope
+    // requirement as a vendor extension. The securitySchemes above use
+    // `type: http` (Bearer/Basic), for which OpenAPI 3.0 gives the scope
+    // array in a Security Requirement Object no defined semantics -- only
+    // `type: oauth2` schemes interpret scopes. Rather than mislead SDK
+    // consumers by populating the (semantically inert) bearerAuth scope
+    // list, the authoritative per-operation scope set is carried here so
+    // codegen/tooling that understands the extension can bind it (R3).
+    if (!endpoint.requiredScopes.empty())
+    {
+        Json::Value reqScopes(Json::arrayValue);
+        for (const auto &s : endpoint.requiredScopes)
+        {
+            reqScopes.append(s);
+        }
+        pathItem["x-required-scopes"] = reqScopes;
+        if (!endpoint.impliedBy.empty())
+        {
+            Json::Value implied(Json::arrayValue);
+            for (const auto &s : endpoint.impliedBy)
+            {
+                implied.append(s);
+            }
+            pathItem["x-scope-implied-by"] = implied;
+        }
     }
 
     Json::Value result;

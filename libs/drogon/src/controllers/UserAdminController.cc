@@ -12,79 +12,64 @@
 
 namespace authforge::drogon::controllers
 {
-
 namespace
 {
-struct UserAdminControllerDocs
+namespace openapi = ::authforge::drogon::observability::openapi;
+
+// #43 resource-scope authorization: declare one EndpointInfo with its
+// requiredScopes + impliedBy. All user-admin routes are admin-gated; the
+// `admin` super-scope (in impliedBy) satisfies any of them.
+openapi::EndpointInfo adminEp(
+  const char *path,
+  const char *method,
+  const char *summary,
+  const char *description,
+  std::vector<std::string> requiredScopes)
 {
-    UserAdminControllerDocs()
-    {
-        ::authforge::drogon::observability::openapi::EndpointInfo listUsers;
-        listUsers.path = "/api/admin/users";
-        listUsers.method = "GET";
-        listUsers.summary = "List Users";
-        listUsers.description = "Get a paginated list of users.";
-        listUsers.tags = {"Admin", "Users"};
-        listUsers.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listUsers);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo disableUser;
-        disableUser.path = "/api/admin/users/{userId}/disable";
-        disableUser.method = "PUT";
-        disableUser.summary = "Disable User";
-        disableUser.description = "Disable a specific user account.";
-        disableUser.tags = {"Admin", "Users"};
-        disableUser.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(disableUser);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo assignUserRoles;
-        assignUserRoles.path = "/api/admin/users/{userId}/roles";
-        assignUserRoles.method = "PUT";
-        assignUserRoles.summary = "Assign User Roles";
-        assignUserRoles.description = "Assign roles to a specific user.";
-        assignUserRoles.tags = {"Admin", "Users"};
-        assignUserRoles.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(assignUserRoles);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo getUser;
-        getUser.path = "/api/admin/users/{userId}";
-        getUser.method = "GET";
-        getUser.summary = "Get User Detail";
-        getUser.description =
-          "Get detailed information about a specific user including roles and account status.";
-        getUser.tags = {"Admin", "Users"};
-        getUser.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getUser);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo updateUser;
-        updateUser.path = "/api/admin/users/{userId}";
-        updateUser.method = "PUT";
-        updateUser.summary = "Update User";
-        updateUser.description = "Update user information (email, email_verified).";
-        updateUser.tags = {"Admin", "Users"};
-        updateUser.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateUser);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo enableUser;
-        enableUser.path = "/api/admin/users/{userId}/enable";
-        enableUser.method = "POST";
-        enableUser.summary = "Enable User";
-        enableUser.description = "Enable a disabled user account by resetting lockout state.";
-        enableUser.tags = {"Admin", "Users"};
-        enableUser.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(enableUser);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo getUserRoles;
-        getUserRoles.path = "/api/admin/users/{userId}/roles";
-        getUserRoles.method = "GET";
-        getUserRoles.summary = "Get User Roles";
-        getUserRoles.description = "Get the roles assigned to a specific user.";
-        getUserRoles.tags = {"Admin", "Users"};
-        getUserRoles.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getUserRoles);
-    }
-} g_userAdminControllerDocs;
+    openapi::EndpointInfo ep;
+    ep.path = path;
+    ep.method = method;
+    ep.summary = summary;
+    ep.description = description;
+    ep.tags = {"Admin", "Users"};
+    ep.requiresAuth = true;
+    ep.requiredScopes = std::move(requiredScopes);
+    ep.impliedBy = {"admin"};
+    return ep;
+}
 }  // namespace
+
+void UserAdminController::initApiDocs()
+{
+    static std::once_flag docsOnce;
+    std::call_once(docsOnce, [] { initApiDocsImpl(); });
+}
+
+void UserAdminController::initApiDocsImpl()
+{
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users", "GET", "List Users",
+              "Get a paginated list of users.", {"users:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users/{userId}", "GET", "Get User Detail",
+              "Get detailed information about a specific user including roles and account status.",
+              {"users:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users/{userId}", "PUT", "Update User",
+              "Update user information (email, email_verified).", {"users:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users/{userId}/disable", "PUT", "Disable User",
+              "Disable a specific user account.", {"users:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users/{userId}/enable", "POST", "Enable User",
+              "Enable a disabled user account by resetting lockout state.", {"users:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users/{userId}/roles", "GET", "Get User Roles",
+              "Get the roles assigned to a specific user.", {"users:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users/{userId}/roles", "PUT", "Assign User Roles",
+              "Assign roles to a specific user.", {"users:write"}));
+}
 
 using UserService = ::authforge::drogon::admin::UserAdminService;
 

@@ -18,6 +18,7 @@ GET /api/admin/organizations
 GET /api/admin/organizations/{slug}
 GET /api/admin/roles
 GET /api/admin/scopes
+GET /api/admin/scopes/resources
 GET /api/admin/tokens
 GET /api/admin/users
 GET /api/admin/users/{userId}

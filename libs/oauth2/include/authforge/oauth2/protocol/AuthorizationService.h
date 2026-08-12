@@ -36,6 +36,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace authforge::oauth2::protocol
@@ -48,7 +49,11 @@ class AuthorizationService
       std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients,
       std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents = nullptr,
       std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver = nullptr,
-      std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider = nullptr
+      std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider = nullptr,
+      // #43 §5.5: the set of scope names that require the admin role
+      // (loaded from oauth2_scopes.requires_admin_role at startup by
+      // OAuth2Plugin). Drives the engine's Tier-2 check via a predicate.
+      std::unordered_set<std::string> adminScopes = {}
     );
 
     /**
@@ -76,11 +81,21 @@ class AuthorizationService
       std::function<void(authforge::oauth2::access::ScopeValidationSummary)> &&callback
     );
 
+    /// #43 §5.5: override the admin-scope set at runtime (e.g. after an
+    /// async DB load in OAuth2Plugin). The constructor supplies a safe
+    /// default; this replaces it with the live DB value so the Tier-2 check
+    /// is fully data-driven in production.
+    void setAdminScopes(std::unordered_set<std::string> adminScopes)
+    {
+        adminScopes_ = std::move(adminScopes);
+    }
+
   private:
     std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients_;
     std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents_;
     std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver_;
     std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider_;
+    std::unordered_set<std::string> adminScopes_;  // #43 §5.5
 };
 
 }  // namespace authforge::oauth2::protocol

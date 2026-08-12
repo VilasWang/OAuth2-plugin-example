@@ -67,6 +67,13 @@ class UserSelfServiceController : public ::drogon::HttpController<UserSelfServic
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
+
+    // #43: explicit endpoint + scope-requirement registration (replaces the
+    // former static-init struct, defect 1.1 SIOF).
+    static void initApiDocs();
+
+  private:
+    static void initApiDocsImpl();
 };
 
 }  // namespace authforge::drogon::controllers

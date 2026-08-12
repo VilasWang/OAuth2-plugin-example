@@ -20,13 +20,24 @@ const nonce = route.query.nonce as string || ''
 
 const scopes = scope.split(' ').filter(Boolean)
 
+// #43: resource-scope vocabulary. The legacy bare 'read'/'write' labels are
+// dropped; the OIDC standard scopes keep their human-readable descriptions and
+// the resource-prefixed admin scopes are listed for completeness (they
+// normally appear only for admin-console clients, not end users).
 const scopeDescriptions: Record<string, string> = {
   openid: 'Verify your identity',
   profile: 'Access your basic profile (username)',
   email: 'Access your email address',
-  read: 'Read your data',
-  write: 'Modify your data',
   admin: 'Administrative access',
+  'users:read': 'Read user accounts',
+  'users:write': 'Manage user accounts',
+  'clients:read': 'View registered applications',
+  'clients:write': 'Manage registered applications',
+  'tokens:read': 'View active tokens',
+  'tokens:write': 'Revoke tokens',
+  'roles:read': 'View roles and scopes',
+  'roles:write': 'Manage roles and scopes',
+  'audit:read': 'View audit logs and statistics',
 }
 
 /**
