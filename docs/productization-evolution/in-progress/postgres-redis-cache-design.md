@@ -151,7 +151,22 @@ Phase 1 implements only the **client** key; the token keys are shown for Phase 2
 authforge:cache:client:{clientId}                 → JSON(OAuth2Client)   TTL 300s            [Phase 1]
 authforge:cache:token:access:{sha256(token)}      → JSON(OAuth2AccessToken)  TTL = min(token_ttl, 60s)  [Phase 2]
 authforge:cache:token:revoked:{sha256(token)}     → "1"  (negative cache, see §5.4)  TTL see below       [Phase 2]
+authforge:cache:token:introspect:{sha256(token)}  → JSON(TokenIntrospection)  TTL = min(token_ttl, 60s)  [Phase 2]
 ```
+
+> **Key construction note (PR #47 review clarification):** the `{sha256(token)}`
+> notation above is the *conceptual* key — it means "keyed on the token's hash,
+> never the raw token". In the implementation, `TokenService` calls
+> `hashToken(crypto, rawToken)` (UPPERCASE sha256 hex) **before** invoking the
+> repository (`TokenService.cc:559/596/612`), so the decorator's `token`
+> parameter **is already the hash**. The decorator builds keys by direct
+> string concatenation (`"authforge:cache:token:access:" + token`) — it does
+> **NOT** re-hash. This is uniform across all paths (getAccessToken,
+> introspectToken, revokeAccessToken), so the read-path and revoke-path keys
+> are always identical. The `Revoked_NotServed` integration test
+> (`tests/integration/storage/RedisCachedTokenRepositoryTest.cc`) verifies this
+> at runtime: after `revokeAccessToken`, `getAccessToken` returns `nullopt`
+> (the negative-cache + DEL hit the same keys the read path uses).
 
 - **Client TTL**: 5 min (clients rarely change; no runtime write path today). **Phase 1.**
 - **Access-token TTL** (Phase 2): the SHORTER of the token's remaining lifetime and a 60s cap.
