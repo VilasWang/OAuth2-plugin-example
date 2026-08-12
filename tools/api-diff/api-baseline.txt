@@ -4553,6 +4553,10 @@ const std::string &token,
 const std::string &revokedBy,
 std::function<void()> &&callback
 );
+void revokeRefreshToken(
+const std::string &token,
+std::function<void()> &&callback
+);
 bool validatePkceCodeVerifier(
 const std::string &codeVerifier,
 const std::string &codeChallenge,
