@@ -9,7 +9,7 @@ storage, request-flow, and deployment perspectives.
 |---|---|---|
 | Web framework | Drogon | High-performance asynchronous C++ HTTP service |
 | Primary database | PostgreSQL 15 | Users, roles, clients, auth codes, and tokens |
-| Cache / KV store | Redis | Token cache, auth-code cache, and rate-limit data |
+| Cache / KV store | Redis | Optional L2 cache (client + access-token reads) in front of Postgres; standalone Redis storage is deprecated (rate limiting is process-local, not Redis) |
 | Frontend | Vue 3 + Vite | SPA client for OAuth2 authorization-code flow |
 | Deployment | Docker Compose | Local and production-like full-stack deployment |
 | Observability | Prometheus | Metrics collection through Drogon PromExporter |
@@ -83,7 +83,7 @@ Vue SPA                 authforge-server (App)     OAuth2Plugin (Core)        St
 | storage_type | Implementation | Typical use |
 |---|---|---|
 | memory | `MemoryRepositoryBundle` | Unit tests and quick local demos |
-| redis | `RedisRepositoryBundle` | Fast ephemeral token storage (client cache via `RedisClientRepository`) |
+| redis | `RedisRepositoryBundle` | **DEPRECATED** — logs ERROR at startup and rejects the `refresh_token` grant with `unsupported_grant_type`; do not use. Redis now serves only as an optional cache layer in front of Postgres (see [Configuration Guide §3](configuration-guide.md)). |
 | postgres | `PostgresRepositoryBundle` | Durable production storage |
 
 > 每个 `*RepositoryBundle` 同时装配同一后端下的 client / grant / token / consent / userinfo 五个仓储实现（见各 `libs/storage-*/include` 下的头文件）。

@@ -1,6 +1,6 @@
 # OAuth2 API 接口文档
 
-> **完整 API 规范**: 本项目的完整 API 定义位于 [`apps/server/openapi.yaml`](../../apps/server/openapi.yaml)，可通过 Swagger UI 在线浏览：`/docs/api`。
+> **完整 API 规范**: 手工维护的 OpenAPI 源文件为 [`apps/server/openapi.yaml`](../../apps/server/openapi.yaml)（CI 通过 `swagger-cli` 校验）；Swagger UI（`/docs/api`）在线浏览的是运行时由 Controller 代码生成的 `apps/server/docs/api/openapi.json`。
 
 本服务提供基于 OAuth2.0 标准（RFC 6749）的认证授权服务。
 
@@ -381,7 +381,7 @@ OAuth2 协议端点（OAuth2_Protocol_Endpoint）保持 RFC 6749 §5.2 错误体
 1. 在对应 Controller 的初始化方法中添加或更新 `OpenApiGenerator::addEndpoint()` 调用。
 2. 运行项目或测试以生成更新的 `openapi.json`。
 3. 验证 Swagger UI (`http://localhost:5555/docs/api/`) 显示正确。
-4. 提交代码时必须包含更新后的 `docs/api/openapi.json`。
+4. 提交代码时必须包含更新后的 `apps/server/docs/api/openapi.json`。
 
 ### 6.2 自动化验证机制
 
