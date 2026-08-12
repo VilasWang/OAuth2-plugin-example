@@ -9,11 +9,11 @@
 
 ## 一、总体进展概览
 
-AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-11：
+AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-12：
 
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
-| **Phase 0** — 可信度基线 | 🟡 进行中 | ~25% | benchmark 设施 M1（skeleton + S1/S2）已交付验证；M2–M4（S3–S6 场景 + 竞品对比 + 报告）待做；承重假设（10万 QPS / <2ms P99 / 50–120MB）**尚未验证** |
+| **Phase 0** — 可信度基线 | 🟡 进行中 | ~70% | benchmark M1–M3（S1–S6 全部场景）+ M4 首版报告已交付；承重假设初步验证（S1 86k QPS、P99 低并发达成）；竞品对比（Phase 0.5）+ 冷启动/内存测量待做 |
 | **Phase 1** — 产品化基础 + 社区启动 | ⬜ 未开始 | 0% | 文档站、多语言客户端 SDK（含 spec 治理地基）、技术博客均未启动 |
 | **Phase 2** — 企业版 | ⬜ 未开始（设计中） | ~5% | #42 缓存层 Phase 1+2 已交付（基础设施类）；#43 授权模型草案完成；SAML/LDAP/SCIM 完全空白 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
@@ -40,11 +40,11 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 |--------|------|----------------|--------|
 | **M1: 基准设施骨架** | ✅ 已完成 | `benchmarks/` 目录已建：setup/teardown/run-scenario + S1(discovery) + S2(client_credentials) Lua 脚本 + parse-wrk.py + seed/bench_users.sql（512 用户）；WSL 实测 S1 ~14.7k QPS / S2 1.2k→3.1k QPS，0% 错误 | — |
 | **M1 附属: 修正虚构 CI 报告** | ✅ 已完成 | `.github/workflows/_build-test.yml` 的装饰性 Performance Report 步骤已移除 | — |
-| **M2: S3 introspect + S4 auth_code 场景** | ✅ 脚本已完成 | `lib/gen-tokens.py`（token+PKCE 生成）+ `lib/token-pool.lua` / `lib/user-pool.lua` + `s3-introspect.lua`（active token，backend-svc Basic auth）+ `s4-auth-code.lua`（多步 login→token，每 VU 独立用户，S256 PKCE 预生成）+ setup.sh 集成 token 生成+用户预热 | 待 WSL 实测验证 |
-| **M3: S5 refresh_token + S6 userinfo + 资源观测** | ✅ 脚本已完成 | `s5-refresh-token.lua`（一次性 RT 池，`--reseed` 每档刷新）+ `s6-userinfo.lua`（bearer 用户 AT）+ `observe/docker-stats.sh` + `observe/scrape-metrics.sh`（`--observe` 标志）+ `measure-cold-start.sh`（冷启动测量）+ run-scenario.sh 扩展 `--reseed`/`--observe` | 待 WSL 实测验证 |
-| **M4: 承重假设验证报告** | ⬜ 未开始 | 阻塞于 M2–M3 | 对照 research.md §3.1 四个数字逐条标"达成/未达成/修正" |
+| **M2: S3 introspect + S4 auth_code 场景** | ✅ 已完成 | `lib/gen-tokens.py`（token+PKCE 生成）+ `s3-introspect.lua`（active token，backend-svc Basic auth）+ `s4-auth-code.lua`（多步 login→token，每 VU 独立用户，S256 PKCE 预生成，强制 -t==-c）；WSL 8vCPU 实测 S3 17k QPS / S4 465 QPS | — |
+| **M3: S5 refresh_token + S6 userinfo + 资源观测** | ✅ 已完成 | `s5-refresh-token.lua`（一次性 RT 池，`--reseed` 每档刷新）+ `s6-userinfo.lua`（bearer 用户 AT）+ `observe/` 脚本 + `measure-cold-start.sh` + 基准专用 `config.bench.json`（PG=25/Redis=20）+ `docker-compose.bench.yml`；WSL 实测 S5 2k QPS / S6 17k QPS | — |
+| **M4: 承重假设验证报告** | ✅ 首版已完成 | `benchmarks/results/SUMMARY.md`：6 场景阶梯数据 + 承重验证（S1 86k QPS ⚠️接近 10万；P99 低并发达成 <2ms ✅；内存 ❌需重定义；冷启动 ⏳待测）+ 40 个 JSON 结果入仓 | 冷启动/内存精确测量；竞品对比（Phase 0.5） |
 | **Phase 0.5: 竞品对比** | ⬜ 未开始 | — | Keycloak/Ory/Zitadel 同环境压测 |
-| **结果入仓** | ⬜ 未开始 | `benchmarks/results/` 仅 `.gitkeep` | 首次数据落盘 |
+| **结果入仓** | ✅ 已完成 | `benchmarks/results/` 含 40 个 JSON（S1–S6 × 2–128 并发档）+ SUMMARY.md | — |
 
 **已知环境问题（曾阻塞 benchmark，现已修复）**:
 - **#45**: docker compose v5.3.1 相对路径解析错误 → 已修复（e37e627，auto-generate absolute-path compose override）
@@ -159,6 +159,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 2026-08-11 | #42 缓存层 Phase 1 — client-cache decorator | PR #47 (86bc86e, d7d837b) |
 | 2026-08-12 | #41/#45/#46 修复 + #42 缓存层 Phase 2 token cache | de03a19, 6ffcd27, e37e627, 8765ad7 |
 | 2026-08-12 | benchmark 设施 M2–M3 — S3/S4/S5/S6 场景脚本 + token 生成 + 资源观测 | feat/benchmark-m2-m3-s3-s6 |
+| 2026-08-12 | benchmark M4 首版 — config.bench.json + 40 JSON 入仓 + SUMMARY.md 承重验证报告 | feat/benchmark-m2-m3-s3-s6 |
 | 2026-08-09 | benchmark 设施 M1 — skeleton + S1/S2 验证 green | 0d54bbd, 518d3e3, ac832ac |
 | 2026-08-05 | 产品化演进方案 + benchmark/client-sdk 设计文档 | a6d570c |
 

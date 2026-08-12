@@ -151,6 +151,13 @@ mkdir -p "$RESULTS_DIR"
 #   WRK_NTHREADS — not known until per-level; set inside the loop below
 export WRK_LIB_DIR="$BENCH_DIR/lib"
 
+# Auto-detect benchmark config: if the bench compose override exists, the
+# stack was started with config.bench.json (set by setup.sh). Record this in
+# the result JSON's env.target_config field.
+if [ -f "$REPO_ROOT/deploy/docker/docker-compose.bench.yml" ]; then
+    export BENCH_TARGET_CONFIG="${BENCH_TARGET_CONFIG:-config.bench.json}"
+fi
+
 echo "[run] scenario=$SCENARIO_NAME  target=$TARGET_URL  wrk=$WRK_VERSION"
 echo "[run] levels: ${LEVELS[*]}  warmup=${WARMUP_S}s  measure=${DURATION_S}s  cpu_gate=${DRIVER_CPU_GATE}%"
 if [ -n "$RESEED_SQL_ABS" ]; then

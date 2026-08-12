@@ -117,6 +117,15 @@ schema). The run prints a one-line summary per level, e.g.:
 | `SKIP_WARMUP` | `0` | `=1` skips the PBKDF2 rehash warmup (if bench users already warmed) |
 | `BENCH_TARGET_SPEC` / `BENCH_DRIVER_SPEC` | empty | recorded into each result's `env` block (e.g. `"4vCPU/8GB"`) |
 
+### Benchmark config (`config.bench.json`)
+
+`setup.sh` automatically swaps `apps/server/config/config.bench.json` over
+`config.json` before starting the stack (PG=25 connections, Redis=20,
+log_level=WARN). The original `config.json` is backed up to
+`config.json.dev-backup` and restored by `teardown.sh`. This avoids touching
+the dev/prod configs while giving the benchmark larger connection pools. The
+swap is detected by file existence — no flags needed.
+
 ## How the seed data works
 
 The docker-compose stack does **not** auto-seed the database. Schema migrations

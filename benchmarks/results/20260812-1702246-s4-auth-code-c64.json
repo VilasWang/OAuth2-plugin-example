@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "scenario": "s4-auth-code",
+  "concurrency": 64,
+  "threads": 64,
+  "duration_s": 10,
+  "qps": 458.53,
+  "latency_us": {
+    "p50": 133150.0,
+    "p75": 183340.0,
+    "p90": 219320.0,
+    "p99": 280650.0
+  },
+  "total_requests": 4632,
+  "error_rate": 0.0002158894645941278,
+  "error_count": 1,
+  "socket_errors": {},
+  "non_2xx_responses": 1,
+  "driver": {
+    "cpu_pct": 0.1,
+    "limited": false
+  },
+  "env": {
+    "date": "2026-08-12T14:03:44+00:00",
+    "git_sha": "1702246",
+    "git_branch": "feat/benchmark-m2-m3-s3-s6",
+    "target_image": "",
+    "target_config": "config.json",
+    "target_spec": "",
+    "driver_spec": "",
+    "network": "localhost-cross-container",
+    "wrk_version": "wrk debian/4.1.0-4build2 [epoll] Copyright (C) 2012 Will Glozer"
+  }
+}

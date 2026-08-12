@@ -28,6 +28,15 @@ COMPOSE_FILE_ABS="$REPO_ROOT/$COMPOSE_FILE_REL"
 # contexts and relative paths resolve against CWD, not --project-directory).
 cd "$REPO_ROOT"
 
+# --- restore dev config.json if setup.sh swapped it for config.bench.json ---
+DEV_CONFIG_BACKUP="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.json.dev-backup"
+DEV_CONFIG="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.json"
+if [ -f "$DEV_CONFIG_BACKUP" ]; then
+    cp "$DEV_CONFIG_BACKUP" "$DEV_CONFIG"
+    rm -f "$DEV_CONFIG_BACKUP"
+    echo "[teardown] restored config.json from dev backup"
+fi
+
 if [ "${KEEP_VOLUME:-0}" = "1" ]; then
     echo "[teardown] stopping stack (volumes kept, KEEP_VOLUME=1)..."
     docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" down
