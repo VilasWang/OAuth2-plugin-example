@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $passed = 0
 $failed = 0
-$total = 58
+$total = 59
 $adminPassword = "admin"  # Track current admin password across tests
 
 # Import common functions
@@ -96,12 +96,19 @@ $refreshToken = $null
 $discoveryIssuer = $null
 
 Test-Endpoint "Test 5: OAuth2 Login" {
+    # F-011/RFC 7636 (RFC 9700 §2.1.1): PKCE mandatory for PUBLIC clients.
+    # vue-client is PUBLIC -> login must carry code_challenge; Test 6 must
+    # carry the matching code_verifier. The script-scope PKCE verifier is
+    # set here and consumed by Test 6.
+    $pkce = New-PkcePair
+    $script:PkceVerifier = $pkce.verifier
     $body = @{
         username = 'admin'; password = 'admin'
         client_id = 'vue-client'
         redirect_uri = 'http://127.0.0.1:5173/callback'
         scope = 'openid profile'
         state = 'test-state-12345678'
+        code_challenge = $pkce.challenge; code_challenge_method = 'S256'
         json = 'true'
     }
     $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body $body
@@ -120,7 +127,7 @@ Test-Endpoint "Test 6: Token Exchange + id_token" {
         code = $authCode
         redirect_uri = 'http://127.0.0.1:5173/callback'
         client_id = 'vue-client'
-        client_secret = '123456'
+        code_verifier = $script:PkceVerifier
     }
     $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body $body
     if (-not $r.access_token) { throw "no access_token" }
@@ -176,12 +183,14 @@ Test-Endpoint "Test 8b: /api/admin without admin scope -> 403 insufficient_scope
     try {
         $null = Invoke-RestMethod -Uri "$BaseUrl/api/admin/dashboard" -Method Get -Headers $headers
         throw "expected 403, got success"
-    } catch [System.Net.WebException] {
+    } catch {
+        # PS7 throws HttpResponseException (not WebException). Read the status
+        # + headers from $_.Exception.Response (HttpResponseMessage).
         $resp = $_.Exception.Response
-        if ($null -eq $resp) { throw "no HTTP response" }
+        if ($null -eq $resp) { throw $_ }
         $code = [int]$resp.StatusCode
         if ($code -ne 403) { throw "expected 403, got $code" }
-        $wwwAuth = $resp.Headers["WWW-Authenticate"]
+        $wwwAuth = $resp.Headers.GetValues("WWW-Authenticate") -join ", "
         if ($wwwAuth -notmatch 'insufficient_scope') { throw "WWW-Authenticate missing insufficient_scope: $wwwAuth" }
         if ($wwwAuth -notmatch 'scope="admin"') { throw "WWW-Authenticate missing scope=admin: $wwwAuth" }
         Write-Host "    403 insufficient_scope (scope=admin) confirmed"
@@ -197,7 +206,6 @@ Test-Endpoint "Test 9: Token Refresh" {
         grant_type = 'refresh_token'
         refresh_token = $refreshToken
         client_id = 'vue-client'
-        client_secret = '123456'
     }
     $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body $body
     if (-not $r.access_token) { throw "no new access_token" }
@@ -213,25 +221,28 @@ Test-Endpoint "Test 9: Token Refresh" {
 # ========================================
 Test-Endpoint "Test 9b: Token Refresh - Missing client_secret (401)" {
     if (-not $refreshToken) { throw "skipped: no refresh_token" }
-    # F-003 (RFC 6749 SS6/SS3.2.1): refreshing with a CONFIDENTIAL client
-    # now requires client authentication; omitting the secret MUST yield
-    # 401 invalid_client (+ WWW-Authenticate: Basic).
+    # F-003 (RFC 6749 §6 / §3.2.1): a CONFIDENTIAL client MUST authenticate
+    # on the refresh_token grant; omitting the secret MUST yield 401
+    # invalid_client. PUBLIC clients (like vue-client) are exempt (RFC 6749
+    # §10.2: client_id existence check only), so this test uses backend-svc
+    # (CONFIDENTIAL) to exercise the F-003 secret requirement. The refresh
+    # token itself belongs to vue-client, so the secret check fires (401)
+    # before any client_id<->token binding check.
     $body = @{
         grant_type = 'refresh_token'
         refresh_token = $refreshToken
-        client_id = 'vue-client'
+        client_id = 'backend-svc'
     }
     try {
         Invoke-WebRequest -Uri "$BaseUrl/oauth2/token" -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Out-Null
         throw "refresh without client_secret should fail for confidential client"
     } catch {
+        if ($_.Exception.Message -match "should fail") { throw $_.Exception.Message }
+        # PS7: Invoke-WebRequest throws HttpResponseException on 4xx; the body
+        # is in $_.ErrorDetails.Message.
         $resp = $_.Exception.Response
-        if ($resp.StatusCode -ne "Unauthorized") { throw "expected 401, got $($resp.StatusCode)" }
-        $respBody = ""
-        try {
-            $sr = [System.IO.StreamReader]::new($resp.GetResponseStream())
-            $respBody = $sr.ReadToEnd()
-        } catch {}
+        if ($null -eq $resp -or [int]$resp.StatusCode -ne 401) { throw "expected 401, got $($_.Exception.Message)" }
+        $respBody = "$($_.ErrorDetails.Message)"
         if ($respBody -notmatch '"error"\s*:\s*"invalid_client"') { throw "expected invalid_client, got: $respBody" }
         Write-Host "    401 + invalid_client returned for unauthenticated refresh"
     }
@@ -262,15 +273,18 @@ Test-Endpoint "Test 10: Client Credentials" {
 # ========================================
 Test-Endpoint "Test 11: Token Introspection" {
     if (-not $accessToken) { throw "skipped: no token" }
-    # RFC 7662: introspect authenticates the CALLING CLIENT via client
+    # RFC 7662 §2.1: introspect authenticates the CALLING CLIENT via client
     # credentials (Basic header or body client_id/client_secret), NOT a
     # user Bearer token. No Authorization header is sent.
-    $body = @{
-        token = $accessToken
-        client_id = 'vue-client'
-        client_secret = '123456'
-    }
-    $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body
+    # RFC 7662 §4 / TokenEndpointController.cc:428: ALL callers must supply a
+    # client_secret (introspection is protected against token enumeration).
+    # vue-client is PUBLIC (no secret) and cannot call introspect; use
+    # backend-svc (CONFIDENTIAL, secret "test-secret"). F-017: backend-svc is
+    # seeded token_endpoint_auth_method=client_secret_basic, so authenticate
+    # via HTTP Basic, not a body client_secret.
+    $basicAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("backend-svc:test-secret"))
+    $headers = @{ Authorization = "Basic $basicAuth" }
+    $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Headers $headers -Body @{ token = $accessToken }
     if ($r.active -ne $true) { throw "active != true" }
     # F-016: introspection iss MUST be byte-identical to the discovery issuer
     if (-not $r.iss) { throw "introspection missing iss claim" }
@@ -283,14 +297,16 @@ Test-Endpoint "Test 11: Token Introspection" {
 # ========================================
 Test-Endpoint "Test 12: Token Revocation" {
     if (-not $accessToken) { throw "skipped: no token" }
-    # RFC 7009: revoke authenticates the calling client via body
-    # credentials; the Bearer header below is only reused afterwards to
-    # verify the revoked token is rejected by /oauth2/userinfo.
+    # RFC 7009 §2.1: revoke authenticates the calling client AND enforces token
+    # ownership — only the token's issuing client may revoke it. The token was
+    # issued to vue-client (PUBLIC), so vue-client must be the caller. RFC 7009
+    # §2.1 exempts PUBLIC clients from client_secret at the revocation endpoint
+    # ("if the client is a public client, then it does not authenticate"), so
+    # client_id alone authenticates a PUBLIC caller.
     $headers = @{ Authorization = "Bearer $accessToken" }
     $body = @{
         token = $accessToken
         client_id = 'vue-client'
-        client_secret = '123456'
     }
     Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Body $body -UseBasicParsing | Out-Null
 
@@ -305,6 +321,69 @@ Test-Endpoint "Test 12: Token Revocation" {
             throw "unexpected error: $($_.Exception.Message)"
         }
     }
+}
+
+# ========================================
+# Test 12b: Revoke a REFRESH token, then it must NOT be usable to refresh
+# (C3 / RFC 7009 §2.1 — the revocation endpoint must revoke ANY token type).
+# This closes the coverage gap that hid the C3 hash bug: previously the script
+# only revoked access tokens (Test 12/43), so a refresh-token revoke that was
+# a silent no-op went undetected.
+# ========================================
+Test-Endpoint "Test 12b: Revoke refresh token -> refresh fails (C3/RFC 7009)" {
+    # Mint a fresh token pair so this test is independent of Test 12's state.
+    $pkce = New-PkcePair
+    $loginResp = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body @{
+        username = 'admin'; password = 'admin'
+        client_id = 'vue-client'
+        redirect_uri = 'http://127.0.0.1:5173/callback'
+        scope = 'openid profile'; state = 't12b'
+        code_challenge = $pkce.challenge; code_challenge_method = 'S256'
+        json = 'true'
+    }
+    if (-not $loginResp.code) { throw "no auth code" }
+    $tokResp = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
+        grant_type = 'authorization_code'; code = $loginResp.code
+        redirect_uri = 'http://127.0.0.1:5173/callback'
+        client_id = 'vue-client'; code_verifier = $pkce.verifier
+    }
+    if (-not $tokResp.refresh_token) { throw "no refresh_token" }
+    # Rotate once to get a current (un-rotated) refresh token.
+    $rotated = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
+        grant_type = 'refresh_token'; refresh_token = $tokResp.refresh_token
+        client_id = 'vue-client'
+    }
+    if (-not $rotated.refresh_token) { throw "refresh rotation failed" }
+
+    # Revoke the refresh token (vue-client owns it; PUBLIC, client_id only).
+    Invoke-WebRequest -Uri "$BaseUrl/oauth2/revoke" -Method Post -Body @{ token = $rotated.refresh_token; client_id = 'vue-client' } -UseBasicParsing | Out-Null
+
+    # RFC 7009 §2.1 + RFC 6749 §6: the revoked refresh token MUST NOT mint new
+    # tokens. Expect an error (invalid_grant — reuse detected / revoked) and
+    # NO new access_token.
+    $refreshErr = ""
+    $refreshAt = ""
+    try {
+        $refreshAfter = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
+            grant_type = 'refresh_token'; refresh_token = $rotated.refresh_token
+            client_id = 'vue-client'
+        } -ErrorAction Stop
+        # Success path: the revoked token still minted -> C3 failure.
+        $refreshAt = "$($refreshAfter.access_token)"
+    } catch {
+        # Expected: an error response (C3 worked — the revoked refresh token
+        # was rejected). PS7: body is in $_.ErrorDetails.Message (NOT
+        # GetResponseStream, which is PS5.1-only and silently returns nothing
+        # in PS7, which previously made $refreshErr stay empty and masked the
+        # C3 success as a failure).
+        $respBody = "$($_.ErrorDetails.Message)"
+        $parsed = $respBody | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($parsed) { $refreshErr = "$($parsed.error)" }
+        if (-not $refreshErr -and $respBody -match '"error"\s*:\s*"([^"]+)"') { $refreshErr = $Matches[1] }
+    }
+    if (-not $refreshErr) { throw "refresh after revoke succeeded (no error) - C3 FAILED" }
+    if ($refreshAt) { throw "refresh after revoke returned a new access_token - C3 FAILED" }
+    Write-Host "    Revoked refresh token correctly rejected: error=$refreshErr"
 }
 
 # ========================================
@@ -326,18 +405,21 @@ Test-Endpoint "Test 13: User Registration" {
 # Test 14: User Profile (GET /api/me)
 # ========================================
 Test-Endpoint "Test 14: User Profile" {
-    # Need a fresh token (previous was revoked)
+    # Need a fresh token (previous was revoked). PKCE (F-011/RFC 7636).
+    $pkce = New-PkcePair
     $loginBody = @{
         username = 'admin'; password = 'admin'
         client_id = 'vue-client'
         redirect_uri = 'http://127.0.0.1:5173/callback'
-        scope = 'openid profile'; state = 'test-state-12345678'; json = 'true'
+        scope = 'openid profile'; state = 'test-state-12345678'
+        code_challenge = $pkce.challenge; code_challenge_method = 'S256'
+        json = 'true'
     }
     $login = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body $loginBody
     $tokenBody = @{
         grant_type = 'authorization_code'; code = $login.code
         redirect_uri = 'http://127.0.0.1:5173/callback'
-        client_id = 'vue-client'
+        client_id = 'vue-client'; code_verifier = $pkce.verifier
     }
     $tok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body $tokenBody
     $script:accessToken = $tok.access_token
@@ -392,19 +474,23 @@ Test-Endpoint "Test 17: Password Change" {
         Write-Host "    Verified: old token revoked after password change"
     }
 
-    # Restore password for future test runs
+    # Restore password for future test runs. PKCE (F-011/RFC 7636) required
+    # for the restore login.
     $script:adminPassword = "NewPass123!"
     try {
+        $restorePkce = New-PkcePair
         $restoreLogin = Invoke-RestMethod -Uri "$BaseUrl/oauth2/login" -Method Post -Body @{
             username = 'admin'; password = 'NewPass123!'
             client_id = 'vue-client'
             redirect_uri = 'http://127.0.0.1:5173/callback'
-            scope = 'openid'; state = 'restore-pw-state1'; json = 'true'
+            scope = 'openid'; state = 'restore-pw-state1'
+            code_challenge = $restorePkce.challenge; code_challenge_method = 'S256'
+            json = 'true'
         }
         $restoreTok = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body @{
             grant_type = 'authorization_code'; code = $restoreLogin.code
             redirect_uri = 'http://127.0.0.1:5173/callback'
-            client_id = 'vue-client'
+            client_id = 'vue-client'; code_verifier = $restorePkce.verifier
         }
         $restoreHeaders = @{ Authorization = "Bearer $($restoreTok.access_token)"; "Content-Type" = "application/json" }
         Invoke-RestMethod -Uri "$BaseUrl/api/me/password" -Method Put -Body '{"old_password":"NewPass123!","new_password":"admin"}' -Headers $restoreHeaders | Out-Null
@@ -412,10 +498,15 @@ Test-Endpoint "Test 17: Password Change" {
         Write-Host "    Password restored to 'admin'"
     } catch {
         # Fallback: try DB reset
-        Reset-AdminAccount
+        Reset-AdminAccount -Silent
         $script:adminPassword = "admin"
         Write-Host "    Password restored via DB reset"
     }
+    # Defense-in-depth: unconditionally reset the admin account so downstream
+    # tests (20+) that depend on the seeded admin/admin credentials see the
+    # correct password regardless of whether the API restore path above
+    # succeeded (the restore can race or fail silently under load).
+    Reset-AdminAccount -Silent
 }
 
 # ========================================
@@ -957,17 +1048,18 @@ Test-Endpoint "Test 41: POST /oauth2/token - Expired/used authorization code" {
 }
 
 Test-Endpoint "Test 42: POST /oauth2/introspect - Malformed token" {
-    # Introspection of a malformed token: may return active=false or an error
-    # F-017: vue-client is PUBLIC (token_endpoint_auth_method='none'); no secret.
-    $body = @{ token = "not-a-real-token-at-all"; client_id = "vue-client" }
-    try {
-        $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body
-        if ($r.active -ne $false) { throw "malformed token should be active=false" }
-        Write-Host "    Correctly returned active=false for malformed token"
-    } catch {
-        $code = $_.Exception.Response.StatusCode
-        Write-Host "    Got status: $code (token rejected by introspection handler)"
-    }
+    # RFC 7662 §2.1: the introspection endpoint authenticates the calling
+    # CLIENT (not the resource owner). vue-client is PUBLIC (no secret) and
+    # cannot authenticate here; use backend-svc (CONFIDENTIAL, secret
+    # "test-secret") via HTTP Basic (F-017: client_secret_basic). The token
+    # is a valid-format but nonexistent 50-char string (>= TOKEN_MIN_LEN 32)
+    # so the request passes input validation and the introspection result is
+    # active=false (token not in the store).
+    $basicAuth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("backend-svc:test-secret"))
+    $headers = @{ Authorization = "Basic $basicAuth" }
+    $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/introspect" -Method Post -Headers $headers -Body @{ token = "not-a-real-token-but-long-enough-to-pass-min-len-check-XYZ" }
+    if ($r.active -ne $false) { throw "malformed token should be active=false, got $($r.active)" }
+    Write-Host "    Correctly returned active=false for malformed token"
 }
 
 Test-Endpoint "Test 43: POST /oauth2/revoke - Already revoked token (idempotent)" {
@@ -995,14 +1087,13 @@ Test-Endpoint "Test 44: POST /oauth2/introspect - Missing client credentials" {
         Invoke-WebRequest -Uri "$BaseUrl/oauth2/introspect" -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Out-Null
         throw "introspect without client credentials should fail"
     } catch {
+        if ($_.Exception.Message -match "should fail") { throw $_.Exception.Message }
+        # PS7: body in $_.ErrorDetails.Message; headers via HttpResponseMessage.
         $resp = $_.Exception.Response
-        if ($resp.StatusCode -ne "Unauthorized") { throw "expected 401, got $($resp.StatusCode)" }
-        $wwwAuth = $resp.Headers["WWW-Authenticate"]
-        $respBody = ""
-        try {
-            $sr = [System.IO.StreamReader]::new($resp.GetResponseStream())
-            $respBody = $sr.ReadToEnd()
-        } catch {}
+        if ($null -eq $resp -or [int]$resp.StatusCode -ne 401) { throw "expected 401, got $($_.Exception.Message)" }
+        $wwwAuth = ""
+        try { $wwwAuth = ($resp.Headers.GetValues("WWW-Authenticate") -join ", ") } catch {}
+        $respBody = "$($_.ErrorDetails.Message)"
         if ($respBody -notmatch '"error"\s*:\s*"invalid_client"') { throw "expected invalid_client error body, got: $respBody" }
         Write-Host "    401 + invalid_client body returned (WWW-Authenticate: $wwwAuth)"
     }
