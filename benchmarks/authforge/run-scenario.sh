@@ -9,6 +9,14 @@
 #   bash benchmarks/authforge/run-scenario.sh <scenario.lua> [conn ...]
 #   bash benchmarks/authforge/run-scenario.sh scenarios/s2-client-credentials.lua 2 4 8
 #   bash benchmarks/authforge/run-scenario.sh scenarios/s1-discovery.lua   # default staircase
+#   bash benchmarks/authforge/run-scenario.sh scenarios/s5-refresh-token.lua --reseed lib/generated/bench_refresh_tokens.sql
+#
+# Options:
+#   --reseed <sql_file>  Before each concurrency level, re-apply this SQL file
+#                        (with a prepended TRUNCATE) to refresh the token pool.
+#                        Used by S5 (refresh_token) where each RT is consumed once.
+#   --observe            Run resource observers (docker-stats + scrape-metrics)
+#                        in parallel with each measured run (M3, design §5.4).
 #
 # Defaults: staircase 2 4 8 16 32 64 128 256; 10s warmup; 30s measured run.
 #
@@ -23,6 +31,16 @@ set -euo pipefail
 
 BENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$BENCH_DIR/../.." && pwd)"
+
+# --- source paths.env for COMPOSE_FILE_REL (needed by --reseed) ---
+PATHS_ENV_FILE="$REPO_ROOT/paths.env"
+if [ -f "$PATHS_ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$PATHS_ENV_FILE"
+    set +a
+fi
+
 TARGET_URL="${TARGET_URL:-http://127.0.0.1:5555}"
 WARMUP_S="${WARMUP_S:-10}"
 DURATION_S="${DURATION_S:-30}"
@@ -49,11 +67,49 @@ else
 fi
 SCENARIO_NAME="$(basename "$SCENARIO_PATH" .lua)"
 shift || true
-if [ "$#" -gt 0 ]; then
-    LEVELS=("$@")
-else
+
+# --- parse remaining args: --reseed <sql>, --observe, or conn levels ---
+RESEED_SQL=""
+OBSERVE=0
+LEVELS=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --reseed)
+            RESEED_SQL="$2"
+            shift 2 || { echo "[run] ERROR: --reseed requires a SQL file argument"; exit 2; }
+            ;;
+        --observe)
+            OBSERVE=1
+            shift
+            ;;
+        --help|-h)
+            head -30 "$0" | tail -28
+            exit 0
+            ;;
+        *)
+            LEVELS+=("$1")
+            shift
+            ;;
+    esac
+done
+if [ "${#LEVELS[@]}" -eq 0 ]; then
     # default staircase (design §5.1)
     read -r -a LEVELS <<< "2 4 8 16 32 64 128 256"
+fi
+
+# --- validate --reseed SQL file if specified ---
+RESEED_SQL_ABS=""
+if [ -n "$RESEED_SQL" ]; then
+    if [ -f "$REPO_ROOT/$RESEED_SQL" ]; then
+        RESEED_SQL_ABS="$REPO_ROOT/$RESEED_SQL"
+    elif [ -f "$BENCH_DIR/$RESEED_SQL" ]; then
+        RESEED_SQL_ABS="$BENCH_DIR/$RESEED_SQL"
+    elif [ -f "$RESEED_SQL" ]; then
+        RESEED_SQL_ABS="$(cd "$(dirname "$RESEED_SQL")" && pwd)/$(basename "$RESEED_SQL")"
+    else
+        echo "[run] ERROR: --reseed SQL file not found: $RESEED_SQL"
+        exit 2
+    fi
 fi
 
 # --- dependency checks ---
@@ -90,8 +146,19 @@ CPU_CORES="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)"
 
 mkdir -p "$RESULTS_DIR"
 
+# Export env vars for Lua scenarios:
+#   WRK_LIB_DIR — path to benchmarks/authforge/lib (for dofile + token files)
+#   WRK_NTHREADS — not known until per-level; set inside the loop below
+export WRK_LIB_DIR="$BENCH_DIR/lib"
+
 echo "[run] scenario=$SCENARIO_NAME  target=$TARGET_URL  wrk=$WRK_VERSION"
 echo "[run] levels: ${LEVELS[*]}  warmup=${WARMUP_S}s  measure=${DURATION_S}s  cpu_gate=${DRIVER_CPU_GATE}%"
+if [ -n "$RESEED_SQL_ABS" ]; then
+    echo "[run] reseed: $RESEED_SQL_ABS (before each level)"
+fi
+if [ "$OBSERVE" -eq 1 ]; then
+    echo "[run] observe: docker-stats + scrape-metrics (parallel with measured runs)"
+fi
 echo "[run] results -> $RESULTS_DIR/"
 
 for CONN in "${LEVELS[@]}"; do
@@ -100,13 +167,66 @@ for CONN in "${LEVELS[@]}"; do
     if [ "$THREADS" -gt "$CPU_CORES" ]; then THREADS="$CPU_CORES"; fi
     if [ "$THREADS" -lt 1 ]; then THREADS=1; fi
 
+    # S4 auth_code: the multi-step flow carries state across request() calls
+    # (code from login → token exchange). wrk shares file-scope state across
+    # connections within a thread, so this scenario MUST use -t == -c (one
+    # connection per thread) to avoid interleaving corruption.
+    if [ "$SCENARIO_NAME" = "s4-auth-code" ] && [ "$THREADS" != "$CONN" ]; then
+        echo "  [s4] adjusting -t from $THREADS to $CONN (multi-step flow requires -t == -c)"
+        THREADS=$CONN
+    fi
+
+    # Export the thread count for Lua scenarios (needed for pool slicing).
+    export WRK_NTHREADS="$THREADS"
+
     echo ""
     echo "=== $SCENARIO_NAME  c=$CONN  t=$THREADS ==="
+
+    # --- re-seed token pool (if --reseed was specified) ---
+    # For S5 (refresh_token): each RT is consumed once, so the pool depletes.
+    # Re-apply the SQL with a prepended TRUNCATE to get a fresh pool per level.
+    if [ -n "$RESEED_SQL_ABS" ]; then
+        PG_CONTAINER="$(cd "$REPO_ROOT" && docker compose -f "$COMPOSE_FILE_REL" ps -q oauth2-postgres 2>/dev/null || true)"
+        if [ -n "$PG_CONTAINER" ]; then
+            # Prepend TRUNCATE to clear old (consumed/revoked) tokens, then INSERT fresh.
+            { echo "TRUNCATE oauth2_refresh_tokens RESTART IDENTITY CASCADE;"; cat "$RESEED_SQL_ABS"; } \
+                | docker exec -i "$PG_CONTAINER" psql -U oauth2_user -d oauth2_db -v ON_ERROR_STOP=1 -q >/dev/null 2>&1 \
+                && echo "  reseed OK ($(basename "$RESEED_SQL_ABS"))" \
+                || echo "  reseed WARN: failed, pool may be stale"
+        else
+            echo "  reseed WARN: postgres container not found"
+        fi
+    fi
+
+    # --- observe: start background resource collectors (M3, design §5.4) ---
+    STATS_FILE=""
+    METRICS_FILE=""
+    if [ "$OBSERVE" -eq 1 ]; then
+        STATS_FILE="$RESULTS_DIR/${DATE_TAG}-${GIT_SHA}-${SCENARIO_NAME}-c${CONN}-docker-stats.tsv"
+        METRICS_FILE="$RESULTS_DIR/${DATE_TAG}-${GIT_SHA}-${SCENARIO_NAME}-c${CONN}-metrics.txt"
+        bash "$BENCH_DIR/observe/docker-stats.sh" "$STATS_FILE" "${DURATION_S}s" &
+        STATS_PID=$!
+        bash "$BENCH_DIR/observe/scrape-metrics.sh" "$TARGET_URL" "$METRICS_FILE" "${DURATION_S}s" &
+        METRICS_PID=$!
+    fi
 
     # --- warmup (discarded) ---
     echo "  warmup ${WARMUP_S}s (discarded)..."
     wrk -t"$THREADS" -c"$CONN" -d"${WARMUP_S}s" -s "$SCENARIO_PATH" "$TARGET_URL" \
         >/dev/null 2>&1 || echo "  (warmup wrk rc=$?, continuing)"
+
+    # --- re-seed again before the measured run (warmup consumed some RTs) ---
+    # Re-resolve PG_CONTAINER in case the container was recreated during warmup.
+    if [ -n "$RESEED_SQL_ABS" ]; then
+        PG_CONTAINER_FRESH="$(cd "$REPO_ROOT" && docker compose -f "$COMPOSE_FILE_REL" ps -q oauth2-postgres 2>/dev/null || true)"
+        if [ -n "$PG_CONTAINER_FRESH" ]; then
+            { echo "TRUNCATE oauth2_refresh_tokens RESTART IDENTITY CASCADE;"; cat "$RESEED_SQL_ABS"; } \
+                | docker exec -i "$PG_CONTAINER_FRESH" psql -U oauth2_user -d oauth2_db -v ON_ERROR_STOP=1 -q >/dev/null 2>&1 \
+                || echo "  reseed WARN: pre-measure reseed failed"
+        else
+            echo "  reseed WARN: postgres container not found before measured run"
+        fi
+    fi
 
     # --- measured run ---
     # Capture wrk in the background so we can sample its CPU% mid-run.
@@ -130,6 +250,18 @@ for CONN in "${LEVELS[@]}"; do
     fi
     wait "$WRK_PID" || true
     WRK_RC=$?
+
+    # --- stop background resource collectors after the measured run ---
+    if [ "$OBSERVE" -eq 1 ]; then
+        [ -n "${STATS_PID:-}" ] && kill "$STATS_PID" 2>/dev/null || true
+        [ -n "${METRICS_PID:-}" ] && kill "$METRICS_PID" 2>/dev/null || true
+        if [ -n "$STATS_FILE" ] && [ -f "$STATS_FILE" ]; then
+            echo "  docker-stats → $(basename "$STATS_FILE")"
+        fi
+        if [ -n "$METRICS_FILE" ] && [ -f "$METRICS_FILE" ]; then
+            echo "  metrics      → $(basename "$METRICS_FILE")"
+        fi
+    fi
 
     if [ "$WRK_RC" -ne 0 ]; then
         echo "  ERROR: wrk exited rc=$WRK_RC:"

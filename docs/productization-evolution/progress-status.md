@@ -40,8 +40,8 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 |--------|------|----------------|--------|
 | **M1: 基准设施骨架** | ✅ 已完成 | `benchmarks/` 目录已建：setup/teardown/run-scenario + S1(discovery) + S2(client_credentials) Lua 脚本 + parse-wrk.py + seed/bench_users.sql（512 用户）；WSL 实测 S1 ~14.7k QPS / S2 1.2k→3.1k QPS，0% 错误 | — |
 | **M1 附属: 修正虚构 CI 报告** | ✅ 已完成 | `.github/workflows/_build-test.yml` 的装饰性 Performance Report 步骤已移除 | — |
-| **M2: S3 introspect 场景** | ⬜ 未开始 | — | 实现 S3 Lua（需 active token seed） |
-| **M3: S4 auth_code+PKCE / S5 refresh_token / S6 userinfo** | ⬜ 未开始 | PKCE 强制开启（F-011），S4 必须发 code_challenge | 实现 S4/S5/S6 Lua |
+| **M2: S3 introspect + S4 auth_code 场景** | ✅ 脚本已完成 | `lib/gen-tokens.py`（token+PKCE 生成）+ `lib/token-pool.lua` / `lib/user-pool.lua` + `s3-introspect.lua`（active token，backend-svc Basic auth）+ `s4-auth-code.lua`（多步 login→token，每 VU 独立用户，S256 PKCE 预生成）+ setup.sh 集成 token 生成+用户预热 | 待 WSL 实测验证 |
+| **M3: S5 refresh_token + S6 userinfo + 资源观测** | ✅ 脚本已完成 | `s5-refresh-token.lua`（一次性 RT 池，`--reseed` 每档刷新）+ `s6-userinfo.lua`（bearer 用户 AT）+ `observe/docker-stats.sh` + `observe/scrape-metrics.sh`（`--observe` 标志）+ `measure-cold-start.sh`（冷启动测量）+ run-scenario.sh 扩展 `--reseed`/`--observe` | 待 WSL 实测验证 |
 | **M4: 承重假设验证报告** | ⬜ 未开始 | 阻塞于 M2–M3 | 对照 research.md §3.1 四个数字逐条标"达成/未达成/修正" |
 | **Phase 0.5: 竞品对比** | ⬜ 未开始 | — | Keycloak/Ory/Zitadel 同环境压测 |
 | **结果入仓** | ⬜ 未开始 | `benchmarks/results/` 仅 `.gitkeep` | 首次数据落盘 |
@@ -158,6 +158,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 2026-08-09 | OAuth/OIDC 合规审计 — 31 项偏差全部修复 | PR #44 (fb775ed) |
 | 2026-08-11 | #42 缓存层 Phase 1 — client-cache decorator | PR #47 (86bc86e, d7d837b) |
 | 2026-08-12 | #41/#45/#46 修复 + #42 缓存层 Phase 2 token cache | de03a19, 6ffcd27, e37e627, 8765ad7 |
+| 2026-08-12 | benchmark 设施 M2–M3 — S3/S4/S5/S6 场景脚本 + token 生成 + 资源观测 | feat/benchmark-m2-m3-s3-s6 |
 | 2026-08-09 | benchmark 设施 M1 — skeleton + S1/S2 验证 green | 0d54bbd, 518d3e3, ac832ac |
 | 2026-08-05 | 产品化演进方案 + benchmark/client-sdk 设计文档 | a6d570c |
 
