@@ -299,7 +299,7 @@ ctest --output-on-failure
 
 **Operating** — [Production Deployment](docs/ops/deployment.md) · [Configuration Guide](docs/backend/configuration-guide.md) · [Observability](docs/backend/observability.md) · [Account Lockout](docs/ops/account-lockout.md)
 
-**Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md) · [Testing Guide](docs/backend/testing-guide.md) · [CI/CD Pipeline](docs/backend/ci-cd-guide.md)
+**Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md) · [Testing Guide](docs/backend/testing-guide.md) · [CI/CD Pipeline](docs/backend/ci-cd-guide.md) · [Versioning & Release](docs/backend/versioning-and-release.md)
 
 Full index: [docs/README.md](docs/README.md)
 
