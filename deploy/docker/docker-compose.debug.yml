@@ -38,7 +38,7 @@ services:
 
   # Linux debug environment
   debug-env:
-    image: oauth2-backend-debug:v1.9.13
+    image: oauth2-backend-debug:v1.0.0
     container_name: oauth2-backend-debug
     volumes:
       # Mount the entire project directory

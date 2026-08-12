@@ -55,7 +55,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 工作项 | 状态 | 完成证据 / 阻塞 | 下一步 |
 |--------|------|----------------|--------|
 | **独立文档站**（Docusaurus/VitePress） | ⬜ 未开始 | — | 选型 + 立项 |
-| **OpenAPI spec 治理**（Layer 1 前置） | ⬜ 未开始 | `apps/server/openapi.yaml` 当前"路径全、内容稀疏"（D1.5）；死孤儿 `docs/backend/api/openapi.json` 未删 | 定 YAML 单源 + 删死文件 + YAML↔代码一致性门 + oasdiff 门 |
+| **OpenAPI spec 治理**（Layer 1 前置） | ⬜ 未开始 | `apps/server/openapi.yaml` 当前"路径全、内容稀疏"（D1.5）；死孤儿 `docs/backend/api/openapi.json` 已删（2026-08-12，D2） | 定 YAML 单源 + YAML↔代码一致性门 + oasdiff 门 |
 | **OpenAPI bug（#41）** | ✅ 已修复 | security 字段 object→array shape 已修（de03a19，入 master）；clientCredentialsAuth 缺失已在 `7a8473e` 修；b99ef5b 进一步补登 PKCE/MFA 参数 | — |
 | **Python 客户端 SDK** | ⬜ 未开始 | 阻塞于 spec 治理 | openapi-python-client 生成 + 手写 auth 层 |
 | **Go 客户端 SDK** | ⬜ 未开始 | 阻塞于 spec 治理 | oapi-codegen 生成 + 手写 auth 层 |
