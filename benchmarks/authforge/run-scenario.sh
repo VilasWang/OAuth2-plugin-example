@@ -186,7 +186,10 @@ for CONN in "${LEVELS[@]}"; do
     # For S5 (refresh_token): each RT is consumed once, so the pool depletes.
     # Re-apply the SQL with a prepended TRUNCATE to get a fresh pool per level.
     if [ -n "$RESEED_SQL_ABS" ]; then
-        PG_CONTAINER="$(cd "$REPO_ROOT" && docker compose -f "$COMPOSE_FILE_REL" ps -q oauth2-postgres 2>/dev/null || true)"
+        # Resolve the postgres container by name (more reliable than compose ps -q,
+        # which may fail if the project name or compose args don't match the stack
+        # that setup.sh used to boot).
+        PG_CONTAINER="$(docker ps -q --filter 'name=oauth2-postgres' --filter 'status=running' 2>/dev/null | head -1)"
         if [ -n "$PG_CONTAINER" ]; then
             # Prepend TRUNCATE to clear old (consumed/revoked) tokens, then INSERT fresh.
             { echo "TRUNCATE oauth2_refresh_tokens RESTART IDENTITY CASCADE;"; cat "$RESEED_SQL_ABS"; } \
@@ -218,7 +221,7 @@ for CONN in "${LEVELS[@]}"; do
     # --- re-seed again before the measured run (warmup consumed some RTs) ---
     # Re-resolve PG_CONTAINER in case the container was recreated during warmup.
     if [ -n "$RESEED_SQL_ABS" ]; then
-        PG_CONTAINER_FRESH="$(cd "$REPO_ROOT" && docker compose -f "$COMPOSE_FILE_REL" ps -q oauth2-postgres 2>/dev/null || true)"
+        PG_CONTAINER_FRESH="$(docker ps -q --filter 'name=oauth2-postgres' --filter 'status=running' 2>/dev/null | head -1)"
         if [ -n "$PG_CONTAINER_FRESH" ]; then
             { echo "TRUNCATE oauth2_refresh_tokens RESTART IDENTITY CASCADE;"; cat "$RESEED_SQL_ABS"; } \
                 | docker exec -i "$PG_CONTAINER_FRESH" psql -U oauth2_user -d oauth2_db -v ON_ERROR_STOP=1 -q >/dev/null 2>&1 \
