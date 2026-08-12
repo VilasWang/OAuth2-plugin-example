@@ -157,6 +157,16 @@ class TokenService : public std::enable_shared_from_this<TokenService>
       std::function<void()> &&callback
     );
 
+    /// Revoke a refresh token per RFC 7009 §2.1 (the revocation endpoint must
+    /// revoke ANY token type — C3). Hashes the raw token before delegating to
+    /// the repository, mirroring revokeAccessToken: tokens are stored hashed
+    /// (TokenService hashToken at issuance), so a revoke that skips the hash
+    /// looks up a value the store never holds and is a silent no-op.
+    void revokeRefreshToken(
+      const std::string &token,
+      std::function<void()> &&callback
+    );
+
     /// Validate a PKCE code_verifier against a code_challenge/method.
     /// Delegates to oauth2::pkce::verifyCodeVerifier (RFC 7636 §4.6,
     /// conformant). Original: oauth2::TokenService::validatePkceCodeVerifier.

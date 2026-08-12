@@ -780,19 +780,14 @@ void OAuth2Plugin::revokeRefreshToken(
   std::function<void()> &&callback
 )
 {
-    // C3 (RFC 7009 §2.1): the revocation endpoint must be able to revoke ANY
-    // token type (access or refresh). TokenService wraps access-token revoke
-    // but not refresh; forward directly to the token repository. The caller
-    // (TokenEndpointController::revoke) invokes this after revokeAccessToken
-    // so that a refresh token presented to /oauth2/revoke is actually
-    // revoked rather than silently no-op'd by the access-token-only path.
-    if (!tokenRepo_)
-    {
-        if (callback)
-            callback();
-        return;
-    }
-    tokenRepo_->revokeRefreshToken(token, std::move(callback));
+    // C3 (RFC 7009 §2.1): the revocation endpoint must revoke ANY token type.
+    // Route through TokenService (not tokenRepo_ directly) so the raw token is
+    // hashed before the repository lookup — tokens are stored hashed, so a
+    // direct tokenRepo_ call with the raw value is a silent no-op (the bug
+    // this re-fix: the original C3 impl forwarded unhashed and the refresh
+    // token stayed usable). Mirrors how revokeAccessToken goes through
+    // TokenService::revokeAccessToken for the same hash step.
+    tokenService_->revokeRefreshToken(token, std::move(callback));
 }
 
 bool OAuth2Plugin::validatePkceCodeVerifier(

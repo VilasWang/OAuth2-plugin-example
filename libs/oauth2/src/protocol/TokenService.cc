@@ -616,6 +616,28 @@ void TokenService::revokeAccessToken(
     });
 }
 
+void TokenService::revokeRefreshToken(
+  const std::string &token,
+  std::function<void()> &&callback
+)
+{
+    if (!tokens_ || !crypto_)
+    {
+        if (callback)
+            callback();
+        return;
+    }
+    // C3 (RFC 7009 §2.1): hash the raw token before delegating — refresh
+    // tokens are stored hashed (same as access tokens), so a revoke that
+    // forwards the raw value to the repository is a silent no-op (the store
+    // never holds the raw token). This mirrors revokeAccessToken above.
+    auto hashedToken = hashToken(*crypto_, token);
+    tokens_->revokeRefreshToken(hashedToken, [callback = std::move(callback)]() {
+        if (callback)
+            callback();
+    });
+}
+
 bool TokenService::validatePkceCodeVerifier(
   const std::string &codeVerifier,
   const std::string &codeChallenge,
