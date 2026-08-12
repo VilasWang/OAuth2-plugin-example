@@ -170,18 +170,17 @@ if [ "$JWKS_CODE" != "200" ]; then
     echo "[setup] WARN: /.well-known/jwks.json returned $JWKS_CODE (S1 may fail)"
 fi
 
-# --- bench_users.sql warmup-rehash hook (defined, not invoked by M1) ---
+# --- warmup_bench_users function (defined here, called after token gen) ---
 # M1 scenarios (S1 discovery, S2 client_credentials) do not consume the bench
 # users, but the seed is in place so M2's auth_code scenario can use them
 # without a schema change. The first login of each legacy-hash user triggers a
-# PBKDF2 rehash (AuthService.cc:94-122); M2's setup will call warmup_bench_users
-# BEFORE timed runs so that CPU cost lands in warmup, not measured throughput.
+# PBKDF2 rehash (AuthService.cc:94-122); we warm up BEFORE timed runs so that
+# CPU cost lands in warmup, not measured throughput.
 #
 # S256 PKCE is REQUIRED here (F-011 / RFC 9700 §2.1.1): vue-client is PUBLIC and
 # require_pkce_for_public=true in all shipped configs, so a login without
 # code_challenge is rejected. Each user gets its own code_verifier + the derived
-# S256 code_challenge (the /login step only needs the challenge; M2's token
-# exchange step will also need the verifier).
+# S256 code_challenge.
 warmup_bench_users() {
     local n="${1:-512}"
     echo "[setup] warming up $n bench users (PBKDF2 rehash + PKCE, first login)..."
@@ -214,4 +213,54 @@ EOF
     fi
 }
 
-echo "[setup] done. target=$TARGET_URL  (bench users seeded; run warmup_bench_users before M2 auth_code scenarios)"
+# --- M2+ token pool generation (S3 introspect, S5 refresh, S6 userinfo) ---
+# Scenarios S3/S5/S6 require pre-seeded tokens so wrk can drive them at high
+# concurrency without the token-issuance step polluting the measured path.
+# gen-tokens.py generates raw tokens + their SHA256 hashes (matching
+# TokenCrypto.cc:26-37: toUpperCase(sha256Hex(raw))) + PKCE pairs for S4.
+# Output goes to lib/generated/ (gitignored). Skip with SKIP_TOKEN_GEN=1.
+GEN_TOKENS="$BENCH_DIR/lib/gen-tokens.py"
+GENERATED_DIR="$BENCH_DIR/lib/generated"
+if [ "${SKIP_TOKEN_GEN:-0}" != "1" ]; then
+    echo "[setup] generating benchmark token pools (S3/S5/S6) + PKCE pairs (S4)..."
+    python3 "$GEN_TOKENS" all --at-count 2000 --rt-count 20000 --pkce-count 512
+
+    # Generate bench_users.txt (username list for user-pool.lua)
+    python3 -c "
+import pathlib
+out = pathlib.Path(r'$GENERATED_DIR') / 'bench_users.txt'
+out.parent.mkdir(parents=True, exist_ok=True)
+lines = [f'bench_user_{i:04d}\n' for i in range(512)]
+out.write_text(''.join(lines), encoding='utf-8')
+print(f'[setup] wrote {len(lines)} usernames to {out}')
+"
+
+    # Apply the token seed SQL (idempotent ON CONFLICT DO NOTHING).
+    # These go into oauth2_access_tokens / oauth2_refresh_tokens.
+    for tok_sql in "$GENERATED_DIR"/bench_access_tokens.sql "$GENERATED_DIR"/bench_refresh_tokens.sql; do
+        if [ -f "$tok_sql" ]; then
+            fname="$(basename "$tok_sql")"
+            if docker exec -i "$PG_CONTAINER" \
+                psql -U oauth2_user -d oauth2_db -v ON_ERROR_STOP=1 -q \
+                < "$tok_sql" >/dev/null 2>&1; then
+                echo "[setup] token seed applied: $fname"
+            else
+                echo "[setup] WARN: $fname failed to apply — S3/S5/S6 may fail"
+            fi
+        fi
+    done
+fi
+
+# --- warmup bench users (PBKDF2 rehash — M2+ scenarios need this) ---
+# The first login of each legacy-hash bench user triggers a PBKDF2 rehash
+# (AuthService.cc:94-122), which is CPU-intensive. We warm up all 512 users
+# here so that cost lands in setup, not in measured S4 throughput.
+# Skip with SKIP_WARMUP=1.
+#
+# warmup_bench_users() is defined above (before the discovery smoke check) and
+# must be, because bash requires a function definition to precede its call.
+if [ "${SKIP_WARMUP:-0}" != "1" ]; then
+    warmup_bench_users 512
+fi
+
+echo "[setup] done. target=$TARGET_URL  (bench users + token pools ready for S1–S6)"

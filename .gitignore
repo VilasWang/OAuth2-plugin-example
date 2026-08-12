@@ -28,6 +28,9 @@ cookies.txt
 # Sensitive Configuration Files
 .env
 .env.local
+
+# Benchmark generated token pools (contain raw token secrets)
+benchmarks/authforge/lib/generated/
 .env.*.local
 .env.docker
 .mcp.json
@@ -108,3 +111,4 @@ graphify-out/
 .superpowers/
 
 .playwright-mcp/
+.mimosa/
