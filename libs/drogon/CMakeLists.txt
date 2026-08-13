@@ -171,3 +171,6 @@ authforge_package(
         authforge-common authforge-oauth2 authforge-identity
         authforge-storage-postgres authforge-storage-memory authforge-storage-redis
 )
+
+# --- Adapter-layer unit tests (link Drogon via authforge::drogon; no DB) ---
+add_subdirectory(test)
