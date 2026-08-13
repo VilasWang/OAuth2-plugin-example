@@ -368,6 +368,10 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                 drogon::orm::CompareOperator::EQ,
                 true
               ),
+              // M6: [this] is safe -- OAuth2Plugin is a Drogon plugin
+              // (process-level singleton, bare-pointer managed by Drogon,
+              // lifetime spans the entire process run). Same pattern as
+              // the other plugin callbacks in this file.
               [this](const std::vector<drogon_model::oauth2_db::Oauth2Scopes> &rows) {
                   std::unordered_set<std::string> adminScopes;
                   adminScopes.reserve(rows.size());

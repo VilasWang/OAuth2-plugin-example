@@ -110,7 +110,73 @@ DROGON_TEST(Unit_P0_Authz_Challenge_MultiScope_SpaceDelimited)
     CHECK(challenge.find("scope=\"users:read clients:write\"") != std::string::npos);
 }
 
-// NOTE: ResourceScopeRegistry path-matching (template vs concrete, prefix
-// fallback) is NOT unit-tested here because it mutates the process-global
-// registry that the live server (test_main.cc) depends on. It is covered by
-// integration tests that exercise real admin/user routes through the filters.
+// ===========================================================================
+// M4: ResourceScopeRegistry unit tests.
+// Uses registerPrefix with ISOLATED test-only prefixes (e.g. /test/authz/*)
+// that never collide with real routes. Does NOT call clear() or
+// buildFromEndpoints() -- those mutate the global registry and would break
+// subsequent integration tests (OAuth2Tests) that depend on the real
+// registry built at startup.
+// ===========================================================================
+
+DROGON_TEST(Unit_P0_Authz_Registry_PrefixFallback)
+{
+    // Prefix: any subpath of /test/authz/unit should match.
+    authforge::drogon::authz::ResourceScopeRequirement testReq;
+    testReq.scopes = {"test:scope"};
+    testReq.impliedBy = {"admin"};
+    authforge::drogon::authz::ResourceScopeRegistry::registerPrefix(
+      "/test/authz/unit", testReq);
+
+    // Direct prefix path matches.
+    const auto *direct = authforge::drogon::authz::ResourceScopeRegistry::lookup(
+      "/test/authz/unit", drogon::Get);
+    REQUIRE(direct != nullptr);
+    CHECK(direct->scopes == std::vector<std::string>{"test:scope"});
+
+    // Subpath matches via prefix fallback.
+    const auto *sub = authforge::drogon::authz::ResourceScopeRegistry::lookup(
+      "/test/authz/unit/deep/nested", drogon::Post);
+    REQUIRE(sub != nullptr);
+    CHECK(sub->impliedBy == std::vector<std::string>{"admin"});
+
+    // Boundary check: /test/authz/other must NOT match /test/authz/unit.
+    CHECK(authforge::drogon::authz::ResourceScopeRegistry::lookup(
+            "/test/authz/other", drogon::Get) == nullptr);
+
+    // Completely unrelated path -> nullptr.
+    CHECK(authforge::drogon::authz::ResourceScopeRegistry::lookup(
+            "/totally/unrelated", drogon::Get) == nullptr);
+
+    // Cleanup: remove test-only prefixes so subsequent integration tests
+    // see a clean prefix set (exact entries from buildFromEndpoints stay).
+    authforge::drogon::authz::ResourceScopeRegistry::clearPrefixes();
+}
+
+DROGON_TEST(Unit_P0_Authz_Registry_LongestPrefixWins)
+{
+    // Register a shorter and a longer prefix under the same hierarchy.
+    authforge::drogon::authz::ResourceScopeRequirement shortReq;
+    shortReq.scopes = {"short"};
+    authforge::drogon::authz::ResourceScopeRequirement longReq;
+    longReq.scopes = {"long"};
+
+    authforge::drogon::authz::ResourceScopeRegistry::registerPrefix(
+      "/test/authz/long", longReq);
+    authforge::drogon::authz::ResourceScopeRegistry::registerPrefix(
+      "/test/authz", shortReq);
+
+    // /test/authz/long/sub should match the LONGER prefix (more specific).
+    const auto *best = authforge::drogon::authz::ResourceScopeRegistry::lookup(
+      "/test/authz/long/sub", drogon::Get);
+    REQUIRE(best != nullptr);
+    CHECK(best->scopes == std::vector<std::string>{"long"});
+
+    // /test/authz/other should match the SHORTER prefix.
+    const auto *shorter = authforge::drogon::authz::ResourceScopeRegistry::lookup(
+      "/test/authz/other", drogon::Get);
+    REQUIRE(shorter != nullptr);
+    CHECK(shorter->scopes == std::vector<std::string>{"short"});
+
+    authforge::drogon::authz::ResourceScopeRegistry::clearPrefixes();
+}

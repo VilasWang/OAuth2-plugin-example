@@ -95,6 +95,11 @@ class ResourceScopeRegistry
 
     /// Whether buildFromEndpoints() has populated the registry at least once.
     static bool isBuilt();
+
+    /// Test seam: remove ONLY prefix entries (not exact-template entries from
+    /// buildFromEndpoints). Used by unit tests that registerPrefix test-only
+    /// prefixes and need to clean up without destroying the real registry.
+    static void clearPrefixes();
 };
 
 }  // namespace authforge::drogon::authz

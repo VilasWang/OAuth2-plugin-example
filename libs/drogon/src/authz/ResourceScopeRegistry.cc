@@ -3,6 +3,7 @@
 #include <drogon/drogon.h>
 
 #include <algorithm>
+#include <cstdlib>  // std::abort() -- M2: ensure LOG_FATAL loud-fail on all platforms
 #include <set>
 #include <sstream>
 #include <unordered_map>
@@ -166,8 +167,9 @@ bool isAuthGatedPath(std::string_view path)
         return true;
     if (startsWithBoundary(path, "/api/me"))
         return true;
-    if (path == "/oauth2/userinfo")
-        return true;
+    // #43 M1: /oauth2/userinfo is intentionally NOT in the registry -- its
+    // openid-scope + M2M-subject checks are handler-exclusive (OIDC Core
+    // §5.3 401 vs 403 split). Excluding it here avoids a false LOG_FATAL.
     return false;
 }
 
@@ -280,6 +282,16 @@ std::vector<ResourceScopeRegistry::Entry> ResourceScopeRegistry::snapshot()
             result.push_back(std::move(out));
         }
     }
+    // M5: also include catch-all prefix entries (e.g. /api/me -> profile) so
+    // the discovery endpoint does not under-report the real scope matrix.
+    for (const auto &pe : prefixEntries())
+    {
+        Entry out;
+        out.path = pe.prefix + "/*";
+        out.method = "ANY";
+        out.requirement = pe.requirement;
+        result.push_back(std::move(out));
+    }
     // Stable ordering for deterministic discovery output / snapshot tests.
     std::sort(result.begin(), result.end(), [](const Entry &a, const Entry &b) {
         if (a.method != b.method)
@@ -320,6 +332,7 @@ void ResourceScopeRegistry::runConsistencyCheck()
                   << oss.str()
                   << "\nAdd a requiredScopes declaration to the matching "
                      "controller's initApiDocsImpl().";
+        std::abort();  // M2: LOG_FATAL alone doesn't abort on Windows (spdlog)
     }
 
     // (b) Orphan direction: every registry entry must correspond to a real
@@ -355,6 +368,7 @@ void ResourceScopeRegistry::runConsistencyCheck()
                   << oss.str()
                   << "\nRemove the declaration or fix the path/method to "
                      "match an ADD_METHOD_TO route.";
+        std::abort();  // M2: LOG_FATAL alone doesn't abort on Windows (spdlog)
     }
 
     LOG_INFO << "ResourceScopeRegistry consistency check passed ("
@@ -366,6 +380,11 @@ void ResourceScopeRegistry::clear()
     registry().clear();
     prefixEntries().clear();
     built() = false;
+}
+
+void ResourceScopeRegistry::clearPrefixes()
+{
+    prefixEntries().clear();
 }
 
 bool ResourceScopeRegistry::isBuilt()

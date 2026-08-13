@@ -39,13 +39,6 @@ void respondError(
     );
 }
 
-struct UserSelfServiceControllerDocs
-{
-    // #43: replaced by UserSelfServiceController::initApiDocsImpl(). The
-    // former static-init side-effect registration is removed (defect 1.1
-    // SIOF). DO NOT add endpoint registrations here.
-};
-
 namespace openapi = ::authforge::drogon::observability::openapi;
 
 // #43 resource-scope authorization: all /api/me routes require the OIDC
