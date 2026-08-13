@@ -32,6 +32,11 @@ class RuleSet
     static std::optional<std::string> validateClientId(const std::string &clientId);
     static std::optional<std::string> validateClientSecret(const std::string &secret);
     static std::optional<std::string> validateRedirectUri(const std::string &uri);
+    /// Validate an OIDC Back-Channel Logout 1.0 backchannel_logout_uri (§2.3:
+    /// MUST use https; empty is valid == "not configured"). Honors the
+    /// auth.allow_http_redirect_uri dev hatch for parity; loopback is NOT
+    /// exempt (server-to-server delivery). Returns an error message or nullopt.
+    static std::optional<std::string> validateBackchannelLogoutUri(const std::string &uri);
     static std::optional<std::string> validateScope(const std::string &scope);
     static std::optional<std::string> validateResponseType(const std::string &type);
     static std::optional<std::string> validateGrantType(const std::string &type);
