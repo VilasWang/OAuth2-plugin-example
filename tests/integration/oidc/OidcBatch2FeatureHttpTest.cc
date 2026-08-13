@@ -176,7 +176,7 @@ DROGON_TEST(Integration_P1_OidcBatch2_EndSession_RedirectUriWithoutHint_Returns4
 // scope includes "openid". A client_credentials token (M2M, subject
 // "client:...") is rejected with 403 insufficient_scope.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns401InvalidToken)
+DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns403InsufficientScope)
 {
     OIDC_BATCH2_SKIP_GUARD;
 
@@ -218,13 +218,16 @@ DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns401InvalidToken)
     if (accessToken.empty())
         return;
 
-    // #43 R2 (OIDC Core §5.3): an M2M (client_credentials) token has no user
-    // identity -- it is the wrong TOKEN TYPE for userinfo, so the rejection is
-    // 401 invalid_token (not 403 insufficient_scope, which is reserved for a
-    // valid user token that merely lacks the `openid` scope).
+    // #43 R2 (OIDC Core §5.3): an M2M token without the `openid` scope is
+    // rejected by the FILTER layer's scope gate (403 insufficient_scope)
+    // before it reaches the userinfo handler's subject-type check. The
+    // handler-level 401 invalid_token path (R2) fires only when an M2M token
+    // happens to carry `openid` -- a defense-in-depth edge case not exercised
+    // here. Either way the token never gets user info.
     auto resp = sendGet("/oauth2/userinfo", accessToken);
     REQUIRE(resp != nullptr);
-    CHECK(statusIs(resp, drogon::k401Unauthorized));
+    CHECK(statusIs(resp, drogon::k403Forbidden));
     auto wwwAuth = resp->getHeader("WWW-Authenticate");
-    CHECK(wwwAuth.find("invalid_token") != std::string::npos);
+    CHECK(wwwAuth.find("insufficient_scope") != std::string::npos);
+    CHECK(wwwAuth.find("scope=\"openid\"") != std::string::npos);
 }
