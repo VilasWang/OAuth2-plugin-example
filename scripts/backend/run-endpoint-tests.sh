@@ -36,8 +36,12 @@ fi
 
 RESULT=0
 
-# Kill any stale server instance.
-pkill -f authforge-server 2>/dev/null || true
+# Kill any stale server instance on the test port. NOTE: do NOT use
+# `pkill -f authforge-server` -- this script's own argv contains the
+# server binary path (--server-exe /path/authforge-server), so pkill -f
+# would match and kill THIS script. fuser targets the port occupant
+# instead, which is always the server process, never the wrapper.
+fuser -k 5555/tcp 2>/dev/null || true
 sleep 1
 
 SERVER_DIR="$(dirname "$SERVER_EXE")"
