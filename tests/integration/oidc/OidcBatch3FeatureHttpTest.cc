@@ -70,10 +70,11 @@ DROGON_TEST(Integration_P1_OidcBatch3_ApiMe_TokenWithoutProfile_Returns403Insuff
 }
 
 // ---------------------------------------------------------------------------
-// F-010 (RFC 6750 §3.1): /api/admin/* requires the `admin` scope IN ADDITION
-// to the RBAC admin role. A token that carries `openid profile` (no admin
-// scope) must be rejected with 403 insufficient_scope even though the admin
-// USER has the admin role -- the scope gate is independent of RBAC.
+// #43 (RFC 6750 §3.1): /api/admin/clients requires the `clients:read` scope
+// (or the `admin` super-scope via impliedBy). A token that carries
+// `openid profile` (no admin-family scope) must be rejected with 403
+// insufficient_scope even though the admin USER has the admin role -- the
+// scope gate is independent of RBAC.
 // ---------------------------------------------------------------------------
 DROGON_TEST(Integration_P1_OidcBatch3_ApiAdmin_TokenWithoutAdminScope_Returns403InsufficientScope)
 {
@@ -87,7 +88,9 @@ DROGON_TEST(Integration_P1_OidcBatch3_ApiAdmin_TokenWithoutAdminScope_Returns403
     CHECK(statusIs(resp, drogon::k403Forbidden));
     auto wwwAuth = resp->getHeader("WWW-Authenticate");
     CHECK(wwwAuth.find("insufficient_scope") != std::string::npos);
-    CHECK(wwwAuth.find("scope=\"admin\"") != std::string::npos);
+    // #43: the challenge names the concrete required scope (clients:read),
+    // not the former blanket "admin".
+    CHECK(wwwAuth.find("scope=\"clients:read\"") != std::string::npos);
 }
 
 // ---------------------------------------------------------------------------
