@@ -56,6 +56,13 @@ class OrganizationController : public ::drogon::HttpController<OrganizationContr
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &slug
     );
+
+    /// #43 resource-scope authorization: declare org-admin routes' scope
+    /// requirements (same initApiDocs pattern as the libs/drogon controllers).
+    static void initApiDocs();
+
+  private:
+    static void initApiDocsImpl();
 };
 
 }  // namespace organization

@@ -388,6 +388,8 @@ int main(int argc, char **argv)
     authforge::drogon::controllers::RoleScopeAdminController::initApiDocs();
     authforge::drogon::controllers::AuditController::initApiDocs();
     authforge::drogon::controllers::UserSelfServiceController::initApiDocs();
+    // #43: OrganizationController (product-app level).
+    ::organization::OrganizationController::initApiDocs();
     // #43: build the resource-scope registry from the declared EndpointInfo.
     authforge::drogon::authz::ResourceScopeRegistry::buildFromEndpoints();
     // #43: catch-all prefix so all /api/me/* subpaths (MFA, WebAuthn, ...)
