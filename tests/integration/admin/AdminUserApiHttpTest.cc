@@ -10,12 +10,10 @@
 // Storage: Postgres-only (admin services call getDbClient() directly; memory
 // mode has no admin login). All cases skip cleanly under memory.
 //
-// Test-data isolation: there is NO create-user admin route, so the mutating
-// cases (update / disable / enable) target the SEEDED admin user (the dev
-// seed in apps/server/seed/dev_admin_user.sql). Each mutating case captures
-// the pre-state and restores it via an RAII Guard so the suite is order-
-// independent and repeatable. The admin user is resolved by listing users
-// (id is assigned by Postgres, typically 1 but not assumed).
+// Test-data isolation: createUser / updateUser-expanded tests create users
+// with unique timestamp-based suffixes so they don't collide across runs.
+// The legacy cases (update/disable/enable on the seeded admin) still use
+// the RAII snapshot/restore pattern.
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
@@ -24,6 +22,7 @@
 
 #include "HttpTestClient.h"
 
+#include <chrono>
 #include <future>
 #include <string>
 
@@ -355,4 +354,242 @@ DROGON_TEST(Integration_P0_AdminUser_GetRoles_AdminUser_Returns200WithAdminRole)
     REQUIRE(parseJsonBody(resp, body));
     CHECK(body["status"].asString() == "success");
     CHECK(body.isMember("roles"));
+}
+
+// ---------------------------------------------------------------------------
+// Unique-suffix helper for createUser / updateUser-expanded tests (each test
+// creates its own throwaway users; no delete endpoint yet).
+// ---------------------------------------------------------------------------
+namespace
+{
+std::string uniqueSuffix()
+{
+    auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    return std::to_string(now % 1000000);
+}
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// createUser happy path: POST /api/admin/users with username+password returns
+// 201, and the new user is retrievable via GET. The created user has a unique
+// suffix so repeated runs don't collide on the UNIQUE constraint.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P0_AdminUser_Create_ValidBody_Returns201)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    auto suffix = uniqueSuffix();
+    Json::Value body;
+    body["username"] = "crudtest_" + suffix;
+    body["password"] = "TestPass123!";
+    body["email"] = ("crudtest_" + suffix + "@example.com");
+
+    auto resp = sendPostJson("/api/admin/users", body, *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k201Created));
+    Json::Value respBody;
+    REQUIRE(parseJsonBody(resp, respBody));
+    CHECK(respBody["status"].asString() == "success");
+    CHECK(respBody["user"]["username"].asString() == ("crudtest_" + suffix));
+
+    // Verify the new user is retrievable.
+    int newId = respBody["user"]["id"].asInt();
+    auto getResp = sendGet("/api/admin/users/" + std::to_string(newId), *token);
+    REQUIRE(getResp != nullptr);
+    CHECK(statusIs(getResp, drogon::k200OK));
+}
+
+// ---------------------------------------------------------------------------
+// createUser duplicate-username: POST with an existing username returns 400.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_AdminUser_Create_DuplicateUsername_Returns400)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    // First create succeeds.
+    auto suffix = uniqueSuffix();
+    Json::Value body;
+    body["username"] = "duptest_" + suffix;
+    body["password"] = "TestPass123!";
+    auto resp1 = sendPostJson("/api/admin/users", body, *token);
+    REQUIRE(resp1 != nullptr);
+    CHECK(statusIs(resp1, drogon::k201Created));
+
+    // Second create with same username fails.
+    auto resp2 = sendPostJson("/api/admin/users", body, *token);
+    REQUIRE(resp2 != nullptr);
+    CHECK(statusIs(resp2, drogon::k400BadRequest));
+}
+
+// ---------------------------------------------------------------------------
+// createUser missing-fields: POST without username returns 400.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_AdminUser_Create_MissingUsername_Returns400)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    Json::Value body;
+    body["password"] = "TestPass123!";
+
+    auto resp = sendPostJson("/api/admin/users", body, *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k400BadRequest));
+}
+
+// ---------------------------------------------------------------------------
+// listUsers pagination: create two users with a unique prefix, then GET with
+// ?q=<prefix>&per_page=1 to verify total/total_pages/page fields.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P0_AdminUser_List_Pagination)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    // Create two users with a shared prefix for isolation.
+    auto suffix = uniqueSuffix();
+    std::string prefix = "pagtest_" + suffix;
+    for (int i = 0; i < 2; ++i)
+    {
+        Json::Value body;
+        body["username"] = prefix + "_" + std::to_string(i);
+        body["password"] = "TestPass123!";
+        auto cr = sendPostJson("/api/admin/users", body, *token);
+        REQUIRE(cr != nullptr);
+        CHECK(statusIs(cr, drogon::k201Created));
+    }
+
+    // Page 1 with per_page=1 → total >= 2, total_pages >= 2, 1 user on page.
+    auto resp = sendGet("/api/admin/users?q=" + prefix + "&per_page=1&page=1", *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k200OK));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body["per_page"].asInt() == 1);
+    CHECK(body["total"].asInt() >= 2);
+    CHECK(body["total_pages"].asInt() >= 2);
+    CHECK(body["users"].size() <= 1);
+}
+
+// ---------------------------------------------------------------------------
+// listUsers search: create a user with a unique prefix, verify ?q= finds it.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_AdminUser_List_Search_ByQ)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    auto suffix = uniqueSuffix();
+    Json::Value body;
+    body["username"] = "srchtest_" + suffix;
+    body["password"] = "TestPass123!";
+    auto cr = sendPostJson("/api/admin/users", body, *token);
+    REQUIRE(cr != nullptr);
+    CHECK(statusIs(cr, drogon::k201Created));
+
+    auto resp = sendGet("/api/admin/users?q=srchtest_" + suffix, *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k200OK));
+    Json::Value respBody;
+    REQUIRE(parseJsonBody(resp, respBody));
+    CHECK(respBody["total"].asInt() >= 1);
+    // The created user must appear in the filtered results.
+    bool found = false;
+    for (const auto &u : respBody["users"])
+    {
+        if (u.get("username", "").asString() == ("srchtest_" + suffix))
+        {
+            found = true;
+            break;
+        }
+    }
+    CHECK(found);
+}
+
+// ---------------------------------------------------------------------------
+// updateUser expanded fields: create a user, then PUT with mfa_enabled and
+// locked, verify the changes persist via GET.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_AdminUser_Update_ExpandedFields)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    // Create a throwaway user.
+    auto suffix = uniqueSuffix();
+    Json::Value createBody;
+    createBody["username"] = "updtest_" + suffix;
+    createBody["password"] = "TestPass123!";
+    auto cr = sendPostJson("/api/admin/users", createBody, *token);
+    REQUIRE(cr != nullptr);
+    REQUIRE(statusIs(cr, drogon::k201Created));
+    Json::Value crBody;
+    REQUIRE(parseJsonBody(cr, crBody));
+    int userId = crBody["user"]["id"].asInt();
+
+    // Update mfa_enabled + locked.
+    Json::Value updBody;
+    updBody["mfa_enabled"] = true;
+    updBody["locked"] = true;
+    auto updResp = sendPutJson("/api/admin/users/" + std::to_string(userId), updBody, *token);
+    REQUIRE(updResp != nullptr);
+    CHECK(statusIs(updResp, drogon::k200OK));
+
+    // Verify via GET.
+    auto getResp = sendGet("/api/admin/users/" + std::to_string(userId), *token);
+    REQUIRE(getResp != nullptr);
+    Json::Value body;
+    REQUIRE(parseJsonBody(getResp, body));
+    CHECK(body["mfa_enabled"].asBool() == true);
+    CHECK(body["locked"].asBool() == true);
+}
+
+// ---------------------------------------------------------------------------
+// listUsers locked filter: the user created+locked above should be findable
+// with ?locked=true. This is a standalone case (creates its own locked user).
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_AdminUser_List_FilterLocked)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    // Create + lock a user.
+    auto suffix = uniqueSuffix();
+    Json::Value createBody;
+    createBody["username"] = "locktest_" + suffix;
+    createBody["password"] = "TestPass123!";
+    auto cr = sendPostJson("/api/admin/users", createBody, *token);
+    REQUIRE(cr != nullptr);
+    REQUIRE(statusIs(cr, drogon::k201Created));
+    Json::Value crBody;
+    REQUIRE(parseJsonBody(cr, crBody));
+    int userId = crBody["user"]["id"].asInt();
+
+    Json::Value lockBody;
+    lockBody["locked"] = true;
+    sendPutJson("/api/admin/users/" + std::to_string(userId), lockBody, *token);
+
+    // The locked user should appear in ?locked=true&q=locktest_<suffix>.
+    auto resp = sendGet("/api/admin/users?q=locktest_" + suffix + "&locked=true", *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k200OK));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body["total"].asInt() >= 1);
 }

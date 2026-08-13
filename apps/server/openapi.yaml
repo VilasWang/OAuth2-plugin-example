@@ -350,8 +350,46 @@ paths:
       - Tokens
   /api/admin/users:
     get:
-      description: Get a paginated list of users.
+      description: >-
+        List users with optional pagination (page, per_page) and filtering
+        (q for username/email prefix, role, locked). Returns total count.
       operationId: get_api_admin_users
+      parameters:
+      - description: Page number (1-based)
+        in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - description: Items per page (1-100)
+        in: query
+        name: per_page
+        required: false
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 100
+      - description: Search by username or email prefix
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+      - description: Filter by role name
+        in: query
+        name: role
+        required: false
+        schema:
+          type: string
+      - description: Filter by lock state (true = locked, false = active)
+        in: query
+        name: locked
+        required: false
+        schema:
+          type: string
+          enum: ["true", "false"]
       responses:
         '200':
           description: Users list
@@ -360,6 +398,51 @@ paths:
       security:
       - bearerAuth: []
       summary: List Users
+      tags:
+      - Admin
+      - Users
+    post:
+      description: >-
+        Create a new user. Requires username and password; email, roles,
+        mfa_enabled, email_verified, and org_id are optional.
+      operationId: post_api_admin_users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                email:
+                  type: string
+                email_verified:
+                  type: boolean
+                mfa_enabled:
+                  type: boolean
+                org_id:
+                  type: integer
+                roles:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: User created successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+      security:
+      - bearerAuth: []
+      summary: Create User
       tags:
       - Admin
       - Users

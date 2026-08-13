@@ -16,8 +16,12 @@ const errorMessage = ref('')
 
 const user = ref<any>({})
 const allRoles = ref<any[]>([])
+const editUsername = ref('')
 const editEmail = ref('')
 const editEmailVerified = ref(false)
+const editMfaEnabled = ref(false)
+const editLocked = ref(false)
+const editOrgId = ref<number | ''>('')
 const selectedRoles = ref<string[]>([])
 
 function showSuccess(msg: string) {
@@ -36,8 +40,12 @@ async function fetchUser() {
   try {
     const resp = await axios.get(`/api/admin/users/${userId.value}`)
     user.value = resp.data
+    editUsername.value = resp.data.username || ''
     editEmail.value = resp.data.email || ''
     editEmailVerified.value = resp.data.email_verified || false
+    editMfaEnabled.value = resp.data.mfa_enabled || false
+    editLocked.value = resp.data.locked || false
+    editOrgId.value = resp.data.org_id ?? ''
     selectedRoles.value = (resp.data.roles || []).filter((r: any) => typeof r === 'string')
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -57,8 +65,12 @@ async function saveInfo() {
   saving.value = true
   try {
     const body: any = {}
+    if (editUsername.value !== (user.value.username || '')) body.username = editUsername.value
     if (editEmail.value !== (user.value.email || '')) body.email = editEmail.value
     if (editEmailVerified.value !== user.value.email_verified) body.email_verified = editEmailVerified.value
+    if (editMfaEnabled.value !== user.value.mfa_enabled) body.mfa_enabled = editMfaEnabled.value
+    if (editLocked.value !== (user.value.locked || false)) body.locked = editLocked.value
+    if (editOrgId.value !== (user.value.org_id ?? '')) body.org_id = editOrgId.value
     if (Object.keys(body).length === 0) { showSuccess('No changes'); saving.value = false; return }
     await axios.put(`/api/admin/users/${userId.value}`, body, { headers: { 'Content-Type': 'application/json' } })
     showSuccess('User updated successfully')
@@ -174,7 +186,7 @@ onMounted(() => {
       <div v-if="activeTab === 'info'" class="bg-white shadow rounded-lg p-6 space-y-5">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-          <code class="block px-3 py-2 bg-gray-100 rounded-md text-sm font-mono">{{ user.username }}</code>
+          <input v-model="editUsername" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono" placeholder="username" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -183,6 +195,18 @@ onMounted(() => {
         <div class="flex items-center gap-3">
           <input type="checkbox" v-model="editEmailVerified" id="emailVerified" class="h-4 w-4 rounded border-gray-300 text-indigo-600" />
           <label for="emailVerified" class="text-sm font-medium text-gray-700">Email Verified</label>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="checkbox" v-model="editMfaEnabled" id="mfaEnabled" class="h-4 w-4 rounded border-gray-300 text-indigo-600" />
+          <label for="mfaEnabled" class="text-sm font-medium text-gray-700">MFA Enabled</label>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="checkbox" v-model="editLocked" id="locked" class="h-4 w-4 rounded border-gray-300 text-red-600" />
+          <label for="locked" class="text-sm font-medium text-gray-700">Account Locked</label>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Organization ID</label>
+          <input v-model="editOrgId" type="number" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="(none)" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Created At</label>
