@@ -9,7 +9,7 @@
 //    empty-match semantics, plus the RFC 6750 §3 multi-scope challenge.
 //  - ResourceScopeRegistry: template path matching (concrete vs {param}).
 
-DROGON_TEST(Unit_ResourceScope_ScopeResolver_ExactMatch)
+DROGON_TEST(Unit_P0_Authz_ScopeResolver_ExactMatch)
 {
     authforge::drogon::authz::ResourceScopeRequirement req;
     req.scopes = {"users:read"};
@@ -19,7 +19,7 @@ DROGON_TEST(Unit_ResourceScope_ScopeResolver_ExactMatch)
     CHECK(authforge::drogon::authz::satisfies("openid profile", req) == false);
 }
 
-DROGON_TEST(Unit_ResourceScope_ScopeResolver_Implication)
+DROGON_TEST(Unit_P0_Authz_ScopeResolver_Implication)
 {
     // admin super-scope satisfies users:read via impliedBy.
     authforge::drogon::authz::ResourceScopeRequirement req;
@@ -34,7 +34,7 @@ DROGON_TEST(Unit_ResourceScope_ScopeResolver_Implication)
     CHECK(authforge::drogon::authz::satisfies("openid profile", req) == false);
 }
 
-DROGON_TEST(Unit_ResourceScope_ScopeResolver_OIDC_NoImplication)
+DROGON_TEST(Unit_P0_Authz_ScopeResolver_OIDC_NoImplication)
 {
     // RFC 6749 §3.3 / OIDC Core §5.4: the standard scopes are NEVER implied
     // by admin. A userinfo request requires an actual user token carrying
@@ -47,7 +47,7 @@ DROGON_TEST(Unit_ResourceScope_ScopeResolver_OIDC_NoImplication)
     CHECK(authforge::drogon::authz::satisfies("openid", req) == true);
 }
 
-DROGON_TEST(Unit_ResourceScope_ScopeResolver_AllMatch)
+DROGON_TEST(Unit_P0_Authz_ScopeResolver_AllMatch)
 {
     authforge::drogon::authz::ResourceScopeRequirement req;
     req.scopes = {"users:read", "clients:read"};
@@ -62,7 +62,7 @@ DROGON_TEST(Unit_ResourceScope_ScopeResolver_AllMatch)
     CHECK(authforge::drogon::authz::satisfies("users:read", req) == false);
 }
 
-DROGON_TEST(Unit_ResourceScope_ScopeResolver_AnyMatch)
+DROGON_TEST(Unit_P0_Authz_ScopeResolver_AnyMatch)
 {
     authforge::drogon::authz::ResourceScopeRequirement req;
     req.scopes = {"users:read", "clients:read"};
@@ -77,7 +77,7 @@ DROGON_TEST(Unit_ResourceScope_ScopeResolver_AnyMatch)
     CHECK(authforge::drogon::authz::satisfies("openid profile", req) == false);
 }
 
-DROGON_TEST(Unit_ResourceScope_ScopeResolver_EmptyRequirement)
+DROGON_TEST(Unit_P0_Authz_ScopeResolver_EmptyRequirement)
 {
     // An empty scopes list is vacuously satisfied (no requirement). This is
     // the "public / unconfigured" case; lookup() returns nullptr for such
@@ -87,7 +87,7 @@ DROGON_TEST(Unit_ResourceScope_ScopeResolver_EmptyRequirement)
     CHECK(authforge::drogon::authz::satisfies("anything", req) == true);
 }
 
-DROGON_TEST(Unit_ResourceScope_Challenge_SingleScope)
+DROGON_TEST(Unit_P0_Authz_Challenge_SingleScope)
 {
     authforge::drogon::authz::ResourceScopeRequirement req;
     req.scopes = {"openid"};
@@ -99,7 +99,7 @@ DROGON_TEST(Unit_ResourceScope_Challenge_SingleScope)
     CHECK(challenge.find("realm=\"authforge\"") != std::string::npos);
 }
 
-DROGON_TEST(Unit_ResourceScope_Challenge_MultiScope_SpaceDelimited)
+DROGON_TEST(Unit_P0_Authz_Challenge_MultiScope_SpaceDelimited)
 {
     // R1: a multi-scope requirement emits a SPACE-DELIMITED scope attribute
     // (RFC 6750 §3), not a single token.
