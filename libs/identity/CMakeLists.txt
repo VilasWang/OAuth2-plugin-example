@@ -67,10 +67,10 @@ set(IDENTITY_HEADERS
     include/authforge/identity/TotpUtils.h
     include/authforge/identity/SessionManager.h
     include/authforge/identity/IBackchannelLogoutNotifier.h
+    include/authforge/identity/IOAuthHttpClient.h
     $<$<BOOL:${WITH_WEBAUTHN}>:include/authforge/identity/WebAuthnService.h>
     $<$<BOOL:${WITH_WEBAUTHN}>:include/authforge/identity/IWebAuthnRepository.h>
     $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/SocialAuthService.h>
-    $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/IOAuthHttpClient.h>
     $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/ISocialAccountRepository.h>
 )
 

@@ -1,7 +1,5 @@
 #include <authforge/drogon/adapters/DrogonOAuthHttpClient.h>
 
-#ifdef WITH_SOCIAL
-
 #include <drogon/HttpClient.h>
 #include <drogon/drogon.h>
 
@@ -93,5 +91,3 @@ void DrogonOAuthHttpClient::getWithBearerToken(
 }
 
 }  // namespace authforge::drogon::adapters
-
-#endif  // WITH_SOCIAL
