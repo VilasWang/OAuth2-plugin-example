@@ -1,5 +1,6 @@
 #include "IdentityAssembly.h"
 
+#include <authforge/drogon/adapters/BackchannelLogoutNotifier.h>
 #include <authforge/drogon/adapters/DrogonOAuthHttpClient.h>
 #ifdef WITH_SOCIAL
 #include <authforge/drogon/controllers/GitHubController.h>
@@ -12,7 +13,6 @@
 #include <authforge/drogon/controllers/WebAuthnController.h>
 #endif  // WITH_WEBAUTHN
 #include <authforge/identity/AuthService.h>
-#include <authforge/identity/IBackchannelLogoutNotifier.h>
 #include <authforge/identity/IMfaRepository.h>
 #include <authforge/identity/IWebAuthnRepository.h>
 #include <authforge/identity/MfaService.h>
@@ -33,30 +33,6 @@
 
 namespace bootstrap
 {
-
-namespace
-{
-
-// Task 24 slice 4: replaces
-// libs/drogon/src/controllers/SessionController.cc's
-// `sendBackchannelLogoutNotifications` stub (`LOG_DEBUG <<
-// "sendBackchannelLogoutNotifications: stub";`) with a real
-// IBackchannelLogoutNotifier implementation of identical behavior --
-// IBackchannelLogoutNotifier.h's own top comment explicitly scopes a real
-// OIDC back-channel-logout HTTP delivery implementation OUT of this task
-// (deferred to a future Adapter-layer task), so this is a like-for-like
-// port of the pre-existing stub onto the new port, not a behavior change.
-class LoggingBackchannelLogoutNotifier : public authforge::identity::IBackchannelLogoutNotifier
-{
-  public:
-    void notify(const std::string &userId, std::function<void()> &&callback) override
-    {
-        LOG_DEBUG << "sendBackchannelLogoutNotifications: stub (userId=" << userId << ")";
-        callback();
-    }
-};
-
-}  // namespace
 
 void wireIdentityServices()
 {
@@ -131,7 +107,23 @@ void wireIdentityServices()
     // (main.cc's registerBeginningAdvice) runs exactly once at startup.
     static auto authService =
       std::make_shared<authforge::identity::AuthService>(userRepo, crypto, clock);
-    static auto notifier = std::make_shared<LoggingBackchannelLogoutNotifier>();
+    // B1: shared outbound-HTTP client (Drogon-backed) used by both the
+    // backchannel-logout notifier and, when built, the social auth services.
+    static auto oauthHttpClient =
+      std::make_shared<authforge::drogon::adapters::DrogonOAuthHttpClient>();
+    // B1 (OIDC Back-Channel Logout 1.0): real notifier -- finds each relying
+    // party with an active session + a registered backchannel_logout_uri and
+    // POSTs a signed logout_token, fire-and-forget. If the plugin's signing
+    // key / audit sink is unavailable, notify() degrades to a no-op fan-out
+    // (the logout flow is never blocked). plugin is initialized by the time
+    // this runs (getStorageType() above already relied on initAndStart()).
+    static auto notifier =
+      std::make_shared<authforge::drogon::adapters::BackchannelLogoutNotifier>(
+        dbClient,
+        plugin ? plugin->getJwkManager() : nullptr,
+        plugin ? plugin->getIssuer() : std::string{},
+        oauthHttpClient,
+        plugin ? plugin->getAuditSink() : nullptr);
     static auto sessionManager = std::make_shared<authforge::identity::SessionManager>(notifier);
     static auto mfaService =
       std::make_shared<authforge::identity::MfaService>(mfaRepo, crypto, clock);
@@ -168,7 +160,6 @@ void wireIdentityServices()
             githubClientSecret = externalAuth["github"].get("client_secret", "").asString();
         }
     }
-    auto oauthHttpClient = std::make_shared<authforge::drogon::adapters::DrogonOAuthHttpClient>();
     auto socialAccountRepo =
       std::make_shared<authforge::storage::postgres::PostgresSocialAccountRepository>(dbClient);
 

@@ -249,6 +249,14 @@ void DiscoveryController::oidcDiscovery(
     // F-027 (OIDC RP-Initiated Logout 1.0): the end_session endpoint URL.
     discovery["end_session_endpoint"] = baseUrl + "/oauth2/end_session";
 
+    // B1 (OIDC Back-Channel Logout 1.0): the OP delivers a signed logout_token
+    // to each RP's registered backchannel_logout_uri on logout. Session-level
+    // support is false because this OP issues subject-scoped (sub) logout_tokens
+    // without a session id (sid) -- RPs with backchannel_logout_session_required
+    // =true are a documented gap.
+    discovery["backchannel_logout_supported"] = true;
+    discovery["backchannel_logout_session_supported"] = false;
+
     discovery["claims_supported"] = Json::Value(Json::arrayValue);
     discovery["claims_supported"].append("sub");
     discovery["claims_supported"].append("name");
