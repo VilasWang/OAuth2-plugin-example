@@ -72,7 +72,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 缺口 | 状态 | 代码依据（IAM 审计） | 工程量估算 |
 |------|------|---------------------|-----------|
 | **用户管理补全**（创建/删除/分页/搜索） | ⬜ 未开始 | 确认缺失：UserAdminService 无 createUser/deleteUser/pagination/search（2026-08-11 二次验证仍为真） | 小（1–2 周） |
-| **Backchannel Logout 真实实现** | ⬜ 未开始 | 桩实现：`IdentityAssembly.cc:49-57` 仅 LOG_DEBUG | 中（1 月） |
+| **Backchannel Logout 真实实现** | 🟡 后端已交付 | 真实通知器 + logout_token 构造 + admin API 配置 + discovery + 单测（D1-D6）；前端就绪但被 Mimosa 拦截（mock-api.ts 既有误报）；集成测试待补（需 PG）。分支 `feat/backchannel-logout-b1`，详见 [in-progress/backchannel-logout-design.md](in-progress/backchannel-logout-design.md) | 中（1 月） |
 | **#42 缓存层** | 🟡 Phase 1 已交付 | client-cache decorator 已合并（PR #47）；token cache Phase 2 设计完成 | — |
 | **#43 授权模型** | 🟡 设计完成 | 完整 `(path,method)→scope` 声明式注册表 + scope implication 设计 | 中 |
 | **SAML 2.0** | ⬜ 未开始 | 穷尽搜索 0 代码文件 | 大（3–6 月，需 XML 签名库） |
