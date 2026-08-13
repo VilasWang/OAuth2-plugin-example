@@ -49,13 +49,24 @@ echo "[endpoint-wrapper] Starting server: $SERVER_EXE"
 echo "[endpoint-wrapper] Working dir:     $SERVER_DIR"
 
 cd "$SERVER_DIR"
-"$SERVER_EXE" &
+# Redirect server stdout/stderr to a log file so it does NOT inherit the
+# wrapper's stdout pipe -- otherwise ctest waits for EOF on the pipe even
+# after the wrapper exits (the server holds the write end open).
+"$SERVER_EXE" >/tmp/authforge-ep-test.log 2>&1 &
 SERVER_PID=$!
+disown "$SERVER_PID" 2>/dev/null || true  # detach so bash won't wait on exit
 
 cleanup() {
     echo "[endpoint-wrapper] Stopping server (PID $SERVER_PID)"
     kill "$SERVER_PID" 2>/dev/null || true
-    wait "$SERVER_PID" 2>/dev/null || true
+    # Grace period for clean shutdown, then force-kill + reap. Do NOT use
+    # bare `wait` before SIGKILL -- it hangs if the server ignores SIGTERM.
+    for _ in 1 2 3 4 5; do
+        kill -0 "$SERVER_PID" 2>/dev/null || break
+        sleep 1
+    done
+    kill -9 "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true  # reap zombie (safe after SIGKILL)
 }
 trap cleanup EXIT
 
