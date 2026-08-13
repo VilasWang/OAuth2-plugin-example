@@ -115,6 +115,8 @@ void ClientManagementService::listClients(const ::drogon::HttpRequestPtr &req, R
               client["allowed_grant_types"] = row.getValueOfAllowedGrantTypes();
               // F-017: surface the declared token-endpoint auth method.
               client["token_endpoint_auth_method"] = row.getValueOfTokenEndpointAuthMethod();
+              // B1: surface the backchannel-logout URI.
+              client["backchannel_logout_uri"] = row.getValueOfBackchannelLogoutUri();
               clients.append(client);
           }
           json["clients"] = clients;
@@ -136,6 +138,7 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
     std::string allowedGrantTypes = "authorization_code";
     std::string clientType = "CONFIDENTIAL";
     std::string tokenEndpointAuthMethod;
+    std::string backchannelLogoutUri;
 
     auto jsonBody = req->getJsonObject();
     if (jsonBody)
@@ -145,6 +148,7 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
         allowedGrantTypes = jsonBody->get("allowed_grant_types", "authorization_code").asString();
         clientType = jsonBody->get("client_type", "CONFIDENTIAL").asString();
         tokenEndpointAuthMethod = jsonBody->get("token_endpoint_auth_method", "").asString();
+        backchannelLogoutUri = jsonBody->get("backchannel_logout_uri", "").asString();
     }
     // F-017: apply per-type defaults (PUBLIC -> none, CONFIDENTIAL ->
     // client_secret_basic) when the admin omits the field.
@@ -176,6 +180,14 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
         }
     }
 
+    // B1: backchannel_logout_uri must use https (OIDC Back-Channel Logout 1.0
+    // §2.3). Empty is allowed == "not configured".
+    if (auto bcError = ::authforge::drogon::validation::RuleSet::validateBackchannelLogoutUri(backchannelLogoutUri))
+    {
+        respondError(req, cb, "VALIDATION_FORMAT_ERROR", "createClient: " + *bcError);
+        return;
+    }
+
     std::string clientId = ::drogon::utils::getUuid();
     std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
     // F-002: salt FIRST, then salted hash -- validateClient computes
@@ -200,6 +212,9 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
     row.setAllowedGrantTypes(allowedGrantTypes);
     // F-017: persist the declared token-endpoint auth method.
     row.setTokenEndpointAuthMethod(tokenEndpointAuthMethod);
+    // B1: persist the optional backchannel_logout_uri (NULL when unset).
+    if (!backchannelLogoutUri.empty())
+        row.setBackchannelLogoutUri(backchannelLogoutUri);
 
     Mapper<Oauth2Clients> mapper(db);
     mapper.insert(
@@ -255,6 +270,10 @@ void ClientManagementService::getClient(
           json["allowed_grant_types"] = row.getValueOfAllowedGrantTypes();
           // F-017: surface the declared token-endpoint auth method.
           json["token_endpoint_auth_method"] = row.getValueOfTokenEndpointAuthMethod();
+          // B1: surface the backchannel-logout configuration.
+          json["backchannel_logout_uri"] = row.getValueOfBackchannelLogoutUri();
+          json["backchannel_logout_session_required"] =
+            row.getValueOfBackchannelLogoutSessionRequired();
 
           // Fetch scopes for this client (separate query -- JOIN-in-a-single-
           // query is forbidden per db-operations.md; the original code already
@@ -314,7 +333,8 @@ void ClientManagementService::updateClient(
     bool hasName = jsonBody->isMember("name");
     bool hasRedirectUris = jsonBody->isMember("redirect_uris");
     bool hasGrantTypes = jsonBody->isMember("allowed_grant_types");
-    if (!hasName && !hasRedirectUris && !hasGrantTypes)
+    bool hasBackchannelUri = jsonBody->isMember("backchannel_logout_uri");
+    if (!hasName && !hasRedirectUris && !hasGrantTypes && !hasBackchannelUri)
     {
         respondError(req, cb, "VALIDATION_INVALID_INPUT", "No fields to update");
         return;
@@ -330,6 +350,18 @@ void ClientManagementService::updateClient(
         }
     }
 
+    // B1: validate backchannel_logout_uri (https per OIDC §2.3); an empty
+    // value clears it.
+    if (hasBackchannelUri)
+    {
+        const std::string bcUri = (*jsonBody)["backchannel_logout_uri"].asString();
+        if (auto bcError = ::authforge::drogon::validation::RuleSet::validateBackchannelLogoutUri(bcUri))
+        {
+            respondError(req, cb, "VALIDATION_FORMAT_ERROR", "updateClient: " + *bcError);
+            return;
+        }
+    }
+
     auto db = getDbOrRespond(req, cb);
     if (!db)
     {
@@ -339,7 +371,7 @@ void ClientManagementService::updateClient(
     Mapper<Oauth2Clients> mapper(db);
     mapper.findOne(
       Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::EQ, clientId),
-      [cb, req, clientId, jsonBody, hasName, hasRedirectUris, hasGrantTypes, db](
+      [cb, req, clientId, jsonBody, hasName, hasRedirectUris, hasGrantTypes, hasBackchannelUri, db](
         Oauth2Clients row
       ) {
           if (hasName)
@@ -353,6 +385,14 @@ void ClientManagementService::updateClient(
           if (hasGrantTypes)
           {
               row.setAllowedGrantTypes((*jsonBody)["allowed_grant_types"].asString());
+          }
+          if (hasBackchannelUri)
+          {
+              const std::string bcUri = (*jsonBody)["backchannel_logout_uri"].asString();
+              if (bcUri.empty())
+                  row.setBackchannelLogoutUriToNull();
+              else
+                  row.setBackchannelLogoutUri(bcUri);
           }
           Mapper<Oauth2Clients> updateMapper(db);
           updateMapper.update(

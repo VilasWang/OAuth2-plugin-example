@@ -1,6 +1,7 @@
 #include <authforge/drogon/validation/RuleSet.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
+#include <drogon/drogon.h>
 #include <regex>
 #include <algorithm>
 
@@ -211,6 +212,32 @@ std::optional<std::string> RuleSet::validateRedirectUri(const std::string &uri)
     }
 
     return std::nullopt;
+}
+
+std::optional<std::string> RuleSet::validateBackchannelLogoutUri(const std::string &uri)
+{
+    // Empty == "not configured": valid (the notifier skips clients without a
+    // backchannel_logout_uri).
+    if (uri.empty())
+        return std::nullopt;
+
+    // OIDC Back-Channel Logout 1.0 §2.3: the backchannel_logout_uri MUST use
+    // https. The auth.allow_http_redirect_uri dev hatch is honored for parity
+    // with redirect_uri validation; loopback IP literals are NOT exempt here
+    // (this is server-to-server delivery, so RFC 8252's loopback rationale
+    // does not apply).
+    if (uri.rfind("https://", 0) == 0)
+        return std::nullopt;
+    if (uri.rfind("http://", 0) == 0)
+    {
+        const auto &cfg = ::drogon::app().getCustomConfig();
+        if (cfg.isMember("auth") && cfg["auth"].isMember("allow_http_redirect_uri") &&
+            cfg["auth"]["allow_http_redirect_uri"].asBool())
+        {
+            return std::nullopt;
+        }
+    }
+    return std::string{"backchannel_logout_uri must use https"};
 }
 
 std::optional<std::string> RuleSet::validateScope(const std::string &scope)

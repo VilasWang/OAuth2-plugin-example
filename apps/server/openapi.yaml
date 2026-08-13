@@ -93,6 +93,37 @@ paths:
     post:
       description: Register a new OAuth2 client.
       operationId: post_api_admin_clients
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - name
+              properties:
+                name:
+                  type: string
+                client_type:
+                  type: string
+                  enum:
+                  - CONFIDENTIAL
+                  - PUBLIC
+                  default: CONFIDENTIAL
+                redirect_uris:
+                  type: string
+                  description: Comma-separated redirect URIs (https required).
+                allowed_grant_types:
+                  type: string
+                  default: authorization_code
+                token_endpoint_auth_method:
+                  type: string
+                backchannel_logout_uri:
+                  type: string
+                  format: uri
+                  description: OIDC Back-Channel Logout 1.0 RP endpoint. MUST
+                    use https (spec §2.3). When set, the OP POSTs a signed
+                    logout_token here on user logout.
       responses:
         '201':
           description: Client created successfully
@@ -161,6 +192,25 @@ paths:
         required: true
         schema:
           type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                redirect_uris:
+                  type: string
+                allowed_grant_types:
+                  type: string
+                backchannel_logout_uri:
+                  type: string
+                  format: uri
+                  description: Set to an https URI to enable OIDC back-channel
+                    logout notifications to this RP; an empty string clears it.
       responses:
         '200':
           description: Client updated successfully
