@@ -93,22 +93,36 @@ bool serverReachable()
 
 // Idempotently grant the resource scopes to backend-svc (mirrors
 // dev_backend_client.sql post-#43). Returns false on SQL failure.
+// Deletes ALL existing backend-svc scopes first so the test is immune to
+// scope drift from other tests that may run before this one and add scopes
+// (e.g. admin client-scope CRUD tests adding 'read' from the legacy V006
+// seed). Without the clean slate, the exact-set CHECK below would fail.
 bool ensureBackendSvcScopes()
 {
     auto db = app().getDbClient();
     if (!db)
         return false;
     std::promise<bool> p;
-    // Exemption (db-operations.md): idempotent INSERT...SELECT...ON CONFLICT
-    // bulk-grant of the seed scope set (one of the 6 raw-SQL exemptions).
+    auto db2 = app().getDbClient();
+    // Step 1: clean slate -- remove all existing backend-svc scope grants.
     db->execSqlAsync(
-      "INSERT INTO oauth2_client_scopes (client_id, scope_name) "
-      "SELECT 'backend-svc', name FROM oauth2_scopes "
-      "WHERE name IN ('tokens:read', 'tokens:write', 'clients:read', 'users:read') "
-      "ON CONFLICT (client_id, scope_name) DO NOTHING",
-      [&](const Result &) { p.set_value(true); },
+      "DELETE FROM oauth2_client_scopes WHERE client_id = 'backend-svc'",
+      [db2, &p](const Result &) {
+          // Step 2: insert exactly the expected scope set.
+          db2->execSqlAsync(
+            "INSERT INTO oauth2_client_scopes (client_id, scope_name) "
+            "SELECT 'backend-svc', name FROM oauth2_scopes "
+            "WHERE name IN ('tokens:read', 'tokens:write', 'clients:read', 'users:read') "
+            "ON CONFLICT (client_id, scope_name) DO NOTHING",
+            [&](const Result &) { p.set_value(true); },
+            [&](const DrogonDbException &e) {
+                LOG_ERROR << "ensureBackendSvcScopes insert: " << e.base().what();
+                p.set_value(false);
+            }
+          );
+      },
       [&](const DrogonDbException &e) {
-          LOG_ERROR << "ensureBackendSvcScopes: " << e.base().what();
+          LOG_ERROR << "ensureBackendSvcScopes delete: " << e.base().what();
           p.set_value(false);
       }
     );
