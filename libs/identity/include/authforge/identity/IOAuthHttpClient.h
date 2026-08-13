@@ -1,6 +1,9 @@
 #pragma once
 
-#ifdef WITH_SOCIAL
+// B1 (OIDC Back-Channel Logout 1.0): this port is also consumed by the
+// backchannel-logout notifier (libs/drogon adapters) to POST a signed
+// logout_token to each relying party; logout is a core feature, so this
+// port is no longer WITH_SOCIAL-gated (the social services remain gated).
 
 // M2.5 identity completion, Social auth slice (authforge-sdk-refactor,
 // design.md §4.1 rule 1 / §5.1/§6): outbound-HTTP port backing
@@ -111,5 +114,3 @@ class IOAuthHttpClient
 };
 
 }  // namespace authforge::identity
-
-#endif  // WITH_SOCIAL

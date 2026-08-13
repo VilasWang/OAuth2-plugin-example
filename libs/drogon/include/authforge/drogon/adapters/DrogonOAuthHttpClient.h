@@ -1,12 +1,13 @@
 #pragma once
 
-#ifdef WITH_SOCIAL
-
 // Task 24 slice 5 (authforge-sdk-refactor, design.md §4.1 rule 3):
 // Adapter-layer implementation of authforge::identity::IOAuthHttpClient,
 // backed by drogon::HttpClient. Lives in libs/drogon (not libs/identity)
 // because it depends on Drogon, same placement rationale as
 // libs/drogon/src/AuthService.cc's own header comment.
+//
+// B1: also backs the OIDC backchannel-logout notifier's outbound POSTs;
+// no longer WITH_SOCIAL-gated (the port it implements was ungated).
 
 #include <authforge/identity/IOAuthHttpClient.h>
 
@@ -30,5 +31,3 @@ class DrogonOAuthHttpClient : public authforge::identity::IOAuthHttpClient
 };
 
 }  // namespace authforge::drogon::adapters
-
-#endif  // WITH_SOCIAL
