@@ -22,11 +22,12 @@
 //     its own concurrency strategy without the engine's logic needing to
 //     change.
 //
-// isAdminScope() reproduces IdentityService::scopeRequiresAdminRole's
-// exact existing hardcoded admin-scope-prefix list and matching
-// semantics (scope == adminScope || scope.find(adminScope + ":") == 0),
-// so this engine's behavior on the current scope catalog is identical to
-// production today.
+// #43 §5.5: the former hardcoded isAdminScope() function is removed. The
+// Tier-2 admin-role check is now driven by a caller-supplied
+// scopeRequiresAdmin predicate (backed by the DB
+// oauth2_scopes.requires_admin_role column, loaded at startup by
+// OAuth2Plugin), so admin-scope definition is data-driven and cannot
+// drift from the catalog.
 
 #include <authforge/oauth2/access/ScopeDecision.h>
 #include <authforge/oauth2/model/Client.h>
