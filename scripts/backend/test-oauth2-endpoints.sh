@@ -152,8 +152,8 @@ test_8b() {
     www_auth=$(curl -s -D - -o /dev/null -H "Authorization: Bearer $ACCESS_TOKEN" \
         "$BASE_URL/api/admin/dashboard" | grep -i "^WWW-Authenticate:")
     echo "$www_auth" | grep -q "insufficient_scope" || { echo "    missing insufficient_scope: $www_auth"; return 1; }
-    echo "$www_auth" | grep -q 'scope="admin"' || { echo "    missing scope=admin: $www_auth"; return 1; }
-    echo "    403 insufficient_scope (scope=admin) confirmed"
+    echo "$www_auth" | grep -q 'scope="audit:read"' || { echo "    missing scope=audit:read: $www_auth"; return 1; }
+    echo "    403 insufficient_scope (scope=audit:read) confirmed"
 }
 run_test "Test 8b: /api/admin without admin scope -> 403 insufficient_scope" test_8b
 
@@ -205,7 +205,7 @@ test_10() {
     basic_auth=$(printf 'backend-svc:test-secret' | base64)
     r=$(curl -s -X POST "$BASE_URL/oauth2/token" \
         -H "Authorization: Basic $basic_auth" \
-        -d "grant_type=client_credentials&client_id=backend-svc&scope=read")
+        -d "grant_type=client_credentials&client_id=backend-svc&scope=tokens:read")
     local at rt scope
     at=$(echo "$r" | jq -r '.access_token')
     rt=$(echo "$r" | jq -r '.refresh_token // empty')
