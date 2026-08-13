@@ -22,6 +22,12 @@ class UserAdminController : public ::drogon::HttpController<UserAdminController,
       "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
+      UserAdminController::createUser,
+      "/api/admin/users",
+      ::drogon::Post,
+      "authforge::drogon::filters::AuthorizationFilter"
+    );
+    ADD_METHOD_TO(
       UserAdminController::getUser,
       "/api/admin/users/{userId}",
       ::drogon::Get,
@@ -60,6 +66,11 @@ class UserAdminController : public ::drogon::HttpController<UserAdminController,
     METHOD_LIST_END
 
     void listUsers(
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+    );
+
+    void createUser(
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );

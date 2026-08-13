@@ -167,13 +167,21 @@ void AuthorizationFilter::doFilter(
                 "Bearer realm=\"authforge\", error=\"invalid_token\", "
                 "error_description=\"Invalid or expired token\""
               );
-              (*denyCbPtr)(resp);
-              return;
-          }
+                  (*denyCbPtr)(resp);
+                  return;
+              }
 
-          // 3. Get User Roles
-          plugin->getUserRoles(
-            at->userId,
+              // Persist the validated principal onto the request so downstream
+              // admin handlers can identify the actor (e.g. for audit logging
+              // on create/update). Mirrors OAuth2AuthFilter's attribute writes;
+              // without this, admin services had no way to know who called them.
+              (*req->getAttributes())["userId"] = at->userId;
+              (*req->getAttributes())["scope"] = at->scope;
+              (*req->getAttributes())["clientId"] = at->clientId;
+
+              // 3. Get User Roles
+              plugin->getUserRoles(
+                at->userId,
             [this, req, denyCbPtr, nextCbPtr, scope = at->scope](
               std::vector<std::string> roles
             ) mutable {

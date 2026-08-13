@@ -29,6 +29,7 @@ class UserAdminService
       std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 
     static void listUsers(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
+    static void createUser(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
     static void getUser(
       const ::drogon::HttpRequestPtr &req,
       ResponseCallback cb,
