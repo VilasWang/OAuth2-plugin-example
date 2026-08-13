@@ -11,47 +11,49 @@
 
 namespace organization
 {
-
 namespace
 {
-struct OrganizationControllerDocs
+namespace openapi = ::authforge::drogon::observability::openapi;
+
+// #43 resource-scope authorization: org-admin routes are part of the identity
+// management family -> guarded by roles:read / roles:write, impliedBy admin.
+// (The old docs struct registered dead /api/orgs endpoints that had no
+// backing ADD_METHOD_TO routes -- removed.)
+openapi::EndpointInfo orgEp(
+  const char *path, const char *method, const char *summary, const char *description,
+  std::vector<std::string> requiredScopes)
 {
-    OrganizationControllerDocs()
-    {
-        ::authforge::drogon::observability::openapi::EndpointInfo getOrgsDocs;
-        getOrgsDocs.path = "/api/orgs";
-        getOrgsDocs.method = "GET";
-        getOrgsDocs.summary = "List Organizations";
-        getOrgsDocs.description = "List all organizations.";
-        getOrgsDocs.tags = {"Organization"};
-        getOrgsDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getOrgsDocs);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo postOrgsDocs;
-        postOrgsDocs.path = "/api/orgs";
-        postOrgsDocs.method = "POST";
-        postOrgsDocs.summary = "Create Organization";
-        postOrgsDocs.description = "Create a new organization.";
-        postOrgsDocs.tags = {"Organization"};
-        postOrgsDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(postOrgsDocs);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo postOrgUsersDocs;
-        postOrgUsersDocs.path = "/api/orgs/{orgId}/users";
-        postOrgUsersDocs.method = "POST";
-        postOrgUsersDocs.summary = "Add User to Organization";
-        postOrgUsersDocs.description = "Add a user to an organization.";
-        postOrgUsersDocs.tags = {"Organization"};
-        postOrgUsersDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
-          postOrgUsersDocs
-        );
-    }
-};
-
-OrganizationControllerDocs docs_;
-
+    openapi::EndpointInfo ep;
+    ep.path = path;
+    ep.method = method;
+    ep.summary = summary;
+    ep.description = description;
+    ep.tags = {"Admin", "Organization"};
+    ep.requiresAuth = true;
+    ep.requiredScopes = std::move(requiredScopes);
+    ep.impliedBy = {"admin"};
+    return ep;
+}
 }  // namespace
+
+void OrganizationController::initApiDocs()
+{
+    static std::once_flag docsOnce;
+    std::call_once(docsOnce, [] { initApiDocsImpl(); });
+}
+
+void OrganizationController::initApiDocsImpl()
+{
+    openapi::OpenApiGenerator::addEndpoint(
+      orgEp("/api/admin/organizations", "GET", "List Organizations",
+            "List all organizations.", {"roles:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      orgEp("/api/admin/organizations", "POST", "Create Organization",
+            "Create a new organization.", {"roles:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      orgEp("/api/admin/organizations/{slug}", "GET", "Get Organization",
+            "Get details of a specific organization by slug.", {"roles:read"}));
+}
 
 void OrganizationController::list(
   const ::drogon::HttpRequestPtr &req,

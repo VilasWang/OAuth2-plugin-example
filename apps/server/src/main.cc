@@ -23,6 +23,7 @@
 #include <authforge/drogon/controllers/AuditController.h>
 #include <authforge/drogon/controllers/UserSelfServiceController.h>
 #include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <OrganizationController.h>  // #43: product-app org controller scope decls
 
 #include "bootstrap/ControllerRegistration.h"
 #include "bootstrap/CorsSetup.h"
@@ -251,6 +252,8 @@ int main(int argc, char *argv[])
     authforge::drogon::controllers::RoleScopeAdminController::initApiDocs();
     authforge::drogon::controllers::AuditController::initApiDocs();
     authforge::drogon::controllers::UserSelfServiceController::initApiDocs();
+    // #43: OrganizationController (product-app level, namespace `organization`).
+    ::organization::OrganizationController::initApiDocs();
     bootstrap::setupOpenApi();
 
     // #43: build the resource-scope registry from the EndpointInfo set now
