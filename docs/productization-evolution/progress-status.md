@@ -81,11 +81,11 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 
 | 缺口 | 状态 | 代码依据 | 工程量估算 |
 |------|------|----------|-----------|
-| **用户管理补全**（创建/删除/分页/搜索） | ⬜ 未开始 | 确认缺失：UserAdminService 无 createUser/deleteUser/pagination/search | 小（1–2 周） |
-| **Backchannel Logout 真实实现** | ⬜ 未开始 | 桩实现：`IdentityAssembly.cc:49-57` 仅 LOG_DEBUG | 中（1 月） |
+| **用户管理补全**（创建/删除/分页/搜索） | 🟡 已实现（PR #52） | 分页/搜索/createUser/updateUser 扩展/deleteUser 软删除（V024）已在本分支落地 | 小（1–2 周） |
+| **Backchannel Logout 真实实现** | 🟡 后端已交付 | 真实通知器 + logout_token 构造 + admin API 配置 + discovery + 单测（D1-D6）；前端就绪但被 Mimosa 拦截（mock-api.ts 既有误报）；集成测试待补（需 PG）。PR #50，详见 [in-progress/backchannel-logout-design.md](in-progress/backchannel-logout-design.md) | 中（1 月） |
 | ~~**#42 缓存层**~~ | ✅ Phase 1+2 已交付 | client-cache + token-cache decorator 均已合并 | Phase 3/4 远期 |
 | ~~**#43 授权模型**~~ | ✅ 已实现 | 声明式 scope 注册表 + implication + DB 驱动（commit f04d3ba） | — |
-| **SAML 2.0** | ⬜ 未开始 | 穷尽搜索 0 代码文件 | 大（3–6 月） |
+| **SAML 2.0** | ⬜ 未开始 | 穷尽搜索 0 代码文件 | 大（3–6 月，需 XML 签名库） |
 | **LDAP/AD 联邦** | ⬜ 未开始 | 穷尽搜索 0 代码文件 | 中（2–3 月） |
 | **SCIM 2.0** | ⬜ 未开始 | 穷尽搜索 0 代码文件 | 中（1–2 月） |
 | **多租户隔离激活** | ⬜ 未开始 | schema + Organization API 有（V017），请求级隔离无 | 大 |
