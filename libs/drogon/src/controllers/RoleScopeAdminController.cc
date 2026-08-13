@@ -177,6 +177,7 @@ void RoleScopeAdminController::scopeResources(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
+    (void)req;  // discovery endpoint needs no request data
     // #43 discovery: return the (path, method) -> required-scopes matrix from
     // the central ResourceScopeRegistry. Read-only; no DB access needed.
     Json::Value resources(Json::arrayValue);
