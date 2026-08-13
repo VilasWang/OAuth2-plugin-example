@@ -183,9 +183,11 @@
 
 ---
 
-### 业务 5：RBAC 权限管理 —— ★★★★★ 完整实现
+### 业务 5：RBAC 权限管理 —— ★★★★★ 完整实现（含 #43 细粒度 scope 模型）
 
 > 验证方式：读取 `RoleScopeAdminService.cc` + `RoleScopeAdminController.cc` + `AuthorizationFilter.cc` + `V005__rbac_schema.sql` 迁移
+>
+> **2026-08-12 更新**：#43 资源-作用域授权模型已完整实现（commit `f04d3ba`）。原 F-010 最小路径前缀匹配已被替换为声明式 `(path,method)→scope` 注册表（`ResourceScopeRegistry`），支持读写粒度（`<resource>:read`/`<resource>:write`）、scope implication（admin 隐含 leaf scope）、统一 insufficient_scope 错误路径、DB 驱动的 admin-role 门控。7 个 controller 已迁移。设计文档见 [done/resource-scope-authorization-design.md](done/resource-scope-authorization-design.md)。
 
 #### 数据模型（`V005__rbac_schema.sql`）
 ```
@@ -470,7 +472,7 @@ audit_logs (
 3. RBAC + 令牌管理 + 审计日志基础完善
 4. 存储层架构清晰：Postgres 生产单源 + Redis L2 缓存层（#42 Phase 1 已交付 client-cache decorator；独立 Redis 存储已废弃）
 5. 可观测性基础设施扎实（日志/指标/审计/健康检查全端口+适配器）
-6. C++ 技术栈性能/资源/嵌入能力差异化（性能数字**尚未实测**，待 Phase 0 基准设施产出）
+6. C++ 技术栈性能/资源/嵌入能力差异化（**Phase 0 基准实测已完成**：discovery 86k QPS / introspect 17k QPS / userinfo 17k QPS on 8 vCPU WSL；详见 `benchmarks/results/SUMMARY.md`）
 
 **弱项（部分实现，需补齐）**：
 1. 用户管理 CRUD 不完整（确认无创建/删除/分页/搜索）
@@ -493,4 +495,4 @@ audit_logs (
 
 ---
 
-*本报告基于 AuthForge v1.0.0 代码库穷尽式验证，每个功能点状态均有 `file:line` 出处。调研日期 2026-08-09，2026-08-11 复核修正。下一步行动项见 [next-phase-implementation-plan.md](next-phase-implementation-plan.md)。*
+*本报告基于 AuthForge v1.1.0 代码库穷尽式验证，每个功能点状态均有 `file:line` 出处。调研日期 2026-08-09，2026-08-11/08-13 复核修正。下一步行动项见 [next-phase-implementation-plan.md](next-phase-implementation-plan.md)。*
