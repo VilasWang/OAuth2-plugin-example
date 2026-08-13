@@ -356,30 +356,31 @@ if(WIN32)
     set(_ENDPOINT_WRAPPER "${_ENDPOINT_SCRIPTS_DIR}/run-endpoint-tests.ps1")
     set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/Release/authforge-server.exe")
     find_program(_POWERSHELL_BIN NAMES pwsh powershell)
-    if(_POWERSHELL_BIN AND EXISTS "${_SERVER_BIN}")
+    if(_POWERSHELL_BIN)
         add_test(NAME EndpointTests_OutOfProcess
             COMMAND ${_POWERSHELL_BIN} -NoProfile -ExecutionPolicy Bypass
                     -File "${_ENDPOINT_WRAPPER}"
                     -ServerExe "${_SERVER_BIN}"
                     -BaseUrl "${_ENDPOINT_BASE_URL}"
         )
+        set(_ENDPOINT_TEST_REGISTERED TRUE)
     endif()
 else()
     set(_ENDPOINT_WRAPPER "${_ENDPOINT_SCRIPTS_DIR}/run-endpoint-tests.sh")
     set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/authforge-server")
-    if(EXISTS "${_SERVER_BIN}")
-        add_test(NAME EndpointTests_OutOfProcess
-            COMMAND bash "${_ENDPOINT_WRAPPER}"
-                    --server-exe "${_SERVER_BIN}"
-                    --base-url "${_ENDPOINT_BASE_URL}"
-        )
-    endif()
+    add_test(NAME EndpointTests_OutOfProcess
+        COMMAND bash "${_ENDPOINT_WRAPPER}"
+                --server-exe "${_SERVER_BIN}"
+                --base-url "${_ENDPOINT_BASE_URL}"
+    )
+    set(_ENDPOINT_TEST_REGISTERED TRUE)
 endif()
-# The wrapper starts its own server on a fixed port (5555) and kills any
-# stale instance first -- RUN_SERIAL prevents it from running concurrently
-# with OAuth2Tests (which also binds the same port in-process). No DEPENDS:
-# that would prevent running `ctest -R EndpointTests` in isolation.
-set_tests_properties(EndpointTests_OutOfProcess PROPERTIES
-    LABELS "Endpoint"
-    RUN_SERIAL TRUE
-)
+# Properties are set only if add_test actually ran. The server binary is
+# NOT checked at configure time (it may not exist yet -- configure runs
+# before build); the wrapper checks for it at test-run time.
+if(_ENDPOINT_TEST_REGISTERED)
+    set_tests_properties(EndpointTests_OutOfProcess PROPERTIES
+        LABELS "Endpoint"
+        RUN_SERIAL TRUE
+    )
+endif()
