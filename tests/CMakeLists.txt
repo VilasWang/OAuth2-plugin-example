@@ -375,10 +375,11 @@ else()
         )
     endif()
 endif()
-# The wrapper starts its own server on a fixed port -- must not run in
-# parallel with OAuth2Tests (which also binds the same port).
+# The wrapper starts its own server on a fixed port (5555) and kills any
+# stale instance first -- RUN_SERIAL prevents it from running concurrently
+# with OAuth2Tests (which also binds the same port in-process). No DEPENDS:
+# that would prevent running `ctest -R EndpointTests` in isolation.
 set_tests_properties(EndpointTests_OutOfProcess PROPERTIES
     LABELS "Endpoint"
     RUN_SERIAL TRUE
-    DEPENDS OAuth2Tests
 )
