@@ -382,5 +382,6 @@ if(_ENDPOINT_TEST_REGISTERED)
     set_tests_properties(EndpointTests_OutOfProcess PROPERTIES
         LABELS "Endpoint"
         RUN_SERIAL TRUE
+        SKIP_RETURN_CODE 77  # wrapper returns 77 when PG/Redis/DB unavailable -> SKIPPED, not FAILED
     )
 endif()
