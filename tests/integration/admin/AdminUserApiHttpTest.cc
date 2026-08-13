@@ -53,7 +53,9 @@ namespace
 // is {"status":"success","users":[{"id":N,"username":"admin",...}]}.
 int findAdminUserId(const std::string &token)
 {
-    auto resp = sendGet("/api/admin/users", token);
+    // The list endpoint is paginated (default 50/page); use ?q=admin so the
+    // seeded admin user is found regardless of which page it falls on.
+    auto resp = sendGet("/api/admin/users?q=admin", token);
     if (!resp)
         return -1;
     Json::Value body;
@@ -405,7 +407,7 @@ DROGON_TEST(Integration_P0_AdminUser_Create_ValidBody_Returns201)
 // ---------------------------------------------------------------------------
 // createUser duplicate-username: POST with an existing username returns 400.
 // ---------------------------------------------------------------------------
-DROGON_TEST(Integration_P1_AdminUser_Create_DuplicateUsername_Returns400)
+DROGON_TEST(Integration_P1_AdminUser_Create_DuplicateUsername_Returns409)
 {
     ADMIN_USER_SKIP_GUARD;
 
@@ -421,10 +423,10 @@ DROGON_TEST(Integration_P1_AdminUser_Create_DuplicateUsername_Returns400)
     REQUIRE(resp1 != nullptr);
     CHECK(statusIs(resp1, drogon::k201Created));
 
-    // Second create with same username fails.
+    // Second create with same username → VALIDATION_USERNAME_TAKEN (HTTP 409).
     auto resp2 = sendPostJson("/api/admin/users", body, *token);
     REQUIRE(resp2 != nullptr);
-    CHECK(statusIs(resp2, drogon::k400BadRequest));
+    CHECK(statusIs(resp2, drogon::k409Conflict));
 }
 
 // ---------------------------------------------------------------------------
