@@ -218,16 +218,14 @@ DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns403InsufficientSc
     if (accessToken.empty())
         return;
 
-    // #43 R2 (OIDC Core §5.3): an M2M token without the `openid` scope is
-    // rejected by the FILTER layer's scope gate (403 insufficient_scope)
-    // before it reaches the userinfo handler's subject-type check. The
-    // handler-level 401 invalid_token path (R2) fires only when an M2M token
-    // happens to carry `openid` -- a defense-in-depth edge case not exercised
-    // here. Either way the token never gets user info.
+    // #43 M1+R2 (OIDC Core §5.3): userinfo is NOT registry-gated, so the M2M
+    // token reaches the handler. The handler checks subject first: a
+    // client_credentials token has subject "client:<id>" (no user identity)
+    // -> 401 invalid_token. This is the correct RFC error classification
+    // (token type mismatch, not scope insufficiency).
     auto resp = sendGet("/oauth2/userinfo", accessToken);
     REQUIRE(resp != nullptr);
-    CHECK(statusIs(resp, drogon::k403Forbidden));
+    CHECK(statusIs(resp, drogon::k401Unauthorized));
     auto wwwAuth = resp->getHeader("WWW-Authenticate");
-    CHECK(wwwAuth.find("insufficient_scope") != std::string::npos);
-    CHECK(wwwAuth.find("scope=\"openid\"") != std::string::npos);
+    CHECK(wwwAuth.find("invalid_token") != std::string::npos);
 }

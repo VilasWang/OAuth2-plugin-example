@@ -177,10 +177,13 @@ void TokenEndpointController::initApiDocsImpl()
            {404, "User not found"}};
         userInfoEndpoint.responseExamples = {{200, successExample}, {404, errorExample}};
         userInfoEndpoint.requiresAuth = true;
-        // #43: OIDC Core §5.3 -- the UserInfo endpoint requires an access
-        // token carrying the `openid` scope. No impliedBy (a bare `admin`
-        // token does NOT satisfy userinfo; it needs an actual user token).
-        userInfoEndpoint.requiredScopes = {"openid"};
+        // #43 M1: userinfo's openid-scope + M2M-subject checks are done
+        // EXCLUSIVELY in the userInfo handler (not in the registry), so the
+        // handler can distinguish 401 invalid_token (M2M client: subject)
+        // from 403 insufficient_scope (missing openid) per OIDC Core §5.3.
+        // If the registry gated userinfo, the filter would return 403 for
+        // ALL tokens lacking openid, making the handler's 401 path dead code.
+        // requiredScopes intentionally left empty here.
         OpenApiGenerator::addEndpoint(userInfoEndpoint);
     }
 
