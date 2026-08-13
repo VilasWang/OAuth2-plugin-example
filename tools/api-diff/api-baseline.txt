@@ -1,6 +1,6 @@
 // api-diff baseline -- AuthForge SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.0.0
+// version: 1.1.0
 === libs/common/include/authforge/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -1044,6 +1044,79 @@ const std::string &userId
 );
 };
 }
+=== libs/drogon/include/authforge/drogon/authz/InsufficientScopeResponder.h
+#pragma once
+#include <authforge/drogon/authz/ScopeResolver.h>
+#include <authforge/common/error/ErrorTypes.h>
+#include <authforge/drogon/error/ErrorResponder.h>
+#include <authforge/drogon/error/RequestId.h>
+#include <drogon/drogon.h>
+#include <string>
+namespace authforge::drogon::authz
+{
+inline ::drogon::HttpResponsePtr respondInsufficientScope(
+const ::drogon::HttpRequestPtr &req,
+const ResourceScopeRequirement &reqmt)
+;
+}
+=== libs/drogon/include/authforge/drogon/authz/ResourceScopeRegistry.h
+#pragma once
+#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <drogon/HttpTypes.h>
+#include <string>
+#include <string_view>
+#include <vector>
+namespace authforge::drogon::authz
+{
+enum class ScopeMatch
+{
+All,
+Any
+};
+struct ResourceScopeRequirement
+{
+std::vector<std::string> scopes;
+ScopeMatch match = ScopeMatch::All;
+std::vector<std::string> impliedBy;
+};
+class ResourceScopeRegistry
+{
+public:
+struct Entry
+{
+std::string path;
+std::string method;
+ResourceScopeRequirement requirement;
+};
+static void buildFromEndpoints();
+static void registerPrefix(const std::string &prefix, const ResourceScopeRequirement &req);
+static const ResourceScopeRequirement *lookup(
+std::string_view path, ::drogon::HttpMethod method);
+static std::vector<Entry> snapshot();
+static void runConsistencyCheck();
+static void clear();
+static bool isBuilt();
+};
+}
+=== libs/drogon/include/authforge/drogon/authz/ScopeResolver.h
+#pragma once
+#include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <authforge/drogon/utils/ScopeChecker.h>
+#include <sstream>
+#include <string>
+#include <string_view>
+namespace authforge::drogon::authz
+{
+inline bool scopeSatisfied(
+std::string_view tokenScopes,
+const std::string &required,
+const std::vector<std::string> &impliedBy)
+;
+inline bool satisfies(std::string_view tokenScopes, const ResourceScopeRequirement &req)
+;
+inline std::string buildInsufficientScopeChallenge(const ResourceScopeRequirement &req)
+;
+}
 === libs/drogon/include/authforge/drogon/controllers/ApiDocController.h
 #pragma once
 #include <drogon/HttpController.h>
@@ -1110,6 +1183,9 @@ void dashboard(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
+static void initApiDocs();
+private:
+static void initApiDocsImpl();
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/AuthorizationEndpointController.h
@@ -1234,6 +1310,9 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
 const std::string &clientId
 );
+static void initApiDocs();
+private:
+static void initApiDocsImpl();
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/ClientRegistrationController.h
@@ -1657,6 +1736,12 @@ RoleScopeAdminController::deleteScope,
 ::drogon::Delete,
 "authforge::drogon::filters::AuthorizationFilter"
 );
+ADD_METHOD_TO(
+RoleScopeAdminController::scopeResources,
+"/api/admin/scopes/resources",
+::drogon::Get,
+"authforge::drogon::filters::AuthorizationFilter"
+);
 METHOD_LIST_END
 void listRoles(
 const ::drogon::HttpRequestPtr &req,
@@ -1694,6 +1779,13 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
 const std::string &scopeId
 );
+void scopeResources(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+);
+static void initApiDocs();
+private:
+static void initApiDocsImpl();
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/SessionController.h
@@ -1822,6 +1914,9 @@ void getOidcKeys(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
+static void initApiDocs();
+private:
+static void initApiDocsImpl();
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/TokenEndpointController.h
@@ -1985,6 +2080,9 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
 const std::string &userId
 );
+static void initApiDocs();
+private:
+static void initApiDocsImpl();
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/UserSelfServiceController.h
@@ -2048,6 +2146,9 @@ void deleteAccount(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
+static void initApiDocs();
+private:
+static void initApiDocsImpl();
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/WeChatController.h
@@ -2459,6 +2560,8 @@ std::map<int, std::string> responses;
 std::map<int, Json::Value> responseExamples;
 bool requiresAuth;
 AuthType authType = AuthType::Bearer;
+std::vector<std::string> requiredScopes;
+std::vector<std::string> impliedBy;
 };
 class OpenApiGenerator
 {
@@ -2474,6 +2577,7 @@ const std::string &description
 static void setServerConfig(const std::string &url, const std::string &description = "");
 static std::string parameterTypeToString(ParameterType type);
 static std::string parameterLocationToString(ParameterLocation location);
+static const std::vector<EndpointInfo> &endpoints();
 private:
 static std::vector<EndpointInfo> &getEndpoints();
 static Json::Value &getApiInfo();
@@ -4084,18 +4188,19 @@ bool hasErrors() const noexcept
 #include <vector>
 namespace authforge::oauth2::access
 {
-bool isAdminScope(const std::string &scope);
 ScopeCheckResult evaluateScope(
 const std::string &scope,
 const authforge::oauth2::model::Client &client,
 bool hasAdminRole,
-bool hasConsent
+bool hasConsent,
+const std::function<bool(const std::string &)> &scopeRequiresAdmin
 );
 ScopeValidationSummary evaluateScopes(
 const std::vector<std::string> &scopes,
 const authforge::oauth2::model::Client &client,
 bool hasAdminRole,
-const std::function<bool(const std::string &)> &hasConsentForScope
+const std::function<bool(const std::string &)> &hasConsentForScope,
+const std::function<bool(const std::string &)> &scopeRequiresAdmin
 );
 }
 === libs/oauth2/include/authforge/oauth2/jwk/JwkManager.h
@@ -4401,6 +4506,7 @@ bool isValidCodeChallengeFormat(const std::string &codeChallenge);
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 namespace authforge::oauth2::protocol
 {
@@ -4411,7 +4517,8 @@ AuthorizationService(
 std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients,
 std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents = nullptr,
 std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver = nullptr,
-std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider = nullptr
+std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider = nullptr,
+std::unordered_set<std::string> adminScopes = {}
 );
 void evaluateScopes(
 const std::string &clientId,
@@ -4419,11 +4526,14 @@ const std::string &subject,
 const std::vector<std::string> &requestedScopes,
 std::function<void(authforge::oauth2::access::ScopeValidationSummary)> &&callback
 );
+void setAdminScopes(std::unordered_set<std::string> adminScopes)
+;
 private:
 std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients_;
 std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents_;
 std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver_;
 std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider_;
+std::unordered_set<std::string> adminScopes_;
 };
 }
 === libs/oauth2/include/authforge/oauth2/protocol/ClientService.h
