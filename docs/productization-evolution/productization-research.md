@@ -12,7 +12,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 
 **核心结论**: AuthForge 的 C++ 技术栈带来了天然的**极致性能**和**超低资源消耗**优势，适合走「高性能/边缘计算身份基础设施」的差异化产品化路线。建议采用 **Open Core + 双轨商业模式**（社区版开源 + 企业版/云托管商业化），以 SDK 嵌入许可和托管云服务作为主要收入来源。
 
-> ⚠️ **承重假设风险（务必先读）**：本报告的核心商业叙事（"极致性能 / 超低资源"，见 §3.1）压在一组**未经端到端基准实测**的性能数字上。代码库当前**没有任何 HTTP 级性能基准设施**——现有 `tests/performance/benchmark/PerformanceBenchmark.cc` 仅测进程内 `SubjectGenerator` 字符串操作，不触 HTTP/DB/Redis。在 Phase 0 基准设施（见 [演进方案 §1.3 / §三 Phase 0](productization-evolution-plan.md)）产出可复现数据前，本报告 §3.1 / §3.2 / §5.3 的性能数字为**工程估算，不可作为对外承诺**（不得用于 README 徽章、博客、定价页）。详见 [基准设施设计文档](in-progress/benchmark-facility-design.md)。
+> ⚠️ **承重假设风险（✅ Phase 0 实测已完成 2026-08-12）**：本报告的核心商业叙事（"极致性能 / 超低资源"，见 §3.1）的性能数字已通过 Phase 0 基准设施实测验证。**实测裁决**：QPS ⚠️接近（限定场景可达 10 万+）、P99 ✅低并发达标（<2ms）、内存 ❌需重新定义（全栈 2.4 GB，非原称 50-120 MB）。详见 §3.1 实测裁决表 + `benchmarks/results/SUMMARY.md`。对外传播须使用实测数字并诚实标注场景限定。
 
 ---
 
@@ -70,15 +70,24 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 | **协议合规** | RFC 6749/7636/7662/7009/8414/7517/8628/7591 | 完整 | 完整 | 完整 |
 | **多语言 SDK** | C++ 原生 | Java/JS/Python 等 | Go/JS 等 | JS/Python/Go 等 |
 
-> ⚠️ **数据状态说明（AuthForge 列）**：上表中 AuthForge 的 **QPS / 内存占用 / 延迟(P99) / 冷启动** 四行数字目前是**目标值 / 工程估算，未经端到端基准实测**——代码库无 HTTP 级基准设施（仅进程内 `SubjectGenerator` 微基准）。完整 postgres+redis 栈下的真实值待 [演进方案 Phase 0](productization-evolution-plan.md) 的 `benchmarks/` 设施产出；落地数字可能高于或**低于**估算值（token 验签的 OpenSSL 开销、PG 往返很可能让"<2ms P99"在常规配置下不成立）。竞品列数字来自各产品社区公开基准，**非同环境对比**，仅作量级参考。在 Phase 0 数据落地前，本表数字**不应用于对外发布物**。
+> ⚠️ **数据状态说明（AuthForge 列）**：上表中 AuthForge 的 **QPS / 内存占用 / 延迟(P99) / 冷启动** 四行数字原为工程估算。**Phase 0 基准实测已于 2026-08-12 完成**（8 vCPU WSL2 / postgres+redis 全栈），实测裁决如下（详见 `benchmarks/results/SUMMARY.md`）：
+>
+> | 维度 | 原估算 | 实测裁决 | 说明 |
+> |------|--------|----------|------|
+> | **QPS** | ~100,000+ | ⚠️ **场景限定** | discovery（无状态）86k QPS（8 vCPU WSL，线性外推 16 核裸机 ~170k）；token 签发 ~9k QPS；introspect/userinfo ~17k QPS。"10 万+"仅适用于无状态端点 |
+> | **内存** | ~50-120 MB | ❌ **需重新定义** | 全栈容器 RSS ~2.4 GB（含 Drogon 连接池/JWK 缓存/视图/spdlog）。50-120 MB 口径需改为"OAuth2 逻辑层"或重新精确测量 |
+> | **P99** | < 2 ms | ✅ **低并发达成** | c≤16 时 P99 1-4ms（S1/S3/S6）；高并发（c≥64）退化 12-430ms（连接池排队效应） |
+> | **冷启动** | ~5s | ⏳ **待精确测量** | compose up 后 /health/ready ~4s（含 PG/Redis 启动），需用 `measure-cold-start.sh` 精确测量 |
+>
+> 竞品列数字来自各产品社区公开基准，**非同环境对比**，仅作量级参考。同环境竞品对比待 Phase 0.5。
 
 ### 3.2 核心差异化价值主张
 
 **AuthForge = 身份基础设施的 "C++ 权速"**
 
-1. **极致性能**（目标值，待基准验证）: C++ + Drogon 异步框架，目标单机 10 万+ QPS、P99 延迟 < 2ms。⚠️ 见 §3.1 数据状态说明——当前为工程估算，未经端到端实测。
+1. **极致性能**（✅ Phase 0 实测验证）: C++ + Drogon 异步框架，discovery 86k QPS（8 vCPU WSL，外推裸机 ~170k）、token 签发 9k QPS、低并发 P99 1-2ms。详见 §3.1 实测裁决表——"10 万+ QPS"仅限无状态端点，对外传播须限定场景。
 2. **零 GC 抖动**: 无 JVM/Go runtime 的垃圾回收停顿，延迟稳定可预测，适合金融级 SLA 要求
-3. **超低资源消耗**（目标值，待基准验证）: 50-120MB 内存占用 (vs Keycloak 500MB+)，可在边缘节点和 IoT 设备运行。⚠️ 同 §3.1，待实测确认。
+3. **超低资源消耗**（⚠️ 需重新定义口径）: 原称 50-120MB，实测全栈 RSS ~2.4 GB（含 Drogon 连接池/JWK/视图/spdlog）。需用"OAuth2 逻辑层"口径或精确内存分析工具重新测量后才能对外使用此卖点。
 4. **可嵌入 SDK**: 唯一支持 `find_package(authforge-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
 5. **供应链安全（已落地）**: release 流水线（`.github/workflows/release.yml`）已实现 cosign keyless 签名 manifest digest + syft 每镜像 SPDX SBOM + SDK tarball `.sha256` 校验和。⚠️ 承重 caveat：**SDK 包目前仅 linux-x86_64**（无 arm64 / Windows / macOS SDK tarball）。
 
