@@ -645,13 +645,16 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
               }
           },
           [req, cb](const ::drogon::orm::DrogonDbException &e) {
-              // UNIQUE violation on username → friendly error code.
+              // Distinguish username vs email UNIQUE violations by constraint
+              // name (same pattern as AuthService / PostgresIdentityRepository).
               std::string what = e.base().what();
-              if (what.find("unique") != std::string::npos ||
-                  what.find("duplicate") != std::string::npos ||
-                  what.find("UNIQUE") != std::string::npos)
+              if (what.find("users_username_key") != std::string::npos)
               {
                   respondError(req, cb, "VALIDATION_USERNAME_TAKEN", "Username already exists");
+              }
+              else if (what.find("idx_users_email_unique") != std::string::npos)
+              {
+                  respondError(req, cb, "VALIDATION_EMAIL_TAKEN", "Email already in use");
               }
               else
               {
@@ -825,11 +828,23 @@ void UserAdminService::updateUser(
                         (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     },
                     [req, cb](const ::drogon::orm::DrogonDbException &e) {
-                        // UNIQUE-violation on username/email surfaces here.
-                        respondError(
-                          req, cb, "DB_QUERY_ERROR",
-                          std::string("Failed to update user: ") + e.base().what()
-                        );
+                        // Distinguish username vs email UNIQUE violations.
+                        std::string what = e.base().what();
+                        if (what.find("users_username_key") != std::string::npos)
+                        {
+                            respondError(req, cb, "VALIDATION_USERNAME_TAKEN", "Username already exists");
+                        }
+                        else if (what.find("idx_users_email_unique") != std::string::npos)
+                        {
+                            respondError(req, cb, "VALIDATION_EMAIL_TAKEN", "Email already in use");
+                        }
+                        else
+                        {
+                            respondError(
+                              req, cb, "DB_QUERY_ERROR",
+                              std::string("Failed to update user: ") + what
+                            );
+                        }
                     }
                   );
               }
