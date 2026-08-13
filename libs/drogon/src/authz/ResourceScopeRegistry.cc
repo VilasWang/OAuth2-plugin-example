@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdlib>  // std::abort() -- M2: ensure LOG_FATAL loud-fail on all platforms
+#include <cstdio>   // std::fprintf/fflush -- stderr output before abort
 #include <set>
 #include <sstream>
 #include <unordered_map>
@@ -332,7 +333,11 @@ void ResourceScopeRegistry::runConsistencyCheck()
                   << oss.str()
                   << "\nAdd a requiredScopes declaration to the matching "
                      "controller's initApiDocsImpl().";
-        std::abort();  // M2: LOG_FATAL alone doesn't abort on Windows (spdlog)
+        // Use stderr (unbuffered) so the message is visible even though
+        // spdlog may not flush before exit.
+        std::fprintf(stderr, "FATAL: consistency check FAILED (missing):%s\n", oss.str().c_str());
+        std::fflush(stderr);
+        std::quick_exit(1);  // M2: quick_exit avoids spdlog destructor crash on Windows
     }
 
     // (b) Orphan direction: every registry entry must correspond to a real
@@ -343,6 +348,11 @@ void ResourceScopeRegistry::runConsistencyCheck()
     std::set<std::string> orphanEntries;
     for (const auto &e : snap)
     {
+        // Prefix entries (method "ANY", synthetic path ending /*) are
+        // catch-all gates, not real ADD_METHOD_TO routes -- skip them in
+        // the orphan check.
+        if (e.method == "ANY")
+            continue;
         bool found = false;
         for (const auto &info : handlers)
         {
@@ -368,7 +378,9 @@ void ResourceScopeRegistry::runConsistencyCheck()
                   << oss.str()
                   << "\nRemove the declaration or fix the path/method to "
                      "match an ADD_METHOD_TO route.";
-        std::abort();  // M2: LOG_FATAL alone doesn't abort on Windows (spdlog)
+        std::fprintf(stderr, "FATAL: consistency check FAILED (orphan):%s\n", oss.str().c_str());
+        std::fflush(stderr);
+        std::quick_exit(1);  // M2: quick_exit avoids spdlog destructor crash on Windows
     }
 
     LOG_INFO << "ResourceScopeRegistry consistency check passed ("
