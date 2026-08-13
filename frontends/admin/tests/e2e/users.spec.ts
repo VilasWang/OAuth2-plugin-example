@@ -156,4 +156,78 @@ test.describe('User Management', () => {
     const errorEl = page.locator('.bg-red-50, .text-red-700')
     await expect(errorEl.first()).toBeVisible()
   })
+
+  test('opens Create User modal', async ({ page }) => {
+    await page.click('button:has-text("Create User")')
+    await expect(page.locator('h3:has-text("Create User")')).toBeVisible()
+    await expect(page.locator('input[placeholder="newuser"]')).toBeVisible()
+  })
+
+  test('creates a user successfully', async ({ page }) => {
+    let createRequestBody: any = null
+    await page.route('**/api/admin/users', async (route) => {
+      if (route.request().method() === 'POST') {
+        createRequestBody = JSON.parse(route.request().postData() || '{}')
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'success', message: 'User created successfully', user: { id: 99, username: 'newuser_test', email: 'new@test.com' } }),
+        })
+      } else {
+        await route.continue()
+      }
+    })
+    await page.click('button:has-text("Create User")')
+    await page.fill('input[placeholder="newuser"]', 'newuser_test')
+    await page.fill('input[placeholder="••••••••"]', 'TestPass123!')
+    await page.click('button:has-text("Create User"):not(:has-text("Create User)"))')
+    // The modal-specific create button
+    await page.locator('.fixed button:has-text("Create User")').click()
+    await expect(page.locator('.bg-green-50')).toBeVisible({ timeout: 5000 })
+    expect(createRequestBody.username).toBe('newuser_test')
+  })
+
+  test('search filters user list', async ({ page }) => {
+    // Override the users route to return a filtered result for "testuser"
+    await page.route('**/api/admin/users**', async (route) => {
+      const url = new URL(route.request().url())
+      const q = url.searchParams.get('q')
+      if (q && q.length > 0) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'success', page: 1, per_page: 50, total: 1, total_pages: 1, users: [MOCK_USERS[1]] }),
+        })
+      } else {
+        await route.continue()
+      }
+    })
+    await page.fill('input[placeholder="Search username or email..."]', 'testuser')
+    await page.click('button:has-text("Search")')
+    await page.waitForLoadState('networkidle')
+    const tableBody = page.locator('tbody')
+    await expect(tableBody.getByRole('cell', { name: 'testuser', exact: true })).toBeVisible()
+    // admin user should NOT be present
+    await expect(tableBody.getByRole('cell', { name: 'admin', exact: true })).toBeHidden()
+  })
+
+  test('duplicate username shows error', async ({ page }) => {
+    await page.route('**/api/admin/users', async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'VALIDATION_USERNAME_TAKEN', message: 'Username already exists' } }),
+        })
+      } else {
+        await route.continue()
+      }
+    })
+    await page.click('button:has-text("Create User")')
+    await page.fill('input[placeholder="newuser"]', 'admin')
+    await page.fill('input[placeholder="••••••••"]', 'TestPass123!')
+    await page.locator('.fixed button:has-text("Create User")').click()
+    const errorEl = page.locator('.bg-red-50')
+    await expect(errorEl.first()).toBeVisible({ timeout: 5000 })
+  })
 })

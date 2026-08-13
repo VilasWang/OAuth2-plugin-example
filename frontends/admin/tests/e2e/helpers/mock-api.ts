@@ -104,6 +104,7 @@ export const MOCK_USER_DETAIL = {
   failed_login_count: 0,
   locked: false,
   locked_until: 0,
+  org_id: null,
   created_at: '2026-05-01T00:00:00Z',
   roles: ['admin', 'user'],
 }
@@ -229,13 +230,90 @@ export async function setupAuthenticatedMocks(page: Page) {
     })
   })
 
-  // Admin users
+  // Admin users (GET list with pagination/filter, POST create)
   await page.route('**/api/admin/users', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ users: MOCK_USERS }),
-    })
+    const method = route.request().method()
+    if (method === 'GET')
+    {
+      const url = new URL(route.request().url())
+      const q = url.searchParams.get('q') || ''
+      const locked = url.searchParams.get('locked')
+      let page = parseInt(url.searchParams.get('page') || '1', 10) || 1
+      let perPage = parseInt(url.searchParams.get('per_page') || '50', 10) || 50
+      if (perPage > 100) perPage = 100
+      if (perPage < 1) perPage = 50
+      if (page < 1) page = 1
+
+      let filtered = MOCK_USERS
+      if (q)
+      {
+        const ql = q.toLowerCase()
+        filtered = filtered.filter(
+          (u) => (u.username || '').toLowerCase().startsWith(ql) ||
+                 (u.email || '').toLowerCase().startsWith(ql)
+        )
+      }
+      if (locked === 'true')
+      {
+        filtered = filtered.filter((u) => (u as any).locked === true)
+      }
+      else if (locked === 'false')
+      {
+        filtered = filtered.filter((u) => !(u as any).locked)
+      }
+
+      const total = filtered.length
+      const totalPages = total > 0 ? Math.ceil(total / perPage) : 0
+      const start = (page - 1) * perPage
+      const pageUsers = filtered.slice(start, start + perPage)
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          page,
+          per_page: perPage,
+          total,
+          total_pages: totalPages,
+          users: pageUsers,
+        }),
+      })
+    }
+    else if (method === 'POST')
+    {
+      const body = JSON.parse(route.request().postData() || '{}')
+      // Duplicate username check.
+      if (MOCK_USERS.some((u) => u.username === body.username))
+      {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: { code: 'VALIDATION_USERNAME_TAKEN', message: 'Username already exists' },
+          }),
+        })
+      }
+      else
+      {
+        const newUser = {
+          id: Date.now(),
+          username: body.username,
+          email: body.email || '',
+          email_verified: false,
+          mfa_enabled: false,
+        }
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'success', message: 'User created successfully', user: newUser }),
+        })
+      }
+    }
+    else
+    {
+      await route.continue()
+    }
   })
 
   // User detail - sub-resources (must be registered before the wildcard)

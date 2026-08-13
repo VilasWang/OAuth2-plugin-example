@@ -1012,6 +1012,7 @@ public:
 using ResponseCallback =
 std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 static void listUsers(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
+static void createUser(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
 static void getUser(
 const ::drogon::HttpRequestPtr &req,
 ResponseCallback cb,
@@ -2011,6 +2012,12 @@ UserAdminController::listUsers,
 "authforge::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
+UserAdminController::createUser,
+"/api/admin/users",
+::drogon::Post,
+"authforge::drogon::filters::AuthorizationFilter"
+);
+ADD_METHOD_TO(
 UserAdminController::getUser,
 "/api/admin/users/{userId}",
 ::drogon::Get,
@@ -2048,6 +2055,10 @@ UserAdminController::assignUserRoles,
 );
 METHOD_LIST_END
 void listUsers(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+);
+void createUser(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );

@@ -49,14 +49,23 @@ void UserAdminController::initApiDocsImpl()
 {
     openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users", "GET", "List Users",
-              "Get a paginated list of users.", {"users:read"}));
+              "List users with optional pagination (page, per_page) and filtering "
+              "(q for username/email prefix, role, locked). Returns total count.",
+              {"users:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users", "POST", "Create User",
+              "Create a new user. Requires username and password; email, roles, "
+              "mfa_enabled, email_verified, and org_id are optional.",
+              {"users:write"}));
     openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users/{userId}", "GET", "Get User Detail",
               "Get detailed information about a specific user including roles and account status.",
               {"users:read"}));
     openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users/{userId}", "PUT", "Update User",
-              "Update user information (email, email_verified).", {"users:write"}));
+              "Update user fields: email, email_verified, username, mfa_enabled, "
+              "locked, org_id.",
+              {"users:write"}));
     openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users/{userId}/disable", "PUT", "Disable User",
               "Disable a specific user account.", {"users:write"}));
@@ -81,6 +90,16 @@ void UserAdminController::listUsers(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     UserService::listUsers(req, sharedCb);
+}
+
+void UserAdminController::createUser(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+)
+{
+    auto sharedCb =
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+    UserService::createUser(req, sharedCb);
 }
 
 void UserAdminController::disableUser(

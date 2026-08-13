@@ -1,38 +1,77 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 
 const users = ref<any[]>([])
 const loading = ref(true)
 const showRoleModal = ref(false)
+const showCreateModal = ref(false)
 const selectedUser = ref<any>(null)
 const roleInput = ref('')
 const saving = ref(false)
 const errorMessage = ref('')
+const successMessage = ref('')
 
-// Inline error banner (replaces native alert for backend errors, Req 10.6).
+// Pagination + search/filter state
+const currentPage = ref(1)
+const perPage = ref(50)
+const total = ref(0)
+const totalPages = ref(0)
+const searchQuery = ref('')
+const roleFilter = ref('')
+const lockedFilter = ref('')
+
+// Create-user form state
+const createForm = ref({ username: '', password: '', email: '', roles: '' })
+
+const hasPrev = computed(() => currentPage.value > 1)
+const hasNext = computed(() => currentPage.value < totalPages.value)
+
 function showError(msg: string) {
   errorMessage.value = msg
   setTimeout(() => { errorMessage.value = '' }, 5000)
+}
+function showSuccess(msg: string) {
+  successMessage.value = msg
+  setTimeout(() => { successMessage.value = '' }, 3000)
 }
 
 async function fetchUsers() {
   loading.value = true
   try {
-    const resp = await axios.get('/api/admin/users')
+    const params: Record<string, string | number> = {
+      page: currentPage.value,
+      per_page: perPage.value,
+    }
+    if (searchQuery.value) params.q = searchQuery.value
+    if (roleFilter.value) params.role = roleFilter.value
+    if (lockedFilter.value) params.locked = lockedFilter.value
+    const resp = await axios.get('/api/admin/users', { params })
     users.value = resp.data.users || []
+    total.value = resp.data.total || 0
+    totalPages.value = resp.data.total_pages || 0
   } catch (e: unknown) {
-    // Display the localized message via the Frontend_Error_Module (Req 10.2).
     showError(normalizeError(e).message)
   } finally {
     loading.value = false
   }
 }
 
+function applySearch() {
+  currentPage.value = 1
+  fetchUsers()
+}
+
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value) return
+  currentPage.value = page
+  fetchUsers()
+}
+
 function openRoleModal(user: any) {
   selectedUser.value = user
-  roleInput.value = ''  // Will be populated when we have role info
+  roleInput.value = (user.roles || []).join(', ')
   showRoleModal.value = true
 }
 
@@ -45,9 +84,36 @@ async function assignRoles() {
       headers: { 'Content-Type': 'application/json' },
     })
     showRoleModal.value = false
+    showSuccess('Roles assigned successfully')
     await fetchUsers()
   } catch (e: unknown) {
-    // Req 10.3/10.6: normalize via Frontend_Error_Module, no native alert.
+    showError(normalizeError(e).message)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function createUser() {
+  if (!createForm.value.username.trim() || !createForm.value.password.trim()) {
+    showError('Username and password are required')
+    return
+  }
+  saving.value = true
+  try {
+    const body: any = {
+      username: createForm.value.username,
+      password: createForm.value.password,
+    }
+    if (createForm.value.email) body.email = createForm.value.email
+    if (createForm.value.roles) {
+      body.roles = createForm.value.roles.split(',').map((r: string) => r.trim()).filter(Boolean)
+    }
+    await axios.post('/api/admin/users', body, { headers: { 'Content-Type': 'application/json' } })
+    showCreateModal.value = false
+    createForm.value = { username: '', password: '', email: '', roles: '' }
+    showSuccess('User created successfully')
+    await fetchUsers()
+  } catch (e: unknown) {
     showError(normalizeError(e).message)
   } finally {
     saving.value = false
@@ -59,9 +125,36 @@ onMounted(fetchUsers)
 
 <template>
   <div>
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">Users</h2>
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-bold text-gray-900">Users</h2>
+      <button @click="showCreateModal = true"
+        class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">
+        + Create User
+      </button>
+    </div>
 
     <div v-if="errorMessage" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{{ errorMessage }}</div>
+    <div v-if="successMessage" class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">{{ successMessage }}</div>
+
+    <!-- Search + filter bar -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <input v-model="searchQuery" @keyup.enter="applySearch"
+        class="px-3 py-2 border border-gray-300 rounded-md text-sm w-64"
+        placeholder="Search username or email..." />
+      <select v-model="roleFilter" @change="applySearch"
+        class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+        <option value="">All roles</option>
+        <option value="admin">admin</option>
+        <option value="user">user</option>
+      </select>
+      <select v-model="lockedFilter" @change="applySearch"
+        class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+        <option value="">All status</option>
+        <option value="true">Locked</option>
+        <option value="false">Active</option>
+      </select>
+      <button @click="applySearch" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200">Search</button>
+    </div>
 
     <div v-if="loading" class="text-center py-12 text-gray-500">Loading...</div>
 
@@ -69,6 +162,7 @@ onMounted(fetchUsers)
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verified</th>
@@ -78,6 +172,7 @@ onMounted(fetchUsers)
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
+            <td class="px-6 py-4 text-sm text-gray-400">{{ user.id }}</td>
             <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ user.username }}</td>
             <td class="px-6 py-4 text-sm text-gray-500">{{ user.email || '—' }}</td>
             <td class="px-6 py-4">
@@ -97,6 +192,55 @@ onMounted(fetchUsers)
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination controls -->
+      <div v-if="totalPages > 1" class="px-6 py-3 bg-gray-50 flex items-center justify-between border-t border-gray-200">
+        <span class="text-sm text-gray-600">
+          {{ total }} user(s) · Page {{ currentPage }} of {{ totalPages }}
+        </span>
+        <div class="flex gap-2">
+          <button @click="goToPage(currentPage - 1)" :disabled="!hasPrev"
+            class="px-3 py-1.5 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100">
+            Previous
+          </button>
+          <button @click="goToPage(currentPage + 1)" :disabled="!hasNext"
+            class="px-3 py-1.5 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100">
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div v-if="showCreateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-4">Create User</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Username *</label>
+            <input v-model="createForm.username" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="newuser" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Password *</label>
+            <input v-model="createForm.password" type="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="••••••••" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Email</label>
+            <input v-model="createForm.email" type="email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="user@example.com" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Roles (comma-separated)</label>
+            <input v-model="createForm.roles" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="user" />
+            <p class="mt-1 text-xs text-gray-500">Default: user. Available: admin, user</p>
+          </div>
+        </div>
+        <div class="flex justify-end space-x-3 mt-6">
+          <button @click="showCreateModal = false" class="px-4 py-2 border border-gray-300 rounded-md text-sm">Cancel</button>
+          <button @click="createUser" :disabled="saving" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50">
+            {{ saving ? 'Creating...' : 'Create User' }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Role Assignment Modal -->
