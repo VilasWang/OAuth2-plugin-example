@@ -85,11 +85,6 @@ void sendOAuthErrorRedirect(
 
 }  // namespace authforge::drogon::controllers
 
-static void sendBackchannelLogoutNotifications(const std::string &)
-{
-    LOG_DEBUG << "sendBackchannelLogoutNotifications: stub";
-}
-
 namespace authforge::drogon::controllers
 {
 
@@ -1108,26 +1103,22 @@ void SessionController::logout(
     if (req->session())
         req->session()->clear();
 
-    // Revoke the access token
-    // Task 24 slice 4: prefer the injected authforge::identity::SessionManager
-    // (its logout() forwards to a real IBackchannelLogoutNotifier
-    // implementation, see bootstrap::wireIdentityServices()) over the
-    // pre-Task-24 sendBackchannelLogoutNotifications() stub (which only
-    // logs, see this file's static function above), falling back to that
-    // stub when unset -- same injected-with-fallback pattern as
-    // login()/registerUser() above.
+    // Revoke the access token, then notify relying parties via the injected
+    // SessionManager (whose notifier POSTs a signed logout_token to each RP
+    // with an active session + a registered backchannel_logout_uri, see
+    // bootstrap::wireIdentityServices() -> BackchannelLogoutNotifier).
+    // sessionManager_ is null only in memory-storage / no-DB configurations,
+    // where there are no oauth2_clients rows to notify -- so the else branch
+    // simply responds.
     auto *sessionManager = sessionManager_;
     plugin->revokeAccessToken(
       token, clientId, [userId, sessionManager, callback = std::move(callback)]() mutable {
           LOG_INFO << "Logout: Token revoked for user " << userId;
 
           auto respond = [callback = std::move(callback)]() mutable {
-              // Respond immediately without waiting for backchannel
-              // notifications to fully complete on the caller's side --
-              // both branches below still invoke this only after their
-              // respective notify() completes (fire-and-forget from the
-              // HTTP response's perspective, matching the pre-Task-24
-              // stub's synchronous-log-then-respond timing).
+              // Respond immediately: notify() is fire-and-forget from the
+              // caller's perspective (the notifier's POSTs to RPs do not
+              // block this response).
               Json::Value json;
               json["message"] = "Logged out successfully";
               auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
@@ -1138,10 +1129,7 @@ void SessionController::logout(
           if (sessionManager)
               sessionManager->logout(userId, std::move(respond));
           else
-          {
-              sendBackchannelLogoutNotifications(userId);
               respond();
-          }
       }
     );
 }
