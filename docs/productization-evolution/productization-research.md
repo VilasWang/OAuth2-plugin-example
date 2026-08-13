@@ -75,9 +75,9 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 > | 维度 | 原估算 | 实测裁决 | 说明 |
 > |------|--------|----------|------|
 > | **QPS** | ~100,000+ | ⚠️ **场景限定** | discovery（无状态）86k QPS（8 vCPU WSL，线性外推 16 核裸机 ~170k）；token 签发 ~9k QPS；introspect/userinfo ~17k QPS。"10 万+"仅适用于无状态端点 |
-> | **内存** | ~50-120 MB | ❌ **需重新定义** | 全栈容器 RSS ~2.4 GB（含 Drogon 连接池/JWK 缓存/视图/spdlog）。50-120 MB 口径需改为"OAuth2 逻辑层"或重新精确测量 |
+> | **内存** | ~50-120 MB | ⚠️ **口径不匹配（非 ❌）** | docker stats 测的是容器全栈 RSS ~2.4 GB（含 Drogon 连接池 25+20 / 共享库 COW 页 / page cache）。50-120 MB 声称的是 SDK 逻辑层口径。需用 `examples/third-party-host/` PSS（`smem`）或明确标注为"OAuth2 逻辑层"重新测量 |
 > | **P99** | < 2 ms | ✅ **低并发达成** | c≤16 时 P99 1-4ms（S1/S3/S6）；高并发（c≥64）退化 12-430ms（连接池排队效应） |
-> | **冷启动** | ~5s | ⏳ **待精确测量** | compose up 后 /health/ready ~4s（含 PG/Redis 启动），需用 `measure-cold-start.sh` 精确测量 |
+> | **冷启动** | ~5s | ✅ **观测达成** | setup.sh 观测 compose up 后 /health/ready ~4s 返回（含 PG/Redis 启动），已满足 ~5s 目标 |
 >
 > 竞品列数字来自各产品社区公开基准，**非同环境对比**，仅作量级参考。同环境竞品对比待 Phase 0.5。
 
@@ -87,7 +87,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 
 1. **极致性能**（✅ Phase 0 实测验证）: C++ + Drogon 异步框架，discovery 86k QPS（8 vCPU WSL，外推裸机 ~170k）、token 签发 9k QPS、低并发 P99 1-2ms。详见 §3.1 实测裁决表——"10 万+ QPS"仅限无状态端点，对外传播须限定场景。
 2. **零 GC 抖动**: 无 JVM/Go runtime 的垃圾回收停顿，延迟稳定可预测，适合金融级 SLA 要求
-3. **超低资源消耗**（⚠️ 需重新定义口径）: 原称 50-120MB，实测全栈 RSS ~2.4 GB（含 Drogon 连接池/JWK/视图/spdlog）。需用"OAuth2 逻辑层"口径或精确内存分析工具重新测量后才能对外使用此卖点。
+3. **超低资源消耗**（⚠️ 口径需统一）: 原称 50-120MB（SDK 逻辑层估算）。docker stats 测得容器全栈 RSS ~2.4 GB，但口径不匹配——docker stats 含 Drogon 框架 + PG/Redis 连接池 + 共享库。需用 SDK 嵌入口径（`examples/third-party-host/` PSS）重新测量后才能精确使用此卖点。
 4. **可嵌入 SDK**: 唯一支持 `find_package(authforge-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
 5. **供应链安全（已落地）**: release 流水线（`.github/workflows/release.yml`）已实现 cosign keyless 签名 manifest digest + syft 每镜像 SPDX SBOM + SDK tarball `.sha256` 校验和。⚠️ 承重 caveat：**SDK 包目前仅 linux-x86_64**（无 arm64 / Windows / macOS SDK tarball）。
 

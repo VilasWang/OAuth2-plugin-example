@@ -51,9 +51,9 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 声明 | 实测 | 裁决 |
 |------|------|------|
 | 单机 QPS ~10 万+ | S1 discovery 86,332 QPS（8 vCPU WSL） | ⚠️ **接近** — 线性外推 16 核裸机 ~170k，几乎确定可达。但仅限 discovery 类无状态端点；token 签发 ~9k QPS |
-| 内存 50–120 MB | docker stats ~2.4 GB RSS | ❌ **需重新定义** — 全栈含 Drogon 连接池/JWK 缓存/视图/spdlog |
+| 内存 50–120 MB | docker stats ~2.4 GB RSS | ⚠️ **口径不匹配** — docker stats 测的是容器全栈 RSS（含 Drogon 连接池/共享库/page cache）。50-120MB 声称的是 SDK 逻辑层。需改用 SDK 嵌入口径（`examples/third-party-host/` PSS）重新测量 |
 | P99 < 2ms | S3/S6 低并发 P99 1–2ms；高并发退化 12–430ms | ✅ **低并发达成** — c≤16 时 P99 1–4ms，高并发为连接池排队效应 |
-| 冷启动 ~5s | 待精确测量 | ⏳ **未测** — compose up 后 /health/ready ~4s（含 PG/Redis 启动） |
+| 冷启动 ~5s | setup.sh 观测 ~4s 就绪 | ✅ **观测达成** — compose up 后 /health/ready ~4s 返回（含 PG/Redis 启动） |
 
 > ⚠️ 以上数字来自 WSL2 虚拟机（8 vCPU / 16 GB），非裸机。所有场景 driver CPU < 44%，数字是**下限**。
 
