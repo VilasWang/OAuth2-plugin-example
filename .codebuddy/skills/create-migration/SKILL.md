@@ -1,7 +1,7 @@
 ---
 name: create-migration
 description: Create versioned SQL migration files for database schema changes, following project conventions
-allowed-tools: Read, Write, Bash
+disable-model-invocation: true
 ---
 
 # SQL Migration Skill
@@ -16,12 +16,12 @@ When adding, modifying, or dropping database tables/columns/indexes. Triggered b
 
 Pattern: `apps/server/migrations/V{NNN}__descriptive_name.sql`
 
-Current latest: check existing migrations before creating:
+Check existing migrations before creating to determine the next number:
 ```bash
-ls -la apps/server/migrations/
+ls -1 apps/server/migrations/ | sort | tail -1
 ```
 
-Determine the next number by finding the highest existing `V{NNN}` prefix.
+The next migration number is one higher than the latest file found above.
 
 ## File Template
 
@@ -49,7 +49,7 @@ Before finalizing, verify:
 3. **Idempotent**: Uses `IF NOT EXISTS` / `IF EXISTS` where appropriate
 4. **No data loss**: ALTER COLUMN preserves existing data; DROP has DOWN section
 5. **Schema consistency**: Matches ORM model expectations in `model.json`
-6. **CMakeLists**: No update needed (migrations are loaded at runtime by SchemaManager)
+6. **CMakeLists**: No update needed. Migrations are applied at runtime by `SchemaManager` (when `OAUTH2_AUTO_MIGRATE=true`) or via `authforge-server --migrate-only` / `scripts/backend/setup-database.{sh,bat}`; no build-file change required.
 
 ## Common Patterns
 
