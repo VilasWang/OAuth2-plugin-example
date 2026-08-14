@@ -39,6 +39,7 @@ const std::string Users::Cols::_last_failed_login = "\"last_failed_login\"";
 const std::string Users::Cols::_org_id = "\"org_id\"";
 const std::string Users::Cols::_mfa_pending_client_id = "\"mfa_pending_client_id\"";
 const std::string Users::Cols::_mfa_pending_redirect_uri = "\"mfa_pending_redirect_uri\"";
+const std::string Users::Cols::_deleted_at = "\"deleted_at\"";
 const std::string Users::primaryKeyName = "id";
 const bool Users::hasPrimaryKey = true;
 const std::string Users::tableName = "\"users\"";
@@ -60,7 +61,8 @@ const std::vector<typename Users::MetaData> Users::metaData_={
 {"last_failed_login","int64_t","bigint",8,0,0,0},
 {"org_id","int32_t","integer",4,0,0,0},
 {"mfa_pending_client_id","std::string","character varying",50,0,0,0},
-{"mfa_pending_redirect_uri","std::string","text",0,0,0,0}
+{"mfa_pending_redirect_uri","std::string","text",0,0,0,0},
+{"deleted_at","::trantor::Date","timestamp with time zone",0,0,0,0}
 };
 const std::string &Users::getColumnName(size_t index) noexcept(false)
 {
@@ -157,11 +159,33 @@ Users::Users(const Row &r, const ssize_t indexOffset) noexcept
         {
             mfaPendingRedirectUri_=std::make_shared<std::string>(r["mfa_pending_redirect_uri"].as<std::string>());
         }
+        if(!r["deleted_at"].isNull())
+        {
+            auto timeStr = r["deleted_at"].as<std::string>();
+            struct tm stm;
+            memset(&stm,0,sizeof(stm));
+            auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
+            time_t t = mktime(&stm);
+            size_t decimalNum = 0;
+            if(p)
+            {
+                if(*p=='.')
+                {
+                    std::string decimals(p+1,&timeStr[timeStr.length()]);
+                    while(decimals.length()<6)
+                    {
+                        decimals += "0";
+                    }
+                    decimalNum = (size_t)atol(decimals.c_str());
+                }
+                deletedAt_=std::make_shared<::trantor::Date>(t*1000000+decimalNum);
+            }
+        }
     }
     else
     {
         size_t offset = (size_t)indexOffset;
-        if(offset + 17 > r.size())
+        if(offset + 18 > r.size())
         {
             LOG_FATAL << "Invalid SQL result for this model";
             return;
@@ -270,13 +294,36 @@ Users::Users(const Row &r, const ssize_t indexOffset) noexcept
         {
             mfaPendingRedirectUri_=std::make_shared<std::string>(r[index].as<std::string>());
         }
+        index = offset + 17;
+        if(!r[index].isNull())
+        {
+            auto timeStr = r[index].as<std::string>();
+            struct tm stm;
+            memset(&stm,0,sizeof(stm));
+            auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
+            time_t t = mktime(&stm);
+            size_t decimalNum = 0;
+            if(p)
+            {
+                if(*p=='.')
+                {
+                    std::string decimals(p+1,&timeStr[timeStr.length()]);
+                    while(decimals.length()<6)
+                    {
+                        decimals += "0";
+                    }
+                    decimalNum = (size_t)atol(decimals.c_str());
+                }
+                deletedAt_=std::make_shared<::trantor::Date>(t*1000000+decimalNum);
+            }
+        }
     }
 
 }
 
 Users::Users(const Json::Value &pJson, const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 17)
+    if(pMasqueradingVector.size() != 18)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -433,6 +480,32 @@ Users::Users(const Json::Value &pJson, const std::vector<std::string> &pMasquera
         if(!pJson[pMasqueradingVector[16]].isNull())
         {
             mfaPendingRedirectUri_=std::make_shared<std::string>(pJson[pMasqueradingVector[16]].asString());
+        }
+    }
+    if(!pMasqueradingVector[17].empty() && pJson.isMember(pMasqueradingVector[17]))
+    {
+        dirtyFlag_[17] = true;
+        if(!pJson[pMasqueradingVector[17]].isNull())
+        {
+            auto timeStr = pJson[pMasqueradingVector[17]].asString();
+            struct tm stm;
+            memset(&stm,0,sizeof(stm));
+            auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
+            time_t t = mktime(&stm);
+            size_t decimalNum = 0;
+            if(p)
+            {
+                if(*p=='.')
+                {
+                    std::string decimals(p+1,&timeStr[timeStr.length()]);
+                    while(decimals.length()<6)
+                    {
+                        decimals += "0";
+                    }
+                    decimalNum = (size_t)atol(decimals.c_str());
+                }
+                deletedAt_=std::make_shared<::trantor::Date>(t*1000000+decimalNum);
+            }
         }
     }
 }
@@ -593,12 +666,38 @@ Users::Users(const Json::Value &pJson) noexcept(false)
             mfaPendingRedirectUri_=std::make_shared<std::string>(pJson["mfa_pending_redirect_uri"].asString());
         }
     }
+    if(pJson.isMember("deleted_at"))
+    {
+        dirtyFlag_[17]=true;
+        if(!pJson["deleted_at"].isNull())
+        {
+            auto timeStr = pJson["deleted_at"].asString();
+            struct tm stm;
+            memset(&stm,0,sizeof(stm));
+            auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
+            time_t t = mktime(&stm);
+            size_t decimalNum = 0;
+            if(p)
+            {
+                if(*p=='.')
+                {
+                    std::string decimals(p+1,&timeStr[timeStr.length()]);
+                    while(decimals.length()<6)
+                    {
+                        decimals += "0";
+                    }
+                    decimalNum = (size_t)atol(decimals.c_str());
+                }
+                deletedAt_=std::make_shared<::trantor::Date>(t*1000000+decimalNum);
+            }
+        }
+    }
 }
 
 void Users::updateByMasqueradedJson(const Json::Value &pJson,
                                             const std::vector<std::string> &pMasqueradingVector) noexcept(false)
 {
-    if(pMasqueradingVector.size() != 17)
+    if(pMasqueradingVector.size() != 18)
     {
         LOG_ERROR << "Bad masquerading vector";
         return;
@@ -756,6 +855,32 @@ void Users::updateByMasqueradedJson(const Json::Value &pJson,
             mfaPendingRedirectUri_=std::make_shared<std::string>(pJson[pMasqueradingVector[16]].asString());
         }
     }
+    if(!pMasqueradingVector[17].empty() && pJson.isMember(pMasqueradingVector[17]))
+    {
+        dirtyFlag_[17] = true;
+        if(!pJson[pMasqueradingVector[17]].isNull())
+        {
+            auto timeStr = pJson[pMasqueradingVector[17]].asString();
+            struct tm stm;
+            memset(&stm,0,sizeof(stm));
+            auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
+            time_t t = mktime(&stm);
+            size_t decimalNum = 0;
+            if(p)
+            {
+                if(*p=='.')
+                {
+                    std::string decimals(p+1,&timeStr[timeStr.length()]);
+                    while(decimals.length()<6)
+                    {
+                        decimals += "0";
+                    }
+                    decimalNum = (size_t)atol(decimals.c_str());
+                }
+                deletedAt_=std::make_shared<::trantor::Date>(t*1000000+decimalNum);
+            }
+        }
+    }
 }
 
 void Users::updateByJson(const Json::Value &pJson) noexcept(false)
@@ -911,6 +1036,32 @@ void Users::updateByJson(const Json::Value &pJson) noexcept(false)
         if(!pJson["mfa_pending_redirect_uri"].isNull())
         {
             mfaPendingRedirectUri_=std::make_shared<std::string>(pJson["mfa_pending_redirect_uri"].asString());
+        }
+    }
+    if(pJson.isMember("deleted_at"))
+    {
+        dirtyFlag_[17] = true;
+        if(!pJson["deleted_at"].isNull())
+        {
+            auto timeStr = pJson["deleted_at"].asString();
+            struct tm stm;
+            memset(&stm,0,sizeof(stm));
+            auto p = strptime(timeStr.c_str(),"%Y-%m-%d %H:%M:%S",&stm);
+            time_t t = mktime(&stm);
+            size_t decimalNum = 0;
+            if(p)
+            {
+                if(*p=='.')
+                {
+                    std::string decimals(p+1,&timeStr[timeStr.length()]);
+                    while(decimals.length()<6)
+                    {
+                        decimals += "0";
+                    }
+                    decimalNum = (size_t)atol(decimals.c_str());
+                }
+                deletedAt_=std::make_shared<::trantor::Date>(t*1000000+decimalNum);
+            }
         }
     }
 }
@@ -1319,6 +1470,28 @@ void Users::setMfaPendingRedirectUriToNull() noexcept
     dirtyFlag_[16] = true;
 }
 
+const ::trantor::Date &Users::getValueOfDeletedAt() const noexcept
+{
+    static const ::trantor::Date defaultValue = ::trantor::Date();
+    if(deletedAt_)
+        return *deletedAt_;
+    return defaultValue;
+}
+const std::shared_ptr<::trantor::Date> &Users::getDeletedAt() const noexcept
+{
+    return deletedAt_;
+}
+void Users::setDeletedAt(const ::trantor::Date &pDeletedAt) noexcept
+{
+    deletedAt_ = std::make_shared<::trantor::Date>(pDeletedAt);
+    dirtyFlag_[17] = true;
+}
+void Users::setDeletedAtToNull() noexcept
+{
+    deletedAt_.reset();
+    dirtyFlag_[17] = true;
+}
+
 void Users::updateId(const uint64_t id)
 {
 }
@@ -1341,7 +1514,8 @@ const std::vector<std::string> &Users::insertColumns() noexcept
         "last_failed_login",
         "org_id",
         "mfa_pending_client_id",
-        "mfa_pending_redirect_uri"
+        "mfa_pending_redirect_uri",
+        "deleted_at"
     };
     return inCols;
 }
@@ -1524,6 +1698,17 @@ void Users::outputArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
+    if(dirtyFlag_[17])
+    {
+        if(getDeletedAt())
+        {
+            binder << getValueOfDeletedAt();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
 }
 
 const std::vector<std::string> Users::updateColumns() const
@@ -1592,6 +1777,10 @@ const std::vector<std::string> Users::updateColumns() const
     if(dirtyFlag_[16])
     {
         ret.push_back(getColumnName(16));
+    }
+    if(dirtyFlag_[17])
+    {
+        ret.push_back(getColumnName(17));
     }
     return ret;
 }
@@ -1774,6 +1963,17 @@ void Users::updateArgs(drogon::orm::internal::SqlBinder &binder) const
             binder << nullptr;
         }
     }
+    if(dirtyFlag_[17])
+    {
+        if(getDeletedAt())
+        {
+            binder << getValueOfDeletedAt();
+        }
+        else
+        {
+            binder << nullptr;
+        }
+    }
 }
 Json::Value Users::toJson() const
 {
@@ -1914,6 +2114,14 @@ Json::Value Users::toJson() const
     {
         ret["mfa_pending_redirect_uri"]=Json::Value();
     }
+    if(getDeletedAt())
+    {
+        ret["deleted_at"]=getDeletedAt()->toDbStringLocal();
+    }
+    else
+    {
+        ret["deleted_at"]=Json::Value();
+    }
     return ret;
 }
 
@@ -1926,7 +2134,7 @@ Json::Value Users::toMasqueradedJson(
     const std::vector<std::string> &pMasqueradingVector) const
 {
     Json::Value ret;
-    if(pMasqueradingVector.size() == 17)
+    if(pMasqueradingVector.size() == 18)
     {
         if(!pMasqueradingVector[0].empty())
         {
@@ -2115,6 +2323,17 @@ Json::Value Users::toMasqueradedJson(
                 ret[pMasqueradingVector[16]]=Json::Value();
             }
         }
+        if(!pMasqueradingVector[17].empty())
+        {
+            if(getDeletedAt())
+            {
+                ret[pMasqueradingVector[17]]=getDeletedAt()->toDbStringLocal();
+            }
+            else
+            {
+                ret[pMasqueradingVector[17]]=Json::Value();
+            }
+        }
         return ret;
     }
     LOG_ERROR << "Masquerade failed";
@@ -2254,6 +2473,14 @@ Json::Value Users::toMasqueradedJson(
     {
         ret["mfa_pending_redirect_uri"]=Json::Value();
     }
+    if(getDeletedAt())
+    {
+        ret["deleted_at"]=getDeletedAt()->toDbStringLocal();
+    }
+    else
+    {
+        ret["deleted_at"]=Json::Value();
+    }
     return ret;
 }
 
@@ -2354,13 +2581,18 @@ bool Users::validateJsonForCreation(const Json::Value &pJson, std::string &err)
         if(!validJsonOfField(16, "mfa_pending_redirect_uri", pJson["mfa_pending_redirect_uri"], err, true))
             return false;
     }
+    if(pJson.isMember("deleted_at"))
+    {
+        if(!validJsonOfField(17, "deleted_at", pJson["deleted_at"], err, true))
+            return false;
+    }
     return true;
 }
 bool Users::validateMasqueradedJsonForCreation(const Json::Value &pJson,
                                                const std::vector<std::string> &pMasqueradingVector,
                                                std::string &err)
 {
-    if(pMasqueradingVector.size() != 17)
+    if(pMasqueradingVector.size() != 18)
     {
         err = "Bad masquerading vector";
         return false;
@@ -2512,6 +2744,14 @@ bool Users::validateMasqueradedJsonForCreation(const Json::Value &pJson,
                   return false;
           }
       }
+      if(!pMasqueradingVector[17].empty())
+      {
+          if(pJson.isMember(pMasqueradingVector[17]))
+          {
+              if(!validJsonOfField(17, pMasqueradingVector[17], pJson[pMasqueradingVector[17]], err, true))
+                  return false;
+          }
+      }
     }
     catch(const Json::LogicError &e)
     {
@@ -2612,13 +2852,18 @@ bool Users::validateJsonForUpdate(const Json::Value &pJson, std::string &err)
         if(!validJsonOfField(16, "mfa_pending_redirect_uri", pJson["mfa_pending_redirect_uri"], err, false))
             return false;
     }
+    if(pJson.isMember("deleted_at"))
+    {
+        if(!validJsonOfField(17, "deleted_at", pJson["deleted_at"], err, false))
+            return false;
+    }
     return true;
 }
 bool Users::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
                                              const std::vector<std::string> &pMasqueradingVector,
                                              std::string &err)
 {
-    if(pMasqueradingVector.size() != 17)
+    if(pMasqueradingVector.size() != 18)
     {
         err = "Bad masquerading vector";
         return false;
@@ -2712,6 +2957,11 @@ bool Users::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
       if(!pMasqueradingVector[16].empty() && pJson.isMember(pMasqueradingVector[16]))
       {
           if(!validJsonOfField(16, pMasqueradingVector[16], pJson[pMasqueradingVector[16]], err, false))
+              return false;
+      }
+      if(!pMasqueradingVector[17].empty() && pJson.isMember(pMasqueradingVector[17]))
+      {
+          if(!validJsonOfField(17, pMasqueradingVector[17], pJson[pMasqueradingVector[17]], err, false))
               return false;
       }
     }
@@ -2964,6 +3214,17 @@ bool Users::validJsonOfField(size_t index,
             }
             break;
         case 16:
+            if(pJson.isNull())
+            {
+                return true;
+            }
+            if(!pJson.isString())
+            {
+                err="Type error in the "+fieldName+" field";
+                return false;
+            }
+            break;
+        case 17:
             if(pJson.isNull())
             {
                 return true;

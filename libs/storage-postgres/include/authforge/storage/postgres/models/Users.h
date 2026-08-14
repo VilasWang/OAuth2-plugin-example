@@ -70,6 +70,7 @@ class Users
         static const std::string _org_id;
         static const std::string _mfa_pending_client_id;
         static const std::string _mfa_pending_redirect_uri;
+        static const std::string _deleted_at;
     };
 
     static const int primaryKeyNumber;
@@ -279,8 +280,17 @@ class Users
     void setMfaPendingRedirectUri(std::string &&pMfaPendingRedirectUri) noexcept;
     void setMfaPendingRedirectUriToNull() noexcept;
 
+    /**  For column deleted_at  */
+    ///Get the value of the column deleted_at, returns the default value if the column is null
+    const ::trantor::Date &getValueOfDeletedAt() const noexcept;
+    ///Return a shared_ptr object pointing to the column const value, or an empty shared_ptr object if the column is null
+    const std::shared_ptr<::trantor::Date> &getDeletedAt() const noexcept;
+    ///Set the value of the column deleted_at
+    void setDeletedAt(const ::trantor::Date &pDeletedAt) noexcept;
+    void setDeletedAtToNull() noexcept;
 
-    static size_t getColumnNumber() noexcept {  return 17;  }
+
+    static size_t getColumnNumber() noexcept {  return 18;  }
     static const std::string &getColumnName(size_t index) noexcept(false);
 
     Json::Value toJson() const;
@@ -351,6 +361,7 @@ class Users
     std::shared_ptr<int32_t> orgId_;
     std::shared_ptr<std::string> mfaPendingClientId_;
     std::shared_ptr<std::string> mfaPendingRedirectUri_;
+    std::shared_ptr<::trantor::Date> deletedAt_;
     struct MetaData
     {
         const std::string colName_;
@@ -362,7 +373,7 @@ class Users
         const bool notNull_;
     };
     static const std::vector<MetaData> metaData_;
-    bool dirtyFlag_[17]={ false };
+    bool dirtyFlag_[18]={ false };
   public:
     static const std::string &sqlForFindingByPrimaryKey()
     {
@@ -467,6 +478,11 @@ class Users
         if(dirtyFlag_[16])
         {
             sql += "mfa_pending_redirect_uri,";
+            ++parametersCount;
+        }
+        if(dirtyFlag_[17])
+        {
+            sql += "deleted_at,";
             ++parametersCount;
         }
         needSelection=true;
@@ -586,6 +602,11 @@ class Users
             sql.append(placeholderStr, n);
         }
         if(dirtyFlag_[16])
+        {
+            n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
+            sql.append(placeholderStr, n);
+        }
+        if(dirtyFlag_[17])
         {
             n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
             sql.append(placeholderStr, n);
