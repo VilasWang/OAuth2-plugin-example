@@ -693,15 +693,15 @@ test_44() {
     local r
     r=$(curl -s -X PUT -H "$(auth_header)" -H "Content-Type: application/json" \
         -d '{"backchannel_logout_uri":"https://rp-bc.example.com/backchannel-logout"}' \
-        "$BASE_URL/api/admin/clients/api-service")
+        "$BASE_URL/api/admin/clients/vue-client")
     assert_json_field "$r" "status" "success" || return 1
-    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/clients/api-service")
+    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/clients/vue-client")
     assert_json_field "$r" "backchannel_logout_uri" "https://rp-bc.example.com/backchannel-logout" || return 1
     # Empty string clears the registration (NULL in DB, "" in the response).
     r=$(curl -s -X PUT -H "$(auth_header)" -H "Content-Type: application/json" \
-        -d '{"backchannel_logout_uri":""}' "$BASE_URL/api/admin/clients/api-service")
+        -d '{"backchannel_logout_uri":""}' "$BASE_URL/api/admin/clients/vue-client")
     assert_json_field "$r" "status" "success" || return 1
-    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/clients/api-service")
+    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/clients/vue-client")
     assert_json_field "$r" "backchannel_logout_uri" "" || return 1
     echo "    set -> read -> cleared: ok"
 }
@@ -716,7 +716,7 @@ test_45() {
     code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H "$(auth_header)" \
         -H "Content-Type: application/json" \
         -d '{"backchannel_logout_uri":"ftp://rp.example.com/backchannel-logout"}' \
-        "$BASE_URL/api/admin/clients/api-service")
+        "$BASE_URL/api/admin/clients/vue-client")
     assert_status "$code" "400" || return 1
     echo "    Correctly returned 400 for non-https backchannel_logout_uri"
 }
