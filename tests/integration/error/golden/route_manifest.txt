@@ -49,6 +49,7 @@ POST /api/admin/roles
 POST /api/admin/scopes
 POST /api/admin/tokens/revoke-by-client
 POST /api/admin/tokens/revoke-by-user
+POST /api/admin/users
 POST /api/admin/users/{userId}/enable
 POST /api/github/login
 POST /api/google/login
