@@ -71,6 +71,12 @@ Test-Endpoint "Test 3: OIDC Discovery" {
     if (-not $r.issuer) { throw "missing issuer" }
     if (-not $r.jwks_uri) { throw "missing jwks_uri" }
     if (-not $r.scopes_supported) { throw "missing scopes_supported" }
+    # B1 (OIDC Back-Channel Logout 1.0): advertised support flags. Session
+    # level is false — this OP issues subject-scoped logout_tokens (no sid).
+    if ($null -eq $r.backchannel_logout_supported) { throw "missing backchannel_logout_supported" }
+    if ($r.backchannel_logout_supported -ne $true) { throw "backchannel_logout_supported != true" }
+    if ($null -eq $r.backchannel_logout_session_supported) { throw "missing backchannel_logout_session_supported" }
+    if ($r.backchannel_logout_session_supported -ne $false) { throw "backchannel_logout_session_supported != false" }
     $script:discoveryIssuer = $r.issuer
     Write-Host "    Issuer: $($r.issuer)"
 }
