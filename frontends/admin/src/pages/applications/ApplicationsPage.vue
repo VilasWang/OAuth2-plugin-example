@@ -16,6 +16,7 @@ const createForm = ref({
   client_type: 'CONFIDENTIAL',
   redirect_uris: '',
   grant_types: ['authorization_code'] as string[],
+  backchannel_logout_uri: '',
 })
 const creating = ref(false)
 
@@ -56,6 +57,7 @@ async function createClient() {
       client_type: createForm.value.client_type,
       redirect_uris: createForm.value.redirect_uris,
       allowed_grant_types: createForm.value.grant_types.join(','),
+      backchannel_logout_uri: createForm.value.backchannel_logout_uri,
     }
     const resp = await axios.post('/api/admin/clients', body, {
       headers: { 'Content-Type': 'application/json' },
@@ -63,7 +65,7 @@ async function createClient() {
     newClientSecret.value = resp.data.client_secret || ''
     showCreateModal.value = false
     showSecretModal.value = true
-    createForm.value = { name: '', client_type: 'CONFIDENTIAL', redirect_uris: '', grant_types: ['authorization_code'] }
+    createForm.value = { name: '', client_type: 'CONFIDENTIAL', redirect_uris: '', grant_types: ['authorization_code'], backchannel_logout_uri: '' }
     await fetchClients()
   } catch (e: unknown) {
     // Req 10.3/10.6: normalize via Frontend_Error_Module, no native alert.
@@ -166,6 +168,11 @@ onMounted(fetchClients)
           <div>
             <label class="block text-sm font-medium text-gray-700">Redirect URIs (comma-separated)</label>
             <input v-model="createForm.redirect_uris" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="https://myapp.com/callback" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Backchannel Logout URI (optional)</label>
+            <input v-model="createForm.backchannel_logout_uri" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm" placeholder="https://rp.example.com/backchannel-logout" />
+            <p class="mt-1 text-xs text-gray-500">OIDC Back-Channel Logout 1.0 (https). Leave empty to disable.</p>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Grant Types</label>
