@@ -298,9 +298,16 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
     Criteria baseFilter = Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull);
     if (!q.empty())
     {
+        // Escape LIKE wildcards and lowercase for case-insensitive prefix match.
+        std::string escaped;
+        for (char c : q)
+        {
+            if (c == '%' || c == '_') escaped += '\\';
+            escaped += c;
+        }
         baseFilter = baseFilter &&
-                     (Criteria(Users::Cols::_username, CompareOperator::Like, q + "%") ||
-                      Criteria(Users::Cols::_email, CompareOperator::Like, q + "%"));
+                     (Criteria(Users::Cols::_username, CompareOperator::Like, escaped + "%") ||
+                      Criteria(Users::Cols::_email, CompareOperator::Like, escaped + "%"));
     }
     if (locked == "true")
     {
@@ -547,7 +554,7 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
     row.setEmailVerified(emailVerified);
     row.setMfaEnabled(mfaEnabled);
     // org_id / roles handled in follow-up if specified.
-    if (jsonBody->isMember("org_id"))
+    if (jsonBody->isMember("org_id") && (*jsonBody)["org_id"].isInt())
     {
         row.setOrgId((*jsonBody)["org_id"].asInt());
     }
@@ -716,6 +723,7 @@ void UserAdminService::getUser(
                                                .count());
           json["locked"] = (lockedUntil > now);
           json["locked_until"] = lockedUntil;
+          json["org_id"] = row.getValueOfOrgId();
           json["created_at"] = row.getValueOfCreatedAt().toDbString();
 
           fetchUserRoleNames(
@@ -804,17 +812,17 @@ void UserAdminService::updateUser(
               {
                   row.setUsername((*jsonBody)["username"].asString());
               }
-              if (hasMfaEnabled)
+              if (hasMfaEnabled && (*jsonBody)["mfa_enabled"].isBool())
               {
                   row.setMfaEnabled((*jsonBody)["mfa_enabled"].asBool());
               }
-              if (hasLocked)
+              if (hasLocked && (*jsonBody)["locked"].isBool())
               {
                   // locked is derived from locked_until: true → forever sentinel,
                   // false → 0 (unlocked, matching enableUser).
                   row.setLockedUntil((*jsonBody)["locked"].asBool() ? kLockedForeverSentinel : 0);
               }
-              if (hasOrgId)
+              if (hasOrgId && (*jsonBody)["org_id"].isInt())
               {
                   row.setOrgId((*jsonBody)["org_id"].asInt());
               }
@@ -900,14 +908,43 @@ void UserAdminService::deleteUser(
           Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
             Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [cb, req, db, id](Users row) {
+              // Self-delete guard: prevent an admin from deleting their own account.
+              if (row.getValueOfPublicSub() == adminActorId(req))
+              {
+                  respondError(req, cb, "VALIDATION_INVALID_INPUT", "Cannot delete your own account");
+                  return;
+              }
               row.setDeletedAt(::trantor::Date::now());
+              std::string publicSub = row.getValueOfPublicSub();
               try
               {
                   Mapper<Users> updateMapper(db);
                   updateMapper.update(
                     row,
-                    [cb, req, id](const size_t) {
+                    [cb, req, id, db, publicSub](const size_t) {
                         auditFromRequest(req, "user_delete", "success", "user", std::to_string(id));
+                        // Revoke all outstanding tokens — introspection and
+                        // refresh copy the subject from stored token rows and
+                        // never query users, so existing tokens would otherwise
+                        // stay valid until natural expiry.
+                        try
+                        {
+                            db->execSqlAsync(
+                              "UPDATE oauth2_access_tokens SET revoked = true WHERE user_id = $1",
+                              [](const ::drogon::orm::Result &) {},
+                              [](const ::drogon::orm::DrogonDbException &) {},
+                              publicSub
+                            );
+                            db->execSqlAsync(
+                              "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
+                              [](const ::drogon::orm::Result &) {},
+                              [](const ::drogon::orm::DrogonDbException &) {},
+                              publicSub
+                            );
+                        }
+                        catch (...)
+                        {
+                        }
                         Json::Value json;
                         json["status"] = "success";
                         json["message"] = "User deleted successfully";
