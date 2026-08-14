@@ -56,6 +56,10 @@ test_3() {
     assert_json_exists "$r" "issuer" || return 1
     assert_json_exists "$r" "jwks_uri" || return 1
     assert_json_exists "$r" "scopes_supported" || return 1
+    # B1 (OIDC Back-Channel Logout 1.0): advertised support flags. Session
+    # level is false — this OP issues subject-scoped logout_tokens (no sid).
+    assert_json_field "$r" "backchannel_logout_supported" "true" || return 1
+    assert_json_field "$r" "backchannel_logout_session_supported" "false" || return 1
     DISCOVERY_ISSUER=$(echo "$r" | jq -r '.issuer')
     echo "    Issuer: $DISCOVERY_ISSUER"
 }
