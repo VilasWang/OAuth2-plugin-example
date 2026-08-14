@@ -40,6 +40,11 @@ class UserAdminService
       ResponseCallback cb,
       const std::string &userId
     );
+    static void deleteUser(
+      const ::drogon::HttpRequestPtr &req,
+      ResponseCallback cb,
+      const std::string &userId
+    );
     static void disableUser(
       const ::drogon::HttpRequestPtr &req,
       ResponseCallback cb,

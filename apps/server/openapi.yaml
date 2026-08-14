@@ -626,6 +626,29 @@ paths:
       tags:
       - Admin
       - Users
+    delete:
+      description: >-
+        Soft-delete a user account (sets deleted_at). The user is excluded
+        from all queries and can no longer log in.
+      operationId: delete_api_admin_users_{userId}
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: User deleted successfully
+        '404':
+          description: User not found
+      security:
+      - bearerAuth: []
+      summary: Delete User
+      tags:
+      - Admin
+      - Users
   /api/admin/users/{userId}/enable:
     post:
       description: Enable a disabled user account by resetting lockout state.

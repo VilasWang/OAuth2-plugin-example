@@ -137,8 +137,8 @@ export async function setupAuthenticatedMocks(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
+        access_token: process.env.E2E_MOCK_AT ?? 'fixture',
+        refresh_token: process.env.E2E_MOCK_RT ?? 'fixture',
         token_type: 'Bearer',
         expires_in: 3600,
       }),
@@ -184,7 +184,7 @@ export async function setupAuthenticatedMocks(page: Page) {
         contentType: 'application/json',
         body: JSON.stringify({
           client_id: 'new-client-' + Date.now(),
-          client_secret: 'generated-secret-abc123xyz',
+          client_secret: process.env.E2E_MOCK_CS ?? 'fixture',
           name: 'New App',
           client_type: 'CONFIDENTIAL',
         }),
@@ -226,7 +226,7 @@ export async function setupAuthenticatedMocks(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ client_secret: 'new-secret-after-reset-xyz789' }),
+      body: JSON.stringify({ client_secret: process.env.E2E_MOCK_RS ?? 'fixture' }),
     })
   })
 
@@ -351,7 +351,7 @@ export async function setupAuthenticatedMocks(page: Page) {
     })
   })
 
-  // User detail - GET/PUT for user info
+  // User detail - GET/PUT/DELETE for user info
   await page.route('**/api/admin/users/*', async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({
@@ -364,6 +364,12 @@ export async function setupAuthenticatedMocks(page: Page) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ status: 'success', message: 'User updated successfully' }),
+      })
+    } else if (route.request().method() === 'DELETE') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'success', message: 'User deleted successfully' }),
       })
     } else {
       await route.continue()

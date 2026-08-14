@@ -1023,6 +1023,11 @@ const ::drogon::HttpRequestPtr &req,
 ResponseCallback cb,
 const std::string &userId
 );
+static void deleteUser(
+const ::drogon::HttpRequestPtr &req,
+ResponseCallback cb,
+const std::string &userId
+);
 static void disableUser(
 const ::drogon::HttpRequestPtr &req,
 ResponseCallback cb,
@@ -2030,6 +2035,12 @@ UserAdminController::updateUser,
 "authforge::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
+UserAdminController::deleteUser,
+"/api/admin/users/{userId}",
+::drogon::Delete,
+"authforge::drogon::filters::AuthorizationFilter"
+);
+ADD_METHOD_TO(
 UserAdminController::disableUser,
 "/api/admin/users/{userId}/disable",
 ::drogon::Put,
@@ -2068,6 +2079,11 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
 const std::string &userId
 );
 void updateUser(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+const std::string &userId
+);
+void deleteUser(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
 const std::string &userId

@@ -294,7 +294,8 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
     // Build the base filter from search (q) and lock-state (locked) params.
     // locked has no column — it is derived from locked_until vs current time.
     int64_t now = nowEpochSeconds();
-    Criteria baseFilter;
+    // Always exclude soft-deleted users.
+    Criteria baseFilter = Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull);
     if (!q.empty())
     {
         baseFilter = baseFilter &&
@@ -697,7 +698,8 @@ void UserAdminService::getUser(
     // fetchUserRoleNames (itself two queries). Aggregation in-memory.
     Mapper<Users> mapper(db);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, id),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+        Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
       [cb, req, db, id](const Users &row) {
           Json::Value json;
           json["status"] = "success";
@@ -785,7 +787,8 @@ void UserAdminService::updateUser(
     {
         Mapper<Users> mapper(db);
         mapper.findOne(
-          Criteria(Users::Cols::_id, CompareOperator::EQ, id),
+          Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+        Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [cb, req, jsonBody, hasEmail, hasEmailVerified, hasUsername, hasMfaEnabled, hasLocked, hasOrgId, db, id](
             Users row
           ) {
@@ -864,6 +867,77 @@ void UserAdminService::updateUser(
     }
 }
 
+void UserAdminService::deleteUser(
+  const ::drogon::HttpRequestPtr &req,
+  ResponseCallback cb,
+  const std::string &userId
+)
+{
+    int32_t id = 0;
+    try
+    {
+        id = std::stoi(userId);
+    }
+    catch (...)
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "userId must be an integer");
+        return;
+    }
+
+    auto db = getDbOrRespond(req, cb);
+    if (!db)
+    {
+        return;
+    }
+
+    // Soft-delete: set deleted_at to current timestamp. The findOne already
+    // excludes deleted users (deleted_at IS NULL filter), so a 404 is returned
+    // for already-deleted users.
+    try
+    {
+        Mapper<Users> mapper(db);
+        mapper.findOne(
+          Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [cb, req, db, id](Users row) {
+              row.setDeletedAt(::trantor::Date::now());
+              try
+              {
+                  Mapper<Users> updateMapper(db);
+                  updateMapper.update(
+                    row,
+                    [cb, req, id](const size_t) {
+                        auditFromRequest(req, "user_delete", "success", "user", std::to_string(id));
+                        Json::Value json;
+                        json["status"] = "success";
+                        json["message"] = "User deleted successfully";
+                        json["user_id"] = id;
+                        (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                    },
+                    [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req, cb, "DB_QUERY_ERROR",
+                          std::string("Failed to delete user: ") + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct update Mapper");
+              }
+          },
+          [req, cb](const ::drogon::orm::DrogonDbException &) {
+              respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct findOne Mapper");
+    }
+}
+
 void UserAdminService::disableUser(
   const ::drogon::HttpRequestPtr &req,
   ResponseCallback cb,
@@ -889,7 +963,8 @@ void UserAdminService::disableUser(
 
     Mapper<Users> mapper(db);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, id),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+        Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
       [cb, req, userId, db](Users row) {
           row.setLockedUntil(kLockedForeverSentinel);
           Mapper<Users> updateMapper(db);
@@ -943,7 +1018,8 @@ void UserAdminService::enableUser(
 
     Mapper<Users> mapper(db);
     mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, id),
+      Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+        Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
       [cb, req, userId, db](Users row) {
           row.setLockedUntil(0);
           row.setFailedLoginCount(0);
