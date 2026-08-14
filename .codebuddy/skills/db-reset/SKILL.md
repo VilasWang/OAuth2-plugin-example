@@ -1,7 +1,7 @@
 ---
 name: db-reset
 description: 重置测试数据库（清空并重新初始化所有表结构和数据）
-allowed-tools: Bash
+disable-model-invocation: true
 ---
 
 # 数据库重置技能
@@ -41,7 +41,7 @@ psql -h localhost -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
 
 ### 3. 执行 Migration 脚本
 
-数据库 schema 统一通过 `apps/server/migrations/` 目录管理（V001-V022）。
+数据库 schema 统一通过 `apps/server/migrations/` 目录管理（V001–V024，共 24 个文件）。
 
 ```powershell
 $env:PGPASSWORD = "123456"
@@ -61,7 +61,7 @@ Get-ChildItem "apps\server\seed\*.sql" | ForEach-Object {
     else { Write-Host "⚠️  $($_.Name) (non-critical)" }
 }
 $env:PGPASSWORD = $null
-Write-Host "`nDatabase reset completed!"
+Write-Host "`n🎉 Database reset completed!"
 ```
 
 ### 5. 验证
@@ -76,7 +76,7 @@ $env:PGPASSWORD = $null
 
 ```
 apps/server/
-├── migrations/          # Schema 定义（按版本顺序执行）
+├── migrations/          # Schema 定义（按版本顺序执行，V001–V024 共 24 个文件）
 │   ├── V001__schema_migrations.sql
 │   ├── V002__oauth2_core.sql
 │   ├── V003__oauth2_core_indexes.sql
@@ -84,16 +84,32 @@ apps/server/
 │   ├── V005__rbac_schema.sql
 │   ├── V006__oauth2_scopes.sql
 │   ├── V007__user_public_sub.sql
-│   ├── ...
-│   └── V022__mfa_pending_client_binding.sql
-└── seed/                # 开发/测试环境初始数据
+│   ├── V008__refresh_token_family.sql
+│   ├── V009__password_reset_tokens.sql
+│   ├── V010__email_verification.sql
+│   ├── V011__mfa_support.sql
+│   ├── V012__audit_logs.sql
+│   ├── V013__account_lockout.sql
+│   ├── V014__device_codes.sql
+│   ├── V015__backchannel_logout.sql
+│   ├── V016__token_partitioning_prep.sql
+│   ├── V017__multi_tenant.sql
+│   ├── V018__webauthn.sql
+│   ├── V019__email_validation.sql
+│   ├── V020__username_optional.sql
+│   ├── V021__widen_email_verification_tokens_email.sql
+│   ├── V022__mfa_pending_client_binding.sql
+│   ├── V023__resource_scopes.sql
+│   └── V024__users_soft_delete.sql
+└── seed/                # 开发/测试环境初始数据（5 个文件）
+    ├── bench_users.sql
     ├── dev_admin_user.sql
     ├── dev_admin_console_client.sql
     ├── dev_backend_client.sql
     └── dev_vue_client.sql
 ```
 
-> **注意**: 旧的 `sql/001_*.sql` ~ `sql/004_*.sql` 已废弃删除，所有 schema 统一在 `migrations/` 管理。
+> **注意**: 旧的 `sql/001_*.sql` ~ `sql/004_*.sql` 已废弃删除，所有 schema 统一在 `migrations/` 管理。物理表共 21 张：其中 19 张被 ORM 建模（`model.json`），另含迁移追踪表 `schema_migrations` 与归档表 `oauth2_access_tokens_archive`。
 
 ## 故障排除
 

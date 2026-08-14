@@ -1,7 +1,6 @@
 ---
 name: e2e-test
-description: 执行OAuth2系统的完整端到端(E2E)测试，验证用户登录、授权码流程、token交换、RBAC权限控制和受保护API访问的完整功能。
-allowed-tools: Read, Bash
+description: 执行OAuth2系统的完整端到端(E2E)测试，验证用户登录、授权码流程、token交换、RBAC权限控制和受保护API访问的完整功能。当用户需要在代码变更后验证整个OAuth2认证流程、测试用户登录和权限管理、验证修复后的安全功能、或在生产部署前进行完整的功能验证时使用此技能。
 ---
 
 # OAuth2端到端测试
@@ -49,13 +48,22 @@ allowed-tools: Read, Bash
 $env:OAUTH2_ENV_MODE = "auto"
 
 # 检查 Docker 是否可用
-docker ps 2>$null | Out-Null
+docker ps | Out-Null
 if ($?) {
-    Write-Host "Docker detected, using Docker mode"
+    Write-Host "🐳 Docker 检测到，使用 Docker 模式"
     $env:OAUTH2_ENV_MODE = "docker"
 } else {
-    Write-Host "Using local mode"
+    Write-Host "💻 使用本地模式"
     $env:OAUTH2_ENV_MODE = "local"
+}
+
+# Docker 模式推荐流程
+if ($env:OAUTH2_ENV_MODE -eq "docker") {
+    Write-Host "使用 Docker 完整测试流程..."
+    # 跳到步骤 2 的 Docker 模式
+} else {
+    Write-Host "使用本地测试流程..."
+    # 继续传统本地流程
 }
 ```
 
@@ -72,6 +80,7 @@ scripts/backend/full_test_docker.bat
 
 ```bash
 # 重置数据库
+cd /path/to/project
 $env:PGPASSWORD='123456'
 psql -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
 psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
@@ -82,7 +91,7 @@ for f in apps/server/seed/*.sql; do
     psql -U oauth2_user -d oauth2_db -f "$f"
 done
 
-# 编译服务
+# 编译服务（如果需要）
 .\manage.ps1 build-backend -release
 ```
 
@@ -95,13 +104,13 @@ done
 # 停止旧服务
 taskkill /F /IM authforge-server.exe 2>$null
 
-# 启动服务
-$serverPath = "build/apps/server/Release/authforge-server.exe"
+# 启动服务（preset 构建路径：build/<preset>/apps/server/Release/）
+$serverPath = "build/windows-msvc/apps/server/Release/authforge-server.exe"
 if (Test-Path $serverPath) {
     Start-Process -FilePath $serverPath -WindowStyle Hidden
-    Write-Host "[+] Server started from: $serverPath"
+    Write-Host "✅ Server started from: $serverPath"
 } else {
-    Write-Host "[-] Server executable not found at: $serverPath"
+    Write-Host "❌ Server executable not found at: $serverPath"
     exit 1
 }
 
@@ -111,11 +120,43 @@ Start-Sleep -Seconds 3
 # 验证服务状态
 $response = Invoke-WebRequest -Uri "http://localhost:5555/health" -UseBasicParsing -TimeoutSec 5
 if ($response.StatusCode -eq 200) {
-    Write-Host "[+] Server is responding"
+    Write-Host "✅ Server is responding"
 } else {
-    Write-Host "[-] Server health check failed"
+    Write-Host "❌ Server health check failed"
     exit 1
 }
+```
+
+### Docker 模式测试流程
+
+```powershell
+# 完整 Docker 测试（推荐）
+scripts/backend/full_test_docker.bat
+
+# 此脚本包含：
+# 1. PostgreSQL 容器启动
+# 2. 数据库初始化
+# 3. ORM 模型生成  
+# 4. 项目构建
+# 5. 单元测试
+# 6. 服务启动
+# 7. OAuth2 端点测试
+# 8. 清理和停止
+
+# 手动 Docker 测试流程
+.\manage.ps1 docker-up
+Start-Sleep -Seconds 10
+
+# 在 Docker 容器中运行测试（前提：已 `.\manage.ps1 docker-up` 拉起完整栈。
+# 注意：full_test_docker.bat 只启动 pg+redis 容器并在宿主机本地跑 server，
+# 不会启动 oauth2-backend 容器，因此下面的 docker exec 需先 docker-up）
+docker exec oauth2-backend /bin/bash -c "ctest --output-on-failure"
+
+# OAuth2 端点测试
+# ... (后续步骤)
+
+# 清理
+.\manage.ps1 docker-down
 ```
 
 ### 步骤3: 执行E2E测试
@@ -160,14 +201,14 @@ taskkill /F /IM authforge-server.exe 2>$null
 
 ## 测试验证标准
 
-### [+] 成功标准
+### ✅ 成功标准
 - 登录返回HTTP 302重定向包含授权码
 - Token交换返回包含access_token和roles的JSON
 - Admin API返回200状态码和正确的响应数据
 - roles数组包含"admin"角色
 - 无服务崩溃或异常退出
 
-### [-] 失败标准
+### ❌ 失败标准
 - 登录失败返回错误状态码
 - Token交换失败或缺少必需字段
 - API访问返回401/403权限错误
@@ -184,7 +225,7 @@ taskkill /F /IM authforge-server.exe 2>$null
 netstat -ano | findstr :5555
 
 # 检查服务日志
-cd build/apps/server/Release
+cd build/windows-msvc/apps/server/Release
 .\authforge-server.exe
 ```
 
@@ -209,7 +250,7 @@ psql -U oauth2_user -d oauth2_db -c "SELECT * FROM oauth2_clients WHERE client_i
 ## 性能指标
 
 - **服务启动时间**: < 5 秒
-- **登录响应时间**: < 500ms
+- **登录响应时间**: < 500ms  
 - **Token 交换时间**: < 300ms
 - **API 访问时间**: < 200ms
 - **完整流程时间**: < 2 秒
@@ -224,7 +265,7 @@ $ErrorActionPreference = "Stop"
 
 # 1. 启动服务
 Write-Host "Starting authforge-server..."
-cd build/apps/server/Release
+cd build/windows-msvc/apps/server/Release
 Start-Process -FilePath ".\authforge-server.exe" -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
@@ -236,7 +277,7 @@ $LoginResp = curl -s -X POST "http://localhost:5555/oauth2/login" `
 
 if ($LoginResp -match "code=([a-f0-9\-]+)") {
     $Code = $matches[1]
-    Write-Host "[+] Login successful, code: $Code"
+    Write-Host "✅ Login successful, code: $Code"
     
     # 3. 交换Token
     Write-Host "Exchanging token..."
@@ -245,7 +286,7 @@ if ($LoginResp -match "code=([a-f0-9\-]+)") {
       -d "grant_type=authorization_code&code=$Code&client_id=vue-client&redirect_uri=http://localhost:5173/callback" | ConvertFrom-Json
     
     if ($TokenResp.access_token) {
-        Write-Host "[+] Token obtained: $($TokenResp.access_token)"
+        Write-Host "✅ Token obtained: $($TokenResp.access_token)"
         
         # 4. 访问Admin API
         Write-Host "Testing admin API access..."
@@ -253,15 +294,15 @@ if ($LoginResp -match "code=([a-f0-9\-]+)") {
           -H "Authorization: Bearer $($TokenResp.access_token)"
         
         if ($ApiResp -match "success") {
-            Write-Host "[+] E2E test completed successfully!"
+            Write-Host "✅ E2E test completed successfully!"
         } else {
-            Write-Error "[-] API access failed"
+            Write-Error "❌ API access failed"
         }
     } else {
-        Write-Error "[-] Token exchange failed"
+        Write-Error "❌ Token exchange failed"
     }
 } else {
-    Write-Error "[-] Login failed"
+    Write-Error "❌ Login failed"
 }
 
 # 5. 清理
@@ -292,6 +333,11 @@ jobs:
       - name: Stop Docker services  
         run: docker-compose down
 ```
+
+### 监控集成
+- 将测试结果发送到监控系统
+- 记录关键性能指标（登录时间、token 交换时间等）
+- 设置告警阈值（响应时间 > 1秒触发告警）
 
 ### 定期执行
 - 每次部署后立即执行 E2E 测试

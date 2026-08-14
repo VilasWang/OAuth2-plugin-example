@@ -1,12 +1,12 @@
 ---
 name: project-conventions
-description: Enforces OAuth2 project coding conventions during code generation and review. Loaded automatically as background knowledge.
-allowed-tools: Read, Write, Bash, Glob, Grep
+description: Enforces OAuth2 project coding conventions from TECH_SPECS.md during code generation and review
+user-invocable: false
 ---
 
 # Project Conventions Checklist
 
-Apply these rules to ALL C++ code generated or modified in this project.
+Apply these rules to ALL C++ code generated or modified in this project. Loaded automatically by Claude as background knowledge.
 
 ## Architecture Rules
 
@@ -21,17 +21,22 @@ Apply these rules to ALL C++ code generated or modified in this project.
 
 | Pattern | Status |
 |---------|--------|
-| Async callbacks (`Mapper::findOne`, `execSqlAsync`) | REQUIRED — always prefer |
-| Synchronous (`Mapper::findBy` with future) | RESTRICTED — only when necessary |
-| Coroutines (`CoroMapper`) | FORBIDDEN — never use |
+| Async callbacks (`Mapper::findOne`, `execSqlAsync`) | REQUIRED -- always prefer |
+| Synchronous (`Mapper::findBy` with future) | RESTRICTED -- only when necessary |
+| Coroutines (`CoroMapper`) | FORBIDDEN -- never use |
 
 ### Lambda Capture Rules
-- `[sharedCb]` — REQUIRED for callback lifetime
-- `[&var]` — FORBIDDEN unless PR explains lifetime guarantee
-- `[this]` — FORBIDDEN (no PR-exemption); use `shared_from_this()` instead — the
-  class must `enable_shared_from_this<T>` and the lambda captures
+- `[sharedCb]` -- REQUIRED for callback lifetime
+- `[&var]` -- FORBIDDEN unless PR explains lifetime guarantee
+- `[this]` -- **DOMAIN SERVICE LAYER FORBIDDEN** (no PR-exemption): in
+  `libs/oauth2` / `libs/identity` services, never capture `[this]`; the class must
+  `enable_shared_from_this<T>` and the lambda captures
   `auto self = shared_from_this()`, holding ownership so `this` stays alive for
   the whole async continuation.
+- `[this]` -- **CONTROLLER LAYER ALLOWED**: in `libs/drogon/.../controllers`
+  (Drogon `HttpController<T,false>` process-wide singletons, not
+  `enable_shared_from_this`), `[this]` is permitted and common. Do NOT apply
+  `shared_from_this()` there.
 
 ### Callback Pattern
 ```cpp
@@ -56,13 +61,14 @@ auto sharedCb = std::make_shared<std::function<void(const ResultType &)>>(
 - All async callbacks MUST handle failure path: `(*sharedCb)(errorResult)`
 - Log levels: `LOG_DEBUG` (dev), `LOG_INFO` (flow), `LOG_WARN` (issues), `LOG_ERROR` (failures)
 - NEVER log passwords, tokens, or secrets
+- Always need try catch for all async callbacks
 
 ## Code Style
 
 - C++17 standard, Google style, 100 char line limit
 - clang-format runs automatically on edit (hook configured)
 - ASCII only in code: use `[+]`, `[-]`, `[!]` instead of emoji
-- No comments explaining WHAT — name variables/functions to be self-documenting
+- No comments explaining WHAT -- name variables/functions to be self-documenting
 - Comments only for WHY: hidden constraints, non-obvious invariants, workarounds
 
 ## Security
