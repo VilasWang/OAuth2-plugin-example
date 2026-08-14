@@ -8,6 +8,7 @@
 #include <authforge/drogon/adapters/DrogonMetrics.h>
 #include <authforge/drogon/adapters/StorageSubjectResolver.h>
 #include <authforge/oauth2/protocol/AuthorizationService.h>
+#include <authforge/storage/postgres/models/Oauth2Scopes.h>  // #43 §5.5: DB-driven admin-scope load
 // Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
 // per-backend RepositoryBundle and extracts its four oauth2 split-repository
 // handles (Phase 1.5e: the bundle's 3 identity accessors are gone; identity
@@ -353,6 +354,44 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         subjectMappingRepo_ = identityRepo;
 
         LOG_INFO << "Using PostgreSQL storage backend (RepositoryBundle)";
+
+        // #43 §5.5: load the admin-scope set from oauth2_scopes.requires_admin_role
+        // and inject it into AuthorizationService so Tier-2 is fully data-driven
+        // (no hardcoded list). Async callback + Mapper + Criteria per
+        // db-operations.md; on error the constructor's safe default remains.
+        try
+        {
+            drogon::orm::Mapper<drogon_model::oauth2_db::Oauth2Scopes> scopeMapper(dbClient);
+            scopeMapper.findBy(
+              drogon::orm::Criteria(
+                drogon_model::oauth2_db::Oauth2Scopes::Cols::_requires_admin_role,
+                drogon::orm::CompareOperator::EQ,
+                true
+              ),
+              // M6: [this] is safe -- OAuth2Plugin is a Drogon plugin
+              // (process-level singleton, bare-pointer managed by Drogon,
+              // lifetime spans the entire process run). Same pattern as
+              // the other plugin callbacks in this file.
+              [this](const std::vector<drogon_model::oauth2_db::Oauth2Scopes> &rows) {
+                  std::unordered_set<std::string> adminScopes;
+                  adminScopes.reserve(rows.size());
+                  for (const auto &row : rows)
+                      adminScopes.insert(row.getValueOfName());
+                  LOG_INFO << "Loaded " << adminScopes.size()
+                           << " admin-scoped entries from DB (oauth2_scopes.requires_admin_role)";
+                  if (authorizationService_)
+                      authorizationService_->setAdminScopes(std::move(adminScopes));
+              },
+              [](const drogon::orm::DrogonDbException &e) {
+                  LOG_ERROR << "OAuth2Plugin: failed to load admin scopes from DB ("
+                            << "falling back to default set): " << e.base().what();
+              }
+            );
+        }
+        catch (const std::exception &e)
+        {
+            LOG_ERROR << "OAuth2Plugin: admin-scope Mapper construction failed: " << e.what();
+        }
     }
     else if (storageType_ == "redis")
     {

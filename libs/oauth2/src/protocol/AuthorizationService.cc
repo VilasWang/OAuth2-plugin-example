@@ -27,14 +27,32 @@ authforge::oauth2::access::ScopeValidationSummary allInvalid(
     return summary;
 }
 
-bool anyRequiresAdminRole(const std::vector<std::string> &scopes)
+bool anyRequiresAdminRole(
+  const std::vector<std::string> &scopes,
+  const std::unordered_set<std::string> &adminScopes)
 {
     for (const auto &scope : scopes)
     {
-        if (authforge::oauth2::access::isAdminScope(scope))
+        if (adminScopes.count(scope) > 0)
             return true;
     }
     return false;
+}
+
+// #43 §5.5: the safe default admin-scope set, mirroring the V006 seed
+// (oauth2_scopes.requires_admin_role = TRUE). Used when no DB-loaded set is
+// supplied (memory/dev/test mode). In production (postgres) OAuth2Plugin
+// overrides this at startup with the live DB value via setAdminScopes(), so
+// the runtime definition is data-driven and cannot drift from the catalog.
+// This default exists ONLY so the Tier-2 check is never a silent no-op
+// before the DB load completes or when DB is unavailable.
+const std::unordered_set<std::string> &defaultAdminScopes()
+{
+    static const std::unordered_set<std::string> scopes = {
+      "admin",        "users:read",  "users:write",  "clients:read",
+      "clients:write", "tokens:read", "tokens:write", "roles:read",
+      "roles:write",  "audit:read"};
+    return scopes;
 }
 }  // namespace
 
@@ -42,12 +60,14 @@ AuthorizationService::AuthorizationService(
   std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients,
   std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents,
   std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver,
-  std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider
+  std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider,
+  std::unordered_set<std::string> adminScopes
 )
     : clients_(std::move(clients)),
       consents_(std::move(consents)),
       subjectResolver_(std::move(subjectResolver)),
-      roleProvider_(std::move(roleProvider))
+      roleProvider_(std::move(roleProvider)),
+      adminScopes_(adminScopes.empty() ? defaultAdminScopes() : std::move(adminScopes))
 {
 }
 
@@ -76,7 +96,7 @@ void AuthorizationService::evaluateScopes(
           }
 
           auto client = std::make_shared<authforge::oauth2::model::Client>(std::move(*clientOpt));
-          bool needsAdminCheck = anyRequiresAdminRole(requestedScopes);
+          bool needsAdminCheck = anyRequiresAdminRole(requestedScopes, adminScopes_);
 
           // Resolve internalUserId once (used for both the admin-role check
           // and the per-scope consent lookup below).
@@ -120,6 +140,9 @@ void AuthorizationService::evaluateScopes(
                           authforge::oauth2::access::evaluateScopes(
                             requestedScopes, *client, hasAdminRole, [](const std::string &) {
                                 return false;
+                            },
+                            [this](const std::string &s) {
+                                return adminScopes_.count(s) > 0;
                             }
                           );
                         callback(std::move(summary));
@@ -134,6 +157,9 @@ void AuthorizationService::evaluateScopes(
                           authforge::oauth2::access::evaluateScopes(
                             requestedScopes, *client, hasAdminRole, [](const std::string &) {
                                 return false;
+                            },
+                            [this](const std::string &s) {
+                                return adminScopes_.count(s) > 0;
                             }
                           )
                         );
@@ -147,7 +173,8 @@ void AuthorizationService::evaluateScopes(
                           userRef,
                           clientId,
                           scope,
-                          [consentMap,
+                          [this,
+                           consentMap,
                            remaining,
                            scope,
                            client,
@@ -167,6 +194,9 @@ void AuthorizationService::evaluateScopes(
                                           [consentMap](const std::string &s) {
                                               auto it = consentMap->find(s);
                                               return it != consentMap->end() && it->second;
+                                          },
+                                          [this](const std::string &s) {
+                                              return adminScopes_.count(s) > 0;
                                           }
                                         )
                                       );

@@ -334,3 +334,54 @@ else()
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/config.json
     )
 endif()
+
+# ===========================================================================
+# Out-of-process endpoint tests (方案 A): wraps the PowerShell/curl endpoint
+# test scripts (formerly only reachable via full_test.bat/full-test.sh Step
+# 6-7) into a single ctest entry. The wrapper (run-endpoint-tests.{ps1,sh})
+# starts the authforge server, waits for health readiness, runs the OAuth2 +
+# Admin endpoint test scripts against it, then stops the server.
+#
+# This ensures `ctest` alone exercises the full out-of-process HTTP stack --
+# no more silent omissions of the endpoint test layer.
+#
+# Prerequisites (environment, not managed by ctest):
+#   - PostgreSQL + Redis running with the DB migrated + seeded
+#   - On Linux: jq installed
+# ===========================================================================
+set(_ENDPOINT_BASE_URL "http://127.0.0.1:5555")
+set(_ENDPOINT_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/backend")
+
+if(WIN32)
+    set(_ENDPOINT_WRAPPER "${_ENDPOINT_SCRIPTS_DIR}/run-endpoint-tests.ps1")
+    set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/Release/authforge-server.exe")
+    find_program(_POWERSHELL_BIN NAMES pwsh powershell)
+    if(_POWERSHELL_BIN)
+        add_test(NAME EndpointTests_OutOfProcess
+            COMMAND ${_POWERSHELL_BIN} -NoProfile -ExecutionPolicy Bypass
+                    -File "${_ENDPOINT_WRAPPER}"
+                    -ServerExe "${_SERVER_BIN}"
+                    -BaseUrl "${_ENDPOINT_BASE_URL}"
+        )
+        set(_ENDPOINT_TEST_REGISTERED TRUE)
+    endif()
+else()
+    set(_ENDPOINT_WRAPPER "${_ENDPOINT_SCRIPTS_DIR}/run-endpoint-tests.sh")
+    set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/authforge-server")
+    add_test(NAME EndpointTests_OutOfProcess
+        COMMAND bash "${_ENDPOINT_WRAPPER}"
+                --server-exe "${_SERVER_BIN}"
+                --base-url "${_ENDPOINT_BASE_URL}"
+    )
+    set(_ENDPOINT_TEST_REGISTERED TRUE)
+endif()
+# Properties are set only if add_test actually ran. The server binary is
+# NOT checked at configure time (it may not exist yet -- configure runs
+# before build); the wrapper checks for it at test-run time.
+if(_ENDPOINT_TEST_REGISTERED)
+    set_tests_properties(EndpointTests_OutOfProcess PROPERTIES
+        LABELS "Endpoint"
+        RUN_SERIAL TRUE
+        SKIP_RETURN_CODE 77  # wrapper returns 77 when PG/Redis/DB unavailable -> SKIPPED, not FAILED
+    )
+endif()

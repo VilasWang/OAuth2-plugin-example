@@ -22,11 +22,12 @@
 //     its own concurrency strategy without the engine's logic needing to
 //     change.
 //
-// isAdminScope() reproduces IdentityService::scopeRequiresAdminRole's
-// exact existing hardcoded admin-scope-prefix list and matching
-// semantics (scope == adminScope || scope.find(adminScope + ":") == 0),
-// so this engine's behavior on the current scope catalog is identical to
-// production today.
+// #43 §5.5: the former hardcoded isAdminScope() function is removed. The
+// Tier-2 admin-role check is now driven by a caller-supplied
+// scopeRequiresAdmin predicate (backed by the DB
+// oauth2_scopes.requires_admin_role column, loaded at startup by
+// OAuth2Plugin), so admin-scope definition is data-driven and cannot
+// drift from the catalog.
 
 #include <authforge/oauth2/access/ScopeDecision.h>
 #include <authforge/oauth2/model/Client.h>
@@ -38,11 +39,6 @@
 namespace authforge::oauth2::access
 {
 
-/// True iff `scope` requires the caller to have the "admin" role.
-/// Reproduces IdentityService::scopeRequiresAdminRole's hardcoded list
-/// and prefix-match semantics.
-bool isAdminScope(const std::string &scope);
-
 /**
  * @brief Evaluate a single requested scope against a client's allowlist,
  * whether the caller has an admin role (only consulted for admin-tiered
@@ -50,23 +46,29 @@ bool isAdminScope(const std::string &scope);
  *
  * Tier order (matches the existing production sequence):
  *  1. Client allowlist (Client::allowsScope) -- Invalid if not allowed.
- *  2. Admin-role requirement (isAdminScope) -- Invalid if the scope is
- *     admin-tiered and `hasAdminRole` is false.
+ *  2. Admin-role requirement (scopeRequiresAdmin) -- Invalid if the scope
+ *     is admin-tiered and `hasAdminRole` is false.
  *  3. Consent (`hasConsent`) -- ConsentRequired if the scope passed tiers
  *     1-2 but the caller has not yet consented.
  *
  * @param scope The scope being evaluated.
  * @param client The requesting client (for the allowlist check).
  * @param hasAdminRole Whether the caller has the "admin" role. Only
- * consulted if isAdminScope(scope) is true; irrelevant otherwise.
+ * consulted if scopeRequiresAdmin(scope) is true; irrelevant otherwise.
  * @param hasConsent Whether the caller has already recorded consent for
  * this scope.
+ * @param scopeRequiresAdmin #43 §5.5: predicate that returns true iff the
+ * scope requires the admin role. Replaces the former hardcoded isAdminScope
+ * -- the caller (AuthorizationService) supplies a predicate backed by the
+ * DB oauth2_scopes.requires_admin_role column (loaded at startup), so the
+ * admin-scope definition is data-driven and cannot drift from the catalog.
  */
 ScopeCheckResult evaluateScope(
   const std::string &scope,
   const authforge::oauth2::model::Client &client,
   bool hasAdminRole,
-  bool hasConsent
+  bool hasConsent,
+  const std::function<bool(const std::string &)> &scopeRequiresAdmin
 );
 
 /**
@@ -81,12 +83,14 @@ ScopeCheckResult evaluateScope(
  * Only invoked for scopes that pass tiers 1-2 (client allowlist + admin
  * role) -- consent is never checked for a scope that is already Invalid,
  * matching the existing production short-circuit behavior.
+ * @param scopeRequiresAdmin #43 §5.5: predicate (see evaluateScope above).
  */
 ScopeValidationSummary evaluateScopes(
   const std::vector<std::string> &scopes,
   const authforge::oauth2::model::Client &client,
   bool hasAdminRole,
-  const std::function<bool(const std::string &)> &hasConsentForScope
+  const std::function<bool(const std::string &)> &hasConsentForScope,
+  const std::function<bool(const std::string &)> &scopeRequiresAdmin
 );
 
 }  // namespace authforge::oauth2::access

@@ -65,6 +65,16 @@ class RoleScopeAdminController : public ::drogon::HttpController<RoleScopeAdminC
       ::drogon::Delete,
       "authforge::drogon::filters::AuthorizationFilter"
     );
+    // #43 discovery: the scope -> resource authorization matrix.
+    // Declared BEFORE /api/admin/scopes/{scopeId} would match it as a path
+    // param; Drogon matches static segments before parameterized ones, but
+    // explicit ordering documents intent.
+    ADD_METHOD_TO(
+      RoleScopeAdminController::scopeResources,
+      "/api/admin/scopes/resources",
+      ::drogon::Get,
+      "authforge::drogon::filters::AuthorizationFilter"
+    );
     METHOD_LIST_END
 
     void listRoles(
@@ -110,6 +120,22 @@ class RoleScopeAdminController : public ::drogon::HttpController<RoleScopeAdminC
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &scopeId
     );
+
+    /// #43 discovery: return the (path, method) -> required-scopes matrix
+    /// from ResourceScopeRegistry::snapshot(). Read-only admin view.
+    void scopeResources(
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+    );
+
+    // #43 resource-scope authorization: explicit, order-independent endpoint
+    // + scope-requirement registration (replaces the former file-scope
+    // static-init struct, defect 1.1 SIOF). Called from main()/test_main()
+    // alongside the other controllers' initApiDocs().
+    static void initApiDocs();
+
+  private:
+    static void initApiDocsImpl();
 };
 
 }  // namespace authforge::drogon::controllers

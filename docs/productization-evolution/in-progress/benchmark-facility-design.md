@@ -2,7 +2,7 @@
 
 > **版本**: v1.0
 > **日期**: 2026-08-05
-> **文档性质**: 技术设计（Phase 0 落地蓝图，**非代码**——实施见 §七 milestone，各 milestone 单独立项）
+> **文档性质**: 技术设计（Phase 0 落地蓝图）— **M1–M4 已全部实现**（2026-08-12），实测报告见 `benchmarks/results/SUMMARY.md`
 > **上游规划**: [演进方案 §三 Phase 0](../productization-evolution-plan.md)
 > **承重背景**: 本设施是验证 [调研报告](../productization-research.md) §3.1/§3.2 性能声明的唯一手段——代码库当前无任何 HTTP 级基准（见 §二背景）。
 
@@ -290,6 +290,8 @@ docker compose up -d backend   # 计时起点
 ---
 
 ## 七、实施计划（4 个 milestone）
+
+> **实施状态（2026-08-13）**: M1–M4 全部完成。M1（skeleton + S1/S2）、M2（S3/S4）、M3（S5/S6 + 资源观测）、M4（承重假设验证报告 + 40 JSON 入仓）。竞品对比（Phase 0.5）未开始。
 
 每 milestone 是后续**单独的 `openspec/changes/` 或 `.kiro/specs/` 立项**；本设计文档不展开实现细节。
 

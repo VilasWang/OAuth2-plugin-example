@@ -3,40 +3,17 @@
 #include <authforge/drogon/error/ErrorResponder.h>
 #include <authforge/common/error/ErrorTypes.h>
 #include <authforge/drogon/error/RequestId.h>
-#include <authforge/drogon/utils/ScopeChecker.h>
+#include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <authforge/drogon/authz/ScopeResolver.h>
+#include <authforge/drogon/authz/InsufficientScopeResponder.h>
 #include <drogon/drogon.h>
 
 #include <string>
-#include <string_view>
 
 namespace authforge::drogon::filters
 {
 
 using namespace drogon;
-
-namespace
-{
-// F-010 (RFC 6750 §3.1): the admin API (/api/admin/*) requires an `admin`
-// scope on the access token, IN ADDITION to the RBAC role check that
-// AuthorizationFilter already performs. This is the minimal resource-scope
-// mapping per the OAuth/OIDC audit plan; a full per-resource scope model is
-// future work (tracked as the "完整资源-scope 授权模型" follow-up).
-//
-// Returns "admin" for any /api/admin/ path, "" otherwise. The leading-prefix
-// check uses an explicit '/' boundary so /api/adminfoo does not match.
-std::string requiredAdminScopeForPath(std::string_view path)
-{
-    constexpr std::string_view kAdminPrefix = "/api/admin";
-    if (path == kAdminPrefix ||
-        (path.size() > kAdminPrefix.size() &&
-         path.compare(0, kAdminPrefix.size(), kAdminPrefix) == 0 &&
-         path[kAdminPrefix.size()] == '/'))
-    {
-        return "admin";
-    }
-    return "";
-}
-}  // namespace
 
 AuthorizationFilter::AuthorizationFilter()
 {
@@ -200,35 +177,36 @@ void AuthorizationFilter::doFilter(
             [this, req, denyCbPtr, nextCbPtr, scope = at->scope](
               std::vector<std::string> roles
             ) mutable {
-                // F-010 (RFC 6750 §3.1): scope gate. In addition to the RBAC
-                // role check below, /api/admin/* resources require an `admin`
-                // scope on the access token. This is a second independent gate
-                // -- both the scope AND a matching RBAC role must pass. The
-                // scope gate is checked first because it is cheaper and gives
-                // a clearer error (the role gate already existed and covers
-                // the finer-grained permission model).
-                auto requiredScope = requiredAdminScopeForPath(req->path());
-                if (!requiredScope.empty() &&
-                    !authforge::drogon::utils::hasScope(scope, requiredScope))
+                // #43 resource-scope authorization (RFC 6750 §3.1): consult
+                // the central ResourceScopeRegistry for this route's scope
+                // requirement (replaces the former hardcoded
+                // requiredAdminScopeForPath). This is a second independent
+                // gate -- both the scope AND a matching RBAC role must pass.
+                // The scope gate is checked first (cheaper, clearer error);
+                // the RBAC role gate follows below.
+                if (auto *reqmt = authforge::drogon::authz::ResourceScopeRegistry::lookup(
+                      req->path(), req->method()
+                    ))
                 {
-                    LOG_WARN << "Authorization failed: insufficient scope for path "
-                             << req->path() << " (requires '" << requiredScope << "')";
-                    auto error = authforge::common::error::Error::fromCode(
-                      "AUTHZ_INSUFFICIENT_PERMISSIONS",
-                      authforge::common::error::RequestId::resolve(req)
-                    );
-                    error.message = "Insufficient scope for this resource";
-                    auto resp =
-                      authforge::common::error::ErrorResponder::buildResponse(req, error);
-                    resp->addHeader(
-                      "WWW-Authenticate",
-                      "Bearer realm=\"authforge\", error=\"insufficient_scope\", "
-                      "error_description=\"The access token does not have the required scope\", "
-                      "scope=\"" +
-                        requiredScope + "\""
-                    );
-                    (*denyCbPtr)(resp);  // DENY -> Return 403
-                    return;
+                    if (!authforge::drogon::authz::satisfies(scope, *reqmt))
+                    {
+                        LOG_WARN << "Authorization failed: insufficient scope for path "
+                                 << req->path() << " (requires '"
+                                 << [&] {
+                                        std::string s;
+                                        for (size_t i = 0; i < reqmt->scopes.size(); ++i)
+                                        {
+                                            if (i > 0)
+                                                s += " ";
+                                            s += reqmt->scopes[i];
+                                        }
+                                        return s;
+                                    }()
+                                 << "')";
+                        (*denyCbPtr)(authforge::drogon::authz::respondInsufficientScope(req, *reqmt)
+                        );
+                        return;
+                    }
                 }
 
                 // 4. Check Access (RBAC role gate -- unchanged)

@@ -16,6 +16,14 @@
 #include <authforge/drogon/controllers/AuthorizationEndpointController.h>
 #include <authforge/drogon/controllers/TokenEndpointController.h>
 #include <authforge/drogon/controllers/DiscoveryController.h>
+#include <authforge/drogon/controllers/UserAdminController.h>
+#include <authforge/drogon/controllers/ClientAdminController.h>
+#include <authforge/drogon/controllers/TokenAdminController.h>
+#include <authforge/drogon/controllers/RoleScopeAdminController.h>
+#include <authforge/drogon/controllers/AuditController.h>
+#include <authforge/drogon/controllers/UserSelfServiceController.h>
+#include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <OrganizationController.h>  // #43: product-app org controller scope decls
 
 #include "bootstrap/ControllerRegistration.h"
 #include "bootstrap/CorsSetup.h"
@@ -164,6 +172,15 @@ int main(int argc, char *argv[])
         LOG_INFO << "ErrorCatalog invariants validated";
     });
 
+    // #43: validate the resource-scope registry against the live route table.
+    // Runs inside run() (after registerAllControllers) so getHandlersInfo()
+    // is fully populated. A missing scope requirement on an auth-gated route,
+    // or an orphan registry entry, LOG_FATAL-aborts -- a defective build is
+    // never released (same loud-fail philosophy as ErrorCatalog above).
+    drogon::app().registerBeginningAdvice([]() {
+        authforge::drogon::authz::ResourceScopeRegistry::runConsistencyCheck();
+    });
+
     // M3 Task 23 (authforge-sdk-refactor, evaluation H4): wire the
     // OAuth2Plugin pointer into every controller/filter that exposes a
     // setPlugin(), replacing their per-request
@@ -226,7 +243,38 @@ int main(int argc, char *argv[])
     authforge::drogon::controllers::AuthorizationEndpointController::initApiDocs();
     authforge::drogon::controllers::TokenEndpointController::initApiDocs();
     authforge::drogon::controllers::DiscoveryController::initApiDocs();
+    // #43 resource-scope authorization: the admin + user-self-service
+    // controllers now declare their per-route scope requirements here (each
+    // controller's initApiDocsImpl populates EndpointInfo.requiredScopes).
+    authforge::drogon::controllers::UserAdminController::initApiDocs();
+    authforge::drogon::controllers::ClientAdminController::initApiDocs();
+    authforge::drogon::controllers::TokenAdminController::initApiDocs();
+    authforge::drogon::controllers::RoleScopeAdminController::initApiDocs();
+    authforge::drogon::controllers::AuditController::initApiDocs();
+    authforge::drogon::controllers::UserSelfServiceController::initApiDocs();
+    // #43: OrganizationController (product-app level, namespace `organization`).
+    ::organization::OrganizationController::initApiDocs();
     bootstrap::setupOpenApi();
+
+    // #43: build the resource-scope registry from the EndpointInfo set now
+    // that all controllers have declared their scope requirements. The
+    // registry is immutable after this point and consulted lock-free by the
+    // filters at request time.
+    authforge::drogon::authz::ResourceScopeRegistry::buildFromEndpoints();
+
+    // #43: the old OAuth2AuthFilter gated ALL of /api/me/* (including MFA,
+    // WebAuthn subpaths) with the `profile` scope by prefix matching. The
+    // exact-template entries above cover the explicitly-declared /api/me
+    // routes; this catch-all prefix preserves the blanket coverage for any
+    // /api/me subpath not individually declared (e.g. /api/me/mfa/*,
+    // /api/me/webauthn/*). Exact entries take priority over this prefix.
+    {
+        authforge::drogon::authz::ResourceScopeRequirement profileReq;
+        profileReq.scopes = {"profile"};
+        // No impliedBy -- admin does NOT satisfy user-self-service (RFC 6749
+        // §3.3 / OIDC Core §5.4).
+        authforge::drogon::authz::ResourceScopeRegistry::registerPrefix("/api/me", profileReq);
+    }
 
     // Swagger UI is available at http://localhost:5555/docs/api
     // Static files are served from document_root configured in config.json

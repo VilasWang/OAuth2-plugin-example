@@ -14,88 +14,64 @@ namespace authforge::drogon::controllers
 
 namespace
 {
-struct ClientAdminControllerDocs
+namespace openapi = ::authforge::drogon::observability::openapi;
+
+// #43 resource-scope authorization: declare one EndpointInfo with its
+// requiredScopes + impliedBy. All client-admin routes are admin-gated; the
+// `admin` super-scope (in impliedBy) satisfies any of them.
+openapi::EndpointInfo adminEp(
+  const char *path,
+  const char *method,
+  const char *summary,
+  const char *description,
+  std::vector<std::string> requiredScopes)
 {
-    ClientAdminControllerDocs()
-    {
-        ::authforge::drogon::observability::openapi::EndpointInfo listClients;
-        listClients.path = "/api/admin/clients";
-        listClients.method = "GET";
-        listClients.summary = "List OAuth2 Clients";
-        listClients.description = "Get a paginated list of registered OAuth2 clients.";
-        listClients.tags = {"Admin", "Clients"};
-        listClients.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(listClients);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo createClient;
-        createClient.path = "/api/admin/clients";
-        createClient.method = "POST";
-        createClient.summary = "Create OAuth2 Client";
-        createClient.description = "Register a new OAuth2 client.";
-        createClient.tags = {"Admin", "Clients"};
-        createClient.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(createClient);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo getClient;
-        getClient.path = "/api/admin/clients/{clientId}";
-        getClient.method = "GET";
-        getClient.summary = "Get Client Details";
-        getClient.description = "Get details of a specific OAuth2 client by ID.";
-        getClient.tags = {"Admin", "Clients"};
-        getClient.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getClient);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo updateClient;
-        updateClient.path = "/api/admin/clients/{clientId}";
-        updateClient.method = "PUT";
-        updateClient.summary = "Update OAuth2 Client";
-        updateClient.description = "Update details of a specific OAuth2 client.";
-        updateClient.tags = {"Admin", "Clients"};
-        updateClient.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(updateClient);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo deleteClient;
-        deleteClient.path = "/api/admin/clients/{clientId}";
-        deleteClient.method = "DELETE";
-        deleteClient.summary = "Delete OAuth2 Client";
-        deleteClient.description = "Delete a specific OAuth2 client.";
-        deleteClient.tags = {"Admin", "Clients"};
-        deleteClient.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(deleteClient);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo resetClientSecret;
-        resetClientSecret.path = "/api/admin/clients/{clientId}/reset-secret";
-        resetClientSecret.method = "POST";
-        resetClientSecret.summary = "Reset Client Secret";
-        resetClientSecret.description = "Reset the secret of a specific OAuth2 client.";
-        resetClientSecret.tags = {"Admin", "Clients"};
-        resetClientSecret.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
-          resetClientSecret
-        );
-
-        ::authforge::drogon::observability::openapi::EndpointInfo getClientScopes;
-        getClientScopes.path = "/api/admin/clients/{clientId}/scopes";
-        getClientScopes.method = "GET";
-        getClientScopes.summary = "Get Client Scopes";
-        getClientScopes.description = "Get the assigned scopes for an OAuth2 client.";
-        getClientScopes.tags = {"Admin", "Clients"};
-        getClientScopes.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(getClientScopes);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo updateClientScopes;
-        updateClientScopes.path = "/api/admin/clients/{clientId}/scopes";
-        updateClientScopes.method = "PUT";
-        updateClientScopes.summary = "Update Client Scopes";
-        updateClientScopes.description = "Update the assigned scopes for an OAuth2 client.";
-        updateClientScopes.tags = {"Admin", "Clients"};
-        updateClientScopes.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(
-          updateClientScopes
-        );
-    }
-} g_clientAdminControllerDocs;
+    openapi::EndpointInfo ep;
+    ep.path = path;
+    ep.method = method;
+    ep.summary = summary;
+    ep.description = description;
+    ep.tags = {"Admin", "Clients"};
+    ep.requiresAuth = true;
+    ep.requiredScopes = std::move(requiredScopes);
+    ep.impliedBy = {"admin"};
+    return ep;
+}
 }  // namespace
+
+void ClientAdminController::initApiDocs()
+{
+    static std::once_flag docsOnce;
+    std::call_once(docsOnce, [] { initApiDocsImpl(); });
+}
+
+void ClientAdminController::initApiDocsImpl()
+{
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients", "GET", "List OAuth2 Clients",
+              "Get a paginated list of registered OAuth2 clients.", {"clients:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients", "POST", "Create OAuth2 Client",
+              "Register a new OAuth2 client.", {"clients:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients/{clientId}", "GET", "Get Client Details",
+              "Get details of a specific OAuth2 client by ID.", {"clients:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients/{clientId}", "PUT", "Update OAuth2 Client",
+              "Update details of a specific OAuth2 client.", {"clients:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients/{clientId}", "DELETE", "Delete OAuth2 Client",
+              "Delete a specific OAuth2 client.", {"clients:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients/{clientId}/reset-secret", "POST", "Reset Client Secret",
+              "Reset the secret of a specific OAuth2 client.", {"clients:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients/{clientId}/scopes", "GET", "Get Client Scopes",
+              "Get the assigned scopes for an OAuth2 client.", {"clients:read"}));
+    openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/clients/{clientId}/scopes", "PUT", "Update Client Scopes",
+              "Update the assigned scopes for an OAuth2 client.", {"clients:write"}));
+}
 
 using ClientService = ::authforge::drogon::admin::ClientManagementService;
 

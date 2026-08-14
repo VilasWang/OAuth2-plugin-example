@@ -92,7 +92,7 @@ DROGON_TEST(Integration_P1_OidcBatch2_ClientSecretPost_RejectedForBasicClient)
     // Body-only secret (no Authorization: Basic header).
     auto resp = sendPostForm(
       "/oauth2/token",
-      "grant_type=client_credentials&client_id=backend-svc&client_secret=test-secret&scope=read"
+      "grant_type=client_credentials&client_id=backend-svc&client_secret=test-secret&scope=tokens:read"
     );
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k401Unauthorized));
@@ -124,7 +124,7 @@ DROGON_TEST(Integration_P1_OidcBatch2_ClientSecretBasic_AcceptedForBasicClient)
           "Authorization",
           "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
         );
-        req->setBody("grant_type=client_credentials&client_id=backend-svc&scope=read");
+        req->setBody("grant_type=client_credentials&client_id=backend-svc&scope=tokens:read");
         auto [result, resp] = client->sendRequest(req, 30.0);
         REQUIRE(result == ::drogon::ReqResult::Ok);
         REQUIRE(resp != nullptr);
@@ -180,8 +180,9 @@ DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns403InsufficientSc
 {
     OIDC_BATCH2_SKIP_GUARD;
 
-    // Obtain an M2M access token (backend-svc, scope=read -- no openid) via
-    // HTTP Basic (the client's declared auth method).
+    // Obtain an M2M access token (backend-svc, scope=tokens:read -- no openid)
+    // via HTTP Basic (the client's declared auth method). #43: the legacy
+    // 'read' scope is dropped; use the resource-prefixed vocabulary.
     std::string accessToken;
     {
         try
@@ -197,7 +198,7 @@ DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns403InsufficientSc
               "Authorization",
               "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
             );
-            req->setBody("grant_type=client_credentials&client_id=backend-svc&scope=read");
+            req->setBody("grant_type=client_credentials&client_id=backend-svc&scope=tokens:read");
             auto [result, resp] = client->sendRequest(req, 30.0);
             REQUIRE(result == ::drogon::ReqResult::Ok);
             REQUIRE(resp != nullptr);
@@ -217,10 +218,14 @@ DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns403InsufficientSc
     if (accessToken.empty())
         return;
 
-    // Hit userinfo with that M2M token -> 403 insufficient_scope.
+    // #43 M1+R2 (OIDC Core §5.3): userinfo is NOT registry-gated, so the M2M
+    // token reaches the handler. The handler checks subject first: a
+    // client_credentials token has subject "client:<id>" (no user identity)
+    // -> 401 invalid_token. This is the correct RFC error classification
+    // (token type mismatch, not scope insufficiency).
     auto resp = sendGet("/oauth2/userinfo", accessToken);
     REQUIRE(resp != nullptr);
-    CHECK(statusIs(resp, drogon::k403Forbidden));
+    CHECK(statusIs(resp, drogon::k401Unauthorized));
     auto wwwAuth = resp->getHeader("WWW-Authenticate");
-    CHECK(wwwAuth.find("insufficient_scope") != std::string::npos);
+    CHECK(wwwAuth.find("invalid_token") != std::string::npos);
 }

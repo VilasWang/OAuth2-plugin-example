@@ -1,10 +1,10 @@
 # Design: Full Resource-Scope Authorization Model (#43)
 
-**Status:** Draft for review
+**Status:** ✅ Implemented (commit f04d3ba, 2026-08-12) — see [progress-status.md](../progress-status.md)
 **Author:** ZCode
 **Created:** 2026-08-09
 **Tracks:** GitHub issue #43 (successor to F-010 / #27 minimal scope enforcement)
-**Related:** [`oauth-oidc-compliance-audit.md`](../done/oauth-oidc-compliance-audit.md) (F-010), [`iam-architecture-audit.md`](../iam-architecture-audit.md)
+**Related:** [`oauth-oidc-compliance-audit.md`](oauth-oidc-compliance-audit.md) (F-010), [`iam-architecture-audit.md`](../iam-architecture-audit.md)
 
 ---
 

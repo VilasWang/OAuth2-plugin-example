@@ -1,9 +1,13 @@
-// Task 17 slice 7 (authforge-sdk-refactor): unit tests for the
-// oauth2::access consent+scope decision engine.
+// Task 17 slice 7 + #43 §5.5: unit tests for the oauth2::access consent+scope
+// decision engine. The former hardcoded isAdminScope() tests are removed --
+// the Tier-2 admin-role check is now driven by a caller-supplied predicate
+// (backed by the DB oauth2_scopes.requires_admin_role column in production).
 
 #include <authforge/oauth2/access/ScopeDecisionEngine.h>
 
 #include <gtest/gtest.h>
+
+#include <functional>
 
 namespace
 {
@@ -22,34 +26,12 @@ Client makeClient(std::vector<std::string> allowedScopes)
     return Client(dto);
 }
 
-// ---------------------------------------------------------------------
-// isAdminScope
-// ---------------------------------------------------------------------
-
-TEST(IsAdminScopeTest, ExactMatchesAreAdminScopes)
-{
-    EXPECT_TRUE(isAdminScope("admin"));
-    EXPECT_TRUE(isAdminScope("admin:read"));
-    EXPECT_TRUE(isAdminScope("admin:write"));
-    EXPECT_TRUE(isAdminScope("user:manage"));
-    EXPECT_TRUE(isAdminScope("settings:manage"));
-}
-
-TEST(IsAdminScopeTest, PrefixMatchIsAdminScope)
-{
-    // "admin:read:extra" matches via the "admin:read:" prefix rule (scope
-    // starts with "admin:read" + ':'), reproducing
-    // IdentityService::scopeRequiresAdminRole's exact semantics.
-    EXPECT_TRUE(isAdminScope("admin:extra-detail"));
-}
-
-TEST(IsAdminScopeTest, NonAdminScopesReturnFalse)
-{
-    EXPECT_FALSE(isAdminScope("openid"));
-    EXPECT_FALSE(isAdminScope("profile"));
-    EXPECT_FALSE(isAdminScope("email"));
-    EXPECT_FALSE(isAdminScope("administrator"));  // not a prefix match ("admin" + ':' required)
-}
+// #43 §5.5: the admin-scope predicate supplied to the engine. Mirrors what
+// AuthorizationService builds from the DB-loaded set. "admin" is the only
+// admin-tier scope exercised by these tests.
+const std::function<bool(const std::string &)> kIsAdmin = [](const std::string &s) {
+    return s == "admin";
+};
 
 // ---------------------------------------------------------------------
 // evaluateScope
@@ -58,7 +40,7 @@ TEST(IsAdminScopeTest, NonAdminScopesReturnFalse)
 TEST(EvaluateScopeTest, NotInClientAllowlist_ReturnsInvalid)
 {
     Client client = makeClient({"openid"});
-    auto result = evaluateScope("profile", client, /*hasAdminRole=*/true, /*hasConsent=*/true);
+    auto result = evaluateScope("profile", client, /*hasAdminRole=*/true, /*hasConsent=*/true, kIsAdmin);
 
     EXPECT_EQ(result.decision, ScopeDecision::Invalid);
     EXPECT_EQ(result.reason, "scope_not_allowed_for_client");
@@ -67,7 +49,7 @@ TEST(EvaluateScopeTest, NotInClientAllowlist_ReturnsInvalid)
 TEST(EvaluateScopeTest, AdminScopeWithoutAdminRole_ReturnsInvalid)
 {
     Client client = makeClient({"admin"});
-    auto result = evaluateScope("admin", client, /*hasAdminRole=*/false, /*hasConsent=*/true);
+    auto result = evaluateScope("admin", client, /*hasAdminRole=*/false, /*hasConsent=*/true, kIsAdmin);
 
     EXPECT_EQ(result.decision, ScopeDecision::Invalid);
     EXPECT_EQ(result.reason, "admin_role_required");
@@ -76,7 +58,7 @@ TEST(EvaluateScopeTest, AdminScopeWithoutAdminRole_ReturnsInvalid)
 TEST(EvaluateScopeTest, AdminScopeWithAdminRoleButNoConsent_ReturnsConsentRequired)
 {
     Client client = makeClient({"admin"});
-    auto result = evaluateScope("admin", client, /*hasAdminRole=*/true, /*hasConsent=*/false);
+    auto result = evaluateScope("admin", client, /*hasAdminRole=*/true, /*hasConsent=*/false, kIsAdmin);
 
     EXPECT_EQ(result.decision, ScopeDecision::ConsentRequired);
     EXPECT_EQ(result.reason, "user_consent_required");
@@ -85,7 +67,7 @@ TEST(EvaluateScopeTest, AdminScopeWithAdminRoleButNoConsent_ReturnsConsentRequir
 TEST(EvaluateScopeTest, NonAdminScopeWithoutConsent_ReturnsConsentRequired)
 {
     Client client = makeClient({"openid"});
-    auto result = evaluateScope("openid", client, /*hasAdminRole=*/false, /*hasConsent=*/false);
+    auto result = evaluateScope("openid", client, /*hasAdminRole=*/false, /*hasConsent=*/false, kIsAdmin);
 
     EXPECT_EQ(result.decision, ScopeDecision::ConsentRequired);
 }
@@ -93,10 +75,40 @@ TEST(EvaluateScopeTest, NonAdminScopeWithoutConsent_ReturnsConsentRequired)
 TEST(EvaluateScopeTest, AllowedAndConsented_ReturnsValid)
 {
     Client client = makeClient({"openid"});
-    auto result = evaluateScope("openid", client, /*hasAdminRole=*/false, /*hasConsent=*/true);
+    auto result = evaluateScope("openid", client, /*hasAdminRole=*/false, /*hasConsent=*/true, kIsAdmin);
 
     EXPECT_EQ(result.decision, ScopeDecision::Valid);
     EXPECT_TRUE(result.reason.empty());
+}
+
+// evaluateScope: a non-admin ConsentRequired result carries the
+// "user_consent_required" reason.
+TEST(EvaluateScopeTest, NonAdminScopeWithoutConsent_ReasonIsUserConsentRequired)
+{
+    Client client = makeClient({"openid"});
+    auto result = evaluateScope("openid", client, /*hasAdminRole=*/false, /*hasConsent=*/false, kIsAdmin);
+    EXPECT_EQ(result.decision, ScopeDecision::ConsentRequired);
+    EXPECT_EQ(result.reason, "user_consent_required");
+}
+
+// evaluateScope: the admin+role+consent combination returns Valid.
+TEST(EvaluateScopeTest, AdminScopeWithAdminRoleAndConsent_ReturnsValid)
+{
+    Client client = makeClient({"admin"});
+    auto result = evaluateScope("admin", client, /*hasAdminRole=*/true, /*hasConsent=*/true, kIsAdmin);
+    EXPECT_EQ(result.decision, ScopeDecision::Valid);
+    EXPECT_TRUE(result.reason.empty());
+}
+
+// evaluateScope: the result.scope field echoes the input scope verbatim.
+TEST(EvaluateScopeTest, ResultScopeField_EchoesInput)
+{
+    Client client = makeClient({"openid"});
+    auto result = evaluateScope("openid", client, false, true, kIsAdmin);
+    EXPECT_EQ(result.scope, "openid");
+
+    auto invalidResult = evaluateScope("nope", client, false, true, kIsAdmin);
+    EXPECT_EQ(invalidResult.scope, "nope");
 }
 
 // ---------------------------------------------------------------------
@@ -109,7 +121,7 @@ TEST(EvaluateScopesTest, AllValid_CanProceedTrue)
     auto summary = evaluateScopes(
       {"openid", "profile"}, client, /*hasAdminRole=*/false, [](const std::string &) {
           return true;
-      }
+      }, kIsAdmin
     );
 
     EXPECT_TRUE(summary.canProceed());
@@ -125,7 +137,7 @@ TEST(EvaluateScopesTest, MixedValidAndInvalid_HasErrorsTrue)
     auto summary =
       evaluateScopes({"openid", "admin"}, client, /*hasAdminRole=*/true, [](const std::string &) {
           return true;
-      });
+      }, kIsAdmin);
 
     EXPECT_FALSE(summary.canProceed());
     EXPECT_TRUE(summary.hasErrors());
@@ -143,7 +155,8 @@ TEST(EvaluateScopesTest, NeedsConsent_WhenNoErrorsButUnconsentedScope)
       {"openid", "profile"},
       client,
       /*hasAdminRole=*/false,
-      [](const std::string &scope) { return scope == "openid"; }  // only "openid" consented
+      [](const std::string &scope) { return scope == "openid"; },  // only "openid" consented
+      kIsAdmin
     );
 
     EXPECT_FALSE(summary.canProceed());
@@ -170,7 +183,8 @@ TEST(EvaluateScopesTest, ConsentNeverCheckedForInvalidScope)
           if (scope == "admin")
               consentCheckedForAdmin = true;
           return true;
-      }
+      },
+      kIsAdmin
     );
 
     EXPECT_FALSE(consentCheckedForAdmin);
@@ -181,90 +195,21 @@ TEST(EvaluateScopesTest, ConsentNeverCheckedForInvalidScope)
 TEST(EvaluateScopesTest, EmptyScopeList_CanProceedTrue)
 {
     Client client = makeClient({});
-    auto summary =
-      evaluateScopes({}, client, /*hasAdminRole=*/false, [](const std::string &) { return true; });
+    auto summary = evaluateScopes(
+      {}, client, /*hasAdminRole=*/false, [](const std::string &) { return true; }, kIsAdmin);
 
     EXPECT_TRUE(summary.canProceed());
     EXPECT_TRUE(summary.valid.empty());
 }
 
-// ---------------------------------------------------------------------------
-// Coverage additions (P2/P3): prefix-match coverage for every admin entry,
-// the bare "admin:" prefix boundary, empty-string input, the non-admin
-// ConsentRequired reason string, the admin+role+consent Valid cell, the
-// result.scope echo, and multi-element invalid/consentRequired aggregation.
-// ---------------------------------------------------------------------------
-
-// isAdminScope: the prefix rule applies to EVERY admin entry, not just
-// "admin:". Verify each list member's "X:..." prefix is recognized.
-TEST(IsAdminScopeTest, PrefixMatch_AllAdminEntries_Recognized)
-{
-    EXPECT_TRUE(isAdminScope("admin:read:logs"));
-    EXPECT_TRUE(isAdminScope("admin:write:config"));
-    EXPECT_TRUE(isAdminScope("user:manage:42"));
-    EXPECT_TRUE(isAdminScope("settings:manage:feature"));
-}
-
-// isAdminScope: the bare "admin:" prefix (nothing after the colon) still
-// matches via the "admin" + ":" rule. Edge case at the prefix boundary.
-TEST(IsAdminScopeTest, BareAdminColonPrefix_IsAdminScope)
-{
-    EXPECT_TRUE(isAdminScope("admin:"));
-    EXPECT_TRUE(isAdminScope("admin:read:"));
-    EXPECT_TRUE(isAdminScope("user:manage:"));
-}
-
-// isAdminScope: empty string and a scope that is a substring-but-not-prefix
-// of an admin entry both return false (defensive inputs).
-TEST(IsAdminScopeTest, EmptyString_AndNonPrefixSubstring_ReturnFalse)
-{
-    EXPECT_FALSE(isAdminScope(""));
-    EXPECT_FALSE(isAdminScope("adm"));        // substring of "admin", not a match
-    EXPECT_FALSE(isAdminScope("adminRead"));  // no ':' separator
-}
-
-// evaluateScope: a non-admin ConsentRequired result carries the
-// "user_consent_required" reason (the existing non-admin test only asserted
-// the decision, not the reason string).
-TEST(EvaluateScopeTest, NonAdminScopeWithoutConsent_ReasonIsUserConsentRequired)
-{
-    Client client = makeClient({"openid"});
-    auto result = evaluateScope("openid", client, /*hasAdminRole=*/false, /*hasConsent=*/false);
-    EXPECT_EQ(result.decision, ScopeDecision::ConsentRequired);
-    EXPECT_EQ(result.reason, "user_consent_required");
-}
-
-// evaluateScope: the admin+role+consent combination returns Valid (closes
-// the missing Valid cell of the admin matrix; existing admin tests only
-// assert Invalid or ConsentRequired).
-TEST(EvaluateScopeTest, AdminScopeWithAdminRoleAndConsent_ReturnsValid)
-{
-    Client client = makeClient({"admin"});
-    auto result = evaluateScope("admin", client, /*hasAdminRole=*/true, /*hasConsent=*/true);
-    EXPECT_EQ(result.decision, ScopeDecision::Valid);
-    EXPECT_TRUE(result.reason.empty());
-}
-
-// evaluateScope: the result.scope field echoes the input scope verbatim
-// (previously never asserted).
-TEST(EvaluateScopeTest, ResultScopeField_EchoesInput)
-{
-    Client client = makeClient({"openid"});
-    auto result = evaluateScope("openid", client, false, true);
-    EXPECT_EQ(result.scope, "openid");
-
-    auto invalidResult = evaluateScope("nope", client, false, true);
-    EXPECT_EQ(invalidResult.scope, "nope");
-}
-
 // evaluateScopes: multiple invalid scopes accumulate into invalidReasons in
-// order (the existing mixed test only had a single invalid).
+// order.
 TEST(EvaluateScopesTest, MultipleInvalidScopes_AccumulatesReasonsInOrder)
 {
     Client client = makeClient({"openid"});  // admin + profile not allowed
     auto summary = evaluateScopes(
       {"profile", "admin", "openid"}, client, /*hasAdminRole=*/true,
-      [](const std::string &) { return true; }
+      [](const std::string &) { return true; }, kIsAdmin
     );
     ASSERT_EQ(summary.invalid.size(), 2u);
     EXPECT_EQ(summary.invalid[0], "profile");
@@ -281,7 +226,8 @@ TEST(EvaluateScopesTest, AllScopesConsentRequired_NeedsConsentTrue)
     Client client = makeClient({"openid", "profile", "email"});
     auto summary = evaluateScopes(
       {"openid", "profile", "email"}, client, /*hasAdminRole=*/false,
-      [](const std::string &) { return false; }  // nothing consented
+      [](const std::string &) { return false; },  // nothing consented
+      kIsAdmin
     );
     EXPECT_TRUE(summary.needsConsent());
     ASSERT_EQ(summary.consentRequired.size(), 3u);
@@ -292,8 +238,6 @@ TEST(EvaluateScopesTest, AllScopesConsentRequired_NeedsConsentTrue)
 
 // evaluateScopes: tier-2 short-circuit -- client ALLOWS "admin" but the
 // user is not an admin -> Invalid without consulting hasConsentForScope.
-// (The existing ConsentNeverCheckedForInvalidScope test covers the tier-1
-// case where the client does NOT allow "admin".)
 TEST(EvaluateScopesTest, TierTwoReject_ClientAllowsAdminButNotAdminRole_SkipsConsent)
 {
     Client client = makeClient({"admin"});  // client allows admin
@@ -302,11 +246,24 @@ TEST(EvaluateScopesTest, TierTwoReject_ClientAllowsAdminButNotAdminRole_SkipsCon
       {"admin"}, client, /*hasAdminRole=*/false, [&](const std::string &) {
           consentChecked = true;
           return true;
-      }
+      }, kIsAdmin
     );
     EXPECT_FALSE(consentChecked);  // consent never consulted for an admin-role-rejected scope
     ASSERT_EQ(summary.invalid.size(), 1u);
     EXPECT_EQ(summary.invalidReasons[0], "admin_role_required");
+}
+
+// #43 §5.5: a scope NOT in the admin set does not trigger the admin-role
+// check even if hasAdminRole is false -- the predicate is the sole authority
+// on which scopes are admin-tiered.
+TEST(EvaluateScopeTest, NonAdminScope_NotSubjectToAdminRoleCheck)
+{
+    Client client = makeClient({"users:read"});
+    // kIsAdmin only matches "admin", not "users:read" -- so the engine does
+    // NOT treat "users:read" as admin-tiered here (production would, but the
+    // predicate is the test's to control). With consent, it is Valid.
+    auto result = evaluateScope("users:read", client, /*hasAdminRole=*/false, /*hasConsent=*/true, kIsAdmin);
+    EXPECT_EQ(result.decision, ScopeDecision::Valid);
 }
 
 }  // namespace

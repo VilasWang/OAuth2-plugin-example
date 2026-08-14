@@ -192,8 +192,8 @@ Test-Endpoint "Test 8b: /api/admin without admin scope -> 403 insufficient_scope
         if ($code -ne 403) { throw "expected 403, got $code" }
         $wwwAuth = $resp.Headers.GetValues("WWW-Authenticate") -join ", "
         if ($wwwAuth -notmatch 'insufficient_scope') { throw "WWW-Authenticate missing insufficient_scope: $wwwAuth" }
-        if ($wwwAuth -notmatch 'scope="admin"') { throw "WWW-Authenticate missing scope=admin: $wwwAuth" }
-        Write-Host "    403 insufficient_scope (scope=admin) confirmed"
+        if ($wwwAuth -notmatch 'scope="audit:read"') { throw "WWW-Authenticate missing scope=audit:read: $wwwAuth" }
+        Write-Host "    403 insufficient_scope (scope=audit:read) confirmed"
     }
 }
 
@@ -259,12 +259,12 @@ Test-Endpoint "Test 10: Client Credentials" {
     $body = @{
         grant_type = 'client_credentials'
         client_id = 'backend-svc'
-        scope = 'read'
+        scope = 'tokens:read'
     }
     $r = Invoke-RestMethod -Uri "$BaseUrl/oauth2/token" -Method Post -Body $body -Headers $headers
     if (-not $r.access_token) { throw "no access_token" }
     if ($r.refresh_token) { throw "client_credentials should NOT have refresh_token" }
-    if ($r.scope -ne "read") { throw "scope mismatch" }
+    if ($r.scope -ne "tokens:read") { throw "scope mismatch" }
     Write-Host "    AT: $($r.access_token.Substring(0,20))..., Scope: $($r.scope)"
 }
 
