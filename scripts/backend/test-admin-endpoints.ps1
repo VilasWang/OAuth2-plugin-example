@@ -772,14 +772,14 @@ Test-Endpoint "Test 43: GET /api/admin/dashboard/stats - Non-admin denied" {
 # B1 (OIDC Back-Channel Logout 1.0): backchannel_logout_uri admin config path.
 Test-Endpoint "Test 44: PUT/GET/clear backchannel_logout_uri (B1)" {
     $h = Get-AuthHeaders
-    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Put -Headers $h -Body (@{ backchannel_logout_uri = "https://rp-bc.example.com/backchannel-logout" } | ConvertTo-Json)
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/vue-client" -Method Put -Headers $h -Body (@{ backchannel_logout_uri = "https://rp-bc.example.com/backchannel-logout" } | ConvertTo-Json)
     if ($r.status -ne "success") { throw "set failed" }
-    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Get -Headers $h
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/vue-client" -Method Get -Headers $h
     if ($r.backchannel_logout_uri -ne "https://rp-bc.example.com/backchannel-logout") { throw "uri not persisted: '$($r.backchannel_logout_uri)'" }
     # Empty string clears the registration (NULL in DB, "" in the response).
-    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Put -Headers $h -Body (@{ backchannel_logout_uri = "" } | ConvertTo-Json)
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/vue-client" -Method Put -Headers $h -Body (@{ backchannel_logout_uri = "" } | ConvertTo-Json)
     if ($r.status -ne "success") { throw "clear failed" }
-    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Get -Headers $h
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/vue-client" -Method Get -Headers $h
     if ("$($r.backchannel_logout_uri)" -ne "") { throw "uri not cleared: '$($r.backchannel_logout_uri)'" }
     Write-Host "    set -> read -> cleared: ok"
 }
@@ -790,7 +790,7 @@ Test-Endpoint "Test 44: PUT/GET/clear backchannel_logout_uri (B1)" {
 Test-Endpoint "Test 45: PUT backchannel_logout_uri - non-https scheme (400)" {
     $h = Get-AuthHeaders
     try {
-        Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Put -Headers $h -ErrorAction Stop -Body (@{ backchannel_logout_uri = "ftp://rp.example.com/backchannel-logout" } | ConvertTo-Json)
+        Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/vue-client" -Method Put -Headers $h -ErrorAction Stop -Body (@{ backchannel_logout_uri = "ftp://rp.example.com/backchannel-logout" } | ConvertTo-Json)
         throw "should have returned 400"
     } catch {
         if ($_.Exception.Response.StatusCode -eq "BadRequest") {
