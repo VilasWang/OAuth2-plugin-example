@@ -337,7 +337,14 @@ void ResourceScopeRegistry::runConsistencyCheck()
         // spdlog may not flush before exit.
         std::fprintf(stderr, "FATAL: consistency check FAILED (missing):%s\n", oss.str().c_str());
         std::fflush(stderr);
-        std::quick_exit(1);  // M2: quick_exit avoids spdlog destructor crash on Windows
+        // M2: std::abort() on Windows MSVC triggers STATUS_STACK_BUFFER_OVERRUN
+        // (0xC0000409) interfering with spdlog destructors; quick_exit avoids
+        // that. macOS lacks quick_exit, so use abort there (works on Linux/macOS).
+#ifdef _WIN32
+        std::quick_exit(1);
+#else
+        std::abort();
+#endif
     }
 
     // (b) Orphan direction: every registry entry must correspond to a real
@@ -380,7 +387,11 @@ void ResourceScopeRegistry::runConsistencyCheck()
                      "match an ADD_METHOD_TO route.";
         std::fprintf(stderr, "FATAL: consistency check FAILED (orphan):%s\n", oss.str().c_str());
         std::fflush(stderr);
-        std::quick_exit(1);  // M2: quick_exit avoids spdlog destructor crash on Windows
+#ifdef _WIN32
+        std::quick_exit(1);
+#else
+        std::abort();
+#endif
     }
 
     LOG_INFO << "ResourceScopeRegistry consistency check passed ("
