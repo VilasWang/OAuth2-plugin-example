@@ -75,7 +75,8 @@ void PostgresIdentityRepository::findByEmail(
     {
         Mapper<Users> mapper(dbClient_);
         mapper.findOne(
-          Criteria(Users::Cols::_email, CompareOperator::EQ, email),
+          Criteria(Users::Cols::_email, CompareOperator::EQ, email) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [sharedCb](const Users &row) { (*sharedCb)(toUserData(row)); },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
         );
@@ -102,7 +103,8 @@ void PostgresIdentityRepository::findByUsername(
     {
         Mapper<Users> mapper(dbClient_);
         mapper.findOne(
-          Criteria(Users::Cols::_username, CompareOperator::EQ, username),
+          Criteria(Users::Cols::_username, CompareOperator::EQ, username) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [sharedCb](const Users &row) { (*sharedCb)(toUserData(row)); },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
         );
@@ -129,7 +131,8 @@ void PostgresIdentityRepository::findById(
     {
         Mapper<Users> mapper(dbClient_);
         mapper.findOne(
-          Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+          Criteria(Users::Cols::_id, CompareOperator::EQ, userId) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [sharedCb](const Users &row) { (*sharedCb)(toUserData(row)); },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
         );
@@ -156,7 +159,8 @@ void PostgresIdentityRepository::findByPublicSub(
     {
         Mapper<Users> mapper(dbClient_);
         mapper.findOne(
-          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, publicSub),
+          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, publicSub) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [sharedCb](const Users &row) { (*sharedCb)(toUserData(row)); },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
         );
@@ -426,7 +430,8 @@ void PostgresIdentityRepository::getUserInfoWithRoles(
     try
     {
         Mapper<Users>(db).findBy(
-          Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+          Criteria(Users::Cols::_id, CompareOperator::EQ, userId) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [sharedCb, db, userId](const std::vector<Users> &users) {
               if (users.empty())
               {
@@ -623,7 +628,8 @@ void PostgresIdentityRepository::getRoles(
     {
         Mapper<Users> userMapper(db);
         userMapper.findOne(
-          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, subject),
+          Criteria(Users::Cols::_public_sub, CompareOperator::EQ, subject) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [this, sharedCb](const Users &user) {
               getRoles(user.getValueOfId(), [sharedCb](std::vector<std::string> roles) {
                   (*sharedCb)(roles);
