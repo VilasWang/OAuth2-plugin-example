@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $passed = 0
 $failed = 0
-$total = 52
+$total = 55
 
 # Import common functions
 . "$PSScriptRoot\common-test-functions.ps1"
@@ -767,6 +767,59 @@ Test-Endpoint "Test 43: GET /api/admin/dashboard/stats - Non-admin denied" {
             Write-Host "    Got status: $code"
         }
     }
+}
+
+# B1 (OIDC Back-Channel Logout 1.0): backchannel_logout_uri admin config path.
+Test-Endpoint "Test 44: PUT/GET/clear backchannel_logout_uri (B1)" {
+    $h = Get-AuthHeaders
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Put -Headers $h -Body (@{ backchannel_logout_uri = "https://rp-bc.example.com/backchannel-logout" } | ConvertTo-Json)
+    if ($r.status -ne "success") { throw "set failed" }
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Get -Headers $h
+    if ($r.backchannel_logout_uri -ne "https://rp-bc.example.com/backchannel-logout") { throw "uri not persisted: '$($r.backchannel_logout_uri)'" }
+    # Empty string clears the registration (NULL in DB, "" in the response).
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Put -Headers $h -Body (@{ backchannel_logout_uri = "" } | ConvertTo-Json)
+    if ($r.status -ne "success") { throw "clear failed" }
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Get -Headers $h
+    if ("$($r.backchannel_logout_uri)" -ne "") { throw "uri not cleared: '$($r.backchannel_logout_uri)'" }
+    Write-Host "    set -> read -> cleared: ok"
+}
+
+# NOTE: plain http:// is NOT a reliable negative case here because the test
+# configs enable auth.allow_http_redirect_uri (dev hatch honored by the
+# validator). ftp:// is invalid regardless of the hatch.
+Test-Endpoint "Test 45: PUT backchannel_logout_uri - non-https scheme (400)" {
+    $h = Get-AuthHeaders
+    try {
+        Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/api-service" -Method Put -Headers $h -ErrorAction Stop -Body (@{ backchannel_logout_uri = "ftp://rp.example.com/backchannel-logout" } | ConvertTo-Json)
+        throw "should have returned 400"
+    } catch {
+        if ($_.Exception.Response.StatusCode -eq "BadRequest") {
+            Write-Host "    Correctly returned 400 for non-https backchannel_logout_uri"
+        } else { throw "expected 400, got: $($_.Exception.Response.StatusCode)" }
+    }
+}
+
+Test-Endpoint "Test 46: POST /api/admin/clients - create with backchannel_logout_uri (B1)" {
+    $h = Get-AuthHeaders
+    $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $body = @{
+        name = "BC Test Client $ts"
+        redirect_uris = "http://localhost:3100/callback"
+        allowed_grant_types = "authorization_code"
+        client_type = "CONFIDENTIAL"
+        backchannel_logout_uri = "https://rp-bc-create.example.com/bc"
+    } | ConvertTo-Json
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients" -Method Post -Headers $h -Body $body
+    if ($r.status -ne "success") { throw "create failed" }
+    if (-not $r.client_id) { throw "missing client_id" }
+    $bcId = $r.client_id
+    try {
+        $g = Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/$bcId" -Method Get -Headers $h
+        if ($g.backchannel_logout_uri -ne "https://rp-bc-create.example.com/bc") { throw "uri not persisted on create: '$($g.backchannel_logout_uri)'" }
+    } finally {
+        Invoke-RestMethod -Uri "$BaseUrl/api/admin/clients/$bcId" -Method Delete -Headers $h | Out-Null
+    }
+    Write-Host "    created with uri, read back, deleted: $bcId"
 }
 
 # ========================================

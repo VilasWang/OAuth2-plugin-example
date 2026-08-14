@@ -688,6 +688,60 @@ test_43() {
 }
 run_test "Test 43: GET /api/admin/dashboard/stats - Non-admin denied" test_43
 
+# Test 44: backchannel_logout_uri set / get / clear lifecycle (B1)
+test_44() {
+    local r
+    r=$(curl -s -X PUT -H "$(auth_header)" -H "Content-Type: application/json" \
+        -d '{"backchannel_logout_uri":"https://rp-bc.example.com/backchannel-logout"}' \
+        "$BASE_URL/api/admin/clients/api-service")
+    assert_json_field "$r" "status" "success" || return 1
+    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/clients/api-service")
+    assert_json_field "$r" "backchannel_logout_uri" "https://rp-bc.example.com/backchannel-logout" || return 1
+    # Empty string clears the registration (NULL in DB, "" in the response).
+    r=$(curl -s -X PUT -H "$(auth_header)" -H "Content-Type: application/json" \
+        -d '{"backchannel_logout_uri":""}' "$BASE_URL/api/admin/clients/api-service")
+    assert_json_field "$r" "status" "success" || return 1
+    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/clients/api-service")
+    assert_json_field "$r" "backchannel_logout_uri" "" || return 1
+    echo "    set -> read -> cleared: ok"
+}
+run_test "Test 44: PUT/GET/clear backchannel_logout_uri (B1)" test_44
+
+# Test 45: backchannel_logout_uri must be https (B1, OIDC §2.3).
+# NOTE: plain http:// is NOT a reliable negative case here because the test
+# configs enable auth.allow_http_redirect_uri (dev hatch honored by the
+# validator). ftp:// is invalid regardless of the hatch.
+test_45() {
+    local code
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H "$(auth_header)" \
+        -H "Content-Type: application/json" \
+        -d '{"backchannel_logout_uri":"ftp://rp.example.com/backchannel-logout"}' \
+        "$BASE_URL/api/admin/clients/api-service")
+    assert_status "$code" "400" || return 1
+    echo "    Correctly returned 400 for non-https backchannel_logout_uri"
+}
+run_test "Test 45: PUT backchannel_logout_uri - non-https scheme (400)" test_45
+
+# Test 46: create a client WITH backchannel_logout_uri, read it back, clean up (B1)
+test_46() {
+    local ts
+    ts=$(date +%s)
+    local r
+    r=$(curl -s -X POST -H "$(auth_header)" -H "Content-Type: application/json" \
+        -d "{\"name\":\"BC Test Client $ts\",\"redirect_uris\":\"http://localhost:3100/callback\",\"allowed_grant_types\":\"authorization_code\",\"client_type\":\"CONFIDENTIAL\",\"backchannel_logout_uri\":\"https://rp-bc-create.example.com/bc\"}" \
+        "$BASE_URL/api/admin/clients")
+    assert_json_field "$r" "status" "success" || return 1
+    local bc_id
+    bc_id=$(echo "$r" | jq -r '.client_id')
+    [ -n "$bc_id" ] && [ "$bc_id" != "null" ] || { echo "    missing client_id"; return 1; }
+    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/clients/$bc_id")
+    assert_json_field "$r" "backchannel_logout_uri" "https://rp-bc-create.example.com/bc" || { \
+        curl -s -X DELETE -H "$(auth_header)" "$BASE_URL/api/admin/clients/$bc_id" >/dev/null; return 1; }
+    curl -s -X DELETE -H "$(auth_header)" "$BASE_URL/api/admin/clients/$bc_id" >/dev/null
+    echo "    created with uri, read back, deleted: $bc_id"
+}
+run_test "Test 46: POST /api/admin/clients - create with backchannel_logout_uri (B1)" test_46
+
 # Post-test Cleanup
 echo "========================================"
 echo "Post-test Cleanup"
