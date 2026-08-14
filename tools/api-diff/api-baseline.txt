@@ -1096,6 +1096,7 @@ static std::vector<Entry> snapshot();
 static void runConsistencyCheck();
 static void clear();
 static bool isBuilt();
+static void clearPrefixes();
 };
 }
 === libs/drogon/include/authforge/drogon/authz/ScopeResolver.h
