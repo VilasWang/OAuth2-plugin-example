@@ -40,6 +40,12 @@ class UserAdminController : public ::drogon::HttpController<UserAdminController,
       "authforge::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
+      UserAdminController::deleteUser,
+      "/api/admin/users/{userId}",
+      ::drogon::Delete,
+      "authforge::drogon::filters::AuthorizationFilter"
+    );
+    ADD_METHOD_TO(
       UserAdminController::disableUser,
       "/api/admin/users/{userId}/disable",
       ::drogon::Put,
@@ -82,6 +88,12 @@ class UserAdminController : public ::drogon::HttpController<UserAdminController,
     );
 
     void updateUser(
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+      const std::string &userId
+    );
+
+    void deleteUser(
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
       const std::string &userId

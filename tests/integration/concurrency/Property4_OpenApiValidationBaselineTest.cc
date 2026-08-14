@@ -99,6 +99,7 @@ const std::string &expectedFingerprint()
       "DELETE /api/admin/roles/{roleId}\n"
       "DELETE /api/admin/scopes/{scopeId}\n"
       "DELETE /api/admin/tokens/{tokenPrefix}\n"
+      "DELETE /api/admin/users/{userId}\n"
       "DELETE /api/me\n"
       "DELETE /api/me/authorized-apps/{clientId}\n"
       "GET /.well-known/jwks.json\n"

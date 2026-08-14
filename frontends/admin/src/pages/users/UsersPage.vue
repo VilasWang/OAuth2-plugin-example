@@ -120,6 +120,17 @@ async function createUser() {
   }
 }
 
+async function deleteUser(user: any) {
+  if (!confirm(`Delete user "${user.username}"? This action cannot be undone.`)) return
+  try {
+    await axios.delete(`/api/admin/users/${user.id}`)
+    showSuccess('User deleted successfully')
+    await fetchUsers()
+  } catch (e: unknown) {
+    showError(normalizeError(e).message)
+  }
+}
+
 onMounted(fetchUsers)
 </script>
 
@@ -187,7 +198,8 @@ onMounted(fetchUsers)
             </td>
             <td class="px-6 py-4 text-sm">
               <button @click="openRoleModal(user)" class="text-indigo-600 hover:text-indigo-900 mr-3">Assign Roles</button>
-              <router-link :to="{ name: 'user-detail', params: { id: user.id } }" class="text-gray-600 hover:text-gray-900">Details</router-link>
+              <router-link :to="{ name: 'user-detail', params: { id: user.id } }" class="text-gray-600 hover:text-gray-900 mr-3">Details</router-link>
+              <button @click="deleteUser(user)" class="text-red-600 hover:text-red-900">Delete</button>
             </td>
           </tr>
         </tbody>

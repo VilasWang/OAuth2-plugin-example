@@ -30,6 +30,7 @@ using authforge::test::http::loginAsAdmin;
 using authforge::test::http::parseJsonBody;
 using authforge::test::http::postgresAvailable;
 using authforge::test::http::sendGet;
+using authforge::test::http::sendDelete;
 using authforge::test::http::sendPostJson;
 using authforge::test::http::sendPutJson;
 using authforge::test::http::serverReachable;
@@ -594,4 +595,45 @@ DROGON_TEST(Integration_P1_AdminUser_List_FilterLocked)
     Json::Value body;
     REQUIRE(parseJsonBody(resp, body));
     CHECK(body["total"].asInt() >= 1);
+}
+
+// ---------------------------------------------------------------------------
+// deleteUser (soft-delete): create a user, DELETE it, verify GET returns 404
+// and the user is excluded from list results.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P0_AdminUser_Delete_SoftDelete_HidesUser)
+{
+    ADMIN_USER_SKIP_GUARD;
+
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    // Create a throwaway user.
+    auto suffix = uniqueSuffix();
+    Json::Value createBody;
+    createBody["username"] = "deltest_" + suffix;
+    createBody["password"] = "TestPass123!";
+    auto cr = sendPostJson("/api/admin/users", createBody, *token);
+    REQUIRE(cr != nullptr);
+    REQUIRE(statusIs(cr, drogon::k201Created));
+    Json::Value crBody;
+    REQUIRE(parseJsonBody(cr, crBody));
+    int userId = crBody["user"]["id"].asInt();
+
+    // Delete it.
+    auto delResp = sendDelete("/api/admin/users/" + std::to_string(userId), *token);
+    REQUIRE(delResp != nullptr);
+    CHECK(statusIs(delResp, drogon::k200OK));
+
+    // GET should now return 404 (soft-deleted users are excluded).
+    auto getResp = sendGet("/api/admin/users/" + std::to_string(userId), *token);
+    REQUIRE(getResp != nullptr);
+    CHECK(statusIs(getResp, drogon::k404NotFound));
+
+    // List with ?q= should not include the deleted user.
+    auto listResp = sendGet("/api/admin/users?q=deltest_" + suffix, *token);
+    REQUIRE(listResp != nullptr);
+    Json::Value listBody;
+    REQUIRE(parseJsonBody(listResp, listBody));
+    CHECK(listBody["total"].asInt() == 0);
 }

@@ -2,6 +2,7 @@ DELETE /api/admin/clients/{clientId}
 DELETE /api/admin/roles/{roleId}
 DELETE /api/admin/scopes/{scopeId}
 DELETE /api/admin/tokens/{tokenPrefix}
+DELETE /api/admin/users/{userId}
 DELETE /api/me
 DELETE /api/me/authorized-apps/{clientId}
 GET /.well-known/jwks.json

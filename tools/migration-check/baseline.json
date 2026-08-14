@@ -21,5 +21,6 @@
   "V020__username_optional.sql": "748b490cdcf67861b6342f16179a7149acd1be47b47d1142a25404ad0872cb14",
   "V021__widen_email_verification_tokens_email.sql": "93fe3a0289bcbcecb44f23ce0df4b1bad0691dbdcfbf88617cb74fa0c271eec7",
   "V022__mfa_pending_client_binding.sql": "eda188b4ca8e62cb3ab6e4049b0a7dcffaab0631921808c716bc922f5e2b131b",
-  "V023__resource_scopes.sql": "9bf8effd881165bf26b5dceef66d7dc7ab5138b38bbb3a09fb3412da175a0e92"
+  "V023__resource_scopes.sql": "9bf8effd881165bf26b5dceef66d7dc7ab5138b38bbb3a09fb3412da175a0e92",
+  "V024__users_soft_delete.sql": "2a3e4ee037161d4182f5befc13d000eee12a131baed127fb0d6fdcdd17787fbb"
 }

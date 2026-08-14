@@ -67,6 +67,11 @@ void UserAdminController::initApiDocsImpl()
               "locked, org_id.",
               {"users:write"}));
     openapi::OpenApiGenerator::addEndpoint(
+      adminEp("/api/admin/users/{userId}", "DELETE", "Delete User",
+              "Soft-delete a user account (sets deleted_at). The user is excluded "
+              "from all queries and can no longer log in.",
+              {"users:write"}));
+    openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users/{userId}/disable", "PUT", "Disable User",
               "Disable a specific user account.", {"users:write"}));
     openapi::OpenApiGenerator::addEndpoint(
@@ -144,6 +149,17 @@ void UserAdminController::updateUser(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
     UserService::updateUser(req, sharedCb, userId);
+}
+
+void UserAdminController::deleteUser(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+  const std::string &userId
+)
+{
+    auto sharedCb =
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+    UserService::deleteUser(req, sharedCb, userId);
 }
 
 void UserAdminController::enableUser(
