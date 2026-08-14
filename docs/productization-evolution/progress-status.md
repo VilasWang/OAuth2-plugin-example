@@ -13,9 +13,9 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
-| **Phase 0** — 可信度基线 | 🟡 接近完成 | ~85% | benchmark M1–M4 全部交付（6 场景 × 7 并发档 = 40 JSON 入仓 + 承重验证报告）；承重假设裁决：QPS ⚠️接近/可外推达标、P99 ✅低并发达成、内存 ❌需重新定义；竞品对比（Phase 0.5）+ 冷启动/内存精确测量待做 |
-| **Phase 1** — 产品化基础 + 社区启动 | 🟢 已解除阻塞 | 0%（就绪） | Phase 0 数据已落地 + #41 spec bug 已修 → spec 治理 / 文档站 / 客户端 SDK / 技术博客均可启动 |
-| **Phase 2** — 企业版 | 🟡 基础设施推进中 | ~25% | #42 缓存层 Phase 1+2 已交付；#43 授权模型已实现；OAuth/OIDC 合规审计 100% 修复；用户管理补全 + Backchannel Logout + SAML/LDAP/SCIM 待做 |
+| **Phase 0** — 可信度基线 | ✅ 基本完成 | ~90% | benchmark M1–M4 全部交付（40 JSON + 承重验证报告）；**承重假设裁决：QPS ⚠️接近/可外推达标、P99 ✅低并发达成、内存 ✅SDK 口径远超标（实测 2.5 MB peak WS）、冷启动 ✅观测达成（~4s）**；竞品对比（Phase 0.5）待做 |
+| **Phase 1** — 产品化基础 + 社区启动 | 🟢 已解除阻塞 | 0%（就绪） | Phase 0 数据已落地（含 SDK 内存实测）+ #41 spec bug 已修 → spec 治理 / 文档站 / 客户端 SDK / 技术博客均可启动 |
+| **Phase 2** — 企业版 | 🟡 快速推进 | ~45% | #42 缓存层 Phase 1+2 已交付；#43 授权模型已实现；**用户管理补全已实现（PR #52）**；**Backchannel Logout 后端已交付（PR #50）**；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户待做 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
 
 **横切工作流（不绑定单一 Phase）**:
@@ -51,7 +51,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 声明 | 实测 | 裁决 |
 |------|------|------|
 | 单机 QPS ~10 万+ | S1 discovery 86,332 QPS（8 vCPU WSL） | ⚠️ **接近** — 线性外推 16 核裸机 ~170k，几乎确定可达。但仅限 discovery 类无状态端点；token 签发 ~9k QPS |
-| 内存 50–120 MB | docker stats ~2.4 GB RSS | ⚠️ **口径不匹配** — docker stats 测的是容器全栈 RSS（含 Drogon 连接池/共享库/page cache）。50-120MB 声称的是 SDK 逻辑层。需改用 SDK 嵌入口径（`examples/third-party-host/` PSS）重新测量 |
+| 内存 50–120 MB | SDK 实测: 2.5 MB peak WS / 0.6 MB private（12 MB binary） | ✅ **SDK 口径远超标** — `third-party-host-smoke`（纯 SDK）实测 peak working set 2.5 MB；`full-stack-host-smoke`（SDK+Drogon）同样 2.5 MB。docker stats 的 2.4 GB 是容器全栈口径（含连接池/共享库/page cache），与 SDK 声称不同口径 |
 | P99 < 2ms | S3/S6 低并发 P99 1–2ms；高并发退化 12–430ms | ✅ **低并发达成** — c≤16 时 P99 1–4ms，高并发为连接池排队效应 |
 | 冷启动 ~5s | setup.sh 观测 ~4s 就绪 | ✅ **观测达成** — compose up 后 /health/ready ~4s 返回（含 PG/Redis 启动） |
 
@@ -170,6 +170,9 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 2026-08-12 | **#43 资源-作用域授权模型完整实现** | f04d3ba + dc89c8d + 975f193 + f6552f5 |
 | 2026-08-12 | **v1.1.0 发布** | tag v1.1.0 (4362ac2) |
 | 2026-08-12 | 端点测试集成进 ctest + 测试脚本同步 | c470922, 0212fe7 |
+| 2026-08-13 | **A2 用户管理补全 — 分页/搜索/createUser/软删除（V024）** | PR #52（51674ba..f0b96bf，分支 feat/user-management-crud-v2） |
+| 2026-08-13 | **D1 Backchannel Logout 后端 — 通知器 + logout_token + admin API + 单测** | PR #50（5b3ccb9..9c8cf9f，分支 feat/backchannel-logout-b1） |
+| 2026-08-13 | **内存 SDK 口径实测 — 2.5 MB peak WS（50-120MB 声称保守达标）** | third-party-host-smoke / full-stack-host-smoke 实测 |
 | 2026-08-05 | 产品化演进方案 + benchmark/client-sdk 设计文档 | a6d570c |
 
 ---

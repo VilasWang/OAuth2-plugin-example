@@ -31,7 +31,9 @@
 
 > 验证方式：读取 `TokenEndpointController.cc` 全部 grant_type 分支 + `TokenService.cc` + `Pkce.cc` + `DiscoveryController.cc` + 穷尽搜索 `IBackchannelLogoutNotifier` 实现类
 >
-> ⚠️ **2026-08-11 更新**：OAuth/OIDC 规范性审查（[oauth-oidc-compliance-audit.md](done/oauth-oidc-compliance-audit.md)，2026-08-07）发现的 31 项偏差（F-001..F-031）已**全部修复**（PR #44，2026-08-09 合并），包括：F-002（client_secret 哈希算法统一）、F-003（refresh_token grant 客户端认证）、F-005（独立 Redis 存储模式废弃）、OIDC 扩展字段补齐（auth_time/acr/amr/azp/nonce/prompt/max_age/RP-Initiated Logout）。本报告下述实现细节反映的是**合规修复后**的代码状态。**唯一遗留**：Backchannel Logout 仍为桩实现（见下表）。
+> ⚠️ **2026-08-11 更新**：OAuth/OIDC 规范性审查（[oauth-oidc-compliance-audit.md](done/oauth-oidc-compliance-audit.md)，2026-08-07）发现的 31 项偏差（F-001..F-031）已**全部修复**（PR #44，2026-08-09 合并），包括：F-002（client_secret 哈希算法统一）、F-003（refresh_token grant 客户端认证）、F-005（独立 Redis 存储模式废弃）、OIDC 扩展字段补齐（auth_time/acr/amr/azp/nonce/prompt/max_age/RP-Initiated Logout）。本报告下述实现细节反映的是**合规修复后**的代码状态。
+>
+> **2026-08-13 更新**：Backchannel Logout **后端已交付**（PR #50：通知器 + logout_token JWT 构造 + admin API 配置 + discovery + 单测 D1-D6），替换了原桩实现。详见 [in-progress/backchannel-logout-design.md](in-progress/backchannel-logout-design.md)。前端被 Mimosa 拦截 + 集成测试待补（需 PG）。
 
 #### OAuth2 Grant Type 流程（`TokenEndpointController.cc:991-1810`）
 
@@ -62,7 +64,7 @@
 | ID Token 签发 | [完整实现] | `TokenService.cc` generateIdToken（RS256） |
 | UserInfo 端点 | [完整实现] | `UserInfoProvider.cc` |
 | RP-Initiated Logout | [完整实现] | `SessionController.cc:1105+` endSession（id_token_hint/post_logout_redirect_uri/state） |
-| **Backchannel Logout** | **[桩实现]** | `IdentityAssembly.cc:49-57` `LoggingBackchannelLogoutNotifier` —— **全项目唯一实现，`notify()` 仅 `LOG_DEBUG << "stub"`，无 HTTP POST、无 logout_token JWT 签发**。头文件注释明确"deferred to a future Adapter-layer task"。注：DB 层有 `backchannel_logout_uri`/`backchannel_logout_session_required` 字段（V015 迁移 + ORM 模型），但 Notify 层未消费 |
+| **Backchannel Logout** | **[后端已交付]**（2026-08-13, PR #50） | 真实通知器（HTTP POST logout_token JWT）+ admin API 配置 `backchannel_logout_uri` + discovery 广告 + 单测 D1-D6（`5b3ccb9`..`9c8cf9f`）。~~原桩~~：`IdentityAssembly.cc:49-57` LoggingBackchannelLogoutNotifier 已被替换。待补：前端（Mimosa 拦截）+ 集成测试（需 PG） |
 
 #### 令牌安全机制
 
@@ -411,7 +413,7 @@ audit_logs (
 
 | 业务域 | AuthForge 真实状态 | Keycloak | Auth0 | Ory | Zitadel |
 |--------|-------------------|----------|-------|-----|---------|
-| OAuth2/OIDC | ✅ 完整（Backchannel Logout 是 stub） | ✅ | ✅ | ✅ | ✅ |
+| OAuth2/OIDC | ✅ 完整（Backchannel Logout 后端已交付） | ✅ | ✅ | ✅ | ✅ |
 | MFA (TOTP+备份码) | ✅ 完整 | ✅ | ✅ | ✅ | ✅ |
 | WebAuthn/Passkey | ⚠️ 简化（不验证 attestation/assertion） | ✅ 完整 | ✅ 完整 | ✅ 完整 | ✅ 完整 |
 | 社交登录 | ✅ 3 家（无 link/unlink） | ✅ 20+ | ✅ 30+ | ✅ | ✅ |
@@ -432,8 +434,8 @@ audit_logs (
 
 | 缺口 | 真实现状 | 工程量 |
 |------|----------|--------|
-| **用户管理补全**（创建/删除/分页/搜索） | 确认缺失（穷尽搜索 0 匹配） | 小（1-2 周） |
-| **Backchannel Logout 真实实现** | 确认是 stub（`IdentityAssembly.cc:49-57` 仅 LOG_DEBUG） | 中（1 月） |
+| **用户管理补全**（创建/删除/分页/搜索） | ✅ 已实现（PR #52，2026-08-13：分页/搜索/createUser/软删除 V024） | ~~小（1-2 周）~~ 已完成 |
+| **Backchannel Logout 真实实现** | 🟡 后端已交付（PR #50：通知器 + logout_token + admin API + 单测）；前端被 Mimosa 拦截 + 集成测试待补 | 中（1 月） |
 | **SAML 2.0 IdP + SP** | 确认完全缺失（0 代码文件） | 大（3-6 月，需 XML 签名库） |
 | **LDAP/AD 联邦** | 确认完全缺失 | 中（2-3 月） |
 | **SCIM 2.0** | 确认完全缺失 | 中（1-2 月） |
@@ -467,7 +469,7 @@ audit_logs (
 基于穷尽式代码验证，AuthForge 的真实状态是：
 
 **强项（已达商业级，代码验证确认）**：
-1. OAuth2/OIDC 协议实现完整且符合 RFC（**OAuth/OIDC 合规审计 31 项偏差已全部修复**，PR #44 / 2026-08-09；唯一例外：Backchannel Logout 是 stub）
+1. OAuth2/OIDC 协议实现完整且符合 RFC（**OAuth/OIDC 合规审计 31 项偏差已全部修复**，PR #44 / 2026-08-09；Backchannel Logout 后端已交付 PR #50 / 2026-08-13）
 2. 身份认证全面（密码 PBKDF2 310K 迭代 + MFA TOTP RFC 6238 + 3 家社交登录真实实现）
 3. RBAC + 令牌管理 + 审计日志基础完善
 4. 存储层架构清晰：Postgres 生产单源 + Redis L2 缓存层（#42 Phase 1 已交付 client-cache decorator；独立 Redis 存储已废弃）
@@ -475,7 +477,7 @@ audit_logs (
 6. C++ 技术栈性能/资源/嵌入能力差异化（**Phase 0 基准实测已完成**：discovery 86k QPS / introspect 17k QPS / userinfo 17k QPS on 8 vCPU WSL；详见 `benchmarks/results/SUMMARY.md`）
 
 **弱项（部分实现，需补齐）**：
-1. 用户管理 CRUD 不完整（确认无创建/删除/分页/搜索）
+1. ~~用户管理 CRUD 不完整（确认无创建/删除/分页/搜索）~~ → ✅ 已实现（PR #52，2026-08-13）
 2. WebAuthn 是简化实现（确认不验证 attestation/assertion 签名）
 3. 多租户 schema+API 有但隔离逻辑无（`TenantId.h` 明确声明"does not implement real isolation"）
 4. 审计合规能力薄弱（无报告导出/完整性保护）
