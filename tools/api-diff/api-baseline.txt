@@ -8249,6 +8249,7 @@ static const std::string _last_failed_login;
 static const std::string _org_id;
 static const std::string _mfa_pending_client_id;
 static const std::string _mfa_pending_redirect_uri;
+static const std::string _deleted_at;
 };
 static const int primaryKeyNumber;
 static const std::string tableName;
@@ -8349,6 +8350,10 @@ const std::shared_ptr<std::string> &getMfaPendingRedirectUri() const noexcept;
 void setMfaPendingRedirectUri(const std::string &pMfaPendingRedirectUri) noexcept;
 void setMfaPendingRedirectUri(std::string &&pMfaPendingRedirectUri) noexcept;
 void setMfaPendingRedirectUriToNull() noexcept;
+const ::trantor::Date &getValueOfDeletedAt() const noexcept;
+const std::shared_ptr<::trantor::Date> &getDeletedAt() const noexcept;
+void setDeletedAt(const ::trantor::Date &pDeletedAt) noexcept;
+void setDeletedAtToNull() noexcept;
 static size_t getColumnNumber() noexcept ;
 static const std::string &getColumnName(size_t index) noexcept(false);
 Json::Value toJson() const;
@@ -8417,6 +8422,7 @@ std::shared_ptr<int64_t> lastFailedLogin_;
 std::shared_ptr<int32_t> orgId_;
 std::shared_ptr<std::string> mfaPendingClientId_;
 std::shared_ptr<std::string> mfaPendingRedirectUri_;
+std::shared_ptr<::trantor::Date> deletedAt_;
 struct MetaData
 {
 const std::string colName_;
@@ -8428,7 +8434,7 @@ const bool isPrimaryKey_;
 const bool notNull_;
 };
 static const std::vector<MetaData> metaData_;
-bool dirtyFlag_[17]={ false };
+bool dirtyFlag_[18]={ false };
 public:
 static const std::string &sqlForFindingByPrimaryKey()
 ;
