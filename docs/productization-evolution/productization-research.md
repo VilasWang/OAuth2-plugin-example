@@ -12,7 +12,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 
 **核心结论**: AuthForge 的 C++ 技术栈带来了天然的**极致性能**和**超低资源消耗**优势，适合走「高性能/边缘计算身份基础设施」的差异化产品化路线。建议采用 **Open Core + 双轨商业模式**（社区版开源 + 企业版/云托管商业化），以 SDK 嵌入许可和托管云服务作为主要收入来源。
 
-> ⚠️ **承重假设风险（✅ Phase 0 实测已完成 2026-08-12）**：本报告的核心商业叙事（"极致性能 / 超低资源"，见 §3.1）的性能数字已通过 Phase 0 基准设施实测验证。**实测裁决**：QPS ⚠️接近（限定场景可达 10 万+）、P99 ✅低并发达标（<2ms）、内存 ❌需重新定义（全栈 2.4 GB，非原称 50-120 MB）。详见 §3.1 实测裁决表 + `benchmarks/results/SUMMARY.md`。对外传播须使用实测数字并诚实标注场景限定。
+> ⚠️ **承重假设风险（✅ Phase 0 实测已完成 2026-08-12）**：本报告的核心商业叙事（"极致性能 / 超低资源"，见 §3.1）的性能数字已通过 Phase 0 基准设施实测验证。**实测裁决**：QPS ⚠️接近（限定场景可达 10 万+）、P99 ✅低并发达标（<2ms）、内存 ✅SDK 口径远超标（实测 2.5 MB peak WS，低于原称 50-120 MB）、冷启动 ✅观测达成（~4s）。详见 §3.1 实测裁决表 + `benchmarks/results/SUMMARY.md`。对外传播须使用实测数字并诚实标注场景限定。
 
 ---
 
@@ -75,7 +75,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 > | 维度 | 原估算 | 实测裁决 | 说明 |
 > |------|--------|----------|------|
 > | **QPS** | ~100,000+ | ⚠️ **场景限定** | discovery（无状态）86k QPS（8 vCPU WSL，线性外推 16 核裸机 ~170k）；token 签发 ~9k QPS；introspect/userinfo ~17k QPS。"10 万+"仅适用于无状态端点 |
-> | **内存** | ~50-120 MB | ⚠️ **口径不匹配（非 ❌）** | docker stats 测的是容器全栈 RSS ~2.4 GB（含 Drogon 连接池 25+20 / 共享库 COW 页 / page cache）。50-120 MB 声称的是 SDK 逻辑层口径。需用 `examples/third-party-host/` PSS（`smem`）或明确标注为"OAuth2 逻辑层"重新测量 |
+> | **内存** | ~50-120 MB | ✅ **SDK 口径远超标** | SDK 嵌入口径实测（2026-08-13）：`third-party-host-smoke`（纯 SDK）peak working set **2.5 MB** / private 0.6 MB / binary 12 MB；`full-stack-host-smoke`（SDK+Drogon）同样 2.5 MB peak。docker stats 的 2.4 GB 是容器全栈口径（含连接池/共享库/page cache），与 SDK 声称不同口径 |
 > | **P99** | < 2 ms | ✅ **低并发达成** | c≤16 时 P99 1-4ms（S1/S3/S6）；高并发（c≥64）退化 12-430ms（连接池排队效应） |
 > | **冷启动** | ~5s | ✅ **观测达成** | setup.sh 观测 compose up 后 /health/ready ~4s 返回（含 PG/Redis 启动），已满足 ~5s 目标 |
 >
@@ -87,7 +87,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 
 1. **极致性能**（✅ Phase 0 实测验证）: C++ + Drogon 异步框架，discovery 86k QPS（8 vCPU WSL，外推裸机 ~170k）、token 签发 9k QPS、低并发 P99 1-2ms。详见 §3.1 实测裁决表——"10 万+ QPS"仅限无状态端点，对外传播须限定场景。
 2. **零 GC 抖动**: 无 JVM/Go runtime 的垃圾回收停顿，延迟稳定可预测，适合金融级 SLA 要求
-3. **超低资源消耗**（⚠️ 口径需统一）: 原称 50-120MB（SDK 逻辑层估算）。docker stats 测得容器全栈 RSS ~2.4 GB，但口径不匹配——docker stats 含 Drogon 框架 + PG/Redis 连接池 + 共享库。需用 SDK 嵌入口径（`examples/third-party-host/` PSS）重新测量后才能精确使用此卖点。
+3. **超低资源消耗**（✅ SDK 口径实测远超标）: SDK 嵌入口径实测 **2.5 MB peak working set**（`third-party-host-smoke`，纯 SDK：oauth2+common+memory storage；binary 仅 12 MB）。原称 50-120MB 是保守值。Docker 容器全栈 ~2.4 GB 属不同口径（含 Drogon 连接池/共享库/page cache）。
 4. **可嵌入 SDK**: 唯一支持 `find_package(authforge-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
 5. **供应链安全（已落地）**: release 流水线（`.github/workflows/release.yml`）已实现 cosign keyless 签名 manifest digest + syft 每镜像 SPDX SBOM + SDK tarball `.sha256` 校验和。⚠️ 承重 caveat：**SDK 包目前仅 linux-x86_64**（无 arm64 / Windows / macOS SDK tarball）。
 
