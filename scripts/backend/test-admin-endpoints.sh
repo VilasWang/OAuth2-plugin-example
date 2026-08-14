@@ -285,7 +285,7 @@ run_test "Test 11b: DELETE /api/admin/tokens/:tokenPrefix - Single Revoke" test_
 ADMIN_USER_ID=""
 test_12() {
     local r
-    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/users")
+    r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/users?q=admin")
     assert_json_field "$r" "status" "success" || return 1
     ADMIN_USER_ID=$(echo "$r" | jq -r '.users[] | select(.username=="admin") | .id')
     [ -n "$ADMIN_USER_ID" ] && [ "$ADMIN_USER_ID" != "null" ] || { echo "    admin user not found"; return 1; }
@@ -340,7 +340,7 @@ test_17() {
     curl -s -X POST "$BASE_URL/api/register" \
         -d "username=testuser_$ts&password=TestPass123&email=t_${ts}@test.com" >/dev/null
     local users
-    users=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/users")
+    users=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/users?q=testuser_$ts")
     TEST_USER_ID=$(echo "$users" | jq -r ".users[] | select(.username==\"testuser_$ts\") | .id")
     [ -n "$TEST_USER_ID" ] && [ "$TEST_USER_ID" != "null" ] || { echo "    test user not found"; return 1; }
     # Disable

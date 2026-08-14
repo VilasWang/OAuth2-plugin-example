@@ -136,6 +136,7 @@ const std::string &expectedFingerprint()
       "POST /api/admin/scopes\n"
       "POST /api/admin/tokens/revoke-by-client\n"
       "POST /api/admin/tokens/revoke-by-user\n"
+      "POST /api/admin/users\n"
       "POST /api/admin/users/{userId}/enable\n"
       "POST /api/github/login\n"
       "POST /api/google/login\n"

@@ -339,7 +339,7 @@ Test-Endpoint "Test 11b: DELETE /api/admin/tokens/:tokenPrefix - Single Revoke" 
 $adminUserId = $null
 Test-Endpoint "Test 12: GET /api/admin/users - List" {
     $h = Get-AuthHeaders
-    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/users" -Method Get -Headers $h
+    $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/users?q=admin" -Method Get -Headers $h
     if ($r.status -ne "success") { throw "status != success" }
     $adminUser = $r.users | Where-Object { $_.username -eq 'admin' }
     if (-not $adminUser) { throw "admin user not found" }
@@ -395,7 +395,7 @@ Test-Endpoint "Test 17: Disable/Enable User" {
     $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     # Create test user
     Invoke-RestMethod -Uri "$BaseUrl/api/register" -Method Post -Body @{ username = "testuser_$ts"; password = "TestPass123"; email = "t_$ts@test.com" } | Out-Null
-    $users = Invoke-RestMethod -Uri "$BaseUrl/api/admin/users" -Method Get -Headers $h
+    $users = Invoke-RestMethod -Uri "$BaseUrl/api/admin/users?q=testuser_$ts" -Method Get -Headers $h
     $testUser = $users.users | Where-Object { $_.username -eq "testuser_$ts" }
     if (-not $testUser) { throw "test user not found" }
     $script:testUserId = $testUser.id
