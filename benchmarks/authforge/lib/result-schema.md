@@ -1,7 +1,9 @@
 # Benchmark result JSON schema
 
 Every `run-scenario.sh` level produces one JSON file in `benchmarks/results/`,
-named `<YYYYMMDD>-<git-sha>-<scenario>-c<conn>.json`. The file is written by
+named `<YYYYMMDD>-<git-sha>-<scenario>-c<conn>.json` (AuthForge) or
+`<YYYYMMDD>-<git-sha>-<product>-<scenario>-c<conn>.json` (competitor runs via
+`BENCH_PRODUCT`). The file is written by
 `benchmarks/reporting/parse-wrk.py` and conforms to `schema_version: 1` below.
 M4's `gen-summary.py` aggregates these into `results/SUMMARY.md`.
 
@@ -32,6 +34,8 @@ M4's `gen-summary.py` aggregates these into `results/SUMMARY.md`.
 | `date` | auto (UTC ISO-8601) | when the run happened |
 | `git_sha` | `git rev-parse --short HEAD` | reproducibility |
 | `git_branch` | `git rev-parse --abbrev-ref HEAD` | context |
+| `product` | `--product` / `BENCH_PRODUCT` env, default `authforge` | which product was load-tested (`authforge`/`keycloak`/`ory`/`zitadel`); competitor comparison (Phase 0.5) keys off this |
+| `product_version` | `--product-version` / `BENCH_PRODUCT_VERSION` env | target product version or image tag |
 | `target_image` | `BENCH_TARGET_IMAGE` env | which container image was load-tested |
 | `target_config` | default `config.json` | which shipped config |
 | `target_spec` | `BENCH_TARGET_SPEC` env | target machine vCPU/RAM |
