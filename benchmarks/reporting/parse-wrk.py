@@ -120,6 +120,8 @@ def _collect_env(args: argparse.Namespace) -> dict:
         "date": args.date or datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_sha": args.git_sha or os.environ.get("BENCH_GIT_SHA", ""),
         "git_branch": args.git_branch or os.environ.get("BENCH_GIT_BRANCH", ""),
+        "product": args.product or os.environ.get("BENCH_PRODUCT", "authforge"),
+        "product_version": args.product_version or os.environ.get("BENCH_PRODUCT_VERSION", ""),
         "target_image": args.target_image or os.environ.get("BENCH_TARGET_IMAGE", ""),
         "target_config": args.target_config or os.environ.get("BENCH_TARGET_CONFIG", "config.json"),
         "target_spec": args.target_spec or os.environ.get("BENCH_TARGET_SPEC", ""),
@@ -138,6 +140,8 @@ def main() -> int:
     p.add_argument("--driver-cpu", type=float, help="wrk process peak CPU%% during the run")
     p.add_argument("--git-sha")
     p.add_argument("--git-branch")
+    p.add_argument("--product", help="target product identity (authforge | keycloak | ory | zitadel); default authforge")
+    p.add_argument("--product-version", help="target product version/image tag recorded in the env block")
     p.add_argument("--target-image")
     p.add_argument("--target-config")
     p.add_argument("--target-spec")

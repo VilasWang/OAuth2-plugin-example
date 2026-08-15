@@ -11,6 +11,11 @@
 # Arguments:
 #   output.tsv  — output file path
 #   duration    — stop after this long (e.g. "30s", "60s"); default: run until killed
+#
+# Env overrides:
+#   CONTAINER_GLOB — case-pattern selecting which containers to record.
+#                    Default: *oauth2-backend*|*oauth2-postgres*|*oauth2-redis*
+#                    (competitor runs pass their own container names)
 
 set -euo pipefail
 
@@ -39,6 +44,11 @@ fi
 # Header
 echo -e "timestamp_iso\ttimestamp_epoch\tcontainer\tcpu_pct\tmem_usage\tmem_limit\tnet_io\tblock_io" > "$OUT_FILE"
 
+# Container-name filter: which containers count as "benchmark-relevant".
+# Default targets the AuthForge stack; competitor runs override with
+# CONTAINER_GLOB (a case-pattern, e.g. 'bench-keycloak*|bench-postgres*').
+CONTAINER_GLOB="${CONTAINER_GLOB:-*oauth2-backend*|*oauth2-postgres*|*oauth2-redis*}"
+
 START_EPOCH="$(date +%s)"
 
 while true; do
@@ -55,13 +65,13 @@ while true; do
 
     # docker stats with --no-stream (single sample, then exit).
     # --format produces one line per container with tab-separated fields.
-    # We target the three benchmark-relevant containers.
+    # We target the benchmark-relevant containers.
     docker stats --no-stream \
         --format "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}" \
         2>/dev/null | while IFS=$'\t' read -r name cpu mem_usage mem_pct net_io block_io; do
             # Only record the benchmark-relevant containers
             case "$name" in
-                *oauth2-backend*|*oauth2-postgres*|*oauth2-redis*)
+                $CONTAINER_GLOB)
                     echo -e "${TS_ISO}\t${TS_EPOCH}\t${name}\t${cpu}\t${mem_usage}\t-\t${net_io}\t${block_io}" >> "$OUT_FILE"
                     ;;
             esac
