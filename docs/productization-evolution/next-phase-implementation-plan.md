@@ -132,11 +132,12 @@ benchmark M4 报告（`benchmarks/results/SUMMARY.md`）产出了实测数据，
 #### C3. benchmark 补完 + 竞品对比（Phase 0.5）
 
 > **工程量**: 2–3 周
+> **设计文档**: [in-progress/competitor-benchmark-design.md](in-progress/competitor-benchmark-design.md)（2026-08-15 完成）
 
 **实施步骤**:
 1. 冷启动精确测量（`measure-cold-start.sh`）
 2. 内存重新测量（区分 OAuth2 逻辑层 vs 全栈 RSS）
-3. Keycloak / Ory / Zitadel 同环境压测
+3. Keycloak / Ory / Zitadel 同环境压测（按 competitor-benchmark-design.md 的公平性三同原则 + 3 个 milestone）
 4. 更新 SUMMARY.md + research.md
 
 ---

@@ -44,7 +44,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | **M2: S3 introspect + S4 auth_code** | ✅ 已完成 | `s3-introspect.lua`（active token）+ `s4-auth-code.lua`（多步 login→token，PKCE 预生成）；S3 17k QPS / S4 465 QPS | — |
 | **M3: S5 refresh_token + S6 userinfo + 观测** | ✅ 已完成 | `s5-refresh-token.lua`（一次性 RT 池）+ `s6-userinfo.lua` + `observe/` 脚本 + `config.bench.json`；S5 2k QPS / S6 17k QPS | — |
 | **M4: 承重假设验证报告** | ✅ 已完成 | `SUMMARY.md`：6 场景阶梯数据 + 承重裁决 + 40 JSON 入仓 | 冷启动/内存精确测量 |
-| **Phase 0.5: 竞品对比** | ⬜ 未开始 | — | Keycloak/Ory/Zitadel 同环境压测 |
+| **Phase 0.5: 竞品对比** | 🟡 设计已完成 | 设计文档 [in-progress/competitor-benchmark-design.md](in-progress/competitor-benchmark-design.md)：四家（AuthForge + Keycloak/Ory/Zitadel）同环境对比 S1/S2/S3/S5/S6 + GC 抖动长跑；3 个 milestone（M1 Keycloak → M2 Ory/Zitadel → M3 汇总修订） | 实施（预估 ~2 周） |
 
 **承重假设裁决（对照调研报告 §3.1）**:
 
