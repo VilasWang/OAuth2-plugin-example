@@ -79,21 +79,51 @@ DROGON_TEST(Unit_P0_Validation_BackchannelLogoutUri_AllScenarios)
     {
         std::string uri;
         bool shouldBeValid;
+        std::string label;
     };
 
     std::vector<TestCase> testCases =
-      {{"https://rp.example.com/backchannel-logout", true},
-       {"", true},  // empty == "not configured"
-       {"http://rp.example.com/backchannel-logout", allowHttp},
-       // loopback NOT exempt: still gated by the same override, never free
-       {"http://127.0.0.1:9000/backchannel-logout", allowHttp},
-       {"http://[::1]/bc", allowHttp},
-       {"ftp://rp.example.com", false},
-       {"rp.example.com/backchannel", false}};
+      {{"https://rp.example.com/backchannel-logout", true, "plain https"},
+       {"https://rp.example.com:8443/bc", true, "https with port"},
+       {"", true, "empty == not configured"},
+       {"http://rp.example.com/backchannel-logout", allowHttp, "http under dev hatch"},
+       // Private hosts are rejected by the SEPARATE allow_private flag (unset
+       // in the test config), even when the http dev hatch is on.
+       {"http://127.0.0.1:9000/backchannel-logout", false, "http loopback: private beats hatch"},
+       {"http://[::1]/bc", false, "http v6 loopback: private beats hatch"},
+       {"ftp://rp.example.com", false, "ftp scheme"},
+       {"rp.example.com/backchannel", false, "no scheme"},
+       // #57 structure checks
+       {"https://", false, "empty authority"},
+       {"https:///backchannel-logout", false, "empty host"},
+       {"https://:8443/bc", false, "port-only authority"},
+       {"https://user:pass@rp.example.com/bc", false, "userinfo"},
+       {"https://rp.example.com/bc#frag", false, "fragment"},
+       {"https://[::1/bc", false, "unterminated IPv6 bracket"},
+       // #57 private/loopback rejection (https does NOT bypass it)
+       {"https://localhost/bc", false, "localhost"},
+       {"https://127.0.0.1/bc", false, "v4 loopback"},
+       {"https://10.1.2.3/bc", false, "10/8"},
+       {"https://172.16.0.9/bc", false, "172.16/12"},
+       {"https://192.168.1.1/bc", false, "192.168/16"},
+       {"https://169.254.169.254/bc", false, "169.254/16 metadata"},
+       {"https://0.0.0.0/bc", false, "0/8"},
+       {"https://[::1]/bc", false, "v6 loopback"},
+       {"https://[fd00::1]/bc", false, "fc00::/7"},
+       {"https://[fe80::1]/bc", false, "fe80::/10"},
+       {"https://[::ffff:127.0.0.1]/bc", false, "v4-mapped loopback"},
+       {"https://172.32.0.1/bc", true, "172.32 is PUBLIC (outside 172.16/12)"},
+       // #57 length cap (column is VARCHAR(512))
+       {"https://rp.example.com/" + std::string(600, 'a'), false, "> 512 chars"}};
 
     for (const auto &tc : testCases)
     {
         auto result = RuleSet::validateBackchannelLogoutUri(tc.uri);
+        if (result.has_value() == tc.shouldBeValid)
+        {
+            FAULT("backchannel uri case '" + tc.label + "' misclassified: " +
+                  (result ? *result : std::string("accepted")));
+        }
         CHECK(result.has_value() != tc.shouldBeValid);
     }
 }
