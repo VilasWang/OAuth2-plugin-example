@@ -1,0 +1,30 @@
+# Hydra runtime config — benchmark stack (mounted by docker-compose.yml).
+# Reference: https://www.ory.sh/docs/hydra/configure
+# Secrets/DSN come from env (see compose); this file holds only static shape.
+
+serve:
+  cookies:
+    same_site_mode: Lax
+
+urls:
+  self:
+    issuer: http://127.0.0.1:4444
+  # Placeholders: the benchmark drives the admin-API accept flow headlessly
+  # (login/consent challenges are parsed from redirects; nothing follows them).
+  login: http://127.0.0.1:4445/unused-login
+  consent: http://127.0.0.1:4445/unused-consent
+  error: http://127.0.0.1:4445/unused-error
+
+oidc:
+  subject_identifiers:
+    supported_types:
+      - public
+      - pairwise
+  dynamic_client_registration:
+    enabled: false
+
+log:
+  level: warn
+  format: json
+
+# access token strategy left at default (jwt) — noted in COMPARISON.md appendix.

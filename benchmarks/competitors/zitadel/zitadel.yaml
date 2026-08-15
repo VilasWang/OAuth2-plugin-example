@@ -1,0 +1,15 @@
+# Zitadel runtime config — benchmark stack (mounted by docker-compose.yml).
+# Reference: https://zitadel.com/docs/self-hosting/configure
+# Static shape only; secrets + instance bootstrap live in setup-steps.yaml
+# (rendered by setup.sh) and env vars.
+
+ExternalPort: 8080
+ExternalDomain: localhost
+ExternalSecure: false
+
+TLS:
+  Enabled: false
+
+# log quieter for benchmarks (default info)
+Log:
+  Level: warn

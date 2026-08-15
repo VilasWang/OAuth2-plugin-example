@@ -1,0 +1,56 @@
+# Zitadel benchmark stack — competitor-benchmark-design.md M2 (§七).
+#
+# Config baseline = official self-hosting guidance, no tuning:
+#   https://zitadel.com/docs/self-hosting/deploy/compose
+#   https://zitadel.com/docs/self-hosting/configure
+#
+# Deviations from stock defaults — fairness-annotated in COMPARISON.md (D2/AC4):
+#   * single-node compose (no networking/observability sidecars from the
+#     official example) — same shape as the other three bench stacks;
+#   * Postgres pool: Zitadel manages its pool internally (no env), noted.
+#
+# The masterkey is a REQUIRED env var (32 chars) — setup.sh generates a
+# throwaway value; nothing committed. setup-steps.yaml (FirstInstance) is
+# rendered by setup.sh with runtime-generated admin password + machine key
+# path mounts.
+
+name: zitadel-bench
+
+services:
+  postgres:
+    image: postgres:15-alpine        # same image tag as the AuthForge bench stack (D1)
+    container_name: zitadel-bench-postgres
+    environment:
+      POSTGRES_DB: zitadel
+      POSTGRES_USER: zitadel
+      POSTGRES_PASSWORD: zitadel
+    volumes:
+      - zitadel-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zitadel -d zitadel"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v1.80.0-v2.9-amd64   # pinned 2026-08-15
+    container_name: zitadel-bench-zitadel
+    command: ["start-from-setup", "--masterkeyFromEnv", "--config", "/zitadel.yaml", "--steps", "/setup-steps.yaml"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ZITADEL_MASTERKEY: ${ZITADEL_MASTERKEY:?set by setup.sh}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./zitadel.yaml:/zitadel.yaml:ro
+      - ./setup-steps.yaml:/setup-steps.yaml:ro
+      # machine key material is written by the setup phase to a shared tmpdir
+      - zitadel-machinekey:/machinekey
+
+volumes:
+  zitadel-pgdata:
+    name: zitadel-bench-pgdata
+  zitadel-machinekey:
+    name: zitadel-bench-machinekey

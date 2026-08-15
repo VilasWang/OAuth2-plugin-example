@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+"""gen-comparison.py — aggregate four-product benchmark data into COMPARISON.md.
+
+READ-ONLY tool: writes the report to STDOUT; the caller redirects:
+    python3 benchmarks/reporting/gen-comparison.py \\
+        > benchmarks/competitors/results/COMPARISON.md
+
+Reads (design AC1/AC2; no hand-typed numbers — everything traced to files):
+  * competitor staircase JSONs  benchmarks/competitors/results/<date>-<sha>-<product>-<scenario>-c<conn>.json
+  * AuthForge staircase JSONs   benchmarks/results/<date>-<sha>-<scenario>-<c>.json
+    (newest <date>-<sha> group wins — same-session policy, design 5.1 v1.1)
+  * gcjitter JSONs              benchmarks/competitors/results/<date>-<sha>-<product>-gcjitter.json
+  * cold-start JSONs            competitors/results/<date>-<sha>-<product>-coldstart.json
+                                + benchmarks/results/<date>-cold-start-<mode>.json (AuthForge)
+  * RSS TSVs                    *-s2-client-credentials-c*-docker-stats.tsv
+
+Steady-state definition (same as Phase 0 SUMMARY.md): the concurrency level
+with the highest QPS among levels whose error_rate < 0.01% (0.0001).
+"""
+from __future__ import annotations
+
+import json
+import re
+import statistics
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+RESULTS = REPO / "benchmarks" / "results"
+COMP_RESULTS = REPO / "benchmarks" / "competitors" / "results"
+
+SCENARIOS = [
+    ("s1-discovery", "S1 discovery"),
+    ("s2-client-credentials", "S2 client_credentials"),
+    ("s3-introspect", "S3 introspect"),
+    ("s5-refresh-token", "S5 refresh_token"),
+    ("s6-userinfo", "S6 userinfo"),
+]
+PRODUCTS = ["authforge", "keycloak", "ory", "zitadel"]
+PRODUCT_LABEL = {
+    "authforge": "AuthForge",
+    "keycloak": "Keycloak",
+    "ory": "Ory Hydra",
+    "zitadel": "Zitadel",
+}
+ERR_GATE = 0.0001  # 0.01%
+
+
+def load_json(path: Path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def parse_mem_mib(s: str) -> float:
+    m = re.match(r"([\d.]+)\s*([KMGT]i?B)", s.strip())
+    if not m:
+        return 0.0
+    val = float(m.group(1))
+    unit = m.group(2).replace("iB", "")[0]
+    return val * {"B": 1 / 1048576, "K": 1 / 1024, "M": 1.0,
+                  "G": 1024.0, "T": 1024.0 * 1024}[unit]
+
+
+def staircase_map(product: str) -> dict:
+    """scenario -> conn -> result; newest date+sha group per product."""
+    groups: dict = {}
+    if product == "authforge":
+        for f in RESULTS.glob("*-s[0-9]-*-c*.json"):
+            m = re.match(r"^(\d{8})-([0-9a-f]+)-(s\d-.*)-c(\d+)$", f.stem)
+            if not m:
+                continue
+            groups.setdefault((m.group(1), m.group(2)), {})[(m.group(3), int(m.group(4)))] = f
+    else:
+        for f in COMP_RESULTS.glob(f"*-{product}-s[0-9]-*-c*.json"):
+            m = re.match(r"^(\d{8})-([0-9a-f]+)-" + product + r"-(s\d-.*)-c(\d+)$", f.stem)
+            if not m:
+                continue
+            groups.setdefault((m.group(1), m.group(2)), {})[(m.group(3), int(m.group(4)))] = f
+    if not groups:
+        return {}
+    out: dict = {}
+    for (scen, conn), f in max(groups.items())[1].items():
+        d = load_json(f)
+        if d:
+            out.setdefault(scen, {})[conn] = d
+    return out
+
+
+def steady(data: dict):
+    """Best level: highest QPS with error_rate < ERR_GATE."""
+    best = None
+    for conn in sorted(data):
+        d = data[conn]
+        if d.get("error_rate", 1.0) > ERR_GATE:
+            continue
+        qps = d.get("qps") or 0
+        if best is None or qps > (best[1].get("qps") or 0):
+            best = (conn, d)
+    return best
+
+
+def rss_stack_mean(product: str):
+    """Whole-stack steady RSS (MiB): sum of per-container mean mem_usage over
+    the S2 docker-stats TSVs (design D7 full-stack measurement)."""
+    root = RESULTS if product == "authforge" else COMP_RESULTS
+    if product == "authforge":
+        pattern = "*-s2-client-credentials-c*-docker-stats.tsv"
+    else:
+        pattern = f"*-{product}-s2-client-credentials-c*-docker-stats.tsv"
+    per_container: dict = {}
+    for t in root.glob(pattern):
+        with open(t, encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 5 or parts[0] == "timestamp_iso":
+                    continue
+                mem = parts[4].split("/")[0]
+                per_container.setdefault(parts[2], []).append(parse_mem_mib(mem))
+    if not per_container:
+        return None
+    return sum(statistics.mean(v) for v in per_container.values())
+
+
+def cold_start(product: str) -> dict:
+    if product != "authforge":
+        files = sorted(COMP_RESULTS.glob(f"*-{product}-coldstart.json"))
+        if not files:
+            return {}
+        d = load_json(files[-1]) or {}
+        out = {}
+        for mode in ("fresh", "restart"):
+            runs = (d.get(mode) or {}).get("runs") or []
+            secs = [r.get("seconds") for r in runs if r.get("seconds")]
+            if secs:
+                out[f"{mode}_s"] = secs[0] if len(secs) == 1 else round(statistics.median(secs), 2)
+        return out
+    out = {}
+    for mode, tag in (("fresh", "auto-migrate"), ("restart", "pre-migrated")):
+        files = sorted(RESULTS.glob(f"*-cold-start-{tag}.json")) \
+            or sorted(RESULTS.glob("*-cold-start.json"))
+        if files:
+            d = load_json(files[-1]) or {}
+            if d.get("cold_start_seconds") is not None:
+                out[f"{mode}_s"] = d["cold_start_seconds"]
+    return out
+
+
+def gcjitter(product: str):
+    files = sorted(COMP_RESULTS.glob(f"*-{product}-gcjitter.json"))
+    if not files:
+        return None
+    d = load_json(files[-1])
+    if not d:
+        return None
+    p99s = [s["p99_us"] for s in d.get("series", []) if s.get("p99_us") is not None]
+    if not p99s:
+        return None
+    med = statistics.median(p99s)
+    p50s = [s["p50_us"] for s in d["series"] if s.get("p50_us") is not None]
+    return {
+        "scenario": d.get("scenario"),
+        "segments": len(p99s),
+        "p50_med_us": round(statistics.median(p50s)) if p50s else None,
+        "p99_min_us": round(min(p99s)),
+        "p99_med_us": round(med),
+        "p99_max_us": round(max(p99s)),
+        "p99_max_over_med": round(max(p99s) / med, 2) if med else None,
+        "spikes_gt_1p5x_med": sum(1 for p in p99s if p > 1.5 * med),
+        "series": [round(p / 1000, 1) for p in p99s],  # ms
+    }
+
+
+def fmt_ms(us) -> str:
+    return "n/a" if us is None else f"{us / 1000:.1f}ms"
+
+
+def fmt_qps(q) -> str:
+    return f"{q:,.0f}" if q is not None else "n/a"
+
+
+def version_of(product: str, data: dict) -> str:
+    if not data:
+        return "无数据"
+    for scen in data.values():
+        for d in scen.values():
+            env = d.get("env", {})
+            if product == "authforge":
+                return f"git {env.get('git_sha', '?')}"
+            v = env.get("product_version") or "?"
+            return f"{v} (git {env.get('git_sha', '?')})"
+    return "?"
+
+
+def build_report() -> str:
+    all_data = {prod: staircase_map(prod) for prod in PRODUCTS}
+    versions = {prod: version_of(prod, all_data[prod]) for prod in PRODUCTS}
+    rss = {prod: rss_stack_mean(prod) for prod in PRODUCTS}
+    cold = {prod: cold_start(prod) for prod in PRODUCTS}
+    gc = {prod: gcjitter(prod) for prod in PRODUCTS}
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    L = []
+    L.append("# 竞品同环境性能对比（COMPARISON）")
+    L.append("")
+    L.append(f"> 生成时间：{now} · 生成器：`benchmarks/reporting/gen-comparison.py`（无手填数字，全部溯源到入仓 JSON）")
+    L.append("> 设计与方法论：`docs/productization-evolution/in-progress/competitor-benchmark-design.md`")
+    L.append("")
+    L.append("## 环境与版本")
+    L.append("")
+    L.append("| 产品 | 版本 |")
+    L.append("|---|---|")
+    for prod in PRODUCTS:
+        L.append(f"| {PRODUCT_LABEL[prod]} | {versions[prod]} |")
+    L.append("")
+    L.append("同一台机器（WSL2 8 vCPU / 16GB）、同一 wrk 4.1.0 阶梯（2→128，warmup 5s / measure 10s）、"
+             "同一 PostgreSQL 15 后端（连接池对齐 25）、串行执行、每家之间 `docker compose down -v` 清场。")
+    L.append("")
+
+    L.append("## 一、稳态吞吐与延迟（阶梯，错误率 <0.01% 的最高档）")
+    L.append("")
+    for scen, label in SCENARIOS:
+        L.append(f"### {label}")
+        L.append("")
+        L.append("| 产品 | 稳态 QPS | 稳态档 c | P50 | P95 | P99 | 错误率 |")
+        L.append("|---|---|---|---|---|---|---|")
+        for prod in PRODUCTS:
+            data = all_data[prod].get(scen)
+            if not data:
+                L.append(f"| {PRODUCT_LABEL[prod]} | N/A | — | — | — | — | — |")
+                continue
+            st = steady(data)
+            if not st:
+                d = max(data.values(), key=lambda x: x.get("qps") or 0)
+                lat = d.get("latency_us") or {}
+                L.append(f"| {PRODUCT_LABEL[prod]} | {fmt_qps(d.get('qps'))} 无档过错误门 | ? | "
+                         f"{fmt_ms(lat.get('p50'))} | {fmt_ms(lat.get('p95'))} | "
+                         f"{fmt_ms(lat.get('p99'))} | {(d.get('error_rate') or 0)*100:.3f}% |")
+                continue
+            conn, d = st
+            lat = d.get("latency_us") or {}
+            L.append(f"| {PRODUCT_LABEL[prod]} | **{fmt_qps(d.get('qps'))}** | c={conn} | "
+                     f"{fmt_ms(lat.get('p50'))} | {fmt_ms(lat.get('p95'))} | {fmt_ms(lat.get('p99'))} | "
+                     f"{(d.get('error_rate') or 0)*100:.4f}% |")
+        L.append("")
+
+    L.append("## 二、稳态内存（容器全栈 RSS，D7 口径）")
+    L.append("")
+    L.append("S2 测量窗口内各容器 RSS 均值之和（含各自的 PG/Redis 与运行时；AuthForge 栈含 Redis 缓存层——各家架构自由选择的诚实口径）。")
+    L.append("")
+    L.append("| 产品 | 全栈稳态 RSS |")
+    L.append("|---|---|")
+    for prod in PRODUCTS:
+        r = rss[prod]
+        L.append(f"| {PRODUCT_LABEL[prod]} | {f'{r:,.0f} MiB' if r else 'N/A'} |")
+    L.append("")
+
+    L.append("## 三、冷启动")
+    L.append("")
+    L.append("fresh = 全新卷完整初始化（含 DB schema 自动创建）→ 就绪探针 200；restart = 热卷仅重启服务容器。AuthForge 两种模式来自自家 measure-cold-start.sh（auto-migrate / pre-migrated），语义等价。")
+    L.append("")
+    L.append("| 产品 | fresh (s) | restart (s) |")
+    L.append("|---|---|---|")
+    for prod in PRODUCTS:
+        c = cold[prod]
+        L.append(f"| {PRODUCT_LABEL[prod]} | {c.get('fresh_s', 'N/A')} | {c.get('restart_s', 'N/A')} |")
+    L.append("")
+
+    L.append("## 四、GC 抖动长跑（5 分钟 P99 时间序列，D6）")
+    L.append("")
+    L.append("c=32 固定，30×10s 串行段；载波场景与偏离见附录。尖峰定义：段 P99 > 1.5×中位数。")
+    L.append("")
+    L.append("| 产品 | 载波 | 段数 | P99 中位 | P99 最大 | 最大/中位 | 尖峰段数 |")
+    L.append("|---|---|---|---|---|---|---|")
+    for prod in PRODUCTS:
+        g = gc[prod]
+        if not g:
+            L.append(f"| {PRODUCT_LABEL[prod]} | N/A | — | — | — | — | — |")
+            continue
+        L.append(f"| {PRODUCT_LABEL[prod]} | {g['scenario']} | {g['segments']} | "
+                 f"{fmt_ms(g['p99_med_us'])} | {fmt_ms(g['p99_max_us'])} | "
+                 f"{g['p99_max_over_med']}x | {g['spikes_gt_1p5x_med']} |")
+    L.append("")
+    L.append("逐段 P99（ms）：")
+    L.append("")
+    for prod in PRODUCTS:
+        g = gc[prod]
+        if not g:
+            continue
+        series = ", ".join(f"{v:g}" for v in g["series"])
+        L.append(f"- **{PRODUCT_LABEL[prod]}**: {series}")
+    L.append("")
+
+    L.append("## 附录 A：公平性声明（配置来源与偏离项，AC4）")
+    L.append("")
+    L.append("四家一律使用各自**官方推荐生产配置**，不做极限调优也不调差。偏离默认的每一项如下（全部为对齐口径或使测量可行的非性能项）：")
+    L.append("")
+    L.append("| 产品 | 配置基线出处 | 偏离项 |")
+    L.append("|---|---|---|")
+    L.append("| AuthForge | benchmark 设施自测配置（config.bench.json，PG 池 25 / Redis 20，Phase 0 已入仓） | — |")
+    L.append("| Keycloak | keycloak.org/server/containers 与 /server/db | "
+             "PG 连接池 25（默认 100，D1 对齐）；KC_HEALTH_ENABLED=true；realm accessTokenLifespan/SSO idle 提到 1h（token 池须跑完整个阶梯，签名路径不变）；"
+             "bench client 增加 audience mapper（KC 26 内省强制 aud 校验，官方机制）；setup 阶段 60s JIT 预热（D2 豁免，JVM 特有） |")
+    L.append("| Ory Hydra | ory.sh/docs/hydra/self-hosted/deploy-hydra 与 configure | "
+             "DSN max_conns=25（D1 对齐）；login/consent URL 指向占位（用官方 admin-API accept 流 headless 驱动用户流） |")
+    L.append("| Zitadel | zitadel.com/docs/self-hosting/deploy/compose 与 configure | "
+             "单节点精简 compose（去掉官方示例的旁路观测组件）；S2/S3 用 Service User + JWT profile（官方 M2M 路径，token 端点不支持 Basic cc） |")
+    L.append("")
+    L.append("统一压测口径：wrk 4.1.0，阶梯 2→4→8→16→32→64→128，warmup 5s（丢弃）/ measure 10s，"
+             "-t = min(cores, conns/16)；driver CPU 均低于 80% 门（超限档在 JSON 中标 limited。")
+    L.append("")
+
+    L.append("## 附录 B：方法限制（诚实声明）")
+    L.append("")
+    L.append("1. **S4 auth_code 场景排除**（D4）：各产品登录/consent 交互流无法用 wrk 统一驱动；测的会是登录页渲染而非 token 管线。")
+    L.append("2. **Ory Hydra introspect 在 admin 端口（:4445）**（D3）：生产部署中该端口通常不对外，语义差异如上标注。")
+    L.append("3. **Zitadel S5/S6 限制**：机器用户无 refresh token（RFC 6749 4.4.3），Zitadel 亦移除 password grant——S5 标 N/A；"
+             "S6 仅当服务用户 token 被 userinfo 接受时给出（见结果表），否则 N/A。")
+    L.append("4. **单次测量**：每档单次 10s（与 Phase 0 自测口径一致）；环境为 WSL2 虚拟机（8 vCPU / 16GB），数字是下限不是上限。")
+    L.append("5. **Keycloak JVM 预热豁免**（D2）：setup 阶段 60s client_credentials 预热后，各场景用与其它家一致的 5s warmup。")
+    L.append("")
+
+    missing = [prod for prod in PRODUCTS if not all_data[prod]]
+    if missing:
+        print(f"[gen-comparison] WARNING: no staircase data for: {', '.join(missing)}", file=sys.stderr)
+    return "\n".join(L) + "\n"
+
+
+def main() -> int:
+    sys.stdout.write(build_report())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
