@@ -27,36 +27,68 @@ std::pair<std::string, std::string> splitUrl(const std::string &url)
 
 }  // namespace
 
+namespace
+{
+
+// #57: HttpClient::newHttpClient / sendRequest can throw on degenerate URLs
+// (e.g. an empty host from a stored "https://" URI). This port is invoked
+// from inside async DB callbacks (backchannel logout dispatch); an exception
+// escaping there reaches the Drogon event loop and terminates the process.
+// Degrade to a transport-failure result instead -- callers treat it as a
+// failed delivery and audit it.
+::authforge::identity::OAuthHttpResult transportFailureResult()
+{
+    ::authforge::identity::OAuthHttpResult out;
+    out.transportOk = false;
+    return out;
+}
+
+}  // namespace
+
 void DrogonOAuthHttpClient::postForm(
   const std::string &url,
   const std::vector<std::pair<std::string, std::string>> &params,
   ResultCallback &&cb
 )
 {
-    auto [origin, path] = splitUrl(url);
-    auto client = ::drogon::HttpClient::newHttpClient(origin);
-    auto req = ::drogon::HttpRequest::newHttpRequest();
-    req->setMethod(::drogon::Post);
-    req->setPath(path);
-    for (const auto &[key, value] : params)
-        req->setParameter(key, value);
-
     auto sharedCb = std::make_shared<ResultCallback>(std::move(cb));
-    client->sendRequest(
-      req,
-      [sharedCb, client](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
-          authforge::identity::OAuthHttpResult out;
-          out.transportOk = result == ::drogon::ReqResult::Ok && response != nullptr;
-          if (response)
-          {
-              out.statusCode = response->getStatusCode();
-              auto json = response->getJsonObject();
-              if (json)
-                  out.body = *json;
+    try
+    {
+        auto [origin, path] = splitUrl(url);
+        auto client = ::drogon::HttpClient::newHttpClient(origin);
+        auto req = ::drogon::HttpRequest::newHttpRequest();
+        req->setMethod(::drogon::Post);
+        req->setPath(path);
+        for (const auto &[key, value] : params)
+            req->setParameter(key, value);
+
+        client->sendRequest(
+          req,
+          [sharedCb, client](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+              authforge::identity::OAuthHttpResult out;
+              out.transportOk = result == ::drogon::ReqResult::Ok && response != nullptr;
+              if (response)
+              {
+                  out.statusCode = response->getStatusCode();
+                  auto json = response->getJsonObject();
+                  if (json)
+                      out.body = *json;
+              }
+              (*sharedCb)(out);
           }
-          (*sharedCb)(out);
-      }
-    );
+        );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "DrogonOAuthHttpClient::postForm: transport setup failed for " << url
+                  << ": " << e.what();
+        (*sharedCb)(transportFailureResult());
+    }
+    catch (...)
+    {
+        LOG_ERROR << "DrogonOAuthHttpClient::postForm: unknown transport failure for " << url;
+        (*sharedCb)(transportFailureResult());
+    }
 }
 
 void DrogonOAuthHttpClient::getWithBearerToken(
@@ -65,29 +97,44 @@ void DrogonOAuthHttpClient::getWithBearerToken(
   ResultCallback &&cb
 )
 {
-    auto [origin, path] = splitUrl(url);
-    auto client = ::drogon::HttpClient::newHttpClient(origin);
-    auto req = ::drogon::HttpRequest::newHttpRequest();
-    req->setPath(path);
-    if (!bearerToken.empty())
-        req->addHeader("Authorization", "Bearer " + bearerToken);
-
     auto sharedCb = std::make_shared<ResultCallback>(std::move(cb));
-    client->sendRequest(
-      req,
-      [sharedCb, client](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
-          authforge::identity::OAuthHttpResult out;
-          out.transportOk = result == ::drogon::ReqResult::Ok && response != nullptr;
-          if (response)
-          {
-              out.statusCode = response->getStatusCode();
-              auto json = response->getJsonObject();
-              if (json)
-                  out.body = *json;
+    try
+    {
+        auto [origin, path] = splitUrl(url);
+        auto client = ::drogon::HttpClient::newHttpClient(origin);
+        auto req = ::drogon::HttpRequest::newHttpRequest();
+        req->setPath(path);
+        if (!bearerToken.empty())
+            req->addHeader("Authorization", "Bearer " + bearerToken);
+
+        client->sendRequest(
+          req,
+          [sharedCb, client](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
+              authforge::identity::OAuthHttpResult out;
+              out.transportOk = result == ::drogon::ReqResult::Ok && response != nullptr;
+              if (response)
+              {
+                  out.statusCode = response->getStatusCode();
+                  auto json = response->getJsonObject();
+                  if (json)
+                      out.body = *json;
+              }
+              (*sharedCb)(out);
           }
-          (*sharedCb)(out);
-      }
-    );
+        );
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "DrogonOAuthHttpClient::getWithBearerToken: transport setup failed for "
+                  << url << ": " << e.what();
+        (*sharedCb)(transportFailureResult());
+    }
+    catch (...)
+    {
+        LOG_ERROR << "DrogonOAuthHttpClient::getWithBearerToken: unknown transport failure for "
+                  << url;
+        (*sharedCb)(transportFailureResult());
+    }
 }
 
 }  // namespace authforge::drogon::adapters

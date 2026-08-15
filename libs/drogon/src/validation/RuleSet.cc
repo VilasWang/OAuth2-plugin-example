@@ -2,11 +2,104 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <drogon/drogon.h>
+#include <cctype>
 #include <regex>
 #include <algorithm>
 
 namespace authforge::drogon::validation
 {
+
+namespace
+{
+
+// #57: host-literal check backing validateBackchannelLogoutUri. Covers the
+// literal forms an admin can type -- "localhost", dotted-quad IPv4, and
+// bracketed/leading IPv6 -- against loopback/private/link-local ranges.
+// Deliberately does NOT do DNS resolution (a name resolving to a private IP
+// at validation time can rebind later anyway); this closes the
+// copy-paste-a-metadata-URL class, and delivery-time hardening lives in the
+// HTTP adapter.
+bool isPrivateIpv4(const std::string &host)
+{
+    // Strict dotted-quad parse (no sscanf: MSVC deprecates it, and trailing
+    // garbage must not classify). Each octet: 1-3 digits, value <= 255.
+    unsigned int octets[4] = {0, 0, 0, 0};
+    size_t idx = 0;
+    std::string token;
+    auto classify = [&octets]() {
+        if (octets[0] == 0 || octets[0] == 10 || octets[0] == 127)
+            return true;  // 0/8, 10/8, 127/8
+        if (octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31)
+            return true;  // 172.16/12
+        if (octets[0] == 192 && octets[1] == 168)
+            return true;  // 192.168/16
+        if (octets[0] == 169 && octets[1] == 254)
+            return true;  // 169.254/16 (link-local + cloud metadata)
+        return false;
+    };
+    for (char ch : host)
+    {
+        if (ch == '.')
+        {
+            if (token.empty() || token.size() > 3 || idx >= 4)
+                return false;
+            octets[idx++] = static_cast<unsigned int>(std::stoul(token));
+            token.clear();
+        }
+        else if (ch >= '0' && ch <= '9')
+        {
+            token.push_back(ch);
+        }
+        else
+        {
+            return false;  // non-numeric char: not a dotted quad
+        }
+    }
+    if (token.empty() || token.size() > 3 || idx != 3)
+        return false;
+    octets[3] = static_cast<unsigned int>(std::stoul(token));
+    for (unsigned int o : octets)
+        if (o > 255)
+            return false;
+    return classify();
+}
+
+bool isPrivateIpv6(const std::string &host)
+{
+    // host arrives bracket-stripped (e.g. "::1", "fe80::1", "fd00::1").
+    if (host == "::1" || host == "::")
+        return true;  // loopback + unspecified
+    if (host.rfind("::ffff:", 0) == 0)
+        return isPrivateIpv4(host.substr(7));  // v4-mapped
+    std::string h;
+    h.reserve(host.size());
+    for (char ch : host)
+        h.push_back(static_cast<char>(::tolower(static_cast<unsigned char>(ch))));
+    // Skip a leading "::" so "::fd12::1"-style forms still classify by the
+    // first hextet that follows.
+    const std::string leading = h.rfind("::", 0) == 0 ? h.substr(2) : h;
+    if (leading.rfind("fc", 0) == 0 || leading.rfind("fd", 0) == 0)
+        return true;  // fc00::/7 unique-local
+    if (leading.rfind("fe8", 0) == 0 || leading.rfind("fe9", 0) == 0 ||
+        leading.rfind("fea", 0) == 0 || leading.rfind("feb", 0) == 0)
+        return true;  // fe80::/10 link-local
+    return false;
+}
+
+bool isPrivateOrLoopbackHost(const std::string &host)
+{
+    std::string h;
+    h.reserve(host.size());
+    for (char ch : host)
+        h.push_back(static_cast<char>(::tolower(static_cast<unsigned char>(ch))));
+    if (h == "localhost" || h == "localhost.")
+        return true;
+    if (h.find(':') != std::string::npos)
+        return isPrivateIpv6(h);
+    return isPrivateIpv4(h);
+}
+
+}  // namespace
 
 std::optional<std::string> RuleSet::validateField(
   const std::string &value,
@@ -216,28 +309,85 @@ std::optional<std::string> RuleSet::validateRedirectUri(const std::string &uri)
 
 std::optional<std::string> RuleSet::validateBackchannelLogoutUri(const std::string &uri)
 {
+    // #57 hardening: the OP POSTs a signed logout_token to this URI
+    // server-side on every logout, so scheme-prefix checking alone is an
+    // SSRF-shaped hole. Beyond the https requirement (OIDC Back-Channel
+    // Logout 1.0 §2.3) this now enforces URL structure (non-empty host, no
+    // userinfo, no fragment, length <= the VARCHAR(512) column) and rejects
+    // loopback/private/link-local host literals unless the dedicated
+    // auth.allow_private_backchannel_logout_uri opt-in (NOT the
+    // allow_http_redirect_uri browser-redirect hatch) permits them.
+
     // Empty == "not configured": valid (the notifier skips clients without a
     // backchannel_logout_uri).
     if (uri.empty())
         return std::nullopt;
 
-    // OIDC Back-Channel Logout 1.0 §2.3: the backchannel_logout_uri MUST use
-    // https. The auth.allow_http_redirect_uri dev hatch is honored for parity
-    // with redirect_uri validation; loopback IP literals are NOT exempt here
-    // (this is server-to-server delivery, so RFC 8252's loopback rationale
-    // does not apply).
-    if (uri.rfind("https://", 0) == 0)
-        return std::nullopt;
-    if (uri.rfind("http://", 0) == 0)
+    if (uri.size() > 512)
+        return std::string{"backchannel_logout_uri exceeds 512 characters"};
+
+    const bool https = uri.rfind("https://", 0) == 0;
+    const bool http = uri.rfind("http://", 0) == 0;
+    if (!https && !http)
+        return std::string{"backchannel_logout_uri must use https"};
+    if (http)
+    {
+        // Dev hatch parity with redirect_uri validation (loopback literals
+        // are NOT exempt here: server-to-server delivery).
+        const auto &cfg = ::drogon::app().getCustomConfig();
+        const bool allowHttp =
+          cfg.isMember("auth") && cfg["auth"].isMember("allow_http_redirect_uri") &&
+          cfg["auth"]["allow_http_redirect_uri"].asBool();
+        if (!allowHttp)
+            return std::string{"backchannel_logout_uri must use https"};
+    }
+
+    // Structure: scheme://authority/path?query -- no fragment allowed.
+    if (uri.find('#') != std::string::npos)
+        return std::string{"backchannel_logout_uri must not contain a fragment"};
+
+    const std::string rest = uri.substr(uri.find("://") + 3);
+    const size_t authEnd = rest.find_first_of("/?");
+    const std::string authority =
+      (authEnd == std::string::npos) ? rest : rest.substr(0, authEnd);
+
+    // Userinfo (user:pass@host) has no meaning for a logout callback and
+    // hides the real host from casual review.
+    if (authority.find('@') != std::string::npos)
+        return std::string{"backchannel_logout_uri must not contain userinfo"};
+
+    // Host: IPv6 [v6]:port bracket form or host[:port].
+    std::string host;
+    if (!authority.empty() && authority[0] == '[')
+    {
+        const size_t close = authority.find(']');
+        if (close == std::string::npos)
+            return std::string{"backchannel_logout_uri has a malformed IPv6 host"};
+        host = authority.substr(1, close - 1);
+    }
+    else
+    {
+        const size_t colon = authority.find(':');
+        host = (colon == std::string::npos) ? authority : authority.substr(0, colon);
+    }
+    if (host.empty())
+        return std::string{"backchannel_logout_uri must include a host"};
+
+    if (isPrivateOrLoopbackHost(host))
     {
         const auto &cfg = ::drogon::app().getCustomConfig();
-        if (cfg.isMember("auth") && cfg["auth"].isMember("allow_http_redirect_uri") &&
-            cfg["auth"]["allow_http_redirect_uri"].asBool())
-        {
-            return std::nullopt;
-        }
+        const bool allowPrivate = cfg.isMember("auth") &&
+                                  cfg["auth"].isMember("allow_private_backchannel_logout_uri") &&
+                                  cfg["auth"]["allow_private_backchannel_logout_uri"].asBool();
+        if (!allowPrivate)
+            return std::string{
+              "backchannel_logout_uri must not target loopback/private/link-local "
+              "addresses (set auth.allow_private_backchannel_logout_uri to permit "
+              "them for local testing)"
+            };
     }
-    return std::string{"backchannel_logout_uri must use https"};
+
+    return std::nullopt;
 }
 
 std::optional<std::string> RuleSet::validateScope(const std::string &scope)
