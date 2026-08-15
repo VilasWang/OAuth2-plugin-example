@@ -1,0 +1,4 @@
+# Competitor bench artifacts: token pools are minted at setup time (design D5 —
+# they contain product-signed tokens and runtime-generated bench credentials,
+# nothing to commit). Result JSONs/TSVs and COMPARISON.md ARE committed.
+*/lib/generated/

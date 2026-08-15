@@ -127,10 +127,12 @@ RSS_MB="$(python3 -c "print(f'{$RSS_BYTES / 1048576:.1f}')")"
 # --- write result JSON ---
 DATE_TAG="$(date -u +%Y%m%d)"
 GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)"
-OUT_FILE="$REPO_ROOT/benchmarks/results/${DATE_TAG}-cold-start.json"
+MODE_TAG_EARLY=$([ "$PRE_MIGRATED" = "1" ] && echo "pre-migrated" || echo "auto-migrate")
+# mode-tagged filename: running both modes in one session must not overwrite
+OUT_FILE="$REPO_ROOT/benchmarks/results/${DATE_TAG}-cold-start-${MODE_TAG_EARLY}.json"
 mkdir -p "$(dirname "$OUT_FILE")"
 
-MODE_TAG=$([ "$PRE_MIGRATED" = "1" ] && echo "pre-migrated" || echo "auto-migrate")
+MODE_TAG="$MODE_TAG_EARLY"
 
 python3 -c "
 import json, sys

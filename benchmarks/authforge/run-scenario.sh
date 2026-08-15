@@ -262,8 +262,11 @@ for CONN in "${LEVELS[@]}"; do
     # --- generic reissue hook (competitor S5): refresh the API-issued pool ---
     # Runs BEFORE the warmup so warmup consumption doesn't eat the measured
     # window's pool; runs again before the measured run (see below).
+    # WRK_LEVEL_CONN / WRK_REISSUE_PHASE let the hook size the pool for the
+    # upcoming phase (warmup+measure vs measure only).
     if [ -n "$REISSUE_CMD" ]; then
-        echo "  reissue (pre-warmup)..."
+        export WRK_LEVEL_CONN="$CONN" WRK_REISSUE_PHASE="pre-warmup"
+        echo "  reissue (pre-warmup, c=$CONN)..."
         bash -c "$REISSUE_CMD" \
             && echo "  reissue OK" \
             || echo "  reissue WARN: rc=$? (pool may be stale)"
@@ -289,7 +292,8 @@ for CONN in "${LEVELS[@]}"; do
 
     # --- reissue again before the measured run (warmup consumed pool items) ---
     if [ -n "$REISSUE_CMD" ]; then
-        echo "  reissue (pre-measure)..."
+        export WRK_LEVEL_CONN="$CONN" WRK_REISSUE_PHASE="pre-measure"
+        echo "  reissue (pre-measure, c=$CONN)..."
         bash -c "$REISSUE_CMD" \
             && echo "  reissue OK" \
             || echo "  reissue WARN: rc=$? (pool may be stale)"

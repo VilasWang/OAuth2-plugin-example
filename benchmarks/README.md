@@ -82,6 +82,31 @@ bash benchmarks/authforge/measure-cold-start.sh --pre-migrated   # exclude migra
 bash benchmarks/authforge/teardown.sh
 ```
 
+## Competitor comparison (Phase 0.5)
+
+`benchmarks/competitors/` extends this facility to same-environment
+competitor benchmarks (Keycloak / Ory Hydra / Zitadel) — same machine, same
+wrk staircase, same PostgreSQL backend, official recommended configs. Full
+methodology: [competitor-benchmark-design.md](../docs/productization-evolution/in-progress/competitor-benchmark-design.md).
+
+```bash
+# One command, four products, serial with full teardown between products:
+bash benchmarks/competitors/run-comparison.sh --fresh
+
+# Single product (resume / re-run):
+bash benchmarks/competitors/run-comparison.sh --only keycloak   # or ory|zitadel|authforge
+
+# Regenerate the report from committed JSONs only:
+bash benchmarks/competitors/run-comparison.sh --report-only
+```
+
+Requirements on top of the above: `python3 -m pip install requests pyjwt cryptography`
+(token-pool minting for competitor stacks). Results land in
+`benchmarks/competitors/results/` (schema v1 + `product`/`product_version` env
+fields); the aggregated report is `benchmarks/competitors/results/COMPARISON.md`.
+Token pools and runtime credentials are minted at setup time and gitignored —
+nothing secret is committed.
+
 Each level writes one JSON result to `benchmarks/results/` named
 `<YYYYMMDD>-<git-sha>-<scenario>-c<conn>.json` (see
 [`authforge/lib/result-schema.md`](authforge/lib/result-schema.md) for the
@@ -232,6 +257,14 @@ benchmarks/
 │       ├── docker-stats.sh            # container CPU/RSS sampler (M3)
 │       └── scrape-metrics.sh          # /metrics poller (M3)
 ├── reporting/
-│   └── parse-wrk.py           # wrk stdout → structured JSON
+│   ├── parse-wrk.py           # wrk stdout → structured JSON
+│   └── gen-comparison.py      # four-product JSONs → COMPARISON.md (stdout)
+├── competitors/               # Phase 0.5: Keycloak / Ory Hydra / Zitadel
+│   ├── run-comparison.sh      # serial four-product orchestrator (AC3)
+│   ├── run-authforge-session.sh # AuthForge same-session rerun (§5.1)
+│   ├── run-gc-jitter.sh       # 5-min P99 time series (D6)
+│   ├── measure-cold-start.sh  # generic competitor cold start
+│   ├── keycloak/ ory/ zitadel/  # compose + setup + run-all + scenarios
+│   └── results/               # competitor JSONs + COMPARISON.md
 └── results/                   # dated per-level JSON results (gitignored bulk)
 ```
