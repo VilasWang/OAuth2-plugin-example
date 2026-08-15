@@ -8,6 +8,18 @@
 // (OIDC Back-Channel Logout 1.0 §2.3/§2.4). Replaces the
 // LoggingBackchannelLogoutNotifier stub wired in IdentityAssembly.cc.
 //
+// Trigger paths (#55) -- every logout flow the product performs notifies:
+//   1. POST /oauth2/logout            (SessionController::logout)   -- subject
+//      from the bearer token (OAuth2Middleware's userId attribute).
+//   2. GET/POST /oauth2/end_session   (SessionController::endSession, OIDC
+//      RP-Initiated Logout) -- subject from the browser session's "sub"
+//      (stored at login) or the id_token_hint's sub claim. Used by the user
+//      portal frontend.
+//   3. The admin frontend calls POST /oauth2/logout directly (its store's
+//      logout()).
+// Frontends that only revoke tokens (RFC 7009) do NOT notify -- revocation is
+// not a logout event.
+//
 // Layering: Adapter (libs/drogon) -- it depends on Drogon's orm::Mapper +
 // IOAuthHttpClient + JwkManager, none of which a Domain-layer package may
 // touch. Mirrors DrogonOAuthHttpClient's placement.

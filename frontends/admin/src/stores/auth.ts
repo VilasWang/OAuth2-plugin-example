@@ -204,24 +204,26 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const access = accessToken.value
       const refresh = refreshToken.value
-      const revokes: Promise<Response>[] = []
+      const requests: Promise<Response>[] = []
       if (access) {
-        revokes.push(fetch('/oauth2/revoke', {
+        // #55: /oauth2/logout revokes the access token AND fans a signed
+        // logout_token out to RPs with a backchannel_logout_uri (plain
+        // /oauth2/revoke does not trigger backchannel notification).
+        requests.push(fetch('/oauth2/logout', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ token: access, client_id: 'admin-console' }),
+          headers: { Authorization: `Bearer ${access}` },
           keepalive: true,
         }))
       }
       if (refresh) {
-        revokes.push(fetch('/oauth2/revoke', {
+        requests.push(fetch('/oauth2/revoke', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ token: refresh, client_id: 'admin-console' }),
           keepalive: true,
         }))
       }
-      await Promise.all(revokes)
+      await Promise.all(requests)
     } catch {
       // Best-effort: proceed to clear local state even if revoke fails.
     }

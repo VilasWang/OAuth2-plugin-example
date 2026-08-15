@@ -163,9 +163,19 @@ export async function setupAuthenticatedMocks(page: Page) {
     })
   })
 
-  // Token revocation (RFC 7009) — logout now POSTs both access + refresh
-  // tokens here via fetch({keepalive:true}). The mock accepts any token;
-  // the auth.ts logout tolerates failure regardless.
+  // Logout (#55): the admin store's logout() POSTs the bearer token here —
+  // this endpoint revokes it AND triggers backchannel logout notification.
+  await page.route('**/oauth2/logout', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Logged out successfully' }),
+    })
+  })
+
+  // Token revocation (RFC 7009) — logout also POSTs the refresh token here
+  // via fetch({keepalive:true}). The mock accepts any token; the auth.ts
+  // logout tolerates failure regardless.
   await page.route('**/oauth2/revoke', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   })
