@@ -685,6 +685,51 @@ std::function<void(std::optional<Json::Value> userInfo)> &&callback
 );
 };
 }
+=== libs/drogon/include/authforge/drogon/adapters/BackchannelLogoutNotifier.h
+#pragma once
+#include <authforge/common/ports/IAuditSink.h>
+#include <authforge/identity/IBackchannelLogoutNotifier.h>
+#include <authforge/identity/IOAuthHttpClient.h>
+#include <authforge/oauth2/jwk/JwkManager.h>
+#include <authforge/oauth2/protocol/LogoutToken.h>
+#include <drogon/orm/DbClient.h>
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+namespace authforge::drogon::adapters
+{
+struct BackchannelRpTarget
+{
+std::string clientId;
+std::string backchannelLogoutUri;
+};
+class BackchannelLogoutNotifier
+: public authforge::identity::IBackchannelLogoutNotifier,
+public std::enable_shared_from_this<BackchannelLogoutNotifier>
+{
+public:
+BackchannelLogoutNotifier(
+::drogon::orm::DbClientPtr dbClient,
+std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager,
+std::string issuer,
+std::shared_ptr<authforge::identity::IOAuthHttpClient> httpClient,
+std::shared_ptr<authforge::common::ports::IAuditSink> auditSink = nullptr,
+int tokenTtlSeconds = authforge::oauth2::protocol::kLogoutTokenDefaultTtlSeconds);
+void notify(const std::string &userId, std::function<void()> &&callback) override;
+void dispatch(
+const std::string &subject,
+const std::vector<BackchannelRpTarget> &targets,
+std::function<void()> &&completion);
+private:
+::drogon::orm::DbClientPtr dbClient_;
+std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager_;
+std::string issuer_;
+std::shared_ptr<authforge::identity::IOAuthHttpClient> httpClient_;
+std::shared_ptr<authforge::common::ports::IAuditSink> auditSink_;
+int tokenTtlSeconds_;
+};
+}
 === libs/drogon/include/authforge/drogon/adapters/DrogonAuditSink.h
 #pragma once
 #include <authforge/common/observability/AuditEvent.h>
@@ -750,7 +795,6 @@ double value
 }
 === libs/drogon/include/authforge/drogon/adapters/DrogonOAuthHttpClient.h
 #pragma once
-#ifdef WITH_SOCIAL
 #include <authforge/identity/IOAuthHttpClient.h>
 namespace authforge::drogon::adapters
 {
@@ -769,7 +813,6 @@ ResultCallback &&cb
 ) override;
 };
 }
-#endif
 === libs/drogon/include/authforge/drogon/adapters/OpenSslCryptoProvider.h
 #pragma once
 #include <authforge/common/ports/ICryptoProvider.h>
@@ -3357,6 +3400,7 @@ const std::vector<Rule> &rules
 static std::optional<std::string> validateClientId(const std::string &clientId);
 static std::optional<std::string> validateClientSecret(const std::string &secret);
 static std::optional<std::string> validateRedirectUri(const std::string &uri);
+static std::optional<std::string> validateBackchannelLogoutUri(const std::string &uri);
 static std::optional<std::string> validateScope(const std::string &scope);
 static std::optional<std::string> validateResponseType(const std::string &type);
 static std::optional<std::string> validateGrantType(const std::string &type);
@@ -3482,7 +3526,6 @@ virtual void clearPendingBinding(int32_t userId, BoolCallback &&cb) = 0;
 }
 === libs/identity/include/authforge/identity/IOAuthHttpClient.h
 #pragma once
-#ifdef WITH_SOCIAL
 #include <functional>
 #include <string>
 #include <utility>
@@ -3513,7 +3556,6 @@ ResultCallback &&cb
 ) = 0;
 };
 }
-#endif
 === libs/identity/include/authforge/identity/IRoleRepository.h
 #pragma once
 #include <cstdint>
@@ -4600,6 +4642,25 @@ std::function<void(bool, std::string)> &&callback
 private:
 std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients_;
 };
+}
+=== libs/oauth2/include/authforge/oauth2/protocol/LogoutToken.h
+#pragma once
+#include <cstdint>
+#include <string>
+#include <json/json.h>
+namespace authforge::oauth2::protocol
+{
+constexpr char kBackchannelLogoutEventUrn[] =
+"http://schemas.openid.net/event/backchannel-logout";
+constexpr int kLogoutTokenDefaultTtlSeconds = 120;
+std::string generateJti();
+Json::Value buildLogoutTokenClaims(
+const std::string &issuer,
+const std::string &subject,
+const std::string &audience,
+std::int64_t issuedAtSeconds,
+int ttlSeconds,
+const std::string &jti);
 }
 === libs/oauth2/include/authforge/oauth2/protocol/TokenCrypto.h
 #pragma once
