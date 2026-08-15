@@ -88,6 +88,52 @@ void sendOAuthErrorRedirect(
 namespace authforge::drogon::controllers
 {
 
+namespace
+{
+
+// #55: decode a JWT's payload segment (no signature verification -- per
+// OIDC RP-Initiated Logout §2.2 TLS already authenticated the RP, the hint
+// is advisory). Returns Json::Value() (null) on any malformed input.
+// Extracted from endSession's former inline aud-only decode so the sub
+// claim (backchannel logout attribution) and aud claim (post-logout redirect
+// client identification) come from one pass.
+Json::Value decodeJwtPayloadClaims(const std::string &jwt)
+{
+    try
+    {
+        const size_t firstDot = jwt.find('.');
+        const size_t secondDot = jwt.find('.', firstDot == std::string::npos ? 0 : firstDot + 1);
+        if (firstDot == std::string::npos || secondDot == std::string::npos)
+            return Json::Value();
+        std::string payloadB64 = jwt.substr(firstDot + 1, secondDot - firstDot - 1);
+        // drogon's base64Decode requires standard padding; add it.
+        std::string padded = payloadB64;
+        while (padded.size() % 4)
+            padded += '=';
+        // base64url -> base64: - -> +, _ -> /
+        for (char &c : padded)
+        {
+            if (c == '-')
+                c = '+';
+            else if (c == '_')
+                c = '/';
+        }
+        const std::string payloadJson = ::drogon::utils::base64Decode(padded);
+        Json::CharReaderBuilder builder;
+        Json::Value payload;
+        std::istringstream iss(payloadJson);
+        if (Json::parseFromStream(builder, iss, &payload, nullptr))
+            return payload;
+    }
+    catch (const std::exception &e)
+    {
+        LOG_DEBUG << "decodeJwtPayloadClaims: failed to decode JWT payload: " << e.what();
+    }
+    return Json::Value();
+}
+
+}  // namespace
+
 using namespace ::drogon::orm;
 using namespace ::drogon_model::oauth2_db;
 
@@ -498,6 +544,11 @@ void SessionController::login(
         if (success)
         {
             req->session()->insert("userId", std::to_string(internalId));
+            // #55: also remember the PUBLIC subject (the id_token sub) on the
+            // session. endSession needs it to attribute the logout to a user
+            // for backchannel notification -- the internal id above does not
+            // match oauth2_access_tokens.user_id (which stores public_sub).
+            req->session()->insert("sub", publicSub);
             // F-021/F-022 (OIDC Core §2/§3.1.3.7): record the auth_time and
             // amr on the session so the authorization-code issuance paths
             // (silent re-auth in AuthorizationEndpointController, the
@@ -1156,54 +1207,42 @@ void SessionController::endSession(
     // require pre-registration; this server does so for safety).
     auto plugin = resolvePlugin();
 
+    // #55: attribute the logout to a user for backchannel notification.
+    // Preference order: the session's public subject (set by login(); the
+    // internal-id "userId" session attr does NOT match
+    // oauth2_access_tokens.user_id), then the id_token_hint's sub claim.
+    // Bearer-style callers without either stay unattributed (no notify).
+    Json::Value hintPayload = idTokenHint.empty() ? Json::Value() : decodeJwtPayloadClaims(idTokenHint);
+    std::string hintClientId;
+    if (hintPayload.isMember("aud") && hintPayload["aud"].isString())
+        hintClientId = hintPayload["aud"].asString();
+    std::string subject;
+    if (req->session())
+        subject = req->session()->get<std::string>("sub");
+    if (subject.empty() && hintPayload.isMember("sub") && hintPayload["sub"].isString())
+        subject = hintPayload["sub"].asString();
+
+    // Shared terminal path: notify the user's OTHER relying parties (OIDC
+    // Back-Channel Logout 1.0 §2.1 counts RP-initiated logout as a logout
+    // event), then respond. An empty subject or missing sessionManager skips
+    // notification. Captured by copy so the synchronous error paths below
+    // keep their own callback.
+    auto *sessionManager = sessionManager_;
+    auto finish = [sessionManager, callback](
+                    std::string notifySubject,
+                    ::drogon::HttpResponsePtr resp) mutable {
+        if (sessionManager && !notifySubject.empty())
+            sessionManager->logout(
+              notifySubject,
+              [callback, resp = std::move(resp)]() mutable { callback(resp); }
+            );
+        else
+            callback(resp);
+    };
+
     if (!postLogoutRedirectUri.empty())
     {
-        // Resolve the client_id from the id_token_hint's aud claim when
-        // available, then check registration. Without a hint we cannot safely
-        // attribute the URI to a client -> reject.
-        std::string hintClientId;
-        if (!idTokenHint.empty())
-        {
-            // Decode the JWT payload (second segment) without verifying the
-            // signature. base64url-decode + json parse; tolerate any failure
-            // by leaving hintClientId empty (falls through to the 400 below).
-            try
-            {
-                size_t firstDot = idTokenHint.find('.');
-                size_t secondDot =
-                  idTokenHint.find('.', firstDot == std::string::npos ? 0 : firstDot + 1);
-                if (firstDot != std::string::npos && secondDot != std::string::npos)
-                {
-                    std::string payloadB64 =
-                      idTokenHint.substr(firstDot + 1, secondDot - firstDot - 1);
-                    // drogon's base64Decode requires standard padding; add it.
-                    std::string padded = payloadB64;
-                    while (padded.size() % 4)
-                        padded += '=';
-                    // base64url -> base64: - -> +, _ -> /
-                    for (char &c : padded)
-                    {
-                        if (c == '-')
-                            c = '+';
-                        else if (c == '_')
-                            c = '/';
-                    }
-                    std::string payloadJson = ::drogon::utils::base64Decode(padded);
-                    Json::CharReaderBuilder builder;
-                    Json::Value payload;
-                    std::istringstream iss(payloadJson);
-                    if (Json::parseFromStream(builder, iss, &payload, nullptr))
-                    {
-                        if (payload.isMember("aud") && payload["aud"].isString())
-                            hintClientId = payload["aud"].asString();
-                    }
-                }
-            }
-            catch (const std::exception &e)
-            {
-                LOG_DEBUG << "endSession: failed to decode id_token_hint payload: " << e.what();
-            }
-        }
+        // hintClientId comes from the up-front id_token_hint decode above.
 
         // Async: validateRedirectUri resolves the client's registered URIs.
         // Without an id_token_hint (no client to attribute the URI to) we
@@ -1216,7 +1255,7 @@ void SessionController::endSession(
             resp->setBody(
               "post_logout_redirect_uri requires a valid id_token_hint for client identification"
             );
-            callback(resp);
+            finish("", resp);
             return;
         }
         if (!plugin)
@@ -1224,26 +1263,27 @@ void SessionController::endSession(
             auto resp = ::drogon::HttpResponse::newHttpResponse();
             resp->setStatusCode(::drogon::k500InternalServerError);
             resp->setBody("OAuth2 Plugin not loaded");
-            callback(resp);
+            finish("", resp);
             return;
         }
         plugin->validateRedirectUri(
           hintClientId,
           postLogoutRedirectUri,
-          [req, postLogoutRedirectUri, state, callback = std::move(callback)](bool valid) mutable {
+          [req, postLogoutRedirectUri, state, finish, subject](bool valid) mutable {
               if (!valid)
               {
                   // §2.3: an invalid/unregistered post_logout_redirect_uri is a
-                  // client error -> 400 (do NOT redirect to it).
+                  // client error -> 400 (do NOT redirect to it, do NOT notify).
                   auto resp = ::drogon::HttpResponse::newHttpResponse();
                   resp->setStatusCode(::drogon::k400BadRequest);
                   resp->setBody(
                     "post_logout_redirect_uri is not registered for the id_token_hint client"
                   );
-                  callback(resp);
+                  finish("", resp);
                   return;
               }
-              // Terminate the server-side session (F-027/F-028).
+              // Terminate the server-side session (F-027/F-028) and notify the
+              // user's other RPs (#55).
               if (req->session())
                   req->session()->clear();
               std::string location = postLogoutRedirectUri;
@@ -1252,7 +1292,7 @@ void SessionController::endSession(
                               std::string("state=") + ::drogon::utils::urlEncode(state);
               auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
               resp->setStatusCode(::drogon::k302Found);
-              callback(resp);
+              finish(subject, resp);
           }
         );
         return;
@@ -1266,7 +1306,7 @@ void SessionController::endSession(
     json["message"] = "Logged out successfully";
     auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
     resp->setStatusCode(::drogon::k200OK);
-    callback(resp);
+    finish(subject, resp);
 }
 
 void SessionController::registerUser(

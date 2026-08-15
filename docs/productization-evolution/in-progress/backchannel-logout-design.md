@@ -1,10 +1,22 @@
 # OIDC Back-Channel Logout 1.0 实现设计
 
 > **任务**: next-phase-implementation-plan.md §三 B1（全栈纵切，范围 A）
-> **状态**: 后端已交付；前端就绪但被 Mimosa 拦截；集成测试待补（需 PostgreSQL）
-> **日期**: 2026-08-13
+> **状态**: 已交付（PR #61）——含 #55/#57 修复；集成测试待补（需 PostgreSQL）
+> **日期**: 2026-08-13（更新 2026-08-15）
 > **规范**: [OIDC Back-Channel Logout 1.0](https://openid.net/specs/openid-connect-backchannel-1_0.html)
 > **上游**: [iam-architecture-audit.md](../iam-architecture-audit.md) §四 P0
+
+## 评审问题修复（2026-08-15，PR #61）
+
+- **#55（High）通知器在真实登出流不可达 → 已修**：
+  - `endSession`（OIDC RP-Initiated Logout）现在会通知：subject 取 session 的 `sub`（login() 时存入的 public subject），回退 `id_token_hint` 的 `sub`；重定向成功与 200 两条终态出口都过 notifier（400/500 错误出口不通知）。
+  - admin 前端 logout 从「revoke access+refresh」改为「`POST /oauth2/logout`（Bearer，吊销+通知）+ revoke refresh」；e2e mock 增加 `/oauth2/logout` 路由。
+  - 用户门户前端无需改动（其 end_session 调用现在经 endSession 触发通知）。
+  - 触发路径枚举写在 `BackchannelLogoutNotifier.h` 头注释。
+- **#57（Medium）URI 校验仅前缀判断（SSRF 加固）→ 已修**：
+  - `validateBackchannelLogoutUri` 现在校验：长度 ≤512（列宽）、非空 host、无 userinfo、无 fragment、IPv6 括号完整；拒绝 loopback/私网/链路本地/云元数据地址字面量（v4 全段、v6 `::1`/`fc00::/7`/`fe80::/10`/v4-mapped、`localhost`），除非新独立开关 `auth.allow_private_backchannel_logout_uri`（默认 false，**不**复用 `allow_http_redirect_uri`）。
+  - `DrogonOAuthHttpClient` 两个方法包 try/catch：退化 URL（如空 host）导致的 `newHttpClient` 异常降级为 transport-failure 回调（含审计路径），不再逃逸进事件循环。
+- **CI**：api-diff 把解门控删除的 `#ifdef WITH_SOCIAL`/`#endif` 守卫行判为 BREAKING——实为声明不变的增益漂移，已 `--update-baseline --force` ratify。
 
 ## 实现状态（2026-08-13）
 
@@ -160,3 +172,4 @@ notify(userId, cb)
 - 可配置 HTTP 超时/重试。
 - RP 响应 body 校验（仅按 status 判 success/failure）。
 - RFC 7591 注册端点加 backchannel 字段（admin 路径优先）。
+- #57 已知边界：私网拒绝只针对 host **字面量**；域名解析到私网 IP（含 DNS rebinding）不在写入口校验范畴——校验时解析无法保证交付时仍一致，彻底防护需交付侧 egress 策略（远期）。
