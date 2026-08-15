@@ -33,7 +33,7 @@
 
 | # | 非目标 | 为什么 / 归属 |
 |---|--------|--------------|
-| N1 | 竞品对比（Keycloak / Ory / Zitadel） | 用户决策：Phase 0 仅自测。后置到 **Phase 0.5**，复用本设施的 wrk + 阶梯方法论，加 `benchmarks/competitors/` 目录 |
+| N1 | 竞品对比（Keycloak / Ory / Zitadel） | 用户决策：Phase 0 仅自测。后置到 **Phase 0.5**，复用本设施的 wrk + 阶梯方法论，加 `benchmarks/competitors/` 目录。落地设计见 [competitor-benchmark-design.md](competitor-benchmark-design.md)（2026-08-15） |
 | N2 | 进程内微基准（SubjectGenerator 等） | 已有 `tests/performance/benchmark/PerformanceBenchmark.cc`，是不同关注点（单元回归），不在本设施范围 |
 | N3 | ABI / 编译期基准 | 与 HTTP 吞吐量无关 |
 | N4 | 前端（admin/user SPA）性能 | 前端是 nginx 静态托管，与后端性能叙事无关 |
@@ -291,7 +291,7 @@ docker compose up -d backend   # 计时起点
 
 ## 七、实施计划（4 个 milestone）
 
-> **实施状态（2026-08-13）**: M1–M4 全部完成。M1（skeleton + S1/S2）、M2（S3/S4）、M3（S5/S6 + 资源观测）、M4（承重假设验证报告 + 40 JSON 入仓）。竞品对比（Phase 0.5）未开始。
+> **实施状态（2026-08-13）**: M1–M4 全部完成。M1（skeleton + S1/S2）、M2（S3/S4）、M3（S5/S6 + 资源观测）、M4（承重假设验证报告 + 40 JSON 入仓）。竞品对比（Phase 0.5）设计已完成（[competitor-benchmark-design.md](competitor-benchmark-design.md)，2026-08-15），待实施。
 
 每 milestone 是后续**单独的 `openspec/changes/` 或 `.kiro/specs/` 立项**；本设计文档不展开实现细节。
 
