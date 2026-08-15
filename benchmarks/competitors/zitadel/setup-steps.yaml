@@ -1,0 +1,47 @@
+# Zitadel first-instance setup steps — RENDERED by setup.sh (do not edit the
+# placeholders). Reference: https://zitadel.com/docs/self-hosting/configure
+# The FirstInstance.Machine block is Zitadel's documented headless bootstrap
+# for machine credentials (key + PAT) without touching the login UI.
+
+FirstInstance:
+  InstanceName: bench
+  Org:
+    Name: bench-org
+    Human:
+      UserName: __ADMIN_USER__
+      FirstName: bench
+      LastName: admin
+      NickName: bench-admin
+      DisplayName: Bench Admin
+      Email:
+        Address: bench-admin@bench.invalid
+        Verified: true
+      Password:
+        Password: __ADMIN_PASS__
+        ChangeRequired: false
+    Machine:
+      Machine:
+        UserName: bench-svc
+        Name: bench-svc
+        Description: benchmark service user (JWT profile)
+      MachineKey:
+        Type: 1          # JSON key
+        FileName: /machinekey/bench-svc.json
+      Pat:
+        ExpirationDate: __PAT_EXPIRY__
+
+Database:
+  postgres:
+    Host: postgres
+    Port: 5432
+    Database: zitadel
+    User:
+      Username: zitadel
+      Password: zitadel
+      SSL:
+        Mode: disable
+    Admin:
+      Username: zitadel
+      Password: zitadel
+      SSL:
+        Mode: disable

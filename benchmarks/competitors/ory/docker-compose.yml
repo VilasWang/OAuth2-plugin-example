@@ -1,0 +1,54 @@
+# Ory Hydra benchmark stack — competitor-benchmark-design.md M2 (§七).
+#
+# Config baseline = official self-hosting guidance, no tuning:
+#   https://www.ory.sh/docs/hydra/self-hosted/deploy-hydra
+#   https://www.ory.sh/docs/hydra/configure
+#
+# Deviations from stock defaults — fairness-annotated in COMPARISON.md (D2/AC4):
+#   * DSN max_conns=25 — align the PG connection pool with AuthForge's bench
+#     config (design D1; Hydra default is higher).
+#   * urls.login / urls.consent point at an unused placeholder — the benchmark
+#     drives Hydra's official admin-API accept flow headlessly (docs:
+#     https://www.ory.sh/docs/hydra/guides/login-login-consent-flow), so no
+#     login/consent app is deployed. Challenges are parsed from redirects.
+#
+# SECRETS_SYSTEM is a required env var (32+ chars) — setup.sh generates a
+# throwaway value at runtime; nothing committed.
+
+name: ory-bench
+
+services:
+  postgres:
+    image: postgres:15-alpine        # same image tag as the AuthForge bench stack (D1)
+    container_name: ory-bench-postgres
+    environment:
+      POSTGRES_DB: hydra
+      POSTGRES_USER: hydra
+      POSTGRES_PASSWORD: hydra
+    volumes:
+      - ory-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hydra -d hydra"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  hydra:
+    image: oryd/hydra:v26.2.0        # pinned 2026-08-15 (latest stable)
+    container_name: ory-bench-hydra
+    command: ["serve", "all", "--config", "/etc/hydra/hydra.yml"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DSN: postgres://hydra:hydra@postgres:5432/hydra?sslmode=disable&max_conns=25
+      SECRETS_SYSTEM: ${HYDRA_SECRETS_SYSTEM:?set by setup.sh}
+    ports:
+      - "127.0.0.1:4444:4444"        # public
+      - "127.0.0.1:4445:4445"        # admin (introspect lives here — D3 annotation)
+    volumes:
+      - ./hydra.yml:/etc/hydra/hydra.yml:ro
+
+volumes:
+  ory-pgdata:
+    name: ory-bench-pgdata
