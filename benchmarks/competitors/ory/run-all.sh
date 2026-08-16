@@ -9,8 +9,8 @@ RUNNER="$REPO_ROOT/benchmarks/authforge/run-scenario.sh"
 RESULTS_DIR="$REPO_ROOT/benchmarks/competitors/results"
 mkdir -p "$RESULTS_DIR"
 
-PUBLIC_URL="${PUBLIC_URL:-http://127.0.0.1:4444}"
-ADMIN_URL="${ADMIN_URL:-http://127.0.0.1:4445}"
+PUBLIC_URL="${PUBLIC_URL:-https://127.0.0.1:4444}"   # TLS direct serve — see hydra.yml
+ADMIN_URL="${ADMIN_URL:-https://127.0.0.1:4445}"     # serve.tls shared: admin TLS too
 HYDRA_VERSION="$(cat "$ORY_DIR/lib/generated/product_version.txt" 2>/dev/null || echo unknown)"
 LEVELS=(2 4 8 16 32 64 128)
 

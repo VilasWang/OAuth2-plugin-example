@@ -305,7 +305,9 @@ def build_report() -> str:
              "PG 连接池 25（默认 100，D1 对齐）；KC_HEALTH_ENABLED=true；realm accessTokenLifespan/SSO idle 提到 1h（token 池须跑完整个阶梯，签名路径不变）；"
              "bench client 增加 audience mapper（KC 26 内省强制 aud 校验，官方机制）；setup 阶段 60s JIT 预热（D2 豁免，JVM 特有） |")
     L.append("| Ory Hydra | ory.sh/docs/hydra/self-hosted/deploy-hydra 与 configure | "
-             "DSN max_conns=25（D1 对齐）；login/consent URL 指向占位（用官方 admin-API accept 流 headless 驱动用户流） |")
+             "DSN max_conns=25（D1 对齐）；login/consent URL 指向占位（用官方 admin-API accept 流 headless 驱动用户流）；"
+             "自签 TLS 直接服务 public+admin 端口（v26 生产模式强制 https issuer，--dev 非生产配置；serve.tls 为两监听共享；"
+             "wrk 连接复用使握手在测量窗口外）")
     L.append("| Zitadel | zitadel.com/docs/self-hosting/deploy/compose 与 configure | "
              "单节点精简 compose（去掉官方示例的旁路观测组件）；S2/S3 用 Service User + JWT profile（官方 M2M 路径，token 端点不支持 Basic cc） |")
     L.append("")

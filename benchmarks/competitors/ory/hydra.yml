@@ -5,10 +5,23 @@
 serve:
   cookies:
     same_site_mode: Lax
+  # Hydra v26 production mode requires an https issuer URL; we serve TLS
+  # directly with a setup-time self-signed cert (real production topology —
+  # no --dev mode). NOTE: serve.tls is shared by the public AND admin
+  # listeners, so :4445 speaks TLS too (hydra CLI gets --skip-tls-verify,
+  # mint_tokens.py pins the cert as CA). wrk reuses connections, so handshake
+  # cost sits outside the 10s measure windows. Annotated in COMPARISON.md
+  # appendix A.
+  tls:
+    enabled: true
+    key:
+      path: /etc/hydra/tls/key.pem
+    cert:
+      path: /etc/hydra/tls/cert.pem
 
 urls:
   self:
-    issuer: http://127.0.0.1:4444
+    issuer: https://127.0.0.1:4444
   # Placeholders: the benchmark drives the admin-API accept flow headlessly
   # (login/consent challenges are parsed from redirects; nothing follows them).
   login: http://127.0.0.1:4445/unused-login
@@ -16,10 +29,11 @@ urls:
   error: http://127.0.0.1:4445/unused-error
 
 oidc:
+  # public-only: pairwise needs a salt config block in Hydra v26 schema
+  # validation; the benchmark never uses pairwise subjects.
   subject_identifiers:
     supported_types:
       - public
-      - pairwise
   dynamic_client_registration:
     enabled: false
 

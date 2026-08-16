@@ -7,8 +7,8 @@ set -euo pipefail
 ORY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GEN_DIR="$ORY_DIR/lib/generated"
 
-PUBLIC_URL="${PUBLIC_URL:-http://127.0.0.1:4444}"
-ADMIN_URL="${ADMIN_URL:-http://127.0.0.1:4445}"
+PUBLIC_URL="${PUBLIC_URL:-https://127.0.0.1:4444}"   # TLS direct serve — see hydra.yml
+ADMIN_URL="${ADMIN_URL:-https://127.0.0.1:4445}"     # serve.tls shared: admin TLS too
 MINT_PARALLEL="${MINT_PARALLEL:-16}"
 PHASE="${WRK_REISSUE_PHASE:-pre-measure}"
 CONN="${WRK_LEVEL_CONN:-8}"

@@ -11,6 +11,10 @@
 #     drives Hydra's official admin-API accept flow headlessly (docs:
 #     https://www.ory.sh/docs/hydra/guides/login-login-consent-flow), so no
 #     login/consent app is deployed. Challenges are parsed from redirects.
+#   * public AND admin ports serve TLS directly with a setup-time self-signed
+#     cert (lib/generated/tls, gitignored) — Hydra v26 production mode rejects
+#     an http issuer URL and --dev is not a production config; serve.tls is
+#     shared by both listeners (see hydra.yml).
 #
 # SECRETS_SYSTEM is a required env var (32+ chars) — setup.sh generates a
 # throwaway value at runtime; nothing committed.
@@ -48,6 +52,7 @@ services:
       - "127.0.0.1:4445:4445"        # admin (introspect lives here — D3 annotation)
     volumes:
       - ./hydra.yml:/etc/hydra/hydra.yml:ro
+      - ./lib/generated/tls:/etc/hydra/tls:ro
 
 volumes:
   ory-pgdata:

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "scenario": "s6-userinfo",
+  "concurrency": 32,
+  "threads": 2,
+  "duration_s": 10,
+  "qps": 5641.8,
+  "latency_us": {
+    "p50": 4620.0,
+    "p75": 8480.0,
+    "p90": 21750.0,
+    "p99": 832930.0
+  },
+  "total_requests": 62115,
+  "error_rate": 0.0,
+  "error_count": 0,
+  "socket_errors": {},
+  "non_2xx_responses": null,
+  "driver": {
+    "cpu_pct": 9.2,
+    "limited": false
+  },
+  "env": {
+    "date": "2026-08-16T13:57:46+00:00",
+    "git_sha": "9975bb6",
+    "git_branch": "feat/competitor-benchmark",
+    "product": "ory",
+    "product_version": "Version:    v26.2.0",
+    "target_image": "",
+    "target_config": "config.json",
+    "target_spec": "",
+    "driver_spec": "",
+    "network": "localhost-cross-container",
+    "wrk_version": "wrk debian/4.1.0-4build2 [epoll] Copyright (C) 2012 Will Glozer"
+  }
+}
