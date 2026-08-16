@@ -41,9 +41,15 @@ function New-PkcePair {
 }
 
 function Get-PostgresContainer {
-    # Try to find a running postgres container, suppress Docker errors
+    # Try to find THIS project's postgres container (deploy/docker/docker-
+    # compose.yml names the service "oauth2-postgres"). Matching only
+    # "postgres" grabbed ANY postgres container on the machine — e.g. an
+    # unrelated "ory-bench-postgres" — and docker-exec'd the admin reset
+    # into the WRONG database ("role oauth2_user does not exist"), silently
+    # breaking every downstream admin test. No match -> fall back to the
+    # local-psql branch.
     try {
-        $result = docker ps --format "{{.Names}}" 2>$null | Select-String -Pattern "postgres"
+        $result = docker ps --format "{{.Names}}" 2>$null | Select-String -Pattern "oauth2.*postgres|postgres.*oauth2"
         return $result
     } catch {
         return $null

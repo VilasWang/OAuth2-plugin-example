@@ -150,9 +150,14 @@ run_test() {
     echo ""
 }
 
-# get_postgres_container - find running postgres container name
+# get_postgres_container - find THIS project's postgres container name.
+# Matching only "postgres" grabbed ANY postgres container on the machine
+# (e.g. an unrelated "ory-bench-postgres") and ran the admin reset against
+# the wrong database. The compose service is "oauth2-postgres"
+# (deploy/docker/docker-compose.yml); no match -> caller falls back to the
+# local-psql branch.
 get_postgres_container() {
-    docker ps --format "{{.Names}}" 2>/dev/null | grep -i postgres | head -1
+    docker ps --format "{{.Names}}" 2>/dev/null | grep -iE 'oauth2.*postgres|postgres.*oauth2' | head -1
 }
 
 # run_psql <query> - run psql against the database (Docker or local)
