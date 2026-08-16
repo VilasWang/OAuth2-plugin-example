@@ -47,7 +47,7 @@ THREADS=$(( (CONN + 15) / 16 ))
 [ "$THREADS" -gt "$CPU_CORES" ] && THREADS="$CPU_CORES"
 [ "$THREADS" -lt 1 ] && THREADS=1
 
-CODE="$(curl -s -o /dev/null -w '%{http_code}' "$TARGET$READY_PATH" 2>/dev/null || echo 000)"
+CODE="$(curl -sk -o /dev/null -w '%{http_code}' "$TARGET$READY_PATH" 2>/dev/null || echo 000)"
 [ "$CODE" = "200" ] || { echo "[gcjitter] ERROR: target not ready at $TARGET$READY_PATH (code=$CODE)"; exit 1; }
 
 mkdir -p "$OUT_DIR"
