@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
@@ -78,6 +79,51 @@ int64_t nowEpochSeconds()
                                   .count());
 }
 
+// ASCII-only lowercase fold for the search pattern. unsigned char cast is
+// mandatory: std::tolower on a negative char is UB (asserts under MSVC debug).
+// Non-ASCII case folding is intentionally not supported (username/email are
+// ASCII in practice; matches the JS mock's toLowerCase for ASCII input).
+std::string asciiToLower(const std::string &s)
+{
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s)
+    {
+        out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    return out;
+}
+
+// Type-check a JSON member when present; false = present with a wrong type
+// (caller responds 400). jsoncpp's asString()/asBool() throw Json::LogicError
+// on mismatch — inside an async DB callback that escapes to the Drogon loop
+// and aborts the process (issue #53), so every coercion must be gated by
+// these checks up front. This also replaces the previous silent-skip-on-
+// wrong-type behavior (#59/#60): a malformed request must never look like a
+// successful update.
+bool jsonMemberHasType(
+  const Json::Value &body,
+  const char *name,
+  bool (*check)(const Json::Value &)
+)
+{
+    return !body.isMember(name) || check(body[name]);
+}
+
+bool isStringVal(const Json::Value &v)
+{
+    return v.isString();
+}
+bool isBoolVal(const Json::Value &v)
+{
+    return v.isBool();
+}
+// org_id additionally accepts explicit null = "clear the org" (#59).
+bool isIntOrNullVal(const Json::Value &v)
+{
+    return v.isInt() || v.isNull();
+}
+
 // Parse page/per_page query params with the same clamping as AuditService.
 PaginationParams parsePagination(const ::drogon::HttpRequestPtr &req)
 {
@@ -128,6 +174,34 @@ void auditFromRequest(
       targetId,
       Json::Value{}
     );
+}
+
+// Final 200 response for deleteUser (#56): the soft-delete itself succeeded,
+// so the status stays 200, but token-revocation outcome is reported honestly
+// (tokens_revoked:false + warning + audit "partial" on failure — never a
+// silent success).
+void finishDeleteResponse(
+  const UserAdminService::ResponseCallback &cb,
+  const ::drogon::HttpRequestPtr &req,
+  int32_t id,
+  bool tokensRevoked
+)
+{
+    auditFromRequest(
+      req, "user_delete", tokensRevoked ? "success" : "partial", "user", std::to_string(id)
+    );
+    Json::Value json;
+    json["status"] = "success";
+    json["message"] = tokensRevoked
+                        ? "User deleted successfully"
+                        : "User deleted successfully, but token revocation FAILED — revoke manually";
+    json["user_id"] = id;
+    json["tokens_revoked"] = tokensRevoked;
+    if (!tokensRevoked)
+    {
+        json["warning"] = "Token revocation failed; outstanding tokens may remain valid until expiry";
+    }
+    (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
 }
 
 Json::Value userRowToListJson(const Users &row)
@@ -298,16 +372,23 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
     Criteria baseFilter = Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull);
     if (!q.empty())
     {
-        // Escape LIKE wildcards and lowercase for case-insensitive prefix match.
+        // Escape LIKE wildcards, then case-insensitive prefix match by
+        // lower() on both sides (issue #58: plain LIKE is case-sensitive in
+        // PostgreSQL and diverged from the e2e mock). Drogon's Criteria
+        // interpolates the colName verbatim, so a lower() expression stays
+        // within the Criteria API (no raw-SQL exemption). ASCII-only folding
+        // (see asciiToLower); note lower(col) cannot use the plain username
+        // index — acceptable at admin-list scale.
         std::string escaped;
         for (char c : q)
         {
             if (c == '%' || c == '_') escaped += '\\';
             escaped += c;
         }
+        std::string pattern = asciiToLower(escaped) + "%";
         baseFilter = baseFilter &&
-                     (Criteria(Users::Cols::_username, CompareOperator::Like, escaped + "%") ||
-                      Criteria(Users::Cols::_email, CompareOperator::Like, escaped + "%"));
+                     (Criteria("lower(username)", CompareOperator::Like, pattern) ||
+                      Criteria("lower(email)", CompareOperator::Like, pattern));
     }
     if (locked == "true")
     {
@@ -456,47 +537,63 @@ void fetchUserRoleNames(
   const char *errCtx
 )
 {
-    Mapper<UserRoles> urMapper(db);
-    urMapper.findBy(
-      Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, userId),
-      [db, onDone = std::move(onDone), req, cb, errCtx](const std::vector<UserRoles> &userRoles) {
-          if (userRoles.empty())
-          {
-              onDone({});
-              return;
+    // Every Mapper construction gets its own try/catch (db-operations rule):
+    // the outer guard cannot reach constructions inside async callbacks.
+    try
+    {
+        Mapper<UserRoles> urMapper(db);
+        urMapper.findBy(
+          Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, userId),
+          [db, onDone = std::move(onDone), req, cb, errCtx](const std::vector<UserRoles> &userRoles) {
+              if (userRoles.empty())
+              {
+                  onDone({});
+                  return;
+              }
+              std::vector<int32_t> roleIds;
+              roleIds.reserve(userRoles.size());
+              for (const auto &ur : userRoles)
+              {
+                  roleIds.push_back(ur.getValueOfRoleId());
+              }
+              try
+              {
+                  Mapper<Roles> rMapper(db);
+                  rMapper.findBy(
+                    Criteria(Roles::Cols::_id, CompareOperator::In, roleIds),
+                    [onDone = std::move(onDone)](const std::vector<Roles> &roles) {
+                        std::vector<std::pair<int32_t, std::string>> out;
+                        out.reserve(roles.size());
+                        for (const auto &r : roles)
+                        {
+                            out.emplace_back(r.getValueOfId(), r.getValueOfName());
+                        }
+                        std::sort(out.begin(), out.end(), [](const auto &a, const auto &b) {
+                            return a.second < b.second;
+                        });
+                        onDone(std::move(out));
+                    },
+                    [req, cb, errCtx](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req, cb, "DB_QUERY_ERROR", std::string(errCtx) + ": " + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  respondError(req, cb, "DB_QUERY_ERROR", std::string(errCtx) + ": roles Mapper failed");
+              }
+          },
+          [req, cb, errCtx](const ::drogon::orm::DrogonDbException &e) {
+              respondError(req, cb, "DB_QUERY_ERROR", std::string(errCtx) + ": " + e.base().what());
           }
-          std::vector<int32_t> roleIds;
-          roleIds.reserve(userRoles.size());
-          for (const auto &ur : userRoles)
-          {
-              roleIds.push_back(ur.getValueOfRoleId());
-          }
-          Mapper<Roles> rMapper(db);
-          rMapper.findBy(
-            Criteria(Roles::Cols::_id, CompareOperator::In, roleIds),
-            [onDone = std::move(onDone)](const std::vector<Roles> &roles) {
-                std::vector<std::pair<int32_t, std::string>> out;
-                out.reserve(roles.size());
-                for (const auto &r : roles)
-                {
-                    out.emplace_back(r.getValueOfId(), r.getValueOfName());
-                }
-                std::sort(out.begin(), out.end(), [](const auto &a, const auto &b) {
-                    return a.second < b.second;
-                });
-                onDone(std::move(out));
-            },
-            [req, cb, errCtx](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req, cb, "DB_QUERY_ERROR", std::string(errCtx) + ": " + e.base().what()
-                );
-            }
-          );
-      },
-      [req, cb, errCtx](const ::drogon::orm::DrogonDbException &e) {
-          respondError(req, cb, "DB_QUERY_ERROR", std::string(errCtx) + ": " + e.base().what());
-      }
-    );
+        );
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_QUERY_ERROR", std::string(errCtx) + ": user-roles Mapper failed");
+    }
 }
 
 void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
@@ -507,11 +604,29 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
         respondError(req, cb, "VALIDATION_INVALID_INPUT", "Invalid JSON body");
         return;
     }
-    std::string username = (*jsonBody).get("username", "").asString();
-    std::string password = (*jsonBody).get("password", "").asString();
-    std::string email = (*jsonBody).get("email", "").asString();
-    bool emailVerified = (*jsonBody).get("email_verified", false).asBool();
-    bool mfaEnabled = (*jsonBody).get("mfa_enabled", false).asBool();
+    // Up-front type validation (#53): jsoncpp coercions (asString/asBool)
+    // throw Json::LogicError on type mismatch and would escape to the event
+    // loop; malformed input is a 400, never a crash or a silent default.
+    if (!jsonMemberHasType(*jsonBody, "username", isStringVal) ||
+        !jsonMemberHasType(*jsonBody, "password", isStringVal) ||
+        !jsonMemberHasType(*jsonBody, "email", isStringVal) ||
+        !jsonMemberHasType(*jsonBody, "email_verified", isBoolVal) ||
+        !jsonMemberHasType(*jsonBody, "mfa_enabled", isBoolVal) ||
+        !jsonMemberHasType(*jsonBody, "org_id", isIntOrNullVal))
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "One or more fields have an invalid type");
+        return;
+    }
+    if (jsonBody->isMember("roles") && !(*jsonBody)["roles"].isArray())
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "roles must be an array of strings");
+        return;
+    }
+    std::string username = jsonBody->get("username", "").asString();
+    std::string password = jsonBody->get("password", "").asString();
+    std::string email = jsonBody->get("email", "").asString();
+    bool emailVerified = jsonBody->get("email_verified", false).asBool();
+    bool mfaEnabled = jsonBody->get("mfa_enabled", false).asBool();
 
     if (username.empty())
     {
@@ -553,7 +668,7 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
     }
     row.setEmailVerified(emailVerified);
     row.setMfaEnabled(mfaEnabled);
-    // org_id / roles handled in follow-up if specified.
+    // org_id: explicit int sets it; null/absent leaves the column NULL (#59).
     if (jsonBody->isMember("org_id") && (*jsonBody)["org_id"].isInt())
     {
         row.setOrgId((*jsonBody)["org_id"].asInt());
@@ -567,21 +682,47 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
           [cb, req, db, username](const Users &inserted) {
               int32_t newId = inserted.getValueOfId();
 
-              // Resolve default "user" role (or body.roles if provided) and
-              // assign it to the new user.  If the role resolution / insert
-              // fails we still report success for the user creation — the role
-              // can be assigned later via PUT /roles.
-              auto assignDefaultRole = [cb, req, newId, username, inserted]() {
-                  auditFromRequest(req, "user_create", "success", "user", std::to_string(newId));
-                  Json::Value json;
-                  json["status"] = "success";
-                  json["message"] = "User created successfully";
-                  json["user"] = userRowToListJson(inserted);
-                  json["user"]["created_at"] = inserted.getValueOfCreatedAt().toDbString();
-                  auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                  resp->setStatusCode(::drogon::k201Created);
-                  (*cb)(resp);
-              };
+              // Role assignment bookkeeping (#60 item 1): the user row is
+              // created (201 is factual), but a role-assignment failure must
+              // be observable — roles_failed lists every requested name that
+              // did not land (unresolved names + failed inserts), and a
+              // non-empty list adds a warning + LOG_ERROR instead of the old
+              // silent "success" with a permission-less user.
+              auto assigned = std::make_shared<std::vector<std::string>>();
+              auto assignedMu = std::make_shared<std::mutex>();
+              auto respondCreated =
+                [cb, req, newId, inserted, assigned, assignedMu](const std::vector<std::string> &requested) {
+                    auditFromRequest(req, "user_create", "success", "user", std::to_string(newId));
+                    std::vector<std::string> assignedCopy;
+                    {
+                        std::lock_guard<std::mutex> lock(*assignedMu);
+                        assignedCopy = *assigned;
+                    }
+                    std::set<std::string> assignedSet(assignedCopy.begin(), assignedCopy.end());
+                    Json::Value assignedJson(Json::arrayValue);
+                    Json::Value failedJson(Json::arrayValue);
+                    for (const auto &n : assignedCopy)
+                        assignedJson.append(n);
+                    for (const auto &n : requested)
+                        if (!assignedSet.count(n))
+                            failedJson.append(n);
+                    Json::Value json;
+                    json["status"] = "success";
+                    json["message"] = "User created successfully";
+                    json["user"] = userRowToListJson(inserted);
+                    json["user"]["created_at"] = inserted.getValueOfCreatedAt().toDbString();
+                    json["roles_assigned"] = assignedJson;
+                    json["roles_failed"] = failedJson;
+                    if (!failedJson.empty())
+                    {
+                        LOG_ERROR << "createUser: user " << newId
+                                  << " created but some roles could not be assigned";
+                        json["warning"] = "User created but some roles could not be assigned";
+                    }
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                    resp->setStatusCode(::drogon::k201Created);
+                    (*cb)(resp);
+                };
 
               // Determine which roles to assign.
               std::vector<std::string> roleNames;
@@ -599,18 +740,19 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
                   roleNames.push_back("user");  // default role
               }
 
-              // Resolve role names → ids, then insert user_roles rows.
+              // Resolve role names → ids, then insert user_roles rows. The
+              // response fires when every insert has settled.
               try
               {
                   Mapper<Roles> rMapper(db);
                   rMapper.findBy(
                     Criteria(Roles::Cols::_name, CompareOperator::In, roleNames),
-                    [cb, req, db, newId, assignDefaultRole](const std::vector<Roles> &resolved) {
-                        // Insert each role assignment; fire response when all
-                        // complete (or immediately if none resolved).
+                    [cb, req, db, newId, roleNames, assigned, assignedMu, respondCreated](
+                      const std::vector<Roles> &resolved
+                    ) {
                         if (resolved.empty())
                         {
-                            assignDefaultRole();
+                            respondCreated(roleNames);
                             return;
                         }
                         auto remaining = std::make_shared<std::atomic<int>>(static_cast<int>(resolved.size()));
@@ -619,37 +761,53 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
                             UserRoles ur;
                             ur.setUserId(newId);
                             ur.setRoleId(r.getValueOfId());
+                            std::string roleName = r.getValueOfName();
                             try
                             {
                                 Mapper<UserRoles> insMapper(db);
                                 insMapper.insert(
                                   ur,
-                                  [remaining, assignDefaultRole](const UserRoles &) {
+                                  [remaining, roleName, assigned, assignedMu, roleNames,
+                                   respondCreated](const UserRoles &) {
+                                      {
+                                          std::lock_guard<std::mutex> lock(*assignedMu);
+                                          assigned->push_back(roleName);
+                                      }
                                       if (remaining->fetch_sub(1) == 1)
-                                          assignDefaultRole();
+                                          respondCreated(roleNames);
                                   },
-                                  [remaining, assignDefaultRole](const ::drogon::orm::DrogonDbException &) {
+                                  [remaining, roleName, roleNames, newId, respondCreated](
+                                    const ::drogon::orm::DrogonDbException &e
+                                  ) {
+                                      LOG_ERROR << "createUser: role '" << roleName
+                                                << "' insert failed for user " << newId << ": "
+                                                << e.base().what();
                                       if (remaining->fetch_sub(1) == 1)
-                                          assignDefaultRole();
+                                          respondCreated(roleNames);
                                   }
                                 );
                             }
                             catch (...)
                             {
+                                LOG_ERROR << "createUser: role insert Mapper construction failed";
                                 if (remaining->fetch_sub(1) == 1)
-                                    assignDefaultRole();
+                                    respondCreated(roleNames);
                             }
                         }
                     },
-                    [req, assignDefaultRole](const ::drogon::orm::DrogonDbException &) {
-                        // Role lookup failed — still report user creation success.
-                        assignDefaultRole();
+                    [req, cb, newId, roleNames, respondCreated](
+                      const ::drogon::orm::DrogonDbException &e
+                    ) {
+                        LOG_ERROR << "createUser: role lookup failed for user " << newId << ": "
+                                  << e.base().what();
+                        respondCreated(roleNames);
                     }
                   );
               }
               catch (...)
               {
-                  assignDefaultRole();
+                  LOG_ERROR << "createUser: role Mapper construction failed";
+                  respondError(req, cb, "DB_QUERY_ERROR", "Failed to assign roles");
               }
           },
           [req, cb](const ::drogon::orm::DrogonDbException &e) {
@@ -703,51 +861,62 @@ void UserAdminService::getUser(
     // Original: a 3-table JOIN (users LEFT JOIN user_roles LEFT JOIN roles) with
     // json_agg. Split: (1) fetch the user, (2) fetch role names via
     // fetchUserRoleNames (itself two queries). Aggregation in-memory.
-    Mapper<Users> mapper(db);
-    mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
-        Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
-      [cb, req, db, id](const Users &row) {
-          Json::Value json;
-          json["status"] = "success";
-          json["id"] = row.getValueOfId();
-          json["username"] = row.getValueOfUsername();
-          json["email"] = row.getValueOfEmail();
-          json["email_verified"] = row.getValueOfEmailVerified();
-          json["mfa_enabled"] = row.getValueOfMfaEnabled();
-          json["failed_login_count"] = row.getValueOfFailedLoginCount();
-          int64_t lockedUntil = row.getValueOfLockedUntil();
-          int64_t now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
-                                               std::chrono::system_clock::now().time_since_epoch()
-          )
-                                               .count());
-          json["locked"] = (lockedUntil > now);
-          json["locked_until"] = lockedUntil;
-          json["org_id"] = row.getValueOfOrgId();
-          json["created_at"] = row.getValueOfCreatedAt().toDbString();
+    try
+    {
+        Mapper<Users> mapper(db);
+        mapper.findOne(
+          Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [cb, req, db, id](const Users &row) {
+              Json::Value json;
+              json["status"] = "success";
+              json["id"] = row.getValueOfId();
+              json["username"] = row.getValueOfUsername();
+              json["email"] = row.getValueOfEmail();
+              json["email_verified"] = row.getValueOfEmailVerified();
+              json["mfa_enabled"] = row.getValueOfMfaEnabled();
+              json["failed_login_count"] = row.getValueOfFailedLoginCount();
+              int64_t lockedUntil = row.getValueOfLockedUntil();
+              int64_t now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+                                                   std::chrono::system_clock::now().time_since_epoch()
+              )
+                                                   .count());
+              json["locked"] = (lockedUntil > now);
+              json["locked_until"] = lockedUntil;
+              // Nullable accessor (#59): an org-less user serializes as JSON
+              // null, never as getValueOfOrgId()'s default 0 (a nonexistent
+              // org).
+              const std::shared_ptr<int32_t> &orgId = row.getOrgId();
+              json["org_id"] = orgId ? Json::Value(*orgId) : Json::Value(Json::nullValue);
+              json["created_at"] = row.getValueOfCreatedAt().toDbString();
 
-          fetchUserRoleNames(
-            db,
-            id,
-            [json, cb](std::vector<std::pair<int32_t, std::string>> roleNames) {
-                Json::Value rolesJson(Json::arrayValue);
-                for (const auto &rn : roleNames)
-                {
-                    rolesJson.append(rn.second);
-                }
-                Json::Value resp = json;
-                resp["roles"] = rolesJson;
-                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(resp));
-            },
-            req,
-            cb,
-            "Failed to fetch user"
-          );
-      },
-      [req, cb](const ::drogon::orm::DrogonDbException &) {
-          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
-      }
-    );
+              fetchUserRoleNames(
+                db,
+                id,
+                [json, cb](std::vector<std::pair<int32_t, std::string>> roleNames) {
+                    Json::Value rolesJson(Json::arrayValue);
+                    for (const auto &rn : roleNames)
+                    {
+                        rolesJson.append(rn.second);
+                    }
+                    Json::Value resp = json;
+                    resp["roles"] = rolesJson;
+                    (*cb)(::drogon::HttpResponse::newHttpJsonResponse(resp));
+                },
+                req,
+                cb,
+                "Failed to fetch user"
+              );
+          },
+          [req, cb](const ::drogon::orm::DrogonDbException &) {
+              respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct findOne Mapper");
+    }
 }
 
 void UserAdminService::updateUser(
@@ -773,12 +942,26 @@ void UserAdminService::updateUser(
         respondError(req, cb, "VALIDATION_INVALID_INPUT", "Invalid JSON body");
         return;
     }
+    // Up-front type validation (#53/#59): wrong-typed fields are a 400 —
+    // never a crash (jsoncpp coercion inside the DB callback aborts the
+    // process) and never a silent skip that still answers 200 "success".
+    if (!jsonMemberHasType(*jsonBody, "email", isStringVal) ||
+        !jsonMemberHasType(*jsonBody, "email_verified", isBoolVal) ||
+        !jsonMemberHasType(*jsonBody, "username", isStringVal) ||
+        !jsonMemberHasType(*jsonBody, "mfa_enabled", isBoolVal) ||
+        !jsonMemberHasType(*jsonBody, "locked", isBoolVal) ||
+        !jsonMemberHasType(*jsonBody, "org_id", isIntOrNullVal))
+    {
+        respondError(req, cb, "VALIDATION_INVALID_INPUT", "One or more fields have an invalid type");
+        return;
+    }
     bool hasEmail = jsonBody->isMember("email");
     bool hasEmailVerified = jsonBody->isMember("email_verified");
     bool hasUsername = jsonBody->isMember("username");
     bool hasMfaEnabled = jsonBody->isMember("mfa_enabled");
     bool hasLocked = jsonBody->isMember("locked");
     bool hasOrgId = jsonBody->isMember("org_id");
+    bool locking = hasLocked && (*jsonBody)["locked"].asBool();
     if (!hasEmail && !hasEmailVerified && !hasUsername && !hasMfaEnabled && !hasLocked && !hasOrgId)
     {
         respondError(req, cb, "VALIDATION_INVALID_INPUT", "No updatable fields provided");
@@ -797,71 +980,124 @@ void UserAdminService::updateUser(
         mapper.findOne(
           Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
         Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
-          [cb, req, jsonBody, hasEmail, hasEmailVerified, hasUsername, hasMfaEnabled, hasLocked, hasOrgId, db, id](
+          [cb, req, jsonBody, hasEmail, hasEmailVerified, hasUsername, hasMfaEnabled, hasLocked,
+           hasOrgId, locking, db, id](
             Users row
           ) {
-              if (hasEmail)
-              {
-                  row.setEmail(::authforge::common::utils::normalizeEmail((*jsonBody)["email"].asString()));
-              }
-              if (hasEmailVerified)
-              {
-                  row.setEmailVerified((*jsonBody)["email_verified"].asBool());
-              }
-              if (hasUsername)
-              {
-                  row.setUsername((*jsonBody)["username"].asString());
-              }
-              if (hasMfaEnabled && (*jsonBody)["mfa_enabled"].isBool())
-              {
-                  row.setMfaEnabled((*jsonBody)["mfa_enabled"].asBool());
-              }
-              if (hasLocked && (*jsonBody)["locked"].isBool())
-              {
-                  // locked is derived from locked_until: true → forever sentinel,
-                  // false → 0 (unlocked, matching enableUser).
-                  row.setLockedUntil((*jsonBody)["locked"].asBool() ? kLockedForeverSentinel : 0);
-              }
-              if (hasOrgId && (*jsonBody)["org_id"].isInt())
-              {
-                  row.setOrgId((*jsonBody)["org_id"].asInt());
-              }
+              // Defense-in-depth (db-operations rule 2): the whole callback
+              // body is wrapped so no future coercion/JSON access can escape
+              // into the Drogon event loop.
               try
               {
-                  Mapper<Users> updateMapper(db);
-                  updateMapper.update(
-                    row,
-                    [cb, req, id](const size_t) {
-                        auditFromRequest(req, "user_update", "success", "user", std::to_string(id));
-                        Json::Value json;
-                        json["status"] = "success";
-                        json["message"] = "User updated successfully";
-                        (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-                    },
-                    [req, cb](const ::drogon::orm::DrogonDbException &e) {
-                        // Distinguish username vs email UNIQUE violations.
-                        std::string what = e.base().what();
-                        if (what.find("users_username_key") != std::string::npos)
-                        {
-                            respondError(req, cb, "VALIDATION_USERNAME_TAKEN", "Username already exists");
-                        }
-                        else if (what.find("idx_users_email_unique") != std::string::npos)
-                        {
-                            respondError(req, cb, "VALIDATION_EMAIL_TAKEN", "Email already in use");
-                        }
-                        else
+                  // Last-admin guard (#60 item 2): locking the only active
+                  // admin is a management-plane lockout. NOTE: this lambda is
+                  // intentionally NOT mutable (row is copied, not moved) so it
+                  // stays callable from const capture contexts (the guard's
+                  // async callback captures it by value).
+                  auto proceedWithUpdate = [cb, req, jsonBody, hasEmail, hasEmailVerified,
+                                            hasUsername, hasMfaEnabled, hasLocked, hasOrgId, db,
+                                            id, row]() {
+                      Users rowLocal = row;
+                      if (hasEmail)
+                      {
+                          rowLocal.setEmail(::authforge::common::utils::normalizeEmail((*jsonBody)["email"].asString()));
+                      }
+                      if (hasEmailVerified)
+                      {
+                          rowLocal.setEmailVerified((*jsonBody)["email_verified"].asBool());
+                      }
+                      if (hasUsername)
+                      {
+                          rowLocal.setUsername((*jsonBody)["username"].asString());
+                      }
+                      if (hasMfaEnabled)
+                      {
+                          rowLocal.setMfaEnabled((*jsonBody)["mfa_enabled"].asBool());
+                      }
+                      if (hasLocked)
+                      {
+                          // locked is derived from locked_until: true → forever sentinel,
+                          // false → 0 (unlocked, matching enableUser).
+                          rowLocal.setLockedUntil((*jsonBody)["locked"].asBool() ? kLockedForeverSentinel : 0);
+                      }
+                      if (hasOrgId)
+                      {
+                          if ((*jsonBody)["org_id"].isNull())
+                          {
+                              // Explicit null clears the org (#59).
+                              rowLocal.setOrgIdToNull();
+                          }
+                          else
+                          {
+                              rowLocal.setOrgId((*jsonBody)["org_id"].asInt());
+                          }
+                      }
+                      try
+                      {
+                          Mapper<Users> updateMapper(db);
+                          updateMapper.update(
+                            rowLocal,
+                            [cb, req, id](const size_t) {
+                                auditFromRequest(req, "user_update", "success", "user", std::to_string(id));
+                                Json::Value json;
+                                json["status"] = "success";
+                                json["message"] = "User updated successfully";
+                                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                            },
+                            [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                                // Distinguish username vs email UNIQUE violations.
+                                std::string what = e.base().what();
+                                if (what.find("users_username_key") != std::string::npos)
+                                {
+                                    respondError(req, cb, "VALIDATION_USERNAME_TAKEN", "Username already exists");
+                                }
+                                else if (what.find("idx_users_email_unique") != std::string::npos)
+                                {
+                                    respondError(req, cb, "VALIDATION_EMAIL_TAKEN", "Email already in use");
+                                }
+                                else
+                                {
+                                    respondError(
+                                      req, cb, "DB_QUERY_ERROR",
+                                      std::string("Failed to update user: ") + what
+                                    );
+                                }
+                            }
+                          );
+                      }
+                      catch (...)
+                      {
+                          respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct update Mapper");
+                      }
+                  };
+
+                  if (!locking)
+                  {
+                      proceedWithUpdate();
+                      return;
+                  }
+                  isLastActiveAdmin(
+                    db,
+                    id,
+                    [proceedWithUpdate, cb, req](bool lastAdmin) {
+                        if (lastAdmin)
                         {
                             respondError(
-                              req, cb, "DB_QUERY_ERROR",
-                              std::string("Failed to update user: ") + what
+                              req, cb, "VALIDATION_RESOURCE_CONFLICT",
+                              "Cannot lock the last active admin"
                             );
+                            return;
                         }
+                        proceedWithUpdate();
+                    },
+                    [cb, req]() {
+                        respondError(req, cb, "DB_QUERY_ERROR", "Failed to evaluate last-admin guard");
                     }
                   );
               }
               catch (...)
               {
-                  respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct update Mapper");
+                  respondError(req, cb, "INTERNAL_ERROR", "Unexpected error while updating user");
               }
           },
           [req, cb](const ::drogon::orm::DrogonDbException &) {
@@ -914,55 +1150,111 @@ void UserAdminService::deleteUser(
                   respondError(req, cb, "VALIDATION_INVALID_INPUT", "Cannot delete your own account");
                   return;
               }
-              row.setDeletedAt(::trantor::Date::now());
-              std::string publicSub = row.getValueOfPublicSub();
-              try
-              {
-                  Mapper<Users> updateMapper(db);
-                  updateMapper.update(
-                    row,
-                    [cb, req, id, db, publicSub](const size_t) {
-                        auditFromRequest(req, "user_delete", "success", "user", std::to_string(id));
-                        // Revoke all outstanding tokens — introspection and
-                        // refresh copy the subject from stored token rows and
-                        // never query users, so existing tokens would otherwise
-                        // stay valid until natural expiry.
-                        try
-                        {
-                            db->execSqlAsync(
-                              "UPDATE oauth2_access_tokens SET revoked = true WHERE user_id = $1",
-                              [](const ::drogon::orm::Result &) {},
-                              [](const ::drogon::orm::DrogonDbException &) {},
-                              publicSub
-                            );
-                            db->execSqlAsync(
-                              "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
-                              [](const ::drogon::orm::Result &) {},
-                              [](const ::drogon::orm::DrogonDbException &) {},
-                              publicSub
-                            );
-                        }
-                        catch (...)
-                        {
-                        }
-                        Json::Value json;
-                        json["status"] = "success";
-                        json["message"] = "User deleted successfully";
-                        json["user_id"] = id;
-                        (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-                    },
-                    [req, cb](const ::drogon::orm::DrogonDbException &e) {
+              // Last-admin guard (#60 item 2): deleting the only other active
+              // admin is a management-plane lockout.
+              isLastActiveAdmin(
+                db,
+                id,
+                [cb, req, db, id, row = std::move(row)](bool lastAdmin) mutable {
+                    if (lastAdmin)
+                    {
                         respondError(
-                          req, cb, "DB_QUERY_ERROR",
-                          std::string("Failed to delete user: ") + e.base().what()
+                          req, cb, "VALIDATION_RESOURCE_CONFLICT",
+                          "Cannot delete the last active admin"
+                        );
+                        return;
+                    }
+                    row.setDeletedAt(::trantor::Date::now());
+                    std::string publicSub = row.getValueOfPublicSub();
+                    try
+                    {
+                        Mapper<Users> updateMapper(db);
+                        updateMapper.update(
+                          row,
+                          [cb, req, id, db, publicSub](const size_t) {
+                              // Revoke all outstanding tokens — introspection and
+                              // refresh copy the subject from stored token rows and
+                              // never query users, so existing tokens would otherwise
+                              // stay valid until natural expiry.
+                              //
+                              // Dual key (#56): password-flow tokens store the
+                              // public sub in user_id, GitHub-flow tokens store the
+                              // internal id — revoke both or social-issued tokens
+                              // survive the delete.
+                              //
+                              // The two UPDATEs are chained (access → refresh) and
+                              // the response waits for both: fire-and-forget meant
+                              // a swallowed failure left a soft-deleted user's
+                              // refresh token rotatable forever with zero log
+                              // output. Soft-delete itself already succeeded, so a
+                              // revocation failure is still a 200 — but with
+                              // tokens_revoked:false + warning + LOG_ERROR +
+                              // audit outcome "partial" so ops can see and fix it.
+                              auto revokeRefreshThenRespond =
+                                [cb, req, id, db, publicSub](bool accessOk) {
+                                    try
+                                    {
+                                        db->execSqlAsync(
+                                          "UPDATE oauth2_refresh_tokens SET revoked = true "
+                                          "WHERE user_id = $1 OR user_id = $2",
+                                          [cb, req, id, accessOk](const ::drogon::orm::Result &) {
+                                              finishDeleteResponse(cb, req, id, accessOk && true);
+                                          },
+                                          [cb, req, id, accessOk](const ::drogon::orm::DrogonDbException &e) {
+                                              LOG_ERROR << "deleteUser: refresh-token revocation failed for user "
+                                                        << id << ": " << e.base().what();
+                                              finishDeleteResponse(cb, req, id, false);
+                                          },
+                                          publicSub,
+                                          std::to_string(id)
+                                        );
+                                    }
+                                    catch (...)
+                                    {
+                                        LOG_ERROR << "deleteUser: refresh revocation submission threw";
+                                        finishDeleteResponse(cb, req, id, false);
+                                    }
+                                };
+                              try
+                              {
+                                  db->execSqlAsync(
+                                    "UPDATE oauth2_access_tokens SET revoked = true "
+                                    "WHERE user_id = $1 OR user_id = $2",
+                                    [revokeRefreshThenRespond](const ::drogon::orm::Result &) {
+                                        revokeRefreshThenRespond(true);
+                                    },
+                                    [revokeRefreshThenRespond](const ::drogon::orm::DrogonDbException &e) {
+                                        LOG_ERROR << "deleteUser: access-token revocation failed: "
+                                                  << e.base().what();
+                                        revokeRefreshThenRespond(false);
+                                    },
+                                    publicSub,
+                                    std::to_string(id)
+                                  );
+                              }
+                              catch (...)
+                              {
+                                  LOG_ERROR << "deleteUser: access revocation submission threw";
+                                  revokeRefreshThenRespond(false);
+                              }
+                          },
+                          [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                              respondError(
+                                req, cb, "DB_QUERY_ERROR",
+                                std::string("Failed to delete user: ") + e.base().what()
+                              );
+                          }
                         );
                     }
-                  );
-              }
-              catch (...)
-              {
-                  respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct update Mapper");
-              }
+                    catch (...)
+                    {
+                        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct update Mapper");
+                    }
+                },
+                [cb, req]() {
+                    respondError(req, cb, "DB_QUERY_ERROR", "Failed to evaluate last-admin guard");
+                }
+              );
           },
           [req, cb](const ::drogon::orm::DrogonDbException &) {
               respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
@@ -998,36 +1290,69 @@ void UserAdminService::disableUser(
         return;
     }
 
-    Mapper<Users> mapper(db);
-    mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
-        Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
-      [cb, req, userId, db](Users row) {
-          row.setLockedUntil(kLockedForeverSentinel);
-          Mapper<Users> updateMapper(db);
-          updateMapper.update(
-            row,
-            [cb, userId](const size_t) {
-                Json::Value json;
-                json["status"] = "success";
-                json["message"] = "User disabled successfully";
-                json["user_id"] = userId;
-                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-            },
-            [req, cb](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  cb,
-                  "DB_QUERY_ERROR",
-                  std::string("Failed to disable user: ") + e.base().what()
-                );
-            }
-          );
-      },
-      [req, cb](const ::drogon::orm::DrogonDbException &) {
-          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
-      }
-    );
+    try
+    {
+        Mapper<Users> mapper(db);
+        mapper.findOne(
+          Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [cb, req, userId, id, db](Users row) {
+              // Last-admin guard (#60 item 2): disabling the only other
+              // active admin locks out the management plane.
+              isLastActiveAdmin(
+                db,
+                id,
+                [cb, req, userId, db, row = std::move(row)](bool lastAdmin) mutable {
+                    if (lastAdmin)
+                    {
+                        respondError(
+                          req, cb, "VALIDATION_RESOURCE_CONFLICT",
+                          "Cannot disable the last active admin"
+                        );
+                        return;
+                    }
+                    row.setLockedUntil(kLockedForeverSentinel);
+                    try
+                    {
+                        Mapper<Users> updateMapper(db);
+                        updateMapper.update(
+                          row,
+                          [cb, userId](const size_t) {
+                              Json::Value json;
+                              json["status"] = "success";
+                              json["message"] = "User disabled successfully";
+                              json["user_id"] = userId;
+                              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                          },
+                          [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                              respondError(
+                                req,
+                                cb,
+                                "DB_QUERY_ERROR",
+                                std::string("Failed to disable user: ") + e.base().what()
+                              );
+                          }
+                        );
+                    }
+                    catch (...)
+                    {
+                        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct update Mapper");
+                    }
+                },
+                [cb, req]() {
+                    respondError(req, cb, "DB_QUERY_ERROR", "Failed to evaluate last-admin guard");
+                }
+              );
+          },
+          [req, cb](const ::drogon::orm::DrogonDbException &) {
+              respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct findOne Mapper");
+    }
 }
 
 void UserAdminService::enableUser(
@@ -1053,37 +1378,51 @@ void UserAdminService::enableUser(
         return;
     }
 
-    Mapper<Users> mapper(db);
-    mapper.findOne(
-      Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
-        Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
-      [cb, req, userId, db](Users row) {
-          row.setLockedUntil(0);
-          row.setFailedLoginCount(0);
-          Mapper<Users> updateMapper(db);
-          updateMapper.update(
-            row,
-            [cb, userId](const size_t) {
-                Json::Value json;
-                json["status"] = "success";
-                json["message"] = "User enabled successfully";
-                json["user_id"] = userId;
-                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-            },
-            [req, cb](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  cb,
-                  "DB_QUERY_ERROR",
-                  std::string("Failed to enable user: ") + e.base().what()
-                );
-            }
-          );
-      },
-      [req, cb](const ::drogon::orm::DrogonDbException &) {
-          respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
-      }
-    );
+    try
+    {
+        Mapper<Users> mapper(db);
+        mapper.findOne(
+          Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [cb, req, userId, db](Users row) {
+              row.setLockedUntil(0);
+              row.setFailedLoginCount(0);
+              try
+              {
+                  Mapper<Users> updateMapper(db);
+                  updateMapper.update(
+                    row,
+                    [cb, userId](const size_t) {
+                        Json::Value json;
+                        json["status"] = "success";
+                        json["message"] = "User enabled successfully";
+                        json["user_id"] = userId;
+                        (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                    },
+                    [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req,
+                          cb,
+                          "DB_QUERY_ERROR",
+                          std::string("Failed to enable user: ") + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct update Mapper");
+              }
+          },
+          [req, cb](const ::drogon::orm::DrogonDbException &) {
+              respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct findOne Mapper");
+    }
 }
 
 void UserAdminService::getUserRoles(
@@ -1113,62 +1452,76 @@ void UserAdminService::getUserRoles(
     // Reuse fetchUserRoleNames but also surface description (the original
     // response includes id/name/description). Fetch roles directly via the
     // two-query split: user_roles -> role_ids -> roles IN (...).
-    Mapper<UserRoles> urMapper(db);
-    urMapper.findBy(
-      Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, id),
-      [cb, req, db](const std::vector<UserRoles> &userRoles) {
-          if (userRoles.empty())
-          {
-              Json::Value json;
-              json["status"] = "success";
-              json["roles"] = Json::Value(Json::arrayValue);
-              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-              return;
+    try
+    {
+        Mapper<UserRoles> urMapper(db);
+        urMapper.findBy(
+          Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, id),
+          [cb, req, db](const std::vector<UserRoles> &userRoles) {
+              if (userRoles.empty())
+              {
+                  Json::Value json;
+                  json["status"] = "success";
+                  json["roles"] = Json::Value(Json::arrayValue);
+                  (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                  return;
+              }
+              std::vector<int32_t> roleIds;
+              roleIds.reserve(userRoles.size());
+              for (const auto &ur : userRoles)
+              {
+                  roleIds.push_back(ur.getValueOfRoleId());
+              }
+              try
+              {
+                  Mapper<Roles> rMapper(db);
+                  rMapper.findBy(
+                    Criteria(Roles::Cols::_id, CompareOperator::In, roleIds),
+                    [cb](const std::vector<Roles> &roles) {
+                        std::vector<Roles> sorted = roles;
+                        std::sort(sorted.begin(), sorted.end(), [](const Roles &a, const Roles &b) {
+                            return a.getValueOfName() < b.getValueOfName();
+                        });
+                        Json::Value json;
+                        json["status"] = "success";
+                        Json::Value rolesJson(Json::arrayValue);
+                        for (const auto &r : sorted)
+                        {
+                            Json::Value role;
+                            role["id"] = r.getValueOfId();
+                            role["name"] = r.getValueOfName();
+                            role["description"] = r.getValueOfDescription();
+                            rolesJson.append(role);
+                        }
+                        json["roles"] = rolesJson;
+                        (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                    },
+                    [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req,
+                          cb,
+                          "DB_QUERY_ERROR",
+                          std::string("Failed to fetch user roles: ") + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct roles Mapper");
+              }
+          },
+          [req, cb](const ::drogon::orm::DrogonDbException &e) {
+              respondError(
+                req, cb, "DB_QUERY_ERROR", std::string("Failed to fetch user roles: ") + e.base().what()
+              );
           }
-          std::vector<int32_t> roleIds;
-          roleIds.reserve(userRoles.size());
-          for (const auto &ur : userRoles)
-          {
-              roleIds.push_back(ur.getValueOfRoleId());
-          }
-          Mapper<Roles> rMapper(db);
-          rMapper.findBy(
-            Criteria(Roles::Cols::_id, CompareOperator::In, roleIds),
-            [cb](const std::vector<Roles> &roles) {
-                std::vector<Roles> sorted = roles;
-                std::sort(sorted.begin(), sorted.end(), [](const Roles &a, const Roles &b) {
-                    return a.getValueOfName() < b.getValueOfName();
-                });
-                Json::Value json;
-                json["status"] = "success";
-                Json::Value rolesJson(Json::arrayValue);
-                for (const auto &r : sorted)
-                {
-                    Json::Value role;
-                    role["id"] = r.getValueOfId();
-                    role["name"] = r.getValueOfName();
-                    role["description"] = r.getValueOfDescription();
-                    rolesJson.append(role);
-                }
-                json["roles"] = rolesJson;
-                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-            },
-            [req, cb](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  cb,
-                  "DB_QUERY_ERROR",
-                  std::string("Failed to fetch user roles: ") + e.base().what()
-                );
-            }
-          );
-      },
-      [req, cb](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req, cb, "DB_QUERY_ERROR", std::string("Failed to fetch user roles: ") + e.base().what()
-          );
-      }
-    );
+        );
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct user-roles Mapper");
+    }
 }
 
 void UserAdminService::assignUserRoles(
@@ -1218,116 +1571,280 @@ void UserAdminService::assignUserRoles(
     // (INSERT...SELECT) -- a documented batch pattern, but Mapper::insert can't
     // express it, so resolve names -> ids first (one findBy(In names)) then
     // insert each assignment.
-    Mapper<UserRoles> urMapper(db);
-    urMapper.deleteBy(
-      Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, id),
-      [cb, req, db, id, roleNames](const size_t) {
-          if (roleNames.empty())
+    //
+    // Last-admin guard (#60 item 2): assigning a role set that drops 'admin'
+    // from the only active admin is a management-plane lockout — reject 409.
+    bool keepsAdmin =
+      std::find(roleNames.begin(), roleNames.end(), "admin") != roleNames.end();
+    auto proceedWithAssign = [cb, req, db, id, roleNames]() {
+        try
+        {
+            Mapper<UserRoles> urMapper(db);
+            urMapper.deleteBy(
+              Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, id),
+              [cb, req, db, id, roleNames](const size_t) {
+                  if (roleNames.empty())
+                  {
+                      Json::Value json;
+                      json["status"] = "success";
+                      json["message"] = "User roles updated successfully";
+                      json["user_id"] = id;
+                      json["roles"] = Json::Value(Json::arrayValue);
+                      (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                      return;
+                  }
+
+                  // Resolve role names -> role rows (single findBy In).
+                  try
+                  {
+                      Mapper<Roles> rMapper(db);
+                      rMapper.findBy(
+                        Criteria(Roles::Cols::_name, CompareOperator::In, roleNames),
+                        [cb, req, db, id, roleNames](const std::vector<Roles> &resolved) {
+                            if (resolved.empty())
+                            {
+                                // No requested names matched any role -- nothing inserted;
+                                // report success with empty assigned set (preserves
+                                // original "skip unknown role" behavior).
+                                Json::Value json;
+                                json["status"] = "success";
+                                json["message"] = "User roles updated successfully";
+                                json["user_id"] = id;
+                                json["roles"] = Json::Value(Json::arrayValue);
+                                (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                                return;
+                            }
+                            // name -> id map for ordering the response by request order.
+                            std::unordered_map<std::string, int32_t> nameToId;
+                            for (const auto &r : resolved)
+                            {
+                                nameToId[r.getValueOfName()] = r.getValueOfId();
+                            }
+                            auto remaining =
+                              std::make_shared<std::atomic<int>>(static_cast<int>(resolved.size()));
+                            auto assigned = std::make_shared<std::vector<std::string>>();
+                            auto mu = std::make_shared<std::mutex>();
+
+                            for (const auto &r : resolved)
+                            {
+                                UserRoles row;
+                                row.setUserId(id);
+                                row.setRoleId(r.getValueOfId());
+                                try
+                                {
+                                    Mapper<UserRoles> insMapper(db);
+                                    insMapper.insert(
+                                      row,
+                                      [cb, req, remaining, assigned, mu, name = r.getValueOfName(), id](
+                                          const UserRoles &
+                                      ) {
+                                          {
+                                              std::lock_guard<std::mutex> lock(*mu);
+                                              assigned->push_back(name);
+                                          }
+                                          if (remaining->fetch_sub(1) == 1)
+                                          {
+                                              Json::Value json;
+                                              json["status"] = "success";
+                                              json["message"] = "User roles updated successfully";
+                                              json["user_id"] = id;
+                                              Json::Value rolesJson(Json::arrayValue);
+                                              {
+                                                  std::lock_guard<std::mutex> lock(*mu);
+                                                  for (const auto &n : *assigned)
+                                                  {
+                                                      rolesJson.append(n);
+                                                  }
+                                              }
+                                              json["roles"] = rolesJson;
+                                              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                                          }
+                                      },
+                                      [cb, req, remaining](const ::drogon::orm::DrogonDbException &e) {
+                                          if (remaining->fetch_sub(1) == 1)
+                                          {
+                                              respondError(
+                                                req,
+                                                cb,
+                                                "DB_QUERY_ERROR",
+                                                std::string("Failed to assign some roles: ") + e.base().what()
+                                              );
+                                          }
+                                      }
+                                    );
+                                }
+                                catch (...)
+                                {
+                                    LOG_ERROR << "assignUserRoles: insert Mapper construction failed";
+                                    if (remaining->fetch_sub(1) == 1)
+                                    {
+                                        respondError(
+                                          req, cb, "DB_QUERY_ERROR",
+                                          "Failed to construct insert Mapper"
+                                        );
+                                    }
+                                }
+                            }
+                        },
+                        [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                            respondError(
+                              req,
+                              cb,
+                              "DB_QUERY_ERROR",
+                              std::string("Failed to resolve role names: ") + e.base().what()
+                            );
+                        }
+                      );
+                  }
+                  catch (...)
+                  {
+                      respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct roles Mapper");
+                  }
+              },
+              [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                  respondError(
+                    req,
+                    cb,
+                    "DB_QUERY_ERROR",
+                    std::string("Failed to clear existing roles: ") + e.base().what()
+                  );
+              }
+            );
+        }
+        catch (...)
+        {
+            respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct user-roles Mapper");
+        }
+    };
+
+    if (keepsAdmin)
+    {
+        proceedWithAssign();
+        return;
+    }
+    isLastActiveAdmin(
+      db,
+      id,
+      [proceedWithAssign, cb, req](bool lastAdmin) {
+          if (lastAdmin)
           {
-              Json::Value json;
-              json["status"] = "success";
-              json["message"] = "User roles updated successfully";
-              json["user_id"] = id;
-              json["roles"] = Json::Value(Json::arrayValue);
-              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+              respondError(
+                req, cb, "VALIDATION_RESOURCE_CONFLICT",
+                "Cannot remove the admin role from the last active admin"
+              );
               return;
           }
-
-          // Resolve role names -> role rows (single findBy In).
-          Mapper<Roles> rMapper(db);
-          rMapper.findBy(
-            Criteria(Roles::Cols::_name, CompareOperator::In, roleNames),
-            [cb, req, db, id, roleNames](const std::vector<Roles> &resolved) {
-                if (resolved.empty())
-                {
-                    // No requested names matched any role -- nothing inserted;
-                    // report success with empty assigned set (preserves
-                    // original "skip unknown role" behavior).
-                    Json::Value json;
-                    json["status"] = "success";
-                    json["message"] = "User roles updated successfully";
-                    json["user_id"] = id;
-                    json["roles"] = Json::Value(Json::arrayValue);
-                    (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-                    return;
-                }
-                // name -> id map for ordering the response by request order.
-                std::unordered_map<std::string, int32_t> nameToId;
-                for (const auto &r : resolved)
-                {
-                    nameToId[r.getValueOfName()] = r.getValueOfId();
-                }
-                auto remaining =
-                  std::make_shared<std::atomic<int>>(static_cast<int>(resolved.size()));
-                auto assigned = std::make_shared<std::vector<std::string>>();
-                auto mu = std::make_shared<std::mutex>();
-
-                for (const auto &r : resolved)
-                {
-                    UserRoles row;
-                    row.setUserId(id);
-                    row.setRoleId(r.getValueOfId());
-                    Mapper<UserRoles> insMapper(db);
-                    insMapper.insert(
-                      row,
-                      [cb, req, remaining, assigned, mu, name = r.getValueOfName(), id](
-                        const UserRoles &
-                      ) {
-                          {
-                              std::lock_guard<std::mutex> lock(*mu);
-                              assigned->push_back(name);
-                          }
-                          if (remaining->fetch_sub(1) == 1)
-                          {
-                              Json::Value json;
-                              json["status"] = "success";
-                              json["message"] = "User roles updated successfully";
-                              json["user_id"] = id;
-                              Json::Value rolesJson(Json::arrayValue);
-                              {
-                                  std::lock_guard<std::mutex> lock(*mu);
-                                  for (const auto &n : *assigned)
-                                  {
-                                      rolesJson.append(n);
-                                  }
-                              }
-                              json["roles"] = rolesJson;
-                              (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-                          }
-                      },
-                      [cb, req, remaining](const ::drogon::orm::DrogonDbException &e) {
-                          if (remaining->fetch_sub(1) == 1)
-                          {
-                              respondError(
-                                req,
-                                cb,
-                                "DB_QUERY_ERROR",
-                                std::string("Failed to assign some roles: ") + e.base().what()
-                              );
-                          }
-                      }
-                    );
-                }
-            },
-            [req, cb](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  cb,
-                  "DB_QUERY_ERROR",
-                  std::string("Failed to resolve role names: ") + e.base().what()
-                );
-            }
-          );
+          proceedWithAssign();
       },
-      [req, cb](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            cb,
-            "DB_QUERY_ERROR",
-            std::string("Failed to clear existing roles: ") + e.base().what()
-          );
+      [cb, req]() {
+          respondError(req, cb, "DB_QUERY_ERROR", "Failed to evaluate last-admin guard");
       }
     );
+}
+
+// Last-active-admin guard (#60 item 2). True = target IS an active admin and
+// NO other active admin exists (deleting/disabling/locking/demoting them
+// would lock out the management plane). "Active" = not soft-deleted and not
+// locked (NULL locked_until counts as unlocked — the column is nullable but
+// DEFAULT 0, see design §6.2 note). Three Mapper queries, JOIN-forbidden.
+void isLastActiveAdmin(
+  const ::drogon::orm::DbClientPtr &db,
+  int32_t targetUserId,
+  std::function<void(bool)> &&onDone,
+  std::function<void()> &&onError
+)
+{
+    try
+    {
+        Mapper<Roles> roleMapper(db);
+        roleMapper.findBy(
+          Criteria(Roles::Cols::_name, CompareOperator::EQ, std::string("admin")),
+          [db, targetUserId, onDone = std::make_shared<std::function<void(bool)>>(std::move(onDone)),
+           onError = std::make_shared<std::function<void()>>(std::move(onError))](
+            const std::vector<Roles> &roles
+          ) {
+              if (roles.empty())
+              {
+                  // No admin role exists at all — nothing to protect.
+                  (*onDone)(false);
+                  return;
+              }
+              std::vector<int32_t> roleIds;
+              roleIds.reserve(roles.size());
+              for (const auto &r : roles)
+                  roleIds.push_back(r.getValueOfId());
+              try
+              {
+                  Mapper<UserRoles> urMapper(db);
+                  urMapper.findBy(
+                    Criteria(UserRoles::Cols::_role_id, CompareOperator::In, roleIds),
+                    [db, targetUserId, onDone, onError](const std::vector<UserRoles> &userRoles) {
+                        std::set<int32_t> adminIds;
+                        for (const auto &ur : userRoles)
+                            adminIds.insert(ur.getValueOfUserId());
+                        if (adminIds.find(targetUserId) == adminIds.end())
+                        {
+                            // Target is not an admin — no restriction.
+                            (*onDone)(false);
+                            return;
+                        }
+                        // Any OTHER admin candidate?
+                        std::vector<int32_t> others;
+                        for (int32_t uid : adminIds)
+                            if (uid != targetUserId)
+                                others.push_back(uid);
+                        if (others.empty())
+                        {
+                            (*onDone)(true);
+                            return;
+                        }
+                        try
+                        {
+                            Mapper<Users> usersMapper(db);
+                            usersMapper.count(
+                              Criteria(Users::Cols::_id, CompareOperator::In, others) &&
+                                Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull) &&
+                                (Criteria(Users::Cols::_locked_until, CompareOperator::IsNull) ||
+                                 Criteria(Users::Cols::_locked_until, CompareOperator::LE, nowEpochSeconds())),
+                              [onDone](const size_t otherActiveAdmins) {
+                                  (*onDone)(otherActiveAdmins == 0);
+                              },
+                              [onError](const ::drogon::orm::DrogonDbException &e) {
+                                  LOG_ERROR << "isLastActiveAdmin: admin liveness count failed: "
+                                            << e.base().what();
+                                  (*onError)();
+                              }
+                            );
+                        }
+                        catch (...)
+                        {
+                            LOG_ERROR << "isLastActiveAdmin: users Mapper construction failed";
+                            (*onError)();
+                        }
+                    },
+                    [onError](const ::drogon::orm::DrogonDbException &e) {
+                        LOG_ERROR << "isLastActiveAdmin: user-roles query failed: " << e.base().what();
+                        (*onError)();
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  LOG_ERROR << "isLastActiveAdmin: user-roles Mapper construction failed";
+                  (*onError)();
+              }
+          },
+          [onError](const ::drogon::orm::DrogonDbException &e) {
+              LOG_ERROR << "isLastActiveAdmin: role query failed: " << e.base().what();
+              onError();
+          }
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR << "isLastActiveAdmin: role Mapper construction failed";
+        onError();
+    }
 }
 
 }  // namespace authforge::drogon::admin

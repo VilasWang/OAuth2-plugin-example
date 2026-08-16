@@ -331,7 +331,31 @@ inline bool statusIs(const ::drogon::HttpResponsePtr &resp, ::drogon::HttpStatus
 // Returns the access token, or nullopt on any failure (memory mode, wrong
 // credentials, server unreachable, malformed response).
 // ---------------------------------------------------------------------------
+// Generalized login (see definition below): password login as an arbitrary
+// user; returns the full token JSON (access_token, refresh_token, ...).
+inline std::optional<Json::Value> loginAsUserTokens(
+  const std::string &username,
+  const std::string &password,
+  const std::string &scope
+);
+
 inline std::optional<std::string> loginAsAdminWithScope(const std::string &scope)
+{
+    auto tokens = loginAsUserTokens("admin", "admin", scope);
+    if (!tokens)
+        return std::nullopt;
+    return tokens->get("access_token", "").asString();
+}
+
+// Generalized login (issues-53-60 hardening tests): password login as an
+// arbitrary seeded/created user via the same authorization-code + PKCE
+// recipe as the admin login. Returns the FULL token JSON (access_token,
+// refresh_token, ...) so revocation tests can keep the refresh token.
+inline std::optional<Json::Value> loginAsUserTokens(
+  const std::string &username,
+  const std::string &password,
+  const std::string &scope
+)
 {
     if (!postgresAvailable())
         return std::nullopt;
@@ -349,7 +373,7 @@ inline std::optional<std::string> loginAsAdminWithScope(const std::string &scope
 
     // Step 1: login -> authorization code.
     const std::string loginForm =
-      "username=admin&password=admin"
+      "username=" + username + "&password=" + password +
       "&client_id=" +
       std::string(kAdminClientId) +
       "&redirect_uri=" + std::string(kAdminRedirectUri) +
@@ -362,8 +386,7 @@ inline std::optional<std::string> loginAsAdminWithScope(const std::string &scope
     Json::Value loginJson;
     if (!parseJsonBody(loginResp, loginJson))
         return std::nullopt;
-    // MFA-enabled admin would return mfa_required=true instead of a code; the
-    // dev seed has mfa_enabled=false, so this path is not expected here.
+    // MFA-enabled users return mfa_required=true instead of a code.
     if (loginJson.isMember("mfa_required") && loginJson["mfa_required"].asBool())
         return std::nullopt;
     const std::string code = loginJson.get("code", "").asString();
@@ -385,10 +408,9 @@ inline std::optional<std::string> loginAsAdminWithScope(const std::string &scope
     Json::Value tokenJson;
     if (!parseJsonBody(tokenResp, tokenJson))
         return std::nullopt;
-    const std::string accessToken = tokenJson.get("access_token", "").asString();
-    if (accessToken.empty())
+    if (tokenJson.get("access_token", "").asString().empty())
         return std::nullopt;
-    return accessToken;
+    return tokenJson;
 }
 
 // Default admin login: requests the full `openid profile admin` scope set
