@@ -60,6 +60,26 @@ namespace authforge::identity
 {
 
 /**
+ * @brief Outcome of an existing-provider-account lookup
+ * (ISocialAccountRepository::findLinkedUser). Explicitly distinguishes the
+ * four states the old optional<SocialAccountLookup> conflated (#54): a DB
+ * error used to be indistinguishable from "no mapping yet" (the service then
+ * wrongly attempted account creation), and "mapping exists but the linked
+ * user is soft-deleted/locked" was not expressible at all — deleted users
+ * received fresh tokens (V024 soft-delete contract bypass).
+ */
+enum class SocialLinkStatus
+{
+    Linked,             ///< Mapping exists and the user is live: issue tokens.
+    NoMapping,          ///< No (provider, subject) mapping yet: create account.
+    AccountUnavailable, ///< Mapping exists but the user is soft-deleted or
+                        ///< locked: REJECT the login (generic auth error, no
+                        ///< account-status enumeration).
+    RepositoryError     ///< DB failure: reject with a DB error (do NOT fall
+                        ///< through to account creation).
+};
+
+/**
  * @brief Result of an existing provider-account lookup
  * (ISocialAccountRepository::findLinkedUser).
  */
@@ -89,18 +109,32 @@ class ISocialAccountRepository
   public:
     virtual ~ISocialAccountRepository() = default;
 
-    using LookupCallback = std::function<void(std::optional<SocialAccountLookup>)>;
+    /**
+     * @brief Callback for findLinkedUser: the lookup status plus (for
+     * SocialLinkStatus::Linked) the linked user's id + username. The lookup
+     * payload is default/empty for every non-Linked status.
+     */
+    using LookupCallback =
+      std::function<void(SocialLinkStatus status, const SocialAccountLookup &lookup)>;
     using CreateCallback = std::function<void(std::optional<LinkNewSocialAccountResult>)>;
 
     /**
      * @brief Look up the local user already linked to a
-     * (provider, subject) pair (GitHubController.cc's SELECT against
-     * oauth2_subject_mappings, joined with users for the username).
+     * (provider, subject) pair, with soft-delete/lock enforcement (#54, V024
+     * contract: a deleted user "can no longer log in").
+     *
+     * Contract per status:
+     *   - Linked: lookup.userId/username populated.
+     *   - NoMapping: no mapping row exists; caller may create the account.
+     *   - AccountUnavailable: mapping exists but the users row is missing,
+     *     soft-deleted (deleted_at NOT NULL), or locked (locked_until > now)
+     *     — the caller MUST reject the login.
+     *   - RepositoryError: a DB failure occurred at any step.
+     *
      * @param provider Provider name (e.g. "github").
      * @param subject Provider-scoped subject identifier (e.g. the
      * GitHub numeric user id, stringified).
-     * @param cb Callback with the linked user's id + username, or
-     * nullopt if no mapping exists yet.
+     * @param cb Status callback (see LookupCallback).
      */
     virtual void findLinkedUser(
       const std::string &provider,

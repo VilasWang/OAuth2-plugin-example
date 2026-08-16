@@ -572,8 +572,38 @@ void PostgresIdentityRepository::getInternalUserId(
         mapper.findOne(
           Criteria(Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider) &&
             Criteria(Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, subject),
-          [sharedCb](const Oauth2SubjectMappings &mapping) {
-              (*sharedCb)(mapping.getValueOfInternalUserId());
+          [db = dbClient_, sharedCb](const Oauth2SubjectMappings &mapping) {
+              // #54 liveness check: the mapping may outlive its user (soft
+              // delete intentionally keeps the mapping row). This resolution
+              // feeds the consent → authorization-code → token chain
+              // (SessionController), so a dead user's mapping must NOT mint
+              // fresh tokens. Split query (JOIN-forbidden): resolve the
+              // mapped id against a live users row; not live → nullopt
+              // (SessionController fails the consent with an error, it does
+              // NOT attempt account creation). Locked users are not filtered
+              // here — that is login-entry policy, not mapping resolution.
+              int32_t internalId = mapping.getValueOfInternalUserId();
+              try
+              {
+                  Mapper<Users> usersMapper(db);
+                  usersMapper.findBy(
+                    Criteria(Users::Cols::_id, CompareOperator::EQ, internalId) &&
+                      Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
+                    [sharedCb, internalId](const std::vector<Users> &users) {
+                        (*sharedCb)(users.empty() ? std::nullopt : std::make_optional(internalId));
+                    },
+                    [sharedCb](const DrogonDbException &e) {
+                        LOG_ERROR << "getInternalUserId: liveness query failed: "
+                                  << e.base().what();
+                        (*sharedCb)(std::nullopt);
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  LOG_ERROR << "getInternalUserId: users Mapper construction failed";
+                  (*sharedCb)(std::nullopt);
+              }
           },
           [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
         );
@@ -696,10 +726,15 @@ void PostgresIdentityRepository::createUserForExternalLogin(
     auto sharedCb = std::make_shared<std::function<void(std::optional<int32_t>)>>(std::move(cb));
 
     std::string username = provider + "_" + externalId.substr(0, 20);
+    // #54: DO NOTHING (fail-closed). The previous DO UPDATE SET username =
+    // users.username was adoption by another name — a conflicting row
+    // (whoever registered that username, or a soft-deleted user) would be
+    // silently linked to this external identity. A conflict now returns no
+    // row and the caller gets nullopt.
     dbClient_->execSqlAsync(
       "INSERT INTO users (username, password_hash, salt, email) "
       "VALUES ($1, 'EXTERNAL_AUTH_NO_PASSWORD', '', '') "
-      "ON CONFLICT (username) DO UPDATE SET username = users.username "
+      "ON CONFLICT (username) DO NOTHING "
       "RETURNING id",
       [sharedCb](const Result &r) {
           if (r.empty())

@@ -14,6 +14,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 
@@ -27,6 +28,14 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
     std::unordered_map<std::string, SocialAccountLookup> linked;
     int32_t nextUserId = 100;
     bool failCreate = false;
+    // #54 test seam: (provider, subject) keys whose "linked user" must be
+    // rejected (soft-deleted / locked) — findLinkedUser answers
+    // AccountUnavailable for these even though a mapping exists.
+    std::set<std::string> unavailableKeys;
+    // #54 test seam: usernames that behave like a conflicting row under the
+    // production upsert's ON CONFLICT DO NOTHING — createLinkedUser fails
+    // (nullopt) instead of adopting the row.
+    std::set<std::string> conflictingUsernames;
 
     static std::string key(const std::string &provider, const std::string &subject)
     {
@@ -38,8 +47,19 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
       const std::string &subject,
       LookupCallback &&cb) override
     {
-        auto it = linked.find(key(provider, subject));
-        cb(it == linked.end() ? std::nullopt : std::make_optional(it->second));
+        const std::string k = key(provider, subject);
+        if (unavailableKeys.count(k) > 0)
+        {
+            cb(SocialLinkStatus::AccountUnavailable, SocialAccountLookup{});
+            return;
+        }
+        auto it = linked.find(k);
+        if (it == linked.end())
+        {
+            cb(SocialLinkStatus::NoMapping, SocialAccountLookup{});
+            return;
+        }
+        cb(SocialLinkStatus::Linked, it->second);
     }
 
     void createLinkedUser(
@@ -49,7 +69,7 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
       const std::string & /*email*/,
       CreateCallback &&cb) override
     {
-        if (failCreate)
+        if (failCreate || conflictingUsernames.count(username) > 0)
         {
             cb(std::nullopt);
             return;
