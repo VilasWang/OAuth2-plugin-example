@@ -1614,12 +1614,9 @@ void UserAdminService::assignUserRoles(
                                 (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                                 return;
                             }
-                            // name -> id map for ordering the response by request order.
-                            std::unordered_map<std::string, int32_t> nameToId;
-                            for (const auto &r : resolved)
-                            {
-                                nameToId[r.getValueOfName()] = r.getValueOfId();
-                            }
+                            // NOTE: the response lists roles in COMPLETION order
+                            // (concurrent inserts), not request order — treat it
+                            // as a set.
                             auto remaining =
                               std::make_shared<std::atomic<int>>(static_cast<int>(resolved.size()));
                             auto assigned = std::make_shared<std::vector<std::string>>();

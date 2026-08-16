@@ -28,6 +28,9 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
     std::unordered_map<std::string, SocialAccountLookup> linked;
     int32_t nextUserId = 100;
     bool failCreate = false;
+    // Test seam: make findLinkedUser answer RepositoryError (a DB outage
+    // must NOT fall through to account creation — PR-review finding 3).
+    bool failFind = false;
     // #54 test seam: (provider, subject) keys whose "linked user" must be
     // rejected (soft-deleted / locked) — findLinkedUser answers
     // AccountUnavailable for these even though a mapping exists.
@@ -48,6 +51,11 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
       LookupCallback &&cb) override
     {
         const std::string k = key(provider, subject);
+        if (failFind)
+        {
+            cb(SocialLinkStatus::RepositoryError, SocialAccountLookup{});
+            return;
+        }
         if (unavailableKeys.count(k) > 0)
         {
             cb(SocialLinkStatus::AccountUnavailable, SocialAccountLookup{});

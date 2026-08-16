@@ -7,6 +7,7 @@
 #include <chrono>
 
 #include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <authforge/storage/postgres/models/Roles.h>
 #include <authforge/storage/postgres/models/UserRoles.h>
 #include <authforge/storage/postgres/models/Users.h>
 
@@ -18,6 +19,7 @@ using authforge::identity::LinkNewSocialAccountResult;
 using authforge::identity::SocialAccountLookup;
 using authforge::identity::SocialLinkStatus;
 using drogon_model::oauth2_db::Oauth2SubjectMappings;
+using drogon_model::oauth2_db::Roles;
 using drogon_model::oauth2_db::UserRoles;
 using drogon_model::oauth2_db::Users;
 
@@ -200,32 +202,64 @@ void PostgresSocialAccountRepository::createLinkedUser(
               mapMapper.insert(
                 mapping,
                 [db, sharedCb, userId32, username](const Oauth2SubjectMappings &) {
-                    UserRoles ur;
-                    ur.setUserId(userId32);
-
+                    // Default-role grant. PR-review finding 1: this insert
+                    // previously set ONLY user_id — role_id is NOT NULL with
+                    // no default, so every grant raised a constraint
+                    // violation that the best-effort callbacks swallowed
+                    // silently: every social account was created with ZERO
+                    // roles. Resolve the 'user' role id first (split query,
+                    // JOIN-forbidden), then insert with both columns.
+                    auto finish = [sharedCb, userId32, username]() {
+                        LinkNewSocialAccountResult result;
+                        result.userId = userId32;
+                        result.username = username;
+                        (*sharedCb)(result);
+                    };
+                    auto grantRole = [db, sharedCb, userId32, username,
+                                      finish = std::move(finish)](int32_t roleId) {
+                        UserRoles ur;
+                        ur.setUserId(userId32);
+                        ur.setRoleId(roleId);
+                        try
+                        {
+                            Mapper<UserRoles> urMapper(db);
+                            urMapper.insert(
+                              ur,
+                              [finish](const UserRoles &) { finish(); },
+                              [finish](const DrogonDbException &e) {
+                                  // Best-effort per the interface contract, but
+                                  // LOUD: a permission-less account is exactly
+                                  // the silent failure class issue #60-1 fixed.
+                                  LOG_ERROR << "createLinkedUser: default-role grant failed: "
+                                            << e.base().what();
+                                  finish();
+                              }
+                            );
+                        }
+                        catch (...)
+                        {
+                            LOG_ERROR << "createLinkedUser: user-roles Mapper construction failed";
+                            finish();
+                        }
+                    };
                     try
                     {
-                        Mapper<UserRoles> urMapper(db);
-                        urMapper.insert(
-                          ur,
-                          [sharedCb, userId32, username](const UserRoles &) {
-                              LinkNewSocialAccountResult result;
-                              result.userId = userId32;
-                              result.username = username;
-                              (*sharedCb)(result);
+                        Mapper<Roles> rolesMapper(db);
+                        rolesMapper.findOne(
+                          Criteria(Roles::Cols::_name, CompareOperator::EQ, std::string("user")),
+                          [grantRole = std::move(grantRole)](const Roles &r) {
+                              grantRole(r.getValueOfId());
                           },
-                          [sharedCb, userId32, username](const DrogonDbException &) {
-                              LinkNewSocialAccountResult result;
-                              result.userId = userId32;
-                              result.username = username;
-                              (*sharedCb)(result);
+                          [finish](const DrogonDbException &e) {
+                              LOG_ERROR << "createLinkedUser: 'user' role lookup failed: "
+                                        << e.base().what();
+                              finish();
                           }
                         );
                     }
                     catch (...)
                     {
-                        LOG_ERROR << "createLinkedUser: user-roles Mapper construction failed";
-                        // Best-effort role grant, same as the async error path.
+                        LOG_ERROR << "createLinkedUser: roles Mapper construction failed";
                         LinkNewSocialAccountResult result;
                         result.userId = userId32;
                         result.username = username;

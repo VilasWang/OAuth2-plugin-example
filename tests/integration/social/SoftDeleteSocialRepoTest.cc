@@ -224,6 +224,38 @@ DROGON_TEST(Integration_P0_SocialRepo_CreateLinkedUser_FailClosedOnConflict)
       std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
     );
 
+    // Happy path (PR-review finding 1): a created linked account must
+    // actually HAVE the default 'user' role — the grant previously inserted
+    // user_roles without role_id (NOT NULL violation, silently swallowed).
+    {
+        const std::string uname = "gh_rolecheck_" + suffix;
+        std::promise<std::optional<authforge::identity::LinkNewSocialAccountResult>> p;
+        repo->createLinkedUser(
+          "github", "rolecheck_" + suffix, uname, "x@example.com",
+          [&p](std::optional<authforge::identity::LinkNewSocialAccountResult> r) {
+              p.set_value(r);
+          }
+        );
+        auto created = p.get_future().get();
+        REQUIRE(created.has_value());
+        // Verify the user_roles row exists and points at the real 'user'
+        // role (two split queries — JOIN-forbidden even in seed checks).
+        std::promise<int32_t> cnt;
+        db->execSqlAsync(
+          "SELECT COUNT(*) AS n FROM user_roles WHERE user_id = $1 AND role_id = "
+          "(SELECT id FROM roles WHERE name = 'user')",
+          [&cnt](const drogon::orm::Result &res) {
+              cnt.set_value(res.empty() ? -1 : res[0]["n"].as<int32_t>());
+          },
+          [&cnt](const drogon::orm::DrogonDbException &e) {
+              LOG_ERROR << "role-count check failed: " << e.base().what();
+              cnt.set_value(-1);
+          },
+          created->userId
+        );
+        CHECK(cnt.get_future().get() == 1);
+    }
+
     // Username held by an ACTIVE row: DO NOTHING -> nullopt, and the existing
     // row is untouched (no adoption / takeover).
     {
