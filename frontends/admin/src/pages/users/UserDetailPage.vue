@@ -70,7 +70,9 @@ async function saveInfo() {
     if (editEmailVerified.value !== user.value.email_verified) body.email_verified = editEmailVerified.value
     if (editMfaEnabled.value !== user.value.mfa_enabled) body.mfa_enabled = editMfaEnabled.value
     if (editLocked.value !== (user.value.locked || false)) body.locked = editLocked.value
-    if (editOrgId.value !== (user.value.org_id ?? '')) body.org_id = editOrgId.value
+    // org_id: an emptied field is an explicit "clear" — send null (the API's
+    // null = setOrgIdToNull), never '' (the backend now 400s wrong types).
+    if (editOrgId.value !== (user.value.org_id ?? '')) body.org_id = editOrgId.value === '' ? null : editOrgId.value
     if (Object.keys(body).length === 0) { showSuccess('No changes'); saving.value = false; return }
     await axios.put(`/api/admin/users/${userId.value}`, body, { headers: { 'Content-Type': 'application/json' } })
     showSuccess('User updated successfully')

@@ -48,7 +48,8 @@ test.describe('Error Handling', () => {
 
   test('403 forbidden shows error on users page', async ({ page }) => {
     await setupAuthenticatedMocks(page)
-    await page.route('**/api/admin/users', async (route) => {
+    // Trailing `*` so the override matches the list call's query string too.
+    await page.route('**/api/admin/users*', async (route) => {
       await route.fulfill({
         status: 403,
         contentType: 'application/json',

@@ -47,6 +47,30 @@ test.describe('User Detail Page', () => {
     await expect(page.locator('text=User updated successfully')).toBeVisible()
   })
 
+  // #59: clearing the Organization ID field sends org_id: null (the API's
+  // explicit clear), never '' — and the reloaded detail shows the cleared
+  // state (the mock applies PUTs).
+  test('clearing organization sends org_id null and reloads cleared', async ({ page }) => {
+    const orgInput = page.locator('input[type="number"]')
+    await orgInput.fill('5')
+    await page.click('button:has-text("Save Changes")')
+    await expect(page.locator('text=User updated successfully')).toBeVisible()
+    await expect(orgInput).toHaveValue('5')
+
+    const clearPut = page.waitForRequest(
+      (r) =>
+        r.method() === 'PUT' &&
+        /\/api\/admin\/users\/\d+$/.test(new URL(r.url()).pathname)
+    )
+    await orgInput.fill('')
+    await page.click('button:has-text("Save Changes")')
+    const req = await clearPut
+    expect(JSON.parse(req.postData() || '{}').org_id).toBeNull()
+
+    // Reloaded state: org cleared (input empty again after refetch).
+    await expect(orgInput).toHaveValue('')
+  })
+
   test('can save role changes', async ({ page }) => {
     // Verify the mock is working by checking the network
     let rolesPutCalled = false
@@ -157,15 +181,14 @@ test.describe('User Detail - Edge Cases', () => {
     await page.waitForURL('**/admin/users/**')
     await page.waitForLoadState('networkidle')
 
-    // Toggle email_verified checkbox if present
-    const checkbox = page.locator('input[type="checkbox"]')
-    if (await checkbox.isVisible()) {
-      await checkbox.click()
-      await page.click('button:has-text("Save")')
-      await page.waitForTimeout(300)
-      // PUT should have been sent
-      expect(putBody).not.toBeNull()
-    }
+    // Toggle the email-verified checkbox (strict locator — the page has
+    // three checkboxes) and save; the PUT body must carry the toggled field.
+    const checkbox = page.locator('input#emailVerified')
+    await checkbox.click()
+    await page.click('button:has-text("Save")')
+    await page.waitForTimeout(300)
+    expect(putBody).not.toBeNull()
+    expect(putBody).toHaveProperty('email_verified')
   })
 
   test('save with no changes shows message', async ({ page }) => {

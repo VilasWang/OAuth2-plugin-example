@@ -194,7 +194,7 @@ export async function setupAuthenticatedMocks(page: Page) {
         contentType: 'application/json',
         body: JSON.stringify({
           client_id: 'new-client-' + Date.now(),
-          client_secret: process.env.E2E_MOCK_CS ?? 'fixture',
+          client_secret: process.env.E2E_MOCK_CS ?? 'generated-secret-abc123xyz', // matches applications.spec expectation
           name: 'New App',
           client_type: 'CONFIDENTIAL',
         }),
@@ -236,12 +236,15 @@ export async function setupAuthenticatedMocks(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ client_secret: process.env.E2E_MOCK_RS ?? 'fixture' }),
+      body: JSON.stringify({ client_secret: process.env.E2E_MOCK_RS ?? 'new-secret-after-reset-xyz789' }), // matches applications.spec expectation
     })
   })
 
-  // Admin users (GET list with pagination/filter, POST create)
-  await page.route('**/api/admin/users', async (route) => {
+  // Admin users (GET list with pagination/filter, POST create). Trailing `*`
+  // (not `/`-crossing) so the pattern also matches query strings
+  // (?page=1&per_page=50&q=...); the detail/roles/disable/enable routes below
+  // are registered later and take precedence (LIFO) for their paths.
+  await page.route('**/api/admin/users*', async (route) => {
     const method = route.request().method()
     if (method === 'GET')
     {
@@ -361,15 +364,35 @@ export async function setupAuthenticatedMocks(page: Page) {
     })
   })
 
-  // User detail - GET/PUT/DELETE for user info
+  // User detail - GET/PUT/DELETE for user info. Stateful: PUT applies the
+  // known fields onto the current detail state (mirroring the backend's
+  // contract — org_id: null clears, wrong types are a 400 — issues #53/#59)
+  // so a subsequent GET reflects the update, like the real API.
+  const userDetail: any = { ...MOCK_USER_DETAIL }
   await page.route('**/api/admin/users/*', async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(MOCK_USER_DETAIL),
+        body: JSON.stringify(userDetail),
       })
     } else if (route.request().method() === 'PUT') {
+      const body = JSON.parse(route.request().postData() || '{}')
+      const typeOk =
+        ['username', 'email'].every((k) => body[k] === undefined || typeof body[k] === 'string') &&
+        ['email_verified', 'mfa_enabled', 'locked'].every(
+          (k) => body[k] === undefined || typeof body[k] === 'boolean'
+        ) &&
+        (body.org_id === undefined || body.org_id === null || Number.isInteger(body.org_id))
+      if (!typeOk) {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'error', code: 'VALIDATION_INVALID_INPUT', message: 'One or more fields have an invalid type' }),
+        })
+        return
+      }
+      Object.assign(userDetail, body)
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -379,7 +402,7 @@ export async function setupAuthenticatedMocks(page: Page) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ status: 'success', message: 'User deleted successfully' }),
+        body: JSON.stringify({ status: 'success', message: 'User deleted successfully', tokens_revoked: true }),
       })
     } else {
       await route.continue()

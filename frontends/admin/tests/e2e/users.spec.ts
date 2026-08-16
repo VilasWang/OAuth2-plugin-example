@@ -142,7 +142,9 @@ test.describe('User Management', () => {
   })
 
   test('API error displays error message', async ({ page }) => {
-    await page.route('**/api/admin/users', async (route) => {
+    // Trailing `*` so the override also matches the list call's query string
+    // (?page=1&per_page=50) — without it the base mock answers 200 instead.
+    await page.route('**/api/admin/users*', async (route) => {
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -180,8 +182,8 @@ test.describe('User Management', () => {
     await page.click('button:has-text("Create User")')
     await page.fill('input[placeholder="newuser"]', 'newuser_test')
     await page.fill('input[placeholder="••••••••"]', 'TestPass123!')
-    await page.click('button:has-text("Create User"):not(:has-text("Create User)"))')
-    // The modal-specific create button
+    // The modal-specific create button (the page-level button is behind the
+    // modal overlay and would intercept pointer events).
     await page.locator('.fixed button:has-text("Create User")').click()
     await expect(page.locator('.bg-green-50')).toBeVisible({ timeout: 5000 })
     expect(createRequestBody.username).toBe('newuser_test')
