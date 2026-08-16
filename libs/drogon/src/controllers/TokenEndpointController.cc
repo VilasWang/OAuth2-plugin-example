@@ -1923,10 +1923,11 @@ void TokenEndpointController::userInfo(
     //      have no user identity -> 401 invalid_token (the token is a valid
     //      bearer but is the wrong TOKEN TYPE for a user-info resource).
     //   2. A user token lacking the "openid" scope -> 403 insufficient_scope.
-    //      This is defense-in-depth: OAuth2AuthFilter already enforces the
-    //      openid requirement via the ResourceScopeRegistry, but the handler
-    //      keeps the check so userinfo is correct even if the filter gate is
-    //      ever bypassed.
+    //      NOTE (#60 item 4): this handler check is the SOLE enforcement for
+    //      userinfo — the ResourceScopeRegistry deliberately EXCLUDES
+    //      /oauth2/userinfo (see ResourceScopeRegistry.cc isAuthGatedPath:
+    //      the 401-vs-403 split is handler-exclusive by design), so there is
+    //      no upstream filter gate behind it. Do NOT remove this check.
     std::string scope = attrs->get<std::string>("scope");
     if (userId.rfind("client:", 0) == 0)
     {

@@ -64,12 +64,15 @@ void UserAdminController::initApiDocsImpl()
     openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users/{userId}", "PUT", "Update User",
               "Update user fields: email, email_verified, username, mfa_enabled, "
-              "locked, org_id.",
+              "locked, org_id (integer sets it, JSON null clears it). "
+              "Wrong-typed fields are rejected with 400.",
               {"users:write"}));
     openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users/{userId}", "DELETE", "Delete User",
               "Soft-delete a user account (sets deleted_at). The user is excluded "
-              "from all queries and can no longer log in.",
+              "from all queries and can no longer log in. Outstanding tokens are "
+              "revoked before the response (tokens_revoked reported in the body); "
+              "409 if the target is the last active admin.",
               {"users:write"}));
     openapi::OpenApiGenerator::addEndpoint(
       adminEp("/api/admin/users/{userId}/disable", "PUT", "Disable User",
