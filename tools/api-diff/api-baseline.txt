@@ -1,6 +1,6 @@
 // api-diff baseline -- AuthForge SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.1.0
+// version: 1.2.0
 === libs/common/include/authforge/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -4174,6 +4174,7 @@ public:
 std::unordered_map<std::string, SocialAccountLookup> linked;
 int32_t nextUserId = 100;
 bool failCreate = false;
+bool failFind = false;
 std::set<std::string> unavailableKeys;
 std::set<std::string> conflictingUsernames;
 static std::string key(const std::string &provider, const std::string &subject)
