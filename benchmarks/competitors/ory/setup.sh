@@ -29,8 +29,8 @@ set -euo pipefail
 
 ORY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PUBLIC_URL="${PUBLIC_URL:-http://127.0.0.1:4444}"
-ADMIN_URL="${ADMIN_URL:-http://127.0.0.1:4445}"
+PUBLIC_URL="${PUBLIC_URL:-https://127.0.0.1:4444}"
+ADMIN_URL="${ADMIN_URL:-https://127.0.0.1:4445}"   # serve.tls is shared: admin speaks TLS too
 POOL_CC="${POOL_CC:-2000}"
 POOL_USER="${POOL_USER:-2000}"
 MINT_PARALLEL="${MINT_PARALLEL:-16}"
@@ -45,8 +45,25 @@ printf 'Basic %s' "$(printf '%s:%s' bench-svc "$SVC_SECRET" | base64 -w0)" > "$G
 printf 'Basic %s' "$(printf '%s:%s' bench-web "$WEB_SECRET" | base64 -w0)" > "$GEN_DIR/basic_header_web.txt"
 chmod 600 "$GEN_DIR"/basic_header_*.txt
 
-# --- 0. port-free assertion ---
-if curl -s -o /dev/null --max-time 2 "$PUBLIC_URL/health/ready" 2>/dev/null; then
+# --- self-signed TLS cert (Hydra v26 production mode requires https issuer;
+#     the cert is throwaway, covers 127.0.0.1, lives in gitignored dir) ---
+TLS_DIR="$GEN_DIR/tls"
+mkdir -p "$TLS_DIR"
+openssl req -x509 -newkey rsa:2048 -sha256 -days 2 -nodes \
+    -keyout "$TLS_DIR/key.pem" -out "$TLS_DIR/cert.pem" \
+    -subj "/CN=127.0.0.1" \
+    -addext "subjectAltName=IP:127.0.0.1" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign" \
+    >/dev/null 2>&1
+[ -s "$TLS_DIR/key.pem" ] && [ -s "$TLS_DIR/cert.pem" ] \
+    || { echo "[setup] ERROR: TLS cert generation failed"; exit 1; }
+# world-readable: the hydra container process (non-root) must read the pair;
+# acceptable for a throwaway 2-day loopback benchmark cert in a gitignored dir
+chmod 644 "$TLS_DIR/key.pem" "$TLS_DIR/cert.pem"
+
+# --- 0. port-free assertion (https + self-signed → -k) ---
+if curl -sk -o /dev/null --max-time 2 "$PUBLIC_URL/health/ready" 2>/dev/null; then
     echo "[setup] ERROR: something already answers at $PUBLIC_URL — run teardown.sh first."
     exit 1
 fi
@@ -62,7 +79,7 @@ docker compose -f "$ORY_DIR/docker-compose.yml" -p ory-bench up -d --wait --wait
 # --- 2. health gate ---
 CODE=000
 for i in $(seq 1 120); do
-    CODE="$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/health/ready" 2>/dev/null || echo 000)"
+    CODE="$(curl -sk -o /dev/null -w '%{http_code}' "$PUBLIC_URL/health/ready" 2>/dev/null || echo 000)"
     [ "$CODE" = "200" ] && break
     sleep 1
 done
@@ -70,15 +87,16 @@ done
 HYDRA_VERSION="$(docker exec ory-bench-hydra hydra version 2>/dev/null | head -1 || echo unknown)"
 echo "[setup] hydra ready (version: $HYDRA_VERSION)"
 
-# --- 3. create clients via official CLI ---
+# --- 3. create clients via official CLI (admin listener is TLS with the
+#     self-signed cert → --skip-tls-verify on the CLI side) ---
 echo "[setup] creating clients (bench-svc: client_credentials; bench-web: auth_code+refresh)..."
 docker exec ory-bench-hydra hydra create oauth2-client \
-    --endpoint "$ADMIN_URL" --name bench-svc \
+    --endpoint "$ADMIN_URL" --skip-tls-verify --id bench-svc --name bench-svc \
     --grant-type client_credentials \
     --token-endpoint-auth-method client_secret_basic \
     --secret "$SVC_SECRET" >/dev/null
 docker exec ory-bench-hydra hydra create oauth2-client \
-    --endpoint "$ADMIN_URL" --name bench-web \
+    --endpoint "$ADMIN_URL" --skip-tls-verify --id bench-web --name bench-web \
     --grant-type authorization_code,refresh_token --response-type code \
     --token-endpoint-auth-method client_secret_basic \
     --redirect-uri http://127.0.0.1:4444/unused \
@@ -87,7 +105,7 @@ docker exec ory-bench-hydra hydra create oauth2-client \
 echo "  clients created"
 
 # --- 4. warm validation: one cc token + one full accept-flow token ---
-curl -s -o /dev/null -w '' -u "bench-svc:$SVC_SECRET" -d 'grant_type=client_credentials' "$PUBLIC_URL/oauth2/token" \
+curl -sk -o /dev/null -w '' -u "bench-svc:$SVC_SECRET" -d 'grant_type=client_credentials' "$PUBLIC_URL/oauth2/token" \
     || { echo "[setup] ERROR: warm cc validation failed"; exit 1; }
 python3 "$ORY_DIR/mint_tokens.py" --public "$PUBLIC_URL" --admin "$ADMIN_URL" \
     --client-id bench-web --client-secret "$WEB_SECRET" --mode user-at --count 1 \

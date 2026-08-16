@@ -163,8 +163,8 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 2
 fi
 
-# --- target reachability gate ---
-CODE="$(curl -s -o /dev/null -w '%{http_code}' "$TARGET_URL$READY_PATH" 2>/dev/null || echo 000)"
+# --- target reachability gate (-k: competitor targets may serve self-signed TLS) ---
+CODE="$(curl -sk -o /dev/null -w '%{http_code}' "$TARGET_URL$READY_PATH" 2>/dev/null || echo 000)"
 if [ "$CODE" != "200" ]; then
     echo "[run] ERROR: target not ready at $TARGET_URL$READY_PATH (code=$CODE)."
     echo "       Run the target's setup.sh first (or override READY_PATH)."

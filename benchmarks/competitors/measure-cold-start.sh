@@ -17,6 +17,10 @@
 #
 # Options: --runs 1 (repetitions per mode; JSON stores an array)
 #
+# Fresh-mode note: Ory Hydra's documented boot sequence requires an explicit
+# `migrate sql` step before serve (Keycloak and Zitadel create their schema
+# automatically on first start); this script runs it for --product ory.
+#
 # The Keycloak compose file requires KC_BOOTSTRAP_ADMIN_* env vars (nothing
 # committed); this script generates throwaway values for `up` invocations.
 set -euo pipefail
@@ -53,11 +57,10 @@ export ZITADEL_MASTERKEY="${ZITADEL_MASTERKEY:-$(head -c 32 /dev/urandom | base6
 
 COMPOSE=(docker compose -f "$COMPOSE_DIR/docker-compose.yml" -p "$PROJECT")
 
-probe_until_ready() {  # -> seconds (float)
-    local t0 t1 code
-    t0="$(date +%s.%N)"
+probe_until_ready() {  # <t0-epoch> -> seconds (float)
+    local t0="$1" t1 code
     while true; do
-        code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "$TARGET$READY_PATH" 2>/dev/null || echo 000)"
+        code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 2 "$TARGET$READY_PATH" 2>/dev/null || echo 000)"
         [ "$code" = "200" ] && break
         t1="$(date +%s.%N)"
         if python3 -c "import sys; sys.exit(0 if $t1 - $t0 > 900 else 1)"; then
@@ -77,16 +80,29 @@ rss_of_service() {  # -> MiB (docker stats single sample)
 }
 
 measure_mode() {  # <fresh|restart> — progress to stderr, ONLY the JSON to stdout
-    local mode="$1" runs_json="[]" t rss
+    local mode="$1" runs_json="[]" t0 t rss
     for r in $(seq 1 "$RUNS"); do
         echo "[coldstart] mode=$mode run=$r/$RUNS..." >&2
+        # timing starts at the boot COMMAND (up/restart), matching the
+        # AuthForge facility's measure-cold-start.sh semantics; compose's
+        # dependency waits (postgres healthy) and, for ory, the documented
+        # migrate step are part of the boot window. Cleanup (down -v) is not.
         if [ "$mode" = "fresh" ]; then
             "${COMPOSE[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
+            t0="$(date +%s.%N)"
+            if [ "$PRODUCT" = "ory" ]; then
+                # fixed argv (no shell string): Hydra's documented sequence
+                # is migrate-before-serve — see header note
+                "${COMPOSE[@]}" run --rm "$SERVICE" migrate sql -e -y \
+                    --config /etc/hydra/hydra.yml >/dev/null 2>&1 \
+                    || { echo "[coldstart] ERROR: hydra migrate failed" >&2; return 1; }
+            fi
             "${COMPOSE[@]}" up -d >/dev/null 2>&1
         else
+            t0="$(date +%s.%N)"
             docker restart "${PROJECT}-${SERVICE}" >/dev/null 2>&1
         fi
-        t="$(probe_until_ready)"
+        t="$(probe_until_ready "$t0")"
         rss="$(rss_of_service)"
         echo "  ready in ${t}s (RSS at ready: ${rss})" >&2
         runs_json="$(python3 -c "import json; a=json.loads('''$runs_json'''); a.append({'run': $r, 'seconds': $t, 'rss_at_ready': '$rss'}); print(json.dumps(a))")"
