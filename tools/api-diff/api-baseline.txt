@@ -1044,6 +1044,7 @@ static void getOidcKeys(ResponseCallback cb);
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
+#include <drogon/orm/DbClient.h>
 #include <functional>
 #include <memory>
 #include <string>
@@ -1092,6 +1093,12 @@ ResponseCallback cb,
 const std::string &userId
 );
 };
+void isLastActiveAdmin(
+const ::drogon::orm::DbClientPtr &db,
+int32_t targetUserId,
+std::function<void(bool)> &&onDone,
+std::function<void()> &&onError
+);
 }
 === libs/drogon/include/authforge/drogon/authz/InsufficientScopeResponder.h
 #pragma once
@@ -3582,6 +3589,13 @@ virtual void getRoles(const std::string &subject, RolesCallback &&cb) = 0;
 #include <string>
 namespace authforge::identity
 {
+enum class SocialLinkStatus
+{
+Linked,
+NoMapping,
+AccountUnavailable,
+RepositoryError
+};
 struct SocialAccountLookup
 {
 int32_t userId = 0;
@@ -3596,7 +3610,8 @@ class ISocialAccountRepository
 {
 public:
 virtual ~ISocialAccountRepository() = default;
-using LookupCallback = std::function<void(std::optional<SocialAccountLookup>)>;
+using LookupCallback =
+std::function<void(SocialLinkStatus status, const SocialAccountLookup &lookup)>;
 using CreateCallback = std::function<void(std::optional<LinkNewSocialAccountResult>)>;
 virtual void findLinkedUser(
 const std::string &provider,
@@ -4148,6 +4163,7 @@ inline OAuthHttpResult transportFailure()
 #include <authforge/identity/ISocialAccountRepository.h>
 #include <cstdint>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 namespace authforge::identity::testing
@@ -4158,6 +4174,8 @@ public:
 std::unordered_map<std::string, SocialAccountLookup> linked;
 int32_t nextUserId = 100;
 bool failCreate = false;
+std::set<std::string> unavailableKeys;
+std::set<std::string> conflictingUsernames;
 static std::string key(const std::string &provider, const std::string &subject)
 ;
 void findLinkedUser(

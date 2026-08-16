@@ -84,8 +84,12 @@ class ResourceScopeRegistry
     ///  (a) every registry entry corresponds to a real registered route --
     ///      orphan entries (dead config) LOG_FATAL;
     ///  (b) every route under a known auth-gated path family
-    ///      (/api/admin/*, /api/me*, /oauth2/userinfo) has a registry entry
-    ///      -- a missing entry is a silent gap, LOG_FATAL.
+    ///      (/api/admin/*, /api/me*) has a registry entry -- a missing
+    ///      entry is a silent gap, LOG_FATAL. NOTE: /oauth2/userinfo is
+    ///      deliberately NOT an auth-gated family here -- its openid-scope
+    ///      + M2M-subject checks (401-vs-403 split, OIDC Core 5.3) are
+    ///      handler-exclusive (see TokenEndpointController's userinfo
+    ///      handler, the sole enforcement point).
     /// Mirrors the OAUTH2_AUTO_MIGRATE loud-fail pattern.
     static void runConsistencyCheck();
 

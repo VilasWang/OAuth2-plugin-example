@@ -477,13 +477,18 @@ paths:
                   type: boolean
                 org_id:
                   type: integer
+                  nullable: true
                 roles:
                   type: array
                   items:
                     type: string
       responses:
         '201':
-          description: User created successfully
+          description: >-
+            User created successfully. The response body reports role
+            assignment outcome: roles_assigned (names landed), roles_failed
+            (requested names that did not land — unresolved or insert
+            failures), and a warning field when roles_failed is non-empty.
         '400':
           description: Validation error
         '401':
@@ -514,6 +519,8 @@ paths:
           description: Unauthorized
         '404':
           description: User not found
+        '409':
+          description: The target is the last active admin
       security:
       - bearerAuth: []
       summary: Disable User
@@ -587,6 +594,9 @@ paths:
           description: Roles assigned successfully
         '400':
           description: Invalid request body
+        '409':
+          description: >-
+            The change would remove the admin role from the last active admin
       security:
       - bearerAuth: []
       summary: Assign User Roles
@@ -627,6 +637,9 @@ paths:
                     type: integer
                   mfa_enabled:
                     type: boolean
+                  org_id:
+                    type: integer
+                    nullable: true
                   roles:
                     items:
                       type: string
@@ -636,7 +649,7 @@ paths:
                   username:
                     type: string
                 type: object
-          description: User details
+          description: User details (org_id is null when the user has no org)
         '404':
           description: User not found
       security:
@@ -646,7 +659,11 @@ paths:
       - Admin
       - Users
     put:
-      description: Update user information (email, email_verified).
+      description: >-
+        Update user information. Updatable fields: username, email,
+        email_verified, mfa_enabled, locked (true locks the account), and
+        org_id (integer sets it; JSON null clears it). Fields with a wrong
+        JSON type are rejected with 400 (never silently skipped).
       operationId: put_api_admin_users_{userId}
       parameters:
       - description: User ID
@@ -660,16 +677,31 @@ paths:
           application/json:
             schema:
               properties:
+                username:
+                  type: string
                 email:
                   type: string
                 email_verified:
                   type: boolean
+                mfa_enabled:
+                  type: boolean
+                locked:
+                  type: boolean
+                org_id:
+                  type: integer
+                  nullable: true
               type: object
       responses:
         '200':
           description: User updated successfully
+        '400':
+          description: Invalid field type or no updatable fields provided
         '404':
           description: User not found
+        '409':
+          description: >-
+            Conflict — the target is the last active admin and the update
+            would lock them out of the management plane (e.g. locked=true)
       security:
       - bearerAuth: []
       summary: Update User
@@ -679,7 +711,10 @@ paths:
     delete:
       description: >-
         Soft-delete a user account (sets deleted_at). The user is excluded
-        from all queries and can no longer log in.
+        from all queries and can no longer log in. Outstanding access and
+        refresh tokens are revoked (matched on both the public subject and
+        the internal id) before the response is sent; the 200 body reports
+        tokens_revoked (false + warning on revocation failure).
       operationId: delete_api_admin_users_{userId}
       parameters:
       - description: User ID
@@ -690,9 +725,13 @@ paths:
           type: integer
       responses:
         '200':
-          description: User deleted successfully
+          description: User deleted successfully (see tokens_revoked in the body)
+        '400':
+          description: Cannot delete your own account
         '404':
           description: User not found
+        '409':
+          description: The target is the last active admin
       security:
       - bearerAuth: []
       summary: Delete User
