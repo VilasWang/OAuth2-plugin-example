@@ -18,6 +18,7 @@
 #include <authforge/oauth2/model/Dto.h>
 
 #include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <authforge/storage/postgres/models/Roles.h>
 #include <authforge/storage/postgres/models/UserRoles.h>
 #include <authforge/storage/postgres/models/Users.h>
 
@@ -610,41 +611,66 @@ void GitHubController::createNewLinkedUser(
               mapping.setProvider(provider);
               Mapper<Oauth2SubjectMappings>(db).insert(
                 mapping,
-                [this, req, callbackPtr, db, userId, username](const Oauth2SubjectMappings &) {
-                    // Assign default 'user' role. Mirroring the original code:
-                    // both the success and error callbacks proceed to token
-                    // issuance (best-effort role grant -- a role-insert failure
-                    // is logged via the Mapper but must not block login).
-                    //
+                [this, req, callbackPtr, db, userId](const Oauth2SubjectMappings &) {
+                    // Assign default 'user' role. Best-effort (a role-grant
+                    // failure must not block login), but LOUD: this insert
+                    // previously set ONLY user_id — role_id is NOT NULL with
+                    // no default, so every grant failed with a swallowed
+                    // constraint violation and every social account was
+                    // created with ZERO roles (PR-review finding 1). Resolve
+                    // the 'user' role id first, then insert both columns.
+                    // ([this] is the controller-singleton exemption to the
+                    // domain no-[this] rule.)
+                    auto issueTokens = [this, req, callbackPtr, userId]() {
+                        issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                    };
+                    auto grantRole =
+                      [db, userId, issueTokens](int32_t roleId) {
+                          UserRoles ur;
+                          ur.setUserId(userId);
+                          ur.setRoleId(roleId);
+                          try
+                          {
+                              Mapper<UserRoles>(db).insert(
+                                ur,
+                                [issueTokens](const UserRoles &) { issueTokens(); },
+                                [issueTokens](const ::drogon::orm::DrogonDbException &e) {
+                                    LOG_ERROR << "GitHubController::createNewLinkedUser: default-"
+                                                 "role grant failed: "
+                                              << e.base().what();
+                                    issueTokens();
+                                }
+                              );
+                          }
+                          catch (...)
+                          {
+                              LOG_ERROR << "GitHubController::createNewLinkedUser: user-roles "
+                                           "Mapper construction failed";
+                              issueTokens();
+                          }
+                      };
                     // Guard: runs inside the subject-mapping insert's async
                     // success callback; caller's try/catch cannot reach it.
-                    UserRoles ur;
-                    ur.setUserId(userId);
                     try
                     {
-                        Mapper<UserRoles>(db).insert(
-                          ur,
-                          [this, req, callbackPtr, userId, username](const UserRoles &) {
-                              issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                        Mapper<Roles>(db).findOne(
+                          Criteria(Roles::Cols::_name, CompareOperator::EQ, std::string("user")),
+                          [grantRole](const Roles &r) {
+                              grantRole(r.getValueOfId());
                           },
-                          [this, req, callbackPtr, userId](const ::drogon::orm::DrogonDbException &) {
-                              // Best-effort: role grant failed, but the account
-                              // exists and is linked -- proceed with login.
-                              issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                          [issueTokens](const ::drogon::orm::DrogonDbException &e) {
+                              LOG_ERROR << "GitHubController::createNewLinkedUser: 'user' role "
+                                           "lookup failed: "
+                                        << e.base().what();
+                              issueTokens();
                           }
                         );
                     }
-                    catch (const std::exception &e)
-                    {
-                        LOG_ERROR << "GitHubController::createNewLinkedUser UserRoles Mapper exception: "
-                                  << e.what();
-                        // Best-effort, same as the async error path above.
-                        issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
-                    }
                     catch (...)
                     {
-                        LOG_ERROR << "GitHubController::createNewLinkedUser UserRoles Mapper unknown exception";
-                        issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+                        LOG_ERROR << "GitHubController::createNewLinkedUser: roles Mapper "
+                                     "construction failed";
+                        issueTokens();
                     }
                 },
                 [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {

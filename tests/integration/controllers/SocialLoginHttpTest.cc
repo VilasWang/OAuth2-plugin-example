@@ -271,6 +271,35 @@ DROGON_TEST(Integration_P0_GitHubLogin_DeletedLinkedUser_Rejected401)
     CHECK(!body.isMember("access_token"));
 }
 
+// #54: a RepositoryError from the account lookup (DB outage) must surface as
+// a 5xx DB error — the old optional<nullopt> contract sent it down the
+// account-CREATION branch instead (PR-review finding 3).
+DROGON_TEST(Integration_P0_GitHubLogin_RepoError_Returns5xx_NoCreation)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectGitHubFake();
+    h.accountRepo->failFind = true;
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gh-tok-test";
+    tokenBody["token_type"] = "bearer";
+    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    Json::Value userBody;
+    userBody["id"] = 99999;
+    userBody["login"] = "gh-test-user";
+    userBody["email"] = "gh@example.com";
+    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
+    REQUIRE(resp != nullptr);
+    CHECK(resp->getStatusCode() >= 500);
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(!body.isMember("access_token"));
+    // Critically: the outage must NOT have created a linked account.
+    CHECK(h.accountRepo->linked.empty());
+}
+
 // #54 (review F1): a derived username held by an existing row (active or
 // soft-deleted) makes createLinkedUser fail closed (ON CONFLICT DO NOTHING —
 // no row adoption/account takeover) -> DB_QUERY_ERROR, no tokens.
