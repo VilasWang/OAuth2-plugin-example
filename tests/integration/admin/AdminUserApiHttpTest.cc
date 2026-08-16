@@ -312,6 +312,45 @@ DROGON_TEST(Integration_P1_AdminUser_DisableEnable_RoundTrip)
     REQUIRE(adminId > 0);
 
     const auto snapshot = snapshotAdminUser(adminId);
+    // #60 item 2: the last-admin guard rejects disabling the seeded admin
+    // while they are the ONLY active admin (which is the seeded state), so
+    // promote a throwaway second admin for the duration of this case. RAII
+    // cleanup deletes it after the seeded admin is re-enabled.
+    int secondAdminId = -1;
+    {
+        const std::string suffix = std::to_string(
+          std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
+        );
+        Json::Value createBody;
+        createBody["username"] = "guardhelper_" + suffix;
+        createBody["password"] = "TestPass123!";
+        auto cr = sendPostJson("/api/admin/users", createBody, *token);
+        REQUIRE(cr != nullptr);
+        REQUIRE(statusIs(cr, drogon::k201Created));
+        Json::Value crBody;
+        REQUIRE(parseJsonBody(cr, crBody));
+        secondAdminId = crBody["user"]["id"].asInt();
+        Json::Value rolesBody;
+        rolesBody["roles"] = Json::Value(Json::arrayValue);
+        rolesBody["roles"].append("admin");
+        auto rr = sendPutJson(
+          "/api/admin/users/" + std::to_string(secondAdminId) + "/roles", rolesBody, *token
+        );
+        REQUIRE(rr != nullptr);
+        CHECK(statusIs(rr, drogon::k200OK));
+    }
+    struct Cleanup
+    {
+        int id;
+        std::string token;
+        ~Cleanup()
+        {
+            if (id > 0)
+            {
+                sendDelete("/api/admin/users/" + std::to_string(id), token);
+            }
+        }
+    } secondAdminGuard{secondAdminId, *token};
     struct Restore
     {
         int id;
@@ -322,14 +361,16 @@ DROGON_TEST(Integration_P1_AdminUser_DisableEnable_RoundTrip)
         }
     } guard{adminId, snapshot};
 
-    // Disable -> 200 (disable is PUT in the route table).
+    // Disable -> 200 (disable is PUT in the route table; allowed because the
+    // throwaway admin keeps the management plane recoverable).
     auto disResp = sendPutJson(
       "/api/admin/users/" + std::to_string(adminId) + "/disable", Json::Value::nullSingleton(), *token);
     REQUIRE(disResp != nullptr);
     CHECK(statusIs(disResp, drogon::k200OK));
 
     // Enable -> 200 (enable is POST in the route table; the handler does not
-    // read the body, so an empty JSON body is fine).
+    // read the body, so an empty JSON body is fine). The seeded admin must be
+    // re-enabled BEFORE the RAII cleanup deletes the second admin.
     auto enResp = sendPostJson(
       "/api/admin/users/" + std::to_string(adminId) + "/enable", Json::Value::nullSingleton(), *token);
     REQUIRE(enResp != nullptr);

@@ -11,6 +11,7 @@
 
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
+#include <drogon/orm/DbClient.h>
 
 #include <functional>
 #include <memory>
@@ -66,5 +67,26 @@ class UserAdminService
       const std::string &userId
     );
 };
+
+/**
+ * @brief Last-active-admin guard (#60 item 2, shared with
+ * UserSelfServiceController::deleteAccount).
+ *
+ * Asynchronously resolves whether `targetUserId` is an "active" admin (not
+ * soft-deleted, not locked) with NO other active admin in the system.
+ * Three Mapper queries (JOIN-forbidden): roles by name -> user_roles by
+ * role_id -> users by id In (...) with liveness filters. `onDone(false)` also
+ * covers "target is not an admin / not found" (no restriction applies).
+ *
+ * Known accepted race (design §6.2): two concurrent last-admin operations can
+ * both observe "another admin exists"; there is no locking infrastructure that
+ * fits the async-callback DB rules.
+ */
+void isLastActiveAdmin(
+  const ::drogon::orm::DbClientPtr &db,
+  int32_t targetUserId,
+  std::function<void(bool)> &&onDone,
+  std::function<void()> &&onError
+);
 
 }  // namespace authforge::drogon::admin
