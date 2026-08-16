@@ -239,3 +239,63 @@ DROGON_TEST(Integration_P1_GitHubLogin_TransportFailure_Returns502)
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k502BadGateway));
 }
+
+// #54 (V024 soft-delete contract): a mapping that resolves to a
+// soft-deleted/locked user answers AccountUnavailable -> generic 401 with NO
+// access_token issued (previously tokens were minted unconditionally). Error
+// path only, so it is safe under memory mode.
+DROGON_TEST(Integration_P0_GitHubLogin_DeletedLinkedUser_Rejected401)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectGitHubFake();
+    // Mark (github, "12345") as linked-but-unavailable (soft-deleted/locked).
+    h.accountRepo->unavailableKeys.insert(
+      authforge::identity::testing::FakeSocialAccountRepository::key("github", "12345")
+    );
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gh-tok-test";
+    tokenBody["token_type"] = "bearer";
+    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    Json::Value userBody;
+    userBody["id"] = 12345;
+    userBody["login"] = "gh-test-user";
+    userBody["email"] = "gh@example.com";
+    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k401Unauthorized));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(!body.isMember("access_token"));
+}
+
+// #54 (review F1): a derived username held by an existing row (active or
+// soft-deleted) makes createLinkedUser fail closed (ON CONFLICT DO NOTHING —
+// no row adoption/account takeover) -> DB_QUERY_ERROR, no tokens.
+DROGON_TEST(Integration_P0_GitHubLogin_ConflictingUsername_NoAdoption)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectGitHubFake();
+    // No mapping for the subject, but "gh_gh-test-user" (the derived
+    // username) already exists.
+    h.accountRepo->conflictingUsernames.insert("gh_gh-test-user");
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gh-tok-test";
+    tokenBody["token_type"] = "bearer";
+    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    Json::Value userBody;
+    userBody["id"] = 54321;
+    userBody["login"] = "gh-test-user";
+    userBody["email"] = "gh@example.com";
+    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k500InternalServerError));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(!body.isMember("access_token"));
+}

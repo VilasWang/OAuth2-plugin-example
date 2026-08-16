@@ -498,22 +498,46 @@ void GitHubController::linkExistingUser(
 {
     // Step 4a: existing mapping -- look up the user, then issue tokens.
     //
-    // NOTE: this findBy is preserved verbatim from the pre-refactor code even
-    // though its result is unused. The original issueTokens lambda took a
-    // `username` parameter but never read it; dropping the lookup would be a
-    // behaviour change (it would also remove the "user row actually exists"
-    // guard that today surfaces a DB error via the error callback if the row
-    // is missing). Keeping it is the strictly-equivalent choice; the (void)
-    // suppresses the unused-result warning.
+    // #54 (V024 soft-delete contract): the fetch filters deleted_at IS NULL
+    // and rejects locked users. Previously the row's existence was ignored
+    // entirely (the result was `(void)`-cast away) and tokens were issued
+    // unconditionally — a soft-deleted user could log straight back in via
+    // GitHub. Rejection uses the same generic AUTH_INVALID_CREDENTIALS the
+    // password path serves for locked/deleted accounts (no status leak).
     auto db = ::drogon::app().getDbClient();
     // Guard: runs inside the subject-mapping findBy's async success callback;
     // the caller's try/catch cannot reach it.
     try
     {
         Mapper<Users>(db).findBy(
-          Criteria(Users::Cols::_id, CompareOperator::EQ, userId),
+          Criteria(Users::Cols::_id, CompareOperator::EQ, userId) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
           [this, req, callbackPtr, userId](const std::vector<Users> &users) {
-              (void)users;  // username unused; match original no-op-on-empty behaviour
+              auto reject = [req, callbackPtr]() {
+                  respondError(
+                    req, callbackPtr, "AUTH_INVALID_CREDENTIALS",
+                    "github login: linked account is not available"
+                  );
+              };
+              if (users.empty())
+              {
+                  // Mapping points at a missing (hard-deleted) or
+                  // soft-deleted user.
+                  reject();
+                  return;
+              }
+              // Locked users are rejected — parity with the password path
+              // (AuthService.cc's lockedUntil check) so "disabled" means
+              // cannot log in through ANY flow.
+              int64_t nowSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                                  std::chrono::system_clock::now().time_since_epoch()
+              )
+                                  .count();
+              if (users[0].getValueOfLockedUntil() > nowSecs)
+              {
+                  reject();
+                  return;
+              }
               issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
           },
           [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
@@ -524,7 +548,7 @@ void GitHubController::linkExistingUser(
     catch (const std::exception &e)
     {
         LOG_ERROR << "GitHubController::linkExistingUser Mapper exception: " << e.what();
-        respondDbError(req, callbackPtr, "failed to fetch user", e);
+        respondError(req, callbackPtr, "DB_QUERY_ERROR", "github login: failed to fetch user");
     }
     catch (...)
     {
@@ -549,13 +573,31 @@ void GitHubController::createNewLinkedUser(
     std::string passwordHash = ::authforge::drogon::utils::generateSecureToken();
     // Exemption (db-operations.md §3): INSERT...RETURNING to capture the
     // auto-generated user id for subsequent subject-mapping and role inserts.
+    //
+    // #54: ON CONFLICT DO NOTHING (fail-closed) — the previous DO UPDATE
+    // "adopted" whatever row already held the username (soft-deleted rows
+    // got resurrected; an ACTIVE row registered by someone else meant full
+    // account takeover: the upsert returned the victim's id and the flow
+    // issued tokens as the victim). A conflict now returns no row and the
+    // login fails.
     db->execSqlAsync(
       "INSERT INTO users (username, password_hash, salt, email, email_verified) "
       "VALUES ($1, $2, '', $3, true) "
-      "ON CONFLICT (username) DO UPDATE SET email = EXCLUDED.email, "
-      "email_verified = true "
+      "ON CONFLICT (username) DO NOTHING "
       "RETURNING id",
       [this, req, callbackPtr, db, provider, subject, username](const ::drogon::orm::Result &userResult) {
+          // DO NOTHING on conflict → empty result; check BEFORE indexing
+          // (Result::operator[](0) on an empty Result is UB).
+          if (userResult.empty())
+          {
+              LOG_ERROR << "GitHubController::createNewLinkedUser: username '" << username
+                        << "' conflicts with an existing row — refusing to adopt it";
+              respondError(
+                req, callbackPtr, "AUTH_INVALID_CREDENTIALS",
+                "github login: derived username is unavailable"
+              );
+              return;
+          }
           int32_t userId = userResult[0]["id"].as<int32_t>();
           // Create subject mapping.
           // Guard: runs inside the execSqlAsync success callback; caller's

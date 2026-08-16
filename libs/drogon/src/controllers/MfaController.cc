@@ -174,50 +174,71 @@ void MfaController::setup(
     std::string secret = ::authforge::common::utils::TotpUtils::generateSecret();
 
     auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
-      [sharedCb, secret, userId, db, req](
-        const std::vector<drogon_model::oauth2_db::Users> &users
-      ) {
-          if (users.empty())
-          {
+    // #54: deleted_at filter — a soft-deleted user must not mutate MFA state
+    // (V024: deleted users are excluded from all queries).
+    try
+    {
+        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
+          Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
+            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [sharedCb, secret, userId, db, req](
+            const std::vector<drogon_model::oauth2_db::Users> &users
+          ) {
+              if (users.empty())
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA setup failed: user not found"
+                  );
+                  return;
+              }
+              drogon_model::oauth2_db::Users updated = users[0];
+              updated.setMfaSecret(secret);
+              try
+              {
+                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                    updated,
+                    [sharedCb, secret, userId](const size_t) {
+                        std::string otpUri = ::authforge::common::utils::TotpUtils::generateOtpAuthUri(
+                          secret, userId, "OAuth2Server"
+                        );
+                        Json::Value json;
+                        json["secret"] = secret;
+                        json["otpauth_uri"] = otpUri;
+                        json["message"] =
+                          "Scan the QR code with your authenticator app, then verify with a code";
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                        (*sharedCb)(resp);
+                    },
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req,
+                          sharedCb,
+                          "DB_QUERY_ERROR",
+                          std::string("MFA setup failed: ") + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  respondError(
+                    req, sharedCb, "DB_QUERY_ERROR", "MFA setup: update Mapper construction failed"
+                  );
+              }
+          },
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
-                req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA setup failed: user not found"
+                req, sharedCb, "DB_QUERY_ERROR", std::string("MFA setup failed: ") + e.base().what()
               );
-              return;
           }
-          drogon_model::oauth2_db::Users updated = users[0];
-          updated.setMfaSecret(secret);
-          Mapper<drogon_model::oauth2_db::Users>(db).update(
-            updated,
-            [sharedCb, secret, userId](const size_t) {
-                std::string otpUri = ::authforge::common::utils::TotpUtils::generateOtpAuthUri(
-                  secret, userId, "OAuth2Server"
-                );
-                Json::Value json;
-                json["secret"] = secret;
-                json["otpauth_uri"] = otpUri;
-                json["message"] =
-                  "Scan the QR code with your authenticator app, then verify with a code";
-                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                (*sharedCb)(resp);
-            },
-            [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  sharedCb,
-                  "DB_QUERY_ERROR",
-                  std::string("MFA setup failed: ") + e.base().what()
-                );
-            }
-          );
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req, sharedCb, "DB_QUERY_ERROR", std::string("MFA setup failed: ") + e.base().what()
-          );
-      }
-    );
+        );
+    }
+    catch (...)
+    {
+        respondError(
+          req, sharedCb, "DB_QUERY_ERROR", "MFA setup: find Mapper construction failed"
+        );
+    }
 }
 
 void MfaController::verifySetup(
@@ -316,94 +337,115 @@ void MfaController::verifySetup(
     }
 
     auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
-      [sharedCb, code, userId, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
-          if (users.empty())
-          {
+    // #54: deleted_at filter — a soft-deleted user must not enable MFA.
+    try
+    {
+        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
+          Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
+            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [sharedCb, code, userId, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
+              if (users.empty())
+              {
+                  respondError(
+                    req,
+                    sharedCb,
+                    "AUTH_MFA_NOT_CONFIGURED",
+                    "verifySetup: MFA not set up. Call /api/me/mfa/setup first"
+                  );
+                  return;
+              }
+
+              std::string secret = users[0].getValueOfMfaSecret();
+              if (secret.empty())
+              {
+                  respondError(
+                    req,
+                    sharedCb,
+                    "AUTH_MFA_NOT_CONFIGURED",
+                    "verifySetup: MFA not set up. Call /api/me/mfa/setup first"
+                  );
+                  return;
+              }
+
+              if (!::authforge::common::utils::TotpUtils::verifyCode(secret, code))
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_MFA_CODE_INVALID", "verifySetup: TOTP code is incorrect"
+                  );
+                  return;
+              }
+
+              auto backupCodes = ::authforge::common::utils::TotpUtils::generateBackupCodes(10);
+              Json::Value codesJson(Json::arrayValue);
+              Json::Value hashedCodesJson(Json::arrayValue);
+              for (const auto &bc : backupCodes)
+              {
+                  codesJson.append(bc);
+                  hashedCodesJson.append(::authforge::drogon::utils::hashToken(bc));
+              }
+
+              Json::StreamWriterBuilder writer;
+              writer["indentation"] = "";
+              std::string hashedCodesStr = Json::writeString(writer, hashedCodesJson);
+
+              drogon_model::oauth2_db::Users updated = users[0];
+              updated.setMfaEnabled(true);
+              updated.setMfaBackupCodes(hashedCodesStr);
+              try
+              {
+                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                    updated,
+                    [sharedCb, codesJson, userId, req](const size_t) {
+                        ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                          ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                          "mfa_enabled",
+                          "success",
+                          req,
+                          userId,
+                          "user",
+                          userId
+                        );
+                        Json::Value json;
+                        json["message"] = "MFA enabled successfully";
+                        json["backup_codes"] = codesJson;
+                        json["warning"] = "Save these backup codes securely. They cannot be shown again.";
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                        (*sharedCb)(resp);
+                    },
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req,
+                          sharedCb,
+                          "DB_QUERY_ERROR",
+                          std::string("MFA enable failed: ") + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  respondError(
+                    req, sharedCb, "DB_QUERY_ERROR",
+                    "verifySetup: update Mapper construction failed"
+                  );
+              }
+          },
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
                 req,
                 sharedCb,
-                "AUTH_MFA_NOT_CONFIGURED",
-                "verifySetup: MFA not set up. Call /api/me/mfa/setup first"
+                "DB_QUERY_ERROR",
+                std::string("MFA verify setup failed: ") + e.base().what()
               );
-              return;
           }
-
-          std::string secret = users[0].getValueOfMfaSecret();
-          if (secret.empty())
-          {
-              respondError(
-                req,
-                sharedCb,
-                "AUTH_MFA_NOT_CONFIGURED",
-                "verifySetup: MFA not set up. Call /api/me/mfa/setup first"
-              );
-              return;
-          }
-
-          if (!::authforge::common::utils::TotpUtils::verifyCode(secret, code))
-          {
-              respondError(
-                req, sharedCb, "AUTH_MFA_CODE_INVALID", "verifySetup: TOTP code is incorrect"
-              );
-              return;
-          }
-
-          auto backupCodes = ::authforge::common::utils::TotpUtils::generateBackupCodes(10);
-          Json::Value codesJson(Json::arrayValue);
-          Json::Value hashedCodesJson(Json::arrayValue);
-          for (const auto &bc : backupCodes)
-          {
-              codesJson.append(bc);
-              hashedCodesJson.append(::authforge::drogon::utils::hashToken(bc));
-          }
-
-          Json::StreamWriterBuilder writer;
-          writer["indentation"] = "";
-          std::string hashedCodesStr = Json::writeString(writer, hashedCodesJson);
-
-          drogon_model::oauth2_db::Users updated = users[0];
-          updated.setMfaEnabled(true);
-          updated.setMfaBackupCodes(hashedCodesStr);
-          Mapper<drogon_model::oauth2_db::Users>(db).update(
-            updated,
-            [sharedCb, codesJson, userId, req](const size_t) {
-                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
-                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                  "mfa_enabled",
-                  "success",
-                  req,
-                  userId,
-                  "user",
-                  userId
-                );
-                Json::Value json;
-                json["message"] = "MFA enabled successfully";
-                json["backup_codes"] = codesJson;
-                json["warning"] = "Save these backup codes securely. They cannot be shown again.";
-                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                (*sharedCb)(resp);
-            },
-            [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  sharedCb,
-                  "DB_QUERY_ERROR",
-                  std::string("MFA enable failed: ") + e.base().what()
-                );
-            }
-          );
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            sharedCb,
-            "DB_QUERY_ERROR",
-            std::string("MFA verify setup failed: ") + e.base().what()
-          );
-      }
-    );
+        );
+    }
+    catch (...)
+    {
+        respondError(
+          req, sharedCb, "DB_QUERY_ERROR", "verifySetup: find Mapper construction failed"
+        );
+    }
 }
 
 void MfaController::disable(
@@ -448,44 +490,66 @@ void MfaController::disable(
     }
 
     auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
-      [sharedCb, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
-          if (users.empty())
-          {
+    // #54: deleted_at filter — a soft-deleted user must not disable MFA
+    // (mutating a deleted account's state).
+    try
+    {
+        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
+          Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
+            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [sharedCb, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
+              if (users.empty())
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA disable failed: user not found"
+                  );
+                  return;
+              }
+              drogon_model::oauth2_db::Users updated = users[0];
+              updated.setMfaEnabled(false);
+              updated.setMfaSecretToNull();
+              updated.setMfaBackupCodesToNull();
+              try
+              {
+                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                    updated,
+                    [sharedCb](const size_t) {
+                        Json::Value json;
+                        json["message"] = "MFA disabled successfully";
+                        auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
+                        (*sharedCb)(resp);
+                    },
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req,
+                          sharedCb,
+                          "DB_QUERY_ERROR",
+                          std::string("MFA disable failed: ") + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (...)
+              {
+                  respondError(
+                    req, sharedCb, "DB_QUERY_ERROR",
+                    "MFA disable: update Mapper construction failed"
+                  );
+              }
+          },
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
               respondError(
-                req, sharedCb, "AUTH_INVALID_CREDENTIALS", "MFA disable failed: user not found"
+                req, sharedCb, "DB_QUERY_ERROR", std::string("MFA disable failed: ") + e.base().what()
               );
-              return;
           }
-          drogon_model::oauth2_db::Users updated = users[0];
-          updated.setMfaEnabled(false);
-          updated.setMfaSecretToNull();
-          updated.setMfaBackupCodesToNull();
-          Mapper<drogon_model::oauth2_db::Users>(db).update(
-            updated,
-            [sharedCb](const size_t) {
-                Json::Value json;
-                json["message"] = "MFA disabled successfully";
-                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                (*sharedCb)(resp);
-            },
-            [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  sharedCb,
-                  "DB_QUERY_ERROR",
-                  std::string("MFA disable failed: ") + e.base().what()
-                );
-            }
-          );
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req, sharedCb, "DB_QUERY_ERROR", std::string("MFA disable failed: ") + e.base().what()
-          );
-      }
-    );
+        );
+    }
+    catch (...)
+    {
+        respondError(
+          req, sharedCb, "DB_QUERY_ERROR", "MFA disable: find Mapper construction failed"
+        );
+    }
 }
 
 void MfaController::verifyLogin(
@@ -794,6 +858,22 @@ void MfaController::verifyLogin(
                   );
                   return;
               }
+              // #54: verifyLogin COMPLETES a login (mints an authorization
+              // code + tokens), so the same liveness rules as the login
+              // entry apply: a user soft-deleted or locked between the first
+              // factor and this second factor must not receive fresh tokens.
+              // findById already filters deleted_at; locked is checked here.
+              int64_t nowSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                                  std::chrono::system_clock::now().time_since_epoch()
+              )
+                                  .count();
+              if (user->lockedUntil > nowSecs)
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: account is locked"
+                  );
+                  return;
+              }
               std::string publicSub = user->publicSub;
               mfaService_->verifyLoginCode(
                 userId,
@@ -845,20 +925,40 @@ void MfaController::verifyLogin(
     }
 
     auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(drogon_model::oauth2_db::Users::Cols::_id, CompareOperator::EQ, fallbackUserId),
-      [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin, mfaAuthTime, mfaAmr](
-        const std::vector<drogon_model::oauth2_db::Users> &users
-      ) {
-          if (users.empty())
-          {
-              respondError(
-                req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: invalid MFA session"
-              );
-              return;
-          }
+    // #54: fallback lookup must match the wired path's liveness rules —
+    // deleted_at IS NULL plus a locked check. Previously a soft-deleted user
+    // holding an outstanding mfa_token could complete MFA and receive fresh
+    // tokens (V024 contract bypass, TOCTOU window between password login and
+    // MFA verify).
+    try
+    {
+        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
+          Criteria(drogon_model::oauth2_db::Users::Cols::_id, CompareOperator::EQ, fallbackUserId) &&
+            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin, mfaAuthTime, mfaAmr](
+            const std::vector<drogon_model::oauth2_db::Users> &users
+          ) {
+              if (users.empty())
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: invalid MFA session"
+                  );
+                  return;
+              }
 
-          const auto &u = users[0];
+              int64_t nowSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                                  std::chrono::system_clock::now().time_since_epoch()
+              )
+                                  .count();
+              if (users[0].getValueOfLockedUntil() > nowSecs)
+              {
+                  respondError(
+                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: account is locked"
+                  );
+                  return;
+              }
+
+              const auto &u = users[0];
           std::string secret = u.getValueOfMfaSecret();
           std::string publicSub = u.getValueOfPublicSub();
           auto pcid = u.getMfaPendingClientId();
@@ -1082,16 +1182,23 @@ void MfaController::verifyLogin(
           respondError(
             req, sharedCb, "AUTH_INVALID_CREDENTIALS", "verifyLogin: TOTP code is incorrect"
           );
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            sharedCb,
-            "DB_QUERY_ERROR",
-            std::string("MFA login verify failed: ") + e.base().what()
-          );
-      }
-    );
+          },
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+              respondError(
+                req,
+                sharedCb,
+                "DB_QUERY_ERROR",
+                std::string("MFA login verify failed: ") + e.base().what()
+              );
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(
+          req, sharedCb, "DB_QUERY_ERROR", "verifyLogin: find Mapper construction failed"
+        );
+    }
 }
 
 }  // namespace authforge::drogon::controllers

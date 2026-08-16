@@ -101,16 +101,42 @@ void GitHubAuthService::login(
                   provider,
                   subject,
                   [accountRepo, sharedCb, provider, subject, githubLogin, githubEmail](
-                    std::optional<SocialAccountLookup> existing
+                    SocialLinkStatus status, const SocialAccountLookup &existing
                   ) {
-                      if (existing)
+                      switch (status)
+                      {
+                      case SocialLinkStatus::Linked:
                       {
                           GitHubLoginResult result;
-                          result.userId = existing->userId;
-                          result.username = existing->username;
+                          result.userId = existing.userId;
+                          result.username = existing.username;
                           result.isNewUser = false;
                           (*sharedCb)(std::move(result));
                           return;
+                      }
+                      case SocialLinkStatus::AccountUnavailable:
+                      {
+                          // #54 (V024 contract): the linked local user is
+                          // soft-deleted or locked — reject with the same
+                          // generic auth error the password path uses, so the
+                          // response leaks no account-status information.
+                          GitHubLoginResult result;
+                          result.errorCode = "AUTH_INVALID_CREDENTIALS";
+                          (*sharedCb)(std::move(result));
+                          return;
+                      }
+                      case SocialLinkStatus::RepositoryError:
+                      {
+                          // DB failure must NOT fall through to account
+                          // creation (the old optional<nullopt> contract
+                          // conflated this with "no mapping yet").
+                          GitHubLoginResult result;
+                          result.errorCode = "DB_QUERY_ERROR";
+                          (*sharedCb)(std::move(result));
+                          return;
+                      }
+                      case SocialLinkStatus::NoMapping:
+                          break;
                       }
 
                       // New GitHub user -- create local account + link +
