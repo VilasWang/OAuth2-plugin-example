@@ -10,6 +10,93 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-17
+
+v1.1.0 以来的第二个正式发布，61 个 commit。主线：#43 资源-作用域授权
+模型、用户管理 CRUD 补全（A2，PR #52）、OIDC Back-channel Logout 后端
+（B1，PR #50）、OpenAPI spec 治理与破坏性变更门（A1/M0，PR #63）、
+benchmark M2–M4 承重验证（PR #48）、#53–#60 用户管理安全加固批次
+（PR #62）。
+
+### ⚠️ Breaking (security hardening)
+
+> 收紧了原本宽松（或错误）的行为。按版本策略（[§3 灰色地带取舍]
+> (docs/backend/versioning-and-release.md#3-安全-hardening-的灰色地带显式取舍声明)）
+> 在 MINOR 内推进，不升 MAJOR。依赖旧行为的下游需对照迁移。
+
+- **`/api/admin/*` 现在要求 `admin` scope**（#43，F-010）：管理面路由由
+  声明式 `(path,method)→scope` 注册表门禁。仅持有 RBAC admin 角色但
+  access token 缺 `admin` scope 的调用返回 403（RFC 6750
+  `insufficient_scope`）。迁移：管理面客户端在 token 请求中申请
+  `admin` scope。
+- **软删除契约全链路强制**（#54）：已软删除的用户不再能通过社交登录、
+  MFA 登录补全、自服务等路径获得新 token 或会话。
+- **`backchannel_logout_uri` 校验收紧**（#57）：强制 https；通知器
+  crash-safe（传输失败记录错误而非中断登出）。
+- **OpenAPI spec 死端点移除**（A1/M0）：`/api/orgs*`、
+  `/oauth2/device/verify`、旧 `/oauth2/mfa/*` 路径从 spec 删除——这些
+  端点在服务端早已不存在（调用一直 404），spec 只是回归真实。oasdiff
+  破坏性变更门就位后，未来的 HTTP 面破坏性变更需升 MAJOR 或在
+  `tools/openapi-governance/oasdiff-breaking-ignore.md` 显式豁免。
+
+### Added
+
+- **#43 资源-作用域授权模型**：声明式 `(path,method)→required_scopes`
+  注册表（`ResourceScopeRegistry`，42 条 scope-gated 路由）+ scope 继承
+  （`impliedBy`，如 `admin` 蕴含 `roles:read/write`）+ DB 驱动的 admin
+  角色解析 + `/api/admin/scopes/resources` 发现端点。含 V023 迁移。
+- **用户管理 CRUD 补全**（A2，PR #52）：`GET /api/admin/users` 分页
+  （page/per_page）与过滤（q/role/locked）；`createUser`（username vs
+  email UNIQUE 冲突区分 → 409；角色落库结果回报 roles_assigned /
+  roles_failed）；`updateUser` 扩展（org_id 支持整数置值与 null 清空）；
+  `deleteUser` 软删除（V024 `deleted_at` 迁移，删除时吊销存量 token 并
+  回报 `tokens_revoked`；最后活跃 admin 保护 → 409）。
+- **OIDC Back-channel Logout 后端**（B1，PR #50）：logout_token JWT
+  构造器 + 通知器接入登出流程（`/oauth2/logout` 与 `end_session` 均触发
+  通知，#55）；admin API 与 admin UI 表单配置
+  `backchannel_logout_uri`；discovery 广告 `backchannel_logout_supported`；
+  validator 单测 D1–D6 + admin/discovery 端点测试。
+- **OpenAPI spec 治理 M0**（A1，PR #63）：三层端点对账（routes 82 =
+  docs 80 = yaml 78，模两条例外清单）；P0 schema 按控制器实测契约补齐
+  （token/introspect/revoke/login 表单与 JSON 请求体、RFC 6749 与应用
+  双错误形态、discovery/JWKS 全字段）；`info.version` 与
+  `cmake/Version.cmake` 联动（1.2.0）。CI 新增三层一致性门
+  （`tools/openapi-governance/check_spec_governance.py`）+ oasdiff
+  破坏性变更门（PR vs master，v1.29.1 pinned）。验收：生成的 Python
+  客户端实调 token / introspect / discovery 全通过（客户端 SDK 工作
+  解除阻塞）。
+- **benchmark M2–M4**（PR #48）：S3–S6 场景（introspect / revoke /
+  userinfo / discovery 无状态端点）；`config.bench.json` 集中配置；
+  40 份结果 JSON + SUMMARY.md 承重裁决——内存 SDK 口径实测 **2.5 MB
+  peak WS**（远优于 50–120 MB 声称），冷启动 ~4s 观测达成，P99 低并发
+  1–4ms，discovery ~86k QPS @ 8 vCPU。
+- 端点测试（59 OAuth2 + 52 Admin）集成进 ctest，纳入平台 CI 门禁。
+
+### Fixed
+
+- **#53–#60 用户管理加固批次**（PR #62）：admin 面输入校验、错误码
+  语义与并发行为修复；#59 org_id 清空发送 JSON null 的前端修复。
+- 社交登录默认角色授予未真正落库（role_id 未置）——PR #62 review 修复。
+- `createUser`/`updateUser` 的 UNIQUE 冲突返回 409 而非 500（PR #52）。
+- benchmark：容器解析改用 `docker ps`（compose ps 输出漂移）；PR #48
+  review 修复（config 交换检测、observer 计时）；内存裁决口径修正
+  （metric 用错而非未达标）。
+- 测试基建：endpoint wrapper `pkill -f` 自杀 bug、ctest 管道继承挂起、
+  服务器不可用时 exit 77 跳过、CI psql 兜底误抓任意 postgres 容器。
+
+### Changed
+
+- `IOAuthHttpClient` 家族从 `WITH_SOCIAL` 条件编译中解除（backchannel
+  logout 等核心路径需要 HTTP 客户端，与社交登录编译开关解耦）。
+- refactor-baseline 端点签名基线再生（78 行，收敛 master 存量漂移）。
+
+### Documentation & CI
+
+- 产品化演进文档同步（A2/B1/A1 交付状态、benchmark 裁决、issues
+  #53–60 设计与实施计划）；openapi-update skill 四处镜像更新为治理门
+  工作流；CI 增加 openapi-governance workflow。api-diff 基线按 SOP 对
+  #43 内部引擎与 ORM 再生漂移 ratify。
+
 ## [1.1.0] - 2026-08-12
 
 v1.0.0 以来的首次正式發布。涵蓋 842 個 commit，包含完整的 OIDC Core
