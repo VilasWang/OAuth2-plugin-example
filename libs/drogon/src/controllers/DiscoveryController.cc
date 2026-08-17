@@ -67,6 +67,23 @@ void DiscoveryController::initApiDocsImpl()
         jwksEndpoint.requiresAuth = false;
         OpenApiGenerator::addEndpoint(jwksEndpoint);
     }
+
+    // RFC 8414 OAuth 2.0 Authorization Server Metadata
+    {
+        authforge::drogon::observability::openapi::EndpointInfo asMetadataEndpoint;
+        asMetadataEndpoint.path = "/.well-known/oauth-authorization-server";
+        asMetadataEndpoint.method = "GET";
+        asMetadataEndpoint.summary = "OAuth 2.0 Authorization Server Metadata";
+        asMetadataEndpoint.description =
+          "RFC 8414 authorization server metadata (endpoints, grant types, "
+          "auth methods). Unlike the OIDC discovery document this carries no "
+          "userinfo/jwks entries.";
+        asMetadataEndpoint.tags = {"OAuth2", "Discovery"};
+        asMetadataEndpoint.parameters = {};
+        asMetadataEndpoint.responses = {{200, "Authorization Server Metadata"}};
+        asMetadataEndpoint.requiresAuth = false;
+        OpenApiGenerator::addEndpoint(asMetadataEndpoint);
+    }
 }
 
 void DiscoveryController::metadata(

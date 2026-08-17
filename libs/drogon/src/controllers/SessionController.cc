@@ -385,6 +385,97 @@ struct OAuth2ControllerDocs
             consentEndpoint.requiresAuth = false;
             OpenApiGenerator::addEndpoint(consentEndpoint);
         }
+
+        // Logout endpoint (Bearer-protected programmatic logout)
+        {
+            ::authforge::drogon::observability::openapi::EndpointInfo logoutEndpoint;
+            logoutEndpoint.path = "/oauth2/logout";
+            logoutEndpoint.method = "POST";
+            logoutEndpoint.summary = "Logout";
+            logoutEndpoint.description =
+              "Terminates the server-side session behind the presented Bearer "
+              "access token (also fires OIDC back-channel logout notifications "
+              "when configured).";
+            logoutEndpoint.tags = {"OAuth2", "Session"};
+            logoutEndpoint.responses = {{200, "Logged out"}};
+            logoutEndpoint.requiresAuth = true;
+            OpenApiGenerator::addEndpoint(logoutEndpoint);
+        }
+
+        // OIDC RP-Initiated Logout (GET link-based + POST form-based)
+        {
+            auto endSessionParam = [](const char *name, const char *desc) {
+                ::authforge::drogon::observability::openapi::ParameterInfo p;
+                p.name = name;
+                p.description = desc;
+                p.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+                p.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+                p.required = false;
+                return p;
+            };
+
+            ::authforge::drogon::observability::openapi::EndpointInfo endSessionGet;
+            endSessionGet.path = "/oauth2/end_session";
+            endSessionGet.method = "GET";
+            endSessionGet.summary = "RP-Initiated Logout";
+            endSessionGet.description =
+              "OIDC RP-Initiated Logout 1.0 §2 (link-based variant). Terminates "
+              "the user's server-side session and optionally redirects to a "
+              "registered post_logout_redirect_uri.";
+            endSessionGet.tags = {"OAuth2", "OIDC"};
+            endSessionGet.parameters = {
+              endSessionParam("id_token_hint", "Previously issued id_token hinting at the client/session to terminate."),
+              endSessionParam("post_logout_redirect_uri", "URI to redirect to after logout; must be registered for the id_token_hint client."),
+              endSessionParam("state", "Opaque value echoed back to the post_logout_redirect_uri."),
+            };
+            endSessionGet.responses = {
+              {200, "Logged out (no post_logout_redirect_uri supplied)"},
+              {302, "Redirect to the validated post_logout_redirect_uri (with state)"},
+              {400, "post_logout_redirect_uri not registered / no id_token_hint"},
+            };
+            endSessionGet.requiresAuth = false;
+            OpenApiGenerator::addEndpoint(endSessionGet);
+
+            ::authforge::drogon::observability::openapi::EndpointInfo endSessionPost;
+            endSessionPost.path = "/oauth2/end_session";
+            endSessionPost.method = "POST";
+            endSessionPost.summary = "RP-Initiated Logout (POST)";
+            endSessionPost.description =
+              "OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).";
+            endSessionPost.tags = {"OAuth2", "OIDC"};
+            endSessionPost.parameters = endSessionGet.parameters;
+            endSessionPost.responses = endSessionGet.responses;
+            endSessionPost.requiresAuth = false;
+            OpenApiGenerator::addEndpoint(endSessionPost);
+        }
+
+        // Health sub-probes (liveness / readiness). Registered here, next to
+        // the existing /health entry, because HealthController itself has no
+        // doc-registration idiom; the static-ctor self-registers in both the
+        // server and the test binary.
+        {
+            ::authforge::drogon::observability::openapi::EndpointInfo liveEndpoint;
+            liveEndpoint.path = "/health/live";
+            liveEndpoint.method = "GET";
+            liveEndpoint.summary = "Liveness probe";
+            liveEndpoint.description = "Process-is-alive check (always 200 when the server runs).";
+            liveEndpoint.tags = {"System"};
+            liveEndpoint.responses = {{200, "Service is alive"}};
+            liveEndpoint.requiresAuth = false;
+            OpenApiGenerator::addEndpoint(liveEndpoint);
+
+            ::authforge::drogon::observability::openapi::EndpointInfo readyEndpoint;
+            readyEndpoint.path = "/health/ready";
+            readyEndpoint.method = "GET";
+            readyEndpoint.summary = "Readiness probe";
+            readyEndpoint.description =
+              "Dependency readiness check (database / redis); 503 when a "
+              "required dependency is down.";
+            readyEndpoint.tags = {"System"};
+            readyEndpoint.responses = {{200, "Service is ready"}, {503, "A dependency is down"}};
+            readyEndpoint.requiresAuth = false;
+            OpenApiGenerator::addEndpoint(readyEndpoint);
+        }
     }
 };
 

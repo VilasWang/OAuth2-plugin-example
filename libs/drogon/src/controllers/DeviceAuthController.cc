@@ -50,23 +50,20 @@ struct DeviceAuthControllerDocs
         authDocs.requiresAuth = true;
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(authDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo verifyGetDocs;
-        verifyGetDocs.path = "/oauth2/device/verify";
-        verifyGetDocs.method = "GET";
-        verifyGetDocs.summary = "Verify Device (GET)";
-        verifyGetDocs.description = "Display device verification page.";
-        verifyGetDocs.tags = {"OAuth2", "Device Flow"};
-        verifyGetDocs.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyGetDocs);
-
-        ::authforge::drogon::observability::openapi::EndpointInfo verifyPostDocs;
-        verifyPostDocs.path = "/oauth2/device/verify";
-        verifyPostDocs.method = "POST";
-        verifyPostDocs.summary = "Verify Device (POST)";
-        verifyPostDocs.description = "Submit device verification code.";
-        verifyPostDocs.tags = {"OAuth2", "Device Flow"};
-        verifyPostDocs.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyPostDocs);
+        // The former /oauth2/device/verify GET+POST doc entries were ghosts:
+        // no ADD_METHOD_TO route ever backed them (the verification page is
+        // rendered by the frontend). Removed; docs must equal routes
+        // (OpenAPI governance gate).
+        ::authforge::drogon::observability::openapi::EndpointInfo approveDocs;
+        approveDocs.path = "/oauth2/device/approve";
+        approveDocs.method = "POST";
+        approveDocs.summary = "Approve Device Authorization";
+        approveDocs.description =
+          "Admin-only approval of a pending device authorization (the user_code "
+          "approval step of RFC 8628). Requires an admin Bearer token.";
+        approveDocs.tags = {"OAuth2", "Device Flow"};
+        approveDocs.requiresAuth = true;
+        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(approveDocs);
     }
 };
 

@@ -48,7 +48,11 @@ struct MfaControllerDocs
     MfaControllerDocs()
     {
         ::authforge::drogon::observability::openapi::EndpointInfo setupDocs;
-        setupDocs.path = "/oauth2/mfa/setup";
+        // Path must equal the ADD_METHOD_TO route (MfaController.h): the MFA
+        // self-service routes live under /api/me/mfa/*, NOT /oauth2/mfa/*
+        // (those old paths have no backing routes — OpenAPI governance gate
+        // checks docs == routes).
+        setupDocs.path = "/api/me/mfa/setup";
         setupDocs.method = "POST";
         setupDocs.summary = "Setup MFA";
         setupDocs.description = "Initiate MFA setup by generating a TOTP secret.";
@@ -57,7 +61,7 @@ struct MfaControllerDocs
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(setupDocs);
 
         ::authforge::drogon::observability::openapi::EndpointInfo verifySetupDocs;
-        verifySetupDocs.path = "/oauth2/mfa/setup/verify";
+        verifySetupDocs.path = "/api/me/mfa/verify";
         verifySetupDocs.method = "POST";
         verifySetupDocs.summary = "Verify MFA Setup";
         verifySetupDocs.description = "Verify a TOTP code to finalize MFA setup.";
@@ -66,7 +70,7 @@ struct MfaControllerDocs
         ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifySetupDocs);
 
         ::authforge::drogon::observability::openapi::EndpointInfo disableDocs;
-        disableDocs.path = "/oauth2/mfa/disable";
+        disableDocs.path = "/api/me/mfa/disable";
         disableDocs.method = "POST";
         disableDocs.summary = "Disable MFA";
         disableDocs.description = "Disable MFA for the authenticated user.";

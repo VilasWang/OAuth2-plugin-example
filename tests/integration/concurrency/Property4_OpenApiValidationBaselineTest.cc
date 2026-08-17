@@ -87,6 +87,11 @@ std::string openApiPathMethodFingerprint(const Json::Value &spec)
 // The complete, frozen (path, method) contract. Recorded here as the Task-4
 // preservation baseline for the WHOLE spec (Task 1 froze the deep fields of a
 // representative subset; this freezes the full set as one comparable unit).
+//
+// NOTE: tools/openapi-governance/check_spec_governance.py (CI static-checks)
+// parses the string literals below as the authoritative "docs-registered
+// endpoint set" and diffs them against the ADD_METHOD_TO routes and
+// apps/server/openapi.yaml. If you change this baseline, re-run that gate.
 const std::string &expectedFingerprint()
 {
     // Sorted "METHOD path" lines, matching openApiPathMethodFingerprint().
@@ -94,6 +99,13 @@ const std::string &expectedFingerprint()
     // (path, method) contract (the whole test binary links every controller, so
     // every endpoint's docs are registered). Task 6.4 regenerates this on F'
     // and asserts byte-for-byte equality.
+    //
+    // 2026-08-16 reconciliation (openapi-spec-governance M0): removed ghost
+    // registrations for routes that never existed (/oauth2/device/verify GET+POST,
+    // /oauth2/mfa/{setup,setup/verify,disable}); added missing registrations for
+    // real routes (/api/me/mfa/{setup,verify,disable}, /oauth2/device/approve,
+    // /oauth2/logout, /oauth2/end_session GET+POST, /health/{live,ready},
+    // /.well-known/oauth-authorization-server).
     static const std::string kFingerprint =
       "DELETE /api/admin/clients/{clientId}\n"
       "DELETE /api/admin/roles/{roleId}\n"
@@ -103,6 +115,7 @@ const std::string &expectedFingerprint()
       "DELETE /api/me\n"
       "DELETE /api/me/authorized-apps/{clientId}\n"
       "GET /.well-known/jwks.json\n"
+      "GET /.well-known/oauth-authorization-server\n"
       "GET /.well-known/openid-configuration\n"
       "GET /api/admin/clients\n"
       "GET /api/admin/clients/{clientId}\n"
@@ -127,8 +140,10 @@ const std::string &expectedFingerprint()
       "GET /docs/api/\n"
       "GET /docs/api/openapi.json\n"
       "GET /health\n"
+      "GET /health/live\n"
+      "GET /health/ready\n"
       "GET /oauth2/authorize\n"
-      "GET /oauth2/device/verify\n"
+      "GET /oauth2/end_session\n"
       "GET /oauth2/userinfo\n"
       "POST /api/admin/clients\n"
       "POST /api/admin/clients/{clientId}/reset-secret\n"
@@ -141,6 +156,9 @@ const std::string &expectedFingerprint()
       "POST /api/admin/users/{userId}/enable\n"
       "POST /api/github/login\n"
       "POST /api/google/login\n"
+      "POST /api/me/mfa/disable\n"
+      "POST /api/me/mfa/setup\n"
+      "POST /api/me/mfa/verify\n"
       "POST /api/me/webauthn/register/begin\n"
       "POST /api/me/webauthn/register/finish\n"
       "POST /api/password-reset/confirm\n"
@@ -149,13 +167,12 @@ const std::string &expectedFingerprint()
       "POST /api/verify-email/resend\n"
       "POST /api/wechat/login\n"
       "POST /oauth2/consent\n"
-      "POST /oauth2/device/verify\n"
+      "POST /oauth2/device/approve\n"
       "POST /oauth2/device_authorization\n"
+      "POST /oauth2/end_session\n"
       "POST /oauth2/introspect\n"
       "POST /oauth2/login\n"
-      "POST /oauth2/mfa/disable\n"
-      "POST /oauth2/mfa/setup\n"
-      "POST /oauth2/mfa/setup/verify\n"
+      "POST /oauth2/logout\n"
       "POST /oauth2/mfa/verify\n"
       "POST /oauth2/register\n"
       "POST /oauth2/revoke\n"
