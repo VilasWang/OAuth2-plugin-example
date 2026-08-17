@@ -162,11 +162,15 @@ fi
 # Uses HTTP Basic auth (not body-post secret): the seeded backend-svc declares
 # token_endpoint_auth_method=client_secret_basic, so F-017 rejects a body-posted
 # client_secret with 401 invalid_client. Same form as s2-client-credentials.lua.
+#
+# Scope: the legacy 'read'/'write' scopes were dropped in #43 — backend-svc
+# carries the resource-scope vocabulary (tokens:read, ...), matching the S2
+# scenario script.
 echo "[setup] validating seed: POST /oauth2/token (client_credentials, backend-svc, HTTP Basic)..."
 SEED_RESP="$(curl -s -X POST "$TARGET_URL/oauth2/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -H "Authorization: Basic YmFja2VuZC1zdmM6dGVzdC1zZWNyZXQ=" \
-    -d "grant_type=client_credentials&scope=read" 2>/dev/null || true)"
+    -d "grant_type=client_credentials&scope=tokens:read" 2>/dev/null || true)"
 AT="$(python3 -c "import sys,json; print(json.loads(sys.argv[1]).get('access_token',''))" "$SEED_RESP" 2>/dev/null || true)"
 if [ -z "$AT" ]; then
     echo "[setup] ERROR: seed validation failed — no access_token in response:"

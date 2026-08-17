@@ -4,7 +4,7 @@
 --   POST /oauth2/token
 --   Authorization: Basic base64("backend-svc:test-secret")
 --   Content-Type: application/x-www-form-urlencoded
---   body: grant_type=client_credentials&scope=read
+--   body: grant_type=client_credentials&scope=tokens:read
 --
 -- Single-step, no user/session/refresh state. Measures client authentication
 -- (SHA256 secret verify against the seeded backend-svc) + RS256 access_token
@@ -19,7 +19,9 @@
 --     client_secret_basic, so F-017 REQUIRES HTTP Basic auth — a secret in the
 --     POST body is rejected with 401 invalid_client. The static Basic credential
 --     below is base64("backend-svc:test-secret") = YmFja2VuZC1zdmM6dGVzdC1zZWNyZXQ=.
---   * the 'read' scope grant comes from dev_backend_client.sql.
+--   * scope: #43 dropped the legacy 'read'/'write' vocabulary — backend-svc
+--     carries the resource scopes (tokens:read, tokens:write, clients:read,
+--     users:read) via dev_backend_client.sql.
 --
 -- Usage: wrk -t<T> -c<C> -d30s --latency -s s2-client-credentials.lua <URL>
 
@@ -27,7 +29,7 @@ wrk.method = "POST"
 wrk.path = "/oauth2/token"
 wrk.headers["Content-Type"] = "application/x-www-form-urlencoded"
 wrk.headers["Authorization"] = "Basic YmFja2VuZC1zdmM6dGVzdC1zZWNyZXQ="
-wrk.body = "grant_type=client_credentials&scope=read"
+wrk.body = "grant_type=client_credentials&scope=tokens:read"
 
 request = function()
   return wrk.format()
