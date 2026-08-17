@@ -1,6 +1,6 @@
 # 产品化演进进展总览
 
-> **更新日期**: 2026-08-13
+> **更新日期**: 2026-08-17
 > **维护约定**: 每次完成一个工作项或里程碑后更新本文件。开始新工作前先查本文件确认当前状态。
 > **上游规划**: [productization-evolution-plan.md](productization-evolution-plan.md)（总体路线图）
 > **代码依据**: [iam-architecture-audit.md](iam-architecture-audit.md)（IAM 业务能力审计）
@@ -9,12 +9,12 @@
 
 ## 一、总体进展概览
 
-AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-13：
+AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-17：
 
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
 | **Phase 0** — 可信度基线 | ✅ 基本完成 | ~90% | benchmark M1–M4 全部交付（40 JSON + 承重验证报告）；**承重假设裁决：QPS ⚠️接近/可外推达标、P99 ✅低并发达成、内存 ✅SDK 口径远超标（实测 2.5 MB peak WS）、冷启动 ✅观测达成（~4s）**；竞品对比（Phase 0.5）待做 |
-| **Phase 1** — 产品化基础 + 社区启动 | 🟢 已解除阻塞 | 0%（就绪） | Phase 0 数据已落地（含 SDK 内存实测）+ #41 spec bug 已修 → spec 治理 / 文档站 / 客户端 SDK / 技术博客均可启动 |
+| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~20% | **spec 治理（M0）已实现（待合并）——三层端点对账 + P0 schema 补齐 + 一致性门 + oasdiff 破坏性变更门，Python 客户端生成验收通过**；C1 客户端 SDK（M1 Python）现已解除阻塞可启动；文档站/博客待做 |
 | **Phase 2** — 企业版 | 🟡 快速推进 | ~45% | #42 缓存层 Phase 1+2 已交付；#43 授权模型已实现；**用户管理补全已实现（PR #52）**；**Backchannel Logout 后端已交付（PR #50）**；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户待做 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
 
@@ -173,6 +173,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 2026-08-13 | **A2 用户管理补全 — 分页/搜索/createUser/软删除（V024）** | PR #52（51674ba..f0b96bf，分支 feat/user-management-crud-v2） |
 | 2026-08-13 | **D1 Backchannel Logout 后端 — 通知器 + logout_token + admin API + 单测** | PR #50（5b3ccb9..9c8cf9f，分支 feat/backchannel-logout-b1） |
 | 2026-08-13 | **内存 SDK 口径实测 — 2.5 MB peak WS（50-120MB 声称保守达标）** | third-party-host-smoke / full-stack-host-smoke 实测 |
+| 2026-08-17 | **A1 OpenAPI spec 治理（M0）— 三层对账 + schema 补齐 + 一致性门 + oasdiff 门，Python 客户端验收通过** | 分支 feat/openapi-spec-governance-m0（待 PR） |
 | 2026-08-05 | 产品化演进方案 + benchmark/client-sdk 设计文档 | a6d570c |
 
 ---

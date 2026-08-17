@@ -1,6 +1,6 @@
 # OAuth2 API 接口文档
 
-> **完整 API 规范**: 手工维护的 OpenAPI 源文件为 [`apps/server/openapi.yaml`](../../apps/server/openapi.yaml)（CI 通过 `swagger-cli` 校验）；Swagger UI（`/docs/api`）在线浏览的是运行时由 Controller 代码生成的 `apps/server/docs/api/openapi.json`。
+> **完整 API 规范**: 手工维护的 OpenAPI 源文件为 [`apps/server/openapi.yaml`](../../apps/server/openapi.yaml)（**唯一契约源**，CI 通过 `openapi-spec-validator` + 治理门校验三层一致性与版本同步）；Swagger UI（`/docs/api`）在线浏览的是运行时由 Controller 代码生成的 `apps/server/docs/api/openapi.json`（派生产物）。
 
 本服务提供基于 OAuth2.0 标准（RFC 6749）的认证授权服务。
 
@@ -10,7 +10,7 @@
 |------|------|------|
 | **Password Reset** | 密码重置请求与确认（基于邮件验证码） | `/api/password-reset` |
 | **Email Verification** | 邮箱验证发送与确认 | `/api/email/verify` |
-| **MFA (Multi-Factor Auth)** | TOTP 设置、验证、恢复码管理 | `/api/mfa` |
+| **MFA (Multi-Factor Auth)** | TOTP 设置、验证、恢复码管理 | `/api/me/mfa`（登录补全为 `/oauth2/mfa/verify`） |
 | **Admin API** | 用户管理、客户端管理、审计日志（需 admin 角色） | `/api/admin` |
 | **User Self-Service** | 用户个人资料更新、密码修改、会话管理 | `/api/user` |
 | **OIDC Discovery** | OpenID Connect 发现端点与 JWKS | `/.well-known/openid-configuration`, `/oauth2/jwks` |
