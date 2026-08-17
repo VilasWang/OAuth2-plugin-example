@@ -1,28 +1,551 @@
+# OpenAPI 3.0 specification of the AuthForge OAuth2/OIDC authorization server.
+#
+# Governance (2026-08, spec-governance M0):
+#   - This file is the SINGLE SOURCE OF TRUTH for the HTTP API contract
+#     (client SDK generation, endpoint consistency gate, breaking-change gate).
+#   - tools/openapi-governance/check_spec_governance.py (CI static-checks)
+#     asserts: METHOD+path set == C++ doc registrations == Drogon routes
+#     (modulo documented exclusions), and info.version == cmake/Version.cmake.
+#   - .github/workflows/openapi-governance.yml runs `oasdiff breaking` against
+#     the base branch; breaking changes require a major bump or an entry in
+#     tools/openapi-governance/oasdiff-breaking-ignore.yaml.
+#   - After editing controllers or this file, run:
+#       python tools/openapi-governance/check_spec_governance.py
+#       python -m openapi_spec_validator apps/server/openapi.yaml
 components:
   schemas:
     Error:
+      description: >-
+        The nested error object of the application error envelope. Application
+        (non-OAuth2-protocol) endpoints respond with {"error": {...}} on
+        failure; /oauth2/* and /.well-known/* endpoints use RFC 6749 §5.2
+        bodies instead (see OAuth2Error).
       properties:
         category:
           type: string
+          description: Error category, e.g. VALIDATION / AUTH / AUTHZ / DB / INTERNAL.
         code:
-          type: integer
-        details:
           type: string
+          description: Machine-readable error code, e.g. VALIDATION_INVALID_INPUT.
         message:
           type: string
         request_id:
           type: string
+        numeric_code:
+          type: integer
+          description: Numeric catalog code (present iff the code is registered, e.g. 3001).
+        details:
+          type: string
+          description: Extra context; only emitted when the server runs in non-production mode.
+      type: object
+    ErrorEnvelope:
+      description: Application-endpoint error wrapper.
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'
+      required:
+      - error
+      type: object
+    OAuth2Error:
+      description: >-
+        RFC 6749 §5.2 error body used by /oauth2/* and /.well-known/*
+        endpoints (with Cache-Control: no-store). HTTP status per code:
+        invalid_request 400, invalid_client 401, invalid_grant 400,
+        unauthorized_client 400, unsupported_grant_type 400, invalid_scope 400,
+        access_denied 403, authorization_pending 400, slow_down 400,
+        expired_token 400, server_error 500, temporarily_unavailable 503.
+      properties:
+        error:
+          type: string
+          enum:
+          - invalid_request
+          - invalid_client
+          - invalid_grant
+          - unauthorized_client
+          - unsupported_grant_type
+          - invalid_scope
+          - access_denied
+          - unsupported_token_type
+          - authorization_pending
+          - slow_down
+          - expired_token
+          - server_error
+          - temporarily_unavailable
+        error_description:
+          type: string
+        error_uri:
+          type: string
+      required:
+      - error
       type: object
     TokenResponse:
+      description: >-
+        Token endpoint success body (grant-dependent fields). authorization_code:
+        access_token/token_type/expires_in/refresh_token/roles + id_token iff
+        scope includes openid (no scope echo). refresh_token: rotated
+        refresh_token, no roles. client_credentials: scope echo, NO
+        refresh_token. device_code: refresh_token + optional scope/id_token.
+        Always carries Cache-Control: no-store / Pragma: no-cache.
       properties:
         access_token:
           type: string
+        token_type:
+          type: string
+          description: Always "Bearer".
         expires_in:
           type: integer
+          format: int64
+          description: Seconds until access_token expiry.
         refresh_token:
+          type: string
+          description: Present for grants that issue refresh tokens (rotated on refresh).
+        scope:
+          type: string
+          description: Space-separated scopes; echoed for client_credentials/device grants only.
+        roles:
+          type: array
+          items:
+            type: string
+          description: Role names; authorization_code grant only.
+        id_token:
+          type: string
+          description: OIDC ID token (JWT); present iff scope includes openid and signing keys are configured.
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      type: object
+    IntrospectionResponse:
+      description: >-
+        RFC 7662 introspection body. Inactive tokens return {"active": false}
+        only. Active responses always carry iss (backfilled from config);
+        Cache-Control: no-store.
+      properties:
+        active:
+          type: boolean
+        client_id:
           type: string
         token_type:
           type: string
+          description: Always "Bearer" when active.
+        exp:
+          type: integer
+          format: int64
+        iat:
+          type: integer
+          format: int64
+        nbf:
+          type: integer
+          format: int64
+        sub:
+          type: string
+          description: Resource-owner subject; "client:<id>" for client_credentials tokens.
+        aud:
+          type: string
+        iss:
+          type: string
+        scope:
+          type: string
+          description: Space-separated scopes.
+      required:
+      - active
+      type: object
+    UserInfoResponse:
+      description: >-
+        OIDC Core §5.3 userinfo claims. email_verified present iff email
+        present; roles present iff non-empty.
+      properties:
+        sub:
+          type: string
+          description: Subject (public user id, stringified).
+        name:
+          type: string
+          description: 'Username (fallback: email, then sub).'
+        username:
+          type: string
+        email:
+          type: string
+        email_verified:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+      - sub
+      - name
+      type: object
+    OpenIDConfiguration:
+      description: OIDC Discovery 1.0 provider metadata.
+      properties:
+        issuer:
+          type: string
+        authorization_endpoint:
+          type: string
+        token_endpoint:
+          type: string
+        device_authorization_endpoint:
+          type: string
+        userinfo_endpoint:
+          type: string
+        jwks_uri:
+          type: string
+        introspection_endpoint:
+          type: string
+        revocation_endpoint:
+          type: string
+        registration_endpoint:
+          type: string
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+        prompt_values_supported:
+          type: array
+          items:
+            type: string
+        acr_values_supported:
+          type: array
+          items:
+            type: string
+        end_session_endpoint:
+          type: string
+        backchannel_logout_supported:
+          type: boolean
+        backchannel_logout_session_supported:
+          type: boolean
+        claims_supported:
+          type: array
+          items:
+            type: string
+      type: object
+    OAuthAuthorizationServerMetadata:
+      description: RFC 8414 authorization server metadata (no userinfo/jwks entries; OIDC discovery carries those).
+      properties:
+        issuer:
+          type: string
+        authorization_endpoint:
+          type: string
+        token_endpoint:
+          type: string
+        device_authorization_endpoint:
+          type: string
+        introspection_endpoint:
+          type: string
+        introspection_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        revocation_endpoint:
+          type: string
+        revocation_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        registration_endpoint:
+          type: string
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        response_modes_supported:
+          type: array
+          items:
+            type: string
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+        service_documentation:
+          type: string
+        op_policy_uri:
+          type: string
+        op_tos_uri:
+          type: string
+      type: object
+    JWKSet:
+      description: 'RFC 7517 JSON Web Key Set (Cache-Control: public, max-age=3600).'
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              kty:
+                type: string
+              kid:
+                type: string
+              use:
+                type: string
+              alg:
+                type: string
+              n:
+                type: string
+              e:
+                type: string
+              x5c:
+                type: array
+                items:
+                  type: string
+            required:
+            - kty
+      required:
+      - keys
+      type: object
+    LoginSuccessResponse:
+      description: /oauth2/login success when json=true (otherwise a 302 redirect with code+state query).
+      properties:
+        code:
+          type: string
+          description: The issued authorization code.
+        location:
+          type: string
+          description: Full redirect URI with code and state query parameters.
+      required:
+      - code
+      - location
+      type: object
+    MfaRequiredResponse:
+      description: /oauth2/login response when the account has MFA enabled; complete the flow at POST /oauth2/mfa/verify.
+      properties:
+        mfa_required:
+          type: boolean
+        mfa_token:
+          type: string
+          description: Pending-MFA token to submit to /oauth2/mfa/verify.
+        message:
+          type: string
+      required:
+      - mfa_required
+      - mfa_token
+      type: object
+    MessageResponse:
+      properties:
+        message:
+          type: string
+      required:
+      - message
+      type: object
+    DeviceAuthorizationResponse:
+      description: RFC 8628 device authorization response (no verification_uri_complete).
+      properties:
+        device_code:
+          type: string
+        user_code:
+          type: string
+          description: 8 characters from the A-Z2-9 alphabet (no 0/1/I/O).
+        verification_uri:
+          type: string
+        expires_in:
+          type: integer
+          description: Device code lifetime in seconds (600).
+        interval:
+          type: integer
+          description: Required polling interval in seconds (5).
+      required:
+      - device_code
+      - user_code
+      - verification_uri
+      - expires_in
+      - interval
+      type: object
+    HealthStatus:
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+          - unhealthy
+        service:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+        storage_type:
+          type: string
+        database:
+          type: string
+          description: connected / disconnected / not_configured / unknown
+        redis:
+          type: string
+          description: connected / disconnected / not_configured
+      required:
+      - status
+      type: object
+    Organization:
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        logo_uri:
+          type: string
+        primary_color:
+          type: string
+        issuer_override:
+          type: string
+      type: object
+    TokenRequest:
+      description: >-
+        RFC 6749 §4.1.3 token request (form-encoded). Field requirements are
+        grant-dependent: authorization_code needs code (+ redirect_uri +
+        code_verifier when PKCE was used); refresh_token needs refresh_token;
+        client_credentials may send scope; device_code needs device_code.
+        CONFIDENTIAL clients authenticate via HTTP Basic or client_id +
+        client_secret fields.
+      properties:
+        grant_type:
+          type: string
+          enum:
+          - authorization_code
+          - refresh_token
+          - client_credentials
+          - urn:ietf:params:oauth:grant-type:device_code
+        code:
+          type: string
+          description: Authorization code (required for grant_type=authorization_code).
+        redirect_uri:
+          type: string
+          description: Required for the authorization_code grant.
+        refresh_token:
+          type: string
+          description: Required for grant_type=refresh_token (rotated on use).
+        code_verifier:
+          type: string
+          description: 'PKCE code_verifier (RFC 7636): required for
+            authorization_code when the login/authorize request carried a
+            code_challenge.'
+        client_id:
+          type: string
+          description: Client identifier (alternative to HTTP Basic authentication).
+        client_secret:
+          type: string
+          description: Client secret for CONFIDENTIAL clients with
+            token_endpoint_auth_method=client_secret_post; FORBIDDEN for
+            PUBLIC clients whose method is 'none' (F-017).
+        scope:
+          type: string
+          description: Space-separated scopes (client_credentials grant only).
+        device_code:
+          type: string
+          description: Required for the device_code grant (from
+            /oauth2/device_authorization).
+      required:
+      - grant_type
+      type: object
+    LoginRequest:
+      description: /oauth2/login credentials (JSON body or form-encoded; query also accepted).
+      properties:
+        username:
+          type: string
+          description: Account username or email.
+        password:
+          type: string
+        client_id:
+          type: string
+          description: Matches the requesting app (required for code issuance).
+        redirect_uri:
+          type: string
+          description: Must match the registered client.
+        scope:
+          type: string
+          description: Space-separated (optional).
+        state:
+          type: string
+          description: Opaque value maintained between request and callback (recommended).
+        code_challenge:
+          type: string
+          description: PKCE code challenge (RFC 7636). REQUIRED for PUBLIC
+            clients (vue-client, admin-console) when
+            auth.require_pkce_for_public is enabled (default true, F-011 /
+            RFC 9700 §2.1.1). The matching code_verifier must be sent on the
+            /oauth2/token exchange.
+        code_challenge_method:
+          type: string
+          description: 'S256 (recommended) or plain.'
+        nonce:
+          type: string
+          description: OIDC nonce (anti-replay), echoed in the id_token.
+        json:
+          type: string
+          description: 'Set to "true" to receive a JSON body instead of a 302 redirect.'
+      required:
+      - username
+      - password
+      type: object
+    MfaVerifyRequest:
+      description: /oauth2/mfa/verify completion payload (JSON body or form-encoded).
+      properties:
+        mfa_token:
+          type: string
+          description: The MFA pending token returned by /oauth2/login when
+            mfa_required was true.
+        code:
+          type: string
+          description: The 6-digit TOTP code from the user's authenticator.
+        client_id:
+          type: string
+          description: Must match the first-factor login.
+        redirect_uri:
+          type: string
+          description: Must match the first-factor login.
+        scope:
+          type: string
+          description: Defaults to "openid profile email".
+        nonce:
+          type: string
+        code_verifier:
+          type: string
+          description: PKCE code_verifier matching the code_challenge sent on
+            the first-factor /oauth2/login step. Required for PUBLIC clients.
+      required:
+      - mfa_token
+      - code
+      - client_id
+      - redirect_uri
       type: object
   securitySchemes:
     bearerAuth:
@@ -36,7 +559,7 @@ components:
 info:
   description: OAuth2.0 authorization server with token management
   title: OAuth2 Authorization Server API
-  version: 1.0.0
+  version: 1.2.0
 openapi: 3.0.0
 paths:
   /.well-known/jwks.json:
@@ -48,12 +571,28 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/JWKSet'
           description: JSON Web Key Set
       summary: JSON Web Key Set
       tags:
       - OpenID Connect
       - Security
+  /.well-known/oauth-authorization-server:
+    get:
+      description: RFC 8414 OAuth 2.0 Authorization Server Metadata. Unlike the OIDC
+        discovery document this carries no userinfo/jwks entries.
+      operationId: get_.well-known_oauth-authorization-server
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAuthorizationServerMetadata'
+          description: Authorization Server Metadata
+      summary: OAuth 2.0 Authorization Server Metadata
+      tags:
+      - OAuth2
+      - Discovery
   /.well-known/openid-configuration:
     get:
       description: Returns OIDC discovery metadata including endpoints and supported
@@ -64,7 +603,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/OpenIDConfiguration'
           description: OIDC Provider Metadata
       summary: OpenID Connect Discovery
       tags:
@@ -295,6 +834,65 @@ paths:
       tags:
       - Admin
       - Clients
+  /api/admin/dashboard:
+    get:
+      description: Static admin dashboard overview (welcome payload; live numbers
+        are on /api/admin/dashboard/stats).
+      operationId: get_api_admin_dashboard
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+          description: Dashboard welcome payload
+        '401':
+          description: Unauthorized
+        '403':
+          description: 'insufficient permissions -- requires the admin role /
+            audit:read scope (F-010).'
+      security:
+      - bearerAuth: []
+      summary: Get Dashboard
+      tags:
+      - Admin
+      - Dashboard
+  /api/admin/dashboard/stats:
+    get:
+      description: Get dashboard statistics including user count, client count, active
+        tokens, and failure metrics.
+      operationId: get_api_admin_dashboard_stats
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  active_tokens:
+                    type: integer
+                  failures_today:
+                    type: integer
+                  logs_today:
+                    type: integer
+                  status:
+                    type: string
+                  total_clients:
+                    type: integer
+                  total_users:
+                    type: integer
+                type: object
+          description: Dashboard statistics
+      security:
+      - bearerAuth: []
+      summary: Get Dashboard Stats
+      tags:
+      - Admin
+      - Dashboard
   /api/admin/logs:
     get:
       description: Get a paginated list of system audit logs.
@@ -325,441 +923,115 @@ paths:
       tags:
       - Admin
       - OIDC
-  /api/admin/tokens:
+  /api/admin/organizations:
     get:
-      description: Get a list of active OAuth2 tokens.
-      operationId: get_api_admin_tokens
+      description: List all organizations (id, slug, name, branding fields; no created_at).
+      operationId: get_api_admin_organizations
       responses:
         '200':
-          description: Tokens list
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: List Tokens
-      tags:
-      - Admin
-      - Tokens
-  /api/admin/tokens/revoke-by-client:
-    post:
-      description: Revoke all tokens issued to a specific client.
-      operationId: post_api_admin_tokens_revoke-by-client
-      responses:
-        '200':
-          description: Tokens revoked successfully
-        '400':
-          description: Invalid request body
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: Revoke Tokens By Client
-      tags:
-      - Admin
-      - Tokens
-  /api/admin/tokens/revoke-by-user:
-    post:
-      description: Revoke all tokens issued for a specific user.
-      operationId: post_api_admin_tokens_revoke-by-user
-      responses:
-        '200':
-          description: Tokens revoked successfully
-        '400':
-          description: Invalid request body
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: Revoke Tokens By User
-      tags:
-      - Admin
-      - Tokens
-  /api/admin/tokens/{tokenPrefix}:
-    delete:
-      description: Revoke a specific token by its prefix.
-      operationId: delete_api_admin_tokens_{tokenPrefix}
-      parameters:
-      - description: Token prefix
-        in: path
-        name: tokenPrefix
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Token revoked successfully
-        '401':
-          description: Unauthorized
-        '404':
-          description: Token not found
-      security:
-      - bearerAuth: []
-      summary: Revoke Token
-      tags:
-      - Admin
-      - Tokens
-  /api/admin/users:
-    get:
-      description: >-
-        List users with optional pagination (page, per_page) and filtering
-        (q for username/email prefix, role, locked). Returns total count.
-      operationId: get_api_admin_users
-      parameters:
-      - description: Page number (1-based)
-        in: query
-        name: page
-        required: false
-        schema:
-          type: integer
-          default: 1
-      - description: Items per page (1-100)
-        in: query
-        name: per_page
-        required: false
-        schema:
-          type: integer
-          default: 50
-          minimum: 1
-          maximum: 100
-      - description: Search by username or email prefix
-        in: query
-        name: q
-        required: false
-        schema:
-          type: string
-      - description: Filter by role name
-        in: query
-        name: role
-        required: false
-        schema:
-          type: string
-      - description: Filter by lock state (true = locked, false = active)
-        in: query
-        name: locked
-        required: false
-        schema:
-          type: string
-          enum: ["true", "false"]
-      responses:
-        '200':
-          description: Users list
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: List Users
-      tags:
-      - Admin
-      - Users
-    post:
-      description: >-
-        Create a new user. Requires username and password; email, roles,
-        mfa_enabled, email_verified, and org_id are optional.
-      operationId: post_api_admin_users
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [username, password]
-              properties:
-                username:
-                  type: string
-                password:
-                  type: string
-                  format: password
-                email:
-                  type: string
-                email_verified:
-                  type: boolean
-                mfa_enabled:
-                  type: boolean
-                org_id:
-                  type: integer
-                  nullable: true
-                roles:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        '201':
-          description: >-
-            User created successfully. The response body reports role
-            assignment outcome: roles_assigned (names landed), roles_failed
-            (requested names that did not land — unresolved or insert
-            failures), and a warning field when roles_failed is non-empty.
-        '400':
-          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organizations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+                  total:
+                    type: integer
+          description: Organizations list
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden
+          description: insufficient permissions (roles:read, implied by admin)
       security:
       - bearerAuth: []
-      summary: Create User
+      summary: List Organizations
       tags:
       - Admin
-      - Users
-  /api/admin/users/{userId}/disable:
-    put:
-      description: Disable a specific user account.
-      operationId: put_api_admin_users_{userId}_disable
-      parameters:
-      - description: User ID
-        in: path
-        name: userId
+      - Organization
+    post:
+      description: Create an organization. Slug must be 3-50 chars of lowercase
+        alphanumeric + hyphens, starting/ending alphanumeric.
+      operationId: post_api_admin_organizations
+      requestBody:
         required: true
-        schema:
-          type: integer
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - slug
+              - name
+              properties:
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$'
+                name:
+                  type: string
+                logo_uri:
+                  type: string
+                primary_color:
+                  type: string
+                issuer_override:
+                  type: string
       responses:
         '200':
-          description: User disabled successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/Organization'
+                - type: object
+                  properties:
+                    message:
+                      type: string
+          description: Organization created
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: 'Validation error: missing/invalid JSON body, bad slug, or missing name'
+        '401':
+          description: Unauthorized
+        '409':
+          description: Organization slug already exists (or DB error)
+      security:
+      - bearerAuth: []
+      summary: Create Organization
+      tags:
+      - Admin
+      - Organization
+  /api/admin/organizations/{slug}:
+    get:
+      description: Get a single organization by its slug.
+      operationId: get_api_admin_organizations_{slug}
+      parameters:
+      - description: Organization slug
+        in: path
+        name: slug
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+          description: Organization details
         '401':
           description: Unauthorized
         '404':
-          description: User not found
-        '409':
-          description: The target is the last active admin
+          description: Organization not found
       security:
       - bearerAuth: []
-      summary: Disable User
+      summary: Get Organization
       tags:
       - Admin
-      - Users
-  /api/admin/users/{userId}/roles:
-    get:
-      description: Get the roles assigned to a specific user.
-      operationId: get_api_admin_users_{userId}_roles
-      parameters:
-      - description: User ID
-        in: path
-        name: userId
-        required: true
-        schema:
-          type: integer
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                properties:
-                  roles:
-                    items:
-                      properties:
-                        description:
-                          type: string
-                        id:
-                          type: integer
-                        name:
-                          type: string
-                      type: object
-                    type: array
-                  status:
-                    type: string
-                type: object
-          description: User roles retrieved
-        '404':
-          description: User not found
-      security:
-      - bearerAuth: []
-      summary: Get User Roles
-      tags:
-      - Admin
-      - Users
-    put:
-      description: Assign roles to a specific user.
-      operationId: put_api_admin_users_{userId}_roles
-      parameters:
-      - description: User ID
-        in: path
-        name: userId
-        required: true
-        schema:
-          type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              properties:
-                roles:
-                  items:
-                    type: string
-                  type: array
-              required:
-              - roles
-              type: object
-      responses:
-        '200':
-          description: Roles assigned successfully
-        '400':
-          description: Invalid request body
-        '409':
-          description: >-
-            The change would remove the admin role from the last active admin
-      security:
-      - bearerAuth: []
-      summary: Assign User Roles
-      tags:
-      - Admin
-      - Users
-  /api/admin/users/{userId}:
-    get:
-      description: Get detailed information about a specific user including roles and
-        account status.
-      operationId: get_api_admin_users_{userId}
-      parameters:
-      - description: User ID
-        in: path
-        name: userId
-        required: true
-        schema:
-          type: integer
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                properties:
-                  created_at:
-                    type: string
-                  email:
-                    type: string
-                  email_verified:
-                    type: boolean
-                  failed_login_count:
-                    type: integer
-                  id:
-                    type: integer
-                  locked:
-                    type: boolean
-                  locked_until:
-                    type: integer
-                  mfa_enabled:
-                    type: boolean
-                  org_id:
-                    type: integer
-                    nullable: true
-                  roles:
-                    items:
-                      type: string
-                    type: array
-                  status:
-                    type: string
-                  username:
-                    type: string
-                type: object
-          description: User details (org_id is null when the user has no org)
-        '404':
-          description: User not found
-      security:
-      - bearerAuth: []
-      summary: Get User Detail
-      tags:
-      - Admin
-      - Users
-    put:
-      description: >-
-        Update user information. Updatable fields: username, email,
-        email_verified, mfa_enabled, locked (true locks the account), and
-        org_id (integer sets it; JSON null clears it). Fields with a wrong
-        JSON type are rejected with 400 (never silently skipped).
-      operationId: put_api_admin_users_{userId}
-      parameters:
-      - description: User ID
-        in: path
-        name: userId
-        required: true
-        schema:
-          type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              properties:
-                username:
-                  type: string
-                email:
-                  type: string
-                email_verified:
-                  type: boolean
-                mfa_enabled:
-                  type: boolean
-                locked:
-                  type: boolean
-                org_id:
-                  type: integer
-                  nullable: true
-              type: object
-      responses:
-        '200':
-          description: User updated successfully
-        '400':
-          description: Invalid field type or no updatable fields provided
-        '404':
-          description: User not found
-        '409':
-          description: >-
-            Conflict — the target is the last active admin and the update
-            would lock them out of the management plane (e.g. locked=true)
-      security:
-      - bearerAuth: []
-      summary: Update User
-      tags:
-      - Admin
-      - Users
-    delete:
-      description: >-
-        Soft-delete a user account (sets deleted_at). The user is excluded
-        from all queries and can no longer log in. Outstanding access and
-        refresh tokens are revoked (matched on both the public subject and
-        the internal id) before the response is sent; the 200 body reports
-        tokens_revoked (false + warning on revocation failure).
-      operationId: delete_api_admin_users_{userId}
-      parameters:
-      - description: User ID
-        in: path
-        name: userId
-        required: true
-        schema:
-          type: integer
-      responses:
-        '200':
-          description: User deleted successfully (see tokens_revoked in the body)
-        '400':
-          description: Cannot delete your own account
-        '404':
-          description: User not found
-        '409':
-          description: The target is the last active admin
-      security:
-      - bearerAuth: []
-      summary: Delete User
-      tags:
-      - Admin
-      - Users
-  /api/admin/users/{userId}/enable:
-    post:
-      description: Enable a disabled user account by resetting lockout state.
-      operationId: post_api_admin_users_{userId}_enable
-      parameters:
-      - description: User ID
-        in: path
-        name: userId
-        required: true
-        schema:
-          type: integer
-      responses:
-        '200':
-          description: User enabled successfully
-        '404':
-          description: User not found
-      security:
-      - bearerAuth: []
-      summary: Enable User
-      tags:
-      - Admin
-      - Users
+      - Organization
   /api/admin/roles:
     get:
       description: Get a list of all roles with user counts.
@@ -1007,37 +1279,477 @@ paths:
       tags:
       - Admin
       - Scopes
-  /api/admin/dashboard/stats:
+  /api/admin/scopes/resources:
     get:
-      description: Get dashboard statistics including user count, client count, active
-        tokens, and failure metrics.
-      operationId: get_api_admin_dashboard_stats
+      description: '#43 discovery -- the (path, method) -> required-scopes matrix
+        from the central ResourceScopeRegistry. Read-only, no DB access.'
+      operationId: get_api_admin_scopes_resources
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        method:
+                          type: string
+                        required_scopes:
+                          type: array
+                          items:
+                            type: string
+                        implied_by:
+                          type: array
+                          items:
+                            type: string
+          description: Scope-resource matrix
+      security:
+      - bearerAuth: []
+      summary: Scope-Resource Matrix
+      tags:
+      - Admin
+      - Scopes
+  /api/admin/tokens:
+    get:
+      description: Get a list of active OAuth2 tokens.
+      operationId: get_api_admin_tokens
+      responses:
+        '200':
+          description: Tokens list
+        '401':
+          description: Unauthorized
+      security:
+      - bearerAuth: []
+      summary: List Tokens
+      tags:
+      - Admin
+      - Tokens
+  /api/admin/tokens/revoke-by-client:
+    post:
+      description: Revoke all tokens issued to a specific client.
+      operationId: post_api_admin_tokens_revoke-by-client
+      responses:
+        '200':
+          description: Tokens revoked successfully
+        '400':
+          description: Invalid request body
+        '401':
+          description: Unauthorized
+      security:
+      - bearerAuth: []
+      summary: Revoke Tokens By Client
+      tags:
+      - Admin
+      - Tokens
+  /api/admin/tokens/revoke-by-user:
+    post:
+      description: Revoke all tokens issued for a specific user.
+      operationId: post_api_admin_tokens_revoke-by-user
+      responses:
+        '200':
+          description: Tokens revoked successfully
+        '400':
+          description: Invalid request body
+        '401':
+          description: Unauthorized
+      security:
+      - bearerAuth: []
+      summary: Revoke Tokens By User
+      tags:
+      - Admin
+      - Tokens
+  /api/admin/tokens/{tokenPrefix}:
+    delete:
+      description: Revoke a specific token by its prefix.
+      operationId: delete_api_admin_tokens_{tokenPrefix}
+      parameters:
+      - description: Token prefix
+        in: path
+        name: tokenPrefix
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Token revoked successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Token not found
+      security:
+      - bearerAuth: []
+      summary: Revoke Token
+      tags:
+      - Admin
+      - Tokens
+  /api/admin/users:
+    get:
+      description: >-
+        List users with optional pagination (page, per_page) and filtering
+        (q for username/email prefix, role, locked). Returns total count.
+      operationId: get_api_admin_users
+      parameters:
+      - description: Page number (1-based)
+        in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - description: Items per page (1-100)
+        in: query
+        name: per_page
+        required: false
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 100
+      - description: Search by username or email prefix
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+      - description: Filter by role name
+        in: query
+        name: role
+        required: false
+        schema:
+          type: string
+      - description: Filter by lock state (true = locked, false = active)
+        in: query
+        name: locked
+        required: false
+        schema:
+          type: string
+          enum: ["true", "false"]
+      responses:
+        '200':
+          description: Users list
+        '401':
+          description: Unauthorized
+      security:
+      - bearerAuth: []
+      summary: List Users
+      tags:
+      - Admin
+      - Users
+    post:
+      description: >-
+        Create a new user. Requires username and password; email, roles,
+        mfa_enabled, email_verified, and org_id are optional.
+      operationId: post_api_admin_users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                email:
+                  type: string
+                email_verified:
+                  type: boolean
+                mfa_enabled:
+                  type: boolean
+                org_id:
+                  type: integer
+                  nullable: true
+                roles:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: >-
+            User created successfully. The response body reports role
+            assignment outcome: roles_assigned (names landed), roles_failed
+            (requested names that did not land — unresolved or insert
+            failures), and a warning field when roles_failed is non-empty.
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+      security:
+      - bearerAuth: []
+      summary: Create User
+      tags:
+      - Admin
+      - Users
+  /api/admin/users/{userId}:
+    delete:
+      description: >-
+        Soft-delete a user account (sets deleted_at). The user is excluded
+        from all queries and can no longer log in. Outstanding access and
+        refresh tokens are revoked (matched on both the public subject and
+        the internal id) before the response is sent; the 200 body reports
+        tokens_revoked (false + warning on revocation failure).
+      operationId: delete_api_admin_users_{userId}
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: User deleted successfully (see tokens_revoked in the body)
+        '400':
+          description: Cannot delete your own account
+        '404':
+          description: User not found
+        '409':
+          description: The target is the last active admin
+      security:
+      - bearerAuth: []
+      summary: Delete User
+      tags:
+      - Admin
+      - Users
+    get:
+      description: Get detailed information about a specific user including roles and
+        account status.
+      operationId: get_api_admin_users_{userId}
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  active_tokens:
+                  created_at:
+                    type: string
+                  email:
+                    type: string
+                  email_verified:
+                    type: boolean
+                  failed_login_count:
                     type: integer
-                  failures_today:
+                  id:
                     type: integer
-                  logs_today:
+                  locked:
+                    type: boolean
+                  locked_until:
                     type: integer
+                  mfa_enabled:
+                    type: boolean
+                  org_id:
+                    type: integer
+                    nullable: true
+                  roles:
+                    items:
+                      type: string
+                    type: array
                   status:
                     type: string
-                  total_clients:
-                    type: integer
-                  total_users:
-                    type: integer
+                  username:
+                    type: string
                 type: object
-          description: Dashboard statistics
+          description: User details (org_id is null when the user has no org)
+        '404':
+          description: User not found
       security:
       - bearerAuth: []
-      summary: Get Dashboard Stats
+      summary: Get User Detail
       tags:
       - Admin
-      - Dashboard
+      - Users
+    put:
+      description: >-
+        Update user information. Updatable fields: username, email,
+        email_verified, mfa_enabled, locked (true locks the account), and
+        org_id (integer sets it; JSON null clears it). Fields with a wrong
+        JSON type are rejected with 400 (never silently skipped).
+      operationId: put_api_admin_users_{userId}
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                email_verified:
+                  type: boolean
+                mfa_enabled:
+                  type: boolean
+                locked:
+                  type: boolean
+                org_id:
+                  type: integer
+                  nullable: true
+              type: object
+      responses:
+        '200':
+          description: User updated successfully
+        '400':
+          description: Invalid field type or no updatable fields provided
+        '404':
+          description: User not found
+        '409':
+          description: >-
+            Conflict — the target is the last active admin and the update
+            would lock them out of the management plane (e.g. locked=true)
+      security:
+      - bearerAuth: []
+      summary: Update User
+      tags:
+      - Admin
+      - Users
+  /api/admin/users/{userId}/disable:
+    put:
+      description: Disable a specific user account.
+      operationId: put_api_admin_users_{userId}_disable
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: User disabled successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '409':
+          description: The target is the last active admin
+      security:
+      - bearerAuth: []
+      summary: Disable User
+      tags:
+      - Admin
+      - Users
+  /api/admin/users/{userId}/enable:
+    post:
+      description: Enable a disabled user account by resetting lockout state.
+      operationId: post_api_admin_users_{userId}_enable
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: User enabled successfully
+        '404':
+          description: User not found
+      security:
+      - bearerAuth: []
+      summary: Enable User
+      tags:
+      - Admin
+      - Users
+  /api/admin/users/{userId}/roles:
+    get:
+      description: Get the roles assigned to a specific user.
+      operationId: get_api_admin_users_{userId}_roles
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  roles:
+                    items:
+                      properties:
+                        description:
+                          type: string
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                      type: object
+                    type: array
+                  status:
+                    type: string
+                type: object
+          description: User roles retrieved
+        '404':
+          description: User not found
+      security:
+      - bearerAuth: []
+      summary: Get User Roles
+      tags:
+      - Admin
+      - Users
+    put:
+      description: Assign roles to a specific user.
+      operationId: put_api_admin_users_{userId}_roles
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                roles:
+                  items:
+                    type: string
+                  type: array
+              required:
+              - roles
+              type: object
+      responses:
+        '200':
+          description: Roles assigned successfully
+        '400':
+          description: Invalid request body
+        '409':
+          description: >-
+            The change would remove the admin role from the last active admin
+      security:
+      - bearerAuth: []
+      summary: Assign User Roles
+      tags:
+      - Admin
+      - Users
   /api/github/login:
     post:
       description: Exchange GitHub authorization code for user information. This endpoint
@@ -1182,6 +1894,134 @@ paths:
       summary: Revoke App Authorization
       tags:
       - User Profile
+  /api/me/mfa/disable:
+    post:
+      description: Disable MFA (TOTP) for the authenticated user.
+      operationId: post_api_me_mfa_disable
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: MFA disabled successfully
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+      security:
+      - bearerAuth: []
+      summary: Disable MFA
+      tags:
+      - MFA
+  /api/me/mfa/setup:
+    post:
+      description: Initiate MFA setup by generating a TOTP secret. Returns the base32
+        secret and an otpauth:// URI for authenticator apps / QR codes.
+      operationId: post_api_me_mfa_setup
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                    description: Base32 TOTP shared secret.
+                  otpauth_uri:
+                    type: string
+                    description: otpauth:// provisioning URI (encode as QR for authenticators).
+                  message:
+                    type: string
+                required:
+                - secret
+                - otpauth_uri
+          description: MFA setup initiated
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+      security:
+      - bearerAuth: []
+      summary: Setup MFA
+      tags:
+      - MFA
+  /api/me/mfa/verify:
+    post:
+      description: Verify a 6-digit TOTP code to finalize MFA setup. Returns 10
+        single-use backup codes on success.
+      operationId: post_api_me_mfa_verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - code
+              properties:
+                code:
+                  type: string
+                  description: 6-digit TOTP code from the user's authenticator.
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - code
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  backup_codes:
+                    type: array
+                    items:
+                      type: string
+                    description: 10 single-use backup codes.
+                  warning:
+                    type: string
+          description: MFA enabled successfully
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing or non-6-digit code
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token, MFA not configured, or wrong code
+      security:
+      - bearerAuth: []
+      summary: Verify MFA Setup
+      tags:
+      - MFA
   /api/me/password:
     put:
       description: Change the current user's password.
@@ -1244,58 +2084,6 @@ paths:
       summary: WebAuthn Register Finish
       tags:
       - WebAuthn
-  /api/orgs:
-    get:
-      description: List all organizations.
-      operationId: get_api_orgs
-      responses:
-        '200':
-          description: Organizations list
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: List Organizations
-      tags:
-      - Organization
-    post:
-      description: Create a new organization.
-      operationId: post_api_orgs
-      responses:
-        '201':
-          description: Organization created
-        '400':
-          description: Invalid request body
-        '401':
-          description: Unauthorized
-        '409':
-          description: Organization slug already exists
-      security:
-      - bearerAuth: []
-      summary: Create Organization
-      tags:
-      - Organization
-  /api/orgs/{orgId}/users:
-    post:
-      description: Add a user to an organization.
-      operationId: post_api_orgs_{orgId}_users
-      parameters:
-      - description: Organization ID
-        in: path
-        name: orgId
-        required: true
-        schema:
-          type: integer
-      responses:
-        '200':
-          description: User added to organization
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: Add User to Organization
-      tags:
-      - Organization
   /api/password-reset/confirm:
     post:
       description: Confirm a password reset using the token sent via email.
@@ -1420,17 +2208,58 @@ paths:
       - WeChat
   /health:
     get:
-      description: Returns the health status of the service.
+      description: Aggregate health status of the service (process + database).
       operationId: get_health
       responses:
         '200':
           content:
             application/json:
-              example:
-                status: ok
-                version: 1.0.0
-          description: Service is healthy
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+          description: Service is healthy (or partially — inspect status field)
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+          description: Service unhealthy
       summary: Health check
+      tags:
+      - System
+  /health/live:
+    get:
+      description: Liveness probe — always 200 while the process is up (no dependency
+        checks).
+      operationId: get_health_live
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+          description: Service is alive
+      summary: Liveness probe
+      tags:
+      - System
+  /health/ready:
+    get:
+      description: Readiness probe — database / redis dependency checks; 503 when a
+        required dependency is down.
+      operationId: get_health_ready
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+          description: Service is ready
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+          description: Service degraded or unhealthy (inspect status/database/redis)
+      summary: Readiness probe
       tags:
       - System
   /oauth2/authorize:
@@ -1565,278 +2394,119 @@ paths:
       tags:
       - OAuth2
       - Consent
-  /oauth2/device/verify:
-    get:
-      description: Display device verification page.
-      operationId: get_oauth2_device_verify
-      responses:
-        '200':
-          description: Device verification page
-      summary: Verify Device (GET)
-      tags:
-      - OAuth2
-      - Device Flow
+  /oauth2/device/approve:
     post:
-      description: Submit device verification code.
-      operationId: post_oauth2_device_verify
+      description: >-
+        Admin-only approval of a pending device authorization (RFC 8628 user
+        approval step). Requires an admin Bearer token (AuthorizationFilter).
+      operationId: post_oauth2_device_approve
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - user_code
+              - user_id
+              properties:
+                user_code:
+                  type: string
+                  description: The user_code shown to the user by the device.
+                user_id:
+                  type: string
+                  description: Approving user's identifier.
       responses:
         '200':
-          description: Device verification submitted
-      summary: Verify Device (POST)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: approved
+                  user_code:
+                    type: string
+          description: Device authorization approved
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing user_code/user_id, or the code is invalid/already processed/expired
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Insufficient permissions (admin role / scope required)
+      security:
+      - bearerAuth: []
+      summary: Approve Device Authorization
       tags:
       - OAuth2
       - Device Flow
   /oauth2/device_authorization:
     post:
-      description: Request device authorization.
+      description: 'RFC 8628 device authorization endpoint. A CONFIDENTIAL client
+        authenticates with client_secret (HTTP Basic preferred); a PUBLIC client
+        sends client_id only. The user then visits verification_uri and an admin
+        approves via /oauth2/device/approve; the device polls /oauth2/token with
+        grant_type=urn:ietf:params:oauth:grant-type:device_code.'
       operationId: post_oauth2_device_authorization
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - client_id
+              properties:
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                  description: Required for CONFIDENTIAL clients (send via HTTP Basic when possible).
+                scope:
+                  type: string
+                  description: Space-separated requested scopes (optional).
       responses:
         '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceAuthorizationResponse'
           description: Device authorization response
         '400':
-          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: invalid_request (missing client_id)
         '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: invalid_client (unknown client / bad secret)
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: server_error
       summary: Device Authorization
       tags:
       - OAuth2
       - Device Flow
-  /oauth2/introspect:
-    post:
-      description: RFC 7662 OAuth 2.0 Token Introspection. Returns information about
-        a token.
-      operationId: post_oauth2_introspect
-      parameters:
-      - description: The string value of the token (required)
-        in: query
-        name: token
-        required: true
-        schema:
-          type: string
-      responses:
-        '200':
-          content:
-            application/json:
-              example:
-                active: true
-                client_id: client_123
-                exp: 1680000000
-                scope: read write
-                sub: user_456
-                token_type: Bearer
-          description: Token status and metadata
-        '400':
-          description: Invalid request
-        '401':
-          description: Authentication failed
-        '429':
-          description: 'Too Many Requests -- F-018 rate limit tripped by repeated
-            failed authentication/validation attempts for this (client_ip, client_id).
-            Accompanied by a Retry-After header and an OAuth2-style {error:
-            invalid_request, error_description} body.'
-      security:
-      - clientCredentialsAuth: []
-      summary: Introspect token
-      tags:
-      - OAuth2
-      - Token
-  /oauth2/login:
-    post:
-      description: Authenticates user credentials and generates an authorization code.
-        Usually called by the frontend login page during the authorization code flow.
-      operationId: post_oauth2_login
-      parameters:
-      - description: User's account username (required)
-        in: query
-        name: username
-        required: true
-        schema:
-          type: string
-      - description: User's password (required)
-        in: query
-        name: password
-        required: true
-        schema:
-          type: string
-      - description: Client identifier matches the requesting app (required)
-        in: query
-        name: client_id
-        required: true
-        schema:
-          type: string
-      - description: Redirect URI matching the registered client (required)
-        in: query
-        name: redirect_uri
-        required: true
-        schema:
-          type: string
-      - description: Requested scope, space-separated (optional)
-        in: query
-        name: scope
-        required: false
-        schema:
-          type: string
-      - description: Opaque value to maintain state (recommended)
-        in: query
-        name: state
-        required: false
-        schema:
-          type: string
-      - description: PKCE code challenge (RFC 7636). REQUIRED for PUBLIC clients
-          (vue-client, admin-console) when auth.require_pkce_for_public is
-          enabled (default true, F-011 / RFC 9700 §2.1.1). The matching
-          code_verifier must be sent on the /oauth2/token exchange.
-        in: query
-        name: code_challenge
-        required: false
-        schema:
-          type: string
-      - description: 'PKCE code challenge method: S256 (recommended) or plain.'
-        in: query
-        name: code_challenge_method
-        required: false
-        schema:
-          type: string
-      responses:
-        '200':
-          content:
-            application/json:
-              example:
-                redirect_uri: http://127.0.0.1:5173/callback?code=xyz123
-                status: success
-          description: Authentication successful (JSON with redirect_uri)
-        '302':
-          description: Redirect with authorization code (if requested via browser)
-        '401':
-          content:
-            application/json:
-              example:
-                error: invalid_client
-          description: Authentication failed
-      summary: Authenticate user
-      tags:
-      - OAuth2
-      - Authentication
-  /oauth2/mfa/disable:
-    post:
-      description: Disable MFA for the authenticated user.
-      operationId: post_oauth2_mfa_disable
-      responses:
-        '200':
-          description: MFA disabled successfully
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: Disable MFA
-      tags:
-      - MFA
-  /oauth2/mfa/setup:
-    post:
-      description: Initiate MFA setup by generating a TOTP secret.
-      operationId: post_oauth2_mfa_setup
-      responses:
-        '200':
-          description: MFA setup initiated
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: Setup MFA
-      tags:
-      - MFA
-  /oauth2/mfa/setup/verify:
-    post:
-      description: Verify a TOTP code to finalize MFA setup.
-      operationId: post_oauth2_mfa_setup_verify
-      responses:
-        '200':
-          description: MFA enabled successfully
-        '400':
-          description: Invalid request
-        '401':
-          description: Unauthorized or invalid code
-      security:
-      - bearerAuth: []
-      summary: Verify MFA Setup
-      tags:
-      - MFA
-  /oauth2/mfa/verify:
-    post:
-      description: Verify MFA (TOTP) code during login. Completes the
-        authorization-code issuance started by /oauth2/login when MFA was
-        required. The PKCE code_verifier (C4, RFC 7636) must be supplied so
-        the internally-generated code passes PKCE verification against the
-        code_challenge persisted on the session during the first-factor
-        login step.
-      operationId: post_oauth2_mfa_verify
-      parameters:
-      - description: The MFA pending token returned by /oauth2/login when
-          mfa_required was true (required).
-        in: query
-        name: mfa_token
-        required: true
-        schema:
-          type: string
-      - description: The 6-digit TOTP code from the user's authenticator
-          (required).
-        in: query
-        name: code
-        required: true
-        schema:
-          type: string
-      - description: The client_id from the original login (required, must
-          match the first-factor login).
-        in: query
-        name: client_id
-        required: true
-        schema:
-          type: string
-      - description: The redirect_uri from the original login (required,
-          must match).
-        in: query
-        name: redirect_uri
-        required: true
-        schema:
-          type: string
-      - description: PKCE code_verifier matching the code_challenge sent on
-          the first-factor /oauth2/login step (C4, RFC 7636). Required for
-          PUBLIC clients.
-        in: query
-        name: code_verifier
-        required: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: MFA verification successful — returns the token pair
-            (access_token, refresh_token, id_token).
-        '400':
-          description: Invalid request (missing mfa_token/code, malformed TOTP)
-        '401':
-          description: Invalid MFA code or client/redirect mismatch
-      summary: Verify MFA Code (Login)
-      tags:
-      - MFA
-  /oauth2/register:
-    post:
-      description: Dynamic client registration.
-      operationId: post_oauth2_register
-      responses:
-        '201':
-          description: Client registered successfully
-        '400':
-          description: Invalid client metadata
-        '401':
-          description: Unauthorized
-      security:
-      - bearerAuth: []
-      summary: Register Client
-      tags:
-      - OAuth2
-      - Dynamic Registration
   /oauth2/end_session:
     get:
       description: 'OIDC RP-Initiated Logout 1.0 §2. Terminates the user''s server-side
@@ -1870,11 +2540,16 @@ paths:
           type: string
       responses:
         '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
           description: Logged out (no post_logout_redirect_uri supplied)
         '302':
           description: Redirect to the validated post_logout_redirect_uri (with state)
         '400':
-          description: post_logout_redirect_uri not registered / no id_token_hint
+          description: 'post_logout_redirect_uri not registered / no id_token_hint
+            (plain-text body, not JSON)'
       summary: RP-Initiated Logout
       tags:
       - OAuth2
@@ -1904,15 +2579,250 @@ paths:
           type: string
       responses:
         '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
           description: Logged out
         '302':
           description: Redirect to post_logout_redirect_uri
         '400':
-          description: Invalid post_logout_redirect_uri
+          description: Invalid post_logout_redirect_uri (plain-text body, not JSON)
       summary: RP-Initiated Logout (POST)
       tags:
       - OAuth2
       - OIDC
+  /oauth2/introspect:
+    post:
+      description: RFC 7662 OAuth 2.0 Token Introspection. Returns information about
+        a token. The calling client MUST authenticate (HTTP Basic preferred;
+        client_id/client_secret form parameters accepted).
+      operationId: post_oauth2_introspect
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - token
+              properties:
+                token:
+                  type: string
+                  description: The string value of the token (required).
+                token_type_hint:
+                  type: string
+                  description: 'Optional hint: access_token or refresh_token (accepted, currently ignored).'
+                client_id:
+                  type: string
+                  description: Client identifier (alternative to HTTP Basic authentication).
+                client_secret:
+                  type: string
+                  description: Client secret (alternative to HTTP Basic authentication).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntrospectionResponse'
+          description: 'Token status and metadata ({"active": false} for unknown/inactive tokens)'
+          headers:
+            Cache-Control:
+              description: Always "no-store".
+              schema:
+                type: string
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: invalid_request (missing token)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: invalid_client (authentication failed / auth-method mismatch)
+          headers:
+            WWW-Authenticate:
+              description: Basic realm challenge when HTTP Basic was attempted.
+              schema:
+                type: string
+        '429':
+          description: 'Too Many Requests -- F-018 rate limit tripped by repeated
+            failed authentication/validation attempts for this (client_ip, client_id).
+            Accompanied by a Retry-After header and an OAuth2-style {error:
+            invalid_request, error_description} body.'
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+      security:
+      - clientCredentialsAuth: []
+      summary: Introspect token
+      tags:
+      - OAuth2
+      - Token
+  /oauth2/login:
+    post:
+      description: Authenticates user credentials and generates an authorization code.
+        Usually called by the frontend login page during the authorization code flow.
+        Accepts a JSON body or form-encoded parameters; when MFA is enabled on the
+        account the response defers to POST /oauth2/mfa/verify.
+      operationId: post_oauth2_login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/LoginSuccessResponse'
+                - $ref: '#/components/schemas/MfaRequiredResponse'
+              examples:
+                success:
+                  summary: Login succeeded (json=true)
+                  value:
+                    status: success
+                    redirect_uri: http://127.0.0.1:5173/callback?code=xyz123
+                mfa_required:
+                  summary: MFA challenge required
+                  value:
+                    mfa_required: true
+                    mfa_token: '42'
+                    message: MFA verification required. Submit TOTP code to /oauth2/mfa/verify
+          description: 'Authentication outcome: authorization code issued (JSON with
+            code/location when json=true) or MFA challenge deferred'
+        '302':
+          description: Redirect with authorization code (browser flow / json omitted);
+            PKCE-missing errors also redirect with ?error=... to a verified redirect_uri
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing username/password (VALIDATION_INVALID_INPUT)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Authentication failed (AUTH_INVALID_CREDENTIALS)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Email not verified (AUTHZ_ACCESS_DENIED)
+      summary: Authenticate user
+      tags:
+      - OAuth2
+      - Authentication
+  /oauth2/logout:
+    post:
+      description: Terminates the server-side session behind the presented Bearer
+        access token (also fires OIDC back-channel logout notifications when
+        configured).
+      operationId: post_oauth2_logout
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Logged out successfully
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+      security:
+      - bearerAuth: []
+      summary: Logout
+      tags:
+      - OAuth2
+      - Session
+  /oauth2/mfa/verify:
+    post:
+      description: Verify MFA (TOTP) code during login. Completes the
+        authorization-code issuance started by /oauth2/login when MFA was
+        required. The PKCE code_verifier (C4, RFC 7636) must be supplied so
+        the internally-generated code passes PKCE verification against the
+        code_challenge persisted on the session during the first-factor
+        login step. Accepts a JSON body or form-encoded parameters.
+      operationId: post_oauth2_mfa_verify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/TokenResponse'
+                - type: object
+                  properties:
+                    message:
+                      type: string
+                    mfa_verified:
+                      type: boolean
+          description: MFA verification successful — returns the token pair
+            (access_token, refresh_token, id_token).
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Invalid request (missing mfa_token/code, malformed TOTP)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Invalid MFA code or client/redirect mismatch
+      summary: Verify MFA Code (Login)
+      tags:
+      - MFA
+  /oauth2/register:
+    post:
+      description: Dynamic client registration.
+      operationId: post_oauth2_register
+      responses:
+        '201':
+          description: Client registered successfully
+        '400':
+          description: Invalid client metadata
+        '401':
+          description: Unauthorized
+      security:
+      - bearerAuth: []
+      summary: Register Client
+      tags:
+      - OAuth2
+      - Dynamic Registration
   /oauth2/revoke:
     post:
       description: "RFC 7009 OAuth 2.0 Token Revocation. Revokes an access OR
@@ -1922,106 +2832,83 @@ paths:
         authenticate via client_secret (HTTP Basic or body); PUBLIC clients
         (token_endpoint_auth_method='none') authenticate with client_id only
         (RFC 7009 §2.1 exempts them from client authentication at this
-        endpoint)."
+        endpoint). Unknown or already-inactive tokens still return 200 per
+        RFC 7009; the success body is EMPTY."
       operationId: post_oauth2_revoke
-      parameters:
-      - description: The token that the client wants to get revoked (required)
-        in: query
-        name: token
+      requestBody:
         required: true
-        schema:
-          type: string
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - token
+              properties:
+                token:
+                  type: string
+                  description: The token that the client wants to get revoked (required).
+                token_type_hint:
+                  type: string
+                  description: 'Optional hint: access_token or refresh_token (accepted, currently ignored).'
+                client_id:
+                  type: string
+                  description: Client identifier (alternative to HTTP Basic authentication).
+                client_secret:
+                  type: string
+                  description: Client secret (alternative to HTTP Basic; required for CONFIDENTIAL clients).
       responses:
         '200':
+          description: Token revoked successfully or token did not exist (empty body)
+        '400':
           content:
             application/json:
               schema:
-                type: object
-          description: Token revoked successfully or token did not exist
-        '400':
-          description: Invalid request
+                $ref: '#/components/schemas/OAuth2Error'
+          description: invalid_request (missing token)
         '401':
-          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: invalid_client (authentication failed)
         '429':
           description: 'Too Many Requests -- F-018 rate limit tripped by repeated
             failed authentication/validation attempts for this (client_ip, client_id).
             Accompanied by a Retry-After header and an OAuth2-style {error:
             invalid_request, error_description} body.'
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
       security:
       - clientCredentialsAuth: []
+      - {}
       summary: Revoke token
       tags:
       - OAuth2
       - Token
   /oauth2/token:
     post:
-      description: OAuth2 token endpoint - exchanges authorization code or refresh
-        token for access token.
+      description: OAuth2 token endpoint - exchanges an authorization code, refresh
+        token, client credentials, or device code for access tokens (RFC 6749 §3.2).
+        Request parameters are sent as application/x-www-form-urlencoded (the
+        server also accepts them as query parameters). CONFIDENTIAL clients
+        authenticate via HTTP Basic (preferred) or the client_id/client_secret
+        form fields; PUBLIC clients send client_id only.
       operationId: post_oauth2_token
-      parameters:
-      - description: Type of grant being requested
-        in: query
-        name: grant_type
+      requestBody:
         required: true
-        schema:
-          enum:
-          - authorization_code
-          - refresh_token
-          - client_credentials
-          - urn:ietf:params:oauth:grant-type:device_code
-          type: string
-      - description: Authorization code (required for grant_type=authorization_code)
-        in: query
-        name: code
-        required: false
-        schema:
-          type: string
-      - description: Refresh token (required for grant_type=refresh_token)
-        in: query
-        name: refresh_token
-        required: false
-        schema:
-          type: string
-      - description: Client identifier (required)
-        in: query
-        name: client_id
-        required: true
-        schema:
-          type: string
-      - description: Client secret (required for CONFIDENTIAL clients with
-          token_endpoint_auth_method=client_secret_post; FORBIDDEN for PUBLIC
-          clients whose method is 'none' — F-017 rejects a secret sent by a
-          'none' client).
-        in: query
-        name: client_secret
-        required: false
-        schema:
-          type: string
-      - description: Redirect URI (required for authorization_code grant)
-        in: query
-        name: redirect_uri
-        required: false
-        schema:
-          type: string
-      - description: PKCE code_verifier (RFC 7636). Required for the
-          authorization_code grant when the corresponding /oauth2/login (or
-          /oauth2/authorize) request sent a code_challenge. The server
-          verifies SHA-256(code_verifier) == the stored code_challenge.
-        in: query
-        name: code_verifier
-        required: false
-        schema:
-          type: string
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
       responses:
         '200':
           content:
             application/json:
-              example:
-                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                expires_in: 3600
-                refresh_token: ref_123456789
-                scope: openid profile
-                token_type: Bearer
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
           description: 'Token response with access_token and refresh_token. F-019
             (RFC 6749 §5.1): success responses carry Cache-Control: no-store and
             Pragma: no-cache and MUST NOT be cached.'
@@ -2037,17 +2924,37 @@ paths:
         '400':
           content:
             application/json:
-              example:
-                error: invalid_grant
-                error_description: Invalid authorization code
-          description: Invalid request
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: >-
+            invalid_request / invalid_grant / unsupported_grant_type /
+            invalid_scope; device grant also returns authorization_pending,
+            slow_down (plus non-standard interval field), expired_token, or
+            access_denied here.
         '401':
-          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: invalid_client (authentication failed / forbidden secret on a PUBLIC client)
+          headers:
+            WWW-Authenticate:
+              description: Basic realm challenge when HTTP Basic was attempted.
+              schema:
+                type: string
         '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
           description: 'Too Many Requests -- F-018 rate limit tripped by repeated
             failed authentication/validation attempts for this (client_ip, client_id),
-            including device_code polling. Accompanied by a Retry-After header and
-            an OAuth2-style {error: invalid_request, error_description} body.'
+            including device_code polling. Accompanied by a Retry-After header.'
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
       summary: Exchange authorization code for access token
       tags:
       - OAuth2
@@ -2056,27 +2963,30 @@ paths:
     get:
       description: 'Returns information about the authenticated user. F-023 (OIDC
         Core §5.3): the access token''s scope MUST include openid; M2M tokens
-        (client_credentials, subject client:*) are rejected with 403. The response
+        (client_credentials, subject client:*) are rejected. The response
         includes the email_verified claim (F-024) when an email is present.'
       operationId: get_oauth2_userinfo
       responses:
         '200':
           content:
             application/json:
-              example:
-                email: john@example.com
-                email_verified: true
-                name: john_doe
-                roles:
-                - user
-                - admin
-                sub: '1'
+              schema:
+                $ref: '#/components/schemas/UserInfoResponse'
           description: User information retrieved successfully
         '400':
           description: Invalid User ID format
         '401':
-          description: Invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+          description: 'Invalid/expired access token (invalid_token), or M2M token:
+            client-credentials tokens have no user identity for userinfo'
         '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
           description: 'insufficient_scope -- the access token lacks the openid scope
             (RFC 6750 §3; accompanied by WWW-Authenticate: Bearer error="insufficient_scope")'
         '404':
