@@ -14,8 +14,13 @@ Push/PR 到 master (及 workflow_dispatch)
         ├── FAST gate
         │     ├── static-checks (ubuntu-22.04) — 源码级守卫：
         │     │     arch-guard / migration-check / api-diff /
-        │     │     测试命名 / manage 脚本对等 / OpenAPI 校验
+        │     │     测试命名 / manage 脚本对等 / OpenAPI 校验 /
+        │     │     OpenAPI 治理门（三层一致性 + 版本同步）
         │     └── frontend (_frontend.yml) — 前端属性测试
+        │
+        ├── openapi-governance (openapi-governance.yml, PR 触发) —
+        │     oasdiff 破坏性变更门（base vs PR 的 openapi.yaml；
+        │     豁免清单 tools/openapi-governance/oasdiff-breaking-ignore.md）
         │
         ├── MAIN gate
         │     └── build-test (_build-test.yml × {linux, windows, macos} 矩阵)

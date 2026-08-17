@@ -1,7 +1,7 @@
 # AuthForge 多语言客户端 SDK 生成方案设计
 
-> **版本**: v1.0
-> **日期**: 2026-08-05
+> **版本**: v1.1（M0 立项修订：补充 §十 M0 落地实测与子决策）
+> **日期**: 2026-08-05（v1.0）/ 2026-08-16（v1.1 M0 修订）
 > **文档性质**: 技术设计（Phase 1 落地蓝图，**非代码**——实施见 §七 milestone，各 milestone 单独立项）
 > **上游规划**: [演进方案 §三 Phase 1](../productization-evolution-plan.md)「多语言 HTTP 客户端 SDK」
 > **姊妹设计**: [基准设施设计](../in-progress/benchmark-facility-design.md)（Phase 0，与本设施协同——见附录 D）
@@ -394,3 +394,83 @@ Phase 1 客户端 SDK（py/go）──请求工具──┘ C++ 工程师(wrk) +
 ---
 
 *本设计基于代码库 v1.0.0 现状（2026-08-05 核实）+ 2026 年生成器生态调研编制。实施为后续 5 个 milestone（M0 必须最先），本文档是它们的共同蓝图与约束源。Layer 1（spec 治理）是 Layer 2（客户端生成）的承重前提——不先治 spec 就生成客户端等于在流沙上盖楼。*
+
+---
+
+## 十、M0 立项修订（2026-08-16 实测，v1.1）
+
+> M0 启动前的实地核查修正了 §二 的若干判断，并落地了 D1.5 遗留子决策。
+> 实施计划（带验收标准）见 [openapi-spec-governance-plan.md](openapi-spec-governance-plan.md)。
+
+### 10.1 三层漂移实测（比 §二 更严重：不止两源，是三层）
+
+对 **Drogon 路由**（`ADD_METHOD_TO` 宏全集，82 操作）、**C++ 文档注册面**（指纹测试基线，75 操作）、
+**YAML**（73 操作）做三方对比（2026-08-16，master `e5548ec`）：
+
+| 层 | 数量 | 发现 |
+|----|------|------|
+| 路由（真实 API 面） | 82 | 12 条路由从未注册文档、从未入 YAML |
+| C++ 文档注册（generated JSON / 指纹） | 75 | **5 条是幽灵文档**（注册了不存在的路径） |
+| 手维护 YAML | 73 | **8 条死条目**（无路由支撑）+ 缺 13 条真实操作 |
+
+具体清单：
+
+**① YAML 死条目（8 操作 / 6 路径，无路由支撑）——删除**：
+- `/api/orgs` GET/POST、`/api/orgs/{orgId}/users` POST —— 路由早已删除（`OrganizationController.cc:20-21` 注释明言"dead /api/orgs endpoints"），YAML 未跟上
+- `/oauth2/device/verify` GET/POST —— 无路由；设备验证页由前端渲染
+- `/oauth2/mfa/setup`、`/oauth2/mfa/setup/verify`、`/oauth2/mfa/disable` —— 旧路径；真实路由已迁至 `/api/me/mfa/*`（`MfaController.h:52-72`）
+
+**② C++ 幽灵文档（5 操作，注册了不存在路径）——修正**：
+- `/oauth2/device/verify` GET/POST、`/oauth2/mfa/setup|setup/verify|disable` —— 同上，`OpenApiGenerator::addEndpoint` 注册的路径与 `ADD_METHOD_TO` 脱节
+
+**③ 真实路由但文档+YAML 双缺（8 操作）——补注册 + 补 YAML**：
+- `/oauth2/logout` POST（SessionController）
+- `/api/me/mfa/setup|verify|disable` POST ×3（MfaController 新路径）
+- `/oauth2/device/approve` POST（admin 授权，DeviceAuthController）
+- `/health/live`、`/health/ready` GET（HealthController）
+- `/.well-known/oauth-authorization-server` GET（RFC 8414，DiscoveryController——**对客户端 SDK 有直接价值**）
+
+**③b 真实路由、YAML 已有、文档注册缺（2 操作）——仅补注册**：
+- `/oauth2/end_session` GET+POST —— YAML 已完整定义（`openapi.yaml` `end_session` 条目），但 C++ 侧未注册文档
+
+**④ YAML 缺但 C++ 文档已有（5 操作）——补进 YAML**：
+- `/api/admin/dashboard` GET、`/api/admin/organizations` GET+POST、`/api/admin/organizations/{slug}` GET、`/api/admin/scopes/resources` GET
+
+**⑤ 有意不文档化（例外清单）**：`GET /login`（服务端渲染 HTML 页，非 API）、`GET /docs/api`（自文档跳转）。
+
+对账后集合（推演，以门脚本实跑为准）：文档注册面 = 75 − 5 + 10 = **80**；
+YAML = 73 − 8 + 13 = **78**。
+
+> §二.3 的判断"指纹测试 = C++ 代码真实注册的 API 面，权威且经测试"需要修正：
+> 指纹只守护**文档注册面**，不守护**路由面**。路由可以存在而无文档（上述 11 条），文档也可以指向不存在的路由（上述 5 条幽灵）。**一致性门必须同时比对路由↔文档↔YAML 三层**（见 10.3）。
+
+### 10.2 D1.5 子决策落地：手维护 YAML（不修生成器）
+
+M0 立项时按 §四 D1.5 的要求裁决：**补齐机制 = 手维护 YAML**。
+
+理由：
+1. `OpenApiGenerator` 的 `EndpointInfo` 结构根本不承载 requestBody/response schema（generated JSON 71 操作 0 requestBody）——修生成器到 schema 级保真度是大工程，而 D1 已把 generated JSON 降级为 Swagger UI 派生产物，ROI 不成立。
+2. YAML 是 CI lint + 一致性门 + 将来客户端生成的输入，直接对照控制器实测契约（M0 已产出 6 个核心端点的逐字段 wire 契约核查，见实施计划附录）手工补齐，可评审、可增量。
+3. #41（生成器 security object bug + 缺 clientCredentialsAuth）维持 N1 排除，不随 M0 修。
+
+### 10.3 D3 修正：一致性门升级为三层比对
+
+原设计只比对 YAML ↔ 指纹。10.1 证明指纹本身会漂移（幽灵文档/漏文档），门升级为：
+
+```
+路由集（源码扫描 ADD_METHOD_TO/METHOD_ADD，无需编译）
+  ↔ 文档注册集（解析指纹测试基线字符串，单一源不复制）
+  ↔ YAML 操作集（解析 openapi.yaml）
+```
+
+两条断言 + 显式例外清单（`GET /login`、`GET /docs/api` 路由级排除；`GET /docs/api/`、`GET /docs/api/openapi.json` YAML 级排除——自文档端点对 SDK 无意义，维持 D1 决策）。解析失败有数量下限兜底（≥60 操作），防止门静默失效。
+
+### 10.4 D4 补充：bootstrap 豁免与版本联动落点
+
+- **oasdiff 首跑豁免**：M0 的破坏性变更不止 8 条死条目删除——P0 端点把误标的 query 参数迁移为 requestBody（如 introspect 的 `token` 从 required query 迁走）、安全声明收紧，oasdiff 同样判 breaking。首跑豁免清单 = **8 条死端点删除 + P0 端点参数/安全声明迁移**，逐条带理由与关联 commit；此后任何新的 breaking 变更必须走 major 升级或显式豁免。
+- **`info.version` 联动落点**：YAML `info.version` 与 `cmake/Version.cmake` 交叉校验进一致性门脚本（当前 YAML 硬编码 1.0.0，项目已 1.2.0——脱节实锤）；`release.yml` 的 version-check job 增加同校验（tag 发布时兜底）。
+- **oasdiff 运行方式**：直接下载官方 release 二进制（Go 单文件，无 JVM），不用 wrapper action，便于本地复现。
+
+### 10.5 AC 修订
+
+§六 AC2 的验收方式细化为**本地故障注入**（从 YAML 副本删一个端点 → 门 fail；往源码副本加一条路由 → 门 fail），CI 侧由本 PR 自身触发新 workflow 验证。AC8 的"完整 requestBody + response schema"以控制器实测契约为准（M0 已核查到 file:line 级），不再以"YAML 里有内容"为满足。

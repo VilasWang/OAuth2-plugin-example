@@ -21,7 +21,7 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
    - `SessionController.cc` — `/oauth2/login`、`/oauth2/consent`、`/oauth2/end_session`、`/login`、`/api/register`
    - `ClientRegistrationController.cc` — `/oauth2/register`
    - `DiscoveryController.cc` — `/.well-known/openid-configuration`、`/.well-known/jwks.json`
-   - `MfaController.cc` — `/oauth2/mfa/*`
+   - `MfaController.cc` — `/api/me/mfa/*`（自服务，Bearer 保护）+ `/oauth2/mfa/verify`（登录补全）
    - `DeviceAuthController.cc` — `/oauth2/device_*`
    - `WebAuthnController.cc` — `/oauth2/webauthn/*`、`/api/me/webauthn/*`
    - `UserSelfServiceController.cc` — `/api/me*`
@@ -36,8 +36,8 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
    - 识别所有路由端点和参数（以各控制器头文件的 `ADD_METHOD_TO` 宏为权威来源）
 
 2. **比较现有OpenAPI规范**
-   - 读取`apps/server/openapi.yaml`（手工维护的源文档，当前 `info.version: 1.0.0`）
-   - 运行时由 `apps/server/src/bootstrap/OpenApiSetup.cc` 生成 JSON 规范到 `apps/server/docs/api/openapi.json`，并由 `ApiDocController` 在 `/docs/api/openapi.json` 与 `/docs/api/` 提供 Swagger UI。**修改 `openapi.yaml` 后需重新运行服务器（或构建）以再生 `openapi.json`**，否则 Swagger UI 与校验脚本看到的仍是旧 JSON。
+   - 读取`apps/server/openapi.yaml`（手工维护的**唯一契约源**；`info.version` 与 `cmake/Version.cmake` 联动，由治理门强制一致）
+   - 运行时由 `apps/server/src/bootstrap/OpenApiSetup.cc` 生成 JSON 规范到 `apps/server/docs/api/openapi.json`，并由 `ApiDocController` 在 `/docs/api/openapi.json` 与 `/docs/api/` 提供 Swagger UI（**generated JSON 是派生产物，仅用于 Swagger UI，不是契约源**）。修改 C++ 文档注册后需重新构建/运行服务器以再生 `openapi.json`
    - 检查是否有新的端点、参数变更、响应格式变更
 
 3. **更新OpenAPI规范**
@@ -45,11 +45,19 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
    - 更新现有端点的参数
    - 更新响应模型
    - 确保符合OpenAPI 3.0规范
+   - **C++ 文档注册（`OpenApiGenerator::addEndpoint`）与 `apps/server/openapi.yaml` 必须同步改**——三层（路由宏 `ADD_METHOD_TO` / 文档注册 / YAML）由治理门强制一致
 
-4. **验证规范**
-   - 使用验证脚本检查YAML语法
-   - 验证所有引用是否有效
-   - 确保端点路径与代码一致
+4. **验证规范（治理门）**
+   ```bash
+   # 权威校验：三层一致性 + 版本同步（改完必须跑，CI 也会跑）
+   python3 tools/openapi-governance/check_spec_governance.py --selftest
+   python3 tools/openapi-governance/check_spec_governance.py
+
+   # 结构校验（OpenAPI schema 合法性）
+   python -m openapi_spec_validator apps/server/openapi.yaml
+   ```
+   - 破坏性变更（删端点/收窄请求/收紧安全声明）会被 `.github/workflows/openapi-governance.yml` 的 oasdiff 门拦截：要么升 major 版本，要么在 `tools/openapi-governance/oasdiff-breaking-ignore.md` 加豁免条目（必须带理由）
+   - 改了指纹测试基线（`tests/integration/concurrency/Property4_OpenApiValidationBaselineTest.cc` 的 `kFingerprint`）时，重新跑治理门确认解析正常
 
 ### 验证脚本集成
 
@@ -97,11 +105,12 @@ foreach ($field in $requiredFields) {
 - `POST /oauth2/introspect` - 令牌内省（RFC 7662）
 - `POST /oauth2/consent` - 授权同意
 - `GET|POST /oauth2/end_session` - 注销
+- `POST /oauth2/logout` - 登出（Bearer 保护）
 - `POST /oauth2/register` - 动态客户端注册（RFC 7591）
-- MFA：`/oauth2/mfa/setup`、`/oauth2/mfa/setup/verify`、`/oauth2/mfa/disable`、`/oauth2/mfa/verify`
-- Device：`/oauth2/device_authorization`、`/oauth2/device/verify`、`/oauth2/device/approve`
+- MFA：`POST /api/me/mfa/setup`、`POST /api/me/mfa/verify`、`POST /api/me/mfa/disable`（自服务）、`POST /oauth2/mfa/verify`（登录补全）
+- Device：`/oauth2/device_authorization`、`/oauth2/device/approve`（admin）（**无 `/oauth2/device/verify` 路由**——验证页由前端渲染）
 - WebAuthn：`/oauth2/webauthn/authenticate/begin`、`/oauth2/webauthn/authenticate/finish`
-- 发现：`/.well-known/openid-configuration`、`/.well-known/jwks.json`
+- 发现：`/.well-known/openid-configuration`、`/.well-known/jwks.json`、`/.well-known/oauth-authorization-server`（RFC 8414）
 - 健康检查：`/health`、`/health/live`、`/health/ready`
 
 ### 社交登录端点（`#ifdef WITH_SOCIAL`）
@@ -142,10 +151,11 @@ foreach ($field in $requiredFields) {
 # 更新规范后提交到 Git
 git add apps/server/openapi.yaml
 git commit -m "docs: update OpenAPI specification for endpoint changes"
-
-# 如果有重大变更，更新 API 版本号
-# 在 openapi.yaml 的 info.version 字段中递增版本
 ```
+
+版本号规则（治理门 + release version-check 强制）：
+- `info.version` **必须**与 `cmake/Version.cmake` 的 `OAUTH2_PROJECT_VERSION` 一致（改版本就两边一起改）
+- 破坏性变更要求升 major（oasdiff 门拦截；豁免需在 `tools/openapi-governance/oasdiff-breaking-ignore.md` 带理由登记）
 
 ## 文档同步
 

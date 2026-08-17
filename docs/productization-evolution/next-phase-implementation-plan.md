@@ -61,19 +61,10 @@ benchmark M4 报告（`benchmarks/results/SUMMARY.md`）产出了实测数据，
 
 ### 第一梯队：Phase 1 启动 + IAM 低垂果实（立即启动，2–4 周）
 
-#### A1. OpenAPI spec 治理（Phase 1 Layer 1 前置）★ 解除全部客户端工作阻塞
+#### ~~A1. OpenAPI spec 治理（Phase 1 Layer 1 前置）~~ ✅ 已实现（2026-08-17，待合并）
 
-> **设计文档**: [todo/client-sdk-facility-design.md](todo/client-sdk-facility-design.md)
-> **前置**: ~~#41~~ 已修复；死孤儿 openapi.json 已删
-> **工程量**: 1–2 周
-
-**现状**: `apps/server/openapi.yaml` 路径覆盖足（69 操作）但 requestBody/response schema 严重稀疏（D1.5），无法直接驱动客户端生成。
-
-**实施步骤**:
-1. 补齐 YAML 的 requestBody / response schema / schema 定义（M0 核心工作量）
-2. 新增 YAML↔代码一致性门（关闭"C++ 改端点忘改 YAML"的治理漏洞）
-3. 引入 oasdiff 破坏性变更门（客户端可发布的前提）
-4. 验收：生成的 Python 客户端能成功调用 `/oauth2/token` + `/oauth2/introspect`
+> **设计文档**: [todo/client-sdk-facility-design.md](todo/client-sdk-facility-design.md) §十（M0 修订）+ [todo/openapi-spec-governance-plan.md](todo/openapi-spec-governance-plan.md)（实施计划）
+> **交付内容**（分支 `feat/openapi-spec-governance-m0`）: 三层端点对账（routes 82 = docs 80 + 2 例外 = yaml 78 + 2 自文档排除；删 8 条死条目、修 5 处幽灵文档、补 10 处缺注册）+ P0 schema 补齐（token/introspect/revoke/login/userinfo/discovery 等 requestBody（form/JSON 双形态）+ 17 个 schema 定义 + `info.version` 联动 1.2.0）+ 一致性门 `tools/openapi-governance/check_spec_governance.py`（CI static-checks）+ oasdiff 破坏性变更门（`.github/workflows/openapi-governance.yml`，v1.29.1 pinned，bootstrap 豁免 15 条带理由）+ 验收：openapi-python-client 生成客户端实调 token/introspect/负例/discovery 全通过。
 
 #### ~~A2. 用户管理补全~~ ✅ 已实现（PR #52，2026-08-13）
 
