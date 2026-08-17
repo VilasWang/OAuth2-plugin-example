@@ -1,0 +1,58 @@
+name: OpenAPI Governance
+
+# Breaking-change gate over the HTTP API contract (spec-governance M0,
+# design: docs/productization-evolution/todo/client-sdk-facility-design.md §D4).
+#
+# Compares apps/server/openapi.yaml (the single source of truth) against the
+# base branch. Any breaking change (path removal, request-body tightening,
+# response narrowing, ...) fails the gate unless:
+#   - the change ships with a major version bump, or
+#   - it is explicitly exempted (with justification) in
+#     tools/openapi-governance/oasdiff-breaking-ignore.md.
+#
+# oasdiff is downloaded as a pinned release binary (single Go binary, no JVM)
+# so the exact same command can be reproduced locally:
+#   oasdiff breaking base.yaml apps/server/openapi.yaml \
+#     --err-ignore tools/openapi-governance/oasdiff-breaking-ignore.md -o ERR
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "apps/server/openapi.yaml"
+      - "tools/openapi-governance/**"
+      - ".github/workflows/openapi-governance.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: openapi-governance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  breaking-change:
+    name: oasdiff breaking (base vs PR)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need origin/master for the base spec
+
+      - name: Extract base-branch spec
+        run: |
+          git show origin/master:apps/server/openapi.yaml > /tmp/base_openapi.yaml
+          echo "Base spec lines: $(wc -l < /tmp/base_openapi.yaml)"
+
+      - name: Install oasdiff (pinned v1.29.1)
+        run: |
+          curl -sSfL -o oasdiff.tgz \
+            https://github.com/Tufin/oasdiff/releases/download/v1.29.1/oasdiff_1.29.1_linux_amd64.tar.gz
+          tar -xzf oasdiff.tgz
+          sudo install -m 755 oasdiff /usr/local/bin/oasdiff
+          oasdiff --help > /dev/null && echo "oasdiff installed"
+
+      - name: Breaking-change gate
+        run: |
+          oasdiff breaking /tmp/base_openapi.yaml apps/server/openapi.yaml \
+            --err-ignore tools/openapi-governance/oasdiff-breaking-ignore.md \
+            -f githubactions -o ERR

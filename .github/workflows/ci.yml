@@ -67,8 +67,16 @@ jobs:
 
       - name: Validate OpenAPI Spec
         run: |
-          pip install openapi-spec-validator
+          pip install openapi-spec-validator pyyaml
           python -m openapi_spec_validator apps/server/openapi.yaml
+
+      - name: Check OpenAPI Spec Governance (3-layer consistency + version sync)
+        # Spec governance gate (M0): Drogon routes == doc registrations ==
+        # openapi.yaml operations (modulo documented exclusions), and
+        # info.version == cmake/Version.cmake. Pure source scan.
+        run: |
+          python3 tools/openapi-governance/check_spec_governance.py --selftest
+          python3 tools/openapi-governance/check_spec_governance.py
 
   frontend:
     name: Frontend Property Tests
