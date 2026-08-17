@@ -50,6 +50,11 @@ OPENAPI_YAML = Path("apps/server/openapi.yaml")
 VERSION_CMAKE = Path("cmake/Version.cmake")
 CONTROLLER_GLOBS = [
     "libs/drogon/include/authforge/drogon/controllers/*.h",
+    # .cc globs: today the route macros live in headers, but scanning the
+    # implementation trees too closes the "new controller defines its macro in
+    # the .cc" blind spot. Comment-only mentions of ADD_METHOD_TO don't match
+    # the regexes (they lack the quoted-path + method-token shape).
+    "libs/drogon/src/**/*.cc",
     "apps/server/**/*.h",
     "apps/server/**/*.cc",
 ]
@@ -216,13 +221,14 @@ def _selftest() -> int:
     yaml_ver = extract_yaml_version(FIXTURES / "mini_openapi.yaml")
     cmake_ver = extract_cmake_version(FIXTURES / "mini_version.cmake")
 
-    # Fixture layout (3 documented ops + 1 ROUTE_ONLY + 1 YAML_EXCLUDED):
-    #   routes: GET /x, POST /x, GET /login, GET /docs/api/
-    #   docs:   GET /x, POST /x, GET /docs/api/        (login is route-only)
-    #   yaml:   GET /x, POST /x                        (docs/api excluded)
+    # Fixture layout (4 documented ops + 1 ROUTE_ONLY + 1 YAML_EXCLUDED):
+    #   routes: GET /x, POST /x, PUT /y (bare method name), GET /login, GET /docs/api/
+    #   docs:   GET /x, POST /x, PUT /y, GET /docs/api/   (login is route-only)
+    #   yaml:   GET /x, POST /x, PUT /y                    (docs/api excluded)
     assert "GET /x" in routes and "POST /x" in routes, routes
-    assert docs == {"GET /x", "POST /x", "GET /docs/api/"}, docs
-    assert yaml_ops == {"GET /x", "POST /x"}, yaml_ops
+    assert "PUT /y" in routes, f"bare-name method macro not parsed: {routes}"
+    assert docs == {"GET /x", "POST /x", "PUT /y", "GET /docs/api/"}, docs
+    assert yaml_ops == {"GET /x", "POST /x", "PUT /y"}, yaml_ops
 
     # Happy path: multi-line macros, first-token methods, exclusions, versions.
     ok = run_checks(routes, docs, yaml_ops, "1.2.0", "1.2.0")

@@ -11,7 +11,8 @@ const std::string &expectedFingerprint()
     static const std::string kFingerprint =
       "GET /x\n"
       "GET /docs/api/\n"
-      "POST /x\n";
+      "POST /x\n"
+      "PUT /y\n";
     return kFingerprint;
 }
 
