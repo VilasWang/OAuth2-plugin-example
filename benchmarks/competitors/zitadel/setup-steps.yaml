@@ -1,10 +1,18 @@
 # Zitadel first-instance setup steps — RENDERED by setup.sh (do not edit the
 # placeholders). Reference: https://zitadel.com/docs/self-hosting/configure
-# The FirstInstance.Machine block is Zitadel's documented headless bootstrap
-# for machine credentials (key + PAT) without touching the login UI.
+# The FirstInstance.Org.Machine block is Zitadel's documented headless
+# bootstrap for machine credentials (key + PAT) without touching the login UI.
+# NOTE: only FirstInstance belongs here — Database config lives in zitadel.yaml.
+# v4 schema: MachineKey/Pat write to the top-level MachineKeyPath/PatPath;
+# Machine.Machine.Username is lowercase-n; Features.ImprovedPerformance is the
+# officially documented default-instance perf-flag block (cmd/setup/steps.yaml)
+# — all five flags enabled, matching Zitadel's own benchmark baseline
+# (https://zitadel.com/docs/apis/benchmarks/v4/machine_client_credentials_login).
 
 FirstInstance:
   InstanceName: bench
+  MachineKeyPath: /machinekey/bench-svc.json
+  PatPath: /machinekey/bench-svc.pat
   Org:
     Name: bench-org
     Human:
@@ -16,32 +24,21 @@ FirstInstance:
       Email:
         Address: bench-admin@bench.invalid
         Verified: true
-      Password:
-        Password: __ADMIN_PASS__
-        ChangeRequired: false
+      Password: __ADMIN_PASS__
     Machine:
       Machine:
-        UserName: bench-svc
+        Username: bench-svc
         Name: bench-svc
-        Description: benchmark service user (JWT profile)
+        Description: benchmark service user (jwt-bearer grant)
       MachineKey:
-        Type: 1          # JSON key
-        FileName: /machinekey/bench-svc.json
+        Type: 1          # JSON key; no expiry set = endless
       Pat:
         ExpirationDate: __PAT_EXPIRY__
-
-Database:
-  postgres:
-    Host: postgres
-    Port: 5432
-    Database: zitadel
-    User:
-      Username: zitadel
-      Password: zitadel
-      SSL:
-        Mode: disable
-    Admin:
-      Username: zitadel
-      Password: zitadel
-      SSL:
-        Mode: disable
+  Features:
+    # 1 OrgByID, 2 ProjectGrant, 3 Project, 4 UserGrant, 5 OrgDomainVerified
+    ImprovedPerformance:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5

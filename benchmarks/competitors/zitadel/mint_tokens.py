@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """mint_tokens.py — Zitadel token/assertion minting for benchmark pools (D5).
 
-Zitadel's official machine-to-machine path is Service User + JWT profile
-(private_key_jwt client assertion at the token endpoint):
-  https://zitadel.com/docs/guides/integrate/service-users
-The machine key JSON (bootstrap-generated, FirstInstance.Machine.MachineKey)
-holds an RSA key; we sign short-lived RS256 assertions with pyjwt.
+Zitadel's official machine-to-machine path is Service User + JWT profile:
+RFC 7523 jwt-bearer GRANT at the token endpoint (assertion = signed JWT),
+https://zitadel.com/docs/guides/integrate/service-accounts/private-key-jwt
+The machine key JSON (bootstrap-generated, printed to stdout by
+FirstInstance setup — extracted from docker logs by setup.sh) holds an RSA
+key; we sign RS256 assertions with pyjwt. iss = sub = the machine userId,
+aud = issuer, kid = keyId.
 
 Modes (stdout = one item per line, progress on stderr):
-  assertion   signed client_assertion JWTs (S2 pool; usually ONE reusable
+  assertion   signed assertion JWTs (S2 pool; usually ONE reusable
               within exp is enough — pass --count 1 and test reuse first)
-  cc-token    client_credentials tokens via JWT profile (S3 introspect pool /
-              S6 userinfo pool candidates)
+  cc-token    access tokens via the jwt-bearer grant (S3 introspect pool /
+              S6 userinfo pool)
 
 Usage:
   python3 mint_tokens.py --issuer http://localhost:8080 \
       --key lib/generated/machinekey.json --mode cc-token --count 2000 \
+      --scope "openid urn:zitadel:iam:org:project:id:<projid>:aud" \
       > lib/generated/cc_tokens.txt
 """
 from __future__ import annotations
@@ -64,6 +67,9 @@ def main() -> int:
     args = p.parse_args()
 
     key = load_key(args.key)
+    # key files from the Management API use "id"; the FirstInstance stdout
+    # JSON (extracted from docker logs by setup.sh) uses "keyId" — normalize
+    key.setdefault("id", key.get("keyId", ""))
     login = args.login_name or key.get("loginName") or key.get("userId")
 
     lock = threading.Lock()
@@ -72,29 +78,40 @@ def main() -> int:
 
     def work(i: int) -> None:
         out = None
-        try:
-            if args.mode == "assertion":
-                out = make_assertion(key, args.issuer, login, args.assertion_ttl)
-            else:
-                assertion = make_assertion(key, args.issuer, login, 600)
-                r = requests.post(
-                    args.issuer + "/oauth/v2/token",
-                    data={
-                        "grant_type": "client_credentials",
-                        "scope": args.scope,
-                        "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-                        "client_assertion": assertion,
-                    },
-                    timeout=15,
-                )
-                r.raise_for_status()
-                out = r.json()["access_token"]
-        except Exception as e:  # noqa: BLE001
-            with lock:
-                failed[0] += 1
-                if failed[0] <= 3:
-                    print(f"  [mint] #{i} failed: {e}", file=sys.stderr)
-            return
+        if args.mode == "assertion":
+            out = make_assertion(key, args.issuer, login, args.assertion_ttl)
+        else:
+            last_err: Exception | None = None
+            for attempt in range(5):  # transient 404/500 blips under parallel mint load
+                try:
+                    assertion = make_assertion(key, args.issuer, login, 600)
+                    r = requests.post(
+                        args.issuer + "/oauth/v2/token",
+                        data={
+                            # RFC 7523 §4.1 jwt-bearer GRANT — Zitadel's official
+                            # M2M path for Service Users. The token endpoint does
+                            # NOT accept client_credentials with a JWT assertion
+                            # (v2.71 VerifyClient routes that grant to the
+                            # Basic-secret machine path instead).
+                            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                            "scope": args.scope,
+                            "assertion": assertion,
+                        },
+                        timeout=15,
+                    )
+                    r.raise_for_status()
+                    out = r.json()["access_token"]
+                    last_err = None
+                    break
+                except Exception as e:  # noqa: BLE001
+                    last_err = e
+                    time.sleep(1.0 * (attempt + 1))
+            if out is None:
+                with lock:
+                    failed[0] += 1
+                    if failed[0] <= 3:
+                        print(f"  [mint] #{i} failed: {last_err}", file=sys.stderr)
+                return
         with lock:
             sys.stdout.write(out + "\n")
             done[0] += 1

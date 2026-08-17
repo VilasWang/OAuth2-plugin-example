@@ -84,7 +84,8 @@ for i in $(seq 1 120); do
     sleep 1
 done
 [ "$CODE" = "200" ] || { echo "[setup] ERROR: hydra not ready (code=$CODE)"; docker logs ory-bench-hydra 2>&1 | tail -30; exit 1; }
-HYDRA_VERSION="$(docker exec ory-bench-hydra hydra version 2>/dev/null | head -1 || echo unknown)"
+HYDRA_VERSION="$(docker exec ory-bench-hydra hydra version 2>/dev/null \
+    | grep -oE 'v?[0-9][0-9A-Za-z._-]+' | head -1 || echo unknown)"
 echo "[setup] hydra ready (version: $HYDRA_VERSION)"
 
 # --- 3. create clients via official CLI (admin listener is TLS with the

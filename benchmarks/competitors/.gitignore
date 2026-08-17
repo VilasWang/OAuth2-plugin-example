@@ -2,3 +2,5 @@
 # they contain product-signed tokens and runtime-generated bench credentials,
 # nothing to commit). Result JSONs/TSVs and COMPARISON.md ARE committed.
 */lib/generated/
+# Zitadel FirstInstance MachineKeyPath/PatPath bind mount (machine key + PAT)
+zitadel/machinekey/

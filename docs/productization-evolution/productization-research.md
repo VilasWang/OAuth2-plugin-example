@@ -79,17 +79,32 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 > | **P99** | < 2 ms | ✅ **低并发达成** | c≤16 时 P99 1-4ms（S1/S3/S6）；高并发（c≥64）退化 12-430ms（连接池排队效应） |
 > | **冷启动** | ~5s | ✅ **观测达成** | setup.sh 观测 compose up 后 /health/ready ~4s 返回（含 PG/Redis 启动），已满足 ~5s 目标 |
 >
-> 竞品列数字来自各产品社区公开基准，**非同环境对比**，仅作量级参考。同环境竞品对比待 Phase 0.5。
+> 竞品列已由 **Phase 0.5 同环境实测**（2026-08-17，四产品同 session 串行：同一台 WSL2 8 vCPU / 16GB、同一 wrk 阶梯 2→128、同一 PostgreSQL 15、各家官方推荐生产配置）替换——数字溯源 `benchmarks/competitors/results/COMPARISON.md`（gen-comparison.py 生成，无手填）：
+>
+> | 维度 | AuthForge | Keycloak 26.7.1 | Ory Hydra v26.2.0 | Zitadel v4.17.1 |
+> |------|-----------|------------------|-------------------|------------------|
+> | **S1 discovery QPS** | **94,640** ✅领先 | 44,493 | 1,604 | 8,196 |
+> | **S2 client_credentials QPS** | **9,056** ✅领先 | 5,971 | 1,916 | 1,501（jwt-bearer 官方路径） |
+> | **S3 introspect QPS** | **17,602** ✅领先 | 11,618 | 10,933（admin 口） | 2,872（私钥认证） |
+> | **S5 refresh QPS** | 1,998 | **2,802** ⚠️Keycloak 领先 | 669 | N/A（机器用户无 RT） |
+> | **S6 userinfo QPS** | 18,278 | **33,347** ⚠️Keycloak 领先（JWT 离线校验） | 10,345 | 3,207 |
+> | **稳态 P50 / P99** | **0.6-4ms / 4-11ms** ✅最低水位 | 2-50ms / 22-73ms | 61-80ms / 82-179ms | 3-42ms / 22-67ms |
+> | **全栈 RSS（D7）** | 5,381 MiB ⚠️最重（含 PG+Redis+连接池） | 1,671 MiB | **249 MiB** ✅最轻 | 387 MiB |
+> | **冷启动 fresh/restart** | **1.23s / 1.26s** ✅领先 1-2 个量级 | 20.3s / 5.5s | 4.9s / 0.7s | 5.9s / 1.0s |
+> | **GC 抖动（5min P99 序列）** | 见注 ⚠️主张证伪 | 平线（1.08x） | 平线（1.05x） | 平线（1.10x） |
+>
+> **诚实裁决（G4，2026-08-17）**：① S5/S6 两场景 Keycloak 领先（S6 因其 userinfo 为 JWT 离线校验、AuthForge 为 DB 用户查询——语义差异见 COMPARISON 附录）；② "零 GC 抖动"**未获证实**——三家 GC 语言全程平线，AuthForge 反有 WSL2/IO 环境层秒级尖峰，可对外主张的是**绝对 P99 水位**（中位 3.3ms vs 20-27ms）而非"更平"；③ 全栈容器口径 AuthForge 最重，轻量叙事只能用 **SDK 嵌入口径（2.5MB）**并显式区分口径。"比 Keycloak 快 N 倍"的对外表述限定为 S1/S2/S3 场景（2.1x/1.5x/1.5x）。
 
 ### 3.2 核心差异化价值主张
 
 **AuthForge = 身份基础设施的 "C++ 权速"**
 
-1. **极致性能**（✅ Phase 0 实测验证）: C++ + Drogon 异步框架，discovery 86k QPS（8 vCPU WSL，外推裸机 ~170k）、token 签发 9k QPS、低并发 P99 1-2ms。详见 §3.1 实测裁决表——"10 万+ QPS"仅限无状态端点，对外传播须限定场景。
-2. **零 GC 抖动**: 无 JVM/Go runtime 的垃圾回收停顿，延迟稳定可预测，适合金融级 SLA 要求
-3. **超低资源消耗**（✅ SDK 口径实测远超标）: SDK 嵌入口径实测 **2.5 MB peak working set**（`third-party-host-smoke`，纯 SDK：oauth2+common+memory storage；binary 仅 12 MB）。原称 50-120MB 是保守值。Docker 容器全栈 ~2.4 GB 属不同口径（含 Drogon 连接池/共享库/page cache）。
-4. **可嵌入 SDK**: 唯一支持 `find_package(authforge-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
-5. **供应链安全（已落地）**: release 流水线（`.github/workflows/release.yml`）已实现 cosign keyless 签名 manifest digest + syft 每镜像 SPDX SBOM + SDK tarball `.sha256` 校验和。⚠️ 承重 caveat：**SDK 包目前仅 linux-x86_64**（无 arm64 / Windows / macOS SDK tarball）。
+1. **极致性能**（✅ Phase 0 自测 + Phase 0.5 四产品同环境对比验证）: C++ + Drogon 异步框架。同环境实测（2026-08-17，竞品官方推荐配置）：discovery **94.6k QPS**（Keycloak 44.5k 的 2.1x）、client_credentials **9.1k**（1.5x）、introspect **17.6k**（1.5x）；对外表述须限定场景——S5 refresh（2.0k）与 S6 userinfo（18.3k）**落后 Keycloak**（2.8k / 33.3k，后者为 JWT 离线校验路径），见 §3.1 实测表。
+2. **低且稳定的尾延迟**（⚠️ 2026-08-17 修订）: 无 GC runtime，稳态 P50 0.6-4ms / P99 4-11ms 为四家最低水位（Keycloak 22-73ms、Ory 82-179ms、Zitadel 22-67ms）。原"零 GC 抖动"主张已按同环境实测收敛——现代 GC（并发化）在 10s 窗口测不出停顿，四家长跑曲线均平线；本主张的依据改为**绝对 P99 水位**而非"无抖动"。
+3. **超低资源消耗（SDK 口径）**: SDK 嵌入口径实测 **2.5 MB peak working set**（`third-party-host-smoke`，纯 SDK；binary 12 MB）。⚠️ 口径警示（2026-08-17 同环境实测）：**容器全栈口径 AuthForge 反为四家最重（5,381 MiB，含 PG+Redis+Drogon 连接池）**，Ory 最轻（249 MiB）——对外必须显式区分口径，不得混用。
+4. **冷启动**（✅ 同环境实测领先 1-2 个量级）: fresh 1.23s / restart 1.26s（Keycloak 20.3s/5.5s、Ory 4.9s/0.7s、Zitadel 5.9s/1.0s）——边缘/弹性场景的差异化证据。
+5. **可嵌入 SDK**: 唯一支持 `find_package(authforge-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
+6. **供应链安全（已落地）**: release 流水线（`.github/workflows/release.yml`）已实现 cosign keyless 签名 manifest digest + syft 每镜像 SPDX SBOM + SDK tarball `.sha256` 校验和。⚠️ 承重 caveat：**SDK 包目前仅 linux-x86_64**（无 arm64 / Windows / macOS SDK tarball）。
 
 ### 3.3 差距与挑战
 

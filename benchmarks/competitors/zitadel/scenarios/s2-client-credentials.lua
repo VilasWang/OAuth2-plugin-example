@@ -1,10 +1,12 @@
 -- s2-client-credentials.lua (zitadel)
 -- S2: machine-to-machine token — POST token endpoint with a PRE-SIGNED
--- JWT-profile client assertion (Zitadel's official M2M path: Service User +
--- private_key_jwt; the token endpoint does not offer Basic-auth
--- client_credentials). wrk Lua cannot sign, so setup.sh mints the assertion
--- (exp covers the whole benchmark session; reuse within exp is the standard
--- JWT-profile behavior — annotated in COMPARISON.md).
+-- assertion under the RFC 7523 jwt-bearer GRANT (Zitadel's official M2M
+-- path for Service Users: https://zitadel.com/docs/guides/integrate/service-accounts/private-key-jwt).
+-- The token endpoint does NOT accept client_credentials with a JWT
+-- assertion (v2.71 routes that grant to the Basic-secret machine path),
+-- hence the grant-type annotation in COMPARISON.md. wrk Lua cannot sign,
+-- so setup.sh mints the assertion (exp covers the whole benchmark session;
+-- reuse within exp is standard JWT behavior — annotated in COMPARISON.md).
 -- Endpoint (official): POST /oauth/v2/token
 --   https://zitadel.com/docs/apis/openidoauth/endpoints
 
@@ -16,9 +18,9 @@ f:close()
 wrk.method = "POST"
 wrk.path = "/oauth/v2/token"
 wrk.headers["Content-Type"] = "application/x-www-form-urlencoded"
-wrk.body = "grant_type=client_credentials&scope=openid+profile"
-    .. "&client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer"
-    .. "&client_assertion=" .. ASSERTION
+wrk.body = "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer"
+    .. "&scope=openid+profile"
+    .. "&assertion=" .. ASSERTION
 
 request = function()
     return wrk.format()

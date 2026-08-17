@@ -1,14 +1,17 @@
 -- s3-introspect.lua (zitadel)
--- S3: token introspection — POST with JWT-profile assertion auth (same
--- official machine mechanism as S2) + a REUSABLE pool of service-user access
--- tokens minted by setup.sh (design D5).
+-- S3: token introspection — POST with private-key-JWT client auth (OIDC app
+-- + app key created via the Management API by setup.sh; official perf
+-- guidance github.com/zitadel/zitadel/discussions/6220: secret auth hashes
+-- per request, private key does not) + a REUSABLE pool of service-user
+-- access tokens minted with that app's project audience scope (design D5 —
+-- the aud scope is required for service-account tokens to introspect).
 -- Endpoint (official): POST /oauth/v2/introspect
 --   https://zitadel.com/docs/apis/openidoauth/endpoints
 
 local LIB_DIR = os.getenv("WRK_LIB_DIR") or error("WRK_LIB_DIR not set")
 local TOKEN_FILE = LIB_DIR .. "/generated/cc_tokens.txt"
 
-local tokens, tok_start, tok_end, tok_idx, assertion
+local tokens, tok_start, tok_end, tok_idx, client_id, assertion
 local threads = {}
 
 local function load_lines(filepath)
@@ -30,9 +33,8 @@ end
 
 init = function()
     if not tid then tid = 0 end
-    local af = io.open(LIB_DIR .. "/generated/assertion.txt", "r")
-    assertion = af:read("*l")
-    af:close()
+    client_id = io.open(LIB_DIR .. "/generated/introspect_client_id.txt", "r"):read("*l")
+    assertion = io.open(LIB_DIR .. "/generated/introspect_assertion.txt", "r"):read("*l")
 
     tokens = load_lines(TOKEN_FILE)
     local n = #tokens
@@ -54,6 +56,7 @@ request = function()
     wrk.path = "/oauth/v2/introspect"
     wrk.headers["Content-Type"] = "application/x-www-form-urlencoded"
     wrk.body = "token=" .. token
+        .. "&client_id=" .. client_id
         .. "&client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer"
         .. "&client_assertion=" .. assertion
     return wrk.format()
