@@ -7,12 +7,15 @@
 # Deviations from stock defaults — fairness-annotated in COMPARISON.md (D2/AC4):
 #   * single-node compose (no networking/observability sidecars from the
 #     official example) — same shape as the other three bench stacks;
-#   * Postgres pool: Zitadel manages its pool internally (no env), noted.
+#   * Postgres pool capped at 25 via MaxOpenConns in zitadel.yaml
+#     (D1 alignment, same deviation family as Keycloak/Hydra).
 #
 # The masterkey is a REQUIRED env var (32 chars) — setup.sh generates a
 # throwaway value; nothing committed. setup-steps.yaml (FirstInstance) is
-# rendered by setup.sh with runtime-generated admin password + machine key
-# path mounts.
+# rendered by setup.sh with runtime-generated credentials and mounted
+# read-only. FirstInstance.MachineKeyPath/PatPath write the machine key and
+# PAT into the ./machinekey bind mount (gitignored; setup.sh copies them out,
+# with a stdout-scrape fallback).
 
 name: zitadel-bench
 
@@ -33,9 +36,17 @@ services:
       retries: 60
 
   zitadel:
-    image: ghcr.io/zitadel/zitadel:v1.80.0-v2.9-amd64   # pinned 2026-08-15
+    # current stable line (2026-08), same generation as Keycloak 26.7 / Hydra 26.2;
+    # v2.71 was two majors behind — benchmarking it would misrepresent Zitadel.
+    # v4 also carries the eventstore/projection performance rework that
+    # Zitadel's own published benchmarks measure.
+    image: ghcr.io/zitadel/zitadel:v4.17.1
     container_name: zitadel-bench-zitadel
-    command: ["start-from-setup", "--masterkeyFromEnv", "--config", "/zitadel.yaml", "--steps", "/setup-steps.yaml"]
+    # start-from-init = init (schemas/tables) -> setup (migrations + FirstInstance)
+    # -> serve, in ONE process. start-from-setup assumes an already-initialized
+    # DB ("Requirements: database is initialized") and fails on a fresh volume
+    # with "relation eventstore.events does not exist".
+    command: ["start-from-init", "--masterkeyFromEnv", "--config", "/zitadel.yaml", "--steps", "/setup-steps.yaml"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,12 +56,13 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - ./zitadel.yaml:/zitadel.yaml:ro
-      - ./setup-steps.yaml:/setup-steps.yaml:ro
-      # machine key material is written by the setup phase to a shared tmpdir
-      - zitadel-machinekey:/machinekey
+      # the RENDERED steps file (placeholders substituted by setup.sh before
+      # `up`; the template itself is never mounted)
+      - ./setup-steps.rendered.yaml:/setup-steps.yaml:ro
+      # FirstInstance.MachineKeyPath/PatPath write here (bind mount so the
+      # non-root container user can create files)
+      - ./machinekey:/machinekey
 
 volumes:
   zitadel-pgdata:
     name: zitadel-bench-pgdata
-  zitadel-machinekey:
-    name: zitadel-bench-machinekey

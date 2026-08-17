@@ -225,7 +225,7 @@ def build_report() -> str:
     for scen, label in SCENARIOS:
         L.append(f"### {label}")
         L.append("")
-        L.append("| 产品 | 稳态 QPS | 稳态档 c | P50 | P95 | P99 | 错误率 |")
+        L.append("| 产品 | 稳态 QPS | 稳态档 c | P50 | P90 | P99 | 错误率 |")  # wrk emits 50/75/90/99 — no P95
         L.append("|---|---|---|---|---|---|---|")
         for prod in PRODUCTS:
             data = all_data[prod].get(scen)
@@ -237,13 +237,13 @@ def build_report() -> str:
                 d = max(data.values(), key=lambda x: x.get("qps") or 0)
                 lat = d.get("latency_us") or {}
                 L.append(f"| {PRODUCT_LABEL[prod]} | {fmt_qps(d.get('qps'))} 无档过错误门 | ? | "
-                         f"{fmt_ms(lat.get('p50'))} | {fmt_ms(lat.get('p95'))} | "
+                         f"{fmt_ms(lat.get('p50'))} | {fmt_ms(lat.get('p90'))} | "
                          f"{fmt_ms(lat.get('p99'))} | {(d.get('error_rate') or 0)*100:.3f}% |")
                 continue
             conn, d = st
             lat = d.get("latency_us") or {}
             L.append(f"| {PRODUCT_LABEL[prod]} | **{fmt_qps(d.get('qps'))}** | c={conn} | "
-                     f"{fmt_ms(lat.get('p50'))} | {fmt_ms(lat.get('p95'))} | {fmt_ms(lat.get('p99'))} | "
+                     f"{fmt_ms(lat.get('p50'))} | {fmt_ms(lat.get('p90'))} | {fmt_ms(lat.get('p99'))} | "
                      f"{(d.get('error_rate') or 0)*100:.4f}% |")
         L.append("")
 
@@ -293,6 +293,12 @@ def build_report() -> str:
         series = ", ".join(f"{v:g}" for v in g["series"])
         L.append(f"- **{PRODUCT_LABEL[prod]}**: {series}")
     L.append("")
+    L.append("> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、AuthForge 平线」**未被本次实测证实**——"
+             "Keycloak（JVM）与 Ory（Go）在本负载下 P99 全程平线（最大/中位 ≤1.08x，现代 GC 并发化后 10s 窗口测不出 STW），"
+             "反倒是 AuthForge 出现少量秒级尖峰（152ms/1480ms 等 5 段）。C++ 无 GC，这些尖峰是环境层停顿"
+             "（WSL2 宿主调度 / PG checkpoint IO），并非运行时 GC——「无 GC 抖动」不能作为对外差异化主张引用本表；"
+             "可作为主张的是绝对 P99 水位（中位 4.4ms vs Ory 27ms / Zitadel 20.5ms）。")
+    L.append("")
 
     L.append("## 附录 A：公平性声明（配置来源与偏离项，AC4）")
     L.append("")
@@ -308,8 +314,13 @@ def build_report() -> str:
              "DSN max_conns=25（D1 对齐）；login/consent URL 指向占位（用官方 admin-API accept 流 headless 驱动用户流）；"
              "自签 TLS 直接服务 public+admin 端口（v26 生产模式强制 https issuer，--dev 非生产配置；serve.tls 为两监听共享；"
              "wrk 连接复用使握手在测量窗口外）")
-    L.append("| Zitadel | zitadel.com/docs/self-hosting/deploy/compose 与 configure | "
-             "单节点精简 compose（去掉官方示例的旁路观测组件）；S2/S3 用 Service User + JWT profile（官方 M2M 路径，token 端点不支持 Basic cc） |")
+    L.append("| Zitadel | zitadel.com/docs/self-hosting/deploy/compose 与 configure（v4.17.1，当前稳定线，与 Keycloak 26 / Hydra 26 同代） | "
+             "单节点精简 compose（去掉官方示例的旁路观测组件）；PG 池 MaxOpenConns=25（D1 对齐）；"
+             "FirstInstance.Features.ImprovedPerformance 全开 1-5（官方文档化的默认实例配置，Zitadel 自家 v4 基准同款基线）；"
+             "S2 = RFC 7523 jwt-bearer 授权（Service User 官方 M2M 路径——token 端点对机器用户不接受 client_credentials+client_assertion）；"
+             "S3 = OIDC app + 私钥 JWT 客户端认证（官方性能建议 #6220：secret 认证每请求做哈希）；"
+             "S5 N/A：机器用户无 refresh token（RFC 6749 §4.4.3）且 password grant 已移除；"
+             "阶梯前投影平复门（mint 2000 token 后 CQRS 投影追赶期间开压会产生 500 风暴） |")
     L.append("")
     L.append("统一压测口径：wrk 4.1.0，阶梯 2→4→8→16→32→64→128，warmup 5s（丢弃）/ measure 10s，"
              "-t = min(cores, conns/16)；driver CPU 均低于 80% 门（超限档在 JSON 中标 limited。")

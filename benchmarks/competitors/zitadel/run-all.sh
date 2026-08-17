@@ -14,7 +14,7 @@ RUNNER="$REPO_ROOT/benchmarks/authforge/run-scenario.sh"
 RESULTS_DIR="$REPO_ROOT/benchmarks/competitors/results"
 mkdir -p "$RESULTS_DIR"
 
-ZITADEL_URL="${ZITADEL_URL:-http://127.0.0.1:8080}"
+ZITADEL_URL="${ZITADEL_URL:-http://localhost:8080}"   # keep host == ExternalDomain (issuer alignment)
 ZA_VERSION="$(cat "$ZA_DIR/lib/generated/product_version.txt" 2>/dev/null || echo unknown)"
 LEVELS=(2 4 8 16 32 64 128)
 
@@ -32,6 +32,28 @@ run_staircase() {
     local lua="$1"; shift || true
     bash "$RUNNER" "$lua" "${LEVELS[@]}" "$@" 2>&1 | sed 's/^/  /'
 }
+
+# --- projection settle gate ---
+# setup.sh mints ~2000 tokens right before this runs; Zitadel's CQRS
+# projections reduce those events in the background and the DB stays hot for
+# a while. Starting the staircase during that catch-up poisons S1/S2 with
+# context-canceled 500s (observed: 99.99% errors at S1 c=16 without this
+# gate). Gate: a 3s discovery smoke at c=2 must show zero non-2xx and zero
+# socket errors before the staircase starts.
+echo "== projection settle gate (discovery smoke must be clean) =="
+SETTLED=0
+for attempt in $(seq 1 20); do
+    OUT="$(WRK_LIB_DIR="$ZA_DIR/lib" wrk -t1 -c2 -d3s \
+        -s "$ZA_DIR/scenarios/s1-discovery.lua" "$ZITADEL_URL" 2>&1 || true)"
+    if ! echo "$OUT" | grep -qE "Non-2xx|Socket errors: [1-9]"; then
+        SETTLED=1
+        echo "   clean after attempt $attempt"
+        break
+    fi
+    echo "   attempt $attempt: still settling ($(echo "$OUT" | grep -oE 'Non-2xx or 3xx responses: [0-9]+|Socket errors:.*' | head -2 | tr '\n' ' '))"
+    sleep 15
+done
+[ "$SETTLED" = "1" ] || { echo "[run-all] ERROR: projections did not settle in 5min — aborting"; exit 1; }
 
 echo "== S1 discovery =="
 run_staircase "$ZA_DIR/scenarios/s1-discovery.lua"
