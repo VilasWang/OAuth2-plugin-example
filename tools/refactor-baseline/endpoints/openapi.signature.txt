@@ -1,6 +1,7 @@
 GET	/.well-known/jwks.json	200	application/json	OpenID Connect,Security	no
+GET	/.well-known/oauth-authorization-server	200	application/json	Discovery,OAuth2	no
 GET	/.well-known/openid-configuration	200	application/json	OpenID Connect	no
-GET	/api/admin/clients	200,401	-	Admin,Clients	yes
+GET	/api/admin/clients	200,401,403	-	Admin,Clients	yes
 POST	/api/admin/clients	201,401	-	Admin,Clients	yes
 GET	/api/admin/clients/{clientId}	200,401,404	-	Admin,Clients	yes
 PUT	/api/admin/clients/{clientId}	200,400,401,404	-	Admin,Clients	yes
@@ -8,15 +9,20 @@ DELETE	/api/admin/clients/{clientId}	200,401,404	-	Admin,Clients	yes
 POST	/api/admin/clients/{clientId}/reset-secret	200,401,404	-	Admin,Clients	yes
 GET	/api/admin/clients/{clientId}/scopes	200,401	-	Admin,Clients	yes
 PUT	/api/admin/clients/{clientId}/scopes	200,400,401	-	Admin,Clients	yes
+GET	/api/admin/dashboard	200,401,403	application/json	Admin,Dashboard	yes
 GET	/api/admin/dashboard/stats	200	application/json	Admin,Dashboard	yes
 GET	/api/admin/logs	200,401	-	Admin,Logs	yes
 GET	/api/admin/oidc/keys	200,401	-	Admin,OIDC	yes
+GET	/api/admin/organizations	200,401,403	application/json	Admin,Organization	yes
+POST	/api/admin/organizations	200,400,401,409	application/json	Admin,Organization	yes
+GET	/api/admin/organizations/{slug}	200,401,404	application/json	Admin,Organization	yes
 GET	/api/admin/roles	200	application/json	Admin,Roles	yes
 POST	/api/admin/roles	201,400,409	-	Admin,Roles	yes
 PUT	/api/admin/roles/{roleId}	200,404	-	Admin,Roles	yes
 DELETE	/api/admin/roles/{roleId}	200,404	-	Admin,Roles	yes
 GET	/api/admin/scopes	200	application/json	Admin,Scopes	yes
 POST	/api/admin/scopes	201,400,409	-	Admin,Scopes	yes
+GET	/api/admin/scopes/resources	200	application/json	Admin,Scopes	yes
 PUT	/api/admin/scopes/{scopeId}	200,404	-	Admin,Scopes	yes
 DELETE	/api/admin/scopes/{scopeId}	200,404	-	Admin,Scopes	yes
 GET	/api/admin/tokens	200,401	-	Admin,Tokens	yes
@@ -24,46 +30,49 @@ POST	/api/admin/tokens/revoke-by-client	200,400,401	-	Admin,Tokens	yes
 POST	/api/admin/tokens/revoke-by-user	200,400,401	-	Admin,Tokens	yes
 DELETE	/api/admin/tokens/{tokenPrefix}	200,401,404	-	Admin,Tokens	yes
 GET	/api/admin/users	200,401	-	Admin,Users	yes
+POST	/api/admin/users	201,400,401,403	-	Admin,Users	yes
 GET	/api/admin/users/{userId}	200,404	application/json	Admin,Users	yes
-PUT	/api/admin/users/{userId}	200,404	-	Admin,Users	yes
-PUT	/api/admin/users/{userId}/disable	200,401,404	-	Admin,Users	yes
+PUT	/api/admin/users/{userId}	200,400,404,409	-	Admin,Users	yes
+DELETE	/api/admin/users/{userId}	200,400,404,409	-	Admin,Users	yes
+PUT	/api/admin/users/{userId}/disable	200,401,404,409	-	Admin,Users	yes
 POST	/api/admin/users/{userId}/enable	200,404	-	Admin,Users	yes
 GET	/api/admin/users/{userId}/roles	200,404	application/json	Admin,Users	yes
-PUT	/api/admin/users/{userId}/roles	200,400	-	Admin,Users	yes
+PUT	/api/admin/users/{userId}/roles	200,400,409	-	Admin,Users	yes
 POST	/api/github/login	200,400,502	application/json	External Auth,GitHub	no
 POST	/api/google/login	200,400,502	application/json	External Auth,Google	no
-GET	/api/me	200,401,404	-	User Profile	yes
+GET	/api/me	200,401,403,404	-	User Profile	yes
 DELETE	/api/me	200,401,404	-	User Profile	yes
 GET	/api/me/authorized-apps	200,401	-	User Profile	yes
 DELETE	/api/me/authorized-apps/{clientId}	200,401,404	-	User Profile	yes
+POST	/api/me/mfa/disable	200,401	application/json	MFA	yes
+POST	/api/me/mfa/setup	200,401	application/json	MFA	yes
+POST	/api/me/mfa/verify	200,400,401	application/json	MFA	yes
 PUT	/api/me/password	200,400,401,404	-	User Profile	yes
 GET	/api/me/webauthn/credentials	200,401	-	WebAuthn	yes
 POST	/api/me/webauthn/register/begin	200,401	-	WebAuthn	yes
 POST	/api/me/webauthn/register/finish	201,400,401	-	WebAuthn	yes
-GET	/api/orgs	200,401	-	Organization	yes
-POST	/api/orgs	201,400,401,409	-	Organization	yes
-POST	/api/orgs/{orgId}/users	200,401	-	Organization	yes
 POST	/api/password-reset/confirm	200,400	-	User Verification	no
 POST	/api/password-reset/request	200,400	-	User Verification	no
 POST	/api/register	200,400	application/json	Registration,User	no
 GET	/api/verify-email	200,400	-	User Verification	no
 POST	/api/verify-email/resend	200,400,401,404	-	User Verification	no
 POST	/api/wechat/login	200,400,502	application/json	External Auth,WeChat	no
-GET	/health	200	application/json	System	no
+GET	/health	200,503	application/json	System	no
+GET	/health/live	200	application/json	System	no
+GET	/health/ready	200,503	application/json	System	no
 GET	/oauth2/authorize	302,400	-	Authorization,OAuth2	no
 POST	/oauth2/consent	302	-	Consent,OAuth2	no
-GET	/oauth2/device/verify	200	-	Device Flow,OAuth2	no
-POST	/oauth2/device/verify	200	-	Device Flow,OAuth2	no
-POST	/oauth2/device_authorization	200,400,401	-	Device Flow,OAuth2	yes
-POST	/oauth2/introspect	200,400,401	application/json	OAuth2,Token	yes
-POST	/oauth2/login	200,302,401	application/json	Authentication,OAuth2	no
-POST	/oauth2/mfa/disable	200,401	-	MFA	yes
-POST	/oauth2/mfa/setup	200,401	-	MFA	yes
-POST	/oauth2/mfa/setup/verify	200,400,401	-	MFA	yes
-POST	/oauth2/mfa/verify	200,400,401	-	MFA	no
+POST	/oauth2/device/approve	200,400,401,403	application/json	Device Flow,OAuth2	yes
+POST	/oauth2/device_authorization	200,400,401,500	application/json	Device Flow,OAuth2	no
+GET	/oauth2/end_session	200,302,400	application/json	OAuth2,OIDC	no
+POST	/oauth2/end_session	200,302,400	application/json	OAuth2,OIDC	no
+POST	/oauth2/introspect	200,400,401,429	application/json	OAuth2,Token	yes
+POST	/oauth2/login	200,302,400,401,403	application/json	Authentication,OAuth2	no
+POST	/oauth2/logout	200,401	application/json	OAuth2,Session	yes
+POST	/oauth2/mfa/verify	200,400,401	application/json	MFA	no
 POST	/oauth2/register	201,400,401	-	Dynamic Registration,OAuth2	yes
-POST	/oauth2/revoke	200,400,401	application/json	OAuth2,Token	yes
-POST	/oauth2/token	200,400,401	application/json	OAuth2,Token	no
-GET	/oauth2/userinfo	200,400,401,404	application/json	OAuth2,User	yes
+POST	/oauth2/revoke	200,400,401,429	application/json	OAuth2,Token	yes
+POST	/oauth2/token	200,400,401,429	application/json	OAuth2,Token	no
+GET	/oauth2/userinfo	200,400,401,403,404	application/json	OAuth2,User	yes
 POST	/oauth2/webauthn/authenticate/begin	200	-	WebAuthn	no
 POST	/oauth2/webauthn/authenticate/finish	200,400,401	-	WebAuthn	no
