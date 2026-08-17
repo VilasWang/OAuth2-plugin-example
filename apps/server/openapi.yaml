@@ -8,7 +8,7 @@
 #     (modulo documented exclusions), and info.version == cmake/Version.cmake.
 #   - .github/workflows/openapi-governance.yml runs `oasdiff breaking` against
 #     the base branch; breaking changes require a major bump or an entry in
-#     tools/openapi-governance/oasdiff-breaking-ignore.yaml.
+#     tools/openapi-governance/oasdiff-breaking-ignore.md.
 #   - After editing controllers or this file, run:
 #       python tools/openapi-governance/check_spec_governance.py
 #       python -m openapi_spec_validator apps/server/openapi.yaml
@@ -2692,8 +2692,8 @@ paths:
                 success:
                   summary: Login succeeded (json=true)
                   value:
-                    status: success
-                    redirect_uri: http://127.0.0.1:5173/callback?code=xyz123
+                    code: xyz123
+                    location: http://127.0.0.1:5173/callback?code=xyz123&state=abc
                 mfa_required:
                   summary: MFA challenge required
                   value:

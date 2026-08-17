@@ -13,3 +13,8 @@ paths:
       responses:
         '200':
           description: ok
+  /y:
+    put:
+      responses:
+        '200':
+          description: ok

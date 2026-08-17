@@ -21,5 +21,8 @@ class MiniController
     );
     ADD_METHOD_TO(MiniController::showLoginPage, "/login", ::drogon::Get);
     ADD_METHOD_TO(MiniController::docs, "/docs/api/", ::drogon::Get);
+    // Bare method name (no ::drogon:: prefix) exercises the second route
+    // regex branch.
+    ADD_METHOD_TO(MiniController::putY, "/y", Put);
     METHOD_LIST_END
 };

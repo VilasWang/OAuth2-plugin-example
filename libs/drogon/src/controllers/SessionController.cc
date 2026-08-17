@@ -166,8 +166,8 @@ struct OAuth2ControllerDocs
         // Login endpoint
         {
             Json::Value successExample;
-            successExample["status"] = "success";
-            successExample["redirect_uri"] = "http://127.0.0.1:5173/callback?code=xyz123";
+            successExample["code"] = "xyz123";
+            successExample["location"] = "http://127.0.0.1:5173/callback?code=xyz123&state=abc";
 
             Json::Value errorExample;
             errorExample["error"] = "invalid_client";

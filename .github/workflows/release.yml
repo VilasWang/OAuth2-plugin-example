@@ -68,16 +68,12 @@ jobs:
             exit 1
           fi
 
-      - name: OpenAPI info.version must match the repo version
+      - name: OpenAPI spec governance check (version sync + 3-layer consistency)
         # Spec-governance M0 backstop: the published spec must carry the
-        # released version (PR-side gate: tools/openapi-governance/
-        # check_spec_governance.py).
-        run: |
-          yaml_version=$(python3 -c "import yaml; print(yaml.safe_load(open('apps/server/openapi.yaml'))['info']['version'])")
-          if [ "$yaml_version" != "${{ steps.ver.outputs.version }}" ]; then
-            echo "::error::apps/server/openapi.yaml info.version ($yaml_version) != cmake/Version.cmake (${{ steps.ver.outputs.version }})"
-            exit 1
-          fi
+        # released version. Uses the PyYAML-optional gate script (no hard
+        # dependency on runner-image Python packages) and re-validates the
+        # full routes/docs/yaml consistency on the release ref.
+        run: python3 tools/openapi-governance/check_spec_governance.py
 
       - name: API surface frozen at this version (api-diff)
         # Also cross-checks cmake/Version.cmake vs CMakeLists.txt vs conanfile.py.
