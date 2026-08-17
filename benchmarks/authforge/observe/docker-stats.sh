@@ -66,15 +66,23 @@ while true; do
     # docker stats with --no-stream (single sample, then exit).
     # --format produces one line per container with tab-separated fields.
     # We target the benchmark-relevant containers.
+    # NOTE: the glob may contain '|' alternatives (the authforge default has
+    # three). Bash 5.2 no longer expands an unquoted variable WITH '|' into
+    # multiple case alternatives (empirically no match at all) — split the
+    # pattern and test each alternative individually.
     docker stats --no-stream \
         --format "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}" \
         2>/dev/null | while IFS=$'\t' read -r name cpu mem_usage mem_pct net_io block_io; do
             # Only record the benchmark-relevant containers
-            case "$name" in
-                $CONTAINER_GLOB)
-                    echo -e "${TS_ISO}\t${TS_EPOCH}\t${name}\t${cpu}\t${mem_usage}\t-\t${net_io}\t${block_io}" >> "$OUT_FILE"
-                    ;;
-            esac
+            IFS='|' read -ra _globs <<< "$CONTAINER_GLOB"
+            for _g in "${_globs[@]}"; do
+                case "$name" in
+                    $_g)
+                        echo -e "${TS_ISO}\t${TS_EPOCH}\t${name}\t${cpu}\t${mem_usage}\t-\t${net_io}\t${block_io}" >> "$OUT_FILE"
+                        break
+                        ;;
+                esac
+            done
         done
 
     sleep 1
