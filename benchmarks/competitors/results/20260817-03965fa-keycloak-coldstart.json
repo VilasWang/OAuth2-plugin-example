@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "kind": "coldstart",
+  "product": "keycloak",
+  "product_version": "26.7.1",
+  "fresh": {
+    "mode": "fresh",
+    "runs": [
+      {
+        "run": 1,
+        "seconds": 20.34,
+        "rss_at_ready": "697.3MiB"
+      }
+    ]
+  },
+  "restart": {
+    "mode": "restart",
+    "runs": [
+      {
+        "run": 1,
+        "seconds": 5.52,
+        "rss_at_ready": "488.2MiB"
+      }
+    ]
+  },
+  "env": {
+    "git_sha": "03965fa",
+    "network": "localhost-cross-container"
+  }
+}

@@ -242,14 +242,28 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 
 ## 六、验收标准（可勾选）
 
-| # | 验收项 | 衡量 |
-|---|--------|------|
-| AC1 | **四家同口径对比表**：S1/S2/S3/S5/S6 × {QPS, P99, RSS, 冷启动} 入仓 `benchmarks/competitors/results/COMPARISON.md`，每行带产品版本号 | COMPARISON.md |
-| AC2 | **GC 抖动曲线**：四家 5 分钟 P99 时间序列 JSON + 对比小节（AuthForge 是否平线、Keycloak 是否有周期尖峰） | gcjitter JSON + 小节 |
-| AC3 | **可复现**：`run-comparison.sh` 一键串行跑四家；README 含环境要求与复现步骤 | 复现指引 |
-| AC4 | **公平性声明**：每家竞品的配置来源（官方文档链接）、偏离默认的每一项、warmup 差异（Keycloak 60s）均显式标注 | COMPARISON.md 附录 + setup.sh 注释 |
-| AC5 | **诚实修订**：调研报告 §3.1 竞品列更新为"同环境实测"，§3.2 卖点若被证伪则收敛 | research.md 更新 |
-| AC6 | **S4 排除声明**：COMPARISON.md 注明 auth_code 场景的方法限制 | 限制小节 |
+> ✅ 2026-08-17 全部通过（M0–M3 交付，四产品同 session 实测 2026-08-17，COMPARISON.md 由 gen-comparison.py 生成）。
+
+| # | 验收项 | 衡量 | 状态 |
+|---|--------|------|------|
+| AC1 | **四家同口径对比表**：S1/S2/S3/S5/S6 × {QPS, P99, RSS, 冷启动} 入仓 `benchmarks/competitors/results/COMPARISON.md`，每行带产品版本号 | COMPARISON.md | ✅ |
+| AC2 | **GC 抖动曲线**：四家 5 分钟 P99 时间序列 JSON + 对比小节（AuthForge 是否平线、Keycloak 是否有周期尖峰） | gcjitter JSON + 小节 | ✅（结论与预期相反，见 G4 注记：GC 语言全平线、AuthForge 有环境层秒级尖峰——已在报告与研究报告中诚实修订） |
+| AC3 | **可复现**：`run-comparison.sh` 一键串行跑四家；README 含环境要求与复现步骤 | 复现指引 | ✅（`benchmarks/competitors/README.md`） |
+| AC4 | **公平性声明**：每家竞品的配置来源（官方文档链接）、偏离默认的每一项、warmup 差异（Keycloak 60s）均显式标注 | COMPARISON.md 附录 + setup.sh 注释 | ✅ |
+| AC5 | **诚实修订**：调研报告 §3.1 竞品列更新为"同环境实测"，§3.2 卖点若被证伪则收敛 | research.md 更新 | ✅（S5/S6 与 GC 抖动主张按实测收敛，见 §3.1/3.2 修订） |
+| AC6 | **S4 排除声明**：COMPARISON.md 注明 auth_code 场景的方法限制 | 限制小节 | ✅（附录 B.1） |
+
+### 实施勘误记录（v1.2，2026-08-17 落地时修订）
+
+实施过程中偏离本设计 v1.1 的决策，全部为公平性/可行性修正：
+
+1. **Zitadel 版本 v2.71.19 → v4.17.1**：v2.71 已落后两个大版本（当前稳定线 v4，与 Keycloak 26 / Hydra 26 同代），且 v4 为 eventstore/投影性能重写。测旧版会失真贬低 Zitadel，不可辩护。首次尝试的 `v1.80.0-v2.9-amd64` tag 实为 v1 时代 CockroachDB-only 镜像，废弃。
+2. **Zitadel S2 认证路径修正**：设计 D3 原表述"client_assertion（JWT profile）"在 v2.71/v4 实测均不可用——Zitadel token 端点对机器用户的 client_credentials 只走 Basic-secret（每请求哈希），官方 M2M 路径是 **RFC 7523 jwt-bearer 授权**（`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=…`）。S2/S3 的等价性标注已按此更新。
+3. **Zitadel S3 认证换私钥**：#6220 官方建议——secret 认证每请求做密码哈希（CPU 瓶颈）；改用 OIDC app + private_key_jwt。实测对比：Basic 路径 S3 无法过错误门，私钥路径 2.9k QPS 零错误。
+4. **投影平复门**：mint ~2000 token 后立即开压，Zitadel CQRS 投影追赶会使 S1 出现 500 风暴（c=16 达 99.99% 错误）。run-all 前置 discovery 冒烟门（clean 才开跑），消除该伪影。
+5. **S5 Zitadel = N/A**（DG-2 提前裁决）：机器用户无 refresh token（RFC 6749 §4.4.3）、password grant 已移除、Session API→auth_code 属用户交互流（D4 同类排除理由）。限制小节注明。
+6. **docker-stats.sh 竖线 glob 回归修复**：bash 5.2 下 `case $x in $GLOB)`（GLOB 含 `|`）不再展开为多分支——AuthForge 侧 RSS 采样自 M0 参数化起一直空采；改为拆分逐个匹配。该回归同时解释了 v1.1 后 AuthForge RSS 数据缺失。
+7. **AuthForge S2 scope 跟随 #43**：seed 摒弃 legacy `read/write`，bench 校验与 s2 lua 改用 `tokens:read`（同码同测，非口径变化）。
 
 ---
 

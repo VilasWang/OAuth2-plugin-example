@@ -20,7 +20,7 @@ Its purpose is to turn the load-bearing performance claims in the
 | **Scenarios (M2)** | **S3 introspect** (active-token RS256 verify) + **S4 auth_code+PKCE** (multi-step login→token, heaviest path) |
 | **Scenarios (M3)** | **S5 refresh_token** (rotation, one-shot RT pool) + **S6 userinfo** (bearer filter + user lookup) |
 | **M3 additions** | Resource observation (`--observe`: docker-stats + /metrics scraping), cold-start measurement |
-| **Out of scope (M4+)** | Load-bearing-assumption verification report, competitor comparison (Phase 0.5) |
+| **Phase 0.5 (delivered)** | Same-environment competitor comparison (Keycloak / Ory Hydra / Zitadel) — see [competitors/README.md](competitors/README.md) and [results/COMPARISON.md](competitors/results/COMPARISON.md) |
 
 ### Scenario summary
 
