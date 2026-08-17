@@ -1,0 +1,5 @@
+# Fixture for check_spec_governance.py --selftest.
+set(OAUTH2_PROJECT_VERSION_MAJOR 1)
+set(OAUTH2_PROJECT_VERSION_MINOR 2)
+set(OAUTH2_PROJECT_VERSION_PATCH 0)
+set(OAUTH2_PROJECT_VERSION "1.2.0")
