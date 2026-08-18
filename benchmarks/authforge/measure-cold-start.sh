@@ -45,6 +45,9 @@ COMPOSE_FILE_ABS="$REPO_ROOT/${COMPOSE_FILE_REL:-deploy/docker/docker-compose.ym
 OVERRIDE_FILE="$(bash "$REPO_ROOT/scripts/docker/compose-override.sh" "$COMPOSE_FILE_ABS" 2>/dev/null || true)"
 COMPOSE_ARGS=(-f "$COMPOSE_FILE_ABS")
 [ -n "$OVERRIDE_FILE" ] && [ -f "$OVERRIDE_FILE" ] && COMPOSE_ARGS+=(-f "$OVERRIDE_FILE")
+# bench overlay (PG tuning + host network), same as setup.sh
+BENCH_COMPOSE_FILE="$BENCH_DIR/docker-compose.bench.yml"
+[ -f "$BENCH_COMPOSE_FILE" ] && COMPOSE_ARGS+=(-f "$BENCH_COMPOSE_FILE")
 cleanup() { rm -f "$OVERRIDE_FILE"; }
 trap cleanup EXIT
 

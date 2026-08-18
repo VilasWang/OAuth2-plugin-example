@@ -24,6 +24,13 @@ source "$PATHS_ENV_FILE"
 set +a
 COMPOSE_FILE_ABS="$REPO_ROOT/$COMPOSE_FILE_REL"
 
+# Same compose layers as setup.sh (base + bench overlay): `down` must see the
+# identical service definitions the stack was brought up with, or host-network
+# services leak as orphans.
+COMPOSE_ARGS=(-f "$COMPOSE_FILE_ABS")
+BENCH_COMPOSE_FILE="$BENCH_DIR/docker-compose.bench.yml"
+[ -f "$BENCH_COMPOSE_FILE" ] && COMPOSE_ARGS+=(-f "$BENCH_COMPOSE_FILE")
+
 # cd to repo root before docker compose (see setup.sh for rationale: build
 # contexts and relative paths resolve against CWD, not --project-directory).
 cd "$REPO_ROOT"
@@ -39,10 +46,10 @@ fi
 
 if [ "${KEEP_VOLUME:-0}" = "1" ]; then
     echo "[teardown] stopping stack (volumes kept, KEEP_VOLUME=1)..."
-    docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" down
+    docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" down
 else
     echo "[teardown] stopping stack + removing volumes (deterministic reset)..."
-    docker compose -f "$COMPOSE_FILE_ABS" --project-directory "$REPO_ROOT" down -v \
+    docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" down -v \
         --remove-orphans
 fi
 echo "[teardown] done."

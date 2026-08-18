@@ -6,6 +6,10 @@
 # PromExporter plugin). We poll it at 1s intervals and write each scrape
 # (timestamped) to the output file. The actual labels are {endpoint},
 # {client_id}, {error} — NOT {http_status} (see Metrics.cc).
+# NOTE: config.bench.json no longer loads PromExporter (quick-win micro-opt,
+# noncode-performance-optimization.md §二.5) — /metrics returns 404 under the
+# bench config. Use --observe-metrics only with a config that keeps the plugin
+# (dev config.json, or re-add the plugin to the bench config).
 #
 # Usage (typically invoked by run-scenario.sh --observe):
 #   bash observe/scrape-metrics.sh <target_url> <output.txt> [duration]
