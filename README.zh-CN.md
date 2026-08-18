@@ -197,6 +197,24 @@ target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::me
 
 > v1.x 对公共头（`include/authforge/**`）承诺**源码级 SemVer**（CI 中 api-diff 门禁强制），不承诺二进制 ABI。第三方依赖请用仓库的 `conanfile.py` + `conan.lock` 解析。详见 [SDK 集成指南](docs/backend/sdk-integration-guide.md) · [SDK 运行时契约](docs/backend/sdk-runtime-contract.md)；参考消费方：[`examples/full-stack-host`](examples/full-stack-host)、[`examples/third-party-host`](examples/third-party-host)（均由 CI 持续验证）。
 
+### 路径 D — 客户端 SDK（Python / Go）
+
+非 C++ 服务通过 HTTP API 使用 AuthForge：类型化生成客户端 + 手写 auth 层（token 生命周期绝不模板化生成）：
+
+```python
+# Python（发行名 authforge-oauth2，导入名 authforge）
+from authforge import m2m_client
+
+client = m2m_client("http://localhost:5555", "backend-svc", "…", scopes=["tokens:read"])
+```
+
+```go
+// Go（github.com/lucaswang420/authforge/clients/go）
+client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…", []string{"tokens:read"})
+```
+
+两者均从单一源 OpenAPI spec（`apps/server/openapi.yaml`）生成，CI 有新鲜度漂移门。见 [`clients/python`](clients/python) 与 [`clients/go`](clients/go)。包管理器发布（PyPI / Go module proxy）随首个携带它们的 tag 版本启动。
+
 ### 默认账号
 
 | 用户名 | 密码 | 角色 |

@@ -1,0 +1,92 @@
+name: Client SDKs
+
+# Generated-code freshness + unit tests for clients/python and clients/go
+# (client-sdk M1/M2, design: docs/productization-evolution/in-progress/
+# client-sdk-facility-design.md section 11.5).
+#
+# Kept OUTSIDE ci.yml's static-checks on purpose: that job is source-only
+# (no toolchains); this workflow needs Python + Go + the pinned generators.
+# Path-filtered so unrelated PRs are not affected.
+#
+# Local equivalents:
+#   python tools/clients/regen_clients.py --check --python-only
+#   python tools/clients/regen_clients.py --check --go-only
+#   (cd clients/python && pytest)
+#   (cd clients/go && go test ./...)
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "clients/**"
+      - "tools/clients/**"
+      - "apps/server/openapi.yaml"
+      - ".github/workflows/clients-sdk.yml"
+  push:
+    branches: ["master"]
+    paths:
+      - "clients/**"
+      - "tools/clients/**"
+      - "apps/server/openapi.yaml"
+      - ".github/workflows/clients-sdk.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: clients-sdk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python client (drift + unit)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: clients/python
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned generator + package (dev extras)
+        run: |
+          pip install openapi-python-client==0.29.0
+          pip install -e '.[dev]'
+
+      - name: Drift gate (committed generated tree must match the spec)
+        working-directory: .
+        run: python tools/clients/regen_clients.py --check --python-only
+
+      - name: Unit tests (MockTransport; integration suite auto-skips)
+        run: pytest tests
+
+  go:
+    name: Go client (drift + build + unit)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: clients/go
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: clients/go/go.mod
+          cache: true
+          cache-dependency-path: clients/go/go.sum
+
+      - name: Build + vet
+        run: |
+          go build ./...
+          go vet ./...
+          test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Drift gate (committed generated tree must match the spec)
+        working-directory: .
+        run: python tools/clients/regen_clients.py --check --go-only
+
+      - name: Unit tests (httptest; integration suite behind -tags integration)
+        run: go test ./...

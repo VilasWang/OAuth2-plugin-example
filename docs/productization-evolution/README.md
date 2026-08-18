@@ -65,7 +65,14 @@ productization-evolution/
 
 | 文档 | 对应任务 | 前置依赖 | GitHub Issue |
 |------|----------|----------|-------------|
-| [client-sdk-facility-design.md](../in-progress/client-sdk-facility-design.md) | Phase 1 多语言客户端 SDK | ~~Layer 1 spec 治理~~ — #41 已修复，spec 治理可启动 | ~~#41~~ 已关闭 |
+| [openapi-spec-governance-plan.md](todo/openapi-spec-governance-plan.md) | Phase 1 Layer 1 spec 治理（M0） | ✅ 已执行完毕（PR #63 合并，v1.2.0）——文件暂存 todo/，待归档 done/ | ~~#41~~ 已关闭 |
+
+### 进行中（in-progress/）
+
+| 文档 | 对应任务 | 状态 | 下一步 |
+|------|----------|------|--------|
+| [client-sdk-facility-design.md](in-progress/client-sdk-facility-design.md) | Phase 1 多语言客户端 SDK | M0（spec 治理）已合并 v1.2.0；M1 Python + M2 Go + M3 接线 + M4 文档已实现（2026-08-18，待合并） | PyPI 项目注册 + secret 配置；发布后 AC7 冒烟 |
+| [client-sdk-implementation-plan.md](in-progress/client-sdk-implementation-plan.md) | 客户端 SDK 实施计划（M1-M4） | 执行中（2026-08-18） | 随 PR 合并收尾 |
 
 ## 与相关文档的关系
 

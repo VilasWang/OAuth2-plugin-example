@@ -1,6 +1,6 @@
 # 产品化演进进展总览
 
-> **更新日期**: 2026-08-17
+> **更新日期**: 2026-08-18
 > **维护约定**: 每次完成一个工作项或里程碑后更新本文件。开始新工作前先查本文件确认当前状态。
 > **上游规划**: [productization-evolution-plan.md](productization-evolution-plan.md)（总体路线图）
 > **代码依据**: [iam-architecture-audit.md](iam-architecture-audit.md)（IAM 业务能力审计）
@@ -14,7 +14,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
 | **Phase 0** — 可信度基线 | ✅ 基本完成 | ~90% | benchmark M1–M4 全部交付（40 JSON + 承重验证报告）；**承重假设裁决：QPS ⚠️接近/可外推达标、P99 ✅低并发达成、内存 ✅SDK 口径远超标（实测 2.5 MB peak WS）、冷启动 ✅观测达成（~4s）**；竞品对比（Phase 0.5）待做 |
-| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~20% | **spec 治理（M0）已实现（待合并）——三层端点对账 + P0 schema 补齐 + 一致性门 + oasdiff 破坏性变更门，Python 客户端生成验收通过**；C1 客户端 SDK（M1 Python）现已解除阻塞可启动；文档站/博客待做 |
+| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~45% | **spec 治理（M0）已合并（v1.2.0）**；**C1 客户端 SDK 已实现（M1 Python + M2 Go + M3 接线 + M4 文档，2026-08-18 待合并）**；文档站/博客/README 徽章待做 |
 | **Phase 2** — 企业版 | 🟡 快速推进 | ~45% | #42 缓存层 Phase 1+2 已交付；#43 授权模型已实现；**用户管理补全已实现（PR #52）**；**Backchannel Logout 后端已交付（PR #50）**；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户待做 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
 
@@ -66,9 +66,8 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 工作项 | 状态 | 完成证据 / 阻塞 | 下一步 |
 |--------|------|----------------|--------|
 | **独立文档站**（Docusaurus/VitePress） | ⬜ 未开始 | Phase 0 数据已落地，不再阻塞 | 选型 + 立项 |
-| **OpenAPI spec 治理**（Layer 1 前置） | ⬜ 未开始 | ~~#41 阻塞~~ → 已修复（`de03a19` + `b99ef5b`）；死孤儿 openapi.json 已删（`db146af`） | 定 YAML 单源 + YAML↔代码一致性门 + oasdiff 门 |
-| **Python 客户端 SDK** | ⬜ 未开始 | 阻塞于 spec 治理（Layer 1） | openapi-python-client 生成 + 手写 auth 层 |
-| **Go 客户端 SDK** | ⬜ 未开始 | 阻塞于 spec 治理（Layer 1） | oapi-codegen 生成 + 手写 auth 层 |
+| **OpenAPI spec 治理**（Layer 1 前置） | ✅ 已完成 | PR #63 已合并（v1.2.0）：三层端点对账（82 路由=80 文档=78 YAML+例外）+ P0 schema 补齐 + `check_spec_governance.py` 一致性门（CI static-checks）+ oasdiff v1.29.1 破坏性变更门（openapi-governance.yml）+ info.version 联动 | 维护例外清单 |
+| **Python + Go 客户端 SDK**（C1） | ✅ 已实现（2026-08-18，待合并） | `clients/python`（openapi-python-client 0.29.0，25 单测）+ `clients/go`（oapi-codegen v2.8.0，单测 G1-G8）+ 漂移门 `tools/clients/regen_clients.py` + CI `clients-sdk.yml` + release.yml 发布接线（PyPI 步骤级 secret 门控 + Go 嵌套 tag）；发行名 `authforge-oauth2`（PyPI `authforge` 被占用）；顺带修 spec：OAuth2Error 枚举 +RFC 6750 两码 | PyPI 项目注册 + secret 配置（人工一次性）；发布后 AC7 冒烟 |
 | **README 性能徽章** | ⬜ 未开始 | Phase 0 数据已落地，可据实测标注 | 用 SUMMARY.md 实测数字 |
 | **首发技术博客 + 基准报告** | ⬜ 未开始 | Phase 0 数据已落地 | 用 SUMMARY.md 实测数字 |
 | **TechEmpower 提交** | ⬜ 未开始 | Phase 0 数据已落地 | — |

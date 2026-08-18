@@ -197,6 +197,24 @@ target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::me
 
 > v1.x promises **source-level SemVer** for the public headers (`include/authforge/**`), enforced by an api-diff gate in CI — no binary ABI guarantee. Resolve third-party dependencies with the repository's `conanfile.py` + `conan.lock`. Details: [SDK Integration Guide](docs/backend/sdk-integration-guide.md) · [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md); reference consumers: [`examples/full-stack-host`](examples/full-stack-host), [`examples/third-party-host`](examples/third-party-host) (both CI-verified).
 
+### Path D — Client SDKs (Python / Go)
+
+Non-C++ services talk to AuthForge over its HTTP API with generated, typed clients plus a handwritten auth layer (token lifecycle is never templated):
+
+```python
+# Python (distribution authforge-oauth2, import authforge)
+from authforge import m2m_client
+
+client = m2m_client("http://localhost:5555", "backend-svc", "…", scopes=["tokens:read"])
+```
+
+```go
+// Go (github.com/lucaswang420/authforge/clients/go)
+client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…", []string{"tokens:read"})
+```
+
+Both are generated from the single-source OpenAPI spec (`apps/server/openapi.yaml`) with a CI freshness gate. See [`clients/python`](clients/python) and [`clients/go`](clients/go). Package registry publishing (PyPI / Go module proxy) starts with the first tagged release shipping them.
+
 ### Default Credentials
 
 | Username | Password | Role |
