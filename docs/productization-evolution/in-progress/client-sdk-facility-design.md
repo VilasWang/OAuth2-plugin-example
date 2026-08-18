@@ -269,10 +269,10 @@ clients/
 | ✅ AC1 | 死孤儿删除，全仓零残留引用 | grep 兜底 |
 | ✅ AC2 | YAML↔代码一致性门在 CI 生效：故意从 YAML 漏一个端点 → CI fail | CI 故障注入测试 |
 | ✅ AC3 | oasdiff 破坏性变更门在 CI 生效：故意删一个路径 → CI fail 且提示要求升 major | 同上 |
-| ✅ AC4 | `clients/python` + `clients/go` 各能 `gen-sdk` 生成、漂移门通过、`make gen-sdk && make test-sdk` 绿 | 本地 + CI |
-| ✅ AC5 | 每语言 auth 层跑通 client_credentials 流（对本地全栈 target 实测，复用基准设计的 target-boot） | auth 层测试绿 |
-| ✅ AC6 | 漂移门生效：手动改 `generated/` 一行 → CI 报漂移 | 故障注入 |
-| ✅ AC7 | Python 客户端能 `pip install` 并发一个 token 请求；Go 客户端能 `go get` 并发一个 token 请求（验证 release tag 自包含） | 发布后冒烟 |
+| ✅ AC4 | `clients/python` + `clients/go` 各能再生成、漂移门通过、两语言单测绿（工具落点为 `python tools/clients/regen_clients.py [--check]`，§11.5 取代原 `make gen-sdk` 设想） | 本地 + CI（`clients-sdk.yml`），2026-08-18 落实 |
+| ✅ AC5 | 每语言 auth 层跑通 client_credentials 流（对本地全栈实测：token → introspect active → discovery → M2M userinfo 401 → 错 secret 401，用例 I1-I5） | `tests/integration`（env 门控）+ 单测矩阵，2026-08-18 落实 |
+| ✅ AC6 | 漂移门生效：生成物与 spec 不一致 → `--check` exit 1（regen 脚本 `--selftest` 内含故障注入用例） | selftest + CI |
+| ⬜ AC7 | Python 客户端能 `pip install authforge-oauth2` 并发一个 token 请求；Go 客户端能 `go get .../clients/go@vX.Y.Z`（验证 release tag 自包含） | **发布后冒烟**——流水线已接线（release.yml `sdk-python` job + Go 嵌套 tag），待 PyPI 项目注册 + `PYPI_API_TOKEN` secret + 下一 tag（§11.6） |
 | ✅ AC8 | **YAML 内容补齐**：6 个核心 OAuth2 端点（`/oauth2/token`、`/introspect`、`/revoke`、`/userinfo`、`/.well-known/openid-configuration`、`/oauth2/login`）有完整 requestBody + response schema；`clientCredentialsAuth` scheme 就位；从 YAML 生成的客户端能发出合法 token 请求（无需手填表单字段） | M0 验收（阻塞 M1） |
 
 ---

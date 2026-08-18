@@ -108,16 +108,13 @@ benchmark M4 报告（`benchmarks/results/SUMMARY.md`）产出了实测数据，
 
 ### 第三梯队：Phase 1 核心交付（第一梯队完成后启动，6–12 周）
 
-#### C1. Python + Go 客户端 SDK
+#### ~~C1. Python + Go 客户端 SDK~~ ✅ 已实现（2026-08-18，待合并）
 
-> **设计文档**: [in-progress/client-sdk-facility-design.md](../in-progress/client-sdk-facility-design.md)
-> **前置**: A1 spec 治理完成
-
-**实施步骤**:
-1. M1: openapi-python-client 生成 + 手写 auth 层（httpx transport）
-2. M2: oapi-codegen 生成 Go 客户端 + 手写 auth 层（golang.org/x/oauth2/clientcredentials）
-3. M3: 发布到 PyPI / Go module proxy
-4. M4: 端到端文档 + 基准复现示例
+> **设计文档**: [in-progress/client-sdk-facility-design.md](in-progress/client-sdk-facility-design.md)（§十一 M1/M2 修订）+ [in-progress/client-sdk-implementation-plan.md](in-progress/client-sdk-implementation-plan.md)（实施计划）
+> **前置**: A1 spec 治理 ✅（已合并，v1.2.0）
+> **交付内容**（分支 `feat/client-sdk-python-go`）: M1 Python（`clients/python`：openapi-python-client 0.29.0 生成 157 文件 + 手写 auth 层——client_credentials 自动刷新/401 重试、authorization_code+PKCE、introspect Basic 客户端；25 单测）+ M2 Go（`clients/go`：oapi-codegen v2.8.0 生成 + x/oauth2 clientcredentials（AuthStyleInHeader，F-017）+ authcode/PKCE；单测 G1-G8）+ 漂移门 `tools/clients/regen_clients.py`（pin 版本 + `--check` + 版本联动）+ CI `clients-sdk.yml` + M3 接线（release.yml：sdk-python job（PYPI_API_TOKEN 步骤级门控）+ Go 嵌套 tag `clients/go/vX.Y.Z`）+ M4（双语 README + 端到端示例 `clients/python/examples/`）。
+> **关键偏离与发现**: ① PyPI `authforge`/`authforge-sdk` 均被无关项目占用 → 发行名 `authforge-oauth2`（导入名 `authforge`）；② Go 子目录模块需嵌套 tag，并非"零流水线工作"（评审阻塞项）；③ spec bug 顺带修复：`OAuth2Error` 枚举补 `invalid_token`/`insufficient_scope`（RFC 6750 §3.1——否则生成客户端解析 userinfo 真实 401 时抛 ValueError；oasdiff 判定 24 warning / 0 breaking error）。
+> **待收尾**: PyPI 首次发布需人工前置（注册项目 + 配 `PYPI_API_TOKEN` secret）；`pip install authforge-oauth2` / `go get ...@vX.Y.Z` 冒烟 = 发布验收（AC7），随下一 tag 验证。
 
 #### C2. 独立文档站（Docusaurus）
 
