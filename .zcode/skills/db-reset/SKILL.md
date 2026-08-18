@@ -41,7 +41,7 @@ psql -h localhost -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
 
 ### 3. 执行 Migration 脚本
 
-数据库 schema 统一通过 `apps/server/migrations/` 目录管理（V001–V024，共 24 个文件）。
+数据库 schema 统一通过 `apps/server/migrations/` 目录管理（V001–V025，共 25 个文件）。
 
 ```powershell
 $env:PGPASSWORD = "123456"
@@ -76,7 +76,7 @@ $env:PGPASSWORD = $null
 
 ```
 apps/server/
-├── migrations/          # Schema 定义（按版本顺序执行，V001–V024 共 24 个文件）
+├── migrations/          # Schema 定义（按版本顺序执行，V001–V025 共 25 个文件）
 │   ├── V001__schema_migrations.sql
 │   ├── V002__oauth2_core.sql
 │   ├── V003__oauth2_core_indexes.sql
