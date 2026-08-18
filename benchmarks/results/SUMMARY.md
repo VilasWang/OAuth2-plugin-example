@@ -216,6 +216,52 @@ S3/S6 高并发 +0~9%；S5 持平（reseed 串行瓶颈）。GC 极值 655ms 档
 
 ---
 
+## auto_batch 同日 A/B + V026 索引清理（2026-08-18，c9c13d8 / 3c1ced3 / c5654a4）
+
+用户指令：`auto_batch`/`is_fast` 统一 false 后全量重测；若 auto_batch=true 更快则性能与生产环境保持 true。
+
+前置事实：`is_fast` 在 db+redis × bench/default/prod 六处**本就全为 false**（启用 fast 客户端需
+代码改造，§十 backlog），故本 A/B 唯一变量是 db `auto_batch`。两臂同日背靠背（消除跨会话
+漂移），其余配置相同（池 64/64、cache on、PG17、V025、快赢档微优化）。
+
+| 场景 | false 峰值 (c9c13d8) | true 峰值 (3c1ced3) | true vs false 逐档 |
+|---|---|---|---|
+| S2 client_credentials | 10,388 (c64) | 12,954 (c128) | **+13~49% 全档正** |
+| S3 introspect | 16,665 (c128) | 18,911 (c128) | +5~29% |
+| S6 userinfo | 15,152 (c64) | 19,152 (c128) | -3%~+53%（6/7 档正） |
+| S5 refresh | ~1,999 封顶 | ~1,999 封顶 | 持平（reseed 串行瓶颈主导） |
+
+**裁决：`auto_batch=true` 显著更快，bench/default/prod 维持 true**（default/prod 全程未改动）。
+代价注记：GC 抖动中位 p99 5.8→11.9ms（批处理排队延迟，绝对值小，两臂 30 段雷群尖峰数相同
+14/30、极值 ~1.1s 持平——雷群是代码层问题，与 auto_batch 无关）。auto_batch=true 的官方
+"仅建议只读客户端"风险维持文档化（noncode-perf §2.2；读写拆分客户端为 §十 代码项）。
+
+诚实声明：arm A 的 S1（不触库）与 S2 前段同一个只读代码评审代理在宿主机并发运行，S1 数据
+被污染（-3.6%~+57% 大幅摆动，不触库场景不应有此效应，不应作为 auto_batch 证据）；S3/S5/S6
+在代理结束后测得，结论不受影响。**教训：bench 期间宿主机连只读代理都不要跑。**
+
+### V026 token 冗余索引清理（introspect 覆盖索引方案，子代理评审后落地 C 案）
+
+评审（[`introspect-covering-index-plan.md`](../../docs/productization-evolution/in-progress/introspect-covering-index-plan.md)
+v2）修正了原案三处：① introspect 查询是 `SELECT *`（Mapper::findOne），INCLUDE 5 列的窄覆盖
+索引无法触发 index-only scan——原案单独不成立；② **SchemaManager 把全部迁移包在单事务里执行
+（SchemaManager.cc #46），`CONCURRENTLY` DDL 必败**——V026 改用普通 `DROP INDEX IF EXISTS`；
+③ 全行 INCLUDE（B 案）降级 backlog：2000 行 bench 小表上收益≈噪声（表常驻 shared_buffers），
+且种子后无 VACUUM 时 IOS 根本不触发。落地项为 **C 案（V026，c5654a4）**：删除 3 个与 PK 重复
+的 B-tree（`idx_access_tokens_token` / `idx_access_tokens_active` / `idx_refresh_tokens_token`），
+token INSERT 索引维护 8→6、revoke UPDATE 少 2 个翻新目标。
+
+验证：**full-test 8/8 PASS**（462 ctest + 59 OAuth2 + 55 Admin 端点，V026 在 step 1 干净应用）；
+bench 同日抽查（c5654a4 vs 3c1ced3，同 5s/10s 协议）：**S2 高并发档 +8%**（c64 12,880 vs
+11,877、c128 13,977 vs 12,954，p99 干净，与写放大降低机理一致），S3 全档中性偏正（-0.6%~+15.6%，
+PK 继续服务读路径无回退）；低并发单档噪声大（雷群尾命中 + 抽查无 S1 预热段）不作为证据。
+方法学注记：抽查第一次误用 run-scenario.sh 默认 10s/30s 协议，30s 窗口必然撞上 ~30s 周期的
+TTL 雷群（每档 p99 ~0.44s），数据已归档 `v026-spot-30s-confounded/`——**抽查必须显式导出
+`WARMUP_S=5 DURATION_S=10` 对齐会话协议**。与 V025 同理，V026 的完整收益（索引维护成本不随
+表增长）在长期大表上才兑现，基准规模下是"中性偏正 + 治理"。
+
+---
+
 ## 如何复现
 
 ```bash

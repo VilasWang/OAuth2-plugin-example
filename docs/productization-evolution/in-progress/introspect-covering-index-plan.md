@@ -107,10 +107,15 @@ DROP INDEX IF EXISTS idx_refresh_tokens_token;  -- 与 refresh 表 PK 完全重�
 
 ### D. 投影列查询 + 窄覆盖索引 —— 代码项 📋（§十 backlog，与 B 解耦）
 
-## 四、验证计划（C 案落地时执行）
+## 四、验证计划（C 案落地时执行）—— ✅ 2026-08-18 全部完成
 
-1. V026 迁移（create-migration SOP，普通 DROP INDEX IF EXISTS）。
-2. full-test 8/8 回归（Windows 栈；与 bench 串行——机器争抢会毁基准数据）。
-3. bench 栈 S2/S5 抽查 A/B（写路径是受益方；对照同日基线）。
-4. EXPLAIN 抽查：introspect/getAccessToken 仍走 PK Index Scan；
-   `TokenManagementService` 前缀删除走 PK Index Scan（范围）。
+1. ✅ V026 迁移（create-migration SOP，普通 DROP INDEX IF EXISTS），提交 c5654a4。
+2. ✅ full-test 8/8 回归（462 ctest + 59 OAuth2 + 55 Admin 端点；V026 在 step 1 干净应用）。
+3. ✅ bench 栈 S2/S3 抽查 A/B（同日同配置 vs 3c1ced3）：S2 高并发档 +8%（c64/c128），
+   S3 中性偏正（-0.6%~+15.6%）——读路径零回退。低并发单档噪声大不作证据。
+   方法学陷阱记录：抽查必须显式 `WARMUP_S=5 DURATION_S=10` 对齐会话协议——默认
+   10s/30s 的 30s 窗口必然撞上 ~30s 周期 TTL 雷群（首跑数据归档于
+   `benchmarks/results/v026-spot-30s-confounded/`）。
+4. ⚪ EXPLAIN 抽查未做（bench 栈已拆除；下次栈在位时补：introspect/getAccessToken 应仍走
+   PK Index Scan，`TokenManagementService` 前缀删除走 PK Index Scan 范围）。低优先——
+   full-test 的端点行为 + S3 抽查吞吐已间接证实查询路径未变。
