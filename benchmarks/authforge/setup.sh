@@ -16,7 +16,9 @@
 #   bash benchmarks/authforge/setup.sh
 #
 # Env overrides:
-#   TARGET_URL   default http://127.0.0.1:5555
+#   TARGET_URL   default http://127.0.0.1:5555 (published port, bridge mode —
+#                host networking is NOT viable under Docker Desktop, see
+#                docker-compose.bench.yml)
 #   KEEP_VOLUME  =1 to skip the clean-volume reset (re-run on existing stack)
 set -euo pipefail
 
@@ -54,11 +56,23 @@ COMPOSE_ARGS=(-f "$COMPOSE_FILE_ABS")
 [ -n "$OVERRIDE_FILE" ] && [ -f "$OVERRIDE_FILE" ] && COMPOSE_ARGS+=(-f "$OVERRIDE_FILE")
 trap 'rm -f "$OVERRIDE_FILE"' EXIT
 
+# --- bench overlay: PG instance tuning (quick-win profile,
+# noncode-performance-optimization.md §四/§八). Every compose invocation below
+# uses COMPOSE_ARGS, so down/up/seed all see the same topology. (Host
+# networking was evaluated and rejected for this environment — see the note
+# in docker-compose.bench.yml.)
+BENCH_COMPOSE_FILE="$BENCH_DIR/docker-compose.bench.yml"
+if [ -f "$BENCH_COMPOSE_FILE" ]; then
+    COMPOSE_ARGS+=(-f "$BENCH_COMPOSE_FILE")
+    echo "[setup] bench overlay active: PG instance tuning (-c flags, see docker-compose.bench.yml)"
+fi
+
 # --- benchmark config: swap config.json → config.bench.json ---
 # The compose stack bind-mounts apps/server/config/config.json into the container.
-# For benchmarks we need larger connection pools (PG=25, Redis=20). Rather than
-# modifying the dev config, we temporarily swap it: back up config.json, copy
-# config.bench.json over it. The swap persists until teardown.sh restores it.
+# For benchmarks we need the perf profile (PG pool 25, Redis pool 64 — cache-on
+# moves reads to Redis and 20 conns queue badly at c>=32 — and micro-opts). Rather
+# than modifying the dev config, we temporarily swap it: back up config.json,
+# copy config.bench.json over it. The swap persists until teardown.sh restores it.
 BENCH_CONFIG="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.bench.json"
 DEV_CONFIG="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.json"
 DEV_CONFIG_BACKUP="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.json.dev-backup"
@@ -66,7 +80,7 @@ if [ -f "$BENCH_CONFIG" ] && [ ! -f "$DEV_CONFIG_BACKUP" ]; then
     cp "$DEV_CONFIG" "$DEV_CONFIG_BACKUP"
     cp "$BENCH_CONFIG" "$DEV_CONFIG"
     export BENCH_TARGET_CONFIG="config.bench.json"
-    echo "[setup] using benchmark config (config.bench.json: PG=25, Redis=20) — config.json backed up, run teardown.sh to restore"
+    echo "[setup] using benchmark config (config.bench.json: PG=25, Redis=64, cache=ON) — config.json backed up, run teardown.sh to restore"
 fi
 
 # --- clean volume for determinism (skip if KEEP_VOLUME=1) ---

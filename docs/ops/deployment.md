@@ -600,6 +600,90 @@ docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/se
 
 ---
 
+## 性能调优（推荐配置）
+
+> 本节是官方推荐的生产性能基线（分析与依据见
+> `docs/productization-evolution/in-progress/noncode-performance-optimization.md`）。
+> 基准测试以本节配置为准——写进本节的配置即"官方配置"。
+
+### 1. 开启 Redis L2 缓存（吞吐档推荐，须配套扩容 Redis 连接池）
+
+读路径（introspect / userinfo 的 token 查询、client 查询）命中 Redis，不再落到
+PostgreSQL。`config.prod.json` 出厂保持关闭（`cache.enabled: false`）——开启前
+**必须**同步扩容 `redis_clients[0].number_of_connections`（见下方实测数据）：
+
+```json
+"cache": {
+    "enabled": true,
+    "redis_client_name": "default",
+    "ttl_seconds": {
+        "client": 300,
+        "access_token_max": 60
+    }
+}
+```
+
+语义说明：token 缓存 TTL 不超过 60s 且吊销即时失效（含负缓存）；client
+缓存 TTL 300s。要求部署内 Redis 可用（生产 compose 已含 oauth2-redis）。
+
+**实测（2026-08-18 基准环境，10s 快测）**：cache on + Redis 池 20 时 S6 反而
+-18%（池排队）；Redis 池扩到 64 后 S2 +39%、S3 +59%、S6 +6%。结论：**cache
+收益以 Redis 池 ≥ 预期并发为前提**，出厂默认关闭 + 本节指引是安全姿势。
+另注意：introspect 的正向缓存受 N2 判别器约束（仅在 token 走过发放/校验
+路径后才回填），S3 的收益主要来自 client 缓存与 PG 调优。
+
+### 2. PostgreSQL 实例调优
+
+出厂默认（`shared_buffers=128MB`、`checkpoint_timeout=5min`、
+`max_wal_size=1GB`）面向小内存机器，在高频写入下产生周期性 checkpoint
+刷盘尖峰。为 16GB / 8 vCPU 主机推荐的调优（按内存等比缩放
+`shared_buffers` ≈ 25% RAM）：
+
+```yaml
+  oauth2-postgres:
+    command:
+      - postgres
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=12GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - min_wal_size=1GB
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - autovacuum_vacuum_insert_scale_factor=0.02
+      - -c
+      - autovacuum_vacuum_scale_factor=0.02
+```
+
+该配置为基准环境实测采用的形态，完整可运行示例见
+`benchmarks/authforge/docker-compose.bench.yml`（bench overlay，叠加在
+`deploy/docker/docker-compose.yml` 之上）。纯 conf 调优对现有数据卷无
+兼容性影响，可随时启用/回退。
+
+### 3. Docker 网络拓扑（原生引擎可选；Docker Desktop 下不可用）
+
+若使用**原生 Docker Engine**（Linux 服务器直装），可将 backend + PG + redis
+置于 `network_mode: host`：backend↔PG/Redis 走 loopback，省去每包 veth 穿越。
+
+**Docker Desktop（WSL2 集成）下不要使用**（2026-08-18 实测）：`host` 是引擎
+VM 的 netns 而非发行版的 netns，host 模式监听端口对发行版完全不可达
+（127.0.0.1、共享 eth0 IP、host.docker.internal 均超时；仅发布端口被转发）。
+基准环境因此保持 bridge + 发布端口拓扑，四产品一致（公平性不受影响）。
+
+跨机部署（nginx 前置、独立 DB）不受此项影响。
+
+---
+
 ## 运维操作
 
 ### 查看日志
