@@ -3,14 +3,14 @@
 > **版本**: v1.0
 > **日期**: 2026-08-05
 > **文档性质**: 演进方案（规划层锚点，非逐条实施任务）
-> **前置输入**: [../productization-research.md](../productization-research.md)（产品化调研报告，2026-08-04）
+> **前置输入**: [../productization-research.md](productization-research.md)（产品化调研报告，2026-08-04）
 > **代码库版本**: v1.0.0 (MIT), branch `refactor/github-controller-callback-flattening`
 
 ---
 
 ## 零、如何阅读本文
 
-本方案是对 [产品化调研报告](../productization-research.md) 的**复盘 + 演进**，而非替代。阅读顺序建议：
+本方案是对 [产品化调研报告](productization-research.md) 的**复盘 + 演进**，而非替代。阅读顺序建议：
 
 1. **[一、复盘]**：先看调研报告中哪些结论可靠、哪些与代码库现状脱节、最大风险何在。
 2. **[二、战略定调]**：再看演进方案的核心主张（一句话 + 三原则）。
@@ -43,7 +43,7 @@
 | §六 P0「SDK 文档站 / API 参考」 | **部分已有**：`docs/backend/sdk-integration-guide.md` + `docs/backend/sdk-runtime-contract.md` 已达发布级质量 | 待办收敛为"**独立文档站**（站点化 + 版本切换）"，而非从零写文档 |
 | §六 P1「Helm Chart 优化」 | **已有** `deploy/helm/authforge`：含 pre-install/pre-upgrade migration-job 钩子、Chart version 与 appVersion 联动（Task 37）、values-local | 待办收敛为"**默认安全配置 + 一键部署**优化"，而非新建 chart |
 | §六 P0「Benchmark 可复现」 | **真空白**：`tests/performance/benchmark/` 只有一个 `SubjectGenerator` 微基准（进程内、纳秒级），**无任何 HTTP 级 / 竞争性基准** | **保留为最高优先级**（见 §三 Phase 0） |
-| §3.2「多语言 SDK」 | C++ 原生 SDK 已就绪；非 C++ 客户端缺失 | 保留，但明确为"**HTTP 客户端 SDK（OpenAPI 生成）**"而非原生 SDK；⚠️ 实际落地需先治 spec（见 [客户端 SDK 设计](../in-progress/client-sdk-facility-design.md)） |
+| §3.2「多语言 SDK」 | C++ 原生 SDK 已就绪；非 C++ 客户端缺失 | 保留，但明确为"**HTTP 客户端 SDK（OpenAPI 生成）**"而非原生 SDK；⚠️ 实际落地需先治 spec（见 [客户端 SDK 设计](in-progress/client-sdk-facility-design.md)） |
 
 ### 1.3 报告最大的风险（演进方案必须正面回应）
 
@@ -110,12 +110,12 @@
 
 **依赖**：Phase 0 数据（否则对外传播无据可依）。
 
-> **落地蓝图**：本阶段「多语言 HTTP 客户端 SDK」的完整技术设计见 [客户端 SDK 设计文档](../in-progress/client-sdk-facility-design.md)。⚠️ 该设计调研发现 OpenAPI spec 当前处于"两源漂移 + 一个死文件"状态，且 api-diff 只管 C++ 头不碰 HTTP 面——故客户端生成的**前置地基是 spec 单一源治理 + 破坏性变更门**（Layer 1），必须先于客户端生成（Layer 2）。下表是规划层摘要。
+> **落地蓝图**：本阶段「多语言 HTTP 客户端 SDK」的完整技术设计见 [客户端 SDK 设计文档](in-progress/client-sdk-facility-design.md)。⚠️ 该设计调研发现 OpenAPI spec 当前处于"两源漂移 + 一个死文件"状态，且 api-diff 只管 C++ 头不碰 HTTP 面——故客户端生成的**前置地基是 spec 单一源治理 + 破坏性变更门**（Layer 1），必须先于客户端生成（Layer 2）。下表是规划层摘要。
 
 | 优先级 | 工作项 | 依赖 |
 |--------|--------|------|
 | **P0** | **独立文档站**（Docusaurus 或 VitePress，中英双语 + 版本切换）：把 `docs/backend/*` 的 SDK 集成指南、运行时契约、API 参考、架构概览搬上站 | 复用已有文档；新增站点工程 |
-| **P0** | **多语言 HTTP 客户端 SDK**：先用 OpenAPI spec 生成 Python + Go 客户端（非原生 SDK，只是 HTTP 包装） | **spec 治理地基先行**（见 [客户端 SDK 设计](../in-progress/client-sdk-facility-design.md) Layer 1） |
+| **P0** | **多语言 HTTP 客户端 SDK**：先用 OpenAPI spec 生成 Python + Go 客户端（非原生 SDK，只是 HTTP 包装） | **spec 治理地基先行**（见 [客户端 SDK 设计](in-progress/client-sdk-facility-design.md) Layer 1） |
 | **P0** | **首发技术博客 + 基准报告发布**：HN / Reddit r/cpp / r/netsec / Drogon 社区同步；标题候选「为什么我们用 C++ 构建 OAuth2 服务器」+ 实测对比报告 | Phase 0 数据 |
 | P1 | README 性能徽章 + benchmark 链接（带"如何复现"小节） | Phase 0 数据 |
 | P1 | TechEmpower Framework Benchmarks 提交 | Phase 0 数据 |
@@ -173,7 +173,7 @@
 
 ### 4.3 多语言客户端工作流（Phase 1）
 
-> 完整设计见 [客户端 SDK 设计文档](../in-progress/client-sdk-facility-design.md)。
+> 完整设计见 [客户端 SDK 设计文档](in-progress/client-sdk-facility-design.md)。
 
 - **前置地基**（Layer 1）：OpenAPI spec 单一源治理。调研发现 spec 当前"两源漂移 + 一个死文件"，且 `tools/api-diff` **只管 C++ 头、不碰 HTTP 面**——故需先定 YAML 单源、删死孤儿、加 YAML↔代码一致性门 + oasdiff 破坏性变更门。
 - **客户端生成**（Layer 2）：从 spec 生成 Python（openapi-python-client）/ Go（oapi-codegen）客户端，手写 auth 层，提交进 `clients/`，漂移门守护。
