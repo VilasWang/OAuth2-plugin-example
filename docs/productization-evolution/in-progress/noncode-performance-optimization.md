@@ -1,6 +1,6 @@
 # AuthForge 非代码层性能优化方案
 
-> **版本**: v1.0（2026-08-18）
+> **版本**: v1.1（2026-08-18：audit 降级拍板为 C 分区 + B BRIN 辅助，原则"不破坏功能正确性"；UNLOGGED 否决）
 > **日期**: 2026-08-18
 > **文档性质**: 优化方案与分析（仅非代码层：配置、依赖选型与版本、DB 实例与 schema、运行环境、构建、基准 SOP）
 > **数据基线**: 2026-08-17 四产品同 session 实测（`benchmarks/competitors/results/COMPARISON.md`）+ Phase 0 自测（`benchmarks/results/SUMMARY.md`）
@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | 1 | 开启 Redis L2 缓存（`cache.enabled=true`） | 产品配置 | S3/S6 **2–4x**；S2 +30–60% | 极低：能力已实现（#42 Phase 1/2），Redis 已在栈内 |
 | 2 | PG 实例调优（checkpoint/WAL/shared_buffers） | DB 配置 | S2/S5 +20–50%；消灭 655ms 级尖峰 | 极低 |
-| 3 | 审计写降级（UNLOGGED/BRIN/分区） | schema | S2/S5 +15–30% | 中：合规语义决策 |
+| 3 | 审计写降级（**已拍板**：分区 + BRIN，零功能影响） | schema | S2/S5 +15–25% | 低：零应用代码，一次 /orm-gen；UNLOGGED 已否决 |
 | 4 | PG 15 → 17 | 组件版本 | 写路径 +10–25%；消除 client 17.7/server 15 错位 | 低 |
 | 5 | 连接池扫描（25→64/100） | 产品配置 | 高并发档 P99 大幅下降 | 低 |
 | 6 | host network + `reuse_port` | 环境/配置 | S1 +10–20% | 低 |
@@ -159,7 +159,20 @@ autovacuum_vacuum_scale_factor = 0.02
 
 ### schema 层（migration 级，非应用代码）
 
-1. **audit_logs 降级**（三选一，保守→激进）：UNLOGGED（写快 2–3 倍，崩溃丢审计——合规档不可） / BRIN 替代 B-tree（纯 append 表维护成本近零） / 时间分区+定期 DROP。当前每笔发放/刷新都写 audit 行（fire-and-forget 但占池连接 + 维护 4 索引），S2 写放大直接翻倍。
+1. **audit_logs 降级 —— 已拍板（2026-08-18）：C 分区（主）+ B BRIN（辅助）；原则：不破坏功能正确性**
+   - **现状成本**：每笔 token 发放/刷新写一行审计（`AuditLogger` fire-and-forget，但占池连接 + 维护 PK 与 4 个 B-tree——V012：timestamp / actor 复合 / action / outcome+timestamp），S2 写放大直接翻倍；且该表无任何保留治理，无限增长。
+   - **C（主方案）——按 `timestamp` 月度 RANGE 分区**：
+     - 保留策略从 DELETE 变 `DROP PARTITION`（瞬时完成、零死元组、零膨胀）；
+     - 每分区的索引小而浅，INSERT 的 B-tree 维护成本不再随总表增长而上升。
+     - PG 约束：分区表主键必须包含分区键 → PK 改 `(id, timestamp)` 复合主键（或去掉 PK、`id` 保留为普通 BIGSERIAL 列——sequence 本身保证唯一，且 audit 表无外键引用方）。
+     - **零应用代码改动**（已核实）：全仓库对 AuditLogs 仅两处使用——`AuditLogger` 的 `Mapper::insert`（无主键依赖）与 `AuditService.cc` 的 Criteria 查询（action/outcome/actor_id EQ + timestamp DESC，无 `findByPrimaryKey`、无主键类型引用）。模型形状变化（复合 PK / 无 PK）不引起编译错误。
+     - 配套动作：一次 `/orm-gen` 模型再生成（仓库标准 SOP，schema 变更后必做）；存量数据在 migration 内 `INSERT SELECT` 迁移。
+   - **B（辅助）——BRIN 补充索引**：管理端审计查询**实际使用**现有 4 个 B-tree（`AuditService.cc:110-123`），按正确性原则**予以保留**（分区化后每分区 B-tree 已小、成本可控）；BRIN 仅作跨分区时间扫描的补充（KB 级体积、append 维护近零）：
+     ```sql
+     CREATE INDEX idx_audit_timestamp_brin ON audit_logs USING BRIN (timestamp);
+     ```
+   - **已否决：UNLOGGED（原方案 A）**——crash recovery 会清空**整张**审计表（非丢最近窗口），且不参与流式复制；违反"不破坏功能正确性"原则，任何部署档位不采用。
+   - **预期收益**：S2/S5 +15–25%（写放大近乎减半 + 池竞争缓解），顺带解决审计表治理；管理端查询经分区裁剪（timestamp DESC 从最新分区起读）不受影响。
 2. **oauth2_access_tokens 真 RANGE 分区**（按 expires_at 月度）：V016 名为 partitioning_prep 实际只有索引+归档函数；分区让 cleanup 从 DELETE 变 DROP、索引深度受控。
 3. **introspect 覆盖索引**：`ON oauth2_access_tokens(token) INCLUDE (user_id, client_id, scope, expires_at, revoked)` → index-only scan。
 
@@ -199,7 +212,7 @@ autovacuum_vacuum_scale_factor = 0.02
 | 阶段 | 内容 | 验证 |
 |---|---|---|
 | 快赢（半天） | cache on + PG conf + host network + bench 档微优化（关 gzip/date/server header、去 PromExporter） | `run-authforge-session.sh` A/B，S2/S3/S6 直接对比 |
-| 第二步（1 天） | audit 降级拍板落地 + 池扫描 + PG17 + 池/Redis 连接数联动重估 | bench + full-test 回归 |
+| 第二步（1 天） | audit 降级落地（**已拍板**：分区 + BRIN，见 §四.1——migration + /orm-gen + 回归）+ 池扫描 + PG17 + 池/Redis 连接数联动重估 | bench + full-test 回归 |
 | 第三步（2–3 天） | token 表分区 + 覆盖索引 + LTO/PGO 构建档 | bench + full-test |
 | 发布前 | 裸机/独立驱动重测（对外数字）+ SOP 三改（3 次中位、PG 侧采集、配置快照） | `run-comparison.sh --fresh` 全量 |
 
@@ -211,7 +224,7 @@ autovacuum_vacuum_scale_factor = 0.02
 |---|---|---|---|---|---|---|
 | cache on | — | +30–60% | **2–4x** | — | **2–4x** | — |
 | PG conf | — | +20–50% | +10–20% | +20–50% | +10–20% | **655ms 尖峰消除** |
-| audit 降级 | — | +15–30% | — | +15–30% | — | — |
+| audit 降级（分区+BRIN，已拍板） | — | +15–25% | — | +15–25% | — | — |
 | PG17 | — | +10–25% | +5–10% | +10–25% | +5–10% | ↓ |
 | 池 64/100 | 高档 +10% | +5–15% | +5–15% | +5% | +5–15% | **430ms→大降** |
 | host net + reuse_port | +10–20% | +3–5% | +3–5% | +3% | +3–5% | ↓ |
@@ -227,6 +240,8 @@ autovacuum_vacuum_scale_factor = 0.02
 | `db_clients.is_fast=true` | fast 客户端消除跨线程通信（官方确认更快），但禁止同步接口、连接数语义变化——现有 Mapper/异步回调数据访问代码需改造 | 代码审计 + 改造 |
 | `redis_clients.is_fast=true` | 同上；**陷阱**：启用后 `number_of_connections` 变为每 IO 线程数（20 → 9 线程 = 180 连接），必须同步调整数值 | 同上 |
 | auto_batch 读写拆分 | 按官方建议：读路径专用 batch 客户端，写路径独立 `auto_batch=false` 客户端 | repository 接线改造 |
+| audit 采样分级 | `outcome=success` 的 token_issued 降采样开关（安全审计聚焦失败/特权事件——行业实践口径）；可再抬吞吐，但语义需产品拍板 | 新增配置开关 + 调用点判断 |
+| audit 批量聚合落库 | 内存缓冲 + 批量多值 INSERT，摊薄每事件的连接获取/往返/提交成本；崩溃丢缓冲窗口 | AuditLogger 改造 |
 | JWT 档 + ES256/EdDSA | 当前 opaque token 无签名热点；若提供 JWT 档，签名算法选型是新的数量级杠杆 | 产品决策 |
 
 ---
