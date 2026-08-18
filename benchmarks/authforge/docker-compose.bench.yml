@@ -29,6 +29,13 @@
 
 services:
   oauth2-postgres:
+    # Step-2 upgrade (§三/§八): PG 15 -> 17 — write-path improvements (vacuum
+    # memory, WAL volume) and eliminates the client(libpq 17.7)/server(15)
+    # skew. Fairness (D1): the three competitor compose files bump to the
+    # same tag in the same commit. Deploy compose (deploy/docker/) stays on 15:
+    # existing named volumes hold 15 data dirs and a major-version jump would
+    # brick startup (needs pg_dump/restore or pg_upgrade — ops runbook item).
+    image: postgres:17-alpine
     command:
       - postgres
       # --- memory (16GB host reference: ~25% shared_buffers) ---
