@@ -12,6 +12,8 @@ from authforge import (
     ClientCredentialsAuth,
     async_m2m_client,
     basic_auth_client,
+    close_async_m2m_client,
+    close_m2m_client,
     fetch_client_credentials_token,
     m2m_client,
 )
@@ -62,7 +64,7 @@ class TestBearerInjectionAndCache:
             assert first.sub == second.sub == USERINFO_BODY["sub"]
             assert len(fake.token_requests) == 1  # cached across calls
         finally:
-            client.get_httpx_client().close()
+            close_m2m_client(client)
 
 
 class TestProactiveRefresh:
@@ -76,7 +78,7 @@ class TestProactiveRefresh:
             get_oauth2_userinfo.sync(client=client)
             assert len(fake.token_requests) == 2  # proactive refresh happened
         finally:
-            client.get_httpx_client().close()
+            close_m2m_client(client)
 
 
 class Test401Retry:
@@ -91,7 +93,7 @@ class Test401Retry:
             assert result.sub == USERINFO_BODY["sub"]
             assert len(fake.token_requests) == 2  # forced refresh
         finally:
-            client.get_httpx_client().close()
+            close_m2m_client(client)
 
     def test_retry_resends_form_body(self, fake, transport):
         """P4 (body case) -- the retried POST carries the same form body."""
@@ -105,7 +107,7 @@ class Test401Retry:
             assert result.active is True
             assert len(fake.token_requests) == 2
         finally:
-            client.get_httpx_client().close()
+            close_m2m_client(client)
 
     def test_second_401_passes_through(self, fake, transport):
         fake.on("GET", "/oauth2/userinfo", status=401, json_body={"error": "invalid_token"})
@@ -115,7 +117,7 @@ class Test401Retry:
             assert response.status_code == 401  # one retry, then pass-through
             assert len(fake.token_requests) == 2
         finally:
-            client.get_httpx_client().close()
+            close_m2m_client(client)
 
 
 class TestBasicAuthClient:
@@ -130,7 +132,7 @@ class TestBasicAuthClient:
             assert result.active is True
             assert fake.token_requests == []  # never talks to the token endpoint
         finally:
-            client.get_httpx_client().close()
+            close_m2m_client(client)
 
 
 class TestAsyncEquivalence:
@@ -145,7 +147,7 @@ class TestAsyncEquivalence:
             assert len(fake.token_requests) == 1
             assert decode_basic(fake.basic_on_token_requests[0]) == "c:s"
         finally:
-            await client.get_async_httpx_client().aclose()
+            await close_async_m2m_client(client)
 
     async def test_proactive_refresh(self, fake, transport):
         fake.expires_in = 10
@@ -155,7 +157,7 @@ class TestAsyncEquivalence:
             await get_oauth2_userinfo.asyncio(client=client)
             assert len(fake.token_requests) == 2
         finally:
-            await client.get_async_httpx_client().aclose()
+            await close_async_m2m_client(client)
 
     async def test_401_retry_once(self, fake, transport):
         client = async_m2m_client(BASE, "c", "s", transport=transport)
@@ -166,7 +168,7 @@ class TestAsyncEquivalence:
             assert result.sub == USERINFO_BODY["sub"]
             assert len(fake.token_requests) == 2
         finally:
-            await client.get_async_httpx_client().aclose()
+            await close_async_m2m_client(client)
 
     async def test_error_propagation(self, fake, transport):
         fake.token_status = 401
@@ -175,7 +177,7 @@ class TestAsyncEquivalence:
             try:
                 await get_oauth2_userinfo.asyncio(client=client)
             finally:
-                await client.get_async_httpx_client().aclose()
+                await close_async_m2m_client(client)
         assert excinfo.value.error == "invalid_client"
 
 
@@ -187,3 +189,25 @@ class TestAuthClassesCloseCleanly:
     async def test_async_context_manager(self, transport):
         async with AsyncClientCredentialsAuth(BASE + "/oauth2/token", "c", "s", transport=transport) as auth:
             assert await auth._get_token(force=False) == "at-1"
+
+    def test_close_m2m_client_closes_both_pools(self, fake, transport):
+        """PR-review fix: the auth layer's private token client must be
+        reachable for cleanup, not just the injected API client."""
+        client = m2m_client(BASE, "c", "s", transport=transport)
+        get_oauth2_userinfo.sync(client=client)
+        api_http = client.get_httpx_client()
+        auth = api_http.auth
+        assert isinstance(auth, ClientCredentialsAuth)
+        close_m2m_client(client)
+        assert api_http.is_closed
+        assert auth._http.is_closed
+
+    async def test_close_async_m2m_client_closes_both_pools(self, fake, transport):
+        client = async_m2m_client(BASE, "c", "s", transport=transport)
+        await get_oauth2_userinfo.asyncio(client=client)
+        api_http = client.get_async_httpx_client()
+        auth = api_http.auth
+        assert isinstance(auth, AsyncClientCredentialsAuth)
+        await close_async_m2m_client(client)
+        assert api_http.is_closed
+        assert auth._http.is_closed

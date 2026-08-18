@@ -47,6 +47,8 @@ __all__ = [
     "AsyncClientCredentialsAuth",
     "m2m_client",
     "async_m2m_client",
+    "close_m2m_client",
+    "close_async_m2m_client",
     "basic_auth_client",
     "fetch_client_credentials_token",
 ]
@@ -360,6 +362,32 @@ def async_m2m_client(
     client = AuthenticatedClient(base_url=base, token="", verify_ssl=verify_ssl, timeout=timeout)
     client.set_async_httpx_client(http)
     return client
+
+
+def close_m2m_client(client: AuthenticatedClient) -> None:
+    """Close an :func:`m2m_client` result, including the auth layer's pool.
+
+    Closing only the returned ``AuthenticatedClient`` would leak the auth
+    object's private token-endpoint connection pool (it is intentionally a
+    separate ``httpx.Client`` so token fetches never recurse through
+    ``auth_flow``). The generated attrs classes are slotted, so the auth
+    instance cannot be attached as an attribute -- reach it through the
+    injected client's ``auth`` field instead.
+    """
+    http = client.get_httpx_client()
+    auth = getattr(http, "auth", None)
+    http.close()
+    if isinstance(auth, ClientCredentialsAuth):
+        auth.close()
+
+
+async def close_async_m2m_client(client: AuthenticatedClient) -> None:
+    """Async counterpart of :func:`close_m2m_client`."""
+    http = client.get_async_httpx_client()
+    auth = getattr(http, "auth", None)
+    await http.aclose()
+    if isinstance(auth, AsyncClientCredentialsAuth):
+        await auth.aclose()
 
 
 def basic_auth_client(

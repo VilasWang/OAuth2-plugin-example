@@ -39,6 +39,11 @@ result = post_oauth2_introspect.sync(
     client=client, body=PostOauth2IntrospectBody(token=some_access_token)
 )
 print(result.active)
+
+# When done: closes BOTH the API client and the auth layer's token pool
+# (closing the generated client alone leaks the token connection pool).
+from authforge import close_m2m_client
+close_m2m_client(client)
 ```
 
 Async is symmetric:
