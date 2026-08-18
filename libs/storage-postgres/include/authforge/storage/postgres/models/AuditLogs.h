@@ -61,9 +61,9 @@ class AuditLogs
     static const int primaryKeyNumber;
     static const std::string tableName;
     static const bool hasPrimaryKey;
-    static const std::string primaryKeyName;
-    using PrimaryKeyType = int64_t;
-    const PrimaryKeyType &getPrimaryKey() const;
+    static const std::vector<std::string> primaryKeyName;
+    using PrimaryKeyType = std::tuple<int64_t,::trantor::Date>;//id,timestamp
+    PrimaryKeyType getPrimaryKey() const;
 
     /**
      * @brief constructor
@@ -122,7 +122,6 @@ class AuditLogs
     const std::shared_ptr<::trantor::Date> &getTimestamp() const noexcept;
     ///Set the value of the column timestamp
     void setTimestamp(const ::trantor::Date &pTimestamp) noexcept;
-    void setTimestampToNull() noexcept;
 
     /**  For column actor_type  */
     ///Get the value of the column actor_type, returns the default value if the column is null
@@ -271,13 +270,13 @@ class AuditLogs
   public:
     static const std::string &sqlForFindingByPrimaryKey()
     {
-        static const std::string sql="select * from " + tableName + " where id = $1";
+        static const std::string sql="select * from " + tableName + " where id = $1 and timestamp = $2";
         return sql;
     }
 
     static const std::string &sqlForDeletingByPrimaryKey()
     {
-        static const std::string sql="delete from " + tableName + " where id = $1";
+        static const std::string sql="delete from " + tableName + " where id = $1 and timestamp = $2";
         return sql;
     }
     std::string sqlForInserting(bool &needSelection) const
