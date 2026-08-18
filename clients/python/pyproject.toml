@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "authforge-oauth2"
+version = "1.2.0"
+description = "Python client SDK for AuthForge, the embeddable C++ OAuth2/OIDC authorization server"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "AuthForge contributors" }]
+keywords = ["oauth2", "oidc", "openid-connect", "authforge", "authorization", "client", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Security",
+    "Typing :: Typed",
+]
+# Dependency floors/ceilings mirror what openapi-python-client 0.29.0 emits
+# for the generated subpackage; generator upgrades go through a dedicated PR.
+dependencies = [
+    "httpx>=0.23.1,<0.29.0",
+    "attrs>=22.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/lucaswang420/authforge"
+Documentation = "https://github.com/lucaswang420/authforge/tree/master/clients/python"
+Repository = "https://github.com/lucaswang420/authforge"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+    "build>=1.2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/authforge"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "examples", "README.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
