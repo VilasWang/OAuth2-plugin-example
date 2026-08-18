@@ -98,10 +98,10 @@ func TestI3Discovery(t *testing.T) {
 	if resp.StatusCode() != 200 {
 		t.Fatalf("status = %d", resp.StatusCode())
 	}
-	if doc := resp.JSON200; doc == nil || doc.Issuer == "" {
+	if doc := resp.JSON200; doc == nil || doc.Issuer == nil || *doc.Issuer == "" {
 		t.Fatal("no discovery body")
-	} else if !strings.HasSuffix(doc.Issuer, ":5555") {
-		t.Fatalf("issuer = %q", doc.Issuer)
+	} else if !strings.HasSuffix(*doc.Issuer, ":5555") {
+		t.Fatalf("issuer = %q", *doc.Issuer)
 	}
 }
 
