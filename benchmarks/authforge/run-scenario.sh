@@ -339,8 +339,10 @@ for CONN in "${LEVELS[@]}"; do
         # multi-thread), reduce to a per-core-equivalent for the gate.
         DRIVER_CPU="$(python3 -c "v=float('${RAW_CPU:-0}' or 0)/max(1,$THREADS); print(round(v,1))" 2>/dev/null || echo "")"
     fi
-    wait "$WRK_PID" || true
-    WRK_RC=$?
+    # capture the real wrk exit status: `$?` after `|| true` is always 0,
+    # which made the WRK_RC branch below dead code (review finding)
+    WRK_RC=0
+    wait "$WRK_PID" || WRK_RC=$?
 
     # --- stop background resource collectors after the measured run ---
     if [ -n "${STATS_PID:-}" ]; then

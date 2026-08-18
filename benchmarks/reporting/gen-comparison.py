@@ -105,14 +105,26 @@ def steady(data: dict):
 
 def rss_stack_mean(product: str):
     """Whole-stack steady RSS (MiB): sum of per-container mean mem_usage over
-    the S2 docker-stats TSVs (design D7 full-stack measurement)."""
+    the S2 docker-stats TSVs (design D7 full-stack measurement).
+
+    Same-session policy as staircase_map(): only TSVs from the NEWEST
+    (date, sha) group are pooled — mixing sessions would average different
+    product builds/days into one number (review finding #1)."""
     root = RESULTS if product == "authforge" else COMP_RESULTS
     if product == "authforge":
         pattern = "*-s2-client-credentials-c*-docker-stats.tsv"
     else:
         pattern = f"*-{product}-s2-client-credentials-c*-docker-stats.tsv"
-    per_container: dict = {}
+    groups: dict = {}
     for t in root.glob(pattern):
+        m = re.match(r"^(\d{8})-([0-9a-f]+)-", t.name)
+        if not m:
+            continue
+        groups.setdefault((m.group(1), m.group(2)), []).append(t)
+    if not groups:
+        return None
+    per_container: dict = {}
+    for t in groups[max(groups)]:
         with open(t, encoding="utf-8") as f:
             for line in f:
                 parts = line.rstrip("\n").split("\t")
@@ -293,11 +305,22 @@ def build_report() -> str:
         series = ", ".join(f"{v:g}" for v in g["series"])
         L.append(f"- **{PRODUCT_LABEL[prod]}**: {series}")
     L.append("")
-    L.append("> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、AuthForge 平线」**未被本次实测证实**——"
-             "Keycloak（JVM）与 Ory（Go）在本负载下 P99 全程平线（最大/中位 ≤1.08x，现代 GC 并发化后 10s 窗口测不出 STW），"
-             "反倒是 AuthForge 出现少量秒级尖峰（152ms/1480ms 等 5 段）。C++ 无 GC，这些尖峰是环境层停顿"
-             "（WSL2 宿主调度 / PG checkpoint IO），并非运行时 GC——「无 GC 抖动」不能作为对外差异化主张引用本表；"
-             "可作为主张的是绝对 P99 水位（中位 4.4ms vs Ory 27ms / Zitadel 20.5ms）。")
+    # honest G4 note — every figure below is derived from the computed gc
+    # dicts (no hand-typed numbers; they went stale once already)
+    gc_langs = [gc[p] for p in ("keycloak", "ory", "zitadel") if gc[p]]
+    af = gc["authforge"]
+    if af and gc_langs:
+        worst_lang = max(g["p99_max_over_med"] or 0 for g in gc_langs)
+        peers = " / ".join(
+            f"{PRODUCT_LABEL[p]} {fmt_ms(gc[p]['p99_med_us'])}"
+            for p in ("ory", "zitadel") if gc[p])
+        L.append("> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、AuthForge 平线」**未被本次实测证实**——"
+                 f"Keycloak（JVM）/ Ory（Go）/ Zitadel（Go）在本负载下 P99 全程平线（最大/中位 ≤{worst_lang:g}x，"
+                 "现代 GC 并发化后 10s 窗口测不出 STW），"
+                 f"反倒是 AuthForge 出现 {af['spikes_gt_1p5x_med']} 个尖峰段（最大 {fmt_ms(af['p99_max_us'])}）。"
+                 "C++ 无 GC，这些尖峰是环境层停顿（WSL2 宿主调度 / PG checkpoint IO），并非运行时 GC——"
+                 "「无 GC 抖动」不能作为对外差异化主张引用本表；"
+                 f"可作为主张的是绝对 P99 水位（中位 {fmt_ms(af['p99_med_us'])} vs {peers}）。")
     L.append("")
 
     L.append("## 附录 A：公平性声明（配置来源与偏离项，AC4）")

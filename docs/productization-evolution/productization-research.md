@@ -89,7 +89,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 > | **S5 refresh QPS** | 1,998 | **2,802** ⚠️Keycloak 领先 | 669 | N/A（机器用户无 RT） |
 > | **S6 userinfo QPS** | 18,278 | **33,347** ⚠️Keycloak 领先（JWT 离线校验） | 10,345 | 3,207 |
 > | **稳态 P50 / P99** | **0.6-4ms / 4-11ms** ✅最低水位 | 2-50ms / 22-73ms | 61-80ms / 82-179ms | 3-42ms / 22-67ms |
-> | **全栈 RSS（D7）** | 5,381 MiB ⚠️最重（含 PG+Redis+连接池） | 1,671 MiB | **249 MiB** ✅最轻 | 387 MiB |
+> | **全栈 RSS（D7）** | 5,381 MiB ⚠️最重（含 PG+Redis+连接池） | 1,674 MiB | **266 MiB** ✅最轻 | 387 MiB |
 > | **冷启动 fresh/restart** | **1.23s / 1.26s** ✅领先 1-2 个量级 | 20.3s / 5.5s | 4.9s / 0.7s | 5.9s / 1.0s |
 > | **GC 抖动（5min P99 序列）** | 见注 ⚠️主张证伪 | 平线（1.08x） | 平线（1.05x） | 平线（1.10x） |
 >
@@ -101,7 +101,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 
 1. **极致性能**（✅ Phase 0 自测 + Phase 0.5 四产品同环境对比验证）: C++ + Drogon 异步框架。同环境实测（2026-08-17，竞品官方推荐配置）：discovery **94.6k QPS**（Keycloak 44.5k 的 2.1x）、client_credentials **9.1k**（1.5x）、introspect **17.6k**（1.5x）；对外表述须限定场景——S5 refresh（2.0k）与 S6 userinfo（18.3k）**落后 Keycloak**（2.8k / 33.3k，后者为 JWT 离线校验路径），见 §3.1 实测表。
 2. **低且稳定的尾延迟**（⚠️ 2026-08-17 修订）: 无 GC runtime，稳态 P50 0.6-4ms / P99 4-11ms 为四家最低水位（Keycloak 22-73ms、Ory 82-179ms、Zitadel 22-67ms）。原"零 GC 抖动"主张已按同环境实测收敛——现代 GC（并发化）在 10s 窗口测不出停顿，四家长跑曲线均平线；本主张的依据改为**绝对 P99 水位**而非"无抖动"。
-3. **超低资源消耗（SDK 口径）**: SDK 嵌入口径实测 **2.5 MB peak working set**（`third-party-host-smoke`，纯 SDK；binary 12 MB）。⚠️ 口径警示（2026-08-17 同环境实测）：**容器全栈口径 AuthForge 反为四家最重（5,381 MiB，含 PG+Redis+Drogon 连接池）**，Ory 最轻（249 MiB）——对外必须显式区分口径，不得混用。
+3. **超低资源消耗（SDK 口径）**: SDK 嵌入口径实测 **2.5 MB peak working set**（`third-party-host-smoke`，纯 SDK；binary 12 MB）。⚠️ 口径警示（2026-08-17 同环境实测）：**容器全栈口径 AuthForge 反为四家最重（5,381 MiB，含 PG+Redis+Drogon 连接池）**，Ory 最轻（266 MiB）——对外必须显式区分口径，不得混用。
 4. **冷启动**（✅ 同环境实测领先 1-2 个量级）: fresh 1.23s / restart 1.26s（Keycloak 20.3s/5.5s、Ory 4.9s/0.7s、Zitadel 5.9s/1.0s）——边缘/弹性场景的差异化证据。
 5. **可嵌入 SDK**: 唯一支持 `find_package(authforge-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
 6. **供应链安全（已落地）**: release 流水线（`.github/workflows/release.yml`）已实现 cosign keyless 签名 manifest digest + syft 每镜像 SPDX SBOM + SDK tarball `.sha256` 校验和。⚠️ 承重 caveat：**SDK 包目前仅 linux-x86_64**（无 arm64 / Windows / macOS SDK tarball）。
