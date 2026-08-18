@@ -82,10 +82,10 @@ clients/python/
 
 ### 2.4 验收标准
 
-- [ ] `pytest clients/python/tests`（除 integration）全绿
-- [ ] `pip install -e clients/python` 后 `from authforge import m2m_client` 可用；`import authforge.generated` 完整
-- [ ] `python -m build clients/python` 产出 sdist+wheel（发布就绪证据）
-- [ ] 集成测试（§四）对本地全栈绿
+- [x] `pytest clients/python/tests`（除 integration）全绿
+- [x] `pip install -e clients/python` 后 `from authforge import m2m_client` 可用；`import authforge.generated` 完整
+- [x] `python -m build clients/python` 产出 sdist+wheel（发布就绪证据）
+- [x] 集成测试（§四）对本地全栈绿
 
 ---
 
@@ -132,10 +132,10 @@ clients/go/
 
 ### 3.4 验收标准
 
-- [ ] `go build ./... && go vet ./...` 零输出；`gofmt -l` 空
-- [ ] `go test ./...`（无 integration tag）全绿
-- [ ] 集成测试（§四）对本地全栈绿
-- [ ] README 含 `go get github.com/lucaswang420/authforge/clients/go` 用法
+- [x] `go build ./... && go vet ./...` 零输出；`gofmt -l` 空
+- [x] `go test ./...`（无 integration tag）全绿
+- [x] 集成测试（§四）对本地全栈绿
+- [x] README 含 `go get github.com/lucaswang420/authforge/clients/go` 用法
 
 ---
 
@@ -167,8 +167,8 @@ clients/go/
 | I5 | 负例：错 secret 取 token | 401 invalid_client → auth 层错误类型 |
 
 **验收**：
-- [ ] 服务器运行中，Python `pytest tests/integration` 5 用例绿
-- [ ] 服务器运行中，Go `go test -tags integration ./...` 5 用例绿
+- [x] 服务器运行中，Python `pytest tests/integration` 5 用例绿
+- [x] 服务器运行中，Go `go test -tags integration ./...` 5 用例绿
 
 ---
 
@@ -194,9 +194,9 @@ clients/go/
 
 ### 5.3 验收标准
 
-- [ ] `regen_clients.py` 幂等：连跑两次 git status 干净
-- [ ] 故障注入：手改 `generated/` 一行 → `--check` exit 1
-- [ ] 故障注入：pyproject version 改错 → 版本联动检查 exit 1
+- [x] `regen_clients.py` 幂等：连跑两次 git status 干净
+- [x] 故障注入：手改 `generated/` 一行 → `--check` exit 1
+- [x] 故障注入：pyproject version 改错 → 版本联动检查 exit 1
 - [ ] workflow YAML 语法（`gh workflow` 或 actionlint 若可用）通过；本 PR 上两个 job 绿
 
 ---
@@ -219,8 +219,8 @@ clients/go/
 - 发布文档（clients README 附录）：PyPI 项目注册 + secret 配置的一次性步骤。
 
 **验收**：
-- [ ] `workflow_dispatch` dry-run：sdk-python job 走到 publish 步骤并按 secret 缺失 skip（不 fail）；其余 job 不受影响
-- [ ] 本地 `python -m build clients/python` 产物完整（sdist 含 generated/，wheel 含 py.typed 等）
+- [ ] `workflow_dispatch` dry-run：sdk-python job 走到 publish 步骤并按 secret 缺失 skip（不 fail）；其余 job 不受影响（待合并后 dispatch 验证——本地无法触发）
+- [x] 本地 `python -m build clients/python` 产物完整（sdist 含 generated/，wheel 含 py.typed 等）
 
 ---
 
