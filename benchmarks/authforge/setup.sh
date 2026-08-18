@@ -69,10 +69,12 @@ fi
 
 # --- benchmark config: swap config.json → config.bench.json ---
 # The compose stack bind-mounts apps/server/config/config.json into the container.
-# For benchmarks we need the perf profile (PG pool 25, Redis pool 64 — cache-on
-# moves reads to Redis and 20 conns queue badly at c>=32 — and micro-opts). Rather
-# than modifying the dev config, we temporarily swap it: back up config.json,
-# copy config.bench.json over it. The swap persists until teardown.sh restores it.
+# For benchmarks we need the perf profile (PG pool 64 + Redis pool 64 — pool sweep
+# 25/64/100 showed +40-48% QPS at c>=64 going 25→64 and no gain at 100; cache-on
+# moved reads to Redis where 20 conns queued badly at c>=32 — plus micro-opts).
+# Rather than modifying the dev config, we temporarily swap it: back up
+# config.json, copy config.bench.json over it. The swap persists until
+# teardown.sh restores it.
 BENCH_CONFIG="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.bench.json"
 DEV_CONFIG="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.json"
 DEV_CONFIG_BACKUP="$REPO_ROOT/$OAUTH2_SERVER_DIR/config/config.json.dev-backup"
@@ -80,7 +82,7 @@ if [ -f "$BENCH_CONFIG" ] && [ ! -f "$DEV_CONFIG_BACKUP" ]; then
     cp "$DEV_CONFIG" "$DEV_CONFIG_BACKUP"
     cp "$BENCH_CONFIG" "$DEV_CONFIG"
     export BENCH_TARGET_CONFIG="config.bench.json"
-    echo "[setup] using benchmark config (config.bench.json: PG=25, Redis=64, cache=ON) — config.json backed up, run teardown.sh to restore"
+    echo "[setup] using benchmark config (config.bench.json: PG=64, Redis=64, cache=ON) — config.json backed up, run teardown.sh to restore"
 fi
 
 # --- clean volume for determinism (skip if KEEP_VOLUME=1) ---
