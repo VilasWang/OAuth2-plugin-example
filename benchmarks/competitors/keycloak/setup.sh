@@ -28,7 +28,8 @@
 #
 # Env overrides:
 #   KC_URL          default http://127.0.0.1:8080
-#   KC_REALM        default bench
+#   KC_REALM        FIXED 'bench' — scenarios/*.lua and reissue-rt-pool.sh
+#                   hardcode the realm name (design: fixed constants); do not override
 #   POOL_CC / POOL_USER   default 2000 each (reusable S3/S6 pools)
 #   MINT_PARALLEL   default 8
 set -euo pipefail

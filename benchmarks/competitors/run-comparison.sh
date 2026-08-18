@@ -36,8 +36,14 @@ run_product() {  # <dir-name> <setup> <runall> <teardown>
     local name="$1" setup="$2" runall="$3" teardown="$4"
     echo ""
     echo "================ $name ================"
-    bash "$setup"
-    bash "$runall"
+    if ! bash "$setup"; then
+        bash "$teardown" || true
+        exit 1
+    fi
+    # teardown even when run-all fails mid-product: a leftover stack holds the
+    # product's ports (e.g. 8080, shared by keycloak and zitadel) and would
+    # block every following product (design §5.1 zero-residue invariant)
+    bash "$runall" || { bash "$teardown"; exit 1; }
     bash "$teardown"
 }
 

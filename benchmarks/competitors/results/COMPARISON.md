@@ -1,6 +1,6 @@
 # 竞品同环境性能对比（COMPARISON）
 
-> 生成时间：2026-08-17 18:06 UTC · 生成器：`benchmarks/reporting/gen-comparison.py`（无手填数字，全部溯源到入仓 JSON）
+> 生成时间：2026-08-18 01:32 UTC · 生成器：`benchmarks/reporting/gen-comparison.py`（无手填数字，全部溯源到入仓 JSON）
 > 设计与方法论：`docs/productization-evolution/in-progress/competitor-benchmark-design.md`
 
 ## 环境与版本
@@ -68,8 +68,8 @@ S2 测量窗口内各容器 RSS 均值之和（含各自的 PG/Redis 与运行�
 | 产品 | 全栈稳态 RSS |
 |---|---|
 | AuthForge | 5,381 MiB |
-| Keycloak | 1,671 MiB |
-| Ory Hydra | 249 MiB |
+| Keycloak | 1,674 MiB |
+| Ory Hydra | 266 MiB |
 | Zitadel | 387 MiB |
 
 ## 三、冷启动
@@ -101,7 +101,7 @@ c=32 固定，30×10s 串行段；载波场景与偏离见附录。尖峰定义�
 - **Ory Hydra**: 27, 27.9, 27.7, 27.3, 28.4, 26.9, 27.2, 27.8, 26.6, 25.9, 26.5, 27.3, 26.2, 27, 26, 26.6, 28.1, 26.9, 27.5, 27.1, 26.4, 26.9, 27.8, 27.1, 26.8, 27.8, 26.9, 26.6, 27.3, 26.8
 - **Zitadel**: 21.9, 22.6, 19.3, 19.9, 20.2, 20.7, 19.8, 20.8, 21.1, 21.8, 20.5, 21.6, 19.5, 20.6, 20.8, 21.3, 20, 21.1, 18.9, 20.6, 20.4, 19.2, 20.2, 20.2, 20.1, 22.6, 20.2, 21.9, 20.1, 20.9
 
-> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、AuthForge 平线」**未被本次实测证实**——Keycloak（JVM）与 Ory（Go）在本负载下 P99 全程平线（最大/中位 ≤1.08x，现代 GC 并发化后 10s 窗口测不出 STW），反倒是 AuthForge 出现少量秒级尖峰（152ms/1480ms 等 5 段）。C++ 无 GC，这些尖峰是环境层停顿（WSL2 宿主调度 / PG checkpoint IO），并非运行时 GC——「无 GC 抖动」不能作为对外差异化主张引用本表；可作为主张的是绝对 P99 水位（中位 4.4ms vs Ory 27ms / Zitadel 20.5ms）。
+> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、AuthForge 平线」**未被本次实测证实**——Keycloak（JVM）/ Ory（Go）/ Zitadel（Go）在本负载下 P99 全程平线（最大/中位 ≤1.1x，现代 GC 并发化后 10s 窗口测不出 STW），反倒是 AuthForge 出现 7 个尖峰段（最大 655.5ms）。C++ 无 GC，这些尖峰是环境层停顿（WSL2 宿主调度 / PG checkpoint IO），并非运行时 GC——「无 GC 抖动」不能作为对外差异化主张引用本表；可作为主张的是绝对 P99 水位（中位 3.3ms vs Ory Hydra 27.0ms / Zitadel 20.5ms）。
 
 ## 附录 A：公平性声明（配置来源与偏离项，AC4）
 
