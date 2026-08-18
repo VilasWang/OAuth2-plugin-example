@@ -59,6 +59,16 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
    - 破坏性变更（删端点/收窄请求/收紧安全声明）会被 `.github/workflows/openapi-governance.yml` 的 oasdiff 门拦截：要么升 major 版本，要么在 `tools/openapi-governance/oasdiff-breaking-ignore.md` 加豁免条目（必须带理由）
    - 改了指纹测试基线（`tests/integration/concurrency/Property4_OpenApiValidationBaselineTest.cc` 的 `kFingerprint`）时，重新跑治理门确认解析正常
 
+5. **再生成客户端 SDK（YAML 是 clients/python + clients/go 的生成源）**
+   ```bash
+   # 改了 openapi.yaml 后必须跑（CI clients-sdk.yml 的漂移门也会对账）
+   python tools/clients/regen_clients.py            # 再生成并覆盖提交的生成物
+   python tools/clients/regen_clients.py --check    # 只对账不落盘（CI 模式）
+   ```
+   - Python 侧需先装 pin 版生成器：`pip install openapi-python-client==0.29.0`；Go 侧 `go run` 自动拉取（国内网络需 `GOPROXY=https://goproxy.cn,direct`）
+   - 生成物是提交进 git 的（`clients/python/src/authforge/generated/`、`clients/go/generated/`），漂移门保证不过期
+   - 版本联动：升 `cmake/Version.cmake` 时同步升 `clients/python/pyproject.toml` 的 `version`（`regen_clients.py --version-only` 校验，release.yml 发布前也会兜底检查）
+
 ### 验证脚本集成
 
 `scripts/backend/validate-openapi.sh` 真实行为：**不接收文件路径参数**（传入的 `$1` 被忽略），脚本内部通过 `SEARCH_PATHS` 查找生成的 `openapi.json`；它会先 `build.sh --debug` 构建、再跑 `ctest`、最后用 `jq` / `python3 -m json.tool` 校验生成的 `openapi.json` 的合法性及必需字段（`openapi` / `info` / `paths` / `servers`）。它**不校验 `openapi.yaml`**，也**不依赖 swagger-cli / spectral**。
