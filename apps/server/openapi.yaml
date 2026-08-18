@@ -54,6 +54,8 @@ components:
         unauthorized_client 400, unsupported_grant_type 400, invalid_scope 400,
         access_denied 403, authorization_pending 400, slow_down 400,
         expired_token 400, server_error 500, temporarily_unavailable 503.
+        Bearer-protected resources (userinfo) additionally use the RFC 6750
+        section 3.1 codes invalid_token (401) and insufficient_scope (403).
       properties:
         error:
           type: string
@@ -66,6 +68,8 @@ components:
           - invalid_scope
           - access_denied
           - unsupported_token_type
+          - invalid_token
+          - insufficient_scope
           - authorization_pending
           - slow_down
           - expired_token
