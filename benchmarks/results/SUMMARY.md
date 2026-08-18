@@ -141,6 +141,42 @@
 
 ---
 
+## 快赢 A/B（2026-08-18，8838ac6）
+
+快赢档（noncode-performance-optimization.md §八）对 20260817-03965fa 基线的
+同机对比：cache on（Redis 池 20→64）+ PG 实例调优（shared_buffers 4GB /
+checkpoint 15min / max_wal_size 4GB 等，见 `benchmarks/authforge/docker-compose.bench.yml`）
++ bench 档微优化（gzip/brotli/server/date 头关、去 PromExporter）。完整阶梯
+JSON：`20260818-8838ac6-*.json`；GC 抖动：`competitors/results/20260818-8838ac6-authforge-gcjitter.json`。
+
+| 场景 | 基线峰值 (c) | 快赢峰值 (c) | 变化 | 各档一致性 |
+|---|---|---|---|---|
+| S1 discovery | 94,640 (64) | 103,746 (32) | **+3~14%** | 全档正 |
+| S2 client_credentials | 9,056 (32) | 12,547 (128) | **+23~43%** | 全档一致正 |
+| S3 introspect | 17,602 (64) | 20,078 (64) | -24%~+14% | 混合/噪声带内 |
+| S5 refresh | 1,998 (16) | 1,998 (32) | ≈持平 | 写链串行瓶颈未动（audit 分区在第二步） |
+| S6 userinfo | 18,278 (32) | 20,663 (128) | **c≥64: +9~13%**；c≤4: **-38~-43%** | 双模：高并发卸载赢，低并发 cache 税输 |
+
+GC 抖动（S6 c=32，30×10s）：p99 中位 3.3→4.7ms（cache 路径 +2 次 Redis 往返）；
+**极值 655.5→291.8ms（砍半）**；>1.5x 中位尖峰 7→12 个（中段 76~292ms 仍在）。
+判定：checkpoint 风暴极值被 PG 调优压制，尾抖动未根除（剩余归因候选：WSL2 IO、
+Redis 客户端批处理 —— 发布前按 §六.4 补 PG 侧证据）。
+
+冷启动：1.265s / 1.261s（pre-migrated），与基线 1.23s 持平。
+
+### 快赢期间的三个实测裁决（细节见部署文档与 overlay 注释）
+
+1. **Redis 池必须 ≥ 预期并发**：池 20 时 S6 -18% 且全连接超时；64 后转正。
+   cache.on 不是纯配置开关，是"cache + 池扩容"组合拳。
+2. **introspect 正向缓存受 N2 判别器约束**（仅 token 走过发放/校验路径才回填），
+   bench 预植 token 永不回填 —— S3 的收益实际来自 client 缓存 + PG 调优。
+   改判别器语义 = 代码项（§十 backlog）。
+3. **host network 在 Docker Desktop (WSL2) 下不可用**：host netns = 引擎 VM netns，
+   发行版内 127.0.0.1/共享 eth0 IP/host.docker.internal 全部不可达（仅发布端口
+   转发）。该杠杆留给裸机/原生引擎（§五.9，发布前重测）。
+
+---
+
 ## 如何复现
 
 ```bash
