@@ -112,3 +112,9 @@ graphify-out/
 
 .playwright-mcp/
 .mimosa/
+
+# Client SDKs (clients/) local artifacts
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.egg-info/
+clients/python/.venv/
