@@ -1,7 +1,7 @@
 # AuthForge 多语言客户端 SDK 生成方案设计
 
-> **版本**: v1.1（M0 立项修订：补充 §十 M0 落地实测与子决策）
-> **日期**: 2026-08-05（v1.0）/ 2026-08-16（v1.1 M0 修订）
+> **版本**: v1.2（M1/M2 立项修订：补充 §十一 生成器实测、PyPI 命名、布局与 CI 落点）
+> **日期**: 2026-08-05（v1.0）/ 2026-08-16（v1.1 M0 修订）/ 2026-08-18（v1.2 M1/M2 修订）
 > **文档性质**: 技术设计（Phase 1 落地蓝图，**非代码**——实施见 §七 milestone，各 milestone 单独立项）
 > **上游规划**: [演进方案 §三 Phase 1](../productization-evolution-plan.md)「多语言 HTTP 客户端 SDK」
 > **姊妹设计**: [基准设施设计](../in-progress/benchmark-facility-design.md)（Phase 0，与本设施协同——见附录 D）
@@ -474,3 +474,91 @@ M0 立项时按 §四 D1.5 的要求裁决：**补齐机制 = 手维护 YAML**�
 ### 10.5 AC 修订
 
 §六 AC2 的验收方式细化为**本地故障注入**（从 YAML 副本删一个端点 → 门 fail；往源码副本加一条路由 → 门 fail），CI 侧由本 PR 自身触发新 workflow 验证。AC8 的"完整 requestBody + response schema"以控制器实测契约为准（M0 已核查到 file:line 级），不再以"YAML 里有内容"为满足。
+
+---
+
+## 十一、M1/M2 立项修订（2026-08-18 实测，v1.2）
+
+> M1（Python）/M2（Go）启动前的实地核查：生成器从治理后的 `apps/server/openapi.yaml`
+> 实际生成 + 编译验证，落地 D7/D8/D9/D10 的遗留子决策。实施计划（带验收标准）见
+> [client-sdk-implementation-plan.md](client-sdk-implementation-plan.md)。
+
+### 11.1 生成器实测与版本 pin（D6 修正）
+
+2026-08-18 在 master `9c13b41`（v1.2.0，M0 已合并）上实测：
+
+| 生成器 | pin 版本 | 实测结果 |
+|--------|----------|----------|
+| `openapi-python-client` | **0.29.0** | 从 YAML 全量生成 156 个 .py，零错误零警告；`TokenRequest`/`TokenResponse` 等模型类型完整（grant_type 枚举、UNSET 可选字段、表单 `to_dict()`） |
+| `oapi-codegen` | **v2.8.0**（runtime `v1.7.0`） | 生成 14471 行 `client.gen.go`，`go build` + `go vet` 通过 |
+
+- **D6 描述修正**：openapi-python-client ≥0.24 已从 Pydantic 迁移到 **attrs** 模型（本设计 v1.0 写"Pydantic v2 + httpx"已过时）。功能等价：类型化、可序列化、py.typed。依赖：`httpx >=0.23.1,<0.29.0`、`attrs >=22.2.0`、Python `^3.11`。
+- Go 工具链：`go 1.24` 指令；生成器经 `go run ...@v2.8.0` 调用（无需全局安装）。本地网络注意：模块下载需 GOPROXY 镜像（如 goproxy.cn），CI（GitHub runner）不受影响。
+
+### 11.2 D10 修正：PyPI 发行名 = `authforge-oauth2`（导入名保持 `authforge`）
+
+实测 pypi.org：**`authforge`（0.1.0，无关的 FastAPI 认证库）与 `authforge-sdk`（1.0.8，另一家 "AuthForge" 产品的官方 SDK）均已被占用**——D10 原文"`pip install authforge`"不可行。
+
+决策：**发行名（distribution name）= `authforge-oauth2`，导入名（import name）= `authforge`**。发行名/导入名分离是 PyPI 常规模式（如 `protobuf` → `google.protobuf`）。用户体验：
+
+```bash
+pip install authforge-oauth2     # 安装
+from authforge import m2m_client  # 导入
+```
+
+Go module path 不受影响：`github.com/lucaswang420/authforge/clients/go`（monorepo 子目录模块，git tag 驱动，无命名冲突）。
+
+### 11.3 Python 布局定稿（D8 细化）
+
+```
+clients/python/
+├── pyproject.toml                    # 发行名 authforge-oauth2；version 与 cmake/Version.cmake 联动（CI 校验）
+├── openapi-python-client.yaml        # 生成器配置（package_name_override: authforge）
+├── README.md
+├── examples/client_credentials_demo.py
+├── src/authforge/
+│   ├── __init__.py                   # 公共 API 出口（m2m_client 等）
+│   ├── m2m.py                        # client_credentials 门面（httpx.Auth + 生成客户端组装）
+│   ├── oauth.py                      # authorization_code helper（authorize URL + PKCE + code 交换 + refresh）
+│   └── generated/                    # 生成代码（DO NOT EDIT）
+└── tests/
+    ├── test_m2m.py 等                # 单测（httpx.MockTransport，CI 可跑）
+    └── integration/                  # AUTHFORGE_BASE_URL 门控，对本地全栈实测
+```
+
+两个实测约束决定了 regen 脚本的搬运逻辑：
+
+1. **点分 `package_name_override` 不可用**（会创建字面量目录 `authforge.generated/` 而非嵌套包）；但 0.29.0 生成代码全部使用**包内相对导入**（`from ...client import ...`），故"生成到临时目录（包名 `authforge`）→ 只搬包目录本体到 `src/authforge/generated/`"可行，包可安全重定位。
+2. 生成器会在输出目录额外写 `pyproject.toml`/`README.md`/`.gitignore` 等项目级文件——regen 脚本只搬运 `<pkg>/` 目录，项目元数据以我们手维护的为准。
+
+### 11.4 auth 注入缝定稿（D7 细化，以生成代码实测为准）
+
+| 语言 | 注入缝 | 说明 |
+|------|--------|------|
+| Python | 生成 `Client`/`AuthenticatedClient` 的 `set_httpx_client()` / `set_async_httpx_client()` | 构造 `httpx.Client(base_url=..., auth=ClientCredentialsAuth(...))` 后注入；注入路径绕开 `AuthenticatedClient` 的静态 token header 构造。secured 端点函数签名**类型窄化为 `AuthenticatedClient`**，故门面返回注入完成的 `AuthenticatedClient` |
+| Go | `generated.NewClient(serverURL, generated.WithHTTPClient(oauth2Client))` | `golang.org/x/oauth2/clientcredentials.Config` → `TokenSource`（自动刷新/缓存/并发安全）；**`AuthStyle: AuthStyleInHeader`**——F-017 要求 client_secret_basic（body 形态被服务端拒绝） |
+
+token 生命周期职责（D5 不变）：**client_credentials 全自动**（到期前主动刷新 + 401 时强制刷新重试一次）；**authorization_code / refresh 提供 helper**（authorize URL 构造、PKCE S256、code 交换、refresh 调用），不做浏览器自动化。
+
+### 11.5 D9 修正：漂移门落点与生成节奏
+
+- **漂移门不放 `ci.yml` static-checks**（该 job 定位 source-only、无工具链依赖）；新增独立 workflow **`clients-sdk.yml`**（PR 触发，paths: `clients/**`、`apps/server/openapi.yaml`、`tools/clients/**`）：
+  1. `regen_clients.py --check`（Python + Go 生成物对账，漂移即 fail）
+  2. Python 单测（pytest）+ Go 单测（`go test ./...`，集成测试 env 门控自动跳过）
+  3. 版本联动检查：`clients/python/pyproject.toml` version == `cmake/Version.cmake`
+- **生成节奏修正**：PR 提交生成物 + CI 漂移门对账（放弃 D9 原文"release 时生成 + `[skip ci]` 提交"——漂移门已在每个 PR 保证新鲜度，release 再生成引入移动部件无安全增益；D4"生成代码提交进 git"主决策不变）。
+- 工具：`python tools/clients/regen_clients.py [--check]`（跨平台单脚本，pin 生成器版本常量）。**不新增 manage.ps1/manage.sh 命令**——避免 parity 面扩大，repo 惯例的工具脚本形态（`tools/<name>/<name>.py`）已够用。
+
+### 11.6 M3 范围修正（发布流水线）
+
+- **Go module proxy：需要嵌套 tag，不是零工作**——子目录模块的版本解析要求形如 `clients/go/vX.Y.Z` 的 git tag（go.dev/ref/mod#vcs-version；根 tag `vX.Y.Z` 只服务仓库根模块，`go get .../clients/go@v1.2.0` 对根 tag 会报 unknown revision）。`release.yml` 的 `github-release` job 增加一步：在发布 commit 上创建并推送 `clients/go/v${VERSION}` 嵌套 tag（该形态不匹配 release.yml 的 tag 触发模式 `v[0-9]+.[0-9]+.[0-9]+`，无递归触发）。**另注**：module path 无 `/vN` 后缀 ⇒ 只能消费 v0/v1 tag；项目升 v2.0.0 时须同步把 module path 改为 `.../clients/go/v2`（README 记录此约束）。
+- **PyPI**：`release.yml` 新增 `sdk-python` job（tag 触发：**版本一致性前置校验**（pyproject `version` == tag 版本，防漏 bump 发布错版）→ `python -m build clients/python` → `pypa/gh-action-pypublish`）。secret 门控语义：GitHub Actions 的 `secrets` context **不能**用于 job 级 `if:`（静默求值为不可用）——正确写法是把 `PYPI_API_TOKEN` 绑到 job 级 `env:`，在 **publish step** 上 `if: env.PYPI_API_TOKEN != ''`；未配置时该 step 显式 skip 并打印设置指引，**不阻塞既有发布链**。首次发布前置（人工，一次性）：在 PyPI 注册 `authforge-oauth2` 项目 + 仓库配 secret——本 PR 的 README/发布文档列出步骤。
+- **AC7 拆分**：`pip install authforge-oauth2` / `go get .../clients/go@vX.Y.Z` 的发布后冒烟 = **发布验收，不在本 PR**；本 PR 验收 = 流水线 wiring + workflow 语法/dry-run 验证。
+
+### 11.7 测试策略
+
+| 层 | 范围 | 跑在哪 |
+|----|------|--------|
+| 单测 | token 获取（Basic 认证形态）/ Bearer 注入 / 到期前主动刷新 / 401 刷新重试一次 / 错误传播 / PKCE S256 向量 | CI（`clients-sdk.yml`）：Python `httpx.MockTransport`，Go `httptest` |
+| 集成 | client_credentials 取 token → introspect `active:true` → discovery 拉取 →（负例）M2M token 调 userinfo 得 401 | 本地全栈（复用 full-test 基建：PG + 服务器 :5555 + 种子 `backend-svc`/`test-secret`）；`AUTHFORGE_BASE_URL` env 门控，CI 不跑 |
+| 回归 | 全量后端 8 步 + 前端测试 | 本任务不改 C++/前端源码、不改 openapi.yaml，预期零影响，仍全量跑一遍兜底 |
