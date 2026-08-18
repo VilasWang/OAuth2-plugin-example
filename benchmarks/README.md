@@ -266,5 +266,5 @@ benchmarks/
 │   ├── measure-cold-start.sh  # generic competitor cold start
 │   ├── keycloak/ ory/ zitadel/  # compose + setup + run-all + scenarios
 │   └── results/               # competitor JSONs + COMPARISON.md
-└── results/                   # dated per-level JSON results (gitignored bulk)
+└── results/                   # dated per-level JSON results (committed)
 ```

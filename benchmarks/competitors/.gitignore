@@ -4,3 +4,6 @@
 */lib/generated/
 # Zitadel FirstInstance MachineKeyPath/PatPath bind mount (machine key + PAT)
 zitadel/machinekey/
+# Zitadel rendered setup steps — contains the runtime-generated admin password
+# until teardown removes it
+zitadel/setup-steps.rendered.yaml

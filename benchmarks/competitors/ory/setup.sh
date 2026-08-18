@@ -106,8 +106,12 @@ docker exec ory-bench-hydra hydra create oauth2-client \
 echo "  clients created"
 
 # --- 4. warm validation: one cc token + one full accept-flow token ---
-curl -sk -o /dev/null -w '' -u "bench-svc:$SVC_SECRET" -d 'grant_type=client_credentials' "$PUBLIC_URL/oauth2/token" \
-    || { echo "[setup] ERROR: warm cc validation failed"; exit 1; }
+# curl without --fail exits 0 on HTTP 401/500 — require the real status code
+# (same pattern as keycloak/setup.sh), otherwise a wrong secret still "passes"
+WARM_CODE="$(curl -sk -o /dev/null -w '%{http_code}' -u "bench-svc:$SVC_SECRET" \
+    -d 'grant_type=client_credentials' "$PUBLIC_URL/oauth2/token")"
+[ "$WARM_CODE" = "200" ] \
+    || { echo "[setup] ERROR: warm cc validation failed (HTTP $WARM_CODE)"; exit 1; }
 python3 "$ORY_DIR/mint_tokens.py" --public "$PUBLIC_URL" --admin "$ADMIN_URL" \
     --client-id bench-web --client-secret "$WEB_SECRET" --mode user-at --count 1 \
     >/dev/null 2>/tmp/ory_warm_err || { cat /tmp/ory_warm_err; echo "[setup] ERROR: warm accept-flow validation failed"; exit 1; }

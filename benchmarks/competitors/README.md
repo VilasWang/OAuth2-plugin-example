@@ -30,8 +30,10 @@ bash benchmarks/competitors/run-comparison.sh --report-only   # regenerate COMPA
 Each product phase = `setup.sh` (boot + init + token pools + warm
 validation) → `run-all.sh` (staircase × scenarios, RSS sampling, GC-jitter
 5min, cold start ×2 modes) → `teardown.sh` (down -v + residue assertion).
-Every setup script is idempotent: it tears down any previous stack of its
-own product first.
+Re-runs: the zitadel and authforge setups tear down any previous stack of
+their own product first (residue guard); the keycloak/ory setups only assert
+the port is free — run their `teardown.sh` before re-running them manually
+(`run-comparison.sh` always tears down between products).
 
 ## Per-product notes (auth paths & decision gates)
 
@@ -39,7 +41,7 @@ own product first.
 |---|---|---|---|
 | `keycloak/` | quay.io/keycloak/keycloak (see compose) | Basic (confidential client) | JVM: 60s setup warmup (D2 exemption); RT pool via ROPC + per-level `--reissue` |
 | `ory/` | ghcr.io/oryd/hydra (see compose) | Basic (public port 4444) | v26 production mode serves TLS on both ports (self-signed); user tokens via admin-API accept flow; introspect runs on admin port 4445 (annotated) |
-| `zitadel/` | ghcr.io/zitadel/zitadel (see compose) | **RFC 7523 jwt-bearer grant** (Service User + private key) | Token endpoint does NOT take client_credentials+client_assertion for machine users (v2.71) — grant-type equivalence annotated in COMPARISON.md; introspect auth = API app (Basic) created via Management API; token pool carries the app's project-aud scope; S5 N/A (machine users get no RT per RFC 6749 §4.4.3, password grant removed) |
+| `zitadel/` | ghcr.io/zitadel/zitadel (see compose) | **RFC 7523 jwt-bearer grant** (Service User + private key) | Token endpoint does NOT take client_credentials+client_assertion for machine users (v2.71) — grant-type equivalence annotated in COMPARISON.md; introspect auth = OIDC app + private-key JWT (client_assertion) via Management API (official perf guidance #6220); token pool carries the app's project-aud scope; S5 N/A (machine users get no RT per RFC 6749 §4.4.3, password grant removed) |
 
 Scenario coverage per product (S1/S2/S3/S5/S6; S4 excluded for all — design
 D4) is decided by the run-time smoke gates; anything undrivable is recorded
