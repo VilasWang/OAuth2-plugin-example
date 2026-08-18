@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "scenario": "s1-discovery",
+  "concurrency": 2,
+  "threads": 1,
+  "duration_s": 10,
+  "qps": 17974.67,
+  "latency_us": {
+    "p50": 103.0,
+    "p75": 119.0,
+    "p90": 136.0,
+    "p99": 236.0
+  },
+  "total_requests": 181537,
+  "error_rate": 9.915334064130178e-05,
+  "error_count": 18,
+  "socket_errors": {
+    "connect": 0,
+    "read": 18,
+    "write": 0,
+    "timeout": 0
+  },
+  "non_2xx_responses": null,
+  "driver": {
+    "cpu_pct": 20.1,
+    "limited": false
+  },
+  "env": {
+    "date": "2026-08-18T07:26:36+00:00",
+    "git_sha": "a9d6327",
+    "git_branch": "feat/competitor-benchmark",
+    "product": "authforge",
+    "product_version": "a9d6327",
+    "target_image": "",
+    "target_config": "config.bench.json",
+    "target_spec": "",
+    "driver_spec": "",
+    "network": "localhost-cross-container",
+    "wrk_version": "wrk debian/4.1.0-4build2 [epoll] Copyright (C) 2012 Will Glozer"
+  }
+}
