@@ -105,6 +105,16 @@ for idx in "${!POOLS[@]}"; do
     done
 done
 
+# --- restore the swapped-in config to the committed bench profile ---
+# The sweep rewrote db_clients pool values in the LIVE swapped config.json
+# (apps/server/config/config.json, currently the config.bench.json copy).
+# Restore it from config.bench.json so a later setup.sh that skips its own
+# swap (leftover .dev-backup guard) doesn't inherit the last sweep value —
+# that exact leak once booted the stack at pool=100 and starved PG
+# (max_connections) so hard even psql got "too many clients".
+cp "$REPO_ROOT/apps/server/config/config.bench.json" "$REPO_ROOT/apps/server/config/config.json"
+echo "[pool-sweep] restored swapped config.json from config.bench.json"
+
 # --- summary table ---
 python3 - "$SWEEP_DIR" "${POOLS[@]}" <<'PYEOF'
 import json, sys, glob, re, os
