@@ -21,7 +21,7 @@ name: zitadel-bench
 
 services:
   postgres:
-    image: postgres:15-alpine        # same image tag as the AuthForge bench stack (D1)
+    image: postgres:17-alpine        # same image tag as the AuthForge bench stack (D1, bumped 15->17 in step 2)
     container_name: zitadel-bench-postgres
     environment:
       POSTGRES_DB: zitadel
