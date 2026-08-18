@@ -62,7 +62,7 @@
 | `client_encoding` | "" | ⚪ |
 | `number_of_connections` | 25 | 🔧 池扫描（§五）：高并发 P99 尾巴即池排队；产品自身容量口径应另测 64/100 |
 | `timeout` | -1.0 | ✅ 命令执行超时关闭（真正的护栏是服务端 statement_timeout） |
-| `auto_batch` | **true** | ⚠️ **违反官方使用建议**：auto_batch 仅建议用于只读/非关键查询的独立客户端；当前唯一 default 客户端**同时承载 token/audit 写入**——批内单条 SQL 失败会波及整批、回滚通知可能丢失。缓解二选一：(a) 写路径拆独立客户端（`auto_batch=false`）+ 读路径专用 batch 客户端（需 repository 接线改造，📋 半代码项）；(b) 保守置 false（微损失、零风险）。**至少应在文档记录该风险并拍板** |
+| `auto_batch` | **true** | ✅ **已拍板保持 true（2026-08-18 同日 A/B）**：S2 +13~49%、S3/S6 +5~53%、S5 持平；代价为 GC 中位 p99 5.8→11.9ms（批排队延迟）。⚠️ 风险维持文档化：官方建议 auto_batch 仅用于只读客户端，当前唯一 default 客户端承载 token/audit 写入——批内单条失败波及整批、回滚通知可能丢失；读写拆分客户端为代码项（§十）。 |
 | `connect_options.statement_timeout` | 5s | ✅ 服务端护栏，保留 |
 
 ### 2.3 `redis_clients`（8 字段）
@@ -174,7 +174,7 @@ autovacuum_vacuum_scale_factor = 0.02
    - **已否决：UNLOGGED（原方案 A）**——crash recovery 会清空**整张**审计表（非丢最近窗口），且不参与流式复制；违反"不破坏功能正确性"原则，任何部署档位不采用。
    - **预期收益**：S2/S5 +15–25%（写放大近乎减半 + 池竞争缓解），顺带解决审计表治理；管理端查询经分区裁剪（timestamp DESC 从最新分区起读）不受影响。
 2. **oauth2_access_tokens 真 RANGE 分区**（按 expires_at 月度）：V016 名为 partitioning_prep 实际只有索引+归档函数；分区让 cleanup 从 DELETE 变 DROP、索引深度受控。
-3. **introspect 覆盖索引**：`ON oauth2_access_tokens(token) INCLUDE (user_id, client_id, scope, expires_at, revoked)` → index-only scan。
+3. **introspect 覆盖索引 —— 已评审落地（2026-08-18，V026）**：原案 `ON oauth2_access_tokens(token) INCLUDE (...)` 经子代理评审修正为 **C 案落地**（V026 删除 3 个与 PK 重复的 B-tree，token INSERT 写放大 8→6；评审发现 `SELECT *` 下 INCLUDE 覆盖索引无法触发 index-only scan，且 SchemaManager 单事务使 CONCURRENTLY 不可用）。全行 INCLUDE（B 案）降级 backlog。详见 [`introspect-covering-index-plan.md`](introspect-covering-index-plan.md) v2。
 
 ---
 
@@ -213,6 +213,7 @@ autovacuum_vacuum_scale_factor = 0.02
 |---|---|---|
 | 快赢（半天）✅ 2026-08-18（8838ac6） | cache on（**Redis 池 20→64 联动**）+ PG conf + bench 档微优化（关 gzip/date/server header、去 PromExporter）。**host network 实测否决**（Docker Desktop WSL2 下 host netns 不可达，见 overlay 注释）。实测：S2 全档 **+23~43%**、S1 +3~14%、S6 c≥64 +9~13%（c≤4 -38~-43% cache 税）、S3 混合（N2 判别器限制，见 §四.1 注）、S5 持平；GC 极值 655→292ms。详见 `benchmarks/results/SUMMARY.md` 快赢 A/B 节 | `run-authforge-session.sh` A/B ✅（20260818-8838ac6 vs 20260817-03965fa） |
 | 第二步（1 天）✅ 2026-08-18（f23d142→a9d6327） | audit 降级落地（V025 分区+BRIN，migration + /orm-gen + Windows full-test 8/8 回归）+ 池扫描（**定稿 db 64 / redis 64**：池 25→64 在 c≥64 提 QPS 40-48%，100 无增益）+ PG17（四家同升，deploy/ 仍 15 待 pg_upgrade runbook）+ max_connections=200。**实测修正**：分区对小表吞吐中性（预估 +15-25% 的前提——索引深度退化——在基准规模不存在；分区收益=治理：DROP PARTITION 保留策略+索引深度受控）；新发现**缓存 TTL 同步到期雷群**（30s 周期 ~800ms 尖峰，池越大雷群越深，修复=代码层 TTL 抖动/single-flight，已录 §十） | bench ✅（20260818-a9d6327）+ full-test 8/8 ✅ |
+| 第二步补 ✅ 2026-08-18（c9c13d8→c5654a4） | **auto_batch 同日 A/B 定谳**：true 在 S2 +13~49%、S3/S6 +5~53%（S5 持平）→ **bench/prod/default 维持 true**；`is_fast` 全配置本就 false（启用需代码改造，§十）。**V026 token 冗余索引清理**（introspect 覆盖索引方案 C 案，子代理评审：CONCURRENTLY 被 SchemaManager 单事务阻断 → 普通 DROP INDEX；全行 INCLUDE B 案降级 backlog） | bench ✅（20260818-3c1ced3 vs 20260818-c9c13d8；V026 抽查 20260818-c5654a4）+ full-test 8/8 ✅（462 ctest + 59+55 端点） |
 | 第三步（2–3 天） | token 表分区 + 覆盖索引 + LTO/PGO 构建档 | bench + full-test |
 | 发布前 | 裸机/独立驱动重测（对外数字）+ SOP 三改（3 次中位、PG 侧采集、配置快照） | `run-comparison.sh --fresh` 全量 |
 

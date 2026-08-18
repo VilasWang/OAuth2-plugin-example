@@ -2,10 +2,10 @@
   "schema_version": 1,
   "test": "cold-start",
   "mode": "auto-migrate",
-  "cold_start_seconds": 1.301,
-  "rss_mb": 12.0,
+  "cold_start_seconds": 1.264,
+  "rss_mb": 17.2,
   "env": {
-    "git_sha": "a9d6327",
-    "date": "2026-08-18T07:42:08Z"
+    "git_sha": "3c1ced3",
+    "date": "2026-08-18T14:35:14Z"
   }
 }
