@@ -25,13 +25,13 @@ const std::string AuditLogs::Cols::_ip = "\"ip\"";
 const std::string AuditLogs::Cols::_user_agent = "\"user_agent\"";
 const std::string AuditLogs::Cols::_request_id = "\"request_id\"";
 const std::string AuditLogs::Cols::_details = "\"details\"";
-const std::string AuditLogs::primaryKeyName = "id";
+const std::vector<std::string> AuditLogs::primaryKeyName = {"id","timestamp"};
 const bool AuditLogs::hasPrimaryKey = true;
 const std::string AuditLogs::tableName = "\"audit_logs\"";
 
 const std::vector<typename AuditLogs::MetaData> AuditLogs::metaData_={
 {"id","int64_t","bigint",8,1,1,1},
-{"timestamp","::trantor::Date","timestamp with time zone",0,0,0,0},
+{"timestamp","::trantor::Date","timestamp with time zone",0,0,1,1},
 {"actor_type","std::string","character varying",20,0,0,1},
 {"actor_id","std::string","character varying",128,0,0,0},
 {"action","std::string","character varying",50,0,0,1},
@@ -468,7 +468,6 @@ void AuditLogs::updateByMasqueradedJson(const Json::Value &pJson,
     }
     if(!pMasqueradingVector[1].empty() && pJson.isMember(pMasqueradingVector[1]))
     {
-        dirtyFlag_[1] = true;
         if(!pJson[pMasqueradingVector[1]].isNull())
         {
             auto timeStr = pJson[pMasqueradingVector[1]].asString();
@@ -585,7 +584,6 @@ void AuditLogs::updateByJson(const Json::Value &pJson) noexcept(false)
     }
     if(pJson.isMember("timestamp"))
     {
-        dirtyFlag_[1] = true;
         if(!pJson["timestamp"].isNull())
         {
             auto timeStr = pJson["timestamp"].asString();
@@ -707,11 +705,6 @@ void AuditLogs::setId(const int64_t &pId) noexcept
     id_ = std::make_shared<int64_t>(pId);
     dirtyFlag_[0] = true;
 }
-const typename AuditLogs::PrimaryKeyType & AuditLogs::getPrimaryKey() const
-{
-    assert(id_);
-    return *id_;
-}
 
 const ::trantor::Date &AuditLogs::getValueOfTimestamp() const noexcept
 {
@@ -727,11 +720,6 @@ const std::shared_ptr<::trantor::Date> &AuditLogs::getTimestamp() const noexcept
 void AuditLogs::setTimestamp(const ::trantor::Date &pTimestamp) noexcept
 {
     timestamp_ = std::make_shared<::trantor::Date>(pTimestamp);
-    dirtyFlag_[1] = true;
-}
-void AuditLogs::setTimestampToNull() noexcept
-{
-    timestamp_.reset();
     dirtyFlag_[1] = true;
 }
 
@@ -992,6 +980,10 @@ void AuditLogs::setDetailsToNull() noexcept
 
 void AuditLogs::updateId(const uint64_t id)
 {
+}
+typename AuditLogs::PrimaryKeyType AuditLogs::getPrimaryKey() const
+{
+    return std::make_tuple(*id_,*timestamp_);
 }
 
 const std::vector<std::string> &AuditLogs::insertColumns() noexcept
@@ -1883,6 +1875,11 @@ bool AuditLogs::validateJsonForUpdate(const Json::Value &pJson, std::string &err
         if(!validJsonOfField(1, "timestamp", pJson["timestamp"], err, false))
             return false;
     }
+    else
+    {
+        err = "The value of primary key must be set in the json object for update";
+        return false;
+    }
     if(pJson.isMember("actor_type"))
     {
         if(!validJsonOfField(2, "actor_type", pJson["actor_type"], err, false))
@@ -1960,6 +1957,11 @@ bool AuditLogs::validateMasqueradedJsonForUpdate(const Json::Value &pJson,
           if(!validJsonOfField(1, pMasqueradingVector[1], pJson[pMasqueradingVector[1]], err, false))
               return false;
       }
+    else
+    {
+        err = "The value of primary key must be set in the json object for update";
+        return false;
+    }
       if(!pMasqueradingVector[2].empty() && pJson.isMember(pMasqueradingVector[2]))
       {
           if(!validJsonOfField(2, pMasqueradingVector[2], pJson[pMasqueradingVector[2]], err, false))
@@ -2046,7 +2048,8 @@ bool AuditLogs::validJsonOfField(size_t index,
         case 1:
             if(pJson.isNull())
             {
-                return true;
+                err="The " + fieldName + " column cannot be null";
+                return false;
             }
             if(!pJson.isString())
             {
