@@ -21,6 +21,8 @@ from .m2m import (
     ClientCredentialsAuth,
     async_m2m_client,
     basic_auth_client,
+    close_async_m2m_client,
+    close_m2m_client,
     fetch_client_credentials_token,
     m2m_client,
 )
@@ -42,6 +44,8 @@ __all__ = [
     "PkcePair",
     "async_m2m_client",
     "basic_auth_client",
+    "close_async_m2m_client",
+    "close_m2m_client",
     "create_pkce_challenge",
     "fetch_client_credentials_token",
     "m2m_client",

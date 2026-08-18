@@ -540,6 +540,8 @@ clients/python/
 
 token 生命周期职责（D5 不变）：**client_credentials 全自动**（到期前主动刷新 + 401 时强制刷新重试一次）；**authorization_code / refresh 提供 helper**（authorize URL 构造、PKCE S256、code 交换、refresh 调用），不做浏览器自动化。
 
+**资源清理（PR 评审补充）**：Python 门面返回的 `AuthenticatedClient` 只管理注入的 API httpx client；auth 层内部**另有一个** token 专用 httpx client（独立以防 `auth_flow` 递归）。生成类是 attrs slotted 不能挂属性，故提供 `close_m2m_client()` / `close_async_m2m_client()`：经注入 client 的 `.auth` 字段取回 auth 对象，**两个连接池一起关闭**（否则 token 端点 keep-alive 池泄漏到 GC）。
+
 ### 11.5 D9 修正：漂移门落点与生成节奏
 
 - **漂移门不放 `ci.yml` static-checks**（该 job 定位 source-only、无工具链依赖）；新增独立 workflow **`clients-sdk.yml`**（PR 触发，paths: `clients/**`、`apps/server/openapi.yaml`、`tools/clients/**`）：
