@@ -400,7 +400,7 @@ Phase 1 客户端 SDK（py/go）──请求工具──┘ C++ 工程师(wrk) +
 ## 十、M0 立项修订（2026-08-16 实测，v1.1）
 
 > M0 启动前的实地核查修正了 §二 的若干判断，并落地了 D1.5 遗留子决策。
-> 实施计划（带验收标准）见 [openapi-spec-governance-plan.md](openapi-spec-governance-plan.md)。
+> 实施计划（带验收标准）见 [openapi-spec-governance-plan.md](../todo/openapi-spec-governance-plan.md)。
 
 ### 10.1 三层漂移实测（比 §二 更严重：不止两源，是三层）
 
