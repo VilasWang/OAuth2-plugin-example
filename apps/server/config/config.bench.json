@@ -19,7 +19,7 @@
             "client_encoding": "",
             "number_of_connections": 64,
             "timeout": -1.0,
-            "auto_batch": false,
+            "auto_batch": true,
             "connect_options": {
                 "statement_timeout": "5s"
             }
