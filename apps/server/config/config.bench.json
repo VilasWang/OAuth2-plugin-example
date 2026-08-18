@@ -34,7 +34,7 @@
             "passwd": "123456",
             "db": 0,
             "is_fast": false,
-            "number_of_connections": 20,
+            "number_of_connections": 64,
             "timeout": -1.0
         }
     ],
@@ -87,7 +87,7 @@
             "log_path": "./logs",
             "logfile_base_name": "",
             "log_size_limit": 100000000,
-            "max_files": 0,
+            "max_files": 10,
             "log_level": "WARN",
             "display_local_time": true
         },
@@ -95,14 +95,14 @@
         "handle_sig_term": true,
         "relaunch_on_error": true,
         "use_sendfile": true,
-        "use_gzip": true,
-        "use_brotli": true,
+        "use_gzip": false,
+        "use_brotli": false,
         "static_files_cache_time": 86400,
         "simple_controllers_map": [],
         "idle_connection_timeout": 60,
         "server_header_field": "OAuth2Server",
-        "enable_server_header": true,
-        "enable_date_header": true,
+        "enable_server_header": false,
+        "enable_date_header": false,
         "keepalive_requests": 10000,
         "pipelining_requests": 4096,
         "gzip_static": true,
@@ -115,13 +115,6 @@
     },
     "plugins": [
         {
-            "name": "drogon::plugin::PromExporter",
-            "dependencies": [],
-            "config": {
-                "path": "/metrics"
-            }
-        },
-        {
             "name": "OAuth2Plugin",
             "dependencies": [],
             "config": {
@@ -133,7 +126,7 @@
                     "db_client_name": "default"
                 },
                 "cache": {
-                    "enabled": false,
+                    "enabled": true,
                     "redis_client_name": "default",
                     "ttl_seconds": {
                         "client": 300,

@@ -1,0 +1,56 @@
+# Bench-only compose overlay — quick-win performance profile
+# (docs/productization-evolution/in-progress/noncode-performance-optimization.md §四/§八).
+#
+# Layers ON TOP OF deploy/docker/docker-compose.yml. Applied only by the
+# benchmark scripts (setup.sh / teardown.sh / measure-cold-start.sh) — never
+# by dev/deploy flows.
+#
+# PostgreSQL instance tuning (§四): the base compose runs a zero-tuning PG
+# (factory defaults: shared_buffers=128MB, checkpoint_timeout=5min,
+# max_wal_size=1GB). The -c flags below follow the official tuning guidance
+# for a 16GB/8-vCPU host (Docker engine reports 15.62GiB here) and target the
+# 655ms tail-latency spikes attributed to checkpoint full-page-write storms
+# (§一). The same GUC set is documented as the deploy recommendation in
+# docs/ops/deployment.md §性能调优.
+#
+# NOTE on host networking (§五.2): deliberately NOT used. Measured empirically
+# on this Docker Desktop (WSL2 integration) setup, 2026-08-18:
+#   - network_mode: host puts the container in the engine VM's netns, which is
+#     NOT the distro's netns (Ubuntu and the docker-desktop VM share eth0's IP
+#     but have separate namespaces).
+#   - Host-mode listeners are unreachable from the distro: 127.0.0.1, the
+#     shared eth0 IP, and host.docker.internal (→ Windows LAN IP) all time out
+#     (ports 5432/5555/5556 tested; an apparent :80 200 was a Windows-local
+#     service, not forwarding).
+#   - Only published ports (bridge mode) are forwarded to the distro.
+# => host networking stays a bare-metal / native-docker-engine item (§五.9,
+#    re-measured before publishing numbers). Bridge mode is kept for all four
+#    products, which also preserves topology fairness.
+
+services:
+  oauth2-postgres:
+    command:
+      - postgres
+      # --- memory (16GB host reference: ~25% shared_buffers) ---
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=12GB
+      - -c
+      - work_mem=16MB
+      # --- WAL / checkpoint: 3x fewer checkpoints, spread over 90% of the interval ---
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - min_wal_size=1GB
+      - -c
+      - wal_compression=on
+      - -c
+      - checkpoint_completion_target=0.9
+      # --- high-frequency token/audit inserts: vacuum earlier, before bloat ---
+      - -c
+      - autovacuum_vacuum_insert_scale_factor=0.02
+      - -c
+      - autovacuum_vacuum_scale_factor=0.02
