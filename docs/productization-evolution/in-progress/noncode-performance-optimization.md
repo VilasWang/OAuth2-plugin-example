@@ -211,7 +211,7 @@ autovacuum_vacuum_scale_factor = 0.02
 
 | 阶段 | 内容 | 验证 |
 |---|---|---|
-| 快赢（半天） | cache on + PG conf + host network + bench 档微优化（关 gzip/date/server header、去 PromExporter） | `run-authforge-session.sh` A/B，S2/S3/S6 直接对比 |
+| 快赢（半天）✅ 2026-08-18（8838ac6） | cache on（**Redis 池 20→64 联动**）+ PG conf + bench 档微优化（关 gzip/date/server header、去 PromExporter）。**host network 实测否决**（Docker Desktop WSL2 下 host netns 不可达，见 overlay 注释）。实测：S2 全档 **+23~43%**、S1 +3~14%、S6 c≥64 +9~13%（c≤4 -38~-43% cache 税）、S3 混合（N2 判别器限制，见 §四.1 注）、S5 持平；GC 极值 655→292ms。详见 `benchmarks/results/SUMMARY.md` 快赢 A/B 节 | `run-authforge-session.sh` A/B ✅（20260818-8838ac6 vs 20260817-03965fa） |
 | 第二步（1 天） | audit 降级落地（**已拍板**：分区 + BRIN，见 §四.1——migration + /orm-gen + 回归）+ 池扫描 + PG17 + 池/Redis 连接数联动重估 | bench + full-test 回归 |
 | 第三步（2–3 天） | token 表分区 + 覆盖索引 + LTO/PGO 构建档 | bench + full-test |
 | 发布前 | 裸机/独立驱动重测（对外数字）+ SOP 三改（3 次中位、PG 侧采集、配置快照） | `run-comparison.sh --fresh` 全量 |
@@ -241,6 +241,7 @@ autovacuum_vacuum_scale_factor = 0.02
 | `redis_clients.is_fast=true` | 同上；**陷阱**：启用后 `number_of_connections` 变为每 IO 线程数（20 → 9 线程 = 180 连接），必须同步调整数值 | 同上 |
 | auto_batch 读写拆分 | 按官方建议：读路径专用 batch 客户端，写路径独立 `auto_batch=false` 客户端 | repository 接线改造 |
 | audit 采样分级 | `outcome=success` 的 token_issued 降采样开关（安全审计聚焦失败/特权事件——行业实践口径）；可再抬吞吐，但语义需产品拍板 | 新增配置开关 + 调用点判断 |
+| introspect 正向缓存 N2 判别器放宽 | 现语义：仅在 token 走过 getAccessToken/saveAccessToken 后才回填 introspect 缓存（防 refresh-token fallthrough 污染）；纯 introspection 流量（资源服务器直连）永不回填。放宽 = S3 类负载吃满 token 缓存，但需先证明 fallthrough 语义可安全缓存 | RedisCachedTokenRepository 改造 + 语义评审 |
 | audit 批量聚合落库 | 内存缓冲 + 批量多值 INSERT，摊薄每事件的连接获取/往返/提交成本；崩溃丢缓冲窗口 | AuditLogger 改造 |
 | JWT 档 + ES256/EdDSA | 当前 opaque token 无签名热点；若提供 JWT 档，签名算法选型是新的数量级杠杆 | 产品决策 |
 

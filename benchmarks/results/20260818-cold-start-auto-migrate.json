@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "test": "cold-start",
+  "mode": "auto-migrate",
+  "cold_start_seconds": 1.265,
+  "rss_mb": 10.0,
+  "env": {
+    "git_sha": "8838ac6",
+    "date": "2026-08-18T04:17:11Z"
+  }
+}
