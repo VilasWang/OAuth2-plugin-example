@@ -1,7 +1,7 @@
 # OpenAPI Spec 治理实施计划（M0）
 
 > **日期**: 2026-08-16
-> **上游设计**: [client-sdk-facility-design.md](client-sdk-facility-design.md) §四（Layer 1）+ §十（M0 立项修订）
+> **上游设计**: [client-sdk-facility-design.md](../in-progress/client-sdk-facility-design.md) §四（Layer 1）+ §十（M0 立项修订）
 > **上游任务**: [next-phase-implementation-plan.md](../next-phase-implementation-plan.md) A1
 > **基线**: master `e5548ec`（v1.2.0）
 > **范围**: M0 = D1.5 schema 补齐 + 三层端点对账 + D3 一致性门 + D4 oasdiff 破坏性变更门。M1+（客户端生成）不在本计划。

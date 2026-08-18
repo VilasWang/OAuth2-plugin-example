@@ -65,7 +65,7 @@ productization-evolution/
 
 | 文档 | 对应任务 | 前置依赖 | GitHub Issue |
 |------|----------|----------|-------------|
-| [client-sdk-facility-design.md](todo/client-sdk-facility-design.md) | Phase 1 多语言客户端 SDK | ~~Layer 1 spec 治理~~ — #41 已修复，spec 治理可启动 | ~~#41~~ 已关闭 |
+| [client-sdk-facility-design.md](../in-progress/client-sdk-facility-design.md) | Phase 1 多语言客户端 SDK | ~~Layer 1 spec 治理~~ — #41 已修复，spec 治理可启动 | ~~#41~~ 已关闭 |
 
 ## 与相关文档的关系
 

@@ -63,7 +63,7 @@ benchmark M4 报告（`benchmarks/results/SUMMARY.md`）产出了实测数据，
 
 #### ~~A1. OpenAPI spec 治理（Phase 1 Layer 1 前置）~~ ✅ 已实现（2026-08-17，待合并）
 
-> **设计文档**: [todo/client-sdk-facility-design.md](todo/client-sdk-facility-design.md) §十（M0 修订）+ [todo/openapi-spec-governance-plan.md](todo/openapi-spec-governance-plan.md)（实施计划）
+> **设计文档**: [in-progress/client-sdk-facility-design.md](../in-progress/client-sdk-facility-design.md) §十（M0 修订）+ [todo/openapi-spec-governance-plan.md](todo/openapi-spec-governance-plan.md)（实施计划）
 > **交付内容**（分支 `feat/openapi-spec-governance-m0`）: 三层端点对账（routes 82 = docs 80 + 2 例外 = yaml 78 + 2 自文档排除；删 8 条死条目、修 5 处幽灵文档、补 10 处缺注册）+ P0 schema 补齐（token/introspect/revoke/login/userinfo/discovery 等 requestBody（form/JSON 双形态）+ 17 个 schema 定义 + `info.version` 联动 1.2.0）+ 一致性门 `tools/openapi-governance/check_spec_governance.py`（CI static-checks）+ oasdiff 破坏性变更门（`.github/workflows/openapi-governance.yml`，v1.29.1 pinned，bootstrap 豁免 15 条带理由）+ 验收：openapi-python-client 生成客户端实调 token/introspect/负例/discovery 全通过。
 
 #### ~~A2. 用户管理补全~~ ✅ 已实现（PR #52，2026-08-13）
@@ -110,7 +110,7 @@ benchmark M4 报告（`benchmarks/results/SUMMARY.md`）产出了实测数据，
 
 #### C1. Python + Go 客户端 SDK
 
-> **设计文档**: [todo/client-sdk-facility-design.md](todo/client-sdk-facility-design.md)
+> **设计文档**: [in-progress/client-sdk-facility-design.md](../in-progress/client-sdk-facility-design.md)
 > **前置**: A1 spec 治理完成
 
 **实施步骤**:
