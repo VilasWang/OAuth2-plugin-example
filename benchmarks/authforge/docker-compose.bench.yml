@@ -61,3 +61,9 @@ services:
       - autovacuum_vacuum_insert_scale_factor=0.02
       - -c
       - autovacuum_vacuum_scale_factor=0.02
+      # --- headroom: pools sized to concurrency (64) plus migration/seed/ops
+      #     psql must never hit the 100 default — a pool=100 sweep leg once
+      #     starved PG so hard that even `docker exec psql` got
+      #     "too many clients already" ---
+      - -c
+      - max_connections=200
