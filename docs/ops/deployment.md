@@ -164,7 +164,7 @@ sudo systemctl status docker
 docker info | grep -A 5 "Registry Mirrors"
 
 # 测试拉取镜像（本项目需要的全部镜像）
-docker pull postgres:15-alpine
+docker pull postgres:17-alpine
 docker pull redis:7-alpine
 docker pull nginx:stable-alpine
 docker pull prom/prometheus:latest
@@ -490,7 +490,7 @@ curl -k https://localhost/admin/
 
 | 服务 | 镜像 | 用途 |
 |------|------|------|
-| oauth2-postgres | postgres:15-alpine | 主数据库 |
+| oauth2-postgres | postgres:17-alpine | 主数据库 |
 | oauth2-redis | redis:7-alpine | Token 缓存 |
 | oauth2-nginx | nginx:stable-alpine | TLS 终止 + 反向代理 |
 | oauth2-prometheus | prom/prometheus | 监控指标采集 |
@@ -669,6 +669,11 @@ PostgreSQL。`config.prod.json` 出厂保持关闭（`cache.enabled: false`）�
 `benchmarks/authforge/docker-compose.bench.yml`（bench overlay，叠加在
 `deploy/docker/docker-compose.yml` 之上）。纯 conf 调优对现有数据卷无
 兼容性影响，可随时启用/回退。
+
+**版本与升级注记**：deploy compose 自 2026-08-18 起使用 `postgres:17-alpine`
+（与客户端 libpq 17.x 对齐，基准在 17 上实测）。**存量 15 版数据卷不能直接
+在 17 上启动**（大版本数据目录不兼容）——升级前先 `pg_dump`/`pg_restore`
+或用 `pg_upgrade`；全新部署无此步骤。
 
 ### 3. Docker 网络拓扑（原生引擎可选；Docker Desktop 下不可用）
 

@@ -6,7 +6,7 @@
 # auto-seed), and validate that the seed data the S1/S2 scenarios depend on is
 # reachable. Part of benchmark-facility-design.md M1.
 #
-# Reuses: deploy/docker/docker-compose.yml (backend:5555 + PG15 + Redis7,
+# Reuses: deploy/docker/docker-compose.yml (backend:5555 + PG17 + Redis7,
 # OAUTH2_AUTO_MIGRATE=true), paths.env (path single source of truth). Seed SQL
 # is applied explicitly via `docker exec ... psql` — see the inline note below
 # for why (postgres does not recurse into initdb.d subdirs; the app's

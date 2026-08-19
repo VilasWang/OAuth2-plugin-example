@@ -169,7 +169,7 @@ services:
       - oauth2-net
 
   oauth2-postgres:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     container_name: oauth2-postgres
     restart: always
     environment:
