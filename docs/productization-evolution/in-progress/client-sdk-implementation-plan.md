@@ -197,7 +197,7 @@ clients/go/
 - [x] `regen_clients.py` 幂等：连跑两次 git status 干净
 - [x] 故障注入：手改 `generated/` 一行 → `--check` exit 1
 - [x] 故障注入：pyproject version 改错 → 版本联动检查 exit 1
-- [ ] workflow YAML 语法（`gh workflow` 或 actionlint 若可用）通过；本 PR 上两个 job 绿
+- [x] workflow YAML 语法（actionlint v1.7.12 对 `clients-sdk.yml` + `release.yml` 零告警——后者在本分支从未被 CI 触发过，靠静态检查兜底）通过；本 PR 上两个 job 绿（PR #65 "Python client (drift + unit)" / "Go client (drift + build + unit)" 均 SUCCESS）
 
 ---
 
@@ -219,7 +219,7 @@ clients/go/
 - 发布文档（clients README 附录）：PyPI 项目注册 + secret 配置的一次性步骤。
 
 **验收**：
-- [ ] `workflow_dispatch` dry-run：sdk-python job 走到 publish 步骤并按 secret 缺失 skip（不 fail）；其余 job 不受影响（待合并后 dispatch 验证——本地无法触发）
+- [ ] `workflow_dispatch` dry-run：sdk-python job 走到 publish 步骤并按 secret 缺失 skip（不 fail）；其余 job 不受影响（待合并后从 Actions UI dispatch 验证。2026-08-19 曾尝试在 PR 分支预触发：gh PAT 无 Actions 写权限被 403 拒绝，IAB 无 GitHub 会话亦不可行；静态侧已由 actionlint 全量通过兜底，publish 步骤的门控 `if: github.ref_type == 'tag' && env.PYPI_API_TOKEN != ''` 在 dispatch（branch ref）下必走 skip 分支）
 - [x] 本地 `python -m build clients/python` 产物完整（sdist 含 generated/，wheel 含 py.typed 等）
 
 ---
