@@ -258,7 +258,13 @@ GEN_TOKENS="$BENCH_DIR/lib/gen-tokens.py"
 GENERATED_DIR="$BENCH_DIR/lib/generated"
 if [ "${SKIP_TOKEN_GEN:-0}" != "1" ]; then
     echo "[setup] generating benchmark token pools (S3/S5/S6) + PKCE pairs (S4)..."
-    python3 "$GEN_TOKENS" all --at-count 2000 --rt-count 20000 --pkce-count 512
+    # rt-count must exceed the consumption ceiling of the whole staircase,
+    # else the pool itself caps throughput: at 20000 RTs a 10s measure window
+    # tops out at 2,000 QPS regardless of server capacity (the historical
+    # "S5 saturates at 2k" artifact — every S5 level showed total_requests
+    # ~= 19999). 60000 gives 6k-QPS headroom; S5 still needs --reseed per
+    # level (one-shot rotation).
+    python3 "$GEN_TOKENS" all --at-count 2000 --rt-count 60000 --pkce-count 512
 
     # Generate bench_users.txt (username list for user-pool.lua)
     python3 -c "
