@@ -6,6 +6,8 @@
 #include <sstream>
 #include <string_view>
 
+#include "TtlJitter.h"
+
 namespace authforge::storage::redis
 {
 
@@ -211,6 +213,7 @@ void RedisCachedTokenRepository::getAccessToken(const std::string &token, Access
                               int ttl = static_cast<int>(
                                 std::min<int64_t>(remaining, self->accessTokenMaxTtlSeconds_)
                               );
+                              ttl = applyTtlJitter(ttl);
                               std::string payload = serializeAccessToken(*t);
                               std::string k = "authforge:cache:token:access:" + token;
                               self->redisClient_->execCommandAsync(
@@ -327,6 +330,7 @@ void RedisCachedTokenRepository::introspectToken(
                                         int ttl = static_cast<int>(std::min<int64_t>(
                                           remaining, self->accessTokenMaxTtlSeconds_
                                         ));
+                                        ttl = applyTtlJitter(ttl);
                                         std::string payload = serializeIntrospection(*res);
                                         std::string k = "authforge:cache:token:introspect:" + token;
                                         self->redisClient_->execCommandAsync(
@@ -447,6 +451,7 @@ void RedisCachedTokenRepository::saveAccessToken(
                 int ttl = static_cast<int>(
                   std::min<int64_t>(remaining, self->accessTokenMaxTtlSeconds_)
                 );
+                ttl = applyTtlJitter(ttl);
                 std::string payload = serializeAccessToken(token);
                 std::string key = "authforge:cache:token:access:" + token.token;
                 self->redisClient_->execCommandAsync(
