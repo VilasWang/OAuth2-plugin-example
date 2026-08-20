@@ -7,8 +7,6 @@
 #include <sstream>
 #include <string_view>
 
-#include "TtlJitter.h"
-
 namespace authforge::storage::redis
 {
 
@@ -173,7 +171,7 @@ void RedisCachedClientRepository::getClient(const std::string &clientId, ClientC
                     "SET %s %s EX %d",
                     key.c_str(),
                     payload.c_str(),
-                    applyTtlJitter(self->clientTtlSeconds_)
+                    self->clientTtlSeconds_
                   );
               }
               if (!fired->exchange(true))
