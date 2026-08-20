@@ -113,6 +113,13 @@ for name, svc in services.items():
             b["dockerfile"] = os.path.normpath(
                 os.path.join(rel_to_abs(ctx), df)
             ) if not os.path.isabs(df) else df
+        # Preserve build args (already env-interpolated by `compose config`).
+        # Dropping them here would silently strip any compose build-arg from
+        # override-layered builds (found via the AUTHFORGE_CMAKE_PRESET LTO
+        # arm: the arg vanished and the build reused the cached default arm).
+        args = build.get("args")
+        if isinstance(args, dict) and args:
+            b["args"] = {k: v for k, v in args.items() if v not in (None, "")}
         entry["build"] = b
     # Bind-mount volumes: host source is the part before the first ':'.
     vols = svc.get("volumes")
@@ -158,7 +165,12 @@ with open(override_file, "a") as f:
         if "build" in e:
             f.write("    build:\n")
             for k, v in e["build"].items():
-                f.write(f"      {k}: {v}\n")
+                if k == "args" and isinstance(v, dict):
+                    f.write("      args:\n")
+                    for ak, av in v.items():
+                        f.write(f"        {ak}: {av}\n")
+                else:
+                    f.write(f"      {k}: {v}\n")
         if "volumes" in e:
             f.write("    volumes:\n")
             for v in e["volumes"]:
