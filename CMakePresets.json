@@ -67,6 +67,18 @@
       }
     },
     {
+      "name": "linux-release-lto",
+      "inherits": "linux-release",
+      "displayName": "Linux Release + LTO (Conan)",
+      "description": "conan install . --output-folder=build/linux-release-lto -s build_type=Release -s compiler.cppstd=17 --build=missing. Opt-in LTO arm (AUTHFORGE_ENABLE_LTO=ON via cmake/Lto.cmake); used by the bench-image build with AUTHFORGE_CMAKE_PRESET=linux-release-lto. Default presets are unaffected.",
+      "binaryDir": "${sourceDir}/build/linux-release-lto",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-release-lto/conan_toolchain.cmake",
+        "AUTHFORGE_ENABLE_LTO": "ON"
+      }
+    },
+    {
       "name": "windows-msvc",
       "inherits": "conan-base",
       "displayName": "Windows MSVC (Conan)",
@@ -120,6 +132,18 @@
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-tsan/conan_toolchain.cmake",
         "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
         "OAUTH2_SANITIZER": "thread"
+      }
+    },
+    {
+      "name": "windows-msvc-lto",
+      "inherits": "windows-msvc",
+      "displayName": "Windows MSVC + LTO (Conan)",
+      "description": "conan install . --output-folder=build/windows-msvc-lto -s build_type=Release -s compiler.cppstd=17 --build=missing. Opt-in LTO arm (AUTHFORGE_ENABLE_LTO=ON via cmake/Lto.cmake) — local compilability/ctest validation of the LTO configuration; the benchmark binary is Linux GCC.",
+      "binaryDir": "${sourceDir}/build/windows-msvc-lto",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-lto/conan_toolchain.cmake",
+        "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
+        "AUTHFORGE_ENABLE_LTO": "ON"
       }
     },
     {
@@ -194,6 +218,10 @@
       "configurePreset": "linux-release-tsan"
     },
     {
+      "name": "linux-release-lto",
+      "configurePreset": "linux-release-lto"
+    },
+    {
       "name": "windows-msvc",
       "configurePreset": "windows-msvc",
       "configuration": "Release"
@@ -212,6 +240,11 @@
       "name": "windows-msvc-tsan",
       "configurePreset": "windows-msvc-tsan",
       "configuration": "Debug"
+    },
+    {
+      "name": "windows-msvc-lto",
+      "configurePreset": "windows-msvc-lto",
+      "configuration": "Release"
     },
     {
       "name": "macos-arm64",

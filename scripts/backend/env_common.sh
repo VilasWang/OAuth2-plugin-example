@@ -44,7 +44,16 @@ export BUILD_ABS_DIR
 # "$BUILD_ABS_DIR/$(resolve_cmake_preset ...)".
 #   Usage: PRESET=$(resolve_cmake_preset "$BUILD_TYPE" "$SANITIZER")
 # SANITIZER is optional (off|address|thread); defaults to off.
+# Explicit override: set AUTHFORGE_CMAKE_PRESET (e.g. linux-release-lto) to
+# bypass OS/type/sanitizer resolution entirely — build.sh derives the conan
+# output-folder and the cmake --preset/--build --preset invocations from the
+# returned name, so the whole chain follows. The named preset must exist in
+# CMakePresets.json.
 resolve_cmake_preset() {
+    if [ -n "${AUTHFORGE_CMAKE_PRESET:-}" ]; then
+        echo "$AUTHFORGE_CMAKE_PRESET"
+        return 0
+    fi
     local build_type="${1:-Release}"
     local sanitizer="${2:-off}"
     local base
