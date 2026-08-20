@@ -10,6 +10,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Version)
 include(Compatibility)
 include(Sanitizers)
+# Lto.cmake provides the opt-in AUTHFORGE_ENABLE_LTO option (default OFF;
+# the *-lto presets turn it on). Included unconditionally so the option is
+# always declared; behavior with the default is a no-op.
+include(Lto)
 # Coverage.cmake provides oauth2_apply_gcov(target) + the OAUTH2_TEST_COVERAGE
 # option (GCC/Clang, Debug). Applied per-target inside each libs/* and tests
 # CMakeLists so the STATIC libraries themselves are instrumented (not just the

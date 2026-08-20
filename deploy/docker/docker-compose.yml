@@ -32,6 +32,11 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
       target: backend-runtime
+      args:
+        # Alternate build-arm passthrough (empty = default preset). Set via
+        # env before `docker compose build`, e.g. the LTO bench arm:
+        #   AUTHFORGE_CMAKE_PRESET=linux-release-lto docker compose ... build
+        - AUTHFORGE_CMAKE_PRESET=${AUTHFORGE_CMAKE_PRESET:-}
     container_name: oauth2-backend
     restart: always
     ports:
