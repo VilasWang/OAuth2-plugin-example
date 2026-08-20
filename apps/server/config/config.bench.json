@@ -109,7 +109,7 @@
         "br_static": true,
         "client_max_body_size": "20M",
         "client_max_memory_body_size": "64K",
-        "reuse_port": false,
+        "reuse_port": true,
         "enabled_compressed_request": true,
         "enable_request_stream": false
     },
