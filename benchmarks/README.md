@@ -145,8 +145,10 @@ schema). The run prints a one-line summary per level, e.g.:
 ### Benchmark config (`config.bench.json`)
 
 `setup.sh` automatically swaps `apps/server/config/config.bench.json` over
-`config.json` before starting the stack (PG=25 connections, Redis=20,
-log_level=WARN). The original `config.json` is backed up to
+`config.json` before starting the stack (PG=64 connections, Redis=64,
+cache enabled, log_level=WARN; see the bench overlay in
+`benchmarks/authforge/docker-compose.bench.yml` for the PG instance tuning).
+The original `config.json` is backed up to
 `config.json.dev-backup` and restored by `teardown.sh`. This avoids touching
 the dev/prod configs while giving the benchmark larger connection pools. The
 swap is detected by file existence — no flags needed.

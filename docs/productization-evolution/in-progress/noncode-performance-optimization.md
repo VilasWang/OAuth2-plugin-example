@@ -243,7 +243,7 @@ autovacuum_vacuum_scale_factor = 0.02
 | auto_batch 读写拆分 | 按官方建议：读路径专用 batch 客户端，写路径独立 `auto_batch=false` 客户端 | repository 接线改造 |
 | audit 采样分级 | `outcome=success` 的 token_issued 降采样开关（安全审计聚焦失败/特权事件——行业实践口径）；可再抬吞吐，但语义需产品拍板 | 新增配置开关 + 调用点判断 |
 | introspect 正向缓存 N2 判别器放宽 | 现语义：仅在 token 走过 getAccessToken/saveAccessToken 后才回填 introspect 缓存（防 refresh-token fallthrough 污染）；纯 introspection 流量（资源服务器直连）永不回填。放宽 = S3 类负载吃满 token 缓存，但需先证明 fallthrough 语义可安全缓存 | RedisCachedTokenRepository 改造 + 语义评审 |
-| 缓存 TTL 同步到期雷群（TTL 抖动 / single-flight） | 基准实测（20260818-a9d6327 GC 抖动）：均匀轮询下 60s TTL 条目成批到期 → 30s 周期 ~800ms p99 尖峰、QPS -25%；池越大雷群越深（池 25 时 291ms）。修复选项：TTL 抖动（60s±20%）、按 key single-flight 合并回源、stale-while-revalidate | RedisCachedTokenRepository/ClientRepository 缓存写入路径 |
+| 缓存 TTL 同步到期雷群（TTL 抖动 / single-flight） | **已试否决（2026-08-20 受控 A/B，b55dc46 已回退）**：TTL 抖动（-U[0,15%]）确认生效（回填 TTL 散开 46-58s）但 gcjitter 尖峰不变（max/中位 289→283，阈值 ≥30%）；**决定性证据：两臂尖峰出现在相同段位（seg0/10/13/20，~945ms 巨尖峰同在 seg13）** → 尖峰为时间结构锁定的环境/驱动侧噪声，与本机缓存到期波无关，原 20260818 归因不成立。single-flight 等同源计划在本机一并失去验证手段；归因需裸机/专用 runner（见 performance-optimization-report.md §4.1/§5） | RedisCachedTokenRepository/ClientRepository 缓存写入路径 |
 | audit 批量聚合落库 | 内存缓冲 + 批量多值 INSERT，摊薄每事件的连接获取/往返/提交成本；崩溃丢缓冲窗口 | AuditLogger 改造 |
 | JWT 档 + ES256/EdDSA | 当前 opaque token 无签名热点；若提供 JWT 档，签名算法选型是新的数量级杠杆 | 产品决策 |
 
