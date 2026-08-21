@@ -64,12 +64,38 @@
 - Redis 单往返 ≈ **450µs**
 - "串行往返次数主导延迟"从静态假设变为仪器事实：S6 五次串行往返（Redis 2 + PG 3）占端到端 **79%**
 
-## 3. Phase C — CPU 栈采样（尝试失败，如实记录）
+## 3. Phase C — CPU 栈采样（gdb poor-man's profiler，最终成功；perf 被内核阻断）
 
-- 通道打通：sidecar 容器（`--pid=container:oauth2-backend --cap-add=SYS_PTRACE`）+ 容器内 gdb attach 成功、采到 12 个样本；
-- **不可用原因①**：Release+LTO 构建无帧指针/DWARF，所有栈帧 `??`，无法符号化；
-- **不可用原因②**（复盘发现）：采样期间的负载用 `(wrk &)` 后台化，wsl.exe 退出即被杀 —— 采样实际跑在空载上，双重作废；
-- 正确姿势（记为 follow-up，未做）：`-fno-omit-frame-pointer`（+`-g`）专用构建 + `nohup setsid` 挂载负载。Phase A+B 已回答主要问题，不再投入。
+### 3.1 perf 路线：stock WSL2 内核不可用（证据归档）
+
+`perf_event_paranoid` 已通过 WSL sysctl 打开（值 2→1，全局内核 sysctl，容器内可见性已验证），但三重诊断证明采样不可用：
+- 自采样（`perf record -e cpu-clock -- sleep 2`）：**2 秒仅 1 个样本**；
+- `perf stat -p 1`：cycles/instructions **`<not supported>`**（无硬件 PMU）；
+- 系统级 `perf record -a -F 199`（8s）：12,736 样本几乎全部为内核 idle（`pv_native_safe_halt`），负载中的 authforge-server/wrk **用户态样本为零**。
+
+官方解法（Microsoft Learn / 内核文档）：`.wslconfig [wsl2] kernelCommandLine = perf_event_paranoid=1` 仅解除权限位，采样能力缺失需**自编译带 perf 支持的 WSL2 内核** —— 改整机内核超出分析任务范畴，记为 follow-up。
+
+### 3.2 gdb 路线：三关全破，最终拿到函数级样本
+
+| 关卡 | 症状 | 解法 |
+|---|---|---|
+| 符号化 | 所有帧 `??` | ① 构建加 `-fno-omit-frame-pointer -g`（脏 preset，已还原）；② **`gdb -ex 'set sysroot /'`** —— 关键钥匙：跨容器 attach 时 gdb 默认经 `target:` 前缀读目标二进制被 EPERM 拒绝（warning 可见），`set sysroot /` 强制读 sidecar 本地文件系统 |
+| 采样对象 | 全部样本 idle | 容器内 **PID 1 是监督进程（2 线程，`wait4` 等子进程），真服务器是 fork 出的 PID 8（26 线程）** —— 必须采子进程 |
+| 负载挂载 | 负载没跑 | `(wrk &)` 在 wsl.exe 退出即死 —— 负载必须作为 harness 级后台任务（或 `nohup setsid`） |
+
+sidecar 配方：`docker run --rm --pid=container:oauth2-backend --cap-add=SYS_PTRACE <server-image> bash -c "apt-get install gdb && gdb -batch -ex 'set sysroot /' -ex 'file /app/authforge-server' -ex 'attach 8' -ex 'thread apply all bt 20'"`（sidecar 必须用服务器镜像自身 —— 符号文件路径才与 /proc/PID/exe 对齐）。
+
+### 3.3 采样结果（35 轮 × 26 线程，S6 c64 负载下，520+ 叶子帧）
+
+| 叶子帧 | 样本数 | 占比 | 解读 |
+|---|---|---|---|
+| `epoll_wait` | 385 | **74%** | 26 线程在 8 vCPU 上，多数 IO 线程空闲（c64 未饱和线程池） |
+| `__libc_send` / `__libc_write` / `recv` | ~49 | **9%** | 响应/socket 写出；其中 6 帧在 **`pqsecure_raw_write`/`pqSendSome`（libpq 线缆写）** —— PG 往返在线程栈上的直接可见证据 |
+| `__tz_convert` / `__tzfile_read`（glibc tz 锁） | ~20 | **4%** | **热路径存在 localtime 类调用，每调用拿 glibc 全局 tz 锁**；一方代码 grep 零命中（排除），来自 trantor/drogon/libpq 层；精确调用点被 LTO 内联吞掉（栈归因到 EpollPoller::poll/handleEventSafely）。可用非 LTO 构建或 ltrace 解析；缓解假设：TZ=UTC 实验 |
+| malloc arena / rand 锁（futex） | ~8 | ~1.5% | glibc 分配器竞争，量级可忽略 |
+| 纯 CPU 计算（memcpy/malloc/RB-tree/…） | <10 | **<2%** | 与 Phase B 结论一致：CPU 计算不是瓶颈 |
+
+**Phase C 结论**：CPU 侧确认无显著热点（计算 <2%）；新发现的唯一可行动小项是 **glibc tz 锁竞争（~4%）**；libpq 线缆写在栈上直接可见，与 Phase A/B 的"往返主导"互证。采样扰动说明：attach 风暴会使吞吐从 ~16.9k 降到 ~14.5k QPS（样本期数据只用于归因，不用于吞吐）。
 
 ## 4. 修正后的瓶颈排序与量化杠杆（**均未实施**）
 
@@ -80,6 +106,7 @@
 | 3 | **S6 roles/profile 并行化**（两链独立，现为串行嵌套） | §2：handler=2.09ms → max(1.42,0.67)≈1.45ms | 省 ~0.65ms/请求（与 #1 叠加时收益并入 #1） | S6 |
 | 4 | **Redis 双往返合并**（EXISTS+GET → pipeline/Lua 一次） | §2：2×450µs → ~1×450µs | 省 ~0.45ms/请求 | S6、S3 |
 | 5 | S5 写链合并（UPDATE+事务+audit 6 语句 → 更少往返/提交） | §1.1：6 语句串行，12.38ms 端到端 | 需语义设计（CTE 合并/事务边界），量级待 A/B | S5、S4 第二步 |
+| 6 | **glibc tz 锁消除**（热路径 localtime 类调用 → 缓存格式化/TZ=UTC） | §3.3：~4% 线程样本阻塞在 `__tz_convert`；三方库引入，一方代码已排除 | 单独看 ~3-4%；可与 #1-#4 合并轮次 | 全场景 |
 | — | DB 执行器/索引 | §1.1：占 1-4% | **零收益，排除**（V026 后索引已最优） | — |
 | — | 框架残差 0.83ms | §2 | 21%，属 Drogon 本体（JSON 构造在 S1 已证非瓶颈），非应用层可优化 | — |
 
@@ -87,10 +114,11 @@
 
 ## 5. Follow-up 清单
 
-1. 帧指针+调试信息的专用剖析构建（火焰图）——补 0.83ms 框架残差的函数级归因（Phase C 正确姿势）。
-2. 上述杠杆 #1-#4 的逐项实施 + 同日 A/B（规则 3）——**待用户批准后执行，本报告未动代码**。
-3. 四产品对比重跑（竞品侧仍是优化前口径）。
-4. `pg_stat_statements` 可考虑常驻 bench 栈（ALTER SYSTEM 已验证可用、开销可忽略），作为未来 A/B 的常规证据源。
+1. ~~帧指针+调试信息的专用剖析构建（火焰图）~~ **已完成（§3.2 配方，gdb 路线）**；perf 火焰图仍需自编译 WSL2 内核（§3.1），仅在 gdb 采样不够时考虑。
+2. 上述杠杆 #1-#6 的逐项实施 + 同日 A/B（规则 3）——**待用户批准后执行，本报告未动代码**。
+3. tz 锁精确调用点解析（非 LTO 构建或 ltrace）——若实施 #6 时需要。
+4. 四产品对比重跑（竞品侧仍是优化前口径）。
+5. `pg_stat_statements` 可考虑常驻 bench 栈（ALTER SYSTEM 已验证可用、开销可忽略），作为未来 A/B 的常规证据源。
 
 ## 附录：插桩复现要点（未入库）
 
