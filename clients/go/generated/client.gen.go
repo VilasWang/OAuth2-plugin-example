@@ -94,6 +94,48 @@ func (e OAuth2ErrorError) Valid() bool {
 	}
 }
 
+// Defines values for SocialLinkEntryProvider.
+const (
+	SocialLinkEntryProviderGithub SocialLinkEntryProvider = "github"
+	SocialLinkEntryProviderGoogle SocialLinkEntryProvider = "google"
+	SocialLinkEntryProviderWechat SocialLinkEntryProvider = "wechat"
+)
+
+// Valid indicates whether the value is a known member of the SocialLinkEntryProvider enum.
+func (e SocialLinkEntryProvider) Valid() bool {
+	switch e {
+	case SocialLinkEntryProviderGithub:
+		return true
+	case SocialLinkEntryProviderGoogle:
+		return true
+	case SocialLinkEntryProviderWechat:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SocialLinkResultProvider.
+const (
+	SocialLinkResultProviderGithub SocialLinkResultProvider = "github"
+	SocialLinkResultProviderGoogle SocialLinkResultProvider = "google"
+	SocialLinkResultProviderWechat SocialLinkResultProvider = "wechat"
+)
+
+// Valid indicates whether the value is a known member of the SocialLinkResultProvider enum.
+func (e SocialLinkResultProvider) Valid() bool {
+	switch e {
+	case SocialLinkResultProviderGithub:
+		return true
+	case SocialLinkResultProviderGoogle:
+		return true
+	case SocialLinkResultProviderWechat:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TokenRequestGrantType.
 const (
 	AuthorizationCode                     TokenRequestGrantType = "authorization_code"
@@ -148,6 +190,48 @@ func (e GetApiAdminUsersParamsLocked) Valid() bool {
 	case False:
 		return true
 	case True:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeleteApiMeSocialLinksProviderParamsProvider.
+const (
+	DeleteApiMeSocialLinksProviderParamsProviderGithub DeleteApiMeSocialLinksProviderParamsProvider = "github"
+	DeleteApiMeSocialLinksProviderParamsProviderGoogle DeleteApiMeSocialLinksProviderParamsProvider = "google"
+	DeleteApiMeSocialLinksProviderParamsProviderWechat DeleteApiMeSocialLinksProviderParamsProvider = "wechat"
+)
+
+// Valid indicates whether the value is a known member of the DeleteApiMeSocialLinksProviderParamsProvider enum.
+func (e DeleteApiMeSocialLinksProviderParamsProvider) Valid() bool {
+	switch e {
+	case DeleteApiMeSocialLinksProviderParamsProviderGithub:
+		return true
+	case DeleteApiMeSocialLinksProviderParamsProviderGoogle:
+		return true
+	case DeleteApiMeSocialLinksProviderParamsProviderWechat:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostApiMeSocialLinksProviderParamsProvider.
+const (
+	PostApiMeSocialLinksProviderParamsProviderGithub PostApiMeSocialLinksProviderParamsProvider = "github"
+	PostApiMeSocialLinksProviderParamsProviderGoogle PostApiMeSocialLinksProviderParamsProvider = "google"
+	PostApiMeSocialLinksProviderParamsProviderWechat PostApiMeSocialLinksProviderParamsProvider = "wechat"
+)
+
+// Valid indicates whether the value is a known member of the PostApiMeSocialLinksProviderParamsProvider enum.
+func (e PostApiMeSocialLinksProviderParamsProvider) Valid() bool {
+	switch e {
+	case PostApiMeSocialLinksProviderParamsProviderGithub:
+		return true
+	case PostApiMeSocialLinksProviderParamsProviderGoogle:
+		return true
+	case PostApiMeSocialLinksProviderParamsProviderWechat:
 		return true
 	default:
 		return false
@@ -404,6 +488,37 @@ type Organization struct {
 	Slug           *string `json:"slug,omitempty"`
 }
 
+// SocialLinkEntry One social provider identity linked to the current user.
+type SocialLinkEntry struct {
+	// LinkedAt Mapping row creation timestamp.
+	LinkedAt *string                 `json:"linked_at,omitempty"`
+	Provider SocialLinkEntryProvider `json:"provider"`
+
+	// Subject Provider-scoped stable id (GitHub numeric id, Google sub, WeChat openid).
+	Subject string `json:"subject"`
+}
+
+// SocialLinkEntryProvider defines model for SocialLinkEntry.Provider.
+type SocialLinkEntryProvider string
+
+// SocialLinkResult Result of a link/unlink mutation.
+type SocialLinkResult struct {
+	Message  string                   `json:"message"`
+	Provider SocialLinkResultProvider `json:"provider"`
+
+	// Subject Provider subject (link success; unlink success keeps the removed subject).
+	Subject *string `json:"subject,omitempty"`
+}
+
+// SocialLinkResultProvider defines model for SocialLinkResult.Provider.
+type SocialLinkResultProvider string
+
+// SocialLinksList defines model for SocialLinksList.
+type SocialLinksList struct {
+	SocialLinks []SocialLinkEntry `json:"social_links"`
+	Total       int               `json:"total"`
+}
+
 // TokenRequest RFC 6749 §4.1.3 token request (form-encoded). Field requirements are grant-dependent: authorization_code needs code (+ redirect_uri + code_verifier when PKCE was used); refresh_token needs refresh_token; client_credentials may send scope; device_code needs device_code. CONFIDENTIAL clients authenticate via HTTP Basic or client_id + client_secret fields.
 type TokenRequest struct {
 	// ClientId Client identifier (alternative to HTTP Basic authentication).
@@ -612,6 +727,18 @@ type PostApiMeMfaVerifyFormdataBody struct {
 	Code string `form:"code" json:"code"`
 }
 
+// DeleteApiMeSocialLinksProviderParamsProvider defines parameters for DeleteApiMeSocialLinksProvider.
+type DeleteApiMeSocialLinksProviderParamsProvider string
+
+// PostApiMeSocialLinksProviderJSONBody defines parameters for PostApiMeSocialLinksProvider.
+type PostApiMeSocialLinksProviderJSONBody struct {
+	// Code Authorization code from the provider's OAuth2 callback.
+	Code string `json:"code"`
+}
+
+// PostApiMeSocialLinksProviderParamsProvider defines parameters for PostApiMeSocialLinksProvider.
+type PostApiMeSocialLinksProviderParamsProvider string
+
 // PostApiRegisterParams defines parameters for PostApiRegister.
 type PostApiRegisterParams struct {
 	// Username Desired username (required)
@@ -810,6 +937,9 @@ type PostApiMeMfaVerifyJSONRequestBody PostApiMeMfaVerifyJSONBody
 
 // PostApiMeMfaVerifyFormdataRequestBody defines body for PostApiMeMfaVerify for application/x-www-form-urlencoded ContentType.
 type PostApiMeMfaVerifyFormdataRequestBody PostApiMeMfaVerifyFormdataBody
+
+// PostApiMeSocialLinksProviderJSONRequestBody defines body for PostApiMeSocialLinksProvider for application/json ContentType.
+type PostApiMeSocialLinksProviderJSONRequestBody PostApiMeSocialLinksProviderJSONBody
 
 // PostOauth2DeviceApproveFormdataRequestBody defines body for PostOauth2DeviceApprove for application/x-www-form-urlencoded ContentType.
 type PostOauth2DeviceApproveFormdataRequestBody PostOauth2DeviceApproveFormdataBody
@@ -1478,6 +1608,38 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /api/me/password (the `PutApiMePassword` operationId).
 	PutApiMePassword(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiMeSocialLinks List Linked Social Accounts
+	//
+	// List the social provider identities (github/google/wechat) linked to the current user. The seeded password-subject mapping (provider=local) is not a social identity and is excluded. Requires the `profile` scope.
+	//
+	// Corresponds with GET /api/me/social/links (the `GetApiMeSocialLinks` operationId).
+	GetApiMeSocialLinks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiMeSocialLinksProvider Unlink Social Account
+	//
+	// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+	//
+	// Corresponds with DELETE /api/me/social/links/{provider} (the `DeleteApiMeSocialLinksProvider` operationId).
+	DeleteApiMeSocialLinksProvider(ctx context.Context, provider DeleteApiMeSocialLinksProviderParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiMeSocialLinksProviderWithBody Link Social Account
+	//
+	// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+	PostApiMeSocialLinksProviderWithBody(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiMeSocialLinksProvider Link Social Account
+	//
+	// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+	PostApiMeSocialLinksProvider(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiMeWebauthnCredentials List WebAuthn Credentials
 	//
@@ -2914,6 +3076,78 @@ func (c *Client) PostApiMeMfaVerifyWithFormdataBody(ctx context.Context, body Po
 // Corresponds with PUT /api/me/password (the `PutApiMePassword` operationId).
 func (c *Client) PutApiMePassword(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutApiMePasswordRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetApiMeSocialLinks List Linked Social Accounts
+//
+// List the social provider identities (github/google/wechat) linked to the current user. The seeded password-subject mapping (provider=local) is not a social identity and is excluded. Requires the `profile` scope.
+//
+// Corresponds with GET /api/me/social/links (the `GetApiMeSocialLinks` operationId).
+func (c *Client) GetApiMeSocialLinks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiMeSocialLinksRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteApiMeSocialLinksProvider Unlink Social Account
+//
+// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+//
+// Corresponds with DELETE /api/me/social/links/{provider} (the `DeleteApiMeSocialLinksProvider` operationId).
+func (c *Client) DeleteApiMeSocialLinksProvider(ctx context.Context, provider DeleteApiMeSocialLinksProviderParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiMeSocialLinksProviderRequest(c.Server, provider)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiMeSocialLinksProviderWithBody Link Social Account
+//
+// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+func (c *Client) PostApiMeSocialLinksProviderWithBody(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiMeSocialLinksProviderRequestWithBody(c.Server, provider, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiMeSocialLinksProvider Link Social Account
+//
+// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+func (c *Client) PostApiMeSocialLinksProvider(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiMeSocialLinksProviderRequest(c.Server, provider, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5397,6 +5631,114 @@ func NewPutApiMePasswordRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetApiMeSocialLinksRequest constructs an http.Request for the GetApiMeSocialLinks method
+func NewGetApiMeSocialLinksRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/social/links")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteApiMeSocialLinksProviderRequest constructs an http.Request for the DeleteApiMeSocialLinksProvider method
+func NewDeleteApiMeSocialLinksProviderRequest(server string, provider DeleteApiMeSocialLinksProviderParamsProvider) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/social/links/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiMeSocialLinksProviderRequest calls the generic PostApiMeSocialLinksProvider builder with application/json body
+func NewPostApiMeSocialLinksProviderRequest(server string, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiMeSocialLinksProviderRequestWithBody(server, provider, "application/json", bodyReader)
+}
+
+// NewPostApiMeSocialLinksProviderRequestWithBody constructs an http.Request for the PostApiMeSocialLinksProvider method, with any body, and a specified content type
+func NewPostApiMeSocialLinksProviderRequestWithBody(server string, provider PostApiMeSocialLinksProviderParamsProvider, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/social/links/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetApiMeWebauthnCredentialsRequest constructs an http.Request for the GetApiMeWebauthnCredentials method
 func NewGetApiMeWebauthnCredentialsRequest(server string) (*http.Request, error) {
 	var err error
@@ -7256,6 +7598,42 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /api/me/password (the `PutApiMePassword` operationId).
 	PutApiMePasswordWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PutApiMePasswordResponse, error)
+
+	// GetApiMeSocialLinksWithResponse List Linked Social Accounts
+	//
+	// List the social provider identities (github/google/wechat) linked to the current user. The seeded password-subject mapping (provider=local) is not a social identity and is excluded. Requires the `profile` scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/me/social/links (the `GetApiMeSocialLinks` operationId).
+	GetApiMeSocialLinksWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiMeSocialLinksResponse, error)
+
+	// DeleteApiMeSocialLinksProviderWithResponse Unlink Social Account
+	//
+	// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/me/social/links/{provider} (the `DeleteApiMeSocialLinksProvider` operationId).
+	DeleteApiMeSocialLinksProviderWithResponse(ctx context.Context, provider DeleteApiMeSocialLinksProviderParamsProvider, reqEditors ...RequestEditorFn) (*DeleteApiMeSocialLinksProviderResponse, error)
+
+	// PostApiMeSocialLinksProviderWithBodyWithResponse Link Social Account
+	//
+	// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+	PostApiMeSocialLinksProviderWithBodyWithResponse(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiMeSocialLinksProviderResponse, error)
+
+	// PostApiMeSocialLinksProviderWithResponse Link Social Account
+	//
+	// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+	PostApiMeSocialLinksProviderWithResponse(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMeSocialLinksProviderResponse, error)
 
 	// GetApiMeWebauthnCredentialsWithResponse List WebAuthn Credentials
 	//
@@ -9630,6 +10008,227 @@ func (r PutApiMePasswordResponse) ContentType() string {
 	return ""
 }
 
+type GetApiMeSocialLinksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SocialLinksList
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *ErrorEnvelope
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *ErrorEnvelope
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetApiMeSocialLinksResponse) GetJSON200() *SocialLinksList {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetApiMeSocialLinksResponse) GetJSON401() *ErrorEnvelope {
+	return r.JSON401
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetApiMeSocialLinksResponse) GetJSON404() *ErrorEnvelope {
+	return r.JSON404
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r GetApiMeSocialLinksResponse) GetJSON500() *ErrorEnvelope {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r GetApiMeSocialLinksResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiMeSocialLinksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiMeSocialLinksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetApiMeSocialLinksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteApiMeSocialLinksProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SocialLinkResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *ErrorEnvelope
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *ErrorEnvelope
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *ErrorEnvelope
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *ErrorEnvelope
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteApiMeSocialLinksProviderResponse) GetJSON200() *SocialLinkResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DeleteApiMeSocialLinksProviderResponse) GetJSON400() *ErrorEnvelope {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r DeleteApiMeSocialLinksProviderResponse) GetJSON401() *ErrorEnvelope {
+	return r.JSON401
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeleteApiMeSocialLinksProviderResponse) GetJSON404() *ErrorEnvelope {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r DeleteApiMeSocialLinksProviderResponse) GetJSON409() *ErrorEnvelope {
+	return r.JSON409
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r DeleteApiMeSocialLinksProviderResponse) GetJSON500() *ErrorEnvelope {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteApiMeSocialLinksProviderResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiMeSocialLinksProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiMeSocialLinksProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteApiMeSocialLinksProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PostApiMeSocialLinksProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SocialLinkResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *ErrorEnvelope
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *ErrorEnvelope
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *ErrorEnvelope
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *ErrorEnvelope
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *ErrorEnvelope
+	// JSON502 the response for an HTTP 502 `application/json` response
+	JSON502 *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiMeSocialLinksProviderResponse) GetJSON200() *SocialLinkResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiMeSocialLinksProviderResponse) GetJSON400() *ErrorEnvelope {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r PostApiMeSocialLinksProviderResponse) GetJSON401() *ErrorEnvelope {
+	return r.JSON401
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PostApiMeSocialLinksProviderResponse) GetJSON404() *ErrorEnvelope {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PostApiMeSocialLinksProviderResponse) GetJSON409() *ErrorEnvelope {
+	return r.JSON409
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiMeSocialLinksProviderResponse) GetJSON500() *ErrorEnvelope {
+	return r.JSON500
+}
+
+// GetJSON502 returns the response for an HTTP 502 `application/json` response
+func (r PostApiMeSocialLinksProviderResponse) GetJSON502() *ErrorEnvelope {
+	return r.JSON502
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiMeSocialLinksProviderResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiMeSocialLinksProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiMeSocialLinksProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiMeSocialLinksProviderResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiMeWebauthnCredentialsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11896,6 +12495,66 @@ func (c *ClientWithResponses) PutApiMePasswordWithResponse(ctx context.Context, 
 	return ParsePutApiMePasswordResponse(rsp)
 }
 
+// GetApiMeSocialLinksWithResponse List Linked Social Accounts
+//
+// List the social provider identities (github/google/wechat) linked to the current user. The seeded password-subject mapping (provider=local) is not a social identity and is excluded. Requires the `profile` scope.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/me/social/links (the `GetApiMeSocialLinks` operationId).
+func (c *ClientWithResponses) GetApiMeSocialLinksWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiMeSocialLinksResponse, error) {
+	rsp, err := c.GetApiMeSocialLinks(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiMeSocialLinksResponse(rsp)
+}
+
+// DeleteApiMeSocialLinksProviderWithResponse Unlink Social Account
+//
+// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/me/social/links/{provider} (the `DeleteApiMeSocialLinksProvider` operationId).
+func (c *ClientWithResponses) DeleteApiMeSocialLinksProviderWithResponse(ctx context.Context, provider DeleteApiMeSocialLinksProviderParamsProvider, reqEditors ...RequestEditorFn) (*DeleteApiMeSocialLinksProviderResponse, error) {
+	rsp, err := c.DeleteApiMeSocialLinksProvider(ctx, provider, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiMeSocialLinksProviderResponse(rsp)
+}
+
+// PostApiMeSocialLinksProviderWithBodyWithResponse Link Social Account
+//
+// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+func (c *ClientWithResponses) PostApiMeSocialLinksProviderWithBodyWithResponse(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiMeSocialLinksProviderResponse, error) {
+	rsp, err := c.PostApiMeSocialLinksProviderWithBody(ctx, provider, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiMeSocialLinksProviderResponse(rsp)
+}
+
+// PostApiMeSocialLinksProviderWithResponse Link Social Account
+//
+// Verify a provider authorization code (the SPA completes the provider redirect and submits the code) and link that provider identity to the current user. Conflicts (409) when the identity is already linked to any account or the user already has a different mapping for the provider. Requires the `profile` scope.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
+func (c *ClientWithResponses) PostApiMeSocialLinksProviderWithResponse(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMeSocialLinksProviderResponse, error) {
+	rsp, err := c.PostApiMeSocialLinksProvider(ctx, provider, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiMeSocialLinksProviderResponse(rsp)
+}
+
 // GetApiMeWebauthnCredentialsWithResponse List WebAuthn Credentials
 //
 // List registered WebAuthn credentials.
@@ -13590,6 +14249,182 @@ func ParsePutApiMePasswordResponse(rsp *http.Response) (*PutApiMePasswordRespons
 	response := &PutApiMePasswordResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetApiMeSocialLinksResponse parses an HTTP response from a GetApiMeSocialLinksWithResponse call
+func ParseGetApiMeSocialLinksResponse(rsp *http.Response) (*GetApiMeSocialLinksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiMeSocialLinksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SocialLinksList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiMeSocialLinksProviderResponse parses an HTTP response from a DeleteApiMeSocialLinksProviderWithResponse call
+func ParseDeleteApiMeSocialLinksProviderResponse(rsp *http.Response) (*DeleteApiMeSocialLinksProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiMeSocialLinksProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SocialLinkResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiMeSocialLinksProviderResponse parses an HTTP response from a PostApiMeSocialLinksProviderWithResponse call
+func ParsePostApiMeSocialLinksProviderResponse(rsp *http.Response) (*PostApiMeSocialLinksProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiMeSocialLinksProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SocialLinkResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
 	}
 
 	return response, nil

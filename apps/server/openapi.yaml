@@ -370,6 +370,51 @@ components:
       required:
       - message
       type: object
+    SocialLinkEntry:
+      description: One social provider identity linked to the current user.
+      properties:
+        provider:
+          type: string
+          enum: [github, google, wechat]
+        subject:
+          type: string
+          description: Provider-scoped stable id (GitHub numeric id, Google
+            sub, WeChat openid).
+        linked_at:
+          type: string
+          description: Mapping row creation timestamp.
+      required:
+      - provider
+      - subject
+      type: object
+    SocialLinksList:
+      properties:
+        social_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialLinkEntry'
+        total:
+          type: integer
+      required:
+      - social_links
+      - total
+      type: object
+    SocialLinkResult:
+      description: Result of a link/unlink mutation.
+      properties:
+        provider:
+          type: string
+          enum: [github, google, wechat]
+        subject:
+          type: string
+          description: Provider subject (link success; unlink success keeps
+            the removed subject).
+        message:
+          type: string
+      required:
+      - provider
+      - message
+      type: object
     DeviceAuthorizationResponse:
       description: RFC 8628 device authorization response (no verification_uri_complete).
       properties:
@@ -563,7 +608,7 @@ components:
 info:
   description: OAuth2.0 authorization server with token management
   title: OAuth2 Authorization Server API
-  version: 1.2.0
+  version: 1.3.0
 openapi: 3.0.0
 paths:
   /.well-known/jwks.json:
@@ -2042,6 +2087,176 @@ paths:
       security:
       - bearerAuth: []
       summary: Change Password
+      tags:
+      - User Profile
+  /api/me/social/links:
+    get:
+      description: List the social provider identities (github/google/wechat)
+        linked to the current user. The seeded password-subject mapping
+        (provider=local) is not a social identity and is excluded. Requires
+        the `profile` scope.
+      operationId: get_api_me_social_links
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLinksList'
+          description: Linked social identities
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: User not found
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Social linking not configured or repository failure
+      security:
+      - bearerAuth: []
+      summary: List Linked Social Accounts
+      tags:
+      - User Profile
+  /api/me/social/links/{provider}:
+    delete:
+      description: Remove the current user's linked identity for a provider.
+        Refused with 409 when it is the user's last social link and the user
+        has no usable password (last-credential guard). Requires the `profile`
+        scope.
+      operationId: delete_api_me_social_links_provider
+      parameters:
+      - description: Social provider name
+        in: path
+        name: provider
+        required: true
+        schema:
+          type: string
+          enum: [github, google, wechat]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLinkResult'
+          description: Social account unlinked successfully
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unsupported provider
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No linked account for this provider
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Last-credential guard refused the unlink
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Repository failure
+      security:
+      - bearerAuth: []
+      summary: Unlink Social Account
+      tags:
+      - User Profile
+    post:
+      description: Verify a provider authorization code (the SPA completes
+        the provider redirect and submits the code) and link that provider
+        identity to the current user. Conflicts (409) when the identity is
+        already linked to any account or the user already has a different
+        mapping for the provider. Requires the `profile` scope.
+      operationId: post_api_me_social_links_provider
+      parameters:
+      - description: Social provider name
+        in: path
+        name: provider
+        required: true
+        schema:
+          type: string
+          enum: [github, google, wechat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  description: Authorization code from the provider's OAuth2
+                    callback.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLinkResult'
+          description: Social account linked successfully
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unsupported provider, missing code, or provider
+            rejected the code
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: User not found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Provider identity already linked
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Social linking not configured or repository failure
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Failed to contact the provider API
+      security:
+      - bearerAuth: []
+      summary: Link Social Account
       tags:
       - User Profile
   /api/me/webauthn/credentials:
