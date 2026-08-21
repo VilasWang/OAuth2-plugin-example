@@ -1,6 +1,6 @@
 // api-diff baseline -- AuthForge SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.2.0
+// version: 1.3.0
 === libs/common/include/authforge/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -2166,6 +2166,12 @@ static void initApiDocsImpl();
 === libs/drogon/include/authforge/drogon/controllers/UserSelfServiceController.h
 #pragma once
 #include <drogon/HttpController.h>
+#ifdef WITH_SOCIAL
+namespace authforge::identity
+{
+class SocialLinkService;
+}
+#endif
 namespace authforge::drogon::controllers
 {
 class UserSelfServiceController : public ::drogon::HttpController<UserSelfServiceController, false>
@@ -2202,6 +2208,26 @@ UserSelfServiceController::deleteAccount,
 ::drogon::Delete,
 "authforge::drogon::filters::OAuth2AuthFilter"
 );
+#ifdef WITH_SOCIAL
+ADD_METHOD_TO(
+UserSelfServiceController::listSocialLinks,
+"/api/me/social/links",
+::drogon::Get,
+"authforge::drogon::filters::OAuth2AuthFilter"
+);
+ADD_METHOD_TO(
+UserSelfServiceController::linkSocialAccount,
+"/api/me/social/links/{provider}",
+::drogon::Post,
+"authforge::drogon::filters::OAuth2AuthFilter"
+);
+ADD_METHOD_TO(
+UserSelfServiceController::unlinkSocialAccount,
+"/api/me/social/links/{provider}",
+::drogon::Delete,
+"authforge::drogon::filters::OAuth2AuthFilter"
+);
+#endif
 METHOD_LIST_END
 void getProfile(
 const ::drogon::HttpRequestPtr &req,
@@ -2224,9 +2250,30 @@ void deleteAccount(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
+#ifdef WITH_SOCIAL
+void listSocialLinks(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+);
+void linkSocialAccount(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+const std::string &provider
+);
+void unlinkSocialAccount(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+const std::string &provider
+);
+void setSocialLinkService(::authforge::identity::SocialLinkService *service)
+;
+#endif
 static void initApiDocs();
 private:
 static void initApiDocsImpl();
+#ifdef WITH_SOCIAL
+::authforge::identity::SocialLinkService *socialLinkService_ = nullptr;
+#endif
 };
 }
 === libs/drogon/include/authforge/drogon/controllers/WeChatController.h
@@ -3587,6 +3634,7 @@ virtual void getRoles(const std::string &subject, RolesCallback &&cb) = 0;
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 namespace authforge::identity
 {
 enum class SocialLinkStatus
@@ -3605,6 +3653,20 @@ struct LinkNewSocialAccountResult
 {
 int32_t userId = 0;
 std::string username;
+};
+struct SocialLinkEntry
+{
+std::string provider;
+std::string subject;
+std::string linkedAt;
+};
+enum class LinkMutationStatus
+{
+Inserted,
+Conflict,
+Deleted,
+NoLink,
+Error
 };
 class ISocialAccountRepository
 {
@@ -3625,6 +3687,22 @@ const std::string &username,
 const std::string &email,
 CreateCallback &&cb
 ) = 0;
+using LinkEntriesCallback = std::function<void(std::optional<std::vector<SocialLinkEntry>>)>;
+using LinkMutationCallback = std::function<void(LinkMutationStatus)>;
+using PasswordUsableCallback = std::function<void(std::optional<bool>)>;
+virtual void listForUser(int32_t internalUserId, LinkEntriesCallback &&cb) = 0;
+virtual void insertLink(
+const std::string &provider,
+const std::string &subject,
+int32_t internalUserId,
+LinkMutationCallback &&cb
+) = 0;
+virtual void deleteLink(
+const std::string &provider,
+int32_t internalUserId,
+LinkMutationCallback &&cb
+) = 0;
+virtual void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallback &&cb) = 0;
 };
 }
 #endif
@@ -3963,6 +4041,13 @@ int32_t userId = 0;
 std::string username;
 bool isNewUser = false;
 };
+struct GitHubProfileResult
+{
+std::string errorCode;
+int64_t githubId = 0;
+std::string login;
+std::string email;
+};
 class GitHubAuthService
 {
 public:
@@ -3973,11 +4058,78 @@ std::string clientId,
 std::string clientSecret
 );
 void login(const std::string &code, std::function<void(GitHubLoginResult)> &&callback);
+void fetchProfile(
+const std::string &code,
+std::function<void(GitHubProfileResult)> &&callback
+);
 private:
 std::shared_ptr<IOAuthHttpClient> httpClient_;
 std::shared_ptr<ISocialAccountRepository> accountRepo_;
 std::string clientId_;
 std::string clientSecret_;
+};
+}
+#endif
+=== libs/identity/include/authforge/identity/SocialLinkService.h
+#pragma once
+#ifdef WITH_SOCIAL
+#include <authforge/identity/ISocialAccountRepository.h>
+#include <authforge/identity/SocialAuthService.h>
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+namespace authforge::identity
+{
+enum class SocialLinkOpStatus
+{
+Ok,
+InvalidProvider,
+NotConfigured,
+ExchangeFailed,
+AlreadyLinkedToSelf,
+AlreadyLinkedToOtherUser,
+ProviderConflictForUser,
+NoLink,
+LastCredentialGuard,
+RepositoryError
+};
+struct SocialLinkOpResult
+{
+SocialLinkOpStatus status = SocialLinkOpStatus::RepositoryError;
+std::string errorCode;
+SocialLinkEntry entry;
+};
+class SocialLinkService
+{
+public:
+SocialLinkService(
+std::shared_ptr<GitHubAuthService> gitHubService,
+std::shared_ptr<GoogleAuthService> googleService,
+std::shared_ptr<WeChatAuthService> weChatService,
+std::shared_ptr<ISocialAccountRepository> accountRepo
+);
+void linkAccount(
+const std::string &provider,
+const std::string &code,
+int32_t internalUserId,
+std::function<void(SocialLinkOpResult)> &&cb
+);
+void unlinkAccount(
+const std::string &provider,
+int32_t internalUserId,
+std::function<void(SocialLinkOpResult)> &&cb
+);
+void listAccounts(
+int32_t internalUserId,
+std::function<void(SocialLinkOpStatus, std::vector<SocialLinkEntry>)> &&cb
+);
+static bool isValidProvider(const std::string &provider);
+private:
+std::shared_ptr<GitHubAuthService> gitHubService_;
+std::shared_ptr<GoogleAuthService> googleService_;
+std::shared_ptr<WeChatAuthService> weChatService_;
+std::shared_ptr<ISocialAccountRepository> accountRepo_;
 };
 }
 #endif
@@ -4166,6 +4318,7 @@ inline OAuthHttpResult transportFailure()
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <vector>
 namespace authforge::identity::testing
 {
 class FakeSocialAccountRepository : public ISocialAccountRepository
@@ -4177,6 +4330,12 @@ bool failCreate = false;
 bool failFind = false;
 std::set<std::string> unavailableKeys;
 std::set<std::string> conflictingUsernames;
+std::set<int32_t> usersWithUsablePassword;
+bool failList = false;
+bool failInsert = false;
+bool failDelete = false;
+bool failPasswordCheck = false;
+bool forceInsertConflict = false;
 static std::string key(const std::string &provider, const std::string &subject)
 ;
 void findLinkedUser(
@@ -4190,6 +4349,23 @@ const std::string &subject,
 const std::string &username,
 const std::string & ,
 CreateCallback &&cb) override
+;
+void listForUser(int32_t internalUserId, LinkEntriesCallback &&cb) override
+;
+void insertLink(
+const std::string &provider,
+const std::string &subject,
+int32_t internalUserId,
+LinkMutationCallback &&cb
+) override
+;
+void deleteLink(
+const std::string &provider,
+int32_t internalUserId,
+LinkMutationCallback &&cb
+) override
+;
+void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallback &&cb) override
 ;
 };
 }
@@ -5510,6 +5686,19 @@ const std::string &username,
 const std::string &email,
 CreateCallback &&cb
 ) override;
+void listForUser(int32_t internalUserId, LinkEntriesCallback &&cb) override;
+void insertLink(
+const std::string &provider,
+const std::string &subject,
+int32_t internalUserId,
+LinkMutationCallback &&cb
+) override;
+void deleteLink(
+const std::string &provider,
+int32_t internalUserId,
+LinkMutationCallback &&cb
+) override;
+void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallback &&cb) override;
 private:
 ::drogon::orm::DbClientPtr dbClient_;
 };

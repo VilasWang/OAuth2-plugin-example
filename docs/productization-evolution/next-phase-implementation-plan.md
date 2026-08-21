@@ -92,17 +92,12 @@ benchmark M4 报告（`benchmarks/results/SUMMARY.md`）产出了实测数据，
 - 前端被 Mimosa 拦截（mock-api.ts 既有误报，非本任务引入——stashed）
 - 集成测试待补（需 PostgreSQL 环境）
 
-#### B2. 社交账号 link/unlink
+#### ~~B2. 社交账号 link/unlink~~ ✅ 已实现（2026-08-21，待合并）
 
 > **IAM 审计**: §四 P1 | **工程量**: 小（3–5 天）
-
-**现状**: `ISocialAccountRepository` 接口存在，仅被 GitHubAuthService find-or-create 消费，未暴露为 REST 端点。
-
-**实施步骤**:
-1. `POST /api/me/social/links/{provider}`（发起 OAuth 关联流）
-2. `DELETE /api/me/social/links/{provider}`（解除关联）
-3. UserSelfServiceController 路由 + service 方法
-4. 集成测试
+> **设计/实施文档**: [in-progress/social-link-unlink-design.md](in-progress/social-link-unlink-design.md) + [in-progress/social-link-unlink-implementation-plan.md](in-progress/social-link-unlink-implementation-plan.md)
+> **交付内容**（分支 `feat/social-link-unlink`, v1.3.0）: `GET/POST/DELETE /api/me/social/links[/{provider}]`（plan 里未列的 GET list 为自助门户必需闭环）+ identity 层 `SocialLinkService`（编排：验 code→冲突三态→插入，UNIQUE 竞态兜底）+ `ISocialAccountRepository` 扩展 4 方法（listForUser 排除 `provider='local'` 种子行）+ `GitHubAuthService::fetchProfile` 抽取（link 不触发 find-or-create）+ 最后凭证守卫（`$pbkdf2-sha256$` 前缀判定）+ userinfo numeric-dispatch（#54/#56 双键下社交会话可用）+ 4 审计事件 + user 门户 Connected Accounts 卡片（`state=link` 回调分支先于登录短路）+ 23 单测 + 10 HTTP 集成 + 5 e2e。
+> **明确不做**: Google/WeChat 登录消费映射（登录对齐）、服务端 state 会话、admin 侧代理解绑。
 
 ---
 
@@ -159,7 +154,7 @@ A3 (博客 + README 标注) ←─ Phase 0 数据（已就绪，含 SDK 内存�
 
 ✅ A2 (用户管理)          ←── 已交付（PR #52，待合并）
 🟡 B1 (Backchannel Logout) ←── 后端已交付（PR #50，待合并 + 集成测试）
-B2 (社交 link/unlink)     ←── 无依赖，可立即开始
+✅ B2 (社交 link/unlink)    ←── 已交付（feat/social-link-unlink，待合并）
 
 C3 (benchmark 补完) ←── 独立，可与任何任务并行
 ```
