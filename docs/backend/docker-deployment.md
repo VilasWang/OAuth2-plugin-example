@@ -40,7 +40,7 @@ prometheus
 | `oauth2-frontend` | `deploy/docker/Dockerfile` (`frontend-runtime`) | `8080:80` | Vue SPA (用户端) + Nginx |
 | `oauth2-admin` | `frontends/admin/Dockerfile` | `8081:80` | 管理后台前端 |
 | `oauth2-backend` | `deploy/docker/Dockerfile` (`backend-runtime`) | `5555:5555` | Drogon C++ 后端 |
-| `oauth2-postgres` | `postgres:15-alpine` | `5433:5432` | PostgreSQL（宿主机 5433，避开本地冲突）|
+| `oauth2-postgres` | `postgres:17-alpine` | `5433:5432` | PostgreSQL（宿主机 5433，避开本地冲突）|
 | `oauth2-redis` | `redis:7-alpine` | `6380:6379` | Redis（宿主机 6380，避开本地冲突）|
 | `oauth2-prometheus` | `prom/prometheus:latest` | `9090:9090` | 指标采集 |
 
