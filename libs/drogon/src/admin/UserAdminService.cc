@@ -12,6 +12,10 @@
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>
 
+// Wave-2 P1: revoke the Redis-cached user profile/roles on every successful
+// user/role write (roles feed userinfo claims AND the admin RBAC gate).
+#include "../UserReadCache.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cctype>
@@ -1038,6 +1042,8 @@ void UserAdminService::updateUser(
                           updateMapper.update(
                             rowLocal,
                             [cb, req, id](const size_t) {
+                                authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                                  std::to_string(id));
                                 auditFromRequest(req, "user_update", "success", "user", std::to_string(id));
                                 Json::Value json;
                                 json["status"] = "success";
@@ -1172,6 +1178,8 @@ void UserAdminService::deleteUser(
                         updateMapper.update(
                           row,
                           [cb, req, id, db, publicSub](const size_t) {
+                              authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                                std::to_string(id), publicSub);
                               // Revoke all outstanding tokens — introspection and
                               // refresh copy the subject from stored token rows and
                               // never query users, so existing tokens would otherwise
@@ -1318,6 +1326,7 @@ void UserAdminService::disableUser(
                         updateMapper.update(
                           row,
                           [cb, userId](const size_t) {
+                              authforge::drogon::UserCacheInvalidator::instance().invalidateUser(userId);
                               Json::Value json;
                               json["status"] = "success";
                               json["message"] = "User disabled successfully";
@@ -1393,6 +1402,7 @@ void UserAdminService::enableUser(
                   updateMapper.update(
                     row,
                     [cb, userId](const size_t) {
+                        authforge::drogon::UserCacheInvalidator::instance().invalidateUser(userId);
                         Json::Value json;
                         json["status"] = "success";
                         json["message"] = "User enabled successfully";
@@ -1583,6 +1593,10 @@ void UserAdminService::assignUserRoles(
             urMapper.deleteBy(
               Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, id),
               [cb, req, db, id, roleNames](const size_t) {
+                  // Roles changed (cleared + re-inserted below): invalidate at
+                  // the deleteBy success so every completion path is covered.
+                  authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                    std::to_string(id));
                   if (roleNames.empty())
                   {
                       Json::Value json;

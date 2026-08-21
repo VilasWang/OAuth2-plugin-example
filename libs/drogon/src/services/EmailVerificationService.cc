@@ -8,6 +8,9 @@
 
 #include <drogon/drogon.h>
 
+// Wave-2 P1: email_verified is a cached profile field — revoke on write.
+#include "../UserReadCache.h"
+
 #include <chrono>
 
 namespace authforge::drogon::services
@@ -163,7 +166,9 @@ void EmailVerificationService::verifyToken(
                 updated.setEmailVerified(true);
                 Mapper<Users>(db).update(
                   updated,
-                  [sharedCb](const size_t) {
+                  [sharedCb, user](const size_t) {
+                      authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                        std::to_string(user.getValueOfId()), user.getValueOfPublicSub());
                       Json::Value json;
                       json["message"] = "Email verified successfully";
                       auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
