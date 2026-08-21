@@ -96,7 +96,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | WebAuthn attestation/assertion 验证 | ⬜ 未开始 | 简化实现：不验签 | 中 |
 | ABAC 策略引擎 | ⬜ 未开始 | 穷尽搜索 0 代码 | 大 |
 | 审计合规报告导出 | ⬜ 未开始 | 缺失 | 小–中 |
-| 社交账号 link/unlink | ⬜ 未开始 | UserSelfServiceController 无此端点 | 小 |
+| ~~社交账号 link/unlink~~ | ✅ 已实现（2026-08-21） | `GET/POST/DELETE /api/me/social/links[/{provider}]` + `SocialLinkService` + 最后凭证守卫 + 前端 Connected Accounts 卡片；23 单测 + 10 HTTP 集成 + 5 e2e。分支 `feat/social-link-unlink`（v1.3.0），详见 [in-progress/social-link-unlink-design.md](in-progress/social-link-unlink-design.md) | — |
 | 审计完整性保护（哈希链） | ⬜ 未开始 | 缺失 | 中 |
 | SIEM 集成（Syslog/CEF） | ⬜ 未开始 | 缺失 | 中 |
 
@@ -173,6 +173,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 2026-08-13 | **D1 Backchannel Logout 后端 — 通知器 + logout_token + admin API + 单测** | PR #50（5b3ccb9..9c8cf9f，分支 feat/backchannel-logout-b1） |
 | 2026-08-13 | **内存 SDK 口径实测 — 2.5 MB peak WS（50-120MB 声称保守达标）** | third-party-host-smoke / full-stack-host-smoke 实测 |
 | 2026-08-17 | **A1 OpenAPI spec 治理（M0）— 三层对账 + schema 补齐 + 一致性门 + oasdiff 门，Python 客户端验收通过** | 分支 feat/openapi-spec-governance-m0（待 PR） |
+| 2026-08-21 | **B2 社交账号 link/unlink — 3 端点 + SocialLinkService + 最后凭证守卫 + 前端卡片（v1.3.0）** | 分支 feat/social-link-unlink（待 PR） |
 | 2026-08-05 | 产品化演进方案 + benchmark/client-sdk 设计文档 | a6d570c |
 
 ---
