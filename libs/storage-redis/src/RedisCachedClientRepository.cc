@@ -1,9 +1,12 @@
 #include <authforge/storage/redis/RedisCachedClientRepository.h>
 #include <authforge/oauth2/model/ClientType.h>
+#include <authforge/common/utils/ConstantTimeCompare.h>
 
 #include <drogon/drogon.h>
+#include <drogon/utils/Utilities.h>
 #include <json/json.h>
 
+#include <algorithm>
 #include <sstream>
 #include <string_view>
 
@@ -106,6 +109,44 @@ bool deserializeClient(const std::string &jsonStr, OAuth2Client &out)
 const ::authforge::common::ports::MetricLabels kHitLabels{{"repo", "client"}, {"outcome", "hit"}};
 const ::authforge::common::ports::MetricLabels kMissLabels{{"repo", "client"}, {"outcome", "miss"}};
 const ::authforge::common::ports::MetricLabels kErrorLabels{{"repo", "client"}, {"outcome", "error"}};
+
+// Wave-2 P0 (docs/performance-optimization/optimization-wave-2-plan.md):
+// validate the secret against the CACHED row, eliminating one PG round-trip
+// per token/introspect request. This must stay semantically identical to the
+// Postgres path (PostgresClientRepository.cc:190-251):
+//   - PUBLIC clients are accepted without a secret;
+//   - CONFIDENTIAL with an empty secret is rejected;
+//   - sha256(secret + salt), lowercased on both sides, constant-time
+//     comparison with length equality.
+// The deserialized DTO already carries clientType (enum), clientSecretHash
+// and salt — a row whose type failed to parse fails deserializeClient and
+// is treated as a cache miss (the PG path re-validates), so no extra
+// type-fallback branch is needed here.
+bool validateCachedClientSecret(const OAuth2Client &client, const std::string &clientSecret)
+{
+    if (client.clientType == ::authforge::oauth2::model::ClientType::PUBLIC)
+        return true;
+    if (clientSecret.empty())
+        return false;
+    std::string computedHash = ::drogon::utils::getSha256(clientSecret + client.salt);
+    std::transform(
+      computedHash.begin(), computedHash.end(), computedHash.begin(), [](unsigned char c) {
+          return static_cast<char>(::tolower(c));
+      }
+    );
+    std::string storedLower = client.clientSecretHash;
+    std::transform(
+      storedLower.begin(), storedLower.end(), storedLower.begin(), [](unsigned char c) {
+          return static_cast<char>(::tolower(c));
+      }
+    );
+    const size_t cmpLen =
+      (computedHash.length() < storedLower.length()) ? computedHash.length() : storedLower.length();
+    return ::authforge::common::utils::constantTimeMemcmp(
+             computedHash.c_str(), storedLower.c_str(), cmpLen
+           ) == 0 &&
+           computedHash.length() == storedLower.length();
+}
 }  // namespace
 
 RedisCachedClientRepository::RedisCachedClientRepository(
@@ -229,8 +270,47 @@ void RedisCachedClientRepository::validateClient(
   BoolCallback &&cb
 )
 {
-    // Pure pass-through: secret validation is not safely cacheable.
-    impl_->validateClient(clientId, clientSecret, std::move(cb));
+    // Wave-2 P0: on a cache hit, validate the secret locally against the
+    // cached row (identical semantics to the Postgres path — see
+    // validateCachedClientSecret above) instead of one PG round-trip per
+    // request. On a miss we pass through to the wrapped impl; the cache is
+    // then filled by the getClient call that token/introspect issue in the
+    // same request, so subsequent validations hit.
+    auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
+    auto self = shared_from_this();
+
+    if (!redisClient_)
+    {
+        impl_->validateClient(clientId, clientSecret, std::move(*sharedCb));
+        return;
+    }
+
+    std::string cmd = "GET authforge:cache:client:" + clientId;
+    redisClient_->execCommandAsync(
+      [self, sharedCb, clientId, clientSecret](const RedisResult &result) {
+          if (result.type() == RedisResultType::kString)
+          {
+              OAuth2Client cached;
+              if (deserializeClient(result.asString(), cached))
+              {
+                  self->emitMetric("hit");
+                  (*sharedCb)(validateCachedClientSecret(cached, clientSecret));
+                  return;
+              }
+              // Corrupt cache entry → treat as a miss (don't trust it).
+          }
+          self->emitMetric("miss");
+          self->impl_->validateClient(clientId, clientSecret, std::move(*sharedCb));
+      },
+      [self, sharedCb, clientId, clientSecret](const RedisException &e) {
+          LOG_WARN << "RedisCachedClientRepository: validateClient GET error for " << clientId
+                   << ": " << e.what();
+          self->emitMetric("error");
+          // Error → soft-fail to the Postgres path (same policy as getClient).
+          self->impl_->validateClient(clientId, clientSecret, std::move(*sharedCb));
+      },
+      cmd.c_str()
+    );
 }
 
 }  // namespace authforge::storage::redis

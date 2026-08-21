@@ -31,6 +31,9 @@
 #include <authforge/common/utils/RateLimiter.h>
 #include <drogon/drogon.h>
 
+// Wave-2 P0: client-cache invalidation registry (src-internal; see header).
+#include "../ClientCacheInvalidator.h"
+
 using namespace drogon;
 
 void OAuth2Plugin::initAndStart(const Json::Value &config)
@@ -322,6 +325,27 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             clientRepo = std::make_shared<authforge::storage::redis::RedisCachedClientRepository>(
               bundle.clientRepository(), redisClient, metrics_, clientTtl
             );
+            // Wave-2 P0: register the write-path invalidation hook so client
+            // updates/deletes/scope changes revoke the cached row immediately
+            // (validateClient now trusts the cached row's secret/scope data;
+            // a lost DEL is bounded by the client TTL).
+            if (redisClient)
+            {
+                ::authforge::drogon::ClientCacheInvalidator::instance().registerHook(
+                  [redisClient](const std::string &clientId) {
+                      std::string key = "authforge:cache:client:" + clientId;
+                      redisClient->execCommandAsync(
+                        [](const ::drogon::nosql::RedisResult &) {},
+                        [key](const ::drogon::nosql::RedisException &e) {
+                            LOG_DEBUG << "ClientCacheInvalidator: DEL failed for " << key << ": "
+                                      << e.what();
+                        },
+                        "DEL %s",
+                        key.c_str()
+                      );
+                  }
+                );
+            }
             // Phase 2: token cache (getAccessToken + introspectToken + revoke
             // invalidation + negative cache). grant/consent stay unwrapped
             // (§5.2: not cached).
