@@ -5,6 +5,7 @@ DELETE /api/admin/tokens/{tokenPrefix}
 DELETE /api/admin/users/{userId}
 DELETE /api/me
 DELETE /api/me/authorized-apps/{clientId}
+DELETE /api/me/social/links/{provider}
 GET /.well-known/jwks.json
 GET /.well-known/oauth-authorization-server
 GET /.well-known/openid-configuration
@@ -26,6 +27,7 @@ GET /api/admin/users/{userId}
 GET /api/admin/users/{userId}/roles
 GET /api/me
 GET /api/me/authorized-apps
+GET /api/me/social/links
 GET /api/me/webauthn/credentials
 GET /api/verify-email
 GET /docs/api
@@ -57,6 +59,7 @@ POST /api/google/login
 POST /api/me/mfa/disable
 POST /api/me/mfa/setup
 POST /api/me/mfa/verify
+POST /api/me/social/links/{provider}
 POST /api/me/webauthn/register/begin
 POST /api/me/webauthn/register/finish
 POST /api/password-reset/confirm
