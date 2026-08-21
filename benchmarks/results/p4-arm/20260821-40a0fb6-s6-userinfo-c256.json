@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "scenario": "s6-userinfo",
+  "concurrency": 256,
+  "threads": 8,
+  "duration_s": 10,
+  "qps": 43900.48,
+  "latency_us": {
+    "p50": 5360.0,
+    "p75": 7240.0,
+    "p90": 55250.0,
+    "p99": 588760.0
+  },
+  "total_requests": 461761,
+  "error_rate": 0.000552233731302557,
+  "error_count": 255,
+  "socket_errors": {
+    "connect": 0,
+    "read": 0,
+    "write": 0,
+    "timeout": 255
+  },
+  "non_2xx_responses": null,
+  "driver": {
+    "cpu_pct": 7.0,
+    "limited": false
+  },
+  "env": {
+    "date": "2026-08-21T13:03:42+00:00",
+    "git_sha": "40a0fb6",
+    "git_branch": "feat/competitor-benchmark",
+    "product": "authforge",
+    "product_version": "p4-wip",
+    "target_image": "",
+    "target_config": "config.bench.json",
+    "target_spec": "",
+    "driver_spec": "",
+    "network": "localhost-cross-container",
+    "wrk_version": "wrk debian/4.1.0-4build2 [epoll] Copyright (C) 2012 Will Glozer"
+  }
+}

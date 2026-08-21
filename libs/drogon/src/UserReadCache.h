@@ -31,11 +31,13 @@
 #include <drogon/nosql/RedisClient.h>
 #include <json/json.h>
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace authforge::drogon
@@ -134,10 +136,21 @@ class UserReadCache
         return redisClient_ != nullptr;
     }
 
+    // Called by the write-path invalidation hook (in-process, synchronous)
+    // so a revoked user's memo never outlives the DEL.
+    void dropMemo(const std::string &subject)
+    {
+        std::lock_guard<std::mutex> lock(memoMutex_);
+        memo_.erase(subject);
+    }
+
     using RolesFetch = std::function<void(const std::string &, RolesCallback)>;
     using ProfileFetch = std::function<void(const std::string &, ProfileCallback)>;
 
     // Roles: hit → parsed JSON array; miss/error → fetch (result filled back).
+    // Wave-2 P4: the MGET piggybacks the PROFILE key so the follow-up
+    // getProfile call (userinfo reads roles first, then the profile) is
+    // served from an in-process memo without a second Redis round-trip.
     void getRoles(const std::string &subject, RolesCallback &&cb, RolesFetch fetch)
     {
         if (!enabled())
@@ -148,24 +161,34 @@ class UserReadCache
         auto sharedCb = std::make_shared<RolesCallback>(std::move(cb));
         auto sharedFetch = std::make_shared<RolesFetch>(std::move(fetch));
         auto redis = redisClient_;
-        std::string key = userreadcache::rolesKey(subject);
+        std::string rKey = userreadcache::rolesKey(subject);
+        std::string pKey = userreadcache::profileKey(subject);
         redis->execCommandAsync(
           [this, sharedCb, subject, sharedFetch](const ::drogon::nosql::RedisResult &r) {
-              if (r.type() == ::drogon::nosql::RedisResultType::kString)
+              if (r.type() == ::drogon::nosql::RedisResultType::kArray)
               {
-                  Json::Value root;
-                  Json::CharReaderBuilder rb;
-                  std::string errs;
-                  std::istringstream is(r.asString());
-                  if (Json::parseFromStream(rb, is, &root, &errs) && root.isArray())
+                  const auto arr = r.asArray();
+                  if (!arr.empty() && arr[0].type() == ::drogon::nosql::RedisResultType::kString)
                   {
-                      std::vector<std::string> roles;
-                      for (const auto &v : root)
-                          roles.push_back(v.asString());
-                      (*sharedCb)(std::move(roles));
-                      return;
+                      // Piggyback: memo the profile payload for the follow-up
+                      // getProfile call (one-shot, TTL-bounded, cleared by the
+                      // invalidation hook).
+                      if (arr.size() > 1 && arr[1].type() == ::drogon::nosql::RedisResultType::kString)
+                          memoProfilePayload(subject, arr[1].asString());
+                      Json::Value root;
+                      Json::CharReaderBuilder rb;
+                      std::string errs;
+                      std::istringstream is(arr[0].asString());
+                      if (Json::parseFromStream(rb, is, &root, &errs) && root.isArray())
+                      {
+                          std::vector<std::string> roles;
+                          for (const auto &v : root)
+                              roles.push_back(v.asString());
+                          (*sharedCb)(std::move(roles));
+                          return;
+                      }
+                      // Corrupt entry → fall through to fetch.
                   }
-                  // Corrupt entry → fall through to fetch.
               }
               fetchAndFillRoles(subject, std::move(*sharedCb), *sharedFetch);
           },
@@ -173,19 +196,41 @@ class UserReadCache
               // Soft-fail: Redis unhealthy → uncached path.
               fetchAndFillRoles(subject, std::move(*sharedCb), *sharedFetch);
           },
-          "GET %s",
-          key.c_str()
+          "MGET %s %s",
+          rKey.c_str(),
+          pKey.c_str()
         );
     }
 
     // Profile: hit → parsed JSON object (absent marker → nullopt);
     // miss/error → fetch (result filled back; nullopt filled negatively).
+    // A fresh piggyback memo (primed by getRoles' MGET) is consumed first —
+    // no Redis round-trip for the common userinfo sequence.
     void getProfile(const std::string &subject, ProfileCallback &&cb, ProfileFetch fetch)
     {
         if (!enabled())
         {
             fetch(subject, std::move(cb));
             return;
+        }
+        std::string memoized;
+        if (takeMemoizedProfile(subject, memoized))
+        {
+            if (memoized == userreadcache::kAbsentMarker)
+            {
+                cb(std::nullopt);
+                return;
+            }
+            Json::Value root;
+            Json::CharReaderBuilder rb;
+            std::string errs;
+            std::istringstream is(memoized);
+            if (Json::parseFromStream(rb, is, &root, &errs) && root.isObject())
+            {
+                cb(std::move(root));
+                return;
+            }
+            // Corrupt memo → fall through to Redis.
         }
         auto sharedCb = std::make_shared<ProfileCallback>(std::move(cb));
         auto sharedFetch = std::make_shared<ProfileFetch>(std::move(fetch));
@@ -223,6 +268,51 @@ class UserReadCache
 
   private:
     UserReadCache() = default;
+
+    // --- piggyback memo (Wave-2 P4) -------------------------------------
+    // One-shot, TTL-bounded in-process memo of the profile payload, primed
+    // by getRoles' MGET and consumed by the immediately-following getProfile
+    // (the userinfo read sequence). Cleared synchronously by the write-path
+    // invalidation hook (dropMemo); kMemoTtl bounds a lost-clear.
+    static constexpr auto kMemoTtl = std::chrono::seconds(2);
+
+    void memoProfilePayload(const std::string &subject, const std::string &payload)
+    {
+        std::lock_guard<std::mutex> lock(memoMutex_);
+        if (memo_.size() > 1024)
+            pruneExpiredMemoLocked();
+        memo_[subject] = {payload, std::chrono::steady_clock::now()};
+    }
+
+    bool takeMemoizedProfile(const std::string &subject, std::string &payloadOut)
+    {
+        std::lock_guard<std::mutex> lock(memoMutex_);
+        auto it = memo_.find(subject);
+        if (it == memo_.end())
+            return false;
+        const auto entry = it->second;
+        memo_.erase(it);  // one-shot: consume on first read
+        if (std::chrono::steady_clock::now() - entry.second > kMemoTtl)
+            return false;
+        payloadOut = entry.first;
+        return true;
+    }
+
+    void pruneExpiredMemoLocked()
+    {
+        const auto now = std::chrono::steady_clock::now();
+        for (auto it = memo_.begin(); it != memo_.end();)
+        {
+            if (now - it->second.second > kMemoTtl)
+                it = memo_.erase(it);
+            else
+                ++it;
+        }
+    }
+
+    std::mutex memoMutex_;
+    std::unordered_map<std::string, std::pair<std::string, std::chrono::steady_clock::time_point>>
+      memo_;
 
     void fetchAndFillRoles(const std::string &subject, RolesCallback cb, const RolesFetch &fetch)
     {

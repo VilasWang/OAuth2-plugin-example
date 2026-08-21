@@ -342,6 +342,8 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             {
                 ::authforge::drogon::UserCacheInvalidator::instance().registerHook(
                   [redisClient](const std::string &subject) {
+                      // In-process memo first (synchronous), then the Redis DELs.
+                      authforge::drogon::UserReadCache::instance().dropMemo(subject);
                       for (const char *kind : {"profile", "roles"})
                       {
                           std::string key = std::string("authforge:cache:user:") + kind + ":" + subject;

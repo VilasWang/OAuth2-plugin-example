@@ -264,6 +264,92 @@ DROGON_TEST(Integration_P2_Storage_UserReadCache_Profile_NegativeCache_DualForm)
 }
 
 // ===========================================================================
+// Test 4 (Wave-2 P4): getRoles' MGET piggybacks the profile key; the
+// follow-up getProfile is served from the one-shot memo (profile fetch NOT
+// consulted, no second Redis round-trip). Invalidation drops the memo AND
+// the Redis entries; both reads then go back to their fetches.
+// ===========================================================================
+DROGON_TEST(Integration_P2_Storage_UserReadCache_Piggyback_MemoServesProfile)
+{
+    auto redis = getRedisOrNull();
+    if (!redis)
+    {
+        LOG_INFO << "[skip] Redis unavailable — UserReadCache test skipped";
+        return;
+    }
+
+    const std::string subject = "777010";
+    evictUserKeys(subject);
+    UserReadCache::instance().configure(redis, 300, 120);
+    registerDelHook(redis);
+
+    auto rolesFetchCalls = std::make_shared<std::atomic<int>>(0);
+    auto profileFetchCalls = std::make_shared<std::atomic<int>>(0);
+    UserReadCache::RolesFetch rolesFetch = [rolesFetchCalls](const std::string &,
+                                                             UserReadCache::RolesCallback cb) {
+        rolesFetchCalls->fetch_add(1);
+        cb({"admin"});
+    };
+    UserReadCache::ProfileFetch profileFetch =
+      [profileFetchCalls](const std::string &, UserReadCache::ProfileCallback cb) {
+          profileFetchCalls->fetch_add(1);
+          Json::Value j;
+          j["id"] = 777010;
+          j["username"] = "bob";
+          cb(j);
+      };
+
+    // Prime both cache entries (miss → fetch → fill).
+    waitForRoles([&](auto cb) {
+        UserReadCache::instance().getRoles(subject, std::move(cb), rolesFetch);
+    });
+    waitForProfile([&](auto cb) {
+        UserReadCache::instance().getProfile(subject, std::move(cb), profileFetch);
+    });
+    CHECK(rolesFetchCalls->load() == 1);
+    CHECK(profileFetchCalls->load() == 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    // The userinfo sequence: roles (MGET, hit) → profile (memo, hit).
+    auto roles = waitForRoles([&](auto cb) {
+        UserReadCache::instance().getRoles(subject, std::move(cb), rolesFetch);
+    });
+    CHECK(roles == (std::vector<std::string>{"admin"}));
+    auto profile = waitForProfile([&](auto cb) {
+        UserReadCache::instance().getProfile(subject, std::move(cb), profileFetch);
+    });
+    REQUIRE(profile.has_value());
+    CHECK((*profile)["username"].asString() == "bob");
+    CHECK(rolesFetchCalls->load() == 1);    // cache hit
+    CHECK(profileFetchCalls->load() == 1);  // memo hit — profile fetch NOT called
+
+    // The memo is one-shot: a second profile read without a preceding roles
+    // read falls back to Redis (still no fetch).
+    auto profile2 = waitForProfile([&](auto cb) {
+        UserReadCache::instance().getProfile(subject, std::move(cb), profileFetch);
+    });
+    REQUIRE(profile2.has_value());
+    CHECK(profileFetchCalls->load() == 1);  // Redis hit
+
+    // Invalidation drops memo + entries → both reads refetch.
+    UserCacheInvalidator::instance().invalidateUser(subject);
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    auto roles3 = waitForRoles([&](auto cb) {
+        UserReadCache::instance().getRoles(subject, std::move(cb), rolesFetch);
+    });
+    CHECK(roles3 == (std::vector<std::string>{"admin"}));
+    auto profile3 = waitForProfile([&](auto cb) {
+        UserReadCache::instance().getProfile(subject, std::move(cb), profileFetch);
+    });
+    REQUIRE(profile3.has_value());
+    CHECK(rolesFetchCalls->load() == 2);
+    CHECK(profileFetchCalls->load() == 2);
+
+    evictUserKeys(subject);
+    UserReadCache::instance().configure(nullptr);
+}
+
+// ===========================================================================
 // Test 3: disabled (null Redis) → pure pass-through, every read fetches.
 // ===========================================================================
 DROGON_TEST(Integration_P2_Storage_UserReadCache_Disabled_PassThrough)
