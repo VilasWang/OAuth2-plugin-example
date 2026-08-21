@@ -83,10 +83,15 @@ GitHub 是唯一做「find-or-create 本地账号 + subject mapping」的 provid
 2. **最后凭证守卫**：这是用户最后一条社交映射，且用户**没有可用密码**（`password_hash` 不匹配 `$pbkdf2-sha256$` 前缀 —— 社交建号的随机 hex 与 `"DELETED"` 都不算）→ `409 VALIDATION_RESOURCE_CONFLICT`，message 说明会失去唯一登录方式；
 3. 通过 → DELETE 映射行 → `200`:
 ```json
-{ "provider": "github", "message": "GitHub account unlinked" }
+{ "provider": "github", "subject": "12345678", "message": "Social account unlinked successfully" }
 ```
 
 不吊销现有 token（解绑社交身份不影响已发的会话；与 Keycloak 行为一致）。
+
+**已知竞态（自查 + PR 评审 #3）**：守卫是 check-then-act——两个并发 unlink 各自观察到
+`size==2` 而同时放行，可能把无密码用户删到零凭证（自我造成的锁定，需管理员恢复）。与 link
+侧不同（DB UNIQUE 约束兜底），此处无廉价兜底（后置复查或按用户串行化成本不成比例）；记为
+已知限制，风险接受理由：需要用户主动对自己的账号并发发起解绑。
 
 ### 3.4 错误映射（全部走 ErrorResponder Error Envelope）
 
