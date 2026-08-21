@@ -49,6 +49,7 @@ set(IDENTITY_SOURCES
     $<$<BOOL:${WITH_SOCIAL}>:src/social/GoogleAuthService.cc>
     $<$<BOOL:${WITH_SOCIAL}>:src/social/WeChatAuthService.cc>
     $<$<BOOL:${WITH_SOCIAL}>:src/social/GitHubAuthService.cc>
+    $<$<BOOL:${WITH_SOCIAL}>:src/social/SocialLinkService.cc>
     # Session
     src/session/SessionManager.cc
 )
@@ -71,6 +72,7 @@ set(IDENTITY_HEADERS
     $<$<BOOL:${WITH_WEBAUTHN}>:include/authforge/identity/WebAuthnService.h>
     $<$<BOOL:${WITH_WEBAUTHN}>:include/authforge/identity/IWebAuthnRepository.h>
     $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/SocialAuthService.h>
+    $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/SocialLinkService.h>
     $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/ISocialAccountRepository.h>
 )
 

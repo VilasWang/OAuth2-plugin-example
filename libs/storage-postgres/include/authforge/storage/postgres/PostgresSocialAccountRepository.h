@@ -45,6 +45,22 @@ class PostgresSocialAccountRepository
       CreateCallback &&cb
     ) override;
 
+    // B2 social link/unlink (see ISocialAccountRepository.h's own block
+    // comment for the mapping-lifecycle contract).
+    void listForUser(int32_t internalUserId, LinkEntriesCallback &&cb) override;
+    void insertLink(
+      const std::string &provider,
+      const std::string &subject,
+      int32_t internalUserId,
+      LinkMutationCallback &&cb
+    ) override;
+    void deleteLink(
+      const std::string &provider,
+      int32_t internalUserId,
+      LinkMutationCallback &&cb
+    ) override;
+    void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallback &&cb) override;
+
   private:
     ::drogon::orm::DbClientPtr dbClient_;
 };

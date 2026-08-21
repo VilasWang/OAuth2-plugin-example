@@ -18,6 +18,7 @@ if(NOT WITH_WEBAUTHN)
 endif()
 if(NOT WITH_SOCIAL)
     list(FILTER AUTHFORGE_IDENTITY_TEST_SOURCES EXCLUDE REGEX "SocialAuthServiceTest\\.cc$")
+    list(FILTER AUTHFORGE_IDENTITY_TEST_SOURCES EXCLUDE REGEX "SocialLinkServiceTest\\.cc$")
 endif()
 
 add_executable(authforge-identity-test ${AUTHFORGE_IDENTITY_TEST_SOURCES})

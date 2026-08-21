@@ -15,8 +15,10 @@ namespace authforge::storage::postgres
 {
 
 using namespace ::drogon::orm;
+using authforge::identity::LinkMutationStatus;
 using authforge::identity::LinkNewSocialAccountResult;
 using authforge::identity::SocialAccountLookup;
+using authforge::identity::SocialLinkEntry;
 using authforge::identity::SocialLinkStatus;
 using drogon_model::oauth2_db::Oauth2SubjectMappings;
 using drogon_model::oauth2_db::Roles;
@@ -287,6 +289,187 @@ void PostgresSocialAccountRepository::createLinkedUser(
       passwordHash,
       email
     );
+}
+
+// ---------------------------------------------------------------------------
+// B2 social link/unlink: mapping-lifecycle operations for an EXISTING local
+// user (see ISocialAccountRepository.h's block comment). All Mapper+Criteria,
+// no JOIN, no raw SQL.
+// ---------------------------------------------------------------------------
+
+void PostgresSocialAccountRepository::listForUser(
+  int32_t internalUserId,
+  LinkEntriesCallback &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb(std::nullopt);
+        return;
+    }
+    auto sharedCb = std::make_shared<LinkEntriesCallback>(std::move(cb));
+    try
+    {
+        // provider != 'local': the seed/password flow plants a 'local'
+        // subject mapping per user (V006's default) that is NOT a social
+        // identity -- it must not show up in the social-links list nor count
+        // toward the last-credential guard.
+        Mapper<Oauth2SubjectMappings>(dbClient_).findBy(
+          Criteria(
+            Oauth2SubjectMappings::Cols::_internal_user_id, CompareOperator::EQ, internalUserId
+          ) &&
+              Criteria(
+                Oauth2SubjectMappings::Cols::_provider, CompareOperator::NE, std::string("local")
+              ),
+          [sharedCb](const std::vector<Oauth2SubjectMappings> &mappings) {
+              std::vector<SocialLinkEntry> entries;
+              entries.reserve(mappings.size());
+              for (const auto &m : mappings)
+              {
+                  SocialLinkEntry e;
+                  e.provider = m.getValueOfProvider();
+                  e.subject = m.getValueOfSubject();
+                  e.linkedAt = m.getValueOfCreatedAt().toDbStringLocal();
+                  entries.push_back(std::move(e));
+              }
+              (*sharedCb)(std::move(entries));
+          },
+          [sharedCb](const DrogonDbException &e) {
+              LOG_ERROR << "listForUser: mapping query failed: " << e.base().what();
+              (*sharedCb)(std::nullopt);
+          }
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR << "listForUser: Mapper construction failed";
+        (*sharedCb)(std::nullopt);
+    }
+}
+
+void PostgresSocialAccountRepository::insertLink(
+  const std::string &provider,
+  const std::string &subject,
+  int32_t internalUserId,
+  LinkMutationCallback &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb(LinkMutationStatus::Error);
+        return;
+    }
+    auto sharedCb = std::make_shared<LinkMutationCallback>(std::move(cb));
+    Oauth2SubjectMappings mapping;
+    mapping.setProvider(provider);
+    mapping.setSubject(subject);
+    mapping.setInternalUserId(internalUserId);
+    try
+    {
+        Mapper<Oauth2SubjectMappings>(dbClient_).insert(
+          mapping,
+          [sharedCb](const Oauth2SubjectMappings &) {
+              (*sharedCb)(LinkMutationStatus::Inserted);
+          },
+          [sharedCb](const DrogonDbException &e) {
+              // UNIQUE(provider, subject) race: another user claimed the same
+              // provider account between the service's pre-check and this
+              // insert. libpq's what() carries no SQLSTATE, so match the
+              // human-readable text (same precedent as
+              // PostgresConsentRepository.cc's "duplicate key" check).
+              const std::string what = e.base().what();
+              if (what.find("duplicate key") != std::string::npos)
+              {
+                  (*sharedCb)(LinkMutationStatus::Conflict);
+                  return;
+              }
+              LOG_ERROR << "insertLink: mapping insert failed: " << what;
+              (*sharedCb)(LinkMutationStatus::Error);
+          }
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR << "insertLink: Mapper construction failed";
+        (*sharedCb)(LinkMutationStatus::Error);
+    }
+}
+
+void PostgresSocialAccountRepository::deleteLink(
+  const std::string &provider,
+  int32_t internalUserId,
+  LinkMutationCallback &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb(LinkMutationStatus::Error);
+        return;
+    }
+    auto sharedCb = std::make_shared<LinkMutationCallback>(std::move(cb));
+    try
+    {
+        Mapper<Oauth2SubjectMappings>(dbClient_).deleteBy(
+          Criteria(Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, provider) &&
+            Criteria(
+              Oauth2SubjectMappings::Cols::_internal_user_id, CompareOperator::EQ, internalUserId
+            ),
+          [sharedCb](const size_t deleted) {
+              (*sharedCb)(deleted > 0 ? LinkMutationStatus::Deleted : LinkMutationStatus::NoLink);
+          },
+          [sharedCb](const DrogonDbException &e) {
+              LOG_ERROR << "deleteLink: mapping delete failed: " << e.base().what();
+              (*sharedCb)(LinkMutationStatus::Error);
+          }
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR << "deleteLink: Mapper construction failed";
+        (*sharedCb)(LinkMutationStatus::Error);
+    }
+}
+
+void PostgresSocialAccountRepository::userHasUsablePassword(
+  int32_t internalUserId,
+  PasswordUsableCallback &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb(std::nullopt);
+        return;
+    }
+    auto sharedCb = std::make_shared<PasswordUsableCallback>(std::move(cb));
+    try
+    {
+        // PasswordHasher is the only legitimate writer of usable password
+        // hashes and always emits `$pbkdf2-sha256$...`; social-created
+        // accounts carry a random hex placeholder and deleteAccount writes
+        // "DELETED". Missing/soft-deleted row -> empty result -> false
+        // (fail-safe for the last-credential guard). V024: deleted_at IS
+        // NULL.
+        Mapper<Users>(dbClient_).findBy(
+          Criteria(Users::Cols::_id, CompareOperator::EQ, internalUserId) &&
+              Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull) &&
+              Criteria(
+                Users::Cols::_password_hash, CompareOperator::Like,
+                std::string("$pbkdf2-sha256$%")
+              ),
+          [sharedCb](const std::vector<Users> &users) {
+              (*sharedCb)(!users.empty());
+          },
+          [sharedCb](const DrogonDbException &e) {
+              LOG_ERROR << "userHasUsablePassword: user query failed: " << e.base().what();
+              (*sharedCb)(std::nullopt);
+          }
+        );
+    }
+    catch (...)
+    {
+        LOG_ERROR << "userHasUsablePassword: Mapper construction failed";
+        (*sharedCb)(std::nullopt);
+    }
 }
 
 }  // namespace authforge::storage::postgres

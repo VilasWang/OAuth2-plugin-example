@@ -55,6 +55,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace authforge::identity
 {
@@ -97,6 +98,35 @@ struct LinkNewSocialAccountResult
 {
     int32_t userId = 0;
     std::string username;
+};
+
+/**
+ * @brief One row of the user's linked-provider list
+ * (ISocialAccountRepository::listForUser), B2 social link/unlink.
+ */
+struct SocialLinkEntry
+{
+    std::string provider;  ///< "github" | "google" | "wechat"
+    std::string subject;   ///< Provider-scoped stable id (GitHub numeric id,
+                           ///< Google `sub`, WeChat `openid`).
+    std::string linkedAt;  ///< Mapping row created_at, ISO-8601 (empty when
+                           ///< the storage carries no timestamp).
+};
+
+/**
+ * @brief Outcome of a link-row mutation (ISocialAccountRepository::insertLink
+ * / deleteLink). insert answers Inserted/Conflict/Error; delete answers
+ * Deleted/NoLink/Error. Conflict = the UNIQUE(provider, subject) constraint
+ * rejected the insert (another user raced the same provider account);
+ * NoLink = no mapping row existed for (provider, internal_user_id).
+ */
+enum class LinkMutationStatus
+{
+    Inserted,
+    Conflict,
+    Deleted,
+    NoLink,
+    Error
 };
 
 /**
@@ -165,6 +195,63 @@ class ISocialAccountRepository
       const std::string &email,
       CreateCallback &&cb
     ) = 0;
+
+    // ------------------------------------------------------------------
+    // B2 social link/unlink (self-service). The four methods below extend
+    // this repository's bounded concern ("the local account behind a social
+    // login") with the mapping-lifecycle half: list/insert/delete a
+    // (provider, subject) -> internal_user_id row for an EXISTING local
+    // user, plus the last-credential-guard input (usable password).
+    // ------------------------------------------------------------------
+
+    using LinkEntriesCallback = std::function<void(std::optional<std::vector<SocialLinkEntry>>)>;
+    using LinkMutationCallback = std::function<void(LinkMutationStatus)>;
+    using PasswordUsableCallback = std::function<void(std::optional<bool>)>;
+
+    /**
+     * @brief List the user's SOCIAL provider mappings (provider != 'local'
+     * -- the seeded password-subject mapping is not a social identity and is
+     * excluded), in the storage's natural order (no ordering contract).
+     * @param cb The entries on success; nullopt on a repository failure.
+     */
+    virtual void listForUser(int32_t internalUserId, LinkEntriesCallback &&cb) = 0;
+
+    /**
+     * @brief Insert a (provider, subject) -> user mapping row.
+     * @param cb Inserted on success; Conflict when the UNIQUE(provider,
+     * subject) constraint rejects the row (the provider account is already
+     * mapped — the pre-check raced); Error on any other failure.
+     */
+    virtual void insertLink(
+      const std::string &provider,
+      const std::string &subject,
+      int32_t internalUserId,
+      LinkMutationCallback &&cb
+    ) = 0;
+
+    /**
+     * @brief Delete the user's mapping row(s) for @p provider (at most one
+     * under the service-level one-link-per-provider rule).
+     * @param cb Deleted on success; NoLink when no row matched; Error on any
+     * other failure.
+     */
+    virtual void deleteLink(
+      const std::string &provider,
+      int32_t internalUserId,
+      LinkMutationCallback &&cb
+    ) = 0;
+
+    /**
+     * @brief Last-credential-guard input: does the user have a password
+     * they can actually log in with? Social-created accounts carry a random
+     * placeholder hash (not a PasswordHasher output), and deleteAccount
+     * writes "DELETED" — neither parses as `$pbkdf2-sha256$...`.
+     * @param cb true/false on success (a live, non-soft-deleted user row
+     * exists and its password_hash matches the PasswordHasher prefix);
+     * nullopt on a repository failure. A missing/soft-deleted user answers
+     * false (the guard must stay fail-safe).
+     */
+    virtual void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallback &&cb) = 0;
 };
 
 }  // namespace authforge::identity

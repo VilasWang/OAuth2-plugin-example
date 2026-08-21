@@ -225,10 +225,24 @@ struct GitHubLoginResult
 };
 
 /**
- * @brief GitHub OAuth2 authorization-code exchange + userinfo fetch +
- * local-account find-or-create/link. Framework-independent -- the actual
- * HTTP calls go through the injected IOAuthHttpClient port, and the
- * account-linking persistence goes through the injected
+ * @brief Result of GitHubAuthService::fetchProfile.
+ */
+struct GitHubProfileResult
+{
+    // Empty on success; same code set as GitHubLoginResult.errorCode for the
+    // exchange/userinfo steps ("NET_CONNECTION_FAILED" /
+    // "VALIDATION_INVALID_INPUT").
+    std::string errorCode;
+    int64_t githubId = 0;   // Provider subject (stringified when persisted).
+    std::string login;
+    std::string email;
+};
+
+/**
+ * @brief GitHub OAuth2 authorization-code exchange + userinfo fetch, plus
+ * (via login()) local-account find-or-create/link. Framework-independent --
+ * the actual HTTP calls go through the injected IOAuthHttpClient port, and
+ * the account-linking persistence goes through the injected
  * ISocialAccountRepository. Does NOT issue OAuth2 tokens -- see this
  * header's top comment for the scope-boundary rationale.
  */
@@ -257,6 +271,21 @@ class GitHubAuthService
      * success, or a non-empty errorCode on failure.
      */
     void login(const std::string &code, std::function<void(GitHubLoginResult)> &&callback);
+
+    /**
+     * @brief Exchange an authorization code for a GitHub profile ONLY --
+     * no local-account lookup/creation. B2 social link/unlink uses this to
+     * resolve the provider subject for an already-authenticated local user
+     * without find-or-create side effects; login() is a fetchProfile +
+     * find-or-create composition of the same exchange steps.
+     * @param code Authorization code from GitHub's OAuth2 callback.
+     * @param callback Result with the GitHub numeric id/login/email on
+     * success, or a non-empty errorCode on failure.
+     */
+    void fetchProfile(
+      const std::string &code,
+      std::function<void(GitHubProfileResult)> &&callback
+    );
 
   private:
     std::shared_ptr<IOAuthHttpClient> httpClient_;
