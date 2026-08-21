@@ -1,6 +1,6 @@
 # 深度性能优化 — 分析报告（阶段一）
 
-> 日期：2026-08-20 · 分支 `feat/perf-deep-optimization` · 依据 `docs/performance-optimization-prompt.md`
+> 日期：2026-08-20 · 分支 `feat/perf-deep-optimization` · 依据 `performance-optimization-prompt.md`（同目录）
 > 基线：`benchmarks/baseline/20260819-97c9254-*`（归档约定见 `benchmarks/baseline/README.md`）
 > 方法：既有结果解析（pin 97c9254 组）+ S4 同日补基线 + EXPLAIN ANALYZE + 容器 CPU 分布采样 + 静态热点扫描（代码行号证据）
 

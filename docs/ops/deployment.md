@@ -603,7 +603,7 @@ docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < apps/server/se
 ## 性能调优（推荐配置）
 
 > 本节是官方推荐的生产性能基线（分析与依据见
-> `docs/productization-evolution/in-progress/noncode-performance-optimization.md`）。
+> `docs/performance-optimization/noncode-performance-optimization.md`）。
 > 基准测试以本节配置为准——写进本节的配置即"官方配置"。
 
 ### 1. 开启 Redis L2 缓存（吞吐档推荐，须配套扩容 Redis 连接池）
