@@ -9,6 +9,7 @@
 #endif  // WITH_SOCIAL
 #include <authforge/drogon/controllers/MfaController.h>
 #include <authforge/drogon/controllers/SessionController.h>
+#include <authforge/drogon/controllers/UserSelfServiceController.h>
 #ifdef WITH_WEBAUTHN
 #include <authforge/drogon/controllers/WebAuthnController.h>
 #endif  // WITH_WEBAUTHN
@@ -18,6 +19,7 @@
 #include <authforge/identity/MfaService.h>
 #include <authforge/identity/SessionManager.h>
 #include <authforge/identity/SocialAuthService.h>
+#include <authforge/identity/SocialLinkService.h>
 #include <authforge/identity/WebAuthnService.h>
 #include <authforge/storage/postgres/PostgresIdentityRepository.h>
 #include <authforge/storage/postgres/PostgresMfaRepository.h>
@@ -172,6 +174,13 @@ void wireIdentityServices()
     static auto gitHubAuthService = std::make_shared<authforge::identity::GitHubAuthService>(
       oauthHttpClient, socialAccountRepo, githubClientId, githubClientSecret
     );
+    // B2 social link/unlink: the same provider services + mapping repository
+    // back the self-service /api/me/social/links* routes. Process-lifetime
+    // static (same contract as the services above) so the raw pointer handed
+    // to the controller singleton stays valid.
+    static auto socialLinkService = std::make_shared<authforge::identity::SocialLinkService>(
+      gitHubAuthService, googleAuthService, weChatAuthService, socialAccountRepo
+    );
 #endif  // WITH_SOCIAL
 
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::SessionController>()
@@ -195,6 +204,8 @@ void wireIdentityServices()
       ->setWeChatAuthService(weChatAuthService.get());
     drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GitHubController>()
       ->setGitHubAuthService(gitHubAuthService.get());
+    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::UserSelfServiceController>()
+      ->setSocialLinkService(socialLinkService.get());
 #endif  // WITH_SOCIAL
 
     LOG_INFO << "Identity services wired into SessionController/MfaController/"

@@ -15,6 +15,12 @@
 #include <trantor/utils/Date.h>
 #include <chrono>
 
+#ifdef WITH_SOCIAL
+// B2 social link/unlink: orchestration service + audit sink. The service is
+// injected by IdentityAssembly (or SocialMockFixture in tests).
+#include <authforge/identity/SocialLinkService.h>
+#endif  // WITH_SOCIAL
+
 namespace authforge::drogon::controllers
 {
 
@@ -83,6 +89,18 @@ void UserSelfServiceController::initApiDocsImpl()
     openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
       "/api/me/authorized-apps/{clientId}", "DELETE", "Revoke App Authorization",
       "Revoke the current user's authorization for a specific OAuth2 client."));
+#ifdef WITH_SOCIAL
+    openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
+      "/api/me/social/links", "GET", "List Linked Social Accounts",
+      "List the social provider identities linked to the current user."));
+    openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
+      "/api/me/social/links/{provider}", "POST", "Link Social Account",
+      "Verify a provider authorization code and link that provider identity "
+      "to the current user."));
+    openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
+      "/api/me/social/links/{provider}", "DELETE", "Unlink Social Account",
+      "Remove the current user's linked identity for a provider."));
+#endif  // WITH_SOCIAL
 }
 
 void UserSelfServiceController::getProfile(
@@ -910,5 +928,412 @@ void UserSelfServiceController::deleteAccount(
         respondError(req, sharedCb, "DB_CONNECTION_ERROR", "deleteAccount: database unavailable");
     }
 }
+
+// ---------------------------------------------------------------------------
+// B2 social link/unlink (design doc §3/§4.5). All three handlers follow the
+// same shape: fast pre-validation (no DB), numeric-dispatch user resolution,
+// then the injected SocialLinkService does the orchestration.
+// ---------------------------------------------------------------------------
+#ifdef WITH_SOCIAL
+
+namespace
+{
+// Mirror of OAuth2Plugin's userinfo dispatch (#54/#56 dual-key): password-flow
+// tokens carry users.public_sub in the `userId` attribute; GitHub social-flow
+// tokens carry the INTERNAL id as a string. Without the numeric branch, the
+// primary persona of this feature (social-created users managing their own
+// links) would 404 on every call. Both paths enforce the V024 soft-delete
+// contract (deleted_at IS NULL).
+using InternalUserCallback = std::function<void(bool found, int32_t internalId)>;
+
+void resolveInternalUserId(
+  const ::drogon::orm::DbClientPtr &db,
+  const std::string &userId,
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &sharedCb,
+  InternalUserCallback &&onResolved
+)
+{
+    bool isNumeric = false;
+    int32_t numericId = 0;
+    try
+    {
+        size_t pos = 0;
+        int parsed = std::stoi(userId, &pos);
+        isNumeric = (pos == userId.length());
+        if (isNumeric)
+        {
+            numericId = parsed;
+        }
+    }
+    catch (...)
+    {
+        isNumeric = false;
+    }
+
+    try
+    {
+        Mapper<Users>(db).findBy(
+          (isNumeric ? Criteria(Users::Cols::_id, CompareOperator::EQ, numericId)
+                     : Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId)) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [sharedCb = sharedCb, req, onResolved = std::move(onResolved)](
+            const std::vector<Users> &users) mutable {
+              if (users.empty())
+              {
+                  respondError(
+                    req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND",
+                    "social links: user not found"
+                  );
+                  return;
+              }
+              onResolved(true, users[0].getValueOfId());
+          },
+          [sharedCb = sharedCb, req](const DrogonDbException &e) {
+              respondError(
+                req,
+                sharedCb,
+                "DB_QUERY_ERROR",
+                std::string("social links: user lookup failed: ") + e.base().what()
+              );
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(
+          req, sharedCb, "DB_QUERY_ERROR", "social links: user lookup Mapper construction failed"
+        );
+    }
+}
+
+// SocialLinkOpStatus -> Error Envelope (design §3.4). Returns false when the
+// status was an error (response sent); true for Ok (caller builds the 200).
+bool respondLinkOpError(
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &sharedCb,
+  const ::authforge::identity::SocialLinkOpResult &result,
+  const std::string &provider
+)
+{
+    using ::authforge::identity::SocialLinkOpStatus;
+    switch (result.status)
+    {
+    case SocialLinkOpStatus::Ok:
+        return false;
+    case SocialLinkOpStatus::InvalidProvider:
+        respondError(
+          req, sharedCb, "VALIDATION_INVALID_INPUT",
+          "social links: unsupported provider '" + provider + "'"
+        );
+        return true;
+    case SocialLinkOpStatus::NotConfigured:
+        respondError(
+          req, sharedCb, "INTERNAL_ERROR",
+          "social links: social linking is not configured"
+        );
+        return true;
+    case SocialLinkOpStatus::ExchangeFailed:
+        // Provider-level code (NET_CONNECTION_FAILED -> 502,
+        // VALIDATION_INVALID_INPUT -> 400, ...) passes straight through the
+        // catalog's category mapping.
+        respondError(
+          req, sharedCb, result.errorCode.empty() ? "NET_CONNECTION_FAILED" : result.errorCode,
+          "social links: provider code verification failed"
+        );
+        return true;
+    case SocialLinkOpStatus::AlreadyLinkedToSelf:
+        respondError(
+          req, sharedCb, "VALIDATION_RESOURCE_CONFLICT",
+          "social links: this " + provider + " account is already linked to your account"
+        );
+        return true;
+    case SocialLinkOpStatus::AlreadyLinkedToOtherUser:
+        // Fixed wording -- no information about WHO owns the mapping.
+        respondError(
+          req, sharedCb, "VALIDATION_RESOURCE_CONFLICT",
+          "social links: this " + provider + " account is already linked to another user"
+        );
+        return true;
+    case SocialLinkOpStatus::ProviderConflictForUser:
+        respondError(
+          req, sharedCb, "VALIDATION_RESOURCE_CONFLICT",
+          "social links: a different " + provider +
+            " account is linked; unlink it before linking a new one"
+        );
+        return true;
+    case SocialLinkOpStatus::NoLink:
+        respondError(
+          req, sharedCb, "VALIDATION_RESOURCE_NOT_FOUND",
+          "social links: no linked " + provider + " account"
+        );
+        return true;
+    case SocialLinkOpStatus::LastCredentialGuard:
+        respondError(
+          req, sharedCb, "VALIDATION_RESOURCE_CONFLICT",
+          "social links: cannot remove your last sign-in method (set a password first)"
+        );
+        return true;
+    case SocialLinkOpStatus::RepositoryError:
+        respondError(req, sharedCb, "DB_QUERY_ERROR", "social links: repository failure");
+        return true;
+    }
+    return false;  // unreachable; silences -Wreturn-type on some toolchains
+}
+}  // namespace
+
+void UserSelfServiceController::listSocialLinks(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+)
+{
+    std::string userId = req->getAttributes()->get<std::string>("userId");
+    auto sharedCb =
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+    if (!socialLinkService_)
+    {
+        respondError(
+          req, sharedCb, "INTERNAL_ERROR", "social links: social linking is not configured"
+        );
+        return;
+    }
+    auto service = socialLinkService_;
+
+    try
+    {
+        auto db = ::drogon::app().getDbClient();
+        resolveInternalUserId(
+          db,
+          userId,
+          req,
+          sharedCb,
+          [service, sharedCb, req](bool, int32_t internalId) mutable {
+              service->listAccounts(
+                internalId,
+                [sharedCb, req](::authforge::identity::SocialLinkOpStatus status,
+                           std::vector<::authforge::identity::SocialLinkEntry> entries) mutable {
+                    if (status != ::authforge::identity::SocialLinkOpStatus::Ok)
+                    {
+                        respondError(req, sharedCb, "DB_QUERY_ERROR", "social links: repository failure");
+                        return;
+                    }
+                    Json::Value json;
+                    Json::Value links(Json::arrayValue);
+                    for (const auto &e : entries)
+                    {
+                        Json::Value item;
+                        item["provider"] = e.provider;
+                        item["subject"] = e.subject;
+                        item["linked_at"] = e.linkedAt;
+                        links.append(item);
+                    }
+                    json["social_links"] = links;
+                    json["total"] = static_cast<int>(links.size());
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                }
+              );
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, sharedCb, "DB_CONNECTION_ERROR", "social links: database unavailable");
+    }
+}
+
+void UserSelfServiceController::linkSocialAccount(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+  const std::string &provider
+)
+{
+    std::string userId = req->getAttributes()->get<std::string>("userId");
+    auto sharedCb =
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+    if (!socialLinkService_)
+    {
+        respondError(
+          req, sharedCb, "INTERNAL_ERROR", "social links: social linking is not configured"
+        );
+        return;
+    }
+    if (!::authforge::identity::SocialLinkService::isValidProvider(provider))
+    {
+        respondError(
+          req, sharedCb, "VALIDATION_INVALID_INPUT",
+          "social links: unsupported provider '" + provider + "'"
+        );
+        return;
+    }
+    std::string code;
+    auto jsonBody = req->getJsonObject();
+    if (jsonBody && jsonBody->isMember("code"))
+    {
+        code = (*jsonBody)["code"].asString();
+    }
+    if (code.empty())
+    {
+        code = req->getParameter("code");
+    }
+    if (code.empty())
+    {
+        respondError(
+          req, sharedCb, "VALIDATION_MISSING_REQUIRED_FIELD",
+          "social links: code is required"
+        );
+        return;
+    }
+
+    auto service = socialLinkService_;
+    try
+    {
+        auto db = ::drogon::app().getDbClient();
+        resolveInternalUserId(
+          db,
+          userId,
+          req,
+          sharedCb,
+          [service, sharedCb, provider, code, userId, req](bool, int32_t internalId) mutable {
+              service->linkAccount(
+                provider,
+                code,
+                internalId,
+                [sharedCb, req, userId, provider](
+                  ::authforge::identity::SocialLinkOpResult result) mutable {
+                    auto plugin =
+                      ::drogon::app().getPlugin<::OAuth2Plugin>();
+                    if (plugin)
+                    {
+                        ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                          plugin->getAuditSink(),
+                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                            ? "social_account_linked"
+                            : "social_account_link_failed",
+                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                            ? "success"
+                            : "failure",
+                          req,
+                          userId,
+                          "user",
+                          userId,
+                          [&result, &provider]() {
+                              Json::Value details;
+                              details["provider"] = result.entry.provider.empty()
+                                                      ? provider
+                                                      : result.entry.provider;
+                              if (!result.entry.subject.empty())
+                              {
+                                  details["subject"] = result.entry.subject;
+                              }
+                              return details;
+                          }()
+                        );
+                    }
+                    if (respondLinkOpError(req, sharedCb, result, provider))
+                    {
+                        return;
+                    }
+                    Json::Value json;
+                    json["provider"] = result.entry.provider;
+                    json["subject"] = result.entry.subject;
+                    json["message"] = "Social account linked successfully";
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                }
+              );
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, sharedCb, "DB_CONNECTION_ERROR", "social links: database unavailable");
+    }
+}
+
+void UserSelfServiceController::unlinkSocialAccount(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+  const std::string &provider
+)
+{
+    std::string userId = req->getAttributes()->get<std::string>("userId");
+    auto sharedCb =
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+    if (!socialLinkService_)
+    {
+        respondError(
+          req, sharedCb, "INTERNAL_ERROR", "social links: social linking is not configured"
+        );
+        return;
+    }
+    if (!::authforge::identity::SocialLinkService::isValidProvider(provider))
+    {
+        respondError(
+          req, sharedCb, "VALIDATION_INVALID_INPUT",
+          "social links: unsupported provider '" + provider + "'"
+        );
+        return;
+    }
+
+    auto service = socialLinkService_;
+    try
+    {
+        auto db = ::drogon::app().getDbClient();
+        resolveInternalUserId(
+          db,
+          userId,
+          req,
+          sharedCb,
+          [service, sharedCb, provider, userId, req](bool, int32_t internalId) mutable {
+              service->unlinkAccount(
+                provider,
+                internalId,
+                [sharedCb, req, userId, provider](
+                  ::authforge::identity::SocialLinkOpResult result) mutable {
+                    auto plugin =
+                      ::drogon::app().getPlugin<::OAuth2Plugin>();
+                    if (plugin)
+                    {
+                        ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                          plugin->getAuditSink(),
+                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                            ? "social_account_unlinked"
+                            : "social_account_unlink_blocked",
+                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                            ? "success"
+                            : "failure",
+                          req,
+                          userId,
+                          "user",
+                          userId,
+                          [&provider]() {
+                              Json::Value details;
+                              details["provider"] = provider;
+                              return details;
+                          }()
+                        );
+                    }
+                    if (respondLinkOpError(req, sharedCb, result, provider))
+                    {
+                        return;
+                    }
+                    Json::Value json;
+                    json["provider"] = result.entry.provider;
+                    json["message"] = "Social account unlinked successfully";
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                }
+              );
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, sharedCb, "DB_CONNECTION_ERROR", "social links: database unavailable");
+    }
+}
+
+#endif  // WITH_SOCIAL
 
 }  // namespace authforge::drogon::controllers
