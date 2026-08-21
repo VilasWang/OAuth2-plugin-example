@@ -20,6 +20,10 @@ export const MOCK_AUTHORIZED_APPS = [
   { client_id: 'mobile-app', name: 'Mobile App', scope: 'openid email' },
 ]
 
+export const MOCK_SOCIAL_LINKS = [
+  { provider: 'github', subject: '4242', linked_at: '2026-08-01T00:00:00Z' },
+]
+
 export async function setupMocks(page: Page) {
   await page.route('**/oauth2/login', async (route) => {
     const body = route.request().postData() || ''
@@ -101,6 +105,23 @@ export async function setupMocks(page: Page) {
   // WebAuthn credentials
   await page.route('**/api/me/webauthn/credentials', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ credentials: [{ id: 'cred-1', name: 'My Passkey', created_at: '2026-05-20T00:00:00Z' }] }) })
+  })
+
+  // Social links (B2 link/unlink)
+  await page.route('**/api/me/social/links', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ social_links: MOCK_SOCIAL_LINKS, total: MOCK_SOCIAL_LINKS.length }) })
+    } else {
+      await route.continue()
+    }
+  })
+
+  await page.route('**/api/me/social/links/*', async (route) => {
+    if (route.request().method() === 'DELETE') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ provider: 'github', message: 'Social account unlinked successfully' }) })
+    } else {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ provider: 'github', subject: '4242', message: 'Social account linked successfully' }) })
+    }
   })
 
   await page.route('**/oauth2/consent', async (route) => {

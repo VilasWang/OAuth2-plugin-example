@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import http from '../../services/http'
 import { normalizeError } from '../../services/errorAdapter'
+import type { SocialLink } from '../../types'
 
 const loading = ref(true)
 const profile = ref<any>(null)
@@ -21,12 +22,49 @@ const settingUpMfa = ref(false)
 const disablingMfa = ref(false)
 const disablePassword = ref('')
 
+// Connected social accounts (B2 link/unlink)
+const socialLinks = ref<SocialLink[]>([])
+const socialLinksLoaded = ref(false)
+const unlinkingProvider = ref('')
+const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || ''
+const githubLinkAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=user:email&state=link&redirect_uri=${encodeURIComponent(window.location.origin + '/callback/github')}`
+const providerLabels: Record<string, string> = { github: 'GitHub', google: 'Google', wechat: 'WeChat' }
+
+async function fetchSocialLinks() {
+  try {
+    const resp = await http.get('/api/me/social/links')
+    socialLinks.value = resp.data?.social_links || []
+  } catch {
+    // The card shows its own empty state; a backend hiccup here must not
+    // break the rest of the security page.
+    socialLinks.value = []
+  } finally {
+    socialLinksLoaded.value = true
+  }
+}
+
+async function unlinkSocial(provider: string) {
+  const label = providerLabels[provider] || provider
+  if (!window.confirm(`Unlink your ${label} account? You will not be able to sign in with ${label} afterwards.`)) return
+  unlinkingProvider.value = provider
+  try {
+    await http.delete(`/api/me/social/links/${encodeURIComponent(provider)}`)
+    showSuccess(`${label} account unlinked`)
+    await fetchSocialLinks()
+  } catch (e: unknown) {
+    showError(normalizeError(e).message)
+  } finally {
+    unlinkingProvider.value = ''
+  }
+}
+
 async function fetchProfile() {
   try {
     const resp = await http.get('/api/me')
     profile.value = resp.data
     if (webauthnSupported) fetchWebauthnCredentials()
   } catch {} finally { loading.value = false }
+  fetchSocialLinks()
 }
 
 function showSuccess(msg: string) { success.value = msg; error.value = ''; setTimeout(() => { success.value = '' }, 4000) }
@@ -277,6 +315,38 @@ onMounted(fetchProfile)
           class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
           {{ registeringPasskey ? 'Registering...' : '+ Add Passkey' }}
         </button>
+      </div>
+
+      <!-- Connected social accounts (B2 link/unlink) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Connected Accounts</h2>
+        <p class="text-sm text-gray-600 mb-4">
+          Link social identities to sign in with them. Unlinking removes the association but does not revoke active sessions.
+        </p>
+
+        <div v-if="socialLinksLoaded && socialLinks.length > 0" class="space-y-2 mb-4">
+          <div v-for="link in socialLinks" :key="link.provider"
+            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <p class="text-sm font-medium text-gray-900">{{ providerLabels[link.provider] || link.provider }}</p>
+              <p class="text-xs text-gray-500">
+                Linked {{ link.linked_at ? new Date(link.linked_at).toLocaleDateString() : '' }}
+              </p>
+            </div>
+            <button @click="unlinkSocial(link.provider)" :disabled="unlinkingProvider === link.provider"
+              class="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+              {{ unlinkingProvider === link.provider ? 'Unlinking...' : 'Unlink' }}
+            </button>
+          </div>
+        </div>
+        <div v-else-if="socialLinksLoaded" class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500">
+          No social accounts linked.
+        </div>
+
+        <a v-if="GITHUB_CLIENT_ID" :href="githubLinkAuthUrl"
+          class="inline-block px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800">
+          Link GitHub Account
+        </a>
       </div>
 
       <!-- Delete Account -->

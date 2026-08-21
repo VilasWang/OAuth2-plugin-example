@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
-import { setTokens } from '../../services/http'
+import { setTokens, getAccessToken } from '../../services/http'
 import { normalizeError } from '../../services/errorAdapter'
 import axios from 'axios'
 
@@ -16,6 +16,24 @@ onMounted(async () => {
   if (!code) {
     error.value = 'No authorization code from GitHub'
     return
+  }
+
+  // Link flow (SecurityPage's "Link GitHub Account" sets state=link): MUST
+  // short-circuit before the login POST below, otherwise a link-flow visit
+  // for an identity that already maps to an account would silently sign the
+  // browser in as that account's user. Absent state = login flow (LoginPage
+  // sends none).
+  if (route.query.state === 'link' && getAccessToken()) {
+    try {
+      await axios.post('/api/me/social/links/github', { code }, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
+      })
+      router.replace('/security')
+      return
+    } catch (e: unknown) {
+      error.value = normalizeError(e).message
+      return
+    }
   }
 
   try {

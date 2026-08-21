@@ -1,5 +1,5 @@
 import http from './http'
-import type { User, UserProfile, AuthorizedApp } from '../types'
+import type { User, UserProfile, AuthorizedApp, SocialLink } from '../types'
 
 export const userService = {
   async getUserInfo(): Promise<User> {
@@ -47,5 +47,20 @@ export const userService = {
   async verifyEmail(token: string): Promise<string> {
     const resp = await http.get(`/api/verify-email?token=${encodeURIComponent(token)}`)
     return resp.data?.message || 'Email verified'
+  },
+
+  async getSocialLinks(): Promise<SocialLink[]> {
+    const resp = await http.get('/api/me/social/links')
+    return resp.data?.social_links || []
+  },
+
+  async linkSocialAccount(provider: string, code: string): Promise<void> {
+    await http.post(`/api/me/social/links/${encodeURIComponent(provider)}`, JSON.stringify({ code }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  },
+
+  async unlinkSocialAccount(provider: string): Promise<void> {
+    await http.delete(`/api/me/social/links/${encodeURIComponent(provider)}`)
   },
 }
