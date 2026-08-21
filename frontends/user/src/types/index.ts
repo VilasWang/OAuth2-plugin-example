@@ -36,3 +36,9 @@ export interface UserProfile {
   mfa_enabled: boolean
   created_at?: string
 }
+
+export interface SocialLink {
+  provider: string
+  subject: string
+  linked_at?: string
+}
