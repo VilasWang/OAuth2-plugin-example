@@ -4,7 +4,8 @@
 // RedisCachedClientRepository cache decorator. Verifies the cache-aside behavior
 // (hit/miss/fill), the §5.5 soft-fail (null Redis client → pass-through to the
 // wrapped impl), the "nullopt is NOT cached" rule (a missing client must not
-// shadow a future registration), and the validateClient pass-through.
+// shadow a future registration), and the Wave-2 P0 cache-side validateClient
+// (local secret validation on hit, pass-through on miss, DEL invalidation).
 //
 // These tests require a live Redis instance (the decorator's whole point is the
 // L2 Redis layer). They SKIP cleanly when Redis is unavailable — same convention
@@ -29,11 +30,13 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <drogon/nosql/RedisClient.h>
+#include <drogon/utils/Utilities.h>
 
 #include <authforge/oauth2/repository/IClientRepository.h>
 #include <authforge/oauth2/model/Dto.h>
 #include <authforge/storage/redis/RedisCachedClientRepository.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <memory>
@@ -279,11 +282,16 @@ DROGON_TEST(Integration_P1_Storage_RedisCachedClientRepository_MissingClient_Not
 }
 
 // ===========================================================================
-// Test 4: validateClient is a pure pass-through (never cached). Secret
-// validation is not safely cacheable — a cached "valid" could outlive a
-// credential rotation. Both calls hit the backing impl.
+// Test 4: validateClient (Wave-2 P0, docs/performance-optimization/
+// optimization-wave-2-plan.md): on a cache HIT the secret is validated
+// locally against the cached row — semantically identical to the Postgres
+// path (PUBLIC accepted, CONFIDENTIAL empty rejected, sha256(secret+salt)
+// lowercase-normalized, constant-time compare + length equality) — and the
+// backing impl is NOT consulted. On a miss it passes through. A DEL (what
+// the write-path invalidation hook issues after update/delete/scope
+// change) sends the next validation back to the impl.
 // ===========================================================================
-DROGON_TEST(Integration_P1_Storage_RedisCachedClientRepository_ValidateClient_PassThrough)
+DROGON_TEST(Integration_P1_Storage_RedisCachedClientRepository_ValidateClient_CacheSide)
 {
     auto redis = getRedisOrNull();
     if (!redis)
@@ -292,24 +300,88 @@ DROGON_TEST(Integration_P1_Storage_RedisCachedClientRepository_ValidateClient_Pa
         return;
     }
 
-    auto fake = std::make_shared<CountingFakeClientRepo>();
     const std::string clientId = "cache-test-validate";
+    evictCacheKey(clientId);
+
+    // CONFIDENTIAL client whose stored hash matches "right-secret".
+    auto fake = std::make_shared<CountingFakeClientRepo>();
     fake->store[clientId] = makeFixtureClient(clientId);
+    fake->store[clientId].clientSecretHash =
+      ::drogon::utils::getSha256("right-secret" + fake->store[clientId].salt);
 
     auto decorator = std::make_shared<RedisCachedClientRepository>(fake, redis);
 
-    auto valid1 = waitForBool([&](auto cb) {
-        decorator->validateClient(clientId, "any-secret", std::move(cb));
+    // 1) Empty cache → MISS → delegates to the impl (fake returns true for
+    //    stored clients regardless of the secret). The miss path does NOT
+    //    fetch the row via getClient — the production flows issue their own
+    //    getClient in the same request, which fills the cache.
+    auto miss = waitForBool([&](auto cb) {
+        decorator->validateClient(clientId, "whatever", std::move(cb));
     });
-    CHECK(valid1 == true);
-
-    auto valid2 = waitForBool([&](auto cb) {
-        decorator->validateClient(clientId, "any-secret", std::move(cb));
-    });
-    CHECK(valid2 == true);
-
-    // validateClient was called twice on the backing impl (never cached).
-    CHECK(fake->validateClientCalls.load() == 2);
-    // And getClient was never touched by validateClient.
+    CHECK(miss == true);
+    CHECK(fake->validateClientCalls.load() == 1);
     CHECK(fake->getClientCalls.load() == 0);
+
+    // 2) Seed the cache through getClient, wait for the async SET to land.
+    waitForClient([&](auto cb) { decorator->getClient(clientId, std::move(cb)); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    // 3) HIT → local validation with the full semantic matrix; the backing
+    //    impl counts do not move.
+    auto ok = waitForBool([&](auto cb) {
+        decorator->validateClient(clientId, "right-secret", std::move(cb));
+    });
+    CHECK(ok == true);
+    auto wrong = waitForBool([&](auto cb) {
+        decorator->validateClient(clientId, "wrong-secret", std::move(cb));
+    });
+    CHECK(wrong == false);
+    auto empty = waitForBool([&](auto cb) {
+        decorator->validateClient(clientId, "", std::move(cb));
+    });
+    CHECK(empty == false);  // CONFIDENTIAL + empty secret is rejected
+    CHECK(fake->validateClientCalls.load() == 1);
+    CHECK(fake->getClientCalls.load() == 1);
+
+    // 4) Uppercase stored hash still matches (case-insensitive comparison).
+    const std::string upperId = clientId + "-upper";
+    evictCacheKey(upperId);
+    fake->store[upperId] = makeFixtureClient(upperId);
+    {
+        auto h = ::drogon::utils::getSha256("right-secret" + fake->store[upperId].salt);
+        std::transform(h.begin(), h.end(), h.begin(), [](unsigned char c) {
+            return static_cast<char>(::toupper(c));
+        });
+        fake->store[upperId].clientSecretHash = h;
+    }
+    waitForClient([&](auto cb) { decorator->getClient(upperId, std::move(cb)); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    auto upper = waitForBool([&](auto cb) {
+        decorator->validateClient(upperId, "right-secret", std::move(cb));
+    });
+    CHECK(upper == true);
+
+    // 5) PUBLIC client is accepted without any secret.
+    const std::string pubId = clientId + "-public";
+    evictCacheKey(pubId);
+    fake->store[pubId] = makeFixtureClient(pubId);
+    fake->store[pubId].clientType = ClientType::PUBLIC;
+    waitForClient([&](auto cb) { decorator->getClient(pubId, std::move(cb)); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    auto pub = waitForBool([&](auto cb) {
+        decorator->validateClient(pubId, "", std::move(cb));
+    });
+    CHECK(pub == true);
+
+    // 6) Invalidation: DEL the cached row (exactly what the write-path hook
+    //    does) → the next validation delegates to the impl again.
+    evictCacheKey(clientId);
+    auto postDel = waitForBool([&](auto cb) {
+        decorator->validateClient(clientId, "right-secret", std::move(cb));
+    });
+    CHECK(postDel == true);  // impl path (fake has the client stored)
+    CHECK(fake->validateClientCalls.load() == 2);
+
+    evictCacheKey(upperId);
+    evictCacheKey(pubId);
 }

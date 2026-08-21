@@ -9,6 +9,11 @@
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 
+// Wave-2 P0: revoke the Redis-cached client row on every successful write
+// (validateClient trusts the cached secret/scope data — see header for the
+// TTL-bounded best-effort semantics).
+#include "../ClientCacheInvalidator.h"
+
 #include <atomic>
 #include <mutex>
 #include <optional>
@@ -398,6 +403,7 @@ void ClientManagementService::updateClient(
           updateMapper.update(
             row,
             [cb, req, clientId](const size_t) {
+                authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
                 Json::Value json;
                 json["status"] = "success";
                 json["message"] = "Client updated successfully";
@@ -449,6 +455,7 @@ void ClientManagementService::deleteClient(
               respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
               return;
           }
+          authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
           Json::Value json;
           json["status"] = "success";
           json["message"] = "Client deleted successfully";
@@ -614,6 +621,7 @@ void ClientManagementService::updateClientScopes(
       [cb, req, clientId, scopes, transaction](const size_t) {
           if (scopes.empty())
           {
+              authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
               Json::Value json;
               json["status"] = "success";
               json["message"] = "Scopes updated";
@@ -634,13 +642,16 @@ void ClientManagementService::updateClientScopes(
               Mapper<Oauth2ClientScopes> insertMapper(transaction);
               insertMapper.insert(
                 scopeRow,
-                [cb, scopeName, remaining, insertedScopes, mu](const Oauth2ClientScopes &) {
+                [cb, clientId, scopeName, remaining, insertedScopes, mu](const Oauth2ClientScopes &) {
                     {
                         std::lock_guard<std::mutex> lock(*mu);
                         insertedScopes->push_back(scopeName);
                     }
                     if (remaining->fetch_sub(1) == 1)
                     {
+                        // All inserts done → the transaction's last statement
+                        // succeeded; invalidate before reporting success.
+                        authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
                         Json::Value json;
                         json["status"] = "success";
                         json["message"] = "Scopes updated";
