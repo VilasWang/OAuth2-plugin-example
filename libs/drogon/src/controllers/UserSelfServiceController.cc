@@ -1173,10 +1173,8 @@ void UserSelfServiceController::linkSocialAccount(
     {
         code = (*jsonBody)["code"].asString();
     }
-    if (code.empty())
-    {
-        code = req->getParameter("code");
-    }
+    // JSON body only (per spec): codes carry provider credentials and must
+    // not ride query strings into access/intermediary logs.
     if (code.empty())
     {
         respondError(
@@ -1321,6 +1319,7 @@ void UserSelfServiceController::unlinkSocialAccount(
                     }
                     Json::Value json;
                     json["provider"] = result.entry.provider;
+                    json["subject"] = result.entry.subject;
                     json["message"] = "Social account unlinked successfully";
                     (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                 }
