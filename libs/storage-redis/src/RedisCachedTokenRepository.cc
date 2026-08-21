@@ -127,6 +127,38 @@ bool deserializeIntrospection(const std::string &s, TokenIntrospection &out)
 const ::authforge::common::ports::MetricLabels kHitLabels{{"repo", "token"}, {"outcome", "hit"}};
 const ::authforge::common::ports::MetricLabels kMissLabels{{"repo", "token"}, {"outcome", "miss"}};
 const ::authforge::common::ports::MetricLabels kErrorLabels{{"repo", "token"}, {"outcome", "error"}};
+
+// Wave-2 P2 (docs/performance-optimization/optimization-wave-2-plan.md):
+// one EVAL round-trip replaces the serial EXISTS(revoked) → GET(value) pair
+// (~450µs each per the instrumented report §2) on both token read paths.
+// Reply shapes (Lua truncates a trailing nil):
+//   {1, ''}          → revoked (negative-cache hit)
+//   {0, <string>}    → not revoked, value present
+//   {0}              → not revoked, no value (miss)
+const char kRevokedThenGetScript[] =
+  "local r = redis.call('EXISTS', KEYS[1]) "
+  "if r > 0 then return {1, ''} end "
+  "return {0, redis.call('GET', KEYS[2])}";
+
+// Tri-state decoder for kRevokedThenGetScript replies.
+enum class RevokedThenGet { kRevoked, kValue, kMiss };
+
+RevokedThenGet decodeRevokedThenGet(const RedisResult &result, std::string &valueOut)
+{
+    if (result.type() != RedisResultType::kArray)
+        return RevokedThenGet::kMiss;
+    const auto arr = result.asArray();
+    if (arr.empty() || arr[0].type() != RedisResultType::kInteger)
+        return RevokedThenGet::kMiss;
+    if (arr[0].asInteger() > 0)
+        return RevokedThenGet::kRevoked;
+    if (arr.size() > 1 && arr[1].type() == RedisResultType::kString)
+    {
+        valueOut = arr[1].asString();
+        return RevokedThenGet::kValue;
+    }
+    return RevokedThenGet::kMiss;
+}
 }  // namespace
 
 RedisCachedTokenRepository::RedisCachedTokenRepository(
@@ -169,88 +201,80 @@ void RedisCachedTokenRepository::getAccessToken(const std::string &token, Access
         return;
     }
 
-    // C1: check the negative cache FIRST. If the token is revoked, return
-    // nullopt immediately — never consult/populate the positive cache.
+    // C1: check the negative cache FIRST (revoked → nullopt, never consult
+    // the positive cache), then the positive cache — both in ONE EVAL
+    // round-trip (Wave-2 P2; was two serial EXISTS+GET hops).
     redisClient_->execCommandAsync(
-      [self, sharedCb, fired, key, revokedKey, token](const RedisResult &result) {
-          // Negative-cache hit → revoked → nullopt.
-          if (result.type() == RedisResultType::kInteger && result.asInteger() > 0)
+      [self, sharedCb, fired, token](const RedisResult &result) {
+          std::string value;
+          const auto state = decodeRevokedThenGet(result, value);
+          if (state == RevokedThenGet::kRevoked)
           {
               self->emitMetric("hit");  // hit on the negative cache
               if (!fired->exchange(true))
                   (*sharedCb)(std::nullopt);
               return;
           }
-          // Not revoked → try the positive cache.
-          self->redisClient_->execCommandAsync(
-            [self, sharedCb, fired, token](const RedisResult &r) {
-                if (r.type() == RedisResultType::kString)
+          if (state == RevokedThenGet::kValue)
+          {
+              OAuth2AccessToken cached;
+              if (deserializeAccessToken(value, cached))
+              {
+                  self->emitMetric("hit");
+                  if (!fired->exchange(true))
+                      (*sharedCb)(std::move(cached));
+                  return;
+              }
+              // Corrupt entry → treat as a miss.
+          }
+          // Miss → delegate + fill.
+          self->emitMetric("miss");
+          auto fillCb = std::make_shared<AccessTokenCallback>(
+            [self, sharedCb, fired, token](const std::optional<OAuth2AccessToken> &t) {
+                if (t && self->redisClient_)
                 {
-                    OAuth2AccessToken cached;
-                    if (deserializeAccessToken(r.asString(), cached))
+                    // C7: only cache if the token has positive remaining
+                    // lifetime. Redis rejects EX ≤ 0; an expired token is
+                    // not worth caching anyway.
+                    int64_t now = std::time(nullptr);
+                    int64_t remaining = t->expiresAt - now;
+                    if (remaining > 0)
                     {
-                        self->emitMetric("hit");
-                        if (!fired->exchange(true))
-                            (*sharedCb)(std::move(cached));
-                        return;
+                        int ttl = static_cast<int>(
+                          std::min<int64_t>(remaining, self->accessTokenMaxTtlSeconds_)
+                        );
+                        std::string payload = serializeAccessToken(*t);
+                        std::string k = "authforge:cache:token:access:" + token;
+                        self->redisClient_->execCommandAsync(
+                          [](const RedisResult &) {},
+                          [k](const RedisException &e) {
+                              LOG_DEBUG << "RedisCachedTokenRepository: access fill SET "
+                                           "failed for "
+                                        << k << ": " << e.what();
+                          },
+                          "SET %s %s EX %d",
+                          k.c_str(),
+                          payload.c_str(),
+                          ttl
+                        );
                     }
                 }
-                // Miss → delegate + fill.
-                self->emitMetric("miss");
-                auto fillCb = std::make_shared<AccessTokenCallback>(
-                  [self, sharedCb, fired, token](const std::optional<OAuth2AccessToken> &t) {
-                      if (t && self->redisClient_)
-                      {
-                          // C7: only cache if the token has positive remaining
-                          // lifetime. Redis rejects EX ≤ 0; an expired token is
-                          // not worth caching anyway.
-                          int64_t now = std::time(nullptr);
-                          int64_t remaining = t->expiresAt - now;
-                          if (remaining > 0)
-                          {
-                              int ttl = static_cast<int>(
-                                std::min<int64_t>(remaining, self->accessTokenMaxTtlSeconds_)
-                              );
-                              std::string payload = serializeAccessToken(*t);
-                              std::string k = "authforge:cache:token:access:" + token;
-                              self->redisClient_->execCommandAsync(
-                                [](const RedisResult &) {},
-                                [k](const RedisException &e) {
-                                    LOG_DEBUG << "RedisCachedTokenRepository: access fill SET "
-                                                 "failed for "
-                                              << k << ": " << e.what();
-                                },
-                                "SET %s %s EX %d",
-                                k.c_str(),
-                                payload.c_str(),
-                                ttl
-                              );
-                          }
-                      }
-                      if (!fired->exchange(true))
-                          (*sharedCb)(t);
-                  }
-                );
-                self->impl_->getAccessToken(token, std::move(*fillCb));
-            },
-            [self, sharedCb, fired, token](const RedisException &e) {
-                LOG_WARN << "RedisCachedTokenRepository: GET access error: " << e.what();
-                self->emitMetric("error");
                 if (!fired->exchange(true))
-                    self->impl_->getAccessToken(token, std::move(*sharedCb));
-            },
-            "GET %s",
-            key.c_str()
+                    (*sharedCb)(t);
+            }
           );
+          self->impl_->getAccessToken(token, std::move(*fillCb));
       },
       [self, sharedCb, fired, token](const RedisException &e) {
-          LOG_WARN << "RedisCachedTokenRepository: EXISTS revoked error: " << e.what();
+          LOG_WARN << "RedisCachedTokenRepository: EVAL revoked+access error: " << e.what();
           self->emitMetric("error");
           if (!fired->exchange(true))
               self->impl_->getAccessToken(token, std::move(*sharedCb));
       },
-      "EXISTS %s",
-      revokedKey.c_str()
+      "EVAL %s 2 %s %s",
+      kRevokedThenGetScript,
+      revokedKey.c_str(),
+      key.c_str()
     );
 }
 
@@ -275,10 +299,13 @@ void RedisCachedTokenRepository::introspectToken(
         return;
     }
 
-    // 1. Negative cache first (revoked → active=false).
+    // Negative cache (revoked → active=false) then the positive introspection
+    // cache — both in ONE EVAL round-trip (Wave-2 P2).
     redisClient_->execCommandAsync(
-      [self, sharedCb, fired, revokedKey, introKey, token](const RedisResult &result) {
-          if (result.type() == RedisResultType::kInteger && result.asInteger() > 0)
+      [self, sharedCb, fired, token](const RedisResult &result) {
+          std::string value;
+          const auto state = decodeRevokedThenGet(result, value);
+          if (state == RevokedThenGet::kRevoked)
           {
               self->emitMetric("hit");
               if (!fired->exchange(true))
@@ -289,90 +316,80 @@ void RedisCachedTokenRepository::introspectToken(
               }
               return;
           }
-          // 2. Positive introspection cache.
-          self->redisClient_->execCommandAsync(
-            [self, sharedCb, fired, token](const RedisResult &r) {
-                if (r.type() == RedisResultType::kString)
+          if (state == RevokedThenGet::kValue)
+          {
+              TokenIntrospection cached;
+              if (deserializeIntrospection(value, cached))
+              {
+                  self->emitMetric("hit");
+                  if (!fired->exchange(true))
+                      (*sharedCb)(std::move(cached));
+                  return;
+              }
+              // Corrupt entry → treat as a miss.
+          }
+          // Miss → delegate. The N2 discriminator runs after.
+          self->emitMetric("miss");
+          auto wrapCb = std::make_shared<TokenIntrospectionCallback>(
+            [self, sharedCb, fired, token](const std::optional<TokenIntrospection> &res) {
+                // N2: only cache when active AND the token is confirmed
+                // access-token-only (its access-cache key exists). The
+                // access key can only be populated by getAccessToken /
+                // saveAccessToken, both access-token-only — so its
+                // presence proves this introspection did NOT come from
+                // the refresh-token fallthrough.
+                if (res && res->active && self->redisClient_)
                 {
-                    TokenIntrospection cached;
-                    if (deserializeIntrospection(r.asString(), cached))
-                    {
-                        self->emitMetric("hit");
-                        if (!fired->exchange(true))
-                            (*sharedCb)(std::move(cached));
-                        return;
-                    }
+                    std::string accessKey = "authforge:cache:token:access:" + token;
+                    self->redisClient_->execCommandAsync(
+                      [self, res, token](const RedisResult &ex) {
+                          if (ex.type() == RedisResultType::kInteger && ex.asInteger() > 0)
+                          {
+                              int64_t now = std::time(nullptr);
+                              int64_t remaining = res->exp - now;
+                              if (remaining > 0)
+                              {
+                                  int ttl = static_cast<int>(std::min<int64_t>(
+                                    remaining, self->accessTokenMaxTtlSeconds_
+                                  ));
+                                  std::string payload = serializeIntrospection(*res);
+                                  std::string k = "authforge:cache:token:introspect:" + token;
+                                  self->redisClient_->execCommandAsync(
+                                    [](const RedisResult &) {},
+                                    [k](const RedisException &e) {
+                                        LOG_DEBUG << "RedisCachedTokenRepository: introspect "
+                                                     "fill SET failed for "
+                                                  << k << ": " << e.what();
+                                    },
+                                    "SET %s %s EX %d",
+                                    k.c_str(),
+                                    payload.c_str(),
+                                    ttl
+                                  );
+                              }
+                          }
+                      },
+                      [](const RedisException &) {},
+                      "EXISTS %s",
+                      accessKey.c_str()
+                    );
                 }
-                // 3. Miss → delegate. The N2 discriminator runs after.
-                self->emitMetric("miss");
-                auto wrapCb = std::make_shared<TokenIntrospectionCallback>(
-                  [self, sharedCb, fired, token](const std::optional<TokenIntrospection> &res) {
-                      // N2: only cache when active AND the token is confirmed
-                      // access-token-only (its access-cache key exists). The
-                      // access key can only be populated by getAccessToken /
-                      // saveAccessToken, both access-token-only — so its
-                      // presence proves this introspection did NOT come from
-                      // the refresh-token fallthrough.
-                      if (res && res->active && self->redisClient_)
-                      {
-                          std::string accessKey = "authforge:cache:token:access:" + token;
-                          self->redisClient_->execCommandAsync(
-                            [self, res, token](const RedisResult &ex) {
-                                if (ex.type() == RedisResultType::kInteger && ex.asInteger() > 0)
-                                {
-                                    int64_t now = std::time(nullptr);
-                                    int64_t remaining = res->exp - now;
-                                    if (remaining > 0)
-                                    {
-                                        int ttl = static_cast<int>(std::min<int64_t>(
-                                          remaining, self->accessTokenMaxTtlSeconds_
-                                        ));
-                                        std::string payload = serializeIntrospection(*res);
-                                        std::string k = "authforge:cache:token:introspect:" + token;
-                                        self->redisClient_->execCommandAsync(
-                                          [](const RedisResult &) {},
-                                          [k](const RedisException &e) {
-                                              LOG_DEBUG << "RedisCachedTokenRepository: introspect "
-                                                           "fill SET failed for "
-                                                        << k << ": " << e.what();
-                                          },
-                                          "SET %s %s EX %d",
-                                          k.c_str(),
-                                          payload.c_str(),
-                                          ttl
-                                        );
-                                    }
-                                }
-                            },
-                            [](const RedisException &) {},
-                            "EXISTS %s",
-                            accessKey.c_str()
-                          );
-                      }
-                      if (!fired->exchange(true))
-                          (*sharedCb)(res);
-                  }
-                );
-                self->impl_->introspectToken(token, std::move(*wrapCb));
-            },
-            [self, sharedCb, fired, token](const RedisException &e) {
-                LOG_WARN << "RedisCachedTokenRepository: GET introspect error: " << e.what();
-                self->emitMetric("error");
                 if (!fired->exchange(true))
-                    self->impl_->introspectToken(token, std::move(*sharedCb));
-            },
-            "GET %s",
-            introKey.c_str()
+                    (*sharedCb)(res);
+            }
           );
+          self->impl_->introspectToken(token, std::move(*wrapCb));
       },
       [self, sharedCb, fired, token](const RedisException &e) {
-          LOG_WARN << "RedisCachedTokenRepository: EXISTS revoked (introspect) error: " << e.what();
+          LOG_WARN << "RedisCachedTokenRepository: EVAL revoked+introspect error: " << e.what();
           self->emitMetric("error");
           if (!fired->exchange(true))
               self->impl_->introspectToken(token, std::move(*sharedCb));
       },
-      "EXISTS %s",
-      revokedKey.c_str()
+      "EVAL %s 2 %s %s",
+      kRevokedThenGetScript,
+      revokedKey.c_str(),
+      introKey.c_str()
     );
 }
 
