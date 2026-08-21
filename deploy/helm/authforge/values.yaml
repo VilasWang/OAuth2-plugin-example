@@ -98,7 +98,7 @@ secrets:
 # externalDatabase instead.
 postgresql:
   enabled: true
-  image: postgres:15-alpine
+  image: postgres:17-alpine
   persistence:
     enabled: false
     size: 1Gi

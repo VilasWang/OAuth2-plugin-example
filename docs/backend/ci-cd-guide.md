@@ -132,7 +132,7 @@ CI 流水线本身不构建 Docker 镜像。容器镜像的多架构构建、推
 
 ```powershell
 # 1. 启动基础设施（CI 中使用 Service Container，本地用 Docker）
-docker run -d -p 5432:5432 -e POSTGRES_USER=oauth2_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=oauth2_db postgres:15-alpine
+docker run -d -p 5432:5432 -e POSTGRES_USER=oauth2_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=oauth2_db postgres:17-alpine
 docker run -d -p 6379:6379 redis:7-alpine
 
 # 2. 初始化数据库
