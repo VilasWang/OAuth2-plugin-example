@@ -45,6 +45,19 @@ use relative paths.
 - [Productization Research](productization-evolution/productization-research.md) — market/competitor/pricing analysis (input to the evolution plan)
 - [Benchmark Facility Design](productization-evolution/in-progress/benchmark-facility-design.md) — Phase 0 HTTP performance baseline design (M1 done, M2–M4 pending)
 
+## Performance
+
+All performance-optimization program docs live in
+[performance-optimization/](performance-optimization/) — the program brief,
+analysis reports (static + instrumented), the non-code optimization plan, and
+the rolling optimization-wave implementation plans:
+
+- [Program Brief (prompt)](performance-optimization/performance-optimization-prompt.md) — methodology, acceptance rules
+- [Wave-1 Static Analysis Report](performance-optimization/performance-optimization-report.md) — baseline parse, bottleneck table (pre-instrumentation)
+- [Instrumented Hotspot Report](performance-optimization/performance-hotspot-instrumented-report.md) — pg_stat_statements ledger + stage-probe decomposition + gdb sampling; the quantified lever table
+- [Non-Code Optimization Plan](performance-optimization/noncode-performance-optimization.md) — config/DB-level wave (delivered) + §十 backlog
+- [Wave-2 Optimization Plan](performance-optimization/optimization-wave-2-plan.md) — code-level levers from the instrumented findings (caching, RTT elimination, tz-lock)
+
 ## Archive
 
 Historical PRDs, design documents, and iteration plans live under
