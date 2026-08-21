@@ -42,7 +42,9 @@
 #include <authforge/drogon/controllers/GitHubController.h>
 #include <authforge/drogon/controllers/GoogleController.h>
 #include <authforge/drogon/controllers/WeChatController.h>
+#include <authforge/drogon/controllers/UserSelfServiceController.h>
 #include <authforge/identity/SocialAuthService.h>
+#include <authforge/identity/SocialLinkService.h>
 #include <authforge/identity/testing/FakeOAuthHttpClient.h>
 #include <authforge/identity/testing/FakeSocialAccountRepository.h>
 
@@ -137,6 +139,50 @@ inline GitHubFakeHandle injectGitHubFake()
     auto ctrl = ::drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GitHubController>();
     if (ctrl)
         ctrl->setGitHubAuthService(svc.get());
+    return h;
+}
+
+// ---------------------------------------------------------------------------
+// B2 social link/unlink: install a SocialLinkService (all three provider
+// services sharing one FakeOAuthHttpClient + one FakeSocialAccountRepository)
+// onto the UserSelfServiceController singleton. The controller resolves the
+// acting user via Postgres (public_sub/numeric dispatch), then the service
+// runs entirely against the fakes -- so a PG-backed test can drive the full
+// link/list/unlink lifecycle without any provider network or mapping-row DB
+// writes. Same process-lifetime keepAlive contract as the helpers above.
+// ---------------------------------------------------------------------------
+
+struct SocialLinkFakeHandle
+{
+    std::shared_ptr<FakeOAuthHttpClient> http;
+    std::shared_ptr<FakeSocialAccountRepository> accountRepo;
+};
+
+inline SocialLinkFakeHandle injectSocialLinkFake()
+{
+    SocialLinkFakeHandle h;
+    h.http = std::make_shared<FakeOAuthHttpClient>();
+    h.accountRepo = std::make_shared<FakeSocialAccountRepository>();
+    auto github = std::make_shared<authforge::identity::GitHubAuthService>(
+      h.http, h.accountRepo, "test-client-id", "test-client-secret");
+    auto google = std::make_shared<authforge::identity::GoogleAuthService>(
+      h.http, "test-client-id", "test-client-secret", "https://example.test/cb");
+    auto wechat =
+      std::make_shared<authforge::identity::WeChatAuthService>(h.http, "test-appid", "test-secret");
+    auto svc = std::make_shared<authforge::identity::SocialLinkService>(
+      github, google, wechat, h.accountRepo);
+    // Keep every dependency alive for the process -- the service holds them,
+    // and the controller holds only a raw pointer to the service.
+    static std::vector<std::shared_ptr<void>> keepAlive;
+    keepAlive.push_back(github);
+    keepAlive.push_back(google);
+    keepAlive.push_back(wechat);
+    keepAlive.push_back(svc);
+    auto ctrl =
+      ::drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::UserSelfServiceController>(
+      );
+    if (ctrl)
+        ctrl->setSocialLinkService(svc.get());
     return h;
 }
 
