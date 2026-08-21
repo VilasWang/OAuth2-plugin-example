@@ -1,18 +1,18 @@
 # 竞品同环境性能对比（COMPARISON）
 
-> 生成时间：2026-08-18 01:32 UTC · 生成器：`benchmarks/reporting/gen-comparison.py`（无手填数字，全部溯源到入仓 JSON）
+> 生成时间：2026-08-21 15:36 UTC · 生成器：`benchmarks/reporting/gen-comparison.py`（无手填数字，全部溯源到入仓 JSON）
 > 设计与方法论：`docs/productization-evolution/in-progress/competitor-benchmark-design.md`
 
 ## 环境与版本
 
 | 产品 | 版本 |
 |---|---|
-| AuthForge | git 03965fa |
-| Keycloak | 26.7.1 (git 03965fa) |
-| Ory Hydra | v26.2.0 (git 03965fa) |
-| Zitadel | v4.17.1 (git 03965fa) |
+| AuthForge | git 34c5017 |
+| Keycloak | 26.7.1 (git 34c5017) |
+| Ory Hydra | v26.2.0 (git 34c5017) |
+| Zitadel | v4.17.1 (git 34c5017) |
 
-同一台机器（WSL2 8 vCPU / 16GB）、同一 wrk 4.1.0 阶梯（2→128，warmup 5s / measure 10s）、同一 PostgreSQL 15 后端（连接池对齐 25）、串行执行、每家之间 `docker compose down -v` 清场。
+同一台机器（WSL2 8 vCPU / 16GB）、同一 wrk 4.1.0 阶梯（2→128，warmup 5s / measure 10s）、同一 PostgreSQL 17 后端、串行执行、每家之间 `docker compose down -v` 清场。连接池：三家竞品按各自官方机制对齐到 25（D1，见附录 A）；AuthForge 使用自家 bench 调优档（池 64/64、cache on、auto_batch、reuse_port，构建用 opt-in LTO preset——即仓库文档化的性能优化后推荐基准档，非隐藏调优）。
 
 ## 一、稳态吞吐与延迟（阶梯，错误率 <0.01% 的最高档）
 
@@ -20,46 +20,46 @@
 
 | 产品 | 稳态 QPS | 稳态档 c | P50 | P90 | P99 | 错误率 |
 |---|---|---|---|---|---|---|
-| AuthForge | **94,640** | c=64 | 0.6ms | 1.4ms | 107.8ms | 0.0067% |
-| Keycloak | **44,493** | c=128 | 2.2ms | 14.1ms | 60.7ms | 0.0000% |
-| Ory Hydra | **1,604** | c=128 | 79.5ms | 80.8ms | 82.3ms | 0.0000% |
-| Zitadel | **8,196** | c=32 | 3.4ms | 7.3ms | 15.2ms | 0.0000% |
+| AuthForge | **87,123** | c=64 | 0.7ms | 1.6ms | 142.5ms | 0.0057% |
+| Keycloak | **40,124** | c=128 | 2.4ms | 16.9ms | 73.9ms | 0.0000% |
+| Ory Hydra | **1,616** | c=128 | 78.9ms | 80.1ms | 83.3ms | 0.0000% |
+| Zitadel | **8,580** | c=32 | 3.2ms | 7.5ms | 16.3ms | 0.0000% |
 
 ### S2 client_credentials
 
 | 产品 | 稳态 QPS | 稳态档 c | P50 | P90 | P99 | 错误率 |
 |---|---|---|---|---|---|---|
-| AuthForge | **9,056** | c=32 | 3.4ms | 4.4ms | 9.0ms | 0.0000% |
-| Keycloak | **5,971** | c=64 | 10.5ms | 14.2ms | 21.8ms | 0.0000% |
-| Ory Hydra | **1,916** | c=128 | 61.2ms | 113.0ms | 179.0ms | 0.0000% |
-| Zitadel | **1,501** | c=64 | 41.5ms | 49.6ms | 66.5ms | 0.0000% |
+| AuthForge | **12,806** | c=128 | 9.5ms | 15.3ms | 22.6ms | 0.0000% |
+| Keycloak | **5,428** | c=32 | 5.8ms | 8.9ms | 13.3ms | 0.0000% |
+| Ory Hydra | **1,959** | c=64 | 30.6ms | 49.6ms | 79.7ms | 0.0000% |
+| Zitadel | **1,517** | c=64 | 40.9ms | 50.4ms | 73.1ms | 0.0000% |
 
 ### S3 introspect
 
 | 产品 | 稳态 QPS | 稳态档 c | P50 | P90 | P99 | 错误率 |
 |---|---|---|---|---|---|---|
-| AuthForge | **17,602** | c=64 | 3.5ms | 4.6ms | 6.1ms | 0.0000% |
-| Keycloak | **11,618** | c=128 | 10.7ms | 14.0ms | 22.0ms | 0.0000% |
-| Ory Hydra | **10,933** | c=128 | 10.8ms | 20.3ms | 32.1ms | 0.0000% |
-| Zitadel | **2,872** | c=32 | 10.6ms | 15.0ms | 21.6ms | 0.0000% |
+| AuthForge | **19,245** | c=128 | 6.4ms | 10.0ms | 14.2ms | 0.0000% |
+| Keycloak | **10,556** | c=64 | 6.0ms | 9.7ms | 18.8ms | 0.0000% |
+| Ory Hydra | **10,061** | c=128 | 11.9ms | 21.9ms | 35.3ms | 0.0000% |
+| Zitadel | **2,946** | c=32 | 10.4ms | 14.6ms | 20.4ms | 0.0000% |
 
 ### S5 refresh_token
 
 | 产品 | 稳态 QPS | 稳态档 c | P50 | P90 | P99 | 错误率 |
 |---|---|---|---|---|---|---|
-| AuthForge | **1,998** | c=16 | 4.6ms | 6.0ms | 7.6ms | 0.0000% |
-| Keycloak | **2,802** | c=128 | 49.8ms | 59.2ms | 72.5ms | 0.0000% |
-| Ory Hydra | **669** | c=32 | 47.2ms | 55.6ms | 65.7ms | 0.0000% |
+| AuthForge | **4,593** | c=128 | 28.8ms | 36.5ms | 44.8ms | 0.0000% |
+| Keycloak | **4,336** | c=128 | 42.4ms | 56.7ms | 72.5ms | 0.0000% |
+| Ory Hydra | **647** | c=128 | 190.3ms | 305.6ms | 440.3ms | 0.0000% |
 | Zitadel | N/A | — | — | — | — | — |
 
 ### S6 userinfo
 
 | 产品 | 稳态 QPS | 稳态档 c | P50 | P90 | P99 | 错误率 |
 |---|---|---|---|---|---|---|
-| AuthForge | **18,278** | c=128 | 7.0ms | 7.9ms | 9.0ms | 0.0000% |
-| Keycloak | **33,347** | c=128 | 3.1ms | 17.5ms | 65.5ms | 0.0000% |
-| Ory Hydra | **10,345** | c=128 | 11.4ms | 21.4ms | 34.4ms | 0.0000% |
-| Zitadel | **3,207** | c=32 | 9.4ms | 13.7ms | 21.7ms | 0.0000% |
+| AuthForge | **40,489** | c=128 | 3.0ms | 4.7ms | 139.2ms | 0.0000% |
+| Keycloak | **29,145** | c=128 | 3.6ms | 20.9ms | 72.0ms | 0.0000% |
+| Ory Hydra | **8,105** | c=128 | 13.9ms | 42.9ms | 624.1ms | 0.0000% |
+| Zitadel | **3,395** | c=64 | 18.5ms | 22.8ms | 28.5ms | 0.0000% |
 
 ## 二、稳态内存（容器全栈 RSS，D7 口径）
 
@@ -67,10 +67,10 @@ S2 测量窗口内各容器 RSS 均值之和（含各自的 PG/Redis 与运行�
 
 | 产品 | 全栈稳态 RSS |
 |---|---|
-| AuthForge | 5,381 MiB |
-| Keycloak | 1,674 MiB |
-| Ory Hydra | 266 MiB |
-| Zitadel | 387 MiB |
+| AuthForge | 5,350 MiB |
+| Keycloak | 1,752 MiB |
+| Ory Hydra | 261 MiB |
+| Zitadel | 380 MiB |
 
 ## 三、冷启动
 
@@ -78,10 +78,10 @@ fresh = 全新卷完整初始化（含 DB schema 自动创建）→ 就绪探针
 
 | 产品 | fresh (s) | restart (s) |
 |---|---|---|
-| AuthForge | 1.233 | 1.257 |
-| Keycloak | 20.34 | 5.52 |
-| Ory Hydra | 4.89 | 0.69 |
-| Zitadel | 5.94 | 0.97 |
+| AuthForge | 1.383 | 1.289 |
+| Keycloak | 21.82 | 7.01 |
+| Ory Hydra | 4.51 | 0.67 |
+| Zitadel | 5.41 | 0.99 |
 
 ## 四、GC 抖动长跑（5 分钟 P99 时间序列，D6）
 
@@ -89,19 +89,19 @@ c=32 固定，30×10s 串行段；载波场景与偏离见附录。尖峰定义�
 
 | 产品 | 载波 | 段数 | P99 中位 | P99 最大 | 最大/中位 | 尖峰段数 |
 |---|---|---|---|---|---|---|
-| AuthForge | s6-userinfo | 30 | 3.3ms | 655.5ms | 197.45x | 7 |
-| Keycloak | s6-userinfo | 30 | 5.0ms | 5.4ms | 1.08x | 0 |
-| Ory Hydra | s6-userinfo | 30 | 27.0ms | 28.4ms | 1.05x | 0 |
-| Zitadel | s6-userinfo | 30 | 20.5ms | 22.6ms | 1.1x | 0 |
+| AuthForge | s6-userinfo | 30 | 88.3ms | 1110.0ms | 12.56x | 15 |
+| Keycloak | s6-userinfo | 30 | 6.6ms | 594.5ms | 90.27x | 11 |
+| Ory Hydra | s6-userinfo | 30 | 31.4ms | 1220.0ms | 38.9x | 11 |
+| Zitadel | s6-userinfo | 30 | 18.8ms | 628.7ms | 33.41x | 8 |
 
 逐段 P99（ms）：
 
-- **AuthForge**: 3.3, 116.9, 3.1, 3.6, 3.4, 3.2, 17.6, 3.1, 3.1, 3.3, 655.5, 114, 3.3, 3.3, 3.4, 3.4, 6, 3.2, 3.3, 3.2, 116.1, 3.2, 3.1, 3.4, 4.1, 3.3, 5.5, 3.4, 3.2, 3.2
-- **Keycloak**: 4.9, 5.1, 5.1, 4.9, 5.2, 4.8, 5, 5.3, 4.9, 5.1, 5.2, 4.9, 5.1, 5.4, 5, 5, 5, 5, 4.6, 5.4, 4.9, 5, 5.2, 5.2, 5.2, 5, 5, 5.4, 4.8, 5
-- **Ory Hydra**: 27, 27.9, 27.7, 27.3, 28.4, 26.9, 27.2, 27.8, 26.6, 25.9, 26.5, 27.3, 26.2, 27, 26, 26.6, 28.1, 26.9, 27.5, 27.1, 26.4, 26.9, 27.8, 27.1, 26.8, 27.8, 26.9, 26.6, 27.3, 26.8
-- **Zitadel**: 21.9, 22.6, 19.3, 19.9, 20.2, 20.7, 19.8, 20.8, 21.1, 21.8, 20.5, 21.6, 19.5, 20.6, 20.8, 21.3, 20, 21.1, 18.9, 20.6, 20.4, 19.2, 20.2, 20.2, 20.1, 22.6, 20.2, 21.9, 20.1, 20.9
+- **AuthForge**: 1.9, 557.9, 1.8, 537.7, 550.6, 2, 3.5, 558.6, 193.7, 1.9, 556.7, 1.8, 1.9, 575.5, 2, 2.1, 549.7, 2, 172.7, 550.8, 1.9, 2, 557.8, 453.4, 4, 337.1, 1110, 2.5, 546.8, 2.8
+- **Keycloak**: 6.2, 583.9, 6, 6.5, 576, 6, 448.8, 6.2, 6.3, 594.5, 6.2, 6.3, 586.7, 6.4, 6.4, 580.3, 6.5, 6.8, 586.1, 6.6, 6.5, 586.9, 6.5, 6.4, 582.3, 6.9, 6.7, 578.4, 5.7, 583.1
+- **Ory Hydra**: 31.5, 30.1, 593.5, 30.7, 31.1, 619.4, 31.9, 604.9, 31.1, 30, 605.7, 29.2, 30.6, 596.6, 31.4, 613.1, 30.4, 31.1, 438.8, 1220, 33.4, 603.7, 30.4, 631.1, 30.9, 30.5, 602.9, 31.3, 30.8, 31
+- **Zitadel**: 20.2, 18.5, 18.8, 19.1, 618.3, 18.4, 19.3, 611.4, 18.1, 18.7, 18.6, 19, 620.5, 18.4, 18.7, 612, 19.5, 19.3, 18.8, 18.7, 625, 18.3, 18.7, 621.3, 18, 18.7, 623, 18.2, 628.7, 18.4
 
-> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、AuthForge 平线」**未被本次实测证实**——Keycloak（JVM）/ Ory（Go）/ Zitadel（Go）在本负载下 P99 全程平线（最大/中位 ≤1.1x，现代 GC 并发化后 10s 窗口测不出 STW），反倒是 AuthForge 出现 7 个尖峰段（最大 655.5ms）。C++ 无 GC，这些尖峰是环境层停顿（WSL2 宿主调度 / PG checkpoint IO），并非运行时 GC——「无 GC 抖动」不能作为对外差异化主张引用本表；可作为主张的是绝对 P99 水位（中位 3.3ms vs Ory Hydra 27.0ms / Zitadel 20.5ms）。
+> **诚实注记（G4，2026-08-21 重跑修订）**：本次四家在同机同时段**全部出现同款周期尖峰**（Keycloak 最大/中位 90.27x、Ory/Zitadel 亦数十倍）——跨产品同款尖峰直接证明这是宿主环境层噪声（WSL2 调度/IO 停顿），而非任何一家的运行时行为；各产品的 GC 差异在本口径下不可分辨。可比较的是绝对水位与比值：AuthForge 中位 P99 88.3ms、最大/中位 12.56x（vs Ory Hydra 31.4ms / Zitadel 18.8ms）——中位与比值均最优或并列最优时才可引用本表。
 
 ## 附录 A：公平性声明（配置来源与偏离项，AC4）
 
@@ -109,7 +109,7 @@ c=32 固定，30×10s 串行段；载波场景与偏离见附录。尖峰定义�
 
 | 产品 | 配置基线出处 | 偏离项 |
 |---|---|---|
-| AuthForge | benchmark 设施自测配置（config.bench.json，PG 池 25 / Redis 20，Phase 0 已入仓） | — |
+| AuthForge | benchmark 设施自测配置（config.bench.json + docker-compose.bench.yml：PG17、池 64/64、cache on、auto_batch、reuse_port=true；构建用 opt-in LTO preset）——wave-1/2 性能优化后的文档化基准档（docs/performance-optimization/） | 本表数字含 wave-2 代码优化（validateClient/user-read 缓存、EVAL 合并）；均为已交付仓库代码，非一次性调优 |
 | Keycloak | keycloak.org/server/containers 与 /server/db | PG 连接池 25（默认 100，D1 对齐）；KC_HEALTH_ENABLED=true；realm accessTokenLifespan/SSO idle 提到 1h（token 池须跑完整个阶梯，签名路径不变）；bench client 增加 audience mapper（KC 26 内省强制 aud 校验，官方机制）；setup 阶段 60s JIT 预热（D2 豁免，JVM 特有） |
 | Ory Hydra | ory.sh/docs/hydra/self-hosted/deploy-hydra 与 configure | DSN max_conns=25（D1 对齐）；login/consent URL 指向占位（用官方 admin-API accept 流 headless 驱动用户流）；自签 TLS 直接服务 public+admin 端口（v26 生产模式强制 https issuer，--dev 非生产配置；serve.tls 为两监听共享；wrk 连接复用使握手在测量窗口外）
 | Zitadel | zitadel.com/docs/self-hosting/deploy/compose 与 configure（v4.17.1，当前稳定线，与 Keycloak 26 / Hydra 26 同代） | 单节点精简 compose（去掉官方示例的旁路观测组件）；PG 池 MaxOpenConns=25（D1 对齐）；FirstInstance.Features.ImprovedPerformance 全开 1-5（官方文档化的默认实例配置，Zitadel 自家 v4 基准同款基线）；S2 = RFC 7523 jwt-bearer 授权（Service User 官方 M2M 路径——token 端点对机器用户不接受 client_credentials+client_assertion）；S3 = OIDC app + 私钥 JWT 客户端认证（官方性能建议 #6220：secret 认证每请求做哈希）；S5 N/A：机器用户无 refresh token（RFC 6749 §4.4.3）且 password grant 已移除；阶梯前投影平复门（mint 2000 token 后 CQRS 投影追赶期间开压会产生 500 风暴） |

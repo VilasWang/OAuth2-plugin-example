@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "kind": "coldstart",
+  "product": "zitadel",
+  "product_version": "v4.17.1",
+  "fresh": {
+    "mode": "fresh",
+    "runs": [
+      {
+        "run": 1,
+        "seconds": 5.41,
+        "rss_at_ready": "78.33MiB"
+      }
+    ]
+  },
+  "restart": {
+    "mode": "restart",
+    "runs": [
+      {
+        "run": 1,
+        "seconds": 0.99,
+        "rss_at_ready": "77.84MiB"
+      }
+    ]
+  },
+  "env": {
+    "git_sha": "34c5017",
+    "network": "localhost-cross-container"
+  }
+}

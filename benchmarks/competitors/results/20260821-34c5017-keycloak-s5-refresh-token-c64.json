@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "scenario": "s5-refresh-token",
+  "concurrency": 64,
+  "threads": 4,
+  "duration_s": 10,
+  "qps": 3025.59,
+  "latency_us": {
+    "p50": 26030.0,
+    "p75": 31850.0,
+    "p90": 37650.0,
+    "p99": 51730.0
+  },
+  "total_requests": 30512,
+  "error_rate": 0.0,
+  "error_count": 0,
+  "socket_errors": {},
+  "non_2xx_responses": null,
+  "driver": {
+    "cpu_pct": 6.8,
+    "limited": false
+  },
+  "env": {
+    "date": "2026-08-21T14:26:21+00:00",
+    "git_sha": "34c5017",
+    "git_branch": "feat/competitor-benchmark",
+    "product": "keycloak",
+    "product_version": "26.7.1",
+    "target_image": "",
+    "target_config": "config.json",
+    "target_spec": "",
+    "driver_spec": "",
+    "network": "localhost-cross-container",
+    "wrk_version": "wrk debian/4.1.0-4build2 [epoll] Copyright (C) 2012 Will Glozer"
+  }
+}
