@@ -5,6 +5,9 @@
 #include <authforge/drogon/plugin/OAuth2Plugin.h>
 #include <authforge/drogon/utils/CryptoUtils.h>
 #include <authforge/drogon/error/ErrorResponder.h>
+// Wave-2 P1: the default-role grant is a user_roles write — revoke the
+// cached roles for the (possibly pre-probed) subject.
+#include "../UserReadCache.h"
 
 #ifdef WITH_SOCIAL
 // Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this
@@ -633,7 +636,11 @@ void GitHubController::createNewLinkedUser(
                           {
                               Mapper<UserRoles>(db).insert(
                                 ur,
-                                [issueTokens](const UserRoles &) { issueTokens(); },
+                                [issueTokens, userId](const UserRoles &) {
+                                    authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                                      std::to_string(userId));
+                                    issueTokens();
+                                },
                                 [issueTokens](const ::drogon::orm::DrogonDbException &e) {
                                     LOG_ERROR << "GitHubController::createNewLinkedUser: default-"
                                                  "role grant failed: "

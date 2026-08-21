@@ -32,7 +32,9 @@
 #include <drogon/drogon.h>
 
 // Wave-2 P0: client-cache invalidation registry (src-internal; see header).
+// Wave-2 P1: user profile/roles read cache + invalidation registry.
 #include "../ClientCacheInvalidator.h"
+#include "../UserReadCache.h"
 
 using namespace drogon;
 
@@ -320,6 +322,41 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                 LOG_WARN << "OAuth2Plugin: cache.enabled=true but Redis client '"
                          << redisName << "' unavailable (" << e.what()
                          << "); cache decorator will pass through to Postgres";
+            }
+            // Wave-2 P1: user profile/roles read cache (S6 path). TTLs follow
+            // the same cache.ttl_seconds block (user_profile / user_roles).
+            int userProfileTtl = authforge::drogon::userreadcache::kDefaultProfileTtlSeconds;
+            int userRolesTtl = authforge::drogon::userreadcache::kDefaultRolesTtlSeconds;
+            if (config["cache"].isMember("ttl_seconds"))
+            {
+                const auto &ttlCfg = config["cache"]["ttl_seconds"];
+                if (ttlCfg.isMember("user_profile") && ttlCfg["user_profile"].isInt())
+                    userProfileTtl = ttlCfg["user_profile"].asInt();
+                if (ttlCfg.isMember("user_roles") && ttlCfg["user_roles"].isInt())
+                    userRolesTtl = ttlCfg["user_roles"].asInt();
+            }
+            authforge::drogon::UserReadCache::instance().configure(
+              redisClient, userProfileTtl, userRolesTtl
+            );
+            if (redisClient)
+            {
+                ::authforge::drogon::UserCacheInvalidator::instance().registerHook(
+                  [redisClient](const std::string &subject) {
+                      for (const char *kind : {"profile", "roles"})
+                      {
+                          std::string key = std::string("authforge:cache:user:") + kind + ":" + subject;
+                          redisClient->execCommandAsync(
+                            [](const ::drogon::nosql::RedisResult &) {},
+                            [key](const ::drogon::nosql::RedisException &e) {
+                                LOG_DEBUG << "UserCacheInvalidator: DEL failed for " << key << ": "
+                                          << e.what();
+                            },
+                            "DEL %s",
+                            key.c_str()
+                          );
+                      }
+                  }
+                );
             }
             // Phase 1: client cache.
             clientRepo = std::make_shared<authforge::storage::redis::RedisCachedClientRepository>(
@@ -660,6 +697,21 @@ void OAuth2Plugin::getUserRoles(
   std::function<void(std::vector<std::string>)> &&callback
 )
 {
+    // Wave-2 P1: Redis cache-aside (soft-fails to the uncached path when the
+    // cache is disabled/unavailable). Consumers: userinfo claims, the admin
+    // AuthorizationFilter RBAC gate, and the issuance chain's scope checks.
+    auto &cache = authforge::drogon::UserReadCache::instance();
+    if (cache.enabled())
+    {
+        cache.getRoles(
+          userId,
+          std::move(callback),
+          [this](const std::string &uid, authforge::drogon::UserReadCache::RolesCallback cb) {
+              identityService_->getUserRoles(uid, std::move(cb));
+          }
+        );
+        return;
+    }
     identityService_->getUserRoles(userId, std::move(callback));
 }
 
@@ -783,33 +835,38 @@ void OAuth2Plugin::getUserInfo(
     // dispatch (numeric -> findById(stoi); otherwise -> findByPublicSub) and
     // rebuild the legacy JSON shape ({id, username, email}) the caller
     // (TokenEndpointController's userinfo endpoint) consumes byte-for-byte.
-    if (!userRepo_)
-    {
-        callback(std::nullopt);
-        return;
-    }
+    //
+    // Wave-2 P1: the dispatch above is the UNCACHED fetch; when the user
+    // read cache is active the profile JSON is served from Redis instead
+    // (see UserReadCache.h for the semantics).
+    auto fetch = [this](const std::string &uid,
+                        authforge::drogon::UserReadCache::ProfileCallback cb) {
+        if (!userRepo_)
+        {
+            cb(std::nullopt);
+            return;
+        }
 
-    // Numeric userId -> internal int32 id; otherwise treat as public_sub.
-    bool isNumeric = false;
-    int32_t numericId = 0;
-    try
-    {
-        size_t pos = 0;
-        int parsed = std::stoi(userId, &pos);
-        isNumeric = (pos == userId.length());
-        if (isNumeric)
-            numericId = parsed;
-    }
-    catch (...)
-    {
-        isNumeric = false;
-    }
+        // Numeric userId -> internal int32 id; otherwise treat as public_sub.
+        bool isNumeric = false;
+        int32_t numericId = 0;
+        try
+        {
+            size_t pos = 0;
+            int parsed = std::stoi(uid, &pos);
+            isNumeric = (pos == uid.length());
+            if (isNumeric)
+                numericId = parsed;
+        }
+        catch (...)
+        {
+            isNumeric = false;
+        }
 
-    auto buildJson =
-      [callback = std::move(callback)](std::optional<authforge::identity::UserData> data) mutable {
+        auto buildJson = [cb = std::move(cb)](std::optional<authforge::identity::UserData> data) mutable {
           if (!data)
           {
-              callback(std::nullopt);
+              cb(std::nullopt);
               return;
           }
           Json::Value userInfo;
@@ -820,13 +877,22 @@ void OAuth2Plugin::getUserInfo(
           // verified from unverified email addresses. UserData carries this
           // from the users row (Task 39 widened the identity repository).
           userInfo["email_verified"] = data->emailVerified;
-          callback(userInfo);
-      };
+          cb(userInfo);
+        };
 
-    if (isNumeric)
-        userRepo_->findById(numericId, std::move(buildJson));
-    else
-        userRepo_->findByPublicSub(userId, std::move(buildJson));
+        if (isNumeric)
+            userRepo_->findById(numericId, std::move(buildJson));
+        else
+            userRepo_->findByPublicSub(uid, std::move(buildJson));
+    };
+
+    auto &cache = authforge::drogon::UserReadCache::instance();
+    if (cache.enabled())
+    {
+        cache.getProfile(userId, std::move(callback), std::move(fetch));
+        return;
+    }
+    fetch(userId, std::move(callback));
 }
 
 void OAuth2Plugin::revokeAccessToken(
