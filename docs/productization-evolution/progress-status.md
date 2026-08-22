@@ -13,7 +13,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
-| **Phase 0** — 可信度基线 | ✅ 基本完成 | ~90% | benchmark M1–M4 全部交付（40 JSON + 承重验证报告）；**承重假设裁决：QPS ⚠️接近/可外推达标、P99 ✅低并发达成、内存 ✅SDK 口径远超标（实测 2.5 MB peak WS）、冷启动 ✅观测达成（~4s）**；竞品对比（Phase 0.5）待做 |
+| **Phase 0** — 可信度基线 | ✅ **完成** | 100% | benchmark M1–M4 全部交付（40 JSON + 承重验证报告）；**承重假设裁决：QPS ✅五场景领先（2026-08-21 对比表刷新，S5/S6 反超）、P99 ✅低并发达成、内存 ✅SDK 口径远超标（2.5 MB peak WS）、冷启动 ✅1.38s**；Phase 0.5 竞品对比已交付并全量刷新；性能优化两轮（wave-1 配置/DB/LTO + wave-2 代码级缓存）收官 | 裸机复测（环境噪声归因） |
 | **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~45% | **spec 治理（M0）已合并（v1.2.0）**；**C1 客户端 SDK 已实现（M1 Python + M2 Go + M3 接线 + M4 文档，2026-08-18 待合并）**；文档站/博客/README 徽章待做 |
 | **Phase 2** — 企业版 | 🟡 快速推进 | ~45% | #42 缓存层 Phase 1+2 已交付；#43 授权模型已实现；**用户管理补全已实现（PR #52）**；**Backchannel Logout 后端已交付（PR #50）**；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户待做 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
@@ -44,7 +44,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | **M2: S3 introspect + S4 auth_code** | ✅ 已完成 | `s3-introspect.lua`（active token）+ `s4-auth-code.lua`（多步 login→token，PKCE 预生成）；S3 17k QPS / S4 465 QPS | — |
 | **M3: S5 refresh_token + S6 userinfo + 观测** | ✅ 已完成 | `s5-refresh-token.lua`（一次性 RT 池）+ `s6-userinfo.lua` + `observe/` 脚本 + `config.bench.json`；S5 2k QPS / S6 17k QPS | — |
 | **M4: 承重假设验证报告** | ✅ 已完成 | `SUMMARY.md`：6 场景阶梯数据 + 承重裁决 + 40 JSON 入仓 | 冷启动/内存精确测量 |
-| **Phase 0.5: 竞品对比** | 🟡 设计已完成 | 设计文档 [in-progress/competitor-benchmark-design.md](in-progress/competitor-benchmark-design.md)：四家（AuthForge + Keycloak/Ory/Zitadel）同环境对比 S1/S2/S3/S5/S6 + GC 抖动长跑；3 个 milestone（M1 Keycloak → M2 Ory/Zitadel → M3 汇总修订） | 实施（预估 ~2 周） |
+| **Phase 0.5: 竞品对比** | ✅ 已完成（2026-08-17 首轮交付；**2026-08-21 优化后基准档全量刷新**） | COMPARISON.md 正式表：**AuthForge 五场景全部领先**（S1 2.2x / S2 2.4x / S3 1.8x / S5 1.06x / S6 1.4x vs Keycloak）；冷启动 1.38s；GC 节四家同款尖峰判定为宿主环境噪声（跨产品互证）。含 wave-1/2 性能优化轮（见 docs/performance-optimization/） | 裸机复测（本机 GC/尾延迟数据不可用于产品间主张） |
 
 **承重假设裁决（对照调研报告 §3.1）**:
 
