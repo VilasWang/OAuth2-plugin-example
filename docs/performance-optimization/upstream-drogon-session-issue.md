@@ -16,7 +16,8 @@ For an OAuth2 authorization server this is expensive: machine/API traffic (token
 |---|---|
 | Retention | **~750 B per cookie-less request** until TTL (three 60s c128 storms: 744/755/759 B/req, production LTO build) |
 | Steady-state formula | `API_QPS × session_timeout × 750 B` — 1k QPS @ 3600s ≈ 2.7 GB constant; 10k QPS @ 3600s ≈ 27 GB (OOM territory) |
-| Throughput tax (discovery) | **~-24%** (same-window OFF/ON/OFF controlled triple on ASan build — direction reliable, production absolute value pending re-measurement) |
+| Throughput tax (all endpoints) | **~-54%** (production LTO build, 6-round interleaved OFF/ON, S1 discovery: 164.6k → 76.3k QPS) — session creation runs before routing on EVERY request |
+| True framework ceiling | **~165k QPS** discovery (first-ever no-session measurement; all historical 87-104k numbers were session-limited) |
 | Bench artifact | The 4-product comparison's "heaviest stack RSS 5,350 MiB" was this retention read after the S1 storm (backend 4.7 GB ≈ 5.4 M × 750 B + baseline) |
 
 Session keys actually used by interactive flows: `userId/sub/auth_time/amr/mfa_*/webauthn_*` (8 keys, 4 interactive controllers only — zero use on machine endpoints).
@@ -28,9 +29,9 @@ Session keys actually used by interactive flows: `userId/sub/auth_time/amr/mfa_*
 
 ## Root-fix options (blocked on upstream)
 
-1. **Upstream lazy/per-path session creation** — the 4 interactive controllers are the only consumers; machine endpoints never read session state, so skipping creation when the request carries no session cookie AND the route never touches `req->session()` is semantically safe. Worth requesting upstream.
+1. **Upstream lazy/per-path session creation** — the 4 interactive controllers are the only consumers; machine endpoints never read session state, so skipping creation when the request carries no session cookie AND the route never touches `req->session()` is semantically safe. **The -54% throughput tax makes this a high-value upstream request** — discovery throughput would nearly double (76k → 165k).
 2. Drogon upgrade if lazy sessions land (currently 1.9.13 via conan).
-3. (Rejected for now) Migrating the 8-key login state to a signed cookie — viable but touches auth-critical flows; revisit if the tax becomes production-relevant at scale.
+3. (Rejected for now) Migrating the 8-key login state to a signed cookie — viable but touches auth-critical flows; the -54% tax strengthens the case but requires careful security review.
 
 ## Production risk assessment
 
