@@ -102,6 +102,33 @@ static Json::Value loadConfiguration(const std::string &configPath)
     return config;
 }
 
+#ifdef AUTHFORGE_LEAK_DIAG
+// Diagnostic-only build hook (docs/performance-optimization/
+// backend-memory-retention-investigation.md): `kill -USR1 <worker>` runs a
+// LeakSanitizer report on the live process. Registered in main() BEFORE any
+// threads start; the check stops the world itself — call it with the server
+// idle (threads parked in epoll) to avoid interrupting a malloc critical
+// section. Enabled only by the diagnostic preset's -DAUTHFORGE_LEAK_DIAG.
+#include <csignal>
+extern "C" int __lsan_do_recoverable_leak_check(void);
+extern "C" void __sanitizer_print_memory_profile(unsigned, unsigned);
+static void leakDiagHandler(int)
+{
+    __lsan_do_recoverable_leak_check();
+    // Heap profile of LIVE (reachable) allocations — the leak under
+    // investigation is still-reachable, invisible to LSan's default report.
+    __sanitizer_print_memory_profile(20, 10);
+}
+static void registerLeakDiagHook()
+{
+    signal(SIGUSR1, leakDiagHandler);
+}
+#else
+static void registerLeakDiagHook()
+{
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     // Task 37 (authforge-sdk-refactor): --migrate-only runs all pending
@@ -281,6 +308,7 @@ int main(int argc, char *argv[])
 
     // 5. Database migrations (opt-in via OAUTH2_AUTO_MIGRATE=true)
     bootstrap::setupMigrations();
+    registerLeakDiagHook();
 
     // 6. Start the server
     drogon::app().run();

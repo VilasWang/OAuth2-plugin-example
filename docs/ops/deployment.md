@@ -675,7 +675,42 @@ PostgreSQL。`config.prod.json` 出厂保持关闭（`cache.enabled: false`）�
 在 17 上启动**（大版本数据目录不兼容）——升级前先 `pg_dump`/`pg_restore`
 或用 `pg_upgrade`；全新部署无此步骤。
 
-### 3. Docker 网络拓扑（原生引擎可选；Docker Desktop 下不可用）
+### 3. 会话留存（session_timeout）——按 API 流量调尺寸
+
+**机制（drogon 上游设计行为，[drogon#278](https://github.com/an-tao/drogon/issues/278)，本仓验证 2026-08-22）**：
+`enable_session: true` 时，**每个不带会话 cookie 的请求都会创建一个 Session
+并在 SessionManager 中持有到 `session_timeout` 到期**（淘汰机制本身正常，
+已实测验证）。机器/API 流量（token / introspect / userinfo / discovery ——
+客户端从不带 cookie）按请求付费。
+
+**实测代价（真实构建，2026-08-22，验证细节见
+`docs/performance-optimization/backend-memory-retention-investigation.md`）**：
+
+| 项 | 实测值 |
+|---|---|
+| 每请求留存 | **~1.1 KB**（105 万无 cookie 请求 → +1.1 GB 常驻） |
+| 稳态常驻公式 | `API_QPS × session_timeout × 1.1 KB` |
+| discovery 吞吐税 | **~-24%**（同窗口 OFF/ON/OFF 对照：30.6k → 23.2k → 30.2k QPS；任意 TTL 下都存在） |
+
+**尺寸速查**（按公式，交互登录写→读间隔为毫秒级，TTL 不影响流内正确性 ——
+S4 登录/authcode 全阶梯在 120s 下验证通过，机制与 TTL 大小无关）：
+
+| API_QPS（无 cookie） | TTL=3600（出厂） | TTL=300 | TTL=60 |
+|---|---|---|---|
+| 100 | ~0.4 GB | ~33 MB | ~7 MB |
+| 1,000 | **~4 GB** | ~330 MB | ~66 MB |
+| 10,000 | **~40 GB（OOM 区）** | ~3.3 GB | ~660 MB |
+
+**指引**：
+- 交互为主、API 量小（<100 QPS）的部署：出厂 3600s 保持不动（SSO 体验完整）。
+- API 流量可观的部署：按上表把 `session_timeout`（与 `session_max_age` 同步）
+  调到公式可承受档；2 分钟 idle 过期对浏览器 SSO 体验的影响可接受（OIDC
+  惯例 idle 窗口常见 5-15 分钟，向下兼容）。
+- 基准档采用 30s（`config.bench.json`，`QPS × 30 × 1.1 KB` 封顶）。
+- **注**：吞吐税（~-24% discovery）与 TTL 无关、开 session 即存在；根修
+  需上游惰性/按路径建 session（跟踪：`docs/performance-optimization/upstream-drogon-session-issue.md`）。
+
+### 4. Docker 网络拓扑（原生引擎可选；Docker Desktop 下不可用）
 
 若使用**原生 Docker Engine**（Linux 服务器直装），可将 backend + PG + redis
 置于 `network_mode: host`：backend↔PG/Redis 走 loopback，省去每包 veth 穿越。
