@@ -293,3 +293,97 @@ DROGON_TEST(Integration_P0_SocialRepo_CreateLinkedUser_FailClosedOnConflict)
         CHECK(p.get_future().get());
     }
 }
+
+// ---------------------------------------------------------------------------
+// B2 link/unlink lifecycle against the REAL repository (PR review S1):
+// listForUser (local-row exclusion + ISO-8601 linked_at), insertLink
+// (Inserted + the UNIQUE-violation Conflict path), deleteLink (Deleted /
+// NoLink), userHasUsablePassword (non-pbkdf2 hash -> false).
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P0_SocialRepo_LinkLifecycle_ListInsertDelete)
+{
+    if (!postgresAvailable())
+    {
+        CHECK(true);
+        return;
+    }
+    auto db = drogon::app().getDbClient();
+    REQUIRE(db != nullptr);
+    auto repo = std::make_shared<authforge::storage::postgres::PostgresSocialAccountRepository>(db);
+
+    const auto suffix = std::to_string(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
+    );
+
+    int32_t uid = seedUser("social_list_" + suffix, false, false);
+    REQUIRE(uid > 0);
+    int32_t uid2 = seedUser("social_list2_" + suffix, false, false);
+    REQUIRE(uid2 > 0);
+    // A 'local' mapping (seed/password-flow shape) must NOT appear in the
+    // social list nor count toward the last-credential guard.
+    REQUIRE(seedMapping("local", "localsub_" + suffix, uid));
+    REQUIRE(seedMapping("github", "lifecycle_" + suffix, uid));
+
+    // listForUser: only the social row; timestamp is ISO-8601 with 'T'.
+    {
+        std::promise<std::optional<std::vector<authforge::identity::SocialLinkEntry>>> p;
+        repo->listForUser(
+          uid, [&](std::optional<std::vector<authforge::identity::SocialLinkEntry>> e) {
+              p.set_value(std::move(e));
+          }
+        );
+        auto entries = p.get_future().get();
+        REQUIRE(entries.has_value());
+        REQUIRE(entries->size() == 1u);
+        CHECK((*entries)[0].provider == "github");
+        CHECK((*entries)[0].subject == "lifecycle_" + suffix);
+        CHECK((*entries)[0].linkedAt.find('T') != std::string::npos);
+    }
+
+    // userHasUsablePassword: seedUser writes password_hash 'x' (not a
+    // $pbkdf2-sha256$ PasswordHasher output) -> false, the guard's input
+    // for social-created accounts.
+    {
+        std::promise<std::optional<bool>> p;
+        repo->userHasUsablePassword(uid, [&](std::optional<bool> v) { p.set_value(v); });
+        auto usable = p.get_future().get();
+        REQUIRE(usable.has_value());
+        CHECK(*usable == false);
+    }
+
+    // insertLink: the (github, lifecycle_) subject already belongs to uid ->
+    // claiming it for uid2 hits UNIQUE(provider, subject) -> Conflict (the
+    // SQLSTATE/substring detection path).
+    {
+        std::promise<authforge::identity::LinkMutationStatus> p;
+        repo->insertLink(
+          "github", "lifecycle_" + suffix, uid2,
+          [&p](authforge::identity::LinkMutationStatus s) { p.set_value(s); }
+        );
+        CHECK(p.get_future().get() == authforge::identity::LinkMutationStatus::Conflict);
+    }
+
+    // insertLink happy path for a free subject.
+    {
+        std::promise<authforge::identity::LinkMutationStatus> p;
+        repo->insertLink(
+          "google", "gfree_" + suffix, uid,
+          [&p](authforge::identity::LinkMutationStatus s) { p.set_value(s); }
+        );
+        CHECK(p.get_future().get() == authforge::identity::LinkMutationStatus::Inserted);
+    }
+
+    // deleteLink: removes exactly the (provider, user) row; second call -> NoLink.
+    {
+        std::promise<authforge::identity::LinkMutationStatus> p;
+        repo->deleteLink(
+          "github", uid, [&p](authforge::identity::LinkMutationStatus s) { p.set_value(s); }
+        );
+        CHECK(p.get_future().get() == authforge::identity::LinkMutationStatus::Deleted);
+        std::promise<authforge::identity::LinkMutationStatus> p2;
+        repo->deleteLink(
+          "github", uid, [&p2](authforge::identity::LinkMutationStatus s) { p2.set_value(s); }
+        );
+        CHECK(p2.get_future().get() == authforge::identity::LinkMutationStatus::NoLink);
+    }
+}

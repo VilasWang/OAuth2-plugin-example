@@ -134,7 +134,7 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
                 continue;
             }
             e.subject = kv.first.substr(bar + 1);
-            e.linkedAt = "2026-01-01 00:00:00";
+            e.linkedAt = "2026-01-01T00:00:00Z";
             entries.push_back(std::move(e));
         }
         cb(std::move(entries));

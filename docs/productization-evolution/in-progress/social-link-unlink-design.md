@@ -76,6 +76,12 @@ GitHub 是唯一做「find-or-create 本地账号 + subject mapping」的 provid
 
 竞态：两请求同时通过预检时，DB `UNIQUE(provider, subject)` 兜底，插入冲突映射为 `409`（AlreadyLinkedToOtherUser）。
 
+**竞态窗口注记**（PR 评审）：UNIQUE 只覆盖「同 subject」竞争；**同一用户并发 link 同一
+provider 的两个不同 subject**（两个 tab 各拿一个 GitHub 账号的 code）两路预检都会通过、
+两路插入都不触发 UNIQUE——结果是该用户在该 provider 下有两条映射。后果有限（两条都属
+于本人；list 都会展示；unlink 按 provider 一次清光；登录解析取其一），属设计 D5 已接受
+的服务层不变式缺口，非安全洞。
+
 ### 3.3 `DELETE /api/me/social/links/{provider}` — 解除关联
 
 **语义**:
@@ -86,7 +92,14 @@ GitHub 是唯一做「find-or-create 本地账号 + subject mapping」的 provid
 { "provider": "github", "subject": "12345678", "message": "Social account unlinked successfully" }
 ```
 
-不吊销现有 token（解绑社交身份不影响已发的会话；与 Keycloak 行为一致）。
+不吊销现有 token（解绑社交身份不影响已发的会话；与 Keycloak 行为一致；已在 openapi
+DELETE 描述中向调用方披露——PR 评审 W3）。
+
+**解绑后该 provider 身份的重新登录行为**（PR 评审 W4）：映射删除后本地 `gh_<login>` 用户
+行仍在；该 GitHub 身份再次登录会走 find-or-create 的 create 分支，`ON CONFLICT (username)
+DO NOTHING` 因用户名已被（自己旧行）占用而失败，登录收到 `DB_QUERY_ERROR`——**在重新
+link 之前不会自愈**。UI 的解绑确认弹窗已提示"重新 link 前无法用它登录"；把该场景改为
+可操作的错误提示（区分用户名冲突与真实 DB 故障）归入 #70（登录对齐）一并处理。
 
 **已知竞态（自查 + PR 评审 #3）**：守卫是 check-then-act——两个并发 unlink 各自观察到
 `size==2` 而同时放行，可能把无密码用户删到零凭证（自我造成的锁定，需管理员恢复）。与 link

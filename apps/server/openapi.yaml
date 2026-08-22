@@ -2129,9 +2129,12 @@ paths:
   /api/me/social/links/{provider}:
     delete:
       description: Remove the current user's linked identity for a provider.
+        Existing sessions issued through that provider are NOT revoked --
+        they stay valid until natural expiry. The provider identity cannot
+        be used for new sign-ins until it is linked to an account again.
         Refused with 409 when it is the user's last social link and the user
-        has no usable password (last-credential guard). Requires the `profile`
-        scope.
+        has no usable password (last-credential guard). Requires the
+        `profile` scope.
       operationId: delete_api_me_social_links_provider
       parameters:
       - description: Social provider name

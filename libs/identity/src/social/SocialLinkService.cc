@@ -81,11 +81,18 @@ void SocialLinkService::linkAccount(
     auto onSubject =
       [accountRepo = accountRepo_, sharedCb, provider, internalUserId](
         const std::string &errorCode, const std::string &subject) mutable {
-          if (!errorCode.empty())
+          // W2 (PR review): a 200 userinfo response that is missing its
+          // identifier (Google's .get("sub", ""), WeChat's .get("openid",
+          // "")) must be treated as a failed exchange -- an empty subject
+          // reaching insertLink would permanently claim the
+          // UNIQUE(provider, '') slot. GitHub is guarded upstream already
+          // (fetchProfile rejects id <= 0).
+          if (!errorCode.empty() || subject.empty())
           {
               SocialLinkOpResult result;
               result.status = SocialLinkOpStatus::ExchangeFailed;
-              result.errorCode = errorCode;
+              result.errorCode =
+                errorCode.empty() ? "VALIDATION_INVALID_INPUT" : errorCode;
               (*sharedCb)(std::move(result));
               return;
           }

@@ -83,7 +83,9 @@ def sync_detailed(
 ) -> Response[ErrorEnvelope | SocialLinkResult]:
     """Unlink Social Account
 
-     Remove the current user's linked identity for a provider. Refused with 409 when it is the user's
+     Remove the current user's linked identity for a provider. Existing sessions issued through that
+    provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be
+    used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's
     last social link and the user has no usable password (last-credential guard). Requires the `profile`
     scope.
 
@@ -116,7 +118,9 @@ def sync(
 ) -> ErrorEnvelope | SocialLinkResult | None:
     """Unlink Social Account
 
-     Remove the current user's linked identity for a provider. Refused with 409 when it is the user's
+     Remove the current user's linked identity for a provider. Existing sessions issued through that
+    provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be
+    used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's
     last social link and the user has no usable password (last-credential guard). Requires the `profile`
     scope.
 
@@ -144,7 +148,9 @@ async def asyncio_detailed(
 ) -> Response[ErrorEnvelope | SocialLinkResult]:
     """Unlink Social Account
 
-     Remove the current user's linked identity for a provider. Refused with 409 when it is the user's
+     Remove the current user's linked identity for a provider. Existing sessions issued through that
+    provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be
+    used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's
     last social link and the user has no usable password (last-credential guard). Requires the `profile`
     scope.
 
@@ -175,7 +181,9 @@ async def asyncio(
 ) -> ErrorEnvelope | SocialLinkResult | None:
     """Unlink Social Account
 
-     Remove the current user's linked identity for a provider. Refused with 409 when it is the user's
+     Remove the current user's linked identity for a provider. Existing sessions issued through that
+    provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be
+    used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's
     last social link and the user has no usable password (last-credential guard). Requires the `profile`
     scope.
 

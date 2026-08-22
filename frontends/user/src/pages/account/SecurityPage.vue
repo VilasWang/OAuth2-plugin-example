@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import http from '../../services/http'
+import { userService } from '../../services/userService'
 import { normalizeError } from '../../services/errorAdapter'
 import type { SocialLink } from '../../types'
 
@@ -32,8 +33,7 @@ const providerLabels: Record<string, string> = { github: 'GitHub', google: 'Goog
 
 async function fetchSocialLinks() {
   try {
-    const resp = await http.get('/api/me/social/links')
-    socialLinks.value = resp.data?.social_links || []
+    socialLinks.value = await userService.getSocialLinks()
   } catch {
     // The card shows its own empty state; a backend hiccup here must not
     // break the rest of the security page.
@@ -45,10 +45,12 @@ async function fetchSocialLinks() {
 
 async function unlinkSocial(provider: string) {
   const label = providerLabels[provider] || provider
-  if (!window.confirm(`Unlink your ${label} account? You will not be able to sign in with ${label} afterwards.`)) return
+  // W4: after unlinking, sign-in with this identity fails until it is
+  // linked to an account again -- say so up front, not after the fact.
+  if (!window.confirm(`Unlink your ${label} account? You will not be able to sign in with ${label} until it is linked to an account again.`)) return
   unlinkingProvider.value = provider
   try {
-    await http.delete(`/api/me/social/links/${encodeURIComponent(provider)}`)
+    await userService.unlinkSocialAccount(provider)
     showSuccess(`${label} account unlinked`)
     await fetchSocialLinks()
   } catch (e: unknown) {

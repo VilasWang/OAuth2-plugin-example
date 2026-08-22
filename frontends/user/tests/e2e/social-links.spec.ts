@@ -94,4 +94,36 @@ test.describe('Connected Accounts (social links)', () => {
     expect(loginSeen).toBe(false)
     await expect(page).toHaveURL(/\/security/)
   })
+
+  // W1 (PR review): a link-flow visit with NO session (logged out in another
+  // tab / session expired) must show an error -- it must NEVER fall through
+  // to the login POST, which would mint a login session and auto-create an
+  // account for an unmapped identity.
+  test('callback page with state=link and no session errors out without calling any API', async ({ page }) => {
+    await setupMocks(page)
+    // No loginUser() -- no tokens in storage.
+    let loginSeen = false
+    let linkSeen = false
+    await page.route('**/api/github/login', async (route) => {
+      loginSeen = true
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.route('**/api/me/social/links/github', async (route) => {
+      linkSeen = true
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    // tryRestoreSession finds no refresh_token -> resolves false without
+    // network, but stub the token endpoint defensively anyway.
+    await page.route('**/oauth2/token', async (route) => {
+      await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { code: 'AUTH_INVALID_GRANT', category: 'AUTHENTICATION', message: 'invalid' } }) })
+    })
+
+    await page.goto('/callback/github?code=e2e-code&state=link')
+    await page.waitForTimeout(1000)
+
+    expect(loginSeen).toBe(false)
+    expect(linkSeen).toBe(false)
+    await expect(page.getByText('Please sign in first', { exact: false })).toBeVisible()
+    await expect(page).toHaveURL(/\/callback\/github/)
+  })
 })

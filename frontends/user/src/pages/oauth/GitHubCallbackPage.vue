@@ -2,7 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
-import { setTokens, getAccessToken } from '../../services/http'
+import { setTokens, getAccessToken, tryRestoreSession } from '../../services/http'
+import { userService } from '../../services/userService'
 import { normalizeError } from '../../services/errorAdapter'
 import axios from 'axios'
 
@@ -18,16 +19,22 @@ onMounted(async () => {
     return
   }
 
-  // Link flow (SecurityPage's "Link GitHub Account" sets state=link): MUST
-  // short-circuit before the login POST below, otherwise a link-flow visit
-  // for an identity that already maps to an account would silently sign the
-  // browser in as that account's user. Absent state = login flow (LoginPage
-  // sends none).
-  if (route.query.state === 'link' && getAccessToken()) {
+  // Link flow (SecurityPage's "Link GitHub Account" sets state=link). MUST
+  // short-circuit before the login POST below, and must NEVER fall through
+  // to it: the OAuth round-trip is a full page reload, so the in-memory
+  // access token is gone even for a signed-in user -- restore the session
+  // first; only if that fails (logged out / expired) show an error. A
+  // fall-through would silently mint a login session, and for an unmapped
+  // identity auto-CREATE an account (review W1). Absent state = login flow
+  // (LoginPage sends none).
+  if (route.query.state === 'link') {
+    const hasSession = getAccessToken() ? true : await tryRestoreSession()
+    if (!hasSession) {
+      error.value = 'Please sign in first, then retry linking your GitHub account.'
+      return
+    }
     try {
-      await axios.post('/api/me/social/links/github', { code }, {
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
-      })
+      await userService.linkSocialAccount('github', code)
       router.replace('/security')
       return
     } catch (e: unknown) {

@@ -35,6 +35,28 @@ int64_t nowEpochSeconds()
     )
                                   .count());
 }
+
+// UNIQUE-violation detection (PR review S2). Empirically: drogon's postgres
+// ASYNC error path delivers a plain Failure(PQerrorMessage) -- NOT a
+// SqlError (PgConnection.cc handleFatalError) -- so sqlState() is empty
+// there, and the human-readable message is locale-dependent (verified on a
+// zh_CN server: "重复键违反唯一约束..."). Detect in order: the SQLSTATE
+// (works wherever SqlError IS delivered), then the constraint NAME
+// (identifiers are never localized -- precise for this table's UNIQUE),
+// then the English substring precedent (PostgresConsentRepository.cc).
+bool isUniqueViolation(const DrogonDbException &e)
+{
+    if (const auto *sqlErr = dynamic_cast<const SqlError *>(&e))
+    {
+        if (sqlErr->sqlState() == "23505")
+        {
+            return true;
+        }
+    }
+    const std::string what = e.base().what();
+    return what.find("oauth2_subject_mappings_provider_subject_key") != std::string::npos ||
+           what.find("duplicate key") != std::string::npos;
+}
 }  // namespace
 
 void PostgresSocialAccountRepository::findLinkedUser(
@@ -329,7 +351,10 @@ void PostgresSocialAccountRepository::listForUser(
                   SocialLinkEntry e;
                   e.provider = m.getValueOfProvider();
                   e.subject = m.getValueOfSubject();
-                  e.linkedAt = m.getValueOfCreatedAt().toDbStringLocal();
+                  // ISO-8601 with the 'T' separator (PR review: the previous
+                  // toDbStringLocal() "YYYY-MM-DD HH:MM:SS" form parses as
+                  // Invalid Date in Safari).
+                  e.linkedAt = m.getValueOfCreatedAt().toCustomFormattedString("%Y-%m-%dT%H:%M:%SZ");
                   entries.push_back(std::move(e));
               }
               (*sharedCb)(std::move(entries));
@@ -374,16 +399,13 @@ void PostgresSocialAccountRepository::insertLink(
           [sharedCb](const DrogonDbException &e) {
               // UNIQUE(provider, subject) race: another user claimed the same
               // provider account between the service's pre-check and this
-              // insert. libpq's what() carries no SQLSTATE, so match the
-              // human-readable text (same precedent as
-              // PostgresConsentRepository.cc's "duplicate key" check).
-              const std::string what = e.base().what();
-              if (what.find("duplicate key") != std::string::npos)
+              // insert.
+              if (isUniqueViolation(e))
               {
                   (*sharedCb)(LinkMutationStatus::Conflict);
                   return;
               }
-              LOG_ERROR << "insertLink: mapping insert failed: " << what;
+              LOG_ERROR << "insertLink: mapping insert failed: " << e.base().what();
               (*sharedCb)(LinkMutationStatus::Error);
           }
         );
