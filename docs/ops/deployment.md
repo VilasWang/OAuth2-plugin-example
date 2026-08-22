@@ -693,7 +693,11 @@ PG 官方推荐起点。
 |---|---|
 | 每请求留存 | **~750 B**（三场 60s c128 风暴：744/755/759 B/req，生产 LTO 构建） |
 | 稳态常驻公式 | `API_QPS × session_timeout × 750 B` |
-| discovery 吞吐税 | **~-24%**（ASan 构建同窗口 OFF/ON/OFF 对照，方向可靠，生产构建绝对值可能略低——待生产构建重测确认） |
+| discovery 吞吐税 | **~-54%**（生产 LTO 构建同窗口 6 轮交错 OFF/ON：164.6k → 76.3k QPS） |
+
+> ⚠️ 吞吐税影响所有端点（session 创建在 drogon 框架层、先于路由）。历史
+> 基准（S1 87-104k）均为 session 开启状态下的测量值；无 session 真天花板
+> ~165k。修复需上游惰性化，跟踪 `upstream-drogon-session-issue.md`。
 
 **尺寸速查**（按公式，交互登录写→读间隔为毫秒级，TTL 不影响流内正确性 ——
 S4 登录/authcode 全阶梯在 120s 下验证通过，机制与 TTL 大小无关）：
