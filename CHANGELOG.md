@@ -10,6 +10,23 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+### ⚠️ Breaking / 升级必读
+
+- **部署默认 PostgreSQL 15 → 17**（`deploy/docker/docker-compose{,.prod,.debug}.yml`、
+  Helm `values.yaml`）：升级动机是与基准环境对齐（四产品同 PG 版本的公平性 D1）
+  及服务端 libpq 17.x 客户端对齐。**存量部署的 15 数据卷无法直接在 17 上启动**
+  （PG 大版本拒绝挂载旧数据目录，数据库容器会循环重启）。升级前必须按
+  [docs/ops/postgresql-major-upgrade.md](docs/ops/postgresql-major-upgrade.md)
+  做 dump/restore（或 pg_upgrade）。AuthForge 自身在 15 vs 17 的基准差异在
+  噪声带内，本次升级对自身吞吐无诉求。
+- **`AuditLogs` ORM 模型签名变更**（V025 `audit_logs` 分区）：主键从 `id`
+  单列变为 `(id, timestamp)` 复合键；drogon 生成的模型 `getPrimaryKey()` 返回
+  `std::tuple<int64_t, int64_t>`（原 `int64_t`）、`primaryKeyName` 变为
+  `std::vector<std::string>`（原 `std::string`）、`setTimestampToNull()` 移除
+  （`timestamp` 现为 NOT NULL）。仓库内零调用方受影响（api-diff 已按
+  `--force` 批准并留档）；仅当外部代码直接编译 `storage-postgres` 模型头时
+  才是破坏性变更。
+
 ## [1.3.0] - 2026-08-22
 
 v1.2.0 以来的第三个正式发布，21 个 commit。双主线：**C1 客户端 SDK**

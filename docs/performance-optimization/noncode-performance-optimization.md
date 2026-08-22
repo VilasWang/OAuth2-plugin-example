@@ -3,7 +3,7 @@
 > **版本**: v1.1（2026-08-18：audit 降级拍板为 C 分区 + B BRIN 辅助，原则"不破坏功能正确性"；UNLOGGED 否决）
 > **日期**: 2026-08-18
 > **文档性质**: 优化方案与分析（仅非代码层：配置、依赖选型与版本、DB 实例与 schema、运行环境、构建、基准 SOP）
-> **数据基线**: 2026-08-17 四产品同 session 实测（`benchmarks/competitors/results/COMPARISON.md`）+ Phase 0 自测（`benchmarks/results/SUMMARY.md`）
+> **数据基线**: 2026-08-17 四产品同 session 实测（入仓快照 `benchmarks/competitors/results/20260817-03965fa-*.json`；`COMPARISON.md` 已被 2026-08-21 刷新覆盖，本文表内 08-17 数字以后者重跑为准做同向对比）+ Phase 0 自测（`benchmarks/results/SUMMARY.md`）
 > **范围声明**: 不含 C++ 应用代码改动。需要配套代码的项单列 §十（`is_fast` 即此类——开启需改造数据访问代码，不计入本方案收益预估）。
 
 ---

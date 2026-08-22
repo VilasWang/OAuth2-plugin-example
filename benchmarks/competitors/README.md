@@ -2,7 +2,8 @@
 
 Same-environment performance comparison of **AuthForge vs Keycloak / Ory
 Hydra / Zitadel**: same machine, same wrk staircase (2→128, warmup 5s /
-measure 10s), same PostgreSQL 15 backend, official recommended production
+measure 10s), same PostgreSQL 17 backend (15 until 2026-08-18; all products
+moved together — fairness rule D1), official recommended production
 configs per product. Methodology and fairness rules:
 [competitor-benchmark-design.md](../../docs/productization-evolution/in-progress/competitor-benchmark-design.md).
 Aggregated report: [results/COMPARISON.md](results/COMPARISON.md).
@@ -41,7 +42,7 @@ the port is free — run their `teardown.sh` before re-running them manually
 |---|---|---|---|
 | `keycloak/` | quay.io/keycloak/keycloak (see compose) | Basic (confidential client) | JVM: 60s setup warmup (D2 exemption); RT pool via ROPC + per-level `--reissue` |
 | `ory/` | ghcr.io/oryd/hydra (see compose) | Basic (public port 4444) | v26 production mode serves TLS on both ports (self-signed); user tokens via admin-API accept flow; introspect runs on admin port 4445 (annotated) |
-| `zitadel/` | ghcr.io/zitadel/zitadel (see compose) | **RFC 7523 jwt-bearer grant** (Service User + private key) | Token endpoint does NOT take client_credentials+client_assertion for machine users (v2.71) — grant-type equivalence annotated in COMPARISON.md; introspect auth = OIDC app + private-key JWT (client_assertion) via Management API (official perf guidance #6220); token pool carries the app's project-aud scope; S5 N/A (machine users get no RT per RFC 6749 §4.4.3, password grant removed) |
+| `zitadel/` | ghcr.io/zitadel/zitadel (see compose) | **RFC 7523 jwt-bearer grant** (Service User + private key) | Pinned at v4.17.1 (v2.71 was two majors behind; v4 is the perf rework Zitadel's own benchmarks measure). Token endpoint does NOT take client_credentials+client_assertion for machine users — grant-type equivalence annotated in COMPARISON.md; introspect auth = OIDC app + private-key JWT (client_assertion) via Management API (official perf guidance #6220); token pool carries the app's project-aud scope; S5 N/A (machine users get no RT per RFC 6749 §4.4.3, password grant removed) |
 
 Scenario coverage per product (S1/S2/S3/S5/S6; S4 excluded for all — design
 D4) is decided by the run-time smoke gates; anything undrivable is recorded

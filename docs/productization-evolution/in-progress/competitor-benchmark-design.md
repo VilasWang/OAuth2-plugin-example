@@ -254,7 +254,7 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 | AC5 | **诚实修订**：调研报告 §3.1 竞品列更新为"同环境实测"，§3.2 卖点若被证伪则收敛 | research.md 更新 | ✅（S5/S6 与 GC 抖动主张按实测收敛，见 §3.1/3.2 修订） |
 | AC6 | **S4 排除声明**：COMPARISON.md 注明 auth_code 场景的方法限制 | 限制小节 | ✅（附录 B.1） |
 
-### 实施勘误记录（v1.2，2026-08-17 落地时修订）
+### 实施勘误记录（v1.2，2026-08-17 落地时修订；v1.3 增补 2026-08-18 两项）
 
 实施过程中偏离本设计 v1.1 的决策，全部为公平性/可行性修正：
 
@@ -265,6 +265,8 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 5. **S5 Zitadel = N/A**（DG-2 提前裁决）：机器用户无 refresh token（RFC 6749 §4.4.3）、password grant 已移除、Session API→auth_code 属用户交互流（D4 同类排除理由）。限制小节注明。
 6. **docker-stats.sh 竖线 glob 回归修复**：bash 5.2 下 `case $x in $GLOB)`（GLOB 含 `|`）不再展开为多分支——AuthForge 侧 RSS 采样自 M0 参数化起一直空采；改为拆分逐个匹配。该回归同时解释了 v1.1 后 AuthForge RSS 数据缺失。
 7. **AuthForge S2 scope 跟随 #43**：seed 摒弃 legacy `read/write`，bench 校验与 s2 lua 改用 `tokens:read`（同码同测，非口径变化）。
+8. **（v1.3）四产品 PG 15 → 17 同步升级**（2026-08-18，f789bda）：设计基线为"与自测相同 tag 的 `postgres:15-alpine`"。偏离动机：D1 同环境公平——维持四产品同 PG 大版本；AuthForge 服务端 libpq 已是 17.x，client 17/server 15 的错位消除。AuthForge 自身 15 vs 17 A/B 在噪声带内（无自身吞吐诉求）。deploy/ 的 compose 与 Helm 同步到 17（存量卷升级 runbook 见 `docs/ops/postgresql-major-upgrade.md`，CHANGELOG 已标 BREAKING）。
+9. **（v1.3）AuthForge Redis 池 25 → 64**（2026-08-18，快赢 8838ac6）：设计 §5.2 连接池口径按 pool=25 对齐；实施时 cache-on 要求池 ≥ 预期并发（pool 20 时 S6 全连接超时 -18%），bench overlay 调至 64。竞品各按自家官方默认池口径运行（在 COMPARISON.md 公平性附录注明）。
 
 ---
 
