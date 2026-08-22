@@ -1618,7 +1618,7 @@ type ClientInterface interface {
 
 	// DeleteApiMeSocialLinksProvider Unlink Social Account
 	//
-	// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+	// Remove the current user's linked identity for a provider. Existing sessions issued through that provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
 	//
 	// Corresponds with DELETE /api/me/social/links/{provider} (the `DeleteApiMeSocialLinksProvider` operationId).
 	DeleteApiMeSocialLinksProvider(ctx context.Context, provider DeleteApiMeSocialLinksProviderParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3105,7 +3105,7 @@ func (c *Client) GetApiMeSocialLinks(ctx context.Context, reqEditors ...RequestE
 
 // DeleteApiMeSocialLinksProvider Unlink Social Account
 //
-// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+// Remove the current user's linked identity for a provider. Existing sessions issued through that provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
 //
 // Corresponds with DELETE /api/me/social/links/{provider} (the `DeleteApiMeSocialLinksProvider` operationId).
 func (c *Client) DeleteApiMeSocialLinksProvider(ctx context.Context, provider DeleteApiMeSocialLinksProviderParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -7610,7 +7610,7 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteApiMeSocialLinksProviderWithResponse Unlink Social Account
 	//
-	// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+	// Remove the current user's linked identity for a provider. Existing sessions issued through that provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -12512,7 +12512,7 @@ func (c *ClientWithResponses) GetApiMeSocialLinksWithResponse(ctx context.Contex
 
 // DeleteApiMeSocialLinksProviderWithResponse Unlink Social Account
 //
-// Remove the current user's linked identity for a provider. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
+// Remove the current user's linked identity for a provider. Existing sessions issued through that provider are NOT revoked -- they stay valid until natural expiry. The provider identity cannot be used for new sign-ins until it is linked to an account again. Refused with 409 when it is the user's last social link and the user has no usable password (last-credential guard). Requires the `profile` scope.
 //
 // Returns a wrapper object for the known response body format(s).
 //

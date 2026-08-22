@@ -198,6 +198,43 @@ TEST(SocialLinkServiceTest, Link_ExchangeFailed_TransportError)
     EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
 }
 
+// W2 (PR review): Google's login() reads .get("sub", "") -- a 200 userinfo
+// response missing the identifier must not reach insertLink (an empty
+// subject would permanently claim the UNIQUE(provider, '') slot).
+TEST(SocialLinkServiceTest, Link_GoogleMissingSub_ReturnsExchangeFailed)
+{
+    LinkServiceFixture f;
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gtok";
+    f.http->postFormResponses.push_back(okJson(tokenBody));
+    Json::Value userBody;  // no "sub" field
+    userBody["email"] = "x@example.com";
+    f.http->getResponses.push_back(okJson(userBody));
+
+    auto result = runLink(*f.svc, "google", "code-1", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::ExchangeFailed);
+    EXPECT_EQ(result.errorCode, "VALIDATION_INVALID_INPUT");
+}
+
+// W2: same guard for WeChat's .get("openid", "").
+TEST(SocialLinkServiceTest, Link_WeChatMissingOpenid_ReturnsExchangeFailed)
+{
+    LinkServiceFixture f;
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "wtok";
+    tokenBody["openid"] = "openid-1";  // token step ok...
+    f.http->getResponses.push_back(okJson(tokenBody));
+    Json::Value userBody;  // ...but userinfo lacks "openid"
+    userBody["nickname"] = "nick";
+    f.http->getResponses.push_back(okJson(userBody));
+
+    auto result = runLink(*f.svc, "wechat", "code-1", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::ExchangeFailed);
+    EXPECT_EQ(result.errorCode, "VALIDATION_INVALID_INPUT");
+}
+
 TEST(SocialLinkServiceTest, Link_AlreadyLinkedToSelf)
 {
     LinkServiceFixture f;
