@@ -68,8 +68,8 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | **独立文档站**（Docusaurus/VitePress） | ⬜ 未开始 | Phase 0 数据已落地，不再阻塞 | 选型 + 立项 |
 | **OpenAPI spec 治理**（Layer 1 前置） | ✅ 已完成 | PR #63 已合并（v1.2.0）：三层端点对账（82 路由=80 文档=78 YAML+例外）+ P0 schema 补齐 + `check_spec_governance.py` 一致性门（CI static-checks）+ oasdiff v1.29.1 破坏性变更门（openapi-governance.yml）+ info.version 联动 | 维护例外清单 |
 | **Python + Go 客户端 SDK**（C1） | ✅ 已实现（2026-08-18，待合并） | `clients/python`（openapi-python-client 0.29.0，25 单测）+ `clients/go`（oapi-codegen v2.8.0，单测 G1-G8）+ 漂移门 `tools/clients/regen_clients.py` + CI `clients-sdk.yml` + release.yml 发布接线（PyPI 步骤级 secret 门控 + Go 嵌套 tag）；发行名 `authforge-oauth2`（PyPI `authforge` 被占用）；顺带修 spec：OAuth2Error 枚举 +RFC 6750 两码 | PyPI 项目注册 + secret 配置（人工一次性）；发布后 AC7 冒烟 |
-| **README 性能徽章** | ⬜ 未开始 | Phase 0 数据已落地，可据实测标注 | 用 SUMMARY.md 实测数字 |
-| **首发技术博客 + 基准报告** | ⬜ 未开始 | Phase 0 数据已落地 | 用 SUMMARY.md 实测数字 |
+| **README 性能徽章** | ⬜ 未开始 | Phase 0 数据已落地，可据实测标注 | 用 COMPARISON.md 实测数字（2026-08-21 表，五场景领先） |
+| **首发技术博客 + 基准报告** | ⬜ 未开始 | Phase 0 数据已落地 | 用 COMPARISON.md 实测数字（2026-08-21 表，五场景领先） |
 | **TechEmpower 提交** | ⬜ 未开始 | Phase 0 数据已落地 | — |
 
 ### 2.3 Phase 2 — 企业版（IAM 缺口）
