@@ -56,11 +56,21 @@ void SocialLinkService::linkAccount(
 {
     auto sharedCb = std::make_shared<std::function<void(SocialLinkOpResult)>>(std::move(cb));
 
-    SocialLinkOpResult invalid;
-    invalid.status = SocialLinkOpStatus::InvalidProvider;
-    if (!isValidProvider(provider) || !accountRepo_)
+    // Split the two failure causes: an unsupported provider is a client
+    // error, a missing repository is a wiring defect that must surface as
+    // 500-class (NotConfigured), not as "unsupported provider" (#74).
+    if (!isValidProvider(provider))
     {
+        SocialLinkOpResult invalid;
+        invalid.status = SocialLinkOpStatus::InvalidProvider;
         (*sharedCb)(std::move(invalid));
+        return;
+    }
+    if (!accountRepo_)
+    {
+        SocialLinkOpResult unwired;
+        unwired.status = SocialLinkOpStatus::NotConfigured;
+        (*sharedCb)(std::move(unwired));
         return;
     }
 
@@ -240,11 +250,21 @@ void SocialLinkService::unlinkAccount(
 {
     auto sharedCb = std::make_shared<std::function<void(SocialLinkOpResult)>>(std::move(cb));
 
-    if (!isValidProvider(provider) || !accountRepo_)
+    // Same split as linkAccount (#74): unsupported provider -> client error;
+    // missing repository -> wiring defect (RepositoryError, 500-class --
+    // matching listAccounts' existing null-repo answer).
+    if (!isValidProvider(provider))
     {
-        SocialLinkOpResult result;
-        result.status = SocialLinkOpStatus::InvalidProvider;
-        (*sharedCb)(std::move(result));
+        SocialLinkOpResult invalid;
+        invalid.status = SocialLinkOpStatus::InvalidProvider;
+        (*sharedCb)(std::move(invalid));
+        return;
+    }
+    if (!accountRepo_)
+    {
+        SocialLinkOpResult unwired;
+        unwired.status = SocialLinkOpStatus::RepositoryError;
+        (*sharedCb)(std::move(unwired));
         return;
     }
 

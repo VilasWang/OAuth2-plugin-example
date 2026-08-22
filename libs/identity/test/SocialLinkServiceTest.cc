@@ -164,6 +164,29 @@ TEST(SocialLinkServiceTest, Link_NotConfigured_MissingProviderService)
     EXPECT_EQ(result.status, SocialLinkOpStatus::NotConfigured);
 }
 
+// #74: a missing account repository is a wiring defect, not a client error --
+// link answers NotConfigured (500-class), unlink answers RepositoryError
+// (matching listAccounts' existing null-repo answer).
+TEST(SocialLinkServiceTest, Link_NullAccountRepo_ReturnsNotConfigured)
+{
+    LinkServiceFixture f;
+    SocialLinkService unwired(f.github, f.google, f.wechat, nullptr);
+
+    auto result = runLink(unwired, "github", "code-1", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::NotConfigured);
+}
+
+TEST(SocialLinkServiceTest, Unlink_NullAccountRepo_ReturnsRepositoryError)
+{
+    LinkServiceFixture f;
+    SocialLinkService unwired(f.github, f.google, f.wechat, nullptr);
+
+    auto result = runUnlink(unwired, "github", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::RepositoryError);
+}
+
 TEST(SocialLinkServiceTest, Link_ExchangeFailed_TransportError)
 {
     LinkServiceFixture f;
