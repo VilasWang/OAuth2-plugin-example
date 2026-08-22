@@ -418,10 +418,19 @@ jobs:
 
       - name: Publish to PyPI
         if: github.ref_type == 'tag' && env.PYPI_API_TOKEN != ''
-        uses: pypa/gh-action-pypublish@release/v1
-        with:
-          packages-dir: clients/python/dist
-          attest: false # API-token auth; PEP 739 attestations need trusted publishing
+        # Plain twine, NOT pypa/gh-action-pypublish: the runner resolves
+        # every `uses:` reference during job setup (a step-level `if` does
+        # not prevent it), and this repo's action allowlist rejects pypa/* --
+        # which failed the whole job at "Set up job" on v1.3.0 and took the
+        # always-run version/build steps down with it. Token auth per PyPI's
+        # API-token scheme; attestations need trusted publishing and stay off.
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          pip install twine
+          twine check clients/python/dist/*
+          twine upload --non-interactive clients/python/dist/*
 
       - name: Publish skipped (setup hint)
         if: github.ref_type == 'tag' && env.PYPI_API_TOKEN == ''
