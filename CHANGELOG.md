@@ -10,6 +10,60 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-22
+
+v1.2.0 以来的第三个正式发布，21 个 commit。双主线：**C1 客户端 SDK**
+（PR #65：Python `authforge-oauth2` + Go —— openapi 生成面 + 手写认证层
+[client_credentials 自动刷新 / authorization_code+PKCE]，`regen_clients.py`
+漂移门 + `clients-sdk.yml` CI + release 发布接线）与 **B2 社交账号
+link/unlink**（PR #68：自助门户 `GET/POST/DELETE /api/me/social/links[/{provider}]`
+三端点 + identity 层 `SocialLinkService` 编排 + 最后凭证守卫 + user 门户
+Connected Accounts 卡片；含两轮评审修复轮）。纯增量 minor，无破坏性变更。
+
+### Added
+
+- **clients**: `regen_clients.py` —— SDK 再生成 + 漂移门工具（pin 生成器版本、
+  `--check`、pyproject↔cmake 版本联动校验）
+- **clients**: Python 客户端 SDK（M1）—— openapi-python-client 生成面 + 手写
+  认证层（client_credentials 自动刷新/401 重试、authorization_code+PKCE、
+  introspect Basic）
+- **clients**: Go 客户端 SDK（M2）—— oapi-codegen 生成面 + x/oauth2
+  clientcredentials（AuthStyleInHeader）+ authcode/PKCE
+- **identity**: `SocialLinkService` + `ISocialAccountRepository` link/unlink
+  仓储方法（listForUser 排除 `provider='local'` 种子行；27 单测）
+- **self-service**: `/api/me/social/links` 三端点（profile scope +
+  `WITH_SOCIAL` 条件注册；numeric-dispatch 用户解析使 GitHub 社交会话可用；
+  11 HTTP 集成测试 + 4 审计事件）
+- **openapi**: 社交链接端点入 spec + SDK 再生成（SocialLinkEntry/List/Result
+  schema；oasdiff 纯新增；v1.3.0 五处版本源同步）
+- **user-portal**: Connected Accounts 卡片 + GitHub link 回调分支（`state=link`
+  先于登录短路 + 整页往返后的会话恢复；6 e2e）
+
+### Fixed
+
+- **clients**: Go I3 处理生成 discovery 模型中指针类型的 Issuer
+- **clients**: m2m 客户端的收尾关闭路径（PR 评审）
+- **self-service**: link 仅接受 JSON body 的 `code`（不进访问日志）；unlink
+  响应补 `subject`
+- **identity**: `SocialLinkService` 空 repo 依赖与非法 provider 的状态分离
+  （装配缺陷 → 500 类，#74）
+- **social-links**: 独立评审轮 W1–W4 + S1–S4 —— link 分支防跌落登录（不再
+  自动开户）、Google/WeChat 空 subject 防护、openapi 披露解绑不吊销既有会话、
+  `linked_at` ISO-8601（Safari 可解析）、UNIQUE 冲突按约束名（locale 无关）判定
+
+### CI/Build
+
+- `clients-sdk.yml`（新）：PR 路径过滤的 SDK 漂移门 + 双语言单测；
+  `release.yml` 新增 sdk-python job（PyPI 发布 tag+secret 双门控——首发需
+  人工注册项目并配置 `PYPI_API_TOKEN`），github-release job 推送 Go 嵌套 tag
+  `clients/go/v<version>`（子目录模块对根 tag 不可见）
+
+### Test-infra
+
+- `drogon_macro_bool_check.py`：drogon `CHECK`/`REQUIRE` 宏内裸 `||`/`&&` 的
+  静态检查入 CI static-checks（#76，PR #77）；测试指南新增 [MUST] 断言书写
+  规范
+
 ## [1.2.0] - 2026-08-17
 
 v1.1.0 以来的第二个正式发布，61 个 commit。主线：#43 资源-作用域授权
