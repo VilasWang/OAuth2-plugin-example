@@ -1041,9 +1041,12 @@ void UserAdminService::updateUser(
                           Mapper<Users> updateMapper(db);
                           updateMapper.update(
                             rowLocal,
-                            [cb, req, id](const size_t) {
+                            [cb, req, id, publicSub = rowLocal.getValueOfPublicSub()](const size_t) {
+                                // Dual key form (UserReadCache contract): password-
+                                // flow tokens cache reads under public_sub, github-
+                                // flow tokens under the numeric id — DEL both.
                                 authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
-                                  std::to_string(id));
+                                  std::to_string(id), publicSub);
                                 auditFromRequest(req, "user_update", "success", "user", std::to_string(id));
                                 Json::Value json;
                                 json["status"] = "success";
@@ -1325,8 +1328,10 @@ void UserAdminService::disableUser(
                         Mapper<Users> updateMapper(db);
                         updateMapper.update(
                           row,
-                          [cb, userId](const size_t) {
-                              authforge::drogon::UserCacheInvalidator::instance().invalidateUser(userId);
+                          [cb, userId, publicSub = row.getValueOfPublicSub()](const size_t) {
+                              // Dual key form (UserReadCache contract) — see updateUser.
+                              authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                                userId, publicSub);
                               Json::Value json;
                               json["status"] = "success";
                               json["message"] = "User disabled successfully";
@@ -1398,14 +1403,16 @@ void UserAdminService::enableUser(
               row.setFailedLoginCount(0);
               try
               {
-                  Mapper<Users> updateMapper(db);
-                  updateMapper.update(
-                    row,
-                    [cb, userId](const size_t) {
-                        authforge::drogon::UserCacheInvalidator::instance().invalidateUser(userId);
-                        Json::Value json;
-                        json["status"] = "success";
-                        json["message"] = "User enabled successfully";
+                      Mapper<Users> updateMapper(db);
+                      updateMapper.update(
+                        row,
+                        [cb, userId, publicSub = row.getValueOfPublicSub()](const size_t) {
+                            // Dual key form (UserReadCache contract) — see updateUser.
+                            authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                              userId, publicSub);
+                            Json::Value json;
+                            json["status"] = "success";
+                            json["message"] = "User enabled successfully";
                         json["user_id"] = userId;
                         (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                     },
@@ -1575,8 +1582,10 @@ void UserAdminService::assignUserRoles(
         return;
     }
 
-    // Step 1: clear existing roles for the user (deleteBy). Step 2: resolve
-    // each requested role name to its id, then insert user_roles. The original
+    // Step 1: fetch the user row (404 semantics like updateUser/disableUser,
+    // plus the public_sub needed for dual-form cache invalidation). Step 2:
+    // clear existing roles for the user (deleteBy). Step 3: resolve each
+    // requested role name to its id, then insert user_roles. The original
     // used `INSERT INTO user_roles SELECT $1, id FROM roles WHERE name=$2`
     // (INSERT...SELECT) -- a documented batch pattern, but Mapper::insert can't
     // express it, so resolve names -> ids first (one findBy(In names)) then
@@ -1586,19 +1595,26 @@ void UserAdminService::assignUserRoles(
     // from the only active admin is a management-plane lockout — reject 409.
     bool keepsAdmin =
       std::find(roleNames.begin(), roleNames.end(), "admin") != roleNames.end();
-    auto proceedWithAssign = [cb, req, db, id, roleNames]() {
+
+    auto proceedWithAssign = [cb, req, db, id, roleNames](const std::string &publicSub) {
+        // Invalidate under BOTH subject forms (UserReadCache contract — see
+        // updateUser), and only at completion points AFTER a write: firing
+        // between the deleteBy and the inserts let a concurrent read refill
+        // the EMPTY role set and pin it for the roles TTL (120s).
+        auto invalidateCache = [id, publicSub]() {
+            authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+              std::to_string(id), publicSub);
+        };
         try
         {
             Mapper<UserRoles> urMapper(db);
             urMapper.deleteBy(
               Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, id),
-              [cb, req, db, id, roleNames](const size_t) {
-                  // Roles changed (cleared + re-inserted below): invalidate at
-                  // the deleteBy success so every completion path is covered.
-                  authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
-                    std::to_string(id));
+              [cb, req, db, id, roleNames, invalidateCache](const size_t) {
                   if (roleNames.empty())
                   {
+                      // Last write done (nothing to re-insert): invalidate now.
+                      invalidateCache();
                       Json::Value json;
                       json["status"] = "success";
                       json["message"] = "User roles updated successfully";
@@ -1614,12 +1630,13 @@ void UserAdminService::assignUserRoles(
                       Mapper<Roles> rMapper(db);
                       rMapper.findBy(
                         Criteria(Roles::Cols::_name, CompareOperator::In, roleNames),
-                        [cb, req, db, id, roleNames](const std::vector<Roles> &resolved) {
+                        [cb, req, db, id, roleNames, invalidateCache](const std::vector<Roles> &resolved) {
                             if (resolved.empty())
                             {
                                 // No requested names matched any role -- nothing inserted;
                                 // report success with empty assigned set (preserves
                                 // original "skip unknown role" behavior).
+                                invalidateCache();
                                 Json::Value json;
                                 json["status"] = "success";
                                 json["message"] = "User roles updated successfully";
@@ -1646,7 +1663,8 @@ void UserAdminService::assignUserRoles(
                                     Mapper<UserRoles> insMapper(db);
                                     insMapper.insert(
                                       row,
-                                      [cb, req, remaining, assigned, mu, name = r.getValueOfName(), id](
+                                      [cb, req, remaining, assigned, mu, name = r.getValueOfName(), id,
+                                       invalidateCache](
                                           const UserRoles &
                                       ) {
                                           {
@@ -1655,6 +1673,8 @@ void UserAdminService::assignUserRoles(
                                           }
                                           if (remaining->fetch_sub(1) == 1)
                                           {
+                                              // All inserts done: invalidate now.
+                                              invalidateCache();
                                               Json::Value json;
                                               json["status"] = "success";
                                               json["message"] = "User roles updated successfully";
@@ -1671,9 +1691,12 @@ void UserAdminService::assignUserRoles(
                                               (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
                                           }
                                       },
-                                      [cb, req, remaining](const ::drogon::orm::DrogonDbException &e) {
+                                      [cb, req, remaining, invalidateCache](const ::drogon::orm::DrogonDbException &e) {
                                           if (remaining->fetch_sub(1) == 1)
                                           {
+                                              // Partial state persisted: invalidate so
+                                              // the cache does not pin the pre-change set.
+                                              invalidateCache();
                                               respondError(
                                                 req,
                                                 cb,
@@ -1689,6 +1712,7 @@ void UserAdminService::assignUserRoles(
                                     LOG_ERROR << "assignUserRoles: insert Mapper construction failed";
                                     if (remaining->fetch_sub(1) == 1)
                                     {
+                                        invalidateCache();
                                         respondError(
                                           req, cb, "DB_QUERY_ERROR",
                                           "Failed to construct insert Mapper"
@@ -1697,7 +1721,10 @@ void UserAdminService::assignUserRoles(
                                 }
                             }
                         },
-                        [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                        [req, cb, invalidateCache](const ::drogon::orm::DrogonDbException &e) {
+                            // Roles were already cleared above — invalidate so the
+                            // cache does not pin the pre-change role set.
+                            invalidateCache();
                             respondError(
                               req,
                               cb,
@@ -1709,6 +1736,8 @@ void UserAdminService::assignUserRoles(
                   }
                   catch (...)
                   {
+                      // Same as the findBy error above: the clear already happened.
+                      invalidateCache();
                       respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct roles Mapper");
                   }
               },
@@ -1728,29 +1757,47 @@ void UserAdminService::assignUserRoles(
         }
     };
 
-    if (keepsAdmin)
+    try
     {
-        proceedWithAssign();
-        return;
-    }
-    isLastActiveAdmin(
-      db,
-      id,
-      [proceedWithAssign, cb, req](bool lastAdmin) {
-          if (lastAdmin)
-          {
-              respondError(
-                req, cb, "VALIDATION_RESOURCE_CONFLICT",
-                "Cannot remove the admin role from the last active admin"
+        Mapper<Users> usersMapper(db);
+        usersMapper.findOne(
+          Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
+            Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [cb, req, db, id, keepsAdmin, proceedWithAssign](Users row) {
+              std::string publicSub = row.getValueOfPublicSub();
+              if (keepsAdmin)
+              {
+                  proceedWithAssign(publicSub);
+                  return;
+              }
+              isLastActiveAdmin(
+                db,
+                id,
+                [proceedWithAssign, publicSub, cb, req](bool lastAdmin) {
+                    if (lastAdmin)
+                    {
+                        respondError(
+                          req, cb, "VALIDATION_RESOURCE_CONFLICT",
+                          "Cannot remove the admin role from the last active admin"
+                        );
+                        return;
+                    }
+                    proceedWithAssign(publicSub);
+                },
+                [cb, req]() {
+                    respondError(req, cb, "DB_QUERY_ERROR", "Failed to evaluate last-admin guard");
+                }
               );
-              return;
+          },
+          [req, cb](const ::drogon::orm::DrogonDbException &) {
+              respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "User not found");
           }
-          proceedWithAssign();
-      },
-      [cb, req]() {
-          respondError(req, cb, "DB_QUERY_ERROR", "Failed to evaluate last-admin guard");
-      }
-    );
+        );
+    }
+    catch (...)
+    {
+        respondError(req, cb, "DB_QUERY_ERROR", "Failed to construct users Mapper");
+    }
 }
 
 // Last-active-admin guard (#60 item 2). True = target IS an active admin and

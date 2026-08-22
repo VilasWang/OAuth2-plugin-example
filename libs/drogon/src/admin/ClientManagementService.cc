@@ -505,6 +505,10 @@ void ClientManagementService::resetClientSecret(
           updateMapper.update(
             row,
             [cb, clientId, newSecret](const size_t) {
+                // Secret AND salt rotated: drop the cached client row or the
+                // OLD secret stays trusted (and the new one 401s) for up to
+                // the cache TTL (300s). Same contract as update/delete below.
+                authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
                 Json::Value json;
                 json["status"] = "success";
                 json["message"] = "Client secret reset successfully";
@@ -615,13 +619,22 @@ void ClientManagementService::updateClientScopes(
     // same Mapper<T> API -- the only raw-SQL exemption here would be none; we
     // use Mapper deleteBy + insert on the transaction connection).
     auto transaction = db->newTransaction();
+    // Invalidation must fire AFTER the commit, not after the last statement:
+    // a DEL issued pre-commit lets a concurrent validateClient miss read the
+    // OLD allowedScopes (cached row includes them) and refill the cache with
+    // the stale set for a full TTL. The commit callback fires when the
+    // transaction actually commits; a rolled-back one skips the DEL (nothing
+    // changed → the cached state is still correct).
+    transaction->setCommitCallback([clientId](bool committed) {
+        if (committed)
+            authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
+    });
     Mapper<Oauth2ClientScopes> mapper(transaction);
     mapper.deleteBy(
       Criteria(Oauth2ClientScopes::Cols::_client_id, CompareOperator::EQ, clientId),
       [cb, req, clientId, scopes, transaction](const size_t) {
           if (scopes.empty())
           {
-              authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
               Json::Value json;
               json["status"] = "success";
               json["message"] = "Scopes updated";
@@ -649,9 +662,9 @@ void ClientManagementService::updateClientScopes(
                     }
                     if (remaining->fetch_sub(1) == 1)
                     {
-                        // All inserts done → the transaction's last statement
-                        // succeeded; invalidate before reporting success.
-                        authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
+                        // All inserts done. Invalidation defers to the commit
+                        // callback registered above; the response goes out now
+                        // (same ordering as before relative to the caller).
                         Json::Value json;
                         json["status"] = "success";
                         json["message"] = "Scopes updated";

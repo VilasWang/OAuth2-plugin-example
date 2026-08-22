@@ -588,7 +588,7 @@ void GitHubController::createNewLinkedUser(
       "INSERT INTO users (username, password_hash, salt, email, email_verified) "
       "VALUES ($1, $2, '', $3, true) "
       "ON CONFLICT (username) DO NOTHING "
-      "RETURNING id",
+      "RETURNING id, public_sub",
       [this, req, callbackPtr, db, provider, subject, username](const ::drogon::orm::Result &userResult) {
           // DO NOTHING on conflict → empty result; check BEFORE indexing
           // (Result::operator[](0) on an empty Result is UB).
@@ -603,6 +603,7 @@ void GitHubController::createNewLinkedUser(
               return;
           }
           int32_t userId = userResult[0]["id"].as<int32_t>();
+          std::string publicSub = userResult[0]["public_sub"].as<std::string>();
           // Create subject mapping.
           // Guard: runs inside the execSqlAsync success callback; caller's
           // try/catch cannot reach it.
@@ -614,7 +615,7 @@ void GitHubController::createNewLinkedUser(
               mapping.setProvider(provider);
               Mapper<Oauth2SubjectMappings>(db).insert(
                 mapping,
-                [this, req, callbackPtr, db, userId](const Oauth2SubjectMappings &) {
+                [this, req, callbackPtr, db, userId, publicSub](const Oauth2SubjectMappings &) {
                     // Assign default 'user' role. Best-effort (a role-grant
                     // failure must not block login), but LOUD: this insert
                     // previously set ONLY user_id — role_id is NOT NULL with
@@ -628,7 +629,7 @@ void GitHubController::createNewLinkedUser(
                         issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
                     };
                     auto grantRole =
-                      [db, userId, issueTokens](int32_t roleId) {
+                      [db, userId, publicSub, issueTokens](int32_t roleId) {
                           UserRoles ur;
                           ur.setUserId(userId);
                           ur.setRoleId(roleId);
@@ -636,9 +637,13 @@ void GitHubController::createNewLinkedUser(
                           {
                               Mapper<UserRoles>(db).insert(
                                 ur,
-                                [issueTokens, userId](const UserRoles &) {
+                                [issueTokens, userId, publicSub](const UserRoles &) {
+                                    // Dual key form (UserReadCache contract): the
+                                    // empty-roles entry a concurrent read may have
+                                    // cached between user-create and this grant is
+                                    // keyed by either subject form.
                                     authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
-                                      std::to_string(userId));
+                                      std::to_string(userId), publicSub);
                                     issueTokens();
                                 },
                                 [issueTokens](const ::drogon::orm::DrogonDbException &e) {
