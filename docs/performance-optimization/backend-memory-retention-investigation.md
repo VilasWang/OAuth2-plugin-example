@@ -1,48 +1,60 @@
-# Backend 内存留存调查报告（discovery 路径无界泄漏）
+# Backend 内存留存调查报告（终局：drogon session 留存，非泄漏）
 
-> 日期：2026-08-22 · 分支 `feat/competitor-benchmark` · 性质：**只调查，未修复**
-> 起因：正式对比表（2026-08-21）中 AuthForge 全栈 RSS 5,350 MiB 四家最重，破案发现 backend 容器均值 4,711 MiB 才是大头 —— 本调查定位其机制。
+> 日期：2026-08-22（终局改写）· 分支 `feat/competitor-benchmark` · **结论性质：机制定谳 + 缓解交付 + 根修路径已录**
+> 起因：正式对比表（2026-08-21）中 AuthForge 全栈 RSS 5,350 MiB 四家最重，破案发现 backend 容器均值 4,711 MiB 才是大头。
+> ⚠️ **本报告早前版本称"无界泄漏"——终局证据推翻该定性：留存完全由 session TTL 有界，淘汰机制正常。** 早前定性错误的原因：3600s TTL 远大于所有测试时程（最长 3 分钟），TTL 内零衰减与"永不衰减"在观察窗内不可区分。
 
 ## 1. 结论（TL;DR）
 
-**discovery 路径存在真实的无界内存泄漏：约 730 字节/请求，永不释放、永不饱和。** 三场连续 60s c128 风暴后 backend worker RSS 线性爬升 3.91 → 7.48 → 10.97 GB。正式对比表的"全栈最重 5,350 MiB"本质是**这个泄漏在 S1 风暴后的直接读数**（会话脚本 S1 先于 S2，S2 观测窗读到的是泄漏后的 backend）—— **修复此泄漏 = 全栈 RSS 回到 ~1.1 GB 级（低于 Keycloak 1.75GB）**，"最重栈"警示可摘。
+**根因**：drogon 上游设计行为（[drogon#278](https://github.com/an-tao/drogon/issues/278)）——`enable_session: true` 时每个**不带会话 cookie** 的请求都会创建一个 Session 并在 SessionManager 的 CacheMap 中持有到 `session_timeout` 到期。OAuth2 服务器的机器流量（token/introspect/userinfo/discovery）全都不带 cookie，因此按请求付费。
 
-## 2. 证据链
+**实测代价**（真实构建，2026-08-22）：
+- 留存 = **~1.1 KB/请求**，稳态常驻 = `API_QPS × session_timeout × 1.1 KB`
+- discovery 吞吐税 = **~-24%**（同窗口 OFF/ON/OFF 三连对照：30.6k → 23.2k → 30.2k QPS；与 TTL 无关，开 session 即存在）
+- 对比表的 5,350 MiB = S1 风暴（540 万请求）后读到的 session 留存（backend 4.7 GB）
+
+**已交付缓解**：bench 档 `session_timeout: 30`（e13041f）—— 留存封顶 `QPS×30×1.1KB`（85k QPS 下 ~2.8 GB），交互流语义无损（S4 全阶梯验证）。**生产指引**（带验证公式的尺寸速查表）见 `docs/ops/deployment.md` §性能调优-3。**根修路径**（上游惰性/按路径建 session）录于 `upstream-drogon-session-issue.md`（待 gh 认证恢复后发 issue）。
+
+## 2. 证据链（终局版）
 
 | 步骤 | 观测 | 推论 |
 |---|---|---|
-| 基线（空闲，setup 后） | worker（fork 子进程，26 线程）VmRSS **17.5 MB** | 干净起点 |
-| S1 风暴中（c128×60s，~85k QPS） | t+15s: 1.48GB → t+35s: 2.71GB → t+65s: 3.93GB | ~65 MB/s 恒定增长 |
-| 风暴后 30s / 90s | RSS **纹丝不动**（3,933,848 kB 整） | 不是延迟释放，是永久留存 |
-| 量化 | (3.93GB−17MB) ÷ 5.39M 请求 ≈ **730 B/请求** | 每请求常数留存 |
-| `/proc/8/smaps` 分解 | 3,806 MiB 匿名私有脏页；直方图 **70 个 ≈64MB 段（合计 3.39GB）** + 10 个 32-63MB | glibc 每线程 arena 的典型停放布局（26 线程 → glibc 上限 8×8 核+main ≈ 70 arena），是**停放位置**不是根因 |
-| 诊断臂 `MALLOC_ARENA_MAX=2` | RSS 减半至 1.83GB，**但吞吐也减半（85k→40k QPS，arena 锁竞争）**；1.83GB÷2.49M 请求 ≈ 同样 730 B/请求 | ① capping 非修复方案；② 留存主体随**请求数**而非 arena 数缩放 → 真实累积，非碎片 |
-| 三连风暴（同栈不重置） | 3.91 → 7.48 → 10.97 GB 线性 | **无界**——不是有界缓存，是泄漏；长跑必 OOM |
+| S1 风暴（c128×60s） | worker 17.5 MB → 3.93 GB；风暴后 90s 零衰减 | 每请求留存 ≈730B（真机构建），观察窗内不释放 |
+| 三连风暴 | 3.91 → 7.48 → 10.97 GB 线性 | 窗口内无界（但 < TTL 时程，见终局修正） |
+| `/proc/smaps` | 3.8 GB 全匿名脏页，70×64MB glibc arena 段 | arena 停放布局（非根因） |
+| `MALLOC_ARENA_MAX=2` 诊断 | RSS 减半、吞吐也减半、每请求留存率不变 | 真累积非碎片；capping 非修复 |
+| 404 路径风暴 | 同样按请求留存 | 框架级机制，非控制器代码 |
+| **LSan（USR1 钩子）** | 41.5 万请求后**仅 48 字节不可达泄漏** | 留存全部"可达" = 活容器持有 |
+| **ASan 活堆剖面** | `SessionManager::getSession` 655,245 次分配 = **每请求恰好 1 个 Session**（128B/对象，加上关联状态 ~590B/请求活堆） | 定位到 drogon session 机制 |
+| 配置核查 | 全配置模板 `enable_session: true, session_timeout: 3600` | TTL 远大于测试时程 → 观察窗内像无界 |
+| **TTL=120 + 130s idle 二次剖面** | 活堆 **106 MB → 14.9 MB 塌缩** | **淘汰正常工作，留存完全 TTL 有界 —— "泄漏"定性推翻** |
+| 真机构建 OFF/ON/OFF 同窗口三连 | 30.6k / 23.2k / 30.2k QPS | session 机制吞吐税 -24%（任意 TTL） |
 
-## 3. 影响面判定
-
-- **S1 专属**：先跑 S2 的会话里 backend 只有 ~270-300MB（本次三臂 A/B 的 TSV 实测）——泄漏在 discovery 请求路径（或其独有中间件），不在 token/introspect/userinfo 路径。
-- **生产风险**：discovery 是高频无状态端点，~730B/请求意味着每天亿次级 discovery 请求的服务会以 GB/小时 级泄漏 —— **这是个必须修的生产 bug**，不止是基准数字问题。
-- **对比表口径**：D7 数字被泄漏污染（backend 读数=泄漏量）—— 修复后需重刷正式表（或至少 RSS 节）。
-
-## 4. 候选泄漏点（未验证，供修复立项）
-
-discovery 路径每请求的分配链：HttpRequest/HttpResponse、**DiscoveryController 每请求重建 ~40 字段 JSON 文档**（`DiscoveryController.cc:120-188`）、Json::Value 树、字符串拷贝。~730B/请求的量级与"一个小 JSON 对象树或一个 shared_ptr 控制块 + 字符串"相符。定位手段（按性价比）：
-1. **Valgrind leak-check mini-run**（valgrind 构建 + c8×10s 小风暴 + `--leak-check=full`）—— 直接给出分配栈，一步定谳；
-2. 代码审查 discovery 链上的 static/全局累积（metrics label map、request-id、任何 per-request 插入却无淘汰的容器）；
-3. ASan 构建（leak sanitizer）跑同样 mini 风暴。
-
-## 5. 附：调查过程踩的坑（已入记忆）
-
-- **gdb `call malloc_stats()` 打死了多线程活进程**（26 线程 ptrace 停停态下碰 malloc 锁）—— 监督进程自动重生了 worker（进程弹性顺带得到验证）；此后改用零侵入的 /proc/smaps 解析。
-- `docker ps --filter ancestor=<image>` 在共享镜像时会把 bench backend 一并圈进来（误停一次，`docker start` 恢复）。
-- busybox awk 无 `strtonum` —— smaps 解析拉到宿主机用 python。
-
-## 6. 状态
+## 3. 处置清单（全部落地）
 
 | 项 | 状态 |
 |---|---|
-| 复现 + 量化（730B/req、无界、零衰减） | ✅ 本报告 |
-| 机制层（arena 停放 vs 真累积） | ✅ 诊断为真累积（capping 实验排除碎片主导） |
-| 泄漏点定位（文件:行） | ⬜ 待修复立项（§4 手段） |
-| 修复 + 重刷对比表 RSS 节 | ⬜ 依赖定位 |
+| 机制定谳 + 量化（1.1KB/req、公式、-24% 税） | ✅ 本报告 |
+| bench 档 TTL=30（净两行，e13041f；含对前版 135MB 算术错误的公开更正） | ✅ |
+| S4 语义验证（TTL 下登录/authcode 全阶梯 err 与历史一致） | ✅ |
+| 部署文档调优指引（验证版：公式 + 尺寸速查表 + 分档建议） | ✅ deployment.md §性能调优-3 |
+| 根修路径记录（上游 issue 正文备妥） | ✅ `upstream-drogon-session-issue.md`（gh 认证恢复后一键发） |
+| 四产品对比表重刷（RSS 节将大幅回落） | ⬜ 待良好机器窗口（TTL=30 档） |
+| research.md "全栈最重"警示更新 | ⬜ 随对比表重刷一并 |
+
+## 4. 附：调查过程踩的坑（全部已入记忆）
+
+- gdb `call malloc_stats()` 打死过多线程活进程（监督进程自动重生验证了进程韧性）；
+- **LSan 拒绝在 ptrace 下运行且为致命错误**（会 abort 被测进程）—— 改用 `#ifdef AUTHFORGE_LEAK_DIAG` 的 SIGUSR1 钩子（`main.cc`，随诊断设施入库）；
+- worker 的 SIGTERM/SIGINT 优雅退出在 ASan 下 SEGV/system_error（trantor 关闭期竞态，又一独立待查项）；空 `redis_clients` 时 HealthController 空指针 SEGV（待查项）；
+- Windows Docker 把不存在的挂载源自动建为**目录**；
+- 实验方法论：跨臂对照必须同窗口背靠背 + 负控（本轮 OFF/ON/OFF 三连即此范式）；观察窗必须覆盖 TTL 边界再下"永不衰减"结论。
+
+## 5. 状态
+
+| 项 | 状态 |
+|---|---|
+| 根因（机制级 + 配置级） | ✅ 定谳 |
+| 缓解（bench 档 + 生产指引） | ✅ 交付 |
+| 根修（上游惰性 session） | 📋 已录，blocked on upstream |
+| 对比表重刷 + 警示更新 | ⬜ 待机器窗口 |
