@@ -19,7 +19,7 @@
             "client_encoding": "",
             "number_of_connections": 4,
             "timeout": 60.0,
-            "auto_batch": false,
+            "auto_batch": true,
             "connect_options": {
                 "statement_timeout": "5s"
             }
@@ -210,18 +210,11 @@
                         "client_type": "PUBLIC",
                         "secret": "123456",
                         "redirect_uri": "http://127.0.0.1:5173/callback,http://127.0.0.1:8080/callback",
-                        "allowed_scopes": [
-                            "openid",
-                            "profile",
-                            "email"
-                        ]
+                        "allowed_scopes": ["openid", "profile", "email"]
                     }
                 },
                 "admin_users": {
-                    "admin": [
-                        "admin",
-                        "user"
-                    ]
+                    "admin": ["admin", "user"]
                 },
                 "tokens": {
                     "auth_code_ttl": 600,
