@@ -41,10 +41,10 @@
     "app": {
         "number_of_threads": 0,
         "enable_session": true,
-        "session_timeout": 3600,
+        "session_timeout": 120,
         "session_same_site": "Lax",
         "session_cookie_key": "JSESSIONID",
-        "session_max_age": 3600,
+        "session_max_age": 120,
         "document_root": "./",
         "home_page": "index.html",
         "use_implicit_page": false,
