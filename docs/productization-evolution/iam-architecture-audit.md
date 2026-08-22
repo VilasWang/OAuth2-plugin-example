@@ -402,7 +402,7 @@ audit_logs (
 
 | 缺失项 | 验证方式 |
 |--------|----------|
-| ~~社交账号关联 link/unlink~~ | ✅ 2026-08-21 已实现（B2）：`GET/POST/DELETE /api/me/social/links[/{provider}]` + identity 层 `SocialLinkService` + 最后凭证守卫（分支 `feat/social-link-unlink`） |
+| ~~社交账号关联 link/unlink~~ | ✅ 2026-08-21 已实现（B2）：`GET/POST/DELETE /api/me/social/links[/{provider}]` + identity 层 `SocialLinkService` + 最后凭证守卫（PR #68 已合并） |
 | 登录历史 | 无 |
 | 活跃会话管理 | 无"查看/吊销我的所有会话" |
 | 个人审计日志 | 无 |
