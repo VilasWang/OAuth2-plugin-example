@@ -60,6 +60,15 @@ jobs:
           chmod +x tools/test/scripts/naming_validator.sh
           ./tools/test/scripts/naming_validator.sh tests
 
+      - name: Check drogon CHECK/REQUIRE boolean operands
+        # Bare `a || b` at the top level of a CHECK/REQUIRE argument
+        # re-associates under drogon's Decomposer macro and silently
+        # mis-evaluates (#76). Wrap in (bool)(...) or split the assertion.
+        run: |
+          chmod +x tools/test/scripts/drogon_macro_bool_check.py
+          python3 tools/test/scripts/drogon_macro_bool_check.py --selftest
+          python3 tools/test/scripts/drogon_macro_bool_check.py tests
+
       - name: Check manage.sh / manage.ps1 command parity
         run: |
           chmod +x tools/manage-parity-check.sh
