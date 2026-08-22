@@ -46,6 +46,39 @@
 
 > 安全测试用例数、功能测试用例数与覆盖清单见各目录下的测试文件头注释；本节不再硬编码具体数量（数量随迭代增长，统一以 §7 的实测统计为准）。
 
+### DROGON_TEST 断言书写规范 — `CHECK`/`REQUIRE` 内禁止裸布尔运算符 [#MUST]
+
+drogon 的 `CHECK`/`REQUIRE` 是**宏不是函数**：`CHECK_INTERNAL__` 把表达式展开为
+`(drogon::test::internal::Decomposer() <= expr)`，而宏实参替换不加括号，所以**裸写的
+`a || b`（或 `a && b`）会重结合成 `(Decomposer() <= a) || b`**——结果静默错误，症状像
+"断言随机挂"。真实案例（PR #68 调试）：`CHECK(body.isMember("error") || body.isMember("code"))`
+失败，但 `LOG_INFO` 打出的原始 body 里明明有 `error` 键。
+
+**规则**：`CHECK(...)`/`REQUIRE(...)` 的顶层实参里出现 `||`/`&&` 时，必须满足其一：
+
+```cpp
+// ✅ 拆成两条断言（首选——失败信息更精确）
+CHECK(body.isMember("error"));
+CHECK(body.isMember("code"));
+
+// ✅ 整体加括号（外层括号让链式表达式作为一个操作数绑定到 <=）
+CHECK((a != std::string::npos || b != std::string::npos));
+
+// ✅ 仓库既有先例：显式 (bool) 转换（tests/e2e-backend/oauth2_flows/FunctionalTest.cc）
+CHECK((bool)(response.find("code=") != std::string::npos ||
+             response.find("error") != std::string::npos));
+
+// ❌ 禁止：裸顶层布尔链（宏展开后语义被破坏）
+CHECK(body.isMember("error") || body.isMember("code"));
+```
+
+说明：运算符嵌套在**调用/下标/子表达式括号内**（如 `CHECK(f(a || b))`、`CHECK(x == (a || b))`）
+不受影响——它在绑定给 `<=` 之前已求值。`CHECK_THROWS`/`REQUIRE_THROWS` 系列走 `EVAL__`
+路径，也不受影响。
+
+**CI 强制**：`tools/test/scripts/drogon_macro_bool_check.py` 扫描 `tests/` 树并对违规
+报错（static-checks 步骤，与命名规范检查并列）；`--selftest` 可自验。
+
 ### Level 4 补充明细 — 安全测试 (Security Tests)
 
 | 测试文件 | 覆盖范围 | 测试数量 |
