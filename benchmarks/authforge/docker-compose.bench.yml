@@ -38,9 +38,14 @@ services:
     image: postgres:17-alpine
     command:
       - postgres
-      # --- memory (16GB host reference: ~25% shared_buffers) ---
+      # --- memory ---
+      # 4GB (16GB-host tuning guidance) walked back to 1GB after the
+      # 2026-08-22 3-arm A/B (results/sb-*): 1GB ~= 4GB within noise on every
+      # scenario (the '128MB faster' signal was disproven by the S6 negative
+      # control), and shared_buffers barely materializes at bench scale
+      # anyway (PG container ~0.4-0.5GB either way).
       - -c
-      - shared_buffers=4GB
+      - shared_buffers=1GB
       - -c
       - effective_cache_size=12GB
       - -c
