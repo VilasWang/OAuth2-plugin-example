@@ -1,6 +1,6 @@
 # 竞品同环境性能对比（COMPARISON）
 
-> 生成时间：2026-08-21 15:36 UTC · 生成器：`benchmarks/reporting/gen-comparison.py`（无手填数字，全部溯源到入仓 JSON）
+> 生成时间：2026-08-22 12:51 UTC · 生成器：`benchmarks/reporting/gen-comparison.py`（无手填数字，全部溯源到入仓 JSON）
 > 设计与方法论：`docs/productization-evolution/in-progress/competitor-benchmark-design.md`
 
 ## 环境与版本
@@ -8,9 +8,9 @@
 | 产品 | 版本 |
 |---|---|
 | AuthForge | git 34c5017 |
-| Keycloak | 26.7.1 (git 34c5017) |
-| Ory Hydra | v26.2.0 (git 34c5017) |
-| Zitadel | v4.17.1 (git 34c5017) |
+| Keycloak | 26.7.1 |
+| Ory Hydra | v26.2.0 |
+| Zitadel | v4.17.1 |
 
 同一台机器（WSL2 8 vCPU / 16GB）、同一 wrk 4.1.0 阶梯（2→128，warmup 5s / measure 10s）、同一 PostgreSQL 17 后端、串行执行、每家之间 `docker compose down -v` 清场。连接池：三家竞品按各自官方机制对齐到 25（D1，见附录 A）；AuthForge 使用自家 bench 调优档（池 64/64、cache on、auto_batch、reuse_port，构建用 opt-in LTO preset——即仓库文档化的性能优化后推荐基准档，非隐藏调优）。
 

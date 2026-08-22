@@ -56,7 +56,9 @@ def load_json(path: Path):
 
 
 def parse_mem_mib(s: str) -> float:
-    m = re.match(r"([\d.]+)\s*([KMGT]i?B)", s.strip())
+    # docker stats may print a bare "B" suffix (values < 1 KiB) — accept it
+    # instead of silently reporting 0.
+    m = re.match(r"([\d.]+)\s*([KMGT]i?B|B)", s.strip())
     if not m:
         return 0.0
     val = float(m.group(1))
@@ -202,8 +204,11 @@ def version_of(product: str, data: dict) -> str:
             env = d.get("env", {})
             if product == "authforge":
                 return f"git {env.get('git_sha', '?')}"
-            v = env.get("product_version") or "?"
-            return f"{v} (git {env.get('git_sha', '?')})"
+            # Competitor rows: product_version only. env['git_sha'] is
+            # AuthForge's HEAD (the runner's repo), never the competitor's
+            # revision — printing it as "Keycloak (git <authforge sha>)"
+            # misattributes the build.
+            return env.get("product_version") or "?"
     return "?"
 
 

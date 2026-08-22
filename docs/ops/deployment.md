@@ -713,8 +713,9 @@ S4 登录/authcode 全阶梯在 120s 下验证通过，机制与 TTL 大小无�
 - API 流量可观的部署：按上表把 `session_timeout`（与 `session_max_age` 同步）
   调到公式可承受档；2 分钟 idle 过期对浏览器 SSO 体验的影响可接受（OIDC
   惯例 idle 窗口常见 5-15 分钟，向下兼容）。
-- 基准档采用 30s（`config.bench.json`，`QPS × 30 × 1.1 KB` 封顶）。
-- **注**：吞吐税（~-24% discovery）与 TTL 无关、开 session 即存在；根修
+- 基准档采用 30s（`config.bench.json`，`QPS × 30 × 750 B` 封顶）。
+- **注**：吞吐税（生产构建 ~-54% discovery；ASan 构建曾测得 -24%，系插装
+  压低基线所致的低估）与 TTL 无关、开 session 即存在；根修
   需上游惰性/按路径建 session（跟踪：`docs/performance-optimization/upstream-drogon-session-issue.md`）。
 
 ### 4. Docker 网络拓扑（原生引擎可选；Docker Desktop 下不可用）

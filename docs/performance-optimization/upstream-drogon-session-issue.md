@@ -1,8 +1,11 @@
 # [待发 issue] drogon session retention: every cookie-less request creates a Session held for session_timeout
 
-> 状态：正文已备好 —— gh 凭据恢复后执行：
-> `gh issue create --title "drogon session retention: every cookie-less request creates a Session held for session_timeout (memory + throughput tax)" --body-file docs/performance-optimization/upstream-drogon-session-issue.md`
-> （2026-08-22：gh keyring 与 GITHUB_TOKEN 均失效待 `gh auth login`）
+> 状态：2026-08-22 尝试提交被拒 —— 当前 GITHUB_TOKEN 是细粒度 PAT（仅授权本仓库），
+> 对 drogonframework/drogon 报 `Resource not accessible by personal access token (createIssue)`。
+> 解法（二选一）：① 换 classic PAT（`public_repo` scope）或细粒度 PAT 选 "All repositories" + Issues 写权限；
+> ② 取消 GITHUB_TOKEN 环境变量后 `gh auth login`（设备流，注意 env var 会遮蔽 keyring 凭据）。
+> 提交命令（正文须跳过本备注块，从 `## Summary` 起）：
+> `tail -n +7 docs/performance-optimization/upstream-drogon-session-issue.md > /tmp/issue-body.md && gh issue create --repo drogonframework/drogon --title "drogon session retention: every cookie-less request creates a Session held for session_timeout (memory + throughput tax)" --body-file /tmp/issue-body.md`
 
 ## Summary
 

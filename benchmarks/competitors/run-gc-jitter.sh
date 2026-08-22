@@ -92,7 +92,7 @@ print(json.dumps({
     "error_rate": err,
 }))
 PY
-        echo "  seg $((i + 1))/$SEGMENTS  p99=$(python3 -c 'import json;print((json.loads(open(0).read())["p99_us"] or 0)/1000)' <"$WRK_OUT.json" 2>/dev/null || echo '?')ms"
+        echo "  seg $((i + 1))/$SEGMENTS  p99=$(python3 -c 'import json;d=json.loads(open(0).read());print((((d.get("latency_us") or {}).get("p99")) or 0)/1000)' <"$WRK_OUT.json" 2>/dev/null || echo '?')ms"
     else
         FAILS=$((FAILS + 1))
         echo "  seg $((i + 1))/$SEGMENTS  FAILED (no parseable output)"
