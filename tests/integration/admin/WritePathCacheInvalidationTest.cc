@@ -193,7 +193,7 @@ bool waitForRecord(std::shared_ptr<RecordingSink> sink, const std::string &needl
 // public_sub. A numeric-only DEL is a silent no-op against every
 // password-flow-token-keyed cache entry (review finding 2).
 // ===========================================================================
-DROGON_TEST(Integration_Admin_WritePathCacheInvalidation_UserDualForm)
+DROGON_TEST(Integration_P0_Admin_WritePathCacheInvalidation_UserDualForm)
 {
     auto db = dbOrNull();
     if (!db)
@@ -286,7 +286,7 @@ DROGON_TEST(Integration_Admin_WritePathCacheInvalidation_UserDualForm)
 // response (a rotated secret must not stay trusted); updateClientScopes
 // defers invalidation to the transaction COMMIT callback (review findings 1/5).
 // ===========================================================================
-DROGON_TEST(Integration_Admin_WritePathCacheInvalidation_ClientCommitOrdered)
+DROGON_TEST(Integration_P0_Admin_WritePathCacheInvalidation_ClientCommitOrdered)
 {
     auto db = dbOrNull();
     if (!db)
