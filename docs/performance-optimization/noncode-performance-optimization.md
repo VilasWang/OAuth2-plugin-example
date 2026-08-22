@@ -173,7 +173,7 @@ autovacuum_vacuum_scale_factor = 0.02
      ```
    - **已否决：UNLOGGED（原方案 A）**——crash recovery 会清空**整张**审计表（非丢最近窗口），且不参与流式复制；违反"不破坏功能正确性"原则，任何部署档位不采用。
    - **预期收益**：S2/S5 +15–25%（写放大近乎减半 + 池竞争缓解），顺带解决审计表治理；管理端查询经分区裁剪（timestamp DESC 从最新分区起读）不受影响。
-2. **oauth2_access_tokens 真 RANGE 分区**（按 expires_at 月度）：V016 名为 partitioning_prep 实际只有索引+归档函数；分区让 cleanup 从 DELETE 变 DROP、索引深度受控。
+2. **oauth2_access_tokens 真 RANGE 分区**（按 expires_at 月度）：V016 名为 partitioning_prep 实际只有索引+归档函数；分区让 cleanup 从 DELETE 变 DROP、索引深度受控。**后续修正（2026-08-18，自 WSL 会话草稿恢复）：不建议按原案实施**——该表主键即 token 本身，而热路径恰是按 token 点查（introspect/userinfo/refresh 回源），按 expires_at 分区后 `WHERE token=$1` 无法裁剪（每次点查探测全部分区的本地索引），热路径读放大。替代路线：保留批量 DELETE/归档函数，或仅对归档表分区；启动下一轮时先拍板。
 3. **introspect 覆盖索引 —— 已评审落地（2026-08-18，V026）**：原案 `ON oauth2_access_tokens(token) INCLUDE (...)` 经子代理评审修正为 **C 案落地**（V026 删除 3 个与 PK 重复的 B-tree，token INSERT 写放大 8→6；评审发现 `SELECT *` 下 INCLUDE 覆盖索引无法触发 index-only scan，且 SchemaManager 单事务使 CONCURRENTLY 不可用）。全行 INCLUDE（B 案）降级 backlog。详见 [`introspect-covering-index-plan.md`](introspect-covering-index-plan.md) v2。
 
 ---
