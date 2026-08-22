@@ -57,6 +57,7 @@ the rolling optimization-wave implementation plans:
 - [Instrumented Hotspot Report](performance-optimization/performance-hotspot-instrumented-report.md) — pg_stat_statements ledger + stage-probe decomposition + gdb sampling; the quantified lever table
 - [Non-Code Optimization Plan](performance-optimization/noncode-performance-optimization.md) — config/DB-level wave (delivered) + §十 backlog
 - [Wave-2 Optimization Plan](performance-optimization/optimization-wave-2-plan.md) — code-level levers from the instrumented findings (caching, RTT elimination, tz-lock)
+- [Backend Memory Retention Investigation](performance-optimization/backend-memory-retention-investigation.md) — discovery-path unbounded leak (~730 B/request), root of the comparison table's heaviest-stack RSS
 
 ## Archive
 
