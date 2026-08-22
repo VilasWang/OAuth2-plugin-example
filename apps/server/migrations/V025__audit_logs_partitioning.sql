@@ -65,9 +65,13 @@ BEGIN
         m_end := date_trunc('month', (now() AT TIME ZONE 'utc')::date) + INTERVAL '25 months';
         WHILE m < m_end LOOP
             IF to_regclass(format('public.audit_logs_p%s', to_char(m, 'YYYY_MM'))) IS NULL THEN
+                -- 边界锚定必须用 (m::timestamp) AT TIME ZONE 'UTC'，不能用 m::timestamptz：
+                -- DATE::timestamptz 按会话时区解释，非 UTC 会话（如容器注入 TZ）会把整套
+                -- 边界平移，且与 ensure_audit_partitions() 跨时区会话执行时 ATTACH 对不上
                 EXECUTE format(
                     'CREATE TABLE audit_logs_p%s PARTITION OF audit_logs_part FOR VALUES FROM (%L) TO (%L)',
-                    to_char(m, 'YYYY_MM'), m::timestamptz, (m + INTERVAL '1 month')::timestamptz);
+                    to_char(m, 'YYYY_MM'), (m::timestamp) AT TIME ZONE 'UTC',
+                    (m + INTERVAL '1 month') AT TIME ZONE 'UTC');
             END IF;
             m := m + INTERVAL '1 month';
         END LOOP;
@@ -135,8 +139,9 @@ BEGIN
     m := date_trunc('month', (now() AT TIME ZONE 'utc')::date) - (behind_months || ' months')::INTERVAL;
     m_end := date_trunc('month', (now() AT TIME ZONE 'utc')::date) + ((ahead_months + 1) || ' months')::INTERVAL;
     WHILE m < m_end LOOP
-        lo := m::timestamptz;
-        hi := (m + INTERVAL '1 month')::timestamptz;
+        -- 同上：UTC 锚定，防会话时区平移（与初始分区的边界算法必须一致）
+        lo := (m::timestamp) AT TIME ZONE 'UTC';
+        hi := (m + INTERVAL '1 month') AT TIME ZONE 'UTC';
         part_name := 'audit_logs_p' || to_char(m, 'YYYY_MM');
         IF to_regclass(part_name) IS NULL THEN
             EXECUTE format('CREATE TABLE %I (LIKE audit_logs INCLUDING DEFAULTS)', part_name);
