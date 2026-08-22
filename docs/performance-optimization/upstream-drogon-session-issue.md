@@ -14,16 +14,16 @@ For an OAuth2 authorization server this is expensive: machine/API traffic (token
 
 | Effect | Measurement |
 |---|---|
-| Retention | **~1.1 KB per cookie-less request** until TTL (1.05 M requests → +1.1 GB, real build) |
-| Steady-state formula | `API_QPS × session_timeout × ~1.1 KB` — 1k QPS @ 3600s ≈ 4 GB constant; 10k QPS @ 3600s ≈ OOM territory |
-| Throughput tax (discovery) | **~-24%** (same-window controlled triple, real build, OFF/ON/OFF: 30.6k → 23.2k → 30.2k QPS) — applies at ANY TTL |
-| Bench artifact | The 4-product comparison's "heaviest stack RSS 5,350 MiB" was this retention read after the S1 storm (backend 4.7 GB ≈ 5.4 M sessions) |
+| Retention | **~750 B per cookie-less request** until TTL (three 60s c128 storms: 744/755/759 B/req, production LTO build) |
+| Steady-state formula | `API_QPS × session_timeout × 750 B` — 1k QPS @ 3600s ≈ 2.7 GB constant; 10k QPS @ 3600s ≈ 27 GB (OOM territory) |
+| Throughput tax (discovery) | **~-24%** (same-window OFF/ON/OFF controlled triple on ASan build — direction reliable, production absolute value pending re-measurement) |
+| Bench artifact | The 4-product comparison's "heaviest stack RSS 5,350 MiB" was this retention read after the S1 storm (backend 4.7 GB ≈ 5.4 M × 750 B + baseline) |
 
 Session keys actually used by interactive flows: `userId/sub/auth_time/amr/mfa_*/webauthn_*` (8 keys, 4 interactive controllers only — zero use on machine endpoints).
 
 ## Current mitigation (delivered)
 
-- Bench profile: `session_timeout: 30` (`config.bench.json`, e13041f) — caps retention at `QPS × 30 × 1.1 KB` (~2.8 GB at 85k QPS); interactive flows unaffected (write→read gaps are milliseconds; S4 login/authcode validated).
+- Bench profile: `session_timeout: 30` (`config.bench.json`, e13041f) — caps retention at `QPS × 30 × 750 B` (~1.9 GB at 85k QPS); interactive flows unaffected (write→read gaps are milliseconds; S4 login/authcode validated).
 - Deployment guidance with the validated formula: `docs/ops/deployment.md` §性能调优.
 
 ## Root-fix options (blocked on upstream)

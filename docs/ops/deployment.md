@@ -668,7 +668,10 @@ PostgreSQL。`config.prod.json` 出厂保持关闭（`cache.enabled: false`）�
 该配置为基准环境实测采用的形态，完整可运行示例见
 `benchmarks/authforge/docker-compose.bench.yml`（bench overlay，叠加在
 `deploy/docker/docker-compose.yml` 之上）。纯 conf 调优对现有数据卷无
-兼容性影响，可随时启用/回退。
+兼容性影响，可随时启用/回退。**注**：bench overlay 已将 `shared_buffers`
+调至 1GB（2026-08-22 三臂 A/B 验证与 4GB 等效，见
+`docs/performance-optimization/` 相关报告）；上表 4GB 仍为 16GB 主机的
+PG 官方推荐起点。
 
 **版本与升级注记**：deploy compose 自 2026-08-18 起使用 `postgres:17-alpine`
 （与客户端 libpq 17.x 对齐，基准在 17 上实测）。**存量 15 版数据卷不能直接
@@ -683,23 +686,23 @@ PostgreSQL。`config.prod.json` 出厂保持关闭（`cache.enabled: false`）�
 已实测验证）。机器/API 流量（token / introspect / userinfo / discovery ——
 客户端从不带 cookie）按请求付费。
 
-**实测代价（真实构建，2026-08-22，验证细节见
+**实测代价（生产 LTO 构建，2026-08-22，验证细节见
 `docs/performance-optimization/backend-memory-retention-investigation.md`）**：
 
 | 项 | 实测值 |
 |---|---|
-| 每请求留存 | **~1.1 KB**（105 万无 cookie 请求 → +1.1 GB 常驻） |
-| 稳态常驻公式 | `API_QPS × session_timeout × 1.1 KB` |
-| discovery 吞吐税 | **~-24%**（同窗口 OFF/ON/OFF 对照：30.6k → 23.2k → 30.2k QPS；任意 TTL 下都存在） |
+| 每请求留存 | **~750 B**（三场 60s c128 风暴：744/755/759 B/req，生产 LTO 构建） |
+| 稳态常驻公式 | `API_QPS × session_timeout × 750 B` |
+| discovery 吞吐税 | **~-24%**（ASan 构建同窗口 OFF/ON/OFF 对照，方向可靠，生产构建绝对值可能略低——待生产构建重测确认） |
 
 **尺寸速查**（按公式，交互登录写→读间隔为毫秒级，TTL 不影响流内正确性 ——
 S4 登录/authcode 全阶梯在 120s 下验证通过，机制与 TTL 大小无关）：
 
-| API_QPS（无 cookie） | TTL=3600（出厂） | TTL=300 | TTL=60 |
-|---|---|---|---|
-| 100 | ~0.4 GB | ~33 MB | ~7 MB |
-| 1,000 | **~4 GB** | ~330 MB | ~66 MB |
-| 10,000 | **~40 GB（OOM 区）** | ~3.3 GB | ~660 MB |
+| API_QPS（无 cookie） | TTL=3600（出厂） | TTL=300 | TTL=120 | TTL=30 |
+|---|---|---|---|---|
+| 100 | ~0.3 GB | ~23 MB | ~9 MB | ~2 MB |
+| 1,000 | **~2.7 GB** | ~225 MB | ~90 MB | ~23 MB |
+| 10,000 | **~27 GB（OOM 区）** | ~2.2 GB | ~0.9 GB | ~225 MB |
 
 **指引**：
 - 交互为主、API 量小（<100 QPS）的部署：出厂 3600s 保持不动（SSO 体验完整）。
