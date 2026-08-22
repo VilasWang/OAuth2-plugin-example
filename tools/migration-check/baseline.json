@@ -23,6 +23,6 @@
   "V022__mfa_pending_client_binding.sql": "eda188b4ca8e62cb3ab6e4049b0a7dcffaab0631921808c716bc922f5e2b131b",
   "V023__resource_scopes.sql": "9bf8effd881165bf26b5dceef66d7dc7ab5138b38bbb3a09fb3412da175a0e92",
   "V024__users_soft_delete.sql": "2a3e4ee037161d4182f5befc13d000eee12a131baed127fb0d6fdcdd17787fbb",
-  "V025__audit_logs_partitioning.sql": "6d7d437037921b7294da77b1bcbd26b78ab105cd6f0f7406488a8cef1f18aa72",
+  "V025__audit_logs_partitioning.sql": "d8af858657f13518431d6fa542a9c48287d0b1b5eec1382111106e0267a224e0",
   "V026__token_redundant_index_cleanup.sql": "fc1bc4c51737c20deab14b07fd1719770baad78c7251908776e4fa68cac8464d"
 }
