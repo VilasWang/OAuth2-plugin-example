@@ -625,6 +625,9 @@ PostgreSQL。`config.prod.json` 出厂保持关闭（`cache.enabled: false`）�
 
 语义说明：token 缓存 TTL 不超过 60s 且吊销即时失效（含负缓存）；client
 缓存 TTL 300s。要求部署内 Redis 可用（生产 compose 已含 oauth2-redis）。
+多实例部署注意：写路径失效的 Redis DEL 对全实例即时生效，但 userinfo 的
+进程内 piggyback memo（2s 一次性）只在处理写请求的那台实例被同步清除，
+其它实例最长滞后 2s（TTL 自兜底，可接受）。
 
 **实测（2026-08-18 基准环境，10s 快测）**：cache on + Redis 池 20 时 S6 反而
 -18%（池排队）；Redis 池扩到 64 后 S2 +39%、S3 +59%、S6 +6%。结论：**cache
