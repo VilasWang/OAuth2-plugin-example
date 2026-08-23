@@ -50,7 +50,17 @@ echo "== S5 refresh_token (reissue per level) =="
 run_staircase "$KC_DIR/scenarios/s5-refresh-token.lua" \
     --reissue "bash '$KC_DIR/reissue-rt-pool.sh'"
 
-echo "== S6 userinfo =="
+# Re-mint the S6 user-token pool right before it runs: S5's high-level
+# re-mints (up to ~90k RTs) can stretch the session past the realm's 1h
+# accessTokenLifespan, silently expiring the setup-minted pool — measured as
+# 100% 401 across all S6 levels on 2026-08-23. A fresh 2000-token mint takes
+# ~10s and keeps token age in the low single-digit minutes.
+echo "== S6 userinfo (fresh user pool: outlive-the-session guard) =="
+python3 "$KC_DIR/mint_tokens.py" --url "$KC_URL" --realm bench \
+    --client-id bench-svc --client-secret "$(cat "$KC_DIR/lib/generated/client_secret.txt")" \
+    --grant password --username bench-user --password bench-pass-local \
+    --scope openid --extract access_token --count 2000 --parallel 8 \
+    > "$KC_DIR/lib/generated/user_tokens.txt"
 run_staircase "$KC_DIR/scenarios/s6-userinfo.lua"
 
 echo "== GC jitter (S6 c=32, 30x10s) =="

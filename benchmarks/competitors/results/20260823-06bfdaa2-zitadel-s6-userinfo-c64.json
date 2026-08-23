@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "scenario": "s6-userinfo",
+  "concurrency": 64,
+  "threads": 4,
+  "duration_s": 10,
+  "qps": 3478.7,
+  "latency_us": {
+    "p50": 17740.0,
+    "p75": 19940.0,
+    "p90": 22290.0,
+    "p99": 30290.0
+  },
+  "total_requests": 35134,
+  "error_rate": 0.0,
+  "error_count": 0,
+  "socket_errors": {},
+  "non_2xx_responses": null,
+  "driver": {
+    "cpu_pct": 2.5,
+    "limited": false
+  },
+  "env": {
+    "date": "2026-08-23T17:04:14+00:00",
+    "git_sha": "06bfdaa2",
+    "git_branch": "master",
+    "product": "zitadel",
+    "product_version": "v4.17.1",
+    "target_image": "",
+    "target_config": "config.json",
+    "target_spec": "",
+    "driver_spec": "",
+    "network": "localhost-cross-container",
+    "wrk_version": "wrk debian/4.1.0-4build2 [epoll] Copyright (C) 2012 Will Glozer"
+  }
+}

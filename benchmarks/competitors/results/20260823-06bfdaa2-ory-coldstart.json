@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "kind": "coldstart",
+  "product": "ory",
+  "product_version": "v26.2.0",
+  "fresh": {
+    "mode": "fresh",
+    "runs": [
+      {
+        "run": 1,
+        "seconds": 4.35,
+        "rss_at_ready": "22.6MiB"
+      }
+    ]
+  },
+  "restart": {
+    "mode": "restart",
+    "runs": [
+      {
+        "run": 1,
+        "seconds": 0.62,
+        "rss_at_ready": "23.94MiB"
+      }
+    ]
+  },
+  "env": {
+    "git_sha": "06bfdaa2",
+    "network": "localhost-cross-container"
+  }
+}
