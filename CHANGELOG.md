@@ -10,6 +10,18 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-24
+
+v1.3.0 以来的第四个正式发布，核心主线是**性能工程化**（PR #64 合并链）：
+非代码性能方案（bench 档 PG 实例调优 / 池 64 / cache-on / session TTL=30
+留存有界）+ wave-1/2 读缓存代码优化（validateClient 缓存行校验、用户
+profile/roles 读缓存、token 撤销+读值单 EVAL 往返、userinfo 读对 MGET
+搭车）+ V025/V026 schema 优化 + 部署默认 PG 15→17 + 竞品基准设施
+M0–M3（Keycloak 26.7.1 / Ory Hydra v26.2.0 / Zitadel v4.17.1 同环境套件
+与四产品对比）。**2026-08-23 TTL=30 口径四产品重刷：五个对比场景全部
+领先**（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x，见
+`benchmarks/competitors/results/COMPARISON.md`）。
+
 ### ⚠️ Breaking / 升级必读
 
 - **部署默认 PostgreSQL 15 → 17**（`deploy/docker/docker-compose{,.prod,.debug}.yml`、
@@ -18,7 +30,8 @@ For the versioning policy (when to cut, what to bump, why), see
   （PG 大版本拒绝挂载旧数据目录，数据库容器会循环重启）。升级前必须按
   [docs/ops/postgresql-major-upgrade.md](docs/ops/postgresql-major-upgrade.md)
   做 dump/restore（或 pg_upgrade）。AuthForge 自身在 15 vs 17 的基准差异在
-  噪声带内，本次升级对自身吞吐无诉求。
+  噪声带内，本次升级对自身吞吐无诉求；不急于升级的部署可把镜像 tag 钉回
+  `postgres:15-alpine`（应用与 15 完全兼容）。
 - **`AuditLogs` ORM 模型签名变更**（V025 `audit_logs` 分区）：主键从 `id`
   单列变为 `(id, timestamp)` 复合键；drogon 生成的模型 `getPrimaryKey()` 返回
   `std::tuple<int64_t, int64_t>`（原 `int64_t`）、`primaryKeyName` 变为
@@ -26,6 +39,48 @@ For the versioning policy (when to cut, what to bump, why), see
   （`timestamp` 现为 NOT NULL）。仓库内零调用方受影响（api-diff 已按
   `--force` 批准并留档）；仅当外部代码直接编译 `storage-postgres` 模型头时
   才是破坏性变更。
+
+> **版本号取舍（显式记录）**：版本政策 §2 的"依赖大版本 → MAJOR"行针对
+> 编译/链接面断代；本次 PG17 是**部署默认对齐**（应用与 15/17 均兼容，
+> runbook 提供回钉路径），AuditLogs 签名变更仓库内零调用方——两者均不构成
+> SDK 源码级 API 破坏（api-diff v1.3.0 基线零漂移）。经决策按政策 §3 的
+> 显式取舍精神在 **MINOR** 内推进并显著标注（2026-08-24）。
+
+### Added
+
+- **竞品同环境基准设施（M0–M3）**：参数化共享设施 + Keycloak / Ory Hydra /
+  Zitadel 三套官方推荐配置套件（S1 discovery / S2 client_credentials /
+  S3 introspect / S5 refresh / S6 userinfo 阶梯 + GC 抖动长跑 + 冷启动 +
+  RSS 采样），`run-comparison.sh` 一键四产品串行 + `gen-comparison.py`
+  无手填聚合报告。诚实裁决随数据入仓（S5 口径伪影修复、GC 抖动主张
+  关闭——四家同款宿主噪声、全栈 RSS 口径警示）。
+- **wave-2 读缓存代码优化**：`validateClient` 对缓存行直接校验（P0）；
+  用户 profile/roles Redis 读缓存（P1）；token 撤销标记+读值合并为单次
+  EVAL 往返（P2）；userinfo 读对 MGET 搭车 memo（P4）。A/B 实测 S3/S6
+  显著改善（S6 对比表口径 18.1k→49.3k QPS）。
+- **写路径缓存失效钩子**：admin 用户/客户端写路径、GitHub 绑定路径在
+  DB 提交后失效对应缓存键（双 subject 形态、提交时序对齐、
+  `resetClientSecret` 覆盖）。
+- **V025 `audit_logs` 月度 RANGE 分区 + BRIN**：含 DEFAULT 分区兜底与
+  `ensure_audit_partitions()` 滚动维护函数（幂等，db-reset 全链重放安全）。
+- **V026 token 表冗余索引清理**：DROP 与 PK 重复的三个单列 token 索引
+  （INSERT 索引维护 8→6；评审确认无查询模式依赖）。
+- **opt-in LTO 构建预设**：`linux-release-lto` 等预设 + bench 镜像 preset
+  透传（`AUTHFORGE_CMAKE_PRESET`）；默认预设不受影响。
+- **非代码性能方案落地**（bench 档）：PG 实例调优（-c flags 覆盖）、
+  PG/Redis 池 25→64（池扫描定案）、cache-on、`reuse_port=true`、
+  session TTL 120→30 留存有界档案（session 留存税 -54%，RSS 减半）、
+  `auto_batch=true` 同日 A/B 定案。
+- **四产品对比 2026-08-23 TTL=30 重刷**：对外表格从 session 口径遗留数字
+  迁移到 TTL=30 + 生产镜像 LTO 口径；Keycloak S6 池过期结构性缺陷修复
+  （`run-all.sh` S6 前重铸 user 池）。
+
+### Fixed
+
+- V025 分区边界 UTC 锚定——创建/滚动函数不再受会话时区影响（047c4d8f）。
+- 池扫描脚本恢复被换出的配置；overlay 提升 `max_connections`（23ccdc44）。
+- docker-stats 采集 bash 5.2 glob 回归；同会话 RSS 过滤口径修正（6951be0d、3ca37211）。
+- CI naming validator 要求测试名含 `[Priority]` 段（68b919fb）。
 
 ## [1.3.0] - 2026-08-22
 

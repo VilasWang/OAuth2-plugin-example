@@ -26,7 +26,7 @@ from conan.tools.cmake import CMakeToolchain, CMakeDeps
 
 class AuthForgeConan(ConanFile):
     name = "authforge"
-    version = "1.3.0"
+    version = "1.4.0"
     settings = "os", "compiler", "build_type", "arch"
 
     options = {
