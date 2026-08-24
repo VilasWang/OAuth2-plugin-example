@@ -33,7 +33,9 @@
 >
 > ⚠️ **2026-08-11 更新**：OAuth/OIDC 规范性审查（[oauth-oidc-compliance-audit.md](done/oauth-oidc-compliance-audit.md)，2026-08-07）发现的 31 项偏差（F-001..F-031）已**全部修复**（PR #44，2026-08-09 合并），包括：F-002（client_secret 哈希算法统一）、F-003（refresh_token grant 客户端认证）、F-005（独立 Redis 存储模式废弃）、OIDC 扩展字段补齐（auth_time/acr/amr/azp/nonce/prompt/max_age/RP-Initiated Logout）。本报告下述实现细节反映的是**合规修复后**的代码状态。
 >
-> **2026-08-13 更新**：Backchannel Logout **后端已交付**（PR #50：通知器 + logout_token JWT 构造 + admin API 配置 + discovery + 单测 D1-D6），替换了原桩实现。详见 [in-progress/backchannel-logout-design.md](in-progress/backchannel-logout-design.md)。前端被 Mimosa 拦截 + 集成测试待补（需 PG）。
+> **2026-08-13 更新**：Backchannel Logout **后端已交付**（PR #50：通知器 + logout_token JWT 构造 + admin API 配置 + discovery + 单测 D1-D6），替换了原桩实现。
+>
+> **2026-08-22 更新**：Backchannel Logout **全栈收官**——PR #61（旧 #50 关闭重开）合并：#55（end_session + admin 登出都会触发通知器）+ #57（`backchannel_logout_uri` 结构化校验 + 传输崩溃安全）加固。遗留跟进：#82（通知器 user_id 双形态匹配）。
 
 #### OAuth2 Grant Type 流程（`TokenEndpointController.cc:991-1810`）
 
@@ -64,7 +66,7 @@
 | ID Token 签发 | [完整实现] | `TokenService.cc` generateIdToken（RS256） |
 | UserInfo 端点 | [完整实现] | `UserInfoProvider.cc` |
 | RP-Initiated Logout | [完整实现] | `SessionController.cc:1105+` endSession（id_token_hint/post_logout_redirect_uri/state） |
-| **Backchannel Logout** | **[后端已交付]**（2026-08-13, PR #50） | 真实通知器（HTTP POST logout_token JWT）+ admin API 配置 `backchannel_logout_uri` + discovery 广告 + 单测 D1-D6（`5b3ccb9`..`9c8cf9f`）。~~原桩~~：`IdentityAssembly.cc:49-57` LoggingBackchannelLogoutNotifier 已被替换。待补：前端（Mimosa 拦截）+ 集成测试（需 PG） |
+| **Backchannel Logout** | **[完整实现]**（2026-08-22, PR #61 全栈收官） | 真实通知器（HTTP POST logout_token JWT）+ admin API/UI 配置 `backchannel_logout_uri` + discovery 广告 + 单测；#55（end_session/admin 登出触发）+ #57（URI 结构化校验 + 传输崩溃安全）已加固。遗留：#82（通知器 user_id 双形态匹配） |
 
 #### 令牌安全机制
 
@@ -402,7 +404,7 @@ audit_logs (
 
 | 缺失项 | 验证方式 |
 |--------|----------|
-| ~~社交账号关联 link/unlink~~ | ✅ 2026-08-21 已实现（B2）：`GET/POST/DELETE /api/me/social/links[/{provider}]` + identity 层 `SocialLinkService` + 最后凭证守卫（PR #68 已合并） |
+| ~~社交账号关联 link/unlink~~ | ✅ 2026-08-21 已实现（B2）：`GET/POST/DELETE /api/me/social/links[/{provider}]` + identity 层 `SocialLinkService` + 最后凭证守卫（PR #68 已合并）。⚠️ 遗留跟进：#69（GitHub 社交 token 存储/校验口径不一致 → 会话 401）、#54（软删除用户社交登录绕过）、#70（Google/WeChat 不消费 subject mappings）、#71（link 流程缺服务端状态校验）、#73（并发解绑竞态 + WebAuthn 未计入守卫） |
 | 登录历史 | 无 |
 | 活跃会话管理 | 无"查看/吊销我的所有会话" |
 | 个人审计日志 | 无 |
@@ -413,7 +415,7 @@ audit_logs (
 
 | 业务域 | AuthForge 真实状态 | Keycloak | Auth0 | Ory | Zitadel |
 |--------|-------------------|----------|-------|-----|---------|
-| OAuth2/OIDC | ✅ 完整（Backchannel Logout 后端已交付） | ✅ | ✅ | ✅ | ✅ |
+| OAuth2/OIDC | ✅ 完整（Backchannel Logout 已全栈交付） | ✅ | ✅ | ✅ | ✅ |
 | MFA (TOTP+备份码) | ✅ 完整 | ✅ | ✅ | ✅ | ✅ |
 | WebAuthn/Passkey | ⚠️ 简化（不验证 attestation/assertion） | ✅ 完整 | ✅ 完整 | ✅ 完整 | ✅ 完整 |
 | 社交登录 | ✅ 3 家（无 link/unlink） | ✅ 20+ | ✅ 30+ | ✅ | ✅ |
@@ -435,7 +437,7 @@ audit_logs (
 | 缺口 | 真实现状 | 工程量 |
 |------|----------|--------|
 | **用户管理补全**（创建/删除/分页/搜索） | ✅ 已实现（PR #52，2026-08-13：分页/搜索/createUser/软删除 V024） | ~~小（1-2 周）~~ 已完成 |
-| **Backchannel Logout 真实实现** | 🟡 后端已交付（PR #50：通知器 + logout_token + admin API + 单测）；前端被 Mimosa 拦截 + 集成测试待补 | 中（1 月） |
+| **Backchannel Logout 真实实现** | ✅ 已全栈交付（PR #61：通知器 + logout_token + admin API/UI + #55/#57 加固）；遗留 #82 小跟进 | ~~中（1 月）~~ 已完成 |
 | **SAML 2.0 IdP + SP** | 确认完全缺失（0 代码文件） | 大（3-6 月，需 XML 签名库） |
 | **LDAP/AD 联邦** | 确认完全缺失 | 中（2-3 月） |
 | **SCIM 2.0** | 确认完全缺失 | 中（1-2 月） |
@@ -469,7 +471,7 @@ audit_logs (
 基于穷尽式代码验证，AuthForge 的真实状态是：
 
 **强项（已达商业级，代码验证确认）**：
-1. OAuth2/OIDC 协议实现完整且符合 RFC（**OAuth/OIDC 合规审计 31 项偏差已全部修复**，PR #44 / 2026-08-09；Backchannel Logout 后端已交付 PR #50 / 2026-08-13）
+1. OAuth2/OIDC 协议实现完整且符合 RFC（**OAuth/OIDC 合规审计 31 项偏差已全部修复**，PR #44 / 2026-08-09；Backchannel Logout 全栈交付 PR #61 / 2026-08-22）
 2. 身份认证全面（密码 PBKDF2 310K 迭代 + MFA TOTP RFC 6238 + 3 家社交登录真实实现）
 3. RBAC + 令牌管理 + 审计日志基础完善
 4. 存储层架构清晰：Postgres 生产单源 + Redis L2 缓存层（#42 Phase 1 已交付 client-cache decorator；独立 Redis 存储已废弃）
@@ -497,4 +499,4 @@ audit_logs (
 
 ---
 
-*本报告基于 AuthForge v1.1.0 代码库穷尽式验证，每个功能点状态均有 `file:line` 出处。调研日期 2026-08-09，2026-08-11/08-13 复核修正。下一步行动项见 [next-phase-implementation-plan.md](next-phase-implementation-plan.md)。*
+*本报告基于 AuthForge 代码库穷尽式验证，每个功能点状态均有 `file:line` 出处。调研日期 2026-08-09，2026-08-11/08-13/08-22/08-24 复核修正（基线 v1.4.0）。下一步行动项见 [next-phase-implementation-plan.md](next-phase-implementation-plan.md)。*

@@ -1,6 +1,6 @@
 # 产品化演进进展总览
 
-> **更新日期**: 2026-08-18
+> **更新日期**: 2026-08-24
 > **维护约定**: 每次完成一个工作项或里程碑后更新本文件。开始新工作前先查本文件确认当前状态。
 > **上游规划**: [productization-evolution-plan.md](productization-evolution-plan.md)（总体路线图）
 > **代码依据**: [iam-architecture-audit.md](iam-architecture-audit.md)（IAM 业务能力审计）
@@ -9,24 +9,25 @@
 
 ## 一、总体进展概览
 
-AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-17：
+AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-24：
 
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
-| **Phase 0** — 可信度基线 | ✅ **完成** | 100% | benchmark M1–M4 全部交付（40 JSON + 承重验证报告）；**承重假设裁决：QPS ✅五场景领先（2026-08-21 对比表刷新，S5/S6 反超）、P99 ✅低并发达成、内存 ✅SDK 口径远超标（2.5 MB peak WS）、冷启动 ✅1.38s**；Phase 0.5 竞品对比已交付并全量刷新；性能优化两轮（wave-1 配置/DB/LTO + wave-2 代码级缓存）收官 | 裸机复测（环境噪声归因） |
-| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~55% | **spec 治理（M0）已合并（v1.2.0）**；**C1 客户端 SDK 已上线（v1.3.0 起 PyPI `authforge-oauth2` + Go 嵌套 tag）**；**README 性能徽章 + 复现小节已交付（v1.4.0，双语）**；文档站/博客/TechEmpower 待做 |
-| **Phase 2** — 企业版 | 🟡 快速推进 | ~45% | #42 缓存层 Phase 1+2 已交付；#43 授权模型已实现；**用户管理补全已实现（PR #52）**；**Backchannel Logout 后端已交付（PR #50）**；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户待做 |
+| **Phase 0** — 可信度基线 | ✅ **完成** | 100% | benchmark M1–M4 + Phase 0.5 竞品对比（PR #64）全部交付；**承重裁决（2026-08-23 TTL=30 全量刷新，COMPARISON.md）：QPS ✅五场景同环境领先（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x）、P99 ✅低并发达成、内存 ✅SDK 口径 2.5 MB、冷启动 ✅1.26s（四家最快，领先 1–3 个量级）**；性能优化两轮收官 + TTL=30 会话留存收官 | 遗留：裸机复测（GC/尾延迟噪声归因——本机四家同款噪声已判定不可用） |
+| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~60% | spec 治理 ✅（v1.2.0）；客户端 SDK ✅（**PyPI `authforge-oauth2` 1.4.0 live** + Go 嵌套 tag）；README 性能徽章 + 复现小节 ✅（v1.4.0 双语）；**待做：技术博客、独立文档站、TechEmpower** |
+| **Phase 2** — 企业版 | 🟡 快速推进 | ~50% | #42 缓存层 P1+2、#43 授权模型、用户管理补全（PR #52）、**Backchannel Logout 全栈（PR #61，含 #55/#57 加固）**、**社交账号 link/unlink（PR #68，v1.3.0）**均已交付；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户隔离待做 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
 
 **横切工作流（不绑定单一 Phase）**:
 
 | 工作流 | 状态 | 完成度 | 说明 |
 |--------|------|--------|------|
-| OAuth/OIDC 合规审计 | ✅ 已完成 | 100% | 31 项偏差 + 5 项复扫发现全部处置（PR #44）；所有追踪 issue #21–#40 已关闭 |
-| 架构改进（#42 缓存层） | 🟡 进行中 | ~60% | Phase 1（client-cache）+ Phase 2（token cache）已交付；Phase 3（移除独立 Redis 模式）/ Phase 4（consent cache）未开始 |
-| 架构改进（#43 授权模型） | ✅ 已完成 | 100% | 完整实现：声明式 `(path,method)→scope` 注册表 + scope implication + DB 驱动 admin-role + discovery 端点（commit f04d3ba） |
-| 异步回调评估 | ✅ 已完成（评估） | 100% | 评估报告产出；决策：暂不动手（C++17 锁定，协程排除） |
-| 版本发布 | ✅ v1.1.0 已打 tag | — | `v1.1.0`（含 OAuth/OIDC 合规修复 + #42/#43 架构改进 + benchmark 设施） |
+| OAuth/OIDC 合规审计 | ✅ 已完成 | 100% | 31 项偏差 + 5 项复扫发现全部处置（PR #44） |
+| 架构改进（#42 缓存层） | 🟡 进行中 | ~60% | Phase 1+2 已交付 + write-path invalidation 加固（cbb15e40）；Phase 3/4 未开始 |
+| 架构改进（#43 授权模型） | ✅ 已完成 | 100% | 声明式 `(path,method)→scope` 注册表 + implication + DB 驱动（f04d3ba） |
+| 异步回调评估 | ✅ 已完成（评估） | 100% | 决策：暂不动手（C++17 锁定，协程排除） |
+| 性能优化计划 | ✅ 两轮收官 | ~90% | wave-1（PG17/实例调优/LTO/bench 配档）+ wave-2（validateClient/用户角色缓存/EVAL 合并/MGET 备忘）全部 A/B 实测入仓；session 留存终局结论（TTL 有界，设计使然） |
+| 版本发布 | ✅ **v1.4.0** | — | v1.2.0（spec 治理）→ v1.3.0（社交 link/unlink + SDK）→ **v1.4.0（PG17 + 性能徽章 + PyPI 1.4.0 live，2026-08-24，全工作流绿）** |
 
 ---
 
@@ -145,16 +146,43 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 
 ## 三、GitHub Issue 跟踪
 
-> 所有 issue #21–#46 均已关闭。以下为关键 issue 的最终状态。
+> 历史 issue #21–#46 全部关闭（OAuth/OIDC 审计、#41 spec bug、#42 缓存层、#43 授权模型、#45/#46 环境问题、#53/#55–#60 用户管理与 Backchannel 评审遗留）。
+> **当前开放 15 个（2026-08-24）**，分四类：
 
-| Issue | 标题 | 最终状态 | 关闭依据 |
-|-------|------|----------|----------|
-| **#40** | OAuth/OIDC Compliance Audit 追踪 | ✅ 已关闭 | 全部 31+5 项发现已修复 |
-| **#41** | OpenApiGenerator security 字段 bug | ✅ 已关闭 | `de03a19` + `b99ef5b` |
-| **#42** | Postgres + Redis 缓存层 | ✅ 已关闭 | Phase 1+2 已交付 |
-| **#43** | 资源-作用域授权模型 | ✅ 已关闭 | `f04d3ba` 完整实现 |
-| **#45** | docker compose v5.3.1 路径解析 | ✅ 已关闭 | `390275c` |
-| **#46** | SchemaManager 冷启动迁移竞态 | ✅ 已关闭 | `508908a` |
+### 安全类（High，最高优先）
+
+| Issue | 标题 | 说明 |
+|-------|------|------|
+| **#78** | [High] `/oauth2/end_session` 信任未验证的 id_token_hint → 未认证跨用户强制登出 | OIDC 规范要求验签；当前直接解析 |
+| **#79** | [High] Redis cache-aside 回填竞态可固化已轮换的 client_secret / 已撤销角色 | 缓存一致性窗口 |
+| **#54** | [High] 软删除用户仍可经 GitHub 社交登录获得新 token | 软删除未挡社交路径 |
+
+### 社交登录功能缺陷（用户可见）
+
+| Issue | 标题 | 说明 |
+|-------|------|------|
+| **#69** | GitHub 社交 token 原文存储但按哈希校验 → 社交会话每次 401 | **已上线功能的实际破坏**，与 #54 同区域 |
+| **#70** | Google/WeChat 登录不消费 subject mappings | 关联这些 provider 无签名效果 |
+| **#71** | 社交 link 流程缺服务端状态校验（provider-code 注入 / login-CSRF） | 安全防御缺失 |
+| **#73** | 社交解绑最后凭证守卫跟进：并发解绑竞态 + WebAuthn 未计入 | PR #68 评审遗留 |
+| **#75** | HTTP 覆盖缺口：/api/me/social 数字分发分支 | 测试缺口 |
+
+### 基础设施卫生
+
+| Issue | 标题 | 说明 |
+|-------|------|------|
+| **#80** | [Medium] client-cache 失效 DEL 失败仅 LOG_DEBUG（安全路径） | 应升级告警/重试 |
+| **#81** | [Medium] CI service 容器仍 postgres:15，部署默认已 PG17 | 环境漂移（已有 runbook 08-19） |
+| **#72** | 集成测试不可重跑：SoftDeleteSocialRepoTest + UserAdminHardeningTest 失败 | 测试隔离缺陷 |
+
+### 低优先 / 文档
+
+| Issue | 标题 | 说明 |
+|-------|------|------|
+| **#82** | [Low] Backchannel notifier 只匹配一种 user_id 形态 | 双形态已在缓存写路径处理（cbb15e40），通知器未同步 |
+| **#83** | [Low] `ensure_audit_partitions()` 无调度器——约 24 个月后审计行堆积 | V025 分区配套 |
+| **#84** | [docs] PG17 后 + SDK 发布后文档漂移（3 处 PG15 残留等） | 部分已由 6acade8d 清理 |
+| **#66** | [docs] openapi.yaml /oauth2/token client-credentials 描述 body form 与 F-017 Basic 实现不符 | spec 文档修正 |
 
 ---
 
@@ -172,8 +200,12 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 2026-08-13 | **A2 用户管理补全 — 分页/搜索/createUser/软删除（V024）** | PR #52（51674ba..f0b96bf，分支 feat/user-management-crud-v2） |
 | 2026-08-13 | **D1 Backchannel Logout 后端 — 通知器 + logout_token + admin API + 单测** | PR #50（5b3ccb9..9c8cf9f，分支 feat/backchannel-logout-b1） |
 | 2026-08-13 | **内存 SDK 口径实测 — 2.5 MB peak WS（50-120MB 声称保守达标）** | third-party-host-smoke / full-stack-host-smoke 实测 |
-| 2026-08-17 | **A1 OpenAPI spec 治理（M0）— 三层对账 + schema 补齐 + 一致性门 + oasdiff 门，Python 客户端验收通过** | 分支 feat/openapi-spec-governance-m0（待 PR） |
+| 2026-08-17 | **A1 OpenAPI spec 治理（M0）— 三层对账 + schema 补齐 + 一致性门 + oasdiff 门** | PR #63（v1.2.0） |
+| 2026-08-18 | **C1 客户端 SDK — Python（PyPI `authforge-oauth2`）+ Go + 漂移门 + CI/release 接线** | PR #65（v1.3.0 起 PyPI live） |
+| 2026-08-22 | **C3 竞品对比 — Keycloak/Ory/Zitadel 套件 + 四产品同环境对比（PR #64 合并）+ 性能优化 wave-1/wave-2** | master@06bfdaa2；后续 08-21/08-23 两轮全量刷新 |
 | 2026-08-21 | **B2 社交账号 link/unlink — 3 端点 + SocialLinkService + 最后凭证守卫 + 前端卡片（v1.3.0）** | PR #68（e991360，含独立评审 W1-W4+S1-S4 修复轮） |
+| 2026-08-22 | **B1 Backchannel Logout 全栈收官 — #55（end_session 触发）+ #57（URI 校验/SSRF 加固）** | PR #61（旧 #50 关闭） |
+| 2026-08-24 | **v1.4.0 发布 — PG17 + TTL=30 对比收官（五场景全领先）+ README 性能徽章（双语）+ PyPI 1.4.0 live，全工作流绿** | tag 482fe89f |
 | 2026-08-05 | 产品化演进方案 + benchmark/client-sdk 设计文档 | a6d570c |
 
 ---
