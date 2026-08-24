@@ -18,6 +18,7 @@
 #include <authforge/storage/redis/RedisRepositoryBundle.h>
 #include <authforge/storage/redis/RedisCachedClientRepository.h>
 #include <authforge/storage/redis/RedisCachedTokenRepository.h>
+#include <authforge/storage/redis/DelayedDoubleDelete.h>
 #include <authforge/oauth2/repository/IClientRepository.h>
 #include <authforge/oauth2/repository/IGrantRepository.h>
 #include <authforge/oauth2/repository/ITokenRepository.h>
@@ -308,6 +309,11 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                 if (ttl.isMember("access_token_max") && ttl["access_token_max"].isInt())
                     accessTokenMaxTtl = ttl["access_token_max"].asInt();
             }
+            // #79: delay before the invalidation hooks' second (race-closing)
+            // DEL. Default kDefaultDoubleDeleteDelayMs; the helper clamps to
+            // [50, 2000].
+            int doubleDeleteDelayMs =
+              config["cache"].get("invalidation_double_delete_delay_ms", 200).asInt();
             ::drogon::nosql::RedisClientPtr redisClient;
             try
             {
@@ -341,20 +347,17 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             if (redisClient)
             {
                 ::authforge::drogon::UserCacheInvalidator::instance().registerHook(
-                  [redisClient](const std::string &subject) {
-                      // In-process memo first (synchronous), then the Redis DELs.
+                  [redisClient, metrics = metrics_, doubleDeleteDelayMs](const std::string &subject) {
+                      // In-process memo first (synchronous), then the Redis
+                      // DELs through the shared double-delete helper (#79
+                      // race closure; #80 failure observability).
                       authforge::drogon::UserReadCache::instance().dropMemo(subject);
                       for (const char *kind : {"profile", "roles"})
                       {
-                          std::string key = std::string("authforge:cache:user:") + kind + ":" + subject;
-                          redisClient->execCommandAsync(
-                            [](const ::drogon::nosql::RedisResult &) {},
-                            [key](const ::drogon::nosql::RedisException &e) {
-                                LOG_DEBUG << "UserCacheInvalidator: DEL failed for " << key << ": "
-                                          << e.what();
-                            },
-                            "DEL %s",
-                            key.c_str()
+                          std::string key =
+                            std::string("authforge:cache:user:") + kind + ":" + subject;
+                          authforge::storage::redis::invalidateWithDoubleDelete(
+                            redisClient, key, metrics, "user", doubleDeleteDelayMs
                           );
                       }
                   }
@@ -371,16 +374,16 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             if (redisClient)
             {
                 ::authforge::drogon::ClientCacheInvalidator::instance().registerHook(
-                  [redisClient](const std::string &clientId) {
-                      std::string key = "authforge:cache:client:" + clientId;
-                      redisClient->execCommandAsync(
-                        [](const ::drogon::nosql::RedisResult &) {},
-                        [key](const ::drogon::nosql::RedisException &e) {
-                            LOG_DEBUG << "ClientCacheInvalidator: DEL failed for " << key << ": "
-                                      << e.what();
-                        },
-                        "DEL %s",
-                        key.c_str()
+                  [redisClient, metrics = metrics_, doubleDeleteDelayMs](const std::string &clientId) {
+                      // #79/#80: same shared double-delete helper as the user
+                      // keys — immediate DEL (+retry, WARN/ERROR, counter) and
+                      // the delayed race-closing second DEL.
+                      authforge::storage::redis::invalidateWithDoubleDelete(
+                        redisClient,
+                        "authforge:cache:client:" + clientId,
+                        metrics,
+                        "client",
+                        doubleDeleteDelayMs
                       );
                   }
                 );

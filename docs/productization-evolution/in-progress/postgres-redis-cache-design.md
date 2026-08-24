@@ -223,6 +223,39 @@ is out of scope (the audit's correctness bar is "no revoked token served as acti
 TTL + negative cache meets that with a bounded window — see §10.7 for the formal
 bounded-eventual-consistency declaration).
 
+**#79/#80 addendum — delayed double delete + failure observability (v1.4.1).**
+The race described above has a second, wider form discovered on the client/user caches
+(issue #79): a reader whose **Postgres read starts before the write commits** can land its
+cache-fill `SET` **after** the invalidation `DEL` — the DEL "succeeds" yet the stale row is
+pinned for the **full** TTL (300s client / 120s roles), not the 60s token cap. Mitigation,
+implemented as one shared primitive (`authforge/storage/redis/DelayedDoubleDelete.h`,
+used by the ClientCacheInvalidator/UserCacheInvalidator hooks and the token decorator's
+revoke path):
+
+1. **Immediate DEL** after the Postgres write commits (unchanged commit-ordered timing).
+2. **Delayed second DEL** on the framework event loop, default **200ms** later
+   (`cache.invalidation_double_delete_delay_ms`, clamped [50, 2000]). The delay is chosen
+   above the p99 Postgres read latency, so any racing refill (whose read began before the
+   commit) lands *before* the second DEL and is evicted by it. A refill whose read took
+   longer than the delay survives — that residual is TTL-bounded, as wave-2-plan §99 already
+   documents. Losing the second DEL to process death degrades to single-DEL semantics.
+3. **Refill side stays plain `SET`** (no `SET NX`): NX adds nothing against this race (the
+   key is absent after the DEL, so NX writes anyway) and would *pin* a stale refill against
+   a fresher one in the stale-first ordering. Full generation/versioning remains deferred to
+   #42 Phase 3, per the task decision.
+4. **#80 failure observability**: every *failed DEL attempt* increments
+   `authforge_cache_invalidation_failures_total{kind}` via the IMetrics port and logs
+   (WARN on first failure, ERROR after the one immediate retry) — up to 4 counted attempts
+   per invalidation against a dead Redis. Soft-fail is unchanged: Redis-down still means
+   pass-through to Postgres.
+
+**Known residuals (documented, accepted):** (a) the UserReadCache in-process profile memo
+(§5.5, 2s TTL) is only cleared synchronously by the invalidation hook and not by the delayed
+DEL — a ≤2s staleness blip pre-dates this work and is bounded by its own TTL; (b)
+`revokeTokenFamily` remains TTL-bounded convergence (G1, unchanged); (c) the guard-tombstone
+atomic-Lua refill variant that would close the sub-delay residual entirely was evaluated and
+rejected as drifting toward the deferred versioning scheme.
+
 ### 5.5 Fallback (Redis unavailable) — transparent degrade
 
 Every cache operation is wrapped. The critical correctness constraint (S1) is that the user

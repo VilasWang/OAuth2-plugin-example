@@ -8924,6 +8924,23 @@ std::shared_ptr<CachedClientRepositoryBase> impl_;
 ::drogon::CacheMap<std::string, ::authforge::oauth2::model::OAuth2Client> clientCache_;
 };
 }
+=== libs/storage-redis/include/authforge/storage/redis/DelayedDoubleDelete.h
+#pragma once
+#include <authforge/common/ports/IMetrics.h>
+#include <drogon/nosql/RedisClient.h>
+#include <memory>
+#include <string>
+namespace authforge::storage::redis
+{
+constexpr int kDefaultDoubleDeleteDelayMs = 200;
+void invalidateWithDoubleDelete(
+const ::drogon::nosql::RedisClientPtr &redis,
+const std::string &key,
+const std::shared_ptr<::authforge::common::ports::IMetrics> &metrics,
+std::string kind,
+int delayMs = kDefaultDoubleDeleteDelayMs
+);
+}
 === libs/storage-redis/include/authforge/storage/redis/RedisCachedClientRepository.h
 #pragma once
 #include <authforge/common/ports/IMetrics.h>
