@@ -1,9 +1,11 @@
 # AuthForge HTTP 基准测试结果摘要
 
-> **测试日期**: 2026-08-12
+> **测试日期**: 2026-08-12（本文件 = 自测首版快照）
 > **Git SHA**: 1702246
 > **承重背景**: 验证 [调研报告 §3.1](../../docs/productization-evolution/productization-research.md) 的性能声明
 > **完整设计**: [benchmark-facility-design.md](../../docs/productization-evolution/in-progress/benchmark-facility-design.md)
+>
+> ⚠️ **2026-08-23 更新——本文件数字已过时（偏保守）**：后续性能优化计划（Redis 读缓存 wave-2 P0–P4、PG17 + 实例调优、bench 配档池 64/64 + cache-on + LTO、TTL=30 会话）大幅提升了实测值，且竞品同环境对比已完成。**当前权威数字见 [`benchmarks/competitors/results/COMPARISON.md`](../competitors/results/COMPARISON.md)**（2026-08-23 TTL=30 档，同环境四产品对比，AuthForge **五场景全部领先**）：S1 discovery 87.5k（Keycloak 41.1k）、S2 client_credentials **14.4k**（本文件 8.9k → +62%）、S3 introspect **22.5k**（17.1k）、S5 refresh **5.5k**（2.0k）、S6 userinfo **49.3k**（16.7k → +195%）。本文件保留作为优化前基线与承重假设首验记录。
 
 ---
 
