@@ -15,8 +15,7 @@ go get github.com/lucaswang420/authforge/clients/go
 ```
 
 > The Go module proxy serves subdirectory modules from nested git tags (`clients/go/vX.Y.Z`) which the
-> release pipeline creates alongside the root release tag. Until the first tagged release ships this
-> module, consume it from a checkout with a `replace` directive.
+> release pipeline creates alongside the root release tag — available since v1.3.0.
 
 ## Quickstart: machine-to-machine (client_credentials)
 

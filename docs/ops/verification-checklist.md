@@ -90,7 +90,8 @@ ORDER BY table_name;
 # 数据库版本检查
 docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT version();"
 
-# 预期：PostgreSQL 15.x
+# 预期：PostgreSQL 17.x（deploy compose 默认 postgres:17-alpine；
+#       显式钉回 15 的存量部署此处应为 15.x，见 docs/ops/postgresql-major-upgrade.md）
 ```
 
 ### 1.2 Redis 验证

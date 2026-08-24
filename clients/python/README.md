@@ -16,8 +16,8 @@ C++ OAuth2/OIDC authorization server.
 pip install authforge-oauth2
 ```
 
-> Publishing to PyPI starts with the first tagged release that includes this package. Until
-> then install from a checkout: `pip install clients/python`.
+> Published to PyPI since v1.3.0 (release pipeline's `sdk-python` job). Prefer the released wheel; a
+> checkout install (`pip install clients/python`) still works for development.
 
 ## Quickstart: machine-to-machine (client_credentials)
 

@@ -101,7 +101,7 @@ P1 后 S6 剩余 = 2 Redis 往返（token）+ 2 Redis 往返（profile+roles）+
 | P1 roles 表删除/更名无逐用户失效 | 无 role→users 反向索引 —— **接受 ≤120s 陈旧**（显式评审决定）；如不可接受再补反向查询失效 |
 | P1 双形态键（数字 id / public_sub）DEL 不可达 | 写路径从 users 行取双形态，DEL 4 键；集成测试用 public_sub token 验证撤销可达 |
 | 常量时间比较在新路径退化（时序侧信道） | 复用 `ConstantTimeCompare.h:22` 同一实现 + 单测断言比较时长与输入无关（松散上界） |
-| Lua 脚本与 Redis 集群/主从语义 | EVAL 单键单脚本（无跨槽）；bench 单实例验证，prod 部署文档注记 |
+| Lua 脚本与 Redis 集群/主从语义 | EVAL/DEL 均为**两键**（value + revoked 标记，`RedisCachedTokenRepository.cc` 的 `EVAL %s 2 %s %s`）——Redis Cluster 下会 CROSSSLOT；当前部署模型为单实例（bench 已验证），集群化前需改为 hash-tag 同槽或拆分脚本（2026-08-24 更正：初版误记为"单键无跨槽"） |
 | 缓存击穿/雪崩 | TTL 已短（120/300s）+ 负缓存 + 软失败；不做 single-flight（本机已证伪雷群假设，不追加复杂度） |
 | TZ 实验污染日志时间戳可读性 | 仅 bench 环境；prod 不动 |
 

@@ -8,7 +8,7 @@ storage, request-flow, and deployment perspectives.
 | Layer | Technology | Purpose |
 |---|---|---|
 | Web framework | Drogon | High-performance asynchronous C++ HTTP service |
-| Primary database | PostgreSQL 15 | Users, roles, clients, auth codes, and tokens |
+| Primary database | PostgreSQL 17 | Users, roles, clients, auth codes, and tokens (deploy default since 2026-08-18; the server also runs on 15 — see the major-upgrade runbook) |
 | Cache / KV store | Redis | Optional L2 cache (client + access-token reads) in front of Postgres; standalone Redis storage is deprecated (rate limiting is process-local, not Redis) |
 | Frontend | Vue 3 + Vite | SPA client for OAuth2 authorization-code flow |
 | Deployment | Docker Compose | Local and production-like full-stack deployment |
