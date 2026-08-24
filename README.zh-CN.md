@@ -2,9 +2,9 @@
 
 [English](README.md)
 
-![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
-![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
-[![Release](https://img.shields.io/github/v/release/lucaswang420/authforge)](https://github.com/lucaswang420/authforge/releases/latest)
+![CI](https://github.com/voidvec/authforge/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/voidvec/authforge/actions/workflows/security.yml/badge.svg)
+[![Release](https://img.shields.io/github/v/release/voidvec/authforge)](https://github.com/voidvec/authforge/releases/latest)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -219,7 +219,7 @@ cd frontends\user && npm install && npm run dev
 
 ### 路径 C — 以 SDK 方式集成
 
-通过 `find_package` 将 AuthForge 嵌入自己的 C++ 宿主（SDK 包取自 [Releases](https://github.com/lucaswang420/authforge/releases)，或从源码 `cmake --install`）：
+通过 `find_package` 将 AuthForge 嵌入自己的 C++ 宿主（SDK 包取自 [Releases](https://github.com/voidvec/authforge/releases)，或从源码 `cmake --install`）：
 
 ```cmake
 # 全栈：一个包拉取完整闭包（引擎 + Drogon 插件/控制器）
@@ -246,7 +246,7 @@ client = m2m_client("http://localhost:5555", "backend-svc", "…", scopes=["toke
 ```
 
 ```go
-// Go（github.com/lucaswang420/authforge/clients/go）
+// Go（github.com/voidvec/authforge/clients/go）
 client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…", []string{"tokens:read"})
 ```
 
@@ -281,7 +281,7 @@ helm install authforge deploy/helm/authforge -f my-values.yaml
 发布由 SemVer 标签（`vX.Y.Z`）触发 [`release.yml`](.github/workflows/release.yml) 产出：
 
 - **SDK 包** — `authforge-sdk-<ver>-linux-x86_64.tar.gz`（8 个静态库 + 头文件 + CMake 包配置）附 `.sha256` 校验和，挂在 GitHub Release 附件。
-- **容器镜像** — 多架构（amd64 + arm64）发布到 GHCR：`ghcr.io/lucaswang420/authforge-{backend,frontend,admin}:<ver>`。
+- **容器镜像** — 多架构（amd64 + arm64）发布到 GHCR：`ghcr.io/voidvec/authforge-{backend,frontend,admin}:<ver>`。
 - **签名** — 镜像 manifest 按 digest 用 cosign 签名（keyless，GitHub OIDC）。
 - **SBOM** — 每个镜像及源码树的 SPDX JSON（syft 生成），附在 Release 中。
 
@@ -289,8 +289,8 @@ helm install authforge deploy/helm/authforge -f my-values.yaml
 
 ```bash
 # 镜像签名
-cosign verify ghcr.io/lucaswang420/authforge-backend:<version> \
-  --certificate-identity-regexp 'github.com/lucaswang420/.+/.github/workflows/release.yml' \
+cosign verify ghcr.io/voidvec/authforge-backend:<version> \
+  --certificate-identity-regexp 'github.com/voidvec/.+/.github/workflows/release.yml' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # SDK 包完整性

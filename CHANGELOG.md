@@ -479,6 +479,6 @@ v1.0.0 以来的首次正式發布。涵蓋 842 個 commit，包含完整的 OID
 
 ---
 
-[Unreleased]: https://github.com/lucaswang420/authforge/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/lucaswang420/authforge/releases/tag/v1.1.0
-[1.0.0]: https://github.com/lucaswang420/authforge/releases/tag/v1.0.0
+[Unreleased]: https://github.com/voidvec/authforge/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/voidvec/authforge/releases/tag/v1.1.0
+[1.0.0]: https://github.com/voidvec/authforge/releases/tag/v1.0.0

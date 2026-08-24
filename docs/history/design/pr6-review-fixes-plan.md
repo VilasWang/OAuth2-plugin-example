@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Resolve all 5 review findings on PR #6 (2 from owner `lucaswang420`, 3 from Codex bot), plus one related write-side gap surfaced by an audit of every email-touching code path, so the email-first-auth PR can merge.
+**Goal:** Resolve all 5 review findings on PR #6 (2 from owner `voidvec`, 3 from Codex bot), plus one related write-side gap surfaced by an audit of every email-touching code path, so the email-first-auth PR can merge.
 
 **Architecture:** Five targeted code/migration fixes plus two new integration tests. Each fix is independent and ships with a test that locks the fixed behavior. No new abstractions: request-body parsing is duplicated inline in `SessionController` (the user explicitly chose duplication over a shared helper, accepting the trade-off to keep the change surgical).
 

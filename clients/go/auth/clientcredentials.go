@@ -1,6 +1,6 @@
 // Package auth provides the handwritten authentication layer for the
 // AuthForge Go client (the generated API surface lives in the sibling
-// package github.com/lucaswang420/authforge/clients/go/generated).
+// package github.com/voidvec/authforge/clients/go/generated).
 //
 // Token lifecycle is deliberately handwritten, never generated (client-sdk
 // design D5): refresh rotation, lockout and family revocation are too
@@ -20,7 +20,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
-	"github.com/lucaswang420/authforge/clients/go/generated"
+	"github.com/voidvec/authforge/clients/go/generated"
 )
 
 // TokenURLPath and AuthorizeURLPath are the stable request shapes this

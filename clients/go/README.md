@@ -1,9 +1,9 @@
 # AuthForge Go Client
 
-Typed Go SDK for [AuthForge](https://github.com/lucaswang420/authforge) — the embeddable C++ OAuth2/OIDC
+Typed Go SDK for [AuthForge](https://github.com/voidvec/authforge) — the embeddable C++ OAuth2/OIDC
 authorization server.
 
-- **Module path:** `github.com/lucaswang420/authforge/clients/go` (monorepo subdirectory module)
+- **Module path:** `github.com/voidvec/authforge/clients/go` (monorepo subdirectory module)
 - **API surface:** generated from the server's single-source OpenAPI spec (`apps/server/openapi.yaml`)
   with [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) v2.8.0 — 78 operations, typed
   request/response models
@@ -11,7 +11,7 @@ authorization server.
   [design doc](../../docs/productization-evolution/in-progress/client-sdk-facility-design.md))
 
 ```bash
-go get github.com/lucaswang420/authforge/clients/go
+go get github.com/voidvec/authforge/clients/go
 ```
 
 > The Go module proxy serves subdirectory modules from nested git tags (`clients/go/vX.Y.Z`) which the
@@ -25,7 +25,7 @@ package main
 import (
 	"context"
 
-	af "github.com/lucaswang420/authforge/clients/go/auth"
+	af "github.com/voidvec/authforge/clients/go/auth"
 )
 
 func main() {
@@ -83,7 +83,7 @@ Everything under `generated/` is the typed surface of the whole server API
 (`generated.ClientWithResponses` offers per-endpoint typed responses):
 
 ```go
-import "github.com/lucaswang420/authforge/clients/go/generated"
+import "github.com/voidvec/authforge/clients/go/generated"
 
 client, _ := generated.NewClientWithResponses("http://localhost:5555")
 resp, _ := client.GetWellKnownOpenidConfigurationWithResponse(ctx)
