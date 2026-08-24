@@ -118,3 +118,7 @@ graphify-out/
 **/.ruff_cache/
 **/*.egg-info/
 clients/python/.venv/
+
+# ZCode per-session scratch (plans/tmp — same convention as .kiro/tmp/)
+.zcode/tmp/
+.zcode/plans/
