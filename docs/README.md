@@ -9,6 +9,7 @@ use relative paths.
 - [Architecture Overview](backend/architecture-overview.md) — package layering, request flow
 - [Security Architecture](backend/security-architecture.md) — token lifecycle, protection strategies
 - [RBAC Guide](backend/rbac-guide.md) — roles, permissions, triple-scope control
+- [DDD Domain Model](backend/ddd-domain-model.md) — target DDD design: bounded contexts, aggregates, domain events
 
 ## Integrating (SDK consumers)
 
