@@ -45,6 +45,12 @@ namespace authforge::storage::redis
 /// Default second-DEL delay: comfortably above the p99 read latency of the
 /// Postgres lookups whose results get refilled, small enough that a
 /// straggler eviction lands well before any human notices a stale row.
+///
+/// Config scope note (PR #85 review): the cache.invalidation_double_delete_
+/// delay_ms knob threads into the CLIENT/USER invalidation hooks only; the
+/// token decorator's revoke path calls this helper with the default (its
+/// negative-marker-before-DEL ordering already self-corrects racing
+/// refills on the next read).
 constexpr int kDefaultDoubleDeleteDelayMs = 200;
 
 /**

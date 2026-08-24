@@ -150,10 +150,10 @@ DROGON_TEST(Integration_P1_Storage_DelayedDoubleDelete_RacingRefill_EvictedBySec
     syncSet(redis, key, "old-row");
     CHECK(syncGet(redis, key) == "old-row");
 
-    // t1: the invalidation (immediate DEL + delayed DEL at +1000ms -- well
+    // t1: the invalidation (immediate DEL + delayed DEL at +2000ms -- well
     // above any plausible immediate-DEL landing latency, so the wait loop
     // below reliably observes the immediate DEL and NOT the delayed one).
-    constexpr int kTestDelayMs = 1000;
+    constexpr int kTestDelayMs = 2000;
     invalidateWithDoubleDelete(redis, key, metrics, "client", kTestDelayMs);
 
     // The immediate DEL is async on a pooled connection: WAIT for it to land

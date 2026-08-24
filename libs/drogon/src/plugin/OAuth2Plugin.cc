@@ -391,6 +391,10 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             // Phase 2: token cache (getAccessToken + introspectToken + revoke
             // invalidation + negative cache). grant/consent stay unwrapped
             // (§5.2: not cached).
+            // Note: the token decorator's revoke-path double-delete uses the
+            // shared helper's default delay (its negative-marker ordering
+            // already self-corrects racing refills on the next read; the
+            // config knob below scopes to the client/user hook DELs only).
             tokenRepo = std::make_shared<authforge::storage::redis::RedisCachedTokenRepository>(
               bundle.tokenRepository(), redisClient, metrics_, accessTokenMaxTtl
             );

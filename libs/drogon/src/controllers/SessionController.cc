@@ -91,12 +91,13 @@ namespace authforge::drogon::controllers
 namespace
 {
 
-// #55: decode a JWT's payload segment (no signature verification -- per
-// OIDC RP-Initiated Logout §2.2 TLS already authenticated the RP, the hint
-// is advisory). Returns Json::Value() (null) on any malformed input.
-// Extracted from endSession's former inline aud-only decode so the sub
-// claim (backchannel logout attribution) and aud claim (post-logout redirect
-// client identification) come from one pass.
+// #55/#78: decode a JWT's payload segment WITHOUT verification. Callers must
+// only feed this a hint that already passed JwkManager::verifyJwt —
+// endSession's #78 gate guarantees that ordering (no silent fallback), so
+// the claims extracted here are trustworthy. Returns Json::Value() (null)
+// on any malformed input. Extracted from endSession's former inline
+// aud-only decode so the sub claim (backchannel logout attribution) and aud
+// claim (post-logout redirect client identification) come from one pass.
 Json::Value decodeJwtPayloadClaims(const std::string &jwt)
 {
     try
