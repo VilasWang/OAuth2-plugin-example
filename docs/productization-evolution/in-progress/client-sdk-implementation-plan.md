@@ -95,7 +95,7 @@ clients/python/
 
 ```
 clients/go/
-├── go.mod                     # module github.com/lucaswang420/authforge/clients/go；go 1.24
+├── go.mod                     # module github.com/voidvec/authforge/clients/go；go 1.24
 ├── go.sum
 ├── oapi-codegen.yaml          # 生成配置：package generated；generate: models+client；pin v2.8.0（注释）
 ├── generated/client.gen.go    # DO NOT EDIT（14471 行量级）
@@ -135,7 +135,7 @@ clients/go/
 - [x] `go build ./... && go vet ./...` 零输出；`gofmt -l` 空
 - [x] `go test ./...`（无 integration tag）全绿
 - [x] 集成测试（§四）对本地全栈绿
-- [x] README 含 `go get github.com/lucaswang420/authforge/clients/go` 用法
+- [x] README 含 `go get github.com/voidvec/authforge/clients/go` 用法
 
 ---
 

@@ -15,9 +15,9 @@
 | 产物 | 位置 | 说明 |
 |------|------|------|
 | SDK 包 `authforge-sdk-<ver>-linux-x86_64.tar.gz` | GitHub Release 附件 | 8 个静态库 + `include/authforge/**` 头 + `lib/cmake/authforge-*/{Config,ConfigVersion,Targets}.cmake`（附 `.sha256`） |
-| 后端镜像 | `ghcr.io/lucaswang420/authforge-backend:<ver>` | 多架构（amd64 + arm64），入口 `:5555`，`/health` 探活 |
-| 用户前端镜像 | `ghcr.io/lucaswang420/authforge-frontend:<ver>` | nginx 静态托管，`:80` |
-| 管理台镜像 | `ghcr.io/lucaswang420/authforge-admin:<ver>` | nginx 静态托管 `/admin`，`:80` |
+| 后端镜像 | `ghcr.io/voidvec/authforge-backend:<ver>` | 多架构（amd64 + arm64），入口 `:5555`，`/health` 探活 |
+| 用户前端镜像 | `ghcr.io/voidvec/authforge-frontend:<ver>` | nginx 静态托管，`:80` |
+| 管理台镜像 | `ghcr.io/voidvec/authforge-admin:<ver>` | nginx 静态托管 `/admin`，`:80` |
 
 镜像另有 `latest` 标签；`<ver>-amd64` / `<ver>-arm64` 为单架构中间标签。
 服务器可执行文件**不在** SDK 包内——产品部署走镜像通道。
@@ -91,7 +91,7 @@ target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::me
 ## 5. 镜像使用
 
 ```bash
-docker pull ghcr.io/lucaswang420/authforge-backend:1.0.0
+docker pull ghcr.io/voidvec/authforge-backend:1.0.0
 ```
 
 三镜像与 `deploy/docker/docker-compose.yml` 的构建目标一一对应
@@ -121,9 +121,9 @@ docker pull ghcr.io/lucaswang420/authforge-backend:1.0.0
 
 ```sh
 # 镜像签名（keyless：身份 = release.yml 工作流，无需公钥分发）
-cosign verify ghcr.io/lucaswang420/authforge-backend:<ver> \
+cosign verify ghcr.io/voidvec/authforge-backend:<ver> \
   --certificate-identity-regexp \
-    'https://github.com/lucaswang420/[^/]+/.github/workflows/release.yml.*' \
+    'https://github.com/voidvec/[^/]+/.github/workflows/release.yml.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # SDK tarball 校验和（Release 附件）

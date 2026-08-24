@@ -2,9 +2,9 @@
 
 [中文文档](README.zh-CN.md)
 
-![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
-![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
-[![Release](https://img.shields.io/github/v/release/lucaswang420/authforge)](https://github.com/lucaswang420/authforge/releases/latest)
+![CI](https://github.com/voidvec/authforge/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/voidvec/authforge/actions/workflows/security.yml/badge.svg)
+[![Release](https://img.shields.io/github/v/release/voidvec/authforge)](https://github.com/voidvec/authforge/releases/latest)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -221,7 +221,7 @@ cd frontends\user && npm install && npm run dev
 
 ### Path C — Consume as an SDK
 
-Embed AuthForge into your own C++ host via `find_package` (SDK tarball from [Releases](https://github.com/lucaswang420/authforge/releases), or `cmake --install` from source):
+Embed AuthForge into your own C++ host via `find_package` (SDK tarball from [Releases](https://github.com/voidvec/authforge/releases), or `cmake --install` from source):
 
 ```cmake
 # Full stack: one package pulls the whole closure (engine + Drogon plugin/controllers)
@@ -248,7 +248,7 @@ client = m2m_client("http://localhost:5555", "backend-svc", "…", scopes=["toke
 ```
 
 ```go
-// Go (github.com/lucaswang420/authforge/clients/go)
+// Go (github.com/voidvec/authforge/clients/go)
 client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…", []string{"tokens:read"})
 ```
 
@@ -283,7 +283,7 @@ Full walkthroughs: [Production Deployment Guide](docs/ops/deployment.md) · [Win
 Releases are cut from SemVer tags (`vX.Y.Z`) by [`release.yml`](.github/workflows/release.yml):
 
 - **SDK package** — `authforge-sdk-<ver>-linux-x86_64.tar.gz` (8 static libs + headers + CMake package configs) with `.sha256` checksum, attached to the GitHub Release.
-- **Container images** — multi-arch (amd64 + arm64) on GHCR: `ghcr.io/lucaswang420/authforge-{backend,frontend,admin}:<ver>`.
+- **Container images** — multi-arch (amd64 + arm64) on GHCR: `ghcr.io/voidvec/authforge-{backend,frontend,admin}:<ver>`.
 - **Signatures** — image manifests are signed by digest with cosign (keyless, GitHub OIDC).
 - **SBOMs** — SPDX JSON for each image and the source tree (syft), attached to the Release.
 
@@ -291,8 +291,8 @@ Verify before deploying:
 
 ```bash
 # Image signature
-cosign verify ghcr.io/lucaswang420/authforge-backend:<version> \
-  --certificate-identity-regexp 'github.com/lucaswang420/.+/.github/workflows/release.yml' \
+cosign verify ghcr.io/voidvec/authforge-backend:<version> \
+  --certificate-identity-regexp 'github.com/voidvec/.+/.github/workflows/release.yml' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # SDK tarball integrity
