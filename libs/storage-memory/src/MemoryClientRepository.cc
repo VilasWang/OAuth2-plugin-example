@@ -30,9 +30,15 @@ void MemoryClientRepository::initFromConfig(const Json::Value &clientsConfig)
         ::authforge::oauth2::model::OAuth2Client client;
         client.clientId = clientId;
 
-        // Parse client type (default to CONFIDENTIAL for backward
-        // compatibility)
-        std::string clientTypeStr = clientData.get("type", "CONFIDENTIAL").asString();
+        // Parse client type. The canonical config key is "client_type" (every
+        // apps/server/config/*.json uses it); bare "type" stays accepted for
+        // pre-canonical configs. Surfaced by #69's refresh-grant e2e: with
+        // the old single-"type" read, a configured PUBLIC vue-client silently
+        // defaulted to CONFIDENTIAL in memory mode and rejected public-style
+        // (empty-secret) token requests with invalid_client.
+        std::string clientTypeStr =
+          clientData.get("client_type", clientData.get("type", "CONFIDENTIAL").asString())
+            .asString();
         try
         {
             client.clientType = ::authforge::oauth2::model::stringToClientType(clientTypeStr);
