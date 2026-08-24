@@ -16,10 +16,16 @@
 #include <drogon/utils/Utilities.h>
 #include <json/json.h>
 
+#include <authforge/oauth2/jwk/JwkManager.h>
+
 #include "HttpTestClient.h"
 
 #include <string>
 
+using authforge::test::http::kAdminClientId;
+using authforge::test::http::loginAsUserTokens;
+using authforge::test::http::kAdminRedirectUri;
+using authforge::test::http::kTestBaseUrl;
 using authforge::test::http::parseJsonBody;
 using authforge::test::http::postgresAvailable;
 using authforge::test::http::sendGet;
@@ -228,4 +234,164 @@ DROGON_TEST(Integration_P1_OidcBatch2_UserInfo_M2MToken_Returns403InsufficientSc
     CHECK(statusIs(resp, drogon::k401Unauthorized));
     auto wwwAuth = resp->getHeader("WWW-Authenticate");
     CHECK(wwwAuth.find("invalid_token") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// #78: end_session MUST NOT trust an id_token_hint whose signature does not
+// verify against the OP's own key set (previously the unverified `sub` claim
+// drove the backchannel logout fan-out -> unauthenticated cross-user forced
+// logout). Rejections are 400 + AUTH_INVALID_ID_TOKEN_HINT error envelopes.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+// Returns true iff the response is a 400 whose error envelope carries
+// AUTH_INVALID_ID_TOKEN_HINT (the unified Application error shape:
+// error.code/category/message). Assertion happens in the test body -- the
+// drogon test macros need the test context that a free function lacks.
+bool isInvalidHintRejection(const ::drogon::HttpResponsePtr &resp)
+{
+    if (!resp || resp->getStatusCode() != ::drogon::k400BadRequest)
+        return false;
+    Json::Value body;
+    if (!parseJsonBody(resp, body))
+        return false;
+    if (!body.isMember("error") || !body["error"].isObject() || !body["error"].isMember("code"))
+        return false;
+    return body["error"]["code"].asString() == "AUTH_INVALID_ID_TOKEN_HINT";
+}
+}  // namespace
+
+// #78: a well-formed, plausibly-claimed id_token_hint signed by a DIFFERENT
+// key (a local ephemeral JwkManager, mimicking an attacker who knows the
+// victim's iss/sub) must be rejected -- signature/kid verification is the
+// gate, not claim plausibility.
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_ForgedHint_Returns400)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    ::authforge::oauth2::JwkManager forger;
+    REQUIRE(forger.init(Json::Value(Json::objectValue)));
+
+    auto *plugin = ::drogon::app().getPlugin<::OAuth2Plugin>();
+    REQUIRE(plugin != nullptr);
+
+    Json::Value claims;
+    claims["iss"] = plugin->getIssuer();
+    claims["sub"] = "00000000-0000-0000-0000-00000000078";
+    claims["aud"] = "admin-console";
+    claims["exp"] = static_cast<Json::Int64>(time(nullptr) + 600);
+    const std::string forged = forger.signJwt(claims);
+    REQUIRE(!forged.empty());
+
+    auto resp = sendGet("/oauth2/end_session?id_token_hint=" + forged);
+    REQUIRE(resp != nullptr);
+    CHECK(isInvalidHintRejection(resp));
+}
+
+// #78: structural garbage in id_token_hint is a hard 400 too -- no silent
+// fallback to "treat as if no hint was supplied".
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_GarbageHint_Returns400)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    auto resp = sendGet("/oauth2/end_session?id_token_hint=not-a-jwt-at-all");
+    REQUIRE(resp != nullptr);
+    CHECK(isInvalidHintRejection(resp));
+}
+
+// #78 happy path: a REAL id_token (minted through the full authorization-code
+// flow with openid scope) + the client's registered post_logout_redirect_uri
+// -> 302 redirect with state echoed. This is the flow legitimate RPs use.
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_VerifiedHint_Redirects302)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    auto tokens = loginAsUserTokens("admin", "admin", "openid profile admin");
+    REQUIRE(tokens.has_value());
+    const std::string idToken = tokens->get("id_token", "").asString();
+    REQUIRE(!idToken.empty());
+
+    auto resp = sendGet(
+      "/oauth2/end_session?id_token_hint=" + idToken +
+      "&post_logout_redirect_uri=" + kAdminRedirectUri + "&state=st78"
+    );
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k302Found));
+    auto location = resp->getHeader("location");
+    CHECK(location.find(kAdminRedirectUri) == 0);
+    CHECK(location.find("state=st78") != std::string::npos);
+}
+
+// #78 subject consistency: a VERIFIED hint that describes a DIFFERENT user
+// than the browser session (admin's id_token + a freshly registered user's
+// session cookie) is rejected with the same 400 -- the hint must match the
+// signed-in subject when both are present.
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_HintSubjectMismatch_Returns400)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    // User A's (admin's) verified id_token.
+    auto tokens = loginAsUserTokens("admin", "admin", "openid profile admin");
+    REQUIRE(tokens.has_value());
+    const std::string idToken = tokens->get("id_token", "").asString();
+    REQUIRE(!idToken.empty());
+
+    // Register user B, then establish B's browser session (the login response
+    // carries the JSESSIONID cookie holding B's sub).
+    auto reg = sendPostForm(
+      "/api/register", "username=mm78user&password=Passw0rd!78&email=mm78@example.test"
+    );
+    REQUIRE(reg != nullptr);
+    // Registration is idempotent for re-runs (duplicate username -> 409 is
+    // fine as long as the account exists for the login below).
+    const bool registered = statusIs(reg, drogon::k200OK) || statusIs(reg, drogon::k409Conflict);
+    CHECK(registered);
+    if (!registered)
+        return;
+
+    const std::string codeVerifier = ::authforge::drogon::utils::generateSecureToken(32);
+    const std::string codeChallenge =
+      ::authforge::drogon::utils::computeCodeChallenge(codeVerifier, "S256");
+    auto loginResp = sendPostForm(
+      "/oauth2/login?json=true",
+      "username=mm78user&password=Passw0rd!78&client_id=" + std::string(kAdminClientId) +
+        "&redirect_uri=" + std::string(kAdminRedirectUri) +
+        "&scope=openid&state=t78&code_challenge=" + codeChallenge +
+        "&code_challenge_method=S256"
+    );
+    REQUIRE(loginResp != nullptr);
+    REQUIRE(statusIs(loginResp, drogon::k200OK));
+    // drogon keeps cookies in a dedicated map (name -> drogon::Cookie, not
+    // plain header strings), so rebuild the Cookie header from getCookies().
+    std::string cookie;
+    for (const auto &entry : loginResp->getCookies())
+    {
+        if (!cookie.empty())
+            cookie += "; ";
+        cookie += entry.first + "=" + entry.second.value();
+    }
+    REQUIRE(!cookie.empty());
+
+    // end_session carrying B's cookie + A's verified hint, via a raw request
+    // (the shared helpers have no custom-header injection point).
+    ::drogon::HttpResponsePtr resp;
+    try
+    {
+        auto client =
+          ::drogon::HttpClient::newHttpClient(kTestBaseUrl, ::drogon::app().getLoop());
+        auto req = ::drogon::HttpRequest::newHttpRequest();
+        req->setMethod(::drogon::Get);
+        req->setPath("/oauth2/end_session?id_token_hint=" + idToken);
+        req->addHeader("Cookie", cookie);
+        auto [result, r] = client->sendRequest(req, 30.0);
+        REQUIRE(result == ::drogon::ReqResult::Ok);
+        resp = r;
+    }
+    catch (const std::exception &e)
+    {
+        LOG_WARN << "mismatch-test request failed: " << e.what();
+    }
+    REQUIRE(resp != nullptr);
+    CHECK(isInvalidHintRejection(resp));
 }

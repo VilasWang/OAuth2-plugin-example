@@ -63,11 +63,11 @@ struct RawEntry
     int httpStatusOverride = 0;  ///< 0 -> derive from httpStatusFor(); >0 -> use as-is.
 };
 
-// Verbatim copy of oauth2::error::ErrorCatalog's 25-entry table (numeric
-// codes/messages preserved unchanged).
-const std::array<RawEntry, 25> &rawEntries()
+// Verbatim copy of oauth2::error::ErrorCatalog's table (numeric codes/messages
+// preserved unchanged); grows as new codes are ratified.
+const std::array<RawEntry, 26> &rawEntries()
 {
-    static const std::array<RawEntry, 25> kEntries = {{
+    static const std::array<RawEntry, 26> kEntries = {{
       // NETWORK (1000-1099)
       {"NET_CONNECTION_FAILED",
        1001,
@@ -210,6 +210,17 @@ const std::array<RawEntry, 25> &rawEntries()
        ErrorCategory::AUTHENTICATION,
        "尚未设置双重验证，请先完成设置",
        "用户尚未完成 MFA 设置（AUTHENTICATION 类）"},
+
+      // AUTHENTICATION (4000-4099) —— #78：end_session 的 id_token_hint
+      // 验签/声明校验失败。AUTHENTICATION 类默认 HTTP 401，但这里是请求参数
+      // 校验失败（对齐 VALIDATION 语义），显式覆盖为 400（先例：
+      // VALIDATION_RATE_LIMITED 显式 429）。
+      {"AUTH_INVALID_ID_TOKEN_HINT",
+       4006,
+       ErrorCategory::AUTHENTICATION,
+       "登录令牌提示无效",
+       "end_session 的 id_token_hint 验签/过期/issuer/主体校验失败（AUTHENTICATION 类，HTTP 400）",
+       400},
     }};
     return kEntries;
 }
