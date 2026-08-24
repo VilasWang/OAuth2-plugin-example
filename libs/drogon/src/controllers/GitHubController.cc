@@ -245,12 +245,20 @@ void GitHubController::issueTokensForUser(
     const std::string scope = "openid profile email";
 
     authforge::oauth2::model::OAuth2AccessToken accessToken;
-    // Preserve GitHub's pre-existing behavior of storing the raw (unhashed)
-    // token value; hashing it would change what already-issued tokens look up
-    // against and is out of scope for this storage-abstraction fix. (The
-    // canonical token-endpoint path hashes via hashToken; GitHub can be aligned
-    // separately.)
-    accessToken.token = accessTokenStr;
+    // #69: store the HASH of the token, mirroring the canonical paths
+    // (TokenService's grant issuance and TokenEndpointController's
+    // controller-constructed pairs -- CryptoUtils::hashToken and
+    // TokenCrypto::hashToken are byte-identical UPPER(SHA256 hex)). The
+    // previous raw storage meant every hash-based lookup missed:
+    // validateAccessToken / introspection resolve the presented bearer via
+    // hashToken before the repository read, so a social-issued token 401'd
+    // on every authenticated endpoint, the refresh grant could never find
+    // the row, and the raw refreshToken.accessToken mirror never matched
+    // revokeTokenFamily's hashed-column SQL. No legacy migration: the
+    // raw-stored tokens were unusable from the day they were issued.
+    const std::string accessTokenHash = ::authforge::drogon::utils::hashToken(accessTokenStr);
+    const std::string refreshTokenHash = ::authforge::drogon::utils::hashToken(refreshTokenStr);
+    accessToken.token = accessTokenHash;
     accessToken.clientId = clientId;
     accessToken.userId = std::to_string(userId);
     accessToken.scope = scope;
@@ -261,8 +269,8 @@ void GitHubController::issueTokensForUser(
     accessToken.issuer = plugin->getIssuer();
 
     authforge::oauth2::model::OAuth2RefreshToken refreshToken;
-    refreshToken.token = refreshTokenStr;
-    refreshToken.accessToken = accessTokenStr;
+    refreshToken.token = refreshTokenHash;
+    refreshToken.accessToken = accessTokenHash;
     refreshToken.clientId = clientId;
     refreshToken.userId = std::to_string(userId);
     refreshToken.scope = scope;

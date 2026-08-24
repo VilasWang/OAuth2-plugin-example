@@ -29,7 +29,10 @@
 #include "HttpTestClient.h"
 #include "SocialMockFixture.h"
 
+#include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 
 using authforge::test::http::parseJsonBody;
 using authforge::test::http::sendPostForm;
@@ -38,6 +41,13 @@ using authforge::test::http::statusIs;
 using authforge::test::social::injectGitHubFake;
 using authforge::test::social::injectGoogleFake;
 using authforge::test::social::injectWeChatFake;
+using authforge::test::http::loginAsAdminWithScope;
+using authforge::test::http::postgresAvailable;
+using authforge::test::http::sendDelete;
+using authforge::test::http::sendGet;
+using authforge::test::http::sendPostJson;
+using authforge::test::http::kTestBaseUrl;
+using authforge::test::social::injectSocialLinkFake;
 
 // Server-reachability guard (these routes need no DB, but the in-process
 // server must be up). No postgresAvailable() guard: the mock-injected paths
@@ -327,4 +337,196 @@ DROGON_TEST(Integration_P0_GitHubLogin_ConflictingUsername_NoAdoption)
     Json::Value body;
     REQUIRE(parseJsonBody(resp, body));
     CHECK(!body.isMember("access_token"));
+}
+
+// ===========================================================================
+// #69: social-issued tokens must be stored HASHED so the hash-based lookup
+// paths (Bearer validation, introspection, refresh grant, family revoke)
+// can find them. Before the fix every authenticated call with a social token
+// 401'd. The fake-driven happy path runs in every storage mode.
+// ===========================================================================
+
+namespace
+{
+// Drives the fake GitHub login (no mapping -> find-or-create in the fake
+// repo) and returns the issued token pair on success.
+std::optional<std::pair<std::string, std::string>> fakeGitHubLoginForTokens(
+  const std::shared_ptr<authforge::identity::testing::FakeOAuthHttpClient> &http,
+  int64_t githubId
+)
+{
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gh-tok-" + std::to_string(githubId);
+    tokenBody["token_type"] = "bearer";
+    tokenBody["scope"] = "user";
+    http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    Json::Value userBody;
+    userBody["id"] = githubId;
+    userBody["login"] = "gh-user-" + std::to_string(githubId);
+    userBody["email"] = "gh" + std::to_string(githubId) + "@example.test";
+    http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
+    if (!resp || resp->getStatusCode() != ::drogon::k200OK)
+        return std::nullopt;
+    Json::Value body;
+    if (!parseJsonBody(resp, body))
+        return std::nullopt;
+    const std::string access = body.get("access_token", "").asString();
+    const std::string refresh = body.get("refresh_token", "").asString();
+    if (access.empty() || refresh.empty())
+        return std::nullopt;
+    return std::make_pair(access, refresh);
+}
+}  // namespace
+
+// #69 core: a GitHub-issued refresh token is found by the refresh grant.
+// TokenService resolves the presented refresh token via hashToken before the
+// repository lookup — exactly the lookup that missed when the raw value was
+// stored (pre-fix: invalid_grant). Runs in every storage mode: vue-client is
+// a PUBLIC client available in both the memory seed and the PG seed, and the
+// refresh grant accepts an empty secret for it.
+DROGON_TEST(Integration_P0_GitHubLogin_IssuedToken_RefreshGrantWorks)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectGitHubFake();
+    auto tokens = fakeGitHubLoginForTokens(h.http, 60690);
+    REQUIRE(tokens.has_value());
+
+    auto refreshed = sendPostForm(
+      "/oauth2/token",
+      "grant_type=refresh_token&client_id=vue-client&client_secret=&refresh_token=" + tokens->second
+    );
+    REQUIRE(refreshed != nullptr);
+    CHECK(statusIs(refreshed, drogon::k200OK));
+    Json::Value refreshedBody;
+    REQUIRE(parseJsonBody(refreshed, refreshedBody));
+    CHECK(refreshedBody.get("access_token", "").asString().empty() == false);
+    CHECK(refreshedBody.get("refresh_token", "").asString().empty() == false);
+}
+
+// #69 (PG-backed): a GitHub-issued token whose user_id is the INTERNAL id of
+// a REAL user (pre-linked mapping) works across the authenticated surface:
+// introspection (active:true), userinfo (numeric dispatch), the
+// /api/me/social/links numeric-dispatch branch from PR #68 (previously
+// untestable for exactly this reason), and the refresh grant. Introspection
+// authenticates as the seeded CONFIDENTIAL backend-svc (client_secret_basic,
+// HTTP Basic) — the endpoint requires a non-empty secret, so the PUBLIC
+// admin-console cannot call it.
+DROGON_TEST(Integration_P0_GitHubLogin_IssuedToken_AuthenticatedEndpointsWork)
+{
+    SOCIAL_SKIP_GUARD;
+    if (!postgresAvailable())
+    {
+        CHECK(true);
+        return;  // SKIP in memory mode: needs backend-svc + a real users row.
+    }
+
+    // Admin's internal id: resolved through the admin users list (same
+    // pattern as UserAdminHardeningTest's last-admin checks).
+    auto adminToken = loginAsAdminWithScope("openid profile admin");
+    REQUIRE(adminToken.has_value());
+    auto listResp = sendGet("/api/admin/users?q=admin", *adminToken);
+    REQUIRE(listResp != nullptr);
+    Json::Value listBody;
+    REQUIRE(parseJsonBody(listResp, listBody));
+    int32_t adminId = -1;
+    for (const auto &u : listBody["users"])
+    {
+        if (u.get("username", "").asString() == "admin")
+            adminId = static_cast<int32_t>(u.get("id", -1).asInt64());
+    }
+    REQUIRE(adminId > 0);
+
+    // Pre-link (github, "60691") -> admin's internal id in the FAKE repo, so
+    // the login flow issues tokens whose user_id is a REAL users row id.
+    auto h = injectGitHubFake();
+    h.accountRepo->insertLink(
+      "github",
+      "60691",
+      adminId,
+      [](authforge::identity::LinkMutationStatus) {}
+    );
+
+    auto tokens = fakeGitHubLoginForTokens(h.http, 60691);
+    REQUIRE(tokens.has_value());
+
+    // Introspection via backend-svc HTTP Basic: the social access token must
+    // answer active:true (the hash lookup that missed pre-fix). Mirrors
+    // TokenIssuedAtIntrospectionTest's request construction (Basic header +
+    // form body; F-017 forbids a body secret for client_secret_basic).
+    ::drogon::HttpResponsePtr intro;
+    try
+    {
+        auto client = ::drogon::HttpClient::newHttpClient(
+          kTestBaseUrl, ::drogon::app().getLoop()
+        );
+        auto req = ::drogon::HttpRequest::newHttpRequest();
+        req->setMethod(::drogon::Post);
+        req->setPath("/oauth2/introspect");
+        req->setContentTypeCode(::drogon::CT_APPLICATION_X_FORM);
+        req->addHeader(
+          "Authorization", "Basic " + ::drogon::utils::base64Encode("backend-svc:test-secret")
+        );
+        req->setBody("token=" + tokens->first + "&client_id=backend-svc");
+        auto [result, r] = client->sendRequest(req, 30.0);
+        REQUIRE(result == ::drogon::ReqResult::Ok);
+        intro = r;
+    }
+    catch (const std::exception &e)
+    {
+        LOG_WARN << "introspect request failed: " << e.what();
+    }
+    REQUIRE(intro != nullptr);
+    CHECK(statusIs(intro, drogon::k200OK));
+    Json::Value introBody;
+    REQUIRE(parseJsonBody(intro, introBody));
+    CHECK(introBody.get("active", false).asBool());
+
+    // Bearer-authenticated userinfo with the SOCIAL token: the auth filter's
+    // hash lookup must find it (pre-fix: 401 on every authenticated call).
+    auto socialInfo = sendGet("/oauth2/userinfo", tokens->first);
+    REQUIRE(socialInfo != nullptr);
+    CHECK(statusIs(socialInfo, drogon::k200OK));
+
+    // The PR #68 numeric-dispatch branch: social tokens carry the internal id
+    // as user_id; /api/me/social/links resolves it and serves the list.
+    auto links = sendGet("/api/me/social/links", tokens->first);
+    REQUIRE(links != nullptr);
+    CHECK(statusIs(links, drogon::k200OK));
+
+    // #75 closure: drive the FULL link -> list -> unlink lifecycle with the
+    // SOCIAL token itself, so the numeric-dispatch branch is exercised for
+    // the mutations too (previously every SocialLink test authenticated via
+    // the admin's public_sub token). injectSocialLinkFake installs the
+    // SocialLinkService fakes the mutation routes run against.
+    auto h2 = injectSocialLinkFake();
+    Json::Value linkTokenBody;
+    linkTokenBody["access_token"] = "ghtok-75";
+    h2.http->postFormResponses.push_back(authforge::identity::testing::okJson(linkTokenBody));
+    Json::Value linkUserBody;
+    linkUserBody["id"] = 60692;
+    linkUserBody["login"] = "gh-user-60692";
+    h2.http->getResponses.push_back(authforge::identity::testing::okJson(linkUserBody));
+    Json::Value codeJson;
+    codeJson["code"] = "c-75";
+    auto linkResp = sendPostJson("/api/me/social/links/github", codeJson, tokens->first);
+    REQUIRE(linkResp != nullptr);
+    CHECK(statusIs(linkResp, drogon::k200OK));
+
+    auto listAfter = sendGet("/api/me/social/links", tokens->first);
+    REQUIRE(listAfter != nullptr);
+    REQUIRE(statusIs(listAfter, drogon::k200OK));
+    Json::Value socialListBody;
+    REQUIRE(parseJsonBody(listAfter, socialListBody));
+    CHECK(socialListBody["total"].asInt() == 1);
+    CHECK(socialListBody["social_links"][0]["provider"].asString() == "github");
+
+    // Unlink guard: mark the numeric id password-usable (the fake's
+    // userHasUsablePassword set; the real PG admin does have a password).
+    h2.accountRepo->usersWithUsablePassword.insert(adminId);
+    auto unlinkResp = sendDelete("/api/me/social/links/github", tokens->first);
+    REQUIRE(unlinkResp != nullptr);
+    CHECK(statusIs(unlinkResp, drogon::k200OK));
 }
