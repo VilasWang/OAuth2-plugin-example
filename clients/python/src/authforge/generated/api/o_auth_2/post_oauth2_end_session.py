@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.error_envelope import ErrorEnvelope
 from ...models.message_response import MessageResponse
 from ...types import UNSET, Response, Unset
 
@@ -35,7 +36,9 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | MessageResponse | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Any | ErrorEnvelope | MessageResponse | None:
     if response.status_code == 200:
         response_200 = MessageResponse.from_dict(response.json())
 
@@ -46,7 +49,8 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return response_302
 
     if response.status_code == 400:
-        response_400 = cast(Any, None)
+        response_400 = ErrorEnvelope.from_dict(response.json())
+
         return response_400
 
     if client.raise_on_unexpected_status:
@@ -57,7 +61,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | MessageResponse]:
+) -> Response[Any | ErrorEnvelope | MessageResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -72,10 +76,12 @@ def sync_detailed(
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
     state: str | Unset = UNSET,
-) -> Response[Any | MessageResponse]:
+) -> Response[Any | ErrorEnvelope | MessageResponse]:
     """RP-Initiated Logout (POST)
 
-     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when
+    supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT
+    Error Envelope.
 
     Args:
         id_token_hint (str | Unset):
@@ -87,7 +93,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | MessageResponse]
+        Response[Any | ErrorEnvelope | MessageResponse]
     """
 
     kwargs = _get_kwargs(
@@ -109,10 +115,12 @@ def sync(
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
     state: str | Unset = UNSET,
-) -> Any | MessageResponse | None:
+) -> Any | ErrorEnvelope | MessageResponse | None:
     """RP-Initiated Logout (POST)
 
-     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when
+    supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT
+    Error Envelope.
 
     Args:
         id_token_hint (str | Unset):
@@ -124,7 +132,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | MessageResponse
+        Any | ErrorEnvelope | MessageResponse
     """
 
     return sync_detailed(
@@ -141,10 +149,12 @@ async def asyncio_detailed(
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
     state: str | Unset = UNSET,
-) -> Response[Any | MessageResponse]:
+) -> Response[Any | ErrorEnvelope | MessageResponse]:
     """RP-Initiated Logout (POST)
 
-     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when
+    supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT
+    Error Envelope.
 
     Args:
         id_token_hint (str | Unset):
@@ -156,7 +166,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | MessageResponse]
+        Response[Any | ErrorEnvelope | MessageResponse]
     """
 
     kwargs = _get_kwargs(
@@ -176,10 +186,12 @@ async def asyncio(
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
     state: str | Unset = UNSET,
-) -> Any | MessageResponse | None:
+) -> Any | ErrorEnvelope | MessageResponse | None:
     """RP-Initiated Logout (POST)
 
-     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+     OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when
+    supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT
+    Error Envelope.
 
     Args:
         id_token_hint (str | Unset):
@@ -191,7 +203,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | MessageResponse
+        Any | ErrorEnvelope | MessageResponse
     """
 
     return (

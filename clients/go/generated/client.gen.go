@@ -836,7 +836,7 @@ type PostOauth2DeviceAuthorizationFormdataBody struct {
 
 // GetOauth2EndSessionParams defines parameters for GetOauth2EndSession.
 type GetOauth2EndSessionParams struct {
-	// IdTokenHint Previously issued id_token hinting at the client/session to terminate. The aud claim identifies the client for validating post_logout_redirect_uri (signature not verified per §2.2).
+	// IdTokenHint Previously issued id_token hinting at the client/session to terminate. Signature-verified against the OP key set (#78); a bad or expired signature, wrong issuer, or a subject contradicting the current session yields 400 AUTH_INVALID_ID_TOKEN_HINT. The aud claim identifies the client for validating post_logout_redirect_uri.
 	IdTokenHint *string `form:"id_token_hint,omitempty" json:"id_token_hint,omitempty"`
 
 	// PostLogoutRedirectUri URI to redirect to after logout. Must be registered for the id_token_hint client; rejected with 400 otherwise.
@@ -848,7 +848,7 @@ type GetOauth2EndSessionParams struct {
 
 // PostOauth2EndSessionParams defines parameters for PostOauth2EndSession.
 type PostOauth2EndSessionParams struct {
-	// IdTokenHint Previously issued id_token hint.
+	// IdTokenHint Previously issued id_token hint (signature-verified,
 	IdTokenHint *string `form:"id_token_hint,omitempty" json:"id_token_hint,omitempty"`
 
 	// PostLogoutRedirectUri Registered post-logout redirect URI.
@@ -1777,14 +1777,14 @@ type ClientInterface interface {
 
 	// GetOauth2EndSession RP-Initiated Logout
 	//
-	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. post_logout_redirect_uri MUST be registered for the client identified by id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
 	//
 	// Corresponds with GET /oauth2/end_session (the `GetOauth2EndSession` operationId).
 	GetOauth2EndSession(ctx context.Context, params *GetOauth2EndSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostOauth2EndSession RP-Initiated Logout (POST)
 	//
-	// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+	// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT Error Envelope.
 	//
 	// Corresponds with POST /oauth2/end_session (the `PostOauth2EndSession` operationId).
 	PostOauth2EndSession(ctx context.Context, params *PostOauth2EndSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3474,7 +3474,7 @@ func (c *Client) PostOauth2DeviceAuthorizationWithFormdataBody(ctx context.Conte
 
 // GetOauth2EndSession RP-Initiated Logout
 //
-// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. post_logout_redirect_uri MUST be registered for the client identified by id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
 //
 // Corresponds with GET /oauth2/end_session (the `GetOauth2EndSession` operationId).
 func (c *Client) GetOauth2EndSession(ctx context.Context, params *GetOauth2EndSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3491,7 +3491,7 @@ func (c *Client) GetOauth2EndSession(ctx context.Context, params *GetOauth2EndSe
 
 // PostOauth2EndSession RP-Initiated Logout (POST)
 //
-// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT Error Envelope.
 //
 // Corresponds with POST /oauth2/end_session (the `PostOauth2EndSession` operationId).
 func (c *Client) PostOauth2EndSession(ctx context.Context, params *PostOauth2EndSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -7799,7 +7799,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetOauth2EndSessionWithResponse RP-Initiated Logout
 	//
-	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. post_logout_redirect_uri MUST be registered for the client identified by id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -7808,7 +7808,7 @@ type ClientWithResponsesInterface interface {
 
 	// PostOauth2EndSessionWithResponse RP-Initiated Logout (POST)
 	//
-	// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+	// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT Error Envelope.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -10877,11 +10877,18 @@ type GetOauth2EndSessionResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *MessageResponse
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *ErrorEnvelope
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetOauth2EndSessionResponse) GetJSON200() *MessageResponse {
 	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r GetOauth2EndSessionResponse) GetJSON400() *ErrorEnvelope {
+	return r.JSON400
 }
 
 // GetBody returns the raw response body bytes
@@ -10918,11 +10925,18 @@ type PostOauth2EndSessionResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *MessageResponse
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *ErrorEnvelope
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r PostOauth2EndSessionResponse) GetJSON200() *MessageResponse {
 	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostOauth2EndSessionResponse) GetJSON400() *ErrorEnvelope {
+	return r.JSON400
 }
 
 // GetBody returns the raw response body bytes
@@ -12827,7 +12841,7 @@ func (c *ClientWithResponses) PostOauth2DeviceAuthorizationWithFormdataBodyWithR
 
 // GetOauth2EndSessionWithResponse RP-Initiated Logout
 //
-// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. post_logout_redirect_uri MUST be registered for the client identified by id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -12842,7 +12856,7 @@ func (c *ClientWithResponses) GetOauth2EndSessionWithResponse(ctx context.Contex
 
 // PostOauth2EndSessionWithResponse RP-Initiated Logout (POST)
 //
-// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics).
+// OIDC RP-Initiated Logout (POST form-based variant; see GET for semantics). id_token_hint, when supplied, is signature-verified (#78); verification failure yields 400 AUTH_INVALID_ID_TOKEN_HINT Error Envelope.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -14820,8 +14834,12 @@ func ParseGetOauth2EndSessionResponse(rsp *http.Response) (*GetOauth2EndSessionR
 	case rsp.StatusCode == 302:
 		break // No content-type
 
-	case rsp.StatusCode == 400:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
@@ -14852,8 +14870,12 @@ func ParsePostOauth2EndSessionResponse(rsp *http.Response) (*PostOauth2EndSessio
 	case rsp.StatusCode == 302:
 		break // No content-type
 
-	case rsp.StatusCode == 400:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
