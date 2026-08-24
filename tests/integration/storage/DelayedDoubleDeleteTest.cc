@@ -150,9 +150,27 @@ DROGON_TEST(Integration_P1_Storage_DelayedDoubleDelete_RacingRefill_EvictedBySec
     syncSet(redis, key, "old-row");
     CHECK(syncGet(redis, key) == "old-row");
 
-    // t1: the invalidation (immediate DEL + delayed DEL at +150ms).
-    constexpr int kTestDelayMs = 150;
+    // t1: the invalidation (immediate DEL + delayed DEL at +1000ms -- well
+    // above any plausible immediate-DEL landing latency, so the wait loop
+    // below reliably observes the immediate DEL and NOT the delayed one).
+    constexpr int kTestDelayMs = 1000;
     invalidateWithDoubleDelete(redis, key, metrics, "client", kTestDelayMs);
+
+    // The immediate DEL is async on a pooled connection: WAIT for it to land
+    // before staging the racing refill (otherwise the refill's SET can be
+    // reordered ahead of the DEL on a different connection, which tests
+    // nothing). After this loop the key is provably gone; everything we SET
+    // from here on lands strictly after the immediate DEL — the exact #79
+    // race precondition.
+    bool immediateDelLanded = false;
+    for (int i = 0; i < 100 && !immediateDelLanded; ++i)
+    {
+        if (syncGet(redis, key).empty())
+            immediateDelLanded = true;
+        else
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    REQUIRE(immediateDelLanded);
 
     // t2: the racing reader's refill of the OLD row lands AFTER the immediate
     // DEL (single-DEL semantics would pin this for the full TTL).

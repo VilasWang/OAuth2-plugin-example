@@ -45,6 +45,10 @@ For the versioning policy (when to cut, what to bump, why), see
   存量原文 token 本就不可用，直接失效（无迁移）。
 - **#75 /api/me/social 数字分发分支 e2e 覆盖**：随 #69 解锁，新增社交
   token 驱动的 link → list → unlink 全链路 HTTP 测试。
+- **memory-storage `client_type` 配置键**：`MemoryClientRepository` 只读
+  `"type"` 而全部五份配置写 `"client_type"`，memory 模式下配置为 PUBLIC 的
+  vue-client 静默变 CONFIDENTIAL、拒绝空 secret 的 token 请求。加载器改为
+  优先读规范键（`"type"` 保留回退）。
 
 ### SDK / API 面
 

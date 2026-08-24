@@ -105,12 +105,12 @@ class JwkManager
     {
         Ok,
         NotInitialized,  ///< no key loaded; fail closed (cannot verify)
-        Malformed,       ///< not 3 non-empty segments / bad base64url / bad JSON / missing exp
+        Malformed,       ///< not 3 non-empty segments / bad base64url / bad JSON
         BadAlg,          ///< header alg absent or != RS256 (strict: no "none"/HS256 confusion)
         KidMismatch,     ///< header kid present but != the current key id
         BadSignature,    ///< RS256 signature check failed
         IssuerMismatch,  ///< payload iss != expectedIssuer
-        Expired,         ///< payload exp <= nowSecs
+        Expired,         ///< payload exp <= nowSecs, or exp absent (fail closed)
         MissingSubject   ///< payload sub absent or empty
     };
 
@@ -123,7 +123,7 @@ class JwkManager
      * present) equals the current kid; RS256 signature over header.payload;
      * payload iss == expectedIssuer; payload exp > nowSecs; payload sub
      * non-empty. Absent kid is tolerated (tokens signed before a kid was
-     * configured still verify); absent exp is Malformed.
+     * configured still verify); absent exp fails closed as Expired.
      *
      * Concurrency contract: same as signJwt() -- const, read-only after
      * init(), safe to call concurrently.
