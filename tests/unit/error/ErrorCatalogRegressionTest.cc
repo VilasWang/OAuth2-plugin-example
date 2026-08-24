@@ -56,9 +56,17 @@ DROGON_TEST(Unit_P0_ErrorCatalog_Regression_ExistingNumericCodesUnchanged)
     // loop). 方案 A adds exactly 2 resource-oriented VALIDATION codes
     // (VALIDATION_RESOURCE_NOT_FOUND/CONFLICT, Requirement 11.4) to preserve the
     // pre-migration 404/409 statuses. The auth-flow-error-code-gaps feature adds
-    // a further 9 codes (G1-G6), for a total of 25 registered Application codes;
-    // no others may be introduced silently.
-    CHECK(ErrorCatalog::allEntries().size() == kExpected.size() + 2 + 9);
+    // a further 9 codes (G1-G6). #78 adds AUTH_INVALID_ID_TOKEN_HINT (end_session
+    // id_token_hint verification failure, HTTP 400), for a total of 26 registered
+    // Application codes; no others may be introduced silently.
+    CHECK(ErrorCatalog::allEntries().size() == kExpected.size() + 2 + 9 + 1);
+    // #78: the new entry is registered exactly once, in the AUTHENTICATION
+    // segment, with the explicit 400 status override.
+    const CatalogEntry *hintEntry = ErrorCatalog::find("AUTH_INVALID_ID_TOKEN_HINT");
+    REQUIRE(hintEntry != nullptr);
+    CHECK(hintEntry->numericCode == 4006);
+    CHECK(hintEntry->category == ErrorCategory::AUTHENTICATION);
+    CHECK(hintEntry->httpStatus == 400);
 }
 
 // --- Requirement 3.6: every Application numeric code falls inside its segment.

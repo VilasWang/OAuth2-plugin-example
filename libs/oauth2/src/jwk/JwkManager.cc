@@ -292,6 +292,168 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
     return signingInput + "." + sigB64;
 }
 
+namespace
+{
+// base64url reverse lookup: value 0..63, -1 for anything else ('=' is
+// illegal in the unpadded compact-JWT form this decoder serves).
+int b64UrlValue(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return c - 'A';
+    if (c >= 'a' && c <= 'z')
+        return c - 'a' + 26;
+    if (c >= '0' && c <= '9')
+        return c - '0' + 52;
+    if (c == '-')
+        return 62;
+    if (c == '_')
+        return 63;
+    return -1;
+}
+}  // namespace
+
+bool JwkManager::base64UrlDecode(const std::string &input, std::string &output)
+{
+    output.clear();
+    const size_t remainder = input.size() % 4;
+    if (remainder == 1)
+        return false;  // 6*len+1 bits cannot align to bytes
+    output.reserve((input.size() / 4) * 3 + (remainder == 0 ? 0 : remainder - 1));
+
+    // Decodes one group of `count` (2..4) symbols, emitting count-1 bytes.
+    auto decodeGroup = [&output](const char *group, size_t count) -> bool {
+        int v[4] = {0, 0, 0, 0};
+        for (size_t i = 0; i < count; ++i)
+        {
+            v[i] = b64UrlValue(group[i]);
+            if (v[i] < 0)
+                return false;
+        }
+        const unsigned int triple = (static_cast<unsigned int>(v[0]) << 18) |
+                                    (static_cast<unsigned int>(v[1]) << 12) |
+                                    (static_cast<unsigned int>(v[2]) << 6) |
+                                    static_cast<unsigned int>(v[3]);
+        output += static_cast<char>((triple >> 16) & 0xFF);
+        if (count > 2)
+            output += static_cast<char>((triple >> 8) & 0xFF);
+        if (count > 3)
+            output += static_cast<char>(triple & 0xFF);
+        return true;
+    };
+
+    size_t pos = 0;
+    for (size_t group = 0; group < input.size() / 4; ++group, pos += 4)
+    {
+        if (!decodeGroup(input.data() + pos, 4))
+        {
+            output.clear();
+            return false;
+        }
+    }
+    if (remainder != 0 && !decodeGroup(input.data() + pos, remainder))
+    {
+        output.clear();
+        return false;
+    }
+    return true;
+}
+
+JwkManager::JwtVerificationResult JwkManager::verifyJwt(
+  const std::string &jwt,
+  const std::string &expectedIssuer,
+  long long nowSecs
+) const
+{
+    if (!initialized_ || !rsaKey_)
+    {
+        log(
+          authforge::common::ports::LogLevel::Error, "JwkManager::verifyJwt: not initialized"
+        );
+        return JwtVerificationResult::NotInitialized;
+    }
+
+    // Structure: exactly two dots, three non-empty segments.
+    const size_t firstDot = jwt.find('.');
+    if (firstDot == std::string::npos || firstDot == 0)
+        return JwtVerificationResult::Malformed;
+    const size_t secondDot = jwt.find('.', firstDot + 1);
+    if (secondDot == std::string::npos || secondDot == firstDot + 1 ||
+        secondDot + 1 == jwt.size() || jwt.find('.', secondDot + 1) != std::string::npos)
+        return JwtVerificationResult::Malformed;
+
+    const std::string headerB64 = jwt.substr(0, firstDot);
+    const std::string payloadB64 = jwt.substr(firstDot + 1, secondDot - firstDot - 1);
+    const std::string signatureB64 = jwt.substr(secondDot + 1);
+
+    // Header policy (enforced before any trust is placed in claims): strict
+    // RS256 -- "none"/HS256 must never verify.
+    std::string headerJson;
+    if (!base64UrlDecode(headerB64, headerJson))
+        return JwtVerificationResult::Malformed;
+    Json::Value header;
+    {
+        Json::CharReaderBuilder builder;
+        std::istringstream iss(headerJson);
+        if (!Json::parseFromStream(builder, iss, &header, nullptr))
+            return JwtVerificationResult::Malformed;
+    }
+    if (!header.isMember("alg") || !header["alg"].isString() ||
+        header["alg"].asString() != "RS256")
+        return JwtVerificationResult::BadAlg;
+    if (header.isMember("kid") && header["kid"].isString() && !kid_.empty() &&
+        header["kid"].asString() != kid_)
+        return JwtVerificationResult::KidMismatch;
+
+    // RS256 signature over the exact header.payload segments as received.
+    const std::string signingInput = headerB64 + "." + payloadB64;
+    std::string signature;
+    if (!base64UrlDecode(signatureB64, signature))
+        return JwtVerificationResult::Malformed;
+    bool signatureOk = false;
+    {
+        EVP_MD_CTX *mdCtx = EVP_MD_CTX_new();
+        if (mdCtx)
+        {
+            EVP_PKEY *pkey = static_cast<EVP_PKEY *>(rsaKey_);
+            if (EVP_DigestVerifyInit(mdCtx, nullptr, EVP_sha256(), nullptr, pkey) == 1 &&
+                EVP_DigestVerifyUpdate(mdCtx, signingInput.data(), signingInput.size()) == 1)
+            {
+                const int rc = EVP_DigestVerifyFinal(
+                  mdCtx,
+                  reinterpret_cast<const unsigned char *>(signature.data()),
+                  signature.size()
+                );
+                signatureOk = (rc == 1);
+            }
+            EVP_MD_CTX_free(mdCtx);
+        }
+    }
+    if (!signatureOk)
+        return JwtVerificationResult::BadSignature;
+
+    // Claims (trustworthy now that the signature verified).
+    std::string payloadJson;
+    if (!base64UrlDecode(payloadB64, payloadJson))
+        return JwtVerificationResult::Malformed;
+    Json::Value payload;
+    {
+        Json::CharReaderBuilder builder;
+        std::istringstream iss(payloadJson);
+        if (!Json::parseFromStream(builder, iss, &payload, nullptr))
+            return JwtVerificationResult::Malformed;
+    }
+    if (!payload.isMember("iss") || !payload["iss"].isString() ||
+        payload["iss"].asString() != expectedIssuer)
+        return JwtVerificationResult::IssuerMismatch;
+    if (!payload.isMember("exp") || !payload["exp"].isNumeric() ||
+        payload["exp"].asInt64() <= nowSecs)
+        return JwtVerificationResult::Expired;
+    if (!payload.isMember("sub") || !payload["sub"].isString() ||
+        payload["sub"].asString().empty())
+        return JwtVerificationResult::MissingSubject;
+    return JwtVerificationResult::Ok;
+}
+
 bool JwkManager::getPublicKeyComponents(std::string &n, std::string &e) const
 {
     if (!rsaKey_)

@@ -132,6 +132,36 @@ Json::Value decodeJwtPayloadClaims(const std::string &jwt)
     return Json::Value();
 }
 
+// #78: stable short names for JwkManager::verifyJwt() rejection reasons, used
+// as Internal_Detail in the AUTH_INVALID_ID_TOKEN_HINT error's server-side
+// log line only (the client envelope stays generic).
+const char *jwtVerificationName(authforge::oauth2::JwkManager::JwtVerificationResult result)
+{
+    using R = authforge::oauth2::JwkManager::JwtVerificationResult;
+    switch (result)
+    {
+        case R::Ok:
+            return "ok";
+        case R::NotInitialized:
+            return "jwk-not-initialized";
+        case R::Malformed:
+            return "malformed-jwt";
+        case R::BadAlg:
+            return "unsupported-alg";
+        case R::KidMismatch:
+            return "kid-mismatch";
+        case R::BadSignature:
+            return "bad-signature";
+        case R::IssuerMismatch:
+            return "issuer-mismatch";
+        case R::Expired:
+            return "expired";
+        case R::MissingSubject:
+            return "missing-sub";
+    }
+    return "unknown";
+}
+
 }  // namespace
 
 using namespace ::drogon::orm;
@@ -1289,29 +1319,93 @@ void SessionController::endSession(
     std::string postLogoutRedirectUri = params["post_logout_redirect_uri"];
     std::string state = params["state"];
 
-    // Validate post_logout_redirect_uri: if id_token_hint is present, decode
-    // its payload (no signature verification -- this is a hint, per §2.2 the
-    // server MAY skip verification when TLS already authenticated the RP) to
-    // find the client_id/aud, then require the redirect URI to be one of that
+    // Validate post_logout_redirect_uri: if id_token_hint is present (and,
+    // since #78, signature-verified -- see the gate below), use its aud claim
+    // to find the client_id, then require the redirect URI to be one of that
     // client's registered redirect_uris. If id_token_hint is absent, only
     // accept the redirect URI when it is empty (the spec allows the server to
     // require pre-registration; this server does so for safety).
     auto plugin = resolvePlugin();
 
+    // #78: an id_token_hint MUST pass end-to-end verification (RS256 signature
+    // against our own key set, strict alg, kid, issuer, exp) before ANY of its
+    // claims influence the logout decision. Previously the payload was decoded
+    // without verification and its `sub` drove the backchannel fan-out, so
+    // anyone who knew a user's public subject could force that user's logout
+    // at every RP. Any failure is a hard 400 (AUTH_INVALID_ID_TOKEN_HINT) --
+    // there is deliberately NO silent fallback to "treat as if no hint was
+    // supplied". Every rejection returns BEFORE finish() is reachable, so no
+    // session is cleared and no relying party is notified.
+    Json::Value hintPayload;
+    std::string hintSub;
+    if (!idTokenHint.empty())
+    {
+        auto jwkManager = plugin ? plugin->getJwkManager() : nullptr;
+        if (!plugin || !jwkManager)
+        {
+            respondError(
+              req,
+              callback,
+              "INTERNAL_ERROR",
+              "end_session: OAuth2Plugin/JwkManager not available for id_token_hint verification"
+            );
+            return;
+        }
+        const long long nowSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                                    std::chrono::system_clock::now().time_since_epoch()
+        )
+                                    .count();
+        const auto verification = jwkManager->verifyJwt(idTokenHint, plugin->getIssuer(), nowSecs);
+        if (verification !=
+            authforge::oauth2::JwkManager::JwtVerificationResult::Ok)
+        {
+            respondError(
+              req,
+              callback,
+              "AUTH_INVALID_ID_TOKEN_HINT",
+              std::string("end_session: id_token_hint rejected: ") +
+                jwtVerificationName(verification)
+            );
+            return;
+        }
+        hintPayload = decodeJwtPayloadClaims(idTokenHint);
+        if (hintPayload.isMember("sub") && hintPayload["sub"].isString())
+            hintSub = hintPayload["sub"].asString();
+        // Subject consistency: with BOTH a browser session and a verified
+        // hint, the hint must describe the signed-in user. A mismatch
+        // (session of user A + hint of user B) is rejected; the caller has
+        // to re-authenticate. An empty session subject (pre-login session)
+        // does not participate in the check.
+        if (req->session())
+        {
+            std::string sessionSub = req->session()->get<std::string>("sub");
+            if (!sessionSub.empty() && !hintSub.empty() && sessionSub != hintSub)
+            {
+                respondError(
+                  req,
+                  callback,
+                  "AUTH_INVALID_ID_TOKEN_HINT",
+                  "end_session: id_token_hint subject does not match the current session"
+                );
+                return;
+            }
+        }
+    }
+
     // #55: attribute the logout to a user for backchannel notification.
     // Preference order: the session's public subject (set by login(); the
     // internal-id "userId" session attr does NOT match
-    // oauth2_access_tokens.user_id), then the id_token_hint's sub claim.
+    // oauth2_access_tokens.user_id), then the VERIFIED id_token_hint's sub
+    // claim (#78: unreachable for unverified hints -- they 400 above).
     // Bearer-style callers without either stay unattributed (no notify).
-    Json::Value hintPayload = idTokenHint.empty() ? Json::Value() : decodeJwtPayloadClaims(idTokenHint);
     std::string hintClientId;
     if (hintPayload.isMember("aud") && hintPayload["aud"].isString())
         hintClientId = hintPayload["aud"].asString();
     std::string subject;
     if (req->session())
         subject = req->session()->get<std::string>("sub");
-    if (subject.empty() && hintPayload.isMember("sub") && hintPayload["sub"].isString())
-        subject = hintPayload["sub"].asString();
+    if (subject.empty() && !hintSub.empty())
+        subject = hintSub;
 
     // Shared terminal path: notify the user's OTHER relying parties (OIDC
     // Back-Channel Logout 1.0 §2.1 counts RP-initiated logout as a logout

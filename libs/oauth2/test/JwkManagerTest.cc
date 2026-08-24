@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -308,6 +309,219 @@ TEST(JwkManagerTest, GetJwks_AfterInit_AssertsUseAndEFields)
     ASSERT_EQ(jwks["keys"].size(), 1u);
     EXPECT_EQ(jwks["keys"][0]["use"].asString(), "sig");
     EXPECT_FALSE(jwks["keys"][0]["e"].asString().empty());
+}
+
+// ---------------------------------------------------------------------------
+// #78: verifyJwt() matrix -- signature + claim-policy verification for
+// /oauth2/end_session's id_token_hint gate. One test per rejection reason,
+// plus the happy-path roundtrip and the exp boundary.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+const char *kTestIssuer = "https://auth.example.test";
+
+Json::Value validClaims(long long expOffsetSecs)
+{
+    Json::Value claims;
+    claims["iss"] = kTestIssuer;
+    claims["sub"] = "user-123";
+    claims["exp"] = static_cast<Json::Int64>(std::time(nullptr) + expOffsetSecs);
+    return claims;
+}
+
+// Minimal base64url encoder (test-side only) so adversarial headers (alg=none,
+// HS256) can be hand-crafted without going through signJwt.
+std::string b64Url(const std::string &raw)
+{
+    static const char alphabet[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    std::string out;
+    unsigned int buffer = 0;
+    int bits = 0;
+    for (unsigned char c : raw)
+    {
+        buffer = (buffer << 8) | c;
+        bits += 8;
+        while (bits >= 6)
+        {
+            bits -= 6;
+            out += alphabet[(buffer >> bits) & 0x3F];
+        }
+    }
+    if (bits > 0)
+        out += alphabet[(buffer << (6 - bits)) & 0x3F];
+    return out;
+}
+}  // namespace
+
+TEST(JwkManagerTest, VerifyJwt_SignedBySameManager_ReturnsOk)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const std::string jwt = jwk.signJwt(validClaims(600));
+    ASSERT_FALSE(jwt.empty());
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::Ok
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_TamperedPayload_IsBadSignature)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    std::string jwt = jwk.signJwt(validClaims(600));
+    // Flip one payload-segment character (base64url alphabet-safe swap).
+    const size_t payloadStart = jwt.find('.') + 1;
+    jwt[payloadStart] = (jwt[payloadStart] == 'A' ? 'B' : 'A');
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::BadSignature
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_TamperedSignature_IsBadSignature)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    std::string jwt = jwk.signJwt(validClaims(600));
+    const size_t sigStart = jwt.rfind('.') + 1;
+    jwt[sigStart] = (jwt[sigStart] == 'A' ? 'B' : 'A');
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::BadSignature
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_AlgNone_IsBadAlg)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    // alg=none with a non-empty (decodable) signature segment: must be
+    // rejected by the alg policy, never reach the signature check.
+    const std::string header = b64Url(R"({"alg":"none","typ":"JWT"})");
+    const std::string payload = b64Url(R"({"iss":")" + std::string(kTestIssuer) +
+                                      R"(","sub":"u","exp":9999999999})");
+    EXPECT_EQ(
+      jwk.verifyJwt(header + "." + payload + ".AAAA", kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::BadAlg
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_AlgHs256_IsBadAlg)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const std::string header = b64Url(R"({"alg":"HS256","typ":"JWT"})");
+    const std::string payload = b64Url(R"({"iss":")" + std::string(kTestIssuer) +
+                                      R"(","sub":"u","exp":9999999999})");
+    EXPECT_EQ(
+      jwk.verifyJwt(header + "." + payload + ".AAAA", kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::BadAlg
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_SignedByOtherKey_IsKidMismatch)
+{
+    JwkManager verifier;
+    ASSERT_TRUE(verifier.init(Json::Value(Json::objectValue)));
+    JwkManager forger;
+    ASSERT_TRUE(forger.init(Json::Value(Json::objectValue)));
+    // Different ephemeral keys -> different kids; the kid check fires before
+    // the signature check, so this is KidMismatch (never Ok).
+    const std::string jwt = forger.signJwt(validClaims(600));
+    EXPECT_EQ(
+      verifier.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::KidMismatch
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_WrongIssuer_IsIssuerMismatch)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const std::string jwt = jwk.signJwt(validClaims(600));
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, "https://someone-else.test", std::time(nullptr)),
+      JwkManager::JwtVerificationResult::IssuerMismatch
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_Expired_IsExpired_IncludingExactBoundary)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const long long now = std::time(nullptr);
+    const std::string clearlyExpired = jwk.signJwt(validClaims(-10));
+    EXPECT_EQ(
+      jwk.verifyJwt(clearlyExpired, kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Expired
+    );
+    // exp == now is already expired (strict <= rejection).
+    const std::string boundary = jwk.signJwt(validClaims(0));
+    EXPECT_EQ(
+      jwk.verifyJwt(boundary, kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Expired
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_MissingSubject_IsMissingSubject)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    Json::Value claims = validClaims(600);
+    claims.removeMember("sub");
+    const std::string jwt = jwk.signJwt(claims);
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::MissingSubject
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_MissingExp_IsMalformed)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    Json::Value claims = validClaims(600);
+    claims.removeMember("exp");
+    const std::string jwt = jwk.signJwt(claims);
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::Malformed
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_StructurallyInvalidInputs_AreMalformed)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const long long now = std::time(nullptr);
+    EXPECT_EQ(jwk.verifyJwt("", kTestIssuer, now), JwkManager::JwtVerificationResult::Malformed);
+    EXPECT_EQ(
+      jwk.verifyJwt("garbage", kTestIssuer, now), JwkManager::JwtVerificationResult::Malformed
+    );
+    EXPECT_EQ(
+      jwk.verifyJwt("only.two", kTestIssuer, now), JwkManager::JwtVerificationResult::Malformed
+    );
+    // Empty signature segment.
+    const std::string jwt = jwk.signJwt(validClaims(600));
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt.substr(0, jwt.rfind('.') + 1), kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Malformed
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_NotInitialized_FailsClosed)
+{
+    JwkManager jwk;  // never init()'d
+    JwkManager signer;
+    ASSERT_TRUE(signer.init(Json::Value(Json::objectValue)));
+    const std::string jwt = signer.signJwt(validClaims(600));
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::NotInitialized
+    );
 }
 
 }  // namespace

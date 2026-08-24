@@ -98,6 +98,47 @@ class JwkManager
      */
     std::string signJwt(const Json::Value &payload) const;
 
+    /// Outcome of verifyJwt(): one value per distinct rejection reason so
+    /// callers can surface precise diagnostics (logged as Internal_Detail
+    /// only; the client always gets the same generic error envelope).
+    enum class JwtVerificationResult
+    {
+        Ok,
+        NotInitialized,  ///< no key loaded; fail closed (cannot verify)
+        Malformed,       ///< not 3 non-empty segments / bad base64url / bad JSON / missing exp
+        BadAlg,          ///< header alg absent or != RS256 (strict: no "none"/HS256 confusion)
+        KidMismatch,     ///< header kid present but != the current key id
+        BadSignature,    ///< RS256 signature check failed
+        IssuerMismatch,  ///< payload iss != expectedIssuer
+        Expired,         ///< payload exp <= nowSecs
+        MissingSubject   ///< payload sub absent or empty
+    };
+
+    /**
+     * @brief Verify one of OUR RS256 JWTs end-to-end: signature + claim policy.
+     *
+     * The symmetric counterpart of signJwt() (#78: /oauth2/end_session must
+     * not trust an id_token_hint's claims before the signature verifies).
+     * Checks, in order: structure; header alg strictly RS256; header kid (if
+     * present) equals the current kid; RS256 signature over header.payload;
+     * payload iss == expectedIssuer; payload exp > nowSecs; payload sub
+     * non-empty. Absent kid is tolerated (tokens signed before a kid was
+     * configured still verify); absent exp is Malformed.
+     *
+     * Concurrency contract: same as signJwt() -- const, read-only after
+     * init(), safe to call concurrently.
+     *
+     * @param jwt            The compact JWT (header.payload.signature).
+     * @param expectedIssuer The OP issuer the iss claim must match.
+     * @param nowSecs        Current unix time (seconds) for exp checking.
+     * @return Ok, or the first failing reason. Never throws.
+     */
+    JwtVerificationResult verifyJwt(
+      const std::string &jwt,
+      const std::string &expectedIssuer,
+      long long nowSecs
+    ) const;
+
     /**
      * @brief Get the JWKS (JSON Web Key Set) containing public key(s).
      * @return JSON object with "keys" array.
@@ -127,6 +168,10 @@ class JwkManager
 
     static std::string base64UrlEncode(const unsigned char *data, size_t len);
     static std::string base64UrlEncode(const std::string &data);
+    /// Strict base64url decode (no padding, '-'/'_' alphabet). Returns false
+    /// on any non-alphabet character or impossible length; output is cleared
+    /// on failure. Domain-layer constraint: hand-rolled, no drogon/3rd-party.
+    static bool base64UrlDecode(const std::string &input, std::string &output);
 
     bool getPublicKeyComponents(std::string &n, std::string &e) const;
 

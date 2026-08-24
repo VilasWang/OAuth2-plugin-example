@@ -1,6 +1,6 @@
 // api-diff baseline -- AuthForge SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.3.0
+// version: 1.4.0
 === libs/common/include/authforge/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -4484,6 +4484,23 @@ explicit JwkManager(authforge::common::ports::ILogger *logger = nullptr) : logge
 ~JwkManager();
 bool init(const Json::Value &config);
 std::string signJwt(const Json::Value &payload) const;
+enum class JwtVerificationResult
+{
+Ok,
+NotInitialized,
+Malformed,
+BadAlg,
+KidMismatch,
+BadSignature,
+IssuerMismatch,
+Expired,
+MissingSubject
+};
+JwtVerificationResult verifyJwt(
+const std::string &jwt,
+const std::string &expectedIssuer,
+long long nowSecs
+) const;
 Json::Value getJwks() const;
 const std::string &getKeyId() const
 ;
@@ -4498,6 +4515,7 @@ bool generateEphemeralKey();
 bool loadFromPem(const std::string &pemData);
 static std::string base64UrlEncode(const unsigned char *data, size_t len);
 static std::string base64UrlEncode(const std::string &data);
+static bool base64UrlDecode(const std::string &input, std::string &output);
 bool getPublicKeyComponents(std::string &n, std::string &e) const;
 void log(authforge::common::ports::LogLevel level, const std::string &message) const;
 };
