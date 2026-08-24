@@ -69,8 +69,11 @@ CI 在 Linux 矩阵腿中用 Docker 容器启动 Postgres 和 Redis，并通过�
 
 | Service | 镜像 | 端口 | 密码 |
 |---|---|---|---|
-| PostgreSQL | `postgres:15-alpine` | `5432` | `123456` |
+| PostgreSQL | `postgres:17-alpine` | `5432` | `123456` |
 | Redis | `redis:7-alpine` | `6379` | 无（CI 环境简化配置）|
+
+> PostgreSQL 镜像与 deploy 默认（`postgres:17-alpine`，2026-08-18 起）对齐——CI 覆盖的
+> 就是部署目标大版本（含 V025 分区/V026 等 migration 在 17 上的行为）。
 
 > [WARNING]️ **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `OAUTH2_REDIS_PASSWORD=""` 覆盖。Windows/macOS 矩阵腿 `use_database=false`，改用内存存储配置（`config.ci.json`）。
 

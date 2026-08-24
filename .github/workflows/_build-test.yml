@@ -215,14 +215,14 @@ jobs:
             -e POSTGRES_USER=oauth2_user \
             -e POSTGRES_PASSWORD=123456 \
             -e POSTGRES_DB=oauth2_db \
-            -p 5432:5432 postgres:15-alpine
+            -p 5432:5432 postgres:17-alpine
           docker run -d --name authforge-redis \
             -p 6379:6379 redis:7-alpine
 
       - name: Wait for services
         if: inputs.use_database
         run: |
-          # Probe with a real query (not just pg_isready): postgres:15-alpine
+          # Probe with a real query (not just pg_isready): postgres:17-alpine
           # briefly runs a temporary server during init, so an actual SELECT
           # against oauth2_db is the authoritative readiness signal. On timeout
           # we MUST fail (the loop no longer silently passes) and dump container
