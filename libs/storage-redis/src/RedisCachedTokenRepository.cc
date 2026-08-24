@@ -1,4 +1,5 @@
 #include <authforge/storage/redis/RedisCachedTokenRepository.h>
+#include <authforge/storage/redis/DelayedDoubleDelete.h>
 
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -411,8 +412,12 @@ void RedisCachedTokenRepository::revokeAccessToken(
         // so a concurrent reader that re-populates the positive cache is
         // corrected on its next read (it sees the revoked marker). The
         // negative entry's 60s TTL is the N3 fixed value (revokeAccessToken
-        // has no exp). Both DEL + SET are fire-and-forget (best-effort); the
-        // user callback fires regardless.
+        // has no exp). The SET stays fire-and-forget (best-effort); the
+        // positive-entry DELs now go through the shared double-delete helper
+        // (#79: the delayed second DEL closes the refill race this comment's
+        // marker alone only self-corrects on the NEXT read; #80: failures
+        // become WARN/ERROR + counter instead of invisible). The user
+        // callback fires regardless.
         if (self->redisClient_)
         {
             std::string revokedKey = "authforge:cache:token:revoked:" + token;
@@ -425,13 +430,12 @@ void RedisCachedTokenRepository::revokeAccessToken(
               "SET %s 1 EX 60",
               revokedKey.c_str()
             );
-            // DEL positive entries.
-            self->redisClient_->execCommandAsync(
-              [](const RedisResult &) {},
-              [](const RedisException &) {},
-              "DEL %s %s",
-              accessKey.c_str(),
-              introKey.c_str()
+            // DEL positive entries (double-delete, failure-observable).
+            invalidateWithDoubleDelete(
+              self->redisClient_, accessKey, self->metrics_, "token"
+            );
+            invalidateWithDoubleDelete(
+              self->redisClient_, introKey, self->metrics_, "token"
             );
         }
         if (*sharedCb)
