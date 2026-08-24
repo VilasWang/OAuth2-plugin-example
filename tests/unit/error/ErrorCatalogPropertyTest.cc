@@ -363,6 +363,12 @@ int httpStatusOverrideFor(const CatalogEntry &e)
     {
         return 429;
     }
+    // #78: AUTHENTICATION defaults to 401, but a rejected id_token_hint is a
+    // request-parameter validation failure -> explicit 400.
+    if (e.code == "AUTH_INVALID_ID_TOKEN_HINT")
+    {
+        return 400;
+    }
     return 0;
 }
 

@@ -426,10 +426,19 @@ TEST(JwkManagerTest, VerifyJwt_SignedByOtherKey_IsKidMismatch)
 {
     JwkManager verifier;
     ASSERT_TRUE(verifier.init(Json::Value(Json::objectValue)));
+    // The ephemeral path hardcodes kid "ephemeral-dev-key" (and would collide
+    // with the verifier's), so load the forger's key from a PEM with an
+    // explicit distinct kid via the env-var branch.
+    const std::string pem = generateTestPem();
+    EnvVarGuard guard("OAUTH2_SIGNING_KEY", pem);
     JwkManager forger;
-    ASSERT_TRUE(forger.init(Json::Value(Json::objectValue)));
-    // Different ephemeral keys -> different kids; the kid check fires before
-    // the signature check, so this is KidMismatch (never Ok).
+    Json::Value forgerConfig(Json::objectValue);
+    forgerConfig["kid"] = "forger-kid";
+    ASSERT_TRUE(forger.init(forgerConfig));
+    ASSERT_EQ(forger.getKeyId(), "forger-kid");
+    // The forged header carries a kid the verifier never published -> the
+    // kid check fires before the signature check (an attacker's correctly
+    // signed token from an unknown key is still rejected).
     const std::string jwt = forger.signJwt(validClaims(600));
     EXPECT_EQ(
       verifier.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
@@ -479,16 +488,18 @@ TEST(JwkManagerTest, VerifyJwt_MissingSubject_IsMissingSubject)
     );
 }
 
-TEST(JwkManagerTest, VerifyJwt_MissingExp_IsMalformed)
+TEST(JwkManagerTest, VerifyJwt_MissingExp_IsExpired)
 {
     JwkManager jwk;
     ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
     Json::Value claims = validClaims(600);
     claims.removeMember("exp");
     const std::string jwt = jwk.signJwt(claims);
+    // Absent exp fails closed through the exp check ("not provably
+    // unexpired"), not the structural Malformed branch.
     EXPECT_EQ(
       jwk.verifyJwt(jwt, kTestIssuer, std::time(nullptr)),
-      JwkManager::JwtVerificationResult::Malformed
+      JwkManager::JwtVerificationResult::Expired
     );
 }
 
