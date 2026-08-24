@@ -4,7 +4,7 @@
 
 ![CI](https://github.com/lucaswang420/authforge/actions/workflows/ci.yml/badge.svg)
 ![Security](https://github.com/lucaswang420/authforge/actions/workflows/security.yml/badge.svg)
-![Release](https://github.com/lucaswang420/authforge/actions/workflows/release.yml/badge.svg)
+[![Release](https://img.shields.io/github/v/release/lucaswang420/authforge)](https://github.com/lucaswang420/authforge/releases/latest)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
