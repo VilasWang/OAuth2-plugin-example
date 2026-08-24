@@ -8,6 +8,7 @@
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+[![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
 生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(authforge-*)`）集成。包含管理后台、前端客户端和完整的测试体系。
 
@@ -131,6 +132,42 @@ graph TD
 - Prometheus 指标导出 (`/metrics`)
 - 结构化审计日志（登录、Token 签发/撤销、密码变更等）
 - 健康检查端点 (`/health`、`/health/live`、`/health/ready`)
+
+---
+
+## 性能
+
+与 Keycloak 26.7.1 / Ory Hydra v26.2.0 / Zitadel v4.17.1 的同环境对比（同一台空闲主机、
+同 session 串行执行、各家官方推荐配置、同一 PostgreSQL 17 后端、同一 wrk 阶梯 2→128）。
+AuthForge 使用文档化基准档（池 64/64、cache on、`auto_batch`、`reuse_port`、opt-in LTO
+构建、TTL=30 留存有界 session）。**五个对比场景全部领先**（2026-08-23 刷新，
+[完整报告与方法论](benchmarks/competitors/results/COMPARISON.md)）：
+
+| 场景 | AuthForge | 对亚军倍数 |
+|---|---|---|
+| discovery（`/.well-known/openid-configuration`） | 87,499 QPS | 2.1x Keycloak |
+| client_credentials 签发 | 14,438 QPS | 2.6x Keycloak |
+| token 内省（introspect） | 22,458 QPS | 2.0x Ory Hydra |
+| refresh_token 轮换 | 5,506 QPS | 1.9x Keycloak |
+| userinfo | 49,302 QPS | 1.5x Keycloak |
+| 冷启动（全栈就绪首个 200） | 1.26 s | 快 14.5x（vs Keycloak） |
+
+诚实限定：测于 WSL2 8 vCPU / 16 GB（数字是下限，非裸机）；"轻量"叙事适用的是
+**SDK 嵌入口径（2.5 MB peak working set）**而非容器全栈口径；本机逐段 P99 抖动由宿主
+噪声主导，不作为差异化主张（见报告 GC 节）。
+
+### 如何复现
+
+```bash
+# 一条命令跑四产品，同 session 串行（需 Docker + 空闲主机；端到端约 3 小时）：
+bash benchmarks/competitors/run-comparison.sh --fresh
+# 从入仓结果 JSON 重新生成报告（无手填数字）：
+python3 benchmarks/reporting/gen-comparison.py
+```
+
+方法论与公平性偏离项（各家配置出处、对齐了什么没对齐什么）：
+[competitor-benchmark-design.md](docs/productization-evolution/in-progress/competitor-benchmark-design.md)。
+AuthForge 侧场景细节：[benchmarks/README.md](benchmarks/README.md)。
 
 ---
 

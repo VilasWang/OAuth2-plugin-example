@@ -14,7 +14,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
 | **Phase 0** — 可信度基线 | ✅ **完成** | 100% | benchmark M1–M4 全部交付（40 JSON + 承重验证报告）；**承重假设裁决：QPS ✅五场景领先（2026-08-21 对比表刷新，S5/S6 反超）、P99 ✅低并发达成、内存 ✅SDK 口径远超标（2.5 MB peak WS）、冷启动 ✅1.38s**；Phase 0.5 竞品对比已交付并全量刷新；性能优化两轮（wave-1 配置/DB/LTO + wave-2 代码级缓存）收官 | 裸机复测（环境噪声归因） |
-| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~45% | **spec 治理（M0）已合并（v1.2.0）**；**C1 客户端 SDK 已实现（M1 Python + M2 Go + M3 接线 + M4 文档，2026-08-18 待合并）**；文档站/博客/README 徽章待做 |
+| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~55% | **spec 治理（M0）已合并（v1.2.0）**；**C1 客户端 SDK 已上线（v1.3.0 起 PyPI `authforge-oauth2` + Go 嵌套 tag）**；**README 性能徽章 + 复现小节已交付（v1.4.0，双语）**；文档站/博客/TechEmpower 待做 |
 | **Phase 2** — 企业版 | 🟡 快速推进 | ~45% | #42 缓存层 Phase 1+2 已交付；#43 授权模型已实现；**用户管理补全已实现（PR #52）**；**Backchannel Logout 后端已交付（PR #50）**；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户待做 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
 
@@ -68,7 +68,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | **独立文档站**（Docusaurus/VitePress） | ⬜ 未开始 | Phase 0 数据已落地，不再阻塞 | 选型 + 立项 |
 | **OpenAPI spec 治理**（Layer 1 前置） | ✅ 已完成 | PR #63 已合并（v1.2.0）：三层端点对账（82 路由=80 文档=78 YAML+例外）+ P0 schema 补齐 + `check_spec_governance.py` 一致性门（CI static-checks）+ oasdiff v1.29.1 破坏性变更门（openapi-governance.yml）+ info.version 联动 | 维护例外清单 |
 | **Python + Go 客户端 SDK**（C1） | ✅ 已实现（2026-08-18，待合并） | `clients/python`（openapi-python-client 0.29.0，25 单测）+ `clients/go`（oapi-codegen v2.8.0，单测 G1-G8）+ 漂移门 `tools/clients/regen_clients.py` + CI `clients-sdk.yml` + release.yml 发布接线（PyPI 步骤级 secret 门控 + Go 嵌套 tag）；发行名 `authforge-oauth2`（PyPI `authforge` 被占用）；顺带修 spec：OAuth2Error 枚举 +RFC 6750 两码 | PyPI 项目注册 + secret 配置（人工一次性）；发布后 AC7 冒烟 |
-| **README 性能徽章** | ⬜ 未开始 | Phase 0 数据已落地，可据实测标注 | 用 COMPARISON.md 实测数字（2026-08-21 表，五场景领先） |
+| **README 性能徽章** | ✅ 已完成（2026-08-24，随 v1.4.0） | 双语 README 徽章（链接 COMPARISON.md）+ Performance 性能小节（五场景表 + 诚实限定）+ "如何复现"小节（run-comparison.sh / gen-comparison.py 命令） | 数字随 COMPARISON.md 刷新时同步（目前 2026-08-23 表） |
 | **首发技术博客 + 基准报告** | ⬜ 未开始 | Phase 0 数据已落地 | 用 COMPARISON.md 实测数字（2026-08-21 表，五场景领先） |
 | **TechEmpower 提交** | ⬜ 未开始 | Phase 0 数据已落地 | — |
 

@@ -8,6 +8,7 @@
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+[![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
 Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414 — usable as a **ready-to-run product** (Docker/Helm) or as an **embeddable C++ SDK** (`find_package(authforge-*)`). Includes admin console, user-facing frontend, and a comprehensive test suite.
 
@@ -131,6 +132,44 @@ Optional feature areas are gated by Conan/CMake options (`with_identity` / `with
 - Prometheus metrics export (`/metrics`)
 - Structured audit logging (login, token issuance/revocation, password changes, etc.)
 - Health check endpoints (`/health`, `/health/live`, `/health/ready`)
+
+---
+
+## Performance
+
+Same-environment comparison against Keycloak 26.7.1, Ory Hydra v26.2.0, and Zitadel v4.17.1
+(single idle host, serial same-session runs, each product on its officially recommended config,
+identical PostgreSQL 17 backend, identical wrk staircase 2→128). AuthForge runs its documented
+bench profile (pool 64/64, cache on, `auto_batch`, `reuse_port`, opt-in LTO build, TTL=30
+retention-bounded sessions). **All five comparison scenarios lead** (2026-08-23 refresh,
+[full report + methodology](benchmarks/competitors/results/COMPARISON.md)):
+
+| Scenario | AuthForge | vs runner-up |
+|---|---|---|
+| discovery (`/.well-known/openid-configuration`) | 87,499 QPS | 2.1x Keycloak |
+| client_credentials token issuance | 14,438 QPS | 2.6x Keycloak |
+| token introspection | 22,458 QPS | 2.0x Ory Hydra |
+| refresh_token rotation | 5,506 QPS | 1.9x Keycloak |
+| userinfo | 49,302 QPS | 1.5x Keycloak |
+| cold start (stack → first 200) | 1.26 s | 14.5x faster than Keycloak |
+
+Honest qualifiers: measured on WSL2 8 vCPU / 16 GB (numbers are lower bounds, not bare-metal);
+the "lightweight" story holds for the **embedded-SDK footprint (2.5 MB peak working set)**, not
+the full container stack; per-segment P99 jitter is host-noise-dominated on this rig and is not
+claimed as a differentiator (see the report's GC section).
+
+### How to reproduce
+
+```bash
+# One command, four products, same-session serial (needs Docker + an idle host; ≈3 h end-to-end):
+bash benchmarks/competitors/run-comparison.sh --fresh
+# Regenerate the report from the committed result JSONs (no hand-typed numbers):
+python3 benchmarks/reporting/gen-comparison.py
+```
+
+Methodology and fairness deviations (per-product config sources, what is and isn't aligned):
+[competitor-benchmark-design.md](docs/productization-evolution/in-progress/competitor-benchmark-design.md).
+AuthForge-side scenario details: [benchmarks/README.md](benchmarks/README.md).
 
 ---
 
