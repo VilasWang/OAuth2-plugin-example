@@ -74,9 +74,22 @@ M0–M3（Keycloak 26.7.1 / Ory Hydra v26.2.0 / Zitadel v4.17.1 同环境套件
 - **四产品对比 2026-08-23 TTL=30 重刷**：对外表格从 session 口径遗留数字
   迁移到 TTL=30 + 生产镜像 LTO 口径；Keycloak S6 池过期结构性缺陷修复
   （`run-all.sh` S6 前重铸 user 池）。
+- **README 性能徽章 + "如何复现"小节**（P1 对外传播项）：双语徽章链接
+  COMPARISON.md 单一溯源，五场景表 + 诚实限定（WSL2 下限、SDK/容器口径
+  区分、GC 抖动不主张），复现命令与方法论文档入口。
+
+### Changed
+
+- **CI Linux 矩阵腿服务容器 PostgreSQL 15 → 17**（`_build-test.yml`）：
+  CI 从此覆盖部署目标大版本（含 V025/V026 DDL 在 17 上的行为）；
+  `docs/backend/ci-cd-guide.md` 服务表同步。
 
 ### Fixed
 
+- 文档漂移清理（issue #84）：技术栈表与部署验证清单的 PG15 残留、两份
+  SDK README 的"首发前从源码安装"过期注记（PyPI/嵌套 tag 自 v1.3.0 已
+  上线）、wave-2 方案风险表"EVAL 单键无跨槽"误记（实现为双键，
+  Redis Cluster 下 CROSSSLOT——集群化前需 hash-tag 同槽或拆分）。
 - V025 分区边界 UTC 锚定——创建/滚动函数不再受会话时区影响（047c4d8f）。
 - 池扫描脚本恢复被换出的配置；overlay 提升 `max_connections`（23ccdc44）。
 - docker-stats 采集 bash 5.2 glob 回归；同会话 RSS 过滤口径修正（6951be0d、3ca37211）。
