@@ -147,21 +147,22 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 ## 三、GitHub Issue 跟踪
 
 > 历史 issue #21–#46 全部关闭（OAuth/OIDC 审计、#41 spec bug、#42 缓存层、#43 授权模型、#45/#46 环境问题、#53/#55–#60 用户管理与 Backchannel 评审遗留）。
-> **当前开放 15 个（2026-08-24）**，分四类：
+> **当前开放 10 个（2026-08-24，v1.4.1 修复 #54/#69/#78/#79/#80 后）**，分四类：
 
 ### 安全类（High，最高优先）
 
-| Issue | 标题 | 说明 |
-|-------|------|------|
-| **#78** | [High] `/oauth2/end_session` 信任未验证的 id_token_hint → 未认证跨用户强制登出 | OIDC 规范要求验签；当前直接解析 |
-| **#79** | [High] Redis cache-aside 回填竞态可固化已轮换的 client_secret / 已撤销角色 | 缓存一致性窗口 |
-| **#54** | [High] 软删除用户仍可经 GitHub 社交登录获得新 token | 软删除未挡社交路径 |
+> #78/#79/#54 已于 v1.4.1 修复关闭（PR 分支 `fix/issues-78-79-80-54-69`：
+> #78 = end_session 强制 JWKS 验签 + `AUTH_INVALID_ID_TOKEN_HINT` 400；
+> #79/#80 = 共享延迟双删 + DEL 失败计数告警；#54 主体修复在 89c96341，
+> PR 携带其回归测试一并关闭）。
 
 ### 社交登录功能缺陷（用户可见）
 
+> #69 已于 v1.4.1 修复关闭（GitHub token 改哈希存储，对齐全部哈希查找路径；
+> 同时补齐 PR #68 数字分发分支与社交会话认证端点的 e2e——顺带关闭 #75 覆盖缺口）。
+
 | Issue | 标题 | 说明 |
 |-------|------|------|
-| **#69** | GitHub 社交 token 原文存储但按哈希校验 → 社交会话每次 401 | **已上线功能的实际破坏**，与 #54 同区域 |
 | **#70** | Google/WeChat 登录不消费 subject mappings | 关联这些 provider 无签名效果 |
 | **#71** | 社交 link 流程缺服务端状态校验（provider-code 注入 / login-CSRF） | 安全防御缺失 |
 | **#73** | 社交解绑最后凭证守卫跟进：并发解绑竞态 + WebAuthn 未计入 | PR #68 评审遗留 |
@@ -169,9 +170,11 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 
 ### 基础设施卫生
 
+> #80 已于 v1.4.1 修复关闭（DEL 失败 → WARN/ERROR + 一次重试 +
+> `authforge_cache_invalidation_failures_total` 计数器）。
+
 | Issue | 标题 | 说明 |
 |-------|------|------|
-| **#80** | [Medium] client-cache 失效 DEL 失败仅 LOG_DEBUG（安全路径） | 应升级告警/重试 |
 | **#81** | [Medium] CI service 容器仍 postgres:15，部署默认已 PG17 | 环境漂移（已有 runbook 08-19） |
 | **#72** | 集成测试不可重跑：SoftDeleteSocialRepoTest + UserAdminHardeningTest 失败 | 测试隔离缺陷 |
 

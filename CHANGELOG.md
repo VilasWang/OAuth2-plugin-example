@@ -10,6 +10,50 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-08-24
+
+安全与缺陷修复版（无新 API 面）：一批 High 级安全修复 + 社交会话修复 +
+缓存一致性加固。全部为防御性收紧或既有功能的修复，无破坏性变更。
+
+### 安全修复
+
+- **#78 [High] `/oauth2/end_session` 不再信任未验签的 id_token_hint**：
+  hint 现在必须通过 `JwkManager::verifyJwt`（新导出的对称验签入口：严格
+  RS256、kid 匹配、EVP_DigestVerify、iss/exp/sub 策略）才能影响登出决策；
+  验签失败 / 过期 / issuer 不符 / 与浏览器会话主体不一致 → 400
+  `AUTH_INVALID_ID_TOKEN_HINT`（新 ErrorCatalog 4006，Error Envelope），
+  在任何 fan-out 之前返回。此前知道任意用户公开 sub 即可强制其全 RP 登出。
+  注意：严格语义下，重启（临时密钥）或密钥轮换后重放旧 id_token_hint 会
+  400 —— 合法 RP 应在登出前持有未过期 token（窗口以 access TTL 为界）。
+- **#79 [High] Redis cache-aside 回填竞态**：写路径失效改为共享的
+  **延迟双删**（立即 DEL + 事件循环上 200ms 后二次 DEL，
+  `cache.invalidation_double_delete_delay_ms` 可配，钳位 [50,2000]），
+  清除"读 miss 的旧行回填落在立即 DEL 之后"导致 secret/角色钉死整个
+  TTL 的窗口；回填侧维持 plain SET（NX 无增益，理由见设计文档 §5.4 增补）。
+- **#54 [High] 软删除用户的社交登录绕过**：主体修复已于 89c96341 落地
+  （四态 SocialLinkStatus、deleted_at 过滤、locked 拒绝、MFA/自服务/consent
+  链全覆盖），本版随测试回归一并关闭。
+- **#80 [Medium] 失效 DEL 失败可观测**：每次失败的 DEL 尝试计数到
+  `authforge_cache_invalidation_failures_total{kind}`（IMetrics 端口）并
+  WARN→重试→ERROR；soft-fail 语义不变。
+
+### 缺陷修复
+
+- **#69 GitHub 社交 token 哈希口径统一**：社交签发的 access/refresh token
+  改为哈希存储（与 token endpoint 同口径），社交会话从"每次请求 401"
+  恢复为可用（userinfo / introspect / refresh / revokeTokenFamily 全通）。
+  存量原文 token 本就不可用，直接失效（无迁移）。
+- **#75 /api/me/social 数字分发分支 e2e 覆盖**：随 #69 解锁，新增社交
+  token 驱动的 link → list → unlink 全链路 HTTP 测试。
+
+### SDK / API 面
+
+- `JwkManager::verifyJwt`（新导出方法）与
+  `authforge/storage/redis/DelayedDoubleDelete.h`（新导出头）均为
+  additive，api-baseline 已批准；无 breaking 变更。
+- `openapi.yaml`：`/oauth2/end_session` 描述与 400 响应更新为验签语义
+  （ErrorEnvelope schema 引用），版本号同步 1.4.1。
+
 ## [1.4.0] - 2026-08-24
 
 v1.3.0 以来的第四个正式发布，核心主线是**性能工程化**（PR #64 合并链）：
