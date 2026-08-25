@@ -15,7 +15,7 @@
 --   - UNLOGGED 方案已否决（crash 清空整表，破坏功能正确性）。
 --
 -- 幂等性：与仓库全部迁移一致，重复执行必须为 no-op —— psql 驱动的 db-reset 不写
--- schema_migrations，服务端启动（FULLA_AUTO_MIGRATE=true）会重放整链。顶层守卫：
+-- schema_migrations，服务端启动（OAUTH2_AUTO_MIGRATE=true）会重放整链。顶层守卫：
 -- audit_logs 已是分区表则整体跳过；对象级 IF NOT EXISTS 兜住部分应用的中间态。
 -- 执行语义（SchemaManager：单事务、按顶层 ';' 拆分、$$ 感知）与 psql -f 均兼容。
 

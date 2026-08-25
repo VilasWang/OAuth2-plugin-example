@@ -3316,7 +3316,7 @@ void Users::getRole(const DbClientPtr &clientPtr,
                >> ecb;
 }
 std::vector<Oauth2UserConsents> Users::getUserConsents(const DbClientPtr &clientPtr) const {
-    static const std::string sql = "select * from fulla_user_consents where internal_user_id = $1";
+    static const std::string sql = "select * from oauth2_user_consents where internal_user_id = $1";
     Result r(nullptr);
     {
         auto binder = *clientPtr << sql;
@@ -3337,7 +3337,7 @@ void Users::getUserConsents(const DbClientPtr &clientPtr,
                             const std::function<void(std::vector<Oauth2UserConsents>)> &rcb,
                             const ExceptionCallback &ecb) const
 {
-    static const std::string sql = "select * from fulla_user_consents where internal_user_id = $1";
+    static const std::string sql = "select * from oauth2_user_consents where internal_user_id = $1";
     *clientPtr << sql
                << *id_
                >> [rcb = std::move(rcb)](const Result &r){

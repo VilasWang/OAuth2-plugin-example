@@ -297,11 +297,11 @@ def m2m_client(
     expiry, and force-refreshed once on a 401. Example::
 
         from fulla import m2m_client
-        from fulla.generated.api.o_auth_2 import get_fulla_userinfo
+        from fulla.generated.api.o_auth_2 import get_oauth2_userinfo
 
         client = m2m_client("http://localhost:5555", "backend-svc", "s3cret",
                             scopes=["tokens:read"])
-        userinfo = get_fulla_userinfo.sync(client=client)
+        userinfo = get_oauth2_userinfo.sync(client=client)
     """
     base = _normalize_base_url(base_url)
     auth = ClientCredentialsAuth(

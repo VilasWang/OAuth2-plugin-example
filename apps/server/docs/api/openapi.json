@@ -1599,7 +1599,7 @@
     "/oauth2/userinfo": {
       "get": {
         "description": "Returns information about the authenticated user. Provides user profile data including username, email, and assigned roles according to OpenID Connect standards.",
-        "operationId": "get_fulla_userinfo",
+        "operationId": "get_oauth2_userinfo",
         "responses": {
           "200": {
             "content": {

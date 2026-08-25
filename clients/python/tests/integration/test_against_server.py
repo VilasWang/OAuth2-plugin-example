@@ -71,9 +71,9 @@ def test_i4_m2m_token_userinfo_rejected() -> None:
     """I4 -- M2M tokens have no user identity: userinfo must 401."""
     client = m2m_client(BASE_URL, CLIENT_ID, CLIENT_SECRET, ["tokens:read"])
     try:
-        from fulla.generated.api.o_auth_2 import get_fulla_userinfo
+        from fulla.generated.api.o_auth_2 import get_oauth2_userinfo
 
-        response = get_fulla_userinfo.sync_detailed(client=client)
+        response = get_oauth2_userinfo.sync_detailed(client=client)
         assert response.status_code == 401
         assert response.parsed is not None
         assert response.parsed.error == "invalid_token"

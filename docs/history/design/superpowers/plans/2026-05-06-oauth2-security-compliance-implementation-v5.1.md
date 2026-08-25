@@ -34,7 +34,7 @@
 | `oauth2_clients.allowed_scopes` | 存在 | **彻底移除** | ORM需重新生成 |
 | `oauth2_subject_mappings` | 不存在 | **新增** | 新表，subject映射层 |
 | `oauth2_subject_mappings.UNIQUE` | 单列subject | **复合UNIQUE(provider, subject)** | 避免跨provider冲突 |
-| `fulla_user_consents.user_id` | VARCHAR(50) | **internal_user_id INTEGER** | 字段名+类型变更 |
+| `oauth2_user_consents.user_id` | VARCHAR(50) | **internal_user_id INTEGER** | 字段名+类型变更 |
 | `oauth2_scopes.requires_admin_role` | 不存在 | **新增** | 新字段，角色校验支持 |
 
 ### 代码层面
@@ -398,7 +398,7 @@ void PostgresOAuth2Storage::hasUserConsent(
 
     auto client = dbClientReader_;
     client->execSqlAsync(
-        "SELECT 1 FROM fulla_user_consents "
+        "SELECT 1 FROM oauth2_user_consents "
         "WHERE internal_user_id = $1 AND client_id = $2 AND scope_name = $3 "
         "LIMIT 1",
         [cb](const Result &result) {
@@ -419,7 +419,7 @@ void PostgresOAuth2Storage::saveUserConsent(
 
     auto client = dbClientMaster_;
     client->execSqlAsync(
-        "INSERT INTO fulla_user_consents (internal_user_id, client_id, scope_name) "
+        "INSERT INTO oauth2_user_consents (internal_user_id, client_id, scope_name) "
         "VALUES ($1, $2, $3) "
         "ON CONFLICT (internal_user_id, client_id, scope_name) DO NOTHING",
         [cb](const Result &result) {
@@ -1598,7 +1598,7 @@ void PostgresOAuth2Storage::saveUserConsentsBatch(
     const std::vector<std::string> &scopes,
     std::function<void(bool)> &&cb) {
 
-    std::string sql = "INSERT INTO fulla_user_consents (internal_user_id, client_id, scope_name) VALUES ";
+    std::string sql = "INSERT INTO oauth2_user_consents (internal_user_id, client_id, scope_name) VALUES ";
     for (size_t i = 0; i < scopes.size(); i++) {
         sql += "($" + std::to_string(1 + i * 3) + ", $" + std::to_string(2 + i * 3) + ", $" + std::to_string(3 + i * 3) + ")";
         if (i < scopes.size() - 1) sql += ", ";

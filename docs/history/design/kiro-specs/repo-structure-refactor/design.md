@@ -204,7 +204,7 @@ Drogon 通过 `drogon_ctl create model` 从 PostgreSQL 表名直接生成模型�
 | `Oauth2Scopes` | `oauth2_scopes` | `.../models/Oauth2Scopes.h` | `.../models/Oauth2Scopes.cc` |
 | `Oauth2ClientScopes` | `oauth2_client_scopes` | `.../models/Oauth2ClientScopes.h` | `.../models/Oauth2ClientScopes.cc` |
 | `Oauth2SubjectMappings` | `oauth2_subject_mappings` | `.../models/Oauth2SubjectMappings.h` | `.../models/Oauth2SubjectMappings.cc` |
-| `Oauth2UserConsents` | `fulla_user_consents` | `.../models/Oauth2UserConsents.h` | `.../models/Oauth2UserConsents.cc` |
+| `Oauth2UserConsents` | `oauth2_user_consents` | `.../models/Oauth2UserConsents.h` | `.../models/Oauth2UserConsents.cc` |
 | `Organizations` | `organizations` | `.../models/Organizations.h` | `.../models/Organizations.cc` |
 | `Permissions` | `permissions` | `.../models/Permissions.h` | `.../models/Permissions.cc` |
 | `Roles` | `roles` | `.../models/Roles.h` | `.../models/Roles.cc` |

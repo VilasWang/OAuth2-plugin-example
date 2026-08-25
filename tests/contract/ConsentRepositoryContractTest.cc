@@ -7,10 +7,10 @@
 // hasUserConsent round trip, using UserRef (F4, design.md §7.2) instead of a
 // bare internalUserId.
 //
-// Fixture note (Postgres only): fulla_user_consents.internal_user_id is a
+// Fixture note (Postgres only): oauth2_user_consents.internal_user_id is a
 // real FK into users(id) (see OAuth2Server/sql/migrations/V006__oauth2_scopes.sql),
 // so this test inserts and cleans up a throwaway `users` row per test run
-// (ON DELETE CASCADE on fulla_user_consents means deleting the user also
+// (ON DELETE CASCADE on oauth2_user_consents means deleting the user also
 // removes any consent rows this test created, but the test deletes them
 // explicitly first for clarity and to avoid relying on cascade ordering).
 // Redis/Memory have no such FK constraint -- UserRef::internalUserId is
@@ -87,7 +87,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
     if (!db)
         return;
 
-    // Fixture: throwaway users row (FK target for fulla_user_consents).
+    // Fixture: throwaway users row (FK target for oauth2_user_consents).
     const std::string username = "contract_consent_" + uniqueSuffix();
     int32_t internalUserId = waitForValue<int32_t>([&](auto cb) {
         db->execSqlAsync(
@@ -115,7 +115,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
     // FK would also remove them), then the throwaway user itself.
     waitForVoid([&](auto cb) {
         db->execSqlAsync(
-          "DELETE FROM fulla_user_consents WHERE internal_user_id = $1",
+          "DELETE FROM oauth2_user_consents WHERE internal_user_id = $1",
           [cb](const ::drogon::orm::Result &) { cb(); },
           [cb](const ::drogon::orm::DrogonDbException &) { cb(); },
           internalUserId

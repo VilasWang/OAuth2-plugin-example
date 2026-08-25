@@ -101,7 +101,7 @@ long ensureAdminConsent()
         return -1;
     std::promise<long> p;
     db->execSqlAsync(
-      "INSERT INTO fulla_user_consents (internal_user_id, client_id, scope_name) "
+      "INSERT INTO oauth2_user_consents (internal_user_id, client_id, scope_name) "
       "SELECT u.id, 'vue-client', 'openid' FROM users u WHERE u.username = 'admin' "
       "ON CONFLICT (internal_user_id, client_id, scope_name) DO NOTHING",
       [&](const Result &r) { p.set_value(static_cast<long>(r.affectedRows())); },
@@ -117,7 +117,7 @@ void removeAdminConsent()
         return;
     std::promise<void> p;
     db->execSqlAsync(
-      "DELETE FROM fulla_user_consents WHERE client_id = 'vue-client' "
+      "DELETE FROM oauth2_user_consents WHERE client_id = 'vue-client' "
       "AND scope_name = 'openid' AND internal_user_id = "
       "(SELECT id FROM users WHERE username = 'admin')",
       [&](const Result &) { p.set_value(); },

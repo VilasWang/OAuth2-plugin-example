@@ -102,7 +102,7 @@ Everything under `fulla.generated` is the typed surface of the whole server API:
 
 ```python
 from fulla.generated.api.open_id_connect import get_well_known_openid_configuration
-from fulla.generated.api.o_auth_2 import get_fulla_userinfo, post_oauth2_token
+from fulla.generated.api.o_auth_2 import get_oauth2_userinfo, post_oauth2_token
 from fulla.generated.models.token_request import TokenRequest
 ```
 
