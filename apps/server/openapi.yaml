@@ -3211,7 +3211,7 @@ paths:
         Core §5.3): the access token''s scope MUST include openid; M2M tokens
         (client_credentials, subject client:*) are rejected. The response
         includes the email_verified claim (F-024) when an email is present.'
-      operationId: get_fulla_userinfo
+      operationId: get_oauth2_userinfo
       responses:
         '200':
           content:

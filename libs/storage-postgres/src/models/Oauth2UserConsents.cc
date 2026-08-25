@@ -23,7 +23,7 @@ const std::string Oauth2UserConsents::Cols::_scope_name = "\"scope_name\"";
 const std::string Oauth2UserConsents::Cols::_granted_at = "\"granted_at\"";
 const std::string Oauth2UserConsents::primaryKeyName = "id";
 const bool Oauth2UserConsents::hasPrimaryKey = true;
-const std::string Oauth2UserConsents::tableName = "\"fulla_user_consents\"";
+const std::string Oauth2UserConsents::tableName = "\"oauth2_user_consents\"";
 
 const std::vector<typename Oauth2UserConsents::MetaData> Oauth2UserConsents::metaData_={
 {"id","int32_t","integer",4,1,1,1},

@@ -173,6 +173,8 @@
 > `fulla` 是真词（可为子串，如英语 FullAuto），反向替换无风险；但正向替换时注意 `authforgepackage`/`authforge_package` 这类**无分隔符拼接变体**（41+38 处）必须列入替换模式，不能只替裸词。
 >
 > **关键区分**：只改 `OAUTH2_`（全大写下划线，环境变量前缀）；**不改** `OAuth2` 驼峰形态——`OAuth2Plugin` 插件类名、`OAuth2AuthFilter`、openapi 里的协议词、"Enterprise OAuth2/OIDC Server" 副标题里的 OAuth2 都是**功能/协议名**，不是项目名，保留。
+>
+> **子串边界教训（Phase 2 实测踩坑，已修复）**：`oauth2_user` 是表名 `oauth2_user_consents` 与 operationId `oauth2_userinfo` 的**子串**——朴素 sed 会把这两类 token 也改掉（32+25 处，含 V006 迁移、model.json、模型 .cc 的 tableName、openapi、Python SDK 函数名），症状是 ORM 重生成后模型类名错乱（FullaUserConsents）与运行时 SQL 表名失配。修复原则：DB 表名、索引名、operationId、URL 路径一律不改；替换后必须按 token 直方图（`grep -hoE 'fulla_[a-z_]+' | sort | uniq -c`）逐类复核边界。
 
 ## 4. 兼容性矩阵（谁破谁不破）
 

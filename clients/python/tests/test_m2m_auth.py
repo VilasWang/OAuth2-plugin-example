@@ -17,7 +17,7 @@ from fulla import (
     fetch_client_credentials_token,
     m2m_client,
 )
-from fulla.generated.api.o_auth_2 import get_fulla_userinfo, post_oauth2_introspect
+from fulla.generated.api.o_auth_2 import get_oauth2_userinfo, post_oauth2_introspect
 from fulla.generated.models.post_oauth_2_introspect_body import PostOauth2IntrospectBody
 
 BASE = "http://server.test"
@@ -59,8 +59,8 @@ class TestBearerInjectionAndCache:
     def test_bearer_and_cache(self, fake, transport):
         client = m2m_client(BASE, "backend-svc", "test-secret", transport=transport)
         try:
-            first = get_fulla_userinfo.sync(client=client)
-            second = get_fulla_userinfo.sync(client=client)
+            first = get_oauth2_userinfo.sync(client=client)
+            second = get_oauth2_userinfo.sync(client=client)
             assert first.sub == second.sub == USERINFO_BODY["sub"]
             assert len(fake.token_requests) == 1  # cached across calls
         finally:
@@ -74,8 +74,8 @@ class TestProactiveRefresh:
         fake.expires_in = 10  # < DEFAULT_CLOCK_SKEW (30s) -> always stale
         client = m2m_client(BASE, "c", "s", transport=transport)
         try:
-            get_fulla_userinfo.sync(client=client)
-            get_fulla_userinfo.sync(client=client)
+            get_oauth2_userinfo.sync(client=client)
+            get_oauth2_userinfo.sync(client=client)
             assert len(fake.token_requests) == 2  # proactive refresh happened
         finally:
             close_m2m_client(client)
@@ -87,9 +87,9 @@ class Test401Retry:
     def test_retry_once_on_401(self, fake, transport):
         client = m2m_client(BASE, "c", "s", transport=transport)
         try:
-            get_fulla_userinfo.sync(client=client)  # primes the cache
+            get_oauth2_userinfo.sync(client=client)  # primes the cache
             fake.fail_bearer_once(times=1)
-            result = get_fulla_userinfo.sync(client=client)
+            result = get_oauth2_userinfo.sync(client=client)
             assert result.sub == USERINFO_BODY["sub"]
             assert len(fake.token_requests) == 2  # forced refresh
         finally:
@@ -99,7 +99,7 @@ class Test401Retry:
         """P4 (body case) -- the retried POST carries the same form body."""
         client = m2m_client(BASE, "c", "s", transport=transport)
         try:
-            get_fulla_userinfo.sync(client=client)  # prime token cache
+            get_oauth2_userinfo.sync(client=client)  # prime token cache
             fake.fail_bearer_once(times=1)
             result = post_oauth2_introspect.sync(
                 client=client, body=PostOauth2IntrospectBody(token="tok-xyz")
@@ -113,7 +113,7 @@ class Test401Retry:
         fake.on("GET", "/oauth2/userinfo", status=401, json_body={"error": "invalid_token"})
         client = m2m_client(BASE, "c", "s", transport=transport)
         try:
-            response = get_fulla_userinfo.sync_detailed(client=client)
+            response = get_oauth2_userinfo.sync_detailed(client=client)
             assert response.status_code == 401  # one retry, then pass-through
             assert len(fake.token_requests) == 2
         finally:
@@ -141,8 +141,8 @@ class TestAsyncEquivalence:
     async def test_fetch_bearer_cache(self, fake, transport):
         client = async_m2m_client(BASE, "c", "s", transport=transport)
         try:
-            first = await get_fulla_userinfo.asyncio(client=client)
-            second = await get_fulla_userinfo.asyncio(client=client)
+            first = await get_oauth2_userinfo.asyncio(client=client)
+            second = await get_oauth2_userinfo.asyncio(client=client)
             assert first.sub == second.sub == USERINFO_BODY["sub"]
             assert len(fake.token_requests) == 1
             assert decode_basic(fake.basic_on_token_requests[0]) == "c:s"
@@ -153,8 +153,8 @@ class TestAsyncEquivalence:
         fake.expires_in = 10
         client = async_m2m_client(BASE, "c", "s", transport=transport)
         try:
-            await get_fulla_userinfo.asyncio(client=client)
-            await get_fulla_userinfo.asyncio(client=client)
+            await get_oauth2_userinfo.asyncio(client=client)
+            await get_oauth2_userinfo.asyncio(client=client)
             assert len(fake.token_requests) == 2
         finally:
             await close_async_m2m_client(client)
@@ -162,9 +162,9 @@ class TestAsyncEquivalence:
     async def test_401_retry_once(self, fake, transport):
         client = async_m2m_client(BASE, "c", "s", transport=transport)
         try:
-            await get_fulla_userinfo.asyncio(client=client)
+            await get_oauth2_userinfo.asyncio(client=client)
             fake.fail_bearer_once(times=1)
-            result = await get_fulla_userinfo.asyncio(client=client)
+            result = await get_oauth2_userinfo.asyncio(client=client)
             assert result.sub == USERINFO_BODY["sub"]
             assert len(fake.token_requests) == 2
         finally:
@@ -175,7 +175,7 @@ class TestAsyncEquivalence:
         with pytest.raises(FullaAuthError) as excinfo:
             client = async_m2m_client(BASE, "c", "bad", transport=transport)
             try:
-                await get_fulla_userinfo.asyncio(client=client)
+                await get_oauth2_userinfo.asyncio(client=client)
             finally:
                 await close_async_m2m_client(client)
         assert excinfo.value.error == "invalid_client"
@@ -194,7 +194,7 @@ class TestAuthClassesCloseCleanly:
         """PR-review fix: the auth layer's private token client must be
         reachable for cleanup, not just the injected API client."""
         client = m2m_client(BASE, "c", "s", transport=transport)
-        get_fulla_userinfo.sync(client=client)
+        get_oauth2_userinfo.sync(client=client)
         api_http = client.get_httpx_client()
         auth = api_http.auth
         assert isinstance(auth, ClientCredentialsAuth)
@@ -204,7 +204,7 @@ class TestAuthClassesCloseCleanly:
 
     async def test_close_async_m2m_client_closes_both_pools(self, fake, transport):
         client = async_m2m_client(BASE, "c", "s", transport=transport)
-        await get_fulla_userinfo.asyncio(client=client)
+        await get_oauth2_userinfo.asyncio(client=client)
         api_http = client.get_async_httpx_client()
         auth = api_http.auth
         assert isinstance(auth, AsyncClientCredentialsAuth)

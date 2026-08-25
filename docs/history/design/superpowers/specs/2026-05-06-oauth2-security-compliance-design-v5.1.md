@@ -62,7 +62,7 @@ CREATE TABLE oauth2_subject_mappings (
 );
 
 -- ✅ Consent表 (三重校验的一部分)
-CREATE TABLE fulla_user_consents (
+CREATE TABLE oauth2_user_consents (
     id SERIAL PRIMARY KEY,
     internal_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     client_id VARCHAR(50) NOT NULL REFERENCES oauth2_clients(client_id) ON DELETE CASCADE,
@@ -148,7 +148,7 @@ public:
 ```
 1. Client允许检查: oauth2_client_scopes
 2. 用户角色检查: user_roles + oauth2_scopes.requires_admin_role
-3. 用户Consent检查: fulla_user_consents
+3. 用户Consent检查: oauth2_user_consents
 ```
 
 **Plugin层实现**:
@@ -744,7 +744,7 @@ virtual void getUserRoles(int32_t internalUserId,
 - [ ] 执行 `003_rbac_schema.sql`
 - [ ] 执行 `004_oauth2_scopes.sql` (包含subject映射)
 - [ ] 验证 `UNIQUE(provider, subject)` 约束存在
-- [ ] 验证 `fulla_user_consents.internal_user_id` 为 INTEGER
+- [ ] 验证 `oauth2_user_consents.internal_user_id` 为 INTEGER
 
 ### ORM模型生成
 - [ ] 运行 `generate_models.bat`

@@ -320,7 +320,7 @@ audit_logs (
 
 #### ORM 模型（`model.json` + 19 张表）
 
-确认表清单（`model.json:8-28`）：organizations, users, roles, permissions, user_roles, role_permissions, oauth2_clients, oauth2_access_tokens, oauth2_refresh_tokens, oauth2_codes, oauth2_scopes, oauth2_client_scopes, fulla_user_consents, oauth2_subject_mappings, audit_logs, email_verification_tokens, password_reset_tokens, oauth2_device_codes, webauthn_credentials（共 **19** 张表，ORM 模型由 `drogon_ctl` 从 schema 生成，禁止手改）
+确认表清单（`model.json:8-28`）：organizations, users, roles, permissions, user_roles, role_permissions, oauth2_clients, oauth2_access_tokens, oauth2_refresh_tokens, oauth2_codes, oauth2_scopes, oauth2_client_scopes, oauth2_user_consents, oauth2_subject_mappings, audit_logs, email_verification_tokens, password_reset_tokens, oauth2_device_codes, webauthn_credentials（共 **19** 张表，ORM 模型由 `drogon_ctl` 从 schema 生成，禁止手改）
 
 #### 可观测性
 

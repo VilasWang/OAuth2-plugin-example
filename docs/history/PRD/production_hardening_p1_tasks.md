@@ -526,7 +526,7 @@ DELETE FROM audit_logs WHERE timestamp < NOW() - INTERVAL '90 days';
 
 **撤销授权**:
 ```cpp
-// 1. 删除 fulla_user_consents WHERE user_id=$1 AND client_id=$2
+// 1. 删除 oauth2_user_consents WHERE user_id=$1 AND client_id=$2
 // 2. 撤销该 client 为该用户颁发的所有 token
 // 3. 审计日志
 ```

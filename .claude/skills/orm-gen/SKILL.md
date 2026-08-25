@@ -43,7 +43,7 @@ psql -h localhost -U fulla_user -d fulla_db -c "\dt"
 # - organizations, users, roles, permissions
 # - user_roles, role_permissions
 # - oauth2_clients, oauth2_codes, oauth2_access_tokens, oauth2_refresh_tokens
-# - oauth2_scopes, oauth2_client_scopes, fulla_user_consents
+# - oauth2_scopes, oauth2_client_scopes, oauth2_user_consents
 # - oauth2_subject_mappings, audit_logs
 # - email_verification_tokens, password_reset_tokens
 # - oauth2_device_codes, webauthn_credentials
@@ -69,7 +69,7 @@ cat libs/storage-postgres/src/models/model.json
         "organizations", "users", "roles", "permissions",
         "user_roles", "role_permissions",
         "oauth2_clients", "oauth2_codes", "oauth2_access_tokens", "oauth2_refresh_tokens",
-        "oauth2_scopes", "oauth2_client_scopes", "fulla_user_consents",
+        "oauth2_scopes", "oauth2_client_scopes", "oauth2_user_consents",
         "oauth2_subject_mappings", "audit_logs",
         "email_verification_tokens", "password_reset_tokens",
         "oauth2_device_codes", "webauthn_credentials"
@@ -194,7 +194,7 @@ Generating models for tables:
   - oauth2_refresh_tokens
   - oauth2_scopes
   - oauth2_client_scopes
-  - fulla_user_consents
+  - oauth2_user_consents
   - oauth2_subject_mappings
   - audit_logs
   - email_verification_tokens
@@ -365,7 +365,7 @@ ctest --output-on-failure -C Release
 | oauth2_refresh_tokens | Oauth2RefreshTokens.h | Oauth2RefreshTokens.cc | OAuth2 刷新令牌表 |
 | oauth2_scopes | Oauth2Scopes.h | Oauth2Scopes.cc | OAuth2 作用域表 |
 | oauth2_client_scopes | Oauth2ClientScopes.h | Oauth2ClientScopes.cc | 客户端-作用域关联表 |
-| fulla_user_consents | Oauth2UserConsents.h | Oauth2UserConsents.cc | 用户授权同意表 |
+| oauth2_user_consents | Oauth2UserConsents.h | Oauth2UserConsents.cc | 用户授权同意表 |
 | oauth2_subject_mappings | Oauth2SubjectMappings.h | Oauth2SubjectMappings.cc | OAuth2 subject-内部用户映射表 |
 | audit_logs | AuditLogs.h | AuditLogs.cc | 审计日志表 |
 | email_verification_tokens | EmailVerificationTokens.h | EmailVerificationTokens.cc | 邮箱验证令牌表 |

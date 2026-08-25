@@ -18,7 +18,7 @@
         "oauth2_codes",
         "oauth2_scopes",
         "oauth2_client_scopes",
-        "fulla_user_consents",
+        "oauth2_user_consents",
         "oauth2_subject_mappings",
         "audit_logs",
         "email_verification_tokens",
@@ -119,7 +119,7 @@
                 "original_table_name": "users",
                 "original_table_alias": "user",
                 "original_key": "id",
-                "target_table_name": "fulla_user_consents",
+                "target_table_name": "oauth2_user_consents",
                 "target_table_alias": "userConsents",
                 "target_key": "internal_user_id",
                 "enable_reverse": false
