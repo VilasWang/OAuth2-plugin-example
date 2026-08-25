@@ -1,8 +1,0 @@
-schema_version: 1
-module_path: cmake_build
-title: AuthForge CMake 构建工具集
-scope:
-    - cmake/
-source_files: []
-depends_on: []
-related_to: []

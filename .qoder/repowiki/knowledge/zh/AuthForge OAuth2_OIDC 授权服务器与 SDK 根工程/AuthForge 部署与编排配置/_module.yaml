@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: deploy
-title: AuthForge 部署与编排配置
-scope:
-    - deploy/
-source_files: []
-depends_on: []
-related_to:
-    - path: scripts

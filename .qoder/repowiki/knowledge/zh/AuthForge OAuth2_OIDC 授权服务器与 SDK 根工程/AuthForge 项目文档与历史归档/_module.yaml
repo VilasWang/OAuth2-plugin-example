@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: docs
-title: AuthForge 项目文档与历史归档
-scope:
-    - docs/
-source_files: []
-depends_on: []
-related_to:
-    - path: tools
