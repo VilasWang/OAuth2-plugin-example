@@ -1,6 +1,6 @@
-#include <authforge/storage/redis/RedisCachedClientRepository.h>
-#include <authforge/oauth2/model/ClientType.h>
-#include <authforge/common/utils/ConstantTimeCompare.h>
+#include <fulla/storage/redis/RedisCachedClientRepository.h>
+#include <fulla/oauth2/model/ClientType.h>
+#include <fulla/common/utils/ConstantTimeCompare.h>
 
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
@@ -10,12 +10,12 @@
 #include <sstream>
 #include <string_view>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 // Callback + DTO aliases for the base interface (safe at namespace scope here:
 // this .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
+using OAuth2Client = ::fulla::oauth2::model::OAuth2Client;
 using ClientCallback = RedisCachedClientRepositoryBase::ClientCallback;
 
 using namespace ::drogon;
@@ -35,7 +35,7 @@ std::string serializeClient(const OAuth2Client &c)
 {
     Json::Value json;
     json["clientId"] = c.clientId;
-    json["clientType"] = ::authforge::oauth2::model::clientTypeToString(c.clientType);
+    json["clientType"] = ::fulla::oauth2::model::clientTypeToString(c.clientType);
     json["clientSecretHash"] = c.clientSecretHash;
     json["salt"] = c.salt;
     json["tokenEndpointAuthMethod"] = c.tokenEndpointAuthMethod;
@@ -80,7 +80,7 @@ bool deserializeClient(const std::string &jsonStr, OAuth2Client &out)
     try
     {
         out.clientType =
-          ::authforge::oauth2::model::stringToClientType(root["clientType"].asString());
+          ::fulla::oauth2::model::stringToClientType(root["clientType"].asString());
     }
     catch (const std::exception &e)
     {
@@ -106,9 +106,9 @@ bool deserializeClient(const std::string &jsonStr, OAuth2Client &out)
 
 // Metric label sets are allocated once (small maps); reusing them avoids per-call
 // unordered_map construction on the hot path.
-const ::authforge::common::ports::MetricLabels kHitLabels{{"repo", "client"}, {"outcome", "hit"}};
-const ::authforge::common::ports::MetricLabels kMissLabels{{"repo", "client"}, {"outcome", "miss"}};
-const ::authforge::common::ports::MetricLabels kErrorLabels{{"repo", "client"}, {"outcome", "error"}};
+const ::fulla::common::ports::MetricLabels kHitLabels{{"repo", "client"}, {"outcome", "hit"}};
+const ::fulla::common::ports::MetricLabels kMissLabels{{"repo", "client"}, {"outcome", "miss"}};
+const ::fulla::common::ports::MetricLabels kErrorLabels{{"repo", "client"}, {"outcome", "error"}};
 
 // Wave-2 P0 (docs/performance-optimization/optimization-wave-2-plan.md):
 // validate the secret against the CACHED row, eliminating one PG round-trip
@@ -124,7 +124,7 @@ const ::authforge::common::ports::MetricLabels kErrorLabels{{"repo", "client"}, 
 // type-fallback branch is needed here.
 bool validateCachedClientSecret(const OAuth2Client &client, const std::string &clientSecret)
 {
-    if (client.clientType == ::authforge::oauth2::model::ClientType::PUBLIC)
+    if (client.clientType == ::fulla::oauth2::model::ClientType::PUBLIC)
         return true;
     if (clientSecret.empty())
         return false;
@@ -142,7 +142,7 @@ bool validateCachedClientSecret(const OAuth2Client &client, const std::string &c
     );
     const size_t cmpLen =
       (computedHash.length() < storedLower.length()) ? computedHash.length() : storedLower.length();
-    return ::authforge::common::utils::constantTimeMemcmp(
+    return ::fulla::common::utils::constantTimeMemcmp(
              computedHash.c_str(), storedLower.c_str(), cmpLen
            ) == 0 &&
            computedHash.length() == storedLower.length();
@@ -152,7 +152,7 @@ bool validateCachedClientSecret(const OAuth2Client &client, const std::string &c
 RedisCachedClientRepository::RedisCachedClientRepository(
   std::shared_ptr<RedisCachedClientRepositoryBase> impl,
   RedisClientPtr redisClient,
-  std::shared_ptr<::authforge::common::ports::IMetrics> metrics,
+  std::shared_ptr<::fulla::common::ports::IMetrics> metrics,
   int clientTtlSeconds
 ) : impl_(std::move(impl)),
     redisClient_(std::move(redisClient)),
@@ -170,7 +170,7 @@ void RedisCachedClientRepository::emitMetric(const char *outcome) const
     const auto &labels = std::string_view(outcome) == "hit"   ? kHitLabels
                          : std::string_view(outcome) == "miss" ? kMissLabels
                                                                : kErrorLabels;
-    metrics_->incrementCounter("authforge_cache_total", labels);
+    metrics_->incrementCounter("fulla_cache_total", labels);
 }
 
 void RedisCachedClientRepository::getClient(const std::string &clientId, ClientCallback &&cb)
@@ -202,7 +202,7 @@ void RedisCachedClientRepository::getClient(const std::string &clientId, ClientC
                   // its redisClient_) survive the async hop; ignores both result
                   // and error (best-effort fill).
                   std::string payload = serializeClient(*client);
-                  std::string key = "authforge:cache:client:" + clientId;
+                  std::string key = "fulla:cache:client:" + clientId;
                   self->redisClient_->execCommandAsync(
                     [](const RedisResult &) {},  // ignore success
                     [key](const RedisException &e) {
@@ -229,7 +229,7 @@ void RedisCachedClientRepository::getClient(const std::string &clientId, ClientC
         return;
     }
 
-    std::string cmd = "GET authforge:cache:client:" + clientId;
+    std::string cmd = "GET fulla:cache:client:" + clientId;
     redisClient_->execCommandAsync(
       [self, sharedCb, fired, delegateAndFill, clientId](const RedisResult &result) {
           // Cache HIT: a string value we can deserialize.
@@ -285,7 +285,7 @@ void RedisCachedClientRepository::validateClient(
         return;
     }
 
-    std::string cmd = "GET authforge:cache:client:" + clientId;
+    std::string cmd = "GET fulla:cache:client:" + clientId;
     redisClient_->execCommandAsync(
       [self, sharedCb, clientId, clientSecret](const RedisResult &result) {
           if (result.type() == RedisResultType::kString)
@@ -313,4 +313,4 @@ void RedisCachedClientRepository::validateClient(
     );
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

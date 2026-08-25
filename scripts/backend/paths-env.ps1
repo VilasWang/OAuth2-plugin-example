@@ -5,7 +5,7 @@
 # Usage:
 #   . "$PSScriptRoot\paths-env.ps1"
 #   $Paths = Import-PathsEnv
-#   $Paths["OAUTH2_SERVER_DIR"]   # e.g. "apps/server"
+#   $Paths["FULLA_SERVER_DIR"]   # e.g. "apps/server"
 #
 # Each `KEY=VALUE` line in paths.env is parsed into the returned hashtable.
 # Lines starting with # are comments and blank lines are skipped. No

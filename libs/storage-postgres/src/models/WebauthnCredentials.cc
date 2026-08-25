@@ -12,7 +12,7 @@
 
 using namespace drogon;
 using namespace drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 const std::string WebauthnCredentials::Cols::_id = "\"id\"";
 const std::string WebauthnCredentials::Cols::_user_id = "\"user_id\"";

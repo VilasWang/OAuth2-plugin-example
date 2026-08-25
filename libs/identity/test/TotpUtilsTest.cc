@@ -1,17 +1,17 @@
-// M2.5 identity completion (authforge-sdk-refactor): unit tests for
-// authforge::identity::totp, ported from OAuth2Plugin/src/utils/TotpUtils.cc's
+// M2.5 identity completion (fulla-sdk-refactor): unit tests for
+// fulla::identity::totp, ported from OAuth2Plugin/src/utils/TotpUtils.cc's
 // algorithm (RFC 6238 TOTP over HMAC-SHA1). Uses the real OpenSSL-backed
 // FakeCryptoProvider (only secureRandomBytes is faked; HMAC/hashing are
 // genuine) plus an explicit nowSeconds parameter instead of wall-clock time,
 // so the RFC 6238 Appendix B-style known-answer checks are deterministic.
 
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/identity/TotpUtils.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/identity/TotpUtils.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::identity::totp;
-using authforge::common::testing::FakeCryptoProvider;
+using namespace fulla::identity::totp;
+using fulla::common::testing::FakeCryptoProvider;
 
 namespace
 {

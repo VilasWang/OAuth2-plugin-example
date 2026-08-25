@@ -30,7 +30,7 @@ rm -f "$OVERRIDE"
 ```
 
 **Where it's wired in:** `manage.sh docker-up`/`docker-down` and
-`benchmarks/authforge/setup.sh` both generate and layer the override
+`benchmarks/fulla/setup.sh` both generate and layer the override
 automatically, so `./manage.sh docker-up` and the benchmark one-click setup
 work on affected compose versions without manual intervention.
 

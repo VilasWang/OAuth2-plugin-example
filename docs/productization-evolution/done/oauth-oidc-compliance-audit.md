@@ -1,8 +1,8 @@
-# OAuth/OIDC 规范性审查报告 — authforge
+# OAuth/OIDC 规范性审查报告 — fulla
 
 | 项目 | 内容 |
 |---|---|
-| 审查对象 | authforge (`test/coverage-push` 分支, 2026-08-07) |
+| 审查对象 | fulla (`test/coverage-push` 分支, 2026-08-07) |
 | 审查范围 | RFC 6749 / 6750 / 7662 / 7009 / 7636 / 8252 / 8628 / 8414 / 7519/7517/7515 / 7591/7592 / 9068 / 9700 + OIDC Core 1.0 / Discovery 1.0 / RP-Initiated Logout / Back-Channel Logout |
 | 审查方法 | 静态代码审查 + 规范条款逐条核验；所有判断附 `file:line` 证据 + 规范章节引文 |
 | 不在范围 | 动态渗透测试、性能/可用性评估、前端 SPA 实现审查 |
@@ -16,7 +16,7 @@
 
 ### 1.1 总体符合度
 
-authforge 在 **OAuth 2.0 核心（RFC 6749）的"快乐路径"**上基本合规：授权码与刷新令牌的生成、哈希存储、单次性、轮换、重用级联吊销都按规范实现；PKCE 的 S256 算法是规范正确的 `base64url(raw digest)`；introspect/revoke 的客户端认证模型近期（commit 246db32）已修正为 RFC 7662/7009 要求的客户端凭证模型。
+fulla 在 **OAuth 2.0 核心（RFC 6749）的"快乐路径"**上基本合规：授权码与刷新令牌的生成、哈希存储、单次性、轮换、重用级联吊销都按规范实现；PKCE 的 S256 算法是规范正确的 `base64url(raw digest)`；introspect/revoke 的客户端认证模型近期（commit 246db32）已修正为 RFC 7662/7009 要求的客户端凭证模型。
 
 但存在 **若干违反 MUST 的实质性偏差**，集中在三类：
 
@@ -69,7 +69,7 @@ OIDC profile 分档（按用户要求）：
 #### 3.1.1 §1.6 / §3.1.1 协议须运行于 HTTPS；redirect_uri 须 https —— **不符合（Medium）**
 
 - **检查方法**：Grep redirect_uri scheme 校验、loopback 例外。
-- **证据**：`libs/oauth2/include/authforge/oauth2/model/Client.h:86-90` 仅做 `std::find` 精确字符串匹配；`libs/drogon/src/validation/RuleEngine.cc:120-133` 的 regex `^https?://...` 同时接受 http 与 https；无任何代码强制 https 或实现 RFC 8252 §7.3 / RFC 6749 §3.1.2.1 的 loopback 端口通配。
+- **证据**：`libs/oauth2/include/fulla/oauth2/model/Client.h:86-90` 仅做 `std::find` 精确字符串匹配；`libs/drogon/src/validation/RuleEngine.cc:120-133` 的 regex `^https?://...` 同时接受 http 与 https；无任何代码强制 https 或实现 RFC 8252 §7.3 / RFC 6749 §3.1.2.1 的 loopback 端口通配。
 - **偏差**：redirect_uri 注册与匹配接受任意 scheme，未强制 https，未实现 loopback 例外。
 - **依据**：RFC 6749 §3.1.2.1 "the redirection endpoint SHOULD require the use of TLS"；§1.6 明确 TLS 为 MUST 级别的部署前提。
 - **见**：F-014。
@@ -698,7 +698,7 @@ F-001（OpenAPI enum）/ F-019（Cache-Control）/ F-020（state urlEncode）/ F
 
 ## 6. 已确认合规项（正向清单）
 
-为平衡视角，下列核心能力经核实**符合规范**，构成 authforge 的合规基座：
+为平衡视角，下列核心能力经核实**符合规范**，构成 fulla 的合规基座：
 
 1. 授权码生成：256-bit `RAND_bytes` + base64url + 仅哈希入库（`TokenCrypto.cc:9-24,26-37`）
 2. 授权码单次性：原子 CAS（`PostgresGrantRepository.cc:165-176`）

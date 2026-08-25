@@ -362,7 +362,7 @@ grep -r "RateLimiterFilter" --include="*.cc" --include="*.h" .
 
 **Windows**:
 ```cmd
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 scripts\build.bat
 ```
 
@@ -613,7 +613,7 @@ ab -n 10000 -c 100 \
 taskkill /F /IM OAuth2Server.exe
 
 # 2. 回滚到迁移前的commit
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 git checkout <migration-commit-hash>~
 
 # 3. 重新编译

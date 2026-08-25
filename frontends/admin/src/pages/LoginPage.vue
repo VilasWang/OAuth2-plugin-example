@@ -34,7 +34,7 @@ async function handleLogin() {
         <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sky-700 text-white font-bold text-lg mb-4">
           AF
         </div>
-        <h1 class="text-xl font-bold text-neutral-900 tracking-tight">AuthForge Admin</h1>
+        <h1 class="text-xl font-bold text-neutral-900 tracking-tight">Fulla Admin</h1>
         <p class="mt-1.5 text-sm text-neutral-500">Sign in to your administrator account</p>
       </div>
 
@@ -91,7 +91,7 @@ async function handleLogin() {
       </div>
 
       <p class="mt-6 text-center text-xs text-neutral-400">
-        AuthForge Identity Platform &middot; Enterprise OAuth2/OIDC Server
+        Fulla Identity Platform &middot; Enterprise OAuth2/OIDC Server
       </p>
     </div>
   </div>

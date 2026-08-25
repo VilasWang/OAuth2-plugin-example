@@ -1,6 +1,6 @@
 #include "SchemaManager.h"
 #include <drogon/drogon.h>
-#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <filesystem>
 #include <fstream>
 #include <future>
@@ -464,13 +464,13 @@ bool SchemaManager::applyMigration(
 
 std::string SchemaManager::computeChecksum(const std::string &content)
 {
-    // Task 37 (authforge-sdk-refactor): unified on
+    // Task 37 (fulla-sdk-refactor): unified on
     // OpenSslCryptoProvider::sha256Hex() -- the previous implementation was
     // Windows-only BCrypt with a std::hash placeholder on Linux/macOS, which
     // made checksums recorded from a K8s migration Job meaningless. Both the
     // old BCrypt path and sha256Hex() emit lowercase hex, so Windows-recorded
     // checksums stay stable across this change.
-    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
+    static fulla::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
     return cryptoProvider.sha256Hex(content);
 }
 

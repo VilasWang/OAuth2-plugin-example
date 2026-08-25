@@ -14,13 +14,13 @@ Internet
     │ :8080 / :8081
     ▼
 ┌────────────────────────┐
-│  oauth2-frontend│  Vue 前端 (Nginx)
+│  fulla-frontend│  Vue 前端 (Nginx)
 │  Port: 8080             │
-│  → oauth2-backend│
+│  → fulla-backend│
 └────────┬───────────────┘
          │ 内网
 ┌────────▼────────────────┐
-│  oauth2-backend │  Drogon 后端
+│  fulla-backend │  Drogon 后端
 │  Port: 5555              │
 │  → postgres              │
 │  → redis                 │
@@ -37,12 +37,12 @@ prometheus
 
 | 服务 | 镜像/构建 | 对外端口 | 说明 |
 |---|---|---|---|
-| `oauth2-frontend` | `deploy/docker/Dockerfile` (`frontend-runtime`) | `8080:80` | Vue SPA (用户端) + Nginx |
-| `oauth2-admin` | `frontends/admin/Dockerfile` | `8081:80` | 管理后台前端 |
-| `oauth2-backend` | `deploy/docker/Dockerfile` (`backend-runtime`) | `5555:5555` | Drogon C++ 后端 |
-| `oauth2-postgres` | `postgres:17-alpine` | `5433:5432` | PostgreSQL（宿主机 5433，避开本地冲突）|
-| `oauth2-redis` | `redis:7-alpine` | `6380:6379` | Redis（宿主机 6380，避开本地冲突）|
-| `oauth2-prometheus` | `prom/prometheus:latest` | `9090:9090` | 指标采集 |
+| `fulla-frontend` | `deploy/docker/Dockerfile` (`frontend-runtime`) | `8080:80` | Vue SPA (用户端) + Nginx |
+| `fulla-admin` | `frontends/admin/Dockerfile` | `8081:80` | 管理后台前端 |
+| `fulla-backend` | `deploy/docker/Dockerfile` (`backend-runtime`) | `5555:5555` | Drogon C++ 后端 |
+| `fulla-postgres` | `postgres:17-alpine` | `5433:5432` | PostgreSQL（宿主机 5433，避开本地冲突）|
+| `fulla-redis` | `redis:7-alpine` | `6380:6379` | Redis（宿主机 6380，避开本地冲突）|
+| `fulla-prometheus` | `prom/prometheus:latest` | `9090:9090` | 指标采集 |
 
 ---
 
@@ -61,7 +61,7 @@ docker-compose -f deploy/docker/docker-compose.yml up -d
 docker-compose -f deploy/docker/docker-compose.yml ps
 
 # 实时查看后端日志
-docker-compose -f deploy/docker/docker-compose.yml logs -f oauth2-backend
+docker-compose -f deploy/docker/docker-compose.yml logs -f fulla-backend
 
 # 停止所有服务
 docker-compose -f deploy/docker/docker-compose.yml down
@@ -74,20 +74,20 @@ docker-compose -f deploy/docker/docker-compose.yml down -v
 
 ## 3. 环境变量与密钥注入
 
-`oauth2-backend` 在 `docker-compose.yml` 的 `environment` 节中通过环境变量注入敏感配置，**完全覆盖 `config.json` 中的默认值**。开发环境默认值（仅用于本地评估）如下：
+`fulla-backend` 在 `docker-compose.yml` 的 `environment` 节中通过环境变量注入敏感配置，**完全覆盖 `config.json` 中的默认值**。开发环境默认值（仅用于本地评估）如下：
 
 ```yaml
 environment:
-  - OAUTH2_DB_HOST=oauth2-postgres         # 指向 Docker 内网的 postgres 服务名
-  - OAUTH2_DB_NAME=oauth2_db
-  - OAUTH2_DB_PASSWORD=123456
-  - OAUTH2_REDIS_HOST=oauth2-redis
-  - OAUTH2_REDIS_PASSWORD=redis_secret_pass
-  - OAUTH2_VUE_CLIENT_SECRET=123456
-  - OAUTH2_AUTO_MIGRATE=true               # 启动时自动执行 apps/server/migrations
-  - OAUTH2_FRONTEND_URL=http://localhost:8080
-  # SMTP 配置经 ${OAUTH2_SMTP_*:-} 占位从 .env.docker 注入；留空则回退到控制台模式
-  - OAUTH2_SMTP_HOST=${OAUTH2_SMTP_HOST:-}
+  - FULLA_DB_HOST=fulla-postgres         # 指向 Docker 内网的 postgres 服务名
+  - FULLA_DB_NAME=fulla_db
+  - FULLA_DB_PASSWORD=123456
+  - FULLA_REDIS_HOST=fulla-redis
+  - FULLA_REDIS_PASSWORD=redis_secret_pass
+  - FULLA_VUE_CLIENT_SECRET=123456
+  - FULLA_AUTO_MIGRATE=true               # 启动时自动执行 apps/server/migrations
+  - FULLA_FRONTEND_URL=http://localhost:8080
+  # SMTP 配置经 ${FULLA_SMTP_*:-} 占位从 .env.docker 注入；留空则回退到控制台模式
+  - FULLA_SMTP_HOST=${FULLA_SMTP_HOST:-}
   ...
 ```
 
@@ -101,12 +101,12 @@ environment:
 仓库提供了示例文件 `deploy/env/docker.env.example`（以及 `deploy/env/server.env.example`）。复制为 `.env.docker`（已在 `.gitignore` 中排除）并填入生产值：
 
 ```env
-OAUTH2_DB_PASSWORD=your_strong_password
-OAUTH2_REDIS_PASSWORD=your_redis_password
-OAUTH2_VUE_CLIENT_SECRET=your_client_secret
+FULLA_DB_PASSWORD=your_strong_password
+FULLA_REDIS_PASSWORD=your_redis_password
+FULLA_VUE_CLIENT_SECRET=your_client_secret
 # SMTP（留空则后端回退到控制台模式）
-OAUTH2_SMTP_HOST=
-OAUTH2_SMTP_PORT=465
+FULLA_SMTP_HOST=
+FULLA_SMTP_PORT=465
 ...
 ```
 
@@ -124,7 +124,7 @@ volumes:
   redisdata: # Redis RDB / AOF 文件
 ```
 
-数据库初始化由后端在启动时自动完成（`OAUTH2_AUTO_MIGRATE=true`，按文件名顺序执行 `apps/server/migrations/V*.sql`，再执行 `apps/server/seed/*.sql`）。`docker-compose.yml` 同时把迁移与种子脚本挂进 postgres 容器的子目录：
+数据库初始化由后端在启动时自动完成（`FULLA_AUTO_MIGRATE=true`，按文件名顺序执行 `apps/server/migrations/V*.sql`，再执行 `apps/server/seed/*.sql`）。`docker-compose.yml` 同时把迁移与种子脚本挂进 postgres 容器的子目录：
 
 ```yaml
 volumes:
@@ -132,22 +132,22 @@ volumes:
   - ../../apps/server/seed:/docker-entrypoint-initdb.d/seed:ro
 ```
 
-> [WARNING]️ **注意**：postgres entrypoint **不会**递归进入 `/docker-entrypoint-initdb.d` 的子目录，因此这两个挂载对首次初始化是 **no-op**，真正的 schema 初始化由后端的 `OAUTH2_AUTO_MIGRATE` 完成。
+> [WARNING]️ **注意**：postgres entrypoint **不会**递归进入 `/docker-entrypoint-initdb.d` 的子目录，因此这两个挂载对首次初始化是 **no-op**，真正的 schema 初始化由后端的 `FULLA_AUTO_MIGRATE` 完成。
 
 ---
 
 ## 5. Prometheus 监控配置
 
-`prometheus.yml` 配置 Prometheus 采集 `oauth2-backend` 的 `/metrics` 端点：
+`prometheus.yml` 配置 Prometheus 采集 `fulla-backend` 的 `/metrics` 端点：
 
 ```yaml
 scrape_configs:
-  - job_name: "oauth2-backend"
+  - job_name: "fulla-backend"
     static_configs:
-      - targets: ["oauth2-backend:5555"]
+      - targets: ["fulla-backend:5555"]
 ```
 
-Prometheus 与 oauth2-backend 位于同一 Docker 网络 `oauth2-net`，使用服务名直接访问（无需暴露宿主机端口）。
+Prometheus 与 fulla-backend 位于同一 Docker 网络 `oauth2-net`，使用服务名直接访问（无需暴露宿主机端口）。
 
 访问 `http://localhost:9090` 即可查看 Prometheus UI。
 
@@ -157,7 +157,7 @@ Prometheus 与 oauth2-backend 位于同一 Docker 网络 `oauth2-net`，使用�
 
 ### 6.1 在 Nginx 前端服务添加 SSL 终结
 
-前端 `oauth2-frontend` 的 Nginx 负责静态文件托管，应在其前面增加一层带 SSL 的 Nginx/Traefik：
+前端 `fulla-frontend` 的 Nginx 负责静态文件托管，应在其前面增加一层带 SSL 的 Nginx/Traefik：
 
 ```nginx
 server {
@@ -168,12 +168,12 @@ server {
     ssl_certificate_key /etc/ssl/private/key.pem;
 
     location / {
-        proxy_pass http://oauth2-frontend:80;
+        proxy_pass http://fulla-frontend:80;
         proxy_set_header X-Forwarded-Proto https;
     }
 
     location /api/ {
-        proxy_pass http://oauth2-backend:5555;
+        proxy_pass http://fulla-backend:5555;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -192,7 +192,7 @@ location /metrics {
 }
 ```
 
-或通过 Docker 不对外暴露 `oauth2-backend:5555`，仅允许 Prometheus 内网访问。
+或通过 Docker 不对外暴露 `fulla-backend:5555`，仅允许 Prometheus 内网访问。
 
 ### 6.3 数据库连接池调优
 
@@ -210,10 +210,10 @@ docker-compose ps
 curl http://localhost:5555/metrics
 
 # 查看数据库是否已初始化
-docker exec -it oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\dt"
+docker exec -it fulla-postgres psql -U fulla_user -d fulla_db -c "\dt"
 
 # 查看 Redis 连接
-docker exec -it oauth2-redis redis-cli -a redis_secret_pass ping
+docker exec -it fulla-redis redis-cli -a redis_secret_pass ping
 
 # 清理并重建（数据会丢失）
 docker-compose down -v

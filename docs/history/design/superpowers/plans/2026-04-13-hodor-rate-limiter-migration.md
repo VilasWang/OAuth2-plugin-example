@@ -38,7 +38,7 @@
 - [ ] **Step 1: Create backup branch**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 git checkout -b backup/before-hodor-migration
 git push -u origin backup/before-hodor-migration
 ```
@@ -46,7 +46,7 @@ git push -u origin backup/before-hodor-migration
 - [ ] **Step 2: Record current state**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 mkdir -p .backup
 git rev-parse HEAD > .backup/commit_hash.txt
 git log -1 --pretty=format:"%H %s %ai" > .backup/backup_info.txt
@@ -56,7 +56,7 @@ date >> .backup/backup_info.txt
 - [ ] **Step 3: Switch back to master branch**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 git checkout master
 ```
 
@@ -79,7 +79,7 @@ git commit -m "chore: create backup state before Hodor migration"
 - [ ] **Step 1: Read current config.json**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 cat config.json
 ```
 
@@ -138,7 +138,7 @@ Insert the following Hodor configuration into the `plugins` array, **after** Pro
 - [ ] **Step 3: Validate JSON syntax**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 # Use Python or jq to validate JSON
 python -m json.tool config.json > nul 2>&1
 echo %ERRORLEVEL%
@@ -172,7 +172,7 @@ git commit -m "feat: add Hodor rate limiter plugin configuration
 - [ ] **Step 1: Read current OAuth2Controller.h**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\controllers
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\controllers
 cat OAuth2Controller.h
 ```
 
@@ -231,7 +231,7 @@ ADD_METHOD_TO(OAuth2Controller::registerUser, "/api/register", Post);
 - [ ] **Step 6: Verify no other RateLimiterFilter references in file**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\controllers
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\controllers
 grep -n "RateLimiterFilter" OAuth2Controller.h
 ```
 
@@ -260,7 +260,7 @@ filter registration. Clean up ADD_METHOD_TO macros.
 - [ ] **Step 1: Read current main.cc**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 cat main.cc
 ```
 
@@ -322,7 +322,7 @@ hodor->setUserIdGetter([](const HttpRequestPtr &req) -> std::optional<std::strin
 - [ ] **Step 5: Verify no syntax errors**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 # Check if main.cc compiles
 scripts\build.bat -debug 2>&1 | findstr /C:"error" /C:"warning"
 ```
@@ -356,7 +356,7 @@ Supports both authenticated users and OAuth2 clients.
 - [ ] **Step 1: Search all RateLimiterFilter references**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 # Search in source files
 grep -r "RateLimiterFilter" --include="*.cc" --include="*.h" --include="*.cpp" --include="*.hpp" . > rate_limiter_refs.txt
 cat rate_limiter_refs.txt
@@ -417,7 +417,7 @@ For `test/RateLimiterTest.cc`:
 - Option B: Delete if testing old implementation only
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\test
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\test
 cat RateLimiterTest.cc | head -20
 ```
 
@@ -426,7 +426,7 @@ Decide action: ___ Keep and rewrite ___ Delete
 - [ ] **Step 5: Remove temporary search results file**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 rm -f rate_limiter_refs.txt
 ```
 
@@ -455,7 +455,7 @@ git commit -m "docs: update documentation to reference Hodor instead of RateLimi
 - [ ] **Step 1: Verify files exist**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\filters
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\filters
 ls -la RateLimiterFilter.*
 ```
 
@@ -464,7 +464,7 @@ Expected: Both .cc and .h files exist
 - [ ] **Step 2: Delete the implementation files**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 rm -f filters/RateLimiterFilter.cc
 rm -f filters/RateLimiterFilter.h
 ```
@@ -472,7 +472,7 @@ rm -f filters/RateLimiterFilter.h
 - [ ] **Step 3: Verify deletion**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\filters
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\filters
 ls -la | grep -i rate
 ```
 
@@ -481,7 +481,7 @@ Expected: No RateLimiterFilter files
 - [ ] **Step 4: Check if filters directory is now empty**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\filters
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\filters
 ls -la
 ```
 
@@ -525,7 +525,7 @@ taskkill /F /IM OAuth2Server.exe 2>nul || echo "No OAuth2Server.exe process foun
 - [ ] **Step 2: Run build script**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 scripts\build.bat
 ```
 
@@ -538,7 +538,7 @@ Build completed successfully!
 
 And verify executable exists:
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\build\Release
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\build\Release
 dir OAuth2Server.exe
 ```
 
@@ -570,7 +570,7 @@ We'll test functionality before committing the build.
 - [ ] **Step 1: Start the server**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\build\Release
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\build\Release
 start OAuth2Server.exe
 ```
 
@@ -584,7 +584,7 @@ timeout /t 5 /nobreak
 
 ```bash
 # View log file
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 tail -n 50 logs/oauth2_prod.log | grep -i hodor
 ```
 
@@ -647,7 +647,7 @@ taskkill /F /IM OAuth2Server.exe
 - [ ] **Step 9: Commit successful build and test**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 git add -A
 git commit -m "test: verify Hodor migration - compilation and basic tests
 
@@ -672,7 +672,7 @@ git commit -m "test: verify Hodor migration - compilation and basic tests
 - [ ] **Step 1: Start server**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend\build\Release
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend\build\Release
 start OAuth2Server.exe
 timeout /t 5 /nobreak
 ```
@@ -760,7 +760,7 @@ Expected: System remains stable, no crashes, global limits protect server
 - [ ] **Step 7: Check logs for rate limit messages**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 tail -n 100 logs/oauth2_prod.log | grep -i "rate\|limit\|429"
 ```
 
@@ -789,7 +789,7 @@ Create test summary:
 - [ ] **Step 10: Commit test results**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 git add -A
 git commit -m "test: comprehensive Hodor rate limiter testing
 
@@ -865,7 +865,7 @@ Create or update changelog entry:
 - [ ] **Step 4: Review all documentation changes**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Backend
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Backend
 git diff docs/
 ```
 
@@ -897,7 +897,7 @@ git commit -m "docs: update documentation for Hodor rate limiter migration
 - [ ] **Step 1: Review all commits**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 git log --oneline -15
 ```
 
@@ -986,7 +986,7 @@ None
 - [ ] **Step 5: Commit migration summary**
 
 ```bash
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 git add MIGRATION_SUMMARY.md
 git commit -m "docs: add Hodor migration completion summary"
 ```

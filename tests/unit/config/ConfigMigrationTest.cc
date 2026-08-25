@@ -1,8 +1,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <filesystem>
-#include <authforge/common/config/ConfigManager.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/common/config/ConfigManager.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <cstdlib>
 
 // ============================================================================
@@ -21,10 +21,10 @@ DROGON_TEST(Unit_P1_ConfigMigration_Legacy_MainCcConfigLoadWorks)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(authforge::common::config::ConfigManager::load(configPath, config));
+    CHECK(fulla::common::config::ConfigManager::load(configPath, config));
 
     std::string errMsg;
-    CHECK(authforge::common::config::ConfigManager::validate(config, errMsg));
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg));
 
     // Verify key config sections exist
     CHECK(config.isMember("db_clients"));
@@ -46,11 +46,11 @@ DROGON_TEST(Unit_P1_ConfigMigration_Legacy_Database_EnvOverridesWorkAsBefore)
 
     // Test that environment variable overrides work consistently
 #ifdef _WIN32
-    _putenv_s("OAUTH2_DB_HOST", "test-host");
-    _putenv_s("OAUTH2_DB_PORT", "5433");
+    _putenv_s("FULLA_DB_HOST", "test-host");
+    _putenv_s("FULLA_DB_PORT", "5433");
 #else
-    setenv("OAUTH2_DB_HOST", "test-host", 1);
-    setenv("OAUTH2_DB_PORT", "5433", 1);
+    setenv("FULLA_DB_HOST", "test-host", 1);
+    setenv("FULLA_DB_PORT", "5433", 1);
 #endif
 
     std::string configPath = "./config.json";
@@ -62,20 +62,20 @@ DROGON_TEST(Unit_P1_ConfigMigration_Legacy_Database_EnvOverridesWorkAsBefore)
         configPath = "../../../config.json";
 
     Json::Value config;
-    authforge::common::config::ConfigManager::load(configPath, config);
+    fulla::common::config::ConfigManager::load(configPath, config);
 
     std::string host =
-      authforge::common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
-    int port = authforge::common::config::ConfigManager::get<int>(config, "db_clients.0.port");
+      fulla::common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
+    int port = fulla::common::config::ConfigManager::get<int>(config, "db_clients.0.port");
 
     CHECK(host == "test-host");
     CHECK(port == 5433);
 
 #ifdef _WIN32
-    _putenv_s("OAUTH2_DB_HOST", "");
-    _putenv_s("OAUTH2_DB_PORT", "");
+    _putenv_s("FULLA_DB_HOST", "");
+    _putenv_s("FULLA_DB_PORT", "");
 #else
-    unsetenv("OAUTH2_DB_HOST");
-    unsetenv("OAUTH2_DB_PORT");
+    unsetenv("FULLA_DB_HOST");
+    unsetenv("FULLA_DB_PORT");
 #endif
 }

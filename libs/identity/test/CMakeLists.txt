@@ -8,33 +8,33 @@ cmake_minimum_required(VERSION 3.16)
 
 find_package(GTest CONFIG REQUIRED)
 
-file(GLOB_RECURSE AUTHFORGE_IDENTITY_TEST_SOURCES "*.cc")
+file(GLOB_RECURSE FULLA_IDENTITY_TEST_SOURCES "*.cc")
 
 # M5 Task 31: drop the WebAuthn/Social service tests when their feature is
 # disabled -- those tests reference symbols (WebAuthnService::*,
-# SocialAuthService::*) that are no longer compiled into authforge::identity.
+# SocialAuthService::*) that are no longer compiled into fulla::identity.
 if(NOT WITH_WEBAUTHN)
-    list(FILTER AUTHFORGE_IDENTITY_TEST_SOURCES EXCLUDE REGEX "WebAuthnServiceTest\\.cc$")
+    list(FILTER FULLA_IDENTITY_TEST_SOURCES EXCLUDE REGEX "WebAuthnServiceTest\\.cc$")
 endif()
 if(NOT WITH_SOCIAL)
-    list(FILTER AUTHFORGE_IDENTITY_TEST_SOURCES EXCLUDE REGEX "SocialAuthServiceTest\\.cc$")
-    list(FILTER AUTHFORGE_IDENTITY_TEST_SOURCES EXCLUDE REGEX "SocialLinkServiceTest\\.cc$")
+    list(FILTER FULLA_IDENTITY_TEST_SOURCES EXCLUDE REGEX "SocialAuthServiceTest\\.cc$")
+    list(FILTER FULLA_IDENTITY_TEST_SOURCES EXCLUDE REGEX "SocialLinkServiceTest\\.cc$")
 endif()
 
-add_executable(authforge-identity-test ${AUTHFORGE_IDENTITY_TEST_SOURCES})
+add_executable(fulla-identity-test ${FULLA_IDENTITY_TEST_SOURCES})
 
-target_link_libraries(authforge-identity-test
+target_link_libraries(fulla-identity-test
     PRIVATE
-        authforge::identity
-        authforge::common::testing
+        fulla::identity
+        fulla::common::testing
         GTest::gtest
         GTest::Main
 )
 
-set_target_properties(authforge-identity-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+set_target_properties(fulla-identity-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
-oauth2_apply_compat(authforge-identity-test)
-oauth2_apply_gcov(authforge-identity-test)
+oauth2_apply_compat(fulla-identity-test)
+oauth2_apply_gcov(fulla-identity-test)
 
 include(GoogleTest)
-gtest_discover_tests(authforge-identity-test)
+gtest_discover_tests(fulla-identity-test)

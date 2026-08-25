@@ -115,7 +115,7 @@ for name, svc in services.items():
             ) if not os.path.isabs(df) else df
         # Preserve build args (already env-interpolated by `compose config`).
         # Dropping them here would silently strip any compose build-arg from
-        # override-layered builds (found via the AUTHFORGE_CMAKE_PRESET LTO
+        # override-layered builds (found via the FULLA_CMAKE_PRESET LTO
         # arm: the arg vanished and the build reused the cached default arm).
         args = build.get("args")
         if isinstance(args, dict) and args:

@@ -1,12 +1,12 @@
-#include <authforge/oauth2/pkce/Pkce.h>
+#include <fulla/oauth2/pkce/Pkce.h>
 
 #include <cctype>
 
-namespace authforge::oauth2::pkce
+namespace fulla::oauth2::pkce
 {
 
-using authforge::common::model::PkceChallenge;
-using authforge::common::ports::ICryptoProvider;
+using fulla::common::model::PkceChallenge;
+using fulla::common::ports::ICryptoProvider;
 
 std::string computeCodeChallenge(
   const std::string &codeVerifier,
@@ -67,4 +67,4 @@ bool isValidCodeChallengeFormat(const std::string &codeChallenge)
     return isValidPkceCharsetAndLength(codeChallenge);
 }
 
-}  // namespace authforge::oauth2::pkce
+}  // namespace fulla::oauth2::pkce

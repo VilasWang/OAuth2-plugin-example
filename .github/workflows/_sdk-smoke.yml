@@ -2,7 +2,7 @@ name: Reusable — SDK Smoke
 
 # Reusable workflow (Task 32): the SDK RELEASE gate. Builds the full product
 # stack (BUILD_EXAMPLES=ON writes build-tree package configs under
-# ${CMAKE_BINARY_DIR}/authforge-cmake) and runs the SdkSmoke.FullStack test,
+# ${CMAKE_BINARY_DIR}/fulla-cmake) and runs the SdkSmoke.FullStack test,
 # which uses `ctest --build-and-test` to configure + build + run
 # examples/full-stack-host as a real external find_package consumer. The smoke
 # host boots with memory storage (config/smoke.json), so no database is needed.

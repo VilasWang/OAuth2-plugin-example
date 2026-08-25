@@ -1,6 +1,6 @@
 // tests/contract/ClientRepositoryContractTest.cc
 //
-// Spec: authforge-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
+// Spec: fulla-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
 //
 // Functional contract tests for IClientRepository across all three backends
 // (Postgres/Redis/Memory). See ContractFixtures.h for the parameterization
@@ -20,8 +20,8 @@
 //     from the real seed data other tests already depend on.
 //   - Redis: HSET a client hash directly via the raw RedisClient (the only
 //     way to get data in, since IClientRepository has no write method and
-//     RedisOAuth2Storage/authforge::storage::redis::RedisClientRepository never gained one either).
-//   - Memory: authforge::storage::memory::MemoryClientRepository::initFromConfig() -- the one
+//     RedisOAuth2Storage/fulla::storage::redis::RedisClientRepository never gained one either).
+//   - Memory: fulla::storage::memory::MemoryClientRepository::initFromConfig() -- the one
 //   repository
 //     that DOES have a construction-time write path, so this test builds a
 //     fresh config-based fixture instead of relying on seed data.
@@ -30,18 +30,18 @@
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 
-#include <authforge/storage/postgres/PostgresClientRepository.h>
-#include <authforge/storage/redis/RedisClientRepository.h>
-#include <authforge/storage/memory/MemoryClientRepository.h>
+#include <fulla/storage/postgres/PostgresClientRepository.h>
+#include <fulla/storage/redis/RedisClientRepository.h>
+#include <fulla/storage/memory/MemoryClientRepository.h>
 
 #include "ContractFixtures.h"
 
 #include <string>
 
-using namespace authforge::oauth2::repository;
-using namespace authforge::oauth2::model;
-using namespace authforge::test::contract;
-using namespace authforge::storage::postgres;
+using namespace fulla::oauth2::repository;
+using namespace fulla::oauth2::model;
+using namespace fulla::test::contract;
+using namespace fulla::storage::postgres;
 
 namespace
 {
@@ -78,8 +78,8 @@ void runClientRepository_NotFoundContract(
 // validateClient() must not gate on it. Verified true for Postgres and
 // Memory (both branch on ClientType::PUBLIC and short-circuit to `true`
 // before ever looking at the provided secret). Not run against Redis --
-// authforge::storage::redis::RedisClientRepository never persists/reads a client_type field at all
-// (see authforge::storage::redis::RedisClientRepository.h/.cc), so there is no PUBLIC/CONFIDENTIAL
+// fulla::storage::redis::RedisClientRepository never persists/reads a client_type field at all
+// (see fulla::storage::redis::RedisClientRepository.h/.cc), so there is no PUBLIC/CONFIDENTIAL
 // branch to exercise on that backend; Redis gets its own, differently-shaped
 // contract test below (KnownClientHashValidationContract) that matches its
 // real (type-agnostic) behavior instead of papering over the difference.
@@ -142,7 +142,7 @@ void runClientRepository_ConfidentialClientValidatesSecretContract(
     CHECK(validEmpty == false);
 }
 
-// Redis-specific: authforge::storage::redis::RedisClientRepository::validateClient has no notion of
+// Redis-specific: fulla::storage::redis::RedisClientRepository::validateClient has no notion of
 // client_type at all (see its .cc: no PUBLIC/CONFIDENTIAL branch exists).
 // Its REAL contract is: empty secret -> EXISTS check (true iff the client
 // hash exists in Redis, regardless of what "type" it conceptually is); non-
@@ -238,7 +238,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_NotFoundRe
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisClientRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisClientRepository>("default");
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -254,7 +254,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
     const std::string hash = ::drogon::utils::getSha256(secret + salt);
 
     // Seed the client hash directly -- IClientRepository has no write
-    // method, and authforge::storage::redis::RedisClientRepository never gained one (see file
+    // method, and fulla::storage::redis::RedisClientRepository never gained one (see file
     // header).
     waitForVoid([&](auto cb) {
         redis->execCommandAsync(
@@ -268,7 +268,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
         );
     });
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisClientRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisClientRepository>("default");
     runClientRepository_Redis_KnownClientHashValidationContract(
       TEST_CTX, repo, clientId, secret, "wrong-secret"
     );
@@ -290,13 +290,13 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Redis_KnownClien
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_NotFoundReturnsNullopt)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     runClientRepository_NotFoundContract(TEST_CTX, repo);
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_PublicClientAcceptsAnySecret)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     cfg["mem-public-client"]["type"] = "PUBLIC";
     cfg["mem-public-client"]["secret"] = "";
@@ -310,7 +310,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_ClientRepository_Memory_ConfidentialClientValidatesSecret
 )
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     cfg["mem-confidential-client"]["type"] = "CONFIDENTIAL";
     cfg["mem-confidential-client"]["secret"] = "test-secret";
@@ -332,7 +332,7 @@ DROGON_TEST(
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_RedirectUri_SingleString)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     cfg["single-uri-client"]["secret"] = "s";
     cfg["single-uri-client"]["redirect_uri"] = "http://localhost/single";  // string, not array
@@ -348,7 +348,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromC
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_AllowedScopes_SingleString)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     cfg["single-scope-client"]["secret"] = "s";
     cfg["single-scope-client"]["allowed_scopes"] = "openid";  // string, not array
@@ -364,7 +364,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromC
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_VueClient_DefaultScopes)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     // vue-client with NO allowed_scopes -> default scopes injected.
     cfg["vue-client"]["type"] = "PUBLIC";
@@ -382,7 +382,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromC
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_InvalidType_DefaultsToConfidential)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     Json::Value cfg;
     cfg["bad-type-client"]["type"] = "TOTALLY_INVALID";
     cfg["bad-type-client"]["secret"] = "s";
@@ -394,12 +394,12 @@ DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromC
     REQUIRE(client.has_value());
     // Invalid type falls back to CONFIDENTIAL -> a non-empty secret is
     // required for validateClient to pass.
-    CHECK(client->clientType == ::authforge::oauth2::model::ClientType::CONFIDENTIAL);
+    CHECK(client->clientType == ::fulla::oauth2::model::ClientType::CONFIDENTIAL);
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_ClientRepository_Memory_InitFromConfig_NullConfig_NoOp)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     repo->initFromConfig(Json::Value());  // null -> early return, no clients
 
     auto client = waitForValue<std::optional<OAuth2Client>>([&](auto cb) {

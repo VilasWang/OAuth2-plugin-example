@@ -34,20 +34,20 @@
 #include <string>
 #include <utility>
 
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::sendPostForm;
-using authforge::test::http::serverReachable;
-using authforge::test::http::statusIs;
-using authforge::test::social::injectGitHubFake;
-using authforge::test::social::injectGoogleFake;
-using authforge::test::social::injectWeChatFake;
-using authforge::test::http::loginAsAdminWithScope;
-using authforge::test::http::postgresAvailable;
-using authforge::test::http::sendDelete;
-using authforge::test::http::sendGet;
-using authforge::test::http::sendPostJson;
-using authforge::test::http::kTestBaseUrl;
-using authforge::test::social::injectSocialLinkFake;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::sendPostForm;
+using fulla::test::http::serverReachable;
+using fulla::test::http::statusIs;
+using fulla::test::social::injectGitHubFake;
+using fulla::test::social::injectGoogleFake;
+using fulla::test::social::injectWeChatFake;
+using fulla::test::http::loginAsAdminWithScope;
+using fulla::test::http::postgresAvailable;
+using fulla::test::http::sendDelete;
+using fulla::test::http::sendGet;
+using fulla::test::http::sendPostJson;
+using fulla::test::http::kTestBaseUrl;
+using fulla::test::social::injectSocialLinkFake;
 
 // Server-reachability guard (these routes need no DB, but the in-process
 // server must be up). No postgresAvailable() guard: the mock-injected paths
@@ -77,14 +77,14 @@ DROGON_TEST(Integration_P0_GoogleLogin_FakeExchange_ReturnsFilteredProfile)
     Json::Value tokenBody;
     tokenBody["access_token"] = "gtok-test";
     http->postFormResponses.push_back(
-      authforge::identity::testing::okJson(tokenBody));
+      fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["sub"] = "g-123";
     userBody["name"] = "Test User";
     userBody["email"] = "test@example.com";
     userBody["picture"] = "https://example.test/pic.png";
     userBody["extra_field_should_be_dropped"] = "secret";
-    http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/google/login", "code=test-auth-code");
     REQUIRE(resp != nullptr);
@@ -122,7 +122,7 @@ DROGON_TEST(Integration_P1_GoogleLogin_TransportFailure_Returns502)
     SOCIAL_SKIP_GUARD;
 
     auto http = injectGoogleFake();
-    http->postFormResponses.push_back(authforge::identity::testing::transportFailure());
+    http->postFormResponses.push_back(fulla::identity::testing::transportFailure());
 
     auto resp = sendPostForm("/api/google/login", "code=test-auth-code");
     REQUIRE(resp != nullptr);
@@ -144,7 +144,7 @@ DROGON_TEST(Integration_P0_WeChatLogin_FakeExchange_ReturnsFilteredProfile)
     Json::Value tokenBody;
     tokenBody["access_token"] = "wtok-test";
     tokenBody["openid"] = "wx-openid-1";
-    http->getResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    http->getResponses.push_back(fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["openid"] = "wx-openid-1";
     userBody["nickname"] = "WX User";
@@ -154,7 +154,7 @@ DROGON_TEST(Integration_P0_WeChatLogin_FakeExchange_ReturnsFilteredProfile)
     userBody["province"] = "Shanghai";
     userBody["country"] = "CN";
     userBody["privilege_should_be_dropped"] = "x";
-    http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/wechat/login", "code=wx-auth-code");
     REQUIRE(resp != nullptr);
@@ -204,14 +204,14 @@ DROGON_TEST(Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens)
     tokenBody["access_token"] = "gh-tok-test";
     tokenBody["token_type"] = "bearer";
     tokenBody["scope"] = "user";
-    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    h.http->postFormResponses.push_back(fulla::identity::testing::okJson(tokenBody));
     // Userinfo response.
     Json::Value userBody;
     userBody["id"] = 12345;
     userBody["login"] = "gh-test-user";
     userBody["email"] = "gh@example.com";
     userBody["name"] = "GH Test";
-    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
     REQUIRE(resp != nullptr);
@@ -243,7 +243,7 @@ DROGON_TEST(Integration_P1_GitHubLogin_TransportFailure_Returns502)
     SOCIAL_SKIP_GUARD;
 
     auto h = injectGitHubFake();
-    h.http->postFormResponses.push_back(authforge::identity::testing::transportFailure());
+    h.http->postFormResponses.push_back(fulla::identity::testing::transportFailure());
 
     auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
     REQUIRE(resp != nullptr);
@@ -261,17 +261,17 @@ DROGON_TEST(Integration_P0_GitHubLogin_DeletedLinkedUser_Rejected401)
     auto h = injectGitHubFake();
     // Mark (github, "12345") as linked-but-unavailable (soft-deleted/locked).
     h.accountRepo->unavailableKeys.insert(
-      authforge::identity::testing::FakeSocialAccountRepository::key("github", "12345")
+      fulla::identity::testing::FakeSocialAccountRepository::key("github", "12345")
     );
     Json::Value tokenBody;
     tokenBody["access_token"] = "gh-tok-test";
     tokenBody["token_type"] = "bearer";
-    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    h.http->postFormResponses.push_back(fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["id"] = 12345;
     userBody["login"] = "gh-test-user";
     userBody["email"] = "gh@example.com";
-    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
     REQUIRE(resp != nullptr);
@@ -293,12 +293,12 @@ DROGON_TEST(Integration_P0_GitHubLogin_RepoError_Returns5xx_NoCreation)
     Json::Value tokenBody;
     tokenBody["access_token"] = "gh-tok-test";
     tokenBody["token_type"] = "bearer";
-    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    h.http->postFormResponses.push_back(fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["id"] = 99999;
     userBody["login"] = "gh-test-user";
     userBody["email"] = "gh@example.com";
-    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
     REQUIRE(resp != nullptr);
@@ -324,12 +324,12 @@ DROGON_TEST(Integration_P0_GitHubLogin_ConflictingUsername_NoAdoption)
     Json::Value tokenBody;
     tokenBody["access_token"] = "gh-tok-test";
     tokenBody["token_type"] = "bearer";
-    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    h.http->postFormResponses.push_back(fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["id"] = 54321;
     userBody["login"] = "gh-test-user";
     userBody["email"] = "gh@example.com";
-    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
     REQUIRE(resp != nullptr);
@@ -351,7 +351,7 @@ namespace
 // Drives the fake GitHub login (no mapping -> find-or-create in the fake
 // repo) and returns the issued token pair on success.
 std::optional<std::pair<std::string, std::string>> fakeGitHubLoginForTokens(
-  const std::shared_ptr<authforge::identity::testing::FakeOAuthHttpClient> &http,
+  const std::shared_ptr<fulla::identity::testing::FakeOAuthHttpClient> &http,
   int64_t githubId
 )
 {
@@ -359,12 +359,12 @@ std::optional<std::pair<std::string, std::string>> fakeGitHubLoginForTokens(
     tokenBody["access_token"] = "gh-tok-" + std::to_string(githubId);
     tokenBody["token_type"] = "bearer";
     tokenBody["scope"] = "user";
-    http->postFormResponses.push_back(authforge::identity::testing::okJson(tokenBody));
+    http->postFormResponses.push_back(fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["id"] = githubId;
     userBody["login"] = "gh-user-" + std::to_string(githubId);
     userBody["email"] = "gh" + std::to_string(githubId) + "@example.test";
-    http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
     if (!resp || resp->getStatusCode() != ::drogon::k200OK)
@@ -446,7 +446,7 @@ DROGON_TEST(Integration_P0_GitHubLogin_IssuedToken_AuthenticatedEndpointsWork)
       "github",
       "60691",
       adminId,
-      [](authforge::identity::LinkMutationStatus) {}
+      [](fulla::identity::LinkMutationStatus) {}
     );
 
     auto tokens = fakeGitHubLoginForTokens(h.http, 60691);
@@ -504,11 +504,11 @@ DROGON_TEST(Integration_P0_GitHubLogin_IssuedToken_AuthenticatedEndpointsWork)
     auto h2 = injectSocialLinkFake();
     Json::Value linkTokenBody;
     linkTokenBody["access_token"] = "ghtok-75";
-    h2.http->postFormResponses.push_back(authforge::identity::testing::okJson(linkTokenBody));
+    h2.http->postFormResponses.push_back(fulla::identity::testing::okJson(linkTokenBody));
     Json::Value linkUserBody;
     linkUserBody["id"] = 60692;
     linkUserBody["login"] = "gh-user-60692";
-    h2.http->getResponses.push_back(authforge::identity::testing::okJson(linkUserBody));
+    h2.http->getResponses.push_back(fulla::identity::testing::okJson(linkUserBody));
     Json::Value codeJson;
     codeJson["code"] = "c-75";
     auto linkResp = sendPostJson("/api/me/social/links/github", codeJson, tokens->first);

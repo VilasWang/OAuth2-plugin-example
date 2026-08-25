@@ -1,11 +1,11 @@
 #pragma once
 
-// Task 24 slice 4 (authforge-sdk-refactor, design.md §6 "apps/server/src/
+// Task 24 slice 4 (fulla-sdk-refactor, design.md §6 "apps/server/src/
 // main.cc # 仅装配：读配置 → 构造实现 → 注入端口 → run"): constructs the
-// identity-layer services (authforge::identity::AuthService +
+// identity-layer services (fulla::identity::AuthService +
 // SessionManager) that were previously only unit-tested (Task 19) and
 // wires them into SessionController, replacing its pre-Task-24 direct use
-// of the legacy authforge::drogon::services::AuthService (static,
+// of the legacy fulla::drogon::services::AuthService (static,
 // Mapper<Users>-backed) and the sendBackchannelLogoutNotifications() stub.
 //
 // Mirrors bootstrap::wireControllerPluginDependencies()'s own
@@ -16,10 +16,10 @@
 namespace bootstrap
 {
 
-// Constructs authforge::storage::postgres::PostgresIdentityRepository (an
+// Constructs fulla::storage::postgres::PostgresIdentityRepository (an
 // IUserRepository/IRoleRepository/ISubjectMappingRepository
 // implementation) against drogon::app().getDbClient(), then
-// authforge::identity::AuthService + SessionManager on top of it, and
+// fulla::identity::AuthService + SessionManager on top of it, and
 // injects both into the already-registered SessionController singleton
 // via setIdentityAuthService()/setSessionManager().
 //

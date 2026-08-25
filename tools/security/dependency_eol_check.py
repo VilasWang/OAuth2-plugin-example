@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """dependency-eol-check: block EOL / known-insecure dependency versions.
 
-Spec: .kiro/specs/authforge-sdk-refactor/tasks.md Task 35 (M6). Parses the
+Spec: .kiro/specs/fulla-sdk-refactor/tasks.md Task 35 (M6). Parses the
 committed ``conan.lock`` (lockfile v0.5) and fails if any locked *runtime*
 requirement (``requires`` + ``overrides``) falls below the floor set in the
 POLICY table. The policy is deliberately a small, reviewed allow-floor list —
@@ -101,7 +101,7 @@ def check(refs: List[Tuple[str, str]]) -> List[Violation]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="AuthForge dependency EOL scan")
+    parser = argparse.ArgumentParser(description="Fulla dependency EOL scan")
     parser.add_argument("--lockfile", default="conan.lock",
                         help="path to conan.lock (default: ./conan.lock)")
     args = parser.parse_args()

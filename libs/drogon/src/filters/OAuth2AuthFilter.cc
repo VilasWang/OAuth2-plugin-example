@@ -1,18 +1,18 @@
-#include <authforge/drogon/filters/OAuth2AuthFilter.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/drogon/error/RequestId.h>
-#include <authforge/drogon/authz/ResourceScopeRegistry.h>
-#include <authforge/drogon/authz/ScopeResolver.h>
-#include <authforge/drogon/authz/InsufficientScopeResponder.h>
+#include <fulla/drogon/filters/OAuth2AuthFilter.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/drogon/error/RequestId.h>
+#include <fulla/drogon/authz/ResourceScopeRegistry.h>
+#include <fulla/drogon/authz/ScopeResolver.h>
+#include <fulla/drogon/authz/InsufficientScopeResponder.h>
 #include <drogon/drogon.h>
 
-OAuth2Plugin *authforge::drogon::filters::OAuth2AuthFilter::resolvePlugin() const
+OAuth2Plugin *fulla::drogon::filters::OAuth2AuthFilter::resolvePlugin() const
 {
     return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
 }
 
-void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
+void fulla::drogon::filters::OAuth2AuthFilter::doFilter(
   const HttpRequestPtr &req,
   FilterCallback &&fcb,
   FilterChainCallback &&fccb
@@ -24,11 +24,11 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
         if (!plugin)
         {
             LOG_ERROR << "OAuth2AuthFilter: OAuth2Plugin not found";
-            auto error = authforge::common::error::Error::fromCode(
-              "INTERNAL_ERROR", authforge::common::error::RequestId::resolve(req)
+            auto error = fulla::common::error::Error::fromCode(
+              "INTERNAL_ERROR", fulla::common::error::RequestId::resolve(req)
             );
             error.message = "OAuth2 plugin not available";
-            auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+            auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
             fcb(resp);
             return;
         }
@@ -43,11 +43,11 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
         if (authHeader.empty() || authHeader.substr(0, 7) != "Bearer ")
         {
             LOG_WARN << "OAuth2AuthFilter: Missing or invalid Authorization header";
-            auto error = authforge::common::error::Error::fromCode(
-              "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
+            auto error = fulla::common::error::Error::fromCode(
+              "AUTH_TOKEN_INVALID", fulla::common::error::RequestId::resolve(req)
             );
             error.message = "Missing or invalid Authorization header";
-            auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+            auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
             fcb(resp);
             return;
         }
@@ -63,18 +63,18 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
               if (!tokenInfo)
               {
                   LOG_WARN << "OAuth2AuthFilter: Token validation failed";
-                  auto error = authforge::common::error::Error::fromCode(
-                    "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
+                  auto error = fulla::common::error::Error::fromCode(
+                    "AUTH_TOKEN_INVALID", fulla::common::error::RequestId::resolve(req)
                   );
                   error.message = "Invalid or expired token";
-                  auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+                  auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
                   // F-006 (RFC 6750 §3): the request carried Bearer
                   // credentials that failed validation, so the 401 MUST carry
                   // a WWW-Authenticate challenge with error="invalid_token".
                   // (The no-credentials branch above intentionally sends none.)
                   resp->addHeader(
                     "WWW-Authenticate",
-                    "Bearer realm=\"authforge\", error=\"invalid_token\", "
+                    "Bearer realm=\"fulla\", error=\"invalid_token\", "
                     "error_description=\"Invalid or expired token\""
                   );
                   fcb(resp);
@@ -93,11 +93,11 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
               // requiredScopeForPath). Order is deliberate: prove the bearer
               // is valid FIRST (401 invalid_token above), THEN prove it is
               // scoped for the resource (403 insufficient_scope here).
-              if (auto *reqmt = authforge::drogon::authz::ResourceScopeRegistry::lookup(
+              if (auto *reqmt = fulla::drogon::authz::ResourceScopeRegistry::lookup(
                     req->path(), req->method()
                   ))
               {
-                  if (!authforge::drogon::authz::satisfies(tokenInfo->scope, *reqmt))
+                  if (!fulla::drogon::authz::satisfies(tokenInfo->scope, *reqmt))
                   {
                       LOG_WARN << "OAuth2AuthFilter: insufficient_scope for path "
                                << req->path() << " (requires '"
@@ -112,7 +112,7 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
                                       return s;
                                   }()
                                << "')";
-                      fcb(authforge::drogon::authz::respondInsufficientScope(req, *reqmt));
+                      fcb(fulla::drogon::authz::respondInsufficientScope(req, *reqmt));
                       return;
                   }
               }
@@ -124,21 +124,21 @@ void authforge::drogon::filters::OAuth2AuthFilter::doFilter(
     catch (const std::exception &e)
     {
         LOG_ERROR << "OAuth2AuthFilter: Unhandled exception: " << e.what();
-        auto error = authforge::common::error::Error::fromCode(
-          "INTERNAL_ERROR", authforge::common::error::RequestId::resolve(req)
+        auto error = fulla::common::error::Error::fromCode(
+          "INTERNAL_ERROR", fulla::common::error::RequestId::resolve(req)
         );
         error.message = "Internal filter error";
-        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);
     }
     catch (...)
     {
         LOG_ERROR << "OAuth2AuthFilter: Unknown exception";
-        auto error = authforge::common::error::Error::fromCode(
-          "INTERNAL_ERROR", authforge::common::error::RequestId::resolve(req)
+        auto error = fulla::common::error::Error::fromCode(
+          "INTERNAL_ERROR", fulla::common::error::RequestId::resolve(req)
         );
         error.message = "Internal filter error";
-        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);
     }
 }

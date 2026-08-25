@@ -1,22 +1,22 @@
 #include <chrono>
 #include <drogon/drogon_test.h>
-#include <authforge/drogon/utils/SubjectGenerator.h>
-#include <authforge/storage/memory/MemoryIdentityRepository.h>
-#include <authforge/storage/memory/MemoryRepositoryBundle.h>
-#include <authforge/oauth2/model/UserRef.h>
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/drogon/utils/SubjectGenerator.h>
+#include <fulla/storage/memory/MemoryIdentityRepository.h>
+#include <fulla/storage/memory/MemoryRepositoryBundle.h>
+#include <fulla/oauth2/model/UserRef.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <json/json.h>
 
-using namespace authforge::common::utils;
+using namespace fulla::common::utils;
 
 // ========== SubjectGenerator Tests ==========
 
 namespace
 {
 // Phase 4.7b: wrap an int32 internalUserId into the NEW consent repo's UserRef.
-authforge::oauth2::model::UserRef userRef(int32_t internalUserId)
+fulla::oauth2::model::UserRef userRef(int32_t internalUserId)
 {
-    authforge::oauth2::model::UserRef u;
+    fulla::oauth2::model::UserRef u;
     u.internalUserId = internalUserId;
     return u;
 }
@@ -101,9 +101,9 @@ DROGON_TEST(Unit_P0_SubjectMapping_CreateAndGetMapping_Works)
 {
     // Phase 1.5e: retargeted from the legacy oauth2::MemorySubjectMappingRepository
     // (via MemoryRepositoryBundle::subjectMappingRepository()) to the NEW
-    // authforge::identity::* backing store (MemoryIdentityRepository, which
+    // fulla::identity::* backing store (MemoryIdentityRepository, which
     // multiply-inherits ISubjectMappingRepository).
-    authforge::storage::memory::MemoryIdentityRepository sm;
+    fulla::storage::memory::MemoryIdentityRepository sm;
 
     bool createCalled = false;
     bool getCalled = false;
@@ -127,7 +127,7 @@ DROGON_TEST(Unit_P0_SubjectMapping_CreateAndGetMapping_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_ProviderIsolation_Works)
 {
-    authforge::storage::memory::MemoryIdentityRepository sm;
+    fulla::storage::memory::MemoryIdentityRepository sm;
 
     // Create same subject for different providers
     sm.createSubjectMapping("alice", 1, "local", [&](bool) {});
@@ -147,14 +147,14 @@ DROGON_TEST(Unit_P0_SubjectMapping_ProviderIsolation_Works)
 
 DROGON_TEST(Unit_P0_SubjectMapping_GetNonExistentMapping_Works)
 {
-    authforge::storage::memory::MemoryIdentityRepository sm;
+    fulla::storage::memory::MemoryIdentityRepository sm;
 
     sm.getInternalUserId("nonexistent", "local", [&](auto userIdOpt) { CHECK(!(userIdOpt)); });
 }
 
 DROGON_TEST(Unit_P0_SubjectMapping_UpdateExistingMapping_Works)
 {
-    authforge::storage::memory::MemoryIdentityRepository sm;
+    fulla::storage::memory::MemoryIdentityRepository sm;
 
     // Create initial mapping
     sm.createSubjectMapping("alice", 1, "local", [&](bool) {});
@@ -176,7 +176,7 @@ DROGON_TEST(Unit_P0_SubjectMapping_UpdateExistingMapping_Works)
 
 DROGON_TEST(Unit_P0_UserConsent_SaveAndCheckConsent_Works)
 {
-    authforge::storage::memory::MemoryRepositoryBundle bundle;
+    fulla::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
@@ -200,7 +200,7 @@ DROGON_TEST(Unit_P0_UserConsent_SaveAndCheckConsent_Works)
 
 DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 {
-    authforge::storage::memory::MemoryRepositoryBundle bundle;
+    fulla::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
@@ -227,13 +227,13 @@ DROGON_TEST(Unit_P0_UserConsent_RevokeConsent_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 {
-    authforge::storage::memory::MemoryRepositoryBundle bundle;
+    fulla::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     bundle.initFromConfig(clientsConfig);
 
-    authforge::oauth2::model::AuthorizationTransaction transaction;
+    fulla::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn123";
     transaction.clientId = "vue-client";
     transaction.subject = "local:alice";
@@ -260,13 +260,13 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_SaveAndGetTransaction_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 {
-    authforge::storage::memory::MemoryRepositoryBundle bundle;
+    fulla::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     bundle.initFromConfig(clientsConfig);
 
-    authforge::oauth2::model::AuthorizationTransaction transaction;
+    fulla::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn456";
     transaction.clientId = "vue-client";
     transaction.subject = "local:bob";
@@ -298,13 +298,13 @@ DROGON_TEST(Unit_P0_AuthorizationTransaction_MarkConsumed_Works)
 
 DROGON_TEST(Unit_P0_AuthorizationTransaction_DeleteTransaction_Works)
 {
-    authforge::storage::memory::MemoryRepositoryBundle bundle;
+    fulla::storage::memory::MemoryRepositoryBundle bundle;
     auto consent = bundle.consentRepository();
     auto grant = bundle.grantRepository();
     Json::Value clientsConfig;
     bundle.initFromConfig(clientsConfig);
 
-    authforge::oauth2::model::AuthorizationTransaction transaction;
+    fulla::oauth2::model::AuthorizationTransaction transaction;
     transaction.transactionId = "txn789";
     transaction.clientId = "vue-client";
     transaction.subject = "local:charlie";

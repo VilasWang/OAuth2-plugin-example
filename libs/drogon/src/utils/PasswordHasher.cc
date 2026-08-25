@@ -1,5 +1,5 @@
-#include <authforge/drogon/utils/PasswordHasher.h>
-#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/utils/PasswordHasher.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <algorithm>
@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <cstring>
 
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 // PBKDF2-SHA256 parameters (OWASP recommended minimum: 600,000 iterations for SHA-256)
 static constexpr int PBKDF2_ITERATIONS = 310000;  // OWASP 2023 recommendation
@@ -51,9 +51,9 @@ static std::vector<unsigned char> hexToBytes(const std::string &hex)
 std::string PasswordHasher::hash(const std::string &password)
 {
     // Task 14 (design.md §5.6): migrated off drogon::utils::secureRandomBytes
-    // onto the authforge::common::ports::ICryptoProvider Adapter
+    // onto the fulla::common::ports::ICryptoProvider Adapter
     // implementation (OpenSslCryptoProvider), same fallback shape.
-    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
+    static fulla::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
 
     // Generate random salt
     unsigned char salt[PBKDF2_SALT_LENGTH];
@@ -164,7 +164,7 @@ bool PasswordHasher::verify(
         // comparison already explicitly lowercases BOTH sides below before
         // comparing -- the legacy hash's stored case was never relied upon
         // to match exactly.
-        static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
+        static fulla::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
         std::string inputHash = cryptoProvider.sha256Hex(password + salt);
 
         // Case-insensitive comparison (legacy hashes may vary in case)
@@ -199,4 +199,4 @@ bool PasswordHasher::needsRehash(const std::string &storedHash)
     return true;
 }
 
-}  // namespace authforge::common::utils
+}  // namespace fulla::common::utils

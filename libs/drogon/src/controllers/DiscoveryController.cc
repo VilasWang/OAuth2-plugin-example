@@ -1,14 +1,14 @@
-#include <authforge/drogon/controllers/DiscoveryController.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/controllers/DiscoveryController.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <drogon/drogon.h>
 #include <mutex>
 
-using namespace authforge::drogon::controllers;
-using namespace authforge::drogon::observability::openapi;
+using namespace fulla::drogon::controllers;
+using namespace fulla::drogon::observability::openapi;
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -41,7 +41,7 @@ void DiscoveryController::initApiDocsImpl()
 {
     // OIDC Discovery endpoint
     {
-        authforge::drogon::observability::openapi::EndpointInfo discoveryEndpoint;
+        fulla::drogon::observability::openapi::EndpointInfo discoveryEndpoint;
         discoveryEndpoint.path = "/.well-known/openid-configuration";
         discoveryEndpoint.method = "GET";
         discoveryEndpoint.summary = "OpenID Connect Discovery";
@@ -56,7 +56,7 @@ void DiscoveryController::initApiDocsImpl()
 
     // JWKS endpoint
     {
-        authforge::drogon::observability::openapi::EndpointInfo jwksEndpoint;
+        fulla::drogon::observability::openapi::EndpointInfo jwksEndpoint;
         jwksEndpoint.path = "/.well-known/jwks.json";
         jwksEndpoint.method = "GET";
         jwksEndpoint.summary = "JSON Web Key Set";
@@ -70,7 +70,7 @@ void DiscoveryController::initApiDocsImpl()
 
     // RFC 8414 OAuth 2.0 Authorization Server Metadata
     {
-        authforge::drogon::observability::openapi::EndpointInfo asMetadataEndpoint;
+        fulla::drogon::observability::openapi::EndpointInfo asMetadataEndpoint;
         asMetadataEndpoint.path = "/.well-known/oauth-authorization-server";
         asMetadataEndpoint.method = "GET";
         asMetadataEndpoint.summary = "OAuth 2.0 Authorization Server Metadata";
@@ -97,7 +97,7 @@ void DiscoveryController::metadata(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "server_error", "OAuth2 plugin not available"
         );
         return;
@@ -330,4 +330,4 @@ void DiscoveryController::jwks(
     callback(resp);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

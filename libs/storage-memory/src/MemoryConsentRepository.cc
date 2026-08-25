@@ -1,8 +1,8 @@
-#include <authforge/storage/memory/MemoryConsentRepository.h>
+#include <fulla/storage/memory/MemoryConsentRepository.h>
 #include <drogon/drogon.h>
 #include <chrono>
 
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
 
 // Task 27.5: callback aliases now live on the new base interface; bring
@@ -11,7 +11,7 @@ namespace authforge::storage::memory
 // oauth2/storage/UserRef.h, so no oauth2::UserRef clash).
 using BoolCallback = IConsentRepositoryBase::BoolCallback;
 using VoidCallback = IConsentRepositoryBase::VoidCallback;
-using UserRef = ::authforge::oauth2::model::UserRef;
+using UserRef = ::fulla::oauth2::model::UserRef;
 
 int64_t MemoryConsentRepository::getCurrentTimestamp() const
 {
@@ -69,4 +69,4 @@ void MemoryConsentRepository::revokeUserConsent(
     cb();
 }
 
-}  // namespace authforge::storage::memory
+}  // namespace fulla::storage::memory

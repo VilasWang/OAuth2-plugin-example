@@ -24,15 +24,15 @@
 
 #include <string>
 
-using authforge::test::http::loginAsAdmin;
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::postgresAvailable;
-using authforge::test::http::sendDelete;
-using authforge::test::http::sendGet;
-using authforge::test::http::sendPostJson;
-using authforge::test::http::serverReachable;
-using authforge::test::http::statusIs;
-using authforge::test::social::injectSocialLinkFake;
+using fulla::test::http::loginAsAdmin;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::postgresAvailable;
+using fulla::test::http::sendDelete;
+using fulla::test::http::sendGet;
+using fulla::test::http::sendPostJson;
+using fulla::test::http::serverReachable;
+using fulla::test::http::statusIs;
+using fulla::test::social::injectSocialLinkFake;
 
 #define SOCIALLINK_SKIP_GUARD                                   \
     do                                                          \
@@ -45,16 +45,16 @@ using authforge::test::social::injectSocialLinkFake;
     } while (0)
 
 // Seed the fake for a successful GitHub exchange resolving to subject 4242.
-static void queueGithubOk(const authforge::test::social::SocialLinkFakeHandle &h, int64_t id)
+static void queueGithubOk(const fulla::test::social::SocialLinkFakeHandle &h, int64_t id)
 {
     Json::Value tokenBody;
     tokenBody["access_token"] = "ghtok";
     h.http->postFormResponses.push_back(
-      authforge::identity::testing::okJson(tokenBody));
+      fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["id"] = id;
     userBody["login"] = "octocat";
-    h.http->getResponses.push_back(authforge::identity::testing::okJson(userBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 }
 
 // POST body {"code": "..."} as Json::Value (sendPostJson's parameter type).
@@ -172,11 +172,11 @@ DROGON_TEST(Integration_P0_SocialLink_SubjectOwnedByOtherUser_Returns409)
     auto token = loginAsAdmin();
     REQUIRE(token.has_value());
 
-    authforge::identity::SocialAccountLookup other;
+    fulla::identity::SocialAccountLookup other;
     other.userId = 999999;
     other.username = "someone-else";
     h.accountRepo
-      ->linked[authforge::identity::testing::FakeSocialAccountRepository::key("github", "4242")] =
+      ->linked[fulla::identity::testing::FakeSocialAccountRepository::key("github", "4242")] =
       other;
     queueGithubOk(h, 4242);
 
@@ -201,7 +201,7 @@ DROGON_TEST(Integration_P1_SocialLink_ExchangeFailure_Returns502)
     auto token = loginAsAdmin();
     REQUIRE(token.has_value());
 
-    h.http->postFormResponses.push_back(authforge::identity::testing::transportFailure());
+    h.http->postFormResponses.push_back(fulla::identity::testing::transportFailure());
     auto resp = sendPostJson("/api/me/social/links/github", codeBody("bad"), *token);
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k502BadGateway));
@@ -270,7 +270,7 @@ DROGON_TEST(Integration_P0_SocialUnlink_WithPassword_Succeeds)
     // The fake's inserted mapping carries the controller-resolved internal id.
     auto it = h.accountRepo
                  ->linked.find(
-                   authforge::identity::testing::FakeSocialAccountRepository::key("github", "4242")
+                   fulla::identity::testing::FakeSocialAccountRepository::key("github", "4242")
                  );
     REQUIRE(it != h.accountRepo->linked.end());
     h.accountRepo->usersWithUsablePassword.insert(it->second.userId);
@@ -303,10 +303,10 @@ DROGON_TEST(Integration_P0_SocialUnlink_SecondLinkPresent_NoGuard)
     ));
     Json::Value gToken;
     gToken["access_token"] = "gtok";
-    h.http->postFormResponses.push_back(authforge::identity::testing::okJson(gToken));
+    h.http->postFormResponses.push_back(fulla::identity::testing::okJson(gToken));
     Json::Value gUser;
     gUser["sub"] = "google-sub-1";
-    h.http->getResponses.push_back(authforge::identity::testing::okJson(gUser));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(gUser));
     CHECK(statusIs(
       sendPostJson("/api/me/social/links/google", codeBody("c2"), *token), drogon::k200OK
     ));

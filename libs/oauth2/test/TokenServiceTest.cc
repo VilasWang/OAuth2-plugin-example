@@ -1,5 +1,5 @@
-// Task 17 remainder (authforge-sdk-refactor): unit tests for the new
-// Domain-layer authforge::oauth2::protocol::TokenService, exercised
+// Task 17 remainder (fulla-sdk-refactor): unit tests for the new
+// Domain-layer fulla::oauth2::protocol::TokenService, exercised
 // against minimal in-memory fake repository/port implementations (no
 // Drogon, no OAuth2Plugin). Mirrors the shape/coverage of
 // Property4_TokenFlowBaselineTest.cc (which pins the OLD
@@ -14,16 +14,16 @@
 // effects (revokeTokenFamily + audit), and the audit path itself (no
 // test previously wired a non-null IAuditSink).
 
-#include <authforge/common/model/PkceChallenge.h>
-#include <authforge/common/observability/AuditEvent.h>
-#include <authforge/common/ports/IAuditSink.h>
-#include <authforge/common/ports/IRoleProvider.h>
-#include <authforge/common/ports/ISubjectResolver.h>
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
-#include <authforge/oauth2/pkce/Pkce.h>
-#include <authforge/oauth2/protocol/TokenCrypto.h>
-#include <authforge/oauth2/protocol/TokenService.h>
+#include <fulla/common/model/PkceChallenge.h>
+#include <fulla/common/observability/AuditEvent.h>
+#include <fulla/common/ports/IAuditSink.h>
+#include <fulla/common/ports/IRoleProvider.h>
+#include <fulla/common/ports/ISubjectResolver.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/pkce/Pkce.h>
+#include <fulla/oauth2/protocol/TokenCrypto.h>
+#include <fulla/oauth2/protocol/TokenService.h>
 
 #include <gtest/gtest.h>
 
@@ -35,10 +35,10 @@
 namespace
 {
 
-using namespace authforge::oauth2::model;
-using namespace authforge::oauth2::repository;
-using authforge::oauth2::protocol::TokenService;
-using authforge::oauth2::protocol::hashToken;
+using namespace fulla::oauth2::model;
+using namespace fulla::oauth2::repository;
+using fulla::oauth2::protocol::TokenService;
+using fulla::oauth2::protocol::hashToken;
 
 class FakeClientRepo : public IClientRepository
 {
@@ -270,7 +270,7 @@ std::shared_ptr<TokenService> makeService(
   std::shared_ptr<FakeTokenRepo> tokens
 )
 {
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     return std::make_shared<TokenService>(clients, grants, tokens, crypto);
 }
 
@@ -315,12 +315,12 @@ std::string issueAuthCodeWithPkce(
 // Captures every AuditEvent emitted via IAuditSink::record so audit-path
 // tests can assert on action/outcome/actorId/targetType without depending
 // on a DB-backed sink.
-class FakeAuditSink : public authforge::common::ports::IAuditSink
+class FakeAuditSink : public fulla::common::ports::IAuditSink
 {
   public:
-    std::vector<authforge::common::observability::AuditEvent> events;
+    std::vector<fulla::common::observability::AuditEvent> events;
 
-    void record(const authforge::common::observability::AuditEvent &event) override
+    void record(const fulla::common::observability::AuditEvent &event) override
     {
         events.push_back(event);
     }
@@ -328,7 +328,7 @@ class FakeAuditSink : public authforge::common::ports::IAuditSink
 
 // Minimal role provider for the resolveRoles two-port chain + the
 // supportsSubjectLookup() fast path. Returns a fixed role list.
-class FakeRoleProvider : public authforge::common::ports::IRoleProvider
+class FakeRoleProvider : public fulla::common::ports::IRoleProvider
 {
   public:
     std::vector<std::string> roles;
@@ -357,7 +357,7 @@ class FakeRoleProvider : public authforge::common::ports::IRoleProvider
 
 // Minimal subject resolver: resolve() yields the configured internalUserId
 // (or nullopt to simulate a mapping miss).
-class FakeSubjectResolver : public authforge::common::ports::ISubjectResolver
+class FakeSubjectResolver : public fulla::common::ports::ISubjectResolver
 {
   public:
     std::optional<int32_t> internalUserId{std::nullopt};
@@ -367,7 +367,7 @@ class FakeSubjectResolver : public authforge::common::ports::ISubjectResolver
     }
 
     void resolve(
-      const authforge::common::model::Subject &,
+      const fulla::common::model::Subject &,
       std::function<void(std::optional<int32_t>)> &&cb
     ) override
     {
@@ -548,7 +548,7 @@ TEST(TokenServiceTest, IntrospectToken_ActiveAndInactive)
 // generateAuthorizationCode: null grants/crypto guard (TokenService.cc:135).
 TEST(TokenServiceTest, GenerateAuthorizationCode_NullGrants_ReturnsStorageNotInitialized)
 {
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     // clients + crypto only, grants/tokens null.
     TokenService svc(makeSeededClients(), nullptr, nullptr, crypto);
     bool ok = true;
@@ -592,8 +592,8 @@ TEST(TokenServiceTest, GenerateAuthorizationCode_SavesHashedCodeAndFields)
     ASSERT_FALSE(rawCode.empty());
 
     // The saved code key is hashToken(rawCode) (UPPERCASE sha256 hex).
-    authforge::common::testing::FakeCryptoProvider crypto;
-    std::string hashed = authforge::oauth2::protocol::hashToken(crypto, rawCode);
+    fulla::common::testing::FakeCryptoProvider crypto;
+    std::string hashed = fulla::oauth2::protocol::hashToken(crypto, rawCode);
     ASSERT_TRUE(grants->codes.count(hashed));
     const auto &saved = grants->codes[hashed];
     EXPECT_EQ(saved.clientId, "test-client");
@@ -611,7 +611,7 @@ TEST(TokenServiceTest, GenerateAuthorizationCode_SavesHashedCodeAndFields)
 // exchangeCodeForToken: null-dependency guard (TokenService.cc:167).
 TEST(TokenServiceTest, ExchangeCode_NullDependencies_ReturnsServerError)
 {
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     TokenService svc(nullptr, nullptr, nullptr, crypto);
     Json::Value r;
     svc.exchangeCodeForToken(
@@ -653,11 +653,11 @@ TEST(TokenServiceTest, ExchangeCode_Pkce_EmptyVerifier_ReturnsInvalidGrant)
 
     // Build a verifier + matching S256 challenge so the recorded challenge
     // is genuinely PKCE-protected.
-    authforge::common::testing::FakeCryptoProvider crypto;
+    fulla::common::testing::FakeCryptoProvider crypto;
     const std::string verifier =
       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";  // 43 chars, valid charset
     const std::string challenge =
-      authforge::oauth2::pkce::computeCodeChallenge(verifier, "S256", crypto);
+      fulla::oauth2::pkce::computeCodeChallenge(verifier, "S256", crypto);
 
     std::string rawCode = issueAuthCodeWithPkce(
       *svc, "test-client", "alice", "openid", redirectUri, challenge, "S256"
@@ -679,11 +679,11 @@ TEST(TokenServiceTest, ExchangeCode_Pkce_WrongVerifier_ReturnsInvalidGrant)
     auto svc = makeService(clients, grants, tokens);
     const std::string redirectUri = "https://example.test/cb";
 
-    authforge::common::testing::FakeCryptoProvider crypto;
+    fulla::common::testing::FakeCryptoProvider crypto;
     const std::string verifier =
       "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";  // 43 chars
     const std::string challenge =
-      authforge::oauth2::pkce::computeCodeChallenge(verifier, "S256", crypto);
+      fulla::oauth2::pkce::computeCodeChallenge(verifier, "S256", crypto);
 
     std::string rawCode = issueAuthCodeWithPkce(
       *svc, "test-client", "alice", "openid", redirectUri, challenge, "S256"
@@ -708,11 +708,11 @@ TEST(TokenServiceTest, ExchangeCode_Pkce_CorrectVerifier_ReturnsTokens)
     auto svc = makeService(clients, grants, tokens);
     const std::string redirectUri = "https://example.test/cb";
 
-    authforge::common::testing::FakeCryptoProvider crypto;
+    fulla::common::testing::FakeCryptoProvider crypto;
     const std::string verifier =
       "ddddddddddddddddddddddddddddddddddddddddddddd";  // 43 chars
     const std::string challenge =
-      authforge::oauth2::pkce::computeCodeChallenge(verifier, "S256", crypto);
+      fulla::oauth2::pkce::computeCodeChallenge(verifier, "S256", crypto);
 
     std::string rawCode = issueAuthCodeWithPkce(
       *svc, "test-client", "alice", "openid", redirectUri, challenge, "S256"
@@ -734,13 +734,13 @@ TEST(TokenServiceTest, ExchangeCode_OpenIdScope_WithJwkManager_EmitsIdTokenWithN
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     // TokenService derives from enable_shared_from_this and uses
     // shared_from_this() inside exchangeCodeForToken -- must be heap-allocated.
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
 
     // Wire a JwkManager initialized with an ephemeral dev key.
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 
@@ -786,9 +786,9 @@ TEST(TokenServiceTest, ExchangeCode_OpenIdScope_NonceAbsent_OmittedFromIdToken)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 
@@ -824,9 +824,9 @@ TEST(TokenServiceTest, ExchangeCode_NonOpenIdScope_NoIdTokenEvenWithJwkManager)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 
@@ -853,8 +853,8 @@ TEST(TokenServiceTest, ExchangeCode_ExpiredCode_ReturnsInvalidGrant)
     std::string rawCode = issueAuthCode(*svc, "test-client", "alice", "openid", redirectUri);
 
     // Backdate the saved grant past its expiry (authCodeTtl default 600).
-    authforge::common::testing::FakeCryptoProvider crypto;
-    std::string hashed = authforge::oauth2::protocol::hashToken(crypto, rawCode);
+    fulla::common::testing::FakeCryptoProvider crypto;
+    std::string hashed = fulla::oauth2::protocol::hashToken(crypto, rawCode);
     ASSERT_TRUE(grants->codes.count(hashed));
     grants->codes[hashed].expiresAt = 1;  // well in the past
 
@@ -873,7 +873,7 @@ TEST(TokenServiceTest, ExchangeCode_WithRoleProvider_RolesArrayPopulated)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto roleProvider = std::make_shared<FakeRoleProvider>(
       std::vector<std::string>{"admin", "user"}, /*supportsSubject=*/true
     );
@@ -899,7 +899,7 @@ TEST(TokenServiceTest, ExchangeCode_CustomAccessTokenTtl_ReflectedInExpiresIn)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     // accessTokenTtl = 7200 (4th positional after the three nullable ports).
     auto svc = std::make_shared<TokenService>(
       clients, grants, tokens, crypto, nullptr, nullptr, nullptr,
@@ -917,7 +917,7 @@ TEST(TokenServiceTest, ExchangeCode_CustomAccessTokenTtl_ReflectedInExpiresIn)
 // refreshAccessToken: null-dependency guard (TokenService.cc:328).
 TEST(TokenServiceTest, RefreshToken_NullDependencies_ReturnsServerError)
 {
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     TokenService svc(nullptr, nullptr, nullptr, crypto);
     Json::Value r;
     svc.refreshAccessToken("any-rt", "test-client", [&](const Json::Value &j) { r = j; });
@@ -969,8 +969,8 @@ TEST(TokenServiceTest, RefreshToken_Expired_ReturnsInvalidGrant)
 
     // Backdate the stored refresh token (keyed by hashToken(rt)) so the
     // `now > expiresAt` branch fires.
-    authforge::common::testing::FakeCryptoProvider crypto;
-    std::string hashed = authforge::oauth2::protocol::hashToken(crypto, rt);
+    fulla::common::testing::FakeCryptoProvider crypto;
+    std::string hashed = fulla::oauth2::protocol::hashToken(crypto, rt);
     ASSERT_TRUE(tokens->refreshTokens.count(hashed));
     tokens->refreshTokens[hashed].expiresAt = 1;
 
@@ -990,7 +990,7 @@ TEST(TokenServiceTest, RefreshToken_Reuse_RevokesFamilyAndAudits)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto audit = std::make_shared<FakeAuditSink>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto, audit);
     const std::string redirectUri = "https://example.test/cb";
@@ -1032,8 +1032,8 @@ TEST(TokenServiceTest, RefreshToken_Reuse_RevokesFamilyAndAudits)
     // Family revocation: the refresh token's family is now fully revoked.
     // The newly-issued RT (from the successful refresh above) shares the
     // same familyId, so it must also be revoked after the cascade.
-    authforge::common::testing::FakeCryptoProvider crypto2;
-    std::string newRtHashed = authforge::oauth2::protocol::hashToken(crypto2, refreshed["refresh_token"].asString());
+    fulla::common::testing::FakeCryptoProvider crypto2;
+    std::string newRtHashed = fulla::oauth2::protocol::hashToken(crypto2, refreshed["refresh_token"].asString());
     if (tokens->refreshTokens.count(newRtHashed))
     {
         EXPECT_TRUE(tokens->refreshTokens[newRtHashed].revoked);
@@ -1047,7 +1047,7 @@ TEST(TokenServiceTest, RefreshToken_Success_RecordsAudit)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto audit = std::make_shared<FakeAuditSink>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto, audit);
     const std::string redirectUri = "https://example.test/cb";
@@ -1082,7 +1082,7 @@ TEST(TokenServiceTest, RefreshToken_Success_RecordsAudit)
 // validateAccessToken: null-dependency guard (TokenService.cc:425).
 TEST(TokenServiceTest, ValidateAccessToken_NullDependencies_ReturnsNull)
 {
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     TokenService svc(nullptr, nullptr, nullptr, crypto);
     std::shared_ptr<OAuth2AccessToken> out((OAuth2AccessToken *)0x1, [](OAuth2AccessToken *) {});
     svc.validateAccessToken("any", [&](auto p) { out = std::move(p); });
@@ -1120,8 +1120,8 @@ TEST(TokenServiceTest, ValidateAccessToken_Expired_ReturnsNull)
     const std::string accessToken = exchanged["access_token"].asString();
 
     // Backdate the stored access token so `now > expiresAt` fires.
-    authforge::common::testing::FakeCryptoProvider crypto;
-    std::string hashed = authforge::oauth2::protocol::hashToken(crypto, accessToken);
+    fulla::common::testing::FakeCryptoProvider crypto;
+    std::string hashed = fulla::oauth2::protocol::hashToken(crypto, accessToken);
     ASSERT_TRUE(tokens->accessTokens.count(hashed));
     tokens->accessTokens[hashed].expiresAt = 1;
 
@@ -1133,7 +1133,7 @@ TEST(TokenServiceTest, ValidateAccessToken_Expired_ReturnsNull)
 // introspectToken: null-dependency guard (TokenService.cc:463).
 TEST(TokenServiceTest, IntrospectToken_NullDependencies_ReturnsNullopt)
 {
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     TokenService svc(nullptr, nullptr, nullptr, crypto);
     std::optional<TokenIntrospection> out;
     svc.introspectToken("any", [&](auto v) { out = std::move(v); });
@@ -1145,7 +1145,7 @@ TEST(TokenServiceTest, IntrospectToken_NullDependencies_ReturnsNullopt)
 // guards at lines 480 and 486).
 TEST(TokenServiceTest, RevokeAccessToken_NullDependencies_InvokesCallback)
 {
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     TokenService svc(nullptr, nullptr, nullptr, crypto);
     bool called = false;
     svc.revokeAccessToken("any", "u", [&]() { called = true; });
@@ -1195,7 +1195,7 @@ namespace
 {
 Json::Value decodeIdTokenPayload(
   const std::string &idToken,
-  authforge::common::testing::FakeCryptoProvider &crypto
+  fulla::common::testing::FakeCryptoProvider &crypto
 )
 {
     size_t firstDot = idToken.find('.');
@@ -1218,9 +1218,9 @@ TEST(TokenServiceTest, ExchangeCode_OpenIdScope_AuthTimeAndAmrPwd_StampsIdTokenC
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 
@@ -1254,9 +1254,9 @@ TEST(TokenServiceTest, ExchangeCode_OpenIdScope_AmrPwdMfa_AcrIsMfaLevel)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 
@@ -1286,9 +1286,9 @@ TEST(TokenServiceTest, ExchangeCode_OpenIdScope_NoAuthTimeNoAmr_OmitsClaims)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 
@@ -1314,7 +1314,7 @@ TEST(TokenServiceTest, GenerateAuthCode_PersistsAuthTimeAndAmr_OnGrant)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
 
     const std::string redirectUri = "https://example.test/cb";
@@ -1346,9 +1346,9 @@ TEST(TokenServiceTest, RefreshToken_OpenIdScope_WithJwkManager_ReissuesIdToken)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 
@@ -1378,9 +1378,9 @@ TEST(TokenServiceTest, RefreshToken_NonOpenIdScope_OmitsIdToken)
     auto clients = makeSeededClients();
     auto grants = std::make_shared<FakeGrantRepo>();
     auto tokens = std::make_shared<FakeTokenRepo>();
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     auto svc = std::make_shared<TokenService>(clients, grants, tokens, crypto);
-    auto jwk = std::make_shared<authforge::oauth2::JwkManager>();
+    auto jwk = std::make_shared<fulla::oauth2::JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value::nullSingleton()));
     svc->setJwkManager(jwk);
 

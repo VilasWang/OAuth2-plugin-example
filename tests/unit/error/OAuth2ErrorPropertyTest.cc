@@ -25,8 +25,8 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/common/error/ErrorCatalog.h>
 #include <json/json.h>
 
 #include <algorithm>
@@ -40,7 +40,7 @@
 #include <vector>
 
 using namespace drogon;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 namespace
 {

@@ -4,8 +4,8 @@
 
 param(
     [string]$DbHost = "localhost",
-    [string]$DbUser = "oauth2_user",
-    [string]$DbName = "oauth2_db",
+    [string]$DbUser = "fulla_user",
+    [string]$DbName = "fulla_db",
     [string]$DbPassword = "123456"
 )
 

@@ -3,7 +3,7 @@
 Start here and pick your track. File names use **kebab-case**; cross-references
 use relative paths.
 
-## Evaluating AuthForge
+## Evaluating Fulla
 
 - [Project README](../README.md) — features, quick start, tech stack
 - [Architecture Overview](backend/architecture-overview.md) — package layering, request flow

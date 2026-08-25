@@ -70,7 +70,7 @@ import AppLogo from '../components/shared/AppLogo.vue'
 
       <!-- Footer -->
       <div class="px-6 py-4 text-center text-xs text-neutral-400 border-t border-neutral-50">
-        <p>AuthForge Identity Platform &middot;
+        <p>Fulla Identity Platform &middot;
           <a href="#" class="hover:text-neutral-600 transition-colors">Privacy</a> &middot;
           <a href="#" class="hover:text-neutral-600 transition-colors">Terms</a>
         </p>

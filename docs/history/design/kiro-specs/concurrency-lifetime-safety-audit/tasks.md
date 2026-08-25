@@ -106,7 +106,7 @@
 ### 阶段 0：测试脚手架（复现的前置）
 
 - [x] 0. 搭建 TSan/ASan Sanitizer 构建与并发/关停测试脚手架
-  - 在 CMake 中新增可切换的 Sanitizer 选项（例如 `OAUTH2_SANITIZER=thread|address`），为 `OAuth2Test_test` 目标追加 `-fsanitize=thread` 或 `-fsanitize=address -fno-omit-frame-pointer -g`（编译与链接均加），仅在 GCC/Clang 下生效
+  - 在 CMake 中新增可切换的 Sanitizer 选项（例如 `FULLA_SANITIZER=thread|address`），为 `OAuth2Test_test` 目标追加 `-fsanitize=thread` 或 `-fsanitize=address -fno-omit-frame-pointer -g`（编译与链接均加），仅在 GCC/Clang 下生效
   - 复用项目既有构建系统：`scripts/backend/build.bat -debug`（Windows）/ `bash scripts/backend/build.sh --debug`（Linux）+ Conan 2.x + CMake；Sanitizer 仅用于 Debug 构建
   - 新增测试源放在既有布局下，依赖 `test/CMakeLists.txt` 中 `GLOB_RECURSE` 自动收录：
     - 并发/关停竞态集成测试 → `OAuth2Server/test/integration/concurrency/`（被 `INTEGRATION_TESTS` 收录）
@@ -202,7 +202,7 @@
     - _Preservation: 注册端点集合/参数/响应示例与现状逐字一致（3.1）_
     - _Requirements: 2.1, 3.1_
 
-  - [x] 6.2 修复 1.2：`OAUTH2_VALIDATION_RULES` 改为函数内静态访问器（Meyers Singleton）
+  - [x] 6.2 修复 1.2：`FULLA_VALIDATION_RULES` 改为函数内静态访问器（Meyers Singleton）
     - 把文件作用域非平凡全局 `std::map` 改为函数内静态访问器 `rules()`：`static const std::map<...> kRules = buildRules();`
     - `buildRules()` 返回完整 map，**合并构造与一次性填充**，去掉独立的 `call_once`/`initFlag`（C++11 起函数局部静态首次初始化线程安全且仅一次）
     - `getValidationRules()` 改为读 `rules()`，逻辑不变

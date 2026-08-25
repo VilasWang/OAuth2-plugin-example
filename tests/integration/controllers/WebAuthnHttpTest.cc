@@ -35,12 +35,12 @@
 #include <chrono>
 #include <string>
 
-using authforge::test::http::loginAsAdmin;
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::postgresAvailable;
-using authforge::test::http::sendPostJson;
-using authforge::test::http::serverReachable;
-using authforge::test::http::statusIs;
+using fulla::test::http::loginAsAdmin;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::postgresAvailable;
+using fulla::test::http::sendPostJson;
+using fulla::test::http::serverReachable;
+using fulla::test::http::statusIs;
 
 #define WEBAUTHN_SKIP_GUARD                                  \
     do                                                       \
@@ -201,7 +201,7 @@ DROGON_TEST(Integration_P1_WebAuthn_RegisterFinish_EmptyFields_Returns400)
 // TESTED HERE. A combined register-then-authenticate case (POST a credential
 // via /api/me/webauthn/register/finish, then immediately POST it to
 // /oauth2/webauthn/authenticate/finish) destabilizes the single shared
-// authforge-tests process: the authenticate step's updateSignCount is an
+// fulla-tests process: the authenticate step's updateSignCount is an
 // async DB write whose callback is still in-flight when the test binary hits
 // its fast-exit (std::_Exit in test_main.cc, there to dodge Drogon's crashy
 // teardown -- see test_main.cc:442-486), and the in-flight callback's

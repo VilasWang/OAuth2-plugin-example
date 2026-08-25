@@ -1,17 +1,17 @@
-// Task 13 (authforge-sdk-refactor, design.md §6): pure gtest unit tests for
+// Task 13 (fulla-sdk-refactor, design.md §6): pure gtest unit tests for
 // the common::model value objects. No DB/no Drogon.
 
-#include <authforge/common/model/Subject.h>
-#include <authforge/common/model/Scope.h>
-#include <authforge/common/model/ClientId.h>
-#include <authforge/common/model/RedirectUri.h>
-#include <authforge/common/model/PkceChallenge.h>
-#include <authforge/common/model/TokenValue.h>
-#include <authforge/common/model/TenantId.h>
+#include <fulla/common/model/Subject.h>
+#include <fulla/common/model/Scope.h>
+#include <fulla/common/model/ClientId.h>
+#include <fulla/common/model/RedirectUri.h>
+#include <fulla/common/model/PkceChallenge.h>
+#include <fulla/common/model/TokenValue.h>
+#include <fulla/common/model/TenantId.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::model;
+using namespace fulla::common::model;
 
 TEST(SubjectTest, ConstructsFromNonEmptyString)
 {

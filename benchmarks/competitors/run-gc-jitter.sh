@@ -3,7 +3,7 @@
 #
 # 5-minute P99 time series: N serial 10s wrk segments at fixed concurrency
 # (default c=32), each parsed into p99/p50/qps, emitted as one JSON with a
-# per-segment time series. The comparison plot (AuthForge flat line vs JVM/Go
+# per-segment time series. The comparison plot (Fulla flat line vs JVM/Go
 # GC spikes) is generated from these files by gen-comparison.py.
 #
 # Usage:

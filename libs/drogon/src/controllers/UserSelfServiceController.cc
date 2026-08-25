@@ -1,16 +1,16 @@
-#include <authforge/drogon/controllers/UserSelfServiceController.h>
-#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
-#include <authforge/storage/postgres/models/Oauth2Clients.h>
-#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
-#include <authforge/storage/postgres/models/Oauth2UserConsents.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/drogon/utils/PasswordHasher.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/admin/UserAdminService.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/controllers/UserSelfServiceController.h>
+#include <fulla/storage/postgres/models/Oauth2AccessTokens.h>
+#include <fulla/storage/postgres/models/Oauth2Clients.h>
+#include <fulla/storage/postgres/models/Oauth2RefreshTokens.h>
+#include <fulla/storage/postgres/models/Oauth2UserConsents.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/drogon/utils/PasswordHasher.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/admin/UserAdminService.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>
 #include <chrono>
@@ -18,14 +18,14 @@
 #ifdef WITH_SOCIAL
 // B2 social link/unlink: orchestration service + audit sink. The service is
 // injected by IdentityAssembly (or SocialMockFixture in tests).
-#include <authforge/identity/SocialLinkService.h>
+#include <fulla/identity/SocialLinkService.h>
 #endif  // WITH_SOCIAL
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 namespace
 {
@@ -39,7 +39,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -47,7 +47,7 @@ void respondError(
     );
 }
 
-namespace openapi = ::authforge::drogon::observability::openapi;
+namespace openapi = ::fulla::drogon::observability::openapi;
 
 // #43 resource-scope authorization: all /api/me routes require the OIDC
 // `profile` scope. NO impliedBy -- a bare `admin` token does NOT satisfy
@@ -238,11 +238,11 @@ void UserSelfServiceController::changePassword(
               std::string salt = user.getValueOfSalt();
 
               // Verify old password
-              if (!::authforge::common::utils::PasswordHasher::verify(
+              if (!::fulla::common::utils::PasswordHasher::verify(
                     oldPassword, storedHash, salt
                   ))
               {
-                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                  ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                     ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                     "password_change_failed",
                     "failure",
@@ -264,7 +264,7 @@ void UserSelfServiceController::changePassword(
               std::string newHash;
               try
               {
-                  newHash = ::authforge::common::utils::PasswordHasher::hash(newPassword);
+                  newHash = ::fulla::common::utils::PasswordHasher::hash(newPassword);
               }
               catch (const std::exception &e)
               {
@@ -299,7 +299,7 @@ void UserSelfServiceController::changePassword(
                           db2->execSqlAsync(
                             "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
                             [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                   "password_changed",
                                   "success",
@@ -315,7 +315,7 @@ void UserSelfServiceController::changePassword(
                                 (*sharedCb)(resp);
                             },
                             [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                   "password_changed",
                                   "success",
@@ -336,7 +336,7 @@ void UserSelfServiceController::changePassword(
                           db2->execSqlAsync(
                             "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
                             [sharedCb, userId, req](const ::drogon::orm::Result &) {
-                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                   "password_changed",
                                   "success",
@@ -351,7 +351,7 @@ void UserSelfServiceController::changePassword(
                                 (*sharedCb)(resp);
                             },
                             [sharedCb, userId, req](const ::drogon::orm::DrogonDbException &) {
-                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                   "password_changed",
                                   "success",
@@ -612,7 +612,7 @@ void UserSelfServiceController::revokeAuthorizedApp(
                       "UPDATE oauth2_access_tokens SET revoked = true "
                       "WHERE user_id = $1 AND client_id = $2",
                       [sharedCb, userId, clientId, req](const ::drogon::orm::Result &) {
-                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                          ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                             "app_authorization_revoked",
                             "success",
@@ -628,7 +628,7 @@ void UserSelfServiceController::revokeAuthorizedApp(
                           (*sharedCb)(resp);
                       },
                       [sharedCb, userId, clientId, req](const ::drogon::orm::DrogonDbException &) {
-                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                          ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                             "app_authorization_revoked",
                             "success",
@@ -763,7 +763,7 @@ void UserSelfServiceController::deleteAccount(
                                           Mapper<Users>(dbClient).update(
                                             u,
                                             [sharedCb, userId, req](const size_t) {
-                                                ::authforge::drogon::adapters::DrogonAuditSink::
+                                                ::fulla::drogon::adapters::DrogonAuditSink::
                                                   logFromRequest(
                                                     ::drogon::app()
                                                       .getPlugin<::OAuth2Plugin>()
@@ -882,7 +882,7 @@ void UserSelfServiceController::deleteAccount(
                   // Last-admin guard (#60 item 2 / #54 review F3): without
                   // this, the sole active admin could delete their own
                   // account via /api/me and lock out the management plane.
-                  ::authforge::drogon::admin::isLastActiveAdmin(
+                  ::fulla::drogon::admin::isLastActiveAdmin(
                     db,
                     internalId,
                     [proceedWithDelete, sharedCb, req](bool lastAdmin) {
@@ -1012,11 +1012,11 @@ void resolveInternalUserId(
 bool respondLinkOpError(
   const ::drogon::HttpRequestPtr &req,
   const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &sharedCb,
-  const ::authforge::identity::SocialLinkOpResult &result,
+  const ::fulla::identity::SocialLinkOpResult &result,
   const std::string &provider
 )
 {
-    using ::authforge::identity::SocialLinkOpStatus;
+    using ::fulla::identity::SocialLinkOpStatus;
     switch (result.status)
     {
     case SocialLinkOpStatus::Ok:
@@ -1111,9 +1111,9 @@ void UserSelfServiceController::listSocialLinks(
           [service, sharedCb, req](bool, int32_t internalId) mutable {
               service->listAccounts(
                 internalId,
-                [sharedCb, req](::authforge::identity::SocialLinkOpStatus status,
-                           std::vector<::authforge::identity::SocialLinkEntry> entries) mutable {
-                    if (status != ::authforge::identity::SocialLinkOpStatus::Ok)
+                [sharedCb, req](::fulla::identity::SocialLinkOpStatus status,
+                           std::vector<::fulla::identity::SocialLinkEntry> entries) mutable {
+                    if (status != ::fulla::identity::SocialLinkOpStatus::Ok)
                     {
                         respondError(req, sharedCb, "DB_QUERY_ERROR", "social links: repository failure");
                         return;
@@ -1159,7 +1159,7 @@ void UserSelfServiceController::linkSocialAccount(
         );
         return;
     }
-    if (!::authforge::identity::SocialLinkService::isValidProvider(provider))
+    if (!::fulla::identity::SocialLinkService::isValidProvider(provider))
     {
         respondError(
           req, sharedCb, "VALIDATION_INVALID_INPUT",
@@ -1199,17 +1199,17 @@ void UserSelfServiceController::linkSocialAccount(
                 code,
                 internalId,
                 [sharedCb, req, userId, provider](
-                  ::authforge::identity::SocialLinkOpResult result) mutable {
+                  ::fulla::identity::SocialLinkOpResult result) mutable {
                     auto plugin =
                       ::drogon::app().getPlugin<::OAuth2Plugin>();
                     if (plugin)
                     {
-                        ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                        ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                           plugin->getAuditSink(),
-                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                          result.status == ::fulla::identity::SocialLinkOpStatus::Ok
                             ? "social_account_linked"
                             : "social_account_link_failed",
-                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                          result.status == ::fulla::identity::SocialLinkOpStatus::Ok
                             ? "success"
                             : "failure",
                           req,
@@ -1266,7 +1266,7 @@ void UserSelfServiceController::unlinkSocialAccount(
         );
         return;
     }
-    if (!::authforge::identity::SocialLinkService::isValidProvider(provider))
+    if (!::fulla::identity::SocialLinkService::isValidProvider(provider))
     {
         respondError(
           req, sharedCb, "VALIDATION_INVALID_INPUT",
@@ -1289,17 +1289,17 @@ void UserSelfServiceController::unlinkSocialAccount(
                 provider,
                 internalId,
                 [sharedCb, req, userId, provider](
-                  ::authforge::identity::SocialLinkOpResult result) mutable {
+                  ::fulla::identity::SocialLinkOpResult result) mutable {
                     auto plugin =
                       ::drogon::app().getPlugin<::OAuth2Plugin>();
                     if (plugin)
                     {
-                        ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                        ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                           plugin->getAuditSink(),
-                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                          result.status == ::fulla::identity::SocialLinkOpStatus::Ok
                             ? "social_account_unlinked"
                             : "social_account_unlink_blocked",
-                          result.status == ::authforge::identity::SocialLinkOpStatus::Ok
+                          result.status == ::fulla::identity::SocialLinkOpStatus::Ok
                             ? "success"
                             : "failure",
                           req,
@@ -1335,4 +1335,4 @@ void UserSelfServiceController::unlinkSocialAccount(
 
 #endif  // WITH_SOCIAL
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

@@ -1,10 +1,10 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/error/ErrorHandler.h>
+#include <fulla/drogon/error/ErrorHandler.h>
 
 using namespace drogon;
 using namespace ::drogon::orm;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 // These legacy tests were migrated when Error::code became a string Error_Code
 // (see spec error-code-message-standardization task 2.1). They now construct

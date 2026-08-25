@@ -1,11 +1,11 @@
 // tests/contract/UserInfoRepositoryContractTest.cc
 //
-// Spec: authforge-sdk-refactor -- 遗留事项 L2 (tasks.md): the dead
+// Spec: fulla-sdk-refactor -- 遗留事项 L2 (tasks.md): the dead
 // tests/services/AuthServiceGetUserInfoTest.cc targeted the legacy
-// authforge::drogon::services::AuthService::getUserInfo, which has NO
+// fulla::drogon::services::AuthService::getUserInfo, which has NO
 // remaining production caller (the live /oauth2/userinfo chain is
 // TokenEndpointController -> OAuth2Plugin::getUserInfo ->
-// authforge::identity::IUserRepository), and its `sub == numeric id`
+// fulla::identity::IUserRepository), and its `sub == numeric id`
 // assertion conflicts with the V007 public_sub UUID model. Its genuinely
 // uncovered behavior points -- role aggregation, name fallback (username
 // empty -> email), empty roles array, not-found nullopt -- live in
@@ -28,8 +28,8 @@
 #include <drogon/drogon.h>
 #include <json/json.h>
 
-#include <authforge/storage/postgres/PostgresIdentityRepository.h>
-#include <authforge/storage/memory/MemoryIdentityRepository.h>
+#include <fulla/storage/postgres/PostgresIdentityRepository.h>
+#include <fulla/storage/memory/MemoryIdentityRepository.h>
 
 #include "ContractFixtures.h"
 
@@ -37,9 +37,9 @@
 #include <optional>
 #include <string>
 
-using namespace authforge::test::contract;
-using authforge::storage::memory::MemoryIdentityRepository;
-using authforge::storage::postgres::PostgresIdentityRepository;
+using namespace fulla::test::contract;
+using fulla::storage::memory::MemoryIdentityRepository;
+using fulla::storage::postgres::PostgresIdentityRepository;
 
 namespace
 {
@@ -340,7 +340,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_InitAdm
 DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindById_SyntheticUser)
 {
     MemoryIdentityRepository repo;
-    auto user = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+    auto user = waitForValue<std::optional<fulla::identity::UserData>>([&](auto cb) {
         repo.findById(123, std::move(cb));
     });
     REQUIRE(user.has_value());
@@ -354,7 +354,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByI
 DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByPublicSub_NonNumeric_ReturnsNullopt)
 {
     MemoryIdentityRepository repo;
-    auto user = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+    auto user = waitForValue<std::optional<fulla::identity::UserData>>([&](auto cb) {
         repo.findByPublicSub("not-a-number", std::move(cb));
     });
     CHECK(!user.has_value());
@@ -364,7 +364,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByP
 DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByPublicSub_Numeric_SyntheticUser)
 {
     MemoryIdentityRepository repo;
-    auto user = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+    auto user = waitForValue<std::optional<fulla::identity::UserData>>([&](auto cb) {
         repo.findByPublicSub("42", std::move(cb));
     });
     REQUIRE(user.has_value());
@@ -377,12 +377,12 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByE
 {
     MemoryIdentityRepository repo;
 
-    auto byEmail = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+    auto byEmail = waitForValue<std::optional<fulla::identity::UserData>>([&](auto cb) {
         repo.findByEmail("anyone@example.com", std::move(cb));
     });
     CHECK(!byEmail.has_value());
 
-    auto byUsername = waitForValue<std::optional<authforge::identity::UserData>>([&](auto cb) {
+    auto byUsername = waitForValue<std::optional<fulla::identity::UserData>>([&](auto cb) {
         repo.findByUsername("anyone", std::move(cb));
     });
     CHECK(!byUsername.has_value());
@@ -393,7 +393,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_FindByE
 DROGON_TEST(Integration_P0_Contract_Functional_UserInfoRepository_Memory_Create_ReturnsNulloptUnsupported)
 {
     MemoryIdentityRepository repo;
-    authforge::identity::UserData ud;
+    fulla::identity::UserData ud;
     ud.username = "new";
     std::optional<int32_t> newId;
     std::string errCode = "unset";

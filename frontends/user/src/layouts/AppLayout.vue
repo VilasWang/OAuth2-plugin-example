@@ -127,7 +127,7 @@ const navItems = [
     <!-- Footer -->
     <footer class="border-t border-neutral-100 py-4">
       <p class="text-center text-xs text-neutral-400">
-        AuthForge Identity Platform
+        Fulla Identity Platform
       </p>
     </footer>
   </div>

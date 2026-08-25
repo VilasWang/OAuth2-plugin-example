@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-# libs/oauth2 (authforge::oauth2) -- Task 17, authforge-sdk-refactor
+# libs/oauth2 (fulla::oauth2) -- Task 17, fulla-sdk-refactor
 # (design.md §8/§17). Domain-layer OAuth2/OIDC protocol package: pure
 # protocol logic (PKCE, authorization/token services, consent+scope
 # decision engine, aggregates), with zero Drogon dependency (design.md
@@ -21,8 +21,8 @@ cmake_minimum_required(VERSION 3.16)
 # depend on libs/common (value objects + ports).
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
-if(NOT DEFINED OAUTH2_PROJECT_VERSION)
-    set(OAUTH2_PROJECT_VERSION 1.0.0)
+if(NOT DEFINED FULLA_PROJECT_VERSION)
+    set(FULLA_PROJECT_VERSION 1.0.0)
 endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
@@ -31,7 +31,7 @@ if(NOT COMMAND oauth2_apply_warnings)
     include(Warnings)
 endif()
 
-project(authforge-oauth2 VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+project(fulla-oauth2 VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX)
 
 # OpenSSL (M2b Task 17 slice 10): JwkManager (jwk/JwkManager.cc) signs
 # RS256 JWTs and does RSA key loading/generation directly against
@@ -42,7 +42,7 @@ project(authforge-oauth2 VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
 find_package(OpenSSL REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
-add_library(authforge::oauth2 ALIAS ${PROJECT_NAME})
+add_library(fulla::oauth2 ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
@@ -50,10 +50,10 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
 )
 
-file(GLOB_RECURSE AUTHFORGE_OAUTH2_SOURCES "src/*.cc")
-target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_OAUTH2_SOURCES})
+file(GLOB_RECURSE FULLA_FULLA_SOURCES "src/*.cc")
+target_sources(${PROJECT_NAME} PRIVATE ${FULLA_FULLA_SOURCES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC authforge::common OpenSSL::Crypto)
+target_link_libraries(${PROJECT_NAME} PUBLIC fulla::common OpenSSL::Crypto)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
@@ -73,18 +73,18 @@ oauth2_apply_gcov(${PROJECT_NAME})
 # Task 33).
 
 include(GNUInstallDirs)
-install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/fulla DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # SDK packaging: install-tree + build-tree find_package() config carrying the
-# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
-if(NOT COMMAND authforge_package)
-    include(AuthForgePackage)
+# transitive find_dependency() closure (fulla-sdk-refactor Task 28a).
+if(NOT COMMAND fulla_package)
+    include(FullaPackage)
 endif()
-authforge_package(
+fulla_package(
     TARGET ${PROJECT_NAME}
-    PACKAGE authforge-oauth2
+    PACKAGE fulla-oauth2
     EXPORT_NAME oauth2
-    DEPENDENCIES OpenSSL authforge-common
+    DEPENDENCIES OpenSSL fulla-common
 )
 
 # --- Tests (pure unit, no DB/no Drogon) ---

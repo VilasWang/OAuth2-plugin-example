@@ -1,5 +1,5 @@
 #include <drogon/drogon_test.h>
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorCatalog.h>
 
 #include <array>
 #include <random>
@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 // Feature: error-code-message-standardization, Property 5: Error_Catalog 完整性与唯一性
 //

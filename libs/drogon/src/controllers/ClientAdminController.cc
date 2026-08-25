@@ -1,20 +1,20 @@
-#include <authforge/drogon/controllers/ClientAdminController.h>
-#include <authforge/drogon/admin/ClientManagementService.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/controllers/ClientAdminController.h>
+#include <fulla/drogon/admin/ClientManagementService.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 
-// M5 Task 29b (authforge-sdk-refactor): the inline raw-SQL DB access from the
+// M5 Task 29b (fulla-sdk-refactor): the inline raw-SQL DB access from the
 // Task 29a verbatim move is now delegated to ClientManagementService (Mapper +
 // Criteria, per .claude/rules/db-operations.md). This controller is now a thin
 // HTTP adapter: parse request -> dispatch to service -> the service renders the
 // final HttpResponse (success JSON or error envelope). Behavior is byte-for-byte
 // equivalent to the pre-29b version (Admin API tests must stay green).
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
 {
-namespace openapi = ::authforge::drogon::observability::openapi;
+namespace openapi = ::fulla::drogon::observability::openapi;
 
 // #43 resource-scope authorization: declare one EndpointInfo with its
 // requiredScopes + impliedBy. All client-admin routes are admin-gated; the
@@ -73,7 +73,7 @@ void ClientAdminController::initApiDocsImpl()
               "Update the assigned scopes for an OAuth2 client.", {"clients:write"}));
 }
 
-using ClientService = ::authforge::drogon::admin::ClientManagementService;
+using ClientService = ::fulla::drogon::admin::ClientManagementService;
 
 void ClientAdminController::listClients(
   const ::drogon::HttpRequestPtr &req,
@@ -161,4 +161,4 @@ void ClientAdminController::updateClientScopes(
     ClientService::updateClientScopes(req, sharedCb, clientId);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

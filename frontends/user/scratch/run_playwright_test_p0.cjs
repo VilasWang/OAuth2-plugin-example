@@ -27,7 +27,7 @@ function queryDb(sql) {
   const tempFile = path.resolve(__dirname, 'temp_query.sql');
   try {
     fs.writeFileSync(tempFile, sql, 'utf8');
-    const cmd = `psql -U oauth2_user -d oauth2_db -t -A -f "${tempFile}"`;
+    const cmd = `psql -U fulla_user -d fulla_db -t -A -f "${tempFile}"`;
     const result = execSync(cmd, { env: { ...process.env, PGPASSWORD: '123456' } });
     return result.toString().trim();
   } catch (err) {

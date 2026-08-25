@@ -69,7 +69,7 @@ echo [PASS] Standard config tests successful.
 REM --- Run 2: config.ci.json ---
 echo.
 echo [2/2] Running tests with %CONFIG_CI_FILE%...
-if not exist "%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%" (
+if not exist "%PROJECT_DIR%\%FULLA_SERVER_DIR%\%CONFIG_CI_FILE%" (
     echo [SKIP] %CONFIG_CI_FILE% not found, skipping second run.
     goto done
 )
@@ -81,7 +81,7 @@ if not exist "%TEST_WORK_DIR%" (
 
 REM Backup original and use CI config
 REM cmd's copy mishandles forward slashes from paths.env values; normalize.
-set "CI_CFG_SRC=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_CI_FILE%"
+set "CI_CFG_SRC=%PROJECT_DIR%\%FULLA_SERVER_DIR%\%CONFIG_CI_FILE%"
 set "CI_CFG_SRC=!CI_CFG_SRC:/=\!"
 copy /Y "%TEST_CONFIG%" "%TEST_CONFIG%.bak" >nul
 copy /Y "!CI_CFG_SRC!" "%TEST_CONFIG%" >nul

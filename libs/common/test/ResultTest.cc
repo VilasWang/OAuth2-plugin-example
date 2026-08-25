@@ -1,16 +1,16 @@
-// Task 13 (authforge-sdk-refactor, design.md §6): pure gtest unit tests for
-// authforge::common::result::Result<T,E>. No DB/no Drogon.
+// Task 13 (fulla-sdk-refactor, design.md §6): pure gtest unit tests for
+// fulla::common::result::Result<T,E>. No DB/no Drogon.
 
-#include <authforge/common/result/Result.h>
-#include <authforge/common/error/ErrorTypes.h>
+#include <fulla/common/result/Result.h>
+#include <fulla/common/error/ErrorTypes.h>
 
 #include <gtest/gtest.h>
 
 #include <string>
 
-using authforge::common::error::Error;
-using authforge::common::error::ErrorCategory;
-using authforge::common::result::Result;
+using fulla::common::error::Error;
+using fulla::common::error::ErrorCategory;
+using fulla::common::result::Result;
 
 TEST(ResultTest, OkHoldsValue)
 {
@@ -35,13 +35,13 @@ TEST(ResultTest, ValueOnErrorThrows)
 {
     Error e{"TEST_CODE", ErrorCategory::VALIDATION, "test message", "", "req-1"};
     auto r = Result<int>::err(e);
-    EXPECT_THROW(r.value(), authforge::common::result::BadResultAccess);
+    EXPECT_THROW(r.value(), fulla::common::result::BadResultAccess);
 }
 
 TEST(ResultTest, ErrorOnOkThrows)
 {
     auto r = Result<int>::ok(1);
-    EXPECT_THROW(r.error(), authforge::common::result::BadResultAccess);
+    EXPECT_THROW(r.error(), fulla::common::result::BadResultAccess);
 }
 
 TEST(ResultTest, ValueOrReturnsFallbackOnError)
@@ -65,7 +65,7 @@ TEST(ResultTest, WorksWithNonPrimitiveT)
 }
 
 // Custom (non-Error) E parameter: Result is not hard-coded to
-// authforge::common::error::Error.
+// fulla::common::error::Error.
 enum class LocalErrorCode
 {
     NotFound,

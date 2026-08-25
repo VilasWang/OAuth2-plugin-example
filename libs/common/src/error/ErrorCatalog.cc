@@ -1,11 +1,11 @@
-// Task 13 (authforge-sdk-refactor, design.md §4.1/§5.1/§6): framework-agnostic
+// Task 13 (fulla-sdk-refactor, design.md §4.1/§5.1/§6): framework-agnostic
 // port of OAuth2Plugin/src/error/ErrorCatalog.cc. Data tables are copied
 // verbatim (same codes/numeric values/messages -- Requirement-equivalent to
 // the original "integer values preserved unchanged" rule); only the
 // LOG_FATAL + std::abort() fail-fast mechanism is replaced with throwing
 // std::logic_error, since the Domain layer must not depend on Drogon's
 // logging macros (design.md §4.1 rule 1).
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorCatalog.h>
 
 #include <array>
 #include <sstream>
@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace authforge::common::error
+namespace fulla::common::error
 {
 
 namespace
@@ -522,4 +522,4 @@ void ErrorCatalog::validateInvariants()
     }
 }
 
-}  // namespace authforge::common::error
+}  // namespace fulla::common::error

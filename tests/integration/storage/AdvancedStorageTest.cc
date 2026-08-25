@@ -1,8 +1,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <future>
 #include <chrono>
 #include <limits>
@@ -11,17 +11,17 @@
 #undef max
 #endif
 
-// Phase 4.6a (authforge-sdk-refactor): the god-facade getStorage() accessor is
+// Phase 4.6a (fulla-sdk-refactor): the god-facade getStorage() accessor is
 // gone. This test now exercises the token lifecycle (revocation / expiration /
 // valid / cleanup) through the plugin's NEW split-repository forwarding methods
 // (plugin->saveAccessToken / plugin->validateAccessToken) and the new model
-// DTOs (authforge::oauth2::model::OAuth2AccessToken). The cleanup case can no
+// DTOs (fulla::oauth2::model::OAuth2AccessToken). The cleanup case can no
 // longer call storage_->deleteExpiredData() directly (the god facade is gone);
 // per-backend purgeExpired() is orchestrated by OAuth2CleanupService, which is
 // not exposed on the plugin -- so the cleanup case is removed here (its
 // coverage lives in the contract tests + the cleanup-service unit test).
 
-using AccessToken = authforge::oauth2::model::OAuth2AccessToken;
+using AccessToken = fulla::oauth2::model::OAuth2AccessToken;
 
 DROGON_TEST(Integration_P0_Storage_Advanced_Works)
 {
@@ -39,7 +39,7 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
     // 2. Test Revocation
     {
         std::string rawToken = "revoked_token_123";
-        std::string hashedToken = authforge::drogon::utils::hashToken(rawToken);
+        std::string hashedToken = fulla::drogon::utils::hashToken(rawToken);
 
         AccessToken revokedToken;
         revokedToken.token = hashedToken;
@@ -64,7 +64,7 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
     // 3. Test Expiration
     {
         std::string rawToken = "expired_token_123";
-        std::string hashedToken = authforge::drogon::utils::hashToken(rawToken);
+        std::string hashedToken = fulla::drogon::utils::hashToken(rawToken);
 
         AccessToken expiredToken;
         expiredToken.token = hashedToken;
@@ -89,7 +89,7 @@ DROGON_TEST(Integration_P0_Storage_Advanced_Works)
     // 4. Test Valid Token (Control)
     {
         std::string rawToken = "valid_token_123";
-        std::string hashedToken = authforge::drogon::utils::hashToken(rawToken);
+        std::string hashedToken = fulla::drogon::utils::hashToken(rawToken);
 
         AccessToken validToken;
         validToken.token = hashedToken;

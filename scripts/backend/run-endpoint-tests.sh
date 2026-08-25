@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CMake/ctest wrapper for the out-of-process endpoint tests (方案 A).
 #
-# Starts the authforge server as a background process, waits for health
+# Starts the fulla server as a background process, waits for health
 # readiness, runs the OAuth2 + Admin endpoint test scripts against it, then
 # stops the server. Returns non-zero if any endpoint test failed.
 #
@@ -37,8 +37,8 @@ fi
 RESULT=0
 
 # Kill any stale server instance on the test port. NOTE: do NOT use
-# `pkill -f authforge-server` -- this script's own argv contains the
-# server binary path (--server-exe /path/authforge-server), so pkill -f
+# `pkill -f fulla-server` -- this script's own argv contains the
+# server binary path (--server-exe /path/fulla-server), so pkill -f
 # would match and kill THIS script. fuser targets the port occupant
 # instead, which is always the server process, never the wrapper.
 fuser -k 5555/tcp 2>/dev/null || true
@@ -52,7 +52,7 @@ cd "$SERVER_DIR"
 # Redirect server stdout/stderr to a log file so it does NOT inherit the
 # wrapper's stdout pipe -- otherwise ctest waits for EOF on the pipe even
 # after the wrapper exits (the server holds the write end open).
-"$SERVER_EXE" >/tmp/authforge-ep-test.log 2>&1 &
+"$SERVER_EXE" >/tmp/fulla-ep-test.log 2>&1 &
 SERVER_PID=$!
 disown "$SERVER_PID" 2>/dev/null || true  # detach so bash won't wait on exit
 

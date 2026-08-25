@@ -3,7 +3,7 @@
 // In-process database seeding for the HTTP integration-test coverage push
 // (docs/history/design/http-integration-test-coverage-plan.md, Phase 1, B1 fix).
 //
-// Problem this solves: the test binary (authforge-tests) does NOT seed the
+// Problem this solves: the test binary (fulla-tests) does NOT seed the
 // admin user on its own. tests/SchemaSetup.cc only creates a bare `users`
 // table; the `admin`/password-`admin` user + role + the `admin-console`
 // OAuth2 client come from apps/server/seed/dev_admin_user.sql and
@@ -21,11 +21,11 @@
 // the schema_migrations table, and every seed statement uses
 // ON CONFLICT ... DO NOTHING.
 //
-// Paths OAUTH2_MIGRATIONS_DIR and OAUTH2_SEED_DIR are injected as compile
+// Paths FULLA_MIGRATIONS_DIR and FULLA_SEED_DIR are injected as compile
 // definitions (absolute repo-source paths) in tests/CMakeLists.txt.
 //
 // Convention: header-only `inline` free functions in namespace
-// authforge::test::seed, mirroring tests/contract/ContractFixtures.h. No
+// fulla::test::seed, mirroring tests/contract/ContractFixtures.h. No
 // TEST_CTX parameter -- seedDatabase() is called from a DROGON_TEST setup
 // case which itself asserts success/failure.
 
@@ -33,7 +33,7 @@
 
 #include <drogon/drogon.h>
 #include <drogon/orm/DbClient.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
 #include "SchemaManager.h"  // apps/server/src/, already in the test target's include dirs
 
@@ -42,7 +42,7 @@
 #include <string>
 #include <vector>
 
-namespace authforge::test::seed
+namespace fulla::test::seed
 {
 
 namespace detail
@@ -82,7 +82,7 @@ inline void applyScript(
 // Seed the test database for HTTP admin integration tests.
 //
 // Runs (all idempotent):
-//   1. SchemaManager::migrate(db, OAUTH2_MIGRATIONS_DIR) -- applies any
+//   1. SchemaManager::migrate(db, FULLA_MIGRATIONS_DIR) -- applies any
 //      pending V*.sql migrations, tracked via the schema_migrations table.
 //   2. apps/server/seed/dev_*.sql -- the dev admin user, admin-console
 //      client, vue-client, backend client (each ON CONFLICT DO NOTHING).
@@ -128,7 +128,7 @@ inline bool seedDatabase()
         return false;
 
     // 1. Migrations.
-    const std::string migrationsDir = OAUTH2_MIGRATIONS_DIR;
+    const std::string migrationsDir = FULLA_MIGRATIONS_DIR;
     if (!schema::SchemaManager::migrate(db, migrationsDir))
     {
         LOG_ERROR << "[seed] SchemaManager::migrate failed for " << migrationsDir;
@@ -138,7 +138,7 @@ inline bool seedDatabase()
     // 2. Dev seed files. Apply all of them so both the admin user (needed for
     // admin-route tests) and the vue/backend clients (needed for non-admin
     // flows) exist. Each is ON CONFLICT DO NOTHING, so re-runs are safe.
-    const std::string seedDir = OAUTH2_SEED_DIR;
+    const std::string seedDir = FULLA_SEED_DIR;
     const std::vector<std::string> seedFiles = {
         "dev_admin_user.sql",
         "dev_admin_console_client.sql",
@@ -191,4 +191,4 @@ inline bool seedDatabase()
     return true;
 }
 
-}  // namespace authforge::test::seed
+}  // namespace fulla::test::seed

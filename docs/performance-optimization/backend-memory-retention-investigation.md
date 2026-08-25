@@ -1,7 +1,7 @@
 # Backend 内存留存调查报告（终局：drogon session 留存，非泄漏）
 
 > 日期：2026-08-22（终局改写 v2，修正 ASan 污染数据）· 分支 `feat/competitor-benchmark` · **结论性质：机制定谳 + 缓解交付 + 根修路径已录**
-> 起因：正式对比表（2026-08-21）中 AuthForge 全栈 RSS 5,350 MiB 四家最重，破案发现 backend 容器均值 4,711 MiB 才是大头。
+> 起因：正式对比表（2026-08-21）中 Fulla 全栈 RSS 5,350 MiB 四家最重，破案发现 backend 容器均值 4,711 MiB 才是大头。
 > ⚠️ **本报告早前版本称"无界泄漏"——终局证据推翻该定性：留存完全由 session TTL 有界，淘汰机制正常。** 早前定性错误的原因：3600s TTL 远大于所有测试时程（最长 3 分钟），TTL 内零衰减与"永不衰减"在观察窗内不可区分。
 > ⚠️ **v2 修正（ASan 镜像污染事故）**：调查中期三次 ASan 诊断构建覆写了 bench 管线的 `latest` 镜像标签，导致后续 TTL 验证 / A/B 对照全部跑在 ASan 构建上。ASan 吞吐 ~1/3（86k→18k）、分配块膨胀 ~48%（750B→1.1KB）。本报告已将留存公式修正为生产构建实测值 **750 B/req**；-24% session 吞吐税的方向可靠（同臂相对对照），生产构建绝对值待重测。
 
@@ -52,7 +52,7 @@
 
 - **⚠️ ASan 镜像污染（最大教训）**：三次 ASan 诊断构建经 `docker compose build` 无声覆写 `latest` 标签 → 后续所有风暴/TTL 验证跑在 ASan 构建上（吞吐 86k→18k、分配 750B→1.1KB）。**预防**：诊断构建必须用独立 `docker build -t <专用标签>` 而非 compose 管道，或每次诊断后立即重建生产镜像。
 - gdb `call malloc_stats()` 打死过多线程活进程（监督进程自动重生验证了进程韧性）；
-- **LSan 拒绝在 ptrace 下运行且为致命错误**（会 abort 被测进程）—— 改用 `#ifdef AUTHFORGE_LEAK_DIAG` 的 SIGUSR1 钩子（`main.cc`，随诊断设施入库）；
+- **LSan 拒绝在 ptrace 下运行且为致命错误**（会 abort 被测进程）—— 改用 `#ifdef FULLA_LEAK_DIAG` 的 SIGUSR1 钩子（`main.cc`，随诊断设施入库）；
 - worker 的 SIGTERM/SIGINT 优雅退出在 ASan 下 SEGV/system_error（trantor 关闭期竞态，又一独立待查项）；空 `redis_clients` 时 HealthController 空指针 SEGV（待查项）；
 - Windows Docker 把不存在的挂载源自动建为**目录**；
 - 实验方法论：跨臂对照必须同窗口背靠背 + 负控（本轮 OFF/ON/OFF 三连即此范式）；观察窗必须覆盖 TTL 边界再下"永不衰减"结论；**绝对数据必须声明构建类型**（ASan vs 生产）。

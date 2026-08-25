@@ -26,7 +26,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <json/json.h>
 
 #include <chrono>
@@ -97,10 +97,10 @@ long long expectedAccessTokenTtl()
 {
     // config.dev.json lives at apps/server/config/config.dev.json relative to
     // the repo root. The test binary's CWD is the tests build dir; resolve via
-    // the OAUTH2_REPO_ROOT_DIR define injected by tests/CMakeLists.txt.
-#ifdef OAUTH2_REPO_ROOT_DIR
+    // the FULLA_REPO_ROOT_DIR define injected by tests/CMakeLists.txt.
+#ifdef FULLA_REPO_ROOT_DIR
     const std::string path =
-      std::string(OAUTH2_REPO_ROOT_DIR) + "/apps/server/config/config.dev.json";
+      std::string(FULLA_REPO_ROOT_DIR) + "/apps/server/config/config.dev.json";
 #else
     const std::string path = "apps/server/config/config.dev.json";
 #endif

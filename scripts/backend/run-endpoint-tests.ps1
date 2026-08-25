@@ -3,7 +3,7 @@
 CMake/ctest wrapper for the out-of-process endpoint tests (方案 A).
 
 .DESCRIPTION
-Starts the authforge server as a background process, waits for health
+Starts the fulla server as a background process, waits for health
 readiness, runs the OAuth2 + Admin endpoint test scripts against it, then
 stops the server. Returns a non-zero exit code if any endpoint test failed.
 
@@ -27,7 +27,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $result = 0
 
 # Kill any stale server instance on the fixed port.
-Stop-Process -Name "authforge-server" -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "fulla-server" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 
 $serverDir = Split-Path -Parent $ServerExe

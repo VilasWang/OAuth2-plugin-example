@@ -5,7 +5,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://oauth2_user:${OAUTH2_DB_PASSWORD:-123456}@${OAUTH2_DB_HOST:-127.0.0.1}:${OAUTH2_DB_PORT:-5432}/oauth2_db"
+        "postgresql://fulla_user:${FULLA_DB_PASSWORD:-123456}@${FULLA_DB_HOST:-127.0.0.1}:${FULLA_DB_PORT:-5432}/fulla_db"
       ]
     },
     "redis": {
@@ -13,7 +13,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-redis",
-        "redis://:${OAUTH2_REDIS_PASSWORD:-123456}@${OAUTH2_REDIS_HOST:-127.0.0.1}:${OAUTH2_REDIS_PORT:-6379}/0"
+        "redis://:${FULLA_REDIS_PASSWORD:-123456}@${FULLA_REDIS_HOST:-127.0.0.1}:${FULLA_REDIS_PORT:-6379}/0"
       ]
     },
     "github": {

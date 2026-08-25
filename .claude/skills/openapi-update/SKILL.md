@@ -15,7 +15,7 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
 ## 工作流程
 
 1. **分析当前控制器**
-   所有 HTTP 控制器源码位于 `libs/drogon/src/controllers/*.cc`（头文件 `libs/drogon/include/authforge/drogon/controllers/*.h`）。路由注册入口在 `apps/server/src/bootstrap/ControllerRegistration.cc`（Drogon `HttpController<T,false>` 为进程级单例，路由在此显式注册）。至少读取以下与 OAuth2 / Admin API 相关的控制器：
+   所有 HTTP 控制器源码位于 `libs/drogon/src/controllers/*.cc`（头文件 `libs/drogon/include/fulla/drogon/controllers/*.h`）。路由注册入口在 `apps/server/src/bootstrap/ControllerRegistration.cc`（Drogon `HttpController<T,false>` 为进程级单例，路由在此显式注册）。至少读取以下与 OAuth2 / Admin API 相关的控制器：
    - `AuthorizationEndpointController.cc` — `/oauth2/authorize`
    - `TokenEndpointController.cc` — `/oauth2/token`、`/oauth2/userinfo`、`/oauth2/introspect`、`/oauth2/revoke`
    - `SessionController.cc` — `/oauth2/login`、`/oauth2/consent`、`/oauth2/end_session`、`/login`、`/api/register`
@@ -66,7 +66,7 @@ description: 当OAuth2端点发生变化时更新OpenAPI规范
    python tools/clients/regen_clients.py --check    # 只对账不落盘（CI 模式）
    ```
    - Python 侧需先装 pin 版生成器：`pip install openapi-python-client==0.29.0`；Go 侧 `go run` 自动拉取（国内网络需 `GOPROXY=https://goproxy.cn,direct`）
-   - 生成物是提交进 git 的（`clients/python/src/authforge/generated/`、`clients/go/generated/`），漂移门保证不过期
+   - 生成物是提交进 git 的（`clients/python/src/fulla/generated/`、`clients/go/generated/`），漂移门保证不过期
    - 版本联动：升 `cmake/Version.cmake` 时同步升 `clients/python/pyproject.toml` 的 `version`（`regen_clients.py --version-only` 校验，release.yml 发布前也会兜底检查）
 
 ### 验证脚本集成
@@ -164,7 +164,7 @@ git commit -m "docs: update OpenAPI specification for endpoint changes"
 ```
 
 版本号规则（治理门 + release version-check 强制）：
-- `info.version` **必须**与 `cmake/Version.cmake` 的 `OAUTH2_PROJECT_VERSION` 一致（改版本就两边一起改）
+- `info.version` **必须**与 `cmake/Version.cmake` 的 `FULLA_PROJECT_VERSION` 一致（改版本就两边一起改）
 - 破坏性变更要求升 major（oasdiff 门拦截；豁免需在 `tools/openapi-governance/oasdiff-breaking-ignore.md` 带理由登记）
 
 ## 文档同步

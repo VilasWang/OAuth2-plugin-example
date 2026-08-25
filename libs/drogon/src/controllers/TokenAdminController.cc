@@ -1,21 +1,21 @@
-#include <authforge/drogon/controllers/TokenAdminController.h>
-#include <authforge/drogon/admin/TokenManagementService.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/controllers/TokenAdminController.h>
+#include <fulla/drogon/admin/TokenManagementService.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 
 #include <memory>
 
-// M5 Task 29b batch 2 (authforge-sdk-refactor): inline raw-SQL DB access from
+// M5 Task 29b batch 2 (fulla-sdk-refactor): inline raw-SQL DB access from
 // the Task 29a verbatim move is now delegated to TokenManagementService (Mapper
 // + Criteria, per .claude/rules/db-operations.md). This controller is now a
 // thin HTTP adapter. Behavior is byte-for-byte equivalent (Admin API tests must
 // stay green).
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
 {
-namespace openapi = ::authforge::drogon::observability::openapi;
+namespace openapi = ::fulla::drogon::observability::openapi;
 
 // #43 resource-scope authorization: declare one EndpointInfo with its
 // requiredScopes + impliedBy. All token-admin routes are admin-gated; the
@@ -69,7 +69,7 @@ void TokenAdminController::initApiDocsImpl()
               "Get information about OIDC signing keys.", {"Admin", "OIDC"}, {"audit:read"}));
 }
 
-using TokenService = ::authforge::drogon::admin::TokenManagementService;
+using TokenService = ::fulla::drogon::admin::TokenManagementService;
 
 void TokenAdminController::listTokens(
   const ::drogon::HttpRequestPtr &req,
@@ -123,4 +123,4 @@ void TokenAdminController::getOidcKeys(
     TokenService::getOidcKeys(sharedCb);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

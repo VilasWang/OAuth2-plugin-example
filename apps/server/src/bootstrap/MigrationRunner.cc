@@ -34,7 +34,7 @@ std::filesystem::path locateMigrationsDir()
 
 // Builds a libpq connection string from config["db_clients"][0]. Values
 // have already passed through ConfigManager's env-override rules
-// (OAUTH2_DB_HOST/PORT/NAME/USER/PASSWORD), so this is the same target the
+// (FULLA_DB_HOST/PORT/NAME/USER/PASSWORD), so this is the same target the
 // server itself would connect to. The password is never logged.
 std::string buildPgConnInfo(const Json::Value &config)
 {
@@ -62,14 +62,14 @@ void setupMigrations()
     LOG_INFO << "Schema migrations directory found: "
              << std::filesystem::absolute(migrationsDir).string();
 
-    // Auto-migration is opt-in via OAUTH2_AUTO_MIGRATE=true. Production
+    // Auto-migration is opt-in via FULLA_AUTO_MIGRATE=true. Production
     // deployments (Helm) keep it false and run migrations via the
-    // pre-install/pre-upgrade hook Job (`authforge-server --migrate-only`);
+    // pre-install/pre-upgrade hook Job (`fulla-server --migrate-only`);
     // the app then only self-checks that the schema is current.
-    const char *autoMigrate = std::getenv("OAUTH2_AUTO_MIGRATE");
+    const char *autoMigrate = std::getenv("FULLA_AUTO_MIGRATE");
     if (!autoMigrate || std::string(autoMigrate) != "true")
     {
-        LOG_INFO << "Auto-migration disabled. Set OAUTH2_AUTO_MIGRATE=true to enable.";
+        LOG_INFO << "Auto-migration disabled. Set FULLA_AUTO_MIGRATE=true to enable.";
         setupSchemaSelfCheck();
         return;
     }
@@ -113,7 +113,7 @@ void setupSchemaSelfCheck()
                 // forward-compatible within a major (migration-check M4).
                 LOG_ERROR << "Schema self-check: " << pending
                           << " migration(s) on disk are not applied to the database. "
-                          << "Run the migration Job (authforge-server --migrate-only).";
+                          << "Run the migration Job (fulla-server --migrate-only).";
             }
             else if (pending == 0)
             {

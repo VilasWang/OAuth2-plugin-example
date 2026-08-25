@@ -25,14 +25,14 @@
 
 #include <string>
 
-using authforge::test::http::loginAsAdmin;
-using authforge::test::http::loginAsAdminWithScope;
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::postgresAvailable;
-using authforge::test::http::sendGet;
-using authforge::test::http::sendPostForm;
-using authforge::test::http::serverReachable;
-using authforge::test::http::statusIs;
+using fulla::test::http::loginAsAdmin;
+using fulla::test::http::loginAsAdminWithScope;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::postgresAvailable;
+using fulla::test::http::sendGet;
+using fulla::test::http::sendPostForm;
+using fulla::test::http::serverReachable;
+using fulla::test::http::statusIs;
 
 #define OIDC_BATCH3_SKIP_GUARD                                 \
     do                                                         \

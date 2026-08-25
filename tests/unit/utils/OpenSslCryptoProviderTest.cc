@@ -1,7 +1,7 @@
-// Task 14 (authforge-sdk-refactor, design.md §5.6): cross-validation tests
-// for authforge::drogon::adapters::OpenSslCryptoProvider / OpenSslUuidGenerator /
+// Task 14 (fulla-sdk-refactor, design.md §5.6): cross-validation tests
+// for fulla::drogon::adapters::OpenSslCryptoProvider / OpenSslUuidGenerator /
 // SystemClock -- the Adapter-side default implementations of
-// authforge::common::ports::ICryptoProvider / IUuidGenerator / IClock.
+// fulla::common::ports::ICryptoProvider / IUuidGenerator / IClock.
 //
 // These tests assert BYTE-FOR-BYTE equivalence against the existing
 // ::drogon::utils-backed CryptoUtils.h functions the new adapters are meant
@@ -14,11 +14,11 @@
 #include <drogon/drogon_test.h>
 #include <drogon/utils/Utilities.h>
 
-#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
-#include <authforge/drogon/adapters/OpenSslUuidGenerator.h>
-#include <authforge/drogon/adapters/SystemClock.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/adapters/OpenSslUuidGenerator.h>
+#include <fulla/drogon/adapters/SystemClock.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -29,7 +29,7 @@
 #include <cstdlib>
 #include <regex>
 
-using namespace authforge::drogon::adapters;
+using namespace fulla::drogon::adapters;
 
 // ---------------------------------------------------------------------------
 // sha256 / sha256Hex
@@ -62,16 +62,16 @@ DROGON_TEST(Unit_P2_OpenSslCryptoProvider_Sha256Hex_MatchesDrogonGetSha256)
 }
 
 // NOTE on what this test does NOT do: it does not cross-check against
-// authforge::drogon::utils::sha256() (CryptoUtils.h). That function was found (while
+// fulla::drogon::utils::sha256() (CryptoUtils.h). That function was found (while
 // writing this test) to have a genuine PRE-EXISTING bug -- it assumes
 // ::drogon::utils::getSha256() returns lowercase hex and only decodes
 // lowercase a-f correctly in its hand-rolled hex-to-bytes loop, but
 // ::drogon::utils::getSha256() actually returns UPPERCASE hex (verified:
 // trantor::utils::toHexString uses the "0123456789ABCDEF" alphabet), so
-// authforge::drogon::utils::sha256() silently produces wrong bytes for any hash
+// fulla::drogon::utils::sha256() silently produces wrong bytes for any hash
 // containing A-F. This is NOT exercised by production code today (grepped
-// the full OAuth2Plugin/OAuth2Server tree: authforge::drogon::utils::sha256() and its
-// only caller, authforge::drogon::utils::computeCodeChallenge(), have zero call sites
+// the full OAuth2Plugin/OAuth2Server tree: fulla::drogon::utils::sha256() and its
+// only caller, fulla::drogon::utils::computeCodeChallenge(), have zero call sites
 // outside this header -- the real PKCE S256 verification path is
 // TokenService::generateSha256Hash(), a separate implementation this file
 // does not touch). Reported here rather than silently worked around: this

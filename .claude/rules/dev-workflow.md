@@ -19,8 +19,8 @@ the steps spelled out.
 | Rebuild database | `/db-reset` skill (drops + recreates the PG DB via `psql`; no manage subcommand exists) |
 | Regenerate ORM models | `./manage.sh generate-models` (or `./manage.ps1 generate-models`) — the `/orm-gen` skill wraps this |
 | Build | `./manage.sh build-backend` (`-debug` for Debug) |
-| Run server | `./manage.sh run-backend` (`-debug`) — direct: `build/apps/server/{Debug|Release}/authforge-server -c config.json` |
-| Unit / integration tests | `./manage.sh test-backend` (`-debug`). By label: `ctest -R Unit\|Integration\|E2E\|Security\|Performance`. No-DB test build: `-DOAUTH2_MEMORY_TESTS_ONLY=ON`. |
+| Run server | `./manage.sh run-backend` (`-debug`) — direct: `build/apps/server/{Debug|Release}/fulla-server -c config.json` |
+| Unit / integration tests | `./manage.sh test-backend` (`-debug`). By label: `ctest -R Unit\|Integration\|E2E\|Security\|Performance`. No-DB test build: `-DFULLA_MEMORY_TESTS_ONLY=ON`. |
 | Endpoint API tests | `scripts/backend/test-admin-endpoints.{sh,ps1}` (admin, 37 tests) and `scripts/backend/test-oauth2-endpoints.{sh,ps1}` (OAuth2 core, 17 tests) |
 | Full cycle | `./manage.sh full-test` (build + unit + API tests) |
 

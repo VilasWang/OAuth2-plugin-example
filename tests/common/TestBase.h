@@ -5,7 +5,7 @@
 #include <memory>
 #include "test_categories.h"
 
-namespace authforge::test
+namespace fulla::test
 {
 
 /**
@@ -19,7 +19,7 @@ class TestTransaction
     {
         try
         {
-            // ::drogon (not authforge::drogon): see ContractFixtures.h's
+            // ::drogon (not fulla::drogon): see ContractFixtures.h's
             // Phase 7 qualification note.
             dbClient_ = ::drogon::app().getDbClient(dbName);
             if (dbClient_)
@@ -94,4 +94,4 @@ class TestBase
     }
 };
 
-}  // namespace authforge::test
+}  // namespace fulla::test

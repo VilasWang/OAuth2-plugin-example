@@ -1,13 +1,13 @@
-// api-diff baseline -- AuthForge SDK public header skeletons.
+// api-diff baseline -- Fulla SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.4.0
-=== libs/common/include/authforge/common/config/ConfigManager.h
+// version: 1.4.1
+=== libs/common/include/fulla/common/config/ConfigManager.h
 #pragma once
 #include <string>
 #include <type_traits>
 #include <json/json.h>
-#include <authforge/common/config/ConfigTypes.h>
-namespace authforge::common::config
+#include <fulla/common/config/ConfigTypes.h>
+namespace fulla::common::config
 {
 class ConfigManager
 {
@@ -26,12 +26,12 @@ template <typename T>
 T ConfigManager::get(const Json::Value &config, const std::string &path, const T &defaultValue)
 ;
 }
-=== libs/common/include/authforge/common/config/ConfigTypes.h
+=== libs/common/include/fulla/common/config/ConfigTypes.h
 #pragma once
 #include <string>
 #include <vector>
 #include <json/json.h>
-namespace authforge::common::config
+namespace fulla::common::config
 {
 struct EnvOverride
 {
@@ -40,35 +40,35 @@ const char *envVar;
 bool isNumeric;
 bool isStringList = false;
 };
-inline const std::vector<EnvOverride> OAUTH2_ENV_OVERRIDES =
-{{"db_clients.0.host", "OAUTH2_DB_HOST", false},
-{"db_clients.0.port", "OAUTH2_DB_PORT", true},
-{"db_clients.0.dbname", "OAUTH2_DB_NAME", false},
-{"db_clients.0.user", "OAUTH2_DB_USER", false},
-{"db_clients.0.passwd", "OAUTH2_DB_PASSWORD", false},
-{"redis_clients.0.host", "OAUTH2_REDIS_HOST", false},
-{"redis_clients.0.port", "OAUTH2_REDIS_PORT", true},
-{"redis_clients.0.passwd", "OAUTH2_REDIS_PASSWORD", false},
-{"custom_config.metadata.issuer", "OAUTH2_ISSUER", false},
-{"custom_config.frontend.url", "OAUTH2_FRONTEND_URL", false},
-{"custom_config.external_auth.github.client_id", "OAUTH2_GITHUB_CLIENT_ID", false},
-{"custom_config.external_auth.github.client_secret", "OAUTH2_GITHUB_CLIENT_SECRET", false},
-{"custom_config.external_auth.google.client_id", "OAUTH2_GOOGLE_CLIENT_ID", false},
-{"custom_config.external_auth.google.client_secret", "OAUTH2_GOOGLE_CLIENT_SECRET", false},
-{"custom_config.external_auth.google.redirect_uri", "OAUTH2_GOOGLE_REDIRECT_URI", false},
-{"listeners.0.port", "OAUTH2_LISTEN_PORT", true},
-{"vue_client.secret", "OAUTH2_VUE_CLIENT_SECRET", false},
+inline const std::vector<EnvOverride> FULLA_ENV_OVERRIDES =
+{{"db_clients.0.host", "FULLA_DB_HOST", false},
+{"db_clients.0.port", "FULLA_DB_PORT", true},
+{"db_clients.0.dbname", "FULLA_DB_NAME", false},
+{"db_clients.0.user", "FULLA_DB_USER", false},
+{"db_clients.0.passwd", "FULLA_DB_PASSWORD", false},
+{"redis_clients.0.host", "FULLA_REDIS_HOST", false},
+{"redis_clients.0.port", "FULLA_REDIS_PORT", true},
+{"redis_clients.0.passwd", "FULLA_REDIS_PASSWORD", false},
+{"custom_config.metadata.issuer", "FULLA_ISSUER", false},
+{"custom_config.frontend.url", "FULLA_FRONTEND_URL", false},
+{"custom_config.external_auth.github.client_id", "FULLA_GITHUB_CLIENT_ID", false},
+{"custom_config.external_auth.github.client_secret", "FULLA_GITHUB_CLIENT_SECRET", false},
+{"custom_config.external_auth.google.client_id", "FULLA_GOOGLE_CLIENT_ID", false},
+{"custom_config.external_auth.google.client_secret", "FULLA_GOOGLE_CLIENT_SECRET", false},
+{"custom_config.external_auth.google.redirect_uri", "FULLA_GOOGLE_REDIRECT_URI", false},
+{"listeners.0.port", "FULLA_LISTEN_PORT", true},
+{"vue_client.secret", "FULLA_VUE_CLIENT_SECRET", false},
 {"plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri",
-"OAUTH2_VUE_REDIRECT_URI",
+"FULLA_VUE_REDIRECT_URI",
 false},
-{"custom_config.cors.allow_origins", "OAUTH2_CORS_ALLOW_ORIGINS", false, true}};
+{"custom_config.cors.allow_origins", "FULLA_CORS_ALLOW_ORIGINS", false, true}};
 }
-=== libs/common/include/authforge/common/error/ErrorCatalog.h
+=== libs/common/include/fulla/common/error/ErrorCatalog.h
 #pragma once
-#include <authforge/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorTypes.h>
 #include <string_view>
 #include <vector>
-namespace authforge::common::error
+namespace fulla::common::error
 {
 struct CatalogEntry
 {
@@ -105,10 +105,10 @@ static NumericSegment segmentFor(ErrorCategory category);
 static void validateInvariants();
 };
 }
-=== libs/common/include/authforge/common/error/ErrorContext.h
+=== libs/common/include/fulla/common/error/ErrorContext.h
 #pragma once
 #include <optional>
-namespace authforge::common::error
+namespace fulla::common::error
 {
 class ErrorContext
 {
@@ -120,12 +120,12 @@ private:
 static bool defaultDetailedErrorsAllowed();
 };
 }
-=== libs/common/include/authforge/common/error/ErrorTypes.h
+=== libs/common/include/fulla/common/error/ErrorTypes.h
 #pragma once
 #include <exception>
 #include <string>
 #include <json/json.h>
-namespace authforge::common::error
+namespace fulla::common::error
 {
 enum class ErrorCategory
 {
@@ -157,12 +157,12 @@ std::string requestId
 );
 };
 }
-=== libs/common/include/authforge/common/model/ClientId.h
+=== libs/common/include/fulla/common/model/ClientId.h
 #pragma once
 #include <stdexcept>
 #include <string>
 #include <utility>
-namespace authforge::common::model
+namespace fulla::common::model
 {
 class ClientId
 {
@@ -179,12 +179,12 @@ private:
 std::string value_;
 };
 }
-=== libs/common/include/authforge/common/model/PkceChallenge.h
+=== libs/common/include/fulla/common/model/PkceChallenge.h
 #pragma once
 #include <stdexcept>
 #include <string>
 #include <utility>
-namespace authforge::common::model
+namespace fulla::common::model
 {
 class PkceChallenge
 {
@@ -207,12 +207,12 @@ std::string challenge_;
 std::string method_;
 };
 }
-=== libs/common/include/authforge/common/model/RedirectUri.h
+=== libs/common/include/fulla/common/model/RedirectUri.h
 #pragma once
 #include <stdexcept>
 #include <string>
 #include <utility>
-namespace authforge::common::model
+namespace fulla::common::model
 {
 class RedirectUri
 {
@@ -229,12 +229,12 @@ private:
 std::string value_;
 };
 }
-=== libs/common/include/authforge/common/model/Scope.h
+=== libs/common/include/fulla/common/model/Scope.h
 #pragma once
 #include <stdexcept>
 #include <string>
 #include <utility>
-namespace authforge::common::model
+namespace fulla::common::model
 {
 class Scope
 {
@@ -253,12 +253,12 @@ private:
 std::string value_;
 };
 }
-=== libs/common/include/authforge/common/model/Subject.h
+=== libs/common/include/fulla/common/model/Subject.h
 #pragma once
 #include <stdexcept>
 #include <string>
 #include <utility>
-namespace authforge::common::model
+namespace fulla::common::model
 {
 class Subject
 {
@@ -275,11 +275,11 @@ private:
 std::string value_;
 };
 }
-=== libs/common/include/authforge/common/model/TenantId.h
+=== libs/common/include/fulla/common/model/TenantId.h
 #pragma once
 #include <string>
 #include <utility>
-namespace authforge::common::model
+namespace fulla::common::model
 {
 class TenantId
 {
@@ -301,12 +301,12 @@ private:
 std::string value_;
 };
 }
-=== libs/common/include/authforge/common/model/TokenValue.h
+=== libs/common/include/fulla/common/model/TokenValue.h
 #pragma once
 #include <stdexcept>
 #include <string>
 #include <utility>
-namespace authforge::common::model
+namespace fulla::common::model
 {
 class TokenValue
 {
@@ -323,11 +323,11 @@ private:
 std::string value_;
 };
 }
-=== libs/common/include/authforge/common/observability/AuditEvent.h
+=== libs/common/include/fulla/common/observability/AuditEvent.h
 #pragma once
 #include <json/json.h>
 #include <string>
-namespace authforge::common::observability
+namespace fulla::common::observability
 {
 struct AuditEvent
 {
@@ -343,22 +343,22 @@ std::string requestId;
 Json::Value details;
 };
 }
-=== libs/common/include/authforge/common/ports/IAuditSink.h
+=== libs/common/include/fulla/common/ports/IAuditSink.h
 #pragma once
-#include <authforge/common/observability/AuditEvent.h>
-namespace authforge::common::ports
+#include <fulla/common/observability/AuditEvent.h>
+namespace fulla::common::ports
 {
 class IAuditSink
 {
 public:
 virtual ~IAuditSink() = default;
-virtual void record(const authforge::common::observability::AuditEvent &event) = 0;
+virtual void record(const fulla::common::observability::AuditEvent &event) = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/IClock.h
+=== libs/common/include/fulla/common/ports/IClock.h
 #pragma once
 #include <cstdint>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 class IClock
 {
@@ -368,13 +368,13 @@ virtual int64_t nowSeconds() const = 0;
 virtual int64_t nowMilliseconds() const = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/ICryptoProvider.h
+=== libs/common/include/fulla/common/ports/ICryptoProvider.h
 #pragma once
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 class ICryptoProvider
 {
@@ -403,11 +403,11 @@ const std::string &data
 ) = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/IEmailSender.h
+=== libs/common/include/fulla/common/ports/IEmailSender.h
 #pragma once
 #include <functional>
 #include <string>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 class IEmailSender
 {
@@ -422,10 +422,10 @@ SentCallback &&callback
 ) = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/ILogger.h
+=== libs/common/include/fulla/common/ports/ILogger.h
 #pragma once
 #include <string>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 enum class LogLevel
 {
@@ -443,11 +443,11 @@ virtual ~ILogger() = default;
 virtual void log(LogLevel level, const std::string &message) = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/IMetrics.h
+=== libs/common/include/fulla/common/ports/IMetrics.h
 #pragma once
 #include <string>
 #include <unordered_map>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 using MetricLabels = std::unordered_map<std::string, std::string>;
 class IMetrics
@@ -467,13 +467,13 @@ double value
 ) = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/IRoleProvider.h
+=== libs/common/include/fulla/common/ports/IRoleProvider.h
 #pragma once
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 class IRoleProvider
 {
@@ -487,13 +487,13 @@ virtual void getRoles(const std::string & , RolesCallback &&cb)
 ;
 };
 }
-=== libs/common/include/authforge/common/ports/ISubjectResolver.h
+=== libs/common/include/fulla/common/ports/ISubjectResolver.h
 #pragma once
-#include <authforge/common/model/Subject.h>
+#include <fulla/common/model/Subject.h>
 #include <cstdint>
 #include <functional>
 #include <optional>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 class ISubjectResolver
 {
@@ -503,13 +503,13 @@ virtual ~ISubjectResolver() = default;
 virtual void resolve(const model::Subject &subject, ResolveCallback &&cb) = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/IUserInfoProvider.h
+=== libs/common/include/fulla/common/ports/IUserInfoProvider.h
 #pragma once
 #include <cstdint>
 #include <functional>
 #include <json/json.h>
 #include <optional>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 class IUserInfoProvider
 {
@@ -519,10 +519,10 @@ virtual ~IUserInfoProvider() = default;
 virtual void getUserInfo(int32_t internalUserId, UserInfoCallback &&cb) = 0;
 };
 }
-=== libs/common/include/authforge/common/ports/IUuidGenerator.h
+=== libs/common/include/fulla/common/ports/IUuidGenerator.h
 #pragma once
 #include <string>
-namespace authforge::common::ports
+namespace fulla::common::ports
 {
 class IUuidGenerator
 {
@@ -531,13 +531,13 @@ virtual ~IUuidGenerator() = default;
 virtual std::string generate() = 0;
 };
 }
-=== libs/common/include/authforge/common/result/Result.h
+=== libs/common/include/fulla/common/result/Result.h
 #pragma once
-#include <authforge/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorTypes.h>
 #include <stdexcept>
 #include <utility>
 #include <variant>
-namespace authforge::common::result
+namespace fulla::common::result
 {
 class BadResultAccess : public std::logic_error
 {
@@ -545,7 +545,7 @@ public:
 explicit BadResultAccess(const char *what) : std::logic_error(what)
 ;
 };
-template <typename T, typename E = authforge::common::error::Error>
+template <typename T, typename E = fulla::common::error::Error>
 class Result
 {
 public:
@@ -587,25 +587,25 @@ explicit Result(std::in_place_index_t<1> tag, Args &&...args)
 std::variant<T, E> storage_;
 };
 }
-=== libs/common/include/authforge/common/utils/ConstantTimeCompare.h
+=== libs/common/include/fulla/common/utils/ConstantTimeCompare.h
 #pragma once
 #include <cstddef>
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 inline int constantTimeMemcmp(const void *s1, const void *s2, std::size_t n)
 ;
 }
-=== libs/common/include/authforge/common/utils/EmailNormalizer.h
+=== libs/common/include/fulla/common/utils/EmailNormalizer.h
 #pragma once
 #include <algorithm>
 #include <cctype>
 #include <string>
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 inline std::string normalizeEmail(const std::string &input)
 ;
 }
-=== libs/common/include/authforge/common/utils/RateLimiter.h
+=== libs/common/include/fulla/common/utils/RateLimiter.h
 #pragma once
 #include <chrono>
 #include <deque>
@@ -613,7 +613,7 @@ inline std::string normalizeEmail(const std::string &input)
 #include <string>
 #include <string_view>
 #include <unordered_map>
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 struct RateLimiterConfig
 {
@@ -650,13 +650,13 @@ RateLimiterConfig config_{RateLimiterConfig::defaults()};
 std::unordered_map<std::string, std::deque<TimePoint>> buckets_;
 };
 }
-=== libs/drogon/include/authforge/drogon/AuthService.h
+=== libs/drogon/include/fulla/drogon/AuthService.h
 #pragma once
 #include <drogon/drogon.h>
 #include <functional>
 #include <string>
 #include <optional>
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 struct AuthResult
 {
@@ -685,19 +685,19 @@ std::function<void(std::optional<Json::Value> userInfo)> &&callback
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/BackchannelLogoutNotifier.h
+=== libs/drogon/include/fulla/drogon/adapters/BackchannelLogoutNotifier.h
 #pragma once
-#include <authforge/common/ports/IAuditSink.h>
-#include <authforge/identity/IBackchannelLogoutNotifier.h>
-#include <authforge/identity/IOAuthHttpClient.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
-#include <authforge/oauth2/protocol/LogoutToken.h>
+#include <fulla/common/ports/IAuditSink.h>
+#include <fulla/identity/IBackchannelLogoutNotifier.h>
+#include <fulla/identity/IOAuthHttpClient.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/protocol/LogoutToken.h>
 #include <drogon/orm/DbClient.h>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
 struct BackchannelRpTarget
 {
@@ -705,17 +705,17 @@ std::string clientId;
 std::string backchannelLogoutUri;
 };
 class BackchannelLogoutNotifier
-: public authforge::identity::IBackchannelLogoutNotifier,
+: public fulla::identity::IBackchannelLogoutNotifier,
 public std::enable_shared_from_this<BackchannelLogoutNotifier>
 {
 public:
 BackchannelLogoutNotifier(
 ::drogon::orm::DbClientPtr dbClient,
-std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager,
+std::shared_ptr<const fulla::oauth2::JwkManager> jwkManager,
 std::string issuer,
-std::shared_ptr<authforge::identity::IOAuthHttpClient> httpClient,
-std::shared_ptr<authforge::common::ports::IAuditSink> auditSink = nullptr,
-int tokenTtlSeconds = authforge::oauth2::protocol::kLogoutTokenDefaultTtlSeconds);
+std::shared_ptr<fulla::identity::IOAuthHttpClient> httpClient,
+std::shared_ptr<fulla::common::ports::IAuditSink> auditSink = nullptr,
+int tokenTtlSeconds = fulla::oauth2::protocol::kLogoutTokenDefaultTtlSeconds);
 void notify(const std::string &userId, std::function<void()> &&callback) override;
 void dispatch(
 const std::string &subject,
@@ -723,29 +723,29 @@ const std::vector<BackchannelRpTarget> &targets,
 std::function<void()> &&completion);
 private:
 ::drogon::orm::DbClientPtr dbClient_;
-std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager_;
+std::shared_ptr<const fulla::oauth2::JwkManager> jwkManager_;
 std::string issuer_;
-std::shared_ptr<authforge::identity::IOAuthHttpClient> httpClient_;
-std::shared_ptr<authforge::common::ports::IAuditSink> auditSink_;
+std::shared_ptr<fulla::identity::IOAuthHttpClient> httpClient_;
+std::shared_ptr<fulla::common::ports::IAuditSink> auditSink_;
 int tokenTtlSeconds_;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/DrogonAuditSink.h
+=== libs/drogon/include/fulla/drogon/adapters/DrogonAuditSink.h
 #pragma once
-#include <authforge/common/observability/AuditEvent.h>
-#include <authforge/common/ports/IAuditSink.h>
+#include <fulla/common/observability/AuditEvent.h>
+#include <fulla/common/ports/IAuditSink.h>
 #include <drogon/HttpRequest.h>
 #include <json/json.h>
 #include <memory>
 #include <string>
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
-class DrogonAuditSink : public authforge::common::ports::IAuditSink
+class DrogonAuditSink : public fulla::common::ports::IAuditSink
 {
 public:
-void record(const authforge::common::observability::AuditEvent &event) override;
+void record(const fulla::common::observability::AuditEvent &event) override;
 static void logFromRequest(
-const std::shared_ptr<authforge::common::ports::IAuditSink> &sink,
+const std::shared_ptr<fulla::common::ports::IAuditSink> &sink,
 const std::string &action,
 const std::string &outcome,
 const ::drogon::HttpRequestPtr &req,
@@ -756,49 +756,49 @@ const Json::Value &details = Json::Value()
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/DrogonLogger.h
+=== libs/drogon/include/fulla/drogon/adapters/DrogonLogger.h
 #pragma once
-#include <authforge/common/ports/ILogger.h>
-namespace authforge::drogon::adapters
+#include <fulla/common/ports/ILogger.h>
+namespace fulla::drogon::adapters
 {
-class DrogonLogger : public authforge::common::ports::ILogger
+class DrogonLogger : public fulla::common::ports::ILogger
 {
 public:
-void log(authforge::common::ports::LogLevel level, const std::string &message) override;
+void log(fulla::common::ports::LogLevel level, const std::string &message) override;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/DrogonMetrics.h
+=== libs/drogon/include/fulla/drogon/adapters/DrogonMetrics.h
 #pragma once
-#include <authforge/common/ports/IMetrics.h>
+#include <fulla/common/ports/IMetrics.h>
 #include <string>
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
-class DrogonMetrics : public authforge::common::ports::IMetrics
+class DrogonMetrics : public fulla::common::ports::IMetrics
 {
 public:
 void incrementCounter(
 const std::string &name,
-const authforge::common::ports::MetricLabels &labels,
+const fulla::common::ports::MetricLabels &labels,
 double value = 1.0
 ) override;
 void setGauge(
 const std::string &name,
-const authforge::common::ports::MetricLabels &labels,
+const fulla::common::ports::MetricLabels &labels,
 double value
 ) override;
 void observeHistogram(
 const std::string &name,
-const authforge::common::ports::MetricLabels &labels,
+const fulla::common::ports::MetricLabels &labels,
 double value
 ) override;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/DrogonOAuthHttpClient.h
+=== libs/drogon/include/fulla/drogon/adapters/DrogonOAuthHttpClient.h
 #pragma once
-#include <authforge/identity/IOAuthHttpClient.h>
-namespace authforge::drogon::adapters
+#include <fulla/identity/IOAuthHttpClient.h>
+namespace fulla::drogon::adapters
 {
-class DrogonOAuthHttpClient : public authforge::identity::IOAuthHttpClient
+class DrogonOAuthHttpClient : public fulla::identity::IOAuthHttpClient
 {
 public:
 void postForm(
@@ -813,12 +813,12 @@ ResultCallback &&cb
 ) override;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/OpenSslCryptoProvider.h
+=== libs/drogon/include/fulla/drogon/adapters/OpenSslCryptoProvider.h
 #pragma once
-#include <authforge/common/ports/ICryptoProvider.h>
-namespace authforge::drogon::adapters
+#include <fulla/common/ports/ICryptoProvider.h>
+namespace fulla::drogon::adapters
 {
-class OpenSslCryptoProvider : public authforge::common::ports::ICryptoProvider
+class OpenSslCryptoProvider : public fulla::common::ports::ICryptoProvider
 {
 public:
 std::vector<unsigned char> sha256(const std::string &data) override;
@@ -841,28 +841,28 @@ const std::string &data
 ) override;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/OpenSslUuidGenerator.h
+=== libs/drogon/include/fulla/drogon/adapters/OpenSslUuidGenerator.h
 #pragma once
-#include <authforge/common/ports/IUuidGenerator.h>
-namespace authforge::drogon::adapters
+#include <fulla/common/ports/IUuidGenerator.h>
+namespace fulla::drogon::adapters
 {
-class OpenSslUuidGenerator : public authforge::common::ports::IUuidGenerator
+class OpenSslUuidGenerator : public fulla::common::ports::IUuidGenerator
 {
 public:
 std::string generate() override;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/StorageRoleProvider.h
+=== libs/drogon/include/fulla/drogon/adapters/StorageRoleProvider.h
 #pragma once
-#include <authforge/common/ports/IRoleProvider.h>
-#include <authforge/identity/IRoleRepository.h>
+#include <fulla/common/ports/IRoleProvider.h>
+#include <fulla/identity/IRoleRepository.h>
 #include <memory>
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
-class StorageRoleProvider : public authforge::common::ports::IRoleProvider
+class StorageRoleProvider : public fulla::common::ports::IRoleProvider
 {
 public:
-explicit StorageRoleProvider(std::shared_ptr<authforge::identity::IRoleRepository> roleRepo)
+explicit StorageRoleProvider(std::shared_ptr<fulla::identity::IRoleRepository> roleRepo)
 : roleRepo_(std::move(roleRepo))
 ;
 bool supportsSubjectLookup() const noexcept override
@@ -872,49 +872,49 @@ void getRoles(const std::string &subject, RolesCallback &&cb) override
 void getRoles(int32_t internalUserId, RolesCallback &&cb) override
 ;
 private:
-std::shared_ptr<authforge::identity::IRoleRepository> roleRepo_;
+std::shared_ptr<fulla::identity::IRoleRepository> roleRepo_;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/StorageSubjectResolver.h
+=== libs/drogon/include/fulla/drogon/adapters/StorageSubjectResolver.h
 #pragma once
-#include <authforge/common/model/Subject.h>
-#include <authforge/common/ports/ISubjectResolver.h>
-#include <authforge/identity/ISubjectMappingRepository.h>
+#include <fulla/common/model/Subject.h>
+#include <fulla/common/ports/ISubjectResolver.h>
+#include <fulla/identity/ISubjectMappingRepository.h>
 #include <memory>
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
-class StorageSubjectResolver : public authforge::common::ports::ISubjectResolver
+class StorageSubjectResolver : public fulla::common::ports::ISubjectResolver
 {
 public:
 explicit StorageSubjectResolver(
-std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMappingRepo
+std::shared_ptr<fulla::identity::ISubjectMappingRepository> subjectMappingRepo
 )
 : subjectMappingRepo_(std::move(subjectMappingRepo))
 ;
-void resolve(const authforge::common::model::Subject &subject, ResolveCallback &&cb) override;
+void resolve(const fulla::common::model::Subject &subject, ResolveCallback &&cb) override;
 private:
-std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMappingRepo_;
+std::shared_ptr<fulla::identity::ISubjectMappingRepository> subjectMappingRepo_;
 };
 }
-=== libs/drogon/include/authforge/drogon/adapters/SystemClock.h
+=== libs/drogon/include/fulla/drogon/adapters/SystemClock.h
 #pragma once
-#include <authforge/common/ports/IClock.h>
-namespace authforge::drogon::adapters
+#include <fulla/common/ports/IClock.h>
+namespace fulla::drogon::adapters
 {
-class SystemClock : public authforge::common::ports::IClock
+class SystemClock : public fulla::common::ports::IClock
 {
 public:
 int64_t nowSeconds() const override;
 int64_t nowMilliseconds() const override;
 };
 }
-=== libs/drogon/include/authforge/drogon/admin/AuditService.h
+=== libs/drogon/include/fulla/drogon/admin/AuditService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
 #include <memory>
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 class AuditService
 {
@@ -926,7 +926,7 @@ static void getDashboardStats(const ::drogon::HttpRequestPtr &req, ResponseCallb
 static void dashboard(ResponseCallback cb);
 };
 }
-=== libs/drogon/include/authforge/drogon/admin/ClientManagementService.h
+=== libs/drogon/include/fulla/drogon/admin/ClientManagementService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
@@ -934,7 +934,7 @@ static void dashboard(ResponseCallback cb);
 #include <memory>
 #include <string>
 #include <vector>
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 class ClientManagementService
 {
@@ -975,14 +975,14 @@ const std::string &clientId
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/admin/RoleScopeAdminService.h
+=== libs/drogon/include/fulla/drogon/admin/RoleScopeAdminService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 class RoleScopeAdminService
 {
@@ -1015,14 +1015,14 @@ const std::string &scopeId
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/admin/TokenManagementService.h
+=== libs/drogon/include/fulla/drogon/admin/TokenManagementService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 class TokenManagementService
 {
@@ -1040,7 +1040,7 @@ static void revokeTokensByUser(const ::drogon::HttpRequestPtr &req, ResponseCall
 static void getOidcKeys(ResponseCallback cb);
 };
 }
-=== libs/drogon/include/authforge/drogon/admin/UserAdminService.h
+=== libs/drogon/include/fulla/drogon/admin/UserAdminService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
@@ -1048,7 +1048,7 @@ static void getOidcKeys(ResponseCallback cb);
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 class UserAdminService
 {
@@ -1100,29 +1100,29 @@ std::function<void(bool)> &&onDone,
 std::function<void()> &&onError
 );
 }
-=== libs/drogon/include/authforge/drogon/authz/InsufficientScopeResponder.h
+=== libs/drogon/include/fulla/drogon/authz/InsufficientScopeResponder.h
 #pragma once
-#include <authforge/drogon/authz/ScopeResolver.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/drogon/error/RequestId.h>
+#include <fulla/drogon/authz/ScopeResolver.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/error/RequestId.h>
 #include <drogon/drogon.h>
 #include <string>
-namespace authforge::drogon::authz
+namespace fulla::drogon::authz
 {
 inline ::drogon::HttpResponsePtr respondInsufficientScope(
 const ::drogon::HttpRequestPtr &req,
 const ResourceScopeRequirement &reqmt)
 ;
 }
-=== libs/drogon/include/authforge/drogon/authz/ResourceScopeRegistry.h
+=== libs/drogon/include/fulla/drogon/authz/ResourceScopeRegistry.h
 #pragma once
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <drogon/HttpTypes.h>
 #include <string>
 #include <string_view>
 #include <vector>
-namespace authforge::drogon::authz
+namespace fulla::drogon::authz
 {
 enum class ScopeMatch
 {
@@ -1155,14 +1155,14 @@ static bool isBuilt();
 static void clearPrefixes();
 };
 }
-=== libs/drogon/include/authforge/drogon/authz/ScopeResolver.h
+=== libs/drogon/include/fulla/drogon/authz/ScopeResolver.h
 #pragma once
-#include <authforge/drogon/authz/ResourceScopeRegistry.h>
-#include <authforge/drogon/utils/ScopeChecker.h>
+#include <fulla/drogon/authz/ResourceScopeRegistry.h>
+#include <fulla/drogon/utils/ScopeChecker.h>
 #include <sstream>
 #include <string>
 #include <string_view>
-namespace authforge::drogon::authz
+namespace fulla::drogon::authz
 {
 inline bool scopeSatisfied(
 std::string_view tokenScopes,
@@ -1174,13 +1174,13 @@ inline bool satisfies(std::string_view tokenScopes, const ResourceScopeRequireme
 inline std::string buildInsufficientScopeChallenge(const ResourceScopeRequirement &req)
 ;
 }
-=== libs/drogon/include/authforge/drogon/controllers/ApiDocController.h
+=== libs/drogon/include/fulla/drogon/controllers/ApiDocController.h
 #pragma once
 #include <drogon/HttpController.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class ApiDocController : public ::drogon::HttpController<ApiDocController, false>
 {
@@ -1200,10 +1200,10 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/AuditController.h
+=== libs/drogon/include/fulla/drogon/controllers/AuditController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class AuditController : public ::drogon::HttpController<AuditController, false>
 {
@@ -1213,19 +1213,19 @@ ADD_METHOD_TO(
 AuditController::dashboard,
 "/api/admin/dashboard",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 AuditController::listLogs,
 "/api/admin/logs",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 AuditController::getDashboardStats,
 "/api/admin/dashboard/stats",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 METHOD_LIST_END
 void listLogs(
@@ -1245,11 +1245,11 @@ private:
 static void initApiDocsImpl();
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/AuthorizationEndpointController.h
+=== libs/drogon/include/fulla/drogon/controllers/AuthorizationEndpointController.h
 #pragma once
 #include <drogon/HttpController.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-namespace authforge::drogon::controllers
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+namespace fulla::drogon::controllers
 {
 class AuthorizationEndpointController
 : public ::drogon::HttpController<AuthorizationEndpointController, false>
@@ -1271,10 +1271,10 @@ static void initApiDocsImpl();
 ::OAuth2Plugin *resolvePlugin() const;
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/ClientAdminController.h
+=== libs/drogon/include/fulla/drogon/controllers/ClientAdminController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class ClientAdminController : public ::drogon::HttpController<ClientAdminController, false>
 {
@@ -1284,49 +1284,49 @@ ADD_METHOD_TO(
 ClientAdminController::listClients,
 "/api/admin/clients",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 ClientAdminController::createClient,
 "/api/admin/clients",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 ClientAdminController::getClient,
 "/api/admin/clients/{clientId}",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 ClientAdminController::updateClient,
 "/api/admin/clients/{clientId}",
 ::drogon::Put,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 ClientAdminController::deleteClient,
 "/api/admin/clients/{clientId}",
 ::drogon::Delete,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 ClientAdminController::resetClientSecret,
 "/api/admin/clients/{clientId}/reset-secret",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 ClientAdminController::getClientScopes,
 "/api/admin/clients/{clientId}/scopes",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 ClientAdminController::updateClientScopes,
 "/api/admin/clients/{clientId}/scopes",
 ::drogon::Put,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 METHOD_LIST_END
 void listClients(
@@ -1372,10 +1372,10 @@ private:
 static void initApiDocsImpl();
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/ClientRegistrationController.h
+=== libs/drogon/include/fulla/drogon/controllers/ClientRegistrationController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class ClientRegistrationController
 : public ::drogon::HttpController<ClientRegistrationController, false>
@@ -1386,7 +1386,7 @@ ADD_METHOD_TO(
 ClientRegistrationController::registerClient,
 "/oauth2/register",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 METHOD_LIST_END
 void registerClient(
@@ -1395,11 +1395,11 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/DeviceAuthController.h
+=== libs/drogon/include/fulla/drogon/controllers/DeviceAuthController.h
 #pragma once
 #include <drogon/HttpController.h>
 class OAuth2Plugin;
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class DeviceAuthController : public ::drogon::HttpController<DeviceAuthController, false>
 {
@@ -1416,7 +1416,7 @@ ADD_METHOD_TO(
 DeviceAuthController::approveDevice,
 "/oauth2/device/approve",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 METHOD_LIST_END
 void deviceAuthorization(
@@ -1438,11 +1438,11 @@ OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/DiscoveryController.h
+=== libs/drogon/include/fulla/drogon/controllers/DiscoveryController.h
 #pragma once
 #include <drogon/HttpController.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-namespace authforge::drogon::controllers
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+namespace fulla::drogon::controllers
 {
 class DiscoveryController : public ::drogon::HttpController<DiscoveryController, false>
 {
@@ -1481,10 +1481,10 @@ static void initApiDocsImpl();
 ::OAuth2Plugin *resolvePlugin() const;
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/EmailVerificationController.h
+=== libs/drogon/include/fulla/drogon/controllers/EmailVerificationController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class EmailVerificationController
 : public ::drogon::HttpController<EmailVerificationController, false>
@@ -1496,7 +1496,7 @@ ADD_METHOD_TO(
 EmailVerificationController::resend,
 "/api/verify-email/resend",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 METHOD_LIST_END
 void verify(
@@ -1509,7 +1509,7 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/GitHubController.h
+=== libs/drogon/include/fulla/drogon/controllers/GitHubController.h
 #pragma once
 #include <drogon/HttpController.h>
 #include <functional>
@@ -1517,12 +1517,12 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 #include <string>
 class OAuth2Plugin;
 #ifdef WITH_SOCIAL
-namespace authforge::identity
+namespace fulla::identity
 {
 class GitHubAuthService;
 }
 #endif
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class GitHubController : public ::drogon::HttpController<GitHubController, false>
 {
@@ -1530,7 +1530,7 @@ public:
 void setPlugin(OAuth2Plugin *plugin)
 ;
 #ifdef WITH_SOCIAL
-void setGitHubAuthService(authforge::identity::GitHubAuthService *service)
+void setGitHubAuthService(fulla::identity::GitHubAuthService *service)
 ;
 #endif
 METHOD_LIST_BEGIN
@@ -1545,7 +1545,7 @@ using CallbackPtr = std::shared_ptr<std::function<void(const ::drogon::HttpRespo
 OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
 #ifdef WITH_SOCIAL
-authforge::identity::GitHubAuthService *gitHubAuthService_ = nullptr;
+fulla::identity::GitHubAuthService *gitHubAuthService_ = nullptr;
 #endif
 void issueTokensForUser(
 const ::drogon::HttpRequestPtr &req,
@@ -1586,22 +1586,22 @@ const std::string &subject
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/GoogleController.h
+=== libs/drogon/include/fulla/drogon/controllers/GoogleController.h
 #pragma once
 #include <drogon/HttpController.h>
 #ifdef WITH_SOCIAL
-namespace authforge::identity
+namespace fulla::identity
 {
 class GoogleAuthService;
 }
 #endif
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class GoogleController : public ::drogon::HttpController<GoogleController, false>
 {
 public:
 #ifdef WITH_SOCIAL
-void setGoogleAuthService(authforge::identity::GoogleAuthService *service)
+void setGoogleAuthService(fulla::identity::GoogleAuthService *service)
 ;
 #endif
 METHOD_LIST_BEGIN
@@ -1613,15 +1613,15 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 private:
 #ifdef WITH_SOCIAL
-authforge::identity::GoogleAuthService *googleAuthService_ = nullptr;
+fulla::identity::GoogleAuthService *googleAuthService_ = nullptr;
 #endif
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/HealthController.h
+=== libs/drogon/include/fulla/drogon/controllers/HealthController.h
 #pragma once
 #include <drogon/HttpController.h>
 class OAuth2Plugin;
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class HealthController : public ::drogon::HttpController<HealthController, false>
 {
@@ -1650,44 +1650,44 @@ OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/MfaController.h
+=== libs/drogon/include/fulla/drogon/controllers/MfaController.h
 #pragma once
 #include <drogon/HttpController.h>
 class OAuth2Plugin;
-namespace authforge::identity
+namespace fulla::identity
 {
 class MfaService;
 class IUserRepository;
 }
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class MfaController : public ::drogon::HttpController<MfaController, false>
 {
 public:
 void setPlugin(OAuth2Plugin *plugin)
 ;
-void setMfaService(authforge::identity::MfaService *mfaService)
+void setMfaService(fulla::identity::MfaService *mfaService)
 ;
-void setUserRepository(authforge::identity::IUserRepository *userRepo)
+void setUserRepository(fulla::identity::IUserRepository *userRepo)
 ;
 METHOD_LIST_BEGIN
 ADD_METHOD_TO(
 MfaController::setup,
 "/api/me/mfa/setup",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 MfaController::verifySetup,
 "/api/me/mfa/verify",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 MfaController::disable,
 "/api/me/mfa/disable",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(MfaController::verifyLogin, "/oauth2/mfa/verify", ::drogon::Post);
 METHOD_LIST_END
@@ -1710,14 +1710,14 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 private:
 OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
-authforge::identity::MfaService *mfaService_ = nullptr;
-authforge::identity::IUserRepository *userRepo_ = nullptr;
+fulla::identity::MfaService *mfaService_ = nullptr;
+fulla::identity::IUserRepository *userRepo_ = nullptr;
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/PasswordResetController.h
+=== libs/drogon/include/fulla/drogon/controllers/PasswordResetController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class PasswordResetController : public ::drogon::HttpController<PasswordResetController, false>
 {
@@ -1736,10 +1736,10 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/RoleScopeAdminController.h
+=== libs/drogon/include/fulla/drogon/controllers/RoleScopeAdminController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class RoleScopeAdminController : public ::drogon::HttpController<RoleScopeAdminController, false>
 {
@@ -1749,55 +1749,55 @@ ADD_METHOD_TO(
 RoleScopeAdminController::listRoles,
 "/api/admin/roles",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::createRole,
 "/api/admin/roles",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::updateRole,
 "/api/admin/roles/{roleId}",
 ::drogon::Put,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::deleteRole,
 "/api/admin/roles/{roleId}",
 ::drogon::Delete,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::listScopes,
 "/api/admin/scopes",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::createScope,
 "/api/admin/scopes",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::updateScope,
 "/api/admin/scopes/{scopeId}",
 ::drogon::Put,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::deleteScope,
 "/api/admin/scopes/{scopeId}",
 ::drogon::Delete,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 RoleScopeAdminController::scopeResources,
 "/api/admin/scopes/resources",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 METHOD_LIST_END
 void listRoles(
@@ -1845,25 +1845,25 @@ private:
 static void initApiDocsImpl();
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/SessionController.h
+=== libs/drogon/include/fulla/drogon/controllers/SessionController.h
 #pragma once
 #include <drogon/HttpController.h>
 class OAuth2Plugin;
-namespace authforge::identity
+namespace fulla::identity
 {
 class AuthService;
 class SessionManager;
 }
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class SessionController : public ::drogon::HttpController<SessionController, false>
 {
 public:
 void setPlugin(OAuth2Plugin *plugin)
 ;
-void setIdentityAuthService(authforge::identity::AuthService *authService)
+void setIdentityAuthService(fulla::identity::AuthService *authService)
 ;
-void setSessionManager(authforge::identity::SessionManager *sessionManager)
+void setSessionManager(fulla::identity::SessionManager *sessionManager)
 ;
 METHOD_LIST_BEGIN
 ADD_METHOD_TO(SessionController::showLoginPage, "/login", ::drogon::Get);
@@ -1873,7 +1873,7 @@ ADD_METHOD_TO(
 SessionController::logout,
 "/oauth2/logout",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(SessionController::endSession, "/oauth2/end_session", ::drogon::Get);
 ADD_METHOD_TO(SessionController::endSession, "/oauth2/end_session", ::drogon::Post);
@@ -1906,14 +1906,14 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 private:
 OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
-authforge::identity::AuthService *identityAuthService_ = nullptr;
-authforge::identity::SessionManager *sessionManager_ = nullptr;
+fulla::identity::AuthService *identityAuthService_ = nullptr;
+fulla::identity::SessionManager *sessionManager_ = nullptr;
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/TokenAdminController.h
+=== libs/drogon/include/fulla/drogon/controllers/TokenAdminController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class TokenAdminController : public ::drogon::HttpController<TokenAdminController, false>
 {
@@ -1923,31 +1923,31 @@ ADD_METHOD_TO(
 TokenAdminController::listTokens,
 "/api/admin/tokens",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 TokenAdminController::revokeTokensByClient,
 "/api/admin/tokens/revoke-by-client",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 TokenAdminController::revokeTokensByUser,
 "/api/admin/tokens/revoke-by-user",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 TokenAdminController::revokeToken,
 "/api/admin/tokens/{tokenPrefix}",
 ::drogon::Delete,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 TokenAdminController::getOidcKeys,
 "/api/admin/oidc/keys",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 METHOD_LIST_END
 void listTokens(
@@ -1976,12 +1976,12 @@ private:
 static void initApiDocsImpl();
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/TokenEndpointController.h
+=== libs/drogon/include/fulla/drogon/controllers/TokenEndpointController.h
 #pragma once
 #include <drogon/HttpController.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <string>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 struct ClientCredentials
 {
@@ -2001,7 +2001,7 @@ ADD_METHOD_TO(
 TokenEndpointController::userInfo,
 "/oauth2/userinfo",
 ::drogon::Get,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 TokenEndpointController::introspect,
@@ -2051,10 +2051,10 @@ static void recordRateLimitFailure(const ::drogon::HttpRequestPtr &req, const st
 ::OAuth2Plugin *resolvePlugin() const;
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/UserAdminController.h
+=== libs/drogon/include/fulla/drogon/controllers/UserAdminController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class UserAdminController : public ::drogon::HttpController<UserAdminController, false>
 {
@@ -2064,55 +2064,55 @@ ADD_METHOD_TO(
 UserAdminController::listUsers,
 "/api/admin/users",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::createUser,
 "/api/admin/users",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::getUser,
 "/api/admin/users/{userId}",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::updateUser,
 "/api/admin/users/{userId}",
 ::drogon::Put,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::deleteUser,
 "/api/admin/users/{userId}",
 ::drogon::Delete,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::disableUser,
 "/api/admin/users/{userId}/disable",
 ::drogon::Put,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::enableUser,
 "/api/admin/users/{userId}/enable",
 ::drogon::Post,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::getUserRoles,
 "/api/admin/users/{userId}/roles",
 ::drogon::Get,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 ADD_METHOD_TO(
 UserAdminController::assignUserRoles,
 "/api/admin/users/{userId}/roles",
 ::drogon::Put,
-"authforge::drogon::filters::AuthorizationFilter"
+"fulla::drogon::filters::AuthorizationFilter"
 );
 METHOD_LIST_END
 void listUsers(
@@ -2163,16 +2163,16 @@ private:
 static void initApiDocsImpl();
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/UserSelfServiceController.h
+=== libs/drogon/include/fulla/drogon/controllers/UserSelfServiceController.h
 #pragma once
 #include <drogon/HttpController.h>
 #ifdef WITH_SOCIAL
-namespace authforge::identity
+namespace fulla::identity
 {
 class SocialLinkService;
 }
 #endif
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class UserSelfServiceController : public ::drogon::HttpController<UserSelfServiceController, false>
 {
@@ -2182,50 +2182,50 @@ ADD_METHOD_TO(
 UserSelfServiceController::getProfile,
 "/api/me",
 ::drogon::Get,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 UserSelfServiceController::changePassword,
 "/api/me/password",
 ::drogon::Put,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 UserSelfServiceController::listAuthorizedApps,
 "/api/me/authorized-apps",
 ::drogon::Get,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 UserSelfServiceController::revokeAuthorizedApp,
 "/api/me/authorized-apps/{clientId}",
 ::drogon::Delete,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 UserSelfServiceController::deleteAccount,
 "/api/me",
 ::drogon::Delete,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 #ifdef WITH_SOCIAL
 ADD_METHOD_TO(
 UserSelfServiceController::listSocialLinks,
 "/api/me/social/links",
 ::drogon::Get,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 UserSelfServiceController::linkSocialAccount,
 "/api/me/social/links/{provider}",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 UserSelfServiceController::unlinkSocialAccount,
 "/api/me/social/links/{provider}",
 ::drogon::Delete,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 #endif
 METHOD_LIST_END
@@ -2265,33 +2265,33 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
 const std::string &provider
 );
-void setSocialLinkService(::authforge::identity::SocialLinkService *service)
+void setSocialLinkService(::fulla::identity::SocialLinkService *service)
 ;
 #endif
 static void initApiDocs();
 private:
 static void initApiDocsImpl();
 #ifdef WITH_SOCIAL
-::authforge::identity::SocialLinkService *socialLinkService_ = nullptr;
+::fulla::identity::SocialLinkService *socialLinkService_ = nullptr;
 #endif
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/WeChatController.h
+=== libs/drogon/include/fulla/drogon/controllers/WeChatController.h
 #pragma once
 #include <drogon/HttpController.h>
 #ifdef WITH_SOCIAL
-namespace authforge::identity
+namespace fulla::identity
 {
 class WeChatAuthService;
 }
 #endif
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class WeChatController : public ::drogon::HttpController<WeChatController, false>
 {
 public:
 #ifdef WITH_SOCIAL
-void setWeChatAuthService(authforge::identity::WeChatAuthService *service)
+void setWeChatAuthService(fulla::identity::WeChatAuthService *service)
 ;
 #endif
 METHOD_LIST_BEGIN
@@ -2303,39 +2303,39 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 private:
 #ifdef WITH_SOCIAL
-authforge::identity::WeChatAuthService *weChatAuthService_ = nullptr;
+fulla::identity::WeChatAuthService *weChatAuthService_ = nullptr;
 #endif
 };
 }
-=== libs/drogon/include/authforge/drogon/controllers/WebAuthnController.h
+=== libs/drogon/include/fulla/drogon/controllers/WebAuthnController.h
 #pragma once
 #include <drogon/HttpController.h>
-namespace authforge::identity
+namespace fulla::identity
 {
 class WebAuthnService;
 class IUserRepository;
 }
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 class WebAuthnController : public ::drogon::HttpController<WebAuthnController, false>
 {
 public:
-void setWebAuthnService(authforge::identity::WebAuthnService *webAuthnService)
+void setWebAuthnService(fulla::identity::WebAuthnService *webAuthnService)
 ;
-void setUserRepository(authforge::identity::IUserRepository *userRepo)
+void setUserRepository(fulla::identity::IUserRepository *userRepo)
 ;
 METHOD_LIST_BEGIN
 ADD_METHOD_TO(
 WebAuthnController::registerBegin,
 "/api/me/webauthn/register/begin",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 WebAuthnController::registerFinish,
 "/api/me/webauthn/register/finish",
 ::drogon::Post,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
 WebAuthnController::authenticateBegin,
@@ -2351,7 +2351,7 @@ ADD_METHOD_TO(
 WebAuthnController::listCredentials,
 "/api/me/webauthn/credentials",
 ::drogon::Get,
-"authforge::drogon::filters::OAuth2AuthFilter"
+"fulla::drogon::filters::OAuth2AuthFilter"
 );
 METHOD_LIST_END
 void registerBegin(
@@ -2375,17 +2375,17 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 private:
-authforge::identity::WebAuthnService *webAuthnService_ = nullptr;
-authforge::identity::IUserRepository *userRepo_ = nullptr;
+fulla::identity::WebAuthnService *webAuthnService_ = nullptr;
+fulla::identity::IUserRepository *userRepo_ = nullptr;
 };
 }
-=== libs/drogon/include/authforge/drogon/error/ErrorHandler.h
+=== libs/drogon/include/fulla/drogon/error/ErrorHandler.h
 #pragma once
-#include <authforge/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorTypes.h>
 #include <drogon/drogon.h>
 #include <drogon/orm/DbClient.h>
 #include <functional>
-namespace authforge::common::error
+namespace fulla::common::error
 {
 using ::drogon::orm::DrogonDbException;
 class ErrorHandler
@@ -2405,15 +2405,15 @@ static std::string generateRequestId();
 static void logError(const Error &error, const std::string &context = "");
 };
 }
-=== libs/drogon/include/authforge/drogon/error/ErrorResponder.h
+=== libs/drogon/include/fulla/drogon/error/ErrorResponder.h
 #pragma once
-#include <authforge/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorTypes.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
 #include <string>
 #include <vector>
-namespace authforge::common::error
+namespace fulla::common::error
 {
 struct FieldError
 {
@@ -2448,12 +2448,12 @@ const Error &error
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/error/OAuth2ErrorHandler.h
+=== libs/drogon/include/fulla/drogon/error/OAuth2ErrorHandler.h
 #pragma once
 #include <drogon/HttpResponse.h>
 #include <string>
 #include <functional>
-namespace authforge::common::error
+namespace fulla::common::error
 {
 class OAuth2ErrorHandler
 {
@@ -2476,11 +2476,11 @@ static constexpr const char *SERVER_ERROR = "server_error";
 static constexpr const char *TEMPORARILY_UNAVAILABLE = "temporarily_unavailable";
 };
 }
-=== libs/drogon/include/authforge/drogon/error/RequestId.h
+=== libs/drogon/include/fulla/drogon/error/RequestId.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <string>
-namespace authforge::common::error
+namespace fulla::common::error
 {
 class RequestId
 {
@@ -2492,7 +2492,7 @@ private:
 static constexpr const char *kHeader = "X-Request-ID";
 };
 }
-=== libs/drogon/include/authforge/drogon/filters/AuthorizationFilter.h
+=== libs/drogon/include/fulla/drogon/filters/AuthorizationFilter.h
 #pragma once
 #include <drogon/HttpFilter.h>
 #include <drogon/drogon.h>
@@ -2502,7 +2502,7 @@ static constexpr const char *kHeader = "X-Request-ID";
 #include <regex>
 using namespace drogon;
 class OAuth2Plugin;
-namespace authforge::drogon::filters
+namespace fulla::drogon::filters
 {
 class AuthorizationFilter : public HttpFilter<AuthorizationFilter>
 {
@@ -2531,12 +2531,12 @@ void loadRulesSafely();
 bool checkAccess(const std::vector<std::string> &userRoles, const std::string &path);
 };
 }
-=== libs/drogon/include/authforge/drogon/filters/OAuth2AuthFilter.h
+=== libs/drogon/include/fulla/drogon/filters/OAuth2AuthFilter.h
 #pragma once
 #include <drogon/HttpFilter.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 using namespace drogon;
-namespace authforge::drogon::filters
+namespace fulla::drogon::filters
 {
 class OAuth2AuthFilter : public ::drogon::HttpFilter<OAuth2AuthFilter>
 {
@@ -2555,15 +2555,15 @@ private:
 ::OAuth2Plugin *resolvePlugin() const;
 };
 }
-=== libs/drogon/include/authforge/drogon/filters/RequestValidationFilter.h
+=== libs/drogon/include/fulla/drogon/filters/RequestValidationFilter.h
 #pragma once
 #include <drogon/HttpFilter.h>
 #include <drogon/drogon.h>
 #include <string>
 #include <vector>
 #include <map>
-#include <authforge/drogon/validation/HttpResponder.h>
-#include <authforge/drogon/validation/RuleSet.h>
+#include <fulla/drogon/validation/HttpResponder.h>
+#include <fulla/drogon/validation/RuleSet.h>
 using namespace drogon;
 class RequestValidationFilter : public HttpFilter<RequestValidationFilter>
 {
@@ -2578,29 +2578,29 @@ FilterChainCallback &&fccb
 private:
 struct RouteValidationRules
 {
-std::vector<authforge::drogon::validation::Rule> rules;
+std::vector<fulla::drogon::validation::Rule> rules;
 bool enabled;
 };
 RouteValidationRules getValidationRules(const std::string &path) const;
 static const std::map<std::string, RouteValidationRules> &rules();
 static std::map<std::string, RouteValidationRules> buildRules();
 };
-=== libs/drogon/include/authforge/drogon/observability/AuditLogger.h
+=== libs/drogon/include/fulla/drogon/observability/AuditLogger.h
 #pragma once
-#include <authforge/common/observability/AuditEvent.h>
-namespace authforge::drogon::observability
+#include <fulla/common/observability/AuditEvent.h>
+namespace fulla::drogon::observability
 {
 class AuditLogger
 {
 public:
-static void log(const authforge::common::observability::AuditEvent &event);
+static void log(const fulla::common::observability::AuditEvent &event);
 };
 }
-=== libs/drogon/include/authforge/drogon/observability/Metrics.h
+=== libs/drogon/include/fulla/drogon/observability/Metrics.h
 #pragma once
 #include <string>
 #include <chrono>
-namespace authforge::drogon::observability
+namespace fulla::drogon::observability
 {
 class Metrics
 {
@@ -2633,13 +2633,13 @@ std::string storage_;
 std::chrono::steady_clock::time_point start_;
 };
 }
-=== libs/drogon/include/authforge/drogon/observability/openapi/OpenApiGenerator.h
+=== libs/drogon/include/fulla/drogon/observability/openapi/OpenApiGenerator.h
 #pragma once
 #include <string>
 #include <vector>
 #include <map>
 #include <json/json.h>
-namespace authforge::drogon::observability::openapi
+namespace fulla::drogon::observability::openapi
 {
 enum class ParameterType
 {
@@ -2713,27 +2713,27 @@ static Json::Value generateParameter(const ParameterInfo &param);
 static Json::Value generateSchema();
 };
 }
-=== libs/drogon/include/authforge/drogon/plugin/OAuth2CleanupService.h
+=== libs/drogon/include/fulla/drogon/plugin/OAuth2CleanupService.h
 #pragma once
 #include <drogon/drogon.h>
-#include <authforge/oauth2/repository/IGrantRepository.h>
-#include <authforge/oauth2/repository/ITokenRepository.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
 #include <memory>
-namespace authforge::drogon
+namespace fulla::drogon
 {
 class OAuth2CleanupService : public std::enable_shared_from_this<OAuth2CleanupService>
 {
 public:
 OAuth2CleanupService(
-std::shared_ptr<::authforge::oauth2::repository::IGrantRepository> grantRepo,
-std::shared_ptr<::authforge::oauth2::repository::ITokenRepository> tokenRepo
+std::shared_ptr<::fulla::oauth2::repository::IGrantRepository> grantRepo,
+std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo
 );
 ~OAuth2CleanupService();
 void start(double intervalSeconds);
 void stop();
 private:
-std::shared_ptr<::authforge::oauth2::repository::IGrantRepository> grantRepo_;
-std::shared_ptr<::authforge::oauth2::repository::ITokenRepository> tokenRepo_;
+std::shared_ptr<::fulla::oauth2::repository::IGrantRepository> grantRepo_;
+std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo_;
 uint64_t timerId_ = 0;
 bool running_ = false;
 bool stopped_ = false;
@@ -2742,46 +2742,46 @@ void runCleanup();
 void doPurge();
 };
 }
-=== libs/drogon/include/authforge/drogon/plugin/OAuth2Plugin.h
+=== libs/drogon/include/fulla/drogon/plugin/OAuth2Plugin.h
 #pragma once
 #include <drogon/plugins/Plugin.h>
-#include <authforge/drogon/plugin/OAuth2CleanupService.h>
-#include <authforge/drogon/services/IdentityService.h>
-#include <authforge/drogon/adapters/StorageRoleProvider.h>
-#include <authforge/identity/IRoleRepository.h>
-#include <authforge/identity/IUserRepository.h>
-#include <authforge/identity/ISubjectMappingRepository.h>
-#include <authforge/storage/memory/MemoryIdentityRepository.h>
-#include <authforge/storage/postgres/PostgresIdentityRepository.h>
-#include <authforge/oauth2/repository/IConsentRepository.h>
-#include <authforge/oauth2/model/Dto.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
-#include <authforge/oauth2/protocol/TokenService.h>
-#include <authforge/oauth2/protocol/ClientService.h>
-#include <authforge/oauth2/repository/ITokenRepository.h>
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/model/Dto.h>
-#include <authforge/common/ports/IAuditSink.h>
-#include <authforge/common/ports/IMetrics.h>
-#include <authforge/oauth2/protocol/AuthorizationService.h>
+#include <fulla/drogon/plugin/OAuth2CleanupService.h>
+#include <fulla/drogon/services/IdentityService.h>
+#include <fulla/drogon/adapters/StorageRoleProvider.h>
+#include <fulla/identity/IRoleRepository.h>
+#include <fulla/identity/IUserRepository.h>
+#include <fulla/identity/ISubjectMappingRepository.h>
+#include <fulla/storage/memory/MemoryIdentityRepository.h>
+#include <fulla/storage/postgres/PostgresIdentityRepository.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
+#include <fulla/oauth2/model/Dto.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/protocol/TokenService.h>
+#include <fulla/oauth2/protocol/ClientService.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/model/Dto.h>
+#include <fulla/common/ports/IAuditSink.h>
+#include <fulla/common/ports/IMetrics.h>
+#include <fulla/oauth2/protocol/AuthorizationService.h>
 #include <string>
 #include <memory>
 #include <functional>
 class OAuth2Plugin : public drogon::Plugin<OAuth2Plugin>
 {
 public:
-using AccessToken = authforge::oauth2::model::OAuth2AccessToken;
-using Client = authforge::oauth2::model::OAuth2Client;
+using AccessToken = fulla::oauth2::model::OAuth2AccessToken;
+using Client = fulla::oauth2::model::OAuth2Client;
 OAuth2Plugin() = default;
 void initAndStart(const Json::Value &config) override;
 void shutdown() override;
-std::shared_ptr<authforge::oauth2::protocol::TokenService> getTokenService() const
+std::shared_ptr<fulla::oauth2::protocol::TokenService> getTokenService() const
 ;
-std::shared_ptr<authforge::oauth2::protocol::ClientService> getClientService() const
+std::shared_ptr<fulla::oauth2::protocol::ClientService> getClientService() const
 ;
-std::shared_ptr<authforge::identity::IdentityService> getIdentityService() const
+std::shared_ptr<fulla::identity::IdentityService> getIdentityService() const
 ;
-std::shared_ptr<const authforge::oauth2::JwkManager> getJwkManager() const
+std::shared_ptr<const fulla::oauth2::JwkManager> getJwkManager() const
 ;
 long long getAccessTokenTtl() const noexcept
 ;
@@ -2794,15 +2794,15 @@ std::function<void(bool)> &&callback
 );
 void getClient(
 const std::string &clientId,
-authforge::oauth2::repository::IClientRepository::ClientCallback &&callback
+fulla::oauth2::repository::IClientRepository::ClientCallback &&callback
 );
 void saveAccessToken(
-const authforge::oauth2::model::OAuth2AccessToken &token,
+const fulla::oauth2::model::OAuth2AccessToken &token,
 std::function<void()> &&callback
 );
 void saveTokenPair(
-const authforge::oauth2::model::OAuth2AccessToken &accessToken,
-const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
+const fulla::oauth2::model::OAuth2AccessToken &accessToken,
+const fulla::oauth2::model::OAuth2RefreshToken &refreshToken,
 std::function<void(bool ok)> &&callback
 );
 void getUserInfo(
@@ -2882,7 +2882,7 @@ std::function<void(bool, std::string)> &&callback
 static bool scopeRequiresAdminRole(const std::string &scope);
 void introspectToken(
 const std::string &token,
-std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)> &&callback
+std::function<void(std::optional<fulla::oauth2::model::TokenIntrospection>)> &&callback
 );
 void incrementIntrospectCount(const std::string &token, std::function<void()> &&callback);
 void revokeAccessToken(
@@ -2898,11 +2898,11 @@ const std::string &getStorageType() const
 ;
 const std::string &getIssuer() const
 ;
-std::shared_ptr<authforge::common::ports::IAuditSink> getAuditSink() const
+std::shared_ptr<fulla::common::ports::IAuditSink> getAuditSink() const
 ;
-std::shared_ptr<authforge::common::ports::IMetrics> getMetrics() const
+std::shared_ptr<fulla::common::ports::IMetrics> getMetrics() const
 ;
-std::shared_ptr<authforge::oauth2::protocol::AuthorizationService>
+std::shared_ptr<fulla::oauth2::protocol::AuthorizationService>
 getAuthorizationService() const
 ;
 std::string signIdToken(
@@ -2912,23 +2912,23 @@ int64_t authTime = 0,
 const std::string &amr = ""
 ) const;
 private:
-std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo_;
-std::shared_ptr<authforge::oauth2::repository::IGrantRepository> grantRepo_;
-std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo_;
-std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consentRepo_;
-std::shared_ptr<authforge::identity::IRoleRepository> roleRepo_;
-std::shared_ptr<authforge::identity::IUserRepository> userRepo_;
-std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMappingRepo_;
-std::shared_ptr<authforge::drogon::OAuth2CleanupService> cleanupService_;
-std::shared_ptr<authforge::oauth2::protocol::TokenService> tokenService_;
-std::shared_ptr<authforge::oauth2::protocol::ClientService> clientService_;
-std::shared_ptr<authforge::identity::IdentityService> identityService_;
-std::shared_ptr<authforge::drogon::adapters::StorageRoleProvider> roleProvider_;
-std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager_;
-std::shared_ptr<authforge::common::ports::IAuditSink> auditSink_;
-std::shared_ptr<authforge::common::ports::IMetrics> metrics_;
-std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver_;
-std::shared_ptr<authforge::oauth2::protocol::AuthorizationService> authorizationService_;
+std::shared_ptr<fulla::oauth2::repository::IClientRepository> clientRepo_;
+std::shared_ptr<fulla::oauth2::repository::IGrantRepository> grantRepo_;
+std::shared_ptr<fulla::oauth2::repository::ITokenRepository> tokenRepo_;
+std::shared_ptr<fulla::oauth2::repository::IConsentRepository> consentRepo_;
+std::shared_ptr<fulla::identity::IRoleRepository> roleRepo_;
+std::shared_ptr<fulla::identity::IUserRepository> userRepo_;
+std::shared_ptr<fulla::identity::ISubjectMappingRepository> subjectMappingRepo_;
+std::shared_ptr<fulla::drogon::OAuth2CleanupService> cleanupService_;
+std::shared_ptr<fulla::oauth2::protocol::TokenService> tokenService_;
+std::shared_ptr<fulla::oauth2::protocol::ClientService> clientService_;
+std::shared_ptr<fulla::identity::IdentityService> identityService_;
+std::shared_ptr<fulla::drogon::adapters::StorageRoleProvider> roleProvider_;
+std::shared_ptr<const fulla::oauth2::JwkManager> jwkManager_;
+std::shared_ptr<fulla::common::ports::IAuditSink> auditSink_;
+std::shared_ptr<fulla::common::ports::IMetrics> metrics_;
+std::shared_ptr<fulla::common::ports::ISubjectResolver> subjectResolver_;
+std::shared_ptr<fulla::oauth2::protocol::AuthorizationService> authorizationService_;
 std::string storageType_;
 std::string issuer_;
 long long authCodeTtl_{600};
@@ -2947,14 +2947,14 @@ const std::string &provider,
 std::function<void(int32_t)> &&callback
 );
 };
-=== libs/drogon/include/authforge/drogon/services/ClientRegistrationService.h
+=== libs/drogon/include/fulla/drogon/services/ClientRegistrationService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 class ClientRegistrationService
 {
@@ -2964,7 +2964,7 @@ std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
 static void registerClient(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
 };
 }
-=== libs/drogon/include/authforge/drogon/services/DeviceCodeService.h
+=== libs/drogon/include/fulla/drogon/services/DeviceCodeService.h
 #pragma once
 #include <cstdint>
 #include <functional>
@@ -2978,11 +2978,11 @@ class DbClient;
 using DbClientPtr = std::shared_ptr<DbClient>;
 }
 }
-namespace drogon_model::oauth2_db
+namespace drogon_model::fulla_db
 {
 class Oauth2DeviceCodes;
 }
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 class DeviceCodeService
 {
@@ -3000,7 +3000,7 @@ std::function<void(bool)> &&callback
 static void findByDeviceCodeHash(
 const std::string &deviceCodeHash,
 ::drogon::orm::DbClientPtr db,
-std::function<void(std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes>)> &&callback
+std::function<void(std::shared_ptr<::drogon_model::fulla_db::Oauth2DeviceCodes>)> &&callback
 );
 static void markApproved(
 const std::string &deviceCodeHash,
@@ -3011,18 +3011,18 @@ std::function<void(bool)> &&callback
 static void findByUserCode(
 const std::string &userCode,
 ::drogon::orm::DbClientPtr db,
-std::function<void(std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes>)> &&callback
+std::function<void(std::shared_ptr<::drogon_model::fulla_db::Oauth2DeviceCodes>)> &&callback
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/services/EmailVerificationService.h
+=== libs/drogon/include/fulla/drogon/services/EmailVerificationService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 class EmailVerificationService
 {
@@ -3035,29 +3035,29 @@ private:
 static void sendVerificationEmail(int internalUserId, const std::string &email);
 };
 }
-=== libs/drogon/include/authforge/drogon/services/IdentityService.h
+=== libs/drogon/include/fulla/drogon/services/IdentityService.h
 #pragma once
-#include <authforge/identity/IRoleRepository.h>
-#include <authforge/identity/IUserRepository.h>
-#include <authforge/identity/ISubjectMappingRepository.h>
-#include <authforge/oauth2/repository/IConsentRepository.h>
-#include <authforge/oauth2/model/UserRef.h>
+#include <fulla/identity/IRoleRepository.h>
+#include <fulla/identity/IUserRepository.h>
+#include <fulla/identity/ISubjectMappingRepository.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
+#include <fulla/oauth2/model/UserRef.h>
 #include <memory>
 #include <string>
 #include <vector>
 #include <functional>
 #include <optional>
-namespace authforge::identity
+namespace fulla::identity
 {
 class IdentityService : public std::enable_shared_from_this<IdentityService>
 {
 public:
 struct Repos
 {
-std::shared_ptr<authforge::identity::IRoleRepository> role;
-std::shared_ptr<authforge::identity::IUserRepository> user;
-std::shared_ptr<authforge::identity::ISubjectMappingRepository> subjectMapping;
-std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consent;
+std::shared_ptr<fulla::identity::IRoleRepository> role;
+std::shared_ptr<fulla::identity::IUserRepository> user;
+std::shared_ptr<fulla::identity::ISubjectMappingRepository> subjectMapping;
+std::shared_ptr<fulla::oauth2::repository::IConsentRepository> consent;
 };
 explicit IdentityService(Repos repos);
 void getUserRoles(
@@ -3101,14 +3101,14 @@ private:
 Repos repos_;
 };
 }
-=== libs/drogon/include/authforge/drogon/services/PasswordResetService.h
+=== libs/drogon/include/fulla/drogon/services/PasswordResetService.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 class PasswordResetService
 {
@@ -3119,18 +3119,18 @@ static void requestReset(const ::drogon::HttpRequestPtr &req, ResponseCallback c
 static void confirmReset(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
 };
 }
-=== libs/drogon/include/authforge/drogon/utils/CryptoUtils.h
+=== libs/drogon/include/fulla/drogon/utils/CryptoUtils.h
 #pragma once
 #include <cctype>
 #include <string>
 #include <vector>
-#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
-#include <authforge/drogon/adapters/OpenSslUuidGenerator.h>
-namespace authforge::drogon::utils
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/adapters/OpenSslUuidGenerator.h>
+namespace fulla::drogon::utils
 {
 namespace detail
 {
-inline authforge::drogon::adapters::OpenSslCryptoProvider &cryptoProvider()
+inline fulla::drogon::adapters::OpenSslCryptoProvider &cryptoProvider()
 ;
 }
 inline std::string base64UrlEncode(const std::string &data)
@@ -3152,11 +3152,11 @@ inline std::string hashToken(const std::string &rawToken)
 inline std::string hashClientSecretWithSalt(const std::string &clientSecret, const std::string &salt)
 ;
 }
-=== libs/drogon/include/authforge/drogon/utils/EmailService.h
+=== libs/drogon/include/fulla/drogon/utils/EmailService.h
 #pragma once
 #include <string>
 #include <functional>
-namespace authforge::drogon::utils
+namespace fulla::drogon::utils
 {
 class IEmailService
 {
@@ -3211,10 +3211,10 @@ Config config_;
 };
 IEmailService &getEmailService();
 }
-=== libs/drogon/include/authforge/drogon/utils/PasswordHasher.h
+=== libs/drogon/include/fulla/drogon/utils/PasswordHasher.h
 #pragma once
 #include <string>
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 class PasswordHasher
 {
@@ -3228,24 +3228,24 @@ const std::string &salt = ""
 static bool needsRehash(const std::string &storedHash);
 };
 }
-=== libs/drogon/include/authforge/drogon/utils/ScopeChecker.h
+=== libs/drogon/include/fulla/drogon/utils/ScopeChecker.h
 #pragma once
 #include <string>
 #include <string_view>
-namespace authforge::drogon::utils
+namespace fulla::drogon::utils
 {
 inline bool hasScope(std::string_view tokenScopes, std::string_view requiredScope)
 ;
 inline bool hasAllScopes(std::string_view tokenScopes, std::string_view requiredScopes)
 ;
 }
-=== libs/drogon/include/authforge/drogon/utils/SubjectGenerator.h
+=== libs/drogon/include/fulla/drogon/utils/SubjectGenerator.h
 #pragma once
 #include <drogon/drogon.h>
 #include <string>
 #include <utility>
 #include <set>
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 class SubjectGenerator
 {
@@ -3267,12 +3267,12 @@ static bool isValid(const std::string &subject)
 ;
 };
 }
-=== libs/drogon/include/authforge/drogon/utils/TotpUtils.h
+=== libs/drogon/include/fulla/drogon/utils/TotpUtils.h
 #pragma once
 #include <string>
 #include <vector>
 #include <cstdint>
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 class TotpUtils
 {
@@ -3292,7 +3292,7 @@ static std::string base32Encode(const uint8_t *data, size_t len);
 static uint32_t generateOtp(const std::vector<uint8_t> &key, uint64_t counter);
 };
 }
-=== libs/drogon/include/authforge/drogon/validation/HttpResponder.h
+=== libs/drogon/include/fulla/drogon/validation/HttpResponder.h
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
@@ -3300,7 +3300,7 @@ static uint32_t generateOtp(const std::vector<uint8_t> &key, uint64_t counter);
 #include <string>
 #include <functional>
 #include <json/json.h>
-namespace authforge::drogon::validation
+namespace fulla::drogon::validation
 {
 class HttpResponder
 {
@@ -3332,11 +3332,11 @@ const ::drogon::HttpRequestPtr &req = nullptr
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/validation/Rule.h
+=== libs/drogon/include/fulla/drogon/validation/Rule.h
 #pragma once
 #include <string>
 #include <functional>
-namespace authforge::drogon::validation
+namespace fulla::drogon::validation
 {
 inline const char *CLIENT_ID_PATTERN = "^[a-zA-Z0-9._-]{1,128}$";
 inline const size_t CLIENT_ID_MIN_LEN = 1;
@@ -3387,12 +3387,12 @@ static Result success();
 static Result failure(const std::string &field, const std::string &message);
 };
 }
-=== libs/drogon/include/authforge/drogon/validation/RuleEngine.h
+=== libs/drogon/include/fulla/drogon/validation/RuleEngine.h
 #pragma once
-#include <authforge/drogon/validation/Rule.h>
+#include <fulla/drogon/validation/Rule.h>
 #include <vector>
 #include <utility>
-namespace authforge::drogon::validation
+namespace fulla::drogon::validation
 {
 class RuleEngine
 {
@@ -3423,17 +3423,17 @@ const std::vector<RuleType> &rules
 );
 };
 }
-=== libs/drogon/include/authforge/drogon/validation/RuleSet.h
+=== libs/drogon/include/fulla/drogon/validation/RuleSet.h
 #pragma once
-#include <authforge/drogon/validation/RuleEngine.h>
-#include <authforge/drogon/validation/Rule.h>
+#include <fulla/drogon/validation/RuleEngine.h>
+#include <fulla/drogon/validation/Rule.h>
 #include <string>
 #include <vector>
 #include <optional>
 #include <functional>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-namespace authforge::drogon::validation
+namespace fulla::drogon::validation
 {
 class RuleSet
 {
@@ -3478,10 +3478,10 @@ const std::string &source
 );
 };
 }
-=== libs/identity/include/authforge/identity/AuthService.h
+=== libs/identity/include/fulla/identity/AuthService.h
 #pragma once
-#include <authforge/common/ports/ICryptoProvider.h>
-#include <authforge/common/ports/IClock.h>
+#include <fulla/common/ports/ICryptoProvider.h>
+#include <fulla/common/ports/IClock.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -3489,7 +3489,7 @@ const std::string &source
 #include <string>
 #include <vector>
 #include <json/json.h>
-namespace authforge::identity
+namespace fulla::identity
 {
 class IUserRepository;
 struct AuthResult
@@ -3504,8 +3504,8 @@ class AuthService
 public:
 AuthService(
 std::shared_ptr<IUserRepository> userRepo,
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
-std::shared_ptr<authforge::common::ports::IClock> clock
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
+std::shared_ptr<fulla::common::ports::IClock> clock
 );
 void validateUser(
 const std::string &identifier,
@@ -3521,15 +3521,15 @@ std::function<void(const std::string &errorCode)> &&callback
 void getUserInfo(int32_t userId, std::function<void(std::optional<Json::Value>)> &&callback);
 private:
 std::shared_ptr<IUserRepository> userRepo_;
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto_;
-std::shared_ptr<authforge::common::ports::IClock> clock_;
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
+std::shared_ptr<fulla::common::ports::IClock> clock_;
 };
 }
-=== libs/identity/include/authforge/identity/IBackchannelLogoutNotifier.h
+=== libs/identity/include/fulla/identity/IBackchannelLogoutNotifier.h
 #pragma once
 #include <functional>
 #include <string>
-namespace authforge::identity
+namespace fulla::identity
 {
 class IBackchannelLogoutNotifier
 {
@@ -3538,14 +3538,14 @@ virtual ~IBackchannelLogoutNotifier() = default;
 virtual void notify(const std::string &userId, std::function<void()> &&callback) = 0;
 };
 }
-=== libs/identity/include/authforge/identity/IMfaRepository.h
+=== libs/identity/include/fulla/identity/IMfaRepository.h
 #pragma once
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 struct MfaData
 {
@@ -3578,14 +3578,14 @@ BoolCallback &&cb
 virtual void clearPendingBinding(int32_t userId, BoolCallback &&cb) = 0;
 };
 }
-=== libs/identity/include/authforge/identity/IOAuthHttpClient.h
+=== libs/identity/include/fulla/identity/IOAuthHttpClient.h
 #pragma once
 #include <functional>
 #include <string>
 #include <utility>
 #include <vector>
 #include <json/json.h>
-namespace authforge::identity
+namespace fulla::identity
 {
 struct OAuthHttpResult
 {
@@ -3610,13 +3610,13 @@ ResultCallback &&cb
 ) = 0;
 };
 }
-=== libs/identity/include/authforge/identity/IRoleRepository.h
+=== libs/identity/include/fulla/identity/IRoleRepository.h
 #pragma once
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 class IRoleRepository
 {
@@ -3627,7 +3627,7 @@ virtual void getRoles(int32_t internalUserId, RolesCallback &&cb) = 0;
 virtual void getRoles(const std::string &subject, RolesCallback &&cb) = 0;
 };
 }
-=== libs/identity/include/authforge/identity/ISocialAccountRepository.h
+=== libs/identity/include/fulla/identity/ISocialAccountRepository.h
 #pragma once
 #ifdef WITH_SOCIAL
 #include <cstdint>
@@ -3635,7 +3635,7 @@ virtual void getRoles(const std::string &subject, RolesCallback &&cb) = 0;
 #include <optional>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 enum class SocialLinkStatus
 {
@@ -3706,13 +3706,13 @@ virtual void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallbac
 };
 }
 #endif
-=== libs/identity/include/authforge/identity/ISubjectMappingRepository.h
+=== libs/identity/include/fulla/identity/ISubjectMappingRepository.h
 #pragma once
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
-namespace authforge::identity
+namespace fulla::identity
 {
 class ISubjectMappingRepository
 {
@@ -3739,14 +3739,14 @@ OptionalIntCallback &&cb
 ;
 };
 }
-=== libs/identity/include/authforge/identity/IUserRepository.h
+=== libs/identity/include/fulla/identity/IUserRepository.h
 #pragma once
 #include <functional>
 #include <optional>
 #include <string>
 #include <cstdint>
 #include <json/json.h>
-namespace authforge::identity
+namespace fulla::identity
 {
 struct UserData
 {
@@ -3798,14 +3798,14 @@ std::function<void(std::optional<Json::Value>)> &&callback
 ) = 0;
 };
 }
-=== libs/identity/include/authforge/identity/IWebAuthnRepository.h
+=== libs/identity/include/fulla/identity/IWebAuthnRepository.h
 #pragma once
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 enum class StoreCredentialOutcome
 {
@@ -3854,17 +3854,17 @@ BoolCallback &&cb
 virtual void listCredentials(int32_t userId, ListCredentialsCallback &&cb) = 0;
 };
 }
-=== libs/identity/include/authforge/identity/MfaService.h
+=== libs/identity/include/fulla/identity/MfaService.h
 #pragma once
-#include <authforge/common/ports/IClock.h>
-#include <authforge/common/ports/ICryptoProvider.h>
+#include <fulla/common/ports/IClock.h>
+#include <fulla/common/ports/ICryptoProvider.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 class IMfaRepository;
 struct MfaSetupResult
@@ -3881,8 +3881,8 @@ class MfaService
 public:
 MfaService(
 std::shared_ptr<IMfaRepository> mfaRepo,
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
-std::shared_ptr<authforge::common::ports::IClock> clock,
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
+std::shared_ptr<fulla::common::ports::IClock> clock,
 std::string issuerName = "OAuth2Server"
 );
 void setupSecret(
@@ -3914,19 +3914,19 @@ std::function<void(std::optional<std::pair<std::string, std::string>>)> &&callba
 void clearPendingBinding(int32_t userId, std::function<void(bool)> &&callback);
 private:
 std::shared_ptr<IMfaRepository> mfaRepo_;
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto_;
-std::shared_ptr<authforge::common::ports::IClock> clock_;
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
+std::shared_ptr<fulla::common::ports::IClock> clock_;
 std::string issuerName_;
 };
 }
-=== libs/identity/include/authforge/identity/RoleProvider.h
+=== libs/identity/include/fulla/identity/RoleProvider.h
 #pragma once
-#include <authforge/common/ports/IRoleProvider.h>
-#include <authforge/identity/IRoleRepository.h>
+#include <fulla/common/ports/IRoleProvider.h>
+#include <fulla/identity/IRoleRepository.h>
 #include <memory>
-namespace authforge::identity
+namespace fulla::identity
 {
-class RoleProvider : public authforge::common::ports::IRoleProvider
+class RoleProvider : public fulla::common::ports::IRoleProvider
 {
 public:
 explicit RoleProvider(std::shared_ptr<IRoleRepository> repo) : repo_(std::move(repo))
@@ -3937,14 +3937,14 @@ private:
 std::shared_ptr<IRoleRepository> repo_;
 };
 }
-=== libs/identity/include/authforge/identity/SessionManager.h
+=== libs/identity/include/fulla/identity/SessionManager.h
 #pragma once
-#include <authforge/identity/AuthService.h>
-#include <authforge/identity/IBackchannelLogoutNotifier.h>
+#include <fulla/identity/AuthService.h>
+#include <fulla/identity/IBackchannelLogoutNotifier.h>
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::identity
+namespace fulla::identity
 {
 enum class LoginDecision
 {
@@ -3966,16 +3966,16 @@ std::shared_ptr<IBackchannelLogoutNotifier> notifier_;
 };
 LoginDecision evaluateLoginPolicy(const AuthResult &authResult, bool requireEmailVerification);
 }
-=== libs/identity/include/authforge/identity/SocialAuthService.h
+=== libs/identity/include/fulla/identity/SocialAuthService.h
 #pragma once
 #ifdef WITH_SOCIAL
-#include <authforge/identity/IOAuthHttpClient.h>
-#include <authforge/identity/ISocialAccountRepository.h>
+#include <fulla/identity/IOAuthHttpClient.h>
+#include <fulla/identity/ISocialAccountRepository.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
-namespace authforge::identity
+namespace fulla::identity
 {
 struct GoogleUserInfo
 {
@@ -4070,16 +4070,16 @@ std::string clientSecret_;
 };
 }
 #endif
-=== libs/identity/include/authforge/identity/SocialLinkService.h
+=== libs/identity/include/fulla/identity/SocialLinkService.h
 #pragma once
 #ifdef WITH_SOCIAL
-#include <authforge/identity/ISocialAccountRepository.h>
-#include <authforge/identity/SocialAuthService.h>
+#include <fulla/identity/ISocialAccountRepository.h>
+#include <fulla/identity/SocialAuthService.h>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 enum class SocialLinkOpStatus
 {
@@ -4133,40 +4133,40 @@ std::shared_ptr<ISocialAccountRepository> accountRepo_;
 };
 }
 #endif
-=== libs/identity/include/authforge/identity/SubjectResolver.h
+=== libs/identity/include/fulla/identity/SubjectResolver.h
 #pragma once
-#include <authforge/common/ports/ISubjectResolver.h>
-#include <authforge/identity/ISubjectMappingRepository.h>
+#include <fulla/common/ports/ISubjectResolver.h>
+#include <fulla/identity/ISubjectMappingRepository.h>
 #include <memory>
 #include <string>
 #include <utility>
-namespace authforge::identity
+namespace fulla::identity
 {
 inline std::pair<std::string, std::string> splitSubject(const std::string &value)
 ;
-class SubjectResolver : public authforge::common::ports::ISubjectResolver
+class SubjectResolver : public fulla::common::ports::ISubjectResolver
 {
 public:
 explicit SubjectResolver(std::shared_ptr<ISubjectMappingRepository> repo)
 : repo_(std::move(repo))
 ;
-void resolve(const authforge::common::model::Subject &subject, ResolveCallback &&cb) override
+void resolve(const fulla::common::model::Subject &subject, ResolveCallback &&cb) override
 ;
 private:
 std::shared_ptr<ISubjectMappingRepository> repo_;
 };
 }
-=== libs/identity/include/authforge/identity/TotpUtils.h
+=== libs/identity/include/fulla/identity/TotpUtils.h
 #pragma once
-#include <authforge/common/ports/ICryptoProvider.h>
+#include <fulla/common/ports/ICryptoProvider.h>
 #include <cstdint>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 namespace totp
 {
-std::string generateSecret(authforge::common::ports::ICryptoProvider &crypto);
+std::string generateSecret(fulla::common::ports::ICryptoProvider &crypto);
 std::string generateCode(const std::string &secret, int64_t nowSeconds);
 bool verifyCode(const std::string &secret, const std::string &code, int64_t nowSeconds);
 std::string generateOtpAuthUri(
@@ -4175,19 +4175,19 @@ const std::string &accountName,
 const std::string &issuer = "OAuth2Server"
 );
 std::vector<std::string> generateBackupCodes(
-authforge::common::ports::ICryptoProvider &crypto,
+fulla::common::ports::ICryptoProvider &crypto,
 int count = 10
 );
 }
 }
-=== libs/identity/include/authforge/identity/UserInfoProvider.h
+=== libs/identity/include/fulla/identity/UserInfoProvider.h
 #pragma once
-#include <authforge/common/ports/IUserInfoProvider.h>
-#include <authforge/identity/IUserRepository.h>
+#include <fulla/common/ports/IUserInfoProvider.h>
+#include <fulla/identity/IUserRepository.h>
 #include <memory>
-namespace authforge::identity
+namespace fulla::identity
 {
-class UserInfoProvider : public authforge::common::ports::IUserInfoProvider
+class UserInfoProvider : public fulla::common::ports::IUserInfoProvider
 {
 public:
 explicit UserInfoProvider(std::shared_ptr<IUserRepository> repo) : repo_(std::move(repo))
@@ -4198,17 +4198,17 @@ private:
 std::shared_ptr<IUserRepository> repo_;
 };
 }
-=== libs/identity/include/authforge/identity/WebAuthnService.h
+=== libs/identity/include/fulla/identity/WebAuthnService.h
 #pragma once
-#include <authforge/common/ports/ICryptoProvider.h>
-#include <authforge/identity/IWebAuthnRepository.h>
+#include <fulla/common/ports/ICryptoProvider.h>
+#include <fulla/identity/IWebAuthnRepository.h>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
-namespace authforge::identity
+namespace fulla::identity
 {
 struct WebAuthnRegistrationChallenge
 {
@@ -4234,7 +4234,7 @@ class WebAuthnService
 public:
 WebAuthnService(
 std::shared_ptr<IWebAuthnRepository> repo,
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
 std::string rpId = "localhost",
 std::string rpName = "OAuth2 Server"
 );
@@ -4261,21 +4261,21 @@ std::function<void(std::vector<WebAuthnCredentialSummary>)> &&callback
 );
 private:
 std::shared_ptr<IWebAuthnRepository> repo_;
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto_;
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
 std::string rpId_;
 std::string rpName_;
 };
 }
-=== libs/identity/include/authforge/identity/testing/FakeOAuthHttpClient.h
+=== libs/identity/include/fulla/identity/testing/FakeOAuthHttpClient.h
 #pragma once
-#include <authforge/identity/IOAuthHttpClient.h>
+#include <fulla/identity/IOAuthHttpClient.h>
 #include <deque>
 #include <json/json.h>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
-namespace authforge::identity::testing
+namespace fulla::identity::testing
 {
 class FakeOAuthHttpClient : public IOAuthHttpClient
 {
@@ -4310,16 +4310,16 @@ inline OAuthHttpResult okJson(const Json::Value &body, int statusCode = 200)
 inline OAuthHttpResult transportFailure()
 ;
 }
-=== libs/identity/include/authforge/identity/testing/FakeSocialAccountRepository.h
+=== libs/identity/include/fulla/identity/testing/FakeSocialAccountRepository.h
 #pragma once
-#include <authforge/identity/ISocialAccountRepository.h>
+#include <fulla/identity/ISocialAccountRepository.h>
 #include <cstdint>
 #include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
-namespace authforge::identity::testing
+namespace fulla::identity::testing
 {
 class FakeSocialAccountRepository : public ISocialAccountRepository
 {
@@ -4369,15 +4369,15 @@ void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallback &&cb) 
 ;
 };
 }
-=== libs/identity/include/authforge/identity/testing/FakeWebAuthnRepository.h
+=== libs/identity/include/fulla/identity/testing/FakeWebAuthnRepository.h
 #pragma once
-#include <authforge/identity/IWebAuthnRepository.h>
+#include <fulla/identity/IWebAuthnRepository.h>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
-namespace authforge::identity::testing
+namespace fulla::identity::testing
 {
 struct StoredCredential
 {
@@ -4412,11 +4412,11 @@ void listCredentials(int32_t userId, ListCredentialsCallback &&cb) override
 ;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/access/ScopeDecision.h
+=== libs/oauth2/include/fulla/oauth2/access/ScopeDecision.h
 #pragma once
 #include <string>
 #include <vector>
-namespace authforge::oauth2::access
+namespace fulla::oauth2::access
 {
 enum class ScopeDecision
 {
@@ -4444,42 +4444,42 @@ bool hasErrors() const noexcept
 ;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/access/ScopeDecisionEngine.h
+=== libs/oauth2/include/fulla/oauth2/access/ScopeDecisionEngine.h
 #pragma once
-#include <authforge/oauth2/access/ScopeDecision.h>
-#include <authforge/oauth2/model/Client.h>
+#include <fulla/oauth2/access/ScopeDecision.h>
+#include <fulla/oauth2/model/Client.h>
 #include <functional>
 #include <string>
 #include <vector>
-namespace authforge::oauth2::access
+namespace fulla::oauth2::access
 {
 ScopeCheckResult evaluateScope(
 const std::string &scope,
-const authforge::oauth2::model::Client &client,
+const fulla::oauth2::model::Client &client,
 bool hasAdminRole,
 bool hasConsent,
 const std::function<bool(const std::string &)> &scopeRequiresAdmin
 );
 ScopeValidationSummary evaluateScopes(
 const std::vector<std::string> &scopes,
-const authforge::oauth2::model::Client &client,
+const fulla::oauth2::model::Client &client,
 bool hasAdminRole,
 const std::function<bool(const std::string &)> &hasConsentForScope,
 const std::function<bool(const std::string &)> &scopeRequiresAdmin
 );
 }
-=== libs/oauth2/include/authforge/oauth2/jwk/JwkManager.h
+=== libs/oauth2/include/fulla/oauth2/jwk/JwkManager.h
 #pragma once
-#include <authforge/common/ports/ILogger.h>
+#include <fulla/common/ports/ILogger.h>
 #include <string>
 #include <json/json.h>
 #include <memory>
-namespace authforge::oauth2
+namespace fulla::oauth2
 {
 class JwkManager
 {
 public:
-explicit JwkManager(authforge::common::ports::ILogger *logger = nullptr) : logger_(logger)
+explicit JwkManager(fulla::common::ports::ILogger *logger = nullptr) : logger_(logger)
 ;
 ~JwkManager();
 bool init(const Json::Value &config);
@@ -4510,23 +4510,23 @@ private:
 void *rsaKey_ = nullptr;
 std::string kid_;
 bool initialized_ = false;
-authforge::common::ports::ILogger *logger_ = nullptr;
+fulla::common::ports::ILogger *logger_ = nullptr;
 bool generateEphemeralKey();
 bool loadFromPem(const std::string &pemData);
 static std::string base64UrlEncode(const unsigned char *data, size_t len);
 static std::string base64UrlEncode(const std::string &data);
 static bool base64UrlDecode(const std::string &input, std::string &output);
 bool getPublicKeyComponents(std::string &n, std::string &e) const;
-void log(authforge::common::ports::LogLevel level, const std::string &message) const;
+void log(fulla::common::ports::LogLevel level, const std::string &message) const;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/model/AuthorizationGrant.h
+=== libs/oauth2/include/fulla/oauth2/model/AuthorizationGrant.h
 #pragma once
-#include <authforge/common/ports/ICryptoProvider.h>
-#include <authforge/oauth2/model/Dto.h>
-#include <authforge/oauth2/pkce/Pkce.h>
+#include <fulla/common/ports/ICryptoProvider.h>
+#include <fulla/oauth2/model/Dto.h>
+#include <fulla/oauth2/pkce/Pkce.h>
 #include <string>
-namespace authforge::oauth2::model
+namespace fulla::oauth2::model
 {
 class AuthorizationGrant
 {
@@ -4559,7 +4559,7 @@ bool hasPkceChallenge() const noexcept
 ;
 bool verifyPkceCodeVerifier(
 const std::string &codeVerifier,
-authforge::common::ports::ICryptoProvider &crypto
+fulla::common::ports::ICryptoProvider &crypto
 ) const
 ;
 const AuthorizationTransaction &dto() const noexcept
@@ -4568,12 +4568,12 @@ private:
 AuthorizationTransaction dto_;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/model/Client.h
+=== libs/oauth2/include/fulla/oauth2/model/Client.h
 #pragma once
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <algorithm>
 #include <string>
-namespace authforge::oauth2::model
+namespace fulla::oauth2::model
 {
 class Client
 {
@@ -4610,11 +4610,11 @@ private:
 OAuth2Client dto_;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/model/ClientType.h
+=== libs/oauth2/include/fulla/oauth2/model/ClientType.h
 #pragma once
 #include <stdexcept>
 #include <string>
-namespace authforge::oauth2::model
+namespace fulla::oauth2::model
 {
 enum class ClientType
 {
@@ -4626,14 +4626,14 @@ inline std::string clientTypeToString(ClientType type)
 inline ClientType stringToClientType(const std::string &str)
 ;
 }
-=== libs/oauth2/include/authforge/oauth2/model/Dto.h
+=== libs/oauth2/include/fulla/oauth2/model/Dto.h
 #pragma once
-#include <authforge/oauth2/model/ClientType.h>
+#include <fulla/oauth2/model/ClientType.h>
 #include <json/json.h>
 #include <cstdint>
 #include <string>
 #include <vector>
-namespace authforge::oauth2::model
+namespace fulla::oauth2::model
 {
 struct OAuth2Client
 {
@@ -4720,11 +4720,11 @@ bool consumed = false;
 int64_t expiresAt;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/model/TokenPair.h
+=== libs/oauth2/include/fulla/oauth2/model/TokenPair.h
 #pragma once
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <stdexcept>
-namespace authforge::oauth2::model
+namespace fulla::oauth2::model
 {
 class TokenPair
 {
@@ -4749,91 +4749,91 @@ OAuth2AccessToken accessToken_;
 OAuth2RefreshToken refreshToken_;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/model/UserRef.h
+=== libs/oauth2/include/fulla/oauth2/model/UserRef.h
 #pragma once
 #include <cstdint>
-namespace authforge::oauth2::model
+namespace fulla::oauth2::model
 {
 struct UserRef
 {
 int32_t internalUserId = 0;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/pkce/Pkce.h
+=== libs/oauth2/include/fulla/oauth2/pkce/Pkce.h
 #pragma once
-#include <authforge/common/model/PkceChallenge.h>
-#include <authforge/common/ports/ICryptoProvider.h>
+#include <fulla/common/model/PkceChallenge.h>
+#include <fulla/common/ports/ICryptoProvider.h>
 #include <string>
-namespace authforge::oauth2::pkce
+namespace fulla::oauth2::pkce
 {
 std::string computeCodeChallenge(
 const std::string &codeVerifier,
 const std::string &method,
-authforge::common::ports::ICryptoProvider &crypto
+fulla::common::ports::ICryptoProvider &crypto
 );
 bool verifyCodeVerifier(
 const std::string &codeVerifier,
-const authforge::common::model::PkceChallenge &challenge,
-authforge::common::ports::ICryptoProvider &crypto
+const fulla::common::model::PkceChallenge &challenge,
+fulla::common::ports::ICryptoProvider &crypto
 );
 bool isValidCodeVerifierFormat(const std::string &codeVerifier);
 bool isValidCodeChallengeFormat(const std::string &codeChallenge);
 }
-=== libs/oauth2/include/authforge/oauth2/protocol/AuthorizationService.h
+=== libs/oauth2/include/fulla/oauth2/protocol/AuthorizationService.h
 #pragma once
-#include <authforge/common/ports/IRoleProvider.h>
-#include <authforge/common/ports/ISubjectResolver.h>
-#include <authforge/oauth2/access/ScopeDecision.h>
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/repository/IConsentRepository.h>
+#include <fulla/common/ports/IRoleProvider.h>
+#include <fulla/common/ports/ISubjectResolver.h>
+#include <fulla/oauth2/access/ScopeDecision.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 class AuthorizationService
 {
 public:
 AuthorizationService(
-std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients,
-std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents = nullptr,
-std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver = nullptr,
-std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider = nullptr,
+std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients,
+std::shared_ptr<fulla::oauth2::repository::IConsentRepository> consents = nullptr,
+std::shared_ptr<fulla::common::ports::ISubjectResolver> subjectResolver = nullptr,
+std::shared_ptr<fulla::common::ports::IRoleProvider> roleProvider = nullptr,
 std::unordered_set<std::string> adminScopes = {}
 );
 void evaluateScopes(
 const std::string &clientId,
 const std::string &subject,
 const std::vector<std::string> &requestedScopes,
-std::function<void(authforge::oauth2::access::ScopeValidationSummary)> &&callback
+std::function<void(fulla::oauth2::access::ScopeValidationSummary)> &&callback
 );
 void setAdminScopes(std::unordered_set<std::string> adminScopes)
 ;
 private:
-std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients_;
-std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents_;
-std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver_;
-std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider_;
+std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients_;
+std::shared_ptr<fulla::oauth2::repository::IConsentRepository> consents_;
+std::shared_ptr<fulla::common::ports::ISubjectResolver> subjectResolver_;
+std::shared_ptr<fulla::common::ports::IRoleProvider> roleProvider_;
 std::unordered_set<std::string> adminScopes_;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/protocol/ClientService.h
+=== libs/oauth2/include/fulla/oauth2/protocol/ClientService.h
 #pragma once
-#include <authforge/oauth2/model/Client.h>
-#include <authforge/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/model/Client.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 class ClientService
 {
 public:
 explicit ClientService(
-std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients
+std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients
 )
 : clients_(std::move(clients))
 ;
@@ -4853,15 +4853,15 @@ const std::vector<std::string> &requestedScopes,
 std::function<void(bool, std::string)> &&callback
 );
 private:
-std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients_;
+std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients_;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/protocol/LogoutToken.h
+=== libs/oauth2/include/fulla/oauth2/protocol/LogoutToken.h
 #pragma once
 #include <cstdint>
 #include <string>
 #include <json/json.h>
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 constexpr char kBackchannelLogoutEventUrn[] =
 "http://schemas.openid.net/event/backchannel-logout";
@@ -4875,31 +4875,31 @@ std::int64_t issuedAtSeconds,
 int ttlSeconds,
 const std::string &jti);
 }
-=== libs/oauth2/include/authforge/oauth2/protocol/TokenCrypto.h
+=== libs/oauth2/include/fulla/oauth2/protocol/TokenCrypto.h
 #pragma once
-#include <authforge/common/ports/ICryptoProvider.h>
+#include <fulla/common/ports/ICryptoProvider.h>
 #include <string>
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 std::string generateSecureToken(
-authforge::common::ports::ICryptoProvider &crypto,
+fulla::common::ports::ICryptoProvider &crypto,
 size_t bytes = 32
 );
 std::string hashToken(
-authforge::common::ports::ICryptoProvider &crypto,
+fulla::common::ports::ICryptoProvider &crypto,
 const std::string &rawToken
 );
 }
-=== libs/oauth2/include/authforge/oauth2/protocol/TokenService.h
+=== libs/oauth2/include/fulla/oauth2/protocol/TokenService.h
 #pragma once
-#include <authforge/common/ports/IAuditSink.h>
-#include <authforge/common/ports/ICryptoProvider.h>
-#include <authforge/common/ports/IRoleProvider.h>
-#include <authforge/common/ports/ISubjectResolver.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/repository/IGrantRepository.h>
-#include <authforge/oauth2/repository/ITokenRepository.h>
+#include <fulla/common/ports/IAuditSink.h>
+#include <fulla/common/ports/ICryptoProvider.h>
+#include <fulla/common/ports/IRoleProvider.h>
+#include <fulla/common/ports/ISubjectResolver.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
 #include <cstdint>
 #include <functional>
 #include <json/json.h>
@@ -4907,25 +4907,25 @@ const std::string &rawToken
 #include <optional>
 #include <string>
 #include <vector>
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 class TokenService : public std::enable_shared_from_this<TokenService>
 {
 public:
 TokenService(
-std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients,
-std::shared_ptr<authforge::oauth2::repository::IGrantRepository> grants,
-std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokens,
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
-std::shared_ptr<authforge::common::ports::IAuditSink> auditSink = nullptr,
-std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver = nullptr,
-std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider = nullptr,
+std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients,
+std::shared_ptr<fulla::oauth2::repository::IGrantRepository> grants,
+std::shared_ptr<fulla::oauth2::repository::ITokenRepository> tokens,
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
+std::shared_ptr<fulla::common::ports::IAuditSink> auditSink = nullptr,
+std::shared_ptr<fulla::common::ports::ISubjectResolver> subjectResolver = nullptr,
+std::shared_ptr<fulla::common::ports::IRoleProvider> roleProvider = nullptr,
 int64_t authCodeTtl = 600,
 int64_t accessTokenTtl = 3600,
 int64_t refreshTokenTtl = 2592000,
 std::string issuer = "http://localhost:5555"
 );
-void setJwkManager(std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager)
+void setJwkManager(std::shared_ptr<const fulla::oauth2::JwkManager> jwkManager)
 ;
 void generateAuthorizationCode(
 const std::string &clientId,
@@ -4954,11 +4954,11 @@ std::function<void(const Json::Value &)> &&callback
 );
 void validateAccessToken(
 const std::string &token,
-std::function<void(std::shared_ptr<authforge::oauth2::model::OAuth2AccessToken>)> &&callback
+std::function<void(std::shared_ptr<fulla::oauth2::model::OAuth2AccessToken>)> &&callback
 );
 void introspectToken(
 const std::string &token,
-std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)> &&callback
+std::function<void(std::optional<fulla::oauth2::model::TokenIntrospection>)> &&callback
 );
 void revokeAccessToken(
 const std::string &token,
@@ -4975,18 +4975,18 @@ const std::string &codeChallenge,
 const std::string &codeChallengeMethod
 );
 private:
-std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients_;
-std::shared_ptr<authforge::oauth2::repository::IGrantRepository> grants_;
-std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokens_;
-std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto_;
-std::shared_ptr<authforge::common::ports::IAuditSink> auditSink_;
-std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver_;
-std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider_;
+std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients_;
+std::shared_ptr<fulla::oauth2::repository::IGrantRepository> grants_;
+std::shared_ptr<fulla::oauth2::repository::ITokenRepository> tokens_;
+std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
+std::shared_ptr<fulla::common::ports::IAuditSink> auditSink_;
+std::shared_ptr<fulla::common::ports::ISubjectResolver> subjectResolver_;
+std::shared_ptr<fulla::common::ports::IRoleProvider> roleProvider_;
 int64_t authCodeTtl_;
 int64_t accessTokenTtl_;
 int64_t refreshTokenTtl_;
 std::string issuer_;
-std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager_;
+std::shared_ptr<const fulla::oauth2::JwkManager> jwkManager_;
 void resolveRoles(
 const std::string &subject,
 std::function<void(std::vector<std::string>)> &&cb
@@ -5000,20 +5000,20 @@ const std::string &targetId
 );
 };
 }
-=== libs/oauth2/include/authforge/oauth2/repository/IClientRepository.h
+=== libs/oauth2/include/fulla/oauth2/repository/IClientRepository.h
 #pragma once
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <functional>
 #include <optional>
 #include <string>
-namespace authforge::oauth2::repository
+namespace fulla::oauth2::repository
 {
 class IClientRepository
 {
 public:
 virtual ~IClientRepository() = default;
 using ClientCallback =
-std::function<void(std::optional<authforge::oauth2::model::OAuth2Client>)>;
+std::function<void(std::optional<fulla::oauth2::model::OAuth2Client>)>;
 using BoolCallback = std::function<void(bool)>;
 virtual void getClient(const std::string &clientId, ClientCallback &&cb) = 0;
 virtual void validateClient(
@@ -5023,12 +5023,12 @@ BoolCallback &&cb
 ) = 0;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/repository/IConsentRepository.h
+=== libs/oauth2/include/fulla/oauth2/repository/IConsentRepository.h
 #pragma once
-#include <authforge/oauth2/model/UserRef.h>
+#include <fulla/oauth2/model/UserRef.h>
 #include <functional>
 #include <string>
-namespace authforge::oauth2::repository
+namespace fulla::oauth2::repository
 {
 class IConsentRepository
 {
@@ -5037,45 +5037,45 @@ virtual ~IConsentRepository() = default;
 using BoolCallback = std::function<void(bool)>;
 using VoidCallback = std::function<void()>;
 virtual void hasUserConsent(
-const authforge::oauth2::model::UserRef &user,
+const fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) = 0;
 virtual void saveUserConsent(
-const authforge::oauth2::model::UserRef &user,
+const fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) = 0;
 virtual void revokeUserConsent(
-const authforge::oauth2::model::UserRef &user,
+const fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 VoidCallback &&cb
 ) = 0;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/repository/IGrantRepository.h
+=== libs/oauth2/include/fulla/oauth2/repository/IGrantRepository.h
 #pragma once
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <functional>
 #include <optional>
 #include <string>
-namespace authforge::oauth2::repository
+namespace fulla::oauth2::repository
 {
 class IGrantRepository
 {
 public:
 virtual ~IGrantRepository() = default;
 using AuthCodeCallback =
-std::function<void(std::optional<authforge::oauth2::model::OAuth2AuthCode>)>;
+std::function<void(std::optional<fulla::oauth2::model::OAuth2AuthCode>)>;
 using VoidCallback = std::function<void()>;
 using BoolCallback = std::function<void(bool)>;
-using AuthorizationTransaction = authforge::oauth2::model::AuthorizationTransaction;
+using AuthorizationTransaction = fulla::oauth2::model::AuthorizationTransaction;
 using TransactionCallback = std::function<void(std::optional<AuthorizationTransaction>)>;
 virtual void saveAuthCode(
-const authforge::oauth2::model::OAuth2AuthCode &code,
+const fulla::oauth2::model::OAuth2AuthCode &code,
 VoidCallback &&cb
 ) = 0;
 virtual void getAuthCode(const std::string &code, AuthCodeCallback &&cb) = 0;
@@ -5101,39 +5101,39 @@ virtual void markTransactionConsumed(const std::string &transactionId, BoolCallb
 virtual void purgeExpired() = 0;
 };
 }
-=== libs/oauth2/include/authforge/oauth2/repository/ITokenRepository.h
+=== libs/oauth2/include/fulla/oauth2/repository/ITokenRepository.h
 #pragma once
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <functional>
 #include <optional>
 #include <string>
-namespace authforge::oauth2::repository
+namespace fulla::oauth2::repository
 {
 class ITokenRepository
 {
 public:
 virtual ~ITokenRepository() = default;
 using AccessTokenCallback =
-std::function<void(std::optional<authforge::oauth2::model::OAuth2AccessToken>)>;
+std::function<void(std::optional<fulla::oauth2::model::OAuth2AccessToken>)>;
 using RefreshTokenCallback =
-std::function<void(std::optional<authforge::oauth2::model::OAuth2RefreshToken>)>;
+std::function<void(std::optional<fulla::oauth2::model::OAuth2RefreshToken>)>;
 using VoidCallback = std::function<void()>;
 using TokenIntrospectionCallback =
-std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)>;
+std::function<void(std::optional<fulla::oauth2::model::TokenIntrospection>)>;
 using SaveResultCallback = std::function<void(bool ok)>;
 virtual void saveAccessToken(
-const authforge::oauth2::model::OAuth2AccessToken &token,
+const fulla::oauth2::model::OAuth2AccessToken &token,
 VoidCallback &&cb
 ) = 0;
 virtual void getAccessToken(const std::string &token, AccessTokenCallback &&cb) = 0;
 virtual void saveTokenPair(
-const authforge::oauth2::model::OAuth2AccessToken &at,
-const authforge::oauth2::model::OAuth2RefreshToken &rt,
+const fulla::oauth2::model::OAuth2AccessToken &at,
+const fulla::oauth2::model::OAuth2RefreshToken &rt,
 SaveResultCallback &&cb
 )
 ;
 virtual void saveRefreshToken(
-const authforge::oauth2::model::OAuth2RefreshToken &token,
+const fulla::oauth2::model::OAuth2RefreshToken &token,
 VoidCallback &&cb
 ) = 0;
 virtual void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) = 0;
@@ -5152,16 +5152,16 @@ virtual bool supportsTransactions() const = 0;
 virtual bool supportsCas() const = 0;
 };
 }
-=== libs/storage-memory/include/authforge/storage/memory/MemoryClientRepository.h
+=== libs/storage-memory/include/fulla/storage/memory/MemoryClientRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
 #include <json/json.h>
 #include <mutex>
 #include <string>
 #include <unordered_map>
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
-using IClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
+using IClientRepositoryBase = ::fulla::oauth2::repository::IClientRepository;
 class MemoryClientRepository : public IClientRepositoryBase
 {
 public:
@@ -5174,36 +5174,36 @@ BoolCallback &&cb
 ) override;
 private:
 std::recursive_mutex mutex_;
-std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2Client> clients_;
+std::unordered_map<std::string, ::fulla::oauth2::model::OAuth2Client> clients_;
 };
 }
-=== libs/storage-memory/include/authforge/storage/memory/MemoryConsentRepository.h
+=== libs/storage-memory/include/fulla/storage/memory/MemoryConsentRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IConsentRepository.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
 #include <cstdint>
 #include <mutex>
 #include <string>
 #include <unordered_map>
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
-using IConsentRepositoryBase = ::authforge::oauth2::repository::IConsentRepository;
+using IConsentRepositoryBase = ::fulla::oauth2::repository::IConsentRepository;
 class MemoryConsentRepository : public IConsentRepositoryBase
 {
 public:
 void hasUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) override;
 void saveUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) override;
 void revokeUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 VoidCallback &&cb
@@ -5214,21 +5214,21 @@ std::unordered_map<std::string, int64_t> userConsents_;
 int64_t getCurrentTimestamp() const;
 };
 }
-=== libs/storage-memory/include/authforge/storage/memory/MemoryGrantRepository.h
+=== libs/storage-memory/include/fulla/storage/memory/MemoryGrantRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IGrantRepository.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
 #include <cstdint>
 #include <mutex>
 #include <string>
 #include <unordered_map>
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
-using IGrantRepositoryBase = ::authforge::oauth2::repository::IGrantRepository;
+using IGrantRepositoryBase = ::fulla::oauth2::repository::IGrantRepository;
 class MemoryGrantRepository : public IGrantRepositoryBase
 {
 public:
 void saveAuthCode(
-const ::authforge::oauth2::model::OAuth2AuthCode &code,
+const ::fulla::oauth2::model::OAuth2AuthCode &code,
 VoidCallback &&cb
 ) override;
 void getAuthCode(const std::string &code, AuthCodeCallback &&cb) override;
@@ -5239,7 +5239,7 @@ const std::string &redirectUri,
 AuthCodeCallback &&cb
 ) override;
 void saveAuthorizationTransaction(
-const ::authforge::oauth2::model::AuthorizationTransaction &transaction,
+const ::fulla::oauth2::model::AuthorizationTransaction &transaction,
 BoolCallback &&cb
 ) override;
 void getAuthorizationTransaction(
@@ -5254,68 +5254,68 @@ void markTransactionConsumed(const std::string &transactionId, BoolCallback &&cb
 void purgeExpired() override;
 private:
 std::recursive_mutex mutex_;
-std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2AuthCode> authCodes_;
-std::unordered_map<std::string, ::authforge::oauth2::model::AuthorizationTransaction>
+std::unordered_map<std::string, ::fulla::oauth2::model::OAuth2AuthCode> authCodes_;
+std::unordered_map<std::string, ::fulla::oauth2::model::AuthorizationTransaction>
 transactions_;
 int64_t getCurrentTimestamp() const;
 };
 }
-=== libs/storage-memory/include/authforge/storage/memory/MemoryIdentityRepository.h
+=== libs/storage-memory/include/fulla/storage/memory/MemoryIdentityRepository.h
 #pragma once
-#include <authforge/identity/IUserRepository.h>
-#include <authforge/identity/IRoleRepository.h>
-#include <authforge/identity/ISubjectMappingRepository.h>
+#include <fulla/identity/IUserRepository.h>
+#include <fulla/identity/IRoleRepository.h>
+#include <fulla/identity/ISubjectMappingRepository.h>
 #include <json/json.h>
 #include <cstdint>
 #include <map>
 #include <mutex>
 #include <string>
 #include <vector>
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
-class MemoryIdentityRepository : public authforge::identity::IUserRepository,
-public authforge::identity::IRoleRepository,
-public authforge::identity::ISubjectMappingRepository
+class MemoryIdentityRepository : public fulla::identity::IUserRepository,
+public fulla::identity::IRoleRepository,
+public fulla::identity::ISubjectMappingRepository
 {
 public:
 void initAdminRoles(const Json::Value &adminConfig);
 void getRoles(
 int32_t internalUserId,
-authforge::identity::IRoleRepository::RolesCallback &&cb
+fulla::identity::IRoleRepository::RolesCallback &&cb
 ) override;
 void getRoles(
 const std::string &subject,
-authforge::identity::IRoleRepository::RolesCallback &&cb
+fulla::identity::IRoleRepository::RolesCallback &&cb
 ) override;
 void getInternalUserId(
 const std::string &subject,
 const std::string &provider,
-authforge::identity::ISubjectMappingRepository::OptionalIntCallback &&cb
+fulla::identity::ISubjectMappingRepository::OptionalIntCallback &&cb
 ) override;
 void createSubjectMapping(
 const std::string &subject,
 int32_t internalUserId,
 const std::string &provider,
-authforge::identity::ISubjectMappingRepository::BoolCallback &&cb
+fulla::identity::ISubjectMappingRepository::BoolCallback &&cb
 ) override;
 void findByEmail(
 const std::string &email,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void findByUsername(
 const std::string &username,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void findById(
 int32_t userId,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void findByPublicSub(
 const std::string &publicSub,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void create(
-const authforge::identity::UserData &userData,
+const fulla::identity::UserData &userData,
 std::function<void(std::optional<int32_t>, std::string errorCode)> &&callback
 ) override;
 void updatePasswordHash(
@@ -5330,27 +5330,27 @@ int32_t userId,
 std::function<void(std::optional<Json::Value>)> &&callback
 ) override;
 private:
-authforge::identity::UserData syntheticUser(int32_t id) const;
+fulla::identity::UserData syntheticUser(int32_t id) const;
 std::map<std::string, std::vector<std::string>>
 userRoles_;
 std::map<std::string, int32_t> subjectMappings_;
 mutable std::recursive_mutex mutex_;
 };
 }
-=== libs/storage-memory/include/authforge/storage/memory/MemoryRepositoryBundle.h
+=== libs/storage-memory/include/fulla/storage/memory/MemoryRepositoryBundle.h
 #pragma once
-#include <authforge/storage/memory/MemoryClientRepository.h>
-#include <authforge/storage/memory/MemoryGrantRepository.h>
-#include <authforge/storage/memory/MemoryTokenRepository.h>
-#include <authforge/storage/memory/MemoryConsentRepository.h>
+#include <fulla/storage/memory/MemoryClientRepository.h>
+#include <fulla/storage/memory/MemoryGrantRepository.h>
+#include <fulla/storage/memory/MemoryTokenRepository.h>
+#include <fulla/storage/memory/MemoryConsentRepository.h>
 #include <json/json.h>
 #include <memory>
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
-using IClientRepository = ::authforge::oauth2::repository::IClientRepository;
-using IGrantRepository = ::authforge::oauth2::repository::IGrantRepository;
-using ITokenRepository = ::authforge::oauth2::repository::ITokenRepository;
-using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
+using IClientRepository = ::fulla::oauth2::repository::IClientRepository;
+using IGrantRepository = ::fulla::oauth2::repository::IGrantRepository;
+using ITokenRepository = ::fulla::oauth2::repository::ITokenRepository;
+using IConsentRepository = ::fulla::oauth2::repository::IConsentRepository;
 class MemoryRepositoryBundle
 {
 public:
@@ -5371,26 +5371,26 @@ std::shared_ptr<MemoryTokenRepository> tokenRepository_;
 std::shared_ptr<MemoryConsentRepository> consentRepository_;
 };
 }
-=== libs/storage-memory/include/authforge/storage/memory/MemoryTokenRepository.h
+=== libs/storage-memory/include/fulla/storage/memory/MemoryTokenRepository.h
 #pragma once
-#include <authforge/oauth2/repository/ITokenRepository.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
 #include <cstdint>
 #include <mutex>
 #include <string>
 #include <unordered_map>
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
-using ITokenRepositoryBase = ::authforge::oauth2::repository::ITokenRepository;
+using ITokenRepositoryBase = ::fulla::oauth2::repository::ITokenRepository;
 class MemoryTokenRepository : public ITokenRepositoryBase
 {
 public:
 void saveAccessToken(
-const ::authforge::oauth2::model::OAuth2AccessToken &token,
+const ::fulla::oauth2::model::OAuth2AccessToken &token,
 VoidCallback &&cb
 ) override;
 void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override;
 void saveRefreshToken(
-const ::authforge::oauth2::model::OAuth2RefreshToken &token,
+const ::fulla::oauth2::model::OAuth2RefreshToken &token,
 VoidCallback &&cb
 ) override;
 void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override;
@@ -5411,19 +5411,19 @@ bool supportsCas() const override
 ;
 private:
 std::recursive_mutex mutex_;
-std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2AccessToken> accessTokens_;
-std::unordered_map<std::string, ::authforge::oauth2::model::OAuth2RefreshToken> refreshTokens_;
+std::unordered_map<std::string, ::fulla::oauth2::model::OAuth2AccessToken> accessTokens_;
+std::unordered_map<std::string, ::fulla::oauth2::model::OAuth2RefreshToken> refreshTokens_;
 int64_t getCurrentTimestamp() const;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresClientRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresClientRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/storage/postgres/PostgresRepositoryBase.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/storage/postgres/PostgresRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-using IClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
+using IClientRepositoryBase = ::fulla::oauth2::repository::IClientRepository;
 class PostgresClientRepository : public IClientRepositoryBase,
 public PostgresRepositoryBase,
 public std::enable_shared_from_this<PostgresClientRepository>
@@ -5438,14 +5438,14 @@ BoolCallback &&cb
 ) override;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresConsentRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresConsentRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IConsentRepository.h>
-#include <authforge/storage/postgres/PostgresRepositoryBase.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
+#include <fulla/storage/postgres/PostgresRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-using IConsentRepositoryBase = ::authforge::oauth2::repository::IConsentRepository;
+using IConsentRepositoryBase = ::fulla::oauth2::repository::IConsentRepository;
 class PostgresConsentRepository : public IConsentRepositoryBase,
 public PostgresRepositoryBase,
 public std::enable_shared_from_this<PostgresConsentRepository>
@@ -5453,33 +5453,33 @@ public std::enable_shared_from_this<PostgresConsentRepository>
 public:
 PostgresConsentRepository() = default;
 void hasUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) override;
 void saveUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) override;
 void revokeUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 VoidCallback &&cb
 ) override;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresGrantRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresGrantRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IGrantRepository.h>
-#include <authforge/storage/postgres/PostgresRepositoryBase.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
+#include <fulla/storage/postgres/PostgresRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-using IGrantRepositoryBase = ::authforge::oauth2::repository::IGrantRepository;
+using IGrantRepositoryBase = ::fulla::oauth2::repository::IGrantRepository;
 class PostgresGrantRepository : public IGrantRepositoryBase,
 public PostgresRepositoryBase,
 public std::enable_shared_from_this<PostgresGrantRepository>
@@ -5487,7 +5487,7 @@ public std::enable_shared_from_this<PostgresGrantRepository>
 public:
 PostgresGrantRepository() = default;
 void saveAuthCode(
-const ::authforge::oauth2::model::OAuth2AuthCode &code,
+const ::fulla::oauth2::model::OAuth2AuthCode &code,
 VoidCallback &&cb
 ) override;
 void getAuthCode(const std::string &code, AuthCodeCallback &&cb) override;
@@ -5498,7 +5498,7 @@ const std::string &redirectUri,
 AuthCodeCallback &&cb
 ) override;
 void saveAuthorizationTransaction(
-const ::authforge::oauth2::model::AuthorizationTransaction &transaction,
+const ::fulla::oauth2::model::AuthorizationTransaction &transaction,
 BoolCallback &&cb
 ) override;
 void getAuthorizationTransaction(
@@ -5513,18 +5513,18 @@ void markTransactionConsumed(const std::string &transactionId, BoolCallback &&cb
 void purgeExpired() override;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresIdentityRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresIdentityRepository.h
 #pragma once
-#include <authforge/identity/IUserRepository.h>
-#include <authforge/identity/IRoleRepository.h>
-#include <authforge/identity/ISubjectMappingRepository.h>
+#include <fulla/identity/IUserRepository.h>
+#include <fulla/identity/IRoleRepository.h>
+#include <fulla/identity/ISubjectMappingRepository.h>
 #include <drogon/orm/DbClient.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-class PostgresIdentityRepository : public authforge::identity::IUserRepository,
-public authforge::identity::IRoleRepository,
-public authforge::identity::ISubjectMappingRepository,
+class PostgresIdentityRepository : public fulla::identity::IUserRepository,
+public fulla::identity::IRoleRepository,
+public fulla::identity::ISubjectMappingRepository,
 public std::enable_shared_from_this<PostgresIdentityRepository>
 {
 public:
@@ -5533,22 +5533,22 @@ explicit PostgresIdentityRepository(::drogon::orm::DbClientPtr dbClient)
 ;
 void findByEmail(
 const std::string &email,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void findByUsername(
 const std::string &username,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void findById(
 int32_t userId,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void findByPublicSub(
 const std::string &publicSub,
-std::function<void(std::optional<authforge::identity::UserData>)> &&callback
+std::function<void(std::optional<fulla::identity::UserData>)> &&callback
 ) override;
 void create(
-const authforge::identity::UserData &userData,
+const fulla::identity::UserData &userData,
 std::function<void(std::optional<int32_t>, std::string errorCode)> &&callback
 ) override;
 void updatePasswordHash(
@@ -5590,14 +5590,14 @@ private:
 ::drogon::orm::DbClientPtr dbClient_;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresMfaRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresMfaRepository.h
 #pragma once
-#include <authforge/identity/IMfaRepository.h>
+#include <fulla/identity/IMfaRepository.h>
 #include <drogon/orm/DbClient.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-class PostgresMfaRepository : public authforge::identity::IMfaRepository,
+class PostgresMfaRepository : public fulla::identity::IMfaRepository,
 public std::enable_shared_from_this<PostgresMfaRepository>
 {
 public:
@@ -5623,12 +5623,12 @@ private:
 ::drogon::orm::DbClientPtr dbClient_;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresRepositoryBase.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresRepositoryBase.h
 #pragma once
 #include <drogon/orm/DbClient.h>
 #include <json/json.h>
 #include <string>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 class PostgresRepositoryBase
 {
@@ -5642,20 +5642,20 @@ std::string dbClientName_ = "default";
 std::string dbClientReaderName_ = "default";
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresRepositoryBundle.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresRepositoryBundle.h
 #pragma once
-#include <authforge/storage/postgres/PostgresClientRepository.h>
-#include <authforge/storage/postgres/PostgresGrantRepository.h>
-#include <authforge/storage/postgres/PostgresTokenRepository.h>
-#include <authforge/storage/postgres/PostgresConsentRepository.h>
+#include <fulla/storage/postgres/PostgresClientRepository.h>
+#include <fulla/storage/postgres/PostgresGrantRepository.h>
+#include <fulla/storage/postgres/PostgresTokenRepository.h>
+#include <fulla/storage/postgres/PostgresConsentRepository.h>
 #include <json/json.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-using IClientRepository = ::authforge::oauth2::repository::IClientRepository;
-using IGrantRepository = ::authforge::oauth2::repository::IGrantRepository;
-using ITokenRepository = ::authforge::oauth2::repository::ITokenRepository;
-using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
+using IClientRepository = ::fulla::oauth2::repository::IClientRepository;
+using IGrantRepository = ::fulla::oauth2::repository::IGrantRepository;
+using ITokenRepository = ::fulla::oauth2::repository::ITokenRepository;
+using IConsentRepository = ::fulla::oauth2::repository::IConsentRepository;
 class PostgresRepositoryBundle
 {
 public:
@@ -5676,16 +5676,16 @@ std::shared_ptr<PostgresTokenRepository> tokenRepository_;
 std::shared_ptr<PostgresConsentRepository> consentRepository_;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresSocialAccountRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresSocialAccountRepository.h
 #pragma once
 #ifdef WITH_SOCIAL
-#include <authforge/identity/ISocialAccountRepository.h>
+#include <fulla/identity/ISocialAccountRepository.h>
 #include <drogon/orm/DbClient.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 class PostgresSocialAccountRepository
-: public authforge::identity::ISocialAccountRepository,
+: public fulla::identity::ISocialAccountRepository,
 public std::enable_shared_from_this<PostgresSocialAccountRepository>
 {
 public:
@@ -5722,14 +5722,14 @@ private:
 };
 }
 #endif
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresTokenRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresTokenRepository.h
 #pragma once
-#include <authforge/oauth2/repository/ITokenRepository.h>
-#include <authforge/storage/postgres/PostgresRepositoryBase.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
+#include <fulla/storage/postgres/PostgresRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-using ITokenRepositoryBase = ::authforge::oauth2::repository::ITokenRepository;
+using ITokenRepositoryBase = ::fulla::oauth2::repository::ITokenRepository;
 class PostgresTokenRepository : public ITokenRepositoryBase,
 public PostgresRepositoryBase,
 public std::enable_shared_from_this<PostgresTokenRepository>
@@ -5737,17 +5737,17 @@ public std::enable_shared_from_this<PostgresTokenRepository>
 public:
 PostgresTokenRepository() = default;
 void saveAccessToken(
-const ::authforge::oauth2::model::OAuth2AccessToken &token,
+const ::fulla::oauth2::model::OAuth2AccessToken &token,
 VoidCallback &&cb
 ) override;
 void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override;
 void saveTokenPair(
-const ::authforge::oauth2::model::OAuth2AccessToken &at,
-const ::authforge::oauth2::model::OAuth2RefreshToken &rt,
+const ::fulla::oauth2::model::OAuth2AccessToken &at,
+const ::fulla::oauth2::model::OAuth2RefreshToken &rt,
 SaveResultCallback &&cb
 ) override;
 void saveRefreshToken(
-const ::authforge::oauth2::model::OAuth2RefreshToken &token,
+const ::fulla::oauth2::model::OAuth2RefreshToken &token,
 VoidCallback &&cb
 ) override;
 void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override;
@@ -5768,14 +5768,14 @@ bool supportsCas() const override
 ;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/PostgresWebAuthnRepository.h
+=== libs/storage-postgres/include/fulla/storage/postgres/PostgresWebAuthnRepository.h
 #pragma once
-#include <authforge/identity/IWebAuthnRepository.h>
+#include <fulla/identity/IWebAuthnRepository.h>
 #include <drogon/orm/DbClient.h>
 #include <memory>
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
-class PostgresWebAuthnRepository : public authforge::identity::IWebAuthnRepository,
+class PostgresWebAuthnRepository : public fulla::identity::IWebAuthnRepository,
 public std::enable_shared_from_this<PostgresWebAuthnRepository>
 {
 public:
@@ -5803,7 +5803,7 @@ private:
 ::drogon::orm::DbClientPtr dbClient_;
 };
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/AuditLogs.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/AuditLogs.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -5834,7 +5834,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class AuditLogs
 {
@@ -5986,7 +5986,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/EmailVerificationTokens.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/EmailVerificationTokens.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -6017,7 +6017,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Users;
 class EmailVerificationTokens
@@ -6125,7 +6125,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2AccessTokens.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2AccessTokens.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -6156,7 +6156,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2Clients;
 class Oauth2AccessTokens
@@ -6316,7 +6316,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2ClientScopes.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2ClientScopes.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -6347,7 +6347,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2Clients;
 class Oauth2Scopes;
@@ -6451,7 +6451,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2Clients.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2Clients.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -6482,7 +6482,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2AccessTokens;
 class Oauth2ClientScopes;
@@ -6659,7 +6659,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2Codes.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2Codes.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -6690,7 +6690,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2Clients;
 class Oauth2Codes
@@ -6841,7 +6841,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2DeviceCodes.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2DeviceCodes.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -6872,7 +6872,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2Clients;
 class Oauth2DeviceCodes
@@ -7014,7 +7014,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2RefreshTokens.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2RefreshTokens.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -7045,7 +7045,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2Clients;
 class Oauth2RefreshTokens
@@ -7188,7 +7188,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2Scopes.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2Scopes.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -7219,7 +7219,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2ClientScopes;
 class Oauth2Clients;
@@ -7337,7 +7337,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2SubjectMappings.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2SubjectMappings.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -7368,7 +7368,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Users;
 class Oauth2SubjectMappings
@@ -7483,7 +7483,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Oauth2UserConsents.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Oauth2UserConsents.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -7514,7 +7514,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Oauth2Clients;
 class Oauth2Scopes;
@@ -7634,7 +7634,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Organizations.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Organizations.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -7665,7 +7665,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Organizations
 {
@@ -7790,7 +7790,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/PasswordResetTokens.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/PasswordResetTokens.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -7821,7 +7821,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Users;
 class PasswordResetTokens
@@ -7929,7 +7929,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Permissions.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Permissions.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -7960,7 +7960,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class RolePermissions;
 class Roles;
@@ -8065,7 +8065,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/RolePermissions.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/RolePermissions.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -8096,7 +8096,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Permissions;
 class Roles;
@@ -8191,7 +8191,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Roles.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Roles.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -8222,7 +8222,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Permissions;
 class RolePermissions;
@@ -8339,7 +8339,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/UserRoles.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/UserRoles.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -8370,7 +8370,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Roles;
 class Users;
@@ -8471,7 +8471,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/Users.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/Users.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -8502,7 +8502,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class EmailVerificationTokens;
 class Oauth2AccessTokens;
@@ -8731,7 +8731,7 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-postgres/include/authforge/storage/postgres/models/WebauthnCredentials.h
+=== libs/storage-postgres/include/fulla/storage/postgres/models/WebauthnCredentials.h
 #pragma once
 #include <drogon/orm/Result.h>
 #include <drogon/orm/Row.h>
@@ -8762,7 +8762,7 @@ using DbClientPtr = std::shared_ptr<DbClient>;
 }
 namespace drogon_model
 {
-namespace oauth2_db
+namespace fulla_db
 {
 class Users;
 class WebauthnCredentials
@@ -8896,15 +8896,15 @@ std::string sqlForInserting(bool &needSelection) const
 };
 }
 }
-=== libs/storage-redis/include/authforge/storage/redis/CachedClientRepository.h
+=== libs/storage-redis/include/fulla/storage/redis/CachedClientRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/model/Client.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/model/Client.h>
 #include <drogon/CacheMap.h>
 #include <memory>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using CachedClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
+using CachedClientRepositoryBase = ::fulla::oauth2::repository::IClientRepository;
 class CachedClientRepository : public CachedClientRepositoryBase,
 public std::enable_shared_from_this<CachedClientRepository>
 {
@@ -8921,37 +8921,37 @@ CachedClientRepositoryBase::BoolCallback &&cb
 ) override;
 private:
 std::shared_ptr<CachedClientRepositoryBase> impl_;
-::drogon::CacheMap<std::string, ::authforge::oauth2::model::OAuth2Client> clientCache_;
+::drogon::CacheMap<std::string, ::fulla::oauth2::model::OAuth2Client> clientCache_;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/DelayedDoubleDelete.h
+=== libs/storage-redis/include/fulla/storage/redis/DelayedDoubleDelete.h
 #pragma once
-#include <authforge/common/ports/IMetrics.h>
+#include <fulla/common/ports/IMetrics.h>
 #include <drogon/nosql/RedisClient.h>
 #include <memory>
 #include <string>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 constexpr int kDefaultDoubleDeleteDelayMs = 200;
 void invalidateWithDoubleDelete(
 const ::drogon::nosql::RedisClientPtr &redis,
 const std::string &key,
-const std::shared_ptr<::authforge::common::ports::IMetrics> &metrics,
+const std::shared_ptr<::fulla::common::ports::IMetrics> &metrics,
 std::string kind,
 int delayMs = kDefaultDoubleDeleteDelayMs
 );
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisCachedClientRepository.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisCachedClientRepository.h
 #pragma once
-#include <authforge/common/ports/IMetrics.h>
-#include <authforge/oauth2/repository/IClientRepository.h>
+#include <fulla/common/ports/IMetrics.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
 #include <drogon/nosql/RedisClient.h>
 #include <atomic>
 #include <memory>
 #include <string>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using RedisCachedClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
+using RedisCachedClientRepositoryBase = ::fulla::oauth2::repository::IClientRepository;
 class RedisCachedClientRepository : public RedisCachedClientRepositoryBase,
 public std::enable_shared_from_this<RedisCachedClientRepository>
 {
@@ -8959,7 +8959,7 @@ public:
 RedisCachedClientRepository(
 std::shared_ptr<RedisCachedClientRepositoryBase> impl,
 ::drogon::nosql::RedisClientPtr redisClient,
-std::shared_ptr<::authforge::common::ports::IMetrics> metrics = nullptr,
+std::shared_ptr<::fulla::common::ports::IMetrics> metrics = nullptr,
 int clientTtlSeconds = 300
 );
 void getClient(const std::string &clientId, ClientCallback &&cb) override;
@@ -8971,22 +8971,22 @@ BoolCallback &&cb
 private:
 std::shared_ptr<RedisCachedClientRepositoryBase> impl_;
 ::drogon::nosql::RedisClientPtr redisClient_;
-std::shared_ptr<::authforge::common::ports::IMetrics> metrics_;
+std::shared_ptr<::fulla::common::ports::IMetrics> metrics_;
 int clientTtlSeconds_;
 void emitMetric(const char *outcome) const;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisCachedTokenRepository.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisCachedTokenRepository.h
 #pragma once
-#include <authforge/common/ports/IMetrics.h>
-#include <authforge/oauth2/repository/ITokenRepository.h>
+#include <fulla/common/ports/IMetrics.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
 #include <drogon/nosql/RedisClient.h>
 #include <atomic>
 #include <memory>
 #include <string>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using RedisCachedTokenRepositoryBase = ::authforge::oauth2::repository::ITokenRepository;
+using RedisCachedTokenRepositoryBase = ::fulla::oauth2::repository::ITokenRepository;
 class RedisCachedTokenRepository : public RedisCachedTokenRepositoryBase,
 public std::enable_shared_from_this<RedisCachedTokenRepository>
 {
@@ -8994,7 +8994,7 @@ public:
 RedisCachedTokenRepository(
 std::shared_ptr<RedisCachedTokenRepositoryBase> impl,
 ::drogon::nosql::RedisClientPtr redisClient,
-std::shared_ptr<::authforge::common::ports::IMetrics> metrics = nullptr,
+std::shared_ptr<::fulla::common::ports::IMetrics> metrics = nullptr,
 int accessTokenMaxTtlSeconds = 60
 );
 void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override;
@@ -9005,17 +9005,17 @@ const std::string &revokedBy,
 VoidCallback &&cb
 ) override;
 void saveAccessToken(
-const ::authforge::oauth2::model::OAuth2AccessToken &token,
+const ::fulla::oauth2::model::OAuth2AccessToken &token,
 VoidCallback &&cb
 ) override;
 void saveTokenPair(
-const ::authforge::oauth2::model::OAuth2AccessToken &at,
-const ::authforge::oauth2::model::OAuth2RefreshToken &rt,
+const ::fulla::oauth2::model::OAuth2AccessToken &at,
+const ::fulla::oauth2::model::OAuth2RefreshToken &rt,
 SaveResultCallback &&cb
 ) override
 ;
 void saveRefreshToken(
-const ::authforge::oauth2::model::OAuth2RefreshToken &token,
+const ::fulla::oauth2::model::OAuth2RefreshToken &token,
 VoidCallback &&cb
 ) override
 ;
@@ -9038,19 +9038,19 @@ bool supportsCas() const override
 private:
 std::shared_ptr<RedisCachedTokenRepositoryBase> impl_;
 ::drogon::nosql::RedisClientPtr redisClient_;
-std::shared_ptr<::authforge::common::ports::IMetrics> metrics_;
+std::shared_ptr<::fulla::common::ports::IMetrics> metrics_;
 int accessTokenMaxTtlSeconds_;
 void emitMetric(const char *outcome) const;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisClientRepository.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisClientRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/storage/redis/RedisRepositoryBase.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/storage/redis/RedisRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using IClientRepositoryBase = ::authforge::oauth2::repository::IClientRepository;
+using IClientRepositoryBase = ::fulla::oauth2::repository::IClientRepository;
 class RedisClientRepository : public IClientRepositoryBase,
 public RedisRepositoryBase,
 public std::enable_shared_from_this<RedisClientRepository>
@@ -9067,14 +9067,14 @@ BoolCallback &&cb
 ) override;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisConsentRepository.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisConsentRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IConsentRepository.h>
-#include <authforge/storage/redis/RedisRepositoryBase.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
+#include <fulla/storage/redis/RedisRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using IConsentRepositoryBase = ::authforge::oauth2::repository::IConsentRepository;
+using IConsentRepositoryBase = ::fulla::oauth2::repository::IConsentRepository;
 class RedisConsentRepository : public IConsentRepositoryBase,
 public RedisRepositoryBase,
 public std::enable_shared_from_this<RedisConsentRepository>
@@ -9084,33 +9084,33 @@ explicit RedisConsentRepository(const std::string &redisClientName = "default")
 : RedisRepositoryBase(redisClientName)
 ;
 void hasUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) override;
 void saveUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 BoolCallback &&cb
 ) override;
 void revokeUserConsent(
-const ::authforge::oauth2::model::UserRef &user,
+const ::fulla::oauth2::model::UserRef &user,
 const std::string &clientId,
 const std::string &scope,
 VoidCallback &&cb
 ) override;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisGrantRepository.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisGrantRepository.h
 #pragma once
-#include <authforge/oauth2/repository/IGrantRepository.h>
-#include <authforge/storage/redis/RedisRepositoryBase.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
+#include <fulla/storage/redis/RedisRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using IGrantRepositoryBase = ::authforge::oauth2::repository::IGrantRepository;
+using IGrantRepositoryBase = ::fulla::oauth2::repository::IGrantRepository;
 class RedisGrantRepository : public IGrantRepositoryBase,
 public RedisRepositoryBase,
 public std::enable_shared_from_this<RedisGrantRepository>
@@ -9120,7 +9120,7 @@ explicit RedisGrantRepository(const std::string &redisClientName = "default")
 : RedisRepositoryBase(redisClientName)
 ;
 void saveAuthCode(
-const ::authforge::oauth2::model::OAuth2AuthCode &code,
+const ::fulla::oauth2::model::OAuth2AuthCode &code,
 VoidCallback &&cb
 ) override;
 void getAuthCode(const std::string &code, AuthCodeCallback &&cb) override;
@@ -9131,7 +9131,7 @@ const std::string &redirectUri,
 AuthCodeCallback &&cb
 ) override;
 void saveAuthorizationTransaction(
-const ::authforge::oauth2::model::AuthorizationTransaction &transaction,
+const ::fulla::oauth2::model::AuthorizationTransaction &transaction,
 BoolCallback &&cb
 ) override;
 void getAuthorizationTransaction(
@@ -9146,11 +9146,11 @@ void markTransactionConsumed(const std::string &transactionId, BoolCallback &&cb
 void purgeExpired() override;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisRepositoryBase.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisRepositoryBase.h
 #pragma once
 #include <drogon/nosql/RedisClient.h>
 #include <string>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 class RedisRepositoryBase
 {
@@ -9161,20 +9161,20 @@ protected:
 ::drogon::nosql::RedisClientPtr redisClient_;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisRepositoryBundle.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisRepositoryBundle.h
 #pragma once
-#include <authforge/storage/redis/RedisClientRepository.h>
-#include <authforge/storage/redis/RedisGrantRepository.h>
-#include <authforge/storage/redis/RedisTokenRepository.h>
-#include <authforge/storage/redis/RedisConsentRepository.h>
+#include <fulla/storage/redis/RedisClientRepository.h>
+#include <fulla/storage/redis/RedisGrantRepository.h>
+#include <fulla/storage/redis/RedisTokenRepository.h>
+#include <fulla/storage/redis/RedisConsentRepository.h>
 #include <memory>
 #include <string>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using IClientRepository = ::authforge::oauth2::repository::IClientRepository;
-using IGrantRepository = ::authforge::oauth2::repository::IGrantRepository;
-using ITokenRepository = ::authforge::oauth2::repository::ITokenRepository;
-using IConsentRepository = ::authforge::oauth2::repository::IConsentRepository;
+using IClientRepository = ::fulla::oauth2::repository::IClientRepository;
+using IGrantRepository = ::fulla::oauth2::repository::IGrantRepository;
+using ITokenRepository = ::fulla::oauth2::repository::ITokenRepository;
+using IConsentRepository = ::fulla::oauth2::repository::IConsentRepository;
 class RedisRepositoryBundle
 {
 public:
@@ -9194,14 +9194,14 @@ std::shared_ptr<RedisTokenRepository> tokenRepository_;
 std::shared_ptr<RedisConsentRepository> consentRepository_;
 };
 }
-=== libs/storage-redis/include/authforge/storage/redis/RedisTokenRepository.h
+=== libs/storage-redis/include/fulla/storage/redis/RedisTokenRepository.h
 #pragma once
-#include <authforge/oauth2/repository/ITokenRepository.h>
-#include <authforge/storage/redis/RedisRepositoryBase.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
+#include <fulla/storage/redis/RedisRepositoryBase.h>
 #include <memory>
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
-using ITokenRepositoryBase = ::authforge::oauth2::repository::ITokenRepository;
+using ITokenRepositoryBase = ::fulla::oauth2::repository::ITokenRepository;
 class RedisTokenRepository : public ITokenRepositoryBase,
 public RedisRepositoryBase,
 public std::enable_shared_from_this<RedisTokenRepository>
@@ -9211,12 +9211,12 @@ explicit RedisTokenRepository(const std::string &redisClientName = "default")
 : RedisRepositoryBase(redisClientName)
 ;
 void saveAccessToken(
-const ::authforge::oauth2::model::OAuth2AccessToken &token,
+const ::fulla::oauth2::model::OAuth2AccessToken &token,
 VoidCallback &&cb
 ) override;
 void getAccessToken(const std::string &token, AccessTokenCallback &&cb) override;
 void saveRefreshToken(
-const ::authforge::oauth2::model::OAuth2RefreshToken &token,
+const ::fulla::oauth2::model::OAuth2RefreshToken &token,
 VoidCallback &&cb
 ) override;
 void getRefreshToken(const std::string &token, RefreshTokenCallback &&cb) override;

@@ -8,11 +8,11 @@
 
 | 镜像用途 | 镜像名称 | 标签 | 构建目标 (--target) | 说明 |
 |---------|---------|------|--------------------|---------|
-| 生产后端 | `oauth2-backend` | `<ver>`（当前 `v1.0.0`） | `backend-runtime` | 仅包含运行时，体积小 |
-| 调试后端 | `oauth2-backend-debug` | `<ver>`（当前 `v1.0.0`） | `backend-dev` | 包含完整编译工具链 |
-| 生产前端 | `oauth2-frontend` | `latest` | `frontend-runtime` | Nginx + 静态资源 |
+| 生产后端 | `fulla-backend` | `<ver>`（当前 `v1.0.0`） | `backend-runtime` | 仅包含运行时，体积小 |
+| 调试后端 | `fulla-backend-debug` | `<ver>`（当前 `v1.0.0`） | `backend-dev` | 包含完整编译工具链 |
+| 生产前端 | `fulla-frontend` | `latest` | `frontend-runtime` | Nginx + 静态资源 |
 
-> 版本号由 `cmake/Version.cmake` 统一定义（当前 `OAUTH2_PROJECT_VERSION = 1.0.0`），生产镜像以 GHCR 多架构镜像发布，详见 [Releases & Supply Chain Security](../../README.md#releases--supply-chain-security)。
+> 版本号由 `cmake/Version.cmake` 统一定义（当前 `FULLA_PROJECT_VERSION = 1.0.0`），生产镜像以 GHCR 多架构镜像发布，详见 [Releases & Supply Chain Security](../../README.md#releases--supply-chain-security)。
 
 ### 1.2 容器命名规范
 
@@ -20,10 +20,10 @@
 
 | 服务类型 | 容器名称 (Release) | 容器名称 (Debug) |
 |-----|-------------------|-----------------|
-| 后端服务 | `oauth2-backend` | `oauth2-backend-debug` |
-| 前端服务 | `oauth2-frontend` | - |
-| 数据库 (PostgreSQL) | `oauth2-postgres` | `oauth2-postgres-debug` |
-| 缓存 (Redis) | `oauth2-redis` | `oauth2-redis-debug` |
+| 后端服务 | `fulla-backend` | `fulla-backend-debug` |
+| 前端服务 | `fulla-frontend` | - |
+| 数据库 (PostgreSQL) | `fulla-postgres` | `fulla-postgres-debug` |
+| 缓存 (Redis) | `fulla-redis` | `fulla-redis-debug` |
 
 ### 1.3 网络命名规范
 *   **Release 网络**: `oauth2-net`
@@ -67,7 +67,7 @@ docker image prune -f
 
     ```powershell
     # 使用统一 Dockerfile 的 backend-dev 目标构建
-    docker build -f deploy/docker/Dockerfile --target backend-dev -t oauth2-backend-debug:v1.0.0 .
+    docker build -f deploy/docker/Dockerfile --target backend-dev -t fulla-backend-debug:v1.0.0 .
     ```
 
 - **启动服务** (在项目根目录):
@@ -96,7 +96,7 @@ docker image prune -f
 
     ```powershell
     # 只启动 PostgreSQL 和 Redis，本地运行后端/前端
-    docker-compose -f deploy/docker/docker-compose.yml up -d oauth2-postgres oauth2-redis
+    docker-compose -f deploy/docker/docker-compose.yml up -d fulla-postgres fulla-redis
     
     # 验证数据库状态
     docker-compose -f deploy/docker/docker-compose.yml ps
@@ -116,7 +116,7 @@ docker image prune -f
     docker-compose -f deploy/docker/docker-compose.yml logs -f
     
     # 查看特定服务日志
-    docker-compose -f deploy/docker/docker-compose.yml logs -f oauth2-backend
+    docker-compose -f deploy/docker/docker-compose.yml logs -f fulla-backend
     ```
 
 - **停止服务**:
@@ -141,8 +141,8 @@ docker image prune -f
     
     # 编辑 .env.docker 文件，设置生产环境参数
     # 必需的环境变量：
-    # - OAUTH2_DB_HOST, OAUTH2_DB_NAME, OAUTH2_DB_PASSWORD
-    # - OAUTH2_REDIS_HOST, OAUTH2_REDIS_PASSWORD
+    # - FULLA_DB_HOST, FULLA_DB_NAME, FULLA_DB_PASSWORD
+    # - FULLA_REDIS_HOST, FULLA_REDIS_PASSWORD
     # - POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
     # - REDIS_PASSWORD
     ```
@@ -214,7 +214,7 @@ docker image prune -f
 
 ```powershell
 # 1. 启动数据库和Redis
-docker-compose -f deploy/docker/docker-compose.yml up -d oauth2-postgres oauth2-redis
+docker-compose -f deploy/docker/docker-compose.yml up -d fulla-postgres fulla-redis
 
 # 2. 本地运行后端
 .\scripts\backend\run_server.bat -debug
@@ -245,7 +245,7 @@ docker-compose -f deploy/docker/docker-compose.yml up -d
 docker-compose -f deploy/docker/docker-compose.yml ps
 
 # 查看后端日志
-docker-compose -f deploy/docker/docker-compose.yml logs -f oauth2-backend
+docker-compose -f deploy/docker/docker-compose.yml logs -f fulla-backend
 ```
 
 ### 4.3 调试模式
@@ -263,7 +263,7 @@ docker-compose -f deploy/docker/docker-compose.debug.yml exec debug-env bash
 conan install . --output-folder=build/linux-debug -s build_type=Debug -s compiler.cppstd=17 --build=missing
 cmake --preset linux-debug
 cmake --build --preset linux-debug
-gdb build/linux-debug/apps/server/authforge-server
+gdb build/linux-debug/apps/server/fulla-server
 ```
 
 ---
@@ -316,10 +316,10 @@ docker-compose -f deploy/docker/docker-compose.yml down
 docker-compose -f deploy/docker/docker-compose.yml ps
 
 # 2. 检查PostgreSQL健康状态
-docker exec oauth2-postgres pg_isready -U oauth2_user -d oauth2_db
+docker exec fulla-postgres pg_isready -U fulla_user -d fulla_db
 
 # 3. 查看数据库日志
-docker-compose -f deploy/docker/docker-compose.yml logs oauth2-postgres
+docker-compose -f deploy/docker/docker-compose.yml logs fulla-postgres
 ```
 
 ---
@@ -332,7 +332,7 @@ docker-compose -f deploy/docker/docker-compose.yml logs oauth2-postgres
 # === 在项目根目录执行 ===
 
 # 启动数据库（本地开发）
-docker-compose -f deploy/docker/docker-compose.yml up -d oauth2-postgres oauth2-redis
+docker-compose -f deploy/docker/docker-compose.yml up -d fulla-postgres fulla-redis
 
 # 启动所有服务（集成测试）
 docker-compose -f deploy/docker/docker-compose.yml up -d

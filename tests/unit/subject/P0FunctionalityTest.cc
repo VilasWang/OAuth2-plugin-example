@@ -1,19 +1,19 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/utils/SubjectGenerator.h>
-#include <authforge/storage/memory/MemoryIdentityRepository.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/SubjectGenerator.h>
+#include <fulla/storage/memory/MemoryIdentityRepository.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <json/json.h>
 #include <chrono>
 #include <future>
 
 // Phase 1.5e: subject-mapping tests retargeted from the legacy
 // oauth2::MemorySubjectMappingRepository (via MemoryRepositoryBundle's
-// subjectMappingRepository()) to the NEW authforge::identity::* backing
+// subjectMappingRepository()) to the NEW fulla::identity::* backing
 // store (MemoryIdentityRepository). The SubjectGenerator unit tests below
 // need no storage.
 
-using namespace authforge::common::utils;
+using namespace fulla::common::utils;
 
 // ========== SubjectGenerator Tests ==========
 
@@ -49,7 +49,7 @@ DROGON_TEST(Unit_P0_SubjectGenerator_Legacy_Parsing)
 
 DROGON_TEST(Unit_P0_SubjectMapping_Legacy_ProviderIsolation)
 {
-    authforge::storage::memory::MemoryIdentityRepository sm;
+    fulla::storage::memory::MemoryIdentityRepository sm;
 
     std::promise<void> p1;
     sm.createSubjectMapping("alice", 1, "local", [&](bool success) {
@@ -142,7 +142,7 @@ DROGON_TEST(Unit_P0_EdgeCases_Legacy_EmptyVerifier)
 
 DROGON_TEST(Unit_P0_EdgeCases_Legacy_SubjectProviderIsolation)
 {
-    authforge::storage::memory::MemoryIdentityRepository sm;
+    fulla::storage::memory::MemoryIdentityRepository sm;
 
     sm.createSubjectMapping("testuser", 1, "local", [&](bool) {});
     sm.createSubjectMapping("testuser", 2, "google", [&](bool) {});

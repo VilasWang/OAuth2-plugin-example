@@ -178,7 +178,7 @@ token（subject `client:*`）。響應附帶
 
 `OAuth2AuthFilter` / `AuthorizationFilter` 在 access token 校驗通過後，按請求
 路徑強制最小 required-scope（RFC 6750 §3.1）。token scope 不足時返回 403，
-響應附帶 `WWW-Authenticate: Bearer realm="authforge", error="insufficient_scope",
+響應附帶 `WWW-Authenticate: Bearer realm="fulla", error="insufficient_scope",
 scope="<required>"`，其中 `scope` 屬性命名解鎖該資源所需的 scope。
 
 | 路徑 | Required Scope | 備註 |
@@ -190,7 +190,7 @@ scope="<required>"`，其中 `scope` 屬性命名解鎖該資源所需的 scope�
 > **完整資源-scope 授權模型為後續工作**（獨立 issue「完整資源-scope 授權模型」）。
 > 當前僅上述最小映射；其餘 `/api/*` 路徑仍僅由既有 RBAC 規則（`rbac_rules`）
 > 把關，不額外要求特定 scope。Scope 匹配為空格分隔 token 的精確匹配
-> （`authforge::drogon::utils::hasScope()`），避免 `openidprofile` 誤過
+> （`fulla::drogon::utils::hasScope()`），避免 `openidprofile` 誤過
 > `openid`/`profile`。
 
 ### 3.y 客戶端管理（F-030：admin-only，無 RFC 7592 自管理）
@@ -302,8 +302,8 @@ OIDC RP-Initiated Logout 1.0 §2 — 終止用戶的 server-side session，並�
 
 ## 5. 通用错误码
 
-> **单一权威来源（single source of truth）**：本章节 5.1 与 5.2 的表格由后端 `ErrorCatalog`（`libs/common/include/authforge/common/error/ErrorCatalog.h`）的 `allEntries()` / `allOAuthEntries()` 生成并由自动化测试校验，请勿手工修改表格行。
-> 任一不一致（缺失/多余条目、HTTP 状态码或 Error_Category 不匹配）都会导致校验测试失败：`authforge-tests -r ErrorCatalogDoc`。
+> **单一权威来源（single source of truth）**：本章节 5.1 与 5.2 的表格由后端 `ErrorCatalog`（`libs/common/include/fulla/common/error/ErrorCatalog.h`）的 `allEntries()` / `allOAuthEntries()` 生成并由自动化测试校验，请勿手工修改表格行。
+> 任一不一致（缺失/多余条目、HTTP 状态码或 Error_Category 不匹配）都会导致校验测试失败：`fulla-tests -r ErrorCatalogDoc`。
 
 ### 5.1 应用错误码 (Application Error Codes)
 
@@ -397,6 +397,6 @@ OAuth2 协议端点（OAuth2_Protocol_Endpoint）保持 RFC 6749 §5.2 错误体
 ### 6.4 故障排查
 
 *   **Swagger UI 无法访问**：检查 `docs/api/swagger-ui/` 目录是否存在，确认静态文件服务已启用。
-*   **OpenAPI 生成失败**：运行 `authforge-tests -r OpenApiGenerator` 单元测试，查看具体的注册错误。
+*   **OpenAPI 生成失败**：运行 `fulla-tests -r OpenApiGenerator` 单元测试，查看具体的注册错误。
 *   **文档不一致**：确认是否在 Controller 代码变更后重新运行了生成流程，并提交了最新的 `openapi.json`。
 

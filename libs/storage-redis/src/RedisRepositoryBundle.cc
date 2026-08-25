@@ -1,6 +1,6 @@
-#include <authforge/storage/redis/RedisRepositoryBundle.h>
+#include <fulla/storage/redis/RedisRepositoryBundle.h>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 RedisRepositoryBundle::RedisRepositoryBundle(const std::string &redisClientName)
@@ -11,4 +11,4 @@ RedisRepositoryBundle::RedisRepositoryBundle(const std::string &redisClientName)
 {
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

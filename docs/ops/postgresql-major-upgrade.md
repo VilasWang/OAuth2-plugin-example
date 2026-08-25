@@ -7,7 +7,7 @@
 >
 > 全新部署无此问题（17 数据目录由初始化直接生成）。
 >
-> AuthForge 自身在 PG 15 vs 17 的基准差异在噪声带内（2026-08-18 A/B 实测），
+> Fulla 自身在 PG 15 vs 17 的基准差异在噪声带内（2026-08-18 A/B 实测），
 > 升级动机是与服务端 libpq 17.x 客户端对齐及基准环境一致性，**没有吞吐诉求**。
 > 不急于升级的部署可以继续用 15 跑（把 compose 里的镜像 tag 钉回
 > `postgres:15-alpine` 即可，与应用兼容）。
@@ -30,14 +30,14 @@
 
 ```bash
 cd deploy/docker
-docker compose -f docker-compose.prod.yml stop oauth2-backend
+docker compose -f docker-compose.prod.yml stop fulla-backend
 # 旧 PG（15）保持运行，用它导出
 ```
 
 ### 2. 全量导出
 
 ```bash
-docker compose -f docker-compose.prod.yml exec -T oauth2-postgres \
+docker compose -f docker-compose.prod.yml exec -T fulla-postgres \
   pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-privileges \
   > backup_pg15_$(date +%Y%m%d).sql
 # 校验导出文件非空且含表结构
@@ -61,14 +61,14 @@ docker volume rm <project>_pgdata 2>/dev/null || true
 ### 4. 启动 17 并导入
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d oauth2-postgres
+docker compose -f docker-compose.prod.yml up -d fulla-postgres
 # 等健康检查通过后导入
-docker compose -f docker-compose.prod.yml exec -T oauth2-postgres \
+docker compose -f docker-compose.prod.yml exec -T fulla-postgres \
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   < backup_pg15_$(date +%Y%m%d).sql 2>&1 | grep -i "error\|fatal" || echo "IMPORT CLEAN"
 ```
 
-> 服务端配置了启动自动迁移（`OAUTH2_AUTO_MIGRATE=true` 时），导入旧 schema 后
+> 服务端配置了启动自动迁移（`FULLA_AUTO_MIGRATE=true` 时），导入旧 schema 后
 > 首次启动会自动补齐新增迁移（V025 分区等，幂等）。
 
 ### 5. 验证后放流量
@@ -90,7 +90,7 @@ pg_upgrade 需要同时存在新旧两套 binary 与数据目录。容器化下�
 
 ```bash
 # 1) 停应用与旧库
-docker compose -f docker-compose.prod.yml stop oauth2-backend oauth2-postgres
+docker compose -f docker-compose.prod.yml stop fulla-backend fulla-postgres
 
 # 2) 复制旧数据卷到新卷（pg_upgrade --link 可省空间但有损坏回滚风险，不默认）
 docker run --rm -v <project>_pgdata:/old -v <project>_pgdata17:/new alpine \
@@ -115,10 +115,10 @@ pg_upgrade 成功后按提示执行 `vacuumdb --all --analyze`（或等自动 an
 
 ## Helm 部署
 
-Chart 内置 PostgreSQL 的镜像 tag 在 `deploy/helm/authforge/values.yaml`
+Chart 内置 PostgreSQL 的镜像 tag 在 `deploy/helm/fulla/values.yaml`
 （`postgresql.image`）。有状态集的 PVC 同样是大版本绑定的数据目录：
 
-1. `kubectl scale deploy/authforge --replicas=0`（停应用）；
+1. `kubectl scale deploy/fulla --replicas=0`（停应用）；
 2. 按上面任一路线导出/升级 PVC 中的数据；
 3. 更新 values 后 `helm upgrade`，验证就绪后恢复副本。
 

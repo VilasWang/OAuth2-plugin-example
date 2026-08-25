@@ -29,18 +29,18 @@
 //   so the assertions track the real handler.
 //
 //   The test touches no database, so it runs unchanged under
-//   OAUTH2_MEMORY_TESTS_ONLY.
+//   FULLA_MEMORY_TESTS_ONLY.
 // ---------------------------------------------------------------------------
 
 #include <drogon/drogon_test.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/drogon/error/RequestId.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/drogon/error/RequestId.h>
 
 #include <json/json.h>
 
@@ -50,7 +50,7 @@
 #include <vector>
 
 using namespace drogon;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 namespace
 {

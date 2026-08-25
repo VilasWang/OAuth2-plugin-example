@@ -1,4 +1,4 @@
-#include <authforge/oauth2/protocol/LogoutToken.h>
+#include <fulla/oauth2/protocol/LogoutToken.h>
 
 #include <openssl/rand.h>
 
@@ -7,7 +7,7 @@
 #include <random>
 #include <string>
 
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 
 std::string generateJti()
@@ -65,4 +65,4 @@ Json::Value buildLogoutTokenClaims(
     return claims;
 }
 
-}  // namespace authforge::oauth2::protocol
+}  // namespace fulla::oauth2::protocol

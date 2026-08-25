@@ -1,24 +1,24 @@
-#include <authforge/drogon/controllers/WebAuthnController.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/controllers/WebAuthnController.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <chrono>
 
-// Task 24 slice 5 (authforge-sdk-refactor): identity-layer services this
+// Task 24 slice 5 (fulla-sdk-refactor): identity-layer services this
 // controller now optionally consumes.
-#include <authforge/identity/IUserRepository.h>
-#include <authforge/identity/WebAuthnService.h>
+#include <fulla/identity/IUserRepository.h>
+#include <fulla/identity/WebAuthnService.h>
 
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/storage/postgres/models/WebauthnCredentials.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/WebauthnCredentials.h>
 
 using namespace ::drogon::orm;
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -32,7 +32,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -44,50 +44,50 @@ struct WebAuthnControllerDocs
 {
     WebAuthnControllerDocs()
     {
-        ::authforge::drogon::observability::openapi::EndpointInfo regBeginDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo regBeginDocs;
         regBeginDocs.path = "/api/me/webauthn/register/begin";
         regBeginDocs.method = "POST";
         regBeginDocs.summary = "WebAuthn Register Begin";
         regBeginDocs.description = "Start WebAuthn registration.";
         regBeginDocs.tags = {"WebAuthn"};
         regBeginDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo regFinishDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo regFinishDocs;
         regFinishDocs.path = "/api/me/webauthn/register/finish";
         regFinishDocs.method = "POST";
         regFinishDocs.summary = "WebAuthn Register Finish";
         regFinishDocs.description = "Finish WebAuthn registration.";
         regFinishDocs.tags = {"WebAuthn"};
         regFinishDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo loginBeginDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo loginBeginDocs;
         loginBeginDocs.path = "/oauth2/webauthn/authenticate/begin";
         loginBeginDocs.method = "POST";
         loginBeginDocs.summary = "WebAuthn Authenticate Begin";
         loginBeginDocs.description = "Start WebAuthn authentication.";
         loginBeginDocs.tags = {"WebAuthn"};
         loginBeginDocs.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo loginFinishDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo loginFinishDocs;
         loginFinishDocs.path = "/oauth2/webauthn/authenticate/finish";
         loginFinishDocs.method = "POST";
         loginFinishDocs.summary = "WebAuthn Authenticate Finish";
         loginFinishDocs.description = "Finish WebAuthn authentication.";
         loginFinishDocs.tags = {"WebAuthn"};
         loginFinishDocs.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo credentialsDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo credentialsDocs;
         credentialsDocs.path = "/api/me/webauthn/credentials";
         credentialsDocs.method = "GET";
         credentialsDocs.summary = "List WebAuthn Credentials";
         credentialsDocs.description = "List registered WebAuthn credentials.";
         credentialsDocs.tags = {"WebAuthn"};
         credentialsDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
     }
 };
 
@@ -131,7 +131,7 @@ void WebAuthnController::registerBegin(
         webAuthnService_->beginRegistration(
           [sharedCb,
            req,
-           userId](std::optional<authforge::identity::WebAuthnRegistrationChallenge> result) {
+           userId](std::optional<fulla::identity::WebAuthnRegistrationChallenge> result) {
               if (!result)
               {
                   respondError(
@@ -177,7 +177,7 @@ void WebAuthnController::registerBegin(
     }
 
     // Generate challenge (32 bytes, base64url encoded)
-    std::string challenge = ::authforge::drogon::utils::generateSecureToken();
+    std::string challenge = ::fulla::drogon::utils::generateSecureToken();
 
     // Store challenge in session for verification in registerFinish
     if (req->session())
@@ -268,7 +268,7 @@ void WebAuthnController::registerFinish(
         userRepo_->findByPublicSub(
           userId,
           [this, sharedCb, req, userId, credentialId, publicKey, credName](
-            std::optional<authforge::identity::UserData> user
+            std::optional<fulla::identity::UserData> user
           ) {
               if (!user)
               {
@@ -288,7 +288,7 @@ void WebAuthnController::registerFinish(
                         respondError(req, sharedCb, errorCode, "registerFinish: " + errorCode);
                         return;
                     }
-                    ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                    ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                       ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                       "webauthn_registered",
                       "success",
@@ -312,10 +312,10 @@ void WebAuthnController::registerFinish(
 
     // Store credential: first resolve public_sub to user_id, then insert
     auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
+    Mapper<drogon_model::fulla_db::Users>(db).findBy(
+      Criteria(drogon_model::fulla_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
       [db, sharedCb, req, credentialId, publicKey, credName](
-        const std::vector<drogon_model::oauth2_db::Users> &usersResult
+        const std::vector<drogon_model::fulla_db::Users> &usersResult
       ) {
           if (usersResult.empty())
           {
@@ -326,16 +326,16 @@ void WebAuthnController::registerFinish(
           }
           int32_t resolvedUserId = usersResult[0].getValueOfId();
 
-          drogon_model::oauth2_db::WebauthnCredentials cred;
+          drogon_model::fulla_db::WebauthnCredentials cred;
           cred.setUserId(resolvedUserId);
           cred.setCredentialId(credentialId);
           cred.setPublicKey(publicKey);
           cred.setName(credName);
 
-          Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).insert(
+          Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).insert(
             cred,
-            [sharedCb, credentialId, req](const drogon_model::oauth2_db::WebauthnCredentials &) {
-                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+            [sharedCb, credentialId, req](const drogon_model::fulla_db::WebauthnCredentials &) {
+                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                   "webauthn_registered",
                   "success",
@@ -400,7 +400,7 @@ void WebAuthnController::authenticateBegin(
         );
         webAuthnService_->beginAuthentication(
           [sharedCb,
-           req](std::optional<authforge::identity::WebAuthnAuthenticationChallenge> result) {
+           req](std::optional<fulla::identity::WebAuthnAuthenticationChallenge> result) {
               if (!result)
               {
                   respondError(
@@ -429,7 +429,7 @@ void WebAuthnController::authenticateBegin(
     }
 
     // Generate challenge
-    std::string challenge = ::authforge::drogon::utils::generateSecureToken();
+    std::string challenge = ::fulla::drogon::utils::generateSecureToken();
 
     // Store in session
     if (req->session())
@@ -489,7 +489,7 @@ void WebAuthnController::authenticateFinish(
           credentialId,
           [sharedCb,
            req,
-           credentialId](std::optional<authforge::identity::WebAuthnAuthResult> result) {
+           credentialId](std::optional<fulla::identity::WebAuthnAuthResult> result) {
               if (!result)
               {
                   respondError(
@@ -500,7 +500,7 @@ void WebAuthnController::authenticateFinish(
                   );
                   return;
               }
-              ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+              ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                 ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                 "webauthn_authenticated",
                 "success",
@@ -521,14 +521,14 @@ void WebAuthnController::authenticateFinish(
 
     // Look up credential and verify (split JOIN into two Mapper queries)
     auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).findBy(
+    Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).findBy(
       Criteria(
-        drogon_model::oauth2_db::WebauthnCredentials::Cols::_credential_id,
+        drogon_model::fulla_db::WebauthnCredentials::Cols::_credential_id,
         CompareOperator::EQ,
         credentialId
       ),
       [sharedCb, credentialId, db, req](
-        const std::vector<drogon_model::oauth2_db::WebauthnCredentials> &creds
+        const std::vector<drogon_model::fulla_db::WebauthnCredentials> &creds
       ) {
           if (creds.empty())
           {
@@ -547,20 +547,20 @@ void WebAuthnController::authenticateFinish(
 
           // Build credential update from already-fetched object
           int newSignCount = signCount + 1;
-          auto credUpdate = std::make_shared<drogon_model::oauth2_db::WebauthnCredentials>(wc);
+          auto credUpdate = std::make_shared<drogon_model::fulla_db::WebauthnCredentials>(wc);
           credUpdate->setSignCount(newSignCount);
           credUpdate->setLastUsedAt(::trantor::Date::now());
 
           // Query user for public_sub
-          Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-            Criteria(drogon_model::oauth2_db::Users::Cols::_id, CompareOperator::EQ, userId),
+          Mapper<drogon_model::fulla_db::Users>(db).findBy(
+            Criteria(drogon_model::fulla_db::Users::Cols::_id, CompareOperator::EQ, userId),
             [sharedCb, credentialId, db, req, userId, newSignCount, credUpdate](
-              const std::vector<drogon_model::oauth2_db::Users> &users
+              const std::vector<drogon_model::fulla_db::Users> &users
             ) {
                 std::string publicSub = users.empty() ? "" : users[0].getValueOfPublicSub();
 
                 // Update sign_count and last_used_at (reuse outer findBy result)
-                Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).update(
+                Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).update(
                   *credUpdate,
                   [](const size_t) {},
                   [](const ::drogon::orm::DrogonDbException &e) {
@@ -568,7 +568,7 @@ void WebAuthnController::authenticateFinish(
                   }
                 );
 
-                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                   "webauthn_authenticated",
                   "success",
@@ -617,7 +617,7 @@ void WebAuthnController::listCredentials(
     if (webAuthnService_ && userRepo_)
     {
         userRepo_->findByPublicSub(
-          userId, [this, sharedCb](std::optional<authforge::identity::UserData> user) {
+          userId, [this, sharedCb](std::optional<fulla::identity::UserData> user) {
               if (!user)
               {
                   Json::Value json;
@@ -628,7 +628,7 @@ void WebAuthnController::listCredentials(
               }
               webAuthnService_->listCredentials(
                 user->id,
-                [sharedCb](std::vector<authforge::identity::WebAuthnCredentialSummary> creds) {
+                [sharedCb](std::vector<fulla::identity::WebAuthnCredentialSummary> creds) {
                     Json::Value json;
                     Json::Value credsJson(Json::arrayValue);
                     for (const auto &c : creds)
@@ -651,9 +651,9 @@ void WebAuthnController::listCredentials(
 
     auto db = ::drogon::app().getDbClient();
     // First resolve public_sub to user_id, then list credentials
-    Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-      Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
-      [sharedCb, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
+    Mapper<drogon_model::fulla_db::Users>(db).findBy(
+      Criteria(drogon_model::fulla_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
+      [sharedCb, db, req](const std::vector<drogon_model::fulla_db::Users> &users) {
           if (users.empty())
           {
               Json::Value json;
@@ -664,13 +664,13 @@ void WebAuthnController::listCredentials(
           }
           int32_t resolvedId = users[0].getValueOfId();
 
-          Mapper<drogon_model::oauth2_db::WebauthnCredentials>(db).findBy(
+          Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).findBy(
             Criteria(
-              drogon_model::oauth2_db::WebauthnCredentials::Cols::_user_id,
+              drogon_model::fulla_db::WebauthnCredentials::Cols::_user_id,
               CompareOperator::EQ,
               resolvedId
             ),
-            [sharedCb](const std::vector<drogon_model::oauth2_db::WebauthnCredentials> &creds) {
+            [sharedCb](const std::vector<drogon_model::fulla_db::WebauthnCredentials> &creds) {
                 Json::Value json;
                 Json::Value credsJson(Json::arrayValue);
                 for (const auto &wc : creds)
@@ -707,4 +707,4 @@ void WebAuthnController::listCredentials(
     );
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

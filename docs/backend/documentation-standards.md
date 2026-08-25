@@ -5,7 +5,7 @@
 This project uses a hierarchical documentation organization to maintain clarity and consistency.
 
 ```
-authforge/
+fulla/
 └── docs/                              # All project documentation
     ├── README.md                      # Documentation portal / index
     ├── backend/                       # Backend-specific documentation

@@ -23,9 +23,9 @@
 
 #include <string>
 
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::sendGet;
-using authforge::test::http::statusIs;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::sendGet;
+using fulla::test::http::statusIs;
 
 // openapi.json: in the test environment the static spec file is absent, so the
 // handler returns the VALIDATION_RESOURCE_NOT_FOUND error envelope (404). This

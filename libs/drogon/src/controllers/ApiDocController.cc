@@ -1,12 +1,12 @@
-#include <authforge/drogon/controllers/ApiDocController.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/controllers/ApiDocController.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 #include <drogon/utils/Utilities.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -15,7 +15,7 @@ struct ApiDocControllerDocs
 {
     ApiDocControllerDocs()
     {
-        ::authforge::drogon::observability::openapi::EndpointInfo spec;
+        ::fulla::drogon::observability::openapi::EndpointInfo spec;
         spec.path = "/docs/api/openapi.json";
         spec.method = "GET";
         spec.summary = "Get OpenAPI Specification";
@@ -23,16 +23,16 @@ struct ApiDocControllerDocs
           "Returns the dynamically generated OpenAPI 3.0 specification in JSON format.";
         spec.tags = {"Documentation"};
         spec.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(spec);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(spec);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo ui;
+        ::fulla::drogon::observability::openapi::EndpointInfo ui;
         ui.path = "/docs/api/";
         ui.method = "GET";
         ui.summary = "Swagger UI";
         ui.description = "Serves the Swagger UI HTML page for interactive API documentation.";
         ui.tags = {"Documentation"};
         ui.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(ui);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(ui);
     }
 };
 
@@ -59,7 +59,7 @@ void ApiDocController::openApiSpec(
         std::ifstream file(filePath);
         if (!file.is_open())
         {
-            ::authforge::common::error::ErrorResponder::respond(
+            ::fulla::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_RESOURCE_NOT_FOUND",
@@ -81,8 +81,8 @@ void ApiDocController::openApiSpec(
     }
     catch (const std::exception &e)
     {
-        ::authforge::common::error::ErrorResponder::respondException(
-          req, std::move(callback), e, ::authforge::common::error::ErrorCategory::INTERNAL
+        ::fulla::common::error::ErrorResponder::respondException(
+          req, std::move(callback), e, ::fulla::common::error::ErrorCategory::INTERNAL
         );
     }
 }
@@ -107,7 +107,7 @@ void ApiDocController::swaggerUi(
         std::ifstream file(filePath);
         if (!file.is_open())
         {
-            ::authforge::common::error::ErrorResponder::respond(
+            ::fulla::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_RESOURCE_NOT_FOUND",
@@ -129,10 +129,10 @@ void ApiDocController::swaggerUi(
     }
     catch (const std::exception &e)
     {
-        ::authforge::common::error::ErrorResponder::respondException(
-          req, std::move(callback), e, ::authforge::common::error::ErrorCategory::INTERNAL
+        ::fulla::common::error::ErrorResponder::respondException(
+          req, std::move(callback), e, ::fulla::common::error::ErrorCategory::INTERNAL
         );
     }
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

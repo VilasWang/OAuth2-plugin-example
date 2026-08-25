@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # benchmarks/competitors/measure-cold-start.sh — generic competitor cold start.
 #
-# Two modes (aligned with the AuthForge facility's measure-cold-start.sh):
+# Two modes (aligned with the Fulla facility's measure-cold-start.sh):
 #   * fresh   — volumes wiped, `compose up -d`, measure until the ready probe
 #               answers 200. Includes the product's automatic DB schema
 #               creation (the heavy part of a truly cold boot). Realm/client
@@ -84,7 +84,7 @@ measure_mode() {  # <fresh|restart> — progress to stderr, ONLY the JSON to std
     for r in $(seq 1 "$RUNS"); do
         echo "[coldstart] mode=$mode run=$r/$RUNS..." >&2
         # timing starts at the boot COMMAND (up/restart), matching the
-        # AuthForge facility's measure-cold-start.sh semantics; compose's
+        # Fulla facility's measure-cold-start.sh semantics; compose's
         # dependency waits (postgres healthy) and, for ory, the documented
         # migrate step are part of the boot window. Cleanup (down -v) is not.
         if [ "$mode" = "fresh" ]; then

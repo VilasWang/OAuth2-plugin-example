@@ -18,7 +18,7 @@
 
 using namespace drogon;
 using namespace drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 const std::string Oauth2Clients::Cols::_client_id = "\"client_id\"";
 const std::string Oauth2Clients::Cols::_client_type = "\"client_type\"";

@@ -33,11 +33,11 @@
 
 ```
 clients/python/
-├── pyproject.toml                    # hatchling；name=authforge-oauth2；version=1.2.0（联动 cmake，CI 校验）
-├── openapi-python-client.yaml        # 生成器配置：package_name_override: authforge
+├── pyproject.toml                    # hatchling；name=fulla-oauth2；version=1.2.0（联动 cmake，CI 校验）
+├── openapi-python-client.yaml        # 生成器配置：package_name_override: fulla
 ├── README.md                         # 安装、quickstart（M2M + authcode）、版本策略、与 C++ SDK 的关系
 ├── examples/client_credentials_demo.py
-├── src/authforge/
+├── src/fulla/
 │   ├── __init__.py                   # 出口：m2m_client / AsyncM2MClient / OAuthAuthorizationCode / __version__
 │   ├── m2m.py                        # ClientCredentialsAuth(httpx.Auth)（同步）
 │   │                                 # AsyncClientCredentialsAuth（asyncio 版）
@@ -51,7 +51,7 @@ clients/python/
     ├── test_m2m_auth.py              # §2.3 单测矩阵
     ├── test_oauth_pkce.py            # PKCE S256 已知向量（RFC 7636 appendix B）
     └── integration/
-        └── test_against_server.py    # AUTHFORGE_BASE_URL 门控（默认跳过）
+        └── test_against_server.py    # FULLA_BASE_URL 门控（默认跳过）
 ```
 
 ### 2.2 关键实现约束
@@ -60,7 +60,7 @@ clients/python/
    - 有效缓存 token（`expires_at - 30s > now`）→ 注入 `Authorization: Bearer`；
    - 401 响应 → 强制刷新一次并重试（仅一次，防循环）；
    - 刷新持 `threading.Lock`（double-check）；token 请求用 HTTP Basic（F-017 client_secret_basic）；
-   - token 端点非 200 → 抛 `AuthForgeAuthError`（带 RFC 6749 error/error_description）。
+   - token 端点非 200 → 抛 `FullaAuthError`（带 RFC 6749 error/error_description）。
 2. **`AsyncClientCredentialsAuth`**：同逻辑，`async def auth_flow` + `asyncio.Lock`；token 请求复用注入目标之外的 `httpx.AsyncClient`。
 3. **`m2m_client(base_url, client_id, client_secret, scopes=(), ...)`**：构造 `httpx.Client(base_url, auth=...)` → `AuthenticatedClient(base_url, token="")` → `set_httpx_client()` 注入 → 返回。async 版对称。`token=""` 仅满足构造签名，静态 header 路径被注入绕开（§十一.4）。
 4. **401 重试**：重发前 `request.read()`/（async）`aread()` 已定界请求体（当前生成客户端均为 json/form，构造期已序列化，此处是防御）；P4 用例含 POST-with-body 的 401 重试。
@@ -75,7 +75,7 @@ clients/python/
 | P2 | Bearer 注入 + 缓存 | 第二个请求不发 token 端点请求 |
 | P3 | 提前刷新 | expires_at 过 30s 余量 → 主动刷新 |
 | P4 | 401 重试一次 | API 401 → 刷新 → 重试成功（含 POST-with-body 用例，证明重发可用）；刷新后仍 401 → 透传 401 |
-| P5 | 错误传播 | token 端点 400 invalid_client → AuthForgeAuthError 带 error 字段 |
+| P5 | 错误传播 | token 端点 400 invalid_client → FullaAuthError 带 error 字段 |
 | P6 | PKCE S256 | RFC 7636 附录 B 向量（verifier→challenge） |
 | P7 | authorize URL | 参数齐全（challenge、state、response_type） |
 | P8 | async 版 P1–P4 等价 | asyncio 下同矩阵 |
@@ -83,7 +83,7 @@ clients/python/
 ### 2.4 验收标准
 
 - [x] `pytest clients/python/tests`（除 integration）全绿
-- [x] `pip install -e clients/python` 后 `from authforge import m2m_client` 可用；`import authforge.generated` 完整
+- [x] `pip install -e clients/python` 后 `from fulla import m2m_client` 可用；`import fulla.generated` 完整
 - [x] `python -m build clients/python` 产出 sdist+wheel（发布就绪证据）
 - [x] 集成测试（§四）对本地全栈绿
 
@@ -95,7 +95,7 @@ clients/python/
 
 ```
 clients/go/
-├── go.mod                     # module github.com/voidvec/authforge/clients/go；go 1.24
+├── go.mod                     # module github.com/voidvec/fulla/clients/go；go 1.24
 ├── go.sum
 ├── oapi-codegen.yaml          # 生成配置：package generated；generate: models+client；pin v2.8.0（注释）
 ├── generated/client.gen.go    # DO NOT EDIT（14471 行量级）
@@ -135,7 +135,7 @@ clients/go/
 - [x] `go build ./... && go vet ./...` 零输出；`gofmt -l` 空
 - [x] `go test ./...`（无 integration tag）全绿
 - [x] 集成测试（§四）对本地全栈绿
-- [x] README 含 `go get github.com/voidvec/authforge/clients/go` 用法
+- [x] README 含 `go get github.com/voidvec/fulla/clients/go` 用法
 
 ---
 
@@ -147,14 +147,14 @@ clients/go/
 
 ```
 1. scripts/backend/setup_database.bat        # 建库 + 迁移 + 全部种子（含 backend-svc）
-2. kill 残留 authforge-server 进程
-3. Start-Process authforge-server.exe（工作目录 = exe 所在目录，同 run_server.bat）
+2. kill 残留 fulla-server 进程
+3. Start-Process fulla-server.exe（工作目录 = exe 所在目录，同 run_server.bat）
 4. 轮询 GET /health/live 直到 200（上限 30s）
-5. 跑两语言集成测试（AUTHFORGE_BASE_URL=http://127.0.0.1:5555）
+5. 跑两语言集成测试（FULLA_BASE_URL=http://127.0.0.1:5555）
 6. finally: Stop-Process
 ```
 
-**门控**：`AUTHFORGE_BASE_URL`（默认 unset → skip；设 `http://127.0.0.1:5555` 启用）。凭证 `AUTHFORGE_CLIENT_ID`/`AUTHFORGE_CLIENT_SECRET`（默认 backend-svc/test-secret）。
+**门控**：`FULLA_BASE_URL`（默认 unset → skip；设 `http://127.0.0.1:5555` 启用）。凭证 `FULLA_CLIENT_ID`/`FULLA_CLIENT_SECRET`（默认 backend-svc/test-secret）。
 
 **用例矩阵（Python 与 Go 对称）**：
 
@@ -266,7 +266,7 @@ clients/go/
 | Python 3.14 本地 vs CI 3.12 差异 | requires-python >=3.11；CI 用 3.12，本地 3.14 双覆盖 |
 | release.yml 改动破坏既有发布 | publish 步 env-guard skip；dry-run 验证；嵌套 tag 步骤独立可回退；不改既有 job 语义 |
 | oasdiff 门误触发 | 本任务不改 openapi.yaml，PR 上该门无 diff |
-| PyPI 项目被抢注 | `authforge-oauth2` 已核实可用（404）；PR 合并后尽快注册 |
+| PyPI 项目被抢注 | `fulla-oauth2` 已核实可用（404）；PR 合并后尽快注册 |
 | Go proxy 拉取（国内网络） | README 记录 GOPROXY 镜像提示；CI 不受影响 |
 | 嵌套 tag `clients/go/vX.Y.Z` 与未来 tag 规范冲突 | release skill/发布文档同步说明；tag 形态进 PR 描述供评审确认 |
 

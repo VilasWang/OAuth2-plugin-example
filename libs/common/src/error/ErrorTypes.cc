@@ -1,4 +1,4 @@
-// Task 13 (authforge-sdk-refactor, design.md §4.1/§5.1/§6): framework-agnostic
+// Task 13 (fulla-sdk-refactor, design.md §4.1/§5.1/§6): framework-agnostic
 // port of the Error struct methods currently implemented in
 // OAuth2Plugin/src/error/ErrorHandler.cc (toString/toHttpStatusCode/
 // hasNumericCode/numericCode/toJson/fromCode/fromException). The
@@ -6,10 +6,10 @@
 // Drogon's DrogonDbException/HttpRequestPtr/LOG_* macros) is NOT ported here
 // -- it stays Adapter-side. This file only carries the pure Error value-type
 // logic that has no Drogon dependency.
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorCatalog.h>
 
-namespace authforge::common::error
+namespace fulla::common::error
 {
 
 const char *toString(ErrorCategory category)
@@ -189,4 +189,4 @@ Error Error::fromException(const std::exception &e, ErrorCategory category, std:
     };
 }
 
-}  // namespace authforge::common::error
+}  // namespace fulla::common::error

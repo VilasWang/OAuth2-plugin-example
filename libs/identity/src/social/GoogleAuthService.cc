@@ -3,9 +3,9 @@
 
 #ifdef WITH_SOCIAL
 
-#include <authforge/identity/SocialAuthService.h>
+#include <fulla/identity/SocialAuthService.h>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 GoogleAuthService::GoogleAuthService(
@@ -94,6 +94,6 @@ void GoogleAuthService::login(
     );
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity
 
 #endif  // WITH_SOCIAL

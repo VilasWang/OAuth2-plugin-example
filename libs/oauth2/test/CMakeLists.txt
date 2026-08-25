@@ -9,22 +9,22 @@ cmake_minimum_required(VERSION 3.16)
 
 find_package(GTest CONFIG REQUIRED)
 
-file(GLOB_RECURSE AUTHFORGE_OAUTH2_TEST_SOURCES "*.cc")
+file(GLOB_RECURSE FULLA_FULLA_TEST_SOURCES "*.cc")
 
-add_executable(authforge-oauth2-test ${AUTHFORGE_OAUTH2_TEST_SOURCES})
+add_executable(fulla-oauth2-test ${FULLA_FULLA_TEST_SOURCES})
 
-target_link_libraries(authforge-oauth2-test
+target_link_libraries(fulla-oauth2-test
     PRIVATE
-        authforge::oauth2
-        authforge::common::testing
+        fulla::oauth2
+        fulla::common::testing
         GTest::gtest
         GTest::Main
 )
 
-set_target_properties(authforge-oauth2-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+set_target_properties(fulla-oauth2-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
-oauth2_apply_compat(authforge-oauth2-test)
-oauth2_apply_gcov(authforge-oauth2-test)
+oauth2_apply_compat(fulla-oauth2-test)
+oauth2_apply_gcov(fulla-oauth2-test)
 
 include(GoogleTest)
-gtest_discover_tests(authforge-oauth2-test)
+gtest_discover_tests(fulla-oauth2-test)

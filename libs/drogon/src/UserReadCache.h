@@ -1,6 +1,6 @@
 #pragma once
 // libs/drogon/src/UserReadCache.h — src-internal (deliberately NOT under
-// include/authforge: public-SDK surface would drift api-diff).
+// include/fulla: public-SDK surface would drift api-diff).
 //
 // Wave-2 P1 (docs/performance-optimization/optimization-wave-2-plan.md):
 // Redis cache-aside for the two S6 userinfo read funnels —
@@ -40,7 +40,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace authforge::drogon
+namespace fulla::drogon
 {
 
 namespace userreadcache
@@ -52,11 +52,11 @@ inline const std::string kAbsentMarker = "{\"__user_absent__\":true}";
 
 inline std::string profileKey(const std::string &subject)
 {
-    return "authforge:cache:user:profile:" + subject;
+    return "fulla:cache:user:profile:" + subject;
 }
 inline std::string rolesKey(const std::string &subject)
 {
-    return "authforge:cache:user:roles:" + subject;
+    return "fulla:cache:user:roles:" + subject;
 }
 }  // namespace userreadcache
 
@@ -393,4 +393,4 @@ class UserReadCache
     int rolesTtl_ = userreadcache::kDefaultRolesTtlSeconds;
 };
 
-}  // namespace authforge::drogon
+}  // namespace fulla::drogon

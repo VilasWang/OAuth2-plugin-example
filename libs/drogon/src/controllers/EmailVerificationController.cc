@@ -1,10 +1,10 @@
-#include <authforge/drogon/controllers/EmailVerificationController.h>
-#include <authforge/drogon/services/EmailVerificationService.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/controllers/EmailVerificationController.h>
+#include <fulla/drogon/services/EmailVerificationService.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 
 #include <drogon/drogon.h>
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -13,32 +13,32 @@ struct EmailVerificationControllerDocs
 {
     EmailVerificationControllerDocs()
     {
-        ::authforge::drogon::observability::openapi::EndpointInfo verifyEmail;
+        ::fulla::drogon::observability::openapi::EndpointInfo verifyEmail;
         verifyEmail.path = "/api/verify-email";
         verifyEmail.method = "GET";
         verifyEmail.summary = "Verify Email";
         verifyEmail.description = "Verify an email address using a token.";
         verifyEmail.tags = {"User Verification"};
         verifyEmail.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyEmail);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyEmail);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo resendEmail;
+        ::fulla::drogon::observability::openapi::EndpointInfo resendEmail;
         resendEmail.path = "/api/verify-email/resend";
         resendEmail.method = "POST";
         resendEmail.summary = "Resend Verification Email";
         resendEmail.description = "Resend the email verification link.";
         resendEmail.tags = {"User Verification"};
         resendEmail.requiresAuth = false;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(resendEmail);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(resendEmail);
     }
 };
 
 EmailVerificationControllerDocs docs_;
 }  // namespace
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 // Task B5: business logic extracted to EmailVerificationService.
@@ -64,4 +64,4 @@ void EmailVerificationController::resend(
     services::EmailVerificationService::resendVerification(req, sharedCb);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

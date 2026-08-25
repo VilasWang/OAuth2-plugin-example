@@ -1,4 +1,4 @@
 # Ignore generated models from clang-format
-libs/storage-postgres/include/authforge/storage/postgres/models/*
+libs/storage-postgres/include/fulla/storage/postgres/models/*
 libs/storage-postgres/src/models/*
 OAuth2Backend/src/models/*

@@ -1,7 +1,7 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <future>
 
 DROGON_TEST(Integration_P0_Plugin_General_Works)

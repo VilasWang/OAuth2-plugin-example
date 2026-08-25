@@ -1,11 +1,11 @@
 #include <drogon/drogon_test.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
 
 #include <string>
 
 using namespace drogon;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 // Feature: error-code-message-standardization
 // Example/boundary test (specific cases, not a randomized property test) for

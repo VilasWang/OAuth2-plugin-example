@@ -39,7 +39,7 @@
 
 #include "ConcurrencyRaceSupport.h"
 
-namespace authforge::test::concurrency
+namespace fulla::test::concurrency
 {
 // A cache access in a generated hit/miss sequence.
 enum class CacheOp
@@ -144,4 +144,4 @@ class PreservationInputGen
   private:
     std::mt19937 rng_;
 };
-}  // namespace authforge::test::concurrency
+}  // namespace fulla::test::concurrency

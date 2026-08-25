@@ -13,7 +13,7 @@ test.describe('Authentication', () => {
 
   test('shows login form with correct elements', async ({ page }) => {
     await page.goto('/admin/login')
-    await expect(page.locator('h1')).toContainText('AuthForge Admin')
+    await expect(page.locator('h1')).toContainText('Fulla Admin')
     await expect(page.locator('input[type="text"]')).toBeVisible()
     await expect(page.locator('input[type="password"]')).toBeVisible()
     await expect(page.locator('button[type="submit"]')).toContainText('Sign in')

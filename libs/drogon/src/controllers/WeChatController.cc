@@ -1,15 +1,15 @@
-#include <authforge/drogon/controllers/WeChatController.h>
+#include <fulla/drogon/controllers/WeChatController.h>
 #include <drogon/HttpClient.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
 #ifdef WITH_SOCIAL
-// Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this
+// Task 24 slice 5 (fulla-sdk-refactor): identity-layer service this
 // controller now optionally consumes.
-#include <authforge/identity/SocialAuthService.h>
+#include <fulla/identity/SocialAuthService.h>
 #endif  // WITH_SOCIAL
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -38,7 +38,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -51,7 +51,7 @@ struct WeChatControllerDocs
 {
     WeChatControllerDocs()
     {
-        using namespace ::authforge::drogon::observability::openapi;
+        using namespace ::fulla::drogon::observability::openapi;
 
         Json::Value successExample;
         successExample["openid"] = "oXXXXXXXXXXXXXXXXXXXXXXXXXX";
@@ -62,7 +62,7 @@ struct WeChatControllerDocs
         errorExample["error"] = "Missing code parameter";
 
         // C++17 compatible initialization (avoid designated initializers)
-        ::authforge::drogon::observability::openapi::EndpointInfo weChatEndpoint;
+        ::fulla::drogon::observability::openapi::EndpointInfo weChatEndpoint;
         weChatEndpoint.path = "/api/wechat/login";
         weChatEndpoint.method = "POST";
         weChatEndpoint.summary = "WeChat OAuth2 Login";
@@ -73,11 +73,11 @@ struct WeChatControllerDocs
         weChatEndpoint.tags = {"External Auth", "WeChat"};
 
         // Initialize parameters
-        ::authforge::drogon::observability::openapi::ParameterInfo codeParam;
+        ::fulla::drogon::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code from WeChat OAuth2 callback (required)";
-        codeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
-        codeParam.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+        codeParam.location = ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = true;
         weChatEndpoint.parameters = {codeParam};
 
@@ -126,7 +126,7 @@ void WeChatController::login(
 
         if (code.empty())
         {
-            ::authforge::common::error::ErrorResponder::respond(
+            ::fulla::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -146,7 +146,7 @@ void WeChatController::login(
                 std::move(callback)
               );
             weChatAuthService_
-              ->login(code, [sharedCb, req](authforge::identity::WeChatLoginResult result) {
+              ->login(code, [sharedCb, req](fulla::identity::WeChatLoginResult result) {
                   if (!result.errorCode.empty())
                   {
                       respondError(
@@ -319,17 +319,17 @@ void WeChatController::login(
     catch (const std::exception &e)
     {
         LOG_ERROR << "WeChatController::login exception: " << e.what();
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req, std::move(callback), "INTERNAL_ERROR", "wechat login: " + std::string(e.what())
         );
     }
     catch (...)
     {
         LOG_ERROR << "WeChatController::login unknown exception";
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req, std::move(callback), "INTERNAL_ERROR", "wechat login: unknown error"
         );
     }
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

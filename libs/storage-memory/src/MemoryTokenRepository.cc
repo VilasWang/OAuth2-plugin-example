@@ -1,8 +1,8 @@
-#include <authforge/storage/memory/MemoryTokenRepository.h>
+#include <fulla/storage/memory/MemoryTokenRepository.h>
 #include <drogon/drogon.h>
 #include <chrono>
 
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
 
 // Task 27.5: callback aliases now live on the new base interface; bring
@@ -13,9 +13,9 @@ using AccessTokenCallback = ITokenRepositoryBase::AccessTokenCallback;
 using RefreshTokenCallback = ITokenRepositoryBase::RefreshTokenCallback;
 using VoidCallback = ITokenRepositoryBase::VoidCallback;
 using TokenIntrospectionCallback = ITokenRepositoryBase::TokenIntrospectionCallback;
-using OAuth2AccessToken = ::authforge::oauth2::model::OAuth2AccessToken;
-using OAuth2RefreshToken = ::authforge::oauth2::model::OAuth2RefreshToken;
-using TokenIntrospection = ::authforge::oauth2::model::TokenIntrospection;
+using OAuth2AccessToken = ::fulla::oauth2::model::OAuth2AccessToken;
+using OAuth2RefreshToken = ::fulla::oauth2::model::OAuth2RefreshToken;
+using TokenIntrospection = ::fulla::oauth2::model::TokenIntrospection;
 
 int64_t MemoryTokenRepository::getCurrentTimestamp() const
 {
@@ -298,4 +298,4 @@ void MemoryTokenRepository::purgeExpired()
     }
 }
 
-}  // namespace authforge::storage::memory
+}  // namespace fulla::storage::memory

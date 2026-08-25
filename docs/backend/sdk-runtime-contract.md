@@ -1,10 +1,10 @@
 # SDK Runtime Contract
 
-对外契约声明：AuthForge SDK（`authforge::common` / `authforge::oauth2` /
-`authforge::identity` / `authforge::storage-*` / `authforge::drogon`）在 v1.x
+对外契约声明：Fulla SDK（`fulla::common` / `fulla::oauth2` /
+`fulla::identity` / `fulla::storage-*` / `fulla::drogon`）在 v1.x
 期间对消费者承诺的线程模型、ABI、异常、日志与依赖边界。
 
-来源：`.kiro/specs/authforge-sdk-refactor/design.md`（评审 F9、H1 §5.7）。
+来源：`.kiro/specs/fulla-sdk-refactor/design.md`（评审 F9、H1 §5.7）。
 本文档是对外承诺的单一出处；SDK 头文件注释与本文冲突时以本文为准并修头。
 
 ---
@@ -24,7 +24,7 @@
 ## 2. ABI 稳定性
 
 - v1.x **仅支持 `find_package` 源码集成，不承诺二进制 ABI**。
-- 语义化版本只覆盖**源码级 API**：公共头 `include/authforge/**` 遵循
+- 语义化版本只覆盖**源码级 API**：公共头 `include/fulla/**` 遵循
   SemVer，破坏性变更必须升 major（由 api-diff 工具在 CI 强制）。
 - 跨编译器 / 跨 STL 混用预编译二进制不在支持范围；进入 Conan 二进制包
   分发阶段后再单独制定 ABI 策略。

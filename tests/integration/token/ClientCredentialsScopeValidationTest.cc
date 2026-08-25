@@ -18,7 +18,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <json/json.h>
 
 #include <chrono>

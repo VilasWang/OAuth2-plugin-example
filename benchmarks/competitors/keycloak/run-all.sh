@@ -2,7 +2,7 @@
 # benchmarks/competitors/keycloak/run-all.sh
 #
 # Full Keycloak suite for the comparison (design §5): 5 scenarios × staircase
-# 2→128 (same params as the AuthForge baseline: 5s warmup / 10s measured — the
+# 2→128 (same params as the Fulla baseline: 5s warmup / 10s measured — the
 # Keycloak-specific 60s JIT heat happened in setup.sh), GC-jitter long run
 # (S6 c=32, 30×10s, design D6), cold start (fresh / restart), RSS sampling
 # during S2. Results land in benchmarks/competitors/results/.
@@ -12,7 +12,7 @@ set -euo pipefail
 
 KC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$KC_DIR/../../.." && pwd)"
-RUNNER="$REPO_ROOT/benchmarks/authforge/run-scenario.sh"
+RUNNER="$REPO_ROOT/benchmarks/fulla/run-scenario.sh"
 RESULTS_DIR="$REPO_ROOT/benchmarks/competitors/results"
 mkdir -p "$RESULTS_DIR"
 
@@ -21,7 +21,7 @@ KC_VERSION="$(cat "$KC_DIR/lib/generated/product_version.txt" 2>/dev/null || ech
 LEVELS=(2 4 8 16 32 64 128)
 
 # Shared invocation env (M0 parameters): same runner, same staircase, same
-# warmup/measure as AuthForge; product identity + result dir redirected.
+# warmup/measure as Fulla; product identity + result dir redirected.
 export TARGET_URL="$KC_URL"
 export READY_PATH="/realms/master"   # app-port probe (KC 26 health is on mgmt port 9000)
 export WARMUP_S=5

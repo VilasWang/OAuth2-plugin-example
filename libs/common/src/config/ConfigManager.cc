@@ -1,4 +1,4 @@
-#include <authforge/common/config/ConfigManager.h>
+#include <fulla/common/config/ConfigManager.h>
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <filesystem>
 
-namespace authforge::common::config
+namespace fulla::common::config
 {
 
 // .env file contents (loaded once) — wrapped in function to guarantee
@@ -144,7 +144,7 @@ bool ConfigManager::load(const std::string &configPath, Json::Value &config)
     loadDotEnv();
 
     // Apply environment variable overrides (.env takes priority over system env)
-    applyEnvOverrides(config, OAUTH2_ENV_OVERRIDES);
+    applyEnvOverrides(config, FULLA_ENV_OVERRIDES);
 
     return true;
 }
@@ -348,7 +348,7 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
     }
 
     // Production-mode validation
-    const char *env = getEnvValue("OAUTH2_ENV");
+    const char *env = getEnvValue("FULLA_ENV");
     bool isProd = (env && std::string(env) == "production");
 
     if (isProd)
@@ -366,7 +366,7 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
         {
             errorMessage =
               "Production requires HTTPS issuer (set custom_config.metadata.issuer "
-              "or OAUTH2_ISSUER env var to https://...)";
+              "or FULLA_ISSUER env var to https://...)";
             return false;
         }
 
@@ -378,7 +378,7 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
             {
                 errorMessage =
                   "Production requires non-default database password "
-                  "(set OAUTH2_DB_PASSWORD env var)";
+                  "(set FULLA_DB_PASSWORD env var)";
                 return false;
             }
         }
@@ -391,7 +391,7 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
             {
                 errorMessage =
                   "Production requires non-default Redis password "
-                  "(set OAUTH2_REDIS_PASSWORD env var)";
+                  "(set FULLA_REDIS_PASSWORD env var)";
                 return false;
             }
         }
@@ -406,4 +406,4 @@ const char *ConfigManager::getEnv(const char *name)
     return getEnvValue(name);
 }
 
-}  // namespace authforge::common::config
+}  // namespace fulla::common::config

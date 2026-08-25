@@ -1,4 +1,4 @@
-# OAuth/OIDC 规范性审查计划 — authforge
+# OAuth/OIDC 规范性审查计划 — fulla
 
 > 本文件是审查**计划**（检查要点、检查方法、判定标准），是评估执行前的设计文档。
 > 评估结果（符合性评级、发现、整改）见配套报告 [`oauth-oidc-compliance-audit.md`](oauth-oidc-compliance-audit.md)。
@@ -14,7 +14,7 @@
 ## 一、审查范围与方法论
 
 ### 1.1 审查目标
-基于客观代码事实，逐条对照 OAuth/OIDC 核心规范评估 authforge 实现的符合性，输出结构化报告。**所有判断必须引用规范章节 + 代码 `file:line`，禁止主观推测**。
+基于客观代码事实，逐条对照 OAuth/OIDC 核心规范评估 fulla 实现的符合性，输出结构化报告。**所有判断必须引用规范章节 + 代码 `file:line`，禁止主观推测**。
 
 ### 1.2 审查对象（代码地图）
 

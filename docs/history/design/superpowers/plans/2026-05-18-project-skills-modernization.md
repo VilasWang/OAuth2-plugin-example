@@ -204,7 +204,7 @@ pg_isready -h localhost -p 5432 || echo "❌ PostgreSQL not running"
 
 # 2. 检查数据库连接
 export PGPASSWORD='123456'
-psql -h localhost -U oauth2_user -d postgres -c "SELECT 1;" || echo "❌ Cannot connect to database"
+psql -h localhost -U fulla_user -d postgres -c "SELECT 1;" || echo "❌ Cannot connect to database"
 
 # 3. 验证 SQL 初始化脚本存在
 ls OAuth2Server/sql/001_oauth2_core.sql || echo "❌ SQL scripts not found"
@@ -224,16 +224,16 @@ ls OAuth2Server/sql/004_oauth2_scopes.sql || echo "❌ SQL scripts not found"
 ```powershell
 # 检测当前运行环境
 if (Test-Path "docker-compose.yml") {
-    $env:OAUTH2_ENV_MODE = "docker"
+    $env:FULLA_ENV_MODE = "docker"
     Write-Host "🐳 Docker 环境检测到"
 } else {
-    $env:OAUTH2_ENV_MODE = "local"
+    $env:FULLA_ENV_MODE = "local"
     Write-Host "💻 本地环境检测到"
 }
 
 # 检查 Docker Compose 是否运行
-if ($env:OAUTH2_ENV_MODE -eq "docker") {
-    docker ps | Select-String "oauth2-postgres" | Out-Null
+if ($env:FULLA_ENV_MODE -eq "docker") {
+    docker ps | Select-String "fulla-postgres" | Out-Null
     if ($?) {
         Write-Host "✅ Docker PostgreSQL 容器正在运行"
     } else {
@@ -250,10 +250,10 @@ if ($env:OAUTH2_ENV_MODE -eq "docker") {
 
 ```powershell
 # Windows PowerShell
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 
 # 按顺序执行 SQL 脚本
-psql -h localhost -U oauth2_user -d oauth2_db -f "OAuth2Server\sql\001_oauth2_core.sql"
+psql -h localhost -U fulla_user -d fulla_db -f "OAuth2Server\sql\001_oauth2_core.sql"
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ 001_oauth2_core.sql executed"
 } else {
@@ -261,7 +261,7 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-psql -h localhost -U oauth2_user -d oauth2_db -f "OAuth2Server\sql\002_users_table.sql"
+psql -h localhost -U fulla_user -d fulla_db -f "OAuth2Server\sql\002_users_table.sql"
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ 002_users_table.sql executed"
 } else {
@@ -269,7 +269,7 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-psql -h localhost -U oauth2_user -d oauth2_db -f "OAuth2Server\sql\003_rbac_schema.sql"
+psql -h localhost -U fulla_user -d fulla_db -f "OAuth2Server\sql\003_rbac_schema.sql"
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ 003_rbac_schema.sql executed"
 } else {
@@ -277,7 +277,7 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-psql -h localhost -U oauth2_user -d oauth2_db -f "OAuth2Server\sql\004_oauth2_scopes.sql"
+psql -h localhost -U fulla_user -d fulla_db -f "OAuth2Server\sql\004_oauth2_scopes.sql"
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✅ 004_oauth2_scopes.sql executed"
 } else {
@@ -317,12 +317,12 @@ scripts/backend/docker_postgres_start.bat
 timeout /t 5 /nobreak
 
 # 在容器中执行 SQL 脚本
-docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
-docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/001_oauth2_core.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/002_users_table.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/003_rbac_schema.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/004_oauth2_scopes.sql
+docker exec fulla-postgres psql -U fulla_user -d postgres -c "DROP DATABASE IF EXISTS fulla_db;"
+docker exec fulla-postgres psql -U fulla_user -d postgres -c "CREATE DATABASE fulla_db;"
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/001_oauth2_core.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/002_users_table.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/003_rbac_schema.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/004_oauth2_scopes.sql
 ```
 ```
 
@@ -339,10 +339,10 @@ pwd
 ls -la OAuth2Server/sql/
 
 # 确保数据库已清空
-psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
+psql -h localhost -U fulla_user -d fulla_db -c "\dt"
 
 # 如果有残留表，手动删除
-psql -h localhost -U oauth2_user -d oauth2_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+psql -h localhost -U fulla_user -d fulla_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 ```
 ```
 
@@ -415,7 +415,7 @@ pg_isready -h localhost -p 5432 || echo "❌ PostgreSQL not running"
 
 # 2. 检查数据库是否存在
 export PGPASSWORD='123456'
-psql -h localhost -U oauth2_user -d oauth2_db -c "SELECT 1;" || echo "❌ Database oauth2_db not found"
+psql -h localhost -U fulla_user -d fulla_db -c "SELECT 1;" || echo "❌ Database fulla_db not found"
 
 # 3. 检查 drogon_ctl 工具是否安装
 which drogon_ctl || echo "❌ drogon_ctl not found"
@@ -442,8 +442,8 @@ cat OAuth2Server/model.json
     "rdbms": "postgresql",
     "host": "127.0.0.1",
     "port": 5432,
-    "dbname": "oauth2_db",
-    "user": "oauth2_user",
+    "dbname": "fulla_db",
+    "user": "fulla_user",
     "passwd": "123456",
     "tables": [
         "users",
@@ -504,7 +504,7 @@ echo "✅ Models backed up to $backup_dir"
 ```powershell
 # Windows PowerShell
 # 检查 OAuth2Server 目录结构
-cd d:\work\development\Repos\backend\drogon-plugin\authforge\OAuth2Server
+cd d:\work\development\Repos\backend\drogon-plugin\fulla\OAuth2Server
 
 # 创建 models 目录（如果不存在）
 if (!(Test-Path "models")) {
@@ -518,7 +518,7 @@ cd models
 
 ```bash
 # Linux/macOS
-cd /path/to/authforge/OAuth2Server
+cd /path/to/fulla/OAuth2Server
 
 # 创建 models 目录（如果不存在）
 mkdir -p models
@@ -538,7 +538,7 @@ cd models
 
 ```powershell
 # Windows PowerShell - 使用专项脚本
-cd d:\work\development\Repos\backend\drogon-plugin\authforge
+cd d:\work\development\Repos\backend\drogon-plugin\fulla
 scripts/backend/generate_models.bat -y
 
 # 此脚本会自动完成：
@@ -922,20 +922,20 @@ sed -i 's/build\/Debug\//build\/OAuth2Server\/Debug\//g' SKILL.md
 
 ```powershell
 # 自动选择最佳环境
-$env:OAUTH2_ENV_MODE = "auto"
+$env:FULLA_ENV_MODE = "auto"
 
 # 检查 Docker 是否可用
 docker ps | Out-Null
 if ($?) {
     Write-Host "🐳 Docker 检测到，使用 Docker 模式"
-    $env:OAUTH2_ENV_MODE = "docker"
+    $env:FULLA_ENV_MODE = "docker"
 } else {
     Write-Host "💻 使用本地模式"
-    $env:OAUTH2_ENV_MODE = "local"
+    $env:FULLA_ENV_MODE = "local"
 }
 
 # Docker 模式推荐流程
-if ($env:OAUTH2_ENV_MODE -eq "docker") {
+if ($env:FULLA_ENV_MODE -eq "docker") {
     Write-Host "使用 Docker 完整测试流程..."
     # 跳到步骤 2 的 Docker 模式
 } else {
@@ -957,12 +957,12 @@ scripts/backend/full_test_docker.bat
 # 重置数据库
 cd /path/to/project
 $env:PGPASSWORD='123456'
-psql -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
-psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
-psql -U oauth2_user -d oauth2_db -f "OAuth2Server/sql/001_oauth2_core.sql"
-psql -U oauth2_user -d oauth2_db -f "OAuth2Server/sql/002_users_table.sql"
-psql -U oauth2_user -d oauth2_db -f "OAuth2Server/sql/003_rbac_schema.sql"
-psql -U oauth2_user -d oauth2_db -f "OAuth2Server/sql/004_oauth2_scopes.sql"
+psql -U fulla_user -d postgres -c "DROP DATABASE IF EXISTS fulla_db;"
+psql -U fulla_user -d postgres -c "CREATE DATABASE fulla_db;"
+psql -U fulla_user -d fulla_db -f "OAuth2Server/sql/001_oauth2_core.sql"
+psql -U fulla_user -d fulla_db -f "OAuth2Server/sql/002_users_table.sql"
+psql -U fulla_user -d fulla_db -f "OAuth2Server/sql/003_rbac_schema.sql"
+psql -U fulla_user -d fulla_db -f "OAuth2Server/sql/004_oauth2_scopes.sql"
 ```
 ```
 
@@ -1026,7 +1026,7 @@ scripts/backend/full_test_docker.bat
 Start-Sleep -Seconds 10
 
 # 在 Docker 容器中运行测试
-docker exec oauth2-backend /bin/bash -c "cd build && ctest --output-on-failure"
+docker exec fulla-backend /bin/bash -c "cd build && ctest --output-on-failure"
 
 # OAuth2 端点测试
 # ... (后续步骤)
@@ -1061,7 +1061,7 @@ cd build/OAuth2Server/Release
 ```bash
 # 验证数据库连接
 export PGPASSWORD='123456'
-psql -U oauth2_user -d oauth2_db -c "SELECT 1;"
+psql -U fulla_user -d fulla_db -c "SELECT 1;"
 
 # 检查数据库初始化脚本
 ls -la OAuth2Server/sql/
@@ -1216,25 +1216,25 @@ timeout /t 10 /nobreak
 docker-compose ps
 
 # 预期输出应显示所有服务都在运行：
-# - oauth2-frontend (running)
-# - oauth2-backend (running)  
-# - oauth2-postgres (healthy)
-# - oauth2-redis (running)
+# - fulla-frontend (running)
+# - fulla-backend (running)  
+# - fulla-postgres (healthy)
+# - fulla-redis (running)
 # - prometheus (running)
 
 # 检查服务日志
-docker-compose logs oauth2-backend | tail -20
-docker-compose logs oauth2-frontend | tail -20
+docker-compose logs fulla-backend | tail -20
+docker-compose logs fulla-frontend | tail -20
 
 # 验证端口可用性
 curl -f http://localhost:5555/health || exit 1
 curl -f http://localhost:8080 || exit 1
 
 # 检查 PostgreSQL 就绪状态
-docker exec oauth2-postgres pg_isready -U oauth2_user -d oauth2_db
+docker exec fulla-postgres pg_isready -U fulla_user -d fulla_db
 
 # 检查 Redis 连接
-docker exec oauth2-redis redis-cli -a redis_secret_pass ping
+docker exec fulla-redis redis-cli -a redis_secret_pass ping
 ```
 ```
 
@@ -1245,16 +1245,16 @@ docker exec oauth2-redis redis-cli -a redis_secret_pass ping
 
 ```bash
 # 连接 PostgreSQL 验证 schema
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\dt"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\dt"
 
 # 验证初始化脚本执行（路径更新）
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT COUNT(*) FROM oauth2_clients;"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT COUNT(*) FROM oauth2_clients;"
 
 # 手动重新初始化（如果需要）
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/001_oauth2_core.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/002_users_table.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/003_rbac_schema.sql
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/004_oauth2_scopes.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/001_oauth2_core.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/002_users_table.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/003_rbac_schema.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/004_oauth2_scopes.sql
 ```
 ```
 
@@ -1265,13 +1265,13 @@ docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/s
 
 ```bash
 # 方法 1: 使用 Docker 容器中的测试
-docker exec oauth2-backend /bin/bash -c "cd build/OAuth2Server && ctest --output-on-failure -V"
+docker exec fulla-backend /bin/bash -c "cd build/OAuth2Server && ctest --output-on-failure -V"
 
 # 方法 2: 在容器中运行特定测试
-docker exec oauth2-backend /bin/bash -c "cd build/OAuth2Server && ./OAuth2Server -t"
+docker exec fulla-backend /bin/bash -c "cd build/OAuth2Server && ./OAuth2Server -t"
 
 # 方法 3: 使用完整测试脚本
-docker exec oauth2-backend /bin/bash -c "cd /app && scripts/backend/test.bat"
+docker exec fulla-backend /bin/bash -c "cd /app && scripts/backend/test.bat"
 ```
 ```
 
@@ -1282,7 +1282,7 @@ docker exec oauth2-backend /bin/bash -c "cd /app && scripts/backend/test.bat"
 
 ```bash
 # 在容器中运行 Vue 测试
-docker exec oauth2-frontend npm run test
+docker exec fulla-frontend npm run test
 
 # 手动测试前端访问
 curl -I http://localhost:8080
@@ -1326,10 +1326,10 @@ curl -X GET "http://localhost:5555/api/admin/dashboard" \
 
 ```bash
 # 运行性能测试（更新路径）
-docker exec oauth2-backend /bin/bash -c "cd build/OAuth2Server && ./AdvancedStorageTest"
+docker exec fulla-backend /bin/bash -c "cd build/OAuth2Server && ./AdvancedStorageTest"
 
 # Redis 性能测试
-docker exec oauth2-redis redis-benchmark -h localhost -a redis_secret_pass
+docker exec fulla-redis redis-benchmark -h localhost -a redis_secret_pass
 
 # 端点性能测试
 ab -n 1000 -c 10 http://localhost:5555/oauth2/verify
@@ -1374,14 +1374,14 @@ python .claude/skills/docker-integration-test/scripts/generate_report.py \
 
 **诊断**:
 ```bash
-docker-compose logs oauth2-backend
-docker inspect oauth2-backend
+docker-compose logs fulla-backend
+docker inspect fulla-backend
 
 # 检查新的构建路径
-docker exec oauth2-backend ls -la build/OAuth2Server/
+docker exec fulla-backend ls -la build/OAuth2Server/
 
 # 检查配置文件
-docker exec oauth2-backend cat config.json
+docker exec fulla-backend cat config.json
 ```
 
 **解决方案**:
@@ -1396,7 +1396,7 @@ docker exec oauth2-backend cat config.json
 **诊断**:
 ```bash
 # 验证数据库容器状态
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT 1;"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT 1;"
 
 # 检查网络连接
 docker network inspect oauth2-net
@@ -1417,10 +1417,10 @@ ls -la OAuth2Server/sql/
 
 **诊断**:
 ```bash
-docker exec oauth2-redis redis-cli -a redis_secret_pass ping
+docker exec fulla-redis redis-cli -a redis_secret_pass ping
 
 # 检查 Redis 日志
-docker-compose logs oauth2-redis | tail -20
+docker-compose logs fulla-redis | tail -20
 ```
 
 **解决方案**:
@@ -1435,10 +1435,10 @@ docker-compose logs oauth2-redis | tail -20
 **诊断**:
 ```bash
 curl -v http://localhost:5555/oauth2/authorize?response_type=code&client_id=vue-client
-docker-compose logs oauth2-backend | grep -i error
+docker-compose logs fulla-backend | grep -i error
 
 # 检查控制器路径
-docker exec oauth2-backend ls -la OAuth2Server/controllers/
+docker exec fulla-backend ls -la OAuth2Server/controllers/
 ```
 
 **解决方案**:
@@ -1582,11 +1582,11 @@ grep -r "/" .claude/skills/*/SKILL.md      # Unix paths
 ```powershell
 # Windows PowerShell
 $env:PGPASSWORD='123456'
-$env:OAUTH2_ENV_MODE='test'
+$env:FULLA_ENV_MODE='test'
 
 # Linux/macOS
 export PGPASSWORD='123456'
-export OAUTH2_ENV_MODE='test'
+export FULLA_ENV_MODE='test'
 
 # 验证环境变量在所有技能中正确使用
 ```

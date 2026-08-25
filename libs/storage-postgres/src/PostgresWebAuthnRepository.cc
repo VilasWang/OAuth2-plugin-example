@@ -1,19 +1,19 @@
-#include <authforge/storage/postgres/PostgresWebAuthnRepository.h>
+#include <fulla/storage/postgres/PostgresWebAuthnRepository.h>
 
 #include <drogon/drogon.h>
 
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/storage/postgres/models/WebauthnCredentials.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/WebauthnCredentials.h>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 using namespace ::drogon::orm;
-using authforge::identity::StoreCredentialOutcome;
-using authforge::identity::WebAuthnCredentialLookup;
-using authforge::identity::WebAuthnCredentialSummary;
-using drogon_model::oauth2_db::Users;
-using drogon_model::oauth2_db::WebauthnCredentials;
+using fulla::identity::StoreCredentialOutcome;
+using fulla::identity::WebAuthnCredentialLookup;
+using fulla::identity::WebAuthnCredentialSummary;
+using drogon_model::fulla_db::Users;
+using drogon_model::fulla_db::WebauthnCredentials;
 
 void PostgresWebAuthnRepository::storeCredential(
   int32_t userId,
@@ -154,4 +154,4 @@ void PostgresWebAuthnRepository::listCredentials(int32_t userId, ListCredentials
     );
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

@@ -4,7 +4,7 @@
 # Mechanical guard for design.md §0 (ORM-Generated Files Exemption) and
 # requirements.md R1 (R1.1..R1.10). Asserts that the 14 Drogon ORM model
 # classes have not been renamed, moved out of `OAuth2Plugin/{src,include/
-# oauth2}/models/`, had their `drogon_model::oauth2_db` namespace altered,
+# oauth2}/models/`, had their `drogon_model::fulla_db` namespace altered,
 # or lost their `DO NOT EDIT ... drogon_ctl` provenance comment.
 #
 # Exit codes:
@@ -55,7 +55,7 @@ EXEMPT_CONFIGS=(
 )
 
 EXPECTED_NAMESPACE_OUTER="drogon_model"
-EXPECTED_NAMESPACE_INNER="oauth2_db"
+EXPECTED_NAMESPACE_INNER="fulla_db"
 PROVENANCE_REGEX="DO NOT EDIT.*drogon_ctl"
 
 failures=0
@@ -111,7 +111,7 @@ main() {
             err "class declaration missing in header: ${cls} (R1.1)"
         fi
 
-        # R1.4: namespace chain drogon_model::oauth2_db must remain intact.
+        # R1.4: namespace chain drogon_model::fulla_db must remain intact.
         if ! file_contains "${hdr}" "^namespace[[:space:]]+${EXPECTED_NAMESPACE_OUTER}[[:space:]]*$"; then
             err "outer namespace missing: ${cls} expected 'namespace ${EXPECTED_NAMESPACE_OUTER}' (R1.4)"
         fi

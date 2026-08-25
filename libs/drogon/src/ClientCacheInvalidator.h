@@ -1,10 +1,10 @@
 #pragma once
 // libs/drogon/src/ClientCacheInvalidator.h — src-internal (deliberately NOT
-// under include/authforge: adding public SDK surface would drift api-diff).
+// under include/fulla: adding public SDK surface would drift api-diff).
 //
 // Wave-2 P0 (docs/performance-optimization/optimization-wave-2-plan.md):
 // validateClient now verifies secrets against the Redis-cached client row,
-// so client writes must invalidate authforge:cache:client:<id> or a rotated
+// so client writes must invalidate fulla:cache:client:<id> or a rotated
 // secret / deleted client / changed scopes stays trusted for up to the
 // cache TTL (300s). The write paths (ClientManagementService update/delete/
 // updateScopes) bypass the repository interface (direct Mapper calls), so
@@ -24,7 +24,7 @@
 #include <mutex>
 #include <string>
 
-namespace authforge::drogon
+namespace fulla::drogon
 {
 
 class ClientCacheInvalidator
@@ -61,4 +61,4 @@ class ClientCacheInvalidator
     std::shared_ptr<Hook> hook_;
 };
 
-}  // namespace authforge::drogon
+}  // namespace fulla::drogon

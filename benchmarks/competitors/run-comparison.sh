@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # benchmarks/competitors/run-comparison.sh — one-command four-product run (AC3).
 #
-# Serial execution per design §5.1: AuthForge session → Keycloak → Ory Hydra
+# Serial execution per design §5.1: Fulla session → Keycloak → Ory Hydra
 # → Zitadel, full teardown between products (no container/volume/network
 # residue), then aggregate COMPARISON.md via gen-comparison.py.
 #
@@ -22,7 +22,7 @@ mkdir -p "$RESULTS_DIR"
 MODE="all"
 ONLY=""
 if [ "${1:-}" = "--only" ]; then
-    MODE="only"; ONLY="${2:?--only needs a product: authforge|keycloak|ory|zitadel}"
+    MODE="only"; ONLY="${2:?--only needs a product: fulla|keycloak|ory|zitadel}"
 elif [ "${1:-}" = "--report-only" ]; then
     MODE="report"
 elif [ "${1:-}" = "--fresh" ] || [ "${1:-}" = "" ]; then
@@ -51,14 +51,14 @@ if [ "$MODE" = "report" ]; then
     :
 elif [ "$MODE" = "only" ]; then
     case "$ONLY" in
-        authforge) bash "$COMP_DIR/run-authforge-session.sh" ;;
+        fulla) bash "$COMP_DIR/run-fulla-session.sh" ;;
         keycloak)  run_product keycloak "$COMP_DIR/keycloak/setup.sh" "$COMP_DIR/keycloak/run-all.sh" "$COMP_DIR/keycloak/teardown.sh" ;;
         ory)       run_product ory "$COMP_DIR/ory/setup.sh" "$COMP_DIR/ory/run-all.sh" "$COMP_DIR/ory/teardown.sh" ;;
         zitadel)   run_product zitadel "$COMP_DIR/zitadel/setup.sh" "$COMP_DIR/zitadel/run-all.sh" "$COMP_DIR/zitadel/teardown.sh" ;;
         *) echo "unknown product: $ONLY" >&2; exit 2 ;;
     esac
 else
-    bash "$COMP_DIR/run-authforge-session.sh"
+    bash "$COMP_DIR/run-fulla-session.sh"
     run_product keycloak "$COMP_DIR/keycloak/setup.sh" "$COMP_DIR/keycloak/run-all.sh" "$COMP_DIR/keycloak/teardown.sh"
     run_product ory "$COMP_DIR/ory/setup.sh" "$COMP_DIR/ory/run-all.sh" "$COMP_DIR/ory/teardown.sh"
     run_product zitadel "$COMP_DIR/zitadel/setup.sh" "$COMP_DIR/zitadel/run-all.sh" "$COMP_DIR/zitadel/teardown.sh"

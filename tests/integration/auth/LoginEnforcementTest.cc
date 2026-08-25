@@ -1,8 +1,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/utils/TotpUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/utils/TotpUtils.h>
 #include <future>
 #include <chrono>
 
@@ -26,7 +26,7 @@ DROGON_TEST(Integration_P1_Login_MFA_Enforcement)
     auto db = app().getDbClient();
 
     // Setup: enable MFA for admin user
-    std::string secret = authforge::common::utils::TotpUtils::generateSecret();
+    std::string secret = fulla::common::utils::TotpUtils::generateSecret();
     std::promise<bool> pSetup;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -46,9 +46,9 @@ DROGON_TEST(Integration_P1_Login_MFA_Enforcement)
     CHECK(pVerify.get_future().get() == true);
 
     // Verify TOTP generation works with this secret
-    auto code = authforge::common::utils::TotpUtils::generateCode(secret);
+    auto code = fulla::common::utils::TotpUtils::generateCode(secret);
     CHECK(code.length() == 6);
-    CHECK(authforge::common::utils::TotpUtils::verifyCode(secret, code) == true);
+    CHECK(fulla::common::utils::TotpUtils::verifyCode(secret, code) == true);
 
     // Cleanup: disable MFA
     std::promise<void> pCleanup;

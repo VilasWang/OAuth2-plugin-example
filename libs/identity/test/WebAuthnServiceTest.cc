@@ -1,22 +1,22 @@
-// M2.5 identity completion (authforge-sdk-refactor): unit tests for
-// authforge::identity::WebAuthnService, exercised against a minimal
+// M2.5 identity completion (fulla-sdk-refactor): unit tests for
+// fulla::identity::WebAuthnService, exercised against a minimal
 // in-memory fake IWebAuthnRepository (no DB/no Drogon).
 
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/identity/IWebAuthnRepository.h>
-#include <authforge/identity/WebAuthnService.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/identity/IWebAuthnRepository.h>
+#include <fulla/identity/WebAuthnService.h>
 // Shared test double (promoted from this file's former anonymous-namespace
 // fake): FakeWebAuthnRepository + StoredCredential. See
-// libs/identity/include/authforge/identity/testing/.
-#include <authforge/identity/testing/FakeWebAuthnRepository.h>
+// libs/identity/include/fulla/identity/testing/.
+#include <fulla/identity/testing/FakeWebAuthnRepository.h>
 
 #include <gtest/gtest.h>
 
 #include <memory>
 
-using namespace authforge::identity;
-using authforge::common::testing::FakeCryptoProvider;
-using authforge::identity::testing::FakeWebAuthnRepository;
+using namespace fulla::identity;
+using fulla::common::testing::FakeCryptoProvider;
+using fulla::identity::testing::FakeWebAuthnRepository;
 
 namespace
 {

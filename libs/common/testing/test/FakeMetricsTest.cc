@@ -1,11 +1,11 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // for FakeMetrics.
 
-#include <authforge/common/testing/FakeMetrics.h>
+#include <fulla/common/testing/FakeMetrics.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
+using namespace fulla::common::testing;
 
 TEST(FakeMetricsTest, CapturesIncrementCounter)
 {

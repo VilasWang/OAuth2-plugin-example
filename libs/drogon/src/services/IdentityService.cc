@@ -1,5 +1,5 @@
-#include <authforge/drogon/services/IdentityService.h>
-#include <authforge/drogon/utils/SubjectGenerator.h>
+#include <fulla/drogon/services/IdentityService.h>
+#include <fulla/drogon/utils/SubjectGenerator.h>
 #include <drogon/drogon.h>
 
 namespace
@@ -8,15 +8,15 @@ namespace
 // consent no longer takes a bare int32). Per UserRef.h's documented contract
 // this boundary (a storage/service consumer) is permitted to set internalUserId
 // directly.
-authforge::oauth2::model::UserRef toUserRef(int32_t internalUserId)
+fulla::oauth2::model::UserRef toUserRef(int32_t internalUserId)
 {
-    authforge::oauth2::model::UserRef u;
+    fulla::oauth2::model::UserRef u;
     u.internalUserId = internalUserId;
     return u;
 }
 }  // namespace
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 IdentityService::IdentityService(Repos repos) : repos_(std::move(repos))
@@ -49,7 +49,7 @@ void IdentityService::ensureSubjectMapping(
         return;
     }
 
-    auto [provider, sub] = authforge::common::utils::SubjectGenerator::parse(subject);
+    auto [provider, sub] = fulla::common::utils::SubjectGenerator::parse(subject);
 
     // Defect 1.9 fix: capture `self` (shared owner) at the OUTERMOST async call
     // and thread the SAME `self` through the nested continuation, so the
@@ -90,7 +90,7 @@ void IdentityService::handleFirstTimeLogin(
         return;
     }
 
-    auto [prov, sub] = authforge::common::utils::SubjectGenerator::parse(subject);
+    auto [prov, sub] = fulla::common::utils::SubjectGenerator::parse(subject);
 
     // Create a real user in the database via the subject-mapping repo
     // (createUserForExternalLogin lives on ISubjectMappingRepository, carved
@@ -137,7 +137,7 @@ void IdentityService::getInternalUserId(
         return;
     }
 
-    auto [provider, sub] = authforge::common::utils::SubjectGenerator::parse(subject);
+    auto [provider, sub] = fulla::common::utils::SubjectGenerator::parse(subject);
 
     repos_.subjectMapping->getInternalUserId(sub, provider, std::move(callback));
 }
@@ -239,4 +239,4 @@ bool IdentityService::scopeRequiresAdminRole(const std::string &scope)
     return false;
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity

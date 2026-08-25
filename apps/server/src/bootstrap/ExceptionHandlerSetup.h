@@ -1,6 +1,6 @@
 #pragma once
 
-// M3 Task 25 (authforge-sdk-refactor): extracted from main.cc's inline
+// M3 Task 25 (fulla-sdk-refactor): extracted from main.cc's inline
 // setExceptionHandler lambda. Branches uncaught exceptions by path:
 // OAuth2 protocol endpoints keep emitting an RFC 6749 §5.2 server_error
 // body; every other Application_Endpoint gets a unified Error Envelope

@@ -1,12 +1,12 @@
-// M2.5 identity completion (authforge-sdk-refactor): unit tests for
-// authforge::identity::MfaService, exercised against a minimal in-memory
+// M2.5 identity completion (fulla-sdk-refactor): unit tests for
+// fulla::identity::MfaService, exercised against a minimal in-memory
 // fake IMfaRepository (no DB/no Drogon).
 
-#include <authforge/common/testing/FakeClock.h>
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/identity/IMfaRepository.h>
-#include <authforge/identity/MfaService.h>
-#include <authforge/identity/TotpUtils.h>
+#include <fulla/common/testing/FakeClock.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/identity/IMfaRepository.h>
+#include <fulla/identity/MfaService.h>
+#include <fulla/identity/TotpUtils.h>
 
 #include <gtest/gtest.h>
 
@@ -15,9 +15,9 @@
 namespace
 {
 
-using namespace authforge::identity;
-using authforge::common::testing::FakeClock;
-using authforge::common::testing::FakeCryptoProvider;
+using namespace fulla::identity;
+using fulla::common::testing::FakeClock;
+using fulla::common::testing::FakeCryptoProvider;
 
 class FakeMfaRepository : public IMfaRepository
 {
@@ -182,7 +182,7 @@ TEST(MfaServiceTest, VerifyAndEnable_EnableFails_ReturnsNullopt)
     std::optional<MfaSetupResult> setup;
     svc->setupSecret(42, "alice", [&](auto r) { setup = std::move(r); });
     ASSERT_TRUE(setup.has_value());
-    std::string code = authforge::identity::totp::generateCode(setup->secret, clock->nowSeconds());
+    std::string code = fulla::identity::totp::generateCode(setup->secret, clock->nowSeconds());
 
     std::optional<MfaEnableResult> result = MfaEnableResult{};
     svc->verifyAndEnable(42, code, [&](auto r) { result = std::move(r); });
@@ -297,7 +297,7 @@ TEST(MfaServiceTest, VerifyAndEnable_CorrectCode_EnablesAndReturnsBackupCodes)
     ASSERT_TRUE(setupResult.has_value());
 
     std::string code =
-      authforge::identity::totp::generateCode(setupResult->secret, clock->nowSeconds());
+      fulla::identity::totp::generateCode(setupResult->secret, clock->nowSeconds());
 
     std::optional<MfaEnableResult> enableResult;
     svc->verifyAndEnable(42, code, [&](auto r) { enableResult = std::move(r); });
@@ -361,7 +361,7 @@ TEST(MfaServiceTest, VerifyLoginCode_EnabledAndCorrect_ReturnsTrue)
     repo->data[42].secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
     repo->data[42].enabled = true;
     std::string code =
-      authforge::identity::totp::generateCode(repo->data[42].secret, clock->nowSeconds());
+      fulla::identity::totp::generateCode(repo->data[42].secret, clock->nowSeconds());
 
     bool verified = false;
     svc->verifyLoginCode(42, code, [&](bool v) { verified = v; });
@@ -377,7 +377,7 @@ TEST(MfaServiceTest, VerifyLoginCode_NotEnabled_ReturnsFalse)
     repo->data[42].secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
     repo->data[42].enabled = false;
     std::string code =
-      authforge::identity::totp::generateCode(repo->data[42].secret, clock->nowSeconds());
+      fulla::identity::totp::generateCode(repo->data[42].secret, clock->nowSeconds());
 
     bool verified = true;
     svc->verifyLoginCode(42, code, [&](bool v) { verified = v; });

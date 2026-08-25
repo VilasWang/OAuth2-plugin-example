@@ -12,7 +12,7 @@ import (
 func CreateVerifier() (string, error) {
 	buf := make([]byte, 48)
 	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("authforge: reading random bytes for PKCE verifier: %w", err)
+		return "", fmt.Errorf("fulla: reading random bytes for PKCE verifier: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }

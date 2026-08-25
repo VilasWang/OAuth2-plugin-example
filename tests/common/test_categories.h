@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace authforge::test
+namespace fulla::test
 {
 
 /**
@@ -80,4 +80,4 @@ inline std::string getPriorityString(TestPriority priority)
     }
 }
 
-}  // namespace authforge::test
+}  // namespace fulla::test

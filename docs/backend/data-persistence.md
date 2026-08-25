@@ -4,7 +4,7 @@
 
 ## 1. 设计目标
 
-- **存储解耦**：通过仓储接口（`libs/oauth2/include/authforge/oauth2/repository/` 下的 `IClientRepository`、`IGrantRepository`、`ITokenRepository` 等）抽象，支持内存、PostgreSQL、Redis 等多种存储后端，各后端以 `*RepositoryBundle` 装配实现。
+- **存储解耦**：通过仓储接口（`libs/oauth2/include/fulla/oauth2/repository/` 下的 `IClientRepository`、`IGrantRepository`、`ITokenRepository` 等）抽象，支持内存、PostgreSQL、Redis 等多种存储后端，各后端以 `*RepositoryBundle` 装配实现。
 - **数据持久化**：确保 Client 信息、Token、Auth Code 等关键数据不丢失。
 - **安全加固**：Client Secret 绝不明文存储，强制使用 SHA256 加盐哈希。
 - **异步高性能**：底层操作全部采用 `execSqlAsync` 和 `execCommandAsync`，基于回调机制，充分利用 Drogon 的非阻塞 I/O 能力。

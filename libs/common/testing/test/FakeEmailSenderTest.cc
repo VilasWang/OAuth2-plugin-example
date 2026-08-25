@@ -1,11 +1,11 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // for FakeEmailSender.
 
-#include <authforge/common/testing/FakeEmailSender.h>
+#include <fulla/common/testing/FakeEmailSender.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
+using namespace fulla::common::testing;
 
 TEST(FakeEmailSenderTest, CapturesSentMessage)
 {

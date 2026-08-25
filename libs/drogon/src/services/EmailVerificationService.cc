@@ -1,10 +1,10 @@
-#include <authforge/drogon/services/EmailVerificationService.h>
+#include <fulla/drogon/services/EmailVerificationService.h>
 
-#include <authforge/storage/postgres/models/EmailVerificationTokens.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/utils/EmailService.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/storage/postgres/models/EmailVerificationTokens.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/utils/EmailService.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 
@@ -13,7 +13,7 @@
 
 #include <chrono>
 
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 
 namespace
@@ -27,7 +27,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -36,9 +36,9 @@ void respondError(
 }
 
 // Lazy accessor for EmailService -- avoids static init order issues.
-::authforge::drogon::utils::IEmailService &getEmailSvc()
+::fulla::drogon::utils::IEmailService &getEmailSvc()
 {
-    return ::authforge::drogon::utils::getEmailService();
+    return ::fulla::drogon::utils::getEmailService();
 }
 
 // Lazily resolve the DbClient. Kept identical to pre-B5 controller behavior.
@@ -60,9 +60,9 @@ void respondError(
 }  // namespace
 
 // Bring ORM + model names into scope. Fully qualified (::) to avoid
-// namespace collision inside authforge::drogon::services.
+// namespace collision inside fulla::drogon::services.
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 // ---- internal helper ----
 
@@ -71,8 +71,8 @@ void EmailVerificationService::sendVerificationEmail(int internalUserId, const s
     if (email.empty())
         return;
 
-    std::string rawToken = ::authforge::drogon::utils::generateSecureToken();
-    std::string tokenHash = ::authforge::drogon::utils::hashToken(rawToken);
+    std::string rawToken = ::fulla::drogon::utils::generateSecureToken();
+    std::string tokenHash = ::fulla::drogon::utils::hashToken(rawToken);
 
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
@@ -127,7 +127,7 @@ void EmailVerificationService::verifyToken(
         return;
     }
 
-    std::string tokenHash = ::authforge::drogon::utils::hashToken(token);
+    std::string tokenHash = ::fulla::drogon::utils::hashToken(token);
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
     )
@@ -167,7 +167,7 @@ void EmailVerificationService::verifyToken(
                 Mapper<Users>(db).update(
                   updated,
                   [sharedCb, user](const size_t) {
-                      authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                      fulla::drogon::UserCacheInvalidator::instance().invalidateUser(
                         std::to_string(user.getValueOfId()), user.getValueOfPublicSub());
                       Json::Value json;
                       json["message"] = "Email verified successfully";
@@ -267,4 +267,4 @@ void EmailVerificationService::resendVerification(
     );
 }
 
-}  // namespace authforge::drogon::services
+}  // namespace fulla::drogon::services

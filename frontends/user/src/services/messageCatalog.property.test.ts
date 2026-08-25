@@ -48,7 +48,7 @@ const BACKEND_ERROR_CODES = [
 //   - RFC 7009（令牌撤销）: unsupported_token_type
 //   - RFC 8628（设备授权）: authorization_pending / slow_down / expired_token
 // 这些与后端 OAuth2Plugin/src/error/ErrorCatalog.cc 的 rawOAuthEntries() 一一对应。
-const OAUTH2_PROTOCOL_CODES = [
+const FULLA_PROTOCOL_CODES = [
   'invalid_request',
   'invalid_client',
   'invalid_grant',
@@ -65,7 +65,7 @@ const OAUTH2_PROTOCOL_CODES = [
 ] as const
 
 // Property 13 要求覆盖的码集合：后端 Error_Code ∪ OAuth2 协议码。
-const REQUIRED_CODES = [...BACKEND_ERROR_CODES, ...OAUTH2_PROTOCOL_CODES] as const
+const REQUIRED_CODES = [...BACKEND_ERROR_CODES, ...FULLA_PROTOCOL_CODES] as const
 
 // 保留回退键：其值同样需为非空且清洁（占位符/Internal_Detail 检查），但它们作为
 // KEY 命名（__unknown__/__network__）本身不算占位符标记。

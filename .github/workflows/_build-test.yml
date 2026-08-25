@@ -35,7 +35,7 @@ on:
         required: false
         default: ""
       configure_extra_args:
-        description: "Extra `cmake --preset` args (e.g. -DOAUTH2_MEMORY_TESTS_ONLY=ON)"
+        description: "Extra `cmake --preset` args (e.g. -DFULLA_MEMORY_TESTS_ONLY=ON)"
         type: string
         required: false
         default: ""
@@ -60,17 +60,17 @@ on:
         required: false
         default: ""
       test_exe:
-        description: "Test binary name (authforge-tests or authforge-tests.exe)"
+        description: "Test binary name (fulla-tests or fulla-tests.exe)"
         type: string
         required: false
-        default: "authforge-tests"
+        default: "fulla-tests"
       test_db_host:
-        description: "OAUTH2_DB_HOST for the test steps (empty disables DB connections)"
+        description: "FULLA_DB_HOST for the test steps (empty disables DB connections)"
         type: string
         required: false
         default: ""
       test_redis_host:
-        description: "OAUTH2_REDIS_HOST for the test steps (empty disables Redis connections)"
+        description: "FULLA_REDIS_HOST for the test steps (empty disables Redis connections)"
         type: string
         required: false
         default: ""
@@ -102,9 +102,9 @@ jobs:
       PRESET_DIR: ${{ inputs.preset_dir }}
       # Empty host values disable accidental DB/Redis connections (Windows/macOS
       # memory-storage runs); Linux passes 127.0.0.1 to hit the containers below.
-      OAUTH2_DB_HOST: ${{ inputs.test_db_host }}
-      OAUTH2_REDIS_HOST: ${{ inputs.test_redis_host }}
-      OAUTH2_REDIS_PASSWORD: ""
+      FULLA_DB_HOST: ${{ inputs.test_db_host }}
+      FULLA_REDIS_HOST: ${{ inputs.test_redis_host }}
+      FULLA_REDIS_PASSWORD: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -200,7 +200,7 @@ jobs:
       - name: Configure Project CMake
         # The preset carries CMAKE_BUILD_TYPE, C++ standard, generator, and the
         # Conan toolchain (build/<preset>/conan_toolchain.cmake). Platform-only
-        # flags (e.g. OAUTH2_MEMORY_TESTS_ONLY on macOS) come via configure_extra_args.
+        # flags (e.g. FULLA_MEMORY_TESTS_ONLY on macOS) come via configure_extra_args.
         run: cmake --preset "$CMAKE_PRESET" ${{ inputs.configure_extra_args }}
 
       - name: Build
@@ -211,12 +211,12 @@ jobs:
         # Linux-only: run the DB/cache as Docker containers (service containers
         # cannot be conditioned per-matrix, and only Linux runners support them).
         run: |
-          docker run -d --name authforge-postgres \
-            -e POSTGRES_USER=oauth2_user \
+          docker run -d --name fulla-postgres \
+            -e POSTGRES_USER=fulla_user \
             -e POSTGRES_PASSWORD=123456 \
-            -e POSTGRES_DB=oauth2_db \
+            -e POSTGRES_DB=fulla_db \
             -p 5432:5432 postgres:17-alpine
-          docker run -d --name authforge-redis \
+          docker run -d --name fulla-redis \
             -p 6379:6379 redis:7-alpine
 
       - name: Wait for services
@@ -224,13 +224,13 @@ jobs:
         run: |
           # Probe with a real query (not just pg_isready): postgres:17-alpine
           # briefly runs a temporary server during init, so an actual SELECT
-          # against oauth2_db is the authoritative readiness signal. On timeout
+          # against fulla_db is the authoritative readiness signal. On timeout
           # we MUST fail (the loop no longer silently passes) and dump container
           # logs, since docker run -d has no health gate of its own.
           echo "Waiting for Postgres..."
           pg_ready=false
           for i in $(seq 1 15); do
-            if PGPASSWORD=123456 psql -h localhost -U oauth2_user -d oauth2_db -c 'SELECT 1' >/dev/null 2>&1; then
+            if PGPASSWORD=123456 psql -h localhost -U fulla_user -d fulla_db -c 'SELECT 1' >/dev/null 2>&1; then
               pg_ready=true
               break
             fi
@@ -239,7 +239,7 @@ jobs:
           done
           if [ "$pg_ready" != true ]; then
             echo "::error::Postgres not ready after 30s"
-            docker logs authforge-postgres || true
+            docker logs fulla-postgres || true
             exit 1
           fi
           echo "Waiting for Redis..."
@@ -254,7 +254,7 @@ jobs:
           done
           if [ "$redis_ready" != true ]; then
             echo "::error::Redis not ready after 30s"
-            docker logs authforge-redis || true
+            docker logs fulla-redis || true
             exit 1
           fi
 
@@ -266,11 +266,11 @@ jobs:
         run: |
           for f in migrations/V*.sql; do
             echo "Applying $f..."
-            psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
+            psql -h localhost -U fulla_user -d fulla_db -f "$f"
           done
           for f in seed/*.sql; do
             echo "Applying seed $f..."
-            psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
+            psql -h localhost -U fulla_user -d fulla_db -f "$f"
           done
 
       - name: Stage memory config next to multi-config test exe

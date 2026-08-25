@@ -33,7 +33,7 @@ defineProps<{
           monochrome ? 'text-neutral-900' : 'text-neutral-900',
         ]"
       >
-        AuthForge
+        Fulla
       </span>
       <span
         v-if="size === 'lg'"

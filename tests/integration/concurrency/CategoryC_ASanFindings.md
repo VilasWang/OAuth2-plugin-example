@@ -26,7 +26,7 @@ Shared TSan/ASan gating + the `PendingCallbacks` queue live in
 
 These land under `tests/integration/concurrency/`, auto-collected by
 `GLOB_RECURSE INTEGRATION_TESTS` in `tests/CMakeLists.txt` and compiled
-into the `authforge-tests` target (ctest name `OAuth2Tests`).
+into the `fulla-tests` target (ctest name `OAuth2Tests`).
 
 ## Why a deferring storage double (and not `MemoryOAuth2Storage`)
 
@@ -153,7 +153,7 @@ numbers vary by build). Example for the 1.8 `getAccessToken` cache-fill:
 READ of size 8 at 0x... thread T0
     #0 drogon::CacheMap<...>::insert(...) CacheMap.h
     #1 oauth2::CachedOAuth2Storage::getAccessToken(...)::{lambda}::operator()(...) CachedOAuth2Storage.cc:160
-    #2 authforge::test::concurrency::PendingCallbacks::fireAll() ConcurrencyRaceSupport.h
+    #2 fulla::test::concurrency::PendingCallbacks::fireAll() ConcurrencyRaceSupport.h
     ...
 0x... is located 0 bytes inside of N-byte region freed by thread T0 here:
     #0 operator delete(void*)
@@ -179,7 +179,7 @@ Linux/macOS with a GCC/Clang toolchain (TSan and ASan are mutually exclusive —
 this is the ASan build):
 
 ```bash
-# From the repo root (authforge/)
+# From the repo root (fulla/)
 bash scripts/backend/build.sh --asan        # == --sanitizer=address, implies --debug
 
 # Run the full suite (ctest name OAuth2Tests) under ASan:
@@ -191,7 +191,7 @@ cd build && ctest --output-on-failure -R OAuth2Tests
 # are kept verbatim as a historical record of the original ASan findings; do
 # not expect them to run against the current binary.
 # Or run only the Category C reproductions directly:
-./tests/authforge-tests \
+./tests/fulla-tests \
   Integration_Concurrency_1_8_CachedStorage_GetAccessToken_UAF_Repro \
   Integration_Concurrency_1_8_CachedStorage_SaveAccessToken_UAF_Repro \
   Integration_Concurrency_1_8_CachedStorage_RevokeAccessToken_UAF_Repro \
@@ -204,9 +204,9 @@ cd build && ctest --output-on-failure -R OAuth2Tests
   Integration_Concurrency_1_11_Controller_RawStoragePointer_AcrossAsync_UAF_Repro
 ```
 
-CMake plumbing (already in place from Task 0): `-DOAUTH2_SANITIZER=address` →
+CMake plumbing (already in place from Task 0): `-DFULLA_SANITIZER=address` →
 `cmake/Sanitizers.cmake::oauth2_apply_sanitizer()` appends
-`-fsanitize=address -g -fno-omit-frame-pointer` to the `authforge-tests` target's
+`-fsanitize=address -g -fno-omit-frame-pointer` to the `fulla-tests` target's
 compile + link options (GCC/Clang + Debug only).
 
 Recommended to fail hard / get full reports (CI gating):
@@ -219,7 +219,7 @@ export ASAN_OPTIONS="abort_on_error=1 detect_leaks=0 halt_on_error=1"
 
 - **Environment limitation (from Task 0):** this host builds with **MSVC**
   (Visual Studio 17 2022). Clang here targets the MSVC ABI; the project's
-  `cmake/Sanitizers.cmake` deliberately ignores `OAUTH2_SANITIZER=address` on
+  `cmake/Sanitizers.cmake` deliberately ignores `FULLA_SANITIZER=address` on
   the MSVC/MSVC-ABI toolchains (with a warning) so the normal build still
   succeeds, and there is no usable `-fsanitize=address` runtime in this setup.
   The WSL box lacks a toolchain/Drogon. **Therefore ASan could NOT be executed

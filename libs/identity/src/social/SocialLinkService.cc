@@ -6,11 +6,11 @@
 
 #ifdef WITH_SOCIAL
 
-#include <authforge/identity/SocialLinkService.h>
+#include <fulla/identity/SocialLinkService.h>
 
 #include <utility>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 namespace
@@ -392,6 +392,6 @@ void SocialLinkService::listAccounts(
     );
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity
 
 #endif  // WITH_SOCIAL

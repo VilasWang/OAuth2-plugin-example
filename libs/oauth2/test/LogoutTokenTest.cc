@@ -3,7 +3,7 @@
 // claim set + no nonce, exp=iat+ttl, jti uniqueness). gtest -- no Drogon,
 // no DB.
 
-#include <authforge/oauth2/protocol/LogoutToken.h>
+#include <fulla/oauth2/protocol/LogoutToken.h>
 
 #include <gtest/gtest.h>
 
@@ -13,9 +13,9 @@
 
 namespace
 {
-using authforge::oauth2::protocol::buildLogoutTokenClaims;
-using authforge::oauth2::protocol::generateJti;
-using authforge::oauth2::protocol::kBackchannelLogoutEventUrn;
+using fulla::oauth2::protocol::buildLogoutTokenClaims;
+using fulla::oauth2::protocol::generateJti;
+using fulla::oauth2::protocol::kBackchannelLogoutEventUrn;
 
 // U1: the exact required claim set, the events member keyed by the spec URN,
 // and the forbidden/omitted claims (no nonce; sub-only, no sid).

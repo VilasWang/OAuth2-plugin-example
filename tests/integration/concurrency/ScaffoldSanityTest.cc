@@ -7,9 +7,9 @@
 //   * Verify that the new test directory
 //       tests/integration/concurrency/
 //     is picked up by the GLOB_RECURSE in tests/CMakeLists.txt
-//     (INTEGRATION_TESTS) and compiled into the authforge-tests target.
+//     (INTEGRATION_TESTS) and compiled into the fulla-tests target.
 //   * Exercise the build/test pipeline end-to-end under both the normal build
-//     and the TSan / ASan sanitizer builds (OAUTH2_SANITIZER=thread|address).
+//     and the TSan / ASan sanitizer builds (FULLA_SANITIZER=thread|address).
 //
 // This file deliberately asserts NOTHING about the audited defects (1.1–1.11).
 // The actual concurrency / shutdown race reproductions land in later tasks

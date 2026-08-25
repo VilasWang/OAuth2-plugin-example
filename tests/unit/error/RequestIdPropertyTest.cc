@@ -14,11 +14,11 @@
 //     seed are printed via LOG_ERROR before the failing CHECK fires.
 //   * Headers are attached to an in-process HttpRequest via
 //     drogon::HttpRequest::newHttpRequest() + addHeader("X-Request-ID", value),
-//     and resolution is exercised through authforge::common::error::RequestId::resolve.
+//     and resolution is exercised through fulla::common::error::RequestId::resolve.
 
 #include <drogon/drogon_test.h>
 #include <drogon/HttpRequest.h>
-#include <authforge/drogon/error/RequestId.h>
+#include <fulla/drogon/error/RequestId.h>
 
 #include <random>
 #include <set>
@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-using authforge::common::error::RequestId;
+using fulla::common::error::RequestId;
 
 namespace
 {

@@ -3,7 +3,7 @@
 // the Tier-2 admin-role check is now driven by a caller-supplied predicate
 // (backed by the DB oauth2_scopes.requires_admin_role column in production).
 
-#include <authforge/oauth2/access/ScopeDecisionEngine.h>
+#include <fulla/oauth2/access/ScopeDecisionEngine.h>
 
 #include <gtest/gtest.h>
 
@@ -12,10 +12,10 @@
 namespace
 {
 
-using namespace authforge::oauth2::access;
-using authforge::oauth2::model::Client;
-using authforge::oauth2::model::ClientType;
-using authforge::oauth2::model::OAuth2Client;
+using namespace fulla::oauth2::access;
+using fulla::oauth2::model::Client;
+using fulla::oauth2::model::ClientType;
+using fulla::oauth2::model::OAuth2Client;
 
 Client makeClient(std::vector<std::string> allowedScopes)
 {

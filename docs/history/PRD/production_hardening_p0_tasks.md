@@ -454,16 +454,16 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 
 ```cpp
 static const std::vector<EnvOverride> prodOverrides = {
-    {"OAUTH2_DB_HOST",     "db_clients.0.host"},
-    {"OAUTH2_DB_PORT",     "db_clients.0.port"},
-    {"OAUTH2_DB_NAME",     "db_clients.0.dbname"},
-    {"OAUTH2_DB_USER",     "db_clients.0.user"},
-    {"OAUTH2_DB_PASSWORD", "db_clients.0.passwd"},
-    {"OAUTH2_REDIS_HOST",  "redis_clients.0.host"},
-    {"OAUTH2_REDIS_PORT",  "redis_clients.0.port"},
-    {"OAUTH2_REDIS_PASSWORD", "redis_clients.0.passwd"},
-    {"OAUTH2_ISSUER",      "custom_config.metadata.issuer"},
-    {"OAUTH2_LISTEN_PORT", "listeners.0.port"},
+    {"FULLA_DB_HOST",     "db_clients.0.host"},
+    {"FULLA_DB_PORT",     "db_clients.0.port"},
+    {"FULLA_DB_NAME",     "db_clients.0.dbname"},
+    {"FULLA_DB_USER",     "db_clients.0.user"},
+    {"FULLA_DB_PASSWORD", "db_clients.0.passwd"},
+    {"FULLA_REDIS_HOST",  "redis_clients.0.host"},
+    {"FULLA_REDIS_PORT",  "redis_clients.0.port"},
+    {"FULLA_REDIS_PASSWORD", "redis_clients.0.passwd"},
+    {"FULLA_ISSUER",      "custom_config.metadata.issuer"},
+    {"FULLA_LISTEN_PORT", "listeners.0.port"},
 };
 ```
 
@@ -473,7 +473,7 @@ static const std::vector<EnvOverride> prodOverrides = {
 
 ```cpp
 bool ConfigManager::validate(const Json::Value& config, std::string& error) {
-    auto env = std::getenv("OAUTH2_ENV");
+    auto env = std::getenv("FULLA_ENV");
     bool isProd = (env && std::string(env) == "production");
 
     if (isProd) {
@@ -512,7 +512,7 @@ if (baseUrl.empty()) {
 ### 7.4 验收
 
 ```bash
-# 设置 OAUTH2_ENV=production 但 issuer 为 http → 启动失败，日志输出原因
+# 设置 FULLA_ENV=production 但 issuer 为 http → 启动失败，日志输出原因
 # 设置正确的 https issuer + 环境变量 → 启动成功
 # GET /.well-known/oauth-authorization-server → issuer 字段为 https://...
 ```

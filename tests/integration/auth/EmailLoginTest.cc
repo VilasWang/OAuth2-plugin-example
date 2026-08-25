@@ -1,7 +1,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/common/utils/EmailNormalizer.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/common/utils/EmailNormalizer.h>
 #include <future>
 
 using namespace drogon;
@@ -19,7 +19,7 @@ void cleanupEmail(const std::string &email)
       "DELETE FROM users WHERE email = $1",
       [&](const Result &) { p.set_value(); },
       [&](const DrogonDbException &) { p.set_value(); },
-      authforge::common::utils::normalizeEmail(email)
+      fulla::common::utils::normalizeEmail(email)
     );
     p.get_future().get();
 }
@@ -52,7 +52,7 @@ DROGON_TEST(Integration_P1_Login_Dispatch_IsEmailVersusUsername)
     // Gmail alias folding: a plus/dot alias must resolve to the canonical key
     // that registration stored, so login (and password reset) hit the same row.
     CHECK(
-      authforge::common::utils::normalizeEmail("Alice.Tag+promo@gmail.com") == "alicetag@gmail.com"
+      fulla::common::utils::normalizeEmail("Alice.Tag+promo@gmail.com") == "alicetag@gmail.com"
     );
 
     cleanupEmail(email);
@@ -75,5 +75,5 @@ DROGON_TEST(Integration_P1_Login_PasswordReset_LooksUpCanonicalEmail)
     const std::string alias = "Alice.Tag+promo@gmail.com";
     // simulate registration (stored canonical)
     // ... and the reset-side fold the controller now performs:
-    CHECK(authforge::common::utils::normalizeEmail(alias) == canonical);
+    CHECK(fulla::common::utils::normalizeEmail(alias) == canonical);
 }

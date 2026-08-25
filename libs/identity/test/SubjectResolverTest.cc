@@ -1,9 +1,9 @@
-// Task 19 (authforge-sdk-refactor, design.md §6): unit tests for
-// authforge::identity::SubjectResolver (implements
-// authforge::common::ports::ISubjectResolver).
+// Task 19 (fulla-sdk-refactor, design.md §6): unit tests for
+// fulla::identity::SubjectResolver (implements
+// fulla::common::ports::ISubjectResolver).
 
-#include <authforge/identity/SubjectResolver.h>
-#include <authforge/common/model/Subject.h>
+#include <fulla/identity/SubjectResolver.h>
+#include <fulla/common/model/Subject.h>
 
 #include <gtest/gtest.h>
 
@@ -11,9 +11,9 @@
 #include <memory>
 #include <optional>
 
-using authforge::common::model::Subject;
-using authforge::identity::ISubjectMappingRepository;
-using authforge::identity::SubjectResolver;
+using fulla::common::model::Subject;
+using fulla::identity::ISubjectMappingRepository;
+using fulla::identity::SubjectResolver;
 
 namespace
 {
@@ -50,14 +50,14 @@ class FakeSubjectMappingRepository : public ISubjectMappingRepository
 
 TEST(SubjectResolverTest, SplitSubjectHandlesProviderPrefix)
 {
-    auto [provider, localId] = authforge::identity::splitSubject("google:abc123");
+    auto [provider, localId] = fulla::identity::splitSubject("google:abc123");
     EXPECT_EQ(provider, "google");
     EXPECT_EQ(localId, "abc123");
 }
 
 TEST(SubjectResolverTest, SplitSubjectDefaultsToLocalWithoutColon)
 {
-    auto [provider, localId] = authforge::identity::splitSubject("alice");
+    auto [provider, localId] = fulla::identity::splitSubject("alice");
     EXPECT_EQ(provider, "local");
     EXPECT_EQ(localId, "alice");
 }

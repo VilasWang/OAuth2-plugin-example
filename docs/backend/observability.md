@@ -19,7 +19,7 @@
 | `oauth2_latency_seconds` | Histogram | `operation`, `storage` | 关键步骤（含存储后端）耗时分布 |
 | `oauth2_active_tokens` | Gauge | — | 当前活跃（未过期）Token 估算值 |
 
-> 指标由 `libs/drogon/src/observability/Metrics.cc` 与 `libs/drogon/src/adapters/DrogonMetrics.cc` 统一发射（经 `LOG_INFO` 的 `[METRIC]` 结构化日志，供 PromExporter/日志采集端消费），定义见 `libs/drogon/include/authforge/drogon/observability/Metrics.h`。
+> 指标由 `libs/drogon/src/observability/Metrics.cc` 与 `libs/drogon/src/adapters/DrogonMetrics.cc` 统一发射（经 `LOG_INFO` 的 `[METRIC]` 结构化日志，供 PromExporter/日志采集端消费），定义见 `libs/drogon/include/fulla/drogon/observability/Metrics.h`。
 
 ### 1.2 监控面板示例 (Grafana)
 
@@ -92,7 +92,7 @@ LOG_INFO << "Processing request"; // 输出: [ReqId: abc-123] Processing request
 
 **代码约定**：
 
-- Domain 层（`libs/common`、`libs/oauth2`、`libs/identity`）**不得**直接使用 Drogon 的 `LOG_*` 宏，必须经 `authforge::common::ports::ILogger` 端口（design.md §5.6），以便单元测试可用 `FakeLogger` 捕获并断言。
+- Domain 层（`libs/common`、`libs/oauth2`、`libs/identity`）**不得**直接使用 Drogon 的 `LOG_*` 宏，必须经 `fulla::common::ports::ILogger` 端口（design.md §5.6），以便单元测试可用 `FakeLogger` 捕获并断言。
 - Adapter / 基础设施层（`libs/drogon`、`libs/storage-*`、`apps/server`）可直接使用 `LOG_*` 宏。
 - 六级对应关系：`LogLevel::Trace`→`LOG_TRACE`、`Debug`→`LOG_DEBUG`、`Info`→`LOG_INFO`、`Warn`→`LOG_WARN`、`Error`→`LOG_ERROR`、`Fatal`→`LOG_FATAL`。
 

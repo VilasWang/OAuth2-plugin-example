@@ -4,7 +4,7 @@
 # Boot Keycloak (official production image + PostgreSQL) for the competitor
 # benchmark, initialize realm/client/user headlessly via kcadm, heat the JVM
 # (60s client_credentials load — design D2 JIT exemption, implemented here in
-# setup so every measured scenario can use the same 5s warmup as AuthForge),
+# setup so every measured scenario can use the same 5s warmup as Fulla),
 # then mint the API-issued token pools (design D5: competitor tokens MUST come
 # from the product itself, never SQL).
 #

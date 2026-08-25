@@ -1,19 +1,19 @@
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/observability/AuditLogger.h>
-#include <authforge/drogon/adapters/OpenSslUuidGenerator.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/observability/AuditLogger.h>
+#include <fulla/drogon/adapters/OpenSslUuidGenerator.h>
 
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
 
-void DrogonAuditSink::record(const authforge::common::observability::AuditEvent &event)
+void DrogonAuditSink::record(const fulla::common::observability::AuditEvent &event)
 {
-    // M8 Task 40: AuditEvent is now unified (authforge::common::observability::
+    // M8 Task 40: AuditEvent is now unified (fulla::common::observability::
     // AuditEvent); forward verbatim -- no shape translation.
-    authforge::drogon::observability::AuditLogger::log(event);
+    fulla::drogon::observability::AuditLogger::log(event);
 }
 
 void DrogonAuditSink::logFromRequest(
-  const std::shared_ptr<authforge::common::ports::IAuditSink> &sink,
+  const std::shared_ptr<fulla::common::ports::IAuditSink> &sink,
   const std::string &action,
   const std::string &outcome,
   const ::drogon::HttpRequestPtr &req,
@@ -28,7 +28,7 @@ void DrogonAuditSink::logFromRequest(
         return;
     }
 
-    authforge::common::observability::AuditEvent event;
+    fulla::common::observability::AuditEvent event;
     event.action = action;
     event.outcome = outcome;
     event.actorId = actorId;
@@ -59,9 +59,9 @@ void DrogonAuditSink::logFromRequest(
         if (event.requestId.empty())
         {
             // Task 14 (design.md §5.6): migrated off drogon::utils::getUuid()
-            // onto the authforge::common::ports::IUuidGenerator Adapter
+            // onto the fulla::common::ports::IUuidGenerator Adapter
             // implementation (OpenSslUuidGenerator).
-            static authforge::drogon::adapters::OpenSslUuidGenerator uuidGenerator;
+            static fulla::drogon::adapters::OpenSslUuidGenerator uuidGenerator;
             event.requestId = uuidGenerator.generate();
         }
     }
@@ -69,4 +69,4 @@ void DrogonAuditSink::logFromRequest(
     sink->record(event);
 }
 
-}  // namespace authforge::drogon::adapters
+}  // namespace fulla::drogon::adapters

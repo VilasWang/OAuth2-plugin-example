@@ -1,20 +1,20 @@
-#include <authforge/storage/postgres/PostgresTokenRepository.h>
+#include <fulla/storage/postgres/PostgresTokenRepository.h>
 #include <drogon/drogon.h>
 
-#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
-#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
+#include <fulla/storage/postgres/models/Oauth2AccessTokens.h>
+#include <fulla/storage/postgres/models/Oauth2RefreshTokens.h>
 
 #include <chrono>
 #include <ctime>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
 // .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2AccessToken = ::authforge::oauth2::model::OAuth2AccessToken;
-using OAuth2RefreshToken = ::authforge::oauth2::model::OAuth2RefreshToken;
-using TokenIntrospection = ::authforge::oauth2::model::TokenIntrospection;
+using OAuth2AccessToken = ::fulla::oauth2::model::OAuth2AccessToken;
+using OAuth2RefreshToken = ::fulla::oauth2::model::OAuth2RefreshToken;
+using TokenIntrospection = ::fulla::oauth2::model::TokenIntrospection;
 using VoidCallback = ITokenRepositoryBase::VoidCallback;
 using SaveResultCallback = ITokenRepositoryBase::SaveResultCallback;
 using AccessTokenCallback = ITokenRepositoryBase::AccessTokenCallback;
@@ -22,7 +22,7 @@ using RefreshTokenCallback = ITokenRepositoryBase::RefreshTokenCallback;
 using TokenIntrospectionCallback = ITokenRepositoryBase::TokenIntrospectionCallback;
 
 using namespace ::drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 void PostgresTokenRepository::saveAccessToken(const OAuth2AccessToken &token, VoidCallback &&cb)
 {
@@ -791,4 +791,4 @@ void PostgresTokenRepository::purgeExpired()
     }
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

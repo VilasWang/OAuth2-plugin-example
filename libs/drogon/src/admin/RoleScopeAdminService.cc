@@ -1,9 +1,9 @@
-#include <authforge/drogon/admin/RoleScopeAdminService.h>
+#include <fulla/drogon/admin/RoleScopeAdminService.h>
 
-#include <authforge/storage/postgres/models/Roles.h>
-#include <authforge/storage/postgres/models/Oauth2Scopes.h>
-#include <authforge/storage/postgres/models/UserRoles.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/storage/postgres/models/Roles.h>
+#include <fulla/storage/postgres/models/Oauth2Scopes.h>
+#include <fulla/storage/postgres/models/UserRoles.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>
@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 
 namespace
@@ -23,7 +23,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -32,7 +32,7 @@ void respondError(
 }
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 ::drogon::orm::DbClientPtr getDbOrRespond(
   const ::drogon::HttpRequestPtr &req,
@@ -598,4 +598,4 @@ void RoleScopeAdminService::deleteScope(
     );
 }
 
-}  // namespace authforge::drogon::admin
+}  // namespace fulla::drogon::admin

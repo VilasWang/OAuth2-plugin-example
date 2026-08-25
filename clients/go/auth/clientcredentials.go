@@ -1,6 +1,6 @@
 // Package auth provides the handwritten authentication layer for the
-// AuthForge Go client (the generated API surface lives in the sibling
-// package github.com/voidvec/authforge/clients/go/generated).
+// Fulla Go client (the generated API surface lives in the sibling
+// package github.com/voidvec/fulla/clients/go/generated).
 //
 // Token lifecycle is deliberately handwritten, never generated (client-sdk
 // design D5): refresh rotation, lockout and family revocation are too
@@ -20,7 +20,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 
-	"github.com/voidvec/authforge/clients/go/generated"
+	"github.com/voidvec/fulla/clients/go/generated"
 )
 
 // TokenURLPath and AuthorizeURLPath are the stable request shapes this
@@ -103,5 +103,5 @@ func NewBasicAuthClient(baseURL, clientID, clientSecret string) (*generated.Clie
 // errInvalidBaseURL is returned for URLs the endpoint concatenation cannot
 // use (empty).
 func errInvalidBaseURL(baseURL string) error {
-	return fmt.Errorf("authforge: invalid base URL %q", baseURL)
+	return fmt.Errorf("fulla: invalid base URL %q", baseURL)
 }

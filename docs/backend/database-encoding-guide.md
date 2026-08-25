@@ -20,7 +20,7 @@ The following attempts were made to create a UTF-8 database:
 1. **Explicit ENCODING clause**:
 
    ```sql
-   CREATE DATABASE oauth2_db ENCODING 'UTF8';
+   CREATE DATABASE fulla_db ENCODING 'UTF8';
    ```
 
    Result: Database still created as SQL_ASCII
@@ -28,7 +28,7 @@ The following attempts were made to create a UTF-8 database:
 2. **Using template0**:
 
    ```sql
-   CREATE DATABASE oauth2_db ENCODING 'UTF8' TEMPLATE template0;
+   CREATE DATABASE fulla_db ENCODING 'UTF8' TEMPLATE template0;
    ```
 
    Result: Failed - template0 may also be SQL_ASCII
@@ -36,7 +36,7 @@ The following attempts were made to create a UTF-8 database:
 3. **With locale settings**:
 
    ```sql
-   CREATE DATABASE oauth2_db WITH ENCODING 'UTF8' LC_CTYPE='C' LC_COLLATE='C';
+   CREATE DATABASE fulla_db WITH ENCODING 'UTF8' LC_CTYPE='C' LC_COLLATE='C';
    ```
 
    Result: Database creation failed or remained SQL_ASCII

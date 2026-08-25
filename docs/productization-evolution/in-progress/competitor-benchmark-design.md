@@ -1,6 +1,6 @@
-# AuthForge 竞品性能基准对比设计
+# Fulla 竞品性能基准对比设计
 
-> **版本**: v1.1（2026-08-15 评审修订：新增 M0 前置参数化、S5 池规模修正、GC 抖动场景钉死、AuthForge 同 session 重跑、Zitadel JWT-profile 认证说明、warmup 口径对齐入仓数据）
+> **版本**: v1.1（2026-08-15 评审修订：新增 M0 前置参数化、S5 池规模修正、GC 抖动场景钉死、Fulla 同 session 重跑、Zitadel JWT-profile 认证说明、warmup 口径对齐入仓数据）
 > **日期**: 2026-08-15
 > **文档性质**: 技术设计（Phase 0.5 落地蓝图，**非代码**——实施见 §七 milestone）
 > **上游规划**: [演进方案 §三 Phase 0](../productization-evolution-plan.md) P0「自托管竞品对比基准」
@@ -11,8 +11,8 @@
 
 ## 零、TL;DR
 
-- **做什么**：在**同一台机器、同一套 wrk 阶梯、同一个 PostgreSQL 后端**下压 Keycloak / Ory Hydra / Zitadel，与 AuthForge 已入仓的自测数据（`benchmarks/results/SUMMARY.md`）产出同口径对比表。
-- **比什么**：S1 discovery / S2 client_credentials / S3 introspect / S5 refresh_token / S6 userinfo 五个单步场景 + 冷启动 + 稳态 RSS + **GC 抖动长跑**（5 分钟 P99 时间序列——AuthForge 无 GC 的核心差异化证据）。
+- **做什么**：在**同一台机器、同一套 wrk 阶梯、同一个 PostgreSQL 后端**下压 Keycloak / Ory Hydra / Zitadel，与 Fulla 已入仓的自测数据（`benchmarks/results/SUMMARY.md`）产出同口径对比表。
+- **比什么**：S1 discovery / S2 client_credentials / S3 introspect / S5 refresh_token / S6 userinfo 五个单步场景 + 冷启动 + 稳态 RSS + **GC 抖动长跑**（5 分钟 P99 时间序列——Fulla 无 GC 的核心差异化证据）。
 - **不比什么**：S4 auth_code（各产品登录/consent 流程不可 wrk 统一驱动）；Auth0（SaaS，无法自托管）；竞品的极限调优配置（一律用官方推荐生产配置）。
 - **核心原则**：公平性优先于数字好看。竞品社区会质疑，方法论必须无懈可击——同硬件、同并发阶梯、同后端、各产品官方推荐配置、脚本全部入仓可复现。
 - **验收**：四家同口径对比表（QPS / P99 / 稳态 RSS / 冷启动 / GC 抖动）落盘 `benchmarks/competitors/results/COMPARISON.md`；第三方按 README 一键复现。
@@ -28,7 +28,7 @@
 | G1 | **同环境竞品对比数据**：把调研报告 §3.1 的竞品列（"来自各产品社区公开基准，非同环境对比"）替换为同环境实测 | §六验收 ✅ COMPARISON.md |
 | G2 | **验证差异化叙事**：C++ 无 GC / 低内存 / 低尾延迟的卖点是否有同环境数据支撑 | GC 抖动长跑 + 稳态 RSS 对比 |
 | G3 | **可复现**：第三方按 `benchmarks/competitors/README.md` 在同规格机器跑出误差 <15% 的数据 | 复现门槛（沿用自测设施 AC1） |
-| G4 | **诚实修订**：若某维度 AuthForge 不领先，据实修订调研报告 §3.1/§3.2 的卖点排序 | 报告更新 |
+| G4 | **诚实修订**：若某维度 Fulla 不领先，据实修订调研报告 §3.1/§3.2 的卖点排序 | 报告更新 |
 
 ### 1.2 非目标
 
@@ -38,7 +38,7 @@
 | N2 | S4 auth_code 场景对比 | 各产品的登录页/重定向/consent 交互流完全不同，wrk 无法统一驱动（详见 §四 D4） |
 | N3 | 竞品极限调优 | 一律官方推荐生产配置。极限调优对比是军备竞赛，无公信力；官方文档链接随结果附上 |
 | N4 | 功能/协议覆盖度对比 | 属产品能力审计（iam-architecture-audit.md），与性能无关 |
-| N5 | AuthForge 阶梯数据重跑 | 同 session 仍会重跑（见 §5.1 v1.1 修正：gcjitter/RSS/冷启动必采 + R7 消漂移）；"复用"仅指沿用同一 runner/口径，2026-08-12 入仓数据降级为历史基线 |
+| N5 | Fulla 阶梯数据重跑 | 同 session 仍会重跑（见 §5.1 v1.1 修正：gcjitter/RSS/冷启动必采 + R7 消漂移）；"复用"仅指沿用同一 runner/口径，2026-08-12 入仓数据降级为历史基线 |
 
 ---
 
@@ -46,11 +46,11 @@
 
 ### 2.1 Phase 0 已完成自测，对比是最后缺口
 
-Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 个 JSON、承重验证报告（`benchmarks/results/SUMMARY.md`）。AuthForge 自身数字已可信。
+Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 个 JSON、承重验证报告（`benchmarks/results/SUMMARY.md`）。Fulla 自身数字已可信。
 
 调研报告 §3.1 的竞品列（Keycloak ~10–20k QPS、Ory ~30–50k QPS）标注为"社区公开基准，非同环境对比，仅作量级参考"。**没有同环境对比数据，"比 Keycloak 快 N 倍"就不能出现在任何对外物里。**
 
-### 2.2 AuthForge 自测基线（对比基准，2026-08-12 实测）
+### 2.2 Fulla 自测基线（对比基准，2026-08-12 实测）
 
 | 场景 | 稳态 QPS | 稳态 P99 | 错误率 |
 |------|---------|---------|--------|
@@ -69,7 +69,7 @@ Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 
 |------|---------|
 | `run-scenario.sh` 阶梯 runner（warmup→measure→JSON） | 竞品场景直接传不同的 `.lua`；runner 加**可选**参数（`READY_PATH`/`RESULTS_DIR`/`WRK_LIB_DIR`/`--reissue` 钩子，见 M0.1），单一实现不复制第二份 |
 | `parse-wrk.py`（wrk 文本→schema v1 JSON） | 场景无关，仅加 `--product/--product-version` 透传参数（M0.2） |
-| `observe/docker-stats.sh` + `scrape-metrics.sh` | docker-stats 加 `CONTAINER_GLOB` 参数（M0.3）采竞品容器 RSS/CPU；scrape-metrics 仅 AuthForge 可用（竞品无 `/metrics` 端点，观察项拆分） |
+| `observe/docker-stats.sh` + `scrape-metrics.sh` | docker-stats 加 `CONTAINER_GLOB` 参数（M0.3）采竞品容器 RSS/CPU；scrape-metrics 仅 Fulla 可用（竞品无 `/metrics` 端点，观察项拆分） |
 | `measure-cold-start.sh` 模式 | 每家竞品一个等价的冷启动计时脚本 |
 | `lib/gen-tokens.py` 思路 | 竞品 token 池生成（各家 introspect 的 token 须由其自身签发，见 D5） |
 | docker-compose 底座（PG15） | 竞品 compose 复用同一 PG 版本与连接池配置 |
@@ -90,7 +90,7 @@ Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 
 | 后端存储 | PostgreSQL 15（同一 image tag），连接池对齐 25 | 竞品各自支持的连接池上限可能 <25，取 `min(25, 官方上限)` 并在结果中标注 |
 | 网络拓扑 | localhost cross-container（wrk 在宿主机） | 与自测一致 |
 | 结果格式 | schema v1 JSON（`parse-wrk.py`） | 四家数据同构，`run-comparison.sh` 才能聚合 |
-| 端口 | 各家栈固定端口（authforge 5555 / Keycloak 8080 / Hydra 4444+4445 / Zitadel 8080） | 串行执行互不冲突；每家 setup 前置断言端口空闲 |
+| 端口 | 各家栈固定端口（fulla 5555 / Keycloak 8080 / Hydra 4444+4445 / Zitadel 8080） | 串行执行互不冲突；每家 setup 前置断言端口空闲 |
 
 ### D2 — 竞品配置 = 官方推荐生产配置（不调优、不调差）
 
@@ -104,7 +104,7 @@ Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 
 
 每家竞品的 `setup.sh` 头部注释必须附官方文档链接；偏离官方默认的每一项（如连接池对齐）单独注释理由。
 
-**JVM 预热豁免**：Keycloak 的 JIT/GC 需要更长预热。warmup 对 Keycloak 延长到 60s（其余三家与 AuthForge 自测口径一致取 5s，测量时长统一 10s），在结果中标注——这不是偏袒，是给 JIT 编译时间，否则测的是"未编译的解释执行"。
+**JVM 预热豁免**：Keycloak 的 JIT/GC 需要更长预热。warmup 对 Keycloak 延长到 60s（其余三家与 Fulla 自测口径一致取 5s，测量时长统一 10s），在结果中标注——这不是偏袒，是给 JIT 编译时间，否则测的是"未编译的解释执行"。
 
 ### D3 — 场景映射：功能等价，不是路径等价
 
@@ -116,7 +116,7 @@ Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 
 
 ### D4 — 排除 S4 auth_code：wrk 不可驱动
 
-AuthForge 的 S4 是 `login → token` 两步 form POST（headless 可驱动）。但：
+Fulla 的 S4 是 `login → token` 两步 form POST（headless 可驱动）。但：
 - **Keycloak** auth_code 需要走其登录页 HTML 表单 + JS
 - **Ory Hydra** 需要外部 login/consent app 配合（Hydra 本身无登录 UI）
 - **Zitadel** 有自己的登录会话流
@@ -125,7 +125,7 @@ AuthForge 的 S4 是 `login → token` 两步 form POST（headless 可驱动）�
 
 ### D5 — 竞品 token 池必须由其自身签发（不能 SQL 直插）
 
-AuthForge 自测的 S3/S6 用 SQL 预种 token（`gen-tokens.py`）。**竞品不行**：
+Fulla 自测的 S3/S6 用 SQL 预种 token（`gen-tokens.py`）。**竞品不行**：
 - Keycloak 的 access token 是签名的 JWT，哈希/密钥格式私有
 - Hydra/Zitadel 同理
 
@@ -133,28 +133,28 @@ AuthForge 自测的 S3/S6 用 SQL 预种 token（`gen-tokens.py`）。**竞品�
 
 **池规模（v1.1 修正——两类池口径不同）**：
 - **S3/S6 池（可复用）**：token 只读验证不消耗，N=2000 足够；批量签发本身约 1–2 分钟（并行 xargs -P8 更快）。
-- **S5 池（单发单耗）**：每个 refresh token 用一次即失效，池必须 ≥ 该档 QPS × 测量时长 × 1.3 余量。AuthForge 自测的实测口径：20,000 池 ÷ 10s ≈ 1,982 QPS（池刚好覆盖测量窗口）。竞品每档前须**重发池**（`run-scenario.sh` 新增 `--reissue "<cmd>"` 钩子，等价自测的 SQL `--reseed`，但走各家 API）。
+- **S5 池（单发单耗）**：每个 refresh token 用一次即失效，池必须 ≥ 该档 QPS × 测量时长 × 1.3 余量。Fulla 自测的实测口径：20,000 池 ÷ 10s ≈ 1,982 QPS（池刚好覆盖测量窗口）。竞品每档前须**重发池**（`run-scenario.sh` 新增 `--reissue "<cmd>"` 钩子，等价自测的 SQL `--reseed`，但走各家 API）。
 - **RT 不能来自 client_credentials**：RFC 6749 §4.4.3 规定该 grant 不得签发 refresh token。竞品 RT 池须经用户上下文流程获取——Keycloak 用 ROPC（direct access grants）；Hydra 用 accept 流（见 M2）；Zitadel 用 Session API/auth_code（见 M2）。
 
-### D6 — GC 抖动 = 长跑 P99 时间序列（AuthForge 核心差异化证据）
+### D6 — GC 抖动 = 长跑 P99 时间序列（Fulla 核心差异化证据）
 
 单次 30s 跑看不出 GC 周期。设计专门的**长跑测试**：
 
 ```
 每家：c=32 固定，持续 5 分钟，场景钉 S6 userinfo
-（v1.1 修正：S5 不可用——池会耗尽；S2 有写放大——AuthForge 每请求落库一条 token，
+（v1.1 修正：S5 不可用——池会耗尽；S2 有写放大——Fulla 每请求落库一条 token，
 5 分钟 ~8k QPS ≈ 240 万行，对四家工作负载构成不对称；S6 是读路径、token 池可复用、
 四家功能等价，是最公平的载波。Hydra 若 S6 标 N/A 则降级 S2 并在结果中标注。）
 采集：每 10s 窗口记录一次该窗口的 P99（wrk 不支持原生分段 → 30 个串行 10s 段近似）
 输出：P99 随时间的曲线（JSON 数组）
-预期：Keycloak 出现周期性 P99 尖峰（GC STW）；Ory 出现 Go GC 小尖峰；AuthForge 平线
+预期：Keycloak 出现周期性 P99 尖峰（GC STW）；Ory 出现 Go GC 小尖峰；Fulla 平线
 ```
 
 实现：`benchmarks/competitors/run-gc-jitter.sh`——循环调用 wrk `-d10s` 30 次串联，每段 parse 出 P99 存数组。**这是对外叙事最有力的一张图**（"零 GC 抖动"的可视化证据）。
 
 ### D7 — 内存口径统一：容器全栈 RSS + 标注逻辑层
 
-Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/共享库 COW）与"50–120MB"声称口径不匹配。对比方案统一口径：
+Phase 0 承重验证发现 Fulla 容器 RSS ~2.4GB（含 Drogon 连接池/共享库 COW）与"50–120MB"声称口径不匹配。对比方案统一口径：
 
 | 口径 | 采集 | 用途 |
 |------|------|------|
@@ -169,7 +169,7 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 
 ### 4.1 场景 × 竞品端点映射（已按官方文档核实）
 
-| 场景 | 功能 | AuthForge | Keycloak | Ory Hydra | Zitadel |
+| 场景 | 功能 | Fulla | Keycloak | Ory Hydra | Zitadel |
 |------|------|-----------|----------|-----------|---------|
 | **S1** discovery | OIDC 发现文档 | `GET /.well-known/openid-configuration` | `GET /realms/{r}/.well-known/openid-configuration` | `GET /.well-known/openid-configuration` (public :4444) | `GET /.well-known/openid-configuration` |
 | **S2** client_credentials | 机器间 token | `POST /oauth2/token` | `POST /realms/{r}/protocol/openid-connect/token` | `POST /oauth2/token` (public :4444) | `POST /oauth/v2/token` |
@@ -204,7 +204,7 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 ### 5.1 执行顺序（单机串行，防互相干扰）
 
 ```
-1. AuthForge    — 同 session 重跑（v1.1 修正：gcjitter/RSS/冷启动是 AC1/AC2 的必采项，
+1. Fulla    — 同 session 重跑（v1.1 修正：gcjitter/RSS/冷启动是 AC1/AC2 的必采项，
                   Phase 0 未采过 gcjitter；且 R7 要求四家同一 session 连续跑以消除跨日
                   环境漂移。2026-08-12 入仓数据保留为历史基线，同 session 新数据用于对比）
 2. Keycloak     — setup → 阶梯 → 长跑 → 冷启动 → teardown
@@ -243,12 +243,12 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 ## 六、验收标准（可勾选）
 
 > ✅ 2026-08-17 全部通过（M0–M3 交付，四产品同 session 实测 2026-08-17，COMPARISON.md 由 gen-comparison.py 生成）。
-> 🔄 2026-08-21 全量重跑刷新（同一设施，AuthForge 换性能优化后基准档——wave-1/2 + LTO，见 G1 交付注）：**五场景全部领先**（此前 S5/S6 落后——S5 系测量预算伪影已修口径、S6 经 wave-2 用户/角色缓存反超）；GC 节新增跨产品环境噪声互证（四家同款尖峰）。调研报告 §3.1 已同步引用新表。
+> 🔄 2026-08-21 全量重跑刷新（同一设施，Fulla 换性能优化后基准档——wave-1/2 + LTO，见 G1 交付注）：**五场景全部领先**（此前 S5/S6 落后——S5 系测量预算伪影已修口径、S6 经 wave-2 用户/角色缓存反超）；GC 节新增跨产品环境噪声互证（四家同款尖峰）。调研报告 §3.1 已同步引用新表。
 
 | # | 验收项 | 衡量 | 状态 |
 |---|--------|------|------|
 | AC1 | **四家同口径对比表**：S1/S2/S3/S5/S6 × {QPS, P99, RSS, 冷启动} 入仓 `benchmarks/competitors/results/COMPARISON.md`，每行带产品版本号 | COMPARISON.md | ✅ |
-| AC2 | **GC 抖动曲线**：四家 5 分钟 P99 时间序列 JSON + 对比小节（AuthForge 是否平线、Keycloak 是否有周期尖峰） | gcjitter JSON + 小节 | ✅（结论与预期相反，见 G4 注记：GC 语言全平线、AuthForge 有环境层秒级尖峰——已在报告与研究报告中诚实修订） |
+| AC2 | **GC 抖动曲线**：四家 5 分钟 P99 时间序列 JSON + 对比小节（Fulla 是否平线、Keycloak 是否有周期尖峰） | gcjitter JSON + 小节 | ✅（结论与预期相反，见 G4 注记：GC 语言全平线、Fulla 有环境层秒级尖峰——已在报告与研究报告中诚实修订） |
 | AC3 | **可复现**：`run-comparison.sh` 一键串行跑四家；README 含环境要求与复现步骤 | 复现指引 | ✅（`benchmarks/competitors/README.md`） |
 | AC4 | **公平性声明**：每家竞品的配置来源（官方文档链接）、偏离默认的每一项、warmup 差异（Keycloak 60s）均显式标注 | COMPARISON.md 附录 + setup.sh 注释 | ✅ |
 | AC5 | **诚实修订**：调研报告 §3.1 竞品列更新为"同环境实测"，§3.2 卖点若被证伪则收敛 | research.md 更新 | ✅（S5/S6 与 GC 抖动主张按实测收敛，见 §3.1/3.2 修订） |
@@ -263,10 +263,10 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 3. **Zitadel S3 认证换私钥**：#6220 官方建议——secret 认证每请求做密码哈希（CPU 瓶颈）；改用 OIDC app + private_key_jwt。实测对比：Basic 路径 S3 无法过错误门，私钥路径 2.9k QPS 零错误。
 4. **投影平复门**：mint ~2000 token 后立即开压，Zitadel CQRS 投影追赶会使 S1 出现 500 风暴（c=16 达 99.99% 错误）。run-all 前置 discovery 冒烟门（clean 才开跑），消除该伪影。
 5. **S5 Zitadel = N/A**（DG-2 提前裁决）：机器用户无 refresh token（RFC 6749 §4.4.3）、password grant 已移除、Session API→auth_code 属用户交互流（D4 同类排除理由）。限制小节注明。
-6. **docker-stats.sh 竖线 glob 回归修复**：bash 5.2 下 `case $x in $GLOB)`（GLOB 含 `|`）不再展开为多分支——AuthForge 侧 RSS 采样自 M0 参数化起一直空采；改为拆分逐个匹配。该回归同时解释了 v1.1 后 AuthForge RSS 数据缺失。
-7. **AuthForge S2 scope 跟随 #43**：seed 摒弃 legacy `read/write`，bench 校验与 s2 lua 改用 `tokens:read`（同码同测，非口径变化）。
-8. **（v1.3）四产品 PG 15 → 17 同步升级**（2026-08-18，f789bda）：设计基线为"与自测相同 tag 的 `postgres:15-alpine`"。偏离动机：D1 同环境公平——维持四产品同 PG 大版本；AuthForge 服务端 libpq 已是 17.x，client 17/server 15 的错位消除。AuthForge 自身 15 vs 17 A/B 在噪声带内（无自身吞吐诉求）。deploy/ 的 compose 与 Helm 同步到 17（存量卷升级 runbook 见 `docs/ops/postgresql-major-upgrade.md`，CHANGELOG 已标 BREAKING）。
-9. **（v1.3）AuthForge Redis 池 25 → 64**（2026-08-18，快赢 8838ac6）：设计 §5.2 连接池口径按 pool=25 对齐；实施时 cache-on 要求池 ≥ 预期并发（pool 20 时 S6 全连接超时 -18%），bench overlay 调至 64。竞品各按自家官方默认池口径运行（在 COMPARISON.md 公平性附录注明）。
+6. **docker-stats.sh 竖线 glob 回归修复**：bash 5.2 下 `case $x in $GLOB)`（GLOB 含 `|`）不再展开为多分支——Fulla 侧 RSS 采样自 M0 参数化起一直空采；改为拆分逐个匹配。该回归同时解释了 v1.1 后 Fulla RSS 数据缺失。
+7. **Fulla S2 scope 跟随 #43**：seed 摒弃 legacy `read/write`，bench 校验与 s2 lua 改用 `tokens:read`（同码同测，非口径变化）。
+8. **（v1.3）四产品 PG 15 → 17 同步升级**（2026-08-18，f789bda）：设计基线为"与自测相同 tag 的 `postgres:15-alpine`"。偏离动机：D1 同环境公平——维持四产品同 PG 大版本；Fulla 服务端 libpq 已是 17.x，client 17/server 15 的错位消除。Fulla 自身 15 vs 17 A/B 在噪声带内（无自身吞吐诉求）。deploy/ 的 compose 与 Helm 同步到 17（存量卷升级 runbook 见 `docs/ops/postgresql-major-upgrade.md`，CHANGELOG 已标 BREAKING）。
+9. **（v1.3）Fulla Redis 池 25 → 64**（2026-08-18，快赢 8838ac6）：设计 §5.2 连接池口径按 pool=25 对齐；实施时 cache-on 要求池 ≥ 预期并发（pool 20 时 S6 全连接超时 -18%），bench overlay 调至 64。竞品各按自家官方默认池口径运行（在 COMPARISON.md 公平性附录注明）。
 
 ---
 
@@ -278,9 +278,9 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 
 | # | 步骤 | 内容 | 验收标准 |
 |---|------|------|---------|
-| M0.1 | `run-scenario.sh` 参数化 | (a) `READY_PATH` env（默认 `/health/ready`）——健康门探针可换竞品探针；(b) `RESULTS_DIR` env（默认 `benchmarks/results`）；(c) `WRK_LIB_DIR` 导出改为 `${WRK_LIB_DIR:-$BENCH_DIR/lib}`（竞品 lua 指向自家 lib）；(d) `BENCH_PRODUCT`/`BENCH_PRODUCT_VERSION` env 透传给 parse-wrk.py；(e) 通用 `--reissue "<cmd>"` 钩子：每档 warmup 前与 measured 前各执行一次（竞品 S5 用 API 重发 token 池，替代 AuthForge 的 SQL `--reseed`）；(f) `--observe` 拆为 `--observe-stats`（仅 docker-stats）与 `--observe-metrics`（仅 scrape-metrics；竞品无 `/metrics` 不用） | **AC-M0.1a** 不带任何新 env 跑 AuthForge S1 单档（c=2, -d10s）：行为与改造前一致（JSON schema、默认值、输出路径全不变）；**AC-M0.1b** `READY_PATH=<任意 200 路径> RESULTS_DIR=<tmp> BENCH_PRODUCT=x` 时健康门走新路径、JSON 落新目录且 env.product=x；**AC-M0.1c** `--reissue "touch $TMP/marker"` 冒烟：每档产生两个 marker（warmup 前+measured 前） |
-| M0.2 | `parse-wrk.py` 透传 | `--product`/`--product-version` CLI 参数 → env 块新增 `product`/`product_version` 字段（缺省 `authforge`/空） | **AC-M0.2** wrk 样例文本经管道解析，JSON 含两字段且值正确；不传参时缺省值不破坏现有聚合 |
-| M0.3 | `docker-stats.sh` 容器过滤参数化 | `CONTAINER_GLOB` env（默认保持 `*oauth2-backend*|*oauth2-postgres*|*oauth2-redis*` 语义） | **AC-M0.3** `CONTAINER_GLOB='*keycloak*'` 采样时输出含 keycloak 容器行、不含 authforge 行 |
+| M0.1 | `run-scenario.sh` 参数化 | (a) `READY_PATH` env（默认 `/health/ready`）——健康门探针可换竞品探针；(b) `RESULTS_DIR` env（默认 `benchmarks/results`）；(c) `WRK_LIB_DIR` 导出改为 `${WRK_LIB_DIR:-$BENCH_DIR/lib}`（竞品 lua 指向自家 lib）；(d) `BENCH_PRODUCT`/`BENCH_PRODUCT_VERSION` env 透传给 parse-wrk.py；(e) 通用 `--reissue "<cmd>"` 钩子：每档 warmup 前与 measured 前各执行一次（竞品 S5 用 API 重发 token 池，替代 Fulla 的 SQL `--reseed`）；(f) `--observe` 拆为 `--observe-stats`（仅 docker-stats）与 `--observe-metrics`（仅 scrape-metrics；竞品无 `/metrics` 不用） | **AC-M0.1a** 不带任何新 env 跑 Fulla S1 单档（c=2, -d10s）：行为与改造前一致（JSON schema、默认值、输出路径全不变）；**AC-M0.1b** `READY_PATH=<任意 200 路径> RESULTS_DIR=<tmp> BENCH_PRODUCT=x` 时健康门走新路径、JSON 落新目录且 env.product=x；**AC-M0.1c** `--reissue "touch $TMP/marker"` 冒烟：每档产生两个 marker（warmup 前+measured 前） |
+| M0.2 | `parse-wrk.py` 透传 | `--product`/`--product-version` CLI 参数 → env 块新增 `product`/`product_version` 字段（缺省 `fulla`/空） | **AC-M0.2** wrk 样例文本经管道解析，JSON 含两字段且值正确；不传参时缺省值不破坏现有聚合 |
+| M0.3 | `docker-stats.sh` 容器过滤参数化 | `CONTAINER_GLOB` env（默认保持 `*fulla-backend*|*fulla-postgres*|*fulla-redis*` 语义） | **AC-M0.3** `CONTAINER_GLOB='*keycloak*'` 采样时输出含 keycloak 容器行、不含 fulla 行 |
 | M0.4 | schema 文档同步 | `result-schema.md` env 块补 `product`/`product_version` 字段说明 | 文档字段表与实现一致（对照检查） |
 
 ### M1 — Keycloak 对比（最重，先啃硬骨头，~2 天）
@@ -296,7 +296,7 @@ Phase 0 承重验证发现 AuthForge 容器 RSS ~2.4GB（含 Drogon 连接池/�
 | M1.5 | GC 抖动 | `run-gc-jitter.sh`：S6 c=32，30×10s 段（D6） | **AC-M1.5** JSON 含 30 个 P99 数据点 + 段起始时间戳；无段失败 |
 | M1.6 | 冷启动 | 两模式：A=全新卷完整初始化（含 realm/client 建立）；B=预初始化卷仅重启 keycloak 容器 | **AC-M1.6** 2 个 JSON（mode A/B），含秒数与 RSS 峰值 |
 | M1.7 | `teardown.sh` | down -v + 残留断言 | 同 AC-M1.1b |
-| M1.8 | 首版两方对比 | AuthForge 同 session 重跑（§5.1）+ Keycloak 数据 → 草稿对比表 | **AC-M1.8** 5 场景 × {QPS, P50/P95/P99, RSS, 冷启动} 行齐、版本列齐 |
+| M1.8 | 首版两方对比 | Fulla 同 session 重跑（§5.1）+ Keycloak 数据 → 草稿对比表 | **AC-M1.8** 5 场景 × {QPS, P50/P95/P99, RSS, 冷启动} 行齐、版本列齐 |
 
 ### M2 — Ory Hydra + Zitadel（~3 天）
 
@@ -357,7 +357,7 @@ benchmarks/competitors/
 benchmarks/reporting/gen-comparison.py
 ```
 
-**复用不复制**：`run-scenario.sh` / `parse-wrk.py` / `observe/` 直接引用 `benchmarks/authforge/` 与 `benchmarks/reporting/` 的现有实现（通过路径参数或环境变量），不为竞品复制第二份 runner。
+**复用不复制**：`run-scenario.sh` / `parse-wrk.py` / `observe/` 直接引用 `benchmarks/fulla/` 与 `benchmarks/reporting/` 的现有实现（通过路径参数或环境变量），不为竞品复制第二份 runner。
 
 ---
 
@@ -372,7 +372,7 @@ benchmarks/reporting/gen-comparison.py
 | **Zitadel token 端点不支持 Basic client_credentials** | 中 | S2 无法按统一 Basic 口径测 | JWT profile 预签 assertion 池（官方推荐路径，pyjwt 签发）；COMPARISON 注明认证等价性（D3 v1.1） |
 | **Zitadel Session API→auth_code 驱动失败** | 中 | S5/S6 缺口 | 决策门 DG-2：2 个工作日不成标 N/A，S1/S2/S3 保底 |
 | **竞品 token 池签发慢（2000 次 API 调用）** | 低 | setup 时间长 | 并行签发（xargs -P8）；或降池到 500（S3/S6 池可复用，量够） |
-| **AuthForge 某维度不领先** | 中 | 卖点叙事受损 | 这正是设施价值——诚实收敛到领先维度（演进方案 §二原则 1 的既定预案） |
+| **Fulla 某维度不领先** | 中 | 卖点叙事受损 | 这正是设施价值——诚实收敛到领先维度（演进方案 §二原则 1 的既定预案） |
 | **单机串行跑，环境漂移（系统更新/温度）** | 中 | 四家数据不同批不可比 | 同一 session 内连续跑完；每家结果带时间戳；复跑取中位数 |
 | **wrk 打不满 Go/Java 服务（driver 受限）** | 低 | 数字是下限 | 沿用 AC4 driver CPU 门；超 80% 标注 |
 
@@ -385,7 +385,7 @@ benchmarks/reporting/gen-comparison.py
 | [基准设施设计](benchmark-facility-design.md) | 本文档是其 N1（Phase 0.5 竞品对比）的展开；复用其 runner/parser/schema/observe |
 | [演进方案](../productization-evolution-plan.md) §三 Phase 0 P0 第 2 项 | 本文档是该工作项的落地设计 |
 | [调研报告](../productization-research.md) §3.1 | 竞品列的**替换数据源**；M3 据实修订 |
-| `benchmarks/results/SUMMARY.md` | AuthForge 侧基线（同环境自测，2026-08-12） |
+| `benchmarks/results/SUMMARY.md` | Fulla 侧基线（同环境自测，2026-08-12） |
 
 ## 附录 B：决策记录
 
@@ -397,6 +397,6 @@ benchmarks/reporting/gen-comparison.py
 | token 池 | 各家 API 自签发 | SQL 直插（签名格式私有）否决，详见 D5 |
 | 内存口径 | 容器全栈 RSS（主）+ PSS（补充） | 单一口径必有一方吃亏，双口径并列标注 |
 | warmup/measure 口径（v1.1） | 5s/10s，Keycloak warmup 60s | 与入仓自测数据一致；原文"其余四家 10s"与实际数据（5s/10s）不符，已修正 |
-| GC 抖动载波场景（v1.1） | S6 userinfo，c=32 固定 | S5（池耗尽）与 S2（AuthForge 每请求写库、负载构成不对称）否决，详见 D6 |
-| AuthForge 数据口径（v1.1） | 同 session 重跑 | "复用旧数据"与 AC2（gcjitter 必采）+ R7（同 session 消漂移）矛盾，已修正 |
+| GC 抖动载波场景（v1.1） | S6 userinfo，c=32 固定 | S5（池耗尽）与 S2（Fulla 每请求写库、负载构成不对称）否决，详见 D6 |
+| Fulla 数据口径（v1.1） | 同 session 重跑 | "复用旧数据"与 AC2（gcjitter 必采）+ R7（同 session 消漂移）矛盾，已修正 |
 | S5 竞品池（v1.1） | 每档 API 重发（--reissue），池=QPS×10s×1.3 | 固定 2000 池（单发单耗会耗尽）否决；RT 不取自 client_credentials（RFC 6749 §4.4.3 禁止） |

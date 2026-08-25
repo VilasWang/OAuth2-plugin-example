@@ -10,12 +10,12 @@
 
 | 服务 | 地址 | 说明 |
 |---|---|---|
-| **PostgreSQL** | `localhost:5432` | 数据库名: `oauth2_db` / 用户: `oauth2_user` / 密码: `123456` |
+| **PostgreSQL** | `localhost:5432` | 数据库名: `fulla_db` / 用户: `fulla_user` / 密码: `123456` |
 | **Redis** | `localhost:6379` | 密码: `123456`（与 `config.json` 一致）|
 
 > [INFO] **快速启动基础设施**：如果你使用 Docker，可以单独启动 postgres 和 redis 容器:
 > ```powershell
-> docker run -d -p 5432:5432 -e POSTGRES_USER=oauth2_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=oauth2_db postgres:17-alpine
+> docker run -d -p 5432:5432 -e POSTGRES_USER=fulla_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=fulla_db postgres:17-alpine
 > docker run -d -p 6379:6379 redis:7-alpine redis-server --requirepass 123456
 > ```
 
@@ -26,23 +26,23 @@
 测试编译为**两类可执行文件**：
 
 1. **按库的 gtest 二进制文件**（Domain 层，纯单元测试，无 DB/无 Drogon）：
-   - `libs/common/test/authforge-common-test` — `ConfigManager`、`ErrorCatalog`、`Result`、值对象
-   - `libs/common/testing/test/authforge-common-testing-test` — 假实现（`FakeClock`/`FakeCryptoProvider`/`FakeLogger` 等）的确定性验证
-   - `libs/oauth2/test/authforge-oauth2-test` — `TokenService`/`AuthorizationService`/`ClientService`/`JwkManager`/`Pkce`/`ScopeDecisionEngine`/`TokenCrypto`
-   - `libs/identity/test/authforge-identity-test` — `AuthService`/`MfaService`/`TotpUtils`/`SessionManager`/`WebAuthnService`/社交登录（Google/WeChat/GitHub）
+   - `libs/common/test/fulla-common-test` — `ConfigManager`、`ErrorCatalog`、`Result`、值对象
+   - `libs/common/testing/test/fulla-common-testing-test` — 假实现（`FakeClock`/`FakeCryptoProvider`/`FakeLogger` 等）的确定性验证
+   - `libs/oauth2/test/fulla-oauth2-test` — `TokenService`/`AuthorizationService`/`ClientService`/`JwkManager`/`Pkce`/`ScopeDecisionEngine`/`TokenCrypto`
+   - `libs/identity/test/fulla-identity-test` — `AuthService`/`MfaService`/`TotpUtils`/`SessionManager`/`WebAuthnService`/社交登录（Google/WeChat/GitHub）
    - 这些用 gtest（非 `DROGON_TEST`），由各 lib 的 `test/CMakeLists.txt` 通过 `gtest_discover_tests` 注册为独立 ctest 条目。
 
-2. **主测试二进制文件 `tests/authforge-tests`**（`DROGON_TEST` 框架，包含所有需要 Drogon/DB 的层级）：
+2. **主测试二进制文件 `tests/fulla-tests`**（`DROGON_TEST` 框架，包含所有需要 Drogon/DB 的层级）：
 
 | 层级 | 目录 | 覆盖范围 | 外部依赖 |
 |---|---|---|---|
 | **Level 1 — 单元测试** | `tests/unit/`（`config/`、`error/`、`utils/`、`validation/`、`plugin/`、`schema/`、`subject/`、`initorder/`） | 纯逻辑：错误信封、密码哈希、PKCE/CryptoUtils、RuleSet 校验、配置加载、OpenAPI 生成 | 无 |
 | **Level 2 — 契约测试** | `tests/contract/` | 跨后端（Postgres/Redis/Memory）的仓储契约一致性：`IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository`/`IUserRepository` | Memory 必跑；Postgres/Redis 在 `getPostgresClientOrNull()`/`getRedisClientOrNull()` 返回空时自动 skip |
-| **Level 3 — 集成测试** | `tests/integration/`（`auth/`、`token/`、`storage/`、`concurrency/`、`error/`、`plugin/`） | 完整业务流程、并发竞态、错误信封、插件组装 | Postgres / Redis（memory-only 模式 `-DOAUTH2_MEMORY_TESTS_ONLY=ON` 下跑 Memory 子集） |
+| **Level 3 — 集成测试** | `tests/integration/`（`auth/`、`token/`、`storage/`、`concurrency/`、`error/`、`plugin/`） | 完整业务流程、并发竞态、错误信封、插件组装 | Postgres / Redis（memory-only 模式 `-DFULLA_MEMORY_TESTS_ONLY=ON` 下跑 Memory 子集） |
 | **Level 4 — 安全测试** | `tests/security/` | SQL 注入、XSS、命令注入、CORS、Token 安全、速率限制 | Postgres / Redis |
 | **Level 5 — E2E/功能** | `tests/e2e-backend/`、`tests/performance/` | OAuth2 完整流程、性能基准 | Postgres + Redis + Drogon App |
 
-> 内存模式：配置 `-DOAUTH2_MEMORY_TESTS_ONLY=ON` 可在**无外部 DB** 时跑完整套件（Postgres/Redis 测试自动 skip）——这是 Windows CI 的做法。
+> 内存模式：配置 `-DFULLA_MEMORY_TESTS_ONLY=ON` 可在**无外部 DB** 时跑完整套件（Postgres/Redis 测试自动 skip）——这是 Windows CI 的做法。
 
 > 安全测试用例数、功能测试用例数与覆盖清单见各目录下的测试文件头注释；本节不再硬编码具体数量（数量随迭代增长，统一以 §7 的实测统计为准）。
 
@@ -138,7 +138,7 @@ ctest -C Release --output-on-failure --timeout 120
 
 ```powershell
 cd build\windows-msvc\tests\Release
-.\authforge-tests.exe
+.\fulla-tests.exe
 ```
 
 ### 方式三：使用 manage 脚本
@@ -175,7 +175,7 @@ In test case SomeTestName
 **常见失败原因**：
 - Redis 或 PostgreSQL 服务未启动 → 检查服务是否可达
 - Redis 密码不匹配 → 检查 `config.json` 中的 `passwd` 字段
-- 数据库未初始化 → 执行 `apps/server/migrations/` 目录下的迁移脚本（后端在 `OAUTH2_AUTO_MIGRATE=true` 时也会自动执行）
+- 数据库未初始化 → 执行 `apps/server/migrations/` 目录下的迁移脚本（后端在 `FULLA_AUTO_MIGRATE=true` 时也会自动执行）
 
 ---
 
@@ -282,7 +282,7 @@ In test case SomeTestName
 
 | 库 | 行覆盖 | 备注 |
 |---|---|---|
-| libs/common | 69.4% (318/458) | ErrorCatalog/ErrorTypes/ErrorContext/ConfigManager（由 per-lib gtest 二进制 `authforge-common-test` 驱动）；ConfigManager 环境相关分支与 ErrorCatalog 部分分支未覆盖 |
+| libs/common | 69.4% (318/458) | ErrorCatalog/ErrorTypes/ErrorContext/ConfigManager（由 per-lib gtest 二进制 `fulla-common-test` 驱动）；ConfigManager 环境相关分支与 ErrorCatalog 部分分支未覆盖 |
 | libs/identity | **96.9%** (590/609) | Auth/Mfa/WebAuthn/Social/Totp/Session |
 | libs/storage-memory | **97.1%** (431/444) | Memory 后端全方法覆盖（CI 必跑路径） |
 | libs/oauth2 | **92.1%** (627/681) | TokenService/AuthService/ClientService/JwkManager/Pkce |
@@ -291,17 +291,17 @@ In test case SomeTestName
 | libs/drogon | **53.5%** (4807/8978) | admin 0%→55-69%、admin 控制器 0%→91-100%；authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器补强；社交 OAuth 控制器经 mock 注入补强（Google 38.3%、WeChat 30.6%、GitHub 32.5%）；WebAuthn 39.2%（非加密 stub，无需 authenticator） |
 | **整体** | **57.9%** (7806/13490) | 上表逐库求和（`scripts/measure_coverage.py` 的 OVERALL 即逐库之和）；从 48.5% 基线提升 +9.4pp |
 
-> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/authforge/identity/testing/` 的共享 Fake）将整体提升到 57.9%。社交 OAuth 的 Google/WeChat/GitHub 均可经 mock 注入在 memory 模式下跑（注入路径不写 DB）；其中 GitHub happy-path 最初因 `issueTokensForUser` 直连 `getDbClient()` 无法在 memory 模式覆盖，随后已重构为经 `OAuth2Plugin::saveTokenPair` 存储抽象持久化（见 `SocialLoginHttpTest.cc` 的 `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens`），happy-path 现已可测（GitHubController 从 5.9% 提升到 32.5%）；WebAuthn 为非加密 stub，Postgres 模式下完整可测。注：此前文档的 58.8% 系旧逐库数字求和（其中 common 的 98.8% 为陈旧数据，现 `libs/common/src` 仅 4 个源文件 458 行，实测 69.4%）；本表已全部替换为 7ba8068 的实测值。剩余盲区：storage-postgres 事务/错误回退分支（需故障注入）。
+> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/fulla/identity/testing/` 的共享 Fake）将整体提升到 57.9%。社交 OAuth 的 Google/WeChat/GitHub 均可经 mock 注入在 memory 模式下跑（注入路径不写 DB）；其中 GitHub happy-path 最初因 `issueTokensForUser` 直连 `getDbClient()` 无法在 memory 模式覆盖，随后已重构为经 `OAuth2Plugin::saveTokenPair` 存储抽象持久化（见 `SocialLoginHttpTest.cc` 的 `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens`），happy-path 现已可测（GitHubController 从 5.9% 提升到 32.5%）；WebAuthn 为非加密 stub，Postgres 模式下完整可测。注：此前文档的 58.8% 系旧逐库数字求和（其中 common 的 98.8% 为陈旧数据，现 `libs/common/src` 仅 4 个源文件 458 行，实测 69.4%）；本表已全部替换为 7ba8068 的实测值。剩余盲区：storage-postgres 事务/错误回退分支（需故障注入）。
 
 #### ⚠️ 实测覆盖率必须跑全部 5 个测试二进制
 
-实测数字依赖**全部 5 个测试二进制**都执行（仅跑主二进制 `authforge-tests` 会漏掉 4 个 per-lib gtest 二进制贡献的 domain 层覆盖率，common 会被低估到 ~60%）：
+实测数字依赖**全部 5 个测试二进制**都执行（仅跑主二进制 `fulla-tests` 会漏掉 4 个 per-lib gtest 二进制贡献的 domain 层覆盖率，common 会被低估到 ~60%）：
 
-1. `libs/common/test/authforge-common-test`（40 用例）
-2. `libs/common/testing/test/authforge-common-testing-test`（43 用例）
-3. `libs/identity/test/authforge-identity-test`（130 用例）
-4. `libs/oauth2/test/authforge-oauth2-test`（151 用例）
-5. `tests/authforge-tests`（450 条 ctest，含所有 `DROGON_TEST` 单元/集成/契约/admin HTTP 测试）
+1. `libs/common/test/fulla-common-test`（40 用例）
+2. `libs/common/testing/test/fulla-common-testing-test`（43 用例）
+3. `libs/identity/test/fulla-identity-test`（130 用例）
+4. `libs/oauth2/test/fulla-oauth2-test`（151 用例）
+5. `tests/fulla-tests`（450 条 ctest，含所有 `DROGON_TEST` 单元/集成/契约/admin HTTP 测试）
 
 在 coverage 构建目录下依次运行这 5 个二进制后再聚合 `.gcda`。
 

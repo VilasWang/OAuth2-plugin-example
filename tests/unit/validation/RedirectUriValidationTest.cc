@@ -1,24 +1,24 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/storage/memory/MemoryRepositoryBundle.h>
-#include <authforge/oauth2/repository/IGrantRepository.h>
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/storage/memory/MemoryRepositoryBundle.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
+#include <fulla/oauth2/model/Dto.h>
 #include <future>
 #include <iostream>
 
-// Phase 4.7b (authforge-sdk-refactor): migrated off the god MemoryOAuth2Storage
+// Phase 4.7b (fulla-sdk-refactor): migrated off the god MemoryOAuth2Storage
 // to the per-backend MemoryRepositoryBundle. Auth-code operations now go
 // through bundle.grantRepository() (NEW IGrantRepository + model::OAuth2AuthCode).
 // The redirect_uri atomicity contract (RFC 6749 §4.1.3) is unchanged.
 
-using AuthCode = authforge::oauth2::model::OAuth2AuthCode;
-using GrantRepo = authforge::oauth2::repository::IGrantRepository;
+using AuthCode = fulla::oauth2::model::OAuth2AuthCode;
+using GrantRepo = fulla::oauth2::repository::IGrantRepository;
 
 namespace
 {
 std::shared_ptr<GrantRepo> makeSeededGrantRepo(const Json::Value &clientsConfig)
 {
-    auto bundle = std::make_shared<authforge::storage::memory::MemoryRepositoryBundle>();
+    auto bundle = std::make_shared<fulla::storage::memory::MemoryRepositoryBundle>();
     bundle->initFromConfig(clientsConfig);
     return bundle->grantRepository();
 }

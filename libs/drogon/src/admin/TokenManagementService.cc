@@ -1,14 +1,14 @@
-#include <authforge/drogon/admin/TokenManagementService.h>
+#include <fulla/drogon/admin/TokenManagementService.h>
 
-#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
-#include <authforge/storage/postgres/models/Oauth2RefreshTokens.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/storage/postgres/models/Oauth2AccessTokens.h>
+#include <fulla/storage/postgres/models/Oauth2RefreshTokens.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 
 #include <ctime>
 
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 
 namespace
@@ -20,7 +20,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -29,7 +29,7 @@ void respondError(
 }
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 ::drogon::orm::DbClientPtr getDbOrRespond(
   const ::drogon::HttpRequestPtr &req,
@@ -336,4 +336,4 @@ void TokenManagementService::getOidcKeys(ResponseCallback cb)
     (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
 }
 
-}  // namespace authforge::drogon::admin
+}  // namespace fulla::drogon::admin

@@ -1,6 +1,6 @@
 #pragma once
 
-// M3 Task 25 (authforge-sdk-refactor, design.md §6 "apps/server ...
+// M3 Task 25 (fulla-sdk-refactor, design.md §6 "apps/server ...
 // src/bootstrap/ # CorsSetup/SecurityHeaders/ExceptionHandler/
 // OpenApiSetup/MigrationRunner"): extracted from main.cc's setupCors().
 // Registers Drogon sync/post-handling advice for CORS preflight (OPTIONS)

@@ -53,7 +53,7 @@ FUNCTION isBugCondition_A(X)
   OUTPUT: boolean
 
   RETURN dependsOnAnotherGlobalCtorOrder(X)        // 1.1 docs_ → OpenApiGenerator 函数内静态
-      OR nonTrivialFileScopeGlobalWithRuntimeFill(X) // 1.2 OAUTH2_VALIDATION_RULES + call_once
+      OR nonTrivialFileScopeGlobalWithRuntimeFill(X) // 1.2 FULLA_VALIDATION_RULES + call_once
       OR usesRawStoragePointerAcrossLifetime(X)     // 1.3 services 持有 storage_.get()
 END FUNCTION
 ```
@@ -61,7 +61,7 @@ END FUNCTION
 #### Examples（缺陷如何显现）
 
 - **1.1**：`OAuth2StandardController.cc` 文件作用域的 `OAuth2StandardControllerDocs docs_;` 在其构造函数中调用 `initApiDocs()`，后者调用 `OpenApiGenerator::addEndpoint(...)`，写入位于另一个翻译单元的 `OpenApiGenerator` 函数内静态注册表。若 `docs_` 的构造早于 `OpenApiGenerator` 的相关静态初始化完成 → 期望：文档完整注册；实际：注册次序未定义，可能写入未完全初始化的注册表（端点丢失/错乱，依链接顺序而定）。
-- **1.2**：`RequestValidationFilter::OAUTH2_VALIDATION_RULES`（`std::map`，文件作用域非平凡全局）构造次序相对其它全局未定义；其内容由运行期 `std::call_once(initFlag, initializeValidationRules)` 填充，"构造时机"与"填充时机"分离 → 若有其它全局在其构造期访问该 map，可能读到空 map。
+- **1.2**：`RequestValidationFilter::FULLA_VALIDATION_RULES`（`std::map`，文件作用域非平凡全局）构造次序相对其它全局未定义；其内容由运行期 `std::call_once(initFlag, initializeValidationRules)` 填充，"构造时机"与"填充时机"分离 → 若有其它全局在其构造期访问该 map，可能读到空 map。
 - **1.3**：`OAuth2Plugin::initAndStart()` 按 `storage_ → tokenService_/clientService_/identityService_ → cleanupService_` 构造，后几者保存 `storage_.get()` 裸指针。析构虽因成员声明顺序（`storage_` 最先声明 → 最后析构）目前"恰好正确"，但 `shutdown()` 显式 `storage_.reset()` 会在服务仍存活、且可能仍有在途回调时先释放底层存储 → 期望：存储生命周期覆盖所有使用者；实际：依赖隐式时序，重排成员或在 `shutdown()` 后回调到达即破坏约束。
 
 ### 类别 B —— 线程安全（1.4、1.5、1.7）
@@ -207,9 +207,9 @@ _For any_ 不触发上述任一缺陷条件的输入/时序（¬C(X)：顺序初
 
 **回归防护（3.1）**：注册的端点集合、参数、响应示例内容必须与现状逐字一致。验证手段：对 `/.well-known/openid-configuration`、JWKS、各端点文档做快照对比（修复前后 diff 为空）。
 
-#### 1.2 `OAUTH2_VALIDATION_RULES` 文件作用域非平凡全局 + 运行期 `call_once` 填充
+#### 1.2 `FULLA_VALIDATION_RULES` 文件作用域非平凡全局 + 运行期 `call_once` 填充
 
-**文件/符号**：`OAuth2Plugin/src/filters/RequestValidationFilter.cc`（`std::map<...> RequestValidationFilter::OAUTH2_VALIDATION_RULES;` + `initializeValidationRules()` + `getValidationRules()` 内的 `std::call_once`）。
+**文件/符号**：`OAuth2Plugin/src/filters/RequestValidationFilter.cc`（`std::map<...> RequestValidationFilter::FULLA_VALIDATION_RULES;` + `initializeValidationRules()` + `getValidationRules()` 内的 `std::call_once`）。
 
 **根因**：文件作用域非平凡全局 `std::map` 的构造次序未定义；其填充依赖运行期 `call_once`，"构造时机"与"填充时机"分离。
 
@@ -528,7 +528,7 @@ Drogon（网络层基于 trantor）的并发模型与生命周期惯用法可概
 
 5. **SIOF 易发的文件作用域全局 → 函数内静态或显式启动期初始化**：
    - `OAuth2StandardController` 的 `docs_` 自动注册改为 `initAndStart` 显式调用 `initApiDocs()`（1.1）。
-   - `RequestValidationFilter::OAUTH2_VALIDATION_RULES` 改为函数内静态访问器（Meyers Singleton），合并构造与一次性填充（1.2）。
+   - `RequestValidationFilter::FULLA_VALIDATION_RULES` 改为函数内静态访问器（Meyers Singleton），合并构造与一次性填充（1.2）。
    - `AuthorizationFilter::loadConfig()` 用 `std::call_once` 或移到启动期（1.4）。
 
 > 这套模式的统一性收益：所有异步入口遵循同一"`self` 捕获 + loop 编排"规则，新代码可据此 review；与 Drogon 原生惯用法、Asio/folly/seastar 的成熟实践一致，降低后续维护与扩展时再次引入并发/生命周期缺陷的概率。

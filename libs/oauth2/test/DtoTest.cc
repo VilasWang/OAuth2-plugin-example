@@ -1,19 +1,19 @@
-// Task 17 slice 2 (authforge-sdk-refactor): unit tests for the ported
-// Domain DTOs (authforge::oauth2::model). Mostly plain-struct field
+// Task 17 slice 2 (fulla-sdk-refactor): unit tests for the ported
+// Domain DTOs (fulla::oauth2::model). Mostly plain-struct field
 // round-trips; the one behavior worth asserting is
 // TokenIntrospection::toJson()'s RFC 7662 "active: false" short-circuit
 // (all other fields omitted when inactive) and ClientType's
 // string<->enum round trip / invalid-input rejection.
 
-#include <authforge/oauth2/model/ClientType.h>
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/ClientType.h>
+#include <fulla/oauth2/model/Dto.h>
 
 #include <gtest/gtest.h>
 
 namespace
 {
 
-using namespace authforge::oauth2::model;
+using namespace fulla::oauth2::model;
 
 TEST(ClientTypeTest, ToString_RoundTrips)
 {

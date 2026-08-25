@@ -1,5 +1,5 @@
 #include <drogon/drogon_test.h>
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorCatalog.h>
 
 #include <algorithm>
 #include <cctype>
@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 // Feature: error-code-message-standardization
 // Documentation generator/validator (Task 11.1) guarding Requirements 3.5, 3.7
@@ -24,10 +24,10 @@ namespace
 {
 
 // Absolute path to the doc, injected by the test CMakeLists via a compile
-// definition (OAUTH2_DOC_API_REFERENCE) so the validator can locate the markdown
+// definition (FULLA_DOC_API_REFERENCE) so the validator can locate the markdown
 // file regardless of the test executable's working directory.
-#ifndef OAUTH2_DOC_API_REFERENCE
-#define OAUTH2_DOC_API_REFERENCE ""
+#ifndef FULLA_DOC_API_REFERENCE
+#define FULLA_DOC_API_REFERENCE ""
 #endif
 
 const char *categoryName(ErrorCategory category)
@@ -200,7 +200,7 @@ std::vector<std::string> tableLines(const std::string &region)
 // --- Requirements 3.5, 3.7, 12.1: Application error-code table consistency. ----
 DROGON_TEST(Unit_P0_ErrorCatalogDoc_ApplicationTableMatchesCatalog)
 {
-    const std::string docPath = OAUTH2_DOC_API_REFERENCE;
+    const std::string docPath = FULLA_DOC_API_REFERENCE;
     REQUIRE(!docPath.empty());  // Compile definition must be set by CMake.
 
     const std::string doc = readFile(docPath);
@@ -264,7 +264,7 @@ DROGON_TEST(Unit_P0_ErrorCatalogDoc_ApplicationTableMatchesCatalog)
 // --- Requirements 3.5, 3.7, 12.1: OAuth2 protocol error-code table consistency. -
 DROGON_TEST(Unit_P0_ErrorCatalogDoc_OAuthTableMatchesCatalog)
 {
-    const std::string docPath = OAUTH2_DOC_API_REFERENCE;
+    const std::string docPath = FULLA_DOC_API_REFERENCE;
     REQUIRE(!docPath.empty());
 
     const std::string doc = readFile(docPath);

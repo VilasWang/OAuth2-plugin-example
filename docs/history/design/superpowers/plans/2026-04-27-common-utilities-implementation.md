@@ -73,16 +73,16 @@ struct EnvOverride {
 };
 
 // OAuth2 environment variable override rules
-inline const std::vector<EnvOverride> OAUTH2_ENV_OVERRIDES = {
-    {"db_clients.0.host", "OAUTH2_DB_HOST", false},
-    {"db_clients.0.port", "OAUTH2_DB_PORT", true},
-    {"db_clients.0.name", "OAUTH2_DB_NAME", false},
-    {"db_clients.0.user", "OAUTH2_DB_USER", false},
-    {"db_clients.0.passwd", "OAUTH2_DB_PASSWORD", false},
-    {"redis.host", "OAUTH2_REDIS_HOST", false},
-    {"redis.port", "OAUTH2_REDIS_PORT", true},
-    {"redis.password", "OAUTH2_REDIS_PASSWORD", false},
-    {"vue_client.secret", "OAUTH2_VUE_CLIENT_SECRET", false}
+inline const std::vector<EnvOverride> FULLA_ENV_OVERRIDES = {
+    {"db_clients.0.host", "FULLA_DB_HOST", false},
+    {"db_clients.0.port", "FULLA_DB_PORT", true},
+    {"db_clients.0.name", "FULLA_DB_NAME", false},
+    {"db_clients.0.user", "FULLA_DB_USER", false},
+    {"db_clients.0.passwd", "FULLA_DB_PASSWORD", false},
+    {"redis.host", "FULLA_REDIS_HOST", false},
+    {"redis.port", "FULLA_REDIS_PORT", true},
+    {"redis.password", "FULLA_REDIS_PASSWORD", false},
+    {"vue_client.secret", "FULLA_VUE_CLIENT_SECRET", false}
 };
 
 } // namespace common::config
@@ -335,7 +335,7 @@ bool ConfigManager::load(const std::string& configPath, Json::Value& config) {
     }
 
     // Apply environment variable overrides
-    applyEnvOverrides(config, OAUTH2_ENV_OVERRIDES);
+    applyEnvOverrides(config, FULLA_ENV_OVERRIDES);
 
     return true;
 }
@@ -451,7 +451,7 @@ Expected: PASS
 ```cpp
 TEST(ConfigManagerTest, EnvOverrideDbHost) {
     // Set environment variable
-    setenv("OAUTH2_DB_HOST", "test-host", 1);
+    setenv("FULLA_DB_HOST", "test-host", 1);
 
     Json::Value config;
     ASSERT_TRUE(ConfigManager::load("config.json", config));
@@ -459,7 +459,7 @@ TEST(ConfigManagerTest, EnvOverrideDbHost) {
     auto dbHost = ConfigManager::get<std::string>(config, "db_clients.0.host");
     EXPECT_EQ(dbHost, "test-host");
 
-    unsetenv("OAUTH2_DB_HOST");
+    unsetenv("FULLA_DB_HOST");
 }
 
 TEST(ConfigManagerTest, TypeSafeAccessWithDefault) {
@@ -1218,8 +1218,8 @@ TEST(ConfigMigrationTest, MainCcConfigLoadWorks) {
 
 TEST(ConfigMigrationTest, EnvOverridesWorkAsBefore) {
     // Test that environment variable overrides work consistently
-    setenv("OAUTH2_DB_HOST", "test-host", 1);
-    setenv("OAUTH2_DB_PORT", "5433", 1);
+    setenv("FULLA_DB_HOST", "test-host", 1);
+    setenv("FULLA_DB_PORT", "5433", 1);
 
     Json::Value config;
     common::config::ConfigManager::load("config.json", config);
@@ -1228,8 +1228,8 @@ TEST(ConfigMigrationTest, EnvOverridesWorkAsBefore) {
               "test-host");
     EXPECT_EQ(common::config::ConfigManager::get<int>(config, "db_clients.0.port"), 5433);
 
-    unsetenv("OAUTH2_DB_HOST");
-    unsetenv("OAUTH2_DB_PORT");
+    unsetenv("FULLA_DB_HOST");
+    unsetenv("FULLA_DB_PORT");
 }
 ```
 
@@ -1327,11 +1327,11 @@ Expected: All 63 existing tests PASS + 2 new migration tests PASS
 
 ```bash
 # Test environment variable overrides
-export OAUTH2_DB_HOST="test-host"
-export OAUTH2_DB_PORT="5433"
+export FULLA_DB_HOST="test-host"
+export FULLA_DB_PORT="5433"
 ./build/OAuth2Backend -c config.json
 # Check logs for correct values
-unset OAUTH2_DB_HOST OAUTH2_DB_PORT
+unset FULLA_DB_HOST FULLA_DB_PORT
 ```
 
 - [ ] **Step 10: Commit configuration management refactoring**
@@ -2377,8 +2377,8 @@ Expected: All security tests PASS
 
 ```bash
 # Test with environment variables
-export OAUTH2_DB_HOST="test"
-export OAUTH2_REDIS_HOST="test-redis"
+export FULLA_DB_HOST="test"
+export FULLA_REDIS_HOST="test-redis"
 ./build/OAuth2Backend -c config.json
 # Check logs for correct config values
 ```

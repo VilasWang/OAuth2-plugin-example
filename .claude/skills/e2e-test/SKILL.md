@@ -45,20 +45,20 @@ description: 执行OAuth2系统的完整端到端(E2E)测试，验证用户登�
 
 ```powershell
 # 自动选择最佳环境
-$env:OAUTH2_ENV_MODE = "auto"
+$env:FULLA_ENV_MODE = "auto"
 
 # 检查 Docker 是否可用
 docker ps | Out-Null
 if ($?) {
     Write-Host "🐳 Docker 检测到，使用 Docker 模式"
-    $env:OAUTH2_ENV_MODE = "docker"
+    $env:FULLA_ENV_MODE = "docker"
 } else {
     Write-Host "💻 使用本地模式"
-    $env:OAUTH2_ENV_MODE = "local"
+    $env:FULLA_ENV_MODE = "local"
 }
 
 # Docker 模式推荐流程
-if ($env:OAUTH2_ENV_MODE -eq "docker") {
+if ($env:FULLA_ENV_MODE -eq "docker") {
     Write-Host "使用 Docker 完整测试流程..."
     # 跳到步骤 2 的 Docker 模式
 } else {
@@ -82,13 +82,13 @@ scripts/backend/full_test_docker.bat
 # 重置数据库
 cd /path/to/project
 $env:PGPASSWORD='123456'
-psql -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
-psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
+psql -U fulla_user -d postgres -c "DROP DATABASE IF EXISTS fulla_db;"
+psql -U fulla_user -d postgres -c "CREATE DATABASE fulla_db;"
 for f in apps/server/migrations/V*.sql; do
-    psql -U oauth2_user -d oauth2_db -f "$f"
+    psql -U fulla_user -d fulla_db -f "$f"
 done
 for f in apps/server/seed/*.sql; do
-    psql -U oauth2_user -d oauth2_db -f "$f"
+    psql -U fulla_user -d fulla_db -f "$f"
 done
 
 # 编译服务（如果需要）
@@ -102,10 +102,10 @@ done
 .\manage.ps1 build-backend -release
 
 # 停止旧服务
-taskkill /F /IM authforge-server.exe 2>$null
+taskkill /F /IM fulla-server.exe 2>$null
 
 # 启动服务（preset 构建路径：build/<preset>/apps/server/Release/）
-$serverPath = "build/windows-msvc/apps/server/Release/authforge-server.exe"
+$serverPath = "build/windows-msvc/apps/server/Release/fulla-server.exe"
 if (Test-Path $serverPath) {
     Start-Process -FilePath $serverPath -WindowStyle Hidden
     Write-Host "✅ Server started from: $serverPath"
@@ -149,8 +149,8 @@ Start-Sleep -Seconds 10
 
 # 在 Docker 容器中运行测试（前提：已 `.\manage.ps1 docker-up` 拉起完整栈。
 # 注意：full_test_docker.bat 只启动 pg+redis 容器并在宿主机本地跑 server，
-# 不会启动 oauth2-backend 容器，因此下面的 docker exec 需先 docker-up）
-docker exec oauth2-backend /bin/bash -c "ctest --output-on-failure"
+# 不会启动 fulla-backend 容器，因此下面的 docker exec 需先 docker-up）
+docker exec fulla-backend /bin/bash -c "ctest --output-on-failure"
 
 # OAuth2 端点测试
 # ... (后续步骤)
@@ -196,7 +196,7 @@ curl -s -X GET "http://localhost:5555/api/admin/dashboard" \
 ### 步骤4: 清理环境
 ```bash
 # 停止服务
-taskkill /F /IM authforge-server.exe 2>$null
+taskkill /F /IM fulla-server.exe 2>$null
 ```
 
 ## 测试验证标准
@@ -226,25 +226,25 @@ netstat -ano | findstr :5555
 
 # 检查服务日志
 cd build/windows-msvc/apps/server/Release
-.\authforge-server.exe
+.\fulla-server.exe
 ```
 
 #### 数据库连接失败
 ```bash
 # 验证数据库连接
-psql -U oauth2_user -d oauth2_db -c "SELECT 1;"
+psql -U fulla_user -d fulla_db -c "SELECT 1;"
 
 # 检查客户端数据
-psql -U oauth2_user -d oauth2_db -c "SELECT * FROM oauth2_clients;"
+psql -U fulla_user -d fulla_db -c "SELECT * FROM oauth2_clients;"
 ```
 
 #### 登录失败
 ```bash
 # 验证用户存在
-psql -U oauth2_user -d oauth2_db -c "SELECT * FROM users WHERE username='admin';"
+psql -U fulla_user -d fulla_db -c "SELECT * FROM users WHERE username='admin';"
 
 # 验证客户端配置
-psql -U oauth2_user -d oauth2_db -c "SELECT * FROM oauth2_clients WHERE client_id='vue-client';"
+psql -U fulla_user -d fulla_db -c "SELECT * FROM oauth2_clients WHERE client_id='vue-client';"
 ```
 
 ## 性能指标
@@ -264,9 +264,9 @@ psql -U oauth2_user -d oauth2_db -c "SELECT * FROM oauth2_clients WHERE client_i
 $ErrorActionPreference = "Stop"
 
 # 1. 启动服务
-Write-Host "Starting authforge-server..."
+Write-Host "Starting fulla-server..."
 cd build/windows-msvc/apps/server/Release
-Start-Process -FilePath ".\authforge-server.exe" -WindowStyle Hidden
+Start-Process -FilePath ".\fulla-server.exe" -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 # 2. 登录
@@ -307,7 +307,7 @@ if ($LoginResp -match "code=([a-f0-9\-]+)") {
 
 # 5. 清理
 Write-Host "Stopping service..."
-taskkill /F /IM authforge-server.exe 2>$null
+taskkill /F /IM fulla-server.exe 2>$null
 ```
 
 ## 集成建议

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""api-diff: guard the AuthForge SDK public API surface (SemVer enforcement).
+"""api-diff: guard the Fulla SDK public API surface (SemVer enforcement).
 
-Spec: .kiro/specs/authforge-sdk-refactor/tasks.md Task 34 (Wave C), design.md
-SS12 toolchain table + SS13 version contract, docs/backend/sdk-runtime-contract.md
-SS2. The public API surface is the set of exported SDK headers
-(``libs/*/include/authforge/**``, 7 libraries); v1.x promises *source-level*
+Spec: docs/history/design/kiro-specs/authforge-sdk-refactor/tasks.md Task 34
+(Wave C), design.md SS12 toolchain table + SS13 version contract,
+docs/backend/sdk-runtime-contract.md SS2. The public API surface is the set of exported SDK headers
+(``libs/*/include/fulla/**``, 7 libraries); v1.x promises *source-level*
 SemVer on exactly that surface: breaking changes require a major bump.
 
 How the snapshot is built (deterministic, stdlib-only):
@@ -248,7 +248,7 @@ def render_baseline(snap: Dict[str, List[str]], version: str) -> str:
     # Metadata lines use '//' -- skeleton lines are comment-stripped C++, so
     # they can never start with '//' ('#include'/'#pragma' DO start with '#').
     parts = [
-        "// api-diff baseline -- AuthForge SDK public header skeletons.",
+        "// api-diff baseline -- Fulla SDK public header skeletons.",
         "// Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline",
         f"// version: {version}",
     ]
@@ -282,7 +282,7 @@ def read_versions(root: Path) -> str:
     vc = (root / "cmake" / "Version.cmake").read_text(encoding="utf-8")
     parts = {}
     for field in ("MAJOR", "MINOR", "PATCH"):
-        m = re.search(rf"OAUTH2_PROJECT_VERSION_{field}\s+(\d+)", vc)
+        m = re.search(rf"FULLA_PROJECT_VERSION_{field}\s+(\d+)", vc)
         if not m:
             print(f"api-diff: cannot parse {field} from cmake/Version.cmake",
                   file=sys.stderr)
@@ -447,7 +447,7 @@ def report(d: Drift, baseline_version: str, current_version: str) -> None:
 
 
 def main(argv: List[str]) -> int:
-    parser = argparse.ArgumentParser(description="AuthForge SDK API surface guard")
+    parser = argparse.ArgumentParser(description="Fulla SDK API surface guard")
     default_root = Path(__file__).resolve().parents[2]
     parser.add_argument("--root", type=Path, default=default_root,
                         help="repository root (default: two levels above this script)")

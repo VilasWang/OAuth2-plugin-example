@@ -37,14 +37,14 @@ OAuth2 系统实现了账号锁定机制以防止暴力破解攻击。当用户�
 #### 本地PostgreSQL数据库
 
 ```powershell
-# 默认使用config.json中的配置（oauth2_user/oauth2_db/123456）
+# 默认使用config.json中的配置（fulla_user/fulla_db/123456）
 .\scripts\backend\reset-account-lockout.ps1
 
 # 重置特定用户
 .\scripts\backend\reset-account-lockout.ps1 -Username admin
 
 # 自定义数据库连接
-.\scripts\backend\reset-account-lockout.ps1 -DbHost localhost -DbUser oauth2_user -DbPassword 123456
+.\scripts\backend\reset-account-lockout.ps1 -DbHost localhost -DbUser fulla_user -DbPassword 123456
 ```
 
 #### Docker数据库
@@ -75,31 +75,31 @@ OAuth2 系统实现了账号锁定机制以防止暴力破解攻击。当用户�
 ```powershell
 # Windows PowerShell - 重置锁定状态
 $env:PGPASSWORD = "123456"
-psql -U oauth2_user -d oauth2_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
+psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
 $env:PGPASSWORD = $null
 
 # 如果密码也需要重置（重置为默认密码 'admin'）
 $env:PGPASSWORD = "123456"
-psql -U oauth2_user -d oauth2_db -h localhost -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
+psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
 $env:PGPASSWORD = $null
 ```
 
 ```bash
 # Linux/Mac - 重置锁定状态
-PGPASSWORD=123456 psql -U oauth2_user -d oauth2_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
+PGPASSWORD=123456 psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
 
 # 如果密码也需要重置
-PGPASSWORD=123456 psql -U oauth2_user -d oauth2_db -h localhost -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
+PGPASSWORD=123456 psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
 ```
 
 #### Docker数据库
 
 ```bash
 # 重置锁定状态
-docker exec <container_name> psql -U oauth2_user -d oauth2_db -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
+docker exec <container_name> psql -U fulla_user -d fulla_db -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
 
 # 如果密码也需要重置
-docker exec <container_name> psql -U oauth2_user -d oauth2_db -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
+docker exec <container_name> psql -U fulla_user -d fulla_db -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
 ```
 
 ### 方法4：查看锁定状态
@@ -164,7 +164,7 @@ WHERE u.username = 'test_admin' AND r.name = 'admin';
 # Cleanup
 try {
     # 重置测试账号
-    psql -U oauth2_user -d oauth2_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='test_admin';"
+    psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='test_admin';"
 } catch {
     Write-Host "Warning: Failed to reset test account" -ForegroundColor Yellow
 }
@@ -176,7 +176,7 @@ try {
 
 ```powershell
 # 检查数据库中的用户
-psql -U oauth2_user -d oauth2_db -h localhost -c "SELECT username FROM users;"
+psql -U fulla_user -d fulla_db -h localhost -c "SELECT username FROM users;"
 
 # 如果需要重置密码（使用PBKDF2）
 # 需要通过应用程序的注册接口或直接调用PasswordHasher

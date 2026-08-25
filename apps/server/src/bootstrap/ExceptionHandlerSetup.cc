@@ -1,10 +1,10 @@
 #include "ExceptionHandlerSetup.h"
 #include <drogon/drogon.h>
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/drogon/error/RequestId.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/drogon/error/RequestId.h>
 #include <string>
 
 namespace bootstrap
@@ -46,18 +46,18 @@ void setupExceptionHandler()
           {
               // RFC 6749 §5.2 protocol error: { "error": "server_error", ... }
               // driven by the Catalog (default error_description, status 500).
-              authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
-                std::move(withCors), authforge::common::error::OAuth2ErrorHandler::SERVER_ERROR
+              fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                std::move(withCors), fulla::common::error::OAuth2ErrorHandler::SERVER_ERROR
               );
               return;
           }
 
           // Application path: unified Error Envelope with INTERNAL_ERROR.
-          authforge::common::error::Error error = authforge::common::error::Error::fromCode(
-            std::string(authforge::common::error::ErrorCatalog::internalError().code),
-            authforge::common::error::RequestId::resolve(req)
+          fulla::common::error::Error error = fulla::common::error::Error::fromCode(
+            std::string(fulla::common::error::ErrorCatalog::internalError().code),
+            fulla::common::error::RequestId::resolve(req)
           );
-          auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+          auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
           withCors(resp);
       }
     );

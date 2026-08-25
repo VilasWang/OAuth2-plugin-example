@@ -1,4 +1,4 @@
-# AuthForge 产品化演进方案
+# Fulla 产品化演进方案
 
 > **版本**: v1.0
 > **日期**: 2026-08-05
@@ -28,7 +28,7 @@
 
 | 报告结论 | 评估 |
 |----------|------|
-| 路线 D（Open Core + SDK 许可优先，云托管远期） | **正确**。C++ SDK 嵌入能力（`find_package(authforge-*)` × 8 个分层包 + 源码级 SemVer，由 `tools/api-diff` 在 CI 强制）是真实存在且独有的差异化 |
+| 路线 D（Open Core + SDK 许可优先，云托管远期） | **正确**。C++ SDK 嵌入能力（`find_package(fulla-*)` × 8 个分层包 + 源码级 SemVer，由 `tools/api-diff` 在 CI 强制）是真实存在且独有的差异化 |
 | 目标客户细分（IoT/边缘、金融科技、高合规行业、C++ 技术栈企业） | **合理**。这些正是"低资源 + 无 GC 抖动 + 可审计源码"能打动的人群 |
 | 定价参照（对标 RHSSO $1,000/年/实例、Auth0 按用户计费痛点） | **逻辑成立** |
 | Open Core 功能边界（社区版核心 + Admin + Docker/Helm；企业版锁 SAML/LDAP/SCIM/多租户/审计） | **方向正确** |
@@ -41,7 +41,7 @@
 |--------------|----------------|------|
 | §3.2「供应链安全：cosign 签名 + SBOM + SDK 校验和」（作为卖点） | **已落地**：`.github/workflows/release.yml` 里 cosign keyless 签名 manifest digest + syft 生成每镜像 SPDX SBOM；SDK tarball 带 `.sha256` | 从"待办"挪到 **§1.4 已有资产**，写进对外卖点 |
 | §六 P0「SDK 文档站 / API 参考」 | **部分已有**：`docs/backend/sdk-integration-guide.md` + `docs/backend/sdk-runtime-contract.md` 已达发布级质量 | 待办收敛为"**独立文档站**（站点化 + 版本切换）"，而非从零写文档 |
-| §六 P1「Helm Chart 优化」 | **已有** `deploy/helm/authforge`：含 pre-install/pre-upgrade migration-job 钩子、Chart version 与 appVersion 联动（Task 37）、values-local | 待办收敛为"**默认安全配置 + 一键部署**优化"，而非新建 chart |
+| §六 P1「Helm Chart 优化」 | **已有** `deploy/helm/fulla`：含 pre-install/pre-upgrade migration-job 钩子、Chart version 与 appVersion 联动（Task 37）、values-local | 待办收敛为"**默认安全配置 + 一键部署**优化"，而非新建 chart |
 | §六 P0「Benchmark 可复现」 | **真空白**：`tests/performance/benchmark/` 只有一个 `SubjectGenerator` 微基准（进程内、纳秒级），**无任何 HTTP 级 / 竞争性基准** | **保留为最高优先级**（见 §三 Phase 0） |
 | §3.2「多语言 SDK」 | C++ 原生 SDK 已就绪；非 C++ 客户端缺失 | 保留，但明确为"**HTTP 客户端 SDK（OpenAPI 生成）**"而非原生 SDK；⚠️ 实际落地需先治 spec（见 [客户端 SDK 设计](in-progress/client-sdk-facility-design.md)） |
 
@@ -51,7 +51,7 @@
 
 **这些数字目前是断言，不是测量。** 代码库里没有：
 
-- AuthForge 自身的 HTTP 端到端压测（`/oauth2/token` 各 grant、`/oauth2/introspect`、`/oauth2/userinfo`、`/.well-known/*` 在真实 Drogon + PostgreSQL + Redis 栈下的 QPS / 延迟 / 内存）；
+- Fulla 自身的 HTTP 端到端压测（`/oauth2/token` 各 grant、`/oauth2/introspect`、`/oauth2/userinfo`、`/.well-known/*` 在真实 Drogon + PostgreSQL + Redis 栈下的 QPS / 延迟 / 内存）；
 - 与 Keycloak / Ory / Zitadel 的**同环境对比**；
 - 第三方可一键复现的压测脚本与数据发布流程。
 
@@ -69,8 +69,8 @@
 | 源码级 SemVer 守护 | `tools/api-diff/api_diff.py` + CI static-checks 门 | 企业采购关心的 API 稳定性承诺 |
 | 架构分层守护 | `tools/arch-guard/arch_guard.py` | Domain 层永不依赖 Drogon；可嵌入性的工程证据 |
 | 迁移卫生守护 | `tools/migration-check/migration_check.py` | DB schema 变更可控 |
-| SDK 打包（install-tree + build-tree `find_package`） | `cmake/AuthForgePackage.cmake` | 8 包 + 传递依赖闭包，`examples/full-stack-host` 验证 |
-| Helm chart + migration-job 钩子 | `deploy/helm/authforge/` | 生产级 K8s 部署 |
+| SDK 打包（install-tree + build-tree `find_package`） | `cmake/FullaPackage.cmake` | 8 包 + 传递依赖闭包，`examples/full-stack-host` 验证 |
+| Helm chart + migration-job 钩子 | `deploy/helm/fulla/` | 生产级 K8s 部署 |
 | 三平台 CI（Linux/Windows/macOS） | `.github/workflows/_build-test.yml` | 跨平台可信度 |
 
 ---
@@ -142,7 +142,7 @@
 
 | 优先级 | 工作项 | 备注 |
 |--------|--------|------|
-| **P0** | AuthForge Cloud MVP：多租户云平台 + 自助注册 | C++ 在云原生多租户环境需额外适配（二进制镜像、隔离） |
+| **P0** | Fulla Cloud MVP：多租户云平台 + 自助注册 | C++ 在云原生多租户环境需额外适配（二进制镜像、隔离） |
 | **P0** | 多区域部署：数据驻留选择 | 满足 GDPR / 等保数据本地化 |
 | P1 | 自助式 dashboard：用量监控 + 计费 | |
 | P1 | AWS / Azure / GCP Marketplace 集成 | |
@@ -160,7 +160,7 @@
 
 - **新建 `benchmarks/` 顶级目录**（与 `tests/performance/` 区分：后者是回归测试，前者是对外可复现基准）。
 - 组成：
-  - `benchmarks/authforge/` — 自压测脚本（wrk/k6 lua + docker-compose 起完整栈）
+  - `benchmarks/fulla/` — 自压测脚本（wrk/k6 lua + docker-compose 起完整栈）
   - `benchmarks/competitors/` — Keycloak / Ory / Zitadel 的同环境压测脚本
   - `benchmarks/results/` — 历次数据（含硬件/配置/日期），可被文档站引用
   - `benchmarks/README.md` — 一键复现指引
@@ -213,7 +213,7 @@
 
 ## 六、立即动作（本周 / 本 sprint）
 
-1. **新建 `benchmarks/` 目录骨架**（详见 [基准设施设计文档](in-progress/benchmark-facility-design.md)），先搭 AuthForge 自身 HTTP 压测（wrk 脚本 + docker-compose 起完整栈），跑出第一组 `/oauth2/token` QPS / 延迟数据——这是验证一切的前提。
+1. **新建 `benchmarks/` 目录骨架**（详见 [基准设施设计文档](in-progress/benchmark-facility-design.md)），先搭 Fulla 自身 HTTP 压测（wrk 脚本 + docker-compose 起完整栈），跑出第一组 `/oauth2/token` QPS / 延迟数据——这是验证一切的前提。
 2. **盘点并冻结"对外性能声明"**：在 Phase 0 数据落地前，`README.md` / `README.zh-CN.md` / 本目录 `productization-research.md` 里凡是写具体 QPS / 延迟 / 内存数字处，加"目标值，待 benchmark 验证"标注，避免对外撒谎。
 3. **更新 `productization-research.md`**（✅ 已于 2026-08-05 完成）：已把 §3.2/§六里已落地的能力（cosign/SBOM、Helm、SDK 打包、api-diff SemVer）从"待办"挪到"已有资产"（§3.4），并在 §一/§3.1/§3.2 插入承重假设风险段。
 4. **确定文档站技术选型**（建议 Docusaurus）并立项到 `openspec/changes/` 或 `.kiro/specs/`。
@@ -236,13 +236,13 @@
 | 资产 | 文件 |
 |------|------|
 | 版本单一源 | `cmake/Version.cmake` |
-| SDK 打包 | `cmake/AuthForgePackage.cmake`，各 `libs/*/CMakeLists.txt` |
+| SDK 打包 | `cmake/FullaPackage.cmake`，各 `libs/*/CMakeLists.txt` |
 | Release 流水线（cosign + SBOM + 多架构） | `.github/workflows/release.yml` |
 | CI 三平台 + SDK smoke | `.github/workflows/ci.yml`、`_build-test.yml`、`_sdk-smoke.yml` |
 | API 面 SemVer 守护 | `tools/api-diff/` |
 | 架构分层守护 | `tools/arch-guard/` |
 | 迁移卫生守护 | `tools/migration-check/` |
-| Helm chart | `deploy/helm/authforge/` |
+| Helm chart | `deploy/helm/fulla/` |
 | SDK 消费示例 | `examples/full-stack-host/`、`examples/third-party-host/` |
 | SDK 集成文档 | `docs/backend/sdk-integration-guide.md`、`docs/backend/sdk-runtime-contract.md` |
 

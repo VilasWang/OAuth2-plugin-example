@@ -30,7 +30,7 @@ cookies.txt
 .env.local
 
 # Benchmark generated token pools (contain raw token secrets)
-benchmarks/authforge/lib/generated/
+benchmarks/fulla/lib/generated/
 .env.*.local
 .env.docker
 .mcp.json

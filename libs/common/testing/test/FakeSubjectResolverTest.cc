@@ -1,12 +1,12 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // for FakeSubjectResolver.
 
-#include <authforge/common/testing/FakeSubjectResolver.h>
+#include <fulla/common/testing/FakeSubjectResolver.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
-using authforge::common::model::Subject;
+using namespace fulla::common::testing;
+using fulla::common::model::Subject;
 
 TEST(FakeSubjectResolverTest, ResolvesRegisteredMapping)
 {

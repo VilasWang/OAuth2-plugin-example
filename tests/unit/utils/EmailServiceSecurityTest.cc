@@ -18,11 +18,11 @@
 // _PR #2 P1 (EmailService.cc shell injection + credential leak)_
 
 #include <drogon/drogon_test.h>
-#include <authforge/drogon/utils/EmailService.h>
+#include <fulla/drogon/utils/EmailService.h>
 
 #include <string>
 
-using authforge::drogon::utils::SmtpEmailService;
+using fulla::drogon::utils::SmtpEmailService;
 
 namespace
 {

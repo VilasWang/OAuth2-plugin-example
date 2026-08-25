@@ -1,6 +1,6 @@
-#include <authforge/storage/postgres/PostgresRepositoryBundle.h>
+#include <fulla/storage/postgres/PostgresRepositoryBundle.h>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 PostgresRepositoryBundle::PostgresRepositoryBundle()
@@ -19,4 +19,4 @@ void PostgresRepositoryBundle::initFromConfig(const Json::Value &config)
     consentRepository_->initFromConfig(config);
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

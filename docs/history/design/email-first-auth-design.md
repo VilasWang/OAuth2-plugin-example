@@ -2,7 +2,7 @@
 
 **状态**：待评审
 **日期**：2026-06
-**作者**：authforge 团队
+**作者**：fulla 团队
 **关联**：本方案基于已合并的 `feat(auth): validate and normalize email on registration`（邮箱格式校验 + Gmail 归一 + email 唯一索引）
 
 ---

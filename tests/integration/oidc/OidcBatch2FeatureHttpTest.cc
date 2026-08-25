@@ -16,22 +16,22 @@
 #include <drogon/utils/Utilities.h>
 #include <json/json.h>
 
-#include <authforge/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
 
 #include "HttpTestClient.h"
 
 #include <string>
 
-using authforge::test::http::kAdminClientId;
-using authforge::test::http::loginAsUserTokens;
-using authforge::test::http::kAdminRedirectUri;
-using authforge::test::http::kTestBaseUrl;
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::postgresAvailable;
-using authforge::test::http::sendGet;
-using authforge::test::http::sendPostForm;
-using authforge::test::http::serverReachable;
-using authforge::test::http::statusIs;
+using fulla::test::http::kAdminClientId;
+using fulla::test::http::loginAsUserTokens;
+using fulla::test::http::kAdminRedirectUri;
+using fulla::test::http::kTestBaseUrl;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::postgresAvailable;
+using fulla::test::http::sendGet;
+using fulla::test::http::sendPostForm;
+using fulla::test::http::serverReachable;
+using fulla::test::http::statusIs;
 
 #define OIDC_BATCH2_SKIP_GUARD                                 \
     do                                                         \
@@ -270,7 +270,7 @@ DROGON_TEST(Integration_P1_OidcBatch2_EndSession_ForgedHint_Returns400)
 {
     OIDC_BATCH2_SKIP_GUARD;
 
-    ::authforge::oauth2::JwkManager forger;
+    ::fulla::oauth2::JwkManager forger;
     REQUIRE(forger.init(Json::Value(Json::objectValue)));
 
     auto *plugin = ::drogon::app().getPlugin<::OAuth2Plugin>();
@@ -350,9 +350,9 @@ DROGON_TEST(Integration_P1_OidcBatch2_EndSession_HintSubjectMismatch_Returns400)
     if (!registered)
         return;
 
-    const std::string codeVerifier = ::authforge::drogon::utils::generateSecureToken(32);
+    const std::string codeVerifier = ::fulla::drogon::utils::generateSecureToken(32);
     const std::string codeChallenge =
-      ::authforge::drogon::utils::computeCodeChallenge(codeVerifier, "S256");
+      ::fulla::drogon::utils::computeCodeChallenge(codeVerifier, "S256");
     auto loginResp = sendPostForm(
       "/oauth2/login?json=true",
       "username=mm78user&password=Passw0rd!78&client_id=" + std::string(kAdminClientId) +

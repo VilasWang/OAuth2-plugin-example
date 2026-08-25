@@ -34,7 +34,7 @@
 | `oauth2_clients.allowed_scopes` | 存在 | **彻底移除** | ORM需重新生成 |
 | `oauth2_subject_mappings` | 不存在 | **新增** | 新表，subject映射层 |
 | `oauth2_subject_mappings.UNIQUE` | 单列subject | **复合UNIQUE(provider, subject)** | 避免跨provider冲突 |
-| `oauth2_user_consents.user_id` | VARCHAR(50) | **internal_user_id INTEGER** | 字段名+类型变更 |
+| `fulla_user_consents.user_id` | VARCHAR(50) | **internal_user_id INTEGER** | 字段名+类型变更 |
 | `oauth2_scopes.requires_admin_role` | 不存在 | **新增** | 新字段，角色校验支持 |
 
 ### 代码层面
@@ -67,19 +67,19 @@
 cd OAuth2Backend/sql
 
 # 1. OAuth2核心表 (包含PKCE)
-psql -U postgres -d oauth2_db -f 001_oauth2_core.sql
+psql -U postgres -d fulla_db -f 001_oauth2_core.sql
 
 # 2. Users表
-psql -U postgres -d oauth2_db -f 002_users_table.sql
+psql -U postgres -d fulla_db -f 002_users_table.sql
 
 # 3. RBAC系统
-psql -U postgres -d oauth2_db -f 003_rbac_schema.sql
+psql -U postgres -d fulla_db -f 003_rbac_schema.sql
 
 # 4. OAuth2 Scopes (包含subject映射 + consent)
-psql -U postgres -d oauth2_db -f 004_oauth2_scopes.sql
+psql -U postgres -d fulla_db -f 004_oauth2_scopes.sql
 
 # ✅ 为测试环境授予admin scope给vue-client
-psql -U postgres -d oauth2_db -c "INSERT INTO oauth2_client_scopes (client_id, scope_name) VALUES ('vue-client', 'admin') ON CONFLICT DO NOTHING;"
+psql -U postgres -d fulla_db -c "INSERT INTO oauth2_client_scopes (client_id, scope_name) VALUES ('vue-client', 'admin') ON CONFLICT DO NOTHING;"
 
 # ✅ 完成！
 ```
@@ -89,32 +89,32 @@ psql -U postgres -d oauth2_db -c "INSERT INTO oauth2_client_scopes (client_id, s
 
 ```bash
 # 验证表结构
-psql -U postgres -d oauth2_db -c "\dt oauth2_*"
+psql -U postgres -d fulla_db -c "\dt oauth2_*"
 
 # 验证PKCE字段
-psql -U postgres -d oauth2_db -c "\d oauth2_codes"
+psql -U postgres -d fulla_db -c "\d oauth2_codes"
 # 应该看到: code_challenge, code_challenge_method
 
 # 验证 subject 映射表
-psql -U postgres -d oauth2_db -c "\d oauth2_subject_mappings"
+psql -U postgres -d fulla_db -c "\d oauth2_subject_mappings"
 # 应该看到: subject, internal_user_id, provider
 # 应该看到: UNIQUE(provider, subject)
 
 # 验证 internal_user_id 类型一致性
-psql -U postgres -d oauth2_db -c "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'oauth2_%' AND column_name IN ('user_id', 'internal_user_id');"
+psql -U postgres -d fulla_db -c "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_name LIKE 'oauth2_%' AND column_name IN ('user_id', 'internal_user_id');"
 # user_id: character varying(50)
 # internal_user_id: integer
 
 # 验证requires_admin_role字段
-psql -U postgres -d oauth2_db -c "SELECT name, requires_admin_role FROM oauth2_scopes;"
+psql -U postgres -d fulla_db -c "SELECT name, requires_admin_role FROM oauth2_scopes;"
 # admin scope应该为true
 
 # 验证复合唯一约束
-psql -U postgres -d oauth2_db -c "SELECT constraint_name, constraint_type FROM information_schema.table_constraints WHERE table_name = 'oauth2_subject_mappings';"
+psql -U postgres -d fulla_db -c "SELECT constraint_name, constraint_type FROM information_schema.table_constraints WHERE table_name = 'oauth2_subject_mappings';"
 # 应该看到: oauth2_subject_mappings_provider_subject_key unique
 
 # ✅ 验证admin scope已授予vue-client (用于测试)
-psql -U postgres -d oauth2_db -c "SELECT client_id, scope_name FROM oauth2_client_scopes WHERE scope_name = 'admin';"
+psql -U postgres -d fulla_db -c "SELECT client_id, scope_name FROM oauth2_client_scopes WHERE scope_name = 'admin';"
 # 应该看到: vue-client | admin
 ```
 
@@ -398,7 +398,7 @@ void PostgresOAuth2Storage::hasUserConsent(
 
     auto client = dbClientReader_;
     client->execSqlAsync(
-        "SELECT 1 FROM oauth2_user_consents "
+        "SELECT 1 FROM fulla_user_consents "
         "WHERE internal_user_id = $1 AND client_id = $2 AND scope_name = $3 "
         "LIMIT 1",
         [cb](const Result &result) {
@@ -419,7 +419,7 @@ void PostgresOAuth2Storage::saveUserConsent(
 
     auto client = dbClientMaster_;
     client->execSqlAsync(
-        "INSERT INTO oauth2_user_consents (internal_user_id, client_id, scope_name) "
+        "INSERT INTO fulla_user_consents (internal_user_id, client_id, scope_name) "
         "VALUES ($1, $2, $3) "
         "ON CONFLICT (internal_user_id, client_id, scope_name) DO NOTHING",
         [cb](const Result &result) {
@@ -1598,7 +1598,7 @@ void PostgresOAuth2Storage::saveUserConsentsBatch(
     const std::vector<std::string> &scopes,
     std::function<void(bool)> &&cb) {
 
-    std::string sql = "INSERT INTO oauth2_user_consents (internal_user_id, client_id, scope_name) VALUES ";
+    std::string sql = "INSERT INTO fulla_user_consents (internal_user_id, client_id, scope_name) VALUES ";
     for (size_t i = 0; i < scopes.size(); i++) {
         sql += "($" + std::to_string(1 + i * 3) + ", $" + std::to_string(2 + i * 3) + ", $" + std::to_string(3 + i * 3) + ")";
         if (i < scopes.size() - 1) sql += ", ";

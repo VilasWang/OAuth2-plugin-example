@@ -1,6 +1,6 @@
 # Competitor benchmark suites (Phase 0.5)
 
-Same-environment performance comparison of **AuthForge vs Keycloak / Ory
+Same-environment performance comparison of **Fulla vs Keycloak / Ory
 Hydra / Zitadel**: same machine, same wrk staircase (2→128, warmup 5s /
 measure 10s), same PostgreSQL 17 backend (15 until 2026-08-18; all products
 moved together — fairness rule D1), official recommended production
@@ -14,7 +14,7 @@ Aggregated report: [results/COMPARISON.md](results/COMPARISON.md).
   compose v2, `wrk` 4.1.0, `jq`, and Python 3 with
   `pip install requests pyjwt cryptography`
 * ~10GB free disk (four product stacks + Postgres volumes, serially)
-* Ports free: `5555` (AuthForge), `8080` (Keycloak, Zitadel), `4444/4445`
+* Ports free: `5555` (Fulla), `8080` (Keycloak, Zitadel), `4444/4445`
   (Ory public/admin). The suites assert port-freedom before booting.
 * Nothing else heavy running on the machine during a session — the
   four-way comparison is only valid when all products run in the SAME
@@ -31,7 +31,7 @@ bash benchmarks/competitors/run-comparison.sh --report-only   # regenerate COMPA
 Each product phase = `setup.sh` (boot + init + token pools + warm
 validation) → `run-all.sh` (staircase × scenarios, RSS sampling, GC-jitter
 5min, cold start ×2 modes) → `teardown.sh` (down -v + residue assertion).
-Re-runs: the zitadel and authforge setups tear down any previous stack of
+Re-runs: the zitadel and fulla setups tear down any previous stack of
 their own product first (residue guard); the keycloak/ory setups only assert
 the port is free — run their `teardown.sh` before re-running them manually
 (`run-comparison.sh` always tears down between products).

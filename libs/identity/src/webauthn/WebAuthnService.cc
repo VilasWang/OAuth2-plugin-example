@@ -1,8 +1,8 @@
-#include <authforge/identity/WebAuthnService.h>
+#include <fulla/identity/WebAuthnService.h>
 
 #include <vector>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 namespace
@@ -11,11 +11,11 @@ namespace
 // Generate a cryptographically secure random challenge, base64url encoded
 // (no padding) -- same algorithm as
 // libs/oauth2/src/protocol/TokenCrypto.cc's generateSecureToken() and the
-// production controller's ::authforge::drogon::utils::generateSecureToken() call
+// production controller's ::fulla::drogon::utils::generateSecureToken() call
 // (both: secureRandomBytes(32) -> base64url), just expressed against the
 // injected ICryptoProvider instead of a hardcoded Adapter-layer instance
 // (see TokenCrypto.h's identical rationale).
-std::string generateChallenge(authforge::common::ports::ICryptoProvider &crypto)
+std::string generateChallenge(fulla::common::ports::ICryptoProvider &crypto)
 {
     constexpr size_t kChallengeBytes = 32;
     std::vector<unsigned char> buffer(kChallengeBytes);
@@ -27,7 +27,7 @@ std::string generateChallenge(authforge::common::ports::ICryptoProvider &crypto)
 
 WebAuthnService::WebAuthnService(
   std::shared_ptr<IWebAuthnRepository> repo,
-  std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
+  std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
   std::string rpId,
   std::string rpName
 )
@@ -173,4 +173,4 @@ void WebAuthnService::listCredentials(
     repo_->listCredentials(userId, std::move(callback));
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity

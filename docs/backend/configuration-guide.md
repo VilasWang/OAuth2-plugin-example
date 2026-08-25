@@ -8,12 +8,12 @@ The application supports overriding critical configuration values using environm
 
 | Variable Name | Description | Overrides Config Path | Example |
 |---|---|---|---|
-| `OAUTH2_DB_HOST` | Database Hostname | `db_clients[0].host` | `postgres` |
-| `OAUTH2_DB_NAME` | Database Name | `db_clients[0].dbname` | `oauth2_db` |
-| `OAUTH2_DB_PASSWORD` | Database Password | `db_clients[0].passwd` | `secret` |
-| `OAUTH2_REDIS_HOST` | Redis Hostname | `redis_clients[0].host` | `redis` |
-| `OAUTH2_REDIS_PASSWORD` | Redis Password | `redis_clients[0].passwd` | `secret` |
-| `OAUTH2_VUE_CLIENT_SECRET` | Vue Client Secret | `plugins[OAuth2Plugin].config.clients.vue-client.secret` | `...` |
+| `FULLA_DB_HOST` | Database Hostname | `db_clients[0].host` | `postgres` |
+| `FULLA_DB_NAME` | Database Name | `db_clients[0].dbname` | `fulla_db` |
+| `FULLA_DB_PASSWORD` | Database Password | `db_clients[0].passwd` | `secret` |
+| `FULLA_REDIS_HOST` | Redis Hostname | `redis_clients[0].host` | `redis` |
+| `FULLA_REDIS_PASSWORD` | Redis Password | `redis_clients[0].passwd` | `secret` |
+| `FULLA_VUE_CLIENT_SECRET` | Vue Client Secret | `plugins[OAuth2Plugin].config.clients.vue-client.secret` | `...` |
 
 ### How It Works
 
@@ -32,12 +32,12 @@ The project includes a `docker-compose.yml` for orchestrating the full stack.
 
 ### Service Stack
 
-- **oauth2-frontend**: Vue SPA + Nginx (Builds from `deploy/docker/Dockerfile`, target `frontend-runtime`).
-- **oauth2-admin**: Admin console frontend (Builds from `frontends/admin/Dockerfile`).
-- **oauth2-backend**: The Drogon backend (Builds from `deploy/docker/Dockerfile`, target `backend-runtime`).
-- **oauth2-postgres**: PostgreSQL 15 (schema applied by the backend on startup via `OAUTH2_AUTO_MIGRATE=true`, reading `apps/server/migrations/`).
-- **oauth2-redis**: Redis 7 with password protection.
-- **oauth2-prometheus**: Metrics collection agent.
+- **fulla-frontend**: Vue SPA + Nginx (Builds from `deploy/docker/Dockerfile`, target `frontend-runtime`).
+- **fulla-admin**: Admin console frontend (Builds from `frontends/admin/Dockerfile`).
+- **fulla-backend**: The Drogon backend (Builds from `deploy/docker/Dockerfile`, target `backend-runtime`).
+- **fulla-postgres**: PostgreSQL 15 (schema applied by the backend on startup via `FULLA_AUTO_MIGRATE=true`, reading `apps/server/migrations/`).
+- **fulla-redis**: Redis 7 with password protection.
+- **fulla-prometheus**: Metrics collection agent.
 
 ### Quick Start
 
@@ -46,7 +46,7 @@ The project includes a `docker-compose.yml` for orchestrating the full stack.
 docker-compose -f deploy/docker/docker-compose.yml up -d --build
 
 # Check Logs
-docker-compose -f deploy/docker/docker-compose.yml logs -f oauth2-backend
+docker-compose -f deploy/docker/docker-compose.yml logs -f fulla-backend
 
 # Stop
 docker-compose -f deploy/docker/docker-compose.yml down
@@ -166,7 +166,7 @@ the defaults explicitly):
 
 Both keys are optional; if the `rate_limit` object is absent the built-in defaults
 (30 / 60) apply. The limiter is a function-local singleton (`RateLimiter::instance()`
-in `libs/common/include/authforge/common/utils/RateLimiter.h`), so all four
+in `libs/common/include/fulla/common/utils/RateLimiter.h`), so all four
 protected endpoints share one counter map per process. This is a minimal
 brute-force / token-probing guard; for multi-instance deployments a shared
 store (Redis) would be required (future work).

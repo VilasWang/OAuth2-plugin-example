@@ -1,4 +1,4 @@
-# AuthForge 重构设计文档：产品为主 + 协议引擎 SDK 化
+# Fulla 重构设计文档：产品为主 + 协议引擎 SDK 化
 
 > 版本：v1.0（设计草案） · 目标产物版本：v1.0.0（重构后重置）
 > 范围：将现有全栈 OAuth2/OIDC IdP 重构为「可生产交付的产品」+「可独立复用的 SDK 组」双形态。
@@ -15,8 +15,8 @@
 
 | 目标 | 可度量验收标准 |
 |------|--------------|
-| 协议引擎可独立复用 | 第三方 Drogon 应用仅 `find_package(authforge-oauth2)` + 实现 3 个端口即可跑通授权码流（由 `examples/third-party-host` 冒烟证明） |
-| 身份能力可独立复用 | `find_package(authforge-identity)` 可单独用作登录/用户/MFA 系统，不引入 oauth2 包 |
+| 协议引擎可独立复用 | 第三方 Drogon 应用仅 `find_package(fulla-oauth2)` + 实现 3 个端口即可跑通授权码流（由 `examples/third-party-host` 冒烟证明） |
+| 身份能力可独立复用 | `find_package(fulla-identity)` 可单独用作登录/用户/MFA 系统，不引入 oauth2 包 |
 | 产品可生产交付 | 一条命令产出多架构镜像 + Helm chart；带版本化迁移与回滚 |
 | 边界清晰且不腐化 | 每包独立 CMake target + 独立测试 + 显式对外头文件；架构守卫工具在 CI 强制依赖方向 |
 | 跨平台可复现 | 三平台统一 Conan 解析依赖（含 Drogon + OpenSSL 3.5 LTS），取消源码编译 Drogon |
@@ -88,9 +88,9 @@
                 │ links + 装配注入            │ find_package
 ┌───────────────▼───────────────┐  ┌──────────▼──────────────────┐
 │ Adapter 层（允许依赖 Drogon）   │  │ SDK 包（对外交付）            │
-│   libs/drogon（插件/ctl/filter）│  │   authforge-oauth2           │
-│   libs/storage-*（PG/Redis/Mem）│  │   authforge-identity         │
-│   libs/observability-prometheus │  │   authforge-common           │
+│   libs/drogon（插件/ctl/filter）│  │   fulla-oauth2           │
+│   libs/storage-*（PG/Redis/Mem）│  │   fulla-identity         │
+│   libs/observability-prometheus │  │   fulla-common           │
 └───────────────┬───────────────┘  └──────────┬──────────────────┘
                 │ implements 接口               │
 ┌───────────────▼───────────────────────────────▼───────────────┐
@@ -120,22 +120,22 @@
 
 | 包 | 命名空间 | find_package 名 | 目录 | 职责 |
 |----|---------|----------------|------|------|
-| 共享内核 | `authforge::common` | `authforge-common` | `libs/common` | Result/错误目录/值对象(Subject,Scope,TenantId)/端口基类/Observability 模型(AuditEvent,IMetrics) |
-| OAuth2 SDK | `authforge::oauth2` | `authforge-oauth2` | `libs/oauth2` | 协议 + client registry + 授权决策(consent+scope 策略) + **identity 端口(接口)** |
-| Identity SDK | `authforge::identity` | `authforge-identity` | `libs/identity` | user/凭证/MFA/WebAuthn/社交/会话 + RBAC 数据存储 |
+| 共享内核 | `fulla::common` | `fulla-common` | `libs/common` | Result/错误目录/值对象(Subject,Scope,TenantId)/端口基类/Observability 模型(AuditEvent,IMetrics) |
+| OAuth2 SDK | `fulla::oauth2` | `fulla-oauth2` | `libs/oauth2` | 协议 + client registry + 授权决策(consent+scope 策略) + **identity 端口(接口)** |
+| Identity SDK | `fulla::identity` | `fulla-identity` | `libs/identity` | user/凭证/MFA/WebAuthn/社交/会话 + RBAC 数据存储 |
 
-> 目录名不带 `authforge-` 前缀（简洁）；命名空间与 find_package 名带 `authforge` 品牌前缀（对外一致）。
+> 目录名不带 `fulla-` 前缀（简洁）；命名空间与 find_package 名带 `fulla` 品牌前缀（对外一致）。
 
 ### 5.2 端口解耦：产品层装配注入（已确认方案）
 
 `oauth2` 在授权决策时需要「角色、subject 解析、userinfo」，但**不得编译依赖 `identity`**。做法：
 
-- `oauth2` 在 `libs/oauth2/include/authforge/oauth2/ports/` 定义端口接口：
+- `oauth2` 在 `libs/oauth2/include/fulla/oauth2/ports/` 定义端口接口：
   - `ISubjectResolver`：subject（`local:alice`）→ 内部 userId。
   - `IRoleProvider`：userId → 角色列表（供 scope 分层校验）。
   - `IUserInfoProvider`：userId → OIDC userinfo claims。
 - `identity` 在其实现中提供这些端口的具体实现类（如 `identity::IdentityRoleProvider`），但**通过实现 `oauth2` 的端口头来完成**——为避免 `identity` 编译依赖 `oauth2`，端口接口的「最小契约」采用以下二选一（落地时定，倾向 A）：
-  - **方案 A（推荐，纯装配）**：端口接口下沉到 `common`（`authforge::common::ports`）。`oauth2` 和 `identity` 都只依赖 `common`。产品层 `apps/server` 构造 `identity` 的实现，注入到 `oauth2` 的服务构造函数。二者零直接耦合。
+  - **方案 A（推荐，纯装配）**：端口接口下沉到 `common`（`fulla::common::ports`）。`oauth2` 和 `identity` 都只依赖 `common`。产品层 `apps/server` 构造 `identity` 的实现，注入到 `oauth2` 的服务构造函数。二者零直接耦合。
   - 方案 B（次选）：端口留在 `oauth2`，`identity` 依赖 `oauth2` 的仅头端口——但这违背「互不依赖」，放弃。
 
 > **结论：端口接口放在 `common`。** 这样「`oauth2` 与 `identity` 互不编译依赖」严格成立，产品层做唯一装配点。
@@ -157,11 +157,11 @@
 
 | 包 | 命名空间 | 目录 | 依赖 Drogon | 职责 |
 |----|---------|------|:-----------:|------|
-| Postgres 存储 | `authforge::storage::postgres` | `libs/storage-postgres` | 是 | 实现 oauth2/identity 的仓储接口；**ORM 模型（`Oauth2*`/`Users`/`Roles` 等）归此包**（`drogon::orm` 类型，不得进 Domain，见 §5.5/F2） |
-| Redis 存储 | `authforge::storage::redis` | `libs/storage-redis` | 是 | 缓存/临时数据仓储实现 |
-| 内存存储 | `authforge::storage::memory` | `libs/storage-memory` | 否* | 测试/无外部依赖部署 |
-| Prometheus 导出 | `authforge::observability::prometheus` | `libs/observability-prometheus` | 是 | 实现 `common::IMetrics`；**可选新增——当前 4 份 config 均用原生 `drogon::plugin::PromExporter`，无自研导出器，无「双轨」冲突；仅在需脱 Drogon metrics 时才做（评审 H7/B3，见 §15）** |
-| Drogon 绑定 | `authforge::drogon` | `libs/drogon` | 是 | Drogon 插件（DI 装配器）、controller、filter、view；**含 Drogon 自注册符号，消费者链接须 whole-archive，见 §5.5/F1** |
+| Postgres 存储 | `fulla::storage::postgres` | `libs/storage-postgres` | 是 | 实现 oauth2/identity 的仓储接口；**ORM 模型（`Oauth2*`/`Users`/`Roles` 等）归此包**（`drogon::orm` 类型，不得进 Domain，见 §5.5/F2） |
+| Redis 存储 | `fulla::storage::redis` | `libs/storage-redis` | 是 | 缓存/临时数据仓储实现 |
+| 内存存储 | `fulla::storage::memory` | `libs/storage-memory` | 否* | 测试/无外部依赖部署 |
+| Prometheus 导出 | `fulla::observability::prometheus` | `libs/observability-prometheus` | 是 | 实现 `common::IMetrics`；**可选新增——当前 4 份 config 均用原生 `drogon::plugin::PromExporter`，无自研导出器，无「双轨」冲突；仅在需脱 Drogon metrics 时才做（评审 H7/B3，见 §15）** |
+| Drogon 绑定 | `fulla::drogon` | `libs/drogon` | 是 | Drogon 插件（DI 装配器）、controller、filter、view；**含 Drogon 自注册符号，消费者链接须 whole-archive，见 §5.5/F1** |
 | 产品服务 | （app，无命名空间导出） | `apps/server` | 是 | main + bootstrap 装配 + Organization 管理 + 迁移 |
 
 > *内存存储可不直接依赖 Drogon，若需 Drogon 工具则归 Adapter 层。
@@ -229,7 +229,7 @@ Domain 去 Drogon 化的**主体工作不是 OpenSSL（仅 1 处），而是替�
 - **Domain 服务**：`XxxService`（`AuthorizationService`/`TokenService`/`ClientService`）。
 - **仓储接口**：`IXxxRepository`；**端口**：`IXxx`（`ISubjectResolver` 等）；**实现**按后端前缀：`Postgres|Redis|Memory + XxxRepository`。
 - **装配器**：`XxxPlugin` 仅保留「Drogon 装配器」语义（业务已下沉 Domain 服务），与业务服务名分离。
-- **文件名 = 主类名**；命名空间 `authforge::{common,oauth2,identity,storage,drogon}`。
+- **文件名 = 主类名**；命名空间 `fulla::{common,oauth2,identity,storage,drogon}`。
 
 **时机与安全**：
 - **rename-on-move**：类在 M2b/M3/M5 迁移时顺带用**语义化重命名**更名（一次移动+改名，成本最低）。
@@ -242,18 +242,18 @@ Domain 去 Drogon 化的**主体工作不是 OpenSSL（仅 1 处），而是替�
 
 ---
 
-## 6. 目录结构（重组后，目录名无 authforge- 前缀）
+## 6. 目录结构（重组后，目录名无 fulla- 前缀）
 
 ```
-authforge/                          # umbrella monorepo（repo 名不变）
+fulla/                          # umbrella monorepo（repo 名不变）
 ├── CMakeLists.txt                  # 顶层：聚合 + 版本(1.0.0) + 选项
 ├── CMakePresets.json               # 入库（取代 build/ 内生成）
 ├── conanfile.py                    # 统一依赖：drogon 1.9.13 / openssl 3.5 / ...
 ├── cmake/                          # Version / Compatibility / Sanitizers / Packaging / ArchGuard
 │
 ├── libs/
-│   ├── common/                     # authforge::common  [禁 drogon, 允许 jsoncpp]
-│   │   ├── include/authforge/common/
+│   ├── common/                     # fulla::common  [禁 drogon, 允许 jsoncpp]
+│   │   ├── include/fulla/common/
 │   │   │   ├── result/             # Result<T,Error>
 │   │   │   ├── error/              # ErrorCatalog / ErrorEnvelope（框架无关）
 │   │   │   ├── model/              # 值对象: Subject, Scope, ClientId, TenantId, TokenValue...
@@ -262,8 +262,8 @@ authforge/                          # umbrella monorepo（repo 名不变）
 │   │   ├── src/
 │   │   └── test/                   # 纯单元（无 DB/无 drogon）
 │   │
-│   ├── oauth2/                     # authforge::oauth2  [禁 drogon]
-│   │   ├── include/authforge/oauth2/
+│   ├── oauth2/                     # fulla::oauth2  [禁 drogon]
+│   │   ├── include/fulla/oauth2/
 │   │   │   ├── protocol/           # AuthorizationService, TokenService（纯逻辑）
 │   │   │   ├── client/             # ClientService
 │   │   │   ├── access/             # consent + scope 分层策略 + 决策引擎
@@ -273,8 +273,8 @@ authforge/                          # umbrella monorepo（repo 名不变）
 │   │   ├── src/
 │   │   └── test/
 │   │
-│   ├── identity/                   # authforge::identity  [禁 drogon]
-│   │   ├── include/authforge/identity/
+│   ├── identity/                   # fulla::identity  [禁 drogon]
+│   │   ├── include/fulla/identity/
 │   │   │   ├── user/  credentials/ # 用户 + 密码（PasswordHasher 经端口）
 │   │   │   ├── mfa/  webauthn/     # TOTP、FIDO2
 │   │   │   ├── social/  session/   # Google/WeChat、会话
@@ -283,12 +283,12 @@ authforge/                          # umbrella monorepo（repo 名不变）
 │   │   ├── src/
 │   │   └── test/
 │   │
-│   ├── storage-postgres/           # authforge::storage::postgres  [drogon ORM]（含 models/ ORM 模型 + 仓储实现 + DTO 映射）
+│   ├── storage-postgres/           # fulla::storage::postgres  [drogon ORM]（含 models/ ORM 模型 + 仓储实现 + DTO 映射）
 │   ├── storage-redis/
 │   ├── storage-memory/
 │   ├── observability-prometheus/
-│   └── drogon/                     # authforge::drogon  [drogon 绑定]
-│       └── include/authforge/drogon/  # 插件(装配器)/controllers/filters/views
+│   └── drogon/                     # fulla::drogon  [drogon 绑定]
+│       └── include/fulla/drogon/  # 插件(装配器)/controllers/filters/views
 │
 ├── apps/
 │   └── server/                     # 产品可执行（原 OAuth2Server 瘦身版）
@@ -316,7 +316,7 @@ authforge/                          # umbrella monorepo（repo 名不变）
 └── docs/
 ```
 
-命名空间同步：`oauth2::` → `authforge::oauth2::`；`common::error`/`common::config` → `authforge::common::`。
+命名空间同步：`oauth2::` → `fulla::oauth2::`；`common::error`/`common::config` → `fulla::common::`。
 
 ---
 
@@ -500,7 +500,7 @@ Memory / Redis / Postgres 三实现对同一契约测试套件行为一致（M1 
 
 - 保留现有错误标准化属性测试（Property 1~14）、`TestTransaction` RAII 回滚、ASan/TSan 单目标插桩（改为按库粒度可选）。
 - 保留前端 fast-check 属性测试（errorAdapter 跨应用一致性）。
-- **新增 SDK 冒烟**：`examples/third-party-host` 作为 CI job，`find_package(authforge-oauth2)` 后跑一个授权码流——「库能被外部消费」的唯一可信证明。
+- **新增 SDK 冒烟**：`examples/third-party-host` 作为 CI job，`find_package(fulla-oauth2)` 后跑一个授权码流——「库能被外部消费」的唯一可信证明。
 
 ---
 
@@ -525,7 +525,7 @@ Memory / Redis / Postgres 三实现对同一契约测试套件行为一致（M1 
 2. **主门**：三平台矩阵 build + 契约/集成/E2E。
 3. **发布门**：错误标准化属性测试全绿（沿用 Req 12.7）、SDK 冒烟通过、OpenAPI 校验、性能基线不回退。
 
-发布产物：多架构镜像（amd64+arm64，buildx）、SDK（库 + 头 + `authforge-*Config.cmake`）、Helm chart + 生产 Compose、语义化版本 + 自动 CHANGELOG、SBOM + 镜像签名。
+发布产物：多架构镜像（amd64+arm64，buildx）、SDK（库 + 头 + `fulla-*Config.cmake`）、Helm chart + 生产 Compose、语义化版本 + 自动 CHANGELOG、SBOM + 镜像签名。
 
 改进：恢复被禁用的 Drogon/Conan 缓存（lockfile 保证正确性），Linux 改用 Conan drogon 包，显著缩短 CI。
 
@@ -565,9 +565,9 @@ Memory / Redis / Postgres 三实现对同一契约测试套件行为一致（M1 
 ## 13. 版本与发布契约
 
 - 统一语义化版本，**重置为 v1.0.0**（新 SDK 正式起点）。单仓库统一版本：三包共享仓库版本，未来需要再拆独立版本线。
-- SDK API 稳定策略：公共头 `include/authforge/**` 遵循 SemVer，破坏性变更 → major。由 api-diff 工具强制。
+- SDK API 稳定策略：公共头 `include/fulla/**` 遵循 SemVer，破坏性变更 → major。由 api-diff 工具强制。
 - 弃用策略：`[[deprecated]]` + 至少一个 minor 周期过渡。
-- Conan：**先提供 `find_package` 源码集成**，每包导出独立 `authforge-*Config.cmake`；后续发布到 Conan Center / 私有 registry。
+- Conan：**先提供 `find_package` 源码集成**，每包导出独立 `fulla-*Config.cmake`；后续发布到 Conan Center / 私有 registry。
 
 ---
 
@@ -615,7 +615,7 @@ Memory / Redis / Postgres 三实现对同一契约测试套件行为一致（M1 
 2. ~~Conan `drogon_ctl` 实测结果 → 决定 ORM 生成流程。~~ **已实测，见 §15.1（Task 2 结论）。**
 3. OpenSSL 3.5 LTS 具体补丁版本（落地时取当时受支持的 LTS）。
 4. 插件注册迁移方案 A/B 抉择（§5.7）——决定 config 4 份是否零改动。
-5. `OpenApiGenerator`（385 行）**已核实不使用 Drogon 路由自省**（手动 `addEndpoint(EndpointInfo)` + 输出 `Json::Value`）。**落点修正（Task 25 B1 执行时定）**：原判定「归 `apps/server`」是在 Task 20 把 16 个 controller 迁入 `libs/drogon` **之前**做出的；实际全部 controller 的静态初始化 `XxxControllerDocs` 直接调 `addEndpoint`，真实调用方在 `libs/drogon`，放进 `apps/server`（依赖图顶端）会让 `libs/drogon` 反向依赖 app 形成环依赖。故实际落点为 **`libs/drogon`（`authforge::drogon::observability::openapi`）**——与调用方同库，`apps/server` 的 `OpenApiSetup` 仍拥有「配置 server URL + 写盘」编排，端点注册表随调用方留库，达成「迁出 `OAuth2Plugin` 伪领域层」实质目标（评审 L1/B1 关闭）。
+5. `OpenApiGenerator`（385 行）**已核实不使用 Drogon 路由自省**（手动 `addEndpoint(EndpointInfo)` + 输出 `Json::Value`）。**落点修正（Task 25 B1 执行时定）**：原判定「归 `apps/server`」是在 Task 20 把 16 个 controller 迁入 `libs/drogon` **之前**做出的；实际全部 controller 的静态初始化 `XxxControllerDocs` 直接调 `addEndpoint`，真实调用方在 `libs/drogon`，放进 `apps/server`（依赖图顶端）会让 `libs/drogon` 反向依赖 app 形成环依赖。故实际落点为 **`libs/drogon`（`fulla::drogon::observability::openapi`）**——与调用方同库，`apps/server` 的 `OpenApiSetup` 仍拥有「配置 server URL + 写盘」编排，端点注册表随调用方留库，达成「迁出 `OAuth2Plugin` 伪领域层」实质目标（评审 L1/B1 关闭）。
 6. `observability-prometheus`（评审 H7/B3 更正）：**当前无自研导出器，4 份 config 均用原生 `drogon::plugin::PromExporter`，不存在「双轨」冲突**。该包为**可选新增**，仅当需脱 Drogon 的 metrics 时才做，否则保留原生插件——降级为延后项。
 
 ### 15.1 Conan drogon 包 `drogon_ctl` 可用性实测结论（Task 2，本任务新增）
@@ -626,15 +626,15 @@ Memory / Redis / Postgres 三实现对同一契约测试套件行为一致（M1 
 
 1. 用 Task 1 的 `conanfile.py`（`drogon/*:with_ctl=True`）执行 `conan install`，drogon 从源码构建（Conan Center 无预编译二进制，`build_type=Release`/MSVC 194/`compiler.cppstd=17`），产出 `drogon_ctl.exe` 于 Conan 包目录的 `bin/` 下。
 2. 直接调用该二进制的 `drogon_ctl version`，确认版本 1.9.13、`postgresql: yes`、`ssl/tls backend: OpenSSL`，功能齐全。
-3. 确认本机 PostgreSQL 服务已在运行（`pg_isready` 通过）且 `oauth2_db` 数据库中 21 张表存在，含项目现有 ORM 生成流程依赖的全部 14 张表。
-4. 复用项目现有 ORM 配置 `OAuth2Plugin/src/models/model.json`（即 `.claude/skills/orm-gen/SKILL.md`、`.agent/workflows/orm-gen.md`、`scripts/backend/generate_models.bat` 三处一致引用的真实配置源，含 `user=oauth2_user` 凭据与 14 表 + 关系定义），在隔离的临时目录中执行 `drogon_ctl create model . -o <output>`，等价于现有脚本调用的命令形态。
+3. 确认本机 PostgreSQL 服务已在运行（`pg_isready` 通过）且 `fulla_db` 数据库中 21 张表存在，含项目现有 ORM 生成流程依赖的全部 14 张表。
+4. 复用项目现有 ORM 配置 `OAuth2Plugin/src/models/model.json`（即 `.claude/skills/orm-gen/SKILL.md`、`.agent/workflows/orm-gen.md`、`scripts/backend/generate_models.bat` 三处一致引用的真实配置源，含 `user=fulla_user` 凭据与 14 表 + 关系定义），在隔离的临时目录中执行 `drogon_ctl create model . -o <output>`，等价于现有脚本调用的命令形态。
 5. 生成成功：14 张表 × (`.h` + `.cc`) = 28 个模型文件全部生成，连接数据库、外键自动探测（如 `user_roles.user_id -> users.id`）均正常工作。
 6. 逐文件比对生成产物与仓库中已入库的模型文件（`OAuth2Plugin/include/oauth2/models/*.h` + `OAuth2Plugin/src/models/*.cc`）：抽样比对的文件（`Oauth2Clients.h/.cc`、`Users.h`、`Oauth2UserConsents.h`）**逐字节一致（`Compare-Object` 无差异输出）**，证明 Conan 构建出的 `drogon_ctl` 与当前项目模型的生成来源一致、行为无漂移。
 7. 全部临时文件（探测目录、生成产物、conan 探测生成的 CMake 辅助文件）已清理，未污染工作区；`git status` 确认除 Task 1 遗留的未跟踪 `conan.lock`/`conanfile.py` 外无新增文件。
 
 **验证到什么程度**：
 - 二进制定位与调用：**通过**（从 Conan 包缓存路径直接调用 `.exe`，未依赖系统 PATH；后续落地时项目脚本需决定是把该 `bin/` 目录纳入 PATH，还是让 `generate_models.bat`/`generate_models.sh` 显式探测 Conan 包路径调用——本任务只验证二进制本身可用，未改造脚本，脚本改造留给 Task 18/M2b 或后续路径同步任务）。
-- 数据库连接与真实表结构：**通过**，非模拟。本机有实际运行的 PostgreSQL 实例和已初始化的 `oauth2_db`，全程用真实凭据连接、真实建表结构生成模型，未伪造结果。
+- 数据库连接与真实表结构：**通过**，非模拟。本机有实际运行的 PostgreSQL 实例和已初始化的 `fulla_db`，全程用真实凭据连接、真实建表结构生成模型，未伪造结果。
 - 生成结果与现有模型一致性：**通过**，抽样文件逐字节相同。
 
 **决策**：ORM 生成流程不需要单独安装 `drogon_ctl` 的兜底方案（Windows）；`with_ctl=True` 保留在 `conanfile.py` 即可满足 M0 Task 2 的验收要求。Task 9/18（ORM 模型迁 `storage-postgres`）可按原计划推进，不必改变生成器来源。

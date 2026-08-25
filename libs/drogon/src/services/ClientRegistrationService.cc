@@ -1,17 +1,17 @@
-#include <authforge/drogon/services/ClientRegistrationService.h>
+#include <fulla/drogon/services/ClientRegistrationService.h>
 
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/storage/postgres/models/Oauth2Clients.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/validation/RuleSet.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/storage/postgres/models/Oauth2Clients.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/validation/RuleSet.h>
 
 #include <drogon/drogon.h>
 
 #include <chrono>
 
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 
 namespace
@@ -23,7 +23,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -33,7 +33,7 @@ void respondError(
 }  // namespace
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 void ClientRegistrationService::registerClient(
   const ::drogon::HttpRequestPtr &req,
@@ -148,7 +148,7 @@ void ClientRegistrationService::registerClient(
     for (Json::ArrayIndex i = 0; i < redirectUrisArray.size(); ++i)
     {
         std::string uri = redirectUrisArray[i].asString();
-        auto uriError = ::authforge::drogon::validation::RuleSet::validateRedirectUri(uri);
+        auto uriError = ::fulla::drogon::validation::RuleSet::validateRedirectUri(uri);
         if (uriError)
         {
             respondError(
@@ -196,14 +196,14 @@ void ClientRegistrationService::registerClient(
     }
 
     std::string clientId = ::drogon::utils::getUuid();
-    std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string clientSecret = ::fulla::drogon::utils::generateSecureToken();
     // F-002: salt FIRST, then salted hash. The validation paths
     // (Postgres/RedisClientRepository::validateClient) compute
     // sha256(secret + salt), so storing an unsalted hash made every
     // registered client permanently unable to authenticate.
     std::string salt = ::drogon::utils::getUuid().substr(0, 36);
     std::string secretHash =
-      ::authforge::drogon::utils::hashClientSecretWithSalt(clientSecret, salt);
+      ::fulla::drogon::utils::hashClientSecretWithSalt(clientSecret, salt);
 
     auto now = std::chrono::system_clock::now();
     auto issuedAt =
@@ -250,7 +250,7 @@ void ClientRegistrationService::registerClient(
               auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
               resp->setStatusCode(::drogon::k201Created);
 
-              ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+              ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                 ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                 "client_registered",
                 "success",
@@ -263,7 +263,7 @@ void ClientRegistrationService::registerClient(
               (*sharedCb)(resp);
           },
           [sharedCb, req](const DrogonDbException &e) {
-              ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+              ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                 ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                 "client_registered",
                 "failure",
@@ -290,4 +290,4 @@ void ClientRegistrationService::registerClient(
     }
 }
 
-}  // namespace authforge::drogon::services
+}  // namespace fulla::drogon::services

@@ -1,16 +1,16 @@
 // tests/contract/ConsentRepositoryContractTest.cc
 //
-// Spec: authforge-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
+// Spec: fulla-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
 //
 // Functional contract tests for IConsentRepository across all three
 // backends (Postgres/Redis/Memory): save -> hasUserConsent -> revoke ->
 // hasUserConsent round trip, using UserRef (F4, design.md §7.2) instead of a
 // bare internalUserId.
 //
-// Fixture note (Postgres only): oauth2_user_consents.internal_user_id is a
+// Fixture note (Postgres only): fulla_user_consents.internal_user_id is a
 // real FK into users(id) (see OAuth2Server/sql/migrations/V006__oauth2_scopes.sql),
 // so this test inserts and cleans up a throwaway `users` row per test run
-// (ON DELETE CASCADE on oauth2_user_consents means deleting the user also
+// (ON DELETE CASCADE on fulla_user_consents means deleting the user also
 // removes any consent rows this test created, but the test deletes them
 // explicitly first for clarity and to avoid relying on cascade ordering).
 // Redis/Memory have no such FK constraint -- UserRef::internalUserId is
@@ -20,19 +20,19 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 
-#include <authforge/storage/postgres/PostgresConsentRepository.h>
-#include <authforge/storage/redis/RedisConsentRepository.h>
-#include <authforge/storage/memory/MemoryConsentRepository.h>
-#include <authforge/oauth2/model/UserRef.h>
+#include <fulla/storage/postgres/PostgresConsentRepository.h>
+#include <fulla/storage/redis/RedisConsentRepository.h>
+#include <fulla/storage/memory/MemoryConsentRepository.h>
+#include <fulla/oauth2/model/UserRef.h>
 
 #include "ContractFixtures.h"
 
 #include <string>
 
-using namespace authforge::oauth2::repository;
-using namespace authforge::oauth2::model;
-using namespace authforge::test::contract;
-using namespace authforge::storage::postgres;
+using namespace fulla::oauth2::repository;
+using namespace fulla::oauth2::model;
+using namespace fulla::test::contract;
+using namespace fulla::storage::postgres;
 
 namespace
 {
@@ -87,7 +87,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
     if (!db)
         return;
 
-    // Fixture: throwaway users row (FK target for oauth2_user_consents).
+    // Fixture: throwaway users row (FK target for fulla_user_consents).
     const std::string username = "contract_consent_" + uniqueSuffix();
     int32_t internalUserId = waitForValue<int32_t>([&](auto cb) {
         db->execSqlAsync(
@@ -115,7 +115,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Postgres_SaveHa
     // FK would also remove them), then the throwaway user itself.
     waitForVoid([&](auto cb) {
         db->execSqlAsync(
-          "DELETE FROM oauth2_user_consents WHERE internal_user_id = $1",
+          "DELETE FROM fulla_user_consents WHERE internal_user_id = $1",
           [cb](const ::drogon::orm::Result &) { cb(); },
           [cb](const ::drogon::orm::DrogonDbException &) { cb(); },
           internalUserId
@@ -144,7 +144,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Redis_SaveHasRe
     UserRef user;
     user.internalUserId = 900001;  // opaque; no FK on this backend
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisConsentRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisConsentRepository>("default");
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "vue-client", "contract-scope-" + uniqueSuffix()
     );
@@ -159,7 +159,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_SaveHasR
     UserRef user;
     user.internalUserId = 900002;  // opaque; no FK on this backend
 
-    auto repo = std::make_shared<authforge::storage::memory::MemoryConsentRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryConsentRepository>();
     runConsentRepository_SaveHasRevokeRoundTripContract(
       TEST_CTX, repo, user, "mem-client", "contract-scope-" + uniqueSuffix()
     );
@@ -176,7 +176,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_RevokeNo
 {
     UserRef user;
     user.internalUserId = 900010;
-    auto repo = std::make_shared<authforge::storage::memory::MemoryConsentRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryConsentRepository>();
 
     const std::string scope = "revokescope-" + uniqueSuffix();
     // Revoke a consent that was never saved -> must not throw and the
@@ -195,7 +195,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_ConsentRepository_Memory_PerScope
 {
     UserRef user;
     user.internalUserId = 900011;
-    auto repo = std::make_shared<authforge::storage::memory::MemoryConsentRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryConsentRepository>();
     const std::string scopeA = "scope-a-" + uniqueSuffix();
     const std::string scopeB = "scope-b-" + uniqueSuffix();
 

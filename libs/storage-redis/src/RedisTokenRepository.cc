@@ -1,17 +1,17 @@
-#include <authforge/storage/redis/RedisTokenRepository.h>
+#include <fulla/storage/redis/RedisTokenRepository.h>
 #include <json/json.h>
 #include <sstream>
 #include <ctime>
 #include <chrono>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
 // .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2AccessToken = ::authforge::oauth2::model::OAuth2AccessToken;
-using OAuth2RefreshToken = ::authforge::oauth2::model::OAuth2RefreshToken;
-using TokenIntrospection = ::authforge::oauth2::model::TokenIntrospection;
+using OAuth2AccessToken = ::fulla::oauth2::model::OAuth2AccessToken;
+using OAuth2RefreshToken = ::fulla::oauth2::model::OAuth2RefreshToken;
+using TokenIntrospection = ::fulla::oauth2::model::TokenIntrospection;
 using VoidCallback = ITokenRepositoryBase::VoidCallback;
 using AccessTokenCallback = ITokenRepositoryBase::AccessTokenCallback;
 using RefreshTokenCallback = ITokenRepositoryBase::RefreshTokenCallback;
@@ -425,4 +425,4 @@ void RedisTokenRepository::purgeExpired()
     LOG_DEBUG << "RedisTokenRepository::purgeExpired called (No-op, relying on Redis TTL)";
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

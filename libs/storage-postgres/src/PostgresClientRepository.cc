@@ -1,30 +1,30 @@
-#include <authforge/storage/postgres/PostgresClientRepository.h>
-#include <authforge/common/utils/ConstantTimeCompare.h>
+#include <fulla/storage/postgres/PostgresClientRepository.h>
+#include <fulla/common/utils/ConstantTimeCompare.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 
-#include <authforge/storage/postgres/models/Oauth2Clients.h>
-#include <authforge/storage/postgres/models/Oauth2Scopes.h>
-#include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
+#include <fulla/storage/postgres/models/Oauth2Clients.h>
+#include <fulla/storage/postgres/models/Oauth2Scopes.h>
+#include <fulla/storage/postgres/models/Oauth2ClientScopes.h>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 // F-004: constant-time comparison now comes from the shared
-// authforge::common::utils::constantTimeMemcmp (previously a verbatim
+// fulla::common::utils::constantTimeMemcmp (previously a verbatim
 // anonymous-namespace copy lived here and in Memory/Redis backends).
-using ::authforge::common::utils::constantTimeMemcmp;
+using ::fulla::common::utils::constantTimeMemcmp;
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
 // .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
-using ClientType = ::authforge::oauth2::model::ClientType;
-using ::authforge::oauth2::model::stringToClientType;
+using OAuth2Client = ::fulla::oauth2::model::OAuth2Client;
+using ClientType = ::fulla::oauth2::model::ClientType;
+using ::fulla::oauth2::model::stringToClientType;
 using ClientCallback = IClientRepositoryBase::ClientCallback;
 using BoolCallback = IClientRepositoryBase::BoolCallback;
 
 using namespace ::drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 void PostgresClientRepository::getClient(const std::string &clientId, ClientCallback &&cb)
 {
@@ -263,4 +263,4 @@ void PostgresClientRepository::validateClient(
     }
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

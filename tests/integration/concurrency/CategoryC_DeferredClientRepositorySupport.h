@@ -1,6 +1,6 @@
 // tests/integration/concurrency/CategoryC_DeferredClientRepositorySupport.h
 //
-// Spec: authforge-sdk-refactor — Task 11 (CachedClientRepository re-arch).
+// Spec: fulla-sdk-refactor — Task 11 (CachedClientRepository re-arch).
 // New test double for the per-repository cache decorator introduced by
 // Task 11. `DeferringStorage` in CategoryC_DeferredStorageSupport.h (kept
 // UNCHANGED per Task 11's instructions) implements the full IOAuth2Storage
@@ -14,8 +14,8 @@
 // (CategoryC_CachedClientRepositoryUafTest.cc) can model the same
 // Postgres/Redis-style async deferral without a real DB.
 //
-// Phase 4.4 (authforge-sdk-refactor): CachedClientRepository now implements
-// the NEW Domain interface (authforge::oauth2::repository::IClientRepository),
+// Phase 4.4 (fulla-sdk-refactor): CachedClientRepository now implements
+// the NEW Domain interface (fulla::oauth2::repository::IClientRepository),
 // so DeferringClientRepository implements the new interface too (was the
 // legacy oauth2::IClientRepository). It builds the new-model OAuth2Client
 // locally via makeLiveClientModel below -- the shared
@@ -34,22 +34,22 @@
 #include <string>
 #include <utility>
 
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/model/Client.h>
-#include <authforge/oauth2/model/ClientType.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/model/Client.h>
+#include <fulla/oauth2/model/ClientType.h>
 
 #include "ConcurrencyRaceSupport.h"  // PendingCallbacks
 
-namespace authforge::test::concurrency
+namespace fulla::test::concurrency
 {
 // Build a live new-model OAuth2Client (drives the production
 // CachedClientRepository::getClient continuation into its "cache fill" branch,
 // which touches clientCache_ through the captured `this`).
-inline ::authforge::oauth2::model::OAuth2Client makeLiveClientModel(const std::string &clientId)
+inline ::fulla::oauth2::model::OAuth2Client makeLiveClientModel(const std::string &clientId)
 {
-    ::authforge::oauth2::model::OAuth2Client c;
+    ::fulla::oauth2::model::OAuth2Client c;
     c.clientId = clientId;
-    c.clientType = ::authforge::oauth2::model::ClientType::CONFIDENTIAL;
+    c.clientType = ::fulla::oauth2::model::ClientType::CONFIDENTIAL;
     c.clientSecretHash = "hash";
     c.salt = "salt";
     c.redirectUris = {"https://example.test/cb"};
@@ -60,7 +60,7 @@ inline ::authforge::oauth2::model::OAuth2Client makeLiveClientModel(const std::s
 // DeferringClientRepository -- the NEW IClientRepository whose callbacks are
 // deferred (queued), modelling Drogon's DbClient/RedisClient async dispatch,
 // analogous to DeferringStorage but scoped to only the client aggregate.
-class DeferringClientRepository : public ::authforge::oauth2::repository::IClientRepository
+class DeferringClientRepository : public ::fulla::oauth2::repository::IClientRepository
 {
   public:
     explicit DeferringClientRepository(std::shared_ptr<PendingCallbacks> pending)
@@ -70,7 +70,7 @@ class DeferringClientRepository : public ::authforge::oauth2::repository::IClien
 
     void getClient(
       const std::string &clientId,
-      ::authforge::oauth2::repository::IClientRepository::ClientCallback &&cb
+      ::fulla::oauth2::repository::IClientRepository::ClientCallback &&cb
     ) override
     {
         // A live client value -> drives the production
@@ -79,14 +79,14 @@ class DeferringClientRepository : public ::authforge::oauth2::repository::IClien
         // `this`.
         auto client = makeLiveClientModel(clientId);
         pending_->enqueue([cb = std::move(cb), client]() {
-            cb(std::optional<::authforge::oauth2::model::OAuth2Client>(client));
+            cb(std::optional<::fulla::oauth2::model::OAuth2Client>(client));
         });
     }
 
     void validateClient(
       const std::string & /*clientId*/,
       const std::string & /*clientSecret*/,
-      ::authforge::oauth2::repository::IClientRepository::BoolCallback &&cb
+      ::fulla::oauth2::repository::IClientRepository::BoolCallback &&cb
     ) override
     {
         pending_->enqueue([cb = std::move(cb)]() { cb(true); });
@@ -95,4 +95,4 @@ class DeferringClientRepository : public ::authforge::oauth2::repository::IClien
   private:
     std::shared_ptr<PendingCallbacks> pending_;
 };
-}  // namespace authforge::test::concurrency
+}  // namespace fulla::test::concurrency

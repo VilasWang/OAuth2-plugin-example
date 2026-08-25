@@ -42,10 +42,10 @@ function New-PkcePair {
 
 function Get-PostgresContainer {
     # Try to find THIS project's postgres container (deploy/docker/docker-
-    # compose.yml names the service "oauth2-postgres"). Matching only
+    # compose.yml names the service "fulla-postgres"). Matching only
     # "postgres" grabbed ANY postgres container on the machine — e.g. an
     # unrelated "ory-bench-postgres" — and docker-exec'd the admin reset
-    # into the WRONG database ("role oauth2_user does not exist"), silently
+    # into the WRONG database ("role fulla_user does not exist"), silently
     # breaking every downstream admin test. No match -> fall back to the
     # local-psql branch.
     try {
@@ -73,8 +73,8 @@ function Invoke-PsqlQuery {
 
 function Reset-AdminAccount {
     param(
-        [string]$DbUser = "oauth2_user",
-        [string]$DbName = "oauth2_db",
+        [string]$DbUser = "fulla_user",
+        [string]$DbName = "fulla_db",
         [string]$DbPassword = "123456",
         [string]$DbHost = "localhost",
         [switch]$Silent
@@ -190,8 +190,8 @@ function Get-AdminToken {
 
 function Reset-AdminLockout {
     param(
-        [string]$DbUser = "oauth2_user",
-        [string]$DbName = "oauth2_db",
+        [string]$DbUser = "fulla_user",
+        [string]$DbName = "fulla_db",
         [string]$DbPassword = "123456",
         [string]$DbHost = "localhost",
         [switch]$Silent

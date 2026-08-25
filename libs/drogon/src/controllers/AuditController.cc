@@ -1,21 +1,21 @@
-#include <authforge/drogon/controllers/AuditController.h>
-#include <authforge/drogon/admin/AuditService.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/controllers/AuditController.h>
+#include <fulla/drogon/admin/AuditService.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 
 #include <memory>
 
-// M5 Task 29b batch 6 (authforge-sdk-refactor): inline raw-SQL DB access from
+// M5 Task 29b batch 6 (fulla-sdk-refactor): inline raw-SQL DB access from
 // the Task 29a verbatim move is now delegated to AuditService (Mapper + Criteria,
 // per .claude/rules/db-operations.md). The 5-subquery compound dashboard query
 // is split into 5 sequential Mapper::count() calls. Controller is now a thin
 // HTTP adapter. The audit_logs ORM model was added in this batch (regenerated).
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
 {
-namespace openapi = ::authforge::drogon::observability::openapi;
+namespace openapi = ::fulla::drogon::observability::openapi;
 
 // #43 resource-scope authorization: declare one EndpointInfo with its
 // requiredScopes + impliedBy. All audit/dashboard routes are admin-gated; the
@@ -63,7 +63,7 @@ void AuditController::initApiDocsImpl()
               {"Admin", "Dashboard"}, {"audit:read"}));
 }
 
-using AuditSvc = ::authforge::drogon::admin::AuditService;
+using AuditSvc = ::fulla::drogon::admin::AuditService;
 
 void AuditController::listLogs(
   const ::drogon::HttpRequestPtr &req,
@@ -96,4 +96,4 @@ void AuditController::dashboard(
     AuditSvc::dashboard(sharedCb);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

@@ -5,7 +5,7 @@ name: Release
 #   version-check   tag == cmake/Version.cmake (+ api-diff three-source check
 #                   and frozen API surface)
 #   sdk-package     Linux x86_64 SDK tarball: 8 static libs + headers +
-#                   lib/cmake/authforge-*/{Config,ConfigVersion,Targets}.cmake
+#                   lib/cmake/fulla-*/{Config,ConfigVersion,Targets}.cmake
 #                   via `cmake --install`; validated by configuring + building
 #                   examples/full-stack-host against the INSTALLED prefix
 #   images          backend / frontend / admin images, amd64 + arm64, each on
@@ -43,7 +43,7 @@ concurrency:
 
 env:
   # GHCR namespace; repository_owner is already lowercase (GHCR requirement).
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/authforge
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/fulla
 
 jobs:
   version-check:
@@ -58,9 +58,9 @@ jobs:
       - name: Read version from cmake/Version.cmake
         id: ver
         run: |
-          major=$(grep -oP 'OAUTH2_PROJECT_VERSION_MAJOR \K\d+' cmake/Version.cmake)
-          minor=$(grep -oP 'OAUTH2_PROJECT_VERSION_MINOR \K\d+' cmake/Version.cmake)
-          patch=$(grep -oP 'OAUTH2_PROJECT_VERSION_PATCH \K\d+' cmake/Version.cmake)
+          major=$(grep -oP 'FULLA_PROJECT_VERSION_MAJOR \K\d+' cmake/Version.cmake)
+          minor=$(grep -oP 'FULLA_PROJECT_VERSION_MINOR \K\d+' cmake/Version.cmake)
+          patch=$(grep -oP 'FULLA_PROJECT_VERSION_PATCH \K\d+' cmake/Version.cmake)
           echo "version=${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
 
       - name: Tag must match the repo version
@@ -144,14 +144,14 @@ jobs:
           cmake --build --preset linux-release
 
       - name: Install SDK to staging prefix
-        # Install rules live in the libs/ layer only (authforge_package()):
+        # Install rules live in the libs/ layer only (fulla_package()):
         # 8 static libs + headers + lib/cmake configs. The server binary is
         # deliberately NOT installed -- it ships via the images below.
         run: |
-          cmake --install "$PRESET_DIR" --prefix "stage/authforge-sdk-${VERSION}-linux-x86_64"
+          cmake --install "$PRESET_DIR" --prefix "stage/fulla-sdk-${VERSION}-linux-x86_64"
 
       - name: Consumption smoke against the INSTALLED prefix
-        # examples/full-stack-host is a standalone find_package(authforge-drogon)
+        # examples/full-stack-host is a standalone find_package(fulla-drogon)
         # consumer; CI's SdkSmoke gate exercises it against the build tree --
         # here we point it at the install tree, proving the tarball content is
         # consumable exactly as docs/backend/sdk-integration-guide.md describes.
@@ -159,22 +159,22 @@ jobs:
           cmake -S examples/full-stack-host -B build/sdk-install-smoke \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/$PRESET_DIR/conan_toolchain.cmake" \
-            -DCMAKE_PREFIX_PATH="$PWD/stage/authforge-sdk-${VERSION}-linux-x86_64"
+            -DCMAKE_PREFIX_PATH="$PWD/stage/fulla-sdk-${VERSION}-linux-x86_64"
           cmake --build build/sdk-install-smoke -j"$(nproc)"
 
       - name: Create tarball
         run: |
-          tar -C stage -czf "authforge-sdk-${VERSION}-linux-x86_64.tar.gz" \
-            "authforge-sdk-${VERSION}-linux-x86_64"
-          sha256sum "authforge-sdk-${VERSION}-linux-x86_64.tar.gz" \
-            > "authforge-sdk-${VERSION}-linux-x86_64.tar.gz.sha256"
+          tar -C stage -czf "fulla-sdk-${VERSION}-linux-x86_64.tar.gz" \
+            "fulla-sdk-${VERSION}-linux-x86_64"
+          sha256sum "fulla-sdk-${VERSION}-linux-x86_64.tar.gz" \
+            > "fulla-sdk-${VERSION}-linux-x86_64.tar.gz.sha256"
 
       - uses: actions/upload-artifact@v4
         with:
           name: sdk-linux-x86_64
           path: |
-            authforge-sdk-*.tar.gz
-            authforge-sdk-*.tar.gz.sha256
+            fulla-sdk-*.tar.gz
+            fulla-sdk-*.tar.gz.sha256
           if-no-files-found: error
 
   images:
@@ -209,7 +209,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build backend image
-        # Same context/target as deploy/docker/docker-compose.yml oauth2-backend.
+        # Same context/target as deploy/docker/docker-compose.yml fulla-backend.
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -266,7 +266,7 @@ jobs:
 
       - name: Sign multi-arch manifests (cosign keyless, OIDC)
         # Sign by digest, not tag -- tags are mutable. Verify with:
-        #   cosign verify ghcr.io/<owner>/authforge-backend:<version> \
+        #   cosign verify ghcr.io/<owner>/fulla-backend:<version> \
         #     --certificate-identity-regexp 'github.com/<owner>/.+/.github/workflows/release.yml' \
         #     --certificate-oidc-issuer https://token.actions.githubusercontent.com
         run: |
@@ -289,7 +289,7 @@ jobs:
           for image in backend frontend admin; do
             syft "registry:${IMAGE_PREFIX}-${image}:${VERSION}" \
               --platform linux/amd64 -o spdx-json \
-              > "authforge-${image}-${VERSION}.spdx.json"
+              > "fulla-${image}-${VERSION}.spdx.json"
           done
 
       - uses: actions/upload-artifact@v4
@@ -330,7 +330,7 @@ jobs:
         # plus the two frontend package-lock.json files.
         run: |
           syft "dir:." --exclude ./build --exclude ./stage -o spdx-json \
-            > "authforge-source-${VERSION}.spdx.json"
+            > "fulla-source-${VERSION}.spdx.json"
 
       - name: Generate release notes (git-cliff)
         uses: orhun/git-cliff-action@v4
@@ -358,18 +358,18 @@ jobs:
           as is the SDK tarball checksum:
 
           \`\`\`sh
-          sha256sum -c authforge-sdk-${VERSION}-linux-x86_64.tar.gz.sha256
+          sha256sum -c fulla-sdk-${VERSION}-linux-x86_64.tar.gz.sha256
           \`\`\`
           EOF
 
       - name: Create release with SDK artifacts + SBOMs
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            --title "AuthForge $GITHUB_REF_NAME" \
+            --title "Fulla $GITHUB_REF_NAME" \
             --notes-file RELEASE_NOTES.md \
-            "authforge-sdk-${VERSION}-linux-x86_64.tar.gz" \
-            "authforge-sdk-${VERSION}-linux-x86_64.tar.gz.sha256" \
-            authforge-*-"${VERSION}".spdx.json
+            "fulla-sdk-${VERSION}-linux-x86_64.tar.gz" \
+            "fulla-sdk-${VERSION}-linux-x86_64.tar.gz.sha256" \
+            fulla-*-"${VERSION}".spdx.json
 
       - name: Push nested Go module tag (clients/go/v<version>)
         # Go resolves subdirectory modules from nested tags
@@ -436,5 +436,5 @@ jobs:
         if: github.ref_type == 'tag' && env.PYPI_API_TOKEN == ''
         run: |
           echo "::notice::PyPI publish skipped: PYPI_API_TOKEN secret is not configured."
-          echo "One-time setup: register the authforge-oauth2 project on pypi.org, then"
+          echo "One-time setup: register the fulla-oauth2 project on pypi.org, then"
           echo "add its API token as the PYPI_API_TOKEN repository secret (repo Settings > Secrets)."

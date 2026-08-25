@@ -46,10 +46,10 @@ class TestReportGenerator:
         else:
             # 创建默认健康状态
             self.health_status = {
-                "oauth2-backend": {"status": "unknown", "uptime": "N/A"},
-                "oauth2-frontend": {"status": "unknown", "uptime": "N/A"},
-                "oauth2-postgres": {"status": "unknown", "uptime": "N/A"},
-                "oauth2-redis": {"status": "unknown", "uptime": "N/A"},
+                "fulla-backend": {"status": "unknown", "uptime": "N/A"},
+                "fulla-frontend": {"status": "unknown", "uptime": "N/A"},
+                "fulla-postgres": {"status": "unknown", "uptime": "N/A"},
+                "fulla-redis": {"status": "unknown", "uptime": "N/A"},
                 "prometheus": {"status": "unknown", "uptime": "N/A"}
             }
 

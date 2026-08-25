@@ -1,4 +1,4 @@
-#include <authforge/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/bn.h>
@@ -8,10 +8,10 @@
 #include <sstream>
 #include <cstring>
 
-namespace authforge::oauth2
+namespace fulla::oauth2
 {
 
-void JwkManager::log(authforge::common::ports::LogLevel level, const std::string &message) const
+void JwkManager::log(fulla::common::ports::LogLevel level, const std::string &message) const
 {
     if (logger_)
     {
@@ -33,14 +33,14 @@ bool JwkManager::init(const Json::Value &config)
     if (initialized_)
     {
         log(
-          authforge::common::ports::LogLevel::Error,
+          fulla::common::ports::LogLevel::Error,
           "JwkManager: init() called more than once; ignoring "
           "(init-once-then-read-only contract). The existing key is kept."
         );
         return true;
     }
 
-    const char *keyEnv = std::getenv("OAUTH2_SIGNING_KEY");
+    const char *keyEnv = std::getenv("FULLA_SIGNING_KEY");
     if (keyEnv && std::strlen(keyEnv) > 0)
     {
         if (loadFromPem(keyEnv))
@@ -48,14 +48,14 @@ bool JwkManager::init(const Json::Value &config)
             kid_ = config.get("kid", "key-1").asString();
             initialized_ = true;
             log(
-              authforge::common::ports::LogLevel::Info,
-              "JwkManager: Loaded signing key from OAUTH2_SIGNING_KEY env"
+              fulla::common::ports::LogLevel::Info,
+              "JwkManager: Loaded signing key from FULLA_SIGNING_KEY env"
             );
             return true;
         }
     }
 
-    const char *keyPathEnv = std::getenv("OAUTH2_JWT_KEY_PATH");
+    const char *keyPathEnv = std::getenv("FULLA_JWT_KEY_PATH");
     if (keyPathEnv && std::strlen(keyPathEnv) > 0)
     {
         std::ifstream file(keyPathEnv);
@@ -68,16 +68,16 @@ bool JwkManager::init(const Json::Value &config)
                 kid_ = config.get("kid", "key-1").asString();
                 initialized_ = true;
                 log(
-                  authforge::common::ports::LogLevel::Info,
-                  "JwkManager: Loaded signing key from OAUTH2_JWT_KEY_PATH=" +
+                  fulla::common::ports::LogLevel::Info,
+                  "JwkManager: Loaded signing key from FULLA_JWT_KEY_PATH=" +
                     std::string(keyPathEnv)
                 );
                 return true;
             }
         }
         log(
-          authforge::common::ports::LogLevel::Warn,
-          "JwkManager: Failed to load key from OAUTH2_JWT_KEY_PATH=" + std::string(keyPathEnv)
+          fulla::common::ports::LogLevel::Warn,
+          "JwkManager: Failed to load key from FULLA_JWT_KEY_PATH=" + std::string(keyPathEnv)
         );
     }
 
@@ -94,19 +94,19 @@ bool JwkManager::init(const Json::Value &config)
                 kid_ = config.get("kid", "key-1").asString();
                 initialized_ = true;
                 log(
-                  authforge::common::ports::LogLevel::Info,
+                  fulla::common::ports::LogLevel::Info,
                   "JwkManager: Loaded signing key from " + keyPath
                 );
                 return true;
             }
         }
         log(
-          authforge::common::ports::LogLevel::Warn, "JwkManager: Failed to load key from " + keyPath
+          fulla::common::ports::LogLevel::Warn, "JwkManager: Failed to load key from " + keyPath
         );
     }
 
     log(
-      authforge::common::ports::LogLevel::Warn,
+      fulla::common::ports::LogLevel::Warn,
       "JwkManager: No signing key configured, generating ephemeral key (DEV ONLY)"
     );
     if (generateEphemeralKey())
@@ -116,7 +116,7 @@ bool JwkManager::init(const Json::Value &config)
         return true;
     }
 
-    log(authforge::common::ports::LogLevel::Error, "JwkManager: Failed to initialize");
+    log(fulla::common::ports::LogLevel::Error, "JwkManager: Failed to initialize");
     return false;
 }
 
@@ -132,7 +132,7 @@ bool JwkManager::loadFromPem(const std::string &pemData)
     if (!pkey)
     {
         log(
-          authforge::common::ports::LogLevel::Error, "JwkManager: Failed to parse PEM private key"
+          fulla::common::ports::LogLevel::Error, "JwkManager: Failed to parse PEM private key"
         );
         return false;
     }
@@ -174,8 +174,8 @@ bool JwkManager::generateEphemeralKey()
 namespace
 {
 // See JwkManager.h's top comment: byte-for-byte identical algorithm to
-// authforge::drogon::adapters::OpenSslCryptoProvider::base64UrlEncode /
-// authforge::common::testing::FakeCryptoProvider::base64UrlEncode
+// fulla::drogon::adapters::OpenSslCryptoProvider::base64UrlEncode /
+// fulla::common::testing::FakeCryptoProvider::base64UrlEncode
 // (deliberately duplicated in each, for dependency-direction reasons).
 constexpr char kBase64UrlAlphabet[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -233,7 +233,7 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
     if (!initialized_ || !rsaKey_)
     {
         log(
-          authforge::common::ports::LogLevel::Error, "JwkManager: Cannot sign JWT - not initialized"
+          fulla::common::ports::LogLevel::Error, "JwkManager: Cannot sign JWT - not initialized"
         );
         return "";
     }
@@ -367,7 +367,7 @@ JwkManager::JwtVerificationResult JwkManager::verifyJwt(
     if (!initialized_ || !rsaKey_)
     {
         log(
-          authforge::common::ports::LogLevel::Error, "JwkManager::verifyJwt: not initialized"
+          fulla::common::ports::LogLevel::Error, "JwkManager::verifyJwt: not initialized"
         );
         return JwtVerificationResult::NotInitialized;
     }
@@ -514,4 +514,4 @@ Json::Value JwkManager::getJwks() const
     return jwks;
 }
 
-}  // namespace authforge::oauth2
+}  // namespace fulla::oauth2

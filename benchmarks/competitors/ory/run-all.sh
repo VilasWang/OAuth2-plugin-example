@@ -5,7 +5,7 @@ set -euo pipefail
 
 ORY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$ORY_DIR/../../.." && pwd)"
-RUNNER="$REPO_ROOT/benchmarks/authforge/run-scenario.sh"
+RUNNER="$REPO_ROOT/benchmarks/fulla/run-scenario.sh"
 RESULTS_DIR="$REPO_ROOT/benchmarks/competitors/results"
 mkdir -p "$RESULTS_DIR"
 

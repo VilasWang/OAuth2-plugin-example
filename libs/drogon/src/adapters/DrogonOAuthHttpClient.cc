@@ -1,9 +1,9 @@
-#include <authforge/drogon/adapters/DrogonOAuthHttpClient.h>
+#include <fulla/drogon/adapters/DrogonOAuthHttpClient.h>
 
 #include <drogon/HttpClient.h>
 #include <drogon/drogon.h>
 
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
 
 namespace
@@ -36,9 +36,9 @@ namespace
 // escaping there reaches the Drogon event loop and terminates the process.
 // Degrade to a transport-failure result instead -- callers treat it as a
 // failed delivery and audit it.
-::authforge::identity::OAuthHttpResult transportFailureResult()
+::fulla::identity::OAuthHttpResult transportFailureResult()
 {
-    ::authforge::identity::OAuthHttpResult out;
+    ::fulla::identity::OAuthHttpResult out;
     out.transportOk = false;
     return out;
 }
@@ -65,7 +65,7 @@ void DrogonOAuthHttpClient::postForm(
         client->sendRequest(
           req,
           [sharedCb, client](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
-              authforge::identity::OAuthHttpResult out;
+              fulla::identity::OAuthHttpResult out;
               out.transportOk = result == ::drogon::ReqResult::Ok && response != nullptr;
               if (response)
               {
@@ -110,7 +110,7 @@ void DrogonOAuthHttpClient::getWithBearerToken(
         client->sendRequest(
           req,
           [sharedCb, client](::drogon::ReqResult result, const ::drogon::HttpResponsePtr &response) {
-              authforge::identity::OAuthHttpResult out;
+              fulla::identity::OAuthHttpResult out;
               out.transportOk = result == ::drogon::ReqResult::Ok && response != nullptr;
               if (response)
               {
@@ -137,4 +137,4 @@ void DrogonOAuthHttpClient::getWithBearerToken(
     }
 }
 
-}  // namespace authforge::drogon::adapters
+}  // namespace fulla::drogon::adapters

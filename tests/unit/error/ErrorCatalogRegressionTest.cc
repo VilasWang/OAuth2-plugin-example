@@ -1,10 +1,10 @@
 #include <drogon/drogon_test.h>
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorCatalog.h>
 
 #include <string>
 #include <vector>
 
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 // Feature: error-code-message-standardization
 // Example/regression test (specific preserved values, not a randomized property

@@ -1,4 +1,4 @@
-# AuthForge 多语言客户端 SDK 生成方案设计
+# Fulla 多语言客户端 SDK 生成方案设计
 
 > **版本**: v1.2（M1/M2 立项修订：补充 §十一 生成器实测、PyPI 命名、布局与 CI 落点）
 > **日期**: 2026-08-05（v1.0）/ 2026-08-16（v1.1 M0 修订）/ 2026-08-18（v1.2 M1/M2 修订）
@@ -16,7 +16,7 @@
 - **Layer 1 — Spec 单一源治理**：删 3 个月前的死孤儿 `docs/backend/api/openapi.json`；定 `apps/server/openapi.yaml` 为唯一权威（已是 CI lint + 端点签名门的输入）；**⚠️ 补齐 YAML 的 requestBody/response/schema 内容**（当前是"路径全、内容稀疏"的壳，无法驱动客户端生成——D1.5）；新增**YAML↔代码一致性门**（关闭当前最大治理漏洞——C++ 改端点而忘改 YAML 无人发现）；引入 **oasdiff 破坏性变更门**（客户端可发布的前提）。
 - **Layer 2 — 客户端生成**：用 **openapi-python-client**（Pydantic v2 + httpx）+ **oapi-codegen**（Go 社区标准），两者均无 JVM；**手写 auth 层**（Go 用 `golang.org/x/oauth2/clientcredentials`，Python 用 httpx transport wrapper，**不重造 token 逻辑**）；生成代码提交进 `clients/python` + `clients/go`，release 时生成并发布 PyPI / Go module proxy。
 
-> **关键判断**：本设计**不**用 openapi-generator 全生成 token 生命周期——OAuth2 服务器的 token 生命周期（refresh 旋转、PKCE、lockout）太敏感太变量，盲目生成不安全（ZITADEL/Logto 实践验证此判断；Ory 全生成模型对 AuthForge 不适用，理由见 D5）。
+> **关键判断**：本设计**不**用 openapi-generator 全生成 token 生命周期——OAuth2 服务器的 token 生命周期（refresh 旋转、PKCE、lockout）太敏感太变量，盲目生成不安全（ZITADEL/Logto 实践验证此判断；Ory 全生成模型对 Fulla 不适用，理由见 D5）。
 
 ---
 
@@ -27,7 +27,7 @@
 | # | 目标 | 衡量 |
 |---|------|------|
 | G1 | **确立 OpenAPI spec 单一源 + 治理闭环**：消除两源漂移、补 spec↔代码一致性门、补 HTTP API 面的破坏性变更守护 | §六 AC1/AC2/AC3 |
-| G2 | **产出可发布的 Python + Go 客户端**：第三方 `pip install authforge` / `go get` 即可用 | §六 AC7 |
+| G2 | **产出可发布的 Python + Go 客户端**：第三方 `pip install fulla` / `go get` 即可用 | §六 AC7 |
 | G3 | **补 §3.2「API 稳定性」卖点的工程证据**：调研报告把"API 稳定性"列为卖点但工程上 api-diff 只管 C++ 头、HTTP 面无守护——本设计填补这个缺口 | oasdiff 门 + SemVer 联动 |
 | G4 | **与基准设施协同**：客户端 auth 层可作为第三方复现性能基准的工具（附录 D） | M4 端到端示例 |
 
@@ -35,10 +35,10 @@
 
 | # | 非目标 | 为什么 / 归属 |
 |---|--------|--------------|
-| N1 | 改 C++ `OpenApiGenerator` 的生成逻辑（含其 `security` object bug + 缺 `clientCredentialsAuth`） | 那是另一个重构；本设计让 generated JSON 降级为派生产物，绕开它（D1）。bug 已提 [#41](https://github.com/voidvec/authforge/issues/41) 跟踪。**例外**：D1.5 的 YAML 补齐可能选择修生成器（而非手维护 YAML）作为补齐机制——此子决策由 M0 立项时定，若选修生成器则 #41 一并修，且 D1 的"JSON 降级"需重评 |
+| N1 | 改 C++ `OpenApiGenerator` 的生成逻辑（含其 `security` object bug + 缺 `clientCredentialsAuth`） | 那是另一个重构；本设计让 generated JSON 降级为派生产物，绕开它（D1）。bug 已提 [#41](https://github.com/voidvec/fulla/issues/41) 跟踪。**例外**：D1.5 的 YAML 补齐可能选择修生成器（而非手维护 YAML）作为补齐机制——此子决策由 M0 立项时定，若选修生成器则 #41 一并修，且 D1 的"JSON 降级"需重评 |
 | N2 | 做 TypeScript 客户端 | 前端生态（hey-api/orval），与后端性能叙事弱相关；Phase 1 聚焦 Python+Go |
 | N3 | 自动生成 token 生命周期逻辑 | 手写（D5/D7）；全生成对 OAuth2 服务器不安全 |
-| N4 | 做 Ory 式全生成多语言 SDK | Ory 模型因 auth 在服务端才适用；AuthForge 是 OAuth2 服务器本身，token 生命周期在客户端，不能盲目生成 |
+| N4 | 做 Ory 式全生成多语言 SDK | Ory 模型因 auth 在服务端才适用；Fulla 是 OAuth2 服务器本身，token 生命周期在客户端，不能盲目生成 |
 | N5 | 改 Swagger UI | 保留现状（YAML 单源后 UI 仍可用，或可改读 YAML——非本设计范围） |
 
 ---
@@ -63,8 +63,8 @@
 
 generated JSON（71）与 YAML（69）的差异：
 - **YAML 少 2 个 `/docs/api/*` 自文档路径**（`GET /docs/api/`、`GET /docs/api/openapi.json`，由 `ApiDocController` 注册，YAML 从未补）。
-- **`security` 字段形态分歧**：generated JSON 输出成 **object**（`OpenApiGenerator.cc:195-200` 的 `Json::Value` 构造，**OpenAPI 3 要求 array，属畸形**——已提 [#41](https://github.com/voidvec/authforge/issues/41)）；YAML 输出正确的 **array-of-objects**。`openapi-spec-validator` 只跑 YAML，故 JSON 的畸形未被发现。
-- **`clientCredentialsAuth` scheme 缺失**：generated JSON 只硬编码 `bearerAuth`（`OpenApiGenerator.cc:122-128`），缺 introspect/revoke/token 实际需要的 client 凭证 scheme——[#41](https://github.com/voidvec/authforge/issues/41) 一并覆盖。YAML 也只有 `bearerAuth`（同样缺）。
+- **`security` 字段形态分歧**：generated JSON 输出成 **object**（`OpenApiGenerator.cc:195-200` 的 `Json::Value` 构造，**OpenAPI 3 要求 array，属畸形**——已提 [#41](https://github.com/voidvec/fulla/issues/41)）；YAML 输出正确的 **array-of-objects**。`openapi-spec-validator` 只跑 YAML，故 JSON 的畸形未被发现。
+- **`clientCredentialsAuth` scheme 缺失**：generated JSON 只硬编码 `bearerAuth`（`OpenApiGenerator.cc:122-128`），缺 introspect/revoke/token 实际需要的 client 凭证 scheme——[#41](https://github.com/voidvec/fulla/issues/41) 一并覆盖。YAML 也只有 `bearerAuth`（同样缺）。
 - 死孤儿 JSON 与 generated JSON 的差异：死孤儿缺 50 个 2026-05 后新增的路径（WebAuthn/MFA/admin CRUD/OIDC discovery 等）+ 缺 `clientCredentialsAuth`。
 
 ### 2.3 C++ 代码的权威 API 面（治本设计的钥匙）
@@ -78,7 +78,7 @@ generated JSON（71）与 YAML（69）的差异：
 
 1. **死孤儿 `docs/backend/api/openapi.json` 零引用**：grep 全仓（.cc/.h/.cmake/.sh/.py/.md）零命中；其兄弟 `swagger-ui/` 目录被 `apps/server/CMakeLists.txt:76-77` 复制到 build，但 JSON 本身不复制、不被服务、不被引用。
 2. **generated JSON 在 CI 无校验**：仅 YAML 经 `openapi-spec-validator` 结构校验（且只校验 OpenAPI schema 合法性，不校验与代码一致）。
-3. **api-diff 不碰 OpenAPI**：`tools/api-diff/api_diff.py:2-7,59-65` 只扫 `libs/*/include/authforge/**` 的 7 个 C++ 库头（`api-baseline.txt` 275KB 是头骨架）。HTTP API 面**无 SemVer 守护**。
+3. **api-diff 不碰 OpenAPI**：`tools/api-diff/api_diff.py:2-7,59-65` 只扫 `libs/*/include/fulla/**` 的 7 个 C++ 库头（`api-baseline.txt` 275KB 是头骨架）。HTTP API 面**无 SemVer 守护**。
 4. **`validate-openapi.sh` 是死代码**：零 CI 引用（`.github/workflows/` 全无），只查 generated JSON 的 4 个顶层 key（`openapi/info/paths/servers`），无 schema 校验、无 lint、无 diff、无 Windows 路径。
 5. **spec 未发布、无生成、零消费**：`release.yml` 不打包任何 openapi 文件；前端 `frontends/admin|user` 手写 fetch（`grep -rniE 'openapi|swagger' frontends/` 仅命中一个 Swagger UI 的 Playwright 测试）；spec 纯文档用途。
 6. **OAuth2 scheme = `http: bearer/basic`**（非 `oauth2` flows）：生成器不会自动生成 token 生命周期——这恰是推荐状态（D5）。
@@ -97,7 +97,7 @@ generated JSON（71）与 YAML（69）的差异：
 | 选项 | 取舍 |
 |------|------|
 | ✅ **YAML 为唯一权威** | 它是 CI lint 的、是端点签名门（`diff-endpoint-baseline.py`）的输入、security 形态正确、已有 2 个消费方。generated JSON 降级为 Swagger UI 用的派生产物。**⚠️ 但 YAML 当前内容稀疏（69 操作仅 6 requestBody/9 response schema），需先补齐（D1.5）才能驱动客户端生成** |
-| ❌ JSON 为唯一源 | generated JSON 最贴近代码，但：CI 不校验、有 security 畸形 bug（[#41](https://github.com/voidvec/authforge/issues/41)）、内容比 YAML 更稀疏（71 操作 **0** requestBody）、需重起生产级生成流程、`OpenApiGenerator.cc` 不在 CI 跑。改造代价远高于定 YAML 单源 + 补齐 |
+| ❌ JSON 为唯一源 | generated JSON 最贴近代码，但：CI 不校验、有 security 畸形 bug（[#41](https://github.com/voidvec/fulla/issues/41)）、内容比 YAML 更稀疏（71 操作 **0** requestBody）、需重起生产级生成流程、`OpenApiGenerator.cc` 不在 CI 跑。改造代价远高于定 YAML 单源 + 补齐 |
 | ❌ 双源 + 一致性门 | 把现在的漂移制度化，两个源永远要手动同步，复杂度最高 |
 
 ### 3.2 决策 2 — 引入 oasdiff 破坏性变更门 + SemVer 联动
@@ -130,7 +130,7 @@ generated JSON（71）与 YAML（69）的差异：
 
 ### D1 — YAML 为唯一权威，generated JSON 降级
 
-**依据**：§2.1 表——YAML 已是 CI lint + 端点签名门的输入，security 形态正确；generated JSON 在 CI 无校验且有畸形 bug（见 §九 + [#41](https://github.com/voidvec/authforge/issues/41)）。
+**依据**：§2.1 表——YAML 已是 CI lint + 端点签名门的输入，security 形态正确；generated JSON 在 CI 无校验且有畸形 bug（见 §九 + [#41](https://github.com/voidvec/fulla/issues/41)）。
 
 **决策**：
 - `apps/server/openapi.yaml` = **客户端生成 + 端点门 + 破坏性变更门**的唯一输入。
@@ -200,7 +200,7 @@ generated JSON 更糟（71 操作中 **0** 个 requestBody、仅 4 个 response 
 - token 生命周期（refresh 旋转 V008、PKCE、lockout、family 作废）太敏感太变量，不能盲目生成。
 - **ZITADEL**：Go SDK 是 gRPC 生成，auth 显式手写包装其 `zitadel/oidc` 库（README 明示 SDK 是低层库的便利包装）。
 - **Logto**：每平台轻量手写 SDK，token 管理手写。
-- **Ory**：全生成（`ory/sdk` 用 openapi-generator），但其 auth 在服务端（Kratos/Hydra），SDK 是哑 HTTP 客户端，消费者自管 session token——**此模型对 AuthForge（本身是 OAuth2 服务器）不适用**。
+- **Ory**：全生成（`ory/sdk` 用 openapi-generator），但其 auth 在服务端（Kratos/Hydra），SDK 是哑 HTTP 客户端，消费者自管 session token——**此模型对 Fulla（本身是 OAuth2 服务器）不适用**。
 
 **决策**：spec 保留 `http: bearer/basic` scheme；生成器产"请求形态 + 类型"，**auth 手写**（D7）。不引入 `oauth2` flows scheme（会诱导生成器尝试生成 token 生命周期，不可靠）。
 
@@ -231,13 +231,13 @@ clients/
 ├── python/
 │   ├── generated/          # openapi-python-client 产出，DO NOT EDIT
 │   ├── auth/               # 手写 auth 层（httpx transport wrapper）
-│   ├── pyproject.toml      # 包元数据，name=authforge
+│   ├── pyproject.toml      # 包元数据，name=fulla
 │   ├── README.md
 │   └── tests/              # auth 层测试（对本地全栈 target 实测）
 └── go/
     ├── generated/          # oapi-codegen 产出，DO NOT EDIT
     ├── auth/               # 手写 auth 层（x/oauth2/clientcredentials）
-    ├── go.mod              # module github.com/<org>/authforge/clients/go
+    ├── go.mod              # module github.com/<org>/fulla/clients/go
     ├── README.md
     └── auth_test.go
 ```
@@ -255,8 +255,8 @@ clients/
 
 | 语言 | 渠道 | 版本 |
 |------|------|------|
-| Python | PyPI（`pip install authforge`） | 与项目 SemVer 联动（`cmake/Version.cmake`） |
-| Go | Go module proxy（`go get github.com/<org>/authforge/clients/go`） | 同上，git tag 驱动 |
+| Python | PyPI（`pip install fulla`） | 与项目 SemVer 联动（`cmake/Version.cmake`） |
+| Go | Go module proxy（`go get github.com/<org>/fulla/clients/go`） | 同上，git tag 驱动 |
 
 挂到现有 `release.yml`（tag 触发）：tag → 生成 clients → 发布。
 
@@ -272,7 +272,7 @@ clients/
 | ✅ AC4 | `clients/python` + `clients/go` 各能再生成、漂移门通过、两语言单测绿（工具落点为 `python tools/clients/regen_clients.py [--check]`，§11.5 取代原 `make gen-sdk` 设想） | 本地 + CI（`clients-sdk.yml`），2026-08-18 落实 |
 | ✅ AC5 | 每语言 auth 层跑通 client_credentials 流（对本地全栈实测：token → introspect active → discovery → M2M userinfo 401 → 错 secret 401，用例 I1-I5） | `tests/integration`（env 门控）+ 单测矩阵，2026-08-18 落实 |
 | ✅ AC6 | 漂移门生效：生成物与 spec 不一致 → `--check` exit 1（regen 脚本 `--selftest` 内含故障注入用例） | selftest + CI |
-| ⬜ AC7 | Python 客户端能 `pip install authforge-oauth2` 并发一个 token 请求；Go 客户端能 `go get .../clients/go@vX.Y.Z`（验证 release tag 自包含） | **发布后冒烟**——流水线已接线（release.yml `sdk-python` job + Go 嵌套 tag），待 PyPI 项目注册 + `PYPI_API_TOKEN` secret + 下一 tag（§11.6） |
+| ⬜ AC7 | Python 客户端能 `pip install fulla-oauth2` 并发一个 token 请求；Go 客户端能 `go get .../clients/go@vX.Y.Z`（验证 release tag 自包含） | **发布后冒烟**——流水线已接线（release.yml `sdk-python` job + Go 嵌套 tag），待 PyPI 项目注册 + `PYPI_API_TOKEN` secret + 下一 tag（§11.6） |
 | ✅ AC8 | **YAML 内容补齐**：6 个核心 OAuth2 端点（`/oauth2/token`、`/introspect`、`/revoke`、`/userinfo`、`/.well-known/openid-configuration`、`/oauth2/login`）有完整 requestBody + response schema；`clientCredentialsAuth` scheme 就位；从 YAML 生成的客户端能发出合法 token 请求（无需手填表单字段） | M0 验收（阻塞 M1） |
 
 ---
@@ -336,7 +336,7 @@ jobs：
 | **oasdiff 误报**（纯描述变更被判破坏性） | 中 | 门噪扰 | 配置只门破坏性类（509 规则），非破坏性仅警告或 info。⚠️ 补齐前 oasdiff 只能门路径级（schema 级需 YAML 补齐 schema 后才有意义） |
 | **生成器版本升级致生成代码大 diff** | 低 | 评审噪声 + 潜在不兼容 | pin 生成器版本（`openapi-python-client==X.Y.Z`、`oapi-codegen vX.Y.Z`）；升级走独立 PR |
 | **auth 层与生成代码耦合**（API 升级时 auth 包装要同步） | 中 | 升级时 auth 层失效 | auth 层只依赖稳定的请求形态（端点路径 + 参数 schema），不依赖生成代码内部结构；API 升级由 oasdiff 门预警 |
-| **OpenApiGenerator 的 security object bug + 缺 clientCredentialsAuth**（`OpenApiGenerator.cc:195-200, 122-128`，已提 [#41](https://github.com/voidvec/authforge/issues/41)） | 低 | generated JSON 畸形 + scheme 不全 | 本设计不改它（N1）；YAML 单源后 generated JSON 只供 Swagger UI，畸形 security 不阻断 UI 渲染。**#41 跟踪修复**；若 M0 选择修生成器补内容（D1.5 子决策），则 #41 一并修，且 D1 的"JSON 降级"需重评 |
+| **OpenApiGenerator 的 security object bug + 缺 clientCredentialsAuth**（`OpenApiGenerator.cc:195-200, 122-128`，已提 [#41](https://github.com/voidvec/fulla/issues/41)） | 低 | generated JSON 畸形 + scheme 不全 | 本设计不改它（N1）；YAML 单源后 generated JSON 只供 Swagger UI，畸形 security 不阻断 UI 渲染。**#41 跟踪修复**；若 M0 选择修生成器补内容（D1.5 子决策），则 #41 一并修，且 D1 的"JSON 降级"需重评 |
 | **`info.version` 与项目版本脱节**（当前都硬编码 1.0.0） | 低 | 版本承诺混乱 | D4 的版本交叉校验补此；release 时同步 `info.version` 与 `cmake/Version.cmake` |
 | **client_credentials 在 memory 模式不可达**（无 `backend-svc`） | 中 | AC5 实测需全栈 | auth 层测试用基准设计的 postgres+redis 全栈 target，非 memory 模式（同基准设计 D1） |
 
@@ -495,40 +495,40 @@ M0 立项时按 §四 D1.5 的要求裁决：**补齐机制 = 手维护 YAML**�
 - **D6 描述修正**：openapi-python-client ≥0.24 已从 Pydantic 迁移到 **attrs** 模型（本设计 v1.0 写"Pydantic v2 + httpx"已过时）。功能等价：类型化、可序列化、py.typed。依赖：`httpx >=0.23.1,<0.29.0`、`attrs >=22.2.0`、Python `^3.11`。
 - Go 工具链：`go 1.24` 指令；生成器经 `go run ...@v2.8.0` 调用（无需全局安装）。本地网络注意：模块下载需 GOPROXY 镜像（如 goproxy.cn），CI（GitHub runner）不受影响。
 
-### 11.2 D10 修正：PyPI 发行名 = `authforge-oauth2`（导入名保持 `authforge`）
+### 11.2 D10 修正：PyPI 发行名 = `fulla-oauth2`（导入名保持 `fulla`）
 
-实测 pypi.org：**`authforge`（0.1.0，无关的 FastAPI 认证库）与 `authforge-sdk`（1.0.8，另一家 "AuthForge" 产品的官方 SDK）均已被占用**——D10 原文"`pip install authforge`"不可行。
+实测 pypi.org：**`fulla`（0.1.0，无关的 FastAPI 认证库）与 `fulla-sdk`（1.0.8，另一家 "Fulla" 产品的官方 SDK）均已被占用**——D10 原文"`pip install fulla`"不可行。
 
-决策：**发行名（distribution name）= `authforge-oauth2`，导入名（import name）= `authforge`**。发行名/导入名分离是 PyPI 常规模式（如 `protobuf` → `google.protobuf`）。用户体验：
+决策：**发行名（distribution name）= `fulla-oauth2`，导入名（import name）= `fulla`**。发行名/导入名分离是 PyPI 常规模式（如 `protobuf` → `google.protobuf`）。用户体验：
 
 ```bash
-pip install authforge-oauth2     # 安装
-from authforge import m2m_client  # 导入
+pip install fulla-oauth2     # 安装
+from fulla import m2m_client  # 导入
 ```
 
-Go module path 不受影响：`github.com/voidvec/authforge/clients/go`（monorepo 子目录模块，git tag 驱动，无命名冲突）。
+Go module path 不受影响：`github.com/voidvec/fulla/clients/go`（monorepo 子目录模块，git tag 驱动，无命名冲突）。
 
 ### 11.3 Python 布局定稿（D8 细化）
 
 ```
 clients/python/
-├── pyproject.toml                    # 发行名 authforge-oauth2；version 与 cmake/Version.cmake 联动（CI 校验）
-├── openapi-python-client.yaml        # 生成器配置（package_name_override: authforge）
+├── pyproject.toml                    # 发行名 fulla-oauth2；version 与 cmake/Version.cmake 联动（CI 校验）
+├── openapi-python-client.yaml        # 生成器配置（package_name_override: fulla）
 ├── README.md
 ├── examples/client_credentials_demo.py
-├── src/authforge/
+├── src/fulla/
 │   ├── __init__.py                   # 公共 API 出口（m2m_client 等）
 │   ├── m2m.py                        # client_credentials 门面（httpx.Auth + 生成客户端组装）
 │   ├── oauth.py                      # authorization_code helper（authorize URL + PKCE + code 交换 + refresh）
 │   └── generated/                    # 生成代码（DO NOT EDIT）
 └── tests/
     ├── test_m2m.py 等                # 单测（httpx.MockTransport，CI 可跑）
-    └── integration/                  # AUTHFORGE_BASE_URL 门控，对本地全栈实测
+    └── integration/                  # FULLA_BASE_URL 门控，对本地全栈实测
 ```
 
 两个实测约束决定了 regen 脚本的搬运逻辑：
 
-1. **点分 `package_name_override` 不可用**（会创建字面量目录 `authforge.generated/` 而非嵌套包）；但 0.29.0 生成代码全部使用**包内相对导入**（`from ...client import ...`），故"生成到临时目录（包名 `authforge`）→ 只搬包目录本体到 `src/authforge/generated/`"可行，包可安全重定位。
+1. **点分 `package_name_override` 不可用**（会创建字面量目录 `fulla.generated/` 而非嵌套包）；但 0.29.0 生成代码全部使用**包内相对导入**（`from ...client import ...`），故"生成到临时目录（包名 `fulla`）→ 只搬包目录本体到 `src/fulla/generated/`"可行，包可安全重定位。
 2. 生成器会在输出目录额外写 `pyproject.toml`/`README.md`/`.gitignore` 等项目级文件——regen 脚本只搬运 `<pkg>/` 目录，项目元数据以我们手维护的为准。
 
 ### 11.4 auth 注入缝定稿（D7 细化，以生成代码实测为准）
@@ -554,13 +554,13 @@ token 生命周期职责（D5 不变）：**client_credentials 全自动**（到
 ### 11.6 M3 范围修正（发布流水线）
 
 - **Go module proxy：需要嵌套 tag，不是零工作**——子目录模块的版本解析要求形如 `clients/go/vX.Y.Z` 的 git tag（go.dev/ref/mod#vcs-version；根 tag `vX.Y.Z` 只服务仓库根模块，`go get .../clients/go@v1.2.0` 对根 tag 会报 unknown revision）。`release.yml` 的 `github-release` job 增加一步：在发布 commit 上创建并推送 `clients/go/v${VERSION}` 嵌套 tag（该形态不匹配 release.yml 的 tag 触发模式 `v[0-9]+.[0-9]+.[0-9]+`，无递归触发）。**另注**：module path 无 `/vN` 后缀 ⇒ 只能消费 v0/v1 tag；项目升 v2.0.0 时须同步把 module path 改为 `.../clients/go/v2`（README 记录此约束）。
-- **PyPI**：`release.yml` 新增 `sdk-python` job（tag 触发：**版本一致性前置校验**（pyproject `version` == tag 版本，防漏 bump 发布错版）→ `python -m build clients/python` → `pypa/gh-action-pypublish`）。secret 门控语义：GitHub Actions 的 `secrets` context **不能**用于 job 级 `if:`（静默求值为不可用）——正确写法是把 `PYPI_API_TOKEN` 绑到 job 级 `env:`，在 **publish step** 上 `if: env.PYPI_API_TOKEN != ''`；未配置时该 step 显式 skip 并打印设置指引，**不阻塞既有发布链**。首次发布前置（人工，一次性）：在 PyPI 注册 `authforge-oauth2` 项目 + 仓库配 secret——本 PR 的 README/发布文档列出步骤。
-- **AC7 拆分**：`pip install authforge-oauth2` / `go get .../clients/go@vX.Y.Z` 的发布后冒烟 = **发布验收，不在本 PR**；本 PR 验收 = 流水线 wiring + workflow 语法/dry-run 验证。
+- **PyPI**：`release.yml` 新增 `sdk-python` job（tag 触发：**版本一致性前置校验**（pyproject `version` == tag 版本，防漏 bump 发布错版）→ `python -m build clients/python` → `pypa/gh-action-pypublish`）。secret 门控语义：GitHub Actions 的 `secrets` context **不能**用于 job 级 `if:`（静默求值为不可用）——正确写法是把 `PYPI_API_TOKEN` 绑到 job 级 `env:`，在 **publish step** 上 `if: env.PYPI_API_TOKEN != ''`；未配置时该 step 显式 skip 并打印设置指引，**不阻塞既有发布链**。首次发布前置（人工，一次性）：在 PyPI 注册 `fulla-oauth2` 项目 + 仓库配 secret——本 PR 的 README/发布文档列出步骤。
+- **AC7 拆分**：`pip install fulla-oauth2` / `go get .../clients/go@vX.Y.Z` 的发布后冒烟 = **发布验收，不在本 PR**；本 PR 验收 = 流水线 wiring + workflow 语法/dry-run 验证。
 
 ### 11.7 测试策略
 
 | 层 | 范围 | 跑在哪 |
 |----|------|--------|
 | 单测 | token 获取（Basic 认证形态）/ Bearer 注入 / 到期前主动刷新 / 401 刷新重试一次 / 错误传播 / PKCE S256 向量 | CI（`clients-sdk.yml`）：Python `httpx.MockTransport`，Go `httptest` |
-| 集成 | client_credentials 取 token → introspect `active:true` → discovery 拉取 →（负例）M2M token 调 userinfo 得 401 | 本地全栈（复用 full-test 基建：PG + 服务器 :5555 + 种子 `backend-svc`/`test-secret`）；`AUTHFORGE_BASE_URL` env 门控，CI 不跑 |
+| 集成 | client_credentials 取 token → introspect `active:true` → discovery 拉取 →（负例）M2M token 调 userinfo 得 401 | 本地全栈（复用 full-test 基建：PG + 服务器 :5555 + 种子 `backend-svc`/`test-secret`）；`FULLA_BASE_URL` env 门控，CI 不跑 |
 | 回归 | 全量后端 8 步 + 前端测试 | 本任务不改 C++/前端源码、不改 openapi.yaml，预期零影响，仍全量跑一遍兜底 |

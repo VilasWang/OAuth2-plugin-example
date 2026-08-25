@@ -107,16 +107,16 @@ private:
 ### Environment Variable Override Rules
 
 ```cpp
-const std::vector<EnvOverride> OAUTH2_ENV_OVERRIDES = {
-    {"db_clients.0.host", "OAUTH2_DB_HOST", false},
-    {"db_clients.0.port", "OAUTH2_DB_PORT", true},
-    {"db_clients.0.name", "OAUTH2_DB_NAME", false},
-    {"db_clients.0.user", "OAUTH2_DB_USER", false},
-    {"db_clients.0.passwd", "OAUTH2_DB_PASSWORD", false},
-    {"redis.host", "OAUTH2_REDIS_HOST", false},
-    {"redis.port", "OAUTH2_REDIS_PORT", true},
-    {"redis.password", "OAUTH2_REDIS_PASSWORD", false},
-    {"vue_client.secret", "OAUTH2_VUE_CLIENT_SECRET", false}
+const std::vector<EnvOverride> FULLA_ENV_OVERRIDES = {
+    {"db_clients.0.host", "FULLA_DB_HOST", false},
+    {"db_clients.0.port", "FULLA_DB_PORT", true},
+    {"db_clients.0.name", "FULLA_DB_NAME", false},
+    {"db_clients.0.user", "FULLA_DB_USER", false},
+    {"db_clients.0.passwd", "FULLA_DB_PASSWORD", false},
+    {"redis.host", "FULLA_REDIS_HOST", false},
+    {"redis.port", "FULLA_REDIS_PORT", true},
+    {"redis.password", "FULLA_REDIS_PASSWORD", false},
+    {"vue_client.secret", "FULLA_VUE_CLIENT_SECRET", false}
 };
 ```
 

@@ -1,7 +1,7 @@
-# AuthForge HTTP performance benchmarks
+# Fulla HTTP performance benchmarks
 
 This directory holds the **reproducible, out-of-process** HTTP benchmarks for
-AuthForge — the Phase 0 "credibility baseline" of the
+Fulla — the Phase 0 "credibility baseline" of the
 [productization evolution plan](../docs/productization-evolution/productization-evolution-plan.md).
 Its purpose is to turn the load-bearing performance claims in the
 [research report §3.1](../docs/productization-evolution/productization-research.md)
@@ -51,35 +51,35 @@ No local PostgreSQL/Redis is required — both run inside the compose stack.
 ```bash
 # 1. Boot the full stack, gate on /health/ready, validate seed data,
 #    generate token pools (S3/S5/S6) + PKCE pairs (S4), warm up bench users.
-bash benchmarks/authforge/setup.sh
+bash benchmarks/fulla/setup.sh
 
 # 2. Run M1 scenarios (single-step, no dependencies):
-bash benchmarks/authforge/run-scenario.sh scenarios/s1-discovery.lua
-bash benchmarks/authforge/run-scenario.sh scenarios/s2-client-credentials.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s1-discovery.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s2-client-credentials.lua
 
 # 3. Run M2 scenarios (token pools required — setup.sh generates them):
-bash benchmarks/authforge/run-scenario.sh scenarios/s3-introspect.lua
-bash benchmarks/authforge/run-scenario.sh scenarios/s4-auth-code.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s3-introspect.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s4-auth-code.lua
 
 # 4. Run M3 scenarios:
 #    S5 refresh_token: each RT consumed once → --reseed refreshes the pool per level
-bash benchmarks/authforge/run-scenario.sh scenarios/s5-refresh-token.lua \
-    --reseed benchmarks/authforge/lib/generated/bench_refresh_tokens.sql
+bash benchmarks/fulla/run-scenario.sh scenarios/s5-refresh-token.lua \
+    --reseed benchmarks/fulla/lib/generated/bench_refresh_tokens.sql
 #    S6 userinfo: token pool reusable
-bash benchmarks/authforge/run-scenario.sh scenarios/s6-userinfo.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s6-userinfo.lua
 
 # 5. (optional) Run with resource observation (docker-stats + /metrics scraping):
-bash benchmarks/authforge/run-scenario.sh scenarios/s2-client-credentials.lua --observe
+bash benchmarks/fulla/run-scenario.sh scenarios/s2-client-credentials.lua --observe
 
 # 6. (optional) Quick smoke check with just a few low levels:
-bash benchmarks/authforge/run-scenario.sh scenarios/s2-client-credentials.lua 2 4 8
+bash benchmarks/fulla/run-scenario.sh scenarios/s2-client-credentials.lua 2 4 8
 
 # 7. (optional) Measure cold-start time + RSS peak:
-bash benchmarks/authforge/measure-cold-start.sh
-bash benchmarks/authforge/measure-cold-start.sh --pre-migrated   # exclude migration time
+bash benchmarks/fulla/measure-cold-start.sh
+bash benchmarks/fulla/measure-cold-start.sh --pre-migrated   # exclude migration time
 
 # 8. Tear down + reset volumes (deterministic for the next run).
-bash benchmarks/authforge/teardown.sh
+bash benchmarks/fulla/teardown.sh
 ```
 
 ## Competitor comparison (Phase 0.5)
@@ -94,7 +94,7 @@ methodology: [competitor-benchmark-design.md](../docs/productization-evolution/i
 bash benchmarks/competitors/run-comparison.sh --fresh
 
 # Single product (resume / re-run):
-bash benchmarks/competitors/run-comparison.sh --only keycloak   # or ory|zitadel|authforge
+bash benchmarks/competitors/run-comparison.sh --only keycloak   # or ory|zitadel|fulla
 
 # Regenerate the report from committed JSONs only:
 bash benchmarks/competitors/run-comparison.sh --report-only
@@ -109,7 +109,7 @@ nothing secret is committed.
 
 Each level writes one JSON result to `benchmarks/results/` named
 `<YYYYMMDD>-<git-sha>-<scenario>-c<conn>.json` (see
-[`authforge/lib/result-schema.md`](authforge/lib/result-schema.md) for the
+[`fulla/lib/result-schema.md`](fulla/lib/result-schema.md) for the
 schema). The run prints a one-line summary per level, e.g.:
 
 ```
@@ -147,7 +147,7 @@ schema). The run prints a one-line summary per level, e.g.:
 `setup.sh` automatically swaps `apps/server/config/config.bench.json` over
 `config.json` before starting the stack (PG=64 connections, Redis=64,
 cache enabled, log_level=WARN; see the bench overlay in
-`benchmarks/authforge/docker-compose.bench.yml` for the PG instance tuning).
+`benchmarks/fulla/docker-compose.bench.yml` for the PG instance tuning).
 The original `config.json` is backed up to
 `config.json.dev-backup` and restored by `teardown.sh`. This avoids touching
 the dev/prod configs while giving the benchmark larger connection pools. The
@@ -156,7 +156,7 @@ swap is detected by file existence — no flags needed.
 ## How the seed data works
 
 The docker-compose stack does **not** auto-seed the database. Schema migrations
-run on the app's startup (`OAUTH2_AUTO_MIGRATE=true` → `MigrationRunner`), but
+run on the app's startup (`FULLA_AUTO_MIGRATE=true` → `MigrationRunner`), but
 the app never applies seed SQL, and the postgres entrypoint's `initdb.d/seed/`
 subdirectory mount is a documented no-op (postgres does not recurse into
 subdirs). So `setup.sh` **explicitly applies** every `apps/server/seed/*.sql`
@@ -237,7 +237,7 @@ down -v`), so every `setup.sh` starts from the same schema + seed. Use
 ```
 benchmarks/
 ├── README.md                  ← you are here
-├── authforge/
+├── fulla/
 │   ├── setup.sh               # boot stack + health gate + seed + token gen + warmup
 │   ├── teardown.sh            # stop + (default) remove volumes
 │   ├── run-scenario.sh        # staircase runner: warmup → measure → JSON
@@ -263,7 +263,7 @@ benchmarks/
 │   └── gen-comparison.py      # four-product JSONs → COMPARISON.md (stdout)
 ├── competitors/               # Phase 0.5: Keycloak / Ory Hydra / Zitadel
 │   ├── run-comparison.sh      # serial four-product orchestrator (AC3)
-│   ├── run-authforge-session.sh # AuthForge same-session rerun (§5.1)
+│   ├── run-fulla-session.sh # Fulla same-session rerun (§5.1)
 │   ├── run-gc-jitter.sh       # 5-min P99 time series (D6)
 │   ├── measure-cold-start.sh  # generic competitor cold start
 │   ├── keycloak/ ory/ zitadel/  # compose + setup + run-all + scenarios

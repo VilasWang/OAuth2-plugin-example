@@ -337,7 +337,7 @@ stores/
 **Docker 部署**：
 ```yaml
 # docker-compose.yml 新增
-oauth2-admin:
+fulla-admin:
   image: nginx:alpine
   volumes:
     - ./OAuth2Admin/dist:/usr/share/nginx/html/admin
@@ -354,7 +354,7 @@ location /admin {
 }
 
 location /api/ {
-    proxy_pass http://oauth2-backend:5555;
+    proxy_pass http://fulla-backend:5555;
 }
 ```
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""migration-check: enforce AuthForge schema-migration hygiene.
+"""migration-check: enforce Fulla schema-migration hygiene.
 
-Spec: .kiro/specs/authforge-sdk-refactor/tasks.md Task 35 (M6). Static check
+Spec: .kiro/specs/fulla-sdk-refactor/tasks.md Task 35 (M6). Static check
 over ``apps/server/migrations/*.sql``. It guards the assumptions the two
 migration executors actually rely on but do not verify themselves:
 
@@ -235,7 +235,7 @@ def check_baseline(files: List[Path], baseline_path: Path, update: bool) -> List
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="AuthForge migration hygiene check")
+    parser = argparse.ArgumentParser(description="Fulla migration hygiene check")
     parser.add_argument("--root", default=".", help="repository root (default: cwd)")
     parser.add_argument("--migrations-dir", default=None,
                         help="override migrations dir (default: <root>/apps/server/migrations)")

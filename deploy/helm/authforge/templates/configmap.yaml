@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "authforge.fullname" . }}-config
-  labels:
-    {{- include "authforge.labels" . | nindent 4 }}
-data:
-  {{- include "authforge.backendConfigData" . | nindent 2 }}

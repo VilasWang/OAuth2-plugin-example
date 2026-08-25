@@ -1,10 +1,10 @@
-#include <authforge/drogon/admin/ClientManagementService.h>
+#include <fulla/drogon/admin/ClientManagementService.h>
 
-#include <authforge/storage/postgres/models/Oauth2Clients.h>
-#include <authforge/storage/postgres/models/Oauth2ClientScopes.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/validation/RuleSet.h>
+#include <fulla/storage/postgres/models/Oauth2Clients.h>
+#include <fulla/storage/postgres/models/Oauth2ClientScopes.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/validation/RuleSet.h>
 
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
@@ -19,7 +19,7 @@
 #include <optional>
 #include <sstream>
 
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 
 namespace
@@ -35,7 +35,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -72,7 +72,7 @@ std::optional<std::string> validateRedirectUriList(const std::string &list)
     {
         if (item.empty())
             continue;
-        auto err = ::authforge::drogon::validation::RuleSet::validateRedirectUri(item);
+        auto err = ::fulla::drogon::validation::RuleSet::validateRedirectUri(item);
         if (err)
             return "invalid redirect_uri '" + item + "': " + *err;
     }
@@ -82,13 +82,13 @@ std::optional<std::string> validateRedirectUriList(const std::string &list)
 
 // Bring the ORM + model names into scope for the out-of-class method
 // definitions below (mirrors PostgresClientRepository.cc's same pattern). These
-// must live INSIDE the authforge::drogon::admin namespace so the method bodies
+// must live INSIDE the fulla::drogon::admin namespace so the method bodies
 // (which are in this namespace) can see them. NOTE: `drogon::` and
 // `drogon_model::` MUST be globally qualified (::) here -- inside
-// authforge::drogon::admin, a bare `drogon::` resolves to authforge::drogon
+// fulla::drogon::admin, a bare `drogon::` resolves to fulla::drogon
 // first (the namespace-visibility trap documented in design.md §5.5 / Task 20).
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 void ClientManagementService::listClients(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
@@ -187,19 +187,19 @@ void ClientManagementService::createClient(const ::drogon::HttpRequestPtr &req, 
 
     // B1: backchannel_logout_uri must use https (OIDC Back-Channel Logout 1.0
     // §2.3). Empty is allowed == "not configured".
-    if (auto bcError = ::authforge::drogon::validation::RuleSet::validateBackchannelLogoutUri(backchannelLogoutUri))
+    if (auto bcError = ::fulla::drogon::validation::RuleSet::validateBackchannelLogoutUri(backchannelLogoutUri))
     {
         respondError(req, cb, "VALIDATION_FORMAT_ERROR", "createClient: " + *bcError);
         return;
     }
 
     std::string clientId = ::drogon::utils::getUuid();
-    std::string clientSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string clientSecret = ::fulla::drogon::utils::generateSecureToken();
     // F-002: salt FIRST, then salted hash -- validateClient computes
     // sha256(secret + salt); an unsalted stored hash never matches.
     std::string salt = ::drogon::utils::getUuid().substr(0, 36);
     std::string secretHash =
-      ::authforge::drogon::utils::hashClientSecretWithSalt(clientSecret, salt);
+      ::fulla::drogon::utils::hashClientSecretWithSalt(clientSecret, salt);
 
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -360,7 +360,7 @@ void ClientManagementService::updateClient(
     if (hasBackchannelUri)
     {
         const std::string bcUri = (*jsonBody)["backchannel_logout_uri"].asString();
-        if (auto bcError = ::authforge::drogon::validation::RuleSet::validateBackchannelLogoutUri(bcUri))
+        if (auto bcError = ::fulla::drogon::validation::RuleSet::validateBackchannelLogoutUri(bcUri))
         {
             respondError(req, cb, "VALIDATION_FORMAT_ERROR", "updateClient: " + *bcError);
             return;
@@ -403,7 +403,7 @@ void ClientManagementService::updateClient(
           updateMapper.update(
             row,
             [cb, req, clientId](const size_t) {
-                authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
+                fulla::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
                 Json::Value json;
                 json["status"] = "success";
                 json["message"] = "Client updated successfully";
@@ -455,7 +455,7 @@ void ClientManagementService::deleteClient(
               respondError(req, cb, "VALIDATION_RESOURCE_NOT_FOUND", "Client not found");
               return;
           }
-          authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
+          fulla::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
           Json::Value json;
           json["status"] = "success";
           json["message"] = "Client deleted successfully";
@@ -482,12 +482,12 @@ void ClientManagementService::resetClientSecret(
         return;
     }
 
-    std::string newSecret = ::authforge::drogon::utils::generateSecureToken();
+    std::string newSecret = ::fulla::drogon::utils::generateSecureToken();
     // F-002: reset MUST also rotate the salt and hash with it; the old
     // implementation kept the stale salt and stored an unsalted hash.
     std::string newSalt = ::drogon::utils::getUuid().substr(0, 36);
     std::string newSecretHash =
-      ::authforge::drogon::utils::hashClientSecretWithSalt(newSecret, newSalt);
+      ::fulla::drogon::utils::hashClientSecretWithSalt(newSecret, newSalt);
 
     auto db = getDbOrRespond(req, cb);
     if (!db)
@@ -508,7 +508,7 @@ void ClientManagementService::resetClientSecret(
                 // Secret AND salt rotated: drop the cached client row or the
                 // OLD secret stays trusted (and the new one 401s) for up to
                 // the cache TTL (300s). Same contract as update/delete below.
-                authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
+                fulla::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
                 Json::Value json;
                 json["status"] = "success";
                 json["message"] = "Client secret reset successfully";
@@ -627,7 +627,7 @@ void ClientManagementService::updateClientScopes(
     // changed → the cached state is still correct).
     transaction->setCommitCallback([clientId](bool committed) {
         if (committed)
-            authforge::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
+            fulla::drogon::ClientCacheInvalidator::instance().invalidate(clientId);
     });
     Mapper<Oauth2ClientScopes> mapper(transaction);
     mapper.deleteBy(
@@ -705,4 +705,4 @@ void ClientManagementService::updateClientScopes(
     );
 }
 
-}  // namespace authforge::drogon::admin
+}  // namespace fulla::drogon::admin

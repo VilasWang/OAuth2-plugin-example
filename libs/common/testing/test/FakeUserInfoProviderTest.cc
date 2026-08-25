@@ -1,11 +1,11 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // for FakeUserInfoProvider.
 
-#include <authforge/common/testing/FakeUserInfoProvider.h>
+#include <fulla/common/testing/FakeUserInfoProvider.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
+using namespace fulla::common::testing;
 
 TEST(FakeUserInfoProviderTest, ReturnsRegisteredClaims)
 {

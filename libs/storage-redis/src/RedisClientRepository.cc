@@ -1,5 +1,5 @@
-#include <authforge/storage/redis/RedisClientRepository.h>
-#include <authforge/common/utils/ConstantTimeCompare.h>
+#include <fulla/storage/redis/RedisClientRepository.h>
+#include <fulla/common/utils/ConstantTimeCompare.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <json/json.h>
@@ -7,25 +7,25 @@
 #include <algorithm>
 
 // NOTE: the original RedisOAuth2Storage emitted an OperationTimer metric here
-// via <authforge/drogon/observability/Metrics.h> (owned by OAuth2Plugin). That
+// via <fulla/drogon/observability/Metrics.h> (owned by OAuth2Plugin). That
 // header is not yet relocated to libs/drogon (scheduled for Phase 3 of the
-// authforge-sdk-refactor, see .kiro/specs/authforge-sdk-refactor/
+// fulla-sdk-refactor, see .kiro/specs/fulla-sdk-refactor/
 // DIRECTORY_RESTRUCTURE_PLAN.md §3b). storage-postgres/storage-memory -- the
 // sibling packages this mirrors -- shed the same coupling during their
 // migrations and carry no OAuth2Plugin include. To keep this package
 // self-contained against its declared deps (Drogon + jsoncpp +
-// authforge::oauth2) and avoid a storage-redis -> OAuth2Plugin dependency
+// fulla::oauth2) and avoid a storage-redis -> OAuth2Plugin dependency
 // cycle (this package is added BEFORE OAuth2Plugin in the root CMakeLists),
 // the OperationTimer instrumentation is dropped here. It will return when
 // observability relocates to libs/drogon/observability/ in Phase 3 and
 // becomes a proper (cycle-free) dependency of this package.
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
 // .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
+using OAuth2Client = ::fulla::oauth2::model::OAuth2Client;
 using ClientCallback = IClientRepositoryBase::ClientCallback;
 using BoolCallback = IClientRepositoryBase::BoolCallback;
 
@@ -181,7 +181,7 @@ void RedisClientRepository::validateClient(
                                 ? calculatedHash.length()
                                 : storedHash.length();
               bool match =
-                (::authforge::common::utils::constantTimeMemcmp(
+                (::fulla::common::utils::constantTimeMemcmp(
                    calculatedHash.c_str(), storedHash.c_str(), cmpLen
                  ) == 0) &&
                 calculatedHash.length() == storedHash.length();
@@ -196,4 +196,4 @@ void RedisClientRepository::validateClient(
     }
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

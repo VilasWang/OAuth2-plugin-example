@@ -1,16 +1,16 @@
-#include <authforge/storage/postgres/PostgresMfaRepository.h>
+#include <fulla/storage/postgres/PostgresMfaRepository.h>
 
 #include <drogon/drogon.h>
 #include <json/json.h>
 
-#include <authforge/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/Users.h>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 using namespace ::drogon::orm;
-using authforge::identity::MfaData;
-using drogon_model::oauth2_db::Users;
+using fulla::identity::MfaData;
+using drogon_model::fulla_db::Users;
 
 void PostgresMfaRepository::getMfaData(int32_t userId, MfaDataCallback &&cb)
 {
@@ -207,4 +207,4 @@ void PostgresMfaRepository::clearPendingBinding(int32_t userId, BoolCallback &&c
     );
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

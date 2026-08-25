@@ -160,8 +160,8 @@ cmake --build --preset "$PRESET" --config "$BUILD_TYPE" -j"$(nproc 2>/dev/null |
 # build dir. main.cc has no -c flag; it probes ./config.json relative to CWD.
 echo -e "${YELLOW}[INFO] Copying config files...${NC}"
 mkdir -p "$PRESET_DIR/$SERVER_BUILD_SUBDIR"
-cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$PRESET_DIR/$SERVER_BUILD_SUBDIR/"
+cp "$PROJECT_DIR/$FULLA_SERVER_DIR/$CONFIG_FILE" "$PRESET_DIR/$SERVER_BUILD_SUBDIR/"
 mkdir -p "$PRESET_DIR/$TESTS_BUILD_SUBDIR"
-cp "$PROJECT_DIR/$OAUTH2_SERVER_DIR/$CONFIG_FILE" "$PRESET_DIR/$TESTS_BUILD_SUBDIR/config.json"
+cp "$PROJECT_DIR/$FULLA_SERVER_DIR/$CONFIG_FILE" "$PRESET_DIR/$TESTS_BUILD_SUBDIR/config.json"
 
 echo -e "${GREEN}Build Completed Successfully! (preset $PRESET)${NC}"

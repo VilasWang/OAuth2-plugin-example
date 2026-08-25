@@ -1,9 +1,9 @@
-#include <authforge/drogon/adapters/BackchannelLogoutNotifier.h>
+#include <fulla/drogon/adapters/BackchannelLogoutNotifier.h>
 
-#include <authforge/common/observability/AuditEvent.h>
-#include <authforge/oauth2/protocol/LogoutToken.h>
-#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
-#include <authforge/storage/postgres/models/Oauth2Clients.h>
+#include <fulla/common/observability/AuditEvent.h>
+#include <fulla/oauth2/protocol/LogoutToken.h>
+#include <fulla/storage/postgres/models/Oauth2AccessTokens.h>
+#include <fulla/storage/postgres/models/Oauth2Clients.h>
 
 #include <drogon/drogon.h>
 
@@ -15,21 +15,21 @@
 #include <utility>
 #include <vector>
 
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
 
 // Namespace-visibility trap (see ClientManagementService.cc's identical note):
-// inside authforge::drogon::adapters a bare `drogon::` resolves to
-// authforge::drogon first. Use ::drogon:: / ::drogon_model:: globally, then
+// inside fulla::drogon::adapters a bare `drogon::` resolves to
+// fulla::drogon first. Use ::drogon:: / ::drogon_model:: globally, then
 // bring the orm + model names in for the Mapper/Criteria bodies below.
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 namespace
 {
 
 void recordBackchannelAudit(
-  const std::shared_ptr<authforge::common::ports::IAuditSink> &sink,
+  const std::shared_ptr<fulla::common::ports::IAuditSink> &sink,
   const std::string &subject,
   const std::string &clientId,
   const std::string &uri,
@@ -38,7 +38,7 @@ void recordBackchannelAudit(
 {
     if (!sink)
         return;
-    authforge::common::observability::AuditEvent ev;
+    fulla::common::observability::AuditEvent ev;
     ev.actorType = "system";
     ev.actorId = subject;
     ev.action = "backchannel_logout";
@@ -54,10 +54,10 @@ void recordBackchannelAudit(
 
 BackchannelLogoutNotifier::BackchannelLogoutNotifier(
   DbClientPtr dbClient,
-  std::shared_ptr<const authforge::oauth2::JwkManager> jwkManager,
+  std::shared_ptr<const fulla::oauth2::JwkManager> jwkManager,
   std::string issuer,
-  std::shared_ptr<authforge::identity::IOAuthHttpClient> httpClient,
-  std::shared_ptr<authforge::common::ports::IAuditSink> auditSink,
+  std::shared_ptr<fulla::identity::IOAuthHttpClient> httpClient,
+  std::shared_ptr<fulla::common::ports::IAuditSink> auditSink,
   int tokenTtlSeconds)
   : dbClient_(std::move(dbClient)),
     jwkManager_(std::move(jwkManager)),
@@ -179,8 +179,8 @@ void BackchannelLogoutNotifier::dispatch(
         if (target.backchannelLogoutUri.empty())
             continue;
 
-        const auto jti = authforge::oauth2::protocol::generateJti();
-        auto claims = authforge::oauth2::protocol::buildLogoutTokenClaims(
+        const auto jti = fulla::oauth2::protocol::generateJti();
+        auto claims = fulla::oauth2::protocol::buildLogoutTokenClaims(
           issuer_, subject, target.clientId, now, tokenTtlSeconds_, jti);
         const std::string jwt = jwkManager_->signJwt(claims);
         if (jwt.empty())
@@ -202,7 +202,7 @@ void BackchannelLogoutNotifier::dispatch(
         httpClient_->postForm(
           uri,
           params,
-          [auditSink, subject, clientId, uri](authforge::identity::OAuthHttpResult result) {
+          [auditSink, subject, clientId, uri](fulla::identity::OAuthHttpResult result) {
               const bool ok = result.transportOk && result.statusCode == 200;
               recordBackchannelAudit(auditSink, subject, clientId, uri, ok, result.statusCode);
           });
@@ -214,4 +214,4 @@ void BackchannelLogoutNotifier::dispatch(
     (*sharedCompletion)();
 }
 
-}  // namespace authforge::drogon::adapters
+}  // namespace fulla::drogon::adapters

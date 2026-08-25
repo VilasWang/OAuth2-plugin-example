@@ -1,12 +1,12 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // for FakeLogger.
 
-#include <authforge/common/testing/FakeLogger.h>
+#include <fulla/common/testing/FakeLogger.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
-using authforge::common::ports::LogLevel;
+using namespace fulla::common::testing;
+using fulla::common::ports::LogLevel;
 
 TEST(FakeLoggerTest, CapturesLogEntriesInOrder)
 {

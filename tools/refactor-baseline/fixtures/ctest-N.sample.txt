@@ -1,4 +1,4 @@
-Test project D:/work/development/Repos/backend/drogon-plugin/authforge/build/OAuth2Server
+Test project D:/work/development/Repos/backend/drogon-plugin/fulla/build/OAuth2Server
   Test #1: AuthServiceGetUserInfoTest
   Test #2: ErrorHandlerTest
   Test #3: OpenApiGeneratorTest

@@ -15,7 +15,7 @@ docker-compose -f deploy\docker\docker-compose.yml down >nul 2>&1
 
 REM Start PostgreSQL
 echo Starting PostgreSQL container...
-docker-compose -f deploy\docker\docker-compose.yml up -d oauth2-postgres
+docker-compose -f deploy\docker\docker-compose.yml up -d fulla-postgres
 
 if %ERRORLEVEL% neq 0 (
     echo [FAILED] Failed to start PostgreSQL
@@ -28,7 +28,7 @@ set MAX_WAIT=30
 set WAIT_COUNT=0
 
 :wait_loop
-docker exec oauth2-postgres pg_isready -U oauth2_user -d oauth2_db >nul 2>&1
+docker exec fulla-postgres pg_isready -U fulla_user -d fulla_db >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     echo.
     echo [SUCCESS] PostgreSQL is ready!
@@ -36,8 +36,8 @@ if %ERRORLEVEL% equ 0 (
     echo Connection info:
     echo   Host: 127.0.0.1
     echo   Port: 5432
-    echo   Database: oauth2_db
-    echo   User: oauth2_user
+    echo   Database: fulla_db
+    echo   User: fulla_user
     echo   Password: 123456
     echo.
     goto :done

@@ -30,7 +30,7 @@ Drogon 默认以**多个事件循环 IO 线程**运行，HTTP 请求被分发到
 
 1.1 WHEN 进程在 `main()` 之前执行静态初始化时 THEN 系统在 `OAuth2Plugin/src/controllers/OAuth2StandardController.cc` 中构造文件作用域全局对象 `OAuth2StandardControllerDocs docs_`，其构造函数调用 `OAuth2StandardController::initApiDocs()`，进而写入位于另一个翻译单元的全局 OpenApi 注册表（`OpenApiGenerator` 的函数内静态 `endpoints`/`apiInfo`/`initialized`/`serverConfig`），两个全局对象的构造次序在跨翻译单元间未定义，存在初始化顺序依赖（SIOF）。
 
-1.2 WHEN 进程加载 `RequestValidationFilter` 翻译单元时 THEN 系统构造命名空间作用域的非平凡全局对象 `RequestValidationFilter::OAUTH2_VALIDATION_RULES`（`std::map`），其初始化顺序相对其他全局对象未定义，且该 map 的填充依赖运行期 `std::call_once`，初始化时机与构造时机分离。
+1.2 WHEN 进程加载 `RequestValidationFilter` 翻译单元时 THEN 系统构造命名空间作用域的非平凡全局对象 `RequestValidationFilter::FULLA_VALIDATION_RULES`（`std::map`），其初始化顺序相对其他全局对象未定义，且该 map 的填充依赖运行期 `std::call_once`，初始化时机与构造时机分离。
 
 1.3 WHEN `OAuth2Plugin::initAndStart()` 执行初始化时 THEN 系统按 `storage_ → tokenService_/clientService_/identityService_ → cleanupService_` 的顺序构造，后三者保存的是 `storage_.get()` 的**裸指针**（`IOAuth2Storage*`），其正确性完全依赖"`storage_` 必须先于、且销毁后于这些服务"这一隐式时序约束，但该约束没有在类型系统或代码注释中被保证。
 
@@ -62,7 +62,7 @@ Drogon 默认以**多个事件循环 IO 线程**运行，HTTP 请求被分发到
 
 2.1 WHEN 进程执行静态初始化时 THEN 系统 SHALL 保证 OpenApi 文档注册不依赖跨翻译单元的全局对象构造次序（例如改为显式的、在 `main()`/插件初始化阶段触发的注册，或使用首次访问即初始化的函数内静态），使得无论翻译单元初始化顺序如何，注册结果都正确且完整。
 
-2.2 WHEN 进程加载校验规则时 THEN 系统 SHALL 以确定的、无顺序依赖的方式提供 `OAUTH2_VALIDATION_RULES`（保持现有 `call_once` 一次性初始化语义），并保证在任何全局初始化顺序下读取到完整规则集。
+2.2 WHEN 进程加载校验规则时 THEN 系统 SHALL 以确定的、无顺序依赖的方式提供 `FULLA_VALIDATION_RULES`（保持现有 `call_once` 一次性初始化语义），并保证在任何全局初始化顺序下读取到完整规则集。
 
 2.3 WHEN `OAuth2Plugin` 初始化与销毁时 THEN 系统 SHALL 使 `storage_` 与依赖它的各服务之间的生命周期关系显式且被保证（storage 先构造、后析构，或服务以可被验证的方式共享 storage 的所有权），不再依赖隐式的裸指针时序约定。
 

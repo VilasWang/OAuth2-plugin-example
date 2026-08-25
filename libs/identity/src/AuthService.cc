@@ -1,11 +1,11 @@
-#include <authforge/identity/AuthService.h>
-#include <authforge/identity/IUserRepository.h>
+#include <fulla/identity/AuthService.h>
+#include <fulla/identity/IUserRepository.h>
 
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 namespace
@@ -62,7 +62,7 @@ bool isLegacyHash(const std::string &storedHash)
 
 std::string hashPassword(
   const std::string &password,
-  authforge::common::ports::ICryptoProvider &crypto
+  fulla::common::ports::ICryptoProvider &crypto
 )
 {
     unsigned char salt[kPbkdf2SaltLength];
@@ -87,7 +87,7 @@ bool verifyPassword(
   const std::string &password,
   const std::string &storedHash,
   const std::string &legacySalt,
-  authforge::common::ports::ICryptoProvider &crypto
+  fulla::common::ports::ICryptoProvider &crypto
 )
 {
     if (!isLegacyHash(storedHash))
@@ -149,8 +149,8 @@ bool verifyPassword(
 
 AuthService::AuthService(
   std::shared_ptr<IUserRepository> userRepo,
-  std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
-  std::shared_ptr<authforge::common::ports::IClock> clock
+  std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
+  std::shared_ptr<fulla::common::ports::IClock> clock
 )
     : userRepo_(std::move(userRepo)), crypto_(std::move(crypto)), clock_(std::move(clock))
 {
@@ -302,4 +302,4 @@ void AuthService::getUserInfo(
     userRepo_->getUserInfoWithRoles(userId, std::move(callback));
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity

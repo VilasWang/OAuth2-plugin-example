@@ -79,7 +79,7 @@ Or run the binary directly from its preset directory, e.g. on Linux release:
 
 ```bash
 cd build/linux-release/apps/server
-./authforge-server
+./fulla-server
 ```
 
 The server starts on `http://localhost:5555`. `main.cc` has no `-c` flag; it

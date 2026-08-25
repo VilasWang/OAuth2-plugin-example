@@ -1,11 +1,11 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // for FakeRoleProvider.
 
-#include <authforge/common/testing/FakeRoleProvider.h>
+#include <fulla/common/testing/FakeRoleProvider.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
+using namespace fulla::common::testing;
 
 TEST(FakeRoleProviderTest, ReturnsRegisteredRoles)
 {

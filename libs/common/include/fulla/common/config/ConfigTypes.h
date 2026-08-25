@@ -1,0 +1,46 @@
+#pragma once
+
+#include <string>
+#include <vector>
+#include <json/json.h>
+
+namespace fulla::common::config
+{
+
+// Environment variable override configuration
+struct EnvOverride
+{
+    std::string configPath;     // JSON path like "db_clients.0.host"
+    const char *envVar;         // Environment variable name
+    bool isNumeric;             // Is numeric type
+    bool isStringList = false;  // Comma-separated string → JSON array of strings
+};
+
+// OAuth2 environment variable override rules
+inline const std::vector<EnvOverride> FULLA_ENV_OVERRIDES =
+  {{"db_clients.0.host", "FULLA_DB_HOST", false},
+   {"db_clients.0.port", "FULLA_DB_PORT", true},
+   {"db_clients.0.dbname", "FULLA_DB_NAME", false},
+   {"db_clients.0.user", "FULLA_DB_USER", false},
+   {"db_clients.0.passwd", "FULLA_DB_PASSWORD", false},
+   {"redis_clients.0.host", "FULLA_REDIS_HOST", false},
+   {"redis_clients.0.port", "FULLA_REDIS_PORT", true},
+   {"redis_clients.0.passwd", "FULLA_REDIS_PASSWORD", false},
+   {"custom_config.metadata.issuer", "FULLA_ISSUER", false},
+   {"custom_config.frontend.url", "FULLA_FRONTEND_URL", false},
+   {"custom_config.external_auth.github.client_id", "FULLA_GITHUB_CLIENT_ID", false},
+   {"custom_config.external_auth.github.client_secret", "FULLA_GITHUB_CLIENT_SECRET", false},
+   {"custom_config.external_auth.google.client_id", "FULLA_GOOGLE_CLIENT_ID", false},
+   {"custom_config.external_auth.google.client_secret", "FULLA_GOOGLE_CLIENT_SECRET", false},
+   {"custom_config.external_auth.google.redirect_uri", "FULLA_GOOGLE_REDIRECT_URI", false},
+   {"listeners.0.port", "FULLA_LISTEN_PORT", true},
+   {"vue_client.secret", "FULLA_VUE_CLIENT_SECRET", false},
+   // "[name=OAuth2Plugin]" resolves the plugin by its drogon "name" field,
+   // independent of array ordering — each config file inserts a different set
+   // of plugins (Hodor, AccessLogger) so a numeric index would be fragile.
+   {"plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri",
+    "FULLA_VUE_REDIRECT_URI",
+    false},
+   {"custom_config.cors.allow_origins", "FULLA_CORS_ALLOW_ORIGINS", false, /*isStringList=*/true}};
+
+}  // namespace fulla::common::config

@@ -1,11 +1,11 @@
-#include <authforge/common/testing/FakeCryptoProvider.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
 
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/pem.h>
 #include <openssl/bio.h>
 
-namespace authforge::common::testing
+namespace fulla::common::testing
 {
 
 namespace
@@ -303,4 +303,4 @@ std::vector<unsigned char> FakeCryptoProvider::rsaSign(
     return signature;
 }
 
-}  // namespace authforge::common::testing
+}  // namespace fulla::common::testing

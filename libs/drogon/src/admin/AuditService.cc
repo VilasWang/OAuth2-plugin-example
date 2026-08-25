@@ -1,17 +1,17 @@
-#include <authforge/drogon/admin/AuditService.h>
+#include <fulla/drogon/admin/AuditService.h>
 
-#include <authforge/storage/postgres/models/AuditLogs.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/storage/postgres/models/Oauth2Clients.h>
-#include <authforge/storage/postgres/models/Oauth2AccessTokens.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/storage/postgres/models/AuditLogs.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/Oauth2Clients.h>
+#include <fulla/storage/postgres/models/Oauth2AccessTokens.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>
 
 #include <chrono>
 
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 
 namespace
@@ -23,7 +23,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -32,7 +32,7 @@ void respondError(
 }
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 ::drogon::orm::DbClientPtr getDbOrRespond(
   const ::drogon::HttpRequestPtr &req,
@@ -291,4 +291,4 @@ void AuditService::dashboard(ResponseCallback cb)
     (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
 }
 
-}  // namespace authforge::drogon::admin
+}  // namespace fulla::drogon::admin

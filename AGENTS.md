@@ -1,4 +1,4 @@
-# AGENTS.md — authforge 项目指令
+# AGENTS.md — fulla 项目指令
 
 > 本文件是 ZCode 的项目级指令文件（`<repo>/AGENTS.md`）。
 >

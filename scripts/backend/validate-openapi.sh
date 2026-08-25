@@ -62,10 +62,10 @@ print_section "Validating OpenAPI JSON"
 
 # Find openapi.json in common build locations
 SEARCH_PATHS=(
-    "$BUILD_ABS_DIR/$OAUTH2_SERVER_DIR/test/Debug/docs/api/openapi.json"
-    "$BUILD_ABS_DIR/$OAUTH2_SERVER_DIR/test/docs/api/openapi.json"
-    "$BUILD_ABS_DIR/$OAUTH2_SERVER_DIR/docs/api/openapi.json"
-    "$OAUTH2_SERVER_ABS_DIR/docs/api/openapi.json"
+    "$BUILD_ABS_DIR/$FULLA_SERVER_DIR/test/Debug/docs/api/openapi.json"
+    "$BUILD_ABS_DIR/$FULLA_SERVER_DIR/test/docs/api/openapi.json"
+    "$BUILD_ABS_DIR/$FULLA_SERVER_DIR/docs/api/openapi.json"
+    "$FULLA_SERVER_ABS_DIR/docs/api/openapi.json"
 )
 
 OPENAPI_FILE=""

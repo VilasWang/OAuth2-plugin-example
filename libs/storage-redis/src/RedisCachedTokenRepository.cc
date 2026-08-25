@@ -1,5 +1,5 @@
-#include <authforge/storage/redis/RedisCachedTokenRepository.h>
-#include <authforge/storage/redis/DelayedDoubleDelete.h>
+#include <fulla/storage/redis/RedisCachedTokenRepository.h>
+#include <fulla/storage/redis/DelayedDoubleDelete.h>
 
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -7,13 +7,13 @@
 #include <sstream>
 #include <string_view>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 // DTO + callback aliases (safe at namespace scope: this .cc does not include
 // IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2AccessToken = ::authforge::oauth2::model::OAuth2AccessToken;
-using TokenIntrospection = ::authforge::oauth2::model::TokenIntrospection;
+using OAuth2AccessToken = ::fulla::oauth2::model::OAuth2AccessToken;
+using TokenIntrospection = ::fulla::oauth2::model::TokenIntrospection;
 using AccessTokenCallback = RedisCachedTokenRepositoryBase::AccessTokenCallback;
 using TokenIntrospectionCallback = RedisCachedTokenRepositoryBase::TokenIntrospectionCallback;
 using VoidCallback = RedisCachedTokenRepositoryBase::VoidCallback;
@@ -125,9 +125,9 @@ bool deserializeIntrospection(const std::string &s, TokenIntrospection &out)
     return true;
 }
 
-const ::authforge::common::ports::MetricLabels kHitLabels{{"repo", "token"}, {"outcome", "hit"}};
-const ::authforge::common::ports::MetricLabels kMissLabels{{"repo", "token"}, {"outcome", "miss"}};
-const ::authforge::common::ports::MetricLabels kErrorLabels{{"repo", "token"}, {"outcome", "error"}};
+const ::fulla::common::ports::MetricLabels kHitLabels{{"repo", "token"}, {"outcome", "hit"}};
+const ::fulla::common::ports::MetricLabels kMissLabels{{"repo", "token"}, {"outcome", "miss"}};
+const ::fulla::common::ports::MetricLabels kErrorLabels{{"repo", "token"}, {"outcome", "error"}};
 
 // Wave-2 P2 (docs/performance-optimization/optimization-wave-2-plan.md):
 // one EVAL round-trip replaces the serial EXISTS(revoked) → GET(value) pair
@@ -165,7 +165,7 @@ RevokedThenGet decodeRevokedThenGet(const RedisResult &result, std::string &valu
 RedisCachedTokenRepository::RedisCachedTokenRepository(
   std::shared_ptr<RedisCachedTokenRepositoryBase> impl,
   RedisClientPtr redisClient,
-  std::shared_ptr<::authforge::common::ports::IMetrics> metrics,
+  std::shared_ptr<::fulla::common::ports::IMetrics> metrics,
   int accessTokenMaxTtlSeconds
 ) : impl_(std::move(impl)),
     redisClient_(std::move(redisClient)),
@@ -181,7 +181,7 @@ void RedisCachedTokenRepository::emitMetric(const char *outcome) const
     const auto &labels = std::string_view(outcome) == "hit"   ? kHitLabels
                          : std::string_view(outcome) == "miss" ? kMissLabels
                                                                : kErrorLabels;
-    metrics_->incrementCounter("authforge_cache_total", labels);
+    metrics_->incrementCounter("fulla_cache_total", labels);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,8 +192,8 @@ void RedisCachedTokenRepository::getAccessToken(const std::string &token, Access
     auto sharedCb = std::make_shared<AccessTokenCallback>(std::move(cb));
     auto fired = std::make_shared<std::atomic<bool>>(false);
     auto self = shared_from_this();
-    std::string key = "authforge:cache:token:access:" + token;
-    std::string revokedKey = "authforge:cache:token:revoked:" + token;
+    std::string key = "fulla:cache:token:access:" + token;
+    std::string revokedKey = "fulla:cache:token:revoked:" + token;
 
     if (!redisClient_)
     {
@@ -245,7 +245,7 @@ void RedisCachedTokenRepository::getAccessToken(const std::string &token, Access
                           std::min<int64_t>(remaining, self->accessTokenMaxTtlSeconds_)
                         );
                         std::string payload = serializeAccessToken(*t);
-                        std::string k = "authforge:cache:token:access:" + token;
+                        std::string k = "fulla:cache:token:access:" + token;
                         self->redisClient_->execCommandAsync(
                           [](const RedisResult &) {},
                           [k](const RedisException &e) {
@@ -290,8 +290,8 @@ void RedisCachedTokenRepository::introspectToken(
     auto sharedCb = std::make_shared<TokenIntrospectionCallback>(std::move(cb));
     auto fired = std::make_shared<std::atomic<bool>>(false);
     auto self = shared_from_this();
-    std::string revokedKey = "authforge:cache:token:revoked:" + token;
-    std::string introKey = "authforge:cache:token:introspect:" + token;
+    std::string revokedKey = "fulla:cache:token:revoked:" + token;
+    std::string introKey = "fulla:cache:token:introspect:" + token;
 
     if (!redisClient_)
     {
@@ -341,7 +341,7 @@ void RedisCachedTokenRepository::introspectToken(
                 // the refresh-token fallthrough.
                 if (res && res->active && self->redisClient_)
                 {
-                    std::string accessKey = "authforge:cache:token:access:" + token;
+                    std::string accessKey = "fulla:cache:token:access:" + token;
                     self->redisClient_->execCommandAsync(
                       [self, res, token](const RedisResult &ex) {
                           if (ex.type() == RedisResultType::kInteger && ex.asInteger() > 0)
@@ -354,7 +354,7 @@ void RedisCachedTokenRepository::introspectToken(
                                     remaining, self->accessTokenMaxTtlSeconds_
                                   ));
                                   std::string payload = serializeIntrospection(*res);
-                                  std::string k = "authforge:cache:token:introspect:" + token;
+                                  std::string k = "fulla:cache:token:introspect:" + token;
                                   self->redisClient_->execCommandAsync(
                                     [](const RedisResult &) {},
                                     [k](const RedisException &e) {
@@ -420,9 +420,9 @@ void RedisCachedTokenRepository::revokeAccessToken(
         // callback fires regardless.
         if (self->redisClient_)
         {
-            std::string revokedKey = "authforge:cache:token:revoked:" + token;
-            std::string accessKey = "authforge:cache:token:access:" + token;
-            std::string introKey = "authforge:cache:token:introspect:" + token;
+            std::string revokedKey = "fulla:cache:token:revoked:" + token;
+            std::string accessKey = "fulla:cache:token:access:" + token;
+            std::string introKey = "fulla:cache:token:introspect:" + token;
             // SET negative entry (60s).
             self->redisClient_->execCommandAsync(
               [](const RedisResult &) {},
@@ -469,7 +469,7 @@ void RedisCachedTokenRepository::saveAccessToken(
                   std::min<int64_t>(remaining, self->accessTokenMaxTtlSeconds_)
                 );
                 std::string payload = serializeAccessToken(token);
-                std::string key = "authforge:cache:token:access:" + token.token;
+                std::string key = "fulla:cache:token:access:" + token.token;
                 self->redisClient_->execCommandAsync(
                   [](const RedisResult &) {},
                   [key](const RedisException &e) {
@@ -488,4 +488,4 @@ void RedisCachedTokenRepository::saveAccessToken(
     });
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

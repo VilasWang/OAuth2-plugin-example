@@ -17,9 +17,9 @@
 
 #include <string>
 
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::sendGet;
-using authforge::test::http::statusIs;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::sendGet;
+using fulla::test::http::statusIs;
 
 // OIDC discovery metadata: assert the RFC 8414 / OIDC required fields are
 // present and well-formed. Covers the openidConfiguration happy path.

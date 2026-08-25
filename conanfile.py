@@ -1,11 +1,11 @@
-"""AuthForge Conan dependency descriptor.
+"""Fulla Conan dependency descriptor.
 
 Replaces the legacy conanfile.txt (see design.md §9.1). This file is the
-single, three-platform (Linux/Windows/macOS) source of truth for AuthForge's
+single, three-platform (Linux/Windows/macOS) source of truth for Fulla's
 C++ dependencies.
 
 Notable options beyond plain dependency pinning:
-  - with_identity / with_social / with_webauthn: gate optional AuthForge
+  - with_identity / with_social / with_webauthn: gate optional Fulla
     feature areas (identity SDK, social login controllers, WebAuthn/FIDO2)
     that will be wired up to conditional compilation in later milestones
     (F9). They default to True to preserve today's build behavior; setting
@@ -24,8 +24,8 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMakeDeps
 
 
-class AuthForgeConan(ConanFile):
-    name = "authforge"
+class FullaConan(ConanFile):
+    name = "fulla"
     version = "1.4.1"
     settings = "os", "compiler", "build_type", "arch"
 

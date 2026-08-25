@@ -1,4 +1,4 @@
-// Coverage additions (P1, authforge coverage push): ErrorResponder.cc had
+// Coverage additions (P1, fulla coverage push): ErrorResponder.cc had
 // ZERO direct unit coverage -- it was exercised only indirectly through
 // integration tests. These pin the security-relevant guarantees:
 //   * an unregistered Error_Code NEVER leaks to the client and NEVER throws
@@ -12,10 +12,10 @@
 #include <drogon/drogon_test.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/common/error/ErrorContext.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorContext.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 #include <json/json.h>
 
 #include <memory>
@@ -24,7 +24,7 @@
 #include <vector>
 
 using namespace drogon;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 namespace
 {

@@ -19,7 +19,7 @@ function Show-Help {
     Write-Host "  dev-frontend                 Run frontend in dev mode"
     Write-Host "  build-admin                  Build the admin frontend"
     Write-Host "  dev-admin                    Run admin frontend in dev mode"
-    Write-Host "  run-backend [-debug]         Start the authforge-server binary"
+    Write-Host "  run-backend [-debug]         Start the fulla-server binary"
     Write-Host "  setup-db                     Create database and run migrations"
     Write-Host "  generate-models              Generate Drogon ORM models"
     Write-Host "  reset-password               Reset admin password to default"
@@ -59,28 +59,28 @@ switch ($Action) {
         & "$ScriptDir\scripts\backend\test.bat" "-$($Config.ToLower())"
     }
     "build-frontend" {
-        Push-Location "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])"
+        Push-Location "$ScriptDir\$($Paths['FULLA_FRONTEND_DIR'])"
         try {
             npm install
             npm run build
         } finally { Pop-Location }
     }
     "dev-frontend" {
-        Push-Location "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])"
+        Push-Location "$ScriptDir\$($Paths['FULLA_FRONTEND_DIR'])"
         try {
             npm install
             npm run dev
         } finally { Pop-Location }
     }
     "build-admin" {
-        Push-Location "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])"
+        Push-Location "$ScriptDir\$($Paths['FULLA_ADMIN_DIR'])"
         try {
             npm install
             npm run build
         } finally { Pop-Location }
     }
     "dev-admin" {
-        Push-Location "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])"
+        Push-Location "$ScriptDir\$($Paths['FULLA_ADMIN_DIR'])"
         try {
             npm install
             npm run dev
@@ -132,11 +132,11 @@ switch ($Action) {
         if (Test-Path "$ScriptDir\$($Paths['BUILD_DIR'])") {
             Remove-Item -Recurse -Force "$ScriptDir\$($Paths['BUILD_DIR'])"
         }
-        if (Test-Path "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])\dist") {
-            Remove-Item -Recurse -Force "$ScriptDir\$($Paths['OAUTH2_FRONTEND_DIR'])\dist"
+        if (Test-Path "$ScriptDir\$($Paths['FULLA_FRONTEND_DIR'])\dist") {
+            Remove-Item -Recurse -Force "$ScriptDir\$($Paths['FULLA_FRONTEND_DIR'])\dist"
         }
-        if (Test-Path "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])\dist") {
-            Remove-Item -Recurse -Force "$ScriptDir\$($Paths['OAUTH2_ADMIN_DIR'])\dist"
+        if (Test-Path "$ScriptDir\$($Paths['FULLA_ADMIN_DIR'])\dist") {
+            Remove-Item -Recurse -Force "$ScriptDir\$($Paths['FULLA_ADMIN_DIR'])\dist"
         }
         Write-Host "Cleaned build artifacts."
     }

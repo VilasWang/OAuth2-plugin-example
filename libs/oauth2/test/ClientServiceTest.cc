@@ -1,8 +1,8 @@
-// Task 17 remainder (authforge-sdk-refactor): unit tests for the new
-// Domain-layer authforge::oauth2::protocol::ClientService, ported onto
+// Task 17 remainder (fulla-sdk-refactor): unit tests for the new
+// Domain-layer fulla::oauth2::protocol::ClientService, ported onto
 // IClientRepository instead of the old god interface.
 
-#include <authforge/oauth2/protocol/ClientService.h>
+#include <fulla/oauth2/protocol/ClientService.h>
 
 #include <gtest/gtest.h>
 
@@ -11,9 +11,9 @@
 namespace
 {
 
-using namespace authforge::oauth2::model;
-using namespace authforge::oauth2::repository;
-using authforge::oauth2::protocol::ClientService;
+using namespace fulla::oauth2::model;
+using namespace fulla::oauth2::repository;
+using fulla::oauth2::protocol::ClientService;
 
 class FakeClientRepo : public IClientRepository
 {

@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS oauth2_client_scopes (
     UNIQUE(client_id, scope_name)
 );
 
-CREATE TABLE IF NOT EXISTS oauth2_user_consents (
+CREATE TABLE IF NOT EXISTS fulla_user_consents (
     id SERIAL PRIMARY KEY,
     internal_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     client_id VARCHAR(50) REFERENCES oauth2_clients(client_id) ON DELETE CASCADE,
@@ -37,9 +37,9 @@ CREATE TABLE IF NOT EXISTS oauth2_subject_mappings (
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_oauth2_client_scopes_lookup ON oauth2_client_scopes(client_id);
-CREATE INDEX IF NOT EXISTS idx_oauth2_user_consents_lookup ON oauth2_user_consents(internal_user_id, client_id);
-CREATE INDEX IF NOT EXISTS idx_oauth2_user_consents_user ON oauth2_user_consents(internal_user_id);
-CREATE INDEX IF NOT EXISTS idx_oauth2_user_consents_client ON oauth2_user_consents(client_id);
+CREATE INDEX IF NOT EXISTS idx_fulla_user_consents_lookup ON fulla_user_consents(internal_user_id, client_id);
+CREATE INDEX IF NOT EXISTS idx_fulla_user_consents_user ON fulla_user_consents(internal_user_id);
+CREATE INDEX IF NOT EXISTS idx_fulla_user_consents_client ON fulla_user_consents(client_id);
 CREATE INDEX IF NOT EXISTS idx_oauth2_subject_mappings_provider_subject ON oauth2_subject_mappings(provider, subject);
 CREATE INDEX IF NOT EXISTS idx_oauth2_subject_mappings_user ON oauth2_subject_mappings(internal_user_id);
 

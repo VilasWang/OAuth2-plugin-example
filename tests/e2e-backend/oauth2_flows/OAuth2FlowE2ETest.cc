@@ -3,16 +3,16 @@
 #include <drogon/HttpClient.h>
 #include <drogon/utils/Utilities.h>
 #include <drogon/Cookie.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/controllers/SessionController.h>
-#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
-#include <authforge/drogon/controllers/TokenEndpointController.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/controllers/SessionController.h>
+#include <fulla/drogon/controllers/AuthorizationEndpointController.h>
+#include <fulla/drogon/controllers/TokenEndpointController.h>
 #include <future>
 #include <iostream>
 #include <map>
 
 using namespace drogon;
-using authforge::drogon::controllers::SessionController;
+using fulla::drogon::controllers::SessionController;
 
 DROGON_TEST(E2E_P0_OAuth2Flow_AuthCode_Works)
 {
@@ -34,8 +34,8 @@ DROGON_TEST(E2E_P0_OAuth2Flow_AuthCode_Works)
 
     auto ctrl = std::make_shared<SessionController>();
     auto authzCtrl =
-      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
-    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
+      std::make_shared<fulla::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<fulla::drogon::controllers::TokenEndpointController>();
 
     std::string testUserId = "e2e_user_" + utils::getUuid().substr(0, 8);
     std::string testPassword = "TestPass123!";
@@ -270,8 +270,8 @@ DROGON_TEST(Integration_P0_Session_Management_Works)
 
     auto ctrl = std::make_shared<SessionController>();
     auto authzCtrl =
-      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
-    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
+      std::make_shared<fulla::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<fulla::drogon::controllers::TokenEndpointController>();
 
     // Test: Session Creation
     LOG_INFO << "--- Test: Session Creation ---";
@@ -334,8 +334,8 @@ DROGON_TEST(Integration_P0_Client_Authentication_Works)
 
     auto ctrl = std::make_shared<SessionController>();
     auto authzCtrl =
-      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
-    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
+      std::make_shared<fulla::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<fulla::drogon::controllers::TokenEndpointController>();
 
     // Test: Public Client
     LOG_INFO << "--- Test: Public Client Authentication ---";
@@ -442,8 +442,8 @@ DROGON_TEST(Integration_P1_RedirectUri_Validation_Works)
 
     auto ctrl = std::make_shared<SessionController>();
     auto authzCtrl =
-      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>();
-    auto tokenCtrl = std::make_shared<authforge::drogon::controllers::TokenEndpointController>();
+      std::make_shared<fulla::drogon::controllers::AuthorizationEndpointController>();
+    auto tokenCtrl = std::make_shared<fulla::drogon::controllers::TokenEndpointController>();
 
     // Test: Valid Redirect URI
     LOG_INFO << "--- Test: Valid Redirect URI ---";

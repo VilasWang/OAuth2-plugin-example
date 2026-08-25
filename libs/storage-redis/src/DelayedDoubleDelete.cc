@@ -2,22 +2,22 @@
 // DelayedDoubleDelete.h for the design commentary (refill race, failure
 // accounting, soft-fail contract).
 
-#include <authforge/storage/redis/DelayedDoubleDelete.h>
+#include <fulla/storage/redis/DelayedDoubleDelete.h>
 
 #include <drogon/drogon.h>
 
 #include <algorithm>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 namespace
 {
 using ::drogon::nosql::RedisClientPtr;
 using ::drogon::nosql::RedisException;
 using ::drogon::nosql::RedisResult;
-using MetricsPtr = std::shared_ptr<::authforge::common::ports::IMetrics>;
+using MetricsPtr = std::shared_ptr<::fulla::common::ports::IMetrics>;
 
-constexpr const char *kFailureCounter = "authforge_cache_invalidation_failures_total";
+constexpr const char *kFailureCounter = "fulla_cache_invalidation_failures_total";
 
 void countFailedAttempt(const MetricsPtr &metrics, const std::string &kind)
 {
@@ -59,7 +59,7 @@ void attemptDel(
 void invalidateWithDoubleDelete(
   const RedisClientPtr &redis,
   const std::string &key,
-  const std::shared_ptr<::authforge::common::ports::IMetrics> &metrics,
+  const std::shared_ptr<::fulla::common::ports::IMetrics> &metrics,
   std::string kind,
   int delayMs
 )
@@ -90,4 +90,4 @@ void invalidateWithDoubleDelete(
     );
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

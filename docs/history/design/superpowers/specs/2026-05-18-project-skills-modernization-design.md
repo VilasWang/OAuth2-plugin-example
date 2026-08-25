@@ -1,7 +1,7 @@
 # 项目技能现代化升级设计文档
 
 **日期**: 2026-05-18  
-**项目**: authforge  
+**项目**: fulla  
 **目标**: 更新项目级技能以匹配重构后的项目结构
 
 ---
@@ -210,12 +210,12 @@ Docker 模式:
   scripts/backend/docker_postgres_start.bat  # 自动重建数据库
 
 本地模式:
-  psql -c "DROP DATABASE IF EXISTS oauth2_db;"
-  psql -c "CREATE DATABASE oauth2_db;"
-  psql -d oauth2_db -f OAuth2Server/sql/001_oauth2_core.sql
-  psql -d oauth2_db -f OAuth2Server/sql/002_users_table.sql
-  psql -d oauth2_db -f OAuth2Server/sql/003_rbac_schema.sql
-  psql -d oauth2_db -f OAuth2Server/sql/004_oauth2_scopes.sql
+  psql -c "DROP DATABASE IF EXISTS fulla_db;"
+  psql -c "CREATE DATABASE fulla_db;"
+  psql -d fulla_db -f OAuth2Server/sql/001_oauth2_core.sql
+  psql -d fulla_db -f OAuth2Server/sql/002_users_table.sql
+  psql -d fulla_db -f OAuth2Server/sql/003_rbac_schema.sql
+  psql -d fulla_db -f OAuth2Server/sql/004_oauth2_scopes.sql
 ```
 
 **路径修复清单**:
@@ -304,10 +304,10 @@ scripts/backend/full_test_docker.bat
 **Docker 服务架构**:
 ```yaml
 docker-compose.yml 服务:
-  - oauth2-frontend:     Vue 前端 (8080)
-  - oauth2-backend:      Drogon 后端 (5555)  
-  - oauth2-postgres:     PostgreSQL (5433)
-  - oauth2-redis:        Redis (6380)
+  - fulla-frontend:     Vue 前端 (8080)
+  - fulla-backend:      Drogon 后端 (5555)  
+  - fulla-postgres:     PostgreSQL (5433)
+  - fulla-redis:        Redis (6380)
   - prometheus:          监控 (9090)
 ```
 

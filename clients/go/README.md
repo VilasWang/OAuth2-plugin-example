@@ -1,9 +1,9 @@
-# AuthForge Go Client
+# Fulla Go Client
 
-Typed Go SDK for [AuthForge](https://github.com/voidvec/authforge) — the embeddable C++ OAuth2/OIDC
+Typed Go SDK for [Fulla](https://github.com/voidvec/fulla) — the embeddable C++ OAuth2/OIDC
 authorization server.
 
-- **Module path:** `github.com/voidvec/authforge/clients/go` (monorepo subdirectory module)
+- **Module path:** `github.com/voidvec/fulla/clients/go` (monorepo subdirectory module)
 - **API surface:** generated from the server's single-source OpenAPI spec (`apps/server/openapi.yaml`)
   with [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) v2.8.0 — 78 operations, typed
   request/response models
@@ -11,7 +11,7 @@ authorization server.
   [design doc](../../docs/productization-evolution/in-progress/client-sdk-facility-design.md))
 
 ```bash
-go get github.com/voidvec/authforge/clients/go
+go get github.com/voidvec/fulla/clients/go
 ```
 
 > The Go module proxy serves subdirectory modules from nested git tags (`clients/go/vX.Y.Z`) which the
@@ -25,7 +25,7 @@ package main
 import (
 	"context"
 
-	af "github.com/voidvec/authforge/clients/go/auth"
+	af "github.com/voidvec/fulla/clients/go/auth"
 )
 
 func main() {
@@ -70,10 +70,10 @@ flow := af.NewAuthCodeFlow("http://localhost:5555", "my-client", "my-secret",
 
 pkce, _ := af.NewPkcePair()
 authorizeURL, _ := flow.BuildAuthorizeURL(sessionCSRF, &pkce)
-// → redirect the user's browser to authorizeURL; AuthForge sends them back
+// → redirect the user's browser to authorizeURL; Fulla sends them back
 //   with ?code=…&state=… — VERIFY state, then:
 tokens, err := flow.ExchangeCode(ctx, code, pkce.Verifier)
-// … later; AuthForge rotates refresh tokens on every use (V008):
+// … later; Fulla rotates refresh tokens on every use (V008):
 tokens, err = flow.Refresh(ctx, tokens.RefreshToken)
 ```
 
@@ -83,7 +83,7 @@ Everything under `generated/` is the typed surface of the whole server API
 (`generated.ClientWithResponses` offers per-endpoint typed responses):
 
 ```go
-import "github.com/voidvec/authforge/clients/go/generated"
+import "github.com/voidvec/fulla/clients/go/generated"
 
 client, _ := generated.NewClientWithResponses("http://localhost:5555")
 resp, _ := client.GetWellKnownOpenidConfigurationWithResponse(ctx)
@@ -95,7 +95,7 @@ fmt.Println(resp.JSON200.Issuer)
 ```bash
 cd clients/go
 go test ./...                  # unit tests (httptest, no server needed)
-go test -tags integration ./...  # needs AUTHFORGE_BASE_URL + a running stack
+go test -tags integration ./...  # needs FULLA_BASE_URL + a running stack
 ```
 
 Regenerating the committed `generated/client.gen.go` after an `openapi.yaml` change:

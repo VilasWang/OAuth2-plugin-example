@@ -38,7 +38,7 @@ show_help() {
     echo "  dev-frontend                 Run frontend in dev mode"
     echo "  build-admin                  Build the admin frontend"
     echo "  dev-admin                    Run admin frontend in dev mode"
-    echo "  run-backend [-debug]         Start the authforge-server binary"
+    echo "  run-backend [-debug]         Start the fulla-server binary"
     echo "  setup-db                     Create database and run migrations"
     echo "  generate-models              Generate Drogon ORM models"
     echo "  reset-password               Reset admin password to default"
@@ -67,22 +67,22 @@ case "$ACTION" in
         bash "$SCRIPT_DIR/scripts/backend/test.sh" "--${CONFIG,,}"
         ;;
     build-frontend)
-        cd "$SCRIPT_DIR/$OAUTH2_FRONTEND_DIR"
+        cd "$SCRIPT_DIR/$FULLA_FRONTEND_DIR"
         npm install
         npm run build
         ;;
     dev-frontend)
-        cd "$SCRIPT_DIR/$OAUTH2_FRONTEND_DIR"
+        cd "$SCRIPT_DIR/$FULLA_FRONTEND_DIR"
         npm install
         npm run dev
         ;;
     build-admin)
-        cd "$SCRIPT_DIR/$OAUTH2_ADMIN_DIR"
+        cd "$SCRIPT_DIR/$FULLA_ADMIN_DIR"
         npm install
         npm run build
         ;;
     dev-admin)
-        cd "$SCRIPT_DIR/$OAUTH2_ADMIN_DIR"
+        cd "$SCRIPT_DIR/$FULLA_ADMIN_DIR"
         npm install
         npm run dev
         ;;
@@ -136,8 +136,8 @@ case "$ACTION" in
         ;;
     clean)
         rm -rf "$SCRIPT_DIR/$BUILD_DIR"
-        rm -rf "$SCRIPT_DIR/$OAUTH2_FRONTEND_DIR/dist"
-        rm -rf "$SCRIPT_DIR/$OAUTH2_ADMIN_DIR/dist"
+        rm -rf "$SCRIPT_DIR/$FULLA_FRONTEND_DIR/dist"
+        rm -rf "$SCRIPT_DIR/$FULLA_ADMIN_DIR/dist"
         echo "Cleaned build artifacts."
         ;;
     help)

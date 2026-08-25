@@ -12,7 +12,7 @@
 
 using namespace drogon;
 using namespace drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 const std::string Oauth2DeviceCodes::Cols::_device_code_hash = "\"device_code_hash\"";
 const std::string Oauth2DeviceCodes::Cols::_user_code = "\"user_code\"";

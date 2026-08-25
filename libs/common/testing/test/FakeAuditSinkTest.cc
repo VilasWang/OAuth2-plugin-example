@@ -1,12 +1,12 @@
-// M2b Task 17 slice 5 (authforge-sdk-refactor, design.md §6/§8): pure
+// M2b Task 17 slice 5 (fulla-sdk-refactor, design.md §6/§8): pure
 // gtest unit tests for FakeAuditSink.
 
-#include <authforge/common/testing/FakeAuditSink.h>
+#include <fulla/common/testing/FakeAuditSink.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
-using authforge::common::observability::AuditEvent;
+using namespace fulla::common::testing;
+using fulla::common::observability::AuditEvent;
 
 namespace
 {
@@ -54,7 +54,7 @@ TEST(FakeAuditSinkTest, ClearRemovesAllEvents)
 TEST(FakeAuditSinkTest, ThroughBasePointer_DispatchesCorrectly)
 {
     FakeAuditSink sink;
-    authforge::common::ports::IAuditSink &port = sink;
+    fulla::common::ports::IAuditSink &port = sink;
     port.record(makeEvent("client_authenticated"));
 
     EXPECT_TRUE(sink.hasEventWithAction("client_authenticated"));

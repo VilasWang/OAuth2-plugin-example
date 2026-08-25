@@ -1,0 +1,70 @@
+#pragma once
+
+#ifdef WITH_SOCIAL
+
+// Task 24 slice 5 (fulla-sdk-refactor, design.md §5.1/§5.4/§6):
+// Adapter-layer Postgres implementation of ISocialAccountRepository
+// (libs/identity), backing fulla::identity::GitHubAuthService's
+// find-or-create local account flow. Ports the raw SQL
+// libs/drogon/src/controllers/GitHubController.cc issues against
+// `oauth2_subject_mappings`/`users`/`user_roles` into this repository.
+// Guarded by WITH_SOCIAL (propagated PUBLIC from fulla::identity, see
+// libs/identity/CMakeLists.txt) to match ISocialAccountRepository.h's own
+// guard -- this header cannot compile without that interface.
+
+#include <fulla/identity/ISocialAccountRepository.h>
+
+#include <drogon/orm/DbClient.h>
+
+#include <memory>
+
+namespace fulla::storage::postgres
+{
+
+class PostgresSocialAccountRepository
+    : public fulla::identity::ISocialAccountRepository,
+      public std::enable_shared_from_this<PostgresSocialAccountRepository>
+{
+  public:
+    explicit PostgresSocialAccountRepository(::drogon::orm::DbClientPtr dbClient)
+        : dbClient_(std::move(dbClient))
+    {
+    }
+
+    void findLinkedUser(
+      const std::string &provider,
+      const std::string &subject,
+      LookupCallback &&cb
+    ) override;
+
+    void createLinkedUser(
+      const std::string &provider,
+      const std::string &subject,
+      const std::string &username,
+      const std::string &email,
+      CreateCallback &&cb
+    ) override;
+
+    // B2 social link/unlink (see ISocialAccountRepository.h's own block
+    // comment for the mapping-lifecycle contract).
+    void listForUser(int32_t internalUserId, LinkEntriesCallback &&cb) override;
+    void insertLink(
+      const std::string &provider,
+      const std::string &subject,
+      int32_t internalUserId,
+      LinkMutationCallback &&cb
+    ) override;
+    void deleteLink(
+      const std::string &provider,
+      int32_t internalUserId,
+      LinkMutationCallback &&cb
+    ) override;
+    void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallback &&cb) override;
+
+  private:
+    ::drogon::orm::DbClientPtr dbClient_;
+};
+
+}  // namespace fulla::storage::postgres
+
+#endif  // WITH_SOCIAL

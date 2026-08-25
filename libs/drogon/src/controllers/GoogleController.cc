@@ -1,15 +1,15 @@
-#include <authforge/drogon/controllers/GoogleController.h>
+#include <fulla/drogon/controllers/GoogleController.h>
 #include <drogon/HttpClient.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
 #ifdef WITH_SOCIAL
-// Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this
+// Task 24 slice 5 (fulla-sdk-refactor): identity-layer service this
 // controller now optionally consumes.
-#include <authforge/identity/SocialAuthService.h>
+#include <fulla/identity/SocialAuthService.h>
 #endif  // WITH_SOCIAL
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -39,7 +39,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -52,7 +52,7 @@ struct GoogleControllerDocs
 {
     GoogleControllerDocs()
     {
-        using namespace ::authforge::drogon::observability::openapi;
+        using namespace ::fulla::drogon::observability::openapi;
 
         Json::Value successExample;
         successExample["sub"] = "123456789012345678901";
@@ -64,7 +64,7 @@ struct GoogleControllerDocs
         errorExample["error"] = "Missing code parameter";
 
         // C++17 compatible initialization (avoid designated initializers)
-        ::authforge::drogon::observability::openapi::EndpointInfo googleEndpoint;
+        ::fulla::drogon::observability::openapi::EndpointInfo googleEndpoint;
         googleEndpoint.path = "/api/google/login";
         googleEndpoint.method = "POST";
         googleEndpoint.summary = "Google OAuth2 Login";
@@ -76,11 +76,11 @@ struct GoogleControllerDocs
         googleEndpoint.tags = {"External Auth", "Google"};
 
         // Initialize parameters
-        ::authforge::drogon::observability::openapi::ParameterInfo codeParam;
+        ::fulla::drogon::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code from Google OAuth2 callback (required)";
-        codeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
-        codeParam.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+        codeParam.location = ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = true;
         googleEndpoint.parameters = {codeParam};
 
@@ -130,7 +130,7 @@ void GoogleController::login(
 
         if (code.empty())
         {
-            ::authforge::common::error::ErrorResponder::respond(
+            ::fulla::common::error::ErrorResponder::respond(
               req,
               std::move(callback),
               "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -153,7 +153,7 @@ void GoogleController::login(
                 std::move(callback)
               );
             googleAuthService_
-              ->login(code, [sharedCb, req](authforge::identity::GoogleLoginResult result) {
+              ->login(code, [sharedCb, req](fulla::identity::GoogleLoginResult result) {
                   if (!result.errorCode.empty())
                   {
                       respondError(
@@ -302,17 +302,17 @@ void GoogleController::login(
     catch (const std::exception &e)
     {
         LOG_ERROR << "GoogleController::login exception: " << e.what();
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req, std::move(callback), "INTERNAL_ERROR", "google login: " + std::string(e.what())
         );
     }
     catch (...)
     {
         LOG_ERROR << "GoogleController::login unknown exception";
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req, std::move(callback), "INTERNAL_ERROR", "google login: unknown error"
         );
     }
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

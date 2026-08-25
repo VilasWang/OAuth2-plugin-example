@@ -1,4 +1,4 @@
-# AuthForge HTTP 性能基准设施设计
+# Fulla HTTP 性能基准设施设计
 
 > **版本**: v1.0
 > **日期**: 2026-08-05
@@ -10,10 +10,10 @@
 
 ## 零、TL;DR
 
-- **建什么**：一个顶级 `benchmarks/` 目录，用 **wrk** 对 AuthForge 的 6 个核心 OAuth2 端点做阶梯式加压，产出 QPS / P50/P95/P99 / 错误率 / 稳态内存，结果以 JSON 入仓并生成"承重假设验证报告"。
+- **建什么**：一个顶级 `benchmarks/` 目录，用 **wrk** 对 Fulla 的 6 个核心 OAuth2 端点做阶梯式加压，产出 QPS / P50/P95/P99 / 错误率 / 稳态内存，结果以 JSON 入仓并生成"承重假设验证报告"。
 - **打谁**：**postgres+redis 全栈**（`deploy/docker/docker-compose.yml` 起 backend + PG15 + Redis7 + Prometheus），**不是 memory 模式**——memory 模式无用户存储，login/userinfo/refresh 不可达。
 - **不打谁**：本设施 **Phase 0 不含竞品对比**（Keycloak/Ory/Zitadel 后置到 Phase 0.5）。
-- **核心约束**：客户端在进程外（用生产镜像，不在 `authforge-tests` 进程内打）；每档前 warmup；稳态门槛错误率 < 0.01%；driver CPU < 80%。
+- **核心约束**：客户端在进程外（用生产镜像，不在 `fulla-tests` 进程内打）；每档前 warmup；稳态门槛错误率 < 0.01%；driver CPU < 80%。
 - **验收**：第三方按 `benchmarks/README.md` 在标准云主机上复现误差 < 15%；6 场景各有一次稳态记录；承重假设 4 数字逐条标"达成/未达成/修正"。
 
 ---
@@ -24,7 +24,7 @@
 
 | # | 目标 | 衡量 |
 |---|------|------|
-| G1 | **验证承重假设**：对照调研报告 §3.1 的 4 个 AuthForge 数字（单机 QPS ~10万+、内存 50–120MB、P99 <2ms、冷启动 ~5s），逐条给出"实测达成 / 未达成 / 修正为 X" | §六验收 ✅ 承重假设验证报告 |
+| G1 | **验证承重假设**：对照调研报告 §3.1 的 4 个 Fulla 数字（单机 QPS ~10万+、内存 50–120MB、P99 <2ms、冷启动 ~5s），逐条给出"实测达成 / 未达成 / 修正为 X" | §六验收 ✅ 承重假设验证报告 |
 | G2 | **可复现**：任一第三方按文档能在标准云主机跑出误差 < 15% 的同构数字 | §六验收 ✅ 复现门槛 |
 | G3 | **回归守护**：CI 里一个轻量门，防止性能悄悄退化 | §八 CI 集成设计 |
 | G4 | **诚实的数据发布**：供 README 徽章 / 博客 / TechEmpower 提交引用的单一可信源 | `benchmarks/results/` + 报告 |
@@ -67,8 +67,8 @@
 | `deploy/docker/docker-compose.yml`（backend + PG15 + Redis7 + Prometheus） | 直接作为压测 target 的起停栈 |
 | `apps/server/seed/*.sql`（backend-svc、vue-client 客户端） | **客户端**种子数据。⚠️ **docker-compose 栈不自动 seed**（PG 不递归 initdb.d 子目录、应用 MigrationRunner 只跑迁移）——本设施 `setup.sh` 显式 `psql -f` 注入。⚠️ `admin/admin` 用户**仅冒烟用，不用于压测**——需**新增 N 个压测用户**（见 D4，lockout 脆弱） |
 | `scripts/smoke-parity.{sh,ps1}` 的 boot→`/health/ready`→teardown 模式 | setup/teardown 生命周期模板 |
-| `apps/server/src/main.cc` 的 `--migrate-only` + `OAUTH2_AUTO_MIGRATE=true` | schema 复现的确定性门 |
-| `/metrics`（Prometheus exporter，`config.json:135-138`）+ compose 的 `oauth2-prometheus` 服务 | 压测期间的资源观测（标签 `{endpoint}`/`{client_id}`/`{error}`，见 §5.4） |
+| `apps/server/src/main.cc` 的 `--migrate-only` + `FULLA_AUTO_MIGRATE=true` | schema 复现的确定性门 |
+| `/metrics`（Prometheus exporter，`config.json:135-138`）+ compose 的 `fulla-prometheus` 服务 | 压测期间的资源观测（标签 `{endpoint}`/`{client_id}`/`{error}`，见 §5.4） |
 | `scripts/backend/test-oauth2-endpoints.sh` + `common-test-functions.sh` | **仅借鉴成功路径的请求形态**（Test 3/4/5/6/7/9/10/11）；⚠️ **不照搬场景定义**——脚本是正确性测试，选点逻辑与性能基准不同（见 §4.1） |
 | `manage.sh docker-up/down` | 栈编排 |
 
@@ -106,7 +106,7 @@
 
 **依据**：现有 `tests/test_main.cc:383-426` 的 in-process boot（Drogon 跑在测试进程的后台线程）是**功能测试模型**——测试请求经同进程 HttpClient 发出，客户端与 server 事件循环争抢 CPU，且无法体现真实网络栈与连接管理。
 
-**决策**：target = 生产镜像 `ghcr.io/.../authforge-backend:<ver>`（或本地 `deploy/docker/Dockerfile` build），由 `docker-compose.yml` 起；driver = 独立机器/容器跑 wrk。
+**决策**：target = 生产镜像 `ghcr.io/.../fulla-backend:<ver>`（或本地 `deploy/docker/Dockerfile` build），由 `docker-compose.yml` 起；driver = 独立机器/容器跑 wrk。
 
 **好处**：target 行为与生产一致；driver 不干扰 target 的 CPU/内存；网络栈真实。
 
@@ -115,7 +115,7 @@
 **依据（关键约束）**：
 1. **账户锁定已实现且会触发**：`libs/drogon/src/AuthService.cc:149-157` 实现渐进锁定——5 次失败→1 分钟、10→5 分钟、15→30 分钟、20+→1 小时。`scripts/backend/common-test-functions.sh` 的 `reset_admin_account` 在测试前后都清 `failed_login_count=0`，恰恰证明**单 admin 在重复登录下是脆弱的**。基准在高并发下，即便成功率 99.9%，单一 admin 的偶发失败（网络抖动、超时）累计会很快撞 5 次阈值，导致 login 场景跑几秒就锁死、基准崩溃。
 2. **refresh token 旋转家族**：V008 迁移引入家族旋转——旧 RT 用一次即作废**整个家族**。脚本 Test 9 只调用一次所以无碍；基准若多 VU 共享一个 RT，第二次起全失败。
-3. **seed SQL 注入机制（⚠️ 评审修正 2026-08-08）**：原版误称"PG initdb 自动执行 seed"。**实际**：`deploy/docker/docker-compose.yml:82-83` 将 `seed/` 挂到 PG 的 `/docker-entrypoint-initdb.d/seed:ro`，但 PG entrypoint **不递归子目录**（注释 `:79-81` 明确说明这是 no-op），且应用内 `MigrationRunner`（`OAUTH2_AUTO_MIGRATE=true`）**只跑 schema 迁移、不跑 seed**。故 **docker-compose 栈不会自动 seed**——seed 必须显式 `psql -f seed/*.sql` 注入（参照 `scripts/backend/setup-database.sh` 与 `deploy/docker/docker-quick-verify-debug.sh:62-64`）。本设施的 `setup.sh` 已实现此显式 seed 步骤（带迁移竞态重试）。
+3. **seed SQL 注入机制（⚠️ 评审修正 2026-08-08）**：原版误称"PG initdb 自动执行 seed"。**实际**：`deploy/docker/docker-compose.yml:82-83` 将 `seed/` 挂到 PG 的 `/docker-entrypoint-initdb.d/seed:ro`，但 PG entrypoint **不递归子目录**（注释 `:79-81` 明确说明这是 no-op），且应用内 `MigrationRunner`（`FULLA_AUTO_MIGRATE=true`）**只跑 schema 迁移、不跑 seed**。故 **docker-compose 栈不会自动 seed**——seed 必须显式 `psql -f seed/*.sql` 注入（参照 `scripts/backend/setup-database.sh` 与 `deploy/docker/docker-quick-verify-debug.sh:62-64`）。本设施的 `setup.sh` 已实现此显式 seed 步骤（带迁移竞态重试）。
 
 **决策**：
 - **客户端凭证**：复用 `seed/*.sql`（`backend-svc`/`vue-client`）—— 客户端无锁定问题，直接用。
@@ -260,7 +260,7 @@ docker compose up -d backend   # 计时起点
 循环 curl /health/ready 直到 200   # 计时终点 = 冷启动时间
 记录: 冷启动秒数 + 此时 RSS 峰值
 ```
-覆盖 `OAUTH2_AUTO_MIGRATE=true`（含迁移）与 `--migrate-only` 预跑两种模式（后者冷启动不含迁移时间，公平比较）。
+覆盖 `FULLA_AUTO_MIGRATE=true`（含迁移）与 `--migrate-only` 预跑两种模式（后者冷启动不含迁移时间，公平比较）。
 
 ### 5.6 隔离与环境记录
 
@@ -281,7 +281,7 @@ docker compose up -d backend   # 计时起点
 |---|--------|------|
 | ✅ AC1 | **复现性**：任一第三方按 `benchmarks/README.md` 在同规格云主机跑 S1/S2，QPS 与入仓结果误差 < 15%，P99 同量级 | 复现报告 |
 | ✅ AC2 | **场景覆盖**：S1–S6 每个场景至少有一次稳态记录（3 次中位数）入仓 `benchmarks/results/` | results 目录 |
-| ✅ AC3 | **承重假设验证报告**：对照调研报告 §3.1 的 4 个 AuthForge 数字（QPS / 内存 / P99 / 冷启动），逐条标"✅ 实测达成 / ❌ 未达成（实际 X） / ⚠️ 修正为 X"，并修订报告 | 报告文档 + 调研报告更新 |
+| ✅ AC3 | **承重假设验证报告**：对照调研报告 §3.1 的 4 个 Fulla 数字（QPS / 内存 / P99 / 冷启动），逐条标"✅ 实测达成 / ❌ 未达成（实际 X） / ⚠️ 修正为 X"，并修订报告 | 报告文档 + 调研报告更新 |
 | ✅ AC4 | **driver 可信度**：所有场景最高档并发下 driver CPU < 80%（wrk 进程）；超阈值则标注"driver 受限，数字为下限" | 每份结果含 driver CPU |
 | ✅ AC5 | **稳态门槛**：报告的"稳态容量"档错误率 < 0.01%；峰值档允许更高错误率但须标注 | 每份结果含错误率 |
 | ✅ AC6 | **后端不是隐藏瓶颈**：压测期间 PG/Redis CPU 未持续 > 90%（否则说明测的是 DB 不是 server，须声明） | 资源观测记录 |
@@ -298,7 +298,7 @@ docker compose up -d backend   # 计时起点
 ### M1 — 骨架 + 最简两场景（验证管线）
 - **做**：
   - 建 `benchmarks/` 顶级目录（与 `tests/performance/` 边界声明：见 §八）。
-  - `benchmarks/authforge/` 下：`setup.sh`/`teardown.sh`（复用 `manage.sh docker-up/down` + `/health/ready` 门 + `docker compose down -v` 清卷确定性）。
+  - `benchmarks/fulla/` 下：`setup.sh`/`teardown.sh`（复用 `manage.sh docker-up/down` + `/health/ready` 门 + `docker compose down -v` 清卷确定性）。
   - **预 seed N 个压测用户**（D4 方式 A 或 B）+ warmup rehash 钩子——虽 S1/S2 不需要用户，但用户池基建在此落地，避免 M2 才暴露问题。
   - S1（discovery）+ S2（client_credentials）的 wrk Lua + 阶梯 runner shell。
   - 结果落盘格式（JSON schema：数字 + §5.6 元数据）。
@@ -337,7 +337,7 @@ docker compose up -d backend   # 计时起点
 ```
 benchmarks/
 ├── README.md                      # 一键复现指引（环境要求/步骤/结果解读/限制）
-├── authforge/                     # AuthForge 自测
+├── fulla/                     # Fulla 自测
 │   ├── setup.sh                   # 起 target 栈 + 健康门 + 种子校验 + 预 seed N 压测用户 + warmup rehash
 │   ├── teardown.sh                # 停栈 + 清卷（确定性）
 │   ├── run-scenario.sh            # 阶梯 runner：接 <scenario>，跑 2..256 档
@@ -365,7 +365,7 @@ benchmarks/
 ```
 
 **与 `tests/performance/` 的边界声明**：
-- `tests/performance/benchmark/` = **进程内单元微基准**（SubjectGenerator 等），随 `authforge-tests` 跑，属回归测试。
+- `tests/performance/benchmark/` = **进程内单元微基准**（SubjectGenerator 等），随 `fulla-tests` 跑，属回归测试。
 - `benchmarks/` = **进程外 HTTP 端到端基准**（wrk 打生产镜像），属对外可复现基准。
 - 两者不互相依赖，关注点不同。`tests/performance/` 的 CI "Performance Report" 虚构测试名问题（§2.2）应在 M1 一并修正（让该步骤真实反映微基准结果或移除），属附带清理。
 
@@ -418,7 +418,7 @@ benchmarks/
 | admin-console 客户端 | `admin-console`，redirect `http://localhost:5174/admin/callback`，scope `openid profile admin` | （补充：register 场景需 admin token） | `seed/dev_admin_console_client.sql:5-20` |
 | Token TTL | access 3600s，refresh 2592000s（30d），auth code 600s | 种子 token 有效期预算；S5 的 RT 池需在 30d 内有效 | `config.json:163-167` |
 
-**种子注入机制（⚠️ 评审修正 2026-08-08）**：docker-compose 栈**不会**自动跑 `seed/*.sql`——PG entrypoint 把 `seed/` 挂到 `/docker-entrypoint-initdb.d/seed:ro` 但**不递归子目录**（`docker-compose.yml:79-81` 明示 no-op），应用内 `MigrationRunner` 只跑 schema 迁移不跑 seed。seed 必须显式注入：本设施 `benchmarks/authforge/setup.sh` 用 `docker exec ... psql -f seed/*.sql`（带迁移竞态重试）；或 `scripts/backend/setup-database.sh`（drop+recreate+migrate+seed，运行中重置）。
+**种子注入机制（⚠️ 评审修正 2026-08-08）**：docker-compose 栈**不会**自动跑 `seed/*.sql`——PG entrypoint 把 `seed/` 挂到 `/docker-entrypoint-initdb.d/seed:ro` 但**不递归子目录**（`docker-compose.yml:79-81` 明示 no-op），应用内 `MigrationRunner` 只跑 schema 迁移不跑 seed。seed 必须显式注入：本设施 `benchmarks/fulla/setup.sh` 用 `docker exec ... psql -f seed/*.sql`（带迁移竞态重试）；或 `scripts/backend/setup-database.sh`（drop+recreate+migrate+seed，运行中重置）。
 
 **⚠️ 压测用户 rehash 注意**：若用方式 A（SQL 直插 legacy SHA256 哈希），首次登录会触发 PBKDF2 rehash（CPU 密集，`AuthService.cc:120-145`），给首档引入噪声——**warmup 必须先把所有压测用户各登录一次完成 rehash**，或 seed SQL 直接写 PBKDF2 哈希。
 

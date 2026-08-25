@@ -1,24 +1,24 @@
-#include <authforge/storage/postgres/PostgresGrantRepository.h>
+#include <fulla/storage/postgres/PostgresGrantRepository.h>
 #include <drogon/drogon.h>
 
-#include <authforge/storage/postgres/models/Oauth2Codes.h>
+#include <fulla/storage/postgres/models/Oauth2Codes.h>
 
 #include <chrono>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
 // .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2AuthCode = ::authforge::oauth2::model::OAuth2AuthCode;
-using AuthorizationTransaction = ::authforge::oauth2::model::AuthorizationTransaction;
+using OAuth2AuthCode = ::fulla::oauth2::model::OAuth2AuthCode;
+using AuthorizationTransaction = ::fulla::oauth2::model::AuthorizationTransaction;
 using BoolCallback = IGrantRepositoryBase::BoolCallback;
 using AuthCodeCallback = IGrantRepositoryBase::AuthCodeCallback;
 using VoidCallback = IGrantRepositoryBase::VoidCallback;
 using TransactionCallback = IGrantRepositoryBase::TransactionCallback;
 
 using namespace ::drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 void PostgresGrantRepository::saveAuthCode(const OAuth2AuthCode &code, VoidCallback &&cb)
 {
@@ -370,4 +370,4 @@ void PostgresGrantRepository::purgeExpired()
     }
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

@@ -2,9 +2,9 @@
 #include <json/json.h>
 #include <filesystem>
 #include <fstream>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 
-using namespace authforge::drogon::observability::openapi;
+using namespace fulla::drogon::observability::openapi;
 
 DROGON_TEST(Unit_P2_OpenApiGenerator_ParameterTypes_String)
 {

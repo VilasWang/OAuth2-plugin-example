@@ -1,11 +1,11 @@
-#include <authforge/identity/TotpUtils.h>
+#include <fulla/identity/TotpUtils.h>
 
 #include <openssl/hmac.h>
 #include <cstring>
 #include <iomanip>
 #include <sstream>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 namespace totp
@@ -105,7 +105,7 @@ std::string formatSixDigits(uint32_t otp)
 
 }  // namespace
 
-std::string generateSecret(authforge::common::ports::ICryptoProvider &crypto)
+std::string generateSecret(fulla::common::ports::ICryptoProvider &crypto)
 {
     uint8_t secretBytes[20];  // 160 bits
     crypto.secureRandomBytes(secretBytes, 20);
@@ -154,7 +154,7 @@ std::string generateOtpAuthUri(
 }
 
 std::vector<std::string> generateBackupCodes(
-  authforge::common::ports::ICryptoProvider &crypto,
+  fulla::common::ports::ICryptoProvider &crypto,
   int count
 )
 {
@@ -181,4 +181,4 @@ std::vector<std::string> generateBackupCodes(
 
 }  // namespace totp
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity

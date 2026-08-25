@@ -3,15 +3,15 @@ requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "authforge-oauth2"
+name = "fulla-oauth2"
 version = "1.4.1"
-description = "Python client SDK for AuthForge, the embeddable C++ OAuth2/OIDC authorization server"
+description = "Python client SDK for Fulla, the embeddable C++ OAuth2/OIDC authorization server"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "AuthForge contributors" }]
-keywords = ["oauth2", "oidc", "openid-connect", "authforge", "authorization", "client", "sdk"]
+authors = [{ name = "Fulla contributors" }]
+keywords = ["oauth2", "oidc", "openid-connect", "fulla", "authorization", "client", "sdk"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/voidvec/authforge"
-Documentation = "https://github.com/voidvec/authforge/tree/master/clients/python"
-Repository = "https://github.com/voidvec/authforge"
+Homepage = "https://github.com/voidvec/fulla"
+Documentation = "https://github.com/voidvec/fulla/tree/master/clients/python"
+Repository = "https://github.com/voidvec/fulla"
 
 [project.optional-dependencies]
 dev = [
@@ -44,7 +44,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/authforge"]
+packages = ["src/fulla"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "tests", "examples", "README.md", "LICENSE"]

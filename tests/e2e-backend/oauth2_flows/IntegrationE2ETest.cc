@@ -3,14 +3,14 @@
 #include <drogon/HttpClient.h>
 #include <drogon/utils/Utilities.h>
 #include <drogon/Cookie.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/controllers/SessionController.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/controllers/SessionController.h>
 #include <future>
 #include <iostream>
 #include <map>
 
 using namespace drogon;
-using authforge::drogon::controllers::SessionController;
+using fulla::drogon::controllers::SessionController;
 
 DROGON_TEST(E2E_P0_Integration_General_Works)
 {

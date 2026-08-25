@@ -1,5 +1,5 @@
-#include <authforge/drogon/utils/TotpUtils.h>
-#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/utils/TotpUtils.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <chrono>
@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <algorithm>
 
-namespace authforge::common::utils
+namespace fulla::common::utils
 {
 static const char BASE32_ALPHABET[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
@@ -73,9 +73,9 @@ std::vector<uint8_t> TotpUtils::base32Decode(const std::string &encoded)
 std::string TotpUtils::generateSecret()
 {
     // Task 14 (design.md §5.6): migrated off drogon::utils::secureRandomBytes
-    // onto the authforge::common::ports::ICryptoProvider Adapter
+    // onto the fulla::common::ports::ICryptoProvider Adapter
     // implementation (OpenSslCryptoProvider), same fallback shape.
-    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
+    static fulla::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
 
     uint8_t secretBytes[20];  // 160 bits
     if (!cryptoProvider.secureRandomBytes(secretBytes, 20))
@@ -179,7 +179,7 @@ std::vector<std::string> TotpUtils::generateBackupCodes(int count)
         uint8_t randomBytes[8];
         // Task 14 (design.md §5.6): migrated off
         // drogon::utils::secureRandomBytes onto OpenSslCryptoProvider.
-        static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
+        static fulla::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
         if (!cryptoProvider.secureRandomBytes(randomBytes, 8))
         {
             RAND_bytes(randomBytes, 8);
@@ -196,4 +196,4 @@ std::vector<std::string> TotpUtils::generateBackupCodes(int count)
     return codes;
 }
 
-}  // namespace authforge::common::utils
+}  // namespace fulla::common::utils

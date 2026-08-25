@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-# libs/common/testing (authforge::common::testing) -- Task 15,
-# authforge-sdk-refactor (design.md §6/§8). Fake ("test double")
-# implementations of every authforge::common::ports interface, kept in a
+# libs/common/testing (fulla::common::testing) -- Task 15,
+# fulla-sdk-refactor (design.md §6/§8). Fake ("test double")
+# implementations of every fulla::common::ports interface, kept in a
 # SEPARATE library from both:
 #   - libs/common itself (which only declares the ports, no implementations)
 #   - the production Adapter implementations under
@@ -25,8 +25,8 @@ cmake_minimum_required(VERSION 3.16)
 # SHA-256/HMAC/etc. would not be useful).
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake")
-if(NOT DEFINED OAUTH2_PROJECT_VERSION)
-    set(OAUTH2_PROJECT_VERSION 1.0.0)
+if(NOT DEFINED FULLA_PROJECT_VERSION)
+    set(FULLA_PROJECT_VERSION 1.0.0)
 endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
@@ -35,12 +35,12 @@ if(NOT COMMAND oauth2_apply_warnings)
     include(Warnings)
 endif()
 
-project(authforge-common-testing VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+project(fulla-common-testing VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX)
 
 find_package(OpenSSL REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
-add_library(authforge::common::testing ALIAS ${PROJECT_NAME})
+add_library(fulla::common::testing ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
@@ -48,10 +48,10 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
 )
 
-file(GLOB_RECURSE AUTHFORGE_COMMON_TESTING_SOURCES "src/*.cc")
-target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_COMMON_TESTING_SOURCES})
+file(GLOB_RECURSE FULLA_COMMON_TESTING_SOURCES "src/*.cc")
+target_sources(${PROJECT_NAME} PRIVATE ${FULLA_COMMON_TESTING_SOURCES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC authforge::common OpenSSL::Crypto)
+target_link_libraries(${PROJECT_NAME} PUBLIC fulla::common OpenSSL::Crypto)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
 
@@ -64,18 +64,18 @@ oauth2_apply_gcov(${PROJECT_NAME})
 # enforced until tools/arch-guard exists (M6, Task 33).
 
 include(GNUInstallDirs)
-install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/fulla DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # SDK packaging: install-tree + build-tree find_package() config carrying the
-# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
-if(NOT COMMAND authforge_package)
-    include(AuthForgePackage)
+# transitive find_dependency() closure (fulla-sdk-refactor Task 28a).
+if(NOT COMMAND fulla_package)
+    include(FullaPackage)
 endif()
-authforge_package(
+fulla_package(
     TARGET ${PROJECT_NAME}
-    PACKAGE authforge-common-testing
+    PACKAGE fulla-common-testing
     EXPORT_NAME common::testing
-    DEPENDENCIES OpenSSL authforge-common
+    DEPENDENCIES OpenSSL fulla-common
 )
 
 # --- Tests (pure unit, no DB/no Drogon) ---

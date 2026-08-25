@@ -237,11 +237,11 @@ graph LR
     - _Design: §7.3_
     - _Requirements: 9.1, 9.4_
   - [x] 7.2 新建 `cmake/Version.cmake`
-    - 单一来源声明 `OAUTH2_PROJECT_VERSION`。
+    - 单一来源声明 `FULLA_PROJECT_VERSION`。
     - _Design: §7.2_
     - _Requirements: 9.2_
   - [x] 7.3 更新根 `CMakeLists.txt`
-    - `cmake_minimum_required >= 3.16`；`include(Version)` + `include(Compatibility)`；`project(oauth2-plugin-example VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX ...)`；保留 `enable_testing()` 与子目录 add。
+    - `cmake_minimum_required >= 3.16`；`include(Version)` + `include(Compatibility)`；`project(oauth2-plugin-example VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX ...)`；保留 `enable_testing()` 与子目录 add。
     - _Design: §7.1_
     - _Requirements: 9.3, 9.10_
   - [x] 7.4 重写 `OAuth2Plugin/CMakeLists.txt`

@@ -1,8 +1,8 @@
-#include <authforge/storage/memory/MemoryGrantRepository.h>
+#include <fulla/storage/memory/MemoryGrantRepository.h>
 #include <drogon/drogon.h>
 #include <chrono>
 
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
 
 // Task 27.5: callback aliases now live on the new base interface; bring
@@ -14,8 +14,8 @@ using AuthCodeCallback = IGrantRepositoryBase::AuthCodeCallback;
 using VoidCallback = IGrantRepositoryBase::VoidCallback;
 using BoolCallback = IGrantRepositoryBase::BoolCallback;
 using TransactionCallback = IGrantRepositoryBase::TransactionCallback;
-using OAuth2AuthCode = ::authforge::oauth2::model::OAuth2AuthCode;
-using AuthorizationTransaction = ::authforge::oauth2::model::AuthorizationTransaction;
+using OAuth2AuthCode = ::fulla::oauth2::model::OAuth2AuthCode;
+using AuthorizationTransaction = ::fulla::oauth2::model::AuthorizationTransaction;
 
 int64_t MemoryGrantRepository::getCurrentTimestamp() const
 {
@@ -193,4 +193,4 @@ void MemoryGrantRepository::purgeExpired()
     }
 }
 
-}  // namespace authforge::storage::memory
+}  // namespace fulla::storage::memory

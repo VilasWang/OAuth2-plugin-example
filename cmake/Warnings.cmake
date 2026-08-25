@@ -10,18 +10,18 @@
 #                SYSTEM includes via the imported targets, so they are
 #                exempt from these flags)
 #
-# Option AUTHFORGE_WERROR (default OFF) additionally promotes warnings to
+# Option FULLA_WERROR (default OFF) additionally promotes warnings to
 # errors (/WX resp. -Werror). It stays OFF for local developer builds; the
 # CI presets turn it ON now that the warning baseline is clean.
 #
 # Function-style (NOT an INTERFACE library) for the same reason as
 # oauth2_apply_compat in Compatibility.cmake: an INTERFACE target that is
 # PRIVATE-linked into the exported static libs would be dragged into
-# install(EXPORT) and pollute the authforge-*Config.cmake consumer surface.
+# install(EXPORT) and pollute the fulla-*Config.cmake consumer surface.
 # All flags below are PRIVATE and leave zero footprint on SDK consumers.
 
-option(AUTHFORGE_WERROR
-    "Treat compiler warnings as errors on first-party AuthForge targets" OFF)
+option(FULLA_WERROR
+    "Treat compiler warnings as errors on first-party Fulla targets" OFF)
 
 function(oauth2_apply_warnings target)
     if(NOT TARGET ${target})
@@ -34,7 +34,7 @@ function(oauth2_apply_warnings target)
             /external:anglebrackets
             /external:W0
         )
-        if(AUTHFORGE_WERROR)
+        if(FULLA_WERROR)
             target_compile_options(${target} PRIVATE /WX)
         endif()
     else()
@@ -55,7 +55,7 @@ function(oauth2_apply_warnings target)
             # Silenced as noise; targeted cleanup can revisit per-site.
             target_compile_options(${target} PRIVATE -Wno-unused-lambda-capture)
         endif()
-        if(AUTHFORGE_WERROR)
+        if(FULLA_WERROR)
             target_compile_options(${target} PRIVATE -Werror)
         endif()
     endif()
