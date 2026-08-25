@@ -4,7 +4,8 @@ const { execSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 
-const screenshotDir = 'C:\\Users\\<you>\\.gemini\\antigravity-cli\\brain\\<session-id>';
+const screenshotDir = process.env.SCREENSHOT_DIR || path.join(__dirname, 'scratch-output');
+fs.mkdirSync(screenshotDir, { recursive: true });
 const results = [];
 
 // 1. 数据库状态重置
