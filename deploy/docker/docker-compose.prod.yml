@@ -31,7 +31,7 @@ services:
       - oauth2-net
 
   oauth2-frontend:
-    image: ghcr.io/lucaswang420/authforge-frontend:${AUTHFORGE_VERSION:-latest}
+    image: ghcr.io/voidvec/authforge-frontend:${AUTHFORGE_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
@@ -55,7 +55,7 @@ services:
       - oauth2-net
 
   oauth2-admin:
-    image: ghcr.io/lucaswang420/authforge-admin:${AUTHFORGE_VERSION:-latest}
+    image: ghcr.io/voidvec/authforge-admin:${AUTHFORGE_VERSION:-latest}
     build:
       context: ../../frontends/admin
       dockerfile: Dockerfile
@@ -72,7 +72,7 @@ services:
       - oauth2-net
 
   oauth2-backend:
-    image: ghcr.io/lucaswang420/authforge-backend:${AUTHFORGE_VERSION:-latest}
+    image: ghcr.io/voidvec/authforge-backend:${AUTHFORGE_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
@@ -143,7 +143,7 @@ services:
   #     --profile migrate run --rm migrate
   # Exit code 0 = schema up to date, 1 = failure (compose surfaces it).
   migrate:
-    image: ghcr.io/lucaswang420/authforge-backend:${AUTHFORGE_VERSION:-latest}
+    image: ghcr.io/voidvec/authforge-backend:${AUTHFORGE_VERSION:-latest}
     profiles: ["migrate"]
     command: ["./authforge-server", "--migrate-only"]
     restart: "no"

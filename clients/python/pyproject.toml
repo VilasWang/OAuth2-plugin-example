@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/lucaswang420/authforge"
-Documentation = "https://github.com/lucaswang420/authforge/tree/master/clients/python"
-Repository = "https://github.com/lucaswang420/authforge"
+Homepage = "https://github.com/voidvec/authforge"
+Documentation = "https://github.com/voidvec/authforge/tree/master/clients/python"
+Repository = "https://github.com/voidvec/authforge"
 
 [project.optional-dependencies]
 dev = [

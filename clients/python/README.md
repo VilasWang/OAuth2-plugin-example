@@ -1,6 +1,6 @@
 # AuthForge Python Client
 
-Typed Python SDK for [AuthForge](https://github.com/lucaswang420/authforge) — the embeddable
+Typed Python SDK for [AuthForge](https://github.com/voidvec/authforge) — the embeddable
 C++ OAuth2/OIDC authorization server.
 
 - **Distribution name:** `authforge-oauth2` (the shorter `authforge` name on PyPI belongs to an

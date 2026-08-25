@@ -9,7 +9,7 @@
 image:
   registry: ghcr.io
   # Images: <registry>/<prefix>-backend / -frontend / -admin (release.yml)
-  prefix: lucaswang420/authforge
+  prefix: voidvec/authforge
   # Defaults to Chart appVersion when empty.
   tag: ""
   pullPolicy: IfNotPresent

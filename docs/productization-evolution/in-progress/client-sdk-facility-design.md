@@ -35,7 +35,7 @@
 
 | # | 非目标 | 为什么 / 归属 |
 |---|--------|--------------|
-| N1 | 改 C++ `OpenApiGenerator` 的生成逻辑（含其 `security` object bug + 缺 `clientCredentialsAuth`） | 那是另一个重构；本设计让 generated JSON 降级为派生产物，绕开它（D1）。bug 已提 [#41](https://github.com/lucaswang420/authforge/issues/41) 跟踪。**例外**：D1.5 的 YAML 补齐可能选择修生成器（而非手维护 YAML）作为补齐机制——此子决策由 M0 立项时定，若选修生成器则 #41 一并修，且 D1 的"JSON 降级"需重评 |
+| N1 | 改 C++ `OpenApiGenerator` 的生成逻辑（含其 `security` object bug + 缺 `clientCredentialsAuth`） | 那是另一个重构；本设计让 generated JSON 降级为派生产物，绕开它（D1）。bug 已提 [#41](https://github.com/voidvec/authforge/issues/41) 跟踪。**例外**：D1.5 的 YAML 补齐可能选择修生成器（而非手维护 YAML）作为补齐机制——此子决策由 M0 立项时定，若选修生成器则 #41 一并修，且 D1 的"JSON 降级"需重评 |
 | N2 | 做 TypeScript 客户端 | 前端生态（hey-api/orval），与后端性能叙事弱相关；Phase 1 聚焦 Python+Go |
 | N3 | 自动生成 token 生命周期逻辑 | 手写（D5/D7）；全生成对 OAuth2 服务器不安全 |
 | N4 | 做 Ory 式全生成多语言 SDK | Ory 模型因 auth 在服务端才适用；AuthForge 是 OAuth2 服务器本身，token 生命周期在客户端，不能盲目生成 |
@@ -63,8 +63,8 @@
 
 generated JSON（71）与 YAML（69）的差异：
 - **YAML 少 2 个 `/docs/api/*` 自文档路径**（`GET /docs/api/`、`GET /docs/api/openapi.json`，由 `ApiDocController` 注册，YAML 从未补）。
-- **`security` 字段形态分歧**：generated JSON 输出成 **object**（`OpenApiGenerator.cc:195-200` 的 `Json::Value` 构造，**OpenAPI 3 要求 array，属畸形**——已提 [#41](https://github.com/lucaswang420/authforge/issues/41)）；YAML 输出正确的 **array-of-objects**。`openapi-spec-validator` 只跑 YAML，故 JSON 的畸形未被发现。
-- **`clientCredentialsAuth` scheme 缺失**：generated JSON 只硬编码 `bearerAuth`（`OpenApiGenerator.cc:122-128`），缺 introspect/revoke/token 实际需要的 client 凭证 scheme——[#41](https://github.com/lucaswang420/authforge/issues/41) 一并覆盖。YAML 也只有 `bearerAuth`（同样缺）。
+- **`security` 字段形态分歧**：generated JSON 输出成 **object**（`OpenApiGenerator.cc:195-200` 的 `Json::Value` 构造，**OpenAPI 3 要求 array，属畸形**——已提 [#41](https://github.com/voidvec/authforge/issues/41)）；YAML 输出正确的 **array-of-objects**。`openapi-spec-validator` 只跑 YAML，故 JSON 的畸形未被发现。
+- **`clientCredentialsAuth` scheme 缺失**：generated JSON 只硬编码 `bearerAuth`（`OpenApiGenerator.cc:122-128`），缺 introspect/revoke/token 实际需要的 client 凭证 scheme——[#41](https://github.com/voidvec/authforge/issues/41) 一并覆盖。YAML 也只有 `bearerAuth`（同样缺）。
 - 死孤儿 JSON 与 generated JSON 的差异：死孤儿缺 50 个 2026-05 后新增的路径（WebAuthn/MFA/admin CRUD/OIDC discovery 等）+ 缺 `clientCredentialsAuth`。
 
 ### 2.3 C++ 代码的权威 API 面（治本设计的钥匙）
@@ -97,7 +97,7 @@ generated JSON（71）与 YAML（69）的差异：
 | 选项 | 取舍 |
 |------|------|
 | ✅ **YAML 为唯一权威** | 它是 CI lint 的、是端点签名门（`diff-endpoint-baseline.py`）的输入、security 形态正确、已有 2 个消费方。generated JSON 降级为 Swagger UI 用的派生产物。**⚠️ 但 YAML 当前内容稀疏（69 操作仅 6 requestBody/9 response schema），需先补齐（D1.5）才能驱动客户端生成** |
-| ❌ JSON 为唯一源 | generated JSON 最贴近代码，但：CI 不校验、有 security 畸形 bug（[#41](https://github.com/lucaswang420/authforge/issues/41)）、内容比 YAML 更稀疏（71 操作 **0** requestBody）、需重起生产级生成流程、`OpenApiGenerator.cc` 不在 CI 跑。改造代价远高于定 YAML 单源 + 补齐 |
+| ❌ JSON 为唯一源 | generated JSON 最贴近代码，但：CI 不校验、有 security 畸形 bug（[#41](https://github.com/voidvec/authforge/issues/41)）、内容比 YAML 更稀疏（71 操作 **0** requestBody）、需重起生产级生成流程、`OpenApiGenerator.cc` 不在 CI 跑。改造代价远高于定 YAML 单源 + 补齐 |
 | ❌ 双源 + 一致性门 | 把现在的漂移制度化，两个源永远要手动同步，复杂度最高 |
 
 ### 3.2 决策 2 — 引入 oasdiff 破坏性变更门 + SemVer 联动
@@ -130,7 +130,7 @@ generated JSON（71）与 YAML（69）的差异：
 
 ### D1 — YAML 为唯一权威，generated JSON 降级
 
-**依据**：§2.1 表——YAML 已是 CI lint + 端点签名门的输入，security 形态正确；generated JSON 在 CI 无校验且有畸形 bug（见 §九 + [#41](https://github.com/lucaswang420/authforge/issues/41)）。
+**依据**：§2.1 表——YAML 已是 CI lint + 端点签名门的输入，security 形态正确；generated JSON 在 CI 无校验且有畸形 bug（见 §九 + [#41](https://github.com/voidvec/authforge/issues/41)）。
 
 **决策**：
 - `apps/server/openapi.yaml` = **客户端生成 + 端点门 + 破坏性变更门**的唯一输入。
@@ -336,7 +336,7 @@ jobs：
 | **oasdiff 误报**（纯描述变更被判破坏性） | 中 | 门噪扰 | 配置只门破坏性类（509 规则），非破坏性仅警告或 info。⚠️ 补齐前 oasdiff 只能门路径级（schema 级需 YAML 补齐 schema 后才有意义） |
 | **生成器版本升级致生成代码大 diff** | 低 | 评审噪声 + 潜在不兼容 | pin 生成器版本（`openapi-python-client==X.Y.Z`、`oapi-codegen vX.Y.Z`）；升级走独立 PR |
 | **auth 层与生成代码耦合**（API 升级时 auth 包装要同步） | 中 | 升级时 auth 层失效 | auth 层只依赖稳定的请求形态（端点路径 + 参数 schema），不依赖生成代码内部结构；API 升级由 oasdiff 门预警 |
-| **OpenApiGenerator 的 security object bug + 缺 clientCredentialsAuth**（`OpenApiGenerator.cc:195-200, 122-128`，已提 [#41](https://github.com/lucaswang420/authforge/issues/41)） | 低 | generated JSON 畸形 + scheme 不全 | 本设计不改它（N1）；YAML 单源后 generated JSON 只供 Swagger UI，畸形 security 不阻断 UI 渲染。**#41 跟踪修复**；若 M0 选择修生成器补内容（D1.5 子决策），则 #41 一并修，且 D1 的"JSON 降级"需重评 |
+| **OpenApiGenerator 的 security object bug + 缺 clientCredentialsAuth**（`OpenApiGenerator.cc:195-200, 122-128`，已提 [#41](https://github.com/voidvec/authforge/issues/41)） | 低 | generated JSON 畸形 + scheme 不全 | 本设计不改它（N1）；YAML 单源后 generated JSON 只供 Swagger UI，畸形 security 不阻断 UI 渲染。**#41 跟踪修复**；若 M0 选择修生成器补内容（D1.5 子决策），则 #41 一并修，且 D1 的"JSON 降级"需重评 |
 | **`info.version` 与项目版本脱节**（当前都硬编码 1.0.0） | 低 | 版本承诺混乱 | D4 的版本交叉校验补此；release 时同步 `info.version` 与 `cmake/Version.cmake` |
 | **client_credentials 在 memory 模式不可达**（无 `backend-svc`） | 中 | AC5 实测需全栈 | auth 层测试用基准设计的 postgres+redis 全栈 target，非 memory 模式（同基准设计 D1） |
 
@@ -506,7 +506,7 @@ pip install authforge-oauth2     # 安装
 from authforge import m2m_client  # 导入
 ```
 
-Go module path 不受影响：`github.com/lucaswang420/authforge/clients/go`（monorepo 子目录模块，git tag 驱动，无命名冲突）。
+Go module path 不受影响：`github.com/voidvec/authforge/clients/go`（monorepo 子目录模块，git tag 驱动，无命名冲突）。
 
 ### 11.3 Python 布局定稿（D8 细化）
 

@@ -1,4 +1,4 @@
-module github.com/lucaswang420/authforge/clients/go
+module github.com/voidvec/authforge/clients/go
 
 go 1.25.0
 
