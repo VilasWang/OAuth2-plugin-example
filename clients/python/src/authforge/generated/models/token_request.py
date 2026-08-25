@@ -16,8 +16,9 @@ T = TypeVar("T", bound="TokenRequest")
 class TokenRequest:
     """RFC 6749 §4.1.3 token request (form-encoded). Field requirements are grant-dependent: authorization_code needs code
     (+ redirect_uri + code_verifier when PKCE was used); refresh_token needs refresh_token; client_credentials may send
-    scope; device_code needs device_code. CONFIDENTIAL clients authenticate via HTTP Basic or client_id + client_secret
-    fields.
+    scope; device_code needs device_code. Client auth follows the client's registered token_endpoint_auth_method
+    (F-017): client_secret_basic (default) -> HTTP Basic ONLY; client_secret_post -> these form fields ONLY; 'none'
+    (PUBLIC) -> client_id only, secrets rejected.
 
         Attributes:
             grant_type (TokenRequestGrantType):
