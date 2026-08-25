@@ -17,7 +17,7 @@ description: 全量后端测试 — full_test.bat/full-test.sh 8 步流水线（
 
 **Windows**（当前 Shell 是 Git Bash 时）:
 ```bash
-cd /d/work/development/Repos/cpp/projects/authforge
+cd "$(git rev-parse --show-toplevel)"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& { cmd /c 'scripts\backend\full_test.bat -release 2>&1' }"
 ```
 

@@ -516,7 +516,7 @@ workflow_dispatch:
 
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Drogon Framework](https://github.com/drogonframework/drogon)
-- [Reference Project: qt-network-request-master](file:///D:/work/development/Repos/qt-network-request-master)
+- [Reference Project: qt-network-request-master](reference repo: qt-network-request-master)
   - Commit: `4ea2b4d` - POSIX-compatible find command
   - Commit: `9895677` - macOS ARM/x86_64 linking fix
   - Commit: `c0d0650` - Original multi-platform workflow

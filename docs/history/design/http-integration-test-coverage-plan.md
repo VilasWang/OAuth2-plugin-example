@@ -7,7 +7,7 @@
 ## Research basis
 
 Four research workstreams, all verified against source:
-1. Drogon HTTP-test patterns (local copy `D:\work\development\Repos\cpp\drogon-ecosystem\drogon`).
+1. Drogon HTTP-test patterns (local copy a local Drogon checkout).
 2. Project test-harness inventory (`tests/test_main.cc`, CMake, existing HTTP tests).
 3. Admin-auth investigation (AuthorizationFilter, OAuth2Plugin, login recipe, seed SQL).
 4. Contract-fixture pattern (`tests/contract/ContractFixtures.h`).

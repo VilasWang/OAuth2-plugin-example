@@ -122,3 +122,11 @@ clients/python/.venv/
 # ZCode per-session scratch (plans/tmp — same convention as .kiro/tmp/)
 .zcode/tmp/
 .zcode/plans/
+
+# AI-tool workspaces (local-only; .claude/ stays tracked as the single source
+# of truth for rules/skills — see docs/branding/repo-professionalization-audit.md)
+.qoder/
+.codebuddy/
+.kiro/
+.zcode/
+.workbuddy/

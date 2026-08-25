@@ -37,16 +37,14 @@
 
 ## 各 AI 工具目录的角色
 
-本仓库被多套 AI 编码工具共用，规则在各工具目录下有镜像：
+本仓库的规则与工作流资产以 `.claude/` 为**唯一权威源**（git 跟踪）：
 
 | 目录 | 角色 |
 |---|---|
 | `.claude/` | **规则源头**（`rules/`）、agents、commands、skills、settings —— git 跟踪，权威 |
-| `.codebuddy/`、`.qoder/` | `.claude/rules/` 的镜像（内容一致），供相应工具加载 |
-| `.zcode/` | ZCode 项目级目录：`config.json`、`skills/`、`commands/`、`plans/` 等；本文件（`AGENTS.md`）是它的指令载体 |
-| `.workbuddy/` | 工作记忆 |
+| `.codebuddy/`、`.qoder/`、`.kiro/`、`.zcode/`、`.workbuddy/` | 各 AI 工具的**本地工作区**（各自的 skills 镜像/plans/记忆）——不入库（.gitignore 忽略，磁盘保留） |
 
-**改规则就改 `.claude/rules/`**，然后按需同步到 `.codebuddy/rules/`、`.qoder/rules/`（三份应保持一致）。不要在 AGENTS.md 或 TECH_SPECS.md 里复制规则正文。
+**改规则就改 `.claude/rules/`**（唯一副本）。如需在其它工具里生效，由各工具目录的本地副本自行同步，不再要求版本库维护多份一致镜像。不要在 AGENTS.md 或 TECH_SPECS.md 里复制规则正文。入库范围的标准见 [docs/branding/repo-professionalization-audit.md](docs/branding/repo-professionalization-audit.md)。
 
 ## 其它项目文档
 
