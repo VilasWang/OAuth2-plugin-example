@@ -5,7 +5,7 @@
 #   https://www.ory.sh/docs/hydra/configure
 #
 # Deviations from stock defaults — fairness-annotated in COMPARISON.md (D2/AC4):
-#   * DSN max_conns=25 — align the PG connection pool with AuthForge's bench
+#   * DSN max_conns=25 — align the PG connection pool with Fulla's bench
 #     config (design D1; Hydra default is higher).
 #   * urls.login / urls.consent point at an unused placeholder — the benchmark
 #     drives Hydra's official admin-API accept flow headlessly (docs:
@@ -23,7 +23,7 @@ name: ory-bench
 
 services:
   postgres:
-    image: postgres:17-alpine        # same image tag as the AuthForge bench stack (D1, bumped 15->17 in step 2)
+    image: postgres:17-alpine        # same image tag as the Fulla bench stack (D1, bumped 15->17 in step 2)
     container_name: ory-bench-postgres
     environment:
       POSTGRES_DB: hydra

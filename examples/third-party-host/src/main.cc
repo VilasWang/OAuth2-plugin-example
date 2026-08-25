@@ -1,7 +1,7 @@
-// examples/third-party-host (B8b / Task 28b, authforge-sdk-refactor design.md
-// §1.1): a minimal standalone SDK consumer. It proves the authforge oauth2
+// examples/third-party-host (B8b / Task 28b, fulla-sdk-refactor design.md
+// §1.1): a minimal standalone SDK consumer. It proves the fulla oauth2
 // protocol engine is independently consumable -- assembled here with only the
-// SDK packages (authforge-oauth2 + common + common::testing + storage-memory),
+// SDK packages (fulla-oauth2 + common + common::testing + storage-memory),
 // WITHOUT the product's OAuth2Plugin / libs/drogon / libs/storage-postgres --
 // and that it runs the authorization-code flow's core steps end-to-end.
 //
@@ -17,14 +17,14 @@
 // hashing/HMAC/base64url (only secureRandomBytes is determinized) -- so the
 // tokens/PKCE are real-crypto correct, just reproducible.
 
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/oauth2/access/ScopeDecisionEngine.h>
-#include <authforge/oauth2/protocol/AuthorizationService.h>
-#include <authforge/oauth2/protocol/TokenService.h>
-#include <authforge/storage/memory/MemoryClientRepository.h>
-#include <authforge/storage/memory/MemoryConsentRepository.h>
-#include <authforge/storage/memory/MemoryGrantRepository.h>
-#include <authforge/storage/memory/MemoryTokenRepository.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/oauth2/access/ScopeDecisionEngine.h>
+#include <fulla/oauth2/protocol/AuthorizationService.h>
+#include <fulla/oauth2/protocol/TokenService.h>
+#include <fulla/storage/memory/MemoryClientRepository.h>
+#include <fulla/storage/memory/MemoryConsentRepository.h>
+#include <fulla/storage/memory/MemoryGrantRepository.h>
+#include <fulla/storage/memory/MemoryTokenRepository.h>
 
 #include <json/json.h>
 
@@ -73,19 +73,19 @@ int main()
     std::fprintf(stderr, "[probe] start\n");
     std::fflush(stderr);
     // ---- Assemble the SDK engine (no OAuth2Plugin, no Drogon) ----
-    auto crypto = std::make_shared<authforge::common::testing::FakeCryptoProvider>();
+    auto crypto = std::make_shared<fulla::common::testing::FakeCryptoProvider>();
     std::fprintf(stderr, "[probe] crypto ok\n");
     std::fflush(stderr);
 
-    auto clientRepo = std::make_shared<authforge::storage::memory::MemoryClientRepository>();
+    auto clientRepo = std::make_shared<fulla::storage::memory::MemoryClientRepository>();
     std::fprintf(stderr, "[probe] clientRepo ctor ok\n");
     std::fflush(stderr);
     clientRepo->initFromConfig(makeClientsConfig());
     std::fprintf(stderr, "[probe] initFromConfig ok\n");
     std::fflush(stderr);
-    auto grantRepo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
-    auto tokenRepo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
-    auto consentRepo = std::make_shared<authforge::storage::memory::MemoryConsentRepository>();
+    auto grantRepo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
+    auto tokenRepo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
+    auto consentRepo = std::make_shared<fulla::storage::memory::MemoryConsentRepository>();
     std::fprintf(stderr, "[probe] all repos ok\n");
     std::fflush(stderr);
 
@@ -93,23 +93,23 @@ int main()
     // and its async methods (exchangeCodeForToken, refreshAccessToken) call
     // shared_from_this() for lifetime safety. Stack allocation would cause
     // std::bad_weak_ptr → terminate.
-    authforge::oauth2::protocol::AuthorizationService authService(
+    fulla::oauth2::protocol::AuthorizationService authService(
       clientRepo, consentRepo, /*subjectResolver=*/nullptr, /*roleProvider=*/nullptr
     );
-    auto tokenService = std::make_shared<authforge::oauth2::protocol::TokenService>(
+    auto tokenService = std::make_shared<fulla::oauth2::protocol::TokenService>(
       clientRepo, grantRepo, tokenRepo, crypto
     );
     std::fprintf(stderr, "[probe] services constructed ok\n");
     std::fflush(stderr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     std::fprintf(stderr, "[probe] calling evaluateScopes\n");
     std::fflush(stderr);
     authService.evaluateScopes(
       "test-client",
       "local:alice",
       {"openid"},
-      [&](authforge::oauth2::access::ScopeValidationSummary s) { summary = std::move(s); }
+      [&](fulla::oauth2::access::ScopeValidationSummary s) { summary = std::move(s); }
     );
     std::fprintf(stderr, "[probe] evaluateScopes returned\n");
     std::fflush(stderr);
@@ -125,14 +125,14 @@ int main()
     std::fflush(stderr);
 
     // Unknown client -> all invalid (engine distinguishes client_not_found).
-    authforge::oauth2::access::ScopeValidationSummary unknownSummary;
+    fulla::oauth2::access::ScopeValidationSummary unknownSummary;
     std::fprintf(stderr, "[probe] calling evaluateScopes(unknown)\n");
     std::fflush(stderr);
     authService.evaluateScopes(
       "no-such-client",
       "local:alice",
       {"openid"},
-      [&](authforge::oauth2::access::ScopeValidationSummary s) { unknownSummary = std::move(s); }
+      [&](fulla::oauth2::access::ScopeValidationSummary s) { unknownSummary = std::move(s); }
     );
     std::fprintf(stderr, "[probe] evaluateScopes(unknown) returned\n");
     std::fflush(stderr);

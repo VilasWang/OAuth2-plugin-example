@@ -1,9 +1,9 @@
-#include <authforge/drogon/filters/RequestValidationFilter.h>
+#include <fulla/drogon/filters/RequestValidationFilter.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <string>
 
-using namespace authforge::drogon::validation;
+using namespace fulla::drogon::validation;
 
 // 构建完整的验证规则集（合并构造与一次性填充）。
 // 返回完整 map，供函数内静态访问器 rules() 首次访问时初始化。

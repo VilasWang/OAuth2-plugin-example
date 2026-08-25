@@ -1,4 +1,4 @@
-"""Shared fixtures: an in-process fake AuthForge served over httpx.MockTransport.
+"""Shared fixtures: an in-process fake Fulla served over httpx.MockTransport.
 
 The same MockTransport instance is handed to BOTH the auth layer's internal
 token client and the injected API httpx client, so tests exercise the full
@@ -20,7 +20,7 @@ USERINFO_BODY = {
 }
 
 
-class FakeAuthForge:
+class FakeFulla:
     """Token endpoint + a couple of bearer-protected API routes."""
 
     def __init__(self, *, expires_in: int = 3600, token_status: int = 200) -> None:
@@ -94,15 +94,15 @@ class FakeAuthForge:
 
 
 @pytest.fixture
-def fake() -> FakeAuthForge:
-    server = FakeAuthForge()
+def fake() -> FakeFulla:
+    server = FakeFulla()
     server.on("GET", "/oauth2/userinfo", json_body=USERINFO_BODY)
     server.on("POST", "/oauth2/introspect", json_body={"active": True})
     return server
 
 
 @pytest.fixture
-def transport(fake: FakeAuthForge) -> httpx.MockTransport:
+def transport(fake: FakeFulla) -> httpx.MockTransport:
     return httpx.MockTransport(fake.handler)
 
 

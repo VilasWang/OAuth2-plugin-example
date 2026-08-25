@@ -1,16 +1,16 @@
-#include <authforge/drogon/AuthService.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/storage/postgres/models/Roles.h>
-#include <authforge/storage/postgres/models/UserRoles.h>
-#include <authforge/drogon/utils/PasswordHasher.h>
-#include <authforge/common/utils/EmailNormalizer.h>
+#include <fulla/drogon/AuthService.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/Roles.h>
+#include <fulla/storage/postgres/models/UserRoles.h>
+#include <fulla/drogon/utils/PasswordHasher.h>
+#include <fulla/common/utils/EmailNormalizer.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 
 using namespace drogon;
 using namespace ::drogon::orm;
 
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 
 void AuthService::validateUser(
@@ -23,24 +23,24 @@ void AuthService::validateUser(
       std::make_shared<std::function<void(std::optional<AuthResult>)>>(std::move(callback));
     try
     {
-        auto mapper = Mapper<drogon_model::oauth2_db::Users>(app().getDbClient());
+        auto mapper = Mapper<drogon_model::fulla_db::Users>(app().getDbClient());
 
         // 登录标识分流：含 @ 视为 email（先归一再查），否则按 username 查
         // USERNAME_PATTERN 不允许 @，二者天然互斥
         bool isEmail = identifier.find('@') != std::string::npos;
         std::string lookupKey =
-          isEmail ? authforge::common::utils::normalizeEmail(identifier) : identifier;
+          isEmail ? fulla::common::utils::normalizeEmail(identifier) : identifier;
         auto criteria =
           isEmail
-            ? Criteria(drogon_model::oauth2_db::Users::Cols::_email, CompareOperator::EQ, lookupKey)
+            ? Criteria(drogon_model::fulla_db::Users::Cols::_email, CompareOperator::EQ, lookupKey)
             : Criteria(
-                drogon_model::oauth2_db::Users::Cols::_username, CompareOperator::EQ, lookupKey
+                drogon_model::fulla_db::Users::Cols::_username, CompareOperator::EQ, lookupKey
               );
 
         // Find user by login identifier (email or username)
         mapper.findOne(
           criteria,
-          [sharedCb, password, identifier](const drogon_model::oauth2_db::Users &user) {
+          [sharedCb, password, identifier](const drogon_model::fulla_db::Users &user) {
               // Account lockout check
               auto now = std::chrono::duration_cast<std::chrono::seconds>(
                            std::chrono::system_clock::now().time_since_epoch()
@@ -70,7 +70,7 @@ void AuthService::validateUser(
               std::string salt = user.getValueOfSalt();
               std::string dbHash = user.getValueOfPasswordHash();
 
-              bool valid = authforge::common::utils::PasswordHasher::verify(password, dbHash, salt);
+              bool valid = fulla::common::utils::PasswordHasher::verify(password, dbHash, salt);
 
               if (valid)
               {
@@ -78,10 +78,10 @@ void AuthService::validateUser(
                   if (failedCount > 0)
                   {
                       auto db = app().getDbClient();
-                      auto resetUser = std::make_shared<drogon_model::oauth2_db::Users>(user);
+                      auto resetUser = std::make_shared<drogon_model::fulla_db::Users>(user);
                       resetUser->setFailedLoginCount(0);
                       resetUser->setLockedUntil(0);
-                      Mapper<drogon_model::oauth2_db::Users>(db).update(
+                      Mapper<drogon_model::fulla_db::Users>(db).update(
                         *resetUser,
                         [resetUser](const size_t) {},
                         [resetUser](const ::drogon::orm::DrogonDbException &e) {
@@ -92,19 +92,19 @@ void AuthService::validateUser(
                   }
 
                   // Check if password hash needs upgrade to PBKDF2
-                  if (authforge::common::utils::PasswordHasher::needsRehash(dbHash))
+                  if (fulla::common::utils::PasswordHasher::needsRehash(dbHash))
                   {
                       // Async upgrade: rehash with PBKDF2
                       try
                       {
                           std::string newHash =
-                            authforge::common::utils::PasswordHasher::hash(password);
+                            fulla::common::utils::PasswordHasher::hash(password);
                           auto db = app().getDbClient();
                           int userId = user.getValueOfId();
-                          auto hashUser = std::make_shared<drogon_model::oauth2_db::Users>(user);
+                          auto hashUser = std::make_shared<drogon_model::fulla_db::Users>(user);
                           hashUser->setPasswordHash(newHash);
                           hashUser->setSalt("");
-                          Mapper<drogon_model::oauth2_db::Users>(db).update(
+                          Mapper<drogon_model::fulla_db::Users>(db).update(
                             *hashUser,
                             [hashUser, userId](const size_t) {
                                 LOG_INFO << "Upgraded password hash to PBKDF2 for user " << userId;
@@ -157,11 +157,11 @@ void AuthService::validateUser(
                       newLockedUntil = now + 60;
 
                   auto db = app().getDbClient();
-                  auto failedUser = std::make_shared<drogon_model::oauth2_db::Users>(user);
+                  auto failedUser = std::make_shared<drogon_model::fulla_db::Users>(user);
                   failedUser->setFailedLoginCount(newFailedCount);
                   failedUser->setLockedUntil(newLockedUntil);
                   failedUser->setLastFailedLogin(now);
-                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                  Mapper<drogon_model::fulla_db::Users>(db).update(
                     *failedUser,
                     [failedUser](const size_t) {},
                     [failedUser](const ::drogon::orm::DrogonDbException &e) {
@@ -204,7 +204,7 @@ void AuthService::registerUser(
     std::string passwordHash;
     try
     {
-        passwordHash = authforge::common::utils::PasswordHasher::hash(password);
+        passwordHash = fulla::common::utils::PasswordHasher::hash(password);
     }
     catch (const std::exception &e)
     {
@@ -213,7 +213,7 @@ void AuthService::registerUser(
         return;
     }
 
-    drogon_model::oauth2_db::Users newUser;
+    drogon_model::fulla_db::Users newUser;
     // username is optional in email-first model: leave NULL when absent
     // (CHECK constraint forbids empty string, so only set when non-empty)
     if (!username.empty())
@@ -221,40 +221,40 @@ void AuthService::registerUser(
     newUser.setPasswordHash(passwordHash);
     newUser.setSalt(salt);
     if (!email.empty())
-        newUser.setEmail(authforge::common::utils::normalizeEmail(email));
+        newUser.setEmail(fulla::common::utils::normalizeEmail(email));
 
     try
     {
         auto db = app().getDbClient();
         // Start Transaction? For now, just chain.
 
-        auto mapper = Mapper<drogon_model::oauth2_db::Users>(db);
+        auto mapper = Mapper<drogon_model::fulla_db::Users>(db);
 
         // Async Insert
         mapper.insert(
           newUser,
-          [sharedCb, db](const drogon_model::oauth2_db::Users &u) {
+          [sharedCb, db](const drogon_model::fulla_db::Users &u) {
               // Assign Default Role "user"
               try
               {
-                  auto roleMapper = Mapper<drogon_model::oauth2_db::Roles>(db);
+                  auto roleMapper = Mapper<drogon_model::fulla_db::Roles>(db);
                   roleMapper.findOne(
                     Criteria(
-                      drogon_model::oauth2_db::Roles::Cols::_name, CompareOperator::EQ, "user"
+                      drogon_model::fulla_db::Roles::Cols::_name, CompareOperator::EQ, "user"
                     ),
                     [sharedCb,
                      db,
-                     userId = u.getValueOfId()](const drogon_model::oauth2_db::Roles &role) {
+                     userId = u.getValueOfId()](const drogon_model::fulla_db::Roles &role) {
                         try
                         {
-                            auto urMapper = Mapper<drogon_model::oauth2_db::UserRoles>(db);
-                            drogon_model::oauth2_db::UserRoles ur;
+                            auto urMapper = Mapper<drogon_model::fulla_db::UserRoles>(db);
+                            drogon_model::fulla_db::UserRoles ur;
                             ur.setUserId(userId);
                             ur.setRoleId(role.getValueOfId());
 
                             urMapper.insert(
                               ur,
-                              [sharedCb](const drogon_model::oauth2_db::UserRoles &) {
+                              [sharedCb](const drogon_model::fulla_db::UserRoles &) {
                                   (*sharedCb)("");  // Success
                               },
                               [sharedCb](const DrogonDbException &e) {
@@ -326,19 +326,19 @@ void AuthService::getUserInfo(
     try
     {
         auto db = app().getDbClient();
-        auto userMapper = Mapper<drogon_model::oauth2_db::Users>(db);
+        auto userMapper = Mapper<drogon_model::fulla_db::Users>(db);
 
         userMapper.findByPrimaryKey(
           userId,
-          [sharedCb, db, userId](const drogon_model::oauth2_db::Users &user) {
+          [sharedCb, db, userId](const drogon_model::fulla_db::Users &user) {
               // Fetch roles via UserRoles → Roles (split JOIN into two Mapper queries)
-              Mapper<drogon_model::oauth2_db::UserRoles> urMapper(db);
+              Mapper<drogon_model::fulla_db::UserRoles> urMapper(db);
               urMapper.findBy(
                 Criteria(
-                  drogon_model::oauth2_db::UserRoles::Cols::_user_id, CompareOperator::EQ, userId
+                  drogon_model::fulla_db::UserRoles::Cols::_user_id, CompareOperator::EQ, userId
                 ),
                 [sharedCb, db, user](
-                  const std::vector<drogon_model::oauth2_db::UserRoles> &userRoles
+                  const std::vector<drogon_model::fulla_db::UserRoles> &userRoles
                 ) {
                     if (userRoles.empty())
                     {
@@ -356,12 +356,12 @@ void AuthService::getUserInfo(
                     for (const auto &ur : userRoles)
                         roleIds.push_back(ur.getValueOfRoleId());
 
-                    Mapper<drogon_model::oauth2_db::Roles> roleMapper(db);
+                    Mapper<drogon_model::fulla_db::Roles> roleMapper(db);
                     roleMapper.findBy(
                       Criteria(
-                        drogon_model::oauth2_db::Roles::Cols::_id, CompareOperator::In, roleIds
+                        drogon_model::fulla_db::Roles::Cols::_id, CompareOperator::In, roleIds
                       ),
-                      [sharedCb, user](const std::vector<drogon_model::oauth2_db::Roles> &roles) {
+                      [sharedCb, user](const std::vector<drogon_model::fulla_db::Roles> &roles) {
                           Json::Value json;
                           json["sub"] = user.getValueOfPublicSub();
                           std::string displayName = user.getValueOfUsername();
@@ -419,4 +419,4 @@ void AuthService::getUserInfo(
     }
 }
 
-}  // namespace authforge::drogon::services
+}  // namespace fulla::drogon::services

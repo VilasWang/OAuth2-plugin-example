@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-# examples/full-stack-host (Task 28a, authforge-sdk-refactor design.md §1.1/§6):
+# examples/full-stack-host (Task 28a, fulla-sdk-refactor design.md §1.1/§6):
 # the STANDALONE full-stack SDK smoke. Unlike examples/third-party-host (Task
 # 28b -- a minimal engine-only consumer that links a handful of SDK packages
 # in-tree and drives the flow through the Domain layer with no HTTP), this
@@ -8,11 +8,11 @@ cmake_minimum_required(VERSION 3.16)
 # stack via find_package (build-tree export), reusing the product's
 # controllers, OAuth2Plugin and views:
 #
-#   find_package(authforge-drogon) -> authforge::drogon, which PUBLIC-carries
+#   find_package(fulla-drogon) -> fulla::drogon, which PUBLIC-carries
 #   the whole closure (common / oauth2 / identity / storage-* / Drogon /
 #   OpenSSL / CURL). No install step: the build-tree Config files written by
-#   authforge_package() (see cmake/AuthForgePackage.cmake) are resolved through
-#   CMAKE_PREFIX_PATH -> ${top-build}/authforge-cmake.
+#   fulla_package() (see cmake/FullaPackage.cmake) are resolved through
+#   CMAKE_PREFIX_PATH -> ${top-build}/fulla-cmake.
 #
 # This project is NOT add_subdirectory'd into the main tree. It is built and
 # run by the "SdkSmoke.FullStack" CTest entry via `ctest --build-and-test`
@@ -20,15 +20,15 @@ cmake_minimum_required(VERSION 3.16)
 # the build-tree package root -- exercising the real find_package consumption
 # path an external product would use.
 
-project(authforge-full-stack-smoke LANGUAGES CXX)
+project(fulla-full-stack-smoke LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Consume the product stack. authforge-drogon transitively pulls the rest of
-# the authforge closure (its Config's find_dependency block). Drogon itself is
+# Consume the product stack. fulla-drogon transitively pulls the rest of
+# the fulla closure (its Config's find_dependency block). Drogon itself is
 # needed directly here for drogon_create_views().
-find_package(authforge-drogon CONFIG REQUIRED)
+find_package(fulla-drogon CONFIG REQUIRED)
 find_package(Drogon CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 
@@ -57,11 +57,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "${SERVER_SRC_DIR}/organization"
 )
 
-# authforge::drogon carries the whole PUBLIC closure; Drogon::Drogon +
+# fulla::drogon carries the whole PUBLIC closure; Drogon::Drogon +
 # OpenSSL::Crypto are named explicitly because this target uses them directly
 # (drogon_create_views output + the HTTP harness in main.cc).
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    authforge::drogon
+    fulla::drogon
     Drogon::Drogon
     OpenSSL::Crypto
 )

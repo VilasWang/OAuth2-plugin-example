@@ -2,14 +2,14 @@
 
 > **Spec 类型 / Spec type**: New Feature (engineering refactor tracked as a feature)
 > **工作流 / Workflow**: Design-First with High-Level + Low-Level Design artifacts
-> **目标仓库 / Target repository**: `authforge`（Drogon C++ OAuth2 Plugin + Server + Admin Vue3 控制台 + Frontend Vue3 用户站点）
+> **目标仓库 / Target repository**: `fulla`（Drogon C++ OAuth2 Plugin + Server + Admin Vue3 控制台 + Frontend Vue3 用户站点）
 > **输出语言**: 中文散文，代码 / 标识符 / 文件路径保持英文。重要章节标题双语。
 
 ---
 
 ## Overview
 
-本设计文档（`design.md`）规划 `authforge` 仓库的结构性重构。改动按 12 个独立可绿（`P0`–`P12`）阶段推进，覆盖：公共头镜像化、验证层 4 类整合、Filter / Middleware 命名统一、Admin / OAuth2 controller 合并与拆分、可观测性子层抽取、CMake 兼容层抽取、部署文件 (`Dockerfile` / `docker-compose*.yml` / `prometheus.yml`) 进入 `deploy/`、Windows/Linux/macOS 脚本对等、文档 kebab-case 重组、`.gitignore` 整合，以及 forwarding shim 的延迟移除。
+本设计文档（`design.md`）规划 `fulla` 仓库的结构性重构。改动按 12 个独立可绿（`P0`–`P12`）阶段推进，覆盖：公共头镜像化、验证层 4 类整合、Filter / Middleware 命名统一、Admin / OAuth2 controller 合并与拆分、可观测性子层抽取、CMake 兼容层抽取、部署文件 (`Dockerfile` / `docker-compose*.yml` / `prometheus.yml`) 进入 `deploy/`、Windows/Linux/macOS 脚本对等、文档 kebab-case 重组、`.gitignore` 整合，以及 forwarding shim 的延迟移除。
 
 **关键约束**：Drogon ORM 自动生成的 14 个模型类（`Oauth2*`、`Users`、`Roles`、`Permissions`、`Organizations` 等）严格豁免于命名变更，详见 §0。所有 HTTP 路径、状态码、响应体、RFC 6749/6750/7009/7517/7591/7662/8414/8628 + OIDC Discovery 行为零回归。Linux/macOS/Windows × Debug/Release 的 6 格 ctest 矩阵保留；`scripts/backend/test-{admin,oauth2}-endpoints.{ps1,sh}` 与 OAuth2Admin / OAuth2Frontend Playwright e2e 在每阶段必须通过。
 
@@ -204,7 +204,7 @@ Drogon 通过 `drogon_ctl create model` 从 PostgreSQL 表名直接生成模型�
 | `Oauth2Scopes` | `oauth2_scopes` | `.../models/Oauth2Scopes.h` | `.../models/Oauth2Scopes.cc` |
 | `Oauth2ClientScopes` | `oauth2_client_scopes` | `.../models/Oauth2ClientScopes.h` | `.../models/Oauth2ClientScopes.cc` |
 | `Oauth2SubjectMappings` | `oauth2_subject_mappings` | `.../models/Oauth2SubjectMappings.h` | `.../models/Oauth2SubjectMappings.cc` |
-| `Oauth2UserConsents` | `oauth2_user_consents` | `.../models/Oauth2UserConsents.h` | `.../models/Oauth2UserConsents.cc` |
+| `Oauth2UserConsents` | `fulla_user_consents` | `.../models/Oauth2UserConsents.h` | `.../models/Oauth2UserConsents.cc` |
 | `Organizations` | `organizations` | `.../models/Organizations.h` | `.../models/Organizations.cc` |
 | `Permissions` | `permissions` | `.../models/Permissions.h` | `.../models/Permissions.cc` |
 | `Roles` | `roles` | `.../models/Roles.h` | `.../models/Roles.cc` |
@@ -269,7 +269,7 @@ Drogon 通过 `drogon_ctl create model` 从 PostgreSQL 表名直接生成模型�
 
 ```mermaid
 graph TD
-    subgraph Repo[authforge]
+    subgraph Repo[fulla]
         direction TB
         subgraph Code[源代码]
             Plugin[OAuth2Plugin\nOBJECT lib\ninclude/oauth2/**\nsrc/**]
@@ -313,7 +313,7 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph Repo[authforge]
+    subgraph Repo[fulla]
         direction TB
         subgraph Code[源代码 - 模块边界清晰]
             Plugin[OAuth2Plugin\nOBJECT lib\ninclude/oauth2/{config,error,utils,validation,services,storage,filters,controllers,models,plugin,types,observability}\n严格镜像 src/**]
@@ -390,7 +390,7 @@ graph LR
 | 脚本文件名 | kebab-case，名词-动词倒装 | `build-backend.sh` | 现存 `.bat` 因 Windows cmd 兼容保留下划线 |
 | CMake target | UpperCamelCase | `OAuth2Plugin`, `OAuth2Server` | 无 |
 | Docker image | kebab-case，仓库名前缀 | `oauth2-plugin/backend-runtime` | 无 |
-| Docker service | kebab-case | `oauth2-backend`, `oauth2-postgres` | 无 |
+| Docker service | kebab-case | `fulla-backend`, `fulla-postgres` | 无 |
 
 ### 2.5 Cross-Cutting Concerns Layout / 横切关注点布局
 
@@ -858,7 +858,7 @@ OAuth2Plugin/include/oauth2/
 | `ValidationRules.h` | `common::validation` | 数据：常量字符串模式（CLIENT_ID_PATTERN 等）、`enum ValidationRuleType`、`struct ValidationRuleConfig`、`struct ValidationResult`。 |
 | `ValidatorHelper.h/.cc` | `common::validation::ValidatorHelper` | 把 `Validator` 包装成"返回 `optional<string>` / `vector<string>` 错误信息"的友好 API；从 `HttpRequest` 提取字段；提供 `validateOAuth2AuthorizeParams/TokenParams/IntrospectParams/RevokeParams/LoginParams` 等场景化组合。 |
 | `ValidationHelper.h/.cc` | `common::validation::ValidationHelper` | 把校验错误**转换成 HTTP 响应**：`createValidationErrorResponse`、`returnValidationError(s)`、`returnValidationErrorsIfAny`。环境感知（dev/prod 的错误详细程度）。 |
-| `filters/ValidationFilter.h/.cc` | (顶层 `ValidationFilter`，`HttpFilter`) | 在 Drogon 路由前自动校验：通过 `OAUTH2_VALIDATION_RULES` 路由→规则映射，使用 `ValidatorHelper::validateRequest` 然后 `ValidationHelper::returnValidationErrorsIfAny`。 |
+| `filters/ValidationFilter.h/.cc` | (顶层 `ValidationFilter`，`HttpFilter`) | 在 Drogon 路由前自动校验：通过 `FULLA_VALIDATION_RULES` 路由→规则映射，使用 `ValidatorHelper::validateRequest` 然后 `ValidationHelper::returnValidationErrorsIfAny`。 |
 
 #### 6.1.2 问题
 
@@ -1562,7 +1562,7 @@ include(Version)
 include(Compatibility)
 
 project(oauth2-plugin-example
-        VERSION ${OAUTH2_PROJECT_VERSION}
+        VERSION ${FULLA_PROJECT_VERSION}
         LANGUAGES CXX
         DESCRIPTION "OAuth2 / OIDC Plugin & Reference Server (Drogon)")
 
@@ -1582,13 +1582,13 @@ add_subdirectory(OAuth2Server)
 
 ```cmake
 # Single source of truth for repo-wide version
-set(OAUTH2_PROJECT_VERSION_MAJOR 1)
-set(OAUTH2_PROJECT_VERSION_MINOR 0)
-set(OAUTH2_PROJECT_VERSION_PATCH 0)
-set(OAUTH2_PROJECT_VERSION "${OAUTH2_PROJECT_VERSION_MAJOR}.${OAUTH2_PROJECT_VERSION_MINOR}.${OAUTH2_PROJECT_VERSION_PATCH}")
+set(FULLA_PROJECT_VERSION_MAJOR 1)
+set(FULLA_PROJECT_VERSION_MINOR 0)
+set(FULLA_PROJECT_VERSION_PATCH 0)
+set(FULLA_PROJECT_VERSION "${FULLA_PROJECT_VERSION_MAJOR}.${FULLA_PROJECT_VERSION_MINOR}.${FULLA_PROJECT_VERSION_PATCH}")
 ```
 
-`OAuth2Plugin` / `OAuth2Server` 子目录的 `project(... VERSION ...)` 改为 `project(... VERSION ${OAUTH2_PROJECT_VERSION} ...)`，避免三处独立维护版本号。
+`OAuth2Plugin` / `OAuth2Server` 子目录的 `project(... VERSION ...)` 改为 `project(... VERSION ${FULLA_PROJECT_VERSION} ...)`，避免三处独立维护版本号。
 
 ### 7.3 `cmake/Compatibility.cmake` (新)
 
@@ -1624,7 +1624,7 @@ endfunction()
 ### 7.4 `OAuth2Plugin/CMakeLists.txt` (P6 后)
 
 ```cmake
-project(OAuth2Plugin VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+project(OAuth2Plugin VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX)
 
 find_package(Drogon CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -1673,7 +1673,7 @@ install(EXPORT OAuth2PluginTargets
 ### 7.5 `OAuth2Server/CMakeLists.txt` (P6 后)
 
 ```cmake
-project(OAuth2Server VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+project(OAuth2Server VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX)
 
 find_package(Drogon CONFIG REQUIRED)
 
@@ -2298,7 +2298,7 @@ Tasks.md 复审 checklist 在 tasks.md 创建时另行提供，但必须最低�
 
 ### 14.1 prometheus.yml & metrics 端点
 
-Drogon 处理器路径不变，`OAuth2Metrics` 类只换 include 路径 → metrics endpoint `/metrics` 行为零变化。Prometheus scrape config 在 `deploy/observability/prometheus.yml`，需更新 `targets:` 主机名为 `oauth2-backend:5555`（compose 服务名，已正确）。
+Drogon 处理器路径不变，`OAuth2Metrics` 类只换 include 路径 → metrics endpoint `/metrics` 行为零变化。Prometheus scrape config 在 `deploy/observability/prometheus.yml`，需更新 `targets:` 主机名为 `fulla-backend:5555`（compose 服务名，已正确）。
 
 ### 14.2 OAuth2Server runtime dirs (`logs/`, `uploads/`)
 

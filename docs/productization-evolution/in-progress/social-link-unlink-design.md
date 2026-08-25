@@ -9,7 +9,7 @@
 
 ## 一、背景与目标
 
-AuthForge 已有三家社交登录提供商（Google/GitHub/WeChat，条件编译 `WITH_SOCIAL`），其中
+Fulla 已有三家社交登录提供商（Google/GitHub/WeChat，条件编译 `WITH_SOCIAL`），其中
 GitHub 是唯一做「find-or-create 本地账号 + subject mapping」的 provider；用户无法在自助
 门户查看、主动关联（link）或解除（unlink）社交账号。本任务（B2，IAM P1 缺口）补齐这一能力：
 
@@ -157,7 +157,7 @@ capture 进 lambda，与 `GoogleAuthService` 等先例一致）。
 ### 4.2 `SocialLinkService` 接口（新）
 
 ```cpp
-// libs/identity/include/authforge/identity/SocialLinkService.h  (#ifdef WITH_SOCIAL)
+// libs/identity/include/fulla/identity/SocialLinkService.h  (#ifdef WITH_SOCIAL)
 
 enum class SocialLinkOpStatus {
     Ok,                     ///< 成功（link 或 unlink）

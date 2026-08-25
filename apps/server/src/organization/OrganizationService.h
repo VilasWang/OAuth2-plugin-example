@@ -1,6 +1,6 @@
 #pragma once
 
-// M5 Task 29b batch 3 (authforge-sdk-refactor): application-service extraction
+// M5 Task 29b batch 3 (fulla-sdk-refactor): application-service extraction
 // for Organization management (product-level, namespace `organization`). The
 // raw `db->execSqlAsync("SELECT/INSERT ...")` calls inline in
 // OrganizationController are now Mapper<T> + Criteria operations on the ORM

@@ -13,7 +13,7 @@ Please **do not report security vulnerabilities through public GitHub
 issues, discussions, or pull requests.**
 
 Instead, use GitHub's private vulnerability reporting:
-[Report a vulnerability](https://github.com/voidvec/authforge/security/advisories/new).
+[Report a vulnerability](https://github.com/voidvec/fulla/security/advisories/new).
 
 Include as much of the following as you can:
 

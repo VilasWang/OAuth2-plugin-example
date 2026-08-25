@@ -1,11 +1,11 @@
-# AuthForge Python Client
+# Fulla Python Client
 
-Typed Python SDK for [AuthForge](https://github.com/voidvec/authforge) — the embeddable
+Typed Python SDK for [Fulla](https://github.com/voidvec/fulla) — the embeddable
 C++ OAuth2/OIDC authorization server.
 
-- **Distribution name:** `authforge-oauth2` (the shorter `authforge` name on PyPI belongs to an
+- **Distribution name:** `fulla-oauth2` (the shorter `fulla` name on PyPI belongs to an
   unrelated project)
-- **Import name:** `authforge`
+- **Import name:** `fulla`
 - **API surface:** generated from the server's single-source OpenAPI spec
   (`apps/server/openapi.yaml`) with [openapi-python-client](https://github.com/openapi-generators/openapi-python-client)
   0.29.0 — 78 operations, fully typed (`py.typed`), `attrs`-based models over `httpx`
@@ -13,7 +13,7 @@ C++ OAuth2/OIDC authorization server.
   [design doc](../../docs/productization-evolution/in-progress/client-sdk-facility-design.md))
 
 ```bash
-pip install authforge-oauth2
+pip install fulla-oauth2
 ```
 
 > Published to PyPI since v1.3.0 (release pipeline's `sdk-python` job). Prefer the released wheel; a
@@ -22,9 +22,9 @@ pip install authforge-oauth2
 ## Quickstart: machine-to-machine (client_credentials)
 
 ```python
-from authforge import m2m_client
-from authforge.generated.api.o_auth_2 import post_oauth2_introspect
-from authforge.generated.models.post_oauth_2_introspect_body import PostOauth2IntrospectBody
+from fulla import m2m_client
+from fulla.generated.api.o_auth_2 import post_oauth2_introspect
+from fulla.generated.models.post_oauth_2_introspect_body import PostOauth2IntrospectBody
 
 client = m2m_client(
     "http://localhost:5555",
@@ -42,14 +42,14 @@ print(result.active)
 
 # When done: closes BOTH the API client and the auth layer's token pool
 # (closing the generated client alone leaks the token connection pool).
-from authforge import close_m2m_client
+from fulla import close_m2m_client
 close_m2m_client(client)
 ```
 
 Async is symmetric:
 
 ```python
-from authforge import async_m2m_client
+from fulla import async_m2m_client
 
 client = async_m2m_client("http://localhost:5555", "backend-svc", "…", scopes=["tokens:read"])
 result = await post_oauth2_introspect.asyncio(client=client, body=body)
@@ -58,7 +58,7 @@ result = await post_oauth2_introspect.asyncio(client=client, body=body)
 One-shot token fetch (scripts, benchmarks):
 
 ```python
-from authforge import fetch_client_credentials_token
+from fulla import fetch_client_credentials_token
 
 token, expires_in = fetch_client_credentials_token(
     "http://localhost:5555", "backend-svc", "…", ["tokens:read"]
@@ -72,7 +72,7 @@ token (RFC 7662 §2.1). Use a client whose every request carries HTTP Basic — 
 clients must use Basic; the server rejects credentials in the body (F-017):
 
 ```python
-from authforge import basic_auth_client
+from fulla import basic_auth_client
 
 client = basic_auth_client("http://localhost:5555", "backend-svc", "…")
 result = post_oauth2_introspect.sync(client=client, body=PostOauth2IntrospectBody(token=tok))
@@ -81,7 +81,7 @@ result = post_oauth2_introspect.sync(client=client, body=PostOauth2IntrospectBod
 ## Authorization-code flow (web apps, with PKCE)
 
 ```python
-from authforge import AuthorizationCodeFlow, PkcePair
+from fulla import AuthorizationCodeFlow, PkcePair
 
 flow = AuthorizationCodeFlow(
     "http://localhost:5555", "my-client", "my-secret",
@@ -89,21 +89,21 @@ flow = AuthorizationCodeFlow(
 )
 pkce = PkcePair.generate()
 authorize_url = flow.build_authorize_url(state=session_csrf, pkce=pkce)
-# → send the user's browser to authorize_url; AuthForge redirects back with ?code=…&state=…
+# → send the user's browser to authorize_url; Fulla redirects back with ?code=…&state=…
 # → VERIFY state, then:
 tokens = flow.exchange_code(code, pkce.verifier)
-# … later; AuthForge rotates refresh tokens on every use (V008):
+# … later; Fulla rotates refresh tokens on every use (V008):
 tokens = flow.refresh(tokens.refresh_token)
 ```
 
 ## Generated API modules
 
-Everything under `authforge.generated` is the typed surface of the whole server API:
+Everything under `fulla.generated` is the typed surface of the whole server API:
 
 ```python
-from authforge.generated.api.open_id_connect import get_well_known_openid_configuration
-from authforge.generated.api.o_auth_2 import get_oauth2_userinfo, post_oauth2_token
-from authforge.generated.models.token_request import TokenRequest
+from fulla.generated.api.open_id_connect import get_well_known_openid_configuration
+from fulla.generated.api.o_auth_2 import get_fulla_userinfo, post_oauth2_token
+from fulla.generated.models.token_request import TokenRequest
 ```
 
 Each endpoint module offers `sync`, `sync_detailed`, `asyncio`, `asyncio_detailed`. The
@@ -117,10 +117,10 @@ pip install -e ".[dev]"
 pytest                       # unit tests (in-process MockTransport, no server needed)
 
 # integration tests (needs a running full stack, see tests/integration/)
-AUTHFORGE_BASE_URL=http://127.0.0.1:5555 pytest tests/integration
+FULLA_BASE_URL=http://127.0.0.1:5555 pytest tests/integration
 ```
 
-Regenerating the committed `src/authforge/generated/` tree after an `openapi.yaml` change:
+Regenerating the committed `src/fulla/generated/` tree after an `openapi.yaml` change:
 
 ```bash
 pip install openapi-python-client==0.29.0

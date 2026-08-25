@@ -4,7 +4,7 @@
 // (enumerate-application-endpoint-error-responses-are-error-envelopes).
 //
 // Validates: Requirements 7.1, 7.3, 12.6
-//   - 7.1:  每个 Application_Endpoint 经由统一错误处理入口 (authforge::common::error::
+//   - 7.1:  每个 Application_Endpoint 经由统一错误处理入口 (fulla::common::error::
 //           ErrorResponder) 产生错误响应，输出 Requirement 1 定义的 Error Envelope。
 //   - 7.3:  Application_Endpoint 的错误响应 SHALL NOT 返回 Content-Type 非
 //           application/json 的响应体（纯文本、HTML 错误页等任何非 JSON 格式）。
@@ -19,7 +19,7 @@
 // config.json (HTTP listener on 0.0.0.0:5555) and compiles every server
 // controller, but it does NOT compile main.cc. Crucially, every server
 // Application_Endpoint funnels its error responses through the SINGLE unified
-// entry point authforge::common::error::ErrorResponder (see UserSelfServiceController.cc /
+// entry point fulla::common::error::ErrorResponder (see UserSelfServiceController.cc /
 // PasswordResetController.cc etc., each with a local respondError() that calls
 // ErrorResponder::respond). Therefore the strongest, most stable guarantee for
 // Requirement 7.1 / 7.3 / 12.6 is to prove that this shared entry point CANNOT
@@ -62,7 +62,7 @@
 // ---------------------------------------------------------------------------
 //   * Part B deliberately does NOT assert an Error Envelope on admin/user
 //     endpoints (e.g. GET /api/admin/users without auth). Those routes are
-//     guarded by the PLUGIN-layer authforge::drogon::filters::AuthorizationFilter, which
+//     guarded by the PLUGIN-layer fulla::drogon::filters::AuthorizationFilter, which
 //     short-circuits unauthenticated/forbidden requests with a LEGACY body
 //     ({ "error": "unauthorized" } / { "error": "invalid_token" } /
 //     { "error": "forbidden" }) that is intentionally outside this feature's
@@ -83,9 +83,9 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
 
 #include <json/json.h>
 
@@ -96,7 +96,7 @@
 #include <vector>
 
 using namespace drogon;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 namespace
 {

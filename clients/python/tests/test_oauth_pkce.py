@@ -7,8 +7,8 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from conftest import decode_basic, oauth_token_response
 
-from authforge import AuthorizationCodeFlow, AuthForgeAuthError, PkcePair, create_pkce_challenge
-from authforge.oauth import parse_authorization_response
+from fulla import AuthorizationCodeFlow, FullaAuthError, PkcePair, create_pkce_challenge
+from fulla.oauth import parse_authorization_response
 
 
 class TestPkce:
@@ -107,7 +107,7 @@ class TestExchangeAndRefresh:
         flow = AuthorizationCodeFlow(
             "http://server.test", "backend-svc", "test-secret", transport=transport
         )
-        with pytest.raises(AuthForgeAuthError) as excinfo:
+        with pytest.raises(FullaAuthError) as excinfo:
             flow.exchange_code("stale")
         assert excinfo.value.error == "invalid_grant"
 

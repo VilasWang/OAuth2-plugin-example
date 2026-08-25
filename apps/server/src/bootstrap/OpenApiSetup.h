@@ -1,6 +1,6 @@
 #pragma once
 
-// M3 Task 25 (authforge-sdk-refactor): extracted from main.cc's inline
+// M3 Task 25 (fulla-sdk-refactor): extracted from main.cc's inline
 // OpenAPI server-config + spec-generation block. Configures the
 // OpenApiGenerator's server URL/description from the listener config and
 // writes the generated spec to docs/api/openapi.json.

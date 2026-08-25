@@ -47,7 +47,7 @@ REM ========================================
 REM Step 1: Reinitialize Database
 REM ========================================
 echo ========================================
-echo Step 1: Reinitializing oauth2_db database
+echo Step 1: Reinitializing fulla_db database
 echo ========================================
 call "%SCRIPT_DIR%setup_database.bat"
 if !errorlevel! neq 0 (

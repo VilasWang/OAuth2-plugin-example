@@ -1,10 +1,10 @@
 #include "OrganizationController.h"
 #include "OrganizationService.h"
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 
 #include <memory>
 
-// M5 Task 29b batch 3 (authforge-sdk-refactor): inline raw-SQL DB access from
+// M5 Task 29b batch 3 (fulla-sdk-refactor): inline raw-SQL DB access from
 // the Task 30 verbatim move is now delegated to OrganizationService (Mapper +
 // Criteria, per .claude/rules/db-operations.md). Controller is now a thin HTTP
 // adapter. Behavior equivalent (org CRUD routes/tests must stay green).
@@ -13,7 +13,7 @@ namespace organization
 {
 namespace
 {
-namespace openapi = ::authforge::drogon::observability::openapi;
+namespace openapi = ::fulla::drogon::observability::openapi;
 
 // #43 resource-scope authorization: org-admin routes are part of the identity
 // management family -> guarded by roles:read / roles:write, impliedBy admin.

@@ -49,7 +49,7 @@ Before finalizing, verify:
 3. **Idempotent**: Uses `IF NOT EXISTS` / `IF EXISTS` where appropriate
 4. **No data loss**: ALTER COLUMN preserves existing data; DROP has DOWN section
 5. **Schema consistency**: Matches ORM model expectations in `model.json`
-6. **CMakeLists**: No update needed. Migrations are applied at runtime by `SchemaManager` (when `OAUTH2_AUTO_MIGRATE=true`) or via `authforge-server --migrate-only` / `scripts/backend/setup-database.{sh,bat}`; no build-file change required.
+6. **CMakeLists**: No update needed. Migrations are applied at runtime by `SchemaManager` (when `FULLA_AUTO_MIGRATE=true`) or via `fulla-server --migrate-only` / `scripts/backend/setup-database.{sh,bat}`; no build-file change required.
 
 ## Common Patterns
 

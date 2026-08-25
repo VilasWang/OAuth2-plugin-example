@@ -2,8 +2,8 @@
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
 #include <json/json.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/common/utils/RateLimiter.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/common/utils/RateLimiter.h>
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -18,11 +18,11 @@ using namespace drogon;
 // non-empty buckets when purging empties isn't enough.
 DROGON_TEST(Unit_P1_Utils_RateLimiter_CapBoundedOnCheckThrottledInsert)
 {
-    auto &limiter = authforge::common::utils::RateLimiter::instance();
+    auto &limiter = fulla::common::utils::RateLimiter::instance();
     // Configure a tiny cap so the test is deterministic. Use a high failure
     // threshold so none of the probes below are throttled (we are exercising
     // the insert path, not the failure path).
-    authforge::common::utils::RateLimiterConfig cfg;
+    fulla::common::utils::RateLimiterConfig cfg;
     cfg.maxFailures = 1000;
     cfg.windowSeconds = std::chrono::seconds(60);
     cfg.maxBuckets = 10;

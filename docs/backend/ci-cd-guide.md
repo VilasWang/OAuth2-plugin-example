@@ -75,7 +75,7 @@ CI 在 Linux 矩阵腿中用 Docker 容器启动 Postgres 和 Redis，并通过�
 > PostgreSQL 镜像与 deploy 默认（`postgres:17-alpine`，2026-08-18 起）对齐——CI 覆盖的
 > 就是部署目标大版本（含 V025 分区/V026 等 migration 在 17 上的行为）。
 
-> [WARNING]️ **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `OAUTH2_REDIS_PASSWORD=""` 覆盖。Windows/macOS 矩阵腿 `use_database=false`，改用内存存储配置（`config.ci.json`）。
+> [WARNING]️ **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `FULLA_REDIS_PASSWORD=""` 覆盖。Windows/macOS 矩阵腿 `use_database=false`，改用内存存储配置（`config.ci.json`）。
 
 ### 3.2 构建缓存策略
 
@@ -94,12 +94,12 @@ CI 在 Linux 矩阵腿中用 Docker 容器启动 Postgres 和 Redis，并通过�
 ```bash
 # 按顺序执行所有 migration 文件
 for f in apps/server/migrations/V*.sql; do
-    psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
+    psql -h localhost -U fulla_user -d fulla_db -f "$f"
 done
 
 # 执行 seed 数据（开发/测试环境）
 for f in apps/server/seed/*.sql; do
-    psql -h localhost -U oauth2_user -d oauth2_db -f "$f"
+    psql -h localhost -U fulla_user -d fulla_db -f "$f"
 done
 ```
 
@@ -135,22 +135,22 @@ CI 流水线本身不构建 Docker 镜像。容器镜像的多架构构建、推
 
 ```powershell
 # 1. 启动基础设施（CI 中使用 Service Container，本地用 Docker）
-docker run -d -p 5432:5432 -e POSTGRES_USER=oauth2_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=oauth2_db postgres:17-alpine
+docker run -d -p 5432:5432 -e POSTGRES_USER=fulla_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=fulla_db postgres:17-alpine
 docker run -d -p 6379:6379 redis:7-alpine
 
 # 2. 初始化数据库
 $env:PGPASSWORD = "123456"
 Get-ChildItem "apps\server\migrations\V*.sql" | Sort-Object Name | ForEach-Object {
-    psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
+    psql -h localhost -U fulla_user -d fulla_db -f $_.FullName
 }
 Get-ChildItem "apps\server\seed\*.sql" | ForEach-Object {
-    psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
+    psql -h localhost -U fulla_user -d fulla_db -f $_.FullName
 }
 
 # 3. 构建并运行测试（build.bat 走 Conan + cmake --preset，Release 落到 build/windows-msvc）
 .\scripts\backend\build.bat -release
 cd build\windows-msvc
-$env:OAUTH2_REDIS_PASSWORD = ""
+$env:FULLA_REDIS_PASSWORD = ""
 ctest -V -C Release --output-on-failure
 ```
 

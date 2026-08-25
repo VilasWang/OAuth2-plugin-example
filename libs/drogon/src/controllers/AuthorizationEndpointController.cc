@@ -1,10 +1,10 @@
-#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
-#include <authforge/oauth2/access/ScopeDecision.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/validation/RuleSet.h>
-#include <authforge/drogon/validation/HttpResponder.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/controllers/AuthorizationEndpointController.h>
+#include <fulla/oauth2/access/ScopeDecision.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/validation/RuleSet.h>
+#include <fulla/drogon/validation/HttpResponder.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -13,8 +13,8 @@
 #include <mutex>
 #include <sstream>
 
-using namespace authforge::drogon::controllers;
-using namespace authforge::drogon::observability::openapi;
+using namespace fulla::drogon::controllers;
+using namespace fulla::drogon::observability::openapi;
 
 namespace
 {
@@ -41,7 +41,7 @@ namespace
 }
 }  // namespace
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 ::OAuth2Plugin *AuthorizationEndpointController::resolvePlugin() const
@@ -58,7 +58,7 @@ void AuthorizationEndpointController::initApiDocs()
 void AuthorizationEndpointController::initApiDocsImpl()
 {
     // Authorize endpoint
-    authforge::drogon::observability::openapi::EndpointInfo authorizeEndpoint;
+    fulla::drogon::observability::openapi::EndpointInfo authorizeEndpoint;
     authorizeEndpoint.path = "/oauth2/authorize";
     authorizeEndpoint.method = "GET";
     authorizeEndpoint.summary = "Request authorization";
@@ -67,42 +67,42 @@ void AuthorizationEndpointController::initApiDocsImpl()
     authorizeEndpoint.parameters =
       {{"client_id",
         "Client identifier (required)",
-        authforge::drogon::observability::openapi::ParameterType::STRING,
-        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
+        fulla::drogon::observability::openapi::ParameterType::STRING,
+        fulla::drogon::observability::openapi::ParameterLocation::QUERY,
         true},
        {"redirect_uri",
         "Redirect URI (required)",
-        authforge::drogon::observability::openapi::ParameterType::STRING,
-        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
+        fulla::drogon::observability::openapi::ParameterType::STRING,
+        fulla::drogon::observability::openapi::ParameterLocation::QUERY,
         true},
        {"response_type",
         "Response type, must be 'code' (required)",
-        authforge::drogon::observability::openapi::ParameterType::STRING,
-        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
+        fulla::drogon::observability::openapi::ParameterType::STRING,
+        fulla::drogon::observability::openapi::ParameterLocation::QUERY,
         true},
        {"scope",
         "Requested scope (optional)",
-        authforge::drogon::observability::openapi::ParameterType::STRING,
-        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
+        fulla::drogon::observability::openapi::ParameterType::STRING,
+        fulla::drogon::observability::openapi::ParameterLocation::QUERY,
         false},
        {"state",
         "Opaque value to maintain state between request and callback "
         "(recommended)",
-        authforge::drogon::observability::openapi::ParameterType::STRING,
-        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
+        fulla::drogon::observability::openapi::ParameterType::STRING,
+        fulla::drogon::observability::openapi::ParameterLocation::QUERY,
         false},
        {"prompt",
         "Space-separated prompt values (none|login|consent). "
         "none forbids UI; login forces re-auth; consent forces the consent "
         "screen (OIDC Core §3.1.2.1).",
-        authforge::drogon::observability::openapi::ParameterType::STRING,
-        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
+        fulla::drogon::observability::openapi::ParameterType::STRING,
+        fulla::drogon::observability::openapi::ParameterLocation::QUERY,
         false},
        {"max_age",
         "Maximum allowable age of the user's authentication in seconds. If "
         "the session auth_time is older, re-authentication is forced.",
-        authforge::drogon::observability::openapi::ParameterType::STRING,
-        authforge::drogon::observability::openapi::ParameterLocation::QUERY,
+        fulla::drogon::observability::openapi::ParameterType::STRING,
+        fulla::drogon::observability::openapi::ParameterLocation::QUERY,
         false}};
     authorizeEndpoint
       .responses = {{302, "Redirect to client with authorization code"}, {400, "Invalid request"}};
@@ -116,15 +116,15 @@ void AuthorizationEndpointController::authorize(
 )
 {
     // Use ValidatorHelper for consistent validation
-    auto errors = authforge::drogon::validation::RuleSet::oauth2Authorize(req);
+    auto errors = fulla::drogon::validation::RuleSet::oauth2Authorize(req);
 
     // Return validation errors if any
-    if (authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
+    if (fulla::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback)))
     {
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_requests_total",
-              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
               static_cast<double>(400)
             );
         return;
@@ -196,13 +196,13 @@ void AuthorizationEndpointController::authorize(
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_requests_total",
-              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
               static_cast<double>(400)
             );
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_login_failures_total",
-              authforge::common::ports::MetricLabels{{"reason", "missing_state_parameter"}}
+              fulla::common::ports::MetricLabels{{"reason", "missing_state_parameter"}}
             );
 
         auto resp = ::drogon::HttpResponse::newHttpResponse();
@@ -223,13 +223,13 @@ void AuthorizationEndpointController::authorize(
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_requests_total",
-              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
               static_cast<double>(400)
             );
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_login_failures_total",
-              authforge::common::ports::MetricLabels{{"reason", "invalid_state_parameter"}}
+              fulla::common::ports::MetricLabels{{"reason", "invalid_state_parameter"}}
             );
 
         auto resp = ::drogon::HttpResponse::newHttpResponse();
@@ -250,13 +250,13 @@ void AuthorizationEndpointController::authorize(
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_requests_total",
-              authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+              fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
               static_cast<double>(400)
             );
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_login_failures_total",
-              authforge::common::ports::MetricLabels{{"reason", "suspicious_state_parameter"}}
+              fulla::common::ports::MetricLabels{{"reason", "suspicious_state_parameter"}}
             );
 
         auto resp = ::drogon::HttpResponse::newHttpResponse();
@@ -327,13 +327,13 @@ void AuthorizationEndpointController::authorize(
               if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                   m->incrementCounter(
                     "oauth2_requests_total",
-                    authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                    fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
                     static_cast<double>(400)
                   );
               if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                   m->incrementCounter(
                     "oauth2_login_failures_total",
-                    authforge::common::ports::MetricLabels{{"reason", "invalid_client_id"}}
+                    fulla::common::ports::MetricLabels{{"reason", "invalid_client_id"}}
                   );
 
               auto resp = ::drogon::HttpResponse::newHttpResponse();
@@ -564,7 +564,7 @@ void AuthorizationEndpointController::authorize(
                    sessAuthTime,
                    sessAmr,
                    callback = std::move(callback)](
-                    authforge::oauth2::access::ScopeValidationSummary summary
+                    fulla::oauth2::access::ScopeValidationSummary summary
                   ) mutable {
                       if (summary.hasErrors())
                       {
@@ -712,7 +712,7 @@ void AuthorizationEndpointController::authorize(
                             if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                                 m->incrementCounter(
                                   "oauth2_requests_total",
-                                  authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                                  fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
                                   static_cast<double>(302)
                                 );
                             callback(resp);
@@ -728,4 +728,4 @@ void AuthorizationEndpointController::authorize(
     );
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

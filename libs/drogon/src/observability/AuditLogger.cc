@@ -1,22 +1,22 @@
-#include <authforge/drogon/observability/AuditLogger.h>
+#include <fulla/drogon/observability/AuditLogger.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/adapters/DrogonLogger.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/storage/postgres/models/AuditLogs.h>
+#include <fulla/drogon/adapters/DrogonLogger.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/storage/postgres/models/AuditLogs.h>
 
-namespace authforge::drogon::observability
+namespace fulla::drogon::observability
 {
 
 namespace
 {
-authforge::common::ports::ILogger &logger()
+fulla::common::ports::ILogger &logger()
 {
-    static authforge::drogon::adapters::DrogonLogger instance;
+    static fulla::drogon::adapters::DrogonLogger instance;
     return instance;
 }
 }  // namespace
 
-void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
+void AuditLogger::log(const fulla::common::observability::AuditEvent &event)
 {
     // Skip if storage type is memory
     auto plugin = ::drogon::app().getPlugin<OAuth2Plugin>();
@@ -31,11 +31,11 @@ void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
         if (!db)
         {
             logger().log(
-              authforge::common::ports::LogLevel::Warn,
+              fulla::common::ports::LogLevel::Warn,
               "AuditLogger: No DB client, logging to console only"
             );
             logger().log(
-              authforge::common::ports::LogLevel::Info,
+              fulla::common::ports::LogLevel::Info,
               "[AUDIT] " + event.action + " " + event.outcome + " actor=" + event.actorType + ":" +
                 event.actorId + " target=" + event.targetType + ":" + event.targetId
             );
@@ -47,7 +47,7 @@ void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
         std::string detailsStr =
           event.details.isNull() ? "{}" : Json::writeString(writer, event.details);
 
-        drogon_model::oauth2_db::AuditLogs auditLog;
+        drogon_model::fulla_db::AuditLogs auditLog;
         auditLog.setActorType(event.actorType);
         auditLog.setActorId(event.actorId);
         auditLog.setAction(event.action);
@@ -63,7 +63,7 @@ void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
           std::make_shared<std::function<void(const ::drogon::orm::DrogonDbException &)>>(
             [action = event.action](const ::drogon::orm::DrogonDbException &e) {
                 logger().log(
-                  authforge::common::ports::LogLevel::Warn,
+                  fulla::common::ports::LogLevel::Warn,
                   "AuditLogger: Mapper insert FAILED: " + std::string(e.base().what()) +
                     " (action=" + action + ")"
                 );
@@ -72,10 +72,10 @@ void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
 
         LOG_DEBUG << "[AuditLogger] Starting Mapper::insert for action=" << event.action;
 
-        ::drogon::orm::Mapper<drogon_model::oauth2_db::AuditLogs> mapper(db);
+        ::drogon::orm::Mapper<drogon_model::fulla_db::AuditLogs> mapper(db);
         mapper.insert(
           auditLog,
-          [action = event.action](const drogon_model::oauth2_db::AuditLogs &) {
+          [action = event.action](const drogon_model::fulla_db::AuditLogs &) {
               LOG_DEBUG << "[AuditLogger] Mapper::insert OK for action=" << action;
           },
           [sharedCb](const ::drogon::orm::DrogonDbException &e) { (*sharedCb)(e); }
@@ -84,10 +84,10 @@ void AuditLogger::log(const authforge::common::observability::AuditEvent &event)
     catch (const std::exception &e)
     {
         logger().log(
-          authforge::common::ports::LogLevel::Warn,
+          fulla::common::ports::LogLevel::Warn,
           "AuditLogger: Exception: " + std::string(e.what())
         );
     }
 }
 
-}  // namespace authforge::drogon::observability
+}  // namespace fulla::drogon::observability

@@ -39,10 +39,10 @@
 #include <string>
 #include <vector>
 
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/filters/RequestValidationFilter.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/filters/RequestValidationFilter.h>
 
-using namespace authforge::drogon::observability::openapi;
+using namespace fulla::drogon::observability::openapi;
 
 namespace
 {
@@ -196,7 +196,7 @@ DROGON_TEST(Unit_P1_InitOrder_1_1_OpenApiDiscoveryAndJwks_Snapshot_Baseline)
 // ---------------------------------------------------------------------------
 // 1.2 BASELINE: RequestValidationFilter rule completeness per path.
 //
-// OAUTH2_VALIDATION_RULES and getValidationRules() are PRIVATE, so we exercise
+// FULLA_VALIDATION_RULES and getValidationRules() are PRIVATE, so we exercise
 // the rule set through the public doFilter() interface. doFilter() looks up
 // rules by req->path(): when a path has an ENABLED, NON-EMPTY rule set, a
 // request that violates a rule must be REJECTED (FilterCallback fires with an

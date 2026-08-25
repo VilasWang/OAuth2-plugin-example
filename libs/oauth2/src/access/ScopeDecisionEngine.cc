@@ -1,6 +1,6 @@
-#include <authforge/oauth2/access/ScopeDecisionEngine.h>
+#include <fulla/oauth2/access/ScopeDecisionEngine.h>
 
-namespace authforge::oauth2::access
+namespace fulla::oauth2::access
 {
 
 // #43 §5.5: the hardcoded isAdminScope() function is REMOVED. The Tier-2
@@ -12,7 +12,7 @@ namespace authforge::oauth2::access
 
 ScopeCheckResult evaluateScope(
   const std::string &scope,
-  const authforge::oauth2::model::Client &client,
+  const fulla::oauth2::model::Client &client,
   bool hasAdminRole,
   bool hasConsent,
   const std::function<bool(const std::string &)> &scopeRequiresAdmin
@@ -48,7 +48,7 @@ ScopeCheckResult evaluateScope(
 
 ScopeValidationSummary evaluateScopes(
   const std::vector<std::string> &scopes,
-  const authforge::oauth2::model::Client &client,
+  const fulla::oauth2::model::Client &client,
   bool hasAdminRole,
   const std::function<bool(const std::string &)> &hasConsentForScope,
   const std::function<bool(const std::string &)> &scopeRequiresAdmin
@@ -94,4 +94,4 @@ ScopeValidationSummary evaluateScopes(
     return summary;
 }
 
-}  // namespace authforge::oauth2::access
+}  // namespace fulla::oauth2::access

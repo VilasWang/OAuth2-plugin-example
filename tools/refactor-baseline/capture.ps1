@@ -68,7 +68,7 @@ function Resolve-OsTag {
 function Resolve-Cfg {
     param([string]$Cfg)
     if (-not $Cfg -or $Cfg -eq '') {
-        if ($env:OAUTH2_CTEST_CONFIG) { $Cfg = $env:OAUTH2_CTEST_CONFIG } else { $Cfg = 'Debug' }
+        if ($env:FULLA_CTEST_CONFIG) { $Cfg = $env:FULLA_CTEST_CONFIG } else { $Cfg = 'Debug' }
     }
     switch ($Cfg) {
         'debug'   { return 'Debug' }
@@ -313,7 +313,7 @@ Usage: capture.ps1 <subcommand> [-Config <Debug|Release>] [-BuildDir <path>] [-F
 Subcommands:
   setup        Create baseline subdirectories (idempotent, task 1.1).
   ctest        Capture ctest baseline for the current host. Task 1.2.
-               -Config Debug|Release (default Debug or $env:OAUTH2_CTEST_CONFIG)
+               -Config Debug|Release (default Debug or $env:FULLA_CTEST_CONFIG)
                -BuildDir <path>      (default <repo>/build)
                -FromFixture          use bundled sample (offline self-test)
   playwright   Capture Playwright baseline. Task 1.3.

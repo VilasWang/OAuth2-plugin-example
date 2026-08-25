@@ -1,16 +1,16 @@
-#include <authforge/storage/memory/MemoryIdentityRepository.h>
+#include <fulla/storage/memory/MemoryIdentityRepository.h>
 
 #include <drogon/drogon.h>
 
 #include <string>
 
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
 
-using authforge::identity::UserData;
-using RolesCallback = authforge::identity::IRoleRepository::RolesCallback;
-using OptionalIntCallback = authforge::identity::ISubjectMappingRepository::OptionalIntCallback;
-using BoolCallback = authforge::identity::ISubjectMappingRepository::BoolCallback;
+using fulla::identity::UserData;
+using RolesCallback = fulla::identity::IRoleRepository::RolesCallback;
+using OptionalIntCallback = fulla::identity::ISubjectMappingRepository::OptionalIntCallback;
+using BoolCallback = fulla::identity::ISubjectMappingRepository::BoolCallback;
 
 void MemoryIdentityRepository::initAdminRoles(const Json::Value &adminConfig)
 {
@@ -190,4 +190,4 @@ void MemoryIdentityRepository::getUserInfoWithRoles(
     callback(info);
 }
 
-}  // namespace authforge::storage::memory
+}  // namespace fulla::storage::memory

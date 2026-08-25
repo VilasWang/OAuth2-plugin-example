@@ -1,24 +1,24 @@
-// Task 19 (authforge-sdk-refactor, design.md §6): unit tests for
-// authforge::identity::AuthService, using a deterministic in-memory
-// IUserRepository fake plus authforge::common::testing's
+// Task 19 (fulla-sdk-refactor, design.md §6): unit tests for
+// fulla::identity::AuthService, using a deterministic in-memory
+// IUserRepository fake plus fulla::common::testing's
 // FakeCryptoProvider/FakeClock. No DB, no Drogon.
 
-#include <authforge/identity/AuthService.h>
-#include <authforge/identity/IUserRepository.h>
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/common/testing/FakeClock.h>
+#include <fulla/identity/AuthService.h>
+#include <fulla/identity/IUserRepository.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/common/testing/FakeClock.h>
 
 #include <gtest/gtest.h>
 
 #include <map>
 #include <optional>
 
-using authforge::common::testing::FakeClock;
-using authforge::common::testing::FakeCryptoProvider;
-using authforge::identity::AuthResult;
-using authforge::identity::AuthService;
-using authforge::identity::IUserRepository;
-using authforge::identity::UserData;
+using fulla::common::testing::FakeClock;
+using fulla::common::testing::FakeCryptoProvider;
+using fulla::identity::AuthResult;
+using fulla::identity::AuthService;
+using fulla::identity::IUserRepository;
+using fulla::identity::UserData;
 
 namespace
 {
@@ -373,7 +373,7 @@ TEST_F(AuthServiceTest, GetUserInfoReturnsNulloptForUnknownUser)
     EXPECT_FALSE(info.has_value());
 }
 
-// Task 24 slice 4 (authforge-sdk-refactor): AuthService::registerUser must
+// Task 24 slice 4 (fulla-sdk-refactor): AuthService::registerUser must
 // forward the repository's structured Error_Code verbatim (not collapse
 // every failure into a generic code) -- mirrors OAuth2Server/
 // AuthService.cc's pre-migration registerUser contract

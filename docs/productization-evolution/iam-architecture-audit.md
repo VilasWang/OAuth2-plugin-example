@@ -1,8 +1,8 @@
-# AuthForge IAM 业务架构调研报告（基于代码验证）
+# Fulla IAM 业务架构调研报告（基于代码验证）
 
 > **调研日期**: 2026-08-09（2026-08-11 复核修正）
 > **调研方法**: 穷尽式代码验证——`search_content` 关键词穷尽搜索 + `read_file` 逐个验证关键文件 + 迁移 SQL 表结构核对 + 子代理 230+ 次工具调用交叉验证
-> **验证范围**: AuthForge v1.0.0 全代码库
+> **验证范围**: Fulla v1.0.0 全代码库
 > **声明**: 本报告每个功能点的状态判断都有具体 `file:line` 出处。状态分四级：[完整实现] / [部分实现] / [桩实现] / [未实现]
 >
 > **2026-08-11 复核说明**: 本报告核心结论经二次验证确认准确。本次修正了以下硬错误：迁移文件数（27→22）、ORM 表数（18→19）、Redis 存储层描述（补充 #42 RedisCachedClientRepository L2 缓存）、备份码引用精度、以及标注 OAuth/OIDC 合规审计（F-001..F-031）已全部修复。
@@ -25,7 +25,7 @@
 
 ---
 
-## 二、AuthForge 各业务域真实实现状态
+## 二、Fulla 各业务域真实实现状态
 
 ### 业务 1：OAuth2 / OIDC 协议 —— ★★★★★ 完整实现
 
@@ -258,7 +258,7 @@ audit_logs (
 
 | 功能 | 端点 | 真实状态 | 代码出处 |
 |------|------|---------|----------|
-| 审计 sink 端口 | `IAuditSink.h` | [完整实现] | `libs/common/include/authforge/common/ports/IAuditSink.h` |
+| 审计 sink 端口 | `IAuditSink.h` | [完整实现] | `libs/common/include/fulla/common/ports/IAuditSink.h` |
 | Drogon 适配器 | `DrogonAuditSink.cc` | [完整实现] | `libs/drogon/src/adapters/DrogonAuditSink.cc`（含 logFromRequest） |
 | 审计查询 API | `GET /api/admin/logs` | [完整实现] | `AuditController.cc:49-57` + `AuditService.cc`（支持过滤） |
 | Dashboard 统计 | `GET /api/admin/dashboard/stats` | [完整实现] | `AuditController.cc:59-67`（用户数/客户端数/活跃token/失败指标） |
@@ -320,7 +320,7 @@ audit_logs (
 
 #### ORM 模型（`model.json` + 19 张表）
 
-确认表清单（`model.json:8-28`）：organizations, users, roles, permissions, user_roles, role_permissions, oauth2_clients, oauth2_access_tokens, oauth2_refresh_tokens, oauth2_codes, oauth2_scopes, oauth2_client_scopes, oauth2_user_consents, oauth2_subject_mappings, audit_logs, email_verification_tokens, password_reset_tokens, oauth2_device_codes, webauthn_credentials（共 **19** 张表，ORM 模型由 `drogon_ctl` 从 schema 生成，禁止手改）
+确认表清单（`model.json:8-28`）：organizations, users, roles, permissions, user_roles, role_permissions, oauth2_clients, oauth2_access_tokens, oauth2_refresh_tokens, oauth2_codes, oauth2_scopes, oauth2_client_scopes, fulla_user_consents, oauth2_subject_mappings, audit_logs, email_verification_tokens, password_reset_tokens, oauth2_device_codes, webauthn_credentials（共 **19** 张表，ORM 模型由 `drogon_ctl` 从 schema 生成，禁止手改）
 
 #### 可观测性
 
@@ -351,7 +351,7 @@ audit_logs (
 | V018 | WebAuthn 凭证 | `V018__webauthn.sql` |
 | V019-V022 | email 校验/username 可选/列宽/mfa_pending_client_binding | `V019`-`V022` |
 
-迁移计数机制：`countPendingMigrations`；Helm 钩子：`deploy/helm/authforge/templates/migration-job.yaml`（pre-install/pre-upgrade）；CI 守护：`tools/migration-check/`
+迁移计数机制：`countPendingMigrations`；Helm 钩子：`deploy/helm/fulla/templates/migration-job.yaml`（pre-install/pre-upgrade）；CI 守护：`tools/migration-check/`
 
 #### API 文档
 
@@ -413,7 +413,7 @@ audit_logs (
 
 ## 三、与主流 IAM 产品的业务覆盖对比
 
-| 业务域 | AuthForge 真实状态 | Keycloak | Auth0 | Ory | Zitadel |
+| 业务域 | Fulla 真实状态 | Keycloak | Auth0 | Ory | Zitadel |
 |--------|-------------------|----------|-------|-----|---------|
 | OAuth2/OIDC | ✅ 完整（Backchannel Logout 已全栈交付） | ✅ | ✅ | ✅ | ✅ |
 | MFA (TOTP+备份码) | ✅ 完整 | ✅ | ✅ | ✅ | ✅ |
@@ -466,9 +466,9 @@ audit_logs (
 
 ## 五、结论
 
-### AuthForge 在 IAM 业务版图中的真实定位
+### Fulla 在 IAM 业务版图中的真实定位
 
-基于穷尽式代码验证，AuthForge 的真实状态是：
+基于穷尽式代码验证，Fulla 的真实状态是：
 
 **强项（已达商业级，代码验证确认）**：
 1. OAuth2/OIDC 协议实现完整且符合 RFC（**OAuth/OIDC 合规审计 31 项偏差已全部修复**，PR #44 / 2026-08-09；Backchannel Logout 全栈交付 PR #61 / 2026-08-22）
@@ -499,4 +499,4 @@ audit_logs (
 
 ---
 
-*本报告基于 AuthForge 代码库穷尽式验证，每个功能点状态均有 `file:line` 出处。调研日期 2026-08-09，2026-08-11/08-13/08-22/08-24 复核修正（基线 v1.4.0）。下一步行动项见 [next-phase-implementation-plan.md](next-phase-implementation-plan.md)。*
+*本报告基于 Fulla 代码库穷尽式验证，每个功能点状态均有 `file:line` 出处。调研日期 2026-08-09，2026-08-11/08-13/08-22/08-24 复核修正（基线 v1.4.0）。下一步行动项见 [next-phase-implementation-plan.md](next-phase-implementation-plan.md)。*

@@ -1,6 +1,6 @@
 // tests/contract/GrantRepositoryContractTest.cc
 //
-// Spec: authforge-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
+// Spec: fulla-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
 //
 // Functional contract tests for IGrantRepository across all three backends
 // (Postgres/Redis/Memory). See ContractFixtures.h for the parameterization
@@ -40,18 +40,18 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 
-#include <authforge/storage/postgres/PostgresGrantRepository.h>
-#include <authforge/storage/redis/RedisGrantRepository.h>
-#include <authforge/storage/memory/MemoryGrantRepository.h>
+#include <fulla/storage/postgres/PostgresGrantRepository.h>
+#include <fulla/storage/redis/RedisGrantRepository.h>
+#include <fulla/storage/memory/MemoryGrantRepository.h>
 
 #include "ContractFixtures.h"
 
 #include <string>
 
-using namespace authforge::oauth2::repository;
-using namespace authforge::oauth2::model;
-using namespace authforge::test::contract;
-using namespace authforge::storage::postgres;
+using namespace fulla::oauth2::repository;
+using namespace fulla::oauth2::model;
+using namespace fulla::test::contract;
+using namespace fulla::storage::postgres;
 
 namespace
 {
@@ -260,7 +260,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_SaveGetRoun
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -270,7 +270,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_NotFoundRet
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -282,7 +282,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "vue-client"
     );
@@ -296,7 +296,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -306,7 +306,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuth
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisGrantRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisGrantRepository>("default");
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -316,13 +316,13 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Redis_ConsumeAuth
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_SaveGetRoundTrip)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     runGrantRepository_SaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_NotFoundReturnsNullopt)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     runGrantRepository_NotFoundContract(TEST_CTX, repo);
 }
 
@@ -330,7 +330,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_CorrectRedirectUriSucceeds
 )
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_CorrectRedirectUriSucceedsContract(
       TEST_CTX, repo, "mem-client"
     );
@@ -340,13 +340,13 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_WrongRedirectUriFails
 )
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_WrongRedirectUriFailsContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_SingleUse)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     runGrantRepository_ConsumeAuthCode_SingleUseContract(TEST_CTX, repo, "mem-client");
 }
 
@@ -363,7 +363,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAut
 // (MemoryGrantRepository.cc:99-134).
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_AuthorizationTransaction_SaveGetRoundTrip)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     AuthorizationTransaction txn;
     txn.transactionId = "txn-rt-" + uniqueSuffix();
     txn.clientId = "mem-client";
@@ -395,7 +395,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_Authorizat
 // returns nullopt (MemoryGrantRepository.cc:120-127).
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_AuthorizationTransaction_Expired_GetReturnsNullopt_AndEvicts)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     AuthorizationTransaction txn;
     txn.transactionId = "txn-expired-" + uniqueSuffix();
     txn.clientId = "mem-client";
@@ -412,7 +412,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_Authorizat
 // second call returns false (MemoryGrantRepository.cc:147-165).
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_MarkTransactionConsumed_FirstTrue_SecondFalse)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     AuthorizationTransaction txn;
     txn.transactionId = "txn-consume-" + uniqueSuffix();
     txn.clientId = "mem-client";
@@ -432,7 +432,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_MarkTransa
 // fires) and marks an existing code used (MemoryGrantRepository.cc:54-64).
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_MarkAuthCodeUsed_MissingNoOp_ExistingMarksUsed)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
 
     // Missing code -> no throw, callback fires.
     bool missingCalled = false;
@@ -457,7 +457,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_MarkAuthCo
 // rejected. The code is NOT consumed (single-use preserved for a valid match).
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAuthCode_EmptyRedirectUriRejectedWhenBound)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     const std::string code = "bound-redir-" + uniqueSuffix();
     auto ac = makeAuthCode(code, "mem-client", "https://registered.example/cb");
     repo->saveAuthCode(ac, [] {});
@@ -482,7 +482,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_ConsumeAut
 // (MemoryGrantRepository.cc:41-49).
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_GetAuthCode_Expired_EvictedAndReturnsNullopt)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     const std::string code = "expired-ac-" + uniqueSuffix();
     auto ac = makeAuthCode(code, "mem-client", "https://example.test/cb", -100);
     repo->saveAuthCode(ac, [] {});
@@ -497,7 +497,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_GetAuthCod
 // (MemoryGrantRepository.cc:169-192).
 DROGON_TEST(Integration_P0_Contract_Functional_GrantRepository_Memory_PurgeExpired_RemovesExpiredCodes)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryGrantRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryGrantRepository>();
     const std::string liveCode = "purge-live-" + uniqueSuffix();
     const std::string deadCode = "purge-dead-" + uniqueSuffix();
     repo->saveAuthCode(makeAuthCode(liveCode, "mem-client", "https://example.test/cb", 300), [] {});

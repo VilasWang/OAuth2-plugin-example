@@ -1,4 +1,4 @@
-# git-cliff configuration (Task 38, authforge-sdk-refactor).
+# git-cliff configuration (Task 38, fulla-sdk-refactor).
 #
 # Used by .github/workflows/release.yml to generate the GitHub Release notes
 # for the pushed tag (`git cliff --latest --strip header`). Maintainers can

@@ -24,8 +24,8 @@
 #include <drogon/drogon.h>
 #include <drogon/orm/DbClient.h>
 
-#include <authforge/identity/ISocialAccountRepository.h>
-#include <authforge/storage/postgres/PostgresSocialAccountRepository.h>
+#include <fulla/identity/ISocialAccountRepository.h>
+#include <fulla/storage/postgres/PostgresSocialAccountRepository.h>
 
 #include "HttpTestClient.h"
 
@@ -34,8 +34,8 @@
 #include <future>
 #include <string>
 
-using authforge::identity::SocialLinkStatus;
-using authforge::test::http::postgresAvailable;
+using fulla::identity::SocialLinkStatus;
+using fulla::test::http::postgresAvailable;
 
 namespace
 {
@@ -126,7 +126,7 @@ bool seedMapping(const std::string &provider, const std::string &subject, int32_
 
 // Blocking wrapper: run findLinkedUser on the real repo and return its status.
 SocialLinkStatus runFindLinkedUser(
-  const std::shared_ptr<authforge::storage::postgres::PostgresSocialAccountRepository> &repo,
+  const std::shared_ptr<fulla::storage::postgres::PostgresSocialAccountRepository> &repo,
   const std::string &provider,
   const std::string &subject
 )
@@ -135,7 +135,7 @@ SocialLinkStatus runFindLinkedUser(
     repo->findLinkedUser(
       provider,
       subject,
-      [&p](SocialLinkStatus status, const authforge::identity::SocialAccountLookup &) {
+      [&p](SocialLinkStatus status, const fulla::identity::SocialAccountLookup &) {
           p.set_value(status);
       }
     );
@@ -152,7 +152,7 @@ DROGON_TEST(Integration_P0_SocialRepo_FindLinkedUser_SoftDeleteEnforcement)
     }
     auto db = drogon::app().getDbClient();
     REQUIRE(db != nullptr);
-    auto repo = std::make_shared<authforge::storage::postgres::PostgresSocialAccountRepository>(db);
+    auto repo = std::make_shared<fulla::storage::postgres::PostgresSocialAccountRepository>(db);
 
     const auto suffix = std::to_string(
       std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
@@ -218,7 +218,7 @@ DROGON_TEST(Integration_P0_SocialRepo_CreateLinkedUser_FailClosedOnConflict)
     }
     auto db = drogon::app().getDbClient();
     REQUIRE(db != nullptr);
-    auto repo = std::make_shared<authforge::storage::postgres::PostgresSocialAccountRepository>(db);
+    auto repo = std::make_shared<fulla::storage::postgres::PostgresSocialAccountRepository>(db);
 
     const auto suffix = std::to_string(
       std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
@@ -229,10 +229,10 @@ DROGON_TEST(Integration_P0_SocialRepo_CreateLinkedUser_FailClosedOnConflict)
     // user_roles without role_id (NOT NULL violation, silently swallowed).
     {
         const std::string uname = "gh_rolecheck_" + suffix;
-        std::promise<std::optional<authforge::identity::LinkNewSocialAccountResult>> p;
+        std::promise<std::optional<fulla::identity::LinkNewSocialAccountResult>> p;
         repo->createLinkedUser(
           "github", "rolecheck_" + suffix, uname, "x@example.com",
-          [&p](std::optional<authforge::identity::LinkNewSocialAccountResult> r) {
+          [&p](std::optional<fulla::identity::LinkNewSocialAccountResult> r) {
               p.set_value(r);
           }
         );
@@ -266,7 +266,7 @@ DROGON_TEST(Integration_P0_SocialRepo_CreateLinkedUser_FailClosedOnConflict)
         std::promise<bool> p;
         repo->createLinkedUser(
           "github", "conflict1_" + suffix, held, "x@example.com",
-          [&p](std::optional<authforge::identity::LinkNewSocialAccountResult> r) {
+          [&p](std::optional<fulla::identity::LinkNewSocialAccountResult> r) {
               p.set_value(!r.has_value());
           }
         );
@@ -286,7 +286,7 @@ DROGON_TEST(Integration_P0_SocialRepo_CreateLinkedUser_FailClosedOnConflict)
         std::promise<bool> p;
         repo->createLinkedUser(
           "github", "conflict2_" + suffix, held, "x@example.com",
-          [&p](std::optional<authforge::identity::LinkNewSocialAccountResult> r) {
+          [&p](std::optional<fulla::identity::LinkNewSocialAccountResult> r) {
               p.set_value(!r.has_value());
           }
         );
@@ -309,7 +309,7 @@ DROGON_TEST(Integration_P0_SocialRepo_LinkLifecycle_ListInsertDelete)
     }
     auto db = drogon::app().getDbClient();
     REQUIRE(db != nullptr);
-    auto repo = std::make_shared<authforge::storage::postgres::PostgresSocialAccountRepository>(db);
+    auto repo = std::make_shared<fulla::storage::postgres::PostgresSocialAccountRepository>(db);
 
     const auto suffix = std::to_string(
       std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
@@ -326,9 +326,9 @@ DROGON_TEST(Integration_P0_SocialRepo_LinkLifecycle_ListInsertDelete)
 
     // listForUser: only the social row; timestamp is ISO-8601 with 'T'.
     {
-        std::promise<std::optional<std::vector<authforge::identity::SocialLinkEntry>>> p;
+        std::promise<std::optional<std::vector<fulla::identity::SocialLinkEntry>>> p;
         repo->listForUser(
-          uid, [&](std::optional<std::vector<authforge::identity::SocialLinkEntry>> e) {
+          uid, [&](std::optional<std::vector<fulla::identity::SocialLinkEntry>> e) {
               p.set_value(std::move(e));
           }
         );
@@ -355,35 +355,35 @@ DROGON_TEST(Integration_P0_SocialRepo_LinkLifecycle_ListInsertDelete)
     // claiming it for uid2 hits UNIQUE(provider, subject) -> Conflict (the
     // SQLSTATE/substring detection path).
     {
-        std::promise<authforge::identity::LinkMutationStatus> p;
+        std::promise<fulla::identity::LinkMutationStatus> p;
         repo->insertLink(
           "github", "lifecycle_" + suffix, uid2,
-          [&p](authforge::identity::LinkMutationStatus s) { p.set_value(s); }
+          [&p](fulla::identity::LinkMutationStatus s) { p.set_value(s); }
         );
-        CHECK(p.get_future().get() == authforge::identity::LinkMutationStatus::Conflict);
+        CHECK(p.get_future().get() == fulla::identity::LinkMutationStatus::Conflict);
     }
 
     // insertLink happy path for a free subject.
     {
-        std::promise<authforge::identity::LinkMutationStatus> p;
+        std::promise<fulla::identity::LinkMutationStatus> p;
         repo->insertLink(
           "google", "gfree_" + suffix, uid,
-          [&p](authforge::identity::LinkMutationStatus s) { p.set_value(s); }
+          [&p](fulla::identity::LinkMutationStatus s) { p.set_value(s); }
         );
-        CHECK(p.get_future().get() == authforge::identity::LinkMutationStatus::Inserted);
+        CHECK(p.get_future().get() == fulla::identity::LinkMutationStatus::Inserted);
     }
 
     // deleteLink: removes exactly the (provider, user) row; second call -> NoLink.
     {
-        std::promise<authforge::identity::LinkMutationStatus> p;
+        std::promise<fulla::identity::LinkMutationStatus> p;
         repo->deleteLink(
-          "github", uid, [&p](authforge::identity::LinkMutationStatus s) { p.set_value(s); }
+          "github", uid, [&p](fulla::identity::LinkMutationStatus s) { p.set_value(s); }
         );
-        CHECK(p.get_future().get() == authforge::identity::LinkMutationStatus::Deleted);
-        std::promise<authforge::identity::LinkMutationStatus> p2;
+        CHECK(p.get_future().get() == fulla::identity::LinkMutationStatus::Deleted);
+        std::promise<fulla::identity::LinkMutationStatus> p2;
         repo->deleteLink(
-          "github", uid, [&p2](authforge::identity::LinkMutationStatus s) { p2.set_value(s); }
+          "github", uid, [&p2](fulla::identity::LinkMutationStatus s) { p2.set_value(s); }
         );
-        CHECK(p2.get_future().get() == authforge::identity::LinkMutationStatus::NoLink);
+        CHECK(p2.get_future().get() == fulla::identity::LinkMutationStatus::NoLink);
     }
 }

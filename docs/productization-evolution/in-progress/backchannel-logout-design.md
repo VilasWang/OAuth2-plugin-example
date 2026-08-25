@@ -50,7 +50,7 @@
 
 | 组件 | 位置 | 状态 |
 |------|------|------|
-| 端口 `IBackchannelLogoutNotifier::notify(userId,cb)` | `libs/identity/include/authforge/identity/IBackchannelLogoutNotifier.h` | async 单回调，可用 |
+| 端口 `IBackchannelLogoutNotifier::notify(userId,cb)` | `libs/identity/include/fulla/identity/IBackchannelLogoutNotifier.h` | async 单回调，可用 |
 | 触发链 | `SessionController::logout` → revokeAccessToken → `sessionManager->logout(userId)` → `notifier_->notify` | 已就绪 |
 | 桩实现 | `LoggingBackchannelLogoutNotifier`（IdentityAssembly.cc 匿名命名空间） | 仅 LOG，需替换 |
 | 死 stub | `SessionController.cc` `sendBackchannelLogoutNotifications` | 需删除 |
@@ -127,8 +127,8 @@ notify(userId, cb)
 
 | 新增 | 路径 |
 |------|------|
-| 纯 claim 构造 | `libs/oauth2/include/authforge/oauth2/protocol/LogoutToken.h` + `libs/oauth2/src/protocol/LogoutToken.cc` |
-| 真实通知器 | `libs/drogon/include/authforge/drogon/adapters/BackchannelLogoutNotifier.h` + `libs/drogon/src/adapters/BackchannelLogoutNotifier.cc` |
+| 纯 claim 构造 | `libs/oauth2/include/fulla/oauth2/protocol/LogoutToken.h` + `libs/oauth2/src/protocol/LogoutToken.cc` |
+| 真实通知器 | `libs/drogon/include/fulla/drogon/adapters/BackchannelLogoutNotifier.h` + `libs/drogon/src/adapters/BackchannelLogoutNotifier.cc` |
 | claim 单测 | `libs/oauth2/test/LogoutTokenTest.cc` |
 | dispatch 单测 | `libs/drogon/test/BackchannelLogoutNotifierTest.cc` |
 | 端到端集成 | `tests/integration/controllers/BackchannelLogoutTest.cc` |

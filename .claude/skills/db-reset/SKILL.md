@@ -18,9 +18,9 @@ disable-model-invocation: true
 |-------|-----|
 | 主机 | localhost |
 | 端口 | 5432 |
-| 用户名 | oauth2_user |
+| 用户名 | fulla_user |
 | 密码 | 123456 |
-| 数据库 | oauth2_db |
+| 数据库 | fulla_db |
 
 ## 完整工作流程
 
@@ -28,15 +28,15 @@ disable-model-invocation: true
 
 ```powershell
 # Windows
-Get-Process -Name "authforge-server" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "fulla-server" -ErrorAction SilentlyContinue | Stop-Process -Force
 ```
 
 ### 2. 删除并重建数据库
 
 ```powershell
 $env:PGPASSWORD = "123456"
-psql -h localhost -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
-psql -h localhost -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
+psql -h localhost -U fulla_user -d postgres -c "DROP DATABASE IF EXISTS fulla_db;"
+psql -h localhost -U fulla_user -d postgres -c "CREATE DATABASE fulla_db;"
 ```
 
 ### 3. 执行 Migration 脚本
@@ -46,7 +46,7 @@ psql -h localhost -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
 ```powershell
 $env:PGPASSWORD = "123456"
 Get-ChildItem "apps\server\migrations\V*.sql" | Sort-Object Name | ForEach-Object {
-    psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
+    psql -h localhost -U fulla_user -d fulla_db -f $_.FullName
     if ($LASTEXITCODE -eq 0) { Write-Host "✅ $($_.Name)" }
     else { Write-Host "❌ $($_.Name)"; exit 1 }
 }
@@ -56,7 +56,7 @@ Get-ChildItem "apps\server\migrations\V*.sql" | Sort-Object Name | ForEach-Objec
 
 ```powershell
 Get-ChildItem "apps\server\seed\*.sql" | ForEach-Object {
-    psql -h localhost -U oauth2_user -d oauth2_db -f $_.FullName
+    psql -h localhost -U fulla_user -d fulla_db -f $_.FullName
     if ($LASTEXITCODE -eq 0) { Write-Host "✅ $($_.Name)" }
     else { Write-Host "⚠️  $($_.Name) (non-critical)" }
 }
@@ -68,7 +68,7 @@ Write-Host "`n🎉 Database reset completed!"
 
 ```powershell
 $env:PGPASSWORD = "123456"
-psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
+psql -h localhost -U fulla_user -d fulla_db -c "\dt"
 $env:PGPASSWORD = $null
 ```
 
@@ -116,13 +116,13 @@ apps/server/
 ### 数据库正在被使用
 ```sql
 SELECT pg_terminate_backend(pid) FROM pg_stat_activity
-WHERE datname = 'oauth2_db' AND pid <> pg_backend_pid();
+WHERE datname = 'fulla_db' AND pid <> pg_backend_pid();
 ```
 
 ### 权限不足
 ```sql
-GRANT ALL PRIVILEGES ON DATABASE oauth2_db TO oauth2_user;
-ALTER DATABASE oauth2_db OWNER TO oauth2_user;
+GRANT ALL PRIVILEGES ON DATABASE fulla_db TO fulla_user;
+ALTER DATABASE fulla_db OWNER TO fulla_user;
 ```
 
 ## 相关技能

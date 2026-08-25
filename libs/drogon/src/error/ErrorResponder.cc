@@ -1,8 +1,8 @@
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/common/error/ErrorContext.h>
-#include <authforge/drogon/error/ErrorHandler.h>
-#include <authforge/drogon/error/RequestId.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorContext.h>
+#include <fulla/drogon/error/ErrorHandler.h>
+#include <fulla/drogon/error/RequestId.h>
 
 #include <drogon/drogon.h>
 #include <json/json.h>
@@ -10,7 +10,7 @@
 #include <sstream>
 #include <utility>
 
-namespace authforge::common::error
+namespace fulla::common::error
 {
 
 namespace
@@ -181,4 +181,4 @@ void ErrorResponder::respondException(
     return resp;
 }
 
-}  // namespace authforge::common::error
+}  // namespace fulla::common::error

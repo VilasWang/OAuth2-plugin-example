@@ -42,7 +42,7 @@ $ExemptConfigs = @(
 )
 
 $ExpectedNamespaceOuter = 'drogon_model'
-$ExpectedNamespaceInner = 'oauth2_db'
+$ExpectedNamespaceInner = 'fulla_db'
 $ProvenanceRegex        = 'DO NOT EDIT.*drogon_ctl'
 
 $script:Failures = 0

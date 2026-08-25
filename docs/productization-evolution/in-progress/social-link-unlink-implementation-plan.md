@@ -19,14 +19,14 @@
 ## M1 — identity 层：repo 接口扩展 + 两个实现
 
 **改动**:
-1. `libs/identity/include/authforge/identity/ISocialAccountRepository.h`
+1. `libs/identity/include/fulla/identity/ISocialAccountRepository.h`
    - 新增 `SocialLinkEntry{provider, subject, linkedAt}`、`LinkMutationStatus{Inserted, Conflict, Error, Deleted, NoLink}`（枚举语义：insert 用 Inserted/Conflict/Error，delete 用 Deleted/NoLink/Error）；
    - 新增 4 纯虚方法：`listForUser` / `insertLink` / `deleteLink` / `userHasUsablePassword`（签名见设计 §4.3）。
 2. `libs/storage-postgres/src|include/.../PostgresSocialAccountRepository.*` — 全 Mapper 实现（无 raw SQL）：
    - `insertLink` 错误回调以 `duplicate key` 子串判定唯一冲突（仓库先例 `PostgresConsentRepository.cc:87`；libpq `what()` 不含 SQLSTATE，不可判 23505）；
    - `deleteLink` 以 affected==0 → `NoLink`；
    - `userHasUsablePassword` 用 `CompareOperator::Like` + `$pbkdf2-sha256$%`。
-3. `libs/identity/include/authforge/identity/testing/FakeSocialAccountRepository.h` — 内存实现（vector + 可注入的失败开关，供单测错误路径）。
+3. `libs/identity/include/fulla/identity/testing/FakeSocialAccountRepository.h` — 内存实现（vector + 可注入的失败开关，供单测错误路径）。
 
 **验收（M1）**:
 - [ ] `build.sh --debug`（或等价 cmake build）编译通过，WITH_SOCIAL=ON。
@@ -36,10 +36,10 @@
 ## M2 — identity 层：GitHubAuthService::fetchProfile 抽取 + SocialLinkService
 
 **改动**:
-1. `libs/identity/include/authforge/identity/SocialAuthService.h` + `src/social/GitHubAuthService.cc`:
+1. `libs/identity/include/fulla/identity/SocialAuthService.h` + `src/social/GitHubAuthService.cc`:
    - 新增 `GitHubProfileResult{errorCode, githubId, login, email}` 与 `fetchProfile(code, cb)`；
    - `login()` 重构为调用 `fetchProfile` 后接既有 find-or-create（行为不变，错误码不变）。
-2. 新建 `libs/identity/include/authforge/identity/SocialLinkService.h` + `src/social/SocialLinkService.cc`（接口与编排见设计 §4.2；按值捕获依赖，禁 `[this]`）。
+2. 新建 `libs/identity/include/fulla/identity/SocialLinkService.h` + `src/social/SocialLinkService.cc`（接口与编排见设计 §4.2；按值捕获依赖，禁 `[this]`）。
 3. `libs/identity/CMakeLists.txt` — WITH_SOCIAL 段加 `SocialLinkService.cc`。
 4. 新建 `libs/identity/test/SocialLinkServiceTest.cc`。
 

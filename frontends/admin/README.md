@@ -74,7 +74,7 @@ Total: **53 tests**, runs in ~5 seconds.
 
 ```bash
 # Build and run with docker-compose (from project root)
-docker-compose up -d oauth2-admin
+docker-compose up -d fulla-admin
 
 # Access at http://localhost:8081/admin/
 ```

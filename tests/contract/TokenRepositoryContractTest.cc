@@ -1,6 +1,6 @@
 // tests/contract/TokenRepositoryContractTest.cc
 //
-// Spec: authforge-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
+// Spec: fulla-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
 //
 // ITokenRepository contract tests, split into the two tiers design.md §7.3
 // defines:
@@ -18,7 +18,7 @@
 //   2. Atomicity/CAS tier (second half): gated on
 //      repo->supportsTransactions()/supportsCas(), per the capability-flag
 //      contract ITokenRepository.h documents. Memory and Postgres both
-//      declare both flags true (see authforge::storage::memory::MemoryTokenRepository.h /
+//      declare both flags true (see fulla::storage::memory::MemoryTokenRepository.h /
 //      PostgresTokenRepository.h capability-flag doc comments); Redis
 //      declares both false. Tests below check the flag first and return
 //      (skip, not fail) when a backend opts out -- this is also how the
@@ -31,9 +31,9 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 
-#include <authforge/storage/postgres/PostgresTokenRepository.h>
-#include <authforge/storage/redis/RedisTokenRepository.h>
-#include <authforge/storage/memory/MemoryTokenRepository.h>
+#include <fulla/storage/postgres/PostgresTokenRepository.h>
+#include <fulla/storage/redis/RedisTokenRepository.h>
+#include <fulla/storage/memory/MemoryTokenRepository.h>
 
 #include "ContractFixtures.h"
 
@@ -41,10 +41,10 @@
 #include <string>
 #include <thread>
 
-using namespace authforge::oauth2::repository;
-using namespace authforge::oauth2::model;
-using namespace authforge::test::contract;
-using namespace authforge::storage::postgres;
+using namespace fulla::oauth2::repository;
+using namespace fulla::oauth2::model;
+using namespace fulla::test::contract;
+using namespace fulla::storage::postgres;
 
 namespace
 {
@@ -150,7 +150,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Redis_AccessToken
     auto redis = getRedisClientOrNull();
     if (!redis)
         return;
-    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisTokenRepository>("default");
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "vue-client");
 }
 
@@ -159,19 +159,19 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Redis_AccessToken
     auto redis = getRedisClientOrNull();
     if (!redis)
         return;
-    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisTokenRepository>("default");
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenSaveGetRoundTrip)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     runTokenRepository_AccessTokenSaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessTokenNotFound)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     runTokenRepository_AccessTokenNotFoundContract(TEST_CTX, repo);
 }
 
@@ -180,7 +180,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AccessToke
 //
 // Verified by reading the .cc files (not assumed): Postgres and Memory both
 // genuinely persist and return refresh tokens. Redis's saveRefreshToken()/
-// getRefreshToken() are BOTH no-ops today (authforge::storage::redis::RedisTokenRepository.cc; the
+// getRefreshToken() are BOTH no-ops today (fulla::storage::redis::RedisTokenRepository.cc; the
 // class header documents this as a pre-existing, verbatim-preserved quirk
 // of the original RedisOAuth2Storage, not something this task introduced or
 // is chartered to fix). A single shared "round trip" assertion function
@@ -226,7 +226,7 @@ DROGON_TEST(
 
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RefreshTokenSaveGetRoundTrip)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     runTokenRepository_RefreshTokenSaveGetRoundTripContract(TEST_CTX, repo, "mem-client");
 }
 
@@ -243,7 +243,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisTokenRepository>("default");
     const std::string rtToken = "contract-rt-noop-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "contract-at-for-rt-noop", "vue-client");
 
@@ -259,7 +259,7 @@ DROGON_TEST(
 // HONEST DIVERGENCE #2: revocation observability via getRefreshToken().
 //
 // Verified by reading the .cc files:
-// authforge::storage::memory::MemoryTokenRepository::getRefreshToken ACTIVELY filters out revoked
+// fulla::storage::memory::MemoryTokenRepository::getRefreshToken ACTIVELY filters out revoked
 // (and expired) tokens (returns nullopt for them). PostgresTokenRepository::getRefreshToken
 // does NOT filter on revoked -- it returns the row with `revoked == true` set on the returned
 // struct. Both are legitimate, self-consistent behaviors (Postgres exposes
@@ -298,7 +298,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeRefreshToken_GetReturnsNullopt
 )
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
 
     const std::string rtToken = "contract-rt-revoke-mem-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "contract-at-for-revoke-mem", "mem-client");
@@ -316,7 +316,7 @@ DROGON_TEST(
 // HONEST DIVERGENCE #3: expired-token read-time filtering.
 //
 // Verified by reading the .cc files:
-// authforge::storage::memory::MemoryTokenRepository::getAccessToken ACTIVELY checks `expiresAt >
+// fulla::storage::memory::MemoryTokenRepository::getAccessToken ACTIVELY checks `expiresAt >
 // now` before returning (an expired token yields nullopt on get, with no separate purge needed).
 // PostgresTokenRepository
 // ::getAccessToken does NOT check expiresAt at all -- it returns whatever row
@@ -327,7 +327,7 @@ DROGON_TEST(
 // between backends (not introduced by this task), and is reported as such
 // rather than glossed over. Redis is deliberately NOT tested here: its
 // SETEX-based TTL means "already expired at save time" collapses to a
-// 1-second grace window (see authforge::storage::redis::RedisTokenRepository::saveAccessToken's
+// 1-second grace window (see fulla::storage::redis::RedisTokenRepository::saveAccessToken's
 // `ttl = ... : 1` fallback) before Redis itself evicts the key -- asserting
 // anything deterministic about that window would require a real sleep,
 // trading determinism for flakiness for no real benefit (Redis's own
@@ -339,7 +339,7 @@ DROGON_TEST(
   Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredAccessToken_GetReturnsNullopt
 )
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
 
     const std::string token = "contract-at-expired-mem-" + uniqueSuffix();
     auto at = makeAccessToken(token, "mem-client", /*ttlSeconds=*/-60);  // already expired
@@ -524,12 +524,12 @@ DROGON_TEST(
   Integration_P0_Contract_Atomicity_TokenRepository_Memory_AtomicRevokeRefreshToken_ConcurrentCas
 )
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     runTokenRepository_AtomicRevokeRefreshToken_ConcurrentCasContract(TEST_CTX, repo, "mem-client");
 }
 
 // Redis declares supportsCas() == false (verified: its atomicRevokeRefreshToken
-// layers on top of a no-op getRefreshToken, see authforge::storage::redis::RedisTokenRepository.h's
+// layers on top of a no-op getRefreshToken, see fulla::storage::redis::RedisTokenRepository.h's
 // capability-flag doc comment) -- this test proves the SKIP path itself
 // fires correctly (not a false pass) by asserting the flag first and
 // exiting via `return` with zero further assertions recorded for this case,
@@ -542,7 +542,7 @@ DROGON_TEST(
     if (!redis)
         return;
 
-    auto repo = std::make_shared<authforge::storage::redis::RedisTokenRepository>("default");
+    auto repo = std::make_shared<fulla::storage::redis::RedisTokenRepository>("default");
     REQUIRE(repo->supportsCas() == false);
     // Intentionally does not call atomicRevokeRefreshToken(): Redis's own
     // capability flag says this tier does not apply to it. This test's job
@@ -645,14 +645,14 @@ DROGON_TEST(
 // Memory's honest limitation (documented rather than glossed over): unlike
 // Postgres, there is no way to make a std::unordered_map insert "fail"
 // short of throwing bad_alloc, so this suite cannot construct an equivalent
-// duplicate-key/failure-injection test for authforge::storage::memory::MemoryTokenRepository. What
+// duplicate-key/failure-injection test for fulla::storage::memory::MemoryTokenRepository. What
 // CAN be verified -- and is verified by
 // runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract above
 // -- is the happy-path completion of both writes. The DEEPER atomicity
 // claim for Memory (that no third thread could ever observe the access
 // token present but the refresh token absent, because both writes happen
 // under one continuously-held recursive_mutex) is documented in
-// authforge::storage::memory::MemoryTokenRepository.h's capability-flag doc comment as a matter of
+// fulla::storage::memory::MemoryTokenRepository.h's capability-flag doc comment as a matter of
 // reading the lock-scope structure of the code, not something this
 // external, callback-based contract test can observe without white-box
 // access to the mutex itself (which would defeat the point of a contract
@@ -662,7 +662,7 @@ DROGON_TEST(
   Integration_P0_Contract_Atomicity_TokenRepository_Memory_SaveTokenPair_HappyPathBothWritesSucceed
 )
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     runTokenRepository_SaveTokenPair_HappyPathBothWritesSucceedContract(
       TEST_CTX, repo, "mem-client"
     );
@@ -683,7 +683,7 @@ DROGON_TEST(
 // security-critical reuse-detection cascade with zero prior coverage.
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeTokenFamily_RevokesRefreshAndAccess)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
 
     const std::string atToken = "fam-at-" + uniqueSuffix();
     const std::string rtToken = "fam-rt-" + uniqueSuffix();
@@ -715,7 +715,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeToke
 // populated RFC 7662 fields (MemoryTokenRepository.cc:163-177).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ActiveAccess)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string token = "intro-at-active-" + uniqueSuffix();
     auto at = makeAccessToken(token, "mem-client");
     waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
@@ -733,7 +733,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect
 // introspectToken: a revoked access token introspects as inactive.
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_RevokedAccess)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string token = "intro-at-revoked-" + uniqueSuffix();
     auto at = makeAccessToken(token, "mem-client");
     waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
@@ -749,7 +749,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect
 // introspectToken: an expired access token introspects as inactive.
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ExpiredAccess)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string token = "intro-at-expired-" + uniqueSuffix();
     // ttl = -100 (already expired).
     auto at = makeAccessToken(token, "mem-client", -100);
@@ -766,7 +766,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect
 // (MemoryTokenRepository.cc:211-214).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_NotFound)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     auto intro = waitForValue<std::optional<TokenIntrospection>>([&](auto cb) {
         repo->introspectToken("intro-nonexistent-" + uniqueSuffix(), std::move(cb));
     });
@@ -778,7 +778,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect
 // refresh-token fallback (MemoryTokenRepository.cc:180-208).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect_ActiveRefresh)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string rtToken = "intro-rt-active-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "intro-at-for-rt", "mem-client");
     waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
@@ -796,7 +796,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_Introspect
 // token sharing the same token string (cc:250-257).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeAccessToken_SetsAuditFieldsAndAlsoRevokesRefresh)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string token = "revoke-at-audit-" + uniqueSuffix();
     auto at = makeAccessToken(token, "mem-client");
     waitForVoid([&](auto cb) { repo->saveAccessToken(at, std::move(cb)); });
@@ -827,7 +827,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_RevokeAcce
 // (MemoryTokenRepository.cc:101-105).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevokeRefreshToken_NotFoundReturnsNullopt)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     auto fetched = waitForValue<std::optional<OAuth2RefreshToken>>([&](auto cb) {
         repo->atomicRevokeRefreshToken("atomic-nonexistent-" + uniqueSuffix(), std::move(cb));
     });
@@ -838,7 +838,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevo
 // (MemoryTokenRepository.cc:106-111).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevokeRefreshToken_AlreadyRevokedReturnsNullopt)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string rtToken = "atomic-already-revoked-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "x", "mem-client");
     waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
@@ -860,7 +860,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_AtomicRevo
 // (MemoryTokenRepository.cc:73).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredRefreshToken_GetReturnsNullopt)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string rtToken = "rt-expired-mem-" + uniqueSuffix();
     auto rt = makeRefreshToken(rtToken, "x", "mem-client", -100);  // already expired
     waitForVoid([&](auto cb) { repo->saveRefreshToken(rt, std::move(cb)); });
@@ -875,7 +875,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_ExpiredRef
 // non-expired ones (MemoryTokenRepository.cc:266-298).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_PurgeExpired_RemovesExpiredRetainsValid)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
 
     const std::string liveAt = "purge-live-at-" + uniqueSuffix();
     const std::string deadAt = "purge-dead-at-" + uniqueSuffix();
@@ -921,7 +921,7 @@ DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_PurgeExpir
 // contract).
 DROGON_TEST(Integration_P0_Contract_Functional_TokenRepository_Memory_IncrementIntrospectCount_FiresCallbackForExistingAndMissing)
 {
-    auto repo = std::make_shared<authforge::storage::memory::MemoryTokenRepository>();
+    auto repo = std::make_shared<fulla::storage::memory::MemoryTokenRepository>();
     const std::string token = "intro-count-at-" + uniqueSuffix();
     waitForVoid([&](auto cb) { repo->saveAccessToken(makeAccessToken(token, "mem-client"), std::move(cb)); });
 

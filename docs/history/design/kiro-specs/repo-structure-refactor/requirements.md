@@ -4,7 +4,7 @@
 
 > 引言 / Introduction
 
-本需求文档由 `design.md`（设计先行 / Design-First 工作流）反向派生而来，用于把仓库结构重构（spec 名 `repo-structure-refactor`）的技术决策固化为可机械验证的验收标准。改造目标仓库为 `authforge`（Drogon C++ OAuth2 Plugin + Server + Admin Vue3 控制台 + Frontend Vue3 用户站点），重构覆盖：公共 include 镜像化、验证层 4 类整合、Filter / Middleware 命名统一、Admin / OAuth2 controller 合并与拆分、可观测性子层抽取、CMake 兼容层抽取、部署文件 (`Dockerfile` / `docker-compose*.yml` / `prometheus.yml`) 进入 `deploy/`、Windows / Linux / macOS 脚本对等、文档 kebab-case 重组、`.gitignore` 整合，以及 forwarding shim 的延迟移除（详见 design §1.1 / §1.2 / §2.8）。
+本需求文档由 `design.md`（设计先行 / Design-First 工作流）反向派生而来，用于把仓库结构重构（spec 名 `repo-structure-refactor`）的技术决策固化为可机械验证的验收标准。改造目标仓库为 `fulla`（Drogon C++ OAuth2 Plugin + Server + Admin Vue3 控制台 + Frontend Vue3 用户站点），重构覆盖：公共 include 镜像化、验证层 4 类整合、Filter / Middleware 命名统一、Admin / OAuth2 controller 合并与拆分、可观测性子层抽取、CMake 兼容层抽取、部署文件 (`Dockerfile` / `docker-compose*.yml` / `prometheus.yml`) 进入 `deploy/`、Windows / Linux / macOS 脚本对等、文档 kebab-case 重组、`.gitignore` 整合，以及 forwarding shim 的延迟移除（详见 design §1.1 / §1.2 / §2.8）。
 
 为什么做：当前公共头扁平、命名重叠（`Validator` / `ValidationHelper` / `ValidatorHelper` / `ValidationFilter` 四件套语义模糊；`AdminController` 与 `AdminApiController` 同存；`OAuth2Controller`(Server) 与 `OAuth2StandardController`(Plugin) 边界不清）、部署文件散落根目录、脚本仅 Windows 一等公民、文档碎片严重，导致新贡献者上手成本高且 CI / 文档极易产生悬挂引用（design §2.1 痛点）。重构目标态严格遵循依赖单向、`include/oauth2/**` 镜像 `src/**`、`deploy/` 集中、跨平台脚本对等（design §2.2 / §2.3 / §2.6）。
 
@@ -182,8 +182,8 @@
 #### Acceptance Criteria
 
 1. WHEN P6 is complete, THE Repo SHALL contain the file `cmake/Compatibility.cmake` defining function `oauth2_apply_compat(target)` per design §7.3.
-2. WHEN P6 is complete, THE Repo SHALL contain the file `cmake/Version.cmake` defining `OAUTH2_PROJECT_VERSION` per design §7.2.
-3. WHEN P6 is complete, THE root `CMakeLists.txt` SHALL invoke `project(oauth2-plugin-example VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX ...)` per design §7.1.
+2. WHEN P6 is complete, THE Repo SHALL contain the file `cmake/Version.cmake` defining `FULLA_PROJECT_VERSION` per design §7.2.
+3. WHEN P6 is complete, THE root `CMakeLists.txt` SHALL invoke `project(oauth2-plugin-example VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX ...)` per design §7.1.
 4. WHEN P6 is complete, both `OAuth2Plugin/CMakeLists.txt` and `OAuth2Server/CMakeLists.txt` SHALL call `oauth2_apply_compat(${PROJECT_NAME})` and SHALL NOT contain duplicate `if(MSVC) ... else() ... endif()` `/FI` blocks per design §7.4 / §7.5.
 5. WHEN P6 is complete, THE `OAuth2Plugin` CMake target SHALL remain an `OBJECT` library per design §7.7.
 6. WHEN P6 is complete, THE `OAuth2Plugin/CMakeLists.txt` SHALL NOT contain `target_include_directories(... PRIVATE)` entries pointing at `src/storage`, `src/models`, `src/services`, `src/common`, or `include/oauth2/models` per design §7.4.

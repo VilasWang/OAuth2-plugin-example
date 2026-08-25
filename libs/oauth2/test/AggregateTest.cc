@@ -1,18 +1,18 @@
-// Task 17 slice 6 (authforge-sdk-refactor): unit tests for the three
+// Task 17 slice 6 (fulla-sdk-refactor): unit tests for the three
 // oauth2::model aggregates (Client/AuthorizationGrant/TokenPair).
 
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/oauth2/model/AuthorizationGrant.h>
-#include <authforge/oauth2/model/Client.h>
-#include <authforge/oauth2/model/TokenPair.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/oauth2/model/AuthorizationGrant.h>
+#include <fulla/oauth2/model/Client.h>
+#include <fulla/oauth2/model/TokenPair.h>
 
 #include <gtest/gtest.h>
 
 namespace
 {
 
-using namespace authforge::oauth2::model;
-using authforge::common::testing::FakeCryptoProvider;
+using namespace fulla::oauth2::model;
+using fulla::common::testing::FakeCryptoProvider;
 
 // ---------------------------------------------------------------------
 // Client

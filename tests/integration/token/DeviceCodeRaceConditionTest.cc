@@ -19,8 +19,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 #include <json/json.h>
 
 #include <atomic>
@@ -112,7 +112,7 @@ bool ensurePubDeviceClient()
 
 bool seedApprovedDeviceCode(const std::string &rawDeviceCode)
 {
-    const std::string hash = authforge::drogon::utils::hashToken(rawDeviceCode);
+    const std::string hash = fulla::drogon::utils::hashToken(rawDeviceCode);
     const int64_t expiresAt = std::chrono::duration_cast<std::chrono::seconds>(
                                 std::chrono::system_clock::now().time_since_epoch()
                               )

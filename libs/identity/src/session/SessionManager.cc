@@ -1,12 +1,12 @@
-// M2.5 identity completion, Session slice (authforge-sdk-refactor):
+// M2.5 identity completion, Session slice (fulla-sdk-refactor):
 // real (non-placeholder) implementation. See SessionManager.h's top
 // comment for the exact scope boundary.
 
-#include <authforge/identity/SessionManager.h>
+#include <fulla/identity/SessionManager.h>
 
 #include <utility>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 LoginDecision evaluateLoginPolicy(const AuthResult &authResult, bool requireEmailVerification)
@@ -39,7 +39,7 @@ LoginDecision SessionManager::evaluateLoginPolicy(
   bool requireEmailVerification
 ) const
 {
-    return authforge::identity::evaluateLoginPolicy(authResult, requireEmailVerification);
+    return fulla::identity::evaluateLoginPolicy(authResult, requireEmailVerification);
 }
 
 void SessionManager::logout(const std::string &userId, std::function<void()> &&callback)
@@ -47,4 +47,4 @@ void SessionManager::logout(const std::string &userId, std::function<void()> &&c
     notifier_->notify(userId, std::move(callback));
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity

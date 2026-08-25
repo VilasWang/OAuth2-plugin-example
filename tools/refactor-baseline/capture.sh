@@ -11,7 +11,7 @@
 #               tools/refactor-baseline/ctest/<os>-<cfg>.txt. Task 1.2.
 #               Per-host: each platform/config runner produces 1 file.
 #               Optional flags:
-#                 --config <Debug|Release>    (default: $OAUTH2_CTEST_CONFIG or Debug)
+#                 --config <Debug|Release>    (default: $FULLA_CTEST_CONFIG or Debug)
 #                 --build-dir <path>          (default: ./build)
 #                 --from-fixture              use bundled sample output instead
 #                                             of running ctest (offline self-test)
@@ -59,7 +59,7 @@ resolve_os_tag() {
 }
 
 resolve_cfg() {
-    local cfg="${1:-${OAUTH2_CTEST_CONFIG:-Debug}}"
+    local cfg="${1:-${FULLA_CTEST_CONFIG:-Debug}}"
     case "${cfg}" in
         Debug|Release|RelWithDebInfo|MinSizeRel) echo "${cfg}" ;;
         debug)   echo Debug   ;;
@@ -312,7 +312,7 @@ Subcommands:
   setup        Create baseline subdirectories (idempotent, task 1.1).
   ctest        Capture ctest baseline for the current host. Task 1.2.
                Flags: --config <Debug|Release>   (default: Debug or
-                                                  $OAUTH2_CTEST_CONFIG)
+                                                  $FULLA_CTEST_CONFIG)
                       --build-dir <path>         (default: ./build)
                       --from-fixture             use bundled sample (offline)
   playwright   Capture Playwright baseline. Task 1.3.

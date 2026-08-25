@@ -1,11 +1,11 @@
-#include <authforge/drogon/adapters/StorageSubjectResolver.h>
-#include <authforge/drogon/utils/SubjectGenerator.h>
+#include <fulla/drogon/adapters/StorageSubjectResolver.h>
+#include <fulla/drogon/utils/SubjectGenerator.h>
 
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
 
 void StorageSubjectResolver::resolve(
-  const authforge::common::model::Subject &subject,
+  const fulla::common::model::Subject &subject,
   ResolveCallback &&cb
 )
 {
@@ -18,8 +18,8 @@ void StorageSubjectResolver::resolve(
     // Subject format is "provider:localId" (e.g. "local:alice",
     // "google:google_sub") -- mirror IdentityService::getInternalUserId's parse
     // (the production path this Adapter replaces).
-    auto [provider, sub] = ::authforge::common::utils::SubjectGenerator::parse(subject.value());
+    auto [provider, sub] = ::fulla::common::utils::SubjectGenerator::parse(subject.value());
     subjectMappingRepo_->getInternalUserId(sub, provider, std::move(cb));
 }
 
-}  // namespace authforge::drogon::adapters
+}  // namespace fulla::drogon::adapters

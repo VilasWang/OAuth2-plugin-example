@@ -67,7 +67,7 @@ PasswordReset, EmailVerification, Mfa.
 
 ### Phase 4 — Storage depth branches (Postgres/Redis)
 15-17. New `tests/contract/` files using ContractFixtures.h, append to
-`OAUTH2_CONTRACT_TEST_NAMES`.
+`FULLA_CONTRACT_TEST_NAMES`.
 
 ### Phase 5 — Wire CTest + CI, measure, decide
 18-20. Document GLOB reconfigure need, append Contract names, ensure Linux gcovr
@@ -86,7 +86,7 @@ bug that reported some files as 0% when raw gcov showed nonzero coverage (the
 fast-exit `__gcov_dump()` flush in test_main.cc works correctly -- no zero-count
 issue). The baseline measurement requires running ALL FIVE test binaries:
 4 per-library gtest binaries (common/common-testing/identity/oauth2) + the main
-authforge-tests binary -- the per-lib binaries drive the 89-98% domain coverage.
+fulla-tests binary -- the per-lib binaries drive the 89-98% domain coverage.
 
 Overall libs/ line coverage: **48.5% (7091/14631 baseline) -> 52.9% (7138/13502)**.
 

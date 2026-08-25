@@ -1,5 +1,5 @@
-// Task 13 (authforge-sdk-refactor, design.md §6): pure gtest unit tests for
-// authforge::common::error::ErrorCatalog / Error. No DB/no Drogon.
+// Task 13 (fulla-sdk-refactor, design.md §6): pure gtest unit tests for
+// fulla::common::error::ErrorCatalog / Error. No DB/no Drogon.
 //
 // These tests exercise the framework-agnostic port only; they do not
 // re-verify every property the pre-existing oauth2::error test suite
@@ -9,12 +9,12 @@
 // not touch. This suite's job is to prove the PORTED copy behaves
 // identically for the invariants that matter to a Domain-layer consumer.
 
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorTypes.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 TEST(ErrorCatalogTest, ValidateInvariantsDoesNotThrow)
 {

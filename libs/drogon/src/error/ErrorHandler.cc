@@ -4,13 +4,13 @@
 // representativeCodeFor() now live exclusively in
 // libs/common/src/error/ErrorTypes.cc (Task 13 port, framework-agnostic).
 // M8 Phase 3: relocated from OAuth2Plugin/src/error/ErrorHandler.cc.
-#include <authforge/drogon/error/ErrorHandler.h>
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/drogon/error/RequestId.h>
+#include <fulla/drogon/error/ErrorHandler.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/RequestId.h>
 #include <drogon/utils/Utilities.h>
 #include <sstream>
 
-namespace authforge::common::error
+namespace fulla::common::error
 {
 
 void ErrorHandler::logError(const Error &error, const std::string &context)
@@ -95,4 +95,4 @@ Error ErrorHandler::handleValidationError(
     return error;
 }
 
-}  // namespace authforge::common::error
+}  // namespace fulla::common::error

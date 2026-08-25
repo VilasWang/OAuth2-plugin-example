@@ -52,12 +52,12 @@ echo "Step 1: Starting PostgreSQL in Docker"
 echo "========================================"
 cd "$PROJECT_DIR"
 docker-compose -f "$COMPOSE_FILE" down 2>/dev/null || true
-docker-compose -f "$COMPOSE_FILE" up -d oauth2-postgres oauth2-redis
+docker-compose -f "$COMPOSE_FILE" up -d fulla-postgres fulla-redis
 
 MAX_WAIT=30
 WAIT_COUNT=0
 echo "Waiting for PostgreSQL to be ready..."
-while ! docker exec oauth2-postgres pg_isready -U oauth2_user -d oauth2_db &>/dev/null; do
+while ! docker exec fulla-postgres pg_isready -U fulla_user -d fulla_db &>/dev/null; do
     WAIT_COUNT=$((WAIT_COUNT + 1))
     if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
         echo "[FAILED] PostgreSQL did not become ready in ${MAX_WAIT}s"
@@ -71,23 +71,23 @@ echo ""
 
 # Step 2: Reinitialize Database
 echo "========================================"
-echo "Step 2: Reinitializing oauth2_db database"
+echo "Step 2: Reinitializing fulla_db database"
 echo "========================================"
-docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
-docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
+docker exec fulla-postgres psql -U fulla_user -d postgres -c "DROP DATABASE IF EXISTS fulla_db;"
+docker exec fulla-postgres psql -U fulla_user -d postgres -c "CREATE DATABASE fulla_db;"
 
 echo "Applying migrations..."
-for f in "$OAUTH2_SERVER_ABS_DIR/$SQL_MIGRATIONS_REL_DIR"/V*.sql; do
+for f in "$FULLA_SERVER_ABS_DIR/$SQL_MIGRATIONS_REL_DIR"/V*.sql; do
     [ -f "$f" ] || continue
     echo "  Applying $(basename "$f")..."
-    docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "$f"
+    docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < "$f"
 done
 
 echo "Applying seed data..."
-for f in "$OAUTH2_SERVER_ABS_DIR/$SQL_SEED_REL_DIR"/*.sql; do
+for f in "$FULLA_SERVER_ABS_DIR/$SQL_SEED_REL_DIR"/*.sql; do
     [ -f "$f" ] || continue
     echo "  Applying $(basename "$f")..."
-    docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "$f"
+    docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < "$f"
 done
 echo "[SUCCESS] Database initialized"
 echo ""
@@ -129,11 +129,11 @@ if [ ! -f "$EXE_PATH" ]; then
     exit 1
 fi
 
-export OAUTH2_DB_HOST=127.0.0.1
-export OAUTH2_DB_PORT=5433
-export OAUTH2_REDIS_HOST=127.0.0.1
-export OAUTH2_REDIS_PORT=6380
-export OAUTH2_REDIS_PASSWORD=redis_secret_pass
+export FULLA_DB_HOST=127.0.0.1
+export FULLA_DB_PORT=5433
+export FULLA_REDIS_HOST=127.0.0.1
+export FULLA_REDIS_PORT=6380
+export FULLA_REDIS_PASSWORD=redis_secret_pass
 
 cd "$(dirname "$EXE_PATH")"
 "$EXE_PATH" &

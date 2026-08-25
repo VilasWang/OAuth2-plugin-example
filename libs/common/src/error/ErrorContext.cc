@@ -1,9 +1,9 @@
-#include <authforge/common/error/ErrorContext.h>
+#include <fulla/common/error/ErrorContext.h>
 #include <cstdlib>
 #include <optional>
 #include <string>
 
-namespace authforge::common::error
+namespace fulla::common::error
 {
 
 namespace
@@ -52,4 +52,4 @@ void ErrorContext::clearDetailedErrorsOverride()
     detailedErrorsOverride().reset();
 }
 
-}  // namespace authforge::common::error
+}  // namespace fulla::common::error

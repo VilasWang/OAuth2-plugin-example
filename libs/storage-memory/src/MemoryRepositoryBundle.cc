@@ -1,6 +1,6 @@
-#include <authforge/storage/memory/MemoryRepositoryBundle.h>
+#include <fulla/storage/memory/MemoryRepositoryBundle.h>
 
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
 
 MemoryRepositoryBundle::MemoryRepositoryBundle()
@@ -16,4 +16,4 @@ void MemoryRepositoryBundle::initFromConfig(const Json::Value &clientsConfig)
     clientRepository_->initFromConfig(clientsConfig);
 }
 
-}  // namespace authforge::storage::memory
+}  // namespace fulla::storage::memory

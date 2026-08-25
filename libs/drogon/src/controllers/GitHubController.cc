@@ -1,34 +1,34 @@
-#include <authforge/drogon/controllers/GitHubController.h>
+#include <fulla/drogon/controllers/GitHubController.h>
 #include <drogon/HttpClient.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 // Wave-2 P1: the default-role grant is a user_roles write — revoke the
 // cached roles for the (possibly pre-probed) subject.
 #include "../UserReadCache.h"
 
 #ifdef WITH_SOCIAL
-// Task 24 slice 5 (authforge-sdk-refactor): identity-layer service this
+// Task 24 slice 5 (fulla-sdk-refactor): identity-layer service this
 // controller now optionally consumes.
-#include <authforge/identity/SocialAuthService.h>
+#include <fulla/identity/SocialAuthService.h>
 #endif  // WITH_SOCIAL
 
 // OAuth2 token DTOs for issueTokensForUser -> plugin->saveTokenPair (the
 // storage-abstraction route; replaces the former direct Mapper<Oauth2Access/
 //RefreshTokens> persistence).
-#include <authforge/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/Dto.h>
 
-#include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
-#include <authforge/storage/postgres/models/Roles.h>
-#include <authforge/storage/postgres/models/UserRoles.h>
-#include <authforge/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <fulla/storage/postgres/models/Roles.h>
+#include <fulla/storage/postgres/models/UserRoles.h>
+#include <fulla/storage/postgres/models/Users.h>
 
 using namespace ::drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -53,7 +53,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -93,7 +93,7 @@ struct GitHubControllerDocs
 {
     GitHubControllerDocs()
     {
-        ::authforge::drogon::observability::openapi::EndpointInfo ep;
+        ::fulla::drogon::observability::openapi::EndpointInfo ep;
         ep.path = "/api/github/login";
         ep.method = "POST";
         ep.summary = "GitHub OAuth2 Login";
@@ -101,11 +101,11 @@ struct GitHubControllerDocs
         ep.tags = {"External Auth", "GitHub"};
         ep.requiresAuth = false;
 
-        ::authforge::drogon::observability::openapi::ParameterInfo codeParam;
+        ::fulla::drogon::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code from GitHub OAuth2 callback";
-        codeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
-        codeParam.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+        codeParam.location = ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = true;
         ep.parameters = {codeParam};
 
@@ -114,7 +114,7 @@ struct GitHubControllerDocs
            {400, "Invalid request (missing or invalid code)"},
            {502, "Failed to contact GitHub API"}};
 
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(ep);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(ep);
     }
 };
 
@@ -152,7 +152,7 @@ void GitHubController::login(
 
     if (code.empty())
     {
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -166,7 +166,7 @@ void GitHubController::login(
 
     if (clientId.empty() || clientSecret.empty())
     {
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req, std::move(callback), "INTERNAL_ERROR", "github login: GitHub OAuth not configured"
         );
         return;
@@ -187,7 +187,7 @@ void GitHubController::login(
     if (gitHubAuthService_)
     {
         gitHubAuthService_->login(
-          code, [this, req, callbackPtr](authforge::identity::GitHubLoginResult result) {
+          code, [this, req, callbackPtr](fulla::identity::GitHubLoginResult result) {
               if (!result.errorCode.empty())
               {
                   respondError(
@@ -233,8 +233,8 @@ void GitHubController::issueTokensForUser(
     // and (b) made the happy-path untestable. saveTokenPair forwards to the
     // ITokenRepository selected by storage_type (Memory/Postgres/Redis), so this
     // now works in every storage mode and is mock-testable.
-    auto accessTokenStr = ::authforge::drogon::utils::generateSecureToken();
-    auto refreshTokenStr = ::authforge::drogon::utils::generateSecureToken();
+    auto accessTokenStr = ::fulla::drogon::utils::generateSecureToken();
+    auto refreshTokenStr = ::fulla::drogon::utils::generateSecureToken();
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
     )
@@ -244,7 +244,7 @@ void GitHubController::issueTokensForUser(
     const std::string clientId = "vue-client";
     const std::string scope = "openid profile email";
 
-    authforge::oauth2::model::OAuth2AccessToken accessToken;
+    fulla::oauth2::model::OAuth2AccessToken accessToken;
     // #69: store the HASH of the token, mirroring the canonical paths
     // (TokenService's grant issuance and TokenEndpointController's
     // controller-constructed pairs -- CryptoUtils::hashToken and
@@ -256,8 +256,8 @@ void GitHubController::issueTokensForUser(
     // the row, and the raw refreshToken.accessToken mirror never matched
     // revokeTokenFamily's hashed-column SQL. No legacy migration: the
     // raw-stored tokens were unusable from the day they were issued.
-    const std::string accessTokenHash = ::authforge::drogon::utils::hashToken(accessTokenStr);
-    const std::string refreshTokenHash = ::authforge::drogon::utils::hashToken(refreshTokenStr);
+    const std::string accessTokenHash = ::fulla::drogon::utils::hashToken(accessTokenStr);
+    const std::string refreshTokenHash = ::fulla::drogon::utils::hashToken(refreshTokenStr);
     accessToken.token = accessTokenHash;
     accessToken.clientId = clientId;
     accessToken.userId = std::to_string(userId);
@@ -268,7 +268,7 @@ void GitHubController::issueTokensForUser(
     // controller-constructed paths).
     accessToken.issuer = plugin->getIssuer();
 
-    authforge::oauth2::model::OAuth2RefreshToken refreshToken;
+    fulla::oauth2::model::OAuth2RefreshToken refreshToken;
     refreshToken.token = refreshTokenHash;
     refreshToken.accessToken = accessTokenHash;
     refreshToken.clientId = clientId;
@@ -582,7 +582,7 @@ void GitHubController::createNewLinkedUser(
     // default role, then issue tokens.
     auto db = ::drogon::app().getDbClient();
     std::string username = "gh_" + githubLogin;
-    std::string passwordHash = ::authforge::drogon::utils::generateSecureToken();
+    std::string passwordHash = ::fulla::drogon::utils::generateSecureToken();
     // Exemption (db-operations.md §3): INSERT...RETURNING to capture the
     // auto-generated user id for subsequent subject-mapping and role inserts.
     //
@@ -650,7 +650,7 @@ void GitHubController::createNewLinkedUser(
                                     // empty-roles entry a concurrent read may have
                                     // cached between user-create and this grant is
                                     // keyed by either subject form.
-                                    authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                                    fulla::drogon::UserCacheInvalidator::instance().invalidateUser(
                                       std::to_string(userId), publicSub);
                                     issueTokens();
                                 },
@@ -719,4 +719,4 @@ void GitHubController::createNewLinkedUser(
     );
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

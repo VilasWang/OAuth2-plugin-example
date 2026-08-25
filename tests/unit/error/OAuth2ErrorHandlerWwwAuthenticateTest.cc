@@ -1,4 +1,4 @@
-// Coverage additions (P1, authforge coverage push): the OAuth2ErrorHandler
+// Coverage additions (P1, fulla coverage push): the OAuth2ErrorHandler
 // WWW-Authenticate branch (OAuth2ErrorHandler.cc:85-88) and the unknown-code
 // getHttpStatusCode fallback (cc:106) had no targeted coverage. These pin:
 //   * invalid_client + a non-empty authScheme adds a WWW-Authenticate header
@@ -8,13 +8,13 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
 
 #include <string>
 
 using namespace drogon;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 namespace
 {

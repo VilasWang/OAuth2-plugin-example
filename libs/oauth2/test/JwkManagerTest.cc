@@ -1,5 +1,5 @@
-// M2b Task 17 slice 10 (authforge-sdk-refactor): basic unit tests for the
-// relocated authforge::oauth2::JwkManager. Full concurrency/preservation
+// M2b Task 17 slice 10 (fulla-sdk-refactor): basic unit tests for the
+// relocated fulla::oauth2::JwkManager. Full concurrency/preservation
 // coverage remains in tests/ (Property4_JwkBaselineTest.cc/
 // CategoryB_JwkManagerRaceTest.cc) -- these are just Domain-layer smoke
 // tests confirming the class works standalone (no Drogon, no injected
@@ -7,12 +7,12 @@
 //
 // Coverage additions (P1): the original tests only exercised the ephemeral
 // fallback path. The additions below cover the production key-loading
-// branches (OAUTH2_SIGNING_KEY / OAUTH2_JWT_KEY_PATH / config
+// branches (FULLA_SIGNING_KEY / FULLA_JWT_KEY_PATH / config
 // signing_key_path), the kid override, the logger forwarding path, and
 // the JWKS use/e fields.
 
-#include <authforge/common/testing/FakeLogger.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
+#include <fulla/common/testing/FakeLogger.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
 
 #include <gtest/gtest.h>
 
@@ -26,8 +26,8 @@
 namespace
 {
 
-using authforge::common::testing::FakeLogger;
-using authforge::oauth2::JwkManager;
+using fulla::common::testing::FakeLogger;
+using fulla::oauth2::JwkManager;
 
 // RAII guard: save an env var, set it for the test body, restore it on
 // destruction. Keeps env-var-mutating tests isolated from one another and
@@ -170,12 +170,12 @@ TEST(JwkManagerTest, InitCalledTwice_SecondCallIsNoOpAndReturnsTrue)
 // Coverage additions (P1): production key-loading branches + logger + kid.
 // ---------------------------------------------------------------------------
 
-// init: OAUTH2_SIGNING_KEY env with a valid PEM -> loads from env, kid
+// init: FULLA_SIGNING_KEY env with a valid PEM -> loads from env, kid
 // defaults to "key-1" (JwkManager.cc:48).
 TEST(JwkManagerTest, Init_FromOauth2SigningKeyEnv_LoadsPem)
 {
     const std::string pem = generateTestPem();
-    EnvVarGuard guard("OAUTH2_SIGNING_KEY", pem);
+    EnvVarGuard guard("FULLA_SIGNING_KEY", pem);
     JwkManager jwk;
     Json::Value config(Json::objectValue);
     EXPECT_TRUE(jwk.init(config));
@@ -185,11 +185,11 @@ TEST(JwkManagerTest, Init_FromOauth2SigningKeyEnv_LoadsPem)
     EXPECT_FALSE(jwk.signJwt(Json::Value(Json::objectValue)).empty());
 }
 
-// init: OAUTH2_SIGNING_KEY env with an invalid PEM -> falls through to the
+// init: FULLA_SIGNING_KEY env with an invalid PEM -> falls through to the
 // ephemeral fallback (JwkManager.cc:46 returns false, falls through).
 TEST(JwkManagerTest, Init_FromOauth2SigningKeyEnv_InvalidPem_FallsThroughToEphemeral)
 {
-    EnvVarGuard guard("OAUTH2_SIGNING_KEY", "not-a-valid-pem");
+    EnvVarGuard guard("FULLA_SIGNING_KEY", "not-a-valid-pem");
     FakeLogger logger;
     JwkManager jwk(&logger);
     EXPECT_TRUE(jwk.init(Json::Value(Json::objectValue)));
@@ -199,29 +199,29 @@ TEST(JwkManagerTest, Init_FromOauth2SigningKeyEnv_InvalidPem_FallsThroughToEphem
     EXPECT_TRUE(logger.hasMessageContaining("Failed to parse PEM"));
 }
 
-// init: OAUTH2_JWT_KEY_PATH env pointing at a readable file with a valid
+// init: FULLA_JWT_KEY_PATH env pointing at a readable file with a valid
 // PEM -> loads from the file (JwkManager.cc:58-76).
 TEST(JwkManagerTest, Init_FromOauth2JwtKeyPathEnv_ReadsFileAndLoads)
 {
     const std::string pem = generateTestPem();
     const std::string path = writeTempPem(pem, "jwtkeypath_ok");
-    EnvVarGuard guard("OAUTH2_JWT_KEY_PATH", path);
+    EnvVarGuard guard("FULLA_JWT_KEY_PATH", path);
     JwkManager jwk;
     EXPECT_TRUE(jwk.init(Json::Value(Json::objectValue)));
     EXPECT_TRUE(jwk.isInitialized());
     EXPECT_EQ(jwk.getKeyId(), "key-1");
 }
 
-// init: OAUTH2_JWT_KEY_PATH env pointing at a non-existent file -> warns
+// init: FULLA_JWT_KEY_PATH env pointing at a non-existent file -> warns
 // and falls through to ephemeral (JwkManager.cc:78-82).
 TEST(JwkManagerTest, Init_FromOauth2JwtKeyPathEnv_UnreadableFile_WarnsAndFallsThrough)
 {
-    EnvVarGuard guard("OAUTH2_JWT_KEY_PATH", "/nonexistent/path/key.pem");
+    EnvVarGuard guard("FULLA_JWT_KEY_PATH", "/nonexistent/path/key.pem");
     FakeLogger logger;
     JwkManager jwk(&logger);
     EXPECT_TRUE(jwk.init(Json::Value(Json::objectValue)));
     EXPECT_EQ(jwk.getKeyId(), "ephemeral-dev-key");
-    EXPECT_TRUE(logger.hasMessageContaining("Failed to load key from OAUTH2_JWT_KEY_PATH"));
+    EXPECT_TRUE(logger.hasMessageContaining("Failed to load key from FULLA_JWT_KEY_PATH"));
 }
 
 // init: config["signing_key_path"] with a readable valid-PEM file -> loads
@@ -256,7 +256,7 @@ TEST(JwkManagerTest, Init_FromConfigSigningKeyPath_InvalidPem_WarnsAndFallsThrou
 TEST(JwkManagerTest, Init_KidFromConfig_IsReflectedInKeyIdAndJwks)
 {
     const std::string pem = generateTestPem();
-    EnvVarGuard guard("OAUTH2_SIGNING_KEY", pem);
+    EnvVarGuard guard("FULLA_SIGNING_KEY", pem);
     Json::Value config(Json::objectValue);
     config["kid"] = "my-custom-kid";
     JwkManager jwk;
@@ -430,7 +430,7 @@ TEST(JwkManagerTest, VerifyJwt_SignedByOtherKey_IsKidMismatch)
     // with the verifier's), so load the forger's key from a PEM with an
     // explicit distinct kid via the env-var branch.
     const std::string pem = generateTestPem();
-    EnvVarGuard guard("OAUTH2_SIGNING_KEY", pem);
+    EnvVarGuard guard("FULLA_SIGNING_KEY", pem);
     JwkManager forger;
     Json::Value forgerConfig(Json::objectValue);
     forgerConfig["kid"] = "forger-kid";

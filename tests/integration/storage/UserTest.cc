@@ -1,7 +1,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <drogon/utils/Utilities.h>
 #include <iostream>
 #include <string>
@@ -41,7 +41,7 @@ DROGON_TEST(Integration_P0_UserSystem_General_Works)
     }
 
     // 1. Create User Data (ORM)
-    drogon_model::oauth2_db::Users newUser;
+    drogon_model::fulla_db::Users newUser;
     newUser.setUsername("unittest_user_orm");
     std::string password = "password123";
     std::string salt = utils::getUuid();
@@ -50,7 +50,7 @@ DROGON_TEST(Integration_P0_UserSystem_General_Works)
     newUser.setSalt(salt);
     newUser.setEmail("test_orm@example.com");
 
-    auto mapper = Mapper<drogon_model::oauth2_db::Users>(db);
+    auto mapper = Mapper<drogon_model::fulla_db::Users>(db);
 
     // 2. Insert (ORM)
     try
@@ -86,7 +86,7 @@ DROGON_TEST(Integration_P0_UserSystem_General_Works)
     {
         LOG_INFO << "Attempting to find user...";
         auto user = mapper.findOne(Criteria(
-          drogon_model::oauth2_db::Users::Cols::_username, CompareOperator::EQ, "unittest_user_orm"
+          drogon_model::fulla_db::Users::Cols::_username, CompareOperator::EQ, "unittest_user_orm"
         ));
         LOG_INFO << "User found via ORM!";
 

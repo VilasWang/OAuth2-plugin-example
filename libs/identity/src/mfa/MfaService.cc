@@ -1,14 +1,14 @@
-#include <authforge/identity/MfaService.h>
-#include <authforge/identity/IMfaRepository.h>
-#include <authforge/identity/TotpUtils.h>
+#include <fulla/identity/MfaService.h>
+#include <fulla/identity/IMfaRepository.h>
+#include <fulla/identity/TotpUtils.h>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 MfaService::MfaService(
   std::shared_ptr<IMfaRepository> mfaRepo,
-  std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
-  std::shared_ptr<authforge::common::ports::IClock> clock,
+  std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
+  std::shared_ptr<fulla::common::ports::IClock> clock,
   std::string issuerName
 )
     : mfaRepo_(std::move(mfaRepo)),
@@ -182,4 +182,4 @@ void MfaService::clearPendingBinding(int32_t userId, std::function<void(bool)> &
     mfaRepo_->clearPendingBinding(userId, std::move(callback));
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity

@@ -4,14 +4,14 @@ set -euo pipefail
 
 source "$(dirname "$0")/env_common.sh"
 
-DB_USER="${OAUTH2_DB_USER:-oauth2_user}"
-DB_NAME="${OAUTH2_DB_NAME:-oauth2_db}"
-DB_PASSWORD="${OAUTH2_DB_PASSWORD:-123456}"
-DB_HOST="${OAUTH2_DB_HOST:-localhost}"
-DB_PORT="${OAUTH2_DB_PORT:-5432}"
+DB_USER="${FULLA_DB_USER:-fulla_user}"
+DB_NAME="${FULLA_DB_NAME:-fulla_db}"
+DB_PASSWORD="${FULLA_DB_PASSWORD:-123456}"
+DB_HOST="${FULLA_DB_HOST:-localhost}"
+DB_PORT="${FULLA_DB_PORT:-5432}"
 
-MIGRATIONS_DIR="$OAUTH2_SERVER_ABS_DIR/$SQL_MIGRATIONS_REL_DIR"
-SEED_DIR="$OAUTH2_SERVER_ABS_DIR/$SQL_SEED_REL_DIR"
+MIGRATIONS_DIR="$FULLA_SERVER_ABS_DIR/$SQL_MIGRATIONS_REL_DIR"
+SEED_DIR="$FULLA_SERVER_ABS_DIR/$SQL_SEED_REL_DIR"
 
 # Check for psql
 if ! command -v psql &>/dev/null; then
@@ -33,7 +33,7 @@ echo "Creating new database..."
 if ! psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
     -c "CREATE DATABASE $DB_NAME;"; then
     echo "[Error] Failed to create database \"$DB_NAME\" as role \"$DB_USER\"." >&2
-    echo "        Verify the role exists, OAUTH2_DB_PASSWORD is correct, and that" >&2
+    echo "        Verify the role exists, FULLA_DB_PASSWORD is correct, and that" >&2
     echo "        PostgreSQL is reachable at $DB_HOST:$DB_PORT." >&2
     exit 1
 fi

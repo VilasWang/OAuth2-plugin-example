@@ -16,9 +16,9 @@
 #include <drogon/drogon.h>
 #include <drogon/nosql/RedisClient.h>
 
-#include <authforge/oauth2/repository/ITokenRepository.h>
-#include <authforge/oauth2/model/Dto.h>
-#include <authforge/storage/redis/RedisCachedTokenRepository.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
+#include <fulla/oauth2/model/Dto.h>
+#include <fulla/storage/redis/RedisCachedTokenRepository.h>
 
 #include <atomic>
 #include <chrono>
@@ -26,10 +26,10 @@
 #include <string>
 #include <thread>
 
-using OAuth2AccessToken = authforge::oauth2::model::OAuth2AccessToken;
-using TokenIntrospection = authforge::oauth2::model::TokenIntrospection;
-using ITokenRepository = authforge::oauth2::repository::ITokenRepository;
-using RedisCachedTokenRepository = authforge::storage::redis::RedisCachedTokenRepository;
+using OAuth2AccessToken = fulla::oauth2::model::OAuth2AccessToken;
+using TokenIntrospection = fulla::oauth2::model::TokenIntrospection;
+using ITokenRepository = fulla::oauth2::repository::ITokenRepository;
+using RedisCachedTokenRepository = fulla::storage::redis::RedisCachedTokenRepository;
 
 namespace
 {
@@ -70,13 +70,13 @@ class CountingFakeTokenRepo : public ITokenRepository
         else
             cb(std::nullopt);
     }
-    void saveTokenPair(const OAuth2AccessToken &at, const authforge::oauth2::model::OAuth2RefreshToken &rt, SaveResultCallback &&cb) override
+    void saveTokenPair(const OAuth2AccessToken &at, const fulla::oauth2::model::OAuth2RefreshToken &rt, SaveResultCallback &&cb) override
     {
         (void)rt;  // unused — fake only persists the access token
         accessStore[at.token] = at;
         cb(true);
     }
-    void saveRefreshToken(const authforge::oauth2::model::OAuth2RefreshToken &, VoidCallback &&cb) override { if (cb) cb(); }
+    void saveRefreshToken(const fulla::oauth2::model::OAuth2RefreshToken &, VoidCallback &&cb) override { if (cb) cb(); }
     void getRefreshToken(const std::string &, RefreshTokenCallback &&cb) override { cb(std::nullopt); }
     void revokeRefreshToken(const std::string &, VoidCallback &&cb) override { if (cb) cb(); }
     void atomicRevokeRefreshToken(const std::string &, RefreshTokenCallback &&cb) override { cb(std::nullopt); }
@@ -215,7 +215,7 @@ void evictTokenKeys(const std::string &hash)
         redis->execCommandAsync(
           [cb](const ::drogon::nosql::RedisResult &) { cb(); },
           [cb](const ::drogon::nosql::RedisException &) { cb(); },
-          "DEL authforge:cache:token:access:%s authforge:cache:token:introspect:%s authforge:cache:token:revoked:%s",
+          "DEL fulla:cache:token:access:%s fulla:cache:token:introspect:%s fulla:cache:token:revoked:%s",
           hash.c_str(), hash.c_str(), hash.c_str()
         );
     });

@@ -19,7 +19,7 @@
 | ~~A3 README 性能标注~~ | 2026-08-24（v1.4.0） | 双语徽章 + Performance 小节（五场景表）+ 如何复现 |
 | ~~B1 Backchannel Logout~~ | 2026-08-22 全栈 | PR #61：通知器 + logout_token + admin API/UI + #55/#57 加固 |
 | ~~B2 社交账号 link/unlink~~ | 2026-08-21（v1.3.0） | PR #68：3 端点 + SocialLinkService + 最后凭证守卫 + 前端卡片 |
-| ~~C1 Python/Go 客户端 SDK~~ | 2026-08-18 起 | PR #65：**PyPI `authforge-oauth2` 1.4.0 live** + Go 嵌套 tag + 漂移门 + CI |
+| ~~C1 Python/Go 客户端 SDK~~ | 2026-08-18 起 | PR #65：**PyPI `fulla-oauth2` 1.4.0 live** + Go 嵌套 tag + 漂移门 + CI |
 | ~~C3 竞品对比（Phase 0.5）~~ | 2026-08-22 + 08-21/23 两轮刷新 | PR #64：Keycloak/Ory/Zitadel 套件 + **五场景全领先**（COMPARISON.md） |
 | ~~性能优化两轮~~ | 2026-08-19 ~ 08-24 | wave-1（PG17/LTO/池调优）+ wave-2（代码级缓存）+ TTL=30 留存收官 |
 
@@ -114,7 +114,7 @@
 
 > **工程量**: 3–5 天 | **前置**: 建议第一/二梯队安全修复合并后发布
 
-**素材**（全部就绪）: COMPARISON.md 五场景对比（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x）+ 冷启动 1.26s vs Keycloak 18.3s + SDK 2.5 MB + PyPI `pip install authforge-oauth2` + Go module。
+**素材**（全部就绪）: COMPARISON.md 五场景对比（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x）+ 冷启动 1.26s vs Keycloak 18.3s + SDK 2.5 MB + PyPI `pip install fulla-oauth2` + Go module。
 
 **内容骨架**: 「为什么我们用 C++ 构建 OAuth2 服务器」——同环境四产品对比方法论（可复现脚本）→ 结果与诚实限定（GC 抖动叙事关闭的坦白是加分项）→ 嵌入式 SDK 差异化。
 **渠道**: HN / Reddit r/cpp / r/netsec（evolution-plan §三 Phase 1 既定）。

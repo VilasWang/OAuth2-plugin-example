@@ -1,6 +1,6 @@
 #pragma once
 
-// M3 Task 25 (authforge-sdk-refactor): extracted from main.cc's inline
+// M3 Task 25 (fulla-sdk-refactor): extracted from main.cc's inline
 // block of drogon::app().registerController(...) calls for every
 // AutoCreation=false controller now living in libs/drogon (see PROGRESS.md
 // for the AutoCreation=false mechanism-verification background). Kept as
@@ -11,12 +11,12 @@ namespace bootstrap
 {
 
 // Explicitly constructs and registers every AutoCreation=false controller
-// (all controllers under authforge::drogon::controllers, plus
-// authforge::drogon::controllers::OAuth2StandardController) on drogon::app(). Must be
+// (all controllers under fulla::drogon::controllers, plus
+// fulla::drogon::controllers::OAuth2StandardController) on drogon::app(). Must be
 // called before drogon::app().run().
 void registerAllControllers();
 
-// M3 Task 23 (authforge-sdk-refactor, evaluation H4 "controller/filter 去
+// M3 Task 23 (fulla-sdk-refactor, evaluation H4 "controller/filter 去
 // 单例化"): looks up every already-registered controller/filter singleton
 // (via drogon::app().getController<T>()/drogon::DrClassMap::
 // getSingleInstance<T>()) and calls its setPlugin(OAuth2Plugin*), so

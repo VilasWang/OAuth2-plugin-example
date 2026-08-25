@@ -63,10 +63,10 @@ ALTER TABLE users ADD CONSTRAINT users_username_check
 ### 验证
 ```bash
 # 应用迁移
-docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < OAuth2Server/sql/migrations/V020__username_optional.sql
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < OAuth2Server/sql/migrations/V020__username_optional.sql
 
 # 验证约束变化
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\d users" | grep username
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\d users" | grep username
 # 预期：username | character varying(100) | （无 NOT NULL）
 
 # 验证 UNIQUE 保留（NULL 豁免）
@@ -236,7 +236,7 @@ bash ./scripts/backend/test-oauth2-endpoints.sh   # Bash 端点测试
 ### 6.1 端到端验证（Docker Desktop）
 ```bash
 # 重建后端镜像
-docker compose -f deploy/docker/docker-compose.yml up -d --build oauth2-backend
+docker compose -f deploy/docker/docker-compose.yml up -d --build fulla-backend
 
 # 验证三种登录
 curl -X POST http://localhost:5555/oauth2/login \

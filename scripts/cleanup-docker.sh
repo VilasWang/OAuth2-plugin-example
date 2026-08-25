@@ -57,8 +57,8 @@ docker volume rm oauth2-plugin_redis_debug 2>/dev/null || echo "  - oauth2-plugi
 # Step 3: 清理镜像（仅在指定参数时执行）
 if [ "$CLEAN_IMAGES" = true ]; then
     echo "🖼️  删除项目相关镜像..."
-    docker image rm oauth2-backend-debug:v1.9.13 2>/dev/null || echo "  - oauth2-backend-debug:v1.9.13 (不存在或已删除)"
-    docker image rm oauth2-backend-frontend 2>/dev/null || echo "  - oauth2-backend-frontend (不存在或已删除)"
+    docker image rm fulla-backend-debug:v1.9.13 2>/dev/null || echo "  - fulla-backend-debug:v1.9.13 (不存在或已删除)"
+    docker image rm fulla-backend-frontend 2>/dev/null || echo "  - fulla-backend-frontend (不存在或已删除)"
 
     echo "🧹 清理悬空镜像和构建缓存..."
     docker image prune -f

@@ -1,25 +1,25 @@
-# AuthForge — Full-Stack OAuth2/OIDC Authorization Server
+# Fulla — Full-Stack OAuth2/OIDC Authorization Server
 
 [中文文档](README.zh-CN.md)
 
-![CI](https://github.com/voidvec/authforge/actions/workflows/ci.yml/badge.svg)
-![Security](https://github.com/voidvec/authforge/actions/workflows/security.yml/badge.svg)
-[![Release](https://img.shields.io/github/v/release/voidvec/authforge)](https://github.com/voidvec/authforge/releases/latest)
+![CI](https://github.com/voidvec/fulla/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/voidvec/fulla/actions/workflows/security.yml/badge.svg)
+[![Release](https://img.shields.io/github/v/release/voidvec/fulla)](https://github.com/voidvec/fulla/releases/latest)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
-Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414 — usable as a **ready-to-run product** (Docker/Helm) or as an **embeddable C++ SDK** (`find_package(authforge-*)`). Includes admin console, user-facing frontend, and a comprehensive test suite.
+Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414 — usable as a **ready-to-run product** (Docker/Helm) or as an **embeddable C++ SDK** (`find_package(fulla-*)`). Includes admin console, user-facing frontend, and a comprehensive test suite.
 
 ---
 
 ## Architecture
 
 ```
-authforge/
+fulla/
 ├── apps/server/        # Authorization server backend (Drogon C++ framework)
-├── libs/               # SDK library packages (authforge::common/oauth2/identity/storage-*/drogon)
+├── libs/               # SDK library packages (fulla::common/oauth2/identity/storage-*/drogon)
 ├── frontends/admin/    # Admin console frontend (Vue 3 + TailwindCSS)
 ├── frontends/user/     # User-facing frontend (Vue 3 + Pinia + TailwindCSS)
 ├── examples/           # SDK consumer examples (find_package smoke hosts)
@@ -35,18 +35,18 @@ The backend is split into 8 CMake packages with an enforced dependency direction
 
 ```mermaid
 graph TD
-    server["authforge-server<br/>(apps/server)"] --> drogon
-    drogon["authforge::drogon<br/>plugin · controllers · filters · views"] --> oauth2
+    server["fulla-server<br/>(apps/server)"] --> drogon
+    drogon["fulla::drogon<br/>plugin · controllers · filters · views"] --> oauth2
     drogon --> identity
     drogon --> memory
     drogon --> redis
     drogon --> postgres
-    memory["authforge::storage::memory"] --> oauth2
-    redis["authforge::storage::redis"] --> oauth2
-    postgres["authforge::storage::postgres<br/>(ORM models)"] --> identity
-    oauth2["authforge::oauth2<br/>OAuth2/OIDC engine"] --> common
-    identity["authforge::identity<br/>auth · MFA · WebAuthn · RBAC"] --> common
-    common["authforge::common<br/>shared kernel · ports"]
+    memory["fulla::storage::memory"] --> oauth2
+    redis["fulla::storage::redis"] --> oauth2
+    postgres["fulla::storage::postgres<br/>(ORM models)"] --> identity
+    oauth2["fulla::oauth2<br/>OAuth2/OIDC engine"] --> common
+    identity["fulla::identity<br/>auth · MFA · WebAuthn · RBAC"] --> common
+    common["fulla::common<br/>shared kernel · ports"]
 ```
 
 Optional feature areas are gated by Conan/CMake options (`with_identity` / `with_social` / `with_webauthn`) so SDK consumers can shrink the dependency surface.
@@ -139,12 +139,12 @@ Optional feature areas are gated by Conan/CMake options (`with_identity` / `with
 
 Same-environment comparison against Keycloak 26.7.1, Ory Hydra v26.2.0, and Zitadel v4.17.1
 (single idle host, serial same-session runs, each product on its officially recommended config,
-identical PostgreSQL 17 backend, identical wrk staircase 2→128). AuthForge runs its documented
+identical PostgreSQL 17 backend, identical wrk staircase 2→128). Fulla runs its documented
 bench profile (pool 64/64, cache on, `auto_batch`, `reuse_port`, opt-in LTO build, TTL=30
 retention-bounded sessions). **All five comparison scenarios lead** (2026-08-23 refresh,
 [full report + methodology](benchmarks/competitors/results/COMPARISON.md)):
 
-| Scenario | AuthForge | vs runner-up |
+| Scenario | Fulla | vs runner-up |
 |---|---|---|
 | discovery (`/.well-known/openid-configuration`) | 87,499 QPS | 2.1x Keycloak |
 | client_credentials token issuance | 14,438 QPS | 2.6x Keycloak |
@@ -169,7 +169,7 @@ python3 benchmarks/reporting/gen-comparison.py
 
 Methodology and fairness deviations (per-product config sources, what is and isn't aligned):
 [competitor-benchmark-design.md](docs/productization-evolution/in-progress/competitor-benchmark-design.md).
-AuthForge-side scenario details: [benchmarks/README.md](benchmarks/README.md).
+Fulla-side scenario details: [benchmarks/README.md](benchmarks/README.md).
 
 ---
 
@@ -210,7 +210,7 @@ To run the full stack locally (backend requires PostgreSQL + Redis):
 ```powershell
 # Backend
 cd apps\server
-..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
+..\..\build\windows-msvc\apps\server\Release\fulla-server.exe
 
 # Admin console — http://localhost:5174/admin/
 cd frontends\admin && npm install && npm run dev
@@ -221,34 +221,34 @@ cd frontends\user && npm install && npm run dev
 
 ### Path C — Consume as an SDK
 
-Embed AuthForge into your own C++ host via `find_package` (SDK tarball from [Releases](https://github.com/voidvec/authforge/releases), or `cmake --install` from source):
+Embed Fulla into your own C++ host via `find_package` (SDK tarball from [Releases](https://github.com/voidvec/fulla/releases), or `cmake --install` from source):
 
 ```cmake
 # Full stack: one package pulls the whole closure (engine + Drogon plugin/controllers)
-find_package(authforge-drogon CONFIG REQUIRED)
-target_link_libraries(my-host PRIVATE authforge::drogon)
+find_package(fulla-drogon CONFIG REQUIRED)
+target_link_libraries(my-host PRIVATE fulla::drogon)
 
 # Or engine-only (no Drogon dependency):
-find_package(authforge-oauth2 CONFIG REQUIRED)
-find_package(authforge-storage-memory CONFIG REQUIRED)
-target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::memory)
+find_package(fulla-oauth2 CONFIG REQUIRED)
+find_package(fulla-storage-memory CONFIG REQUIRED)
+target_link_libraries(my-engine PRIVATE fulla::oauth2 fulla::storage::memory)
 ```
 
-> v1.x promises **source-level SemVer** for the public headers (`include/authforge/**`), enforced by an api-diff gate in CI — no binary ABI guarantee. Resolve third-party dependencies with the repository's `conanfile.py` + `conan.lock`. Details: [SDK Integration Guide](docs/backend/sdk-integration-guide.md) · [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md); reference consumers: [`examples/full-stack-host`](examples/full-stack-host), [`examples/third-party-host`](examples/third-party-host) (both CI-verified).
+> v1.x promises **source-level SemVer** for the public headers (`include/fulla/**`), enforced by an api-diff gate in CI — no binary ABI guarantee. Resolve third-party dependencies with the repository's `conanfile.py` + `conan.lock`. Details: [SDK Integration Guide](docs/backend/sdk-integration-guide.md) · [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md); reference consumers: [`examples/full-stack-host`](examples/full-stack-host), [`examples/third-party-host`](examples/third-party-host) (both CI-verified).
 
 ### Path D — Client SDKs (Python / Go)
 
-Non-C++ services talk to AuthForge over its HTTP API with generated, typed clients plus a handwritten auth layer (token lifecycle is never templated):
+Non-C++ services talk to Fulla over its HTTP API with generated, typed clients plus a handwritten auth layer (token lifecycle is never templated):
 
 ```python
-# Python (distribution authforge-oauth2, import authforge)
-from authforge import m2m_client
+# Python (distribution fulla-oauth2, import fulla)
+from fulla import m2m_client
 
 client = m2m_client("http://localhost:5555", "backend-svc", "…", scopes=["tokens:read"])
 ```
 
 ```go
-// Go (github.com/voidvec/authforge/clients/go)
+// Go (github.com/voidvec/fulla/clients/go)
 client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…", []string{"tokens:read"})
 ```
 
@@ -268,10 +268,10 @@ Both are generated from the single-source OpenAPI spec (`apps/server/openapi.yam
 |--------|-------------|-------|
 | Docker Compose (dev) | `deploy/docker/docker-compose.yml` | Full stack + PostgreSQL + Redis, single command |
 | Docker Compose (prod) | `deploy/docker/docker-compose.prod.yml` | TLS/nginx, env-file driven secrets |
-| Kubernetes (Helm) | `deploy/helm/authforge` | Chart with values-driven config; schema migration runs as a Helm hook Job |
+| Kubernetes (Helm) | `deploy/helm/fulla` | Chart with values-driven config; schema migration runs as a Helm hook Job |
 
 ```bash
-helm install authforge deploy/helm/authforge -f my-values.yaml
+helm install fulla deploy/helm/fulla -f my-values.yaml
 ```
 
 Full walkthroughs: [Production Deployment Guide](docs/ops/deployment.md) · [Windows / Docker Desktop](docs/ops/deployment-windows-docker-desktop.md) · [Security Checklist](docs/ops/security-checklist.md)
@@ -282,8 +282,8 @@ Full walkthroughs: [Production Deployment Guide](docs/ops/deployment.md) · [Win
 
 Releases are cut from SemVer tags (`vX.Y.Z`) by [`release.yml`](.github/workflows/release.yml):
 
-- **SDK package** — `authforge-sdk-<ver>-linux-x86_64.tar.gz` (8 static libs + headers + CMake package configs) with `.sha256` checksum, attached to the GitHub Release.
-- **Container images** — multi-arch (amd64 + arm64) on GHCR: `ghcr.io/voidvec/authforge-{backend,frontend,admin}:<ver>`.
+- **SDK package** — `fulla-sdk-<ver>-linux-x86_64.tar.gz` (8 static libs + headers + CMake package configs) with `.sha256` checksum, attached to the GitHub Release.
+- **Container images** — multi-arch (amd64 + arm64) on GHCR: `ghcr.io/voidvec/fulla-{backend,frontend,admin}:<ver>`.
 - **Signatures** — image manifests are signed by digest with cosign (keyless, GitHub OIDC).
 - **SBOMs** — SPDX JSON for each image and the source tree (syft), attached to the Release.
 
@@ -291,12 +291,12 @@ Verify before deploying:
 
 ```bash
 # Image signature
-cosign verify ghcr.io/voidvec/authforge-backend:<version> \
+cosign verify ghcr.io/voidvec/fulla-backend:<version> \
   --certificate-identity-regexp 'github.com/voidvec/.+/.github/workflows/release.yml' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # SDK tarball integrity
-sha256sum -c authforge-sdk-<version>-linux-x86_64.tar.gz.sha256
+sha256sum -c fulla-sdk-<version>-linux-x86_64.tar.gz.sha256
 ```
 
 ---

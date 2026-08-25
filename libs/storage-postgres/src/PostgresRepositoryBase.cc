@@ -1,7 +1,7 @@
-#include <authforge/storage/postgres/PostgresRepositoryBase.h>
+#include <fulla/storage/postgres/PostgresRepositoryBase.h>
 #include <drogon/drogon.h>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 void PostgresRepositoryBase::initFromConfig(const Json::Value &config)
@@ -28,4 +28,4 @@ void PostgresRepositoryBase::initFromConfig(const Json::Value &config)
     }
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

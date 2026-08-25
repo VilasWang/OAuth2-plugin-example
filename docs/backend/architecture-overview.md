@@ -21,10 +21,10 @@ The project has been refactored into a core Plugin Library and a Demo Server to 
 ```text
 HTTP request
   |
-  |-- authforge-server (apps/server — demo server binary)
+  |-- fulla-server (apps/server — demo server binary)
   |   `-- AuthService: local app authentication (libs/drogon/src/AuthService.cc)
   |
-  `-- authforge::drogon (libs/drogon — standalone SDK package, target authforge::drogon)
+  `-- fulla::drogon (libs/drogon — standalone SDK package, target fulla::drogon)
       |-- Plugin Core
       |   `-- OAuth2Plugin: initialization and lifecycle manager
       |
@@ -48,7 +48,7 @@ HTTP request
 ## 3. Authorization-Code Flow
 
 ```text
-Vue SPA                 authforge-server (App)     OAuth2Plugin (Core)        Storage
+Vue SPA                 fulla-server (App)     OAuth2Plugin (Core)        Storage
   |                          |                            |                     |
   | GET /oauth2/authorize    |                            |                     |
   |------------------------------------------------------>| validate client     |
@@ -107,8 +107,8 @@ secrets are not exposed to the browser.
 
 The provided Docker Compose stack starts:
 
-- `oauth2-frontend` on port `8080`
-- `oauth2-backend` on port `5555`
+- `fulla-frontend` on port `8080`
+- `fulla-backend` on port `5555`
 - PostgreSQL on host port `5433`
 - Redis on host port `6380`
 - Prometheus on port `9090`

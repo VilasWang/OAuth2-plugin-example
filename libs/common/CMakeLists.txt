@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-# libs/common (authforge::common) -- Task 13, authforge-sdk-refactor
+# libs/common (fulla::common) -- Task 13, fulla-sdk-refactor
 # (design.md §4.1/§5.1/§6). Domain-layer shared kernel: Result<T,Error>,
 # framework-agnostic ErrorCatalog/ErrorEnvelope, value objects (Subject,
 # Scope, ClientId, RedirectUri, PkceChallenge, TokenValue, TenantId), ports
@@ -17,8 +17,8 @@ cmake_minimum_required(VERSION 3.16)
 # examples/third-party-host in a later milestone) without requiring the
 # repo root's shared CMake modules to already be included.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
-if(NOT DEFINED OAUTH2_PROJECT_VERSION)
-    set(OAUTH2_PROJECT_VERSION 1.0.0)
+if(NOT DEFINED FULLA_PROJECT_VERSION)
+    set(FULLA_PROJECT_VERSION 1.0.0)
 endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
@@ -27,12 +27,12 @@ if(NOT COMMAND oauth2_apply_warnings)
     include(Warnings)
 endif()
 
-project(authforge-common VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+project(fulla-common VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX)
 
 find_package(jsoncpp CONFIG REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
-add_library(authforge::common ALIAS ${PROJECT_NAME})
+add_library(fulla::common ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
@@ -40,8 +40,8 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
 )
 
-file(GLOB_RECURSE AUTHFORGE_COMMON_SOURCES "src/*.cc")
-target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_COMMON_SOURCES})
+file(GLOB_RECURSE FULLA_COMMON_SOURCES "src/*.cc")
+target_sources(${PROJECT_NAME} PRIVATE ${FULLA_COMMON_SOURCES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC JsonCpp::JsonCpp)
 
@@ -61,7 +61,7 @@ oauth2_apply_compat(${PROJECT_NAME})
 
 # First-party warning level (shared module); PRIVATE, no SDK-consumer leak.
 oauth2_apply_warnings(${PROJECT_NAME})
-# gcov instrumentation (no-op unless -DOAUTH2_TEST_COVERAGE=ON); PRIVATE.
+# gcov instrumentation (no-op unless -DFULLA_TEST_COVERAGE=ON); PRIVATE.
 oauth2_apply_gcov(${PROJECT_NAME})
 
 # --- arch-guard note (enforced by tooling in a later M6 task, Task 33) ---
@@ -71,16 +71,16 @@ oauth2_apply_gcov(${PROJECT_NAME})
 # libs/common.
 
 include(GNUInstallDirs)
-install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/fulla DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # SDK packaging: install-tree + build-tree find_package() config carrying the
-# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
-if(NOT COMMAND authforge_package)
-    include(AuthForgePackage)
+# transitive find_dependency() closure (fulla-sdk-refactor Task 28a).
+if(NOT COMMAND fulla_package)
+    include(FullaPackage)
 endif()
-authforge_package(
+fulla_package(
     TARGET ${PROJECT_NAME}
-    PACKAGE authforge-common
+    PACKAGE fulla-common
     EXPORT_NAME common
     DEPENDENCIES jsoncpp
 )

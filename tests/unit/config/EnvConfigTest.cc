@@ -20,10 +20,10 @@ DROGON_TEST(Unit_P1_Config_EnvInjection_Works)
 {
     // Only run this verify if we specifically signaled it via ENV
     // This allows normal tests to pass without needing these specific ENVs
-    const char *flag = std::getenv("OAUTH2_ENV_TEST_FLAG");
+    const char *flag = std::getenv("FULLA_ENV_TEST_FLAG");
     if (!flag)
     {
-        LOG_INFO << "Skipping EnvInjectionVerify (OAUTH2_ENV_TEST_FLAG not set)";
+        LOG_INFO << "Skipping EnvInjectionVerify (FULLA_ENV_TEST_FLAG not set)";
         return;
     }
 
@@ -43,7 +43,7 @@ DROGON_TEST(Unit_P1_Config_EnvInjection_Works)
     }
 
     // Check DB Name Override
-    const char *expectedDbName = std::getenv("OAUTH2_DB_NAME");
+    const char *expectedDbName = std::getenv("FULLA_DB_NAME");
     if (expectedDbName)
     {
         if (config.isMember("db_clients") && config["db_clients"].size() > 0)
@@ -58,7 +58,7 @@ DROGON_TEST(Unit_P1_Config_EnvInjection_Works)
     }
 
     // Check Vue Client Secret Override
-    const char *expectedSecret = std::getenv("OAUTH2_VUE_CLIENT_SECRET");
+    const char *expectedSecret = std::getenv("FULLA_VUE_CLIENT_SECRET");
     if (expectedSecret)
     {
         bool found = false;

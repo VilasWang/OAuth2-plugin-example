@@ -1,7 +1,7 @@
 #pragma once
 
-// M5 Task 30 (authforge-sdk-refactor): Organization management relocated from
-// libs/drogon (authforge::drogon::controllers) into the product app
+// M5 Task 30 (fulla-sdk-refactor): Organization management relocated from
+// libs/drogon (fulla::drogon::controllers) into the product app
 // (apps/server/src/organization/, namespace `organization`). Per design.md
 // §5.4, Organization management is a PRODUCT-level concern (multi-tenant org
 // CRUD), NOT part of the reusable protocol-engine/identity SDK, so it does
@@ -12,7 +12,7 @@
 //
 // This controller still depends on the SDK's public surface (OpenApiGenerator,
 // ErrorResponder, AuditLogger), which the product app links via
-// authforge::drogon / oauth2 -- correct dependency direction (product -> SDK).
+// fulla::drogon / oauth2 -- correct dependency direction (product -> SDK).
 
 #include <drogon/HttpController.h>
 
@@ -27,19 +27,19 @@ class OrganizationController : public ::drogon::HttpController<OrganizationContr
       OrganizationController::list,
       "/api/admin/organizations",
       ::drogon::Get,
-      "authforge::drogon::filters::AuthorizationFilter"
+      "fulla::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       OrganizationController::create,
       "/api/admin/organizations",
       ::drogon::Post,
-      "authforge::drogon::filters::AuthorizationFilter"
+      "fulla::drogon::filters::AuthorizationFilter"
     );
     ADD_METHOD_TO(
       OrganizationController::getBySlug,
       "/api/admin/organizations/{slug}",
       ::drogon::Get,
-      "authforge::drogon::filters::AuthorizationFilter"
+      "fulla::drogon::filters::AuthorizationFilter"
     );
     METHOD_LIST_END
 

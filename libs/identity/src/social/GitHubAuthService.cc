@@ -5,9 +5,9 @@
 
 #ifdef WITH_SOCIAL
 
-#include <authforge/identity/SocialAuthService.h>
+#include <fulla/identity/SocialAuthService.h>
 
-namespace authforge::identity
+namespace fulla::identity
 {
 
 GitHubAuthService::GitHubAuthService(
@@ -210,6 +210,6 @@ void GitHubAuthService::login(
     });
 }
 
-}  // namespace authforge::identity
+}  // namespace fulla::identity
 
 #endif  // WITH_SOCIAL

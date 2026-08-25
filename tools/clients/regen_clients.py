@@ -10,7 +10,7 @@ sections D9 + 11.5).
 Generators are pinned (upgrades go through a dedicated PR so the resulting
 whole-tree diff stays reviewable):
 
-  openapi-python-client 0.29.0   -> clients/python/src/authforge/generated/
+  openapi-python-client 0.29.0   -> clients/python/src/fulla/generated/
                                     (package-internal relative imports make the
                                     generated package relocatable; the generator
                                     also writes project-level files next to the
@@ -55,9 +55,9 @@ OPENAPI_YAML = Path("apps/server/openapi.yaml")
 VERSION_CMAKE = Path("cmake/Version.cmake")
 PY_CLIENT_DIR = Path("clients/python")
 PY_GEN_CONFIG = PY_CLIENT_DIR / "openapi-python-client.yaml"
-PY_GENERATED = PY_CLIENT_DIR / "src" / "authforge" / "generated"
+PY_GENERATED = PY_CLIENT_DIR / "src" / "fulla" / "generated"
 PY_PROJECT = PY_CLIENT_DIR / "pyproject.toml"
-PY_PACKAGE_NAME = "authforge"  # must match PY_GEN_CONFIG package_name_override
+PY_PACKAGE_NAME = "fulla"  # must match PY_GEN_CONFIG package_name_override
 GO_CLIENT_DIR = Path("clients/go")
 GO_GENERATED = GO_CLIENT_DIR / "generated"
 GO_PACKAGE = "generated"
@@ -82,7 +82,7 @@ def _cmake_version(repo: Path) -> Optional[Tuple[int, int, int]]:
     text = (repo / VERSION_CMAKE).read_text(encoding="utf-8")
     parts = []
     for component in ("MAJOR", "MINOR", "PATCH"):
-        m = re.search(rf"OAUTH2_PROJECT_VERSION_{component}\s+(\d+)", text)
+        m = re.search(rf"FULLA_PROJECT_VERSION_{component}\s+(\d+)", text)
         if not m:
             return None
         parts.append(int(m.group(1)))
@@ -324,9 +324,9 @@ def _selftest() -> int:
         root = Path(tmp)
         (root / "cmake").mkdir()
         (root / "cmake" / "Version.cmake").write_text(
-            "set(OAUTH2_PROJECT_VERSION_MAJOR 1)\n"
-            "set(OAUTH2_PROJECT_VERSION_MINOR 2)\n"
-            "set(OAUTH2_PROJECT_VERSION_PATCH 0)\n"
+            "set(FULLA_PROJECT_VERSION_MAJOR 1)\n"
+            "set(FULLA_PROJECT_VERSION_MINOR 2)\n"
+            "set(FULLA_PROJECT_VERSION_PATCH 0)\n"
         )
         client_py = root / "clients" / "python"
         client_py.mkdir(parents=True)

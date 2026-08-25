@@ -104,7 +104,7 @@ report). Key facts the design builds on:
   > `V006` is rewritten; this paragraph documents *today's* catalog only.
 - **Scope transport**: space-joined `TEXT` column on every grant/token table
   (`V002__oauth2_core.sql`); no normalized token↔scope table.
-- **`EndpointInfo`** (`libs/drogon/include/authforge/drogon/observability/openapi/OpenApiGenerator.h:76-90`) already has `requiresAuth` + `authType`
+- **`EndpointInfo`** (`libs/drogon/include/fulla/drogon/observability/openapi/OpenApiGenerator.h:76-90`) already has `requiresAuth` + `authType`
   per endpoint, filled per-controller in `initApiDocsImpl()`. **This is the natural home for a
   `requiredScopes` field** — it is per-endpoint and filled at the source that already knows the
   path.
@@ -129,8 +129,8 @@ A new central registry maps `(path, method) → {requiredScopes, requireAny/All,
 and is the **single source of truth** consulted by both filters and the OpenAPI generator.
 
 ```cpp
-// libs/drogon/include/authforge/drogon/authz/ResourceScopeRegistry.h
-namespace authforge::drogon::authz {
+// libs/drogon/include/fulla/drogon/authz/ResourceScopeRegistry.h
+namespace fulla::drogon::authz {
 
 enum class ScopeMatch { All, Any };  // ALL: token must hold every; ANY: at least one
 
@@ -245,7 +245,7 @@ Both filters' scope-gate logic becomes a thin call into the registry + resolver:
 ```cpp
 // OAuth2AuthFilter::doFilter, replacing lines 151-170
 if (auto* req = ResourceScopeRegistry::lookup(req->path(), req->method())) {
-    if (!authforge::drogon::authz::satisfies(tokenInfo->scope, *req)) {
+    if (!fulla::drogon::authz::satisfies(tokenInfo->scope, *req)) {
         respondInsufficientScope(req, fcb, *req);   // single emitter (§5.7)
         return;
     }
@@ -308,7 +308,7 @@ Tier-2. No new tables; no token-format change.
 
 | Risk | Mitigation |
 |---|---|
-| Registry misses a route → 403 where there was none, or no gate where there was one | Build-time/startup consistency check: every route registered via `ADD_METHOD_TO` that carries an auth filter MUST have a registry entry; fail startup (LOG_FATAL) if not. Mirrors the `OAUTH2_AUTO_MIGRATE` loud-fail pattern. |
+| Registry misses a route → 403 where there was none, or no gate where there was one | Build-time/startup consistency check: every route registered via `ADD_METHOD_TO` that carries an auth filter MUST have a registry entry; fail startup (LOG_FATAL) if not. Mirrors the `FULLA_AUTO_MIGRATE` loud-fail pattern. |
 | Implication graph has a cycle | Resolver validates DAG at startup; reject cyclic config. |
 | Operators rely on the blanket `admin` and don't mint leaf scopes | Implication makes `admin` still sufficient; no breakage. |
 | OpenAPI `x-required-scopes` extension ignored by existing consumers | Additive; non-breaking for consumers that ignore unknown fields. |

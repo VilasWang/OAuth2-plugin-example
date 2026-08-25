@@ -1,18 +1,18 @@
-#include <authforge/storage/postgres/PostgresIdentityRepository.h>
+#include <fulla/storage/postgres/PostgresIdentityRepository.h>
 
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/storage/postgres/models/Roles.h>
-#include <authforge/storage/postgres/models/UserRoles.h>
-#include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/Roles.h>
+#include <fulla/storage/postgres/models/UserRoles.h>
+#include <fulla/storage/postgres/models/Oauth2SubjectMappings.h>
 
 #include <drogon/drogon.h>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 using namespace ::drogon::orm;
-using namespace drogon_model::oauth2_db;
-using authforge::identity::UserData;
+using namespace drogon_model::fulla_db;
+using fulla::identity::UserData;
 
 namespace
 {
@@ -749,4 +749,4 @@ void PostgresIdentityRepository::createUserForExternalLogin(
     );
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres

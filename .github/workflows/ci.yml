@@ -50,7 +50,7 @@ jobs:
         run: python3 tools/migration-check/migration_check.py
 
       - name: Check SDK API Surface (api-diff)
-        # SemVer guard over the exported SDK headers (libs/*/include/authforge).
+        # SemVer guard over the exported SDK headers (libs/*/include/fulla).
         # Any drift from tools/api-diff/api-baseline.txt fails; breaking drift
         # additionally demands a major bump before the baseline can be updated.
         run: python3 tools/api-diff/api_diff.py
@@ -103,12 +103,12 @@ jobs:
             runs_on: ubuntu-22.04
             cmake_preset: linux-release
             preset_dir: build/linux-release
-            configure_extra_args: "-DAUTHFORGE_WERROR=ON"
+            configure_extra_args: "-DFULLA_WERROR=ON"
             use_database: true
             use_ci_config: false
             run_named_test_gates: true
             test_bin_subdir: ""
-            test_exe: authforge-tests
+            test_exe: fulla-tests
             test_db_host: "127.0.0.1"
             test_redis_host: "127.0.0.1"
             timeout_minutes: 30
@@ -117,12 +117,12 @@ jobs:
             runs_on: windows-2022
             cmake_preset: windows-msvc
             preset_dir: build/windows-msvc
-            configure_extra_args: "-DAUTHFORGE_WERROR=ON"
+            configure_extra_args: "-DFULLA_WERROR=ON"
             use_database: false
             use_ci_config: true
             run_named_test_gates: true
             test_bin_subdir: Release
-            test_exe: authforge-tests.exe
+            test_exe: fulla-tests.exe
             test_db_host: ""
             test_redis_host: ""
             timeout_minutes: 60
@@ -132,12 +132,12 @@ jobs:
             cmake_preset: macos-arm64
             preset_dir: build/macos-arm64
             conan_extra_settings: "-s arch=armv8"
-            configure_extra_args: "-DOAUTH2_MEMORY_TESTS_ONLY=ON -DAUTHFORGE_WERROR=ON"
+            configure_extra_args: "-DFULLA_MEMORY_TESTS_ONLY=ON -DFULLA_WERROR=ON"
             use_database: false
             use_ci_config: true
             run_named_test_gates: false
             test_bin_subdir: ""
-            test_exe: authforge-tests
+            test_exe: fulla-tests
             test_db_host: ""
             test_redis_host: ""
             timeout_minutes: 60

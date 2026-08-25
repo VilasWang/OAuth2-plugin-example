@@ -1,5 +1,5 @@
-// Task 17 slice 3 (authforge-sdk-refactor): unit tests for the ported M1
-// repository interfaces (authforge::oauth2::repository). These are
+// Task 17 slice 3 (fulla-sdk-refactor): unit tests for the ported M1
+// repository interfaces (fulla::oauth2::repository). These are
 // interface/contract-shape tests -- minimal in-memory fake implementations
 // exist only to prove the interfaces are usable (compile + basic
 // polymorphic dispatch), NOT full contract tests (those remain
@@ -10,12 +10,12 @@
 // logic (not just a pure-virtual declaration) carried over from the
 // original.
 
-#include <authforge/oauth2/model/Dto.h>
-#include <authforge/oauth2/model/UserRef.h>
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/repository/IConsentRepository.h>
-#include <authforge/oauth2/repository/IGrantRepository.h>
-#include <authforge/oauth2/repository/ITokenRepository.h>
+#include <fulla/oauth2/model/Dto.h>
+#include <fulla/oauth2/model/UserRef.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
 
 #include <gtest/gtest.h>
 
@@ -25,8 +25,8 @@
 namespace
 {
 
-using namespace authforge::oauth2::model;
-using namespace authforge::oauth2::repository;
+using namespace fulla::oauth2::model;
+using namespace fulla::oauth2::repository;
 
 // ---------------------------------------------------------------------
 // Minimal fakes -- just enough to instantiate each interface and prove

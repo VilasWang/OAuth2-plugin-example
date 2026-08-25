@@ -52,8 +52,8 @@
 #include <drogon/HttpResponse.h>
 #include <drogon/HttpTypes.h>
 
-#include <authforge/drogon/controllers/HealthController.h>
-using authforge::drogon::controllers::HealthController;
+#include <fulla/drogon/controllers/HealthController.h>
+using fulla::drogon::controllers::HealthController;
 
 #include <json/json.h>
 
@@ -77,12 +77,12 @@ namespace
 {
 
 // Absolute path to the committed golden directory, injected by the test
-// CMakeLists via a compile definition (OAUTH2_GOLDEN_DIR) so the snapshot files
+// CMakeLists via a compile definition (FULLA_GOLDEN_DIR) so the snapshot files
 // can be located/seeded regardless of the test executable's working directory
 // (CMake normalises the path with forward slashes, usable by std::ifstream /
 // std::ofstream on all platforms).
-#ifndef OAUTH2_GOLDEN_DIR
-#define OAUTH2_GOLDEN_DIR ""
+#ifndef FULLA_GOLDEN_DIR
+#define FULLA_GOLDEN_DIR ""
 #endif
 
 // Map a drogon HttpMethod to a stable, human-readable token for the manifest.
@@ -251,7 +251,7 @@ void compareOrSeed(
   const std::string &current
 )
 {
-    const std::string goldenDir = OAUTH2_GOLDEN_DIR;
+    const std::string goldenDir = FULLA_GOLDEN_DIR;
     REQUIRE(!goldenDir.empty());  // Compile definition must be set by CMake.
 
     const std::string path = goldenDir + "/" + fileName;

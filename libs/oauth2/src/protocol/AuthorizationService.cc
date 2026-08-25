@@ -1,24 +1,24 @@
-#include <authforge/oauth2/protocol/AuthorizationService.h>
+#include <fulla/oauth2/protocol/AuthorizationService.h>
 
-#include <authforge/common/model/Subject.h>
-#include <authforge/oauth2/access/ScopeDecisionEngine.h>
-#include <authforge/oauth2/model/Client.h>
+#include <fulla/common/model/Subject.h>
+#include <fulla/oauth2/access/ScopeDecisionEngine.h>
+#include <fulla/oauth2/model/Client.h>
 
 #include <algorithm>
 #include <memory>
 #include <unordered_map>
 
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 
 namespace
 {
-authforge::oauth2::access::ScopeValidationSummary allInvalid(
+fulla::oauth2::access::ScopeValidationSummary allInvalid(
   const std::vector<std::string> &scopes,
   const std::string &reason
 )
 {
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     for (const auto &scope : scopes)
     {
         summary.invalid.push_back(scope);
@@ -57,10 +57,10 @@ const std::unordered_set<std::string> &defaultAdminScopes()
 }  // namespace
 
 AuthorizationService::AuthorizationService(
-  std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients,
-  std::shared_ptr<authforge::oauth2::repository::IConsentRepository> consents,
-  std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver,
-  std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider,
+  std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients,
+  std::shared_ptr<fulla::oauth2::repository::IConsentRepository> consents,
+  std::shared_ptr<fulla::common::ports::ISubjectResolver> subjectResolver,
+  std::shared_ptr<fulla::common::ports::IRoleProvider> roleProvider,
   std::unordered_set<std::string> adminScopes
 )
     : clients_(std::move(clients)),
@@ -75,7 +75,7 @@ void AuthorizationService::evaluateScopes(
   const std::string &clientId,
   const std::string &subject,
   const std::vector<std::string> &requestedScopes,
-  std::function<void(authforge::oauth2::access::ScopeValidationSummary)> &&callback
+  std::function<void(fulla::oauth2::access::ScopeValidationSummary)> &&callback
 )
 {
     if (!clients_)
@@ -87,7 +87,7 @@ void AuthorizationService::evaluateScopes(
     clients_->getClient(
       clientId,
       [this, clientId, subject, requestedScopes, callback = std::move(callback)](
-        std::optional<authforge::oauth2::model::OAuth2Client> clientOpt
+        std::optional<fulla::oauth2::model::OAuth2Client> clientOpt
       ) mutable {
           if (!clientOpt)
           {
@@ -95,7 +95,7 @@ void AuthorizationService::evaluateScopes(
               return;
           }
 
-          auto client = std::make_shared<authforge::oauth2::model::Client>(std::move(*clientOpt));
+          auto client = std::make_shared<fulla::oauth2::model::Client>(std::move(*clientOpt));
           bool needsAdminCheck = anyRequiresAdminRole(requestedScopes, adminScopes_);
 
           // Resolve internalUserId once (used for both the admin-role check
@@ -107,7 +107,7 @@ void AuthorizationService::evaluateScopes(
                     cb(std::nullopt);
                     return;
                 }
-                authforge::common::model::Subject subjectValue(subj);
+                fulla::common::model::Subject subjectValue(subj);
                 subjectResolver_->resolve(subjectValue, std::move(cb));
             };
 
@@ -136,8 +136,8 @@ void AuthorizationService::evaluateScopes(
                     // a few redundant lookups).
                     if (!consents_ || !internalUserId)
                     {
-                        authforge::oauth2::access::ScopeValidationSummary summary =
-                          authforge::oauth2::access::evaluateScopes(
+                        fulla::oauth2::access::ScopeValidationSummary summary =
+                          fulla::oauth2::access::evaluateScopes(
                             requestedScopes, *client, hasAdminRole, [](const std::string &) {
                                 return false;
                             },
@@ -154,7 +154,7 @@ void AuthorizationService::evaluateScopes(
                     if (requestedScopes.empty())
                     {
                         callback(
-                          authforge::oauth2::access::evaluateScopes(
+                          fulla::oauth2::access::evaluateScopes(
                             requestedScopes, *client, hasAdminRole, [](const std::string &) {
                                 return false;
                             },
@@ -166,7 +166,7 @@ void AuthorizationService::evaluateScopes(
                         return;
                     }
 
-                    authforge::oauth2::model::UserRef userRef{*internalUserId};
+                    fulla::oauth2::model::UserRef userRef{*internalUserId};
                     for (const auto &scope : requestedScopes)
                     {
                         consents_->hasUserConsent(
@@ -187,7 +187,7 @@ void AuthorizationService::evaluateScopes(
                                   if (--(*remaining) == 0)
                                   {
                                       callback(
-                                        authforge::oauth2::access::evaluateScopes(
+                                        fulla::oauth2::access::evaluateScopes(
                                           requestedScopes,
                                           *client,
                                           hasAdminRole,
@@ -231,4 +231,4 @@ void AuthorizationService::evaluateScopes(
     );
 }
 
-}  // namespace authforge::oauth2::protocol
+}  // namespace fulla::oauth2::protocol

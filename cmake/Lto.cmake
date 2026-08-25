@@ -2,7 +2,7 @@
 #
 # OFF by default: every existing preset produces byte-identical build
 # behavior. The dedicated *-lto presets (CMakePresets.json) set
-# AUTHFORGE_ENABLE_LTO=ON for the bench arm of the perf A/B
+# FULLA_ENABLE_LTO=ON for the bench arm of the perf A/B
 # (docs/performance-optimization-report.md bottleneck #8; IO-bound server,
 # expected 0-3% — managed expectations, verdict by same-day A/B only).
 #
@@ -16,14 +16,14 @@ include_guard(GLOBAL)
 
 include(CheckIPOSupported)
 
-option(AUTHFORGE_ENABLE_LTO "Enable link-time optimization (LTO) for first-party targets" OFF)
+option(FULLA_ENABLE_LTO "Enable link-time optimization (LTO) for first-party targets" OFF)
 
-if(AUTHFORGE_ENABLE_LTO)
-    check_ipo_supported(RESULT _authforge_ipo_supported OUTPUT _authforge_ipo_output)
-    if(NOT _authforge_ipo_supported)
+if(FULLA_ENABLE_LTO)
+    check_ipo_supported(RESULT _fulla_ipo_supported OUTPUT _fulla_ipo_output)
+    if(NOT _fulla_ipo_supported)
         message(FATAL_ERROR
-            "AUTHFORGE_ENABLE_LTO=ON but interprocedural optimization is not supported "
-            "by this toolchain: ${_authforge_ipo_output}")
+            "FULLA_ENABLE_LTO=ON but interprocedural optimization is not supported "
+            "by this toolchain: ${_fulla_ipo_output}")
     endif()
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
     message(STATUS "LTO: interprocedural optimization enabled")

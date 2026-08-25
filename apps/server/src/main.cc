@@ -1,4 +1,4 @@
-// M3 Task 25 (authforge-sdk-refactor, design.md §6 "apps/server/src/main.cc
+// M3 Task 25 (fulla-sdk-refactor, design.md §6 "apps/server/src/main.cc
 // # 仅装配：读配置 → 构造实现 → 注入端口 → run"): main() has been reduced
 // to pure assembly -- CorsSetup/SecurityHeaders/ExceptionHandlerSetup/
 // OpenApiSetup/MigrationRunner/ControllerRegistration are now independent
@@ -8,21 +8,21 @@
 #include <drogon/drogon.h>
 #include <drogon/plugins/Hodor.h>
 #include <json/json.h>
-#include <authforge/common/config/ConfigManager.h>
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/drogon/error/RequestId.h>
-#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
-#include <authforge/drogon/controllers/TokenEndpointController.h>
-#include <authforge/drogon/controllers/DiscoveryController.h>
-#include <authforge/drogon/controllers/UserAdminController.h>
-#include <authforge/drogon/controllers/ClientAdminController.h>
-#include <authforge/drogon/controllers/TokenAdminController.h>
-#include <authforge/drogon/controllers/RoleScopeAdminController.h>
-#include <authforge/drogon/controllers/AuditController.h>
-#include <authforge/drogon/controllers/UserSelfServiceController.h>
-#include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <fulla/common/config/ConfigManager.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/drogon/error/RequestId.h>
+#include <fulla/drogon/controllers/AuthorizationEndpointController.h>
+#include <fulla/drogon/controllers/TokenEndpointController.h>
+#include <fulla/drogon/controllers/DiscoveryController.h>
+#include <fulla/drogon/controllers/UserAdminController.h>
+#include <fulla/drogon/controllers/ClientAdminController.h>
+#include <fulla/drogon/controllers/TokenAdminController.h>
+#include <fulla/drogon/controllers/RoleScopeAdminController.h>
+#include <fulla/drogon/controllers/AuditController.h>
+#include <fulla/drogon/controllers/UserSelfServiceController.h>
+#include <fulla/drogon/authz/ResourceScopeRegistry.h>
 #include <OrganizationController.h>  // #43: product-app org controller scope decls
 
 #include "bootstrap/ControllerRegistration.h"
@@ -85,14 +85,14 @@ static Json::Value loadConfiguration(const std::string &configPath)
 {
     Json::Value config;
 
-    if (!authforge::common::config::ConfigManager::load(configPath, config))
+    if (!fulla::common::config::ConfigManager::load(configPath, config))
     {
         LOG_FATAL << "Failed to load configuration from: " << configPath;
         exit(1);
     }
 
     std::string validationError;
-    if (!authforge::common::config::ConfigManager::validate(config, validationError))
+    if (!fulla::common::config::ConfigManager::validate(config, validationError))
     {
         LOG_FATAL << "Configuration validation failed: " << validationError;
         exit(1);
@@ -102,13 +102,13 @@ static Json::Value loadConfiguration(const std::string &configPath)
     return config;
 }
 
-#ifdef AUTHFORGE_LEAK_DIAG
+#ifdef FULLA_LEAK_DIAG
 // Diagnostic-only build hook (docs/performance-optimization/
 // backend-memory-retention-investigation.md): `kill -USR1 <worker>` runs a
 // LeakSanitizer report on the live process. Registered in main() BEFORE any
 // threads start; the check stops the world itself — call it with the server
 // idle (threads parked in epoll) to avoid interrupting a malloc critical
-// section. Enabled only by the diagnostic preset's -DAUTHFORGE_LEAK_DIAG.
+// section. Enabled only by the diagnostic preset's -DFULLA_LEAK_DIAG.
 #include <csignal>
 extern "C" int __lsan_do_recoverable_leak_check(void);
 extern "C" void __sanitizer_print_memory_profile(unsigned, unsigned);
@@ -131,7 +131,7 @@ static void registerLeakDiagHook()
 
 int main(int argc, char *argv[])
 {
-    // Task 37 (authforge-sdk-refactor): --migrate-only runs all pending
+    // Task 37 (fulla-sdk-refactor): --migrate-only runs all pending
     // schema migrations synchronously and exits 0/1 without starting the
     // HTTP server. This is the entry point for the Helm
     // pre-install/pre-upgrade hook Job; regular startup is unaffected.
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
         else
         {
             std::cerr << "Unknown argument: " << argv[i] << std::endl
-                      << "Usage: authforge-server [--migrate-only]" << std::endl;
+                      << "Usage: fulla-server [--migrate-only]" << std::endl;
             return 1;
         }
     }
@@ -172,14 +172,14 @@ int main(int argc, char *argv[])
     drogon::app().loadConfigJson(config);
 
     LOG_INFO << "Database host: "
-             << authforge::common::config::ConfigManager::get<std::string>(
+             << fulla::common::config::ConfigManager::get<std::string>(
                   config, "db_clients.0.host", "localhost"
                 );
     LOG_INFO
       << "Database port: "
-      << authforge::common::config::ConfigManager::get<int>(config, "db_clients.0.port", 5432);
+      << fulla::common::config::ConfigManager::get<int>(config, "db_clients.0.port", 5432);
     LOG_INFO << "Redis host: "
-             << authforge::common::config::ConfigManager::get<std::string>(
+             << fulla::common::config::ConfigManager::get<std::string>(
                   config, "redis_clients.0.host", "localhost"
                 );
 
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
     // truth invariants at startup (Requirement 3.5). A violation aborts the
     // process so a defective build is never released.
     drogon::app().registerBeginningAdvice([]() {
-        authforge::common::error::ErrorCatalog::validateInvariants();
+        fulla::common::error::ErrorCatalog::validateInvariants();
         LOG_INFO << "ErrorCatalog invariants validated";
     });
 
@@ -205,10 +205,10 @@ int main(int argc, char *argv[])
     // or an orphan registry entry, LOG_FATAL-aborts -- a defective build is
     // never released (same loud-fail philosophy as ErrorCatalog above).
     drogon::app().registerBeginningAdvice([]() {
-        authforge::drogon::authz::ResourceScopeRegistry::runConsistencyCheck();
+        fulla::drogon::authz::ResourceScopeRegistry::runConsistencyCheck();
     });
 
-    // M3 Task 23 (authforge-sdk-refactor, evaluation H4): wire the
+    // M3 Task 23 (fulla-sdk-refactor, evaluation H4): wire the
     // OAuth2Plugin pointer into every controller/filter that exposes a
     // setPlugin(), replacing their per-request
     // drogon::app().getPlugin<OAuth2Plugin>() lookups with a cached
@@ -221,8 +221,8 @@ int main(int argc, char *argv[])
         LOG_INFO << "Controller/filter plugin dependencies wired";
     });
 
-    // Task 24 slice 4 (authforge-sdk-refactor): construct the identity-layer
-    // services (authforge::identity::AuthService/SessionManager) and inject
+    // Task 24 slice 4 (fulla-sdk-refactor): construct the identity-layer
+    // services (fulla::identity::AuthService/SessionManager) and inject
     // them into SessionController. Must run after
     // wireControllerPluginDependencies() has registered every controller
     // (registerBeginningAdvice callbacks run in registration order) and,
@@ -245,11 +245,11 @@ int main(int argc, char *argv[])
             if (hodor)
             {
                 hodor->setRejectResponseFactory([](const drogon::HttpRequestPtr &req) {
-                    authforge::common::error::Error error =
-                      authforge::common::error::Error::fromCode(
-                        "VALIDATION_RATE_LIMITED", authforge::common::error::RequestId::resolve(req)
+                    fulla::common::error::Error error =
+                      fulla::common::error::Error::fromCode(
+                        "VALIDATION_RATE_LIMITED", fulla::common::error::RequestId::resolve(req)
                       );
-                    return authforge::common::error::ErrorResponder::buildResponse(req, error);
+                    return fulla::common::error::ErrorResponder::buildResponse(req, error);
                 });
                 LOG_INFO << "Hodor rate limiter enabled";
             }
@@ -267,18 +267,18 @@ int main(int argc, char *argv[])
     // why OAuth2Plugin no longer calls it itself: circular-dependency
     // avoidance between OAuth2Plugin and libs/drogon).
     LOG_INFO << "Initializing API documentation...";
-    authforge::drogon::controllers::AuthorizationEndpointController::initApiDocs();
-    authforge::drogon::controllers::TokenEndpointController::initApiDocs();
-    authforge::drogon::controllers::DiscoveryController::initApiDocs();
+    fulla::drogon::controllers::AuthorizationEndpointController::initApiDocs();
+    fulla::drogon::controllers::TokenEndpointController::initApiDocs();
+    fulla::drogon::controllers::DiscoveryController::initApiDocs();
     // #43 resource-scope authorization: the admin + user-self-service
     // controllers now declare their per-route scope requirements here (each
     // controller's initApiDocsImpl populates EndpointInfo.requiredScopes).
-    authforge::drogon::controllers::UserAdminController::initApiDocs();
-    authforge::drogon::controllers::ClientAdminController::initApiDocs();
-    authforge::drogon::controllers::TokenAdminController::initApiDocs();
-    authforge::drogon::controllers::RoleScopeAdminController::initApiDocs();
-    authforge::drogon::controllers::AuditController::initApiDocs();
-    authforge::drogon::controllers::UserSelfServiceController::initApiDocs();
+    fulla::drogon::controllers::UserAdminController::initApiDocs();
+    fulla::drogon::controllers::ClientAdminController::initApiDocs();
+    fulla::drogon::controllers::TokenAdminController::initApiDocs();
+    fulla::drogon::controllers::RoleScopeAdminController::initApiDocs();
+    fulla::drogon::controllers::AuditController::initApiDocs();
+    fulla::drogon::controllers::UserSelfServiceController::initApiDocs();
     // #43: OrganizationController (product-app level, namespace `organization`).
     ::organization::OrganizationController::initApiDocs();
     bootstrap::setupOpenApi();
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
     // that all controllers have declared their scope requirements. The
     // registry is immutable after this point and consulted lock-free by the
     // filters at request time.
-    authforge::drogon::authz::ResourceScopeRegistry::buildFromEndpoints();
+    fulla::drogon::authz::ResourceScopeRegistry::buildFromEndpoints();
 
     // #43: the old OAuth2AuthFilter gated ALL of /api/me/* (including MFA,
     // WebAuthn subpaths) with the `profile` scope by prefix matching. The
@@ -296,17 +296,17 @@ int main(int argc, char *argv[])
     // /api/me subpath not individually declared (e.g. /api/me/mfa/*,
     // /api/me/webauthn/*). Exact entries take priority over this prefix.
     {
-        authforge::drogon::authz::ResourceScopeRequirement profileReq;
+        fulla::drogon::authz::ResourceScopeRequirement profileReq;
         profileReq.scopes = {"profile"};
         // No impliedBy -- admin does NOT satisfy user-self-service (RFC 6749
         // §3.3 / OIDC Core §5.4).
-        authforge::drogon::authz::ResourceScopeRegistry::registerPrefix("/api/me", profileReq);
+        fulla::drogon::authz::ResourceScopeRegistry::registerPrefix("/api/me", profileReq);
     }
 
     // Swagger UI is available at http://localhost:5555/docs/api
     // Static files are served from document_root configured in config.json
 
-    // 5. Database migrations (opt-in via OAUTH2_AUTO_MIGRATE=true)
+    // 5. Database migrations (opt-in via FULLA_AUTO_MIGRATE=true)
     bootstrap::setupMigrations();
     registerLeakDiagHook();
 

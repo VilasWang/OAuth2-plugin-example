@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(authforge-tests CXX)
+project(fulla-tests CXX)
 
 # Phase 7 (directory restructure, design.md §6 / Testing Strategy): the
 # backend test suite moved from apps/server/test/ to this top-level tests/
@@ -16,30 +16,30 @@ find_package(Drogon CONFIG REQUIRED)
 
 # Server sources consumed by the test binary (SchemaManager/bootstrap/
 # organization) now live one tree away:
-set(AUTHFORGE_SERVER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../apps/server/src")
+set(FULLA_SERVER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../apps/server/src")
 
 # Optional flags
-option(OAUTH2_MEMORY_TESTS_ONLY "Build only tests that do not require external databases" OFF)
-option(OAUTH2_TEST_COVERAGE "Enable code coverage reporting" OFF)
+option(FULLA_MEMORY_TESTS_ONLY "Build only tests that do not require external databases" OFF)
+option(FULLA_TEST_COVERAGE "Enable code coverage reporting" OFF)
 
-# M4 Task 27 (authforge-sdk-refactor, design.md F6 / Testing Strategy):
+# M4 Task 27 (fulla-sdk-refactor, design.md F6 / Testing Strategy):
 # This test binary used to GLOB the plugin/server sources directly into
 # itself (the Task 16 transitional bridge), masking linking-boundary
 # problems and slowing the build. The test now consumes library products
-# only: it links authforge::* below and no longer compiles any plugin or
+# only: it links fulla::* below and no longer compiles any plugin or
 # apps/server controller/filter sources directly. Whole-archive is
 # not needed (AutoCreation=false controllers are explicitly registered).
 # Phase 4 (A6): the OAuth2Plugin OBJECT library is gone -- the plugin
-# class lives in authforge::drogon (STATIC) and its public headers under
+# class lives in fulla::drogon (STATIC) and its public headers under
 # libs/drogon/include, so the former OAuth2Plugin/include path and the
 # bare OAuth2Plugin link edge are dropped.
 
 # SchemaManager: needed by the SQL-splitter unit test (unit/schema/).
 # Compiled directly into the test target so the splitter can be exercised
 # without a running database.
-set(SCHEMA_MGR_SRC "${AUTHFORGE_SERVER_SRC_DIR}/SchemaManager.cc")
+set(SCHEMA_MGR_SRC "${FULLA_SERVER_SRC_DIR}/SchemaManager.cc")
 
-# M3 Task 23 (authforge-sdk-refactor): test_main.cc now calls
+# M3 Task 23 (fulla-sdk-refactor): test_main.cc now calls
 # bootstrap::wireControllerPluginDependencies() (see its own header comment),
 # defined in ControllerRegistration.cc alongside registerAllControllers()
 # (already called by test_main.cc directly, without going through this
@@ -49,8 +49,8 @@ set(SCHEMA_MGR_SRC "${AUTHFORGE_SERVER_SRC_DIR}/SchemaManager.cc")
 # (CorsSetup/SecurityHeaders/etc) are apps/server-only concerns
 # test_main.cc does not use.
 set(BOOTSTRAP_SRC
-    "${AUTHFORGE_SERVER_SRC_DIR}/bootstrap/ControllerRegistration.cc"
-    "${AUTHFORGE_SERVER_SRC_DIR}/bootstrap/IdentityAssembly.cc"
+    "${FULLA_SERVER_SRC_DIR}/bootstrap/ControllerRegistration.cc"
+    "${FULLA_SERVER_SRC_DIR}/bootstrap/IdentityAssembly.cc"
 )
 
 # M5 Task 30: the product-level OrganizationController (apps/server/src/
@@ -59,8 +59,8 @@ set(BOOTSTRAP_SRC
 # Task 29b batch 3: OrganizationService extracted alongside (DB access via
 # Mapper+Criteria); both compile into the test binary.
 set(ORGANIZATION_SRC
-    "${AUTHFORGE_SERVER_SRC_DIR}/organization/OrganizationController.cc"
-    "${AUTHFORGE_SERVER_SRC_DIR}/organization/OrganizationService.cc"
+    "${FULLA_SERVER_SRC_DIR}/organization/OrganizationController.cc"
+    "${FULLA_SERVER_SRC_DIR}/organization/OrganizationService.cc"
 )
 
 # Collect hierarchical test sources
@@ -69,7 +69,7 @@ file(GLOB_RECURSE INTEGRATION_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/integration/*.c
 file(GLOB_RECURSE E2E_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/e2e-backend/*.cc")
 file(GLOB_RECURSE SECURITY_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/security/*.cc")
 file(GLOB_RECURSE PERFORMANCE_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/performance/*.cc")
-# Task 12 (authforge-sdk-refactor, design.md §7.3 / F5): tiered repository
+# Task 12 (fulla-sdk-refactor, design.md §7.3 / F5): tiered repository
 # contract tests (IClientRepository/IGrantRepository/ITokenRepository/
 # IConsentRepository across Postgres/Redis/Memory). Phase 7: now at the
 # design §6 target location tests/contract/.
@@ -80,7 +80,7 @@ set(ROOT_TEST_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/test_main.cc"
 )
 
-if(NOT OAUTH2_MEMORY_TESTS_ONLY)
+if(NOT FULLA_MEMORY_TESTS_ONLY)
     list(APPEND ROOT_TEST_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/SchemaSetup.cc"
     )
@@ -111,18 +111,18 @@ drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/../apps/server/v
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/common
-    ${AUTHFORGE_SERVER_SRC_DIR}
-    ${AUTHFORGE_SERVER_SRC_DIR}/organization
+    ${FULLA_SERVER_SRC_DIR}
+    ${FULLA_SERVER_SRC_DIR}/organization
 )
 
 # Link libraries
 find_package(OpenSSL REQUIRED)
 # M4 Task 27: the test consumes library products only. Phase 4 (A6): the
-# plugin symbols reach the test through authforge::drogon (which absorbed
+# plugin symbols reach the test through fulla::drogon (which absorbed
 # the old OAuth2Plugin OBJECT lib and PUBLIC-provides CURL::libcurl +
 # CURL_STATICLIB transitively). Plain link, no whole-archive
 # (AutoCreation=false + explicit registration in test_main.cc).
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto authforge::common authforge::oauth2 authforge::storage::postgres authforge::storage::memory authforge::drogon authforge::identity)
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon OpenSSL::Crypto fulla::common fulla::oauth2 fulla::storage::postgres fulla::storage::memory fulla::drogon fulla::identity)
 
 # Platform compatibility (shared module)
 oauth2_apply_compat(${PROJECT_NAME})
@@ -131,7 +131,7 @@ oauth2_apply_compat(${PROJECT_NAME})
 oauth2_apply_warnings(${PROJECT_NAME})
 
 # Optional TSan/ASan instrumentation (shared module).
-# Controlled by the cache option OAUTH2_SANITIZER = off|thread|address.
+# Controlled by the cache option FULLA_SANITIZER = off|thread|address.
 # GCC/Clang + Debug only; TSan and ASan are mutually exclusive (two builds).
 # The test executable compiles all plugin/server sources directly into itself,
 # so instrumenting this single target covers all code exercised by the suite.
@@ -149,17 +149,17 @@ endif()
 # from the test executable directory, so the absolute source path is injected here
 # (CMake normalizes the path with forward slashes, usable by std::ifstream on all
 # platforms). Defined as an absolute path derived from this CMakeLists location.
-get_filename_component(OAUTH2_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+get_filename_component(FULLA_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    "OAUTH2_DOC_API_REFERENCE=\"${OAUTH2_REPO_ROOT_DIR}/docs/backend/api-reference.md\"")
+    "FULLA_DOC_API_REFERENCE=\"${FULLA_REPO_ROOT_DIR}/docs/backend/api-reference.md\"")
 
 # Repo-source golden-snapshot directory for the success-response / route-manifest
 # regression test (task 12.4). The committed golden files under
 # tests/integration/error/golden/ are read (and self-seeded on first
-# run) at test time. Like OAUTH2_DOC_API_REFERENCE above, the test runs from the
+# run) at test time. Like FULLA_DOC_API_REFERENCE above, the test runs from the
 # test executable directory, so the absolute source path is injected here.
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    "OAUTH2_GOLDEN_DIR=\"${OAUTH2_REPO_ROOT_DIR}/tests/integration/error/golden\"")
+    "FULLA_GOLDEN_DIR=\"${FULLA_REPO_ROOT_DIR}/tests/integration/error/golden\"")
 
 # In-process DB seeding paths (coverage push, docs/history/design/
 # http-integration-test-coverage-plan.md Phase 1 / B1 fix): the test binary
@@ -169,17 +169,17 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 # configured. Without this, admin integration tests cannot authenticate (no
 # seeded admin user) outside the Linux CI shell step. Absolute paths derived
 # from this CMakeLists location (forward slashes, usable by std::ifstream
-# cross-platform). See OAUTH2_GOLDEN_DIR above for the same pattern.
+# cross-platform). See FULLA_GOLDEN_DIR above for the same pattern.
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    "OAUTH2_MIGRATIONS_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/migrations\""
-    "OAUTH2_SEED_DIR=\"${OAUTH2_REPO_ROOT_DIR}/apps/server/seed\"")
+    "FULLA_MIGRATIONS_DIR=\"${FULLA_REPO_ROOT_DIR}/apps/server/migrations\""
+    "FULLA_SEED_DIR=\"${FULLA_REPO_ROOT_DIR}/apps/server/seed\"")
 
 # Coverage support: delegate to oauth2_apply_gcov (cmake/Coverage.cmake).
 # The instrumented first-party libraries (each lib calls oauth2_apply_gcov
 # too) are linked into this binary, so their .gcda files are written when
 # the tests run; this call additionally instruments the test-compiled
 # sources (test_main.cc, SchemaManager.cc, bootstrap/*.cc, organization/*.cc).
-if(OAUTH2_TEST_COVERAGE)
+if(FULLA_TEST_COVERAGE)
     oauth2_apply_gcov(${PROJECT_NAME})
 endif()
 
@@ -200,7 +200,7 @@ add_test(NAME OAuth2Tests COMMAND ${PROJECT_NAME} WORKING_DIRECTORY $<TARGET_FIL
 # a shell script loop), all tagged with LABELS "Contract" so `ctest -L
 # Contract` runs exactly this set, `ctest -L Contract -E Postgres` can
 # exclude backend tiers, etc.
-set(OAUTH2_CONTRACT_TEST_NAMES
+set(FULLA_CONTRACT_TEST_NAMES
     # ClientRepositoryContractTest.cc
     Integration_P0_Contract_Functional_ClientRepository_Postgres_NotFoundReturnsNullopt
     Integration_P0_Contract_Functional_ClientRepository_Postgres_PublicClientAcceptsAnySecret
@@ -259,7 +259,7 @@ set(OAUTH2_CONTRACT_TEST_NAMES
     Integration_P0_Contract_Functional_UserInfoRepository_Postgres_UnknownUser_ReturnsNullopt
     Integration_P0_Contract_Functional_UserInfoRepository_Memory_MappedUser_SyntheticClaimsWithConfiguredRoles
     Integration_P0_Contract_Functional_UserInfoRepository_Memory_UnmappedUser_DefaultsToUserRole_NeverNullopt
-    # Coverage additions (P1, authforge coverage push): the Memory backend's
+    # Coverage additions (P1, fulla coverage push): the Memory backend's
     # split-repository methods not reached by the original contract suite --
     # revokeTokenFamily (security-critical reuse cascade), introspectToken
     # branches, revokeAccessToken audit fields, atomicRevokeRefreshToken
@@ -311,7 +311,7 @@ set(OAUTH2_CONTRACT_TEST_NAMES
     Integration_P0_Contract_Functional_ConsentRepository_Memory_PerScopeIndependence
 )
 
-foreach(_contract_test_name ${OAUTH2_CONTRACT_TEST_NAMES})
+foreach(_contract_test_name ${FULLA_CONTRACT_TEST_NAMES})
     add_test(
         NAME "Contract.${_contract_test_name}"
         COMMAND ${PROJECT_NAME} -r ${_contract_test_name}
@@ -339,7 +339,7 @@ endif()
 # Out-of-process endpoint tests (方案 A): wraps the PowerShell/curl endpoint
 # test scripts (formerly only reachable via full_test.bat/full-test.sh Step
 # 6-7) into a single ctest entry. The wrapper (run-endpoint-tests.{ps1,sh})
-# starts the authforge server, waits for health readiness, runs the OAuth2 +
+# starts the fulla server, waits for health readiness, runs the OAuth2 +
 # Admin endpoint test scripts against it, then stops the server.
 #
 # This ensures `ctest` alone exercises the full out-of-process HTTP stack --
@@ -354,7 +354,7 @@ set(_ENDPOINT_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/scripts/backend")
 
 if(WIN32)
     set(_ENDPOINT_WRAPPER "${_ENDPOINT_SCRIPTS_DIR}/run-endpoint-tests.ps1")
-    set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/Release/authforge-server.exe")
+    set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/Release/fulla-server.exe")
     find_program(_POWERSHELL_BIN NAMES pwsh powershell)
     if(_POWERSHELL_BIN)
         add_test(NAME EndpointTests_OutOfProcess
@@ -367,7 +367,7 @@ if(WIN32)
     endif()
 else()
     set(_ENDPOINT_WRAPPER "${_ENDPOINT_SCRIPTS_DIR}/run-endpoint-tests.sh")
-    set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/authforge-server")
+    set(_SERVER_BIN "${CMAKE_BINARY_DIR}/apps/server/fulla-server")
     add_test(NAME EndpointTests_OutOfProcess
         COMMAND bash "${_ENDPOINT_WRAPPER}"
                 --server-exe "${_SERVER_BIN}"

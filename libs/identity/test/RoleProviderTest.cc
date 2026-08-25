@@ -1,8 +1,8 @@
-// Task 19 (authforge-sdk-refactor, design.md §6): unit tests for
-// authforge::identity::RoleProvider (implements
-// authforge::common::ports::IRoleProvider).
+// Task 19 (fulla-sdk-refactor, design.md §6): unit tests for
+// fulla::identity::RoleProvider (implements
+// fulla::common::ports::IRoleProvider).
 
-#include <authforge/identity/RoleProvider.h>
+#include <fulla/identity/RoleProvider.h>
 
 #include <gtest/gtest.h>
 
@@ -10,8 +10,8 @@
 #include <memory>
 #include <vector>
 
-using authforge::identity::IRoleRepository;
-using authforge::identity::RoleProvider;
+using fulla::identity::IRoleRepository;
+using fulla::identity::RoleProvider;
 
 namespace
 {

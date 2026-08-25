@@ -1,13 +1,13 @@
-#include <authforge/drogon/controllers/TokenEndpointController.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/validation/RuleSet.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/utils/ScopeChecker.h>
-#include <authforge/oauth2/model/Client.h>
-#include <authforge/common/utils/RateLimiter.h>
+#include <fulla/drogon/controllers/TokenEndpointController.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/validation/RuleSet.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/utils/ScopeChecker.h>
+#include <fulla/oauth2/model/Client.h>
+#include <fulla/common/utils/RateLimiter.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -16,13 +16,13 @@
 #include <mutex>
 #include <sstream>
 
-#include <authforge/storage/postgres/models/Oauth2DeviceCodes.h>
+#include <fulla/storage/postgres/models/Oauth2DeviceCodes.h>
 
-using namespace authforge::drogon::controllers;
-using namespace authforge::drogon::observability::openapi;
+using namespace fulla::drogon::controllers;
+using namespace fulla::drogon::observability::openapi;
 using namespace ::drogon::orm;
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 ::OAuth2Plugin *TokenEndpointController::resolvePlugin() const
@@ -57,7 +57,7 @@ void TokenEndpointController::initApiDocsImpl()
         errorExample["error"] = "invalid_grant";
         errorExample["error_description"] = "Invalid authorization code";
 
-        authforge::drogon::observability::openapi::EndpointInfo tokenEndpoint;
+        fulla::drogon::observability::openapi::EndpointInfo tokenEndpoint;
         tokenEndpoint.path = "/oauth2/token";
         tokenEndpoint.method = "POST";
         tokenEndpoint.summary = "Exchange authorization code for access token";
@@ -66,67 +66,67 @@ void TokenEndpointController::initApiDocsImpl()
           "code or refresh token for access token.";
         tokenEndpoint.tags = {"OAuth2", "Token"};
 
-        authforge::drogon::observability::openapi::ParameterInfo grantTypeParam;
+        fulla::drogon::observability::openapi::ParameterInfo grantTypeParam;
         grantTypeParam.name = "grant_type";
         grantTypeParam.description = "Type of grant being requested";
-        grantTypeParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        grantTypeParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
         grantTypeParam.location =
-          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+          fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         grantTypeParam.required = true;
         grantTypeParam.enumValues = "authorization_code,refresh_token,client_credentials";
 
-        authforge::drogon::observability::openapi::ParameterInfo codeParam;
+        fulla::drogon::observability::openapi::ParameterInfo codeParam;
         codeParam.name = "code";
         codeParam.description = "Authorization code (required for grant_type=authorization_code)";
-        codeParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
-        codeParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        codeParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
+        codeParam.location = fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         codeParam.required = false;
 
-        authforge::drogon::observability::openapi::ParameterInfo refreshParam;
+        fulla::drogon::observability::openapi::ParameterInfo refreshParam;
         refreshParam.name = "refresh_token";
         refreshParam.description = "Refresh token (required for grant_type=refresh_token)";
-        refreshParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
-        refreshParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        refreshParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
+        refreshParam.location = fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         refreshParam.required = false;
 
-        authforge::drogon::observability::openapi::ParameterInfo clientIdParam;
+        fulla::drogon::observability::openapi::ParameterInfo clientIdParam;
         clientIdParam.name = "client_id";
         clientIdParam.description = "Client identifier (required)";
-        clientIdParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        clientIdParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
         clientIdParam.location =
-          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+          fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         clientIdParam.required = true;
 
-        authforge::drogon::observability::openapi::ParameterInfo clientSecretParam;
+        fulla::drogon::observability::openapi::ParameterInfo clientSecretParam;
         clientSecretParam.name = "client_secret";
         clientSecretParam.description =
           "Client secret (required for CONFIDENTIAL clients with "
           "token_endpoint_auth_method=client_secret_post; FORBIDDEN for PUBLIC "
           "clients whose method is 'none' — F-017 rejects a secret sent by a "
           "'none' client).";
-        clientSecretParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        clientSecretParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
         clientSecretParam.location =
-          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+          fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         clientSecretParam.required = false;
 
-        authforge::drogon::observability::openapi::ParameterInfo redirectUriParam;
+        fulla::drogon::observability::openapi::ParameterInfo redirectUriParam;
         redirectUriParam.name = "redirect_uri";
         redirectUriParam.description = "Redirect URI (required for authorization_code grant)";
-        redirectUriParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        redirectUriParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
         redirectUriParam.location =
-          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+          fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         redirectUriParam.required = false;
 
         // PKCE (RFC 7636): code_verifier required on the authorization_code
         // grant when the corresponding /oauth2/login sent a code_challenge.
-        authforge::drogon::observability::openapi::ParameterInfo codeVerifierParam;
+        fulla::drogon::observability::openapi::ParameterInfo codeVerifierParam;
         codeVerifierParam.name = "code_verifier";
         codeVerifierParam.description =
           "PKCE code verifier (RFC 7636). Required for the authorization_code "
           "grant when the authorize step sent a code_challenge.";
-        codeVerifierParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
+        codeVerifierParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
         codeVerifierParam.location =
-          authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+          fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         codeVerifierParam.required = false;
 
         tokenEndpoint.parameters =
@@ -159,7 +159,7 @@ void TokenEndpointController::initApiDocsImpl()
         Json::Value errorExample;
         errorExample["error"] = "User not found";
 
-        authforge::drogon::observability::openapi::EndpointInfo userInfoEndpoint;
+        fulla::drogon::observability::openapi::EndpointInfo userInfoEndpoint;
         userInfoEndpoint.path = "/oauth2/userinfo";
         userInfoEndpoint.method = "GET";
         userInfoEndpoint.summary = "Get user information";
@@ -197,7 +197,7 @@ void TokenEndpointController::initApiDocsImpl()
         successExample["sub"] = "user_456";
         successExample["scope"] = "read write";
 
-        authforge::drogon::observability::openapi::EndpointInfo introspectEndpoint;
+        fulla::drogon::observability::openapi::EndpointInfo introspectEndpoint;
         introspectEndpoint.path = "/oauth2/introspect";
         introspectEndpoint.method = "POST";
         introspectEndpoint.summary = "Introspect token";
@@ -205,11 +205,11 @@ void TokenEndpointController::initApiDocsImpl()
           "RFC 7662 OAuth 2.0 Token Introspection. Returns information about a token.";
         introspectEndpoint.tags = {"OAuth2", "Token"};
 
-        authforge::drogon::observability::openapi::ParameterInfo tokenParam;
+        fulla::drogon::observability::openapi::ParameterInfo tokenParam;
         tokenParam.name = "token";
         tokenParam.description = "The string value of the token (required)";
-        tokenParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
-        tokenParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        tokenParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
+        tokenParam.location = fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         tokenParam.required = true;
 
         introspectEndpoint.parameters = {tokenParam};
@@ -224,13 +224,13 @@ void TokenEndpointController::initApiDocsImpl()
         // bearer token. Declare clientCredentialsAuth so the generated
         // OpenAPI spec does not mislead SDK consumers into sending Bearer.
         introspectEndpoint.authType =
-          authforge::drogon::observability::openapi::AuthType::ClientCredentials;
+          fulla::drogon::observability::openapi::AuthType::ClientCredentials;
         OpenApiGenerator::addEndpoint(introspectEndpoint);
     }
 
     // Revoke endpoint
     {
-        authforge::drogon::observability::openapi::EndpointInfo revokeEndpoint;
+        fulla::drogon::observability::openapi::EndpointInfo revokeEndpoint;
         revokeEndpoint.path = "/oauth2/revoke";
         revokeEndpoint.method = "POST";
         revokeEndpoint.summary = "Revoke token";
@@ -238,11 +238,11 @@ void TokenEndpointController::initApiDocsImpl()
           "RFC 7009 OAuth 2.0 Token Revocation. Revokes an access or refresh token.";
         revokeEndpoint.tags = {"OAuth2", "Token"};
 
-        authforge::drogon::observability::openapi::ParameterInfo tokenParam;
+        fulla::drogon::observability::openapi::ParameterInfo tokenParam;
         tokenParam.name = "token";
         tokenParam.description = "The token that the client wants to get revoked (required)";
-        tokenParam.type = authforge::drogon::observability::openapi::ParameterType::STRING;
-        tokenParam.location = authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+        tokenParam.type = fulla::drogon::observability::openapi::ParameterType::STRING;
+        tokenParam.location = fulla::drogon::observability::openapi::ParameterLocation::QUERY;
         tokenParam.required = true;
 
         revokeEndpoint.parameters = {tokenParam};
@@ -253,7 +253,7 @@ void TokenEndpointController::initApiDocsImpl()
         revokeEndpoint.requiresAuth = true;  // Requires client credentials
         // RFC 7009 §2.1: same client-authentication model as introspect.
         revokeEndpoint.authType =
-          authforge::drogon::observability::openapi::AuthType::ClientCredentials;
+          fulla::drogon::observability::openapi::AuthType::ClientCredentials;
         OpenApiGenerator::addEndpoint(revokeEndpoint);
     }
 }
@@ -322,7 +322,7 @@ std::string TokenEndpointController::rateLimitKey(
 )
 {
     auto key = rateLimitKey(req, clientId);
-    auto retry = authforge::common::utils::RateLimiter::instance().checkThrottled(key);
+    auto retry = fulla::common::utils::RateLimiter::instance().checkThrottled(key);
     if (retry.count() <= 0)
         return nullptr;
     // RFC 6749 §5.2 has no rate-limit error code, so the response is HTTP 429
@@ -345,7 +345,7 @@ void TokenEndpointController::recordRateLimitSuccess(
   const std::string &clientId
 )
 {
-    authforge::common::utils::RateLimiter::instance().recordSuccess(rateLimitKey(req, clientId));
+    fulla::common::utils::RateLimiter::instance().recordSuccess(rateLimitKey(req, clientId));
 }
 
 void TokenEndpointController::recordRateLimitFailure(
@@ -353,7 +353,7 @@ void TokenEndpointController::recordRateLimitFailure(
   const std::string &clientId
 )
 {
-    authforge::common::utils::RateLimiter::instance().recordFailure(rateLimitKey(req, clientId));
+    fulla::common::utils::RateLimiter::instance().recordFailure(rateLimitKey(req, clientId));
 }
 
 ClientCredentials TokenEndpointController::extractClientCredentials(
@@ -451,7 +451,7 @@ void TokenEndpointController::introspect(
 
     if (clientId.empty() || clientSecret.empty())
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_client", "Client authentication required", "", authScheme
         );
         return;
@@ -490,17 +490,17 @@ void TokenEndpointController::introspect(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(rateAwareCallback), "server_error", "OAuth2 plugin not available"
         );
         return;
     }
 
     // Validate request parameters
-    auto validationErrors = authforge::drogon::validation::RuleSet::oauth2Introspect(req);
+    auto validationErrors = fulla::drogon::validation::RuleSet::oauth2Introspect(req);
     if (!validationErrors.empty())
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(rateAwareCallback), "invalid_request", validationErrors[0]
         );
         return;
@@ -516,7 +516,7 @@ void TokenEndpointController::introspect(
     plugin->getClient(
       clientId,
       [plugin, token, clientId, clientSecret, authScheme, secretInBody, credentials, callback = std::move(rateAwareCallback)](
-        std::optional<authforge::oauth2::model::OAuth2Client> client
+        std::optional<fulla::oauth2::model::OAuth2Client> client
       ) mutable {
           // F-017: enforce the declared auth method. Only enforce when the
           // client was found and has an explicit method (NULL/empty preserves
@@ -531,11 +531,11 @@ void TokenEndpointController::introspect(
                   if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                       m->incrementCounter(
                         "oauth2_introspect_errors_total",
-                        authforge::common::ports::MetricLabels{
+                        fulla::common::ports::MetricLabels{
                           {"client_id", clientId}, {"error", "invalid_client"}
                         }
                       );
-                  authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                  fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                     [callback = std::move(callback)](const ::drogon::HttpResponsePtr &r) { callback(r); },
                     "invalid_client",
                     methodErr,
@@ -555,11 +555,11 @@ void TokenEndpointController::introspect(
                     if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                         m->incrementCounter(
                           "oauth2_introspect_errors_total",
-                          authforge::common::ports::MetricLabels{
+                          fulla::common::ports::MetricLabels{
                             {"client_id", clientId}, {"error", "invalid_client"}
                           }
                         );
-                    authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                    fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                       std::move(callback),
                       "invalid_client",
                       "Client authentication failed",
@@ -573,7 +573,7 @@ void TokenEndpointController::introspect(
           plugin->introspectToken(
             token,
             [clientId, callback = std::move(callback)](
-              std::optional<authforge::oauth2::model::TokenIntrospection> introspection
+              std::optional<fulla::oauth2::model::TokenIntrospection> introspection
             ) mutable {
                 if (!introspection)
                 {
@@ -581,7 +581,7 @@ void TokenEndpointController::introspect(
                     if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                         m->incrementCounter(
                           "oauth2_introspect_requests_total",
-                          authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                          fulla::common::ports::MetricLabels{{"client_id", clientId}}
                         );
 
                     Json::Value response;
@@ -599,7 +599,7 @@ void TokenEndpointController::introspect(
                 if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                     m->incrementCounter(
                       "oauth2_introspect_requests_total",
-                      authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                      fulla::common::ports::MetricLabels{{"client_id", clientId}}
                     );
 
                 Json::Value response;
@@ -683,7 +683,7 @@ void TokenEndpointController::revoke(
     // lookup), so here we only reject a completely missing client_id.
     if (clientId.empty())
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_client", "Client authentication required", "", authScheme
         );
         return;
@@ -718,17 +718,17 @@ void TokenEndpointController::revoke(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(rateAwareCallback), "server_error", "OAuth2 plugin not available"
         );
         return;
     }
 
     // Validate request parameters
-    auto validationErrors = authforge::drogon::validation::RuleSet::oauth2Revoke(req);
+    auto validationErrors = fulla::drogon::validation::RuleSet::oauth2Revoke(req);
     if (!validationErrors.empty())
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(rateAwareCallback), "invalid_request", validationErrors[0]
         );
         return;
@@ -743,7 +743,7 @@ void TokenEndpointController::revoke(
     plugin->getClient(
       clientId,
       [plugin, token, clientId, clientSecret, authScheme, secretInBody, credentials, callback = std::move(rateAwareCallback)](
-        std::optional<authforge::oauth2::model::OAuth2Client> client
+        std::optional<fulla::oauth2::model::OAuth2Client> client
       ) mutable {
           if (client)
           {
@@ -755,11 +755,11 @@ void TokenEndpointController::revoke(
                   if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                       m->incrementCounter(
                         "oauth2_revocation_errors_total",
-                        authforge::common::ports::MetricLabels{
+                        fulla::common::ports::MetricLabels{
                           {"client_id", clientId}, {"error", "invalid_client"}
                         }
                       );
-                  authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                  fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                     [callback = std::move(callback)](const ::drogon::HttpResponsePtr &r) { callback(r); },
                     "invalid_client",
                     methodErr,
@@ -779,11 +779,11 @@ void TokenEndpointController::revoke(
                     if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                         m->incrementCounter(
                           "oauth2_revocation_errors_total",
-                          authforge::common::ports::MetricLabels{
+                          fulla::common::ports::MetricLabels{
                             {"client_id", clientId}, {"error", "invalid_client"}
                           }
                         );
-                    authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                    fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                       std::move(callback),
                       "invalid_client",
                       "Client authentication failed",
@@ -797,7 +797,7 @@ void TokenEndpointController::revoke(
                 plugin->introspectToken(
             token,
             [plugin, token, clientId, callback = std::move(callback)](
-              std::optional<authforge::oauth2::model::TokenIntrospection> introspection
+              std::optional<fulla::oauth2::model::TokenIntrospection> introspection
             ) mutable {
                 if (!introspection || !introspection->active)
                 {
@@ -806,7 +806,7 @@ void TokenEndpointController::revoke(
                     if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                         m->incrementCounter(
                           "oauth2_revocation_requests_total",
-                          authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                          fulla::common::ports::MetricLabels{{"client_id", clientId}}
                         );
                     callback(createSuccessResponse());
                     return;
@@ -818,11 +818,11 @@ void TokenEndpointController::revoke(
                     if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                         m->incrementCounter(
                           "oauth2_revocation_errors_total",
-                          authforge::common::ports::MetricLabels{
+                          fulla::common::ports::MetricLabels{
                             {"client_id", clientId}, {"error", "unauthorized_client"}
                           }
                         );
-                    authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                    fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                       std::move(callback),
                       "unauthorized_client",
                       "This client is not allowed to revoke the token"
@@ -842,7 +842,7 @@ void TokenEndpointController::revoke(
                 plugin->revokeAccessToken(
                   token, clientId, [plugin, clientId, token, callback = std::move(callback)]() mutable {
                       plugin->revokeRefreshToken(token, [clientId, token, callback = std::move(callback)]() mutable {
-                          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                          ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                             "token_revoked",
                             "success",
@@ -854,7 +854,7 @@ void TokenEndpointController::revoke(
                           if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                               m->incrementCounter(
                                 "oauth2_revocation_requests_total",
-                                authforge::common::ports::MetricLabels{{"client_id", clientId}}
+                                fulla::common::ports::MetricLabels{{"client_id", clientId}}
                               );
                           callback(createSuccessResponse());
                       });
@@ -874,7 +874,7 @@ void TokenEndpointController::token(
 )
 {
     // Use ValidatorHelper for consistent validation
-    auto errors = authforge::drogon::validation::RuleSet::oauth2Token(req);
+    auto errors = fulla::drogon::validation::RuleSet::oauth2Token(req);
 
     // F-008 (RFC 6749 §5.2): /oauth2/token is a protocol endpoint, so
     // validation failures MUST be RFC 6749 error envelopes
@@ -882,13 +882,13 @@ void TokenEndpointController::token(
     // emitted by HttpResponder.
     if (!errors.empty())
     {
-        authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_request", errors[0]
         );
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_requests_total",
-              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+              fulla::common::ports::MetricLabels{{"endpoint", "token"}},
               static_cast<double>(400)
             );
         return;
@@ -1043,12 +1043,12 @@ void TokenEndpointController::token(
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
                   std::string errorCode = result.get("error", "").asString();
                   ::drogon::HttpStatusCode statusCode =
-                    authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
+                    fulla::common::error::OAuth2ErrorHandler::getHttpStatusCode(errorCode);
                   resp->setStatusCode(statusCode);
                   if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                       m->incrementCounter(
                         "oauth2_requests_total",
-                        authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                        fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                         static_cast<double>(static_cast<int>(statusCode))
                       );
                   callback(resp);
@@ -1059,13 +1059,13 @@ void TokenEndpointController::token(
               if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                   m->incrementCounter(
                     "oauth2_requests_total",
-                    authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                    fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                     static_cast<double>(200)
                   );
               if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                   m->setGauge(
                     "oauth2_active_tokens",
-                    authforge::common::ports::MetricLabels{},
+                    fulla::common::ports::MetricLabels{},
                     static_cast<double>(1)
                   );
               // F-019 (RFC 6749 §5.1): token responses MUST NOT be cached.
@@ -1092,10 +1092,10 @@ void TokenEndpointController::token(
         plugin->getClient(
           clientId,
           [plugin, clientId, clientSecret, refreshToken, authScheme, refreshCb](
-            std::optional<authforge::oauth2::model::OAuth2Client> client
+            std::optional<fulla::oauth2::model::OAuth2Client> client
           ) {
               auto respondInvalidClient = [refreshCb, authScheme](const std::string &desc) {
-                  authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                  fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                     [refreshCb](const ::drogon::HttpResponsePtr &r) { (*refreshCb)(r); },
                     "invalid_client",
                     desc,
@@ -1118,14 +1118,14 @@ void TokenEndpointController::token(
                             auto resp = ::drogon::HttpResponse::newHttpJsonResponse(result);
                             std::string errorCode = result.get("error", "").asString();
                             ::drogon::HttpStatusCode statusCode =
-                              authforge::common::error::OAuth2ErrorHandler::getHttpStatusCode(
+                              fulla::common::error::OAuth2ErrorHandler::getHttpStatusCode(
                                 errorCode
                               );
                             resp->setStatusCode(statusCode);
                             if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                                 m->incrementCounter(
                                   "oauth2_requests_total",
-                                  authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                  fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                                   static_cast<double>(static_cast<int>(statusCode))
                                 );
                             (*refreshCb)(resp);
@@ -1136,7 +1136,7 @@ void TokenEndpointController::token(
                         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                             m->incrementCounter(
                               "oauth2_requests_total",
-                              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                              fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                               static_cast<double>(200)
                             );
                         // F-019 (RFC 6749 §5.1): token responses MUST NOT be cached.
@@ -1146,7 +1146,7 @@ void TokenEndpointController::token(
                   );
               };
 
-              if (client->clientType == authforge::oauth2::model::ClientType::CONFIDENTIAL)
+              if (client->clientType == fulla::oauth2::model::ClientType::CONFIDENTIAL)
               {
                   if (clientSecret.empty())
                   {
@@ -1216,7 +1216,7 @@ void TokenEndpointController::token(
               plugin->getClient(
                 clientId,
                 [plugin, clientId, req, sharedCb](
-                  std::optional<authforge::oauth2::model::OAuth2Client> client
+                  std::optional<fulla::oauth2::model::OAuth2Client> client
                 ) {
                     if (!client)
                     {
@@ -1228,7 +1228,7 @@ void TokenEndpointController::token(
                         return;
                     }
 
-                    if (client->clientType == authforge::oauth2::model::ClientType::PUBLIC)
+                    if (client->clientType == fulla::oauth2::model::ClientType::PUBLIC)
                     {
                         Json::Value error;
                         error["error"] = "unauthorized_client";
@@ -1247,7 +1247,7 @@ void TokenEndpointController::token(
                     // - omitted scope -> default to the full registered scope set
                     // - omitted scope + empty registration -> invalid_scope (the
                     //   server has no pre-defined default to fall back on)
-                    authforge::oauth2::model::Client aggregate(*client);
+                    fulla::oauth2::model::Client aggregate(*client);
                     std::string requestedScope = req->getParameter("scope");
                     std::string grantedScope;
                     if (!requestedScope.empty())
@@ -1289,7 +1289,7 @@ void TokenEndpointController::token(
                     }
 
                     // Generate access token (no refresh token for client_credentials)
-                    auto tokenStr = authforge::drogon::utils::generateSecureToken();
+                    auto tokenStr = fulla::drogon::utils::generateSecureToken();
                     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                                  std::chrono::system_clock::now().time_since_epoch()
                     )
@@ -1299,8 +1299,8 @@ void TokenEndpointController::token(
                     // the real token lifetime (RFC 6749 §5.1).
                     auto accessTokenTtl = plugin->getAccessTokenTtl();
 
-                    authforge::oauth2::model::OAuth2AccessToken token;
-                    token.token = authforge::drogon::utils::hashToken(tokenStr);
+                    fulla::oauth2::model::OAuth2AccessToken token;
+                    token.token = fulla::drogon::utils::hashToken(tokenStr);
                     token.clientId = clientId;
                     token.userId = "client:" + clientId;  // M2M: subject is the client itself
                     token.scope = grantedScope;
@@ -1325,7 +1325,7 @@ void TokenEndpointController::token(
                           if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                               m->incrementCounter(
                                 "oauth2_requests_total",
-                                authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                                 static_cast<double>(200)
                               );
                           // F-019 (RFC 6749 §5.1): token responses MUST NOT be cached.
@@ -1356,14 +1356,14 @@ void TokenEndpointController::token(
             if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                 m->incrementCounter(
                   "oauth2_requests_total",
-                  authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                  fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                   static_cast<double>(400)
                 );
             callback(resp);
             return;
         }
 
-        std::string deviceCodeHash = authforge::drogon::utils::hashToken(deviceCode);
+        std::string deviceCodeHash = fulla::drogon::utils::hashToken(deviceCode);
 
         auto dbClient = ::drogon::app().getDbClient();
         if (!dbClient)
@@ -1391,15 +1391,15 @@ void TokenEndpointController::token(
         // The device-code lookup (Mapper::findBy + atomic consume) is the same
         // for both; wrapped in a local lambda so both paths converge on it.
         auto runDeviceCodeLookup = [plugin, sharedCb, clientId, deviceCodeHash, dbClient]() {
-            Mapper<drogon_model::oauth2_db::Oauth2DeviceCodes> mapper(dbClient);
+            Mapper<drogon_model::fulla_db::Oauth2DeviceCodes> mapper(dbClient);
             mapper.findBy(
               Criteria(
-                drogon_model::oauth2_db::Oauth2DeviceCodes::Cols::_device_code_hash,
+                drogon_model::fulla_db::Oauth2DeviceCodes::Cols::_device_code_hash,
                 CompareOperator::EQ,
                 deviceCodeHash
               ),
               [plugin, sharedCb, clientId, deviceCodeHash, dbClient](
-                const std::vector<drogon_model::oauth2_db::Oauth2DeviceCodes> &results
+                const std::vector<drogon_model::fulla_db::Oauth2DeviceCodes> &results
               ) {
                   if (results.empty())
                   {
@@ -1411,7 +1411,7 @@ void TokenEndpointController::token(
                       if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                           m->incrementCounter(
                             "oauth2_requests_total",
-                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                             static_cast<double>(400)
                           );
                       (*sharedCb)(resp);
@@ -1436,7 +1436,7 @@ void TokenEndpointController::token(
                       if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                           m->incrementCounter(
                             "oauth2_requests_total",
-                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                             static_cast<double>(400)
                           );
                       (*sharedCb)(resp);
@@ -1458,7 +1458,7 @@ void TokenEndpointController::token(
                       if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                           m->incrementCounter(
                             "oauth2_requests_total",
-                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                             static_cast<double>(400)
                           );
                       (*sharedCb)(resp);
@@ -1478,7 +1478,7 @@ void TokenEndpointController::token(
                           if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                               m->incrementCounter(
                                 "oauth2_requests_total",
-                                authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                                 static_cast<double>(400)
                               );
                           (*sharedCb)(resp);
@@ -1510,7 +1510,7 @@ void TokenEndpointController::token(
                               )
                                   m->incrementCounter(
                                     "oauth2_requests_total",
-                                    authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                    fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                                     static_cast<double>(400)
                                   );
                               (*sharedCb)(resp);
@@ -1559,7 +1559,7 @@ void TokenEndpointController::token(
                       if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                           m->incrementCounter(
                             "oauth2_requests_total",
-                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                             static_cast<double>(400)
                           );
                       (*sharedCb)(resp);
@@ -1576,7 +1576,7 @@ void TokenEndpointController::token(
                       if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                           m->incrementCounter(
                             "oauth2_requests_total",
-                            authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                            fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                             static_cast<double>(400)
                           );
                       (*sharedCb)(resp);
@@ -1627,7 +1627,7 @@ void TokenEndpointController::token(
                                 )
                                     m->incrementCounter(
                                       "oauth2_requests_total",
-                                      authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+                                      fulla::common::ports::MetricLabels{{"endpoint", "token"}},
                                       static_cast<double>(400)
                                     );
                                 (*sharedCb)(resp);
@@ -1635,13 +1635,13 @@ void TokenEndpointController::token(
                             }
 
                             // Won the consume race -- safe to issue.
-                            auto accessTokenStr = authforge::drogon::utils::generateSecureToken();
-                            auto refreshTokenStr = authforge::drogon::utils::generateSecureToken();
+                            auto accessTokenStr = fulla::drogon::utils::generateSecureToken();
+                            auto refreshTokenStr = fulla::drogon::utils::generateSecureToken();
                             std::string familyId =
-                              authforge::drogon::utils::generateSecureToken(16);
+                              fulla::drogon::utils::generateSecureToken(16);
 
-                            authforge::oauth2::model::OAuth2AccessToken accessToken;
-                            accessToken.token = authforge::drogon::utils::hashToken(accessTokenStr);
+                            fulla::oauth2::model::OAuth2AccessToken accessToken;
+                            accessToken.token = fulla::drogon::utils::hashToken(accessTokenStr);
                             accessToken.clientId = clientId;
                             accessToken.userId = userId;
                             accessToken.scope = scope;
@@ -1651,9 +1651,9 @@ void TokenEndpointController::token(
                             // (outside TokenService), stamp the issuer too.
                             accessToken.issuer = plugin->getIssuer();
 
-                            authforge::oauth2::model::OAuth2RefreshToken refreshToken;
+                            fulla::oauth2::model::OAuth2RefreshToken refreshToken;
                             refreshToken.token =
-                              authforge::drogon::utils::hashToken(refreshTokenStr);
+                              fulla::drogon::utils::hashToken(refreshTokenStr);
                             refreshToken.accessToken = accessToken.token;
                             refreshToken.clientId = clientId;
                             refreshToken.userId = userId;
@@ -1698,7 +1698,7 @@ void TokenEndpointController::token(
                                   // flow constructs tokens outside TokenService,
                                   // so it cannot reuse that class's inline
                                   // signing). No nonce on device flow.
-                                  if (authforge::drogon::utils::hasScope(scope, "openid"))
+                                  if (fulla::drogon::utils::hasScope(scope, "openid"))
                                   {
                                       std::string idToken =
                                         plugin->signIdToken(userId, clientId);
@@ -1713,7 +1713,7 @@ void TokenEndpointController::token(
                                   )
                                       m->incrementCounter(
                                         "oauth2_requests_total",
-                                        authforge::common::ports::MetricLabels{
+                                        fulla::common::ports::MetricLabels{
                                           {"endpoint", "token"}
                                         },
                                         static_cast<double>(200)
@@ -1724,7 +1724,7 @@ void TokenEndpointController::token(
                                   )
                                       m->setGauge(
                                         "oauth2_active_tokens",
-                                        authforge::common::ports::MetricLabels{},
+                                        fulla::common::ports::MetricLabels{},
                                         static_cast<double>(1)
                                       );
                                   // F-019 (RFC 6749 §5.1): device-code token
@@ -1788,7 +1788,7 @@ void TokenEndpointController::token(
            clientId,
            clientSecret,
            runDeviceCodeLookup = std::move(runDeviceCodeLookup)](
-            std::optional<authforge::oauth2::model::OAuth2Client> client
+            std::optional<fulla::oauth2::model::OAuth2Client> client
           ) mutable {
               if (!client)
               {
@@ -1803,7 +1803,7 @@ void TokenEndpointController::token(
 
               // PUBLIC clients: client_id alone suffices (RFC 8628 §3.4 / RFC
               // 6749 §3.2.1). Proceed straight to the device-code lookup.
-              if (client->clientType == authforge::oauth2::model::ClientType::PUBLIC)
+              if (client->clientType == fulla::oauth2::model::ClientType::PUBLIC)
               {
                   runDeviceCodeLookup();
                   return;
@@ -1844,7 +1844,7 @@ void TokenEndpointController::token(
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_requests_total",
-              authforge::common::ports::MetricLabels{{"endpoint", "token"}},
+              fulla::common::ports::MetricLabels{{"endpoint", "token"}},
               static_cast<double>(400)
             );
         callback(resp);
@@ -1859,7 +1859,7 @@ void TokenEndpointController::token(
     plugin->getClient(
       clientId,
       [plugin, req, clientId, clientSecret, authHeader, dispatchCb, dispatchGrant](
-        std::optional<authforge::oauth2::model::OAuth2Client> client
+        std::optional<fulla::oauth2::model::OAuth2Client> client
       ) mutable {
           if (client)
           {
@@ -1935,7 +1935,7 @@ void TokenEndpointController::userInfo(
         resp->setStatusCode(::drogon::k401Unauthorized);
         resp->addHeader(
           "WWW-Authenticate",
-          "Bearer realm=\"authforge\", error=\"invalid_token\", "
+          "Bearer realm=\"fulla\", error=\"invalid_token\", "
           "error_description=\"userinfo requires a user access token, not a client token\""
         );
         Json::Value err;
@@ -1947,7 +1947,7 @@ void TokenEndpointController::userInfo(
         callback(resp);
         return;
     }
-    if (!authforge::drogon::utils::hasScope(scope, "openid"))
+    if (!fulla::drogon::utils::hasScope(scope, "openid"))
     {
         auto resp = ::drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(::drogon::k403Forbidden);
@@ -1955,7 +1955,7 @@ void TokenEndpointController::userInfo(
         // including the scope attribute naming what is needed.
         resp->addHeader(
           "WWW-Authenticate",
-          "Bearer realm=\"authforge\", error=\"insufficient_scope\", "
+          "Bearer realm=\"fulla\", error=\"insufficient_scope\", "
           "error_description=\"userinfo requires an openid-scoped user access token\", "
           "scope=\"openid\""
         );
@@ -1988,7 +1988,7 @@ void TokenEndpointController::userInfo(
     // controllers via raw pointers). Comment added to deter repeat reports.
     plugin->getUserRoles(userId, [this, userId, callback](std::vector<std::string> roles) {
         // Phase 4.5: route through plugin->getUserInfo (today still the god
-        // facade; the identity-side migration to authforge::identity::* is a
+        // facade; the identity-side migration to fulla::identity::* is a
         // separate follow-up). No getStorage() reach-in.
         auto plugin = resolvePlugin();
         plugin
@@ -2048,4 +2048,4 @@ void TokenEndpointController::userInfo(
     });
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

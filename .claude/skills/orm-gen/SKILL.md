@@ -20,7 +20,7 @@ pg_isready -h localhost -p 5432 || echo "❌ PostgreSQL not running"
 
 # 2. 检查数据库是否存在
 export PGPASSWORD='123456'
-psql -h localhost -U oauth2_user -d oauth2_db -c "SELECT 1;" || echo "❌ Database oauth2_db not found"
+psql -h localhost -U fulla_user -d fulla_db -c "SELECT 1;" || echo "❌ Database fulla_db not found"
 
 # 3. 检查 drogon_ctl 工具是否安装
 which drogon_ctl || echo "❌ drogon_ctl not found"
@@ -37,13 +37,13 @@ ls libs/storage-postgres/src/models/model.json || echo "❌ model.json not found
 ```bash
 # 查看当前数据库中的所有表
 export PGPASSWORD='123456'
-psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
+psql -h localhost -U fulla_user -d fulla_db -c "\dt"
 
 # 预期输出应包含全部19个表：
 # - organizations, users, roles, permissions
 # - user_roles, role_permissions
 # - oauth2_clients, oauth2_codes, oauth2_access_tokens, oauth2_refresh_tokens
-# - oauth2_scopes, oauth2_client_scopes, oauth2_user_consents
+# - oauth2_scopes, oauth2_client_scopes, fulla_user_consents
 # - oauth2_subject_mappings, audit_logs
 # - email_verification_tokens, password_reset_tokens
 # - oauth2_device_codes, webauthn_credentials
@@ -62,14 +62,14 @@ cat libs/storage-postgres/src/models/model.json
     "rdbms": "postgresql",
     "host": "127.0.0.1",
     "port": 5432,
-    "dbname": "oauth2_db",
-    "user": "oauth2_user",
+    "dbname": "fulla_db",
+    "user": "fulla_user",
     "passwd": "123456",
     "tables": [
         "organizations", "users", "roles", "permissions",
         "user_roles", "role_permissions",
         "oauth2_clients", "oauth2_codes", "oauth2_access_tokens", "oauth2_refresh_tokens",
-        "oauth2_scopes", "oauth2_client_scopes", "oauth2_user_consents",
+        "oauth2_scopes", "oauth2_client_scopes", "fulla_user_consents",
         "oauth2_subject_mappings", "audit_logs",
         "email_verification_tokens", "password_reset_tokens",
         "oauth2_device_codes", "webauthn_credentials"
@@ -114,7 +114,7 @@ echo "✅ Models backed up to $backup_dir"
 ```powershell
 # Windows PowerShell
 # 进入 ORM 模型源码目录（.cc 所在）
-cd d:\work\development\Repos\cpp\projects\authforge\libs\storage-postgres\src\models
+cd d:\work\development\Repos\cpp\projects\fulla\libs\storage-postgres\src\models
 
 # 创建 models 目录（如果不存在）
 if (!(Test-Path "models")) {
@@ -128,7 +128,7 @@ cd models
 
 ```bash
 # Linux/macOS
-cd /path/to/authforge/libs/storage-postgres/src/models
+cd /path/to/fulla/libs/storage-postgres/src/models
 
 # 创建 models 目录（如果不存在）
 mkdir -p models
@@ -150,7 +150,7 @@ Write-Host "✅ Old model files removed"
 ```bash
 # Linux/macOS
 rm -f *.h *.cc                                               # src/models 下的 .cc
-rm -f ../../include/authforge/storage/postgres/models/*.h     # 对应的 .h
+rm -f ../../include/fulla/storage/postgres/models/*.h     # 对应的 .h
 echo "✅ Old model files removed"
 ```
 
@@ -194,7 +194,7 @@ Generating models for tables:
   - oauth2_refresh_tokens
   - oauth2_scopes
   - oauth2_client_scopes
-  - oauth2_user_consents
+  - fulla_user_consents
   - oauth2_subject_mappings
   - audit_logs
   - email_verification_tokens
@@ -345,8 +345,8 @@ ctest --output-on-failure -C Release
 |-------|-----|------|
 | 主机 | 127.0.0.1 / localhost | 本地连接 |
 | 端口 | 5432 | PostgreSQL 默认端口 |
-| 数据库 | oauth2_db | OAuth2 测试数据库 |
-| 用户名 | oauth2_user | 测试用户（与 model.json / config.dev.json 一致） |
+| 数据库 | fulla_db | OAuth2 测试数据库 |
+| 用户名 | fulla_user | 测试用户（与 model.json / config.dev.json 一致） |
 | 密码 | 123456 | 测试密码 |
 
 ## 生成的模型文件
@@ -365,7 +365,7 @@ ctest --output-on-failure -C Release
 | oauth2_refresh_tokens | Oauth2RefreshTokens.h | Oauth2RefreshTokens.cc | OAuth2 刷新令牌表 |
 | oauth2_scopes | Oauth2Scopes.h | Oauth2Scopes.cc | OAuth2 作用域表 |
 | oauth2_client_scopes | Oauth2ClientScopes.h | Oauth2ClientScopes.cc | 客户端-作用域关联表 |
-| oauth2_user_consents | Oauth2UserConsents.h | Oauth2UserConsents.cc | 用户授权同意表 |
+| fulla_user_consents | Oauth2UserConsents.h | Oauth2UserConsents.cc | 用户授权同意表 |
 | oauth2_subject_mappings | Oauth2SubjectMappings.h | Oauth2SubjectMappings.cc | OAuth2 subject-内部用户映射表 |
 | audit_logs | AuditLogs.h | AuditLogs.cc | 审计日志表 |
 | email_verification_tokens | EmailVerificationTokens.h | EmailVerificationTokens.cc | 邮箱验证令牌表 |
@@ -415,7 +415,7 @@ brew services start postgresql
 
 # 验证数据库凭据
 export PGPASSWORD='123456'
-psql -h localhost -U oauth2_user -d oauth2_db -c "SELECT 1;"
+psql -h localhost -U fulla_user -d fulla_db -c "SELECT 1;"
 ```
 
 ### 问题 3: 表不存在
@@ -428,7 +428,7 @@ psql -h localhost -U oauth2_user -d oauth2_db -c "SELECT 1;"
 
 # 然后验证表是否存在
 export PGPASSWORD='123456'
-psql -h localhost -U oauth2_user -d oauth2_db -c "\dt"
+psql -h localhost -U fulla_user -d fulla_db -c "\dt"
 ```
 
 ### 问题 4: 模型文件生成不完整
@@ -472,7 +472,7 @@ head -50 Oauth2Clients.h
 ```bash
 # 查看数据库表结构
 export PGPASSWORD='123456'
-psql -h localhost -U oauth2_user -d oauth2_db -c "\d oauth2_clients"
+psql -h localhost -U fulla_user -d fulla_db -c "\d oauth2_clients"
 
 # 如果表结构已更改，先删除旧表
 # 然后重新执行 SQL 脚本
@@ -608,7 +608,7 @@ Models generated successfully!
 #include "models/Oauth2Clients.h"
 
 using namespace drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 // 查询客户端
 Mapper<Oauth2Clients> mapper(dbClient);

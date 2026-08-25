@@ -66,8 +66,8 @@
 - 新增 `scripts/generate-keys.sh` — 密钥生成脚本
 
 **实施步骤**:
-- [x] JwkManager 添加 OAUTH2_JWT_KEY_PATH 环境变量支持 ✅
-- [x] 启动时检查 OAUTH2_JWT_KEY_PATH 环境变量 ✅
+- [x] JwkManager 添加 FULLA_JWT_KEY_PATH 环境变量支持 ✅
+- [x] 启动时检查 FULLA_JWT_KEY_PATH 环境变量 ✅
 - [x] 有密钥文件则加载，无则生成临时密钥（开发模式）✅
 - [x] 创建密钥生成脚本 scripts/generate-jwt-keys.sh ✅
 - [x] docker-compose.prod.yml 配置密钥挂载 ✅

@@ -1,7 +1,7 @@
-#include <authforge/drogon/error/RequestId.h>
-#include <authforge/drogon/adapters/OpenSslUuidGenerator.h>
+#include <fulla/drogon/error/RequestId.h>
+#include <fulla/drogon/adapters/OpenSslUuidGenerator.h>
 
-namespace authforge::common::error
+namespace fulla::common::error
 {
 
 bool RequestId::isValid(const std::string &v)
@@ -28,12 +28,12 @@ bool RequestId::isValid(const std::string &v)
 std::string RequestId::generate()
 {
     // Task 14 (design.md §5.6): migrated off ::drogon::utils::getUuid() onto
-    // the authforge::common::ports::IUuidGenerator Adapter implementation
+    // the fulla::common::ports::IUuidGenerator Adapter implementation
     // (OpenSslUuidGenerator), same convention as observability/AuditLogger.
     // generate() yields a 36-char hyphenated UUID, which is non-empty,
     // within 1..128 and unique across requests on the same instance --
     // identical contract to the ::drogon::utils::getUuid() call it replaces.
-    static authforge::drogon::adapters::OpenSslUuidGenerator uuidGenerator;
+    static fulla::drogon::adapters::OpenSslUuidGenerator uuidGenerator;
     return uuidGenerator.generate();
 }
 
@@ -50,4 +50,4 @@ std::string RequestId::resolve(const ::drogon::HttpRequestPtr &req)
     return generate();
 }
 
-}  // namespace authforge::common::error
+}  // namespace fulla::common::error

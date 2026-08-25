@@ -12,9 +12,9 @@
             "rdbms": "postgresql",
             "host": "postgres",
             "port": 5432,
-            "dbname": "oauth2_db_prod",
-            "user": "oauth2_user",
-            "passwd": "OVERRIDE_VIA_OAUTH2_DB_PASSWORD",
+            "dbname": "fulla_db_prod",
+            "user": "fulla_user",
+            "passwd": "OVERRIDE_VIA_FULLA_DB_PASSWORD",
             "is_fast": false,
             "client_encoding": "",
             "number_of_connections": 4,
@@ -31,7 +31,7 @@
             "host": "redis",
             "port": 6379,
             "username": "",
-            "passwd": "OVERRIDE_VIA_OAUTH2_REDIS_PASSWORD",
+            "passwd": "OVERRIDE_VIA_FULLA_REDIS_PASSWORD",
             "db": 0,
             "is_fast": false,
             "number_of_connections": 4,
@@ -262,16 +262,16 @@
         },
         "external_auth": {
             "github": {
-                "client_id": "OVERRIDE_VIA_OAUTH2_GITHUB_CLIENT_ID",
-                "client_secret": "OVERRIDE_VIA_OAUTH2_GITHUB_CLIENT_SECRET"
+                "client_id": "OVERRIDE_VIA_FULLA_GITHUB_CLIENT_ID",
+                "client_secret": "OVERRIDE_VIA_FULLA_GITHUB_CLIENT_SECRET"
             },
             "wechat": {
                 "appid": "OVERRIDE_VIA_ENV",
                 "secret": "OVERRIDE_VIA_ENV"
             },
             "google": {
-                "client_id": "OVERRIDE_VIA_OAUTH2_GOOGLE_CLIENT_ID",
-                "client_secret": "OVERRIDE_VIA_OAUTH2_GOOGLE_CLIENT_SECRET",
+                "client_id": "OVERRIDE_VIA_FULLA_GOOGLE_CLIENT_ID",
+                "client_secret": "OVERRIDE_VIA_FULLA_GOOGLE_CLIENT_SECRET",
                 "redirect_uri": "https://app.example.com/callback"
             }
         }

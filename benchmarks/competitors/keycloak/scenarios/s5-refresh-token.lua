@@ -6,7 +6,7 @@
 -- Keycloak rotates refresh tokens by default (Revoke Refresh Token=ON): each
 -- RT is consumed EXACTLY ONCE. Threads advance linearly through their slice
 -- and return nil when exhausted; run-scenario.sh --reissue re-mints the pool
--- per level (equivalent of AuthForge's SQL --reseed, but via the API — D5).
+-- per level (equivalent of Fulla's SQL --reseed, but via the API — D5).
 --
 -- RT pool: refresh_tokens.txt, minted via ROPC (direct access grants) by
 -- setup.sh / reissue-rt-pool.sh (RFC 6749 §4.4.3: client_credentials never

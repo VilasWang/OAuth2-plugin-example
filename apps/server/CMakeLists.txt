@@ -1,25 +1,25 @@
 cmake_minimum_required(VERSION 3.16)
 # Phase 5 (A7, directory restructure): OAuth2Server/ became apps/server/ and
-# the target/binary was renamed OAuth2Server -> authforge-server. Sources now
+# the target/binary was renamed OAuth2Server -> fulla-server. Sources now
 # live under src/ (main.cc, SchemaManager.*, bootstrap/, organization/);
 # config files under config/; versioned SQL under migrations/ + seed/.
-project(authforge-server VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+project(fulla-server VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX)
 
 # Find Dependencies
 find_package(Drogon CONFIG REQUIRED)
 # libcurl: kept explicit (also reaches here transitively via
-# authforge::drogon since Phase 4 merged the old OAuth2Plugin OBJECT lib
+# fulla::drogon since Phase 4 merged the old OAuth2Plugin OBJECT lib
 # into that STATIC lib, PUBLIC-linking CURL::libcurl).
 find_package(CURL REQUIRED)
 
-# M3 Task 25 (authforge-sdk-refactor, design.md §6): main.cc's former
+# M3 Task 25 (fulla-sdk-refactor, design.md §6): main.cc's former
 # monolithic body has been split into apps/server-style bootstrap/ modules
 # (CorsSetup/SecurityHeaders/ExceptionHandlerSetup/OpenApiSetup/
 # MigrationRunner/ControllerRegistration); main() itself now only wires
 # them together.
 file(GLOB BOOTSTRAP_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src/bootstrap/*.cc")
 
-# M5 Task 30 (authforge-sdk-refactor): product-level Organization management
+# M5 Task 30 (fulla-sdk-refactor): product-level Organization management
 # lives under apps/server/src/organization/ (design.md §5.4: Organization CRUD
 # is a PRODUCT concern, not part of the reusable SDK). Same product-app
 # compilation model as bootstrap/ -- globbed into the server executable.
@@ -36,7 +36,7 @@ add_executable(${PROJECT_NAME}
 drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/views
                     ${CMAKE_CURRENT_BINARY_DIR})
 
-# authforge::drogon (M3 Task 20, verified mechanism -- see PROGRESS.md):
+# fulla::drogon (M3 Task 20, verified mechanism -- see PROGRESS.md):
 # linked as a PLAIN static library dependency, NOT whole-archive. All 15
 # controllers + 2 filters + AuthService now live there with
 # AutoCreation=false + explicit drogon::app().registerController() calls
@@ -46,10 +46,10 @@ drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/views
 # requests (/health, /login, /api/admin/dashboard, /api/google/login all
 # behave correctly).
 # Phase 4 (A6): the bare OAuth2Plugin link is gone -- the plugin class
-# merged into authforge::drogon; bootstrap's getPlugin<::OAuth2Plugin>()
+# merged into fulla::drogon; bootstrap's getPlugin<::OAuth2Plugin>()
 # calls reference its symbols, which keeps the plugin TU (and its Drogon
 # self-registration) alive out of the static lib.
-target_link_libraries(${PROJECT_NAME} PRIVATE authforge::drogon CURL::libcurl)
+target_link_libraries(${PROJECT_NAME} PRIVATE fulla::drogon CURL::libcurl)
 
 # Additional includes
 target_include_directories(${PROJECT_NAME} PRIVATE

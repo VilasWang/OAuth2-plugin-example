@@ -35,9 +35,9 @@ disable-model-invocation: true
 - **构建后端走 Conan + `cmake --preset`**。`CMakePresets.json` 定义了多个 preset，每个 preset 把构建产物输出到 `build/<preset>`（例如 `build/windows-msvc`、`build/linux-release`、`build/macos-arm64`；另有 `-debug` / `-asan` / `-tsan` 变体）。
 - **不要在 `build/apps/server` 或 `build/tests` 下跑 ctest**——`CTestTestfile.cmake` 在 `build/<preset>` 根目录，必须从那里运行才能覆盖 `tests/` 和 `libs/**` 的全部用例。
 - **C++ 标准 = 17**（顶层 `CMakeLists.txt` 的 `CMAKE_CXX_STANDARD 17`，Conan `compiler.cppstd=17`）。不要传 `cppstd=20` / `-DCMAKE_CXX_STANDARD=20`。
-- **服务器二进制**：`authforge-server`（`authforge-server.exe` on Windows）。所在路径：
-  - Windows（多配置生成器）：`build/windows-msvc/apps/server/Release/authforge-server.exe`
-  - Linux/macOS（单配置生成器）：`build/linux-release/apps/server/authforge-server`
+- **服务器二进制**：`fulla-server`（`fulla-server.exe` on Windows）。所在路径：
+  - Windows（多配置生成器）：`build/windows-msvc/apps/server/Release/fulla-server.exe`
+  - Linux/macOS（单配置生成器）：`build/linux-release/apps/server/fulla-server`
 - **默认监听端口 `5555`**（所有 `apps/server/config/*.json` 的 `listeners[0].port`）。
 - **配置文件**：`apps/server/config/config.json`（默认）+ 覆盖文件 `config.dev.json` / `config.ci.json` / `config.prod.json` / `config.bench.json`。`config.ci.json` 使用内存存储（`storage_type="memory"`），不连 PostgreSQL。
 
@@ -46,10 +46,10 @@ disable-model-invocation: true
 ### 1. 环境准备
 
 ```powershell
-# 停止正在运行的 authforge-server 进程（Windows）
-taskkill /F /IM authforge-server.exe 2>$null || echo "No running process"
+# 停止正在运行的 fulla-server 进程（Windows）
+taskkill /F /IM fulla-server.exe 2>$null || echo "No running process"
 # Linux/macOS
-pkill -9 authforge-server 2>$null || echo "No running process"
+pkill -9 fulla-server 2>$null || echo "No running process"
 ```
 
 ### 2. 检查项目结构
@@ -90,7 +90,7 @@ cmake --build build/windows-msvc --parallel --config Release
 cmake --build build/linux-release --parallel
 ```
 
-构建产物（含 `authforge-server` 二进制和 `config.json` 副本）位于 `build/<preset>/apps/server/...`。
+构建产物（含 `fulla-server` 二进制和 `config.json` 副本）位于 `build/<preset>/apps/server/...`。
 
 ### 5. 测试环境准备（集成测试需要 PostgreSQL + Redis）
 
@@ -102,7 +102,7 @@ redis-cli -h localhost -p 6379 ping || echo "Redis not ready"
 ./scripts/backend/setup-database.sh     # Linux/macOS
 # 或
 scripts\backend\setup_database.bat      # Windows
-# 等价于 /db-reset：DROP+CREATE oauth2_db，应用 apps/server/migrations/V001..V024，再导入 apps/server/seed/*.sql
+# 等价于 /db-reset：DROP+CREATE fulla_db，应用 apps/server/migrations/V001..V024，再导入 apps/server/seed/*.sql
 ```
 
 ### 6. 运行测试（ctest）
@@ -123,9 +123,9 @@ ctest -V --output-on-failure
 
 ```bash
 # Windows
-build/windows-msvc/apps/server/Release/authforge-server.exe
+build/windows-msvc/apps/server/Release/fulla-server.exe
 # Linux/macOS
-build/linux-release/apps/server/authforge-server
+build/linux-release/apps/server/fulla-server
 ```
 
 或用 `.\manage.ps1 run-backend` / `scripts/backend/run-server.sh`。
@@ -135,18 +135,18 @@ build/linux-release/apps/server/authforge-server
 ### Windows
 - 使用 `build.bat` / `manage.ps1`，MSVC 编译器（VS 2022+）
 - 多配置生成器：构建需 `--config Release|Debug`
-- 二进制：`authforge-server.exe`，位于 `build/windows-msvc/apps/server/Release/`
+- 二进制：`fulla-server.exe`，位于 `build/windows-msvc/apps/server/Release/`
 
 ### Linux/macOS
 - 使用 `build.sh` / `manage.sh`，GCC/Clang 编译器
 - 单配置生成器：构建目录即目标配置
-- 二进制：`authforge-server`，位于 `build/<preset>/apps/server/`
+- 二进制：`fulla-server`，位于 `build/<preset>/apps/server/`
 
 ## 测试架构
 
-- **测试二进制**：后端所有 Drogon 测试用例编译进单个 `authforge-tests` 二进制，注册为 ctest 条目 `OAuth2Tests`（约 558 个 `DROGON_TEST` 用例，其中 84 个 Contract 用例）。Contract 用例另外以 `Contract.*`（84 条）独立 ctest 条目注册，便于 `ctest -L Contract`。
+- **测试二进制**：后端所有 Drogon 测试用例编译进单个 `fulla-tests` 二进制，注册为 ctest 条目 `OAuth2Tests`（约 558 个 `DROGON_TEST` 用例，其中 84 个 Contract 用例）。Contract 用例另外以 `Contract.*`（84 条）独立 ctest 条目注册，便于 `ctest -L Contract`。
 - **进程外端点测试**：`EndpointTests_OutOfProcess`（1 条）通过 `scripts/backend/run-endpoint-tests.{sh,ps1}` 启动 server 并跑 `test-oauth2-endpoints`（59 个测试）+ `test-admin-endpoints`（52 个测试）。
-- **库单元测试**：`libs/**` 下的 gtest 套件（如 `authforge-oauth2-test` 等，约 369 条 ctest 条目）。
+- **库单元测试**：`libs/**` 下的 gtest 套件（如 `fulla-oauth2-test` 等，约 369 条 ctest 条目）。
 - **SDK 冒烟**：`SdkSmoke.FullStack`（1 条）驱动 `examples/full-stack-host`。
 - 全仓 ctest 条目约 450+；仅后端 `tests/` 子树为 86 条。
 - 测试分类标签（见 `tests/common/test_categories.h`）：`Unit`、`Integration`、`E2E`、`Performance`、`Security`、`API`、`Database`、`Acceptance`，以及优先级 `P0`–`P3`。
@@ -165,7 +165,7 @@ build/linux-release/apps/server/authforge-server
 - **权限错误**：验证数据库用户权限和 schema。
 
 ### 进程问题
-- **端口占用**：authforge-server 默认使用 5555 端口。
+- **端口占用**：fulla-server 默认使用 5555 端口。
 - **文件锁定**：确保旧进程已完全停止（taskkill / pkill）。
 
 ## 最佳实践
@@ -173,7 +173,7 @@ build/linux-release/apps/server/authforge-server
 1. **开发时**：使用 `/build-and-test debug` 快速迭代。
 2. **提交前**：使用 `/build-and-test release` 跑完整测试。
 3. **CI 调试**：加 `-V` 获取详细测试输出。
-4. **性能测试**：`AdvancedStorageTest` 是 `authforge-tests` 内的一个 `DROGON_TEST`（不是独立二进制），用 `ctest -R AdvancedStorage` 运行。
+4. **性能测试**：`AdvancedStorageTest` 是 `fulla-tests` 内的一个 `DROGON_TEST`（不是独立二进制），用 `ctest -R AdvancedStorage` 运行。
 
 ## 注意事项
 

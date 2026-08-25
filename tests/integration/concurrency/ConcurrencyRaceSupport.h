@@ -12,7 +12,7 @@
 // 1.5) — never the harness.
 //
 // ─────────────────────────────────────────────────────────────────────────
-// TSan gating (OAUTH2_TSAN_ENABLED / kTsanEnabled)
+// TSan gating (FULLA_TSAN_ENABLED / kTsanEnabled)
 // ─────────────────────────────────────────────────────────────────────────
 // These are *reproduction* tests whose detection mechanism is ThreadSanitizer.
 // The genuine concurrent path they exercise is, by definition, an unsynchronized
@@ -39,7 +39,7 @@
 // coverage of the racing code without ever running it.
 //
 // ─────────────────────────────────────────────────────────────────────────
-// ASan gating (OAUTH2_ASAN_ENABLED / kAsanEnabled) — added for Task 3
+// ASan gating (FULLA_ASAN_ENABLED / kAsanEnabled) — added for Task 3
 // ─────────────────────────────────────────────────────────────────────────
 // Task 3 (Category C) reproduces heap-use-after-free under AddressSanitizer:
 // an object is destroyed while one of its async callbacks is still in flight,
@@ -72,39 +72,39 @@
 
 // Compile-time ThreadSanitizer detection.
 #if defined(__SANITIZE_THREAD__)
-#define OAUTH2_TSAN_ENABLED 1
+#define FULLA_TSAN_ENABLED 1
 #elif defined(__has_feature)
 #if __has_feature(thread_sanitizer)
-#define OAUTH2_TSAN_ENABLED 1
+#define FULLA_TSAN_ENABLED 1
 #endif
 #endif
-#ifndef OAUTH2_TSAN_ENABLED
-#define OAUTH2_TSAN_ENABLED 0
+#ifndef FULLA_TSAN_ENABLED
+#define FULLA_TSAN_ENABLED 0
 #endif
 
 // Compile-time AddressSanitizer detection (analogue of the TSan macro above).
 #if defined(__SANITIZE_ADDRESS__)
-#define OAUTH2_ASAN_ENABLED 1
+#define FULLA_ASAN_ENABLED 1
 #elif defined(__has_feature)
 #if __has_feature(address_sanitizer)
-#define OAUTH2_ASAN_ENABLED 1
+#define FULLA_ASAN_ENABLED 1
 #endif
 #endif
-#ifndef OAUTH2_ASAN_ENABLED
-#define OAUTH2_ASAN_ENABLED 0
+#ifndef FULLA_ASAN_ENABLED
+#define FULLA_ASAN_ENABLED 0
 #endif
 
-namespace authforge::test::concurrency
+namespace fulla::test::concurrency
 {
 // True only when this translation unit was compiled with -fsanitize=thread.
 // Used as a RUNTIME guard so both code paths compile on every build.
-inline constexpr bool kTsanEnabled = (OAUTH2_TSAN_ENABLED != 0);
+inline constexpr bool kTsanEnabled = (FULLA_TSAN_ENABLED != 0);
 
 // True only when this translation unit was compiled with -fsanitize=address.
 // Used as a RUNTIME guard (Task 3) so both the genuine-UAF ordering and the
 // lifetime-safe ordering always compile, but only the ASan build executes the
 // real use-after-free.
-inline constexpr bool kAsanEnabled = (OAUTH2_ASAN_ENABLED != 0);
+inline constexpr bool kAsanEnabled = (FULLA_ASAN_ENABLED != 0);
 
 // ─────────────────────────────────────────────────────────────────────────
 // PendingCallbacks — a tiny external queue of "in-flight async callbacks".
@@ -227,4 +227,4 @@ class InterleavingGenerator
   private:
     std::mt19937 rng_;
 };
-}  // namespace authforge::test::concurrency
+}  // namespace fulla::test::concurrency

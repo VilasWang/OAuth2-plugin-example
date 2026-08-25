@@ -1,14 +1,14 @@
-#include <authforge/drogon/services/DeviceCodeService.h>
+#include <fulla/drogon/services/DeviceCodeService.h>
 
-#include <authforge/storage/postgres/models/Oauth2DeviceCodes.h>
+#include <fulla/storage/postgres/models/Oauth2DeviceCodes.h>
 
 #include <drogon/drogon.h>
 
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 void DeviceCodeService::createDeviceCode(
   const std::string &deviceCodeHash,
@@ -122,4 +122,4 @@ void DeviceCodeService::markApproved(
     );
 }
 
-}  // namespace authforge::drogon::services
+}  // namespace fulla::drogon::services

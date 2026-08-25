@@ -1,16 +1,16 @@
-#include <authforge/storage/redis/RedisGrantRepository.h>
+#include <fulla/storage/redis/RedisGrantRepository.h>
 #include <drogon/drogon.h>
 #include <json/json.h>
 #include <sstream>
 #include <chrono>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
 // .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using OAuth2AuthCode = ::authforge::oauth2::model::OAuth2AuthCode;
-using AuthorizationTransaction = ::authforge::oauth2::model::AuthorizationTransaction;
+using OAuth2AuthCode = ::fulla::oauth2::model::OAuth2AuthCode;
+using AuthorizationTransaction = ::fulla::oauth2::model::AuthorizationTransaction;
 using BoolCallback = IGrantRepositoryBase::BoolCallback;
 using AuthCodeCallback = IGrantRepositoryBase::AuthCodeCallback;
 using VoidCallback = IGrantRepositoryBase::VoidCallback;
@@ -478,4 +478,4 @@ void RedisGrantRepository::purgeExpired()
     LOG_DEBUG << "RedisGrantRepository::purgeExpired called (No-op, relying on Redis TTL)";
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

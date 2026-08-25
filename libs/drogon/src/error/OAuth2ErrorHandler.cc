@@ -1,8 +1,8 @@
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/common/error/ErrorCatalog.h>
 #include <json/json.h>
 
-namespace authforge::common::error
+namespace fulla::common::error
 {
 
 namespace
@@ -106,4 +106,4 @@ void OAuth2ErrorHandler::sendErrorResponse(
     return ::drogon::k400BadRequest;
 }
 
-}  // namespace authforge::common::error
+}  // namespace fulla::common::error

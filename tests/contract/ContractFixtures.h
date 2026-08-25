@@ -2,7 +2,7 @@
 
 // tests/contract/ContractFixtures.h
 //
-// Spec: authforge-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
+// Spec: fulla-sdk-refactor -- Task 12 (分档契约测试套件, design.md §7.3 / F5).
 //
 // Shared plumbing for the tiered repository contract tests
 // (ClientRepositoryContractTest.cc / GrantRepositoryContractTest.cc /
@@ -47,7 +47,7 @@
 #include <drogon/orm/DbClient.h>
 #include <drogon/nosql/RedisClient.h>
 
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
 #include <chrono>
 #include <future>
@@ -55,7 +55,7 @@
 #include <string>
 #include <thread>
 
-namespace authforge::test::contract
+namespace fulla::test::contract
 {
 
 // ---------------------------------------------------------------------------
@@ -89,8 +89,8 @@ namespace authforge::test::contract
  * still crash the process during a memory-only run instead of skipping
  * cleanly. Mirrors that pre-existing pattern now.
  */
-// NOTE (Phase 7): inside namespace authforge::test::contract, an
-// unqualified `drogon::` would resolve to `authforge::drogon` (the SDK's
+// NOTE (Phase 7): inside namespace fulla::test::contract, an
+// unqualified `drogon::` would resolve to `fulla::drogon` (the SDK's
 // Drogon-adapter namespace) instead of the global ::drogon framework
 // namespace -- hence the explicit `::drogon::` qualification below.
 inline ::drogon::orm::DbClientPtr getPostgresClientOrNull()
@@ -223,4 +223,4 @@ inline int64_t nowSeconds()
       .count();
 }
 
-}  // namespace authforge::test::contract
+}  // namespace fulla::test::contract

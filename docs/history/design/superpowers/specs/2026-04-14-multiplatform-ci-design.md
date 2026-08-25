@@ -164,9 +164,9 @@ From `qt-network-request-master` commit history:
 postgres:
   image: postgres:15-alpine
   env:
-    POSTGRES_USER: oauth2_user
+    POSTGRES_USER: fulla_user
     POSTGRES_PASSWORD: 123456
-    POSTGRES_DB: oauth2_db
+    POSTGRES_DB: fulla_db
   ports:
     - 5432:5432
   options: >-
@@ -204,14 +204,14 @@ redis:
 ```bash
 # Linux/macOS
 for i in $(seq 1 15); do
-  pg_isready -h localhost -U oauth2_user && break
+  pg_isready -h localhost -U fulla_user && break
   echo "Postgres not ready yet (attempt $i/15)..."
   sleep 2
 done
 
 # Windows (PowerShell)
 for ($i = 1; $i -le 15; $i++) {
-  psql -h localhost -U oauth2_user -c "SELECT 1" -o $null 2>&1
+  psql -h localhost -U fulla_user -c "SELECT 1" -o $null 2>&1
   if ($LASTEXITCODE -eq 0) { break }
   Start-Sleep -Seconds 2
 }
@@ -220,9 +220,9 @@ for ($i = 1; $i -le 15; $i++) {
 **Schema Initialization:**
 ```bash
 export PGPASSWORD=123456
-psql -h localhost -U oauth2_user -d oauth2_db -f OAuth2Backend/sql/001_oauth2_core.sql
-psql -h localhost -U oauth2_user -d oauth2_db -f OAuth2Backend/sql/002_users_table.sql
-psql -h localhost -U oauth2_user -d oauth2_db -f OAuth2Backend/sql/003_rbac_schema.sql
+psql -h localhost -U fulla_user -d fulla_db -f OAuth2Backend/sql/001_oauth2_core.sql
+psql -h localhost -U fulla_user -d fulla_db -f OAuth2Backend/sql/002_users_table.sql
+psql -h localhost -U fulla_user -d fulla_db -f OAuth2Backend/sql/003_rbac_schema.sql
 ```
 
 ### 5.2 Test Execution
@@ -526,9 +526,9 @@ workflow_dispatch:
 ### 15.1 Environment Variables
 
 All platforms use consistent environment variables:
-- `OAUTH2_DB_HOST`: Database host (default: "127.0.0.1")
-- `OAUTH2_REDIS_HOST`: Redis host (default: "127.0.0.1")
-- `OAUTH2_REDIS_PASSWORD`: Redis password (default: "")
+- `FULLA_DB_HOST`: Database host (default: "127.0.0.1")
+- `FULLA_REDIS_HOST`: Redis host (default: "127.0.0.1")
+- `FULLA_REDIS_PASSWORD`: Redis password (default: "")
 - `PGPASSWORD`: PostgreSQL password for database initialization
 
 ### 15.2 Platform Matrix Summary
@@ -542,7 +542,7 @@ All platforms use consistent environment variables:
 ### 15.3 File Structure
 
 ```
-authforge/
+fulla/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                    # Legacy (keep backup)

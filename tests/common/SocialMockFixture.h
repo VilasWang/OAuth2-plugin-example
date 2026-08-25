@@ -34,19 +34,19 @@
 // from the test (main) thread while the server (loop) thread may read it. In
 // practice this is benign-by-timing (the store happens-before the request),
 // but it WILL flag under ThreadSanitizer. These mock-injection tests are
-// therefore not suitable for -OAUTH2_SANITIZER=thread runs; run them under the
+// therefore not suitable for -FULLA_SANITIZER=thread runs; run them under the
 // default or ASan legs.
 
 #pragma once
 
-#include <authforge/drogon/controllers/GitHubController.h>
-#include <authforge/drogon/controllers/GoogleController.h>
-#include <authforge/drogon/controllers/WeChatController.h>
-#include <authforge/drogon/controllers/UserSelfServiceController.h>
-#include <authforge/identity/SocialAuthService.h>
-#include <authforge/identity/SocialLinkService.h>
-#include <authforge/identity/testing/FakeOAuthHttpClient.h>
-#include <authforge/identity/testing/FakeSocialAccountRepository.h>
+#include <fulla/drogon/controllers/GitHubController.h>
+#include <fulla/drogon/controllers/GoogleController.h>
+#include <fulla/drogon/controllers/WeChatController.h>
+#include <fulla/drogon/controllers/UserSelfServiceController.h>
+#include <fulla/identity/SocialAuthService.h>
+#include <fulla/identity/SocialLinkService.h>
+#include <fulla/identity/testing/FakeOAuthHttpClient.h>
+#include <fulla/identity/testing/FakeSocialAccountRepository.h>
 
 #include <drogon/drogon.h>  // DrClassMap
 
@@ -54,11 +54,11 @@
 #include <string>
 #include <vector>
 
-namespace authforge::test::social
+namespace fulla::test::social
 {
 
-using authforge::identity::testing::FakeOAuthHttpClient;
-using authforge::identity::testing::FakeSocialAccountRepository;
+using fulla::identity::testing::FakeOAuthHttpClient;
+using fulla::identity::testing::FakeSocialAccountRepository;
 
 // ---------------------------------------------------------------------------
 // Per-provider injection helpers. Each returns a shared_ptr to the FakeOAuthHttpClient
@@ -82,11 +82,11 @@ using authforge::identity::testing::FakeSocialAccountRepository;
 inline std::shared_ptr<FakeOAuthHttpClient> injectGoogleFake()
 {
     auto http = std::make_shared<FakeOAuthHttpClient>();
-    auto svc = std::make_shared<authforge::identity::GoogleAuthService>(
+    auto svc = std::make_shared<fulla::identity::GoogleAuthService>(
       http, "test-client-id", "test-client-secret", "https://example.test/cb");
-    static std::vector<std::shared_ptr<authforge::identity::GoogleAuthService>> keepAlive;
+    static std::vector<std::shared_ptr<fulla::identity::GoogleAuthService>> keepAlive;
     keepAlive.push_back(svc);
-    auto ctrl = ::drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GoogleController>();
+    auto ctrl = ::drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::GoogleController>();
     if (ctrl)
         ctrl->setGoogleAuthService(svc.get());
     return http;
@@ -97,11 +97,11 @@ inline std::shared_ptr<FakeOAuthHttpClient> injectGoogleFake()
 inline std::shared_ptr<FakeOAuthHttpClient> injectWeChatFake()
 {
     auto http = std::make_shared<FakeOAuthHttpClient>();
-    auto svc = std::make_shared<authforge::identity::WeChatAuthService>(
+    auto svc = std::make_shared<fulla::identity::WeChatAuthService>(
       http, "test-appid", "test-secret");
-    static std::vector<std::shared_ptr<authforge::identity::WeChatAuthService>> keepAlive;
+    static std::vector<std::shared_ptr<fulla::identity::WeChatAuthService>> keepAlive;
     keepAlive.push_back(svc);
-    auto ctrl = ::drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::WeChatController>();
+    auto ctrl = ::drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::WeChatController>();
     if (ctrl)
         ctrl->setWeChatAuthService(svc.get());
     return http;
@@ -132,11 +132,11 @@ inline GitHubFakeHandle injectGitHubFake()
     GitHubFakeHandle h;
     h.http = std::make_shared<FakeOAuthHttpClient>();
     h.accountRepo = std::make_shared<FakeSocialAccountRepository>();
-    auto svc = std::make_shared<authforge::identity::GitHubAuthService>(
+    auto svc = std::make_shared<fulla::identity::GitHubAuthService>(
       h.http, h.accountRepo, "test-client-id", "test-client-secret");
-    static std::vector<std::shared_ptr<authforge::identity::GitHubAuthService>> keepAlive;
+    static std::vector<std::shared_ptr<fulla::identity::GitHubAuthService>> keepAlive;
     keepAlive.push_back(svc);
-    auto ctrl = ::drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GitHubController>();
+    auto ctrl = ::drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::GitHubController>();
     if (ctrl)
         ctrl->setGitHubAuthService(svc.get());
     return h;
@@ -163,13 +163,13 @@ inline SocialLinkFakeHandle injectSocialLinkFake()
     SocialLinkFakeHandle h;
     h.http = std::make_shared<FakeOAuthHttpClient>();
     h.accountRepo = std::make_shared<FakeSocialAccountRepository>();
-    auto github = std::make_shared<authforge::identity::GitHubAuthService>(
+    auto github = std::make_shared<fulla::identity::GitHubAuthService>(
       h.http, h.accountRepo, "test-client-id", "test-client-secret");
-    auto google = std::make_shared<authforge::identity::GoogleAuthService>(
+    auto google = std::make_shared<fulla::identity::GoogleAuthService>(
       h.http, "test-client-id", "test-client-secret", "https://example.test/cb");
     auto wechat =
-      std::make_shared<authforge::identity::WeChatAuthService>(h.http, "test-appid", "test-secret");
-    auto svc = std::make_shared<authforge::identity::SocialLinkService>(
+      std::make_shared<fulla::identity::WeChatAuthService>(h.http, "test-appid", "test-secret");
+    auto svc = std::make_shared<fulla::identity::SocialLinkService>(
       github, google, wechat, h.accountRepo);
     // Keep every dependency alive for the process -- the service holds them,
     // and the controller holds only a raw pointer to the service.
@@ -179,11 +179,11 @@ inline SocialLinkFakeHandle injectSocialLinkFake()
     keepAlive.push_back(wechat);
     keepAlive.push_back(svc);
     auto ctrl =
-      ::drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::UserSelfServiceController>(
+      ::drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::UserSelfServiceController>(
       );
     if (ctrl)
         ctrl->setSocialLinkService(svc.get());
     return h;
 }
 
-}  // namespace authforge::test::social
+}  // namespace fulla::test::social

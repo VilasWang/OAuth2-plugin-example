@@ -1,16 +1,16 @@
-#include <authforge/drogon/filters/AuthorizationFilter.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/drogon/error/RequestId.h>
-#include <authforge/drogon/authz/ResourceScopeRegistry.h>
-#include <authforge/drogon/authz/ScopeResolver.h>
-#include <authforge/drogon/authz/InsufficientScopeResponder.h>
+#include <fulla/drogon/filters/AuthorizationFilter.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/drogon/error/RequestId.h>
+#include <fulla/drogon/authz/ResourceScopeRegistry.h>
+#include <fulla/drogon/authz/ScopeResolver.h>
+#include <fulla/drogon/authz/InsufficientScopeResponder.h>
 #include <drogon/drogon.h>
 
 #include <string>
 
-namespace authforge::drogon::filters
+namespace fulla::drogon::filters
 {
 
 using namespace drogon;
@@ -115,11 +115,11 @@ void AuthorizationFilter::doFilter(
     {
         // Session not found or invalid - use Error Envelope (Req 7.1/7.3)
         LOG_WARN << "Authorization failed: token missing";
-        auto error = authforge::common::error::Error::fromCode(
-          "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
+        auto error = fulla::common::error::Error::fromCode(
+          "AUTH_TOKEN_INVALID", fulla::common::error::RequestId::resolve(req)
         );
         error.message = "Authentication required";
-        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);  // Return response -> Use fcb
         return;
     }
@@ -129,11 +129,11 @@ void AuthorizationFilter::doFilter(
     if (!plugin)
     {
         LOG_ERROR << "OAuth2Plugin not found!";
-        auto error = authforge::common::error::Error::fromCode(
-          "INTERNAL_ERROR", authforge::common::error::RequestId::resolve(req)
+        auto error = fulla::common::error::Error::fromCode(
+          "INTERNAL_ERROR", fulla::common::error::RequestId::resolve(req)
         );
         error.message = "OAuth2 plugin not available";
-        auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+        auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
         fcb(resp);  // Return response -> Use fcb
         return;
     }
@@ -152,11 +152,11 @@ void AuthorizationFilter::doFilter(
           if (!at)
           {
               LOG_WARN << "Authorization failed: invalid or expired token";
-              auto error = authforge::common::error::Error::fromCode(
-                "AUTH_TOKEN_INVALID", authforge::common::error::RequestId::resolve(req)
+              auto error = fulla::common::error::Error::fromCode(
+                "AUTH_TOKEN_INVALID", fulla::common::error::RequestId::resolve(req)
               );
               error.message = "Invalid or expired token";
-              auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+              auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
               // F-006 (RFC 6750 §3): credentials were presented (Bearer
               // header or access_token parameter) but failed validation --
               // the 401 MUST carry a WWW-Authenticate challenge with
@@ -164,7 +164,7 @@ void AuthorizationFilter::doFilter(
               // no such header.
               resp->addHeader(
                 "WWW-Authenticate",
-                "Bearer realm=\"authforge\", error=\"invalid_token\", "
+                "Bearer realm=\"fulla\", error=\"invalid_token\", "
                 "error_description=\"Invalid or expired token\""
               );
                   (*denyCbPtr)(resp);
@@ -192,11 +192,11 @@ void AuthorizationFilter::doFilter(
                 // gate -- both the scope AND a matching RBAC role must pass.
                 // The scope gate is checked first (cheaper, clearer error);
                 // the RBAC role gate follows below.
-                if (auto *reqmt = authforge::drogon::authz::ResourceScopeRegistry::lookup(
+                if (auto *reqmt = fulla::drogon::authz::ResourceScopeRegistry::lookup(
                       req->path(), req->method()
                     ))
                 {
-                    if (!authforge::drogon::authz::satisfies(scope, *reqmt))
+                    if (!fulla::drogon::authz::satisfies(scope, *reqmt))
                     {
                         LOG_WARN << "Authorization failed: insufficient scope for path "
                                  << req->path() << " (requires '"
@@ -211,7 +211,7 @@ void AuthorizationFilter::doFilter(
                                         return s;
                                     }()
                                  << "')";
-                        (*denyCbPtr)(authforge::drogon::authz::respondInsufficientScope(req, *reqmt)
+                        (*denyCbPtr)(fulla::drogon::authz::respondInsufficientScope(req, *reqmt)
                         );
                         return;
                     }
@@ -226,12 +226,12 @@ void AuthorizationFilter::doFilter(
                 {
                     LOG_WARN << "Authorization failed: insufficient permissions for path "
                              << req->path();
-                    auto error = authforge::common::error::Error::fromCode(
+                    auto error = fulla::common::error::Error::fromCode(
                       "AUTHZ_INSUFFICIENT_PERMISSIONS",
-                      authforge::common::error::RequestId::resolve(req)
+                      fulla::common::error::RequestId::resolve(req)
                     );
                     error.message = "Insufficient permissions";
-                    auto resp = authforge::common::error::ErrorResponder::buildResponse(req, error);
+                    auto resp = fulla::common::error::ErrorResponder::buildResponse(req, error);
                     (*denyCbPtr)(resp);  // DENY -> Return 403
                 }
             }
@@ -275,4 +275,4 @@ bool AuthorizationFilter::checkAccess(
     return false;
 }
 
-}  // namespace authforge::drogon::filters
+}  // namespace fulla::drogon::filters

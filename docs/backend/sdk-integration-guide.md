@@ -1,11 +1,11 @@
 # SDK 集成指南（发布产物消费）
 
-如何获取并集成 AuthForge 的发布产物：SDK 二进制包（库 + 头 +
-`authforge-*Config.cmake`）与 GHCR 容器镜像。运行时行为承诺（线程 / ABI /
+如何获取并集成 Fulla 的发布产物：SDK 二进制包（库 + 头 +
+`fulla-*Config.cmake`）与 GHCR 容器镜像。运行时行为承诺（线程 / ABI /
 异常 / 日志 / 插件注册）见 [SDK Runtime Contract](sdk-runtime-contract.md)，
 本文只讲"怎么拿、怎么接"。
 
-来源：`.kiro/specs/authforge-sdk-refactor/tasks.md` Task 36；发布流水线为
+来源：`.kiro/specs/fulla-sdk-refactor/tasks.md` Task 36；发布流水线为
 `.github/workflows/release.yml`（严格 SemVer tag `vX.Y.Z` 触发）。
 
 ---
@@ -14,10 +14,10 @@
 
 | 产物 | 位置 | 说明 |
 |------|------|------|
-| SDK 包 `authforge-sdk-<ver>-linux-x86_64.tar.gz` | GitHub Release 附件 | 8 个静态库 + `include/authforge/**` 头 + `lib/cmake/authforge-*/{Config,ConfigVersion,Targets}.cmake`（附 `.sha256`） |
-| 后端镜像 | `ghcr.io/voidvec/authforge-backend:<ver>` | 多架构（amd64 + arm64），入口 `:5555`，`/health` 探活 |
-| 用户前端镜像 | `ghcr.io/voidvec/authforge-frontend:<ver>` | nginx 静态托管，`:80` |
-| 管理台镜像 | `ghcr.io/voidvec/authforge-admin:<ver>` | nginx 静态托管 `/admin`，`:80` |
+| SDK 包 `fulla-sdk-<ver>-linux-x86_64.tar.gz` | GitHub Release 附件 | 8 个静态库 + `include/fulla/**` 头 + `lib/cmake/fulla-*/{Config,ConfigVersion,Targets}.cmake`（附 `.sha256`） |
+| 后端镜像 | `ghcr.io/voidvec/fulla-backend:<ver>` | 多架构（amd64 + arm64），入口 `:5555`，`/health` 探活 |
+| 用户前端镜像 | `ghcr.io/voidvec/fulla-frontend:<ver>` | nginx 静态托管，`:80` |
+| 管理台镜像 | `ghcr.io/voidvec/fulla-admin:<ver>` | nginx 静态托管 `/admin`，`:80` |
 
 镜像另有 `latest` 标签；`<ver>-amd64` / `<ver>-arm64` 为单架构中间标签。
 服务器可执行文件**不在** SDK 包内——产品部署走镜像通道。
@@ -36,17 +36,17 @@
 
 ```bash
 # 1) 解包
-tar xzf authforge-sdk-1.0.0-linux-x86_64.tar.gz   # -> authforge-sdk-1.0.0-linux-x86_64/
+tar xzf fulla-sdk-1.0.0-linux-x86_64.tar.gz   # -> fulla-sdk-1.0.0-linux-x86_64/
 
 # 2) 用仓库的 conanfile.py 解析依赖（生成 toolchain + 各依赖的 CMake config）
-conan install <authforge-repo> --output-folder=deps --build=missing \
+conan install <fulla-repo> --output-folder=deps --build=missing \
   -s build_type=Release -s compiler.cppstd=17
 
 # 3) 配置消费工程：toolchain 供依赖解析，PREFIX_PATH 指向解包目录
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE=$PWD/deps/conan_toolchain.cmake \
-  -DCMAKE_PREFIX_PATH=$PWD/authforge-sdk-1.0.0-linux-x86_64
+  -DCMAKE_PREFIX_PATH=$PWD/fulla-sdk-1.0.0-linux-x86_64
 cmake --build build -j
 ```
 
@@ -54,25 +54,25 @@ CMakeLists 侧：
 
 ```cmake
 # 全栈宿主：一个包拉全闭包（common/oauth2/identity/storage-*/Drogon/OpenSSL/CURL）
-find_package(authforge-drogon CONFIG REQUIRED)
-target_link_libraries(my-host PRIVATE authforge::drogon)
+find_package(fulla-drogon CONFIG REQUIRED)
+target_link_libraries(my-host PRIVATE fulla::drogon)
 
 # 或只取引擎面（无 Drogon 依赖）：
-find_package(authforge-oauth2 CONFIG REQUIRED)
-find_package(authforge-storage-memory CONFIG REQUIRED)
-target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::memory)
+find_package(fulla-oauth2 CONFIG REQUIRED)
+find_package(fulla-storage-memory CONFIG REQUIRED)
+target_link_libraries(my-engine PRIVATE fulla::oauth2 fulla::storage::memory)
 ```
 
-可用包与导出目标：`authforge-common`→`authforge::common`（另含
-`authforge::common::testing`）、`authforge-oauth2`→`authforge::oauth2`、
-`authforge-identity`→`authforge::identity`、
-`authforge-storage-{memory,redis,postgres}`→`authforge::storage::{memory,redis,postgres}`、
-`authforge-drogon`→`authforge::drogon`。版本兼容为 SameMajorVersion
-（`find_package(authforge-drogon 1.0 CONFIG REQUIRED)` 可锁 major）。
+可用包与导出目标：`fulla-common`→`fulla::common`（另含
+`fulla::common::testing`）、`fulla-oauth2`→`fulla::oauth2`、
+`fulla-identity`→`fulla::identity`、
+`fulla-storage-{memory,redis,postgres}`→`fulla::storage::{memory,redis,postgres}`、
+`fulla-drogon`→`fulla::drogon`。版本兼容为 SameMajorVersion
+（`find_package(fulla-drogon 1.0 CONFIG REQUIRED)` 可锁 major）。
 
 参考消费方（随仓库 CI 持续验证）：
 
-- `examples/full-stack-host/`：完整 HTTP 宿主，`find_package(authforge-drogon)`
+- `examples/full-stack-host/`：完整 HTTP 宿主，`find_package(fulla-drogon)`
   复用产品 controllers / OAuth2Plugin / views。Release 流水线用它对**安装
   前缀**做消费冒烟（`ctest -L SdkSmoke` 则对 build-tree 做同样验证）。
 - `examples/third-party-host/`：最小引擎消费方，只链 Domain 层四个包。
@@ -81,7 +81,7 @@ target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::me
 
 - 插件本体当前以 **OBJECT 库**链入宿主，目标文件逐个直接链接，自注册符号
   不会被裁剪——**当前不需要 whole-archive**。
-- 发布的 SDK 包中 `authforge::drogon` 是常规静态库，但插件注册走
+- 发布的 SDK 包中 `fulla::drogon` 是常规静态库，但插件注册走
   `config.json` `plugins[].name = "OAuth2Plugin"` 反射 + 显式
   `registerAllControllers()`（见 full-stack-host 的 main.cc），同样不依赖
   链接器保留未引用符号。若消费方自建**依赖静态初始化自注册**的封装，须
@@ -91,13 +91,13 @@ target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::me
 ## 5. 镜像使用
 
 ```bash
-docker pull ghcr.io/voidvec/authforge-backend:1.0.0
+docker pull ghcr.io/voidvec/fulla-backend:1.0.0
 ```
 
 三镜像与 `deploy/docker/docker-compose.yml` 的构建目标一一对应
 （`backend-runtime` / `frontend-runtime` / `frontends/admin/Dockerfile`），
-环境变量与挂载约定直接照搬 compose 文件的 `oauth2-backend` 段
-（`OAUTH2_DB_HOST` / `OAUTH2_REDIS_HOST` / `OAUTH2_AUTO_MIGRATE` 等）。
+环境变量与挂载约定直接照搬 compose 文件的 `fulla-backend` 段
+（`FULLA_DB_HOST` / `FULLA_REDIS_HOST` / `FULLA_AUTO_MIGRATE` 等）。
 
 ## 6. 发布流程（维护者）
 
@@ -121,12 +121,12 @@ docker pull ghcr.io/voidvec/authforge-backend:1.0.0
 
 ```sh
 # 镜像签名（keyless：身份 = release.yml 工作流，无需公钥分发）
-cosign verify ghcr.io/voidvec/authforge-backend:<ver> \
+cosign verify ghcr.io/voidvec/fulla-backend:<ver> \
   --certificate-identity-regexp \
     'https://github.com/voidvec/[^/]+/.github/workflows/release.yml.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # SDK tarball 校验和（Release 附件）
-sha256sum -c authforge-sdk-<ver>-linux-x86_64.tar.gz.sha256
+sha256sum -c fulla-sdk-<ver>-linux-x86_64.tar.gz.sha256
 ```
 

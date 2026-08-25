@@ -24,7 +24,7 @@
 # _Design: repo-structure-refactor §7.3_
 # _Requirements: 9.1, 9.4_
 
-set(OAUTH2_CMAKE_MODULE_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL
+set(FULLA_CMAKE_MODULE_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE INTERNAL
     "Directory of the OAuth2 shared CMake modules")
 
 function(oauth2_apply_compat target)
@@ -32,7 +32,7 @@ function(oauth2_apply_compat target)
         message(FATAL_ERROR "oauth2_apply_compat: target '${target}' does not exist")
     endif()
 
-    set(_compat_header "${OAUTH2_CMAKE_MODULE_DIR}/orm_compat.h")
+    set(_compat_header "${FULLA_CMAKE_MODULE_DIR}/orm_compat.h")
 
     if(MSVC)
         target_compile_options(${target} PRIVATE

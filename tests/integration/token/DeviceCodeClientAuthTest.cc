@@ -13,15 +13,15 @@
 // NOTHING): a CONFIDENTIAL one (`p1-test-conf-device`) and a PUBLIC one
 // (`p1-test-pub-device`), each with a matching approved device_code row. The
 // device_code_hash stored in oauth2_device_codes is computed with the same
-// authforge::drogon::utils::hashToken the server uses, so a raw device_code
+// fulla::drogon::utils::hashToken the server uses, so a raw device_code
 // sent by the client matches the stored hash. Rows are cleaned (DELETE) before
 // each insert so the test is re-runnable.
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 #include <json/json.h>
 
 #include <atomic>
@@ -146,7 +146,7 @@ long long nextDeviceCodeSeq()
 // Cleans any prior row with the same hash first (re-runnable).
 bool seedApprovedDeviceCode(const std::string &clientId, const std::string &rawDeviceCode)
 {
-    const std::string hash = authforge::drogon::utils::hashToken(rawDeviceCode);
+    const std::string hash = fulla::drogon::utils::hashToken(rawDeviceCode);
     const int64_t expiresAt = std::chrono::duration_cast<std::chrono::seconds>(
                                 std::chrono::system_clock::now().time_since_epoch()
                               )

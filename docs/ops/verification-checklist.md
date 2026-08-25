@@ -1,6 +1,6 @@
 # 部署验证清单
 
-本文档提供完整的部署验证步骤，确保 authforge 全栈系统在 Windows Docker Desktop 或 Linux 生产环境上正确运行。
+本文档提供完整的部署验证步骤，确保 fulla 全栈系统在 Windows Docker Desktop 或 Linux 生产环境上正确运行。
 
 ---
 
@@ -21,12 +21,12 @@ docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker p
 | 容器名 | 状态 | 端口映射 |
 |--------|------|---------|
 | oauth2-nginx | Up | 80:80, 443:443 |
-| oauth2-frontend | Up | 8080:80 |
-| oauth2-admin | Up | 8081:80 |
-| oauth2-backend | Up (healthy) | 5555:5555 |
-| oauth2-postgres | Up (healthy) | 5433:5432 |
-| oauth2-redis | Up | 6380:6379 |
-| oauth2-prometheus | Up | 9090:9090 |
+| fulla-frontend | Up | 8080:80 |
+| fulla-admin | Up | 8081:80 |
+| fulla-backend | Up (healthy) | 5555:5555 |
+| fulla-postgres | Up (healthy) | 5433:5432 |
+| fulla-redis | Up | 6380:6379 |
+| fulla-prometheus | Up | 9090:9090 |
 
 ### 2. 健康检查
 
@@ -42,7 +42,7 @@ curl http://localhost:5555/health
 
 ```powershell
 # 进入 postgres 容器
-docker exec -it oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\dt"
+docker exec -it fulla-postgres psql -U fulla_user -d fulla_db -c "\dt"
 
 # 预期输出：OAuth2 相关表列表
 # clients, users, tokens, authorization_codes, refresh_tokens, scopes, etc.
@@ -66,12 +66,12 @@ docker exec -it oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\dt"
 
 ```powershell
 # 连接测试
-docker exec oauth2-postgres pg_isready -U oauth2_user
+docker exec fulla-postgres pg_isready -U fulla_user
 
 # 预期输出：/var/run/postgresql:5432 - accepting connections
 
 # 表结构检查
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT table_name 
 FROM information_schema.tables 
 WHERE table_schema = 'public' 
@@ -88,7 +88,7 @@ ORDER BY table_name;
 # - users
 
 # 数据库版本检查
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT version();"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT version();"
 
 # 预期：PostgreSQL 17.x（deploy compose 默认 postgres:17-alpine；
 #       显式钉回 15 的存量部署此处应为 15.x，见 docs/ops/postgresql-major-upgrade.md）
@@ -98,18 +98,18 @@ docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT version(
 
 ```powershell
 # 进入 redis 容器
-docker exec -it oauth2-redis redis-cli -a WinDockerTest2024! ping
+docker exec -it fulla-redis redis-cli -a WinDockerTest2024! ping
 
 # 预期输出：PONG
 
 # 测试读写
-docker exec oauth2-redis redis-cli -a WinDockerTest2024! SET test_key "hello"
-docker exec oauth2-redis redis-cli -a WinDockerTest2024! GET test_key
+docker exec fulla-redis redis-cli -a WinDockerTest2024! SET test_key "hello"
+docker exec fulla-redis redis-cli -a WinDockerTest2024! GET test_key
 
 # 预期输出："hello"
 
 # 检查内存使用
-docker exec oauth2-redis redis-cli -a WinDockerTest2024! INFO memory
+docker exec fulla-redis redis-cli -a WinDockerTest2024! INFO memory
 
 # 预期：used_memory_human 显示合理的内存占用
 ```
@@ -118,19 +118,19 @@ docker exec oauth2-redis redis-cli -a WinDockerTest2024! INFO memory
 
 ```powershell
 # 从后端容器测试数据库连接
-docker exec oauth2-backend ping -c 3 oauth2-postgres
+docker exec fulla-backend ping -c 3 fulla-postgres
 
 # 预期：3 packets transmitted, 3 received, 0% packet loss
 
 # 从后端容器测试 Redis 连接
-docker exec oauth2-backend ping -c 3 oauth2-redis
+docker exec fulla-backend ping -c 3 fulla-redis
 
 # 预期：3 packets transmitted, 3 received, 0% packet loss
 
 # 检查 DNS 解析
-docker exec oauth2-backend nslookup oauth2-postgres
+docker exec fulla-backend nslookup fulla-postgres
 
-# 预期：返回 oauth2-postgres 的容器 IP 地址（如 172.x.x.x）
+# 预期：返回 fulla-postgres 的容器 IP 地址（如 172.x.x.x）
 ```
 
 ---
@@ -141,7 +141,7 @@ docker exec oauth2-backend nslookup oauth2-postgres
 
 ```powershell
 # 检查管理员用户
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT username, email, role, created_at 
 FROM users 
 WHERE username = 'admin';
@@ -150,10 +150,10 @@ WHERE username = 'admin';
 # 预期输出：
 # username | email                 | role  | created_at
 # ---------+-----------------------+-------+--------------------
-# admin    | admin@authforge.local | admin | 2024-06-23 xx:xx:xx
+# admin    | admin@fulla.local | admin | 2024-06-23 xx:xx:xx
 
 # 检查默认客户端
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT client_id, client_name, redirect_uris 
 FROM clients 
 WHERE client_id IN ('admin-console', 'vue-client');
@@ -162,7 +162,7 @@ WHERE client_id IN ('admin-console', 'vue-client');
 # 预期输出：显示管理后台和 Vue 客户端的配置
 
 # 检查默认 Scopes
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT scope_id, description 
 FROM scopes 
 LIMIT 5;
@@ -175,10 +175,10 @@ LIMIT 5;
 
 ```powershell
 # 检查 migrations 表（如果有的话）
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\d oauth2_migrations"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\d oauth2_migrations"
 
 # 或检查表结构完整性
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT COUNT(*) AS table_count 
 FROM information_schema.tables 
 WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
@@ -243,8 +243,8 @@ curl -X POST http://localhost:5555/oauth2/introspect \
   "exp": 1719123456,
   "iat": 1719119856,
   "sub": "admin",
-  "aud": "oauth2-backend",
-  "iss": "authforge"
+  "aud": "fulla-backend",
+  "iss": "fulla"
 }
 
 # 测试无效令牌
@@ -318,7 +318,7 @@ curl -X GET http://localhost:5555/api/admin/users \
     {
       "user_id": 1,
       "username": "admin",
-      "email": "admin@authforge.local",
+      "email": "admin@fulla.local",
       "role": "admin",
       "created_at": "2024-06-23T10:00:00Z",
       "updated_at": "2024-06-23T10:00:00Z"
@@ -499,18 +499,18 @@ curl -X POST http://localhost:5555/oauth2/token \
 
 ## 阶段五·补充：邮件服务验证
 
-邮件服务有两种模式，由后端 `getEmailService()` 根据 `OAUTH2_SMTP_*` 环境变量决定。
+邮件服务有两种模式，由后端 `getEmailService()` 根据 `FULLA_SMTP_*` 环境变量决定。
 
 ### 5.4 确认邮件服务模式
 
 ```powershell
 # 查看后端启动日志中的邮件服务模式
-docker logs oauth2-backend 2>&1 | grep -i "Email service"
+docker logs fulla-backend 2>&1 | grep -i "Email service"
 ```
 
 **预期输出（二选一）**：
 
-- Console 模式（未配置 SMTP）：`Email service: Console (set OAUTH2_SMTP_* env vars to enable SMTP)`
+- Console 模式（未配置 SMTP）：`Email service: Console (set FULLA_SMTP_* env vars to enable SMTP)`
 - SMTP 模式（已配置）：`Email service: SMTP (smtp.163.com:465)`
 
 ### 5.5 邮箱验证邮件
@@ -525,7 +525,7 @@ docker logs oauth2-backend 2>&1 | grep -i "Email service"
 **Console 模式下查看验证链接**：
 
 ```powershell
-docker logs oauth2-backend --tail 50 2>&1 | grep -A 5 -iE "verify|email"
+docker logs fulla-backend --tail 50 2>&1 | grep -A 5 -iE "verify|email"
 # 预期：含 "verify-email?token=xxx" 的链接
 ```
 
@@ -533,7 +533,7 @@ docker logs oauth2-backend --tail 50 2>&1 | grep -A 5 -iE "verify|email"
 
 ```powershell
 # 触发发送后，检查后端是否有 SMTP 错误
-docker logs oauth2-backend --tail 50 2>&1 | grep -iE "smtp|email|curl"
+docker logs fulla-backend --tail 50 2>&1 | grep -iE "smtp|email|curl"
 # 预期：无 ERROR 级别日志；收件箱收到 "Verify Your Email" 邮件
 ```
 
@@ -546,15 +546,15 @@ docker logs oauth2-backend --tail 50 2>&1 | grep -iE "smtp|email|curl"
 
 ### 5.7 启用真实 SMTP（可选，详见部署指南）
 
-如需真实邮件发送，在 `.env.docker` 设置 `OAUTH2_SMTP_HOST` / `OAUTH2_SMTP_USER` / `OAUTH2_SMTP_PASSWORD` 三项后重启后端：
+如需真实邮件发送，在 `.env.docker` 设置 `FULLA_SMTP_HOST` / `FULLA_SMTP_USER` / `FULLA_SMTP_PASSWORD` 三项后重启后端：
 
 ```powershell
-docker compose -f deploy/docker/docker-compose.yml --env-file .env.docker up -d oauth2-backend
-docker logs oauth2-backend 2>&1 | grep -i "Email service"
+docker compose -f deploy/docker/docker-compose.yml --env-file .env.docker up -d fulla-backend
+docker logs fulla-backend 2>&1 | grep -i "Email service"
 # 预期：Email service: SMTP (...)
 ```
 
-> **注意**：邮件验证链接使用 `OAUTH2_FRONTEND_URL`。本地部署为 `http://localhost:8080`，从其他机器点击会失效。
+> **注意**：邮件验证链接使用 `FULLA_FRONTEND_URL`。本地部署为 `http://localhost:8080`，从其他机器点击会失效。
 
 ---
 
@@ -664,7 +664,7 @@ curl -X GET http://localhost:5555/api/admin/users \
 
 ```powershell
 # 查看后端日志
-docker logs oauth2-backend --tail 50
+docker logs fulla-backend --tail 50
 
 # 预期：无 ERROR 级别日志，正常的 INFO/DEBUG 日志
 
@@ -674,23 +674,23 @@ docker logs oauth2-nginx --tail 50
 # 预期：正常的访问日志，无 5xx 错误
 
 # 实时跟踪日志
-docker compose -f deploy/docker/docker-compose.yml logs -f oauth2-backend
+docker compose -f deploy/docker/docker-compose.yml logs -f fulla-backend
 ```
 
 ### 7.3 数据库性能验证
 
 ```powershell
 # 检查数据库连接数
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT count(*) AS connections 
 FROM pg_stat_activity 
-WHERE datname = 'oauth2_db';
+WHERE datname = 'fulla_db';
 "
 
 # 预期：connections 为合理值（通常 < 20）
 
 # 检查慢查询（如果有 pg_stat_statements 扩展）
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT query, calls, total_time, mean_time 
 FROM pg_stat_statements 
 ORDER BY mean_time DESC 
@@ -713,7 +713,7 @@ LIMIT 5;
 docker compose -f deploy/docker/docker-compose.yml ps
 
 # 查看失败容器的日志
-docker logs oauth2-backend
+docker logs fulla-backend
 
 # 检查资源占用
 docker stats
@@ -728,16 +728,16 @@ docker compose -f deploy/docker/docker-compose.yml config
 
 ```powershell
 # 验证 postgres 容器健康状态
-docker exec oauth2-postgres pg_isready -U oauth2_user
+docker exec fulla-postgres pg_isready -U fulla_user
 
 # 检查网络连通性
-docker exec oauth2-backend ping oauth2-postgres
+docker exec fulla-backend ping fulla-postgres
 
 # 验证环境变量
-docker exec oauth2-backend env | grep OAUTH2_DB
+docker exec fulla-backend env | grep FULLA_DB
 
 # 查看数据库日志
-docker logs oauth2-postgres
+docker logs fulla-postgres
 ```
 
 ### 问题 3：前端无法访问后端 API
@@ -746,13 +746,13 @@ docker logs oauth2-postgres
 
 ```powershell
 # 从前端容器测试后端连接
-docker exec oauth2-frontend curl -s http://oauth2-backend:5555/health
+docker exec fulla-frontend curl -s http://fulla-backend:5555/health
 
 # 检查 nginx 配置（生产环境）
 docker exec oauth2-nginx nginx -t
 
 # 查看后端 CORS 配置
-docker logs oauth2-backend | grep -i cors
+docker logs fulla-backend | grep -i cors
 ```
 
 ### 问题 4：令牌验证失败
@@ -761,13 +761,13 @@ docker logs oauth2-backend | grep -i cors
 
 ```powershell
 # 验证 JWT 密钥存在
-docker exec oauth2-backend ls -la /app/keys/
+docker exec fulla-backend ls -la /app/keys/
 
 # 检查令牌签名
 # 复制 access_token 到 https://jwt.io 解码验证
 
 # 查看后端日志中的认证错误
-docker logs oauth2-backend | grep -i "auth\|token"
+docker logs fulla-backend | grep -i "auth\|token"
 ```
 
 ---
@@ -779,7 +779,7 @@ docker logs oauth2-backend | grep -i "auth\|token"
 保存为 `verify-deployment.ps1`：
 
 ```powershell
-# authforge 部署验证脚本
+# fulla 部署验证脚本
 param(
     [string]$BackendUrl = "http://localhost:5555",
     [string]$FrontendUrl = "http://localhost:8080",
@@ -815,7 +815,7 @@ function Test-BackendHealth {
 
 function Test-DatabaseConnection {
     Write-Host "`n[3/8] 检查数据库连接..." -ForegroundColor Cyan
-    $result = docker exec oauth2-postgres pg_isready -U oauth2_user 2>&1
+    $result = docker exec fulla-postgres pg_isready -U fulla_user 2>&1
     if ($LASTEXITCODE -eq 0 -and $result -match "accepting connections") {
         Write-Host "[+] 数据库连接正常" -ForegroundColor Green
         return $true
@@ -827,7 +827,7 @@ function Test-DatabaseConnection {
 
 function Test-DatabaseTables {
     Write-Host "`n[4/8] 检查数据库表结构..." -ForegroundColor Cyan
-    $result = docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -t -c "
+    $result = docker exec fulla-postgres psql -U fulla_user -d fulla_db -t -c "
         SELECT COUNT(*) FROM information_schema.tables 
         WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
     " 2>&1
@@ -844,7 +844,7 @@ function Test-DatabaseTables {
 
 function Test-SeedData {
     Write-Host "`n[5/8] 检查种子数据..." -ForegroundColor Cyan
-    $result = docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -t -c "
+    $result = docker exec fulla-postgres psql -U fulla_user -d fulla_db -t -c "
         SELECT COUNT(*) FROM users WHERE username = 'admin';
     " 2>&1
     
@@ -860,7 +860,7 @@ function Test-SeedData {
 
 function Test-RedisConnection {
     Write-Host "`n[6/8] 检查 Redis 连接..." -ForegroundColor Cyan
-    $result = docker exec oauth2-redis redis-cli -a WinDockerTest2024! ping 2>&1
+    $result = docker exec fulla-redis redis-cli -a WinDockerTest2024! ping 2>&1
     if ($result -match "PONG") {
         Write-Host "[+] Redis 连接正常" -ForegroundColor Green
         return $true
@@ -957,7 +957,7 @@ if ($passed -eq $total) {
 完成验证后，建议填写以下报告模板：
 
 ```markdown
-## authforge 部署验证报告
+## fulla 部署验证报告
 
 **验证日期**：2024-06-23
 **验证环境**：Windows Docker Desktop / Linux 生产服务器
@@ -1004,7 +1004,7 @@ if ($passed -eq $total) {
 
 ## 总结
 
-本验证清单涵盖了 authforge 系统的所有核心功能：
+本验证清单涵盖了 fulla 系统的所有核心功能：
 
 [+] **基础设施**：Docker 容器、网络、存储卷  
 [+] **数据层**：PostgreSQL 数据库、Redis 缓存  

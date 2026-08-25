@@ -1,29 +1,29 @@
 services:
   # PostgreSQL for testing
-  oauth2-postgres-debug:
+  fulla-postgres-debug:
     image: postgres:17-alpine
-    container_name: oauth2-postgres-debug
+    container_name: fulla-postgres-debug
     environment:
-      POSTGRES_USER: oauth2_user
+      POSTGRES_USER: fulla_user
       POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: oauth2_db
+      POSTGRES_DB: fulla_db
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oauth2_user"]
+      test: ["CMD-SHELL", "pg_isready -U fulla_user"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - oauth2-debug-net
+      - fulla-debug-net
 
   # Redis for testing
-  oauth2-redis-debug:
+  fulla-redis-debug:
     image: redis:7-alpine
-    container_name: oauth2-redis-debug
-    command: redis-server --requirepass 123456
+    container_name: fulla-redis-debug
+    command: redis-server --requirepass redis_secret_pass
     ports:
       - "6379:6379"
     volumes:
@@ -34,12 +34,12 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - oauth2-debug-net
+      - fulla-debug-net
 
   # Linux debug environment
   debug-env:
-    image: oauth2-backend-debug:v1.0.0
-    container_name: oauth2-backend-debug
+    image: fulla-backend-debug:v1.0.0
+    container_name: fulla-backend-debug
     volumes:
       # Mount the entire project directory
       - ../..:/app:cached
@@ -51,34 +51,34 @@ services:
     tty: true
     # Depends on databases to be ready
     depends_on:
-      oauth2-postgres-debug:
+      fulla-postgres-debug:
         condition: service_healthy
-      oauth2-redis-debug:
+      fulla-redis-debug:
         condition: service_healthy
     command: /bin/bash
     environment:
       - DISPLAY=${DISPLAY:-}
       # PostgreSQL connection info
-      - OAUTH2_DB_HOST=oauth2-postgres-debug
-      - OAUTH2_DB_PORT=5432
-      - OAUTH2_DB_USER=oauth2_user
-      - OAUTH2_DB_PASSWORD=123456
-      - OAUTH2_DB_NAME=oauth2_db
+      - FULLA_DB_HOST=fulla-postgres-debug
+      - FULLA_DB_PORT=5432
+      - FULLA_DB_USER=fulla_user
+      - FULLA_DB_PASSWORD=123456
+      - FULLA_DB_NAME=fulla_db
       # Redis connection info
-      - OAUTH2_REDIS_HOST=oauth2-redis-debug
-      - OAUTH2_REDIS_PORT=6379
-      - OAUTH2_REDIS_PASSWORD=123456
+      - FULLA_REDIS_HOST=fulla-redis-debug
+      - FULLA_REDIS_PORT=6379
+      - FULLA_REDIS_PASSWORD=redis_secret_pass
     networks:
-      - oauth2-debug-net
+      - fulla-debug-net
 
 volumes:
   oauth2-build-cache:
-    name: oauth2-plugin_build_cache
+    name: fulla_build_cache
   pgdata:
-    name: oauth2-plugin_postgres_debug
+    name: fulla_postgres_debug
   redisdata:
-    name: oauth2-plugin_redis_debug
+    name: fulla_redis_debug
 
 networks:
-  oauth2-debug-net:
+  fulla-debug-net:
     driver: bridge

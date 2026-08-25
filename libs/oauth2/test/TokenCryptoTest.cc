@@ -1,4 +1,4 @@
-// Coverage gap (authforge-sdk-refactor, design.md §6/§8 "protocol/"):
+// Coverage gap (fulla-sdk-refactor, design.md §6/§8 "protocol/"):
 // TokenCrypto.cc had ZERO direct unit coverage -- both functions were
 // exercised only transitively via TokenServiceTest. These tests pin the
 // Domain-layer token-crypto contract directly: generateSecureToken's
@@ -6,8 +6,8 @@
 // determinism (the uppercasing is load-bearing for at-rest lookups, see
 // TokenService.h's "UPPERCASE hex" comment).
 
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/oauth2/protocol/TokenCrypto.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/oauth2/protocol/TokenCrypto.h>
 
 #include <gtest/gtest.h>
 
@@ -17,9 +17,9 @@
 namespace
 {
 
-using authforge::common::testing::FakeCryptoProvider;
-using authforge::oauth2::protocol::generateSecureToken;
-using authforge::oauth2::protocol::hashToken;
+using fulla::common::testing::FakeCryptoProvider;
+using fulla::oauth2::protocol::generateSecureToken;
+using fulla::oauth2::protocol::hashToken;
 
 bool isBase64UrlChar(char c)
 {

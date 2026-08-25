@@ -23,17 +23,17 @@ source "$PATHS_ENV_FILE"
 set +a
 
 # Validation (uses the server dir defined in paths.env; the former
-# OAUTH2_PLUGIN_DIR check died with the OAuth2Plugin/ directory in Phase 4)
-if [ ! -d "$PROJECT_DIR/$OAUTH2_SERVER_DIR" ]; then
-    echo "[Error] Project structure invalid. Could not find $OAUTH2_SERVER_DIR at $PROJECT_DIR"
+# FULLA_PLUGIN_DIR check died with the OAuth2Plugin/ directory in Phase 4)
+if [ ! -d "$PROJECT_DIR/$FULLA_SERVER_DIR" ]; then
+    echo "[Error] Project structure invalid. Could not find $FULLA_SERVER_DIR at $PROJECT_DIR"
     exit 1
 fi
 
 # Derived absolute paths, built from paths.env values.
-OAUTH2_SERVER_ABS_DIR="$PROJECT_DIR/$OAUTH2_SERVER_DIR"
+FULLA_SERVER_ABS_DIR="$PROJECT_DIR/$FULLA_SERVER_DIR"
 LIBS_STORAGE_POSTGRES_ABS_DIR="$PROJECT_DIR/$LIBS_STORAGE_POSTGRES_DIR"
 BUILD_ABS_DIR="$PROJECT_DIR/$BUILD_DIR"
-export OAUTH2_SERVER_ABS_DIR
+export FULLA_SERVER_ABS_DIR
 export LIBS_STORAGE_POSTGRES_ABS_DIR
 export BUILD_ABS_DIR
 
@@ -44,14 +44,14 @@ export BUILD_ABS_DIR
 # "$BUILD_ABS_DIR/$(resolve_cmake_preset ...)".
 #   Usage: PRESET=$(resolve_cmake_preset "$BUILD_TYPE" "$SANITIZER")
 # SANITIZER is optional (off|address|thread); defaults to off.
-# Explicit override: set AUTHFORGE_CMAKE_PRESET (e.g. linux-release-lto) to
+# Explicit override: set FULLA_CMAKE_PRESET (e.g. linux-release-lto) to
 # bypass OS/type/sanitizer resolution entirely — build.sh derives the conan
 # output-folder and the cmake --preset/--build --preset invocations from the
 # returned name, so the whole chain follows. The named preset must exist in
 # CMakePresets.json.
 resolve_cmake_preset() {
-    if [ -n "${AUTHFORGE_CMAKE_PRESET:-}" ]; then
-        echo "$AUTHFORGE_CMAKE_PRESET"
+    if [ -n "${FULLA_CMAKE_PRESET:-}" ]; then
+        echo "$FULLA_CMAKE_PRESET"
         return 0
     fi
     local build_type="${1:-Release}"

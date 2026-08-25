@@ -1,21 +1,21 @@
-// Task 17 (authforge-sdk-refactor, design.md §8/§17): unit tests for the
-// oauth2::pkce pure-function module. Uses authforge::common::testing's
+// Task 17 (fulla-sdk-refactor, design.md §8/§17): unit tests for the
+// oauth2::pkce pure-function module. Uses fulla::common::testing's
 // FakeCryptoProvider for the S256 case, which performs REAL SHA-256/
 // base64url under the hood (see that class's header comment) -- so these
 // assertions exercise the actual RFC 7636 algorithm, not a stub.
 
-#include <authforge/common/model/PkceChallenge.h>
-#include <authforge/common/testing/FakeCryptoProvider.h>
-#include <authforge/oauth2/pkce/Pkce.h>
+#include <fulla/common/model/PkceChallenge.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
+#include <fulla/oauth2/pkce/Pkce.h>
 
 #include <gtest/gtest.h>
 
 namespace
 {
 
-using authforge::common::model::PkceChallenge;
-using authforge::common::testing::FakeCryptoProvider;
-using namespace authforge::oauth2::pkce;
+using fulla::common::model::PkceChallenge;
+using fulla::common::testing::FakeCryptoProvider;
+using namespace fulla::oauth2::pkce;
 
 // A 43-character verifier satisfying RFC 7636 §4.1's charset/length rule.
 constexpr char kValidVerifier[] = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";

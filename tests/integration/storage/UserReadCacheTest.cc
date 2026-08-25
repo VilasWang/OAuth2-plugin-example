@@ -28,8 +28,8 @@
 // wave-1 TTL-jitter test; deliberately NOT on the public include tree).
 #include "../../libs/drogon/src/UserReadCache.h"
 
-using authforge::drogon::UserReadCache;
-using authforge::drogon::UserCacheInvalidator;
+using fulla::drogon::UserReadCache;
+using fulla::drogon::UserCacheInvalidator;
 
 namespace
 {
@@ -56,7 +56,7 @@ void evictUserKeys(const std::string &subject)
     redis->execCommandAsync(
       [done](const ::drogon::nosql::RedisResult &) { done->set_value(); },
       [done](const ::drogon::nosql::RedisException &) { done->set_value(); },
-      "DEL authforge:cache:user:profile:%s authforge:cache:user:roles:%s",
+      "DEL fulla:cache:user:profile:%s fulla:cache:user:roles:%s",
       subject.c_str(),
       subject.c_str()
     );
@@ -93,7 +93,7 @@ void registerDelHook(const ::drogon::nosql::RedisClientPtr &redis)
       [redis](const std::string &subject) {
           for (const char *kind : {"profile", "roles"})
           {
-              std::string key = std::string("authforge:cache:user:") + kind + ":" + subject;
+              std::string key = std::string("fulla:cache:user:") + kind + ":" + subject;
               redis->execCommandAsync(
                 [](const ::drogon::nosql::RedisResult &) {},
                 [](const ::drogon::nosql::RedisException &) {},

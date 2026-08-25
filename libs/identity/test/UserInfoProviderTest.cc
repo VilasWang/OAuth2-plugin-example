@@ -1,17 +1,17 @@
-// Task 19 (authforge-sdk-refactor, design.md §6): unit tests for
-// authforge::identity::UserInfoProvider (implements
-// authforge::common::ports::IUserInfoProvider).
+// Task 19 (fulla-sdk-refactor, design.md §6): unit tests for
+// fulla::identity::UserInfoProvider (implements
+// fulla::common::ports::IUserInfoProvider).
 
-#include <authforge/identity/UserInfoProvider.h>
+#include <fulla/identity/UserInfoProvider.h>
 
 #include <gtest/gtest.h>
 
 #include <map>
 #include <memory>
 
-using authforge::identity::IUserRepository;
-using authforge::identity::UserData;
-using authforge::identity::UserInfoProvider;
+using fulla::identity::IUserRepository;
+using fulla::identity::UserData;
+using fulla::identity::UserInfoProvider;
 
 namespace
 {

@@ -46,7 +46,7 @@ const BACKEND_ERROR_CODES = [
 ] as const
 
 // 完整的 OAuth2 / RFC 6749 协议错误码（design.md「OAuth2 协议错误码目录」）。
-const OAUTH2_PROTOCOL_CODES = [
+const FULLA_PROTOCOL_CODES = [
   'invalid_request',
   'invalid_client',
   'invalid_grant',
@@ -75,7 +75,7 @@ const RESERVED_CODES = ['__unknown__', '__network__'] as const
 
 const ALL_CODES = [
   ...BACKEND_ERROR_CODES,
-  ...OAUTH2_PROTOCOL_CODES,
+  ...FULLA_PROTOCOL_CODES,
   ...RESERVED_CODES,
 ] as const
 

@@ -11,8 +11,8 @@
 #   # 一次性前置(Linux 为例)
 #   ./manage.sh build-backend --install-deps      # apt 装 git/build-essential/cmake
 #   pipx install conan                            # 或 pip install conan
-#   export OAUTH2_DB_USER=postgres                # 对齐你的 PG 账号(或创建 oauth2_user)
-#   export OAUTH2_DB_PASSWORD=<你的密码>
+#   export FULLA_DB_USER=postgres                # 对齐你的 PG 账号(或创建 fulla_user)
+#   export FULLA_DB_PASSWORD=<你的密码>
 #   # 确保 PostgreSQL + Redis 服务在运行
 #   # 之后才能:
 #   ./manage.sh full-test -debug
@@ -50,7 +50,7 @@ echo ""
 
 # Step 1: Reinitialize Database
 echo "========================================"
-echo "Step 1: Reinitializing oauth2_db database"
+echo "Step 1: Reinitializing fulla_db database"
 echo "========================================"
 bash "$SCRIPT_DIR/setup-database.sh"
 echo "[SUCCESS] Database initialized"

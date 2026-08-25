@@ -1,6 +1,6 @@
 # Versioning & Release Policy
 
-AuthForge 的版本号方案、bump 判定规则、发布节奏、预发布与补丁通道，以及
+Fulla 的版本号方案、bump 判定规则、发布节奏、预发布与补丁通道，以及
 版本发布的标准操作流程（SOP）。
 
 本文档是版本治理（governance）的单一出处。**版本工程的"怎么做"（CI 流水
@@ -19,7 +19,7 @@ AuthForge 的版本号方案、bump 判定规则、发布节奏、预发布与�
 
 ### 1.1 SemVer 2.0.0
 
-AuthForge 遵循 [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)：
+Fulla 遵循 [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)：
 
 ```
 MAJOR.MINOR.PATCH[-prerelease]
@@ -34,7 +34,7 @@ MAJOR.MINOR.PATCH[-prerelease]
 | **prerelease** | `-alpha.N` / `-beta.N` / `-rc.N` | 无承诺 |
 
 > v1.x 的"源码兼容"边界由 [SDK Runtime Contract](sdk-runtime-contract.md) §2
-> 明确：仅覆盖 `libs/*/include/authforge/**` 公共头的**源码级 API**，不承诺
+> 明确：仅覆盖 `libs/*/include/fulla/**` 公共头的**源码级 API**，不承诺
 > 二进制 ABI。
 
 ### 1.2 版本号单一来源（SSoT）
@@ -101,7 +101,7 @@ client_secret）。这类改动：
 - **严格 SemVer 视角**：是 breaking（依赖旧宽松行为的下游会断）。
 - **行业惯例**：多在 MINOR bump 内推进，Release Notes 显著标注。
 
-**AuthForge 的取舍：**
+**Fulla 的取舍：**
 
 > 安全 hardening 在 **MINOR** 内推进，**不强制 MAJOR**。理由：本项目此前的
 > "宽松行为"本身就是 spec 违规（bug），修复是回归正确，不是产品语义的有意
@@ -159,7 +159,7 @@ v2.0.0-alpha.1 → alpha.2 → … → v2.0.0-beta.1 → … → v2.0.0-rc.1 →
 
 ## 6. DB Schema 版本与产品版本解耦
 
-AuthForge 用编号式 migration（`V001_*` … `V0NN_*`），编号独立递增。
+Fulla 用编号式 migration（`V001_*` … `V0NN_*`），编号独立递增。
 
 - **新增 migration（加表 / 加列 / 加索引）** = 向后兼容 → 触发 **MINOR** 评估。
 - **破坏性 migration（删列 / 改类型无回填 / 重命名）** → 触发 **MAJOR** 评估。
@@ -197,8 +197,8 @@ release/1.2:    └──●(cherry-pick fix)──● tag v1.2.1
 
 - `:latest` 指向**最新正式版**（不含 pre-release）。
 - [`deploy/docker/docker-compose.prod.yml`](../../deploy/docker/docker-compose.prod.yml)
-  使用 `${AUTHFORGE_VERSION:-latest}`：部署便利的默认值。
-- ⚠️ **生产部署应显式 pin 到具体版本号**（`AUTHFORGE_VERSION=1.2.0`），
+  使用 `${FULLA_VERSION:-latest}`：部署便利的默认值。
+- ⚠️ **生产部署应显式 pin 到具体版本号**（`FULLA_VERSION=1.2.0`），
   不要依赖 `latest` —— 它会在新版本发布时不可控地滚动。
 
 ---

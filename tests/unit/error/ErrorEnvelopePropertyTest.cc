@@ -1,7 +1,7 @@
 // Feature: error-code-message-standardization — Error Envelope property tests.
 //
 // This file hosts the property-based tests that exercise the Error Envelope
-// produced by authforge::common::error::Error::toJson(bool). It is intentionally split
+// produced by fulla::common::error::Error::toJson(bool). It is intentionally split
 // into clearly delimited sections so later tasks can append their property
 // tests next to a shared set of helpers without re-declaring them:
 //
@@ -23,10 +23,10 @@
 #include <drogon/drogon_test.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/common/error/ErrorCatalog.h>
-#include <authforge/common/error/ErrorContext.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorCatalog.h>
+#include <fulla/common/error/ErrorContext.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 #include <json/json.h>
 
 #include <cstdint>
@@ -40,7 +40,7 @@
 #include <utility>
 #include <vector>
 
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 // ============================================================================
 // SHARED HELPERS — reused by all Error Envelope properties in this file.

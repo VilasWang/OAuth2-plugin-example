@@ -1,7 +1,7 @@
-# authforge-identity library
+# fulla-identity library
 cmake_minimum_required(VERSION 3.20)
 
-project(authforge-identity LANGUAGES CXX)
+project(fulla-identity LANGUAGES CXX)
 
 # M5 Task 31: WITH_WEBAUTHN / WITH_SOCIAL are now declared at the TOP-LEVEL
 # CMakeLists.txt (and threaded from conanfile.py's with_* options). The
@@ -13,7 +13,7 @@ option(WITH_SOCIAL "Build social auth identity module" ON)
 
 # Find dependencies
 #
-# Task 19 (authforge-sdk-refactor, design.md §4.1 rule 1): this is a
+# Task 19 (fulla-sdk-refactor, design.md §4.1 rule 1): this is a
 # Domain-layer package -- it must not depend on Drogon. No source file
 # under libs/identity/src includes any <drogon/...> header (verified by
 # grep); jsoncpp alone (used directly for Json::Value in
@@ -31,7 +31,7 @@ find_package(OpenSSL REQUIRED)
 
 # Sources
 #
-# Task 19 (authforge-sdk-refactor): RoleProvider/SubjectResolver/
+# Task 19 (fulla-sdk-refactor): RoleProvider/SubjectResolver/
 # UserInfoProvider are header-only (no corresponding .cc) -- each is a
 # thin one-method forwarding adapter over an identity repository
 # interface, same pattern as OAuth2Plugin's existing
@@ -56,32 +56,32 @@ set(IDENTITY_SOURCES
 
 # Headers
 set(IDENTITY_HEADERS
-    include/authforge/identity/AuthService.h
-    include/authforge/identity/IUserRepository.h
-    include/authforge/identity/IRoleRepository.h
-    include/authforge/identity/ISubjectMappingRepository.h
-    include/authforge/identity/IMfaRepository.h
-    include/authforge/identity/RoleProvider.h
-    include/authforge/identity/SubjectResolver.h
-    include/authforge/identity/UserInfoProvider.h
-    include/authforge/identity/MfaService.h
-    include/authforge/identity/TotpUtils.h
-    include/authforge/identity/SessionManager.h
-    include/authforge/identity/IBackchannelLogoutNotifier.h
-    include/authforge/identity/IOAuthHttpClient.h
-    $<$<BOOL:${WITH_WEBAUTHN}>:include/authforge/identity/WebAuthnService.h>
-    $<$<BOOL:${WITH_WEBAUTHN}>:include/authforge/identity/IWebAuthnRepository.h>
-    $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/SocialAuthService.h>
-    $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/SocialLinkService.h>
-    $<$<BOOL:${WITH_SOCIAL}>:include/authforge/identity/ISocialAccountRepository.h>
+    include/fulla/identity/AuthService.h
+    include/fulla/identity/IUserRepository.h
+    include/fulla/identity/IRoleRepository.h
+    include/fulla/identity/ISubjectMappingRepository.h
+    include/fulla/identity/IMfaRepository.h
+    include/fulla/identity/RoleProvider.h
+    include/fulla/identity/SubjectResolver.h
+    include/fulla/identity/UserInfoProvider.h
+    include/fulla/identity/MfaService.h
+    include/fulla/identity/TotpUtils.h
+    include/fulla/identity/SessionManager.h
+    include/fulla/identity/IBackchannelLogoutNotifier.h
+    include/fulla/identity/IOAuthHttpClient.h
+    $<$<BOOL:${WITH_WEBAUTHN}>:include/fulla/identity/WebAuthnService.h>
+    $<$<BOOL:${WITH_WEBAUTHN}>:include/fulla/identity/IWebAuthnRepository.h>
+    $<$<BOOL:${WITH_SOCIAL}>:include/fulla/identity/SocialAuthService.h>
+    $<$<BOOL:${WITH_SOCIAL}>:include/fulla/identity/SocialLinkService.h>
+    $<$<BOOL:${WITH_SOCIAL}>:include/fulla/identity/ISocialAccountRepository.h>
 )
 
-add_library(authforge-identity STATIC
+add_library(fulla-identity STATIC
     ${IDENTITY_SOURCES}
 )
-add_library(authforge::identity ALIAS authforge-identity)
+add_library(fulla::identity ALIAS fulla-identity)
 
-target_include_directories(authforge-identity
+target_include_directories(fulla-identity
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -89,9 +89,9 @@ target_include_directories(authforge-identity
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(authforge-identity
+target_link_libraries(fulla-identity
     PUBLIC
-        authforge-common
+        fulla-common
     PRIVATE
         JsonCpp::JsonCpp
         OpenSSL::Crypto
@@ -99,11 +99,11 @@ target_link_libraries(authforge-identity
 
 # Compile definitions for conditional features
 if(WITH_WEBAUTHN)
-    target_compile_definitions(authforge-identity PUBLIC WITH_WEBAUTHN)
+    target_compile_definitions(fulla-identity PUBLIC WITH_WEBAUTHN)
 endif()
 
 if(WITH_SOCIAL)
-    target_compile_definitions(authforge-identity PUBLIC WITH_SOCIAL)
+    target_compile_definitions(fulla-identity PUBLIC WITH_SOCIAL)
 endif()
 
 # First-party warning level (shared module, same convention as the other
@@ -113,8 +113,8 @@ if(NOT COMMAND oauth2_apply_warnings)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
     include(Warnings)
 endif()
-oauth2_apply_warnings(authforge-identity)
-oauth2_apply_gcov(authforge-identity)
+oauth2_apply_warnings(fulla-identity)
+oauth2_apply_gcov(fulla-identity)
 
 # Install rules
 install(DIRECTORY include/
@@ -123,19 +123,19 @@ install(DIRECTORY include/
 )
 
 # SDK packaging: install-tree + build-tree find_package() config carrying the
-# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
-# Note: authforge_package() routes install destinations through GNUInstallDirs
+# transitive find_dependency() closure (fulla-sdk-refactor Task 28a).
+# Note: fulla_package() routes install destinations through GNUInstallDirs
 # (consistent with the other libs/* packages); the header install above keeps
 # this package's original FILES_MATCHING glob.
-if(NOT COMMAND authforge_package)
+if(NOT COMMAND fulla_package)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
-    include(AuthForgePackage)
+    include(FullaPackage)
 endif()
-authforge_package(
-    TARGET authforge-identity
-    PACKAGE authforge-identity
+fulla_package(
+    TARGET fulla-identity
+    PACKAGE fulla-identity
     EXPORT_NAME identity
-    DEPENDENCIES jsoncpp OpenSSL authforge-common
+    DEPENDENCIES jsoncpp OpenSSL fulla-common
 )
 
 # --- Tests (pure unit, no DB/no Drogon) ---

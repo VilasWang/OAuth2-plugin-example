@@ -86,7 +86,7 @@ Summarized from the companion explore report (full file:line evidence there). Ke
   `if (!redisClient_) { cb(<safe default>); return; }`. The cache decorator follows the same
   pattern: Redis null/error → fall through to Postgres.
 - **No `IUserInfoRepository`** in the OAuth2 domain; user data is the separate identity domain
-  (`authforge::identity::IUserRepository`), out of scope for this cache design unless the user
+  (`fulla::identity::IUserRepository`), out of scope for this cache design unless the user
   asks.
 
 ---
@@ -148,10 +148,10 @@ Keys are namespaced and use only non-sensitive identifiers (hashed tokens, clien
 Phase 1 implements only the **client** key; the token keys are shown for Phase 2 completeness.
 
 ```
-authforge:cache:client:{clientId}                 → JSON(OAuth2Client)   TTL 300s            [Phase 1]
-authforge:cache:token:access:{sha256(token)}      → JSON(OAuth2AccessToken)  TTL = min(token_ttl, 60s)  [Phase 2]
-authforge:cache:token:revoked:{sha256(token)}     → "1"  (negative cache, see §5.4)  TTL see below       [Phase 2]
-authforge:cache:token:introspect:{sha256(token)}  → JSON(TokenIntrospection)  TTL = min(token_ttl, 60s)  [Phase 2]
+fulla:cache:client:{clientId}                 → JSON(OAuth2Client)   TTL 300s            [Phase 1]
+fulla:cache:token:access:{sha256(token)}      → JSON(OAuth2AccessToken)  TTL = min(token_ttl, 60s)  [Phase 2]
+fulla:cache:token:revoked:{sha256(token)}     → "1"  (negative cache, see §5.4)  TTL see below       [Phase 2]
+fulla:cache:token:introspect:{sha256(token)}  → JSON(TokenIntrospection)  TTL = min(token_ttl, 60s)  [Phase 2]
 ```
 
 > **Key construction note (PR #47 review clarification):** the `{sha256(token)}`
@@ -160,7 +160,7 @@ authforge:cache:token:introspect:{sha256(token)}  → JSON(TokenIntrospection)  
 > `hashToken(crypto, rawToken)` (UPPERCASE sha256 hex) **before** invoking the
 > repository (`TokenService.cc:559/596/612`), so the decorator's `token`
 > parameter **is already the hash**. The decorator builds keys by direct
-> string concatenation (`"authforge:cache:token:access:" + token`) — it does
+> string concatenation (`"fulla:cache:token:access:" + token`) — it does
 > **NOT** re-hash. This is uniform across all paths (getAccessToken,
 > introspectToken, revokeAccessToken), so the read-path and revoke-path keys
 > are always identical. The `Revoked_NotServed` integration test
@@ -197,11 +197,11 @@ no invalidation in Phase 1 — see the "Client write path" row).
 |---|---|
 | `saveAccessToken` | no-op (a new token isn't cached until read) |
 | `saveTokenPair` | no-op |
-| `revokeAccessToken` | `SET authforge:cache:token:revoked:{hash} 1 EX 60` **before** `DEL authforge:cache:token:access:{hash}` (negative-cache-before-DEL ordering, see Race window below). The revoked entry's 60s TTL is the N3 exception (§5.3). Applies to **both** `introspectToken` and `getAccessToken` read paths — they share the same `access:{hash}` / `revoked:{hash}` key pair, so the action is stated once here (S2). |
+| `revokeAccessToken` | `SET fulla:cache:token:revoked:{hash} 1 EX 60` **before** `DEL fulla:cache:token:access:{hash}` (negative-cache-before-DEL ordering, see Race window below). The revoked entry's 60s TTL is the N3 exception (§5.3). Applies to **both** `introspectToken` and `getAccessToken` read paths — they share the same `access:{hash}` / `revoked:{hash}` key pair, so the action is stated once here (S2). |
 | `revokeRefreshToken` / `atomicRevokeRefreshToken` | (Phase 2: refresh not cached → no-op) |
 | `revokeTokenFamily` | **(b) TTL-bounded convergence** (G1 closure, §10.5). The decorator does **not** maintain a `familyId → {access-hash}` index in Phase 2. Family-revoked access tokens remain cacheable until the 60s access-token TTL cap bounds the staleness window. This still meets the "no revoked token served as active" bar — the worst case is a ≤60s window where a family-revoked access token may be served as active, after which the TTL expiry + the negative-cache set by any subsequent `revokeAccessToken` corrects it. Revisit option (a) (explicit `family:{id}` → hash set, populated on `saveTokenPair`, consumed on family revoke) only if metrics show meaningful family-revoke traffic. |
 | `incrementIntrospectCount` | **no cache write** — leave the cached introspection; the count is best-effort and read-modify-write. Document that `introspect_count` in a cached response may lag. |
-| **Client write path (admin mutations)** | **Runtime write paths DO exist** (correction: the original draft wrongly claimed "none exists today"). `ClientManagementService` (`libs/drogon/src/admin/ClientManagementService.cc`) exposes 4 admin mutation paths that operate directly on the `Oauth2Clients` ORM table, bypassing the `IClientRepository` interface: `updateClient` (`:280`), `resetClientSecret` (`:414`), `updateClientScopes` (`:517`), `deleteClient` (`:373`). **When `cache.enabled=true`, each of these MUST invalidate `authforge:cache:client:{clientId}` in its Postgres-write success callback** — otherwise a removed redirect URI / scope / secret / client is served stale from cache for up to the 300s client TTL. **Phase-1 implementation gap (PR #47 review, Codex P1):** invalidation hooks are NOT yet wired into `ClientManagementService`. Two mitigation options until they land: (a) keep `cache.enabled=false` by default (already the case — the staleness window only exists for operators who explicitly opt in), and (b) document in the config block + ops runbook that enabling the client cache requires these invalidation hooks. The hooks are a tracked follow-up: add a `DEL authforge:cache:client:{clientId}` (fire-and-forget, best-effort, silent on Redis error) to each of the 4 success callbacks. This is a **gap against the "no stale client served" bar**, bounded by the 300s TTL — same correctness class as the token-revoke window (§5.4), not a Phase-1 blocker because the cache is off by default. |
+| **Client write path (admin mutations)** | **Runtime write paths DO exist** (correction: the original draft wrongly claimed "none exists today"). `ClientManagementService` (`libs/drogon/src/admin/ClientManagementService.cc`) exposes 4 admin mutation paths that operate directly on the `Oauth2Clients` ORM table, bypassing the `IClientRepository` interface: `updateClient` (`:280`), `resetClientSecret` (`:414`), `updateClientScopes` (`:517`), `deleteClient` (`:373`). **When `cache.enabled=true`, each of these MUST invalidate `fulla:cache:client:{clientId}` in its Postgres-write success callback** — otherwise a removed redirect URI / scope / secret / client is served stale from cache for up to the 300s client TTL. **Phase-1 implementation gap (PR #47 review, Codex P1):** invalidation hooks are NOT yet wired into `ClientManagementService`. Two mitigation options until they land: (a) keep `cache.enabled=false` by default (already the case — the staleness window only exists for operators who explicitly opt in), and (b) document in the config block + ops runbook that enabling the client cache requires these invalidation hooks. The hooks are a tracked follow-up: add a `DEL fulla:cache:client:{clientId}` (fire-and-forget, best-effort, silent on Redis error) to each of the 4 success callbacks. This is a **gap against the "no stale client served" bar**, bounded by the 300s TTL — same correctness class as the token-revoke window (§5.4), not a Phase-1 blocker because the cache is off by default. |
 
 **Pre-hashed tokens (G3 closure):** the revoke entry points receive **already-hashed** tokens.
 Verified: `TokenService::revokeAccessToken` (`.cc:612`) does `auto hashedToken =
@@ -228,7 +228,7 @@ The race described above has a second, wider form discovered on the client/user 
 (issue #79): a reader whose **Postgres read starts before the write commits** can land its
 cache-fill `SET` **after** the invalidation `DEL` — the DEL "succeeds" yet the stale row is
 pinned for the **full** TTL (300s client / 120s roles), not the 60s token cap. Mitigation,
-implemented as one shared primitive (`authforge/storage/redis/DelayedDoubleDelete.h`,
+implemented as one shared primitive (`fulla/storage/redis/DelayedDoubleDelete.h`,
 used by the ClientCacheInvalidator/UserCacheInvalidator hooks and the token decorator's
 revoke path):
 
@@ -244,7 +244,7 @@ revoke path):
    a fresher one in the stale-first ordering. Full generation/versioning remains deferred to
    #42 Phase 3, per the task decision.
 4. **#80 failure observability**: every *failed DEL attempt* increments
-   `authforge_cache_invalidation_failures_total{kind}` via the IMetrics port and logs
+   `fulla_cache_invalidation_failures_total{kind}` via the IMetrics port and logs
    (WARN on first failure, ERROR after the one immediate retry) — up to 4 counted attempts
    per invalidation against a dead Redis. Soft-fail is unchanged: Redis-down still means
    pass-through to Postgres.
@@ -325,11 +325,11 @@ Add a `cache` block under the plugin config (additive; default off):
 ### 5.7 Observability
 
 - **Counters via the `IMetrics` port** (N1). The decorator receives a
-  `shared_ptr<authforge::common::ports::IMetrics>` in its constructor (the same
+  `shared_ptr<fulla::common::ports::IMetrics>` in its constructor (the same
   injection pattern `TokenService` uses for `IAuditSink`), constructed once in
   `OAuth2Plugin::initAndStart()` as `DrogonMetrics` (the only production `IMetrics`
   impl today — it emits `LOG_INFO` lines, **not** Prometheus, verified at
-  `DrogonMetrics.cc:33-76`). Counter name `authforge_cache_total`, labels
+  `DrogonMetrics.cc:33-76`). Counter name `fulla_cache_total`, labels
   `repo=client|token` and `outcome=hit|miss|error`. The port abstraction means a
   future PromExporter-backed `IMetrics` impl picks these counters up with zero
   decorator changes. *(Original draft said "prometheus counters" — corrected to
@@ -380,7 +380,7 @@ requires a release-note + a migration check that refuses startup on the removed 
 | Cache stampede on a hot client key expiry | Single-flight in-flight reads (a per-key promise set) — Phase 2 optimization; the 5-min TTL makes this low-frequency. |
 | Operator forgets to enable cache after Redis is up | No correctness impact (cache is an optimization); `enabled:false` is always safe. |
 | **Soft-fail double-callback (S1)** | `shared_ptr<atomic<bool>> fired` once-guard in every soft-fail path (§5.5). Mandatory Phase-1 constraint; covered by a unit test. |
-| **Admin client mutations bypass the cache (PR #47 review, Codex P1)** | `ClientManagementService::{updateClient,resetClientSecret,updateClientScopes,deleteClient}` mutate `Oauth2Clients` directly via the ORM, NOT through `IClientRepository`, so the decorator's invalidation hook is never reached. A deleted/modified client is served stale from cache for up to the 300s client TTL. **Phase-1 mitigation: `cache.enabled` defaults to `false`** — the staleness window only opens when an operator explicitly opts in. **Follow-up:** add a fire-and-forget `DEL authforge:cache:client:{clientId}` to each of the 4 admin success callbacks (tracked gap, §5.4). Documented in config.json + ops runbook. |
+| **Admin client mutations bypass the cache (PR #47 review, Codex P1)** | `ClientManagementService::{updateClient,resetClientSecret,updateClientScopes,deleteClient}` mutate `Oauth2Clients` directly via the ORM, NOT through `IClientRepository`, so the decorator's invalidation hook is never reached. A deleted/modified client is served stale from cache for up to the 300s client TTL. **Phase-1 mitigation: `cache.enabled` defaults to `false`** — the staleness window only opens when an operator explicitly opts in. **Follow-up:** add a fire-and-forget `DEL fulla:cache:client:{clientId}` to each of the 4 admin success callbacks (tracked gap, §5.4). Documented in config.json + ops runbook. |
 
 ---
 
@@ -388,7 +388,7 @@ requires a release-note + a migration check that refuses startup on the removed 
 
 **Phase 1 — Client cache (lowest risk, read-only). ← THIS RELEASE**
 1. `RedisCachedClientRepository` implementing `IClientRepository`, wrapping the Postgres impl.
-   Cache key `authforge:cache:client:{clientId}`, value JSON-serialized `OAuth2Client`,
+   Cache key `fulla:cache:client:{clientId}`, value JSON-serialized `OAuth2Client`,
    TTL 300s.
 2. `PostgresRepositoryBundle::withCache(redisClient, metrics, ttlConfig)` factory; config
    `cache` block (§5.6).
@@ -465,7 +465,7 @@ All decisions confirmed; the recommended defaults above are now the locked desig
 
 8. **Metrics emission — DECIDED: IMetrics port, not Prometheus (N1).** Verified: the only
    production `IMetrics` implementation is `DrogonMetrics` (log-emitting, no PromExporter).
-   The decorator therefore emits counters via `incrementCounter("authforge_cache_total",
+   The decorator therefore emits counters via `incrementCounter("fulla_cache_total",
    {{"repo","..."},{"outcome","..."}})` through the injected `shared_ptr<IMetrics>`, matching
    the existing injection pattern. A future PromExporter-backed impl picks these up with zero
    decorator changes.
@@ -507,7 +507,7 @@ The cache key layout (§5.3) only has `access:{sha256(token)}`; there is **no in
 `familyId → {access-token hashes}`**. The §5.4 table therefore lists the action as
 "(refresh not cached; cascade also DELs matching access keys **if feasible**)" — this is an
 unresolved blank, not a design. Two concrete options, pick one and document it:
-- (a) The decorator maintains `authforge:cache:family:{familyId}` → Redis set of access-hash
+- (a) The decorator maintains `fulla:cache:family:{familyId}` → Redis set of access-hash
       keys, populated on `saveTokenPair` and consumed (DEL + negative-cache) on family revoke.
 - (b) Accept that family-revoked access tokens remain cacheable until the 60s TTL cap bounds
       the staleness, and state this honestly in §5.4 (the 60s cap still meets the
@@ -598,10 +598,10 @@ into §5. The findings:
 **N1 — Metrics: "prometheus counters" claim is unverified (§5.7).** The §5.7 original text
 claimed "Counters (prometheus) for cache hits/misses/errors ... the existing prometheus
 scrape already runs." **Verification:** the only production `IMetrics` implementation is
-`authforge::drogon::adapters::DrogonMetrics` (`libs/drogon/src/adapters/DrogonMetrics.cc:33-76`),
+`fulla::drogon::adapters::DrogonMetrics` (`libs/drogon/src/adapters/DrogonMetrics.cc:33-76`),
 which emits `LOG_INFO` lines — it does **not** touch `drogon::plugin::PromExporter`. There is
 no PromExporter-backed `IMetrics` impl in the tree. The legacy
-`authforge::drogon::observability::Metrics` static class also only logs, despite an unused
+`fulla::drogon::observability::Metrics` static class also only logs, despite an unused
 `#include <drogon/plugins/PromExporter.h>`. **Resolution (§10.8):** emit via the `IMetrics`
 port through the existing injection pattern; the doc text is corrected in §5.7. A future
 PromExporter-backed impl is a separate, deferred task (documented in `IMetrics.h:11-23`).
@@ -612,7 +612,7 @@ PostgresTokenRepository.cc:500-589`) first looks up `oauth2_access_tokens`, and 
 **falls through to `oauth2_refresh_tokens`** (lines 548-587). The cache key layout (§5.3)
 keys both on `sha256(token)` with no type discriminator. **Consequence:** calling
 `introspectToken` with a refresh-token value would cache the refresh-token introspection
-under `authforge:cache:token:access:{hash}`, but `revokeRefreshToken` only clears refresh
+under `fulla:cache:token:access:{hash}`, but `revokeRefreshToken` only clears refresh
 state — it would never DEL that key. A revoked refresh token could then be served as
 `active=true` from cache. **Resolution (§10.9):** Phase 1 does NOT cache tokens at all.
 Phase 2 adds `getAccessToken` first (access-token-only by construction — no refresh
@@ -624,7 +624,7 @@ updated.
 (§5.3/§5.4).** The §10.4 formula `min(remaining_lifetime, 600s)` requires the token's `exp`.
 But `ITokenRepository::revokeAccessToken(const std::string &token, const std::string
 &revokedBy, VoidCallback &&cb)` receives only the hashed token string — verified at
-`libs/oauth2/include/authforge/oauth2/repository/ITokenRepository.h:141-145`. The decorator
+`libs/oauth2/include/fulla/oauth2/repository/ITokenRepository.h:141-145`. The decorator
 cannot compute `remaining_lifetime` at revoke time without an extra Redis GET to read the
 cached `exp` first (a read-before-write that adds latency and itself races). **Resolution
 (§10.10):** access-token negative entries use a **fixed 60s TTL** (matching the access-token

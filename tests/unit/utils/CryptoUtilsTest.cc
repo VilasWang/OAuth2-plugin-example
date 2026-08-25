@@ -1,4 +1,4 @@
-// Coverage additions (P1, authforge coverage push): CryptoUtils.h's PKCE
+// Coverage additions (P1, fulla coverage push): CryptoUtils.h's PKCE
 // helpers (computeCodeChallenge / isValidCodeVerifier / isValidCodeChallenge)
 // and hashToken had no direct unit coverage -- they were exercised only
 // indirectly through the OAuth2Plugin-side TokenService/Controller tests.
@@ -9,12 +9,12 @@
 // length/non-emptiness.
 
 #include <drogon/drogon_test.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 
 #include <algorithm>
 #include <string>
 
-using namespace authforge::drogon::utils;
+using namespace fulla::drogon::utils;
 
 namespace
 {

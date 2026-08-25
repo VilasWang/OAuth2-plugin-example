@@ -1,12 +1,12 @@
 //go:build integration
 
-// Integration tests against a running AuthForge full stack (matrix I1-I5).
-// Skipped unless AUTHFORGE_BASE_URL is set:
+// Integration tests against a running Fulla full stack (matrix I1-I5).
+// Skipped unless FULLA_BASE_URL is set:
 //
 //	go test -tags integration ./...
 //
 // Boot recipe: see docs/productization-evolution/in-progress/client-sdk-implementation-plan.md
-// section 4 (setup_database + start authforge-server + poll /health/live).
+// section 4 (setup_database + start fulla-server + poll /health/live).
 package auth
 
 import (
@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	baseURL      = os.Getenv("AUTHFORGE_BASE_URL")
-	clientID     = envOr("AUTHFORGE_CLIENT_ID", "backend-svc")
-	clientSecret = envOr("AUTHFORGE_CLIENT_SECRET", "test-secret")
+	baseURL      = os.Getenv("FULLA_BASE_URL")
+	clientID     = envOr("FULLA_CLIENT_ID", "backend-svc")
+	clientSecret = envOr("FULLA_CLIENT_SECRET", "test-secret")
 )
 
 func envOr(key, fallback string) string {
@@ -34,7 +34,7 @@ func envOr(key, fallback string) string {
 func requireServer(t *testing.T) {
 	t.Helper()
 	if baseURL == "" {
-		t.Skip("AUTHFORGE_BASE_URL not set; integration tests need a running stack")
+		t.Skip("FULLA_BASE_URL not set; integration tests need a running stack")
 	}
 }
 

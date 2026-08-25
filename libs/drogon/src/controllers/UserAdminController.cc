@@ -1,20 +1,20 @@
-#include <authforge/drogon/controllers/UserAdminController.h>
-#include <authforge/drogon/admin/UserAdminService.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/controllers/UserAdminController.h>
+#include <fulla/drogon/admin/UserAdminService.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 
 #include <memory>
 
-// M5 Task 29b batch 5 (authforge-sdk-refactor): inline raw-SQL DB access from
+// M5 Task 29b batch 5 (fulla-sdk-refactor): inline raw-SQL DB access from
 // the Task 29a verbatim move is now delegated to UserAdminService (Mapper +
 // Criteria, per .claude/rules/db-operations.md). The getUser 3-table JOIN +
 // json_agg and getUserRoles JOIN are split into multiple Mapper queries
 // (JOIN-in-one-query forbidden). Controller is now a thin HTTP adapter.
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 namespace
 {
-namespace openapi = ::authforge::drogon::observability::openapi;
+namespace openapi = ::fulla::drogon::observability::openapi;
 
 // #43 resource-scope authorization: declare one EndpointInfo with its
 // requiredScopes + impliedBy. All user-admin routes are admin-gated; the
@@ -88,7 +88,7 @@ void UserAdminController::initApiDocsImpl()
               "Assign roles to a specific user.", {"users:write"}));
 }
 
-using UserService = ::authforge::drogon::admin::UserAdminService;
+using UserService = ::fulla::drogon::admin::UserAdminService;
 
 void UserAdminController::listUsers(
   const ::drogon::HttpRequestPtr &req,
@@ -187,4 +187,4 @@ void UserAdminController::getUserRoles(
     UserService::getUserRoles(req, sharedCb, userId);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

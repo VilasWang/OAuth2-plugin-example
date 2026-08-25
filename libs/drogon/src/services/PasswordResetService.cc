@@ -1,20 +1,20 @@
-#include <authforge/drogon/services/PasswordResetService.h>
+#include <fulla/drogon/services/PasswordResetService.h>
 
-#include <authforge/storage/postgres/models/PasswordResetTokens.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/common/utils/EmailNormalizer.h>
-#include <authforge/drogon/utils/EmailService.h>
-#include <authforge/drogon/utils/PasswordHasher.h>
+#include <fulla/storage/postgres/models/PasswordResetTokens.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/common/utils/EmailNormalizer.h>
+#include <fulla/drogon/utils/EmailService.h>
+#include <fulla/drogon/utils/PasswordHasher.h>
 
 #include <drogon/drogon.h>
 
 #include <chrono>
 
-namespace authforge::drogon::services
+namespace fulla::drogon::services
 {
 
 namespace
@@ -26,7 +26,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -34,9 +34,9 @@ void respondError(
     );
 }
 
-::authforge::drogon::utils::IEmailService &getEmailSvc()
+::fulla::drogon::utils::IEmailService &getEmailSvc()
 {
-    return ::authforge::drogon::utils::getEmailService();
+    return ::fulla::drogon::utils::getEmailService();
 }
 
 ::drogon::orm::DbClientPtr getDbOrRespond(
@@ -57,7 +57,7 @@ void respondError(
 }  // namespace
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 // ---- public methods ----
 
@@ -89,7 +89,7 @@ void PasswordResetService::requestReset(
         return;
     }
 
-    email = ::authforge::common::utils::normalizeEmail(email);
+    email = ::fulla::common::utils::normalizeEmail(email);
 
     auto db = getDbOrRespond(req, sharedCb);
     if (!db)
@@ -106,8 +106,8 @@ void PasswordResetService::requestReset(
 
           int32_t userId = user.getValueOfId();
 
-          std::string rawToken = ::authforge::drogon::utils::generateSecureToken();
-          std::string tokenHash = ::authforge::drogon::utils::hashToken(rawToken);
+          std::string rawToken = ::fulla::drogon::utils::generateSecureToken();
+          std::string tokenHash = ::fulla::drogon::utils::hashToken(rawToken);
 
           auto now = std::chrono::duration_cast<std::chrono::seconds>(
                        std::chrono::system_clock::now().time_since_epoch()
@@ -198,7 +198,7 @@ void PasswordResetService::confirmReset(
         return;
     }
 
-    std::string tokenHash = ::authforge::drogon::utils::hashToken(token);
+    std::string tokenHash = ::fulla::drogon::utils::hashToken(token);
     auto now = std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch()
     )
@@ -230,7 +230,7 @@ void PasswordResetService::confirmReset(
           std::string newHash;
           try
           {
-              newHash = ::authforge::common::utils::PasswordHasher::hash(newPassword);
+              newHash = ::fulla::common::utils::PasswordHasher::hash(newPassword);
           }
           catch (const std::exception &e)
           {
@@ -264,7 +264,7 @@ void PasswordResetService::confirmReset(
                               "UPDATE oauth2_refresh_tokens SET revoked = true "
                               "WHERE user_id = $1",
                               [sharedCb, req, userId](const ::drogon::orm::Result &) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                     ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                     "password_reset",
                                     "success",
@@ -280,7 +280,7 @@ void PasswordResetService::confirmReset(
                                   (*sharedCb)(resp);
                               },
                               [sharedCb, req, userId](const ::drogon::orm::DrogonDbException &) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                     ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                     "password_reset",
                                     "success",
@@ -304,7 +304,7 @@ void PasswordResetService::confirmReset(
                               "UPDATE oauth2_refresh_tokens SET revoked = true "
                               "WHERE user_id = $1",
                               [sharedCb, req, userId](const ::drogon::orm::Result &) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                     ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                     "password_reset",
                                     "success",
@@ -319,7 +319,7 @@ void PasswordResetService::confirmReset(
                                   (*sharedCb)(resp);
                               },
                               [sharedCb, req, userId](const ::drogon::orm::DrogonDbException &) {
-                                  ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                  ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                     ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                     "password_reset",
                                     "success",
@@ -372,4 +372,4 @@ void PasswordResetService::confirmReset(
     );
 }
 
-}  // namespace authforge::drogon::services
+}  // namespace fulla::drogon::services

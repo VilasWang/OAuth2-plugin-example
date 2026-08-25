@@ -1,6 +1,6 @@
 // tests/integration/concurrency/CategoryC_CachedClientRepositoryUafTest.cc
 //
-// Spec: authforge-sdk-refactor — Task 11 (缓存装饰器 CachedOAuth2Storage 再架构).
+// Spec: fulla-sdk-refactor — Task 11 (缓存装饰器 CachedOAuth2Storage 再架构).
 //
 // ─────────────────────────────────────────────────────────────────────────
 // WHAT THIS VERIFIES
@@ -58,13 +58,13 @@
 #include <memory>
 #include <string>
 
-#include <authforge/storage/redis/CachedClientRepository.h>
+#include <fulla/storage/redis/CachedClientRepository.h>
 
 #include "CategoryC_DeferredClientRepositorySupport.h"
 #include "ConcurrencyRaceSupport.h"
 
-using namespace authforge::test::concurrency;
-using authforge::storage::redis::CachedClientRepository;
+using namespace fulla::test::concurrency;
+using fulla::storage::redis::CachedClientRepository;
 
 namespace
 {
@@ -103,7 +103,7 @@ DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_Clien
     std::atomic<int> delivered{0};
     host->getClient(
       "client-getc-per-repo",
-      [&delivered](std::optional<::authforge::oauth2::model::OAuth2Client>) {
+      [&delivered](std::optional<::fulla::oauth2::model::OAuth2Client>) {
           delivered.fetch_add(1, std::memory_order_relaxed);
       }
     );
@@ -134,7 +134,7 @@ DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_Cache
 
     std::atomic<int> delivered{0};
     host->getClient(
-      "client-cachehit", [&delivered](std::optional<::authforge::oauth2::model::OAuth2Client>) {
+      "client-cachehit", [&delivered](std::optional<::fulla::oauth2::model::OAuth2Client>) {
           delivered.fetch_add(1, std::memory_order_relaxed);
       }
     );
@@ -144,7 +144,7 @@ DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_Cache
 
     // Second call should hit the L1 cache: no new continuation is parked.
     host->getClient(
-      "client-cachehit", [&delivered](std::optional<::authforge::oauth2::model::OAuth2Client>) {
+      "client-cachehit", [&delivered](std::optional<::fulla::oauth2::model::OAuth2Client>) {
           delivered.fetch_add(1, std::memory_order_relaxed);
       }
     );
@@ -162,7 +162,7 @@ DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_Cache
 // A deferred IClientRepository whose getClient returns Nullopt (a cache MISS
 // that must not be cached). Mirrors DeferringClientRepository's shape but
 // yields std::nullopt instead of a live client.
-class DeferringMissingClientRepository : public ::authforge::oauth2::repository::IClientRepository
+class DeferringMissingClientRepository : public ::fulla::oauth2::repository::IClientRepository
 {
   public:
     explicit DeferringMissingClientRepository(std::shared_ptr<PendingCallbacks> pending)
@@ -172,7 +172,7 @@ class DeferringMissingClientRepository : public ::authforge::oauth2::repository:
 
     void getClient(
       const std::string & /*clientId*/,
-      ::authforge::oauth2::repository::IClientRepository::ClientCallback &&cb
+      ::fulla::oauth2::repository::IClientRepository::ClientCallback &&cb
     ) override
     {
         ++getClientCalls;
@@ -182,7 +182,7 @@ class DeferringMissingClientRepository : public ::authforge::oauth2::repository:
     void validateClient(
       const std::string &,
       const std::string &,
-      ::authforge::oauth2::repository::IClientRepository::BoolCallback &&cb
+      ::fulla::oauth2::repository::IClientRepository::BoolCallback &&cb
     ) override
     {
         pending_->enqueue([cb = std::move(cb)]() { cb(false); });
@@ -204,9 +204,9 @@ DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_Cache
     auto impl = std::make_shared<DeferringMissingClientRepository>(pending);
     auto host = std::make_shared<CachedClientRepository>(impl);
 
-    std::optional<::authforge::oauth2::model::OAuth2Client> first;
+    std::optional<::fulla::oauth2::model::OAuth2Client> first;
     host->getClient(
-      "client-missing", [&first](std::optional<::authforge::oauth2::model::OAuth2Client> c) {
+      "client-missing", [&first](std::optional<::fulla::oauth2::model::OAuth2Client> c) {
           first = std::move(c);
       }
     );
@@ -217,9 +217,9 @@ DROGON_TEST(Integration_P1_Concurrency_11_CachedClientRepository_GetClient_Cache
 
     // Second call: a MISS must not have been cached, so impl_ is consulted
     // again (a new continuation is parked).
-    std::optional<::authforge::oauth2::model::OAuth2Client> second;
+    std::optional<::fulla::oauth2::model::OAuth2Client> second;
     host->getClient(
-      "client-missing", [&second](std::optional<::authforge::oauth2::model::OAuth2Client> c) {
+      "client-missing", [&second](std::optional<::fulla::oauth2::model::OAuth2Client> c) {
           second = std::move(c);
       }
     );

@@ -68,16 +68,16 @@ scripts/backend/full_test_docker.bat      # Windows
 ./scripts/backend/full-test-docker.sh     # Linux/macOS
 
 # 该脚本的实际流程（注意：它只启动 pg + redis 两个容器，server 在宿主机本地运行）：
-# ✅ 启动 oauth2-postgres + oauth2-redis 容器并等待就绪
-# ✅ 重建 oauth2_db（drop/create + 应用 migrations V001–V024 + seed）
+# ✅ 启动 fulla-postgres + fulla-redis 容器并等待就绪
+# ✅ 重建 fulla_db（drop/create + 应用 migrations V001–V024 + seed）
 # ✅ 重新生成 ORM 模型
 # ✅ 构建项目（Release）
 # ✅ 运行单元测试（test.bat / ctest）
-# ✅ 在本地启动 authforge-server（OAUTH2_DB_PORT=5433 / OAUTH2_REDIS_PORT=6380 / OAUTH2_REDIS_PASSWORD=redis_secret_pass）
+# ✅ 在本地启动 fulla-server（FULLA_DB_PORT=5433 / FULLA_REDIS_PORT=6380 / FULLA_REDIS_PASSWORD=redis_secret_pass）
 # ✅ 运行 OAuth2 端点测试（59）+ Admin 端点测试（52）
 # ✅ 停止本地 server 并 docker-compose down
 
-# 如需手动控制完整栈（含 oauth2-backend / oauth2-frontend 容器），请继续下面的步骤
+# 如需手动控制完整栈（含 fulla-backend / fulla-frontend 容器），请继续下面的步骤
 ```
 
 ### 手动流程（可选）
@@ -85,7 +85,7 @@ scripts/backend/full_test_docker.bat      # Windows
 # 停止现有容器（从仓库根目录需指定 compose 文件；manage.ps1 用 docker compose v2）
 docker compose -f deploy/docker/docker-compose.yml down -v
 
-# 使用统一管理接口启动完整栈（含 oauth2-backend / oauth2-frontend 容器）
+# 使用统一管理接口启动完整栈（含 fulla-backend / fulla-frontend 容器）
 .\manage.ps1 docker-up
 
 # 等待服务就绪（健康检查）
@@ -98,8 +98,8 @@ timeout /t 10 /nobreak
 docker compose -f deploy/docker/docker-compose.yml ps
 
 # 检查服务日志
-docker compose -f deploy/docker/docker-compose.yml logs oauth2-backend
-docker compose -f deploy/docker/docker-compose.yml logs oauth2-frontend
+docker compose -f deploy/docker/docker-compose.yml logs fulla-backend
+docker compose -f deploy/docker/docker-compose.yml logs fulla-frontend
 
 # 验证端口可用性
 curl -f http://localhost:5555/health || exit 1
@@ -109,22 +109,22 @@ curl -f http://localhost:8080 || exit 1
 ### 步骤3: 数据库初始化验证
 ```bash
 # 连接PostgreSQL验证schema
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\dt"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\dt"
 
 # 验证初始化脚本执行
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT COUNT(*) FROM oauth2_clients;"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT COUNT(*) FROM oauth2_clients;"
 ```
 
 ### 步骤4: 后端集成测试
 ```bash
-# 在容器中运行C++测试（前提：已 manage.ps1 docker-up 拉起 oauth2-backend 容器）
-docker exec oauth2-backend /bin/bash -c "cd build/linux-release && ctest --output-on-failure -V"
+# 在容器中运行C++测试（前提：已 manage.ps1 docker-up 拉起 fulla-backend 容器）
+docker exec fulla-backend /bin/bash -c "cd build/linux-release && ctest --output-on-failure -V"
 ```
 
 ### 步骤5: 前端集成测试
 ```bash
-# 在容器中运行前端测试（前提：已 manage.ps1 docker-up 拉起 oauth2-frontend 容器）
-docker exec oauth2-frontend npm run test
+# 在容器中运行前端测试（前提：已 manage.ps1 docker-up 拉起 fulla-frontend 容器）
+docker exec fulla-frontend npm run test
 ```
 
 ### 步骤6: 端到端测试
@@ -144,11 +144,11 @@ curl -X GET "http://localhost:5555/oauth2/userinfo" \
 
 ### 步骤7: 性能和负载测试
 ```bash
-# 运行性能测试（AdvancedStorageTest 是 authforge-tests 内的一个 DROGON_TEST，不是独立二进制）
-docker exec oauth2-backend /bin/bash -c "cd build/linux-release && ctest -R AdvancedStorage --output-on-failure"
+# 运行性能测试（AdvancedStorageTest 是 fulla-tests 内的一个 DROGON_TEST，不是独立二进制）
+docker exec fulla-backend /bin/bash -c "cd build/linux-release && ctest -R AdvancedStorage --output-on-failure"
 
 # Redis性能测试
-docker exec oauth2-redis redis-benchmark -h localhost -a redis_secret_pass
+docker exec fulla-redis redis-benchmark -h localhost -a redis_secret_pass
 ```
 
 ## 测试报告生成
@@ -178,8 +178,8 @@ python .claude/skills/docker-integration-test/scripts/generate_report.py \
 **症状**: 容器无法启动或反复重启
 **诊断**:
 ```bash
-docker-compose logs oauth2-backend
-docker inspect oauth2-backend
+docker-compose logs fulla-backend
+docker inspect fulla-backend
 ```
 **解决方案**:
 1. 检查环境变量配置
@@ -191,7 +191,7 @@ docker inspect oauth2-backend
 **症状**: 后端无法连接PostgreSQL
 **诊断**:
 ```bash
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT 1;"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT 1;"
 docker network inspect oauth2-net
 ```
 **解决方案**:
@@ -204,7 +204,7 @@ docker network inspect oauth2-net
 **症状**: 缓存操作失败
 **诊断**:
 ```bash
-docker exec oauth2-redis redis-cli -a redis_secret_pass ping
+docker exec fulla-redis redis-cli -a redis_secret_pass ping
 ```
 **解决方案**:
 1. 检查Redis密码配置
@@ -216,7 +216,7 @@ docker exec oauth2-redis redis-cli -a redis_secret_pass ping
 **诊断**:
 ```bash
 curl -v http://localhost:5555/oauth2/authorize?response_type=code&client_id=vue-client
-docker-compose logs oauth2-backend | grep -i error
+docker-compose logs fulla-backend | grep -i error
 ```
 **解决方案**:
 1. 验证客户端配置
@@ -273,5 +273,5 @@ docker-compose logs oauth2-backend | grep -i error
 - 确保Docker服务正在运行
 - 测试会修改数据库内容，使用专用测试环境
 - 某些测试可能需要较长时间（5-10分钟）
-- 默认 compose（`deploy/docker/docker-compose.yml`）共 **6 个服务**：oauth2-backend(5555:5555)、oauth2-postgres(5433:5432)、oauth2-redis(6380:6379)、oauth2-frontend(8080:80)、oauth2-admin(8081:80)、oauth2-prometheus(9090:9090)。确保这些端口未被占用。
+- 默认 compose（`deploy/docker/docker-compose.yml`）共 **6 个服务**：fulla-backend(5555:5555)、fulla-postgres(5433:5432)、fulla-redis(6380:6379)、fulla-frontend(8080:80)、fulla-admin(8081:80)、fulla-prometheus(9090:9090)。确保这些端口未被占用。
 - 测试报告文件较大，确保有足够磁盘空间

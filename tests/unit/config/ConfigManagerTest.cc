@@ -1,8 +1,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
 #include <filesystem>
-#include <authforge/common/config/ConfigManager.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/common/config/ConfigManager.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
 #ifdef _WIN32
 #define setenv(name, value, overwrite) _putenv_s(name, value)
@@ -24,7 +24,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_LoadValidConfig)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(fulla::common::config::ConfigManager::load(configPath, config) == true);
     CHECK(config.isNull() == false);
     CHECK(config.isMember("db_clients") == true);
 }
@@ -34,10 +34,10 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_TypeSafeAccessWithDefault)
     Json::Value config;
     config["port"] = 8080;
 
-    auto port = authforge::common::config::ConfigManager::get<int>(config, "port", 0);
+    auto port = fulla::common::config::ConfigManager::get<int>(config, "port", 0);
     CHECK(port == 8080);
 
-    auto missing = authforge::common::config::ConfigManager::get<int>(config, "missing", 123);
+    auto missing = fulla::common::config::ConfigManager::get<int>(config, "missing", 123);
     CHECK(missing == 123);
 }
 
@@ -48,7 +48,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_ValidateMissingRequiredField)
     // Empty arrays are valid for memory storage mode
 
     std::string errMsg;
-    CHECK(authforge::common::config::ConfigManager::validate(config, errMsg) == false);
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg) == false);
     CHECK(errMsg.find("db_clients") != std::string::npos);
 }
 
@@ -59,7 +59,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_ValidatePortRange)
     config["redis_clients"][0]["port"] = 65535;
 
     std::string errMsg;
-    CHECK(authforge::common::config::ConfigManager::validate(config, errMsg) == false);
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg) == false);
     CHECK(errMsg.find("port") != std::string::npos);
 }
 
@@ -77,7 +77,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_Database_EnvOverrideDbHost)
     }
 
     // Set environment variable
-    setenv("OAUTH2_DB_HOST", "test-host", 1);
+    setenv("FULLA_DB_HOST", "test-host", 1);
 
     std::string configPath = "./config.json";
     if (!std::filesystem::exists(configPath))
@@ -88,13 +88,13 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_Database_EnvOverrideDbHost)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(fulla::common::config::ConfigManager::load(configPath, config) == true);
 
     auto dbHost =
-      authforge::common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
+      fulla::common::config::ConfigManager::get<std::string>(config, "db_clients.0.host");
     CHECK(dbHost == "test-host");
 
-    unsetenv("OAUTH2_DB_HOST");
+    unsetenv("FULLA_DB_HOST");
 }
 
 // CORS allow_origins is a JSON array consumer (main.cc checks isArray()).
@@ -102,7 +102,7 @@ DROGON_TEST(Unit_P0_ConfigManager_Legacy_Database_EnvOverrideDbHost)
 // not clobber the node into a scalar string.
 DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_CorsArray)
 {
-    setenv("OAUTH2_CORS_ALLOW_ORIGINS", "https://a.com, https://b.com", 1);
+    setenv("FULLA_CORS_ALLOW_ORIGINS", "https://a.com, https://b.com", 1);
 
     std::string configPath = "./config.json";
     if (!std::filesystem::exists(configPath))
@@ -113,7 +113,7 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_CorsArray)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(fulla::common::config::ConfigManager::load(configPath, config) == true);
 
     const Json::Value &origins = config["custom_config"]["cors"]["allow_origins"];
     CHECK(origins.isArray() == true);
@@ -121,13 +121,13 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_CorsArray)
     CHECK(origins[0].asString() == "https://a.com");
     CHECK(origins[1].asString() == "https://b.com");
 
-    unsetenv("OAUTH2_CORS_ALLOW_ORIGINS");
+    unsetenv("FULLA_CORS_ALLOW_ORIGINS");
 }
 
 // Google redirect_uri is a scalar string consumer (GoogleController.cc).
 DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_GoogleRedirect)
 {
-    setenv("OAUTH2_GOOGLE_REDIRECT_URI", "https://prod.example.com/callback", 1);
+    setenv("FULLA_GOOGLE_REDIRECT_URI", "https://prod.example.com/callback", 1);
 
     std::string configPath = "./config.json";
     if (!std::filesystem::exists(configPath))
@@ -138,23 +138,23 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_GoogleRedirect)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(fulla::common::config::ConfigManager::load(configPath, config) == true);
 
-    auto redirect = authforge::common::config::ConfigManager::get<std::string>(
+    auto redirect = fulla::common::config::ConfigManager::get<std::string>(
       config, "custom_config.external_auth.google.redirect_uri"
     );
     CHECK(redirect == "https://prod.example.com/callback");
 
-    unsetenv("OAUTH2_GOOGLE_REDIRECT_URI");
+    unsetenv("FULLA_GOOGLE_REDIRECT_URI");
 }
 
 // Verifies the "[name=OAuth2Plugin]" named-element lookup decouples the
-// OAUTH2_VUE_REDIRECT_URI override from plugin array ordering. Each config
+// FULLA_VUE_REDIRECT_URI override from plugin array ordering. Each config
 // file inserts different plugins (Hodor/AccessLogger) so a numeric index would
 // point at the wrong element; the named lookup must resolve regardless.
 DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_VueRedirect_ByNameLookup)
 {
-    setenv("OAUTH2_VUE_REDIRECT_URI", "https://prod.example.com/callback", 1);
+    setenv("FULLA_VUE_REDIRECT_URI", "https://prod.example.com/callback", 1);
 
     std::string configPath = "./config.json";
     if (!std::filesystem::exists(configPath))
@@ -165,12 +165,12 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_VueRedirect_ByNameLookup)
         configPath = "../../../config.json";
 
     Json::Value config;
-    CHECK(authforge::common::config::ConfigManager::load(configPath, config) == true);
+    CHECK(fulla::common::config::ConfigManager::load(configPath, config) == true);
 
-    auto redirect = authforge::common::config::ConfigManager::get<std::string>(
+    auto redirect = fulla::common::config::ConfigManager::get<std::string>(
       config, "plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri"
     );
     CHECK(redirect == "https://prod.example.com/callback");
 
-    unsetenv("OAUTH2_VUE_REDIRECT_URI");
+    unsetenv("FULLA_VUE_REDIRECT_URI");
 }

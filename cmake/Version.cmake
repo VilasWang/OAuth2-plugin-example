@@ -1,13 +1,13 @@
 # cmake/Version.cmake
 # Single source of truth for the repo-wide version number.
 # Referenced by root CMakeLists.txt and propagated to OAuth2Plugin / OAuth2Server
-# sub-projects via ${OAUTH2_PROJECT_VERSION}.
+# sub-projects via ${FULLA_PROJECT_VERSION}.
 #
 # _Design: repo-structure-refactor §7.2_
 # _Requirements: 9.2_
 
-set(OAUTH2_PROJECT_VERSION_MAJOR 1)
-set(OAUTH2_PROJECT_VERSION_MINOR 4)
-set(OAUTH2_PROJECT_VERSION_PATCH 1)
-set(OAUTH2_PROJECT_VERSION
-    "${OAUTH2_PROJECT_VERSION_MAJOR}.${OAUTH2_PROJECT_VERSION_MINOR}.${OAUTH2_PROJECT_VERSION_PATCH}")
+set(FULLA_PROJECT_VERSION_MAJOR 1)
+set(FULLA_PROJECT_VERSION_MINOR 4)
+set(FULLA_PROJECT_VERSION_PATCH 1)
+set(FULLA_PROJECT_VERSION
+    "${FULLA_PROJECT_VERSION_MAJOR}.${FULLA_PROJECT_VERSION_MINOR}.${FULLA_PROJECT_VERSION_PATCH}")

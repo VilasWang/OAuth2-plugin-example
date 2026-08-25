@@ -22,8 +22,8 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/TotpUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/TotpUtils.h>
 #include <json/json.h>
 #include <future>
 #include <chrono>
@@ -82,7 +82,7 @@ MfaFixture enableAdminMfa()
     MfaFixture f;
     if (!db)
         return f;
-    f.secret = authforge::common::utils::TotpUtils::generateSecret();
+    f.secret = fulla::common::utils::TotpUtils::generateSecret();
     std::promise<bool> p;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -213,7 +213,7 @@ DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_HappyPath_EndToEnd)
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
-    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = fulla::common::utils::TotpUtils::generateCode(fx.secret);
     Json::Value body;
     body["mfa_token"] = mfaToken;
     body["code"] = code;
@@ -276,7 +276,7 @@ DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_CrossClient_NoRowsCreated)
     long tokensBefore = countRowsForUser("oauth2_access_tokens");
     REQUIRE(tokensBefore >= 0);
 
-    std::string code = authforge::common::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = fulla::common::utils::TotpUtils::generateCode(fx.secret);
     Json::Value body;
     body["mfa_token"] = mfaToken;
     body["code"] = code;

@@ -1,9 +1,9 @@
 #include "OrganizationService.h"
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
-#include <authforge/storage/postgres/models/Organizations.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/storage/postgres/models/Organizations.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
 #include <drogon/drogon.h>
 
@@ -21,7 +21,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -45,7 +45,7 @@ void respondError(
     }
 }
 
-Json::Value orgRowToJson(const ::drogon_model::oauth2_db::Organizations &row)
+Json::Value orgRowToJson(const ::drogon_model::fulla_db::Organizations &row)
 {
     Json::Value org;
     org["id"] = row.getValueOfId();
@@ -59,7 +59,7 @@ Json::Value orgRowToJson(const ::drogon_model::oauth2_db::Organizations &row)
 }  // namespace
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 void OrganizationService::list(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)
 {
@@ -142,7 +142,7 @@ void OrganizationService::create(const ::drogon::HttpRequestPtr &req, ResponseCa
     mapper.insert(
       row,
       [cb, slug, name, req](const Organizations &inserted) {
-          ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+          ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
             "organization_created",
             "success",

@@ -498,16 +498,16 @@ DROGON_TEST(Integration_P1_Registration_EmailOnly_JsonBody)
 
     // Insert the way AuthService::registerUser would (validate the contract):
     // username omitted -> NULL; email normalized; password hashed non-empty.
-    drogon_model::oauth2_db::Users u;
+    drogon_model::fulla_db::Users u;
     u.setPasswordHash("$argon2id$placeholder$notempty");  // shape only
     u.setSalt("");
     u.setEmail(canonical);
     // username deliberately NOT set (NULL)
 
     std::promise<bool> pIns;
-    Mapper<drogon_model::oauth2_db::Users>(db).insert(
+    Mapper<drogon_model::fulla_db::Users>(db).insert(
       u,
-      [&](const drogon_model::oauth2_db::Users &) { pIns.set_value(true); },
+      [&](const drogon_model::fulla_db::Users &) { pIns.set_value(true); },
       [&](const DrogonDbException &e) {
           LOG_ERROR << "insert failed: " << e.base().what();
           pIns.set_value(false);

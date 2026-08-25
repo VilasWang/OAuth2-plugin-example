@@ -24,7 +24,7 @@ defineProps<{
         'text-base',
       ]"
     >
-      AuthForge
+      Fulla
     </span>
   </div>
 </template>

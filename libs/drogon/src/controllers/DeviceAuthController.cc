@@ -1,18 +1,18 @@
-#include <authforge/drogon/controllers/DeviceAuthController.h>
-#include <authforge/storage/postgres/models/Oauth2DeviceCodes.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/services/DeviceCodeService.h>
-#include <authforge/oauth2/model/Client.h>
+#include <fulla/drogon/controllers/DeviceAuthController.h>
+#include <fulla/storage/postgres/models/Oauth2DeviceCodes.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/services/DeviceCodeService.h>
+#include <fulla/oauth2/model/Client.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <chrono>
 #include <optional>
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -29,7 +29,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -41,20 +41,20 @@ struct DeviceAuthControllerDocs
 {
     DeviceAuthControllerDocs()
     {
-        ::authforge::drogon::observability::openapi::EndpointInfo authDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo authDocs;
         authDocs.path = "/oauth2/device_authorization";
         authDocs.method = "POST";
         authDocs.summary = "Device Authorization";
         authDocs.description = "Request device authorization.";
         authDocs.tags = {"OAuth2", "Device Flow"};
         authDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(authDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(authDocs);
 
         // The former /oauth2/device/verify GET+POST doc entries were ghosts:
         // no ADD_METHOD_TO route ever backed them (the verification page is
         // rendered by the frontend). Removed; docs must equal routes
         // (OpenAPI governance gate).
-        ::authforge::drogon::observability::openapi::EndpointInfo approveDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo approveDocs;
         approveDocs.path = "/oauth2/device/approve";
         approveDocs.method = "POST";
         approveDocs.summary = "Approve Device Authorization";
@@ -63,7 +63,7 @@ struct DeviceAuthControllerDocs
           "approval step of RFC 8628). Requires an admin Bearer token.";
         approveDocs.tags = {"OAuth2", "Device Flow"};
         approveDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(approveDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(approveDocs);
     }
 };
 
@@ -177,7 +177,7 @@ void DeviceAuthController::deviceAuthorization(
 
     if (clientId.empty())
     {
-        ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        ::fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "invalid_request", "client_id is required"
         );
         return;
@@ -187,7 +187,7 @@ void DeviceAuthController::deviceAuthorization(
     auto plugin = resolvePlugin();
     if (!plugin)
     {
-        ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+        ::fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
           std::move(callback), "server_error", "OAuth2 plugin not available"
         );
         return;
@@ -204,11 +204,11 @@ void DeviceAuthController::deviceAuthorization(
     plugin->getClient(
       clientId,
       [plugin, clientId, clientSecret, scope, sharedCb](
-        std::optional<authforge::oauth2::model::OAuth2Client> client
+        std::optional<fulla::oauth2::model::OAuth2Client> client
       ) {
           if (!client)
           {
-              ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+              ::fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                 std::move(*sharedCb), "invalid_client", "Unknown client_id"
               );
               return;
@@ -219,12 +219,12 @@ void DeviceAuthController::deviceAuthorization(
           };
 
           if (
-            client->clientType == authforge::oauth2::model::ClientType::CONFIDENTIAL
+            client->clientType == fulla::oauth2::model::ClientType::CONFIDENTIAL
           )
           {
               if (clientSecret.empty())
               {
-                  ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                  ::fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                     std::move(*sharedCb),
                     "invalid_client",
                     "Client authentication required for device authorization"
@@ -235,7 +235,7 @@ void DeviceAuthController::deviceAuthorization(
                 clientId, clientSecret, [proceedDeviceAuth, sharedCb](bool valid) {
                     if (!valid)
                     {
-                        ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                        ::fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                           std::move(*sharedCb), "invalid_client", "Client authentication failed"
                         );
                         return;
@@ -259,8 +259,8 @@ void DeviceAuthController::deviceAuthorizationInner(
 )
 {
         // Generate device_code and user_code
-        std::string deviceCode = ::authforge::drogon::utils::generateSecureToken();
-        std::string deviceCodeHash = ::authforge::drogon::utils::hashToken(deviceCode);
+        std::string deviceCode = ::fulla::drogon::utils::generateSecureToken();
+        std::string deviceCodeHash = ::fulla::drogon::utils::hashToken(deviceCode);
         std::string userCode = generateUserCode();
 
         auto now = std::chrono::duration_cast<std::chrono::seconds>(
@@ -273,13 +273,13 @@ void DeviceAuthController::deviceAuthorizationInner(
         auto dbClient = ::drogon::app().getDbClient();
         if (!dbClient)
         {
-            ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+            ::fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
               std::move(*sharedCb), "server_error", "Database not available"
             );
             return;
         }
 
-        ::authforge::drogon::services::DeviceCodeService::createDeviceCode(
+        ::fulla::drogon::services::DeviceCodeService::createDeviceCode(
           deviceCodeHash,
           userCode,
           clientId,
@@ -290,7 +290,7 @@ void DeviceAuthController::deviceAuthorizationInner(
           [deviceCode, userCode, sharedCb](bool success) {
               if (!success)
               {
-                  ::authforge::common::error::OAuth2ErrorHandler::sendErrorResponse(
+                  ::fulla::common::error::OAuth2ErrorHandler::sendErrorResponse(
                     std::move(*sharedCb), "server_error", "Failed to store device authorization"
                   );
                   return;
@@ -351,11 +351,11 @@ void DeviceAuthController::approveDevice(
     }
 
     // Task B5: replaced raw UPDATE SQL with DeviceCodeService
-    ::authforge::drogon::services::DeviceCodeService::findByUserCode(
+    ::fulla::drogon::services::DeviceCodeService::findByUserCode(
       userCode,
       dbClient,
       [sharedCb, userCode, req, userId, dbClient](
-        std::shared_ptr<::drogon_model::oauth2_db::Oauth2DeviceCodes> code
+        std::shared_ptr<::drogon_model::fulla_db::Oauth2DeviceCodes> code
       ) {
           if (!code)
           {
@@ -389,7 +389,7 @@ void DeviceAuthController::approveDevice(
               return;
           }
 
-          ::authforge::drogon::services::DeviceCodeService::markApproved(
+          ::fulla::drogon::services::DeviceCodeService::markApproved(
             code->getValueOfDeviceCodeHash(),
             userId,
             dbClient,
@@ -418,4 +418,4 @@ void DeviceAuthController::approveDevice(
     );
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

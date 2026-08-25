@@ -1,0 +1,84 @@
+{{/*
+Versioned schema-migration executor (Task 37): runs
+`fulla-server --migrate-only` as a Helm hook Job. The Job gets its own
+hook-scoped ConfigMap/Secret copies (same helper-rendered data as the
+regular ones) because pre-install hooks execute before regular resources
+exist. hook-delete-policy=before-hook-creation keeps the last run (and its
+logs) around for inspection until the next install/upgrade.
+
+Rollback strategy: migrations are forward-compatible within a major
+(enforced offline by tools/migration-check M4), so `helm rollback` only
+reverts the application version and never needs a schema downgrade.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fulla.fullname" . }}-migrate-config
+  labels:
+    {{- include "fulla.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": {{ include "fulla.migrationHookEvents" . }}
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  {{- include "fulla.backendConfigData" . | nindent 2 }}
+{{- if not .Values.secrets.existingSecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "fulla.fullname" . }}-migrate-secrets
+  labels:
+    {{- include "fulla.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": {{ include "fulla.migrationHookEvents" . }}
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+type: Opaque
+stringData:
+  {{- include "fulla.backendSecretData" . | nindent 2 }}
+{{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "fulla.fullname" . }}-migrate
+  labels:
+    {{- include "fulla.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    "helm.sh/hook": {{ include "fulla.migrationHookEvents" . }}
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "fulla.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "fulla.backendImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The backend image has no ENTRYPOINT (only CMD), so a bare `args`
+          # would be exec'd as the binary itself; override the full command.
+          command: ["./fulla-server", "--migrate-only"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "fulla.fullname" . }}-migrate-config
+            - secretRef:
+                {{- if .Values.secrets.existingSecret }}
+                name: {{ .Values.secrets.existingSecret }}
+                {{- else }}
+                name: {{ include "fulla.fullname" . }}-migrate-secrets
+                {{- end }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}

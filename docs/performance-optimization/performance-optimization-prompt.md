@@ -1,4 +1,4 @@
-# AuthForge 深度性能优化提示词
+# Fulla 深度性能优化提示词
 
 > 将以下提示词完整粘贴给 AI Agent（如 Claude / GPT / Cursor 等）使用。
 > 提示词已针对本项目架构（Drogon C++17 / PostgreSQL / Redis / Vue3）深度定制。
@@ -17,7 +17,7 @@
 
 ## 项目背景
 
-AuthForge 是一个生产级 OAuth2.0/OIDC 授权服务器，技术栈如下：
+Fulla 是一个生产级 OAuth2.0/OIDC 授权服务器，技术栈如下：
 
 - **后端框架**: Drogon (C++17, 异步事件驱动)
 - **数据库**: PostgreSQL 14+ (通过 Drogon ORM Mapper + Criteria)
@@ -101,22 +101,22 @@ AuthForge 是一个生产级 OAuth2.0/OIDC 授权服务器，技术栈如下：
 
 ```bash
 # 1. 启动全栈（postgres + redis + 后端）
-#    注意: setup.sh 会顺带生成 token pools (benchmarks/authforge/lib/generated/, gitignored),
+#    注意: setup.sh 会顺带生成 token pools (benchmarks/fulla/lib/generated/, gitignored),
 #    包括 S5 需要的 bench_refresh_tokens.sql 和各场景的 access_tokens.txt —— 必须先跑 setup.sh
-bash benchmarks/authforge/setup.sh
+bash benchmarks/fulla/setup.sh
 
 # 2. 运行全部 6 个场景的基准（默认阶梯并发 2-256）
-bash benchmarks/authforge/run-scenario.sh scenarios/s1-discovery.lua
-bash benchmarks/authforge/run-scenario.sh scenarios/s2-client-credentials.lua
-bash benchmarks/authforge/run-scenario.sh scenarios/s3-introspect.lua
-bash benchmarks/authforge/run-scenario.sh scenarios/s4-auth-code.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s1-discovery.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s2-client-credentials.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s3-introspect.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s4-auth-code.lua
 #    [!] S5 的 --reseed 会 TRUNCATE refresh_tokens 表——仅限基准/测试环境使用，绝不可指向生产库
-bash benchmarks/authforge/run-scenario.sh scenarios/s5-refresh-token.lua --reseed benchmarks/authforge/lib/generated/bench_refresh_tokens.sql
-bash benchmarks/authforge/run-scenario.sh scenarios/s6-userinfo.lua
+bash benchmarks/fulla/run-scenario.sh scenarios/s5-refresh-token.lua --reseed benchmarks/fulla/lib/generated/bench_refresh_tokens.sql
+bash benchmarks/fulla/run-scenario.sh scenarios/s6-userinfo.lua
 
 # 3. 资源观测 + 冷启动测量（可选）
-bash benchmarks/authforge/run-scenario.sh scenarios/s2-client-credentials.lua --observe
-bash benchmarks/authforge/measure-cold-start.sh
+bash benchmarks/fulla/run-scenario.sh scenarios/s2-client-credentials.lua --observe
+bash benchmarks/fulla/measure-cold-start.sh
 ```
 
 记录每个场景在每级并发下的：QPS、P99 延迟、错误率、driver_cpu。
@@ -141,10 +141,10 @@ bash benchmarks/authforge/measure-cold-start.sh
 
 ```bash
 # 在运行 wrk 压测的同时对 server 容器采样
-docker exec -it authforge-server bash
+docker exec -it fulla-server bash
 apt-get update && apt-get install -y linux-tools-perf
 # 采样 30s（与基准测量同窗口）
-perf record -F 99 -p $(pgrep authforge-server) --call-graph dwarf -o /tmp/perf.data &
+perf record -F 99 -p $(pgrep fulla-server) --call-graph dwarf -o /tmp/perf.data &
 # ... 同时跑 wrk ...
 perf report --stdio | head -100
 ```
@@ -165,7 +165,7 @@ perf report --stdio | head -100
 对 6 个场景涉及的关键查询执行 `EXPLAIN ANALYZE`（在 postgres 容器中）：
 
 ```bash
-docker exec -it oauth2-postgres psql -U oauth2_user -d oauth2_db -c "EXPLAIN ANALYZE SELECT ..."
+docker exec -it fulla-postgres psql -U fulla_user -d fulla_db -c "EXPLAIN ANALYZE SELECT ..."
 ```
 
 至少覆盖：

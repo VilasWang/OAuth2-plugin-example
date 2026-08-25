@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-authforge — Production-grade OAuth2.0/OIDC authorization server (Drogon / C++17,
+fulla — Production-grade OAuth2.0/OIDC authorization server (Drogon / C++17,
 PostgreSQL, Redis, Vue.js frontends). Supports RFC 6749, 7662, 7009, 8414, 8628, 7591.
 
 ## Build & Test (non-standard flags only)
@@ -11,7 +11,7 @@ Standard build / run / test goes through the unified wrappers
 
 - Debug build: append `-debug`.  Sanitizers: `--sanitizer=thread|address`
   (Linux/macOS only, imply `-debug`).
-- No-external-DB test build: `-DOAUTH2_MEMORY_TESTS_ONLY=ON`.
+- No-external-DB test build: `-DFULLA_MEMORY_TESTS_ONLY=ON`.
 - Run C++ tests by label: `ctest -R Unit|Integration|E2E|Security|Performance`.
 - All platforms build through Conan + `cmake --preset`
   (`scripts/backend/build.bat` on Windows, `scripts/backend/build.sh` on
@@ -31,7 +31,7 @@ Standard build / run / test goes through the unified wrappers
   in config (`postgres` / `redis` / `memory`) selects the backend;
   `OAuth2Plugin::initStorage()` constructs the per-backend `RepositoryBundle`
   (`libs/storage-postgres|redis|memory`) for the 4 oauth2 repositories
-  (client/grant/token/consent) and a separate `authforge::identity` backing
+  (client/grant/token/consent) and a separate `fulla::identity` backing
   store (`PostgresIdentityRepository` / `MemoryIdentityRepository`) for the 3
   identity repositories (user/role/subject-mapping). `redis` has no dedicated
   identity backend — it falls back to the memory identity repo as a placeholder.
@@ -62,8 +62,8 @@ never use `CoroMapper`; never capture `[this]` or `[&]` in async contexts (use
 
 ## Configuration
 
-- Sensitive values via env vars: `OAUTH2_DB_PASSWORD`, `OAUTH2_REDIS_PASSWORD`.
-- No-external-DB test build flag: `-DOAUTH2_MEMORY_TESTS_ONLY=ON`.
+- Sensitive values via env vars: `FULLA_DB_PASSWORD`, `FULLA_REDIS_PASSWORD`.
+- No-external-DB test build flag: `-DFULLA_MEMORY_TESTS_ONLY=ON`.
 - Config files: `apps/server/config/config*.json` + `config.{dev,ci,prod}.json` overrides.
 
 ## Test Architecture

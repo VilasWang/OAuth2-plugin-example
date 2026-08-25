@@ -1,4 +1,4 @@
-# AuthForge 产品化路线调研报告
+# Fulla 产品化路线调研报告
 
 > **调研日期**: 2026-08-04  
 > **版本**: v1.0  
@@ -8,9 +8,9 @@
 
 ## 一、执行摘要
 
-AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权服务器，同时支持**开箱即用的产品部署**（Docker/Helm）和**可嵌入的 C++ SDK**（`find_package`）。这在当前 IAM 市场中是独一无二的定位——所有主流竞品均基于 Java (Keycloak)、Go (Ory/Zitadel)、Python (Authentik) 或 Node.js (Logto/SuperTokens)。
+Fulla 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权服务器，同时支持**开箱即用的产品部署**（Docker/Helm）和**可嵌入的 C++ SDK**（`find_package`）。这在当前 IAM 市场中是独一无二的定位——所有主流竞品均基于 Java (Keycloak)、Go (Ory/Zitadel)、Python (Authentik) 或 Node.js (Logto/SuperTokens)。
 
-**核心结论**: AuthForge 的 C++ 技术栈带来了天然的**极致性能**和**超低资源消耗**优势，适合走「高性能/边缘计算身份基础设施」的差异化产品化路线。建议采用 **Open Core + 双轨商业模式**（社区版开源 + 企业版/云托管商业化），以 SDK 嵌入许可和托管云服务作为主要收入来源。
+**核心结论**: Fulla 的 C++ 技术栈带来了天然的**极致性能**和**超低资源消耗**优势，适合走「高性能/边缘计算身份基础设施」的差异化产品化路线。建议采用 **Open Core + 双轨商业模式**（社区版开源 + 企业版/云托管商业化），以 SDK 嵌入许可和托管云服务作为主要收入来源。
 
 > ⚠️ **承重假设风险（✅ 实测验证 + 2026-08-23 对比表全量刷新）**：本报告的核心商业叙事（"极致性能 / 超低资源"，见 §3.1）的性能数字已通过 Phase 0 基准设施实测验证。**最新实测裁决（2026-08-23 同环境四产品对比，TTL=30 留存有界 session 口径 + 生产镜像 LTO 构建档）**：五场景 QPS 全部领先（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x）；P99 ✅低并发达标；内存 ✅SDK 口径远超标（2.5 MB peak WS），全栈容器口径 2,352 MiB（TTL=30 后较 08-21 的 5,350 MiB 近乎减半）；冷启动 ✅1.26s。详见 §3.1 实测裁决表 + `benchmarks/competitors/results/COMPARISON.md`。对外传播须使用实测数字并诚实标注场景限定（含 GC 抖动主张已关闭——本机四家同款环境噪声）。
 
@@ -42,7 +42,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 | **Casdoor** | Go | Apache 2.0 | 自托管 | 免费 | 轻量级 IAM |
 | **SuperTokens** | Node.js | Apache 2.0 | 自托管 + 云 | 免费 1K MAU | 轻量级认证 |
 | **Authelia** | Go | Apache 2.0 | 自托管 | 免费 | 反向代理网关 |
-| **AuthForge** | **C++** | **MIT** | **自托管 + SDK** | **待定** | **高性能身份基础设施** |
+| **Fulla** | **C++** | **MIT** | **自托管 + SDK** | **待定** | **高性能身份基础设施** |
 
 ### 2.3 关键市场洞察
 
@@ -54,11 +54,11 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 
 ---
 
-## 三、AuthForge 竞争定位
+## 三、Fulla 竞争定位
 
 ### 3.1 独特优势
 
-| 维度 | AuthForge | Keycloak (Java) | Ory (Go) | Auth0 (Node.js) |
+| 维度 | Fulla | Keycloak (Java) | Ory (Go) | Auth0 (Node.js) |
 |------|-----------|------------------|----------|-----------------|
 | **语言运行时** | C++ 编译机器码, 无 GC | JVM, GC STW | Go runtime, GC | V8 引擎 |
 | **QPS (单机)** | ~100,000+ | ~10,000-20,000 | ~30,000-50,000 | ~5,000-10,000 |
@@ -70,7 +70,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 | **协议合规** | RFC 6749/7636/7662/7009/8414/7517/8628/7591 | 完整 | 完整 | 完整 |
 | **多语言 SDK** | C++ 原生 | Java/JS/Python 等 | Go/JS 等 | JS/Python/Go 等 |
 
-> ⚠️ **数据状态说明（AuthForge 列）**：上表中 AuthForge 的 **QPS / 内存占用 / 延迟(P99) / 冷启动** 四行数字原为工程估算。**Phase 0 基准实测已于 2026-08-12 完成**（8 vCPU WSL2 / postgres+redis 全栈），实测裁决如下（详见 `benchmarks/results/SUMMARY.md`）：
+> ⚠️ **数据状态说明（Fulla 列）**：上表中 Fulla 的 **QPS / 内存占用 / 延迟(P99) / 冷启动** 四行数字原为工程估算。**Phase 0 基准实测已于 2026-08-12 完成**（8 vCPU WSL2 / postgres+redis 全栈），实测裁决如下（详见 `benchmarks/results/SUMMARY.md`）：
 >
 > | 维度 | 原估算 | 实测裁决 | 说明 |
 > |------|--------|----------|------|
@@ -79,9 +79,9 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 > | **P99** | < 2 ms | ✅ **低并发达成** | c≤16 时 P99 1-4ms（S1/S3/S6）；高并发（c≥64）退化 12-430ms（连接池排队效应） |
 > | **冷启动** | ~5s | ✅ **实测达成（量级领先）** | 专用 measure-cold-start.sh 实测 fresh 1.38s（含 PG/Redis 启动），远超 ~5s 目标 |
 >
-> 竞品列已由 **Phase 0.5 同环境实测**（最近一次全量刷新 **2026-08-23**，四产品同 session 串行：同一台 WSL2 8 vCPU / 16GB、同一 wrk 阶梯 2→128、同一 PostgreSQL 17、各家官方推荐配置；AuthForge 为 **TTL=30 留存有界 session 口径**（bench 档 `session_timeout=30`）+ 生产镜像 LTO 构建档——池 64/cache on，见 COMPARISON 附录 A）替换——数字溯源 `benchmarks/competitors/results/COMPARISON.md`（gen-comparison.py 生成，无手填）。诚实注记：Keycloak 的 S6 与 GC 载波为同日定向重跑（fresh user 池）——主会话中该池因 S5 高档位 90k RT 重签拉长 session、越过 realm 1h accessTokenLifespan 而整体过期（100% 401）；已在 `keycloak/run-all.sh` 固化"S6 前重铸 user 池"修复：
+> 竞品列已由 **Phase 0.5 同环境实测**（最近一次全量刷新 **2026-08-23**，四产品同 session 串行：同一台 WSL2 8 vCPU / 16GB、同一 wrk 阶梯 2→128、同一 PostgreSQL 17、各家官方推荐配置；Fulla 为 **TTL=30 留存有界 session 口径**（bench 档 `session_timeout=30`）+ 生产镜像 LTO 构建档——池 64/cache on，见 COMPARISON 附录 A）替换——数字溯源 `benchmarks/competitors/results/COMPARISON.md`（gen-comparison.py 生成，无手填）。诚实注记：Keycloak 的 S6 与 GC 载波为同日定向重跑（fresh user 池）——主会话中该池因 S5 高档位 90k RT 重签拉长 session、越过 realm 1h accessTokenLifespan 而整体过期（100% 401）；已在 `keycloak/run-all.sh` 固化"S6 前重铸 user 池"修复：
 >
-> | 维度 | AuthForge | Keycloak 26.7.1 | Ory Hydra v26.2.0 | Zitadel v4.17.1 |
+> | 维度 | Fulla | Keycloak 26.7.1 | Ory Hydra v26.2.0 | Zitadel v4.17.1 |
 > |------|-----------|------------------|-------------------|------------------|
 > | **S1 discovery QPS** | **87,499** ✅领先 | 41,086 | 1,713 | 8,746 |
 > | **S2 client_credentials QPS** | **14,438** ✅领先 | 5,634 | 2,159 | 1,679（jwt-bearer 官方路径） |
@@ -93,17 +93,17 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 > | **冷启动 fresh/restart** | **1.26s / 1.26s** ✅领先 1-3 个量级 | 18.3s / 8.2s | 4.4s / 0.6s | 5.3s / 0.9s |
 > | **GC 抖动（5min P99 序列）** | 四家同机同时段均现同款 ~1.8s 周期尖峰 → 判定为宿主环境噪声，产品间不可分辨（见下注） | 同左（385x） | 同左（75x） | 同左（98x） |
 >
-> **诚实裁决（2026-08-23 刷新版）**：① **五场景全部领先**（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x）——TTL=30 口径下优势普遍扩大（session 留存税被 TTL 有界化消除，S2 +13% / S5 +20% / S6 +22% 对比 08-21 轮）；② "GC 抖动"叙事彻底关闭——本轮**四家（含 JVM/Go）同机同时段出现同款 ~1.8s 周期尖峰**，跨产品互证为 WSL2 宿主环境噪声而非任何产品运行时行为，本机数据不得用于"谁更平"的主张（裸机复测后再议）；③ 全栈容器口径 AuthForge 仍最重，但 TTL=30 留存有界档已将至 2,352 MiB（vs Keycloak 1,764），轻量叙事仍应使用 **SDK 嵌入口径（2.5MB）**并显式区分口径。对外表述："比 Keycloak 快"适用于**全部五个对比场景**，数字引用以 COMPARISON.md 为准。
+> **诚实裁决（2026-08-23 刷新版）**：① **五场景全部领先**（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x）——TTL=30 口径下优势普遍扩大（session 留存税被 TTL 有界化消除，S2 +13% / S5 +20% / S6 +22% 对比 08-21 轮）；② "GC 抖动"叙事彻底关闭——本轮**四家（含 JVM/Go）同机同时段出现同款 ~1.8s 周期尖峰**，跨产品互证为 WSL2 宿主环境噪声而非任何产品运行时行为，本机数据不得用于"谁更平"的主张（裸机复测后再议）；③ 全栈容器口径 Fulla 仍最重，但 TTL=30 留存有界档已将至 2,352 MiB（vs Keycloak 1,764），轻量叙事仍应使用 **SDK 嵌入口径（2.5MB）**并显式区分口径。对外表述："比 Keycloak 快"适用于**全部五个对比场景**，数字引用以 COMPARISON.md 为准。
 
 ### 3.2 核心差异化价值主张
 
-**AuthForge = 身份基础设施的 "C++ 权速"**
+**Fulla = 身份基础设施的 "C++ 权速"**
 
 1. **极致性能**（✅ Phase 0 自测 + Phase 0.5 四产品同环境对比验证，2026-08-23 全量刷新）: C++ + Drogon 异步框架。同环境实测（竞品官方推荐配置，TTL=30 留存有界 session 口径）：discovery **87.5k QPS**（Keycloak 41.1k 的 **2.1x**）、client_credentials **14.4k**（**2.6x**）、introspect **22.5k**（**2.0x**，亚军为 Ory 11.5k）、refresh_token **5.5k**（**1.9x**）、userinfo **49.3k**（**1.5x**）——**五个对比场景全部领先**，数字以 `benchmarks/competitors/results/COMPARISON.md` 为准。
 2. **低且稳定的尾延迟**（⚠️ 2026-08-21 二次修订）: 无 GC runtime，稳态 P50/P99 为四家最低水位区间。**两轮同环境实测的结论演进**：2026-08-17 轮三家 GC 语言长跑平线、"零 GC 抖动"未获证实；2026-08-21/23 两轮**四家（含 JVM/Go）同机同时段出现同款周期尖峰**——跨产品互证为 WSL2 宿主环境噪声，本机长跑数据**不可用于任何"谁更平"的主张**（含对我们自己有利的），绝对 P99 水位的对比也须标注本机噪声地板；尾延迟主张待裸机复测后再定性。
-3. **超低资源消耗（SDK 口径）**: SDK 嵌入口径实测 **2.5 MB peak working set**（`third-party-host-smoke`，纯 SDK；binary 12 MB）。⚠️ 口径警示（2026-08-23 同环境实测）：**容器全栈口径 AuthForge 仍为四家最重（2,352 MiB，含 PG+Redis+Drogon 连接池；TTL=30 留存有界档较 08-21 的 5,350 MiB 近乎减半）**，Ory 最轻（269 MiB）——对外必须显式区分口径，不得混用。
+3. **超低资源消耗（SDK 口径）**: SDK 嵌入口径实测 **2.5 MB peak working set**（`third-party-host-smoke`，纯 SDK；binary 12 MB）。⚠️ 口径警示（2026-08-23 同环境实测）：**容器全栈口径 Fulla 仍为四家最重（2,352 MiB，含 PG+Redis+Drogon 连接池；TTL=30 留存有界档较 08-21 的 5,350 MiB 近乎减半）**，Ory 最轻（269 MiB）——对外必须显式区分口径，不得混用。
 4. **冷启动**（✅ 同环境实测领先 1-3 个量级）: fresh 1.26s / restart 1.26s（Keycloak 18.3s/8.2s、Ory 4.4s/0.6s、Zitadel 5.3s/0.9s）——边缘/弹性场景的差异化证据。
-5. **可嵌入 SDK**: 唯一支持 `find_package(authforge-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
+5. **可嵌入 SDK**: 唯一支持 `find_package(fulla-*)` 的 C++ 身份引擎，可嵌入宿主应用进程内运行
 6. **供应链安全（已落地）**: release 流水线（`.github/workflows/release.yml`）已实现 cosign keyless 签名 manifest digest + syft 每镜像 SPDX SBOM + SDK tarball `.sha256` 校验和。⚠️ 承重 caveat：**SDK 包目前仅 linux-x86_64**（无 arm64 / Windows / macOS SDK tarball）。
 
 ### 3.3 差距与挑战
@@ -123,9 +123,9 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 | 资产 | 位置 | 价值 | 原报告定位 |
 |------|------|------|-----------|
 | 多架构镜像（amd64+arm64，**原生 runner 无 QEMU**）+ **cosign keyless 签名** manifest digest + **syft 每镜像 SPDX SBOM** + SDK tarball `.sha256` | `.github/workflows/release.yml`（签名 `:255-266`、SBOM `:273-281`、tarball `:153-166`） | 供应链安全卖点 | §3.2 已列为卖点，但措辞像待办——**实为已落地** |
-| Helm chart（含 pre-install/pre-upgrade schema-migration Job 钩子、Chart version 与 appVersion 联动、外部 DB/Redis 支持、TLS ingress） | `deploy/helm/authforge/`（migration-job `templates/migration-job.yaml`） | 生产级 K8s 部署 | §六 P1 列为"优化"——**chart 已具备生产能力** |
+| Helm chart（含 pre-install/pre-upgrade schema-migration Job 钩子、Chart version 与 appVersion 联动、外部 DB/Redis 支持、TLS ingress） | `deploy/helm/fulla/`（migration-job `templates/migration-job.yaml`） | 生产级 K8s 部署 | §六 P1 列为"优化"——**chart 已具备生产能力** |
 | CI 守护三件套：api-diff（SDK 头面 SemVer）/ arch-guard（Domain 层不依赖 Drogon）/ migration-check（迁移卫生） | `tools/{api-diff,arch-guard,migration-check}/` + `ci.yml` static-checks 门 | 工程可信度（API 稳定性/架构/迁移可控） | 报告未提，**应补入卖点** |
-| SDK 打包：`authforge_package()` × 8 包，install-tree + build-tree `find_package`，传递依赖闭包 | `cmake/AuthForgePackage.cmake` + 各 `libs/*/CMakeLists.txt`（8 处调用） | 可嵌入性的工程证据 | §3.2 已提，**实为已落地** |
+| SDK 打包：`fulla_package()` × 8 包，install-tree + build-tree `find_package`，传递依赖闭包 | `cmake/FullaPackage.cmake` + 各 `libs/*/CMakeLists.txt`（8 处调用） | 可嵌入性的工程证据 | §3.2 已提，**实为已落地** |
 | 三平台 CI（Linux/Windows/macOS 矩阵）+ SDK smoke（`examples/full-stack-host` 真实 find_package 消费验证） | `ci.yml` matrix + `_sdk-smoke.yml` | 跨平台可信度 + SDK 可消费性 | 报告未提，**应补入卖点** |
 | SDK 文档（集成指南 + 运行时契约，已达发布级） | `docs/backend/sdk-integration-guide.md`、`docs/backend/sdk-runtime-contract.md` | 开发者集成的现成资料 | §六 P0 列为"SDK 文档站"——**内容已就绪**，待办收敛为"站点化 + 版本切换" |
 
@@ -168,7 +168,7 @@ AuthForge 是一个基于 C++ (Drogon 框架) 构建的全栈 OAuth2/OIDC 授权
 #### 路线 B: 云托管 SaaS
 
 ```
-AuthForge Cloud
+Fulla Cloud
 ├── Free Tier: 1,000 MAU
 ├── Pro: $99/月, 25,000 DAU
 ├── Enterprise: 定制报价
@@ -188,10 +188,10 @@ AuthForge Cloud
 - 需要多区域部署满足数据合规
 - 竞争激烈, Auth0/Okta 品牌势能强
 
-#### 路线 C: SDK 商业许可 (AuthForge 独有)
+#### 路线 C: SDK 商业许可 (Fulla 独有)
 
 ```
-AuthForge SDK Licensing
+Fulla SDK Licensing
 ├── Community SDK (MIT): 基础 OAuth2 引擎
 ├── Commercial SDK: 高性能存储适配器 / 企业插件
 ├── OEM License: 嵌入商业产品
@@ -201,7 +201,7 @@ AuthForge SDK Licensing
 **参考**: 无直接竞品 (市场空白)
 
 **优势**:
-- 利用 AuthForge 独有的 C++ SDK 嵌入能力
+- 利用 Fulla 独有的 C++ SDK 嵌入能力
 - 面向 IoT/边缘/嵌入式身份场景——竞品无法覆盖
 - 低边际成本, 高利润率
 - 与路线 A 完美互补
@@ -229,7 +229,7 @@ Phase 2 (6-12 月): 企业版启动
 └── 合规认证启动 (SOC2)
 
 Phase 3 (12-24 月): 云托管探索
-├── AuthForge Cloud MVP
+├── Fulla Cloud MVP
 ├── 多区域部署
 └── 自助式开发者注册
 ```
@@ -246,8 +246,8 @@ Phase 3 (12-24 月): 云托管探索
 | **Cloud (远期)** | $99/月起 | 全托管 SaaS | SaaS 创业团队 |
 
 **定价逻辑**:
-- 对比 Keycloak + Red Hat 支持 ($1,000/年/实例), AuthForge 企业版定价有竞争力
-- 对比 Auth0 (10K MAU = $700/月), AuthForge 自托管方案 TCO 优势显著
+- 对比 Keycloak + Red Hat 支持 ($1,000/年/实例), Fulla 企业版定价有竞争力
+- 对比 Auth0 (10K MAU = $700/月), Fulla 自托管方案 TCO 优势显著
 - SDK 商业许可填补市场空白, 对标商业 ORM/中间件定价
 
 ---
@@ -256,7 +256,7 @@ Phase 3 (12-24 月): 云托管探索
 
 ### 5.1 目标客户细分
 
-| 细分市场 | 画像 | 痛点 | AuthForge 价值 |
+| 细分市场 | 画像 | 痛点 | Fulla 价值 |
 |----------|------|------|----------------|
 | **IoT/边缘计算** | 设备厂商, 工业互联网 | 现有 IAM 太重, 无法边缘部署 | 50MB 内存, 可嵌入 SDK |
 | **金融科技** | 交易所, 支付平台 | GC 抖动导致延迟尖峰, SLA 难保障 | 零 GC, < 2ms P99 |
@@ -268,7 +268,7 @@ Phase 3 (12-24 月): 云托管探索
 ### 5.2 获客渠道
 
 **短期 (0-6 月)**:
-1. **技术内容营销**: 发布 AuthForge vs Keycloak/Ory 性能基准测试报告
+1. **技术内容营销**: 发布 Fulla vs Keycloak/Ory 性能基准测试报告
 2. **GitHub Stars 增长**: 优化 README, 添加 benchmarks 徽章, 提交 Hacker News/Reddit
 3. **C++ 社区渗透**: Drogon 社区, C++ 开发者论坛, CppCon 等
 4. **DevRel**: 编写「为什么用 C++ 构建身份服务器」技术博客系列
@@ -308,7 +308,7 @@ Phase 3 (12-24 月): 云托管探索
 
 | 优先级 | 工作项 | 目标 | 落地状态校准 |
 |--------|--------|------|------------|
-| P0 | 性能基准测试套件 | 发布 AuthForge vs Keycloak/Ory/Auth0 对比报告 | **当前空白**：代码库无 HTTP 级基准（`tests/performance/` 仅进程内微基准）。→ 见 [基准设施设计文档](in-progress/benchmark-facility-design.md)；竞品对比建议后置到 Phase 0.5 |
+| P0 | 性能基准测试套件 | 发布 Fulla vs Keycloak/Ory/Auth0 对比报告 | **当前空白**：代码库无 HTTP 级基准（`tests/performance/` 仅进程内微基准）。→ 见 [基准设施设计文档](in-progress/benchmark-facility-design.md)；竞品对比建议后置到 Phase 0.5 |
 | P0 | SDK 文档站 | 完整的 C++ SDK 集成指南 + API 参考 | **内容已就绪**（§3.4）；待办收敛为"**文档站化 + 版本切换 + 中文本地化**" |
 | P0 | Benchmark 可复现 | 提供一键式 benchmark 脚本, 第三方可验证 | **当前空白**；随性能基准套件一并交付（同设计文档） |
 | P1 | Helm Chart 优化 | 一条命令部署, 默认安全配置 | **chart 已具备生产能力**（§3.4）；待办收敛为"**补 HPA/PDB/NetworkPolicy/chart-tests + 非占位镜像 namespace + 非 ephemeral 默认存储**" |
@@ -332,7 +332,7 @@ Phase 3 (12-24 月): 云托管探索
 
 | 优先级 | 工作项 | 目标 |
 |--------|--------|------|
-| P0 | AuthForge Cloud MVP | 多租户云平台, 自助注册 |
+| P0 | Fulla Cloud MVP | 多租户云平台, 自助注册 |
 | P0 | 多区域部署 | 数据驻留选择 |
 | P1 | 自助式 dashboard | 用量监控, 计费 |
 | P1 | Marketplace 集成 | AWS/Azure/GCP Marketplace |
@@ -357,7 +357,7 @@ Phase 3 (12-24 月): 云托管探索
 
 ### 立即行动 (本周)
 
-1. **启动性能基准测试**: 使用 wrk/vegeta 对 AuthForge vs Keycloak 进行对比压测, 生成数据
+1. **启动性能基准测试**: 使用 wrk/vegeta 对 Fulla vs Keycloak 进行对比压测, 生成数据
 2. **完善 SDK 文档**: 确保现有 SDK 集成指南和运行时契约文档达到商业级质量
 3. **准备技术博客**: 撰写「为什么我们用 C++ 构建 OAuth2 服务器」首发文章
 
@@ -388,7 +388,7 @@ Phase 3 (12-24 月): 云托管探索
 | Zitadel Cloud | 100 DAU | $100/月 | ~$100/月 (25K DAU) | 定制 |
 | Logto Cloud | 1K MAU | $99/月 | ~$300/月 | 定制 |
 | Keycloak | 无限 | $0 | $0 (自运维) | $1,000/年/实例 (RHSSO) |
-| **AuthForge (建议)** | **无限** | **$0** | **$0 (自运维)** | **$5,000/年起** |
+| **Fulla (建议)** | **无限** | **$0** | **$0 (自运维)** | **$5,000/年起** |
 
 > **注**: 竞品定价数据来源于各产品官网 2026 年公开信息, 实际价格以厂商报价为准。
 

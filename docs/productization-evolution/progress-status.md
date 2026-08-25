@@ -9,12 +9,12 @@
 
 ## 一、总体进展概览
 
-AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-24：
+Fulla 产品化演进按 [演进方案](productization-evolution-plan.md) 的 4 个 Phase 推进。截至 2026-08-24：
 
 | Phase | 状态 | 完成度 | 说明 |
 |-------|------|--------|------|
 | **Phase 0** — 可信度基线 | ✅ **完成** | 100% | benchmark M1–M4 + Phase 0.5 竞品对比（PR #64）全部交付；**承重裁决（2026-08-23 TTL=30 全量刷新，COMPARISON.md）：QPS ✅五场景同环境领先（S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x）、P99 ✅低并发达成、内存 ✅SDK 口径 2.5 MB、冷启动 ✅1.26s（四家最快，领先 1–3 个量级）**；性能优化两轮收官 + TTL=30 会话留存收官 | 遗留：裸机复测（GC/尾延迟噪声归因——本机四家同款噪声已判定不可用） |
-| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~60% | spec 治理 ✅（v1.2.0）；客户端 SDK ✅（**PyPI `authforge-oauth2` 1.4.0 live** + Go 嵌套 tag）；README 性能徽章 + 复现小节 ✅（v1.4.0 双语）；**待做：技术博客、独立文档站、TechEmpower** |
+| **Phase 1** — 产品化基础 + 社区启动 | 🟡 进行中 | ~60% | spec 治理 ✅（v1.2.0）；客户端 SDK ✅（**PyPI `fulla-oauth2` 1.4.0 live** + Go 嵌套 tag）；README 性能徽章 + 复现小节 ✅（v1.4.0 双语）；**待做：技术博客、独立文档站、TechEmpower** |
 | **Phase 2** — 企业版 | 🟡 快速推进 | ~50% | #42 缓存层 P1+2、#43 授权模型、用户管理补全（PR #52）、**Backchannel Logout 全栈（PR #61，含 #55/#57 加固）**、**社交账号 link/unlink（PR #68，v1.3.0）**均已交付；OAuth/OIDC 合规审计 100% 修复；SAML/LDAP/SCIM/多租户隔离待做 |
 | **Phase 3** — 云托管 | ⬜ 未启动 | 0% | 未达启动门槛（自托管付费客户 ≥ N） |
 
@@ -45,7 +45,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | **M2: S3 introspect + S4 auth_code** | ✅ 已完成 | `s3-introspect.lua`（active token）+ `s4-auth-code.lua`（多步 login→token，PKCE 预生成）；S3 17k QPS / S4 465 QPS | — |
 | **M3: S5 refresh_token + S6 userinfo + 观测** | ✅ 已完成 | `s5-refresh-token.lua`（一次性 RT 池）+ `s6-userinfo.lua` + `observe/` 脚本 + `config.bench.json`；S5 2k QPS / S6 17k QPS | — |
 | **M4: 承重假设验证报告** | ✅ 已完成 | `SUMMARY.md`：6 场景阶梯数据 + 承重裁决 + 40 JSON 入仓 | 冷启动/内存精确测量 |
-| **Phase 0.5: 竞品对比** | ✅ 已完成（2026-08-17 首轮交付；**2026-08-21 优化后基准档全量刷新**） | COMPARISON.md 正式表：**AuthForge 五场景全部领先**（S1 2.2x / S2 2.4x / S3 1.8x / S5 1.06x / S6 1.4x vs Keycloak）；冷启动 1.38s；GC 节四家同款尖峰判定为宿主环境噪声（跨产品互证）。含 wave-1/2 性能优化轮（见 docs/performance-optimization/） | 裸机复测（本机 GC/尾延迟数据不可用于产品间主张） |
+| **Phase 0.5: 竞品对比** | ✅ 已完成（2026-08-17 首轮交付；**2026-08-21 优化后基准档全量刷新**） | COMPARISON.md 正式表：**Fulla 五场景全部领先**（S1 2.2x / S2 2.4x / S3 1.8x / S5 1.06x / S6 1.4x vs Keycloak）；冷启动 1.38s；GC 节四家同款尖峰判定为宿主环境噪声（跨产品互证）。含 wave-1/2 性能优化轮（见 docs/performance-optimization/） | 裸机复测（本机 GC/尾延迟数据不可用于产品间主张） |
 
 **承重假设裁决（对照调研报告 §3.1）**:
 
@@ -68,7 +68,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 |--------|------|----------------|--------|
 | **独立文档站**（Docusaurus/VitePress） | ⬜ 未开始 | Phase 0 数据已落地，不再阻塞 | 选型 + 立项 |
 | **OpenAPI spec 治理**（Layer 1 前置） | ✅ 已完成 | PR #63 已合并（v1.2.0）：三层端点对账（82 路由=80 文档=78 YAML+例外）+ P0 schema 补齐 + `check_spec_governance.py` 一致性门（CI static-checks）+ oasdiff v1.29.1 破坏性变更门（openapi-governance.yml）+ info.version 联动 | 维护例外清单 |
-| **Python + Go 客户端 SDK**（C1） | ✅ 已实现（2026-08-18，待合并） | `clients/python`（openapi-python-client 0.29.0，25 单测）+ `clients/go`（oapi-codegen v2.8.0，单测 G1-G8）+ 漂移门 `tools/clients/regen_clients.py` + CI `clients-sdk.yml` + release.yml 发布接线（PyPI 步骤级 secret 门控 + Go 嵌套 tag）；发行名 `authforge-oauth2`（PyPI `authforge` 被占用）；顺带修 spec：OAuth2Error 枚举 +RFC 6750 两码 | PyPI 项目注册 + secret 配置（人工一次性）；发布后 AC7 冒烟 |
+| **Python + Go 客户端 SDK**（C1） | ✅ 已实现（2026-08-18，待合并） | `clients/python`（openapi-python-client 0.29.0，25 单测）+ `clients/go`（oapi-codegen v2.8.0，单测 G1-G8）+ 漂移门 `tools/clients/regen_clients.py` + CI `clients-sdk.yml` + release.yml 发布接线（PyPI 步骤级 secret 门控 + Go 嵌套 tag）；发行名 `fulla-oauth2`（PyPI `fulla` 被占用）；顺带修 spec：OAuth2Error 枚举 +RFC 6750 两码 | PyPI 项目注册 + secret 配置（人工一次性）；发布后 AC7 冒烟 |
 | **README 性能徽章** | ✅ 已完成（2026-08-24，随 v1.4.0） | 双语 README 徽章（链接 COMPARISON.md）+ Performance 性能小节（五场景表 + 诚实限定）+ "如何复现"小节（run-comparison.sh / gen-comparison.py 命令） | 数字随 COMPARISON.md 刷新时同步（目前 2026-08-23 表） |
 | **首发技术博客 + 基准报告** | ⬜ 未开始 | Phase 0 数据已落地 | 用 COMPARISON.md 实测数字（2026-08-21 表，五场景领先） |
 | **TechEmpower 提交** | ⬜ 未开始 | Phase 0 数据已落地 | — |
@@ -171,7 +171,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 ### 基础设施卫生
 
 > #80 已于 v1.4.1 修复关闭（DEL 失败 → WARN/ERROR + 一次重试 +
-> `authforge_cache_invalidation_failures_total` 计数器）。
+> `fulla_cache_invalidation_failures_total` 计数器）。
 
 | Issue | 标题 | 说明 |
 |-------|------|------|
@@ -204,7 +204,7 @@ AuthForge 产品化演进按 [演进方案](productization-evolution-plan.md) �
 | 2026-08-13 | **D1 Backchannel Logout 后端 — 通知器 + logout_token + admin API + 单测** | PR #50（5b3ccb9..9c8cf9f，分支 feat/backchannel-logout-b1） |
 | 2026-08-13 | **内存 SDK 口径实测 — 2.5 MB peak WS（50-120MB 声称保守达标）** | third-party-host-smoke / full-stack-host-smoke 实测 |
 | 2026-08-17 | **A1 OpenAPI spec 治理（M0）— 三层对账 + schema 补齐 + 一致性门 + oasdiff 门** | PR #63（v1.2.0） |
-| 2026-08-18 | **C1 客户端 SDK — Python（PyPI `authforge-oauth2`）+ Go + 漂移门 + CI/release 接线** | PR #65（v1.3.0 起 PyPI live） |
+| 2026-08-18 | **C1 客户端 SDK — Python（PyPI `fulla-oauth2`）+ Go + 漂移门 + CI/release 接线** | PR #65（v1.3.0 起 PyPI live） |
 | 2026-08-22 | **C3 竞品对比 — Keycloak/Ory/Zitadel 套件 + 四产品同环境对比（PR #64 合并）+ 性能优化 wave-1/wave-2** | master@06bfdaa2；后续 08-21/08-23 两轮全量刷新 |
 | 2026-08-21 | **B2 社交账号 link/unlink — 3 端点 + SocialLinkService + 最后凭证守卫 + 前端卡片（v1.3.0）** | PR #68（e991360，含独立评审 W1-W4+S1-S4 修复轮） |
 | 2026-08-22 | **B1 Backchannel Logout 全栈收官 — #55（end_session 触发）+ #57（URI 校验/SSRF 加固）** | PR #61（旧 #50 关闭） |

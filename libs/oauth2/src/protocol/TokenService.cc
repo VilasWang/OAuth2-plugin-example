@@ -1,12 +1,12 @@
-#include <authforge/oauth2/protocol/TokenService.h>
+#include <fulla/oauth2/protocol/TokenService.h>
 
-#include <authforge/common/model/Subject.h>
-#include <authforge/oauth2/pkce/Pkce.h>
-#include <authforge/oauth2/protocol/TokenCrypto.h>
+#include <fulla/common/model/Subject.h>
+#include <fulla/oauth2/pkce/Pkce.h>
+#include <fulla/oauth2/protocol/TokenCrypto.h>
 
 #include <chrono>
 
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 
 namespace
@@ -32,7 +32,7 @@ Json::Value makeError(const std::string &error, const std::string &desc = "")
 // space-separated tokens (RFC 6749 §3.3); a substring match would let
 // `myopenid` falsely satisfy an `openid` check. libs/oauth2 cannot depend
 // on libs/drogon's ScopeChecker (wrong dependency direction), so this is a
-// framework-free equivalent. Mirrors authforge::drogon::utils::hasScope.
+// framework-free equivalent. Mirrors fulla::drogon::utils::hasScope.
 bool scopeContains(std::string_view scopes, std::string_view required)
 {
     if (required.empty())
@@ -55,13 +55,13 @@ bool scopeContains(std::string_view scopes, std::string_view required)
 }  // namespace
 
 TokenService::TokenService(
-  std::shared_ptr<authforge::oauth2::repository::IClientRepository> clients,
-  std::shared_ptr<authforge::oauth2::repository::IGrantRepository> grants,
-  std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokens,
-  std::shared_ptr<authforge::common::ports::ICryptoProvider> crypto,
-  std::shared_ptr<authforge::common::ports::IAuditSink> auditSink,
-  std::shared_ptr<authforge::common::ports::ISubjectResolver> subjectResolver,
-  std::shared_ptr<authforge::common::ports::IRoleProvider> roleProvider,
+  std::shared_ptr<fulla::oauth2::repository::IClientRepository> clients,
+  std::shared_ptr<fulla::oauth2::repository::IGrantRepository> grants,
+  std::shared_ptr<fulla::oauth2::repository::ITokenRepository> tokens,
+  std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
+  std::shared_ptr<fulla::common::ports::IAuditSink> auditSink,
+  std::shared_ptr<fulla::common::ports::ISubjectResolver> subjectResolver,
+  std::shared_ptr<fulla::common::ports::IRoleProvider> roleProvider,
   int64_t authCodeTtl,
   int64_t accessTokenTtl,
   int64_t refreshTokenTtl,
@@ -110,7 +110,7 @@ void TokenService::resolveRoles(
         return;
     }
 
-    authforge::common::model::Subject subjectValue(subject);
+    fulla::common::model::Subject subjectValue(subject);
     auto roleProvider = roleProvider_;
     subjectResolver_->resolve(
       subjectValue,
@@ -136,7 +136,7 @@ void TokenService::audit(
     if (!auditSink_)
         return;
 
-    authforge::common::observability::AuditEvent event;
+    fulla::common::observability::AuditEvent event;
     event.actorType = "user";
     event.actorId = actorId;
     event.action = action;
@@ -166,7 +166,7 @@ void TokenService::generateAuthorizationCode(
     }
 
     auto code = generateSecureToken(*crypto_);
-    authforge::oauth2::model::OAuth2AuthCode authCode;
+    fulla::oauth2::model::OAuth2AuthCode authCode;
     authCode.code = hashToken(*crypto_, code);
     authCode.clientId = clientId;
     authCode.userId = subject;
@@ -221,7 +221,7 @@ void TokenService::exchangeCodeForToken(
             hashToken(*self->crypto_, code),
             redirectUri,
             [self, callback = std::move(callback), clientId, codeVerifier](
-              std::optional<authforge::oauth2::model::OAuth2AuthCode> authCodeOpt
+              std::optional<fulla::oauth2::model::OAuth2AuthCode> authCodeOpt
             ) {
                 if (!authCodeOpt)
                 {
@@ -270,7 +270,7 @@ void TokenService::exchangeCodeForToken(
                           rolesJson.append(r);
 
                       auto tokenStr = generateSecureToken(*self->crypto_);
-                      authforge::oauth2::model::OAuth2AccessToken token;
+                      fulla::oauth2::model::OAuth2AccessToken token;
                       token.token = hashToken(*self->crypto_, tokenStr);
                       token.clientId = authCode.clientId;
                       token.userId = authCode.userId;
@@ -288,7 +288,7 @@ void TokenService::exchangeCodeForToken(
 
                       auto refreshTokenStr = generateSecureToken(*self->crypto_);
                       auto familyId = generateSecureToken(*self->crypto_, 16);
-                      authforge::oauth2::model::OAuth2RefreshToken refreshToken;
+                      fulla::oauth2::model::OAuth2RefreshToken refreshToken;
                       refreshToken.token = hashToken(*self->crypto_, refreshTokenStr);
                       refreshToken.accessToken = token.token;
                       refreshToken.clientId = authCode.clientId;
@@ -434,14 +434,14 @@ void TokenService::refreshAccessToken(
     tokens_->atomicRevokeRefreshToken(
       hashedRt,
       [self, callback = std::move(callback), clientId, hashedRt](
-        std::optional<authforge::oauth2::model::OAuth2RefreshToken> storedRt
+        std::optional<fulla::oauth2::model::OAuth2RefreshToken> storedRt
       ) mutable {
           if (!storedRt)
           {
               self->tokens_->getRefreshToken(
                 hashedRt,
                 [self, callback = std::move(callback)](
-                  std::optional<authforge::oauth2::model::OAuth2RefreshToken> maybeRevoked
+                  std::optional<fulla::oauth2::model::OAuth2RefreshToken> maybeRevoked
                 ) {
                     if (maybeRevoked && maybeRevoked->revoked && !maybeRevoked->familyId.empty())
                     {
@@ -479,7 +479,7 @@ void TokenService::refreshAccessToken(
           }
 
           auto newTokenStr = generateSecureToken(*self->crypto_);
-          authforge::oauth2::model::OAuth2AccessToken token;
+          fulla::oauth2::model::OAuth2AccessToken token;
           token.token = hashToken(*self->crypto_, newTokenStr);
           token.clientId = storedRt->clientId;
           token.userId = storedRt->userId;
@@ -491,7 +491,7 @@ void TokenService::refreshAccessToken(
           token.issuer = self->issuer_;
 
           auto newRefreshTokenStr = generateSecureToken(*self->crypto_);
-          authforge::oauth2::model::OAuth2RefreshToken newRt;
+          fulla::oauth2::model::OAuth2RefreshToken newRt;
           newRt.token = hashToken(*self->crypto_, newRefreshTokenStr);
           newRt.accessToken = token.token;
           newRt.clientId = storedRt->clientId;
@@ -547,7 +547,7 @@ void TokenService::refreshAccessToken(
 
 void TokenService::validateAccessToken(
   const std::string &token,
-  std::function<void(std::shared_ptr<authforge::oauth2::model::OAuth2AccessToken>)> &&callback
+  std::function<void(std::shared_ptr<fulla::oauth2::model::OAuth2AccessToken>)> &&callback
 )
 {
     if (!tokens_ || !crypto_)
@@ -565,7 +565,7 @@ void TokenService::validateAccessToken(
     // `auto self = shared_from_this()` to keep lifetime safety -- that is the
     // real latent risk here, not a current one.
     tokens_->getAccessToken(
-      hashedToken, [callback](std::optional<authforge::oauth2::model::OAuth2AccessToken> t) {
+      hashedToken, [callback](std::optional<fulla::oauth2::model::OAuth2AccessToken> t) {
           if (!t || t->revoked)
           {
               callback(nullptr);
@@ -578,14 +578,14 @@ void TokenService::validateAccessToken(
               return;
           }
 
-          callback(std::make_shared<authforge::oauth2::model::OAuth2AccessToken>(*t));
+          callback(std::make_shared<fulla::oauth2::model::OAuth2AccessToken>(*t));
       }
     );
 }
 
 void TokenService::introspectToken(
   const std::string &token,
-  std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)> &&callback
+  std::function<void(std::optional<fulla::oauth2::model::TokenIntrospection>)> &&callback
 )
 {
     if (!tokens_ || !crypto_)
@@ -647,10 +647,10 @@ bool TokenService::validatePkceCodeVerifier(
     if (!crypto_)
         return false;
 
-    authforge::common::model::PkceChallenge challenge(
+    fulla::common::model::PkceChallenge challenge(
       codeChallenge, codeChallengeMethod.empty() ? "plain" : codeChallengeMethod
     );
-    return authforge::oauth2::pkce::verifyCodeVerifier(codeVerifier, challenge, *crypto_);
+    return fulla::oauth2::pkce::verifyCodeVerifier(codeVerifier, challenge, *crypto_);
 }
 
-}  // namespace authforge::oauth2::protocol
+}  // namespace fulla::oauth2::protocol

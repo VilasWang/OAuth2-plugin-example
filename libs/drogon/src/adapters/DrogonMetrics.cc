@@ -1,21 +1,21 @@
-#include <authforge/drogon/adapters/DrogonMetrics.h>
+#include <fulla/drogon/adapters/DrogonMetrics.h>
 
 #include <drogon/drogon.h>
 
 #include <sstream>
 
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
 
 namespace
 {
 // Format the metric name + labels into the same "[METRIC] <name> k=v ..."
-// log line the legacy authforge::drogon::observability::Metrics statics
+// log line the legacy fulla::drogon::observability::Metrics statics
 // produced, so output consumers (log scrapers, PromExporter readers) see no
 // change. value is appended as val= (matching observeLatency/updateActiveTokens).
 std::string formatMetric(
   const std::string &name,
-  const authforge::common::ports::MetricLabels &labels,
+  const fulla::common::ports::MetricLabels &labels,
   double value
 )
 {
@@ -32,7 +32,7 @@ std::string formatMetric(
 
 void DrogonMetrics::incrementCounter(
   const std::string &name,
-  const authforge::common::ports::MetricLabels &labels,
+  const fulla::common::ports::MetricLabels &labels,
   double value
 )
 {
@@ -47,7 +47,7 @@ void DrogonMetrics::incrementCounter(
 
 void DrogonMetrics::setGauge(
   const std::string &name,
-  const authforge::common::ports::MetricLabels &labels,
+  const fulla::common::ports::MetricLabels &labels,
   double value
 )
 {
@@ -62,7 +62,7 @@ void DrogonMetrics::setGauge(
 
 void DrogonMetrics::observeHistogram(
   const std::string &name,
-  const authforge::common::ports::MetricLabels &labels,
+  const fulla::common::ports::MetricLabels &labels,
   double value
 )
 {
@@ -75,4 +75,4 @@ void DrogonMetrics::observeHistogram(
     }
 }
 
-}  // namespace authforge::drogon::adapters
+}  // namespace fulla::drogon::adapters

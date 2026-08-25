@@ -59,12 +59,12 @@
 #include <thread>
 #include <vector>
 
-#include <authforge/drogon/filters/AuthorizationFilter.h>
+#include <fulla/drogon/filters/AuthorizationFilter.h>
 
 #include "ConcurrencyRaceSupport.h"
 
-using namespace authforge::test::concurrency;
-using authforge::drogon::filters::AuthorizationFilter;
+using namespace fulla::test::concurrency;
+using fulla::drogon::filters::AuthorizationFilter;
 
 namespace
 {

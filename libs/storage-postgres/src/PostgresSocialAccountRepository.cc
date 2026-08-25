@@ -1,4 +1,4 @@
-#include <authforge/storage/postgres/PostgresSocialAccountRepository.h>
+#include <fulla/storage/postgres/PostgresSocialAccountRepository.h>
 
 #ifdef WITH_SOCIAL
 
@@ -6,24 +6,24 @@
 
 #include <chrono>
 
-#include <authforge/storage/postgres/models/Oauth2SubjectMappings.h>
-#include <authforge/storage/postgres/models/Roles.h>
-#include <authforge/storage/postgres/models/UserRoles.h>
-#include <authforge/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/Oauth2SubjectMappings.h>
+#include <fulla/storage/postgres/models/Roles.h>
+#include <fulla/storage/postgres/models/UserRoles.h>
+#include <fulla/storage/postgres/models/Users.h>
 
-namespace authforge::storage::postgres
+namespace fulla::storage::postgres
 {
 
 using namespace ::drogon::orm;
-using authforge::identity::LinkMutationStatus;
-using authforge::identity::LinkNewSocialAccountResult;
-using authforge::identity::SocialAccountLookup;
-using authforge::identity::SocialLinkEntry;
-using authforge::identity::SocialLinkStatus;
-using drogon_model::oauth2_db::Oauth2SubjectMappings;
-using drogon_model::oauth2_db::Roles;
-using drogon_model::oauth2_db::UserRoles;
-using drogon_model::oauth2_db::Users;
+using fulla::identity::LinkMutationStatus;
+using fulla::identity::LinkNewSocialAccountResult;
+using fulla::identity::SocialAccountLookup;
+using fulla::identity::SocialLinkEntry;
+using fulla::identity::SocialLinkStatus;
+using drogon_model::fulla_db::Oauth2SubjectMappings;
+using drogon_model::fulla_db::Roles;
+using drogon_model::fulla_db::UserRoles;
+using drogon_model::fulla_db::Users;
 
 namespace
 {
@@ -169,7 +169,7 @@ void PostgresSocialAccountRepository::createLinkedUser(
 
     // random password hash -- the account can never log in with a
     // password, mirrors GitHubController.cc's existing
-    // authforge::drogon::utils::generateSecureToken() placeholder.
+    // fulla::drogon::utils::generateSecureToken() placeholder.
     std::string passwordHash;
     {
         unsigned char buf[32];
@@ -494,6 +494,6 @@ void PostgresSocialAccountRepository::userHasUsablePassword(
     }
 }
 
-}  // namespace authforge::storage::postgres
+}  // namespace fulla::storage::postgres
 
 #endif  // WITH_SOCIAL

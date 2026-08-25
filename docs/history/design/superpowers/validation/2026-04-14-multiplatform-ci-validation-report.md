@@ -59,7 +59,7 @@ include:
 - [PASS] Redis Alpine with health checks
 - [PASS] Proper port mappings (5432, 6379)
 - [PASS] Health check intervals and timeouts configured
-- [PASS] Database credentials configured (oauth2_user/123456/oauth2_db)
+- [PASS] Database credentials configured (fulla_user/123456/fulla_db)
 
 **Result:** Services correctly configured for all platforms.
 

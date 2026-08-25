@@ -1,9 +1,9 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <future>
 
-// Phase 4.7b (authforge-sdk-refactor): the god MemoryOAuth2Storage local that
+// Phase 4.7b (fulla-sdk-refactor): the god MemoryOAuth2Storage local that
 // this test used to construct (and never actually wire into the plugin) is
 // removed. The test exercises the plugin's public scope-validation API, which
 // runs against the plugin's own memory RepositoryBundle built by initAndStart().

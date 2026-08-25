@@ -3,11 +3,11 @@
 # Source this file; do not execute directly.
 
 # Database defaults
-DB_USER="${OAUTH2_DB_USER:-oauth2_user}"
-DB_NAME="${OAUTH2_DB_NAME:-oauth2_db}"
-DB_PASSWORD="${OAUTH2_DB_PASSWORD:-123456}"
-DB_HOST="${OAUTH2_DB_HOST:-localhost}"
-DB_PORT="${OAUTH2_DB_PORT:-5432}"
+DB_USER="${FULLA_DB_USER:-fulla_user}"
+DB_NAME="${FULLA_DB_NAME:-fulla_db}"
+DB_PASSWORD="${FULLA_DB_PASSWORD:-123456}"
+DB_HOST="${FULLA_DB_HOST:-localhost}"
+DB_PORT="${FULLA_DB_PORT:-5432}"
 
 # Test counters
 TEST_PASSED=0
@@ -153,7 +153,7 @@ run_test() {
 # get_postgres_container - find THIS project's postgres container name.
 # Matching only "postgres" grabbed ANY postgres container on the machine
 # (e.g. an unrelated "ory-bench-postgres") and ran the admin reset against
-# the wrong database. The compose service is "oauth2-postgres"
+# the wrong database. The compose service is "fulla-postgres"
 # (deploy/docker/docker-compose.yml); no match -> caller falls back to the
 # local-psql branch.
 get_postgres_container() {

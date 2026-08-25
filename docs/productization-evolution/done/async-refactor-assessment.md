@@ -316,9 +316,9 @@ void GitHubLoginFlow::failDb(const char *ctx, const DrogonDbException &e) {
 | `libs/identity/src/social/GitHubAuthService.cc` | `login` L26–L150，4 层嵌套；`sharedCb` L41 |
 | `libs/drogon/src/admin/UserAdminService.cc` | `listUsers` L74–L186，3 层串行 Mapper；`fetchUserRoleNames` L192–L242 |
 | `libs/drogon/src/adapters/DrogonOAuthHttpClient.cc` | `postForm` L32 / `getWithBearerToken` L64 |
-| `libs/identity/include/authforge/identity/IUserRepository.h` | 9 个 `&&callback` 方法（L40–L125） |
-| `libs/identity/include/authforge/identity/ISocialAccountRepository.h` | `LookupCallback`/`CreateCallback` L92–L93 |
-| `libs/identity/include/authforge/identity/IOAuthHttpClient.h` | `ResultCallback` L86；`OAuthHttpResult` L55–L74 |
+| `libs/identity/include/fulla/identity/IUserRepository.h` | 9 个 `&&callback` 方法（L40–L125） |
+| `libs/identity/include/fulla/identity/ISocialAccountRepository.h` | `LookupCallback`/`CreateCallback` L92–L93 |
+| `libs/identity/include/fulla/identity/IOAuthHttpClient.h` | `ResultCallback` L86；`OAuthHttpResult` L55–L74 |
 | `TECH_SPECS.md` | §一 异步规范 L22–L35；Lambda 捕获 L56–L67；C++17 L76 |
 | `CMakePresets.json` | 12 份 preset 硬编码 `compiler.cppstd=17` |
 | `.github/workflows/` | 6 份 CI workflow；Linux GCC 11 / Windows VS2022 / macOS Apple Clang |

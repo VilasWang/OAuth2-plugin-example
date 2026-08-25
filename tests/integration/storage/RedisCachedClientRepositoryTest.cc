@@ -32,9 +32,9 @@
 #include <drogon/nosql/RedisClient.h>
 #include <drogon/utils/Utilities.h>
 
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/model/Dto.h>
-#include <authforge/storage/redis/RedisCachedClientRepository.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/model/Dto.h>
+#include <fulla/storage/redis/RedisCachedClientRepository.h>
 
 #include <algorithm>
 #include <atomic>
@@ -43,10 +43,10 @@
 #include <string>
 #include <thread>
 
-using OAuth2Client = authforge::oauth2::model::OAuth2Client;
-using ClientType = authforge::oauth2::model::ClientType;
-using IClientRepository = authforge::oauth2::repository::IClientRepository;
-using RedisCachedClientRepository = authforge::storage::redis::RedisCachedClientRepository;
+using OAuth2Client = fulla::oauth2::model::OAuth2Client;
+using ClientType = fulla::oauth2::model::ClientType;
+using IClientRepository = fulla::oauth2::repository::IClientRepository;
+using RedisCachedClientRepository = fulla::storage::redis::RedisCachedClientRepository;
 
 namespace
 {
@@ -166,7 +166,7 @@ void evictCacheKey(const std::string &clientId)
         redis->execCommandAsync(
           [cb](const ::drogon::nosql::RedisResult &) { cb(); },
           [cb](const ::drogon::nosql::RedisException &) { cb(); },
-          "DEL authforge:cache:client:%s",
+          "DEL fulla:cache:client:%s",
           clientId.c_str()
         );
     });

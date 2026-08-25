@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""arch-guard: enforce AuthForge SDK layering rules.
+"""arch-guard: enforce Fulla SDK layering rules.
 
-Spec: .kiro/specs/authforge-sdk-refactor/tasks.md Task 33 (M6). This is a
+Spec: .kiro/specs/fulla-sdk-refactor/tasks.md Task 33 (M6). This is a
 static source check over the framework-agnostic Domain libraries
 (libs/common, libs/oauth2, libs/identity). It fails (exit 1) on any violation
 of the three architecture rules the refactor established:
@@ -51,8 +51,8 @@ RE_DROGON_INCLUDE = re.compile(r'#\s*include\s*[<"]drogon/')
 # R3: any use of the drogon::orm namespace.
 RE_DROGON_ORM = re.compile(r'\bdrogon::orm\b')
 # R2: cross-domain includes (oauth2 <-> identity), matched by public header path.
-RE_INCLUDE_IDENTITY = re.compile(r'#\s*include\s*[<"][^">]*authforge/identity/')
-RE_INCLUDE_OAUTH2 = re.compile(r'#\s*include\s*[<"][^">]*authforge/oauth2/')
+RE_INCLUDE_IDENTITY = re.compile(r'#\s*include\s*[<"][^">]*fulla/identity/')
+RE_INCLUDE_OAUTH2 = re.compile(r'#\s*include\s*[<"][^">]*fulla/oauth2/')
 
 
 class Violation(NamedTuple):
@@ -162,7 +162,7 @@ def scan_file(lib: str, path: Path, root: Path) -> List[Violation]:
 
 
 def main(argv: List[str]) -> int:
-    parser = argparse.ArgumentParser(description="AuthForge Domain layering guard")
+    parser = argparse.ArgumentParser(description="Fulla Domain layering guard")
     default_root = Path(__file__).resolve().parents[2]
     parser.add_argument(
         "--root",
@@ -174,7 +174,7 @@ def main(argv: List[str]) -> int:
     root: Path = args.root.resolve()
 
     print("========================================")
-    print("AuthForge arch-guard (Domain layering)")
+    print("Fulla arch-guard (Domain layering)")
     print("========================================")
     print(f"root: {root}")
     print(f"scanning libs: {', '.join(DOMAIN_LIBS)} (include/, src/)")

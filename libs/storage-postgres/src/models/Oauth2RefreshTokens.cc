@@ -12,7 +12,7 @@
 
 using namespace drogon;
 using namespace drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 const std::string Oauth2RefreshTokens::Cols::_token = "\"token\"";
 const std::string Oauth2RefreshTokens::Cols::_access_token = "\"access_token\"";

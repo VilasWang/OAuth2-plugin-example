@@ -1,11 +1,11 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // proving FakeClock gives Domain code deterministic, controllable time.
 
-#include <authforge/common/testing/FakeClock.h>
+#include <fulla/common/testing/FakeClock.h>
 
 #include <gtest/gtest.h>
 
-using namespace authforge::common::testing;
+using namespace fulla::common::testing;
 
 TEST(FakeClockTest, DefaultsToFixedEpoch)
 {
@@ -65,7 +65,7 @@ TEST(FakeClockTest, NeverAdvancesOnItsOwn)
 // boundary.
 TEST(FakeClockTest, DrivesExpiryBoundaryDeterministically)
 {
-    auto isExpired = [](const authforge::common::ports::IClock &clock, int64_t expiresAt) {
+    auto isExpired = [](const fulla::common::ports::IClock &clock, int64_t expiresAt) {
         return clock.nowSeconds() > expiresAt;
     };
 

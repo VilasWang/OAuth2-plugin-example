@@ -1,35 +1,35 @@
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/filters/OAuth2AuthFilter.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
-#include <authforge/drogon/adapters/DrogonLogger.h>
-#include <authforge/drogon/adapters/StorageRoleProvider.h>
-#include <authforge/drogon/adapters/OpenSslCryptoProvider.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/adapters/DrogonMetrics.h>
-#include <authforge/drogon/adapters/StorageSubjectResolver.h>
-#include <authforge/oauth2/protocol/AuthorizationService.h>
-#include <authforge/storage/postgres/models/Oauth2Scopes.h>  // #43 §5.5: DB-driven admin-scope load
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/filters/OAuth2AuthFilter.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
+#include <fulla/drogon/adapters/DrogonLogger.h>
+#include <fulla/drogon/adapters/StorageRoleProvider.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/adapters/DrogonMetrics.h>
+#include <fulla/drogon/adapters/StorageSubjectResolver.h>
+#include <fulla/oauth2/protocol/AuthorizationService.h>
+#include <fulla/storage/postgres/models/Oauth2Scopes.h>  // #43 §5.5: DB-driven admin-scope load
 // Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
 // per-backend RepositoryBundle and extracts its four oauth2 split-repository
 // handles (Phase 1.5e: the bundle's 3 identity accessors are gone; identity
-// repos are constructed separately from authforge::identity::* backing stores).
-#include <authforge/storage/memory/MemoryRepositoryBundle.h>
-#include <authforge/storage/postgres/PostgresRepositoryBundle.h>
-#include <authforge/storage/redis/RedisRepositoryBundle.h>
-#include <authforge/storage/redis/RedisCachedClientRepository.h>
-#include <authforge/storage/redis/RedisCachedTokenRepository.h>
-#include <authforge/storage/redis/DelayedDoubleDelete.h>
-#include <authforge/oauth2/repository/IClientRepository.h>
-#include <authforge/oauth2/repository/IGrantRepository.h>
-#include <authforge/oauth2/repository/ITokenRepository.h>
-#include <authforge/oauth2/repository/IConsentRepository.h>
-#include <authforge/oauth2/pkce/Pkce.h>
-// authforge::identity::IdentityService (the thin forwarder over bundle repos) is still
+// repos are constructed separately from fulla::identity::* backing stores).
+#include <fulla/storage/memory/MemoryRepositoryBundle.h>
+#include <fulla/storage/postgres/PostgresRepositoryBundle.h>
+#include <fulla/storage/redis/RedisRepositoryBundle.h>
+#include <fulla/storage/redis/RedisCachedClientRepository.h>
+#include <fulla/storage/redis/RedisCachedTokenRepository.h>
+#include <fulla/storage/redis/DelayedDoubleDelete.h>
+#include <fulla/oauth2/repository/IClientRepository.h>
+#include <fulla/oauth2/repository/IGrantRepository.h>
+#include <fulla/oauth2/repository/ITokenRepository.h>
+#include <fulla/oauth2/repository/IConsentRepository.h>
+#include <fulla/oauth2/pkce/Pkce.h>
+// fulla::identity::IdentityService (the thin forwarder over bundle repos) is still
 // constructed here for the scopeRequiresAdminRole pure-function path.
-#include <authforge/drogon/services/IdentityService.h>
+#include <fulla/drogon/services/IdentityService.h>
 // F-018: process-wide sliding-window rate limiter (token/introspect/revoke/
 // device-polling). Header-only, framework-free; configured once at startup.
-#include <authforge/common/utils/RateLimiter.h>
+#include <fulla/common/utils/RateLimiter.h>
 #include <drogon/drogon.h>
 
 // Wave-2 P0: client-cache invalidation registry (src-internal; see header).
@@ -43,11 +43,11 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
 {
     LOG_INFO << "OAuth2Plugin loading...";
 
-    // M3 Task 20 continuation (authforge-sdk-refactor): the explicit
+    // M3 Task 20 continuation (fulla-sdk-refactor): the explicit
     // OAuth2StandardController::initApiDocs() call that used to live here
     // was removed to break a circular dependency -- OAuth2StandardController
     // now lives in libs/drogon, which itself links OAuth2Plugin (for the
-    // not-yet-relocated authforge::common::error machinery; see
+    // not-yet-relocated fulla::common::error machinery; see
     // libs/drogon/CMakeLists.txt). OAuth2Plugin therefore cannot #include
     // anything from libs/drogon without creating a link cycle.
     // initApiDocs() is still called explicitly and unconditionally by every
@@ -81,8 +81,8 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // produce any log output (it no longer has a hardcoded Drogon-backed
     // fallback, since it moved into the Domain layer). Pass a
     // DrogonLogger explicitly here to preserve the pre-move log behavior.
-    static authforge::drogon::adapters::DrogonLogger jwkManagerLogger;
-    auto jwkManager = std::make_shared<authforge::oauth2::JwkManager>(&jwkManagerLogger);
+    static fulla::drogon::adapters::DrogonLogger jwkManagerLogger;
+    auto jwkManager = std::make_shared<fulla::oauth2::JwkManager>(&jwkManagerLogger);
     if (config.isMember("oidc"))
     {
         jwkManager->init(config["oidc"]);
@@ -134,8 +134,8 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // limiter is a function-local singleton, so this single configure() call
     // is seen by all four controllers that consult it.
     {
-        authforge::common::utils::RateLimiterConfig rlCfg =
-          authforge::common::utils::RateLimiterConfig::defaults();
+        fulla::common::utils::RateLimiterConfig rlCfg =
+          fulla::common::utils::RateLimiterConfig::defaults();
         if (customConfig.isMember("auth") &&
             customConfig["auth"].isMember("rate_limit") &&
             customConfig["auth"]["rate_limit"].isObject())
@@ -148,16 +148,16 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
                 rlCfg.windowSeconds =
                   std::chrono::seconds(rl["window_seconds"].asUInt());
         }
-        authforge::common::utils::RateLimiter::instance().configure(rlCfg);
+        fulla::common::utils::RateLimiter::instance().configure(rlCfg);
         LOG_DEBUG << "OAuth2Plugin: rate limiter configured (max_failures="
                   << rlCfg.maxFailures
                   << ", window_seconds=" << rlCfg.windowSeconds.count() << ")";
     }
 
     // Initialize Services
-    // M3 Task 24 slice 2 (authforge-sdk-refactor): tokenService_/
+    // M3 Task 24 slice 2 (fulla-sdk-refactor): tokenService_/
     // clientService_ are now the NEW Domain-layer classes
-    // (authforge::oauth2::protocol::TokenService/ClientService, Task 17),
+    // (fulla::oauth2::protocol::TokenService/ClientService, Task 17),
     // constructed against the split repository interfaces via
     // LegacyStorageRepositoryBridge (Task 24 slice 1) -- storage_ itself
     // is untouched (still the old oauth2::IOAuth2Storage concrete
@@ -170,11 +170,11 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // userRepo_/subjectMappingRepo_ are now populated by initStorage() directly
     // from the per-backend RepositoryBundle (no bridges, no storage_). The
     // services below consume these handles.
-    auto cryptoProvider = std::make_shared<authforge::drogon::adapters::OpenSslCryptoProvider>();
-    auto auditSink = std::make_shared<authforge::drogon::adapters::DrogonAuditSink>();
+    auto cryptoProvider = std::make_shared<fulla::drogon::adapters::OpenSslCryptoProvider>();
+    auto auditSink = std::make_shared<fulla::drogon::adapters::DrogonAuditSink>();
     // M8 Task 40 decision b: publish the Adapter-side observability ports as
     // plugin members so Drogon-layer controllers can emit audit/metrics via
-    // authforge::common::ports::* (getAuditSink()/getMetrics()) instead of
+    // fulla::common::ports::* (getAuditSink()/getMetrics()) instead of
     // AuditLogger/Metrics statics.
     auditSink_ = auditSink;
     // #42 Phase 1: metrics_ is now constructed in initStorage() (above) so the
@@ -189,7 +189,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // IRoleProvider port carries the string overload; oauth2::protocol::
     // TokenService prefers it, so no ISubjectResolver is needed (passed null).
     // Phase 4.6a: now backed by roleRepo_ (the identity split-repo), not storage_.
-    roleProvider_ = std::make_shared<authforge::drogon::adapters::StorageRoleProvider>(roleRepo_);
+    roleProvider_ = std::make_shared<fulla::drogon::adapters::StorageRoleProvider>(roleRepo_);
 
     // B10 / Task 45: wire the Domain-layer AuthorizationService (the protocol
     // engine) so /oauth2/authorize can call evaluateScopes() instead of the
@@ -198,8 +198,8 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // tiers) -- StorageSubjectResolver backs it with subjectMappingRepo_, the
     // same repo IdentityService::getInternalUserId used in the old inline path.
     subjectResolver_ =
-      std::make_shared<authforge::drogon::adapters::StorageSubjectResolver>(subjectMappingRepo_);
-    authorizationService_ = std::make_shared<authforge::oauth2::protocol::AuthorizationService>(
+      std::make_shared<fulla::drogon::adapters::StorageSubjectResolver>(subjectMappingRepo_);
+    authorizationService_ = std::make_shared<fulla::oauth2::protocol::AuthorizationService>(
       clientRepo_, consentRepo_, subjectResolver_, roleProvider_
     );
 
@@ -208,7 +208,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // relying on the implicit "storage_ outlives services" timing convention.
     // The new TokenService continues that guarantee transitively via the
     // repository bridges above, which each hold their own storage_ shared_ptr.
-    tokenService_ = std::make_shared<authforge::oauth2::protocol::TokenService>(
+    tokenService_ = std::make_shared<fulla::oauth2::protocol::TokenService>(
       clientRepo_,
       grantRepo_,
       tokenRepo_,
@@ -223,9 +223,9 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
       issuer
     );
     tokenService_->setJwkManager(jwkManager_);
-    clientService_ = std::make_shared<authforge::oauth2::protocol::ClientService>(clientRepo_);
-    identityService_ = std::make_shared<authforge::identity::IdentityService>(
-      authforge::identity::IdentityService::Repos{
+    clientService_ = std::make_shared<fulla::oauth2::protocol::ClientService>(clientRepo_);
+    identityService_ = std::make_shared<fulla::identity::IdentityService>(
+      fulla::identity::IdentityService::Repos{
         roleRepo_, userRepo_, subjectMappingRepo_, consentRepo_
       }
     );
@@ -234,7 +234,7 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // not storage_. grantRepo is the local bridge over storage_; tokenRepo_ is
     // the member retained in 4.1.)
     cleanupService_ =
-      std::make_shared<authforge::drogon::OAuth2CleanupService>(grantRepo_, tokenRepo_);
+      std::make_shared<fulla::drogon::OAuth2CleanupService>(grantRepo_, tokenRepo_);
     double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble();
     cleanupService_->start(cleanupInterval);
 
@@ -247,7 +247,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     // plugin constructs the per-backend RepositoryBundle (Memory/Postgres/
     // Redis) for the 4 oauth2 repos and extracts those handles into members;
     // the 3 identity repos are constructed SEPARATELY from the NEW
-    // authforge::identity::* backing stores (PostgresIdentityRepository /
+    // fulla::identity::* backing stores (PostgresIdentityRepository /
     // MemoryIdentityRepository), which multiply-inherit all 3 interfaces so a
     // single shared instance backs roleRepo_/userRepo_/subjectMappingRepo_.
     // The bundle's own 3 identity accessors are intentionally NOT called
@@ -258,15 +258,15 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
     // initAndStart) so the Redis cache decorator below can receive it. The
     // assignment is idempotent — initAndStart no longer re-creates it.
     if (!metrics_)
-        metrics_ = std::make_shared<authforge::drogon::adapters::DrogonMetrics>();
+        metrics_ = std::make_shared<fulla::drogon::adapters::DrogonMetrics>();
 
     // Helper: assign the 4 oauth2 repos from a bundle + the 3 identity repos
     // from a single identity-repo shared_ptr.
     auto assignOAuth2 = [this](
-                          std::shared_ptr<authforge::oauth2::repository::IClientRepository> c,
-                          std::shared_ptr<authforge::oauth2::repository::IGrantRepository> g,
-                          std::shared_ptr<authforge::oauth2::repository::ITokenRepository> t,
-                          std::shared_ptr<authforge::oauth2::repository::IConsentRepository> cn
+                          std::shared_ptr<fulla::oauth2::repository::IClientRepository> c,
+                          std::shared_ptr<fulla::oauth2::repository::IGrantRepository> g,
+                          std::shared_ptr<fulla::oauth2::repository::ITokenRepository> t,
+                          std::shared_ptr<fulla::oauth2::repository::IConsentRepository> cn
                         ) {
         clientRepo_ = std::move(c);
         grantRepo_ = std::move(g);
@@ -276,7 +276,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
 
     if (storageType_ == "postgres")
     {
-        authforge::storage::postgres::PostgresRepositoryBundle bundle;
+        fulla::storage::postgres::PostgresRepositoryBundle bundle;
         bundle.initFromConfig(config["postgres"]);
 
         // #42 Phase 1: optionally wrap the client repository in the Redis L2
@@ -288,9 +288,9 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         // the decorator soft-fails to Postgres (§5.5). Token/grant/consent
         // repos pass through unwrapped in Phase 1 (§5.2: token caching is
         // Phase 2; grant/consent are not cached).
-        std::shared_ptr<authforge::oauth2::repository::IClientRepository> clientRepo =
+        std::shared_ptr<fulla::oauth2::repository::IClientRepository> clientRepo =
           bundle.clientRepository();
-        std::shared_ptr<authforge::oauth2::repository::ITokenRepository> tokenRepo =
+        std::shared_ptr<fulla::oauth2::repository::ITokenRepository> tokenRepo =
           bundle.tokenRepository();
         bool cacheEnabled =
           config.isMember("cache") && config["cache"].isMember("enabled") &&
@@ -331,8 +331,8 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             }
             // Wave-2 P1: user profile/roles read cache (S6 path). TTLs follow
             // the same cache.ttl_seconds block (user_profile / user_roles).
-            int userProfileTtl = authforge::drogon::userreadcache::kDefaultProfileTtlSeconds;
-            int userRolesTtl = authforge::drogon::userreadcache::kDefaultRolesTtlSeconds;
+            int userProfileTtl = fulla::drogon::userreadcache::kDefaultProfileTtlSeconds;
+            int userRolesTtl = fulla::drogon::userreadcache::kDefaultRolesTtlSeconds;
             if (config["cache"].isMember("ttl_seconds"))
             {
                 const auto &ttlCfg = config["cache"]["ttl_seconds"];
@@ -341,22 +341,22 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                 if (ttlCfg.isMember("user_roles") && ttlCfg["user_roles"].isInt())
                     userRolesTtl = ttlCfg["user_roles"].asInt();
             }
-            authforge::drogon::UserReadCache::instance().configure(
+            fulla::drogon::UserReadCache::instance().configure(
               redisClient, userProfileTtl, userRolesTtl
             );
             if (redisClient)
             {
-                ::authforge::drogon::UserCacheInvalidator::instance().registerHook(
+                ::fulla::drogon::UserCacheInvalidator::instance().registerHook(
                   [redisClient, metrics = metrics_, doubleDeleteDelayMs](const std::string &subject) {
                       // In-process memo first (synchronous), then the Redis
                       // DELs through the shared double-delete helper (#79
                       // race closure; #80 failure observability).
-                      authforge::drogon::UserReadCache::instance().dropMemo(subject);
+                      fulla::drogon::UserReadCache::instance().dropMemo(subject);
                       for (const char *kind : {"profile", "roles"})
                       {
                           std::string key =
-                            std::string("authforge:cache:user:") + kind + ":" + subject;
-                          authforge::storage::redis::invalidateWithDoubleDelete(
+                            std::string("fulla:cache:user:") + kind + ":" + subject;
+                          fulla::storage::redis::invalidateWithDoubleDelete(
                             redisClient, key, metrics, "user", doubleDeleteDelayMs
                           );
                       }
@@ -364,7 +364,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                 );
             }
             // Phase 1: client cache.
-            clientRepo = std::make_shared<authforge::storage::redis::RedisCachedClientRepository>(
+            clientRepo = std::make_shared<fulla::storage::redis::RedisCachedClientRepository>(
               bundle.clientRepository(), redisClient, metrics_, clientTtl
             );
             // Wave-2 P0: register the write-path invalidation hook so client
@@ -373,14 +373,14 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             // a lost DEL is bounded by the client TTL).
             if (redisClient)
             {
-                ::authforge::drogon::ClientCacheInvalidator::instance().registerHook(
+                ::fulla::drogon::ClientCacheInvalidator::instance().registerHook(
                   [redisClient, metrics = metrics_, doubleDeleteDelayMs](const std::string &clientId) {
                       // #79/#80: same shared double-delete helper as the user
                       // keys — immediate DEL (+retry, WARN/ERROR, counter) and
                       // the delayed race-closing second DEL.
-                      authforge::storage::redis::invalidateWithDoubleDelete(
+                      fulla::storage::redis::invalidateWithDoubleDelete(
                         redisClient,
-                        "authforge:cache:client:" + clientId,
+                        "fulla:cache:client:" + clientId,
                         metrics,
                         "client",
                         doubleDeleteDelayMs
@@ -395,7 +395,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
             // shared helper's default delay (its negative-marker ordering
             // already self-corrects racing refills on the next read; the
             // config knob below scopes to the client/user hook DELs only).
-            tokenRepo = std::make_shared<authforge::storage::redis::RedisCachedTokenRepository>(
+            tokenRepo = std::make_shared<fulla::storage::redis::RedisCachedTokenRepository>(
               bundle.tokenRepository(), redisClient, metrics_, accessTokenMaxTtl
             );
             LOG_INFO << "OAuth2Plugin: Redis cache ENABLED (client + token lookups)"
@@ -417,7 +417,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         std::string dbClientName = config["postgres"].get("db_client_name", "default").asString();
         auto dbClient = drogon::app().getDbClient(dbClientName);
         auto identityRepo =
-          std::make_shared<authforge::storage::postgres::PostgresIdentityRepository>(dbClient);
+          std::make_shared<fulla::storage::postgres::PostgresIdentityRepository>(dbClient);
         // One instance backs all 3 identity interfaces (multiple inheritance).
         roleRepo_ = identityRepo;
         userRepo_ = identityRepo;
@@ -431,10 +431,10 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         // db-operations.md; on error the constructor's safe default remains.
         try
         {
-            drogon::orm::Mapper<drogon_model::oauth2_db::Oauth2Scopes> scopeMapper(dbClient);
+            drogon::orm::Mapper<drogon_model::fulla_db::Oauth2Scopes> scopeMapper(dbClient);
             scopeMapper.findBy(
               drogon::orm::Criteria(
-                drogon_model::oauth2_db::Oauth2Scopes::Cols::_requires_admin_role,
+                drogon_model::fulla_db::Oauth2Scopes::Cols::_requires_admin_role,
                 drogon::orm::CompareOperator::EQ,
                 true
               ),
@@ -442,7 +442,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
               // (process-level singleton, bare-pointer managed by Drogon,
               // lifetime spans the entire process run). Same pattern as
               // the other plugin callbacks in this file.
-              [this](const std::vector<drogon_model::oauth2_db::Oauth2Scopes> &rows) {
+              [this](const std::vector<drogon_model::fulla_db::Oauth2Scopes> &rows) {
                   std::unordered_set<std::string> adminScopes;
                   adminScopes.reserve(rows.size());
                   for (const auto &row : rows)
@@ -489,7 +489,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                      "rejected). Use storage_type=\"postgres\"; Redis will "
                      "return only as a cache layer in front of Postgres.";
         std::string clientName = config["redis"].get("client_name", "default").asString();
-        authforge::storage::redis::RedisRepositoryBundle bundle(clientName);
+        fulla::storage::redis::RedisRepositoryBundle bundle(clientName);
         assignOAuth2(
           bundle.clientRepository(),
           bundle.grantRepository(),
@@ -506,7 +506,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                     "placeholder (role lookups default to {\"user\"}, no "
                     "real user store)";
         auto identityRepo =
-          std::make_shared<authforge::storage::memory::MemoryIdentityRepository>();
+          std::make_shared<fulla::storage::memory::MemoryIdentityRepository>();
         // Unconditional call (Phase 7 regression fix): the legacy path always
         // passed config["admin_users"] (null when absent), and
         // initAdminRoles' no-config branch injects the default
@@ -527,7 +527,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
                          "storage_type=\"memory\"; the cache layer is only "
                          "applied to the postgres backend";
         }
-        authforge::storage::memory::MemoryRepositoryBundle bundle;
+        fulla::storage::memory::MemoryRepositoryBundle bundle;
         if (config.isMember("clients"))
             bundle.initFromConfig(config["clients"]);
         assignOAuth2(
@@ -541,7 +541,7 @@ void OAuth2Plugin::initStorage(const Json::Value &config)
         // populated from the same "admin_users" config block the legacy
         // MemoryRoleRepository::initFromConfig consumed.
         auto identityRepo =
-          std::make_shared<authforge::storage::memory::MemoryIdentityRepository>();
+          std::make_shared<fulla::storage::memory::MemoryIdentityRepository>();
         // Unconditional: see the redis-branch note above (missing key -> null
         // -> initAdminRoles injects the legacy default admin mapping).
         identityRepo->initAdminRoles(config["admin_users"]);
@@ -683,14 +683,14 @@ void OAuth2Plugin::validateAccessToken(
 )
 {
     // M3 Task 24 slice 2: new TokenService returns
-    // shared_ptr<authforge::oauth2::model::OAuth2AccessToken>; convert to
+    // shared_ptr<fulla::oauth2::model::OAuth2AccessToken>; convert to
     // the old oauth2::OAuth2AccessToken (== AccessToken alias) at this
     // boundary so every controller call site (which expects the OLD type)
     // is unaffected.
     tokenService_->validateAccessToken(
       token,
       [callback =
-         std::move(callback)](std::shared_ptr<authforge::oauth2::model::OAuth2AccessToken> t) {
+         std::move(callback)](std::shared_ptr<fulla::oauth2::model::OAuth2AccessToken> t) {
           if (!t)
           {
               callback(nullptr);
@@ -709,13 +709,13 @@ void OAuth2Plugin::getUserRoles(
     // Wave-2 P1: Redis cache-aside (soft-fails to the uncached path when the
     // cache is disabled/unavailable). Consumers: userinfo claims, the admin
     // AuthorizationFilter RBAC gate, and the issuance chain's scope checks.
-    auto &cache = authforge::drogon::UserReadCache::instance();
+    auto &cache = fulla::drogon::UserReadCache::instance();
     if (cache.enabled())
     {
         cache.getRoles(
           userId,
           std::move(callback),
-          [this](const std::string &uid, authforge::drogon::UserReadCache::RolesCallback cb) {
+          [this](const std::string &uid, fulla::drogon::UserReadCache::RolesCallback cb) {
               identityService_->getUserRoles(uid, std::move(cb));
           }
         );
@@ -772,10 +772,10 @@ void OAuth2Plugin::validateUserRolesForScopes(
 
 void OAuth2Plugin::introspectToken(
   const std::string &token,
-  std::function<void(std::optional<authforge::oauth2::model::TokenIntrospection>)> &&callback
+  std::function<void(std::optional<fulla::oauth2::model::TokenIntrospection>)> &&callback
 )
 {
-    // A3: pass the NEW authforge::oauth2::model::TokenIntrospection straight
+    // A3: pass the NEW fulla::oauth2::model::TokenIntrospection straight
     // through (no legacy-DTO conversion -- IOAuth2Storage.h is being deleted).
     tokenService_->introspectToken(token, std::move(callback));
 }
@@ -795,7 +795,7 @@ void OAuth2Plugin::incrementIntrospectCount(
 
 void OAuth2Plugin::getClient(
   const std::string &clientId,
-  authforge::oauth2::repository::IClientRepository::ClientCallback &&callback
+  fulla::oauth2::repository::IClientRepository::ClientCallback &&callback
 )
 {
     // Phase 4.3: forward through the NEW IClientRepository so controllers no
@@ -805,7 +805,7 @@ void OAuth2Plugin::getClient(
 }
 
 void OAuth2Plugin::saveAccessToken(
-  const authforge::oauth2::model::OAuth2AccessToken &token,
+  const fulla::oauth2::model::OAuth2AccessToken &token,
   std::function<void()> &&callback
 )
 {
@@ -814,8 +814,8 @@ void OAuth2Plugin::saveAccessToken(
 }
 
 void OAuth2Plugin::saveTokenPair(
-  const authforge::oauth2::model::OAuth2AccessToken &accessToken,
-  const authforge::oauth2::model::OAuth2RefreshToken &refreshToken,
+  const fulla::oauth2::model::OAuth2AccessToken &accessToken,
+  const fulla::oauth2::model::OAuth2RefreshToken &refreshToken,
   std::function<void(bool ok)> &&callback
 )
 {
@@ -838,7 +838,7 @@ void OAuth2Plugin::getUserInfo(
 )
 {
     // Phase 1.5d (Task 39): routed through userRepo_ (the NEW
-    // authforge::identity::IUserRepository). That interface has no
+    // fulla::identity::IUserRepository). That interface has no
     // getUserInfo(string) overload -- it exposes findById(int32) /
     // findByPublicSub(string) returning UserData. Replicate the legacy
     // dispatch (numeric -> findById(stoi); otherwise -> findByPublicSub) and
@@ -849,7 +849,7 @@ void OAuth2Plugin::getUserInfo(
     // read cache is active the profile JSON is served from Redis instead
     // (see UserReadCache.h for the semantics).
     auto fetch = [this](const std::string &uid,
-                        authforge::drogon::UserReadCache::ProfileCallback cb) {
+                        fulla::drogon::UserReadCache::ProfileCallback cb) {
         if (!userRepo_)
         {
             cb(std::nullopt);
@@ -872,7 +872,7 @@ void OAuth2Plugin::getUserInfo(
             isNumeric = false;
         }
 
-        auto buildJson = [cb = std::move(cb)](std::optional<authforge::identity::UserData> data) mutable {
+        auto buildJson = [cb = std::move(cb)](std::optional<fulla::identity::UserData> data) mutable {
           if (!data)
           {
               cb(std::nullopt);
@@ -895,7 +895,7 @@ void OAuth2Plugin::getUserInfo(
             userRepo_->findByPublicSub(uid, std::move(buildJson));
     };
 
-    auto &cache = authforge::drogon::UserReadCache::instance();
+    auto &cache = fulla::drogon::UserReadCache::instance();
     if (cache.enabled())
     {
         cache.getProfile(userId, std::move(callback), std::move(fetch));
@@ -952,9 +952,9 @@ std::string OAuth2Plugin::generateSha256Hash(const std::string &input)
 {
     // A1: relocated off the legacy oauth2::TokenService static. Delegates to
     // the byte-identical, RFC 7636 Appendix-B-tested algorithm in the
-    // authforge::oauth2::pkce Domain package.
-    static authforge::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
-    return authforge::oauth2::pkce::computeCodeChallenge(input, "S256", cryptoProvider);
+    // fulla::oauth2::pkce Domain package.
+    static fulla::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
+    return fulla::oauth2::pkce::computeCodeChallenge(input, "S256", cryptoProvider);
 }
 
 std::string OAuth2Plugin::signIdToken(
@@ -1029,7 +1029,7 @@ std::string OAuth2Plugin::signIdToken(
 
 bool OAuth2Plugin::scopeRequiresAdminRole(const std::string &scope)
 {
-    return authforge::identity::IdentityService({}).scopeRequiresAdminRole(scope);
+    return fulla::identity::IdentityService({}).scopeRequiresAdminRole(scope);
 }
 
 void OAuth2Plugin::ensureSubjectMapping(

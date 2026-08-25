@@ -7,11 +7,11 @@ READ-ONLY tool: writes the report to STDOUT; the caller redirects:
 
 Reads (design AC1/AC2; no hand-typed numbers — everything traced to files):
   * competitor staircase JSONs  benchmarks/competitors/results/<date>-<sha>-<product>-<scenario>-c<conn>.json
-  * AuthForge staircase JSONs   benchmarks/results/<date>-<sha>-<scenario>-<c>.json
+  * Fulla staircase JSONs   benchmarks/results/<date>-<sha>-<scenario>-<c>.json
     (newest <date>-<sha> group wins — same-session policy, design 5.1 v1.1)
   * gcjitter JSONs              benchmarks/competitors/results/<date>-<sha>-<product>-gcjitter.json
   * cold-start JSONs            competitors/results/<date>-<sha>-<product>-coldstart.json
-                                + benchmarks/results/<date>-cold-start-<mode>.json (AuthForge)
+                                + benchmarks/results/<date>-cold-start-<mode>.json (Fulla)
   * RSS TSVs                    *-s2-client-credentials-c*-docker-stats.tsv
 
 Steady-state definition (same as Phase 0 SUMMARY.md): the concurrency level
@@ -37,9 +37,9 @@ SCENARIOS = [
     ("s5-refresh-token", "S5 refresh_token"),
     ("s6-userinfo", "S6 userinfo"),
 ]
-PRODUCTS = ["authforge", "keycloak", "ory", "zitadel"]
+PRODUCTS = ["fulla", "keycloak", "ory", "zitadel"]
 PRODUCT_LABEL = {
-    "authforge": "AuthForge",
+    "fulla": "Fulla",
     "keycloak": "Keycloak",
     "ory": "Ory Hydra",
     "zitadel": "Zitadel",
@@ -70,7 +70,7 @@ def parse_mem_mib(s: str) -> float:
 def staircase_map(product: str) -> dict:
     """scenario -> conn -> result; newest date+sha group per product."""
     groups: dict = {}
-    if product == "authforge":
+    if product == "fulla":
         for f in RESULTS.glob("*-s[0-9]-*-c*.json"):
             m = re.match(r"^(\d{8})-([0-9a-f]+)-(s\d-.*)-c(\d+)$", f.stem)
             if not m:
@@ -112,8 +112,8 @@ def rss_stack_mean(product: str):
     Same-session policy as staircase_map(): only TSVs from the NEWEST
     (date, sha) group are pooled — mixing sessions would average different
     product builds/days into one number (review finding #1)."""
-    root = RESULTS if product == "authforge" else COMP_RESULTS
-    if product == "authforge":
+    root = RESULTS if product == "fulla" else COMP_RESULTS
+    if product == "fulla":
         pattern = "*-s2-client-credentials-c*-docker-stats.tsv"
     else:
         pattern = f"*-{product}-s2-client-credentials-c*-docker-stats.tsv"
@@ -140,7 +140,7 @@ def rss_stack_mean(product: str):
 
 
 def cold_start(product: str) -> dict:
-    if product != "authforge":
+    if product != "fulla":
         files = sorted(COMP_RESULTS.glob(f"*-{product}-coldstart.json"))
         if not files:
             return {}
@@ -202,11 +202,11 @@ def version_of(product: str, data: dict) -> str:
     for scen in data.values():
         for d in scen.values():
             env = d.get("env", {})
-            if product == "authforge":
+            if product == "fulla":
                 return f"git {env.get('git_sha', '?')}"
             # Competitor rows: product_version only. env['git_sha'] is
-            # AuthForge's HEAD (the runner's repo), never the competitor's
-            # revision — printing it as "Keycloak (git <authforge sha>)"
+            # Fulla's HEAD (the runner's repo), never the competitor's
+            # revision — printing it as "Keycloak (git <fulla sha>)"
             # misattributes the build.
             return env.get("product_version") or "?"
     return "?"
@@ -235,7 +235,7 @@ def build_report() -> str:
     L.append("")
     L.append("同一台机器（WSL2 8 vCPU / 16GB）、同一 wrk 4.1.0 阶梯（2→128，warmup 5s / measure 10s）、"
              "同一 PostgreSQL 17 后端、串行执行、每家之间 `docker compose down -v` 清场。"
-             "连接池：三家竞品按各自官方机制对齐到 25（D1，见附录 A）；AuthForge 使用自家 bench 调优档"
+             "连接池：三家竞品按各自官方机制对齐到 25（D1，见附录 A）；Fulla 使用自家 bench 调优档"
              "（池 64/64、cache on、auto_batch、reuse_port，构建用 opt-in LTO preset——即仓库文档化的"
              "性能优化后推荐基准档，非隐藏调优）。")
     L.append("")
@@ -269,7 +269,7 @@ def build_report() -> str:
 
     L.append("## 二、稳态内存（容器全栈 RSS，D7 口径）")
     L.append("")
-    L.append("S2 测量窗口内各容器 RSS 均值之和（含各自的 PG/Redis 与运行时；AuthForge 栈含 Redis 缓存层——各家架构自由选择的诚实口径）。")
+    L.append("S2 测量窗口内各容器 RSS 均值之和（含各自的 PG/Redis 与运行时；Fulla 栈含 Redis 缓存层——各家架构自由选择的诚实口径）。")
     L.append("")
     L.append("| 产品 | 全栈稳态 RSS |")
     L.append("|---|---|")
@@ -280,7 +280,7 @@ def build_report() -> str:
 
     L.append("## 三、冷启动")
     L.append("")
-    L.append("fresh = 全新卷完整初始化（含 DB schema 自动创建）→ 就绪探针 200；restart = 热卷仅重启服务容器。AuthForge 两种模式来自自家 measure-cold-start.sh（auto-migrate / pre-migrated），语义等价。")
+    L.append("fresh = 全新卷完整初始化（含 DB schema 自动创建）→ 就绪探针 200；restart = 热卷仅重启服务容器。Fulla 两种模式来自自家 measure-cold-start.sh（auto-migrate / pre-migrated），语义等价。")
     L.append("")
     L.append("| 产品 | fresh (s) | restart (s) |")
     L.append("|---|---|---|")
@@ -316,7 +316,7 @@ def build_report() -> str:
     # honest G4 note — every figure below is derived from the computed gc
     # dicts (no hand-typed numbers; they went stale once already)
     gc_langs = [gc[p] for p in ("keycloak", "ory", "zitadel") if gc[p]]
-    af = gc["authforge"]
+    af = gc["fulla"]
     if af and gc_langs:
         worst_lang = max(g["p99_max_over_med"] or 0 for g in gc_langs)
         peers = " / ".join(
@@ -330,13 +330,13 @@ def build_report() -> str:
             L.append("> **诚实注记（G4，2026-08-21 重跑修订）**：本次四家在同机同时段**全部出现同款周期尖峰**"
                      f"（Keycloak 最大/中位 {worst_lang:g}x、Ory/Zitadel 亦数十倍）——跨产品同款尖峰直接证明这是"
                      "宿主环境层噪声（WSL2 调度/IO 停顿），而非任何一家的运行时行为；各产品的 GC 差异在本口径下不可分辨。"
-                     f"可比较的是绝对水位与比值：AuthForge 中位 P99 {fmt_ms(af['p99_med_us'])}、最大/中位 {af['p99_max_over_med']:g}x"
+                     f"可比较的是绝对水位与比值：Fulla 中位 P99 {fmt_ms(af['p99_med_us'])}、最大/中位 {af['p99_max_over_med']:g}x"
                      f"（vs {peers}）——中位与比值均最优或并列最优时才可引用本表。")
         else:
-            L.append("> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、AuthForge 平线」**未被本次实测证实**——"
+            L.append("> **诚实注记（G4 修订）**：设计预期「GC 语言出现周期尖峰、Fulla 平线」**未被本次实测证实**——"
                      f"Keycloak（JVM）/ Ory（Go）/ Zitadel（Go）在本负载下 P99 全程平线（最大/中位 ≤{worst_lang:g}x，"
                      "现代 GC 并发化后 10s 窗口测不出 STW），"
-                     f"反倒是 AuthForge 出现 {af['spikes_gt_1p5x_med']} 个尖峰段（最大 {fmt_ms(af['p99_max_us'])}）。"
+                     f"反倒是 Fulla 出现 {af['spikes_gt_1p5x_med']} 个尖峰段（最大 {fmt_ms(af['p99_max_us'])}）。"
                      "C++ 无 GC，这些尖峰是环境层停顿（WSL2 宿主调度 / PG checkpoint IO），并非运行时 GC——"
                      "「无 GC 抖动」不能作为对外差异化主张引用本表；"
                      f"可作为主张的是绝对 P99 水位（中位 {fmt_ms(af['p99_med_us'])} vs {peers}）。")
@@ -348,7 +348,7 @@ def build_report() -> str:
     L.append("")
     L.append("| 产品 | 配置基线出处 | 偏离项 |")
     L.append("|---|---|---|")
-    L.append("| AuthForge | benchmark 设施自测配置（config.bench.json + docker-compose.bench.yml：PG17、池 64/64、cache on、auto_batch、reuse_port=true；构建用 opt-in LTO preset）——wave-1/2 性能优化后的文档化基准档（docs/performance-optimization/） | 本表数字含 wave-2 代码优化（validateClient/user-read 缓存、EVAL 合并）；均为已交付仓库代码，非一次性调优 |")
+    L.append("| Fulla | benchmark 设施自测配置（config.bench.json + docker-compose.bench.yml：PG17、池 64/64、cache on、auto_batch、reuse_port=true；构建用 opt-in LTO preset）——wave-1/2 性能优化后的文档化基准档（docs/performance-optimization/） | 本表数字含 wave-2 代码优化（validateClient/user-read 缓存、EVAL 合并）；均为已交付仓库代码，非一次性调优 |")
     L.append("| Keycloak | keycloak.org/server/containers 与 /server/db | "
              "PG 连接池 25（默认 100，D1 对齐）；KC_HEALTH_ENABLED=true；realm accessTokenLifespan/SSO idle 提到 1h（token 池须跑完整个阶梯，签名路径不变）；"
              "bench client 增加 audience mapper（KC 26 内省强制 aud 校验，官方机制）；setup 阶段 60s JIT 预热（D2 豁免，JVM 特有） |")

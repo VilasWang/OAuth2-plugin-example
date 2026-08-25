@@ -14,13 +14,13 @@ docker-compose -f "$COMPOSE_FILE" down 2>/dev/null || true
 
 # Start PostgreSQL
 echo "Starting PostgreSQL container..."
-docker-compose -f "$COMPOSE_FILE" up -d oauth2-postgres
+docker-compose -f "$COMPOSE_FILE" up -d fulla-postgres
 
 MAX_WAIT=30
 WAIT_COUNT=0
 
 echo "Waiting for PostgreSQL to be ready..."
-while ! docker exec oauth2-postgres pg_isready -U oauth2_user -d oauth2_db &>/dev/null; do
+while ! docker exec fulla-postgres pg_isready -U fulla_user -d fulla_db &>/dev/null; do
     WAIT_COUNT=$((WAIT_COUNT + 1))
     if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
         echo ""
@@ -38,6 +38,6 @@ echo ""
 echo "Connection info:"
 echo "  Host: 127.0.0.1"
 echo "  Port: 5432"
-echo "  Database: oauth2_db"
-echo "  User: oauth2_user"
+echo "  Database: fulla_db"
+echo "  User: fulla_user"
 echo "  Password: 123456"

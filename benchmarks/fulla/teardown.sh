@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# benchmarks/fulla/teardown.sh
+#
+# Stop the benchmark target stack and (by default) remove volumes so the next
+# setup starts from a deterministic fresh schema + seed. Part of
+# benchmark-facility-design.md M1.
+#
+# Usage:
+#   bash benchmarks/fulla/teardown.sh          # stop + remove volumes
+#   KEEP_VOLUME=1 bash benchmarks/fulla/teardown.sh  # stop only, keep data
+set -euo pipefail
+
+BENCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$BENCH_DIR/../.." && pwd)"
+
+PATHS_ENV_FILE="$REPO_ROOT/paths.env"
+if [ ! -f "$PATHS_ENV_FILE" ]; then
+    echo "[teardown] ERROR: paths.env not found at $PATHS_ENV_FILE"
+    exit 1
+fi
+set -a
+# shellcheck disable=SC1090
+source "$PATHS_ENV_FILE"
+set +a
+COMPOSE_FILE_ABS="$REPO_ROOT/$COMPOSE_FILE_REL"
+
+# Same compose layers as setup.sh (base + bench overlay): `down` must see the
+# identical service definitions the stack was brought up with, or host-network
+# services leak as orphans.
+COMPOSE_ARGS=(-f "$COMPOSE_FILE_ABS")
+BENCH_COMPOSE_FILE="$BENCH_DIR/docker-compose.bench.yml"
+[ -f "$BENCH_COMPOSE_FILE" ] && COMPOSE_ARGS+=(-f "$BENCH_COMPOSE_FILE")
+
+# cd to repo root before docker compose (see setup.sh for rationale: build
+# contexts and relative paths resolve against CWD, not --project-directory).
+cd "$REPO_ROOT"
+
+# --- restore dev config.json if setup.sh swapped it for config.bench.json ---
+DEV_CONFIG_BACKUP="$REPO_ROOT/$FULLA_SERVER_DIR/config/config.json.dev-backup"
+DEV_CONFIG="$REPO_ROOT/$FULLA_SERVER_DIR/config/config.json"
+if [ -f "$DEV_CONFIG_BACKUP" ]; then
+    cp "$DEV_CONFIG_BACKUP" "$DEV_CONFIG"
+    rm -f "$DEV_CONFIG_BACKUP"
+    echo "[teardown] restored config.json from dev backup"
+fi
+
+if [ "${KEEP_VOLUME:-0}" = "1" ]; then
+    echo "[teardown] stopping stack (volumes kept, KEEP_VOLUME=1)..."
+    docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" down
+else
+    echo "[teardown] stopping stack + removing volumes (deterministic reset)..."
+    docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" down -v \
+        --remove-orphans
+fi
+echo "[teardown] done."

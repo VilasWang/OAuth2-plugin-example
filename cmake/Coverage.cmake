@@ -2,7 +2,7 @@
 # Optional gcov code-coverage instrumentation toggle.
 #
 # Cache option (bool):
-#   OAUTH2_TEST_COVERAGE = OFF (default) | ON
+#   FULLA_TEST_COVERAGE = OFF (default) | ON
 #
 # When ON, function oauth2_apply_gcov(target) adds gcov coverage flags
 # (`-fprofile-arcs -ftest-coverage`, the modern equivalent of `--coverage`)
@@ -17,7 +17,7 @@
 #
 # IMPORTANT — why this is a function applied PER-TARGET, not a single flag
 # on the test binary (which was the original tests/CMakeLists.txt approach):
-# the authforge::* libraries are pre-built STATIC archives. Adding `--coverage`
+# the fulla::* libraries are pre-built STATIC archives. Adding `--coverage`
 # only to the test executable that LINKS them does NOT instrument the library
 # object files (they were compiled without the flag), so coverage of the
 # library source itself is effectively zero. Each first-party library must
@@ -26,10 +26,10 @@
 # testing-guide.md §7 for the build/run/report workflow.
 #
 # This module is the canonical coverage entry point; the old inline
-# if(OAUTH2_TEST_COVERAGE) block that used to live in tests/CMakeLists.txt
+# if(FULLA_TEST_COVERAGE) block that used to live in tests/CMakeLists.txt
 # has been replaced by a oauth2_apply_gcov(${PROJECT_NAME}) call there.
 
-option(OAUTH2_TEST_COVERAGE "Enable gcov code coverage instrumentation (GCC/Clang, Debug)" OFF)
+option(FULLA_TEST_COVERAGE "Enable gcov code coverage instrumentation (GCC/Clang, Debug)" OFF)
 
 function(oauth2_apply_gcov target)
     if(NOT TARGET ${target})
@@ -38,7 +38,7 @@ function(oauth2_apply_gcov target)
 
     # Default: coverage off, no-op. Lets every target call this unconditionally
     # without polluting non-coverage builds.
-    if(NOT OAUTH2_TEST_COVERAGE)
+    if(NOT FULLA_TEST_COVERAGE)
         return()
     endif()
 
@@ -46,7 +46,7 @@ function(oauth2_apply_gcov target)
     # coverage toolchain; ignore gracefully so the build still succeeds.
     if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
         message(WARNING
-            "OAUTH2_TEST_COVERAGE=ON requested, but compiler '${CMAKE_CXX_COMPILER_ID}' "
+            "FULLA_TEST_COVERAGE=ON requested, but compiler '${CMAKE_CXX_COMPILER_ID}' "
             "is not GCC/Clang. Coverage NOT applied to '${target}'.")
         return()
     endif()
@@ -56,7 +56,7 @@ function(oauth2_apply_gcov target)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND
        (MSVC OR CMAKE_CXX_SIMULATE_ID STREQUAL "MSVC"))
         message(WARNING
-            "OAUTH2_TEST_COVERAGE=ON requested, but Clang is targeting the MSVC ABI "
+            "FULLA_TEST_COVERAGE=ON requested, but Clang is targeting the MSVC ABI "
             "(${CMAKE_CXX_COMPILER_ID}, simulate=${CMAKE_CXX_SIMULATE_ID}). "
             "gcov instrumentation is unsupported on this target. Coverage NOT applied "
             "to '${target}'. Use a Linux/macOS GCC toolchain for gcov builds.")
@@ -66,7 +66,7 @@ function(oauth2_apply_gcov target)
     # Debug-only guidance (non-fatal): Release inlining distorts line attribution.
     if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         message(WARNING
-            "OAUTH2_TEST_COVERAGE is intended for Debug builds; "
+            "FULLA_TEST_COVERAGE is intended for Debug builds; "
             "current CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}' (line attribution may be distorted).")
     endif()
 
@@ -76,7 +76,7 @@ function(oauth2_apply_gcov target)
     set(_flags -g -fprofile-arcs -ftest-coverage)
 
     message(STATUS
-        "OAUTH2_TEST_COVERAGE=ON: applying gcov flags to '${target}' (compile + link)")
+        "FULLA_TEST_COVERAGE=ON: applying gcov flags to '${target}' (compile + link)")
     target_compile_options(${target} PRIVATE ${_flags})
     target_link_options(${target} PRIVATE ${_flags})
     # Macro gate for gcov-specific code (e.g. tests/test_main.cc's explicit
@@ -87,7 +87,7 @@ function(oauth2_apply_gcov target)
     # (seen in CI linux/macos jobs). This macro is defined EXACTLY when the
     # instrumentation (and thus the libgcov link below) is active, keeping the
     # symbol reference and its supply in lockstep.
-    target_compile_definitions(${target} PRIVATE AUTHFORGE_GCOV_INSTRUMENTED=1)
+    target_compile_definitions(${target} PRIVATE FULLA_GCOV_INSTRUMENTED=1)
     # The gcov runtime (libgcov.a, providing __gcov_init/__gcov_exit/
     # __gcov_merge_*). gcc's --coverage driver normally pulls this in
     # implicitly at link time, but link it explicitly via target_link_libraries
@@ -95,7 +95,7 @@ function(oauth2_apply_gcov target)
     # archives on the link line -- gcc resolves libraries left-to-right, so a
     # `-lgcov` emitted as a link option before the .a files would leave
     # __gcov_* undefined. STATIC libraries have no link step of their own,
-    # but every final executable (the *-test binaries and authforge-tests)
+    # but every final executable (the *-test binaries and fulla-tests)
     # also calls oauth2_apply_gcov, so the runtime resolves at the
     # executable's link.
     #

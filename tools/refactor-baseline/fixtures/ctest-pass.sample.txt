@@ -1,4 +1,4 @@
-Test project D:/work/development/Repos/backend/drogon-plugin/authforge/build/OAuth2Server
+Test project D:/work/development/Repos/backend/drogon-plugin/fulla/build/OAuth2Server
     Start  1: AuthServiceGetUserInfoTest
 1/10 Test  #1: AuthServiceGetUserInfoTest .........   Passed    0.31 sec
     Start  2: ErrorHandlerTest

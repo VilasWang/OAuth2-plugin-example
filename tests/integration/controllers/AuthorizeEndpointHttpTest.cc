@@ -20,11 +20,11 @@
 
 #include <string>
 
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::postgresAvailable;
-using authforge::test::http::sendGet;
-using authforge::test::http::serverReachable;
-using authforge::test::http::statusIs;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::postgresAvailable;
+using fulla::test::http::sendGet;
+using fulla::test::http::serverReachable;
+using fulla::test::http::statusIs;
 
 #define AUTHORIZE_SKIP_GUARD                                   \
     do                                                         \

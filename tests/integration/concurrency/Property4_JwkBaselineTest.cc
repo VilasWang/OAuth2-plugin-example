@@ -42,12 +42,12 @@
 #include <string>
 #include <vector>
 
-#include <authforge/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
 
 #include "Property4_PreservationSupport.h"
 
-using namespace authforge::test::concurrency;
-using authforge::oauth2::JwkManager;
+using namespace fulla::test::concurrency;
+using fulla::oauth2::JwkManager;
 
 namespace
 {

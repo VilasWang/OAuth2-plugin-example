@@ -1,12 +1,12 @@
 #include <drogon/drogon_test.h>
-#include <authforge/common/utils/EmailNormalizer.h>
-#include <authforge/drogon/validation/Rule.h>
+#include <fulla/common/utils/EmailNormalizer.h>
+#include <fulla/drogon/validation/Rule.h>
 #include <regex>
 #include <string>
 
-using authforge::common::utils::normalizeEmail;
-using authforge::drogon::validation::EMAIL_MAX_LEN;
-using authforge::drogon::validation::EMAIL_PATTERN;
+using fulla::common::utils::normalizeEmail;
+using fulla::drogon::validation::EMAIL_MAX_LEN;
+using fulla::drogon::validation::EMAIL_PATTERN;
 
 // Helper: check whether an address passes the W3C HTML5 email regex.
 static bool matchesEmailPattern(const std::string &email)

@@ -9,12 +9,12 @@
 // (synchronous, scripted queue + call recording) and a FakeAuditSink. gtest
 // (not DROGON_TEST) so the binary runs with no event loop.
 
-#include <authforge/drogon/adapters/BackchannelLogoutNotifier.h>
-#include <authforge/common/testing/FakeAuditSink.h>
-#include <authforge/identity/IOAuthHttpClient.h>
-#include <authforge/identity/testing/FakeOAuthHttpClient.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
-#include <authforge/oauth2/protocol/LogoutToken.h>
+#include <fulla/drogon/adapters/BackchannelLogoutNotifier.h>
+#include <fulla/common/testing/FakeAuditSink.h>
+#include <fulla/identity/IOAuthHttpClient.h>
+#include <fulla/identity/testing/FakeOAuthHttpClient.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
+#include <fulla/oauth2/protocol/LogoutToken.h>
 
 #include <gtest/gtest.h>
 
@@ -28,14 +28,14 @@
 
 namespace
 {
-using authforge::common::testing::FakeAuditSink;
-using authforge::drogon::adapters::BackchannelLogoutNotifier;
-using authforge::drogon::adapters::BackchannelRpTarget;
-using authforge::identity::testing::FakeOAuthHttpClient;
-using authforge::identity::testing::okJson;
-using authforge::identity::testing::transportFailure;
-using authforge::oauth2::JwkManager;
-using authforge::oauth2::protocol::kBackchannelLogoutEventUrn;
+using fulla::common::testing::FakeAuditSink;
+using fulla::drogon::adapters::BackchannelLogoutNotifier;
+using fulla::drogon::adapters::BackchannelRpTarget;
+using fulla::identity::testing::FakeOAuthHttpClient;
+using fulla::identity::testing::okJson;
+using fulla::identity::testing::transportFailure;
+using fulla::oauth2::JwkManager;
+using fulla::oauth2::protocol::kBackchannelLogoutEventUrn;
 
 // ---- small JWT helpers -----------------------------------------------------
 
@@ -231,7 +231,7 @@ TEST_F(BackchannelLogoutNotifierTest, CompletionInvokedAfterDispatchAndSkipsEmpt
 TEST(BackchannelLogoutNotifierSignatureTest, LogoutTokenVerifiesWithSigningKey)
 {
     // Generate a known RSA keypair, feed its PEM to JwkManager via the
-    // OAUTH2_SIGNING_KEY env var (the production key-loading branch), and load
+    // FULLA_SIGNING_KEY env var (the production key-loading branch), and load
     // the same PEM in the test to verify signatures.
     auto generatePem = []() -> std::string {
         EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
@@ -281,7 +281,7 @@ TEST(BackchannelLogoutNotifierSignatureTest, LogoutTokenVerifiesWithSigningKey)
     };
 
     const std::string pem = generatePem();
-    EnvGuard guard("OAUTH2_SIGNING_KEY", pem);
+    EnvGuard guard("FULLA_SIGNING_KEY", pem);
 
     auto jwk = std::make_shared<JwkManager>();
     ASSERT_TRUE(jwk->init(Json::Value(Json::objectValue)));
@@ -329,7 +329,7 @@ TEST(BackchannelLogoutNotifierSignatureTest, LogoutTokenVerifiesWithSigningKey)
 
 }  // namespace
 
-// Own main(): authforge::drogon -> Boost umbrella links Boost::test_exec_monitor
+// Own main(): fulla::drogon -> Boost umbrella links Boost::test_exec_monitor
 // (a main() that calls test_main). Linking GTest::Main (a .lib) lets MSVC pick
 // boost's main first and leaves test_main unresolved. A compiled main() object
 // is processed before any .lib, so boost's main object is never pulled. See the

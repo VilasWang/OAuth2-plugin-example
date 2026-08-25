@@ -26,8 +26,8 @@
 #include <drogon/drogon.h>
 #include <json/json.h>
 
-#include <authforge/drogon/admin/ClientManagementService.h>
-#include <authforge/drogon/admin/UserAdminService.h>
+#include <fulla/drogon/admin/ClientManagementService.h>
+#include <fulla/drogon/admin/UserAdminService.h>
 
 #include <algorithm>
 #include <chrono>
@@ -46,8 +46,8 @@
 namespace
 {
 
-using UserAdmin = ::authforge::drogon::admin::UserAdminService;
-using ClientAdmin = ::authforge::drogon::admin::ClientManagementService;
+using UserAdmin = ::fulla::drogon::admin::UserAdminService;
+using ClientAdmin = ::fulla::drogon::admin::ClientManagementService;
 
 // Thread-safe recording sink for invalidator hooks (they fire on IO threads).
 struct RecordingSink
@@ -203,7 +203,7 @@ DROGON_TEST(Integration_P0_Admin_WritePathCacheInvalidation_UserDualForm)
     }
 
     auto sink = std::make_shared<RecordingSink>();
-    ::authforge::drogon::UserCacheInvalidator::instance().registerHook(
+    ::fulla::drogon::UserCacheInvalidator::instance().registerHook(
       [sink](const std::string &subject) { sink->add(subject); });
 
     ThrowawayUser user;
@@ -296,7 +296,7 @@ DROGON_TEST(Integration_P0_Admin_WritePathCacheInvalidation_ClientCommitOrdered)
     }
 
     auto sink = std::make_shared<RecordingSink>();
-    ::authforge::drogon::ClientCacheInvalidator::instance().registerHook(
+    ::fulla::drogon::ClientCacheInvalidator::instance().registerHook(
       [sink](const std::string &clientId) { sink->add(clientId); });
 
     const std::string clientId = "cacheinv_cli_" + uniqueSuffix();

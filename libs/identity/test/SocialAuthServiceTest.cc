@@ -1,18 +1,18 @@
-// M2.5 identity completion, Social auth slice (authforge-sdk-refactor):
-// unit tests for authforge::identity::{Google,WeChat,GitHub}AuthService,
+// M2.5 identity completion, Social auth slice (fulla-sdk-refactor):
+// unit tests for fulla::identity::{Google,WeChat,GitHub}AuthService,
 // exercised against hand-written fakes for IOAuthHttpClient and
 // ISocialAccountRepository (no DB/no Drogon/no real network calls).
 
 #ifdef WITH_SOCIAL
 
-#include <authforge/identity/IOAuthHttpClient.h>
-#include <authforge/identity/ISocialAccountRepository.h>
-#include <authforge/identity/SocialAuthService.h>
+#include <fulla/identity/IOAuthHttpClient.h>
+#include <fulla/identity/ISocialAccountRepository.h>
+#include <fulla/identity/SocialAuthService.h>
 // Shared test doubles (promoted from this file's former anonymous-namespace
 // fakes): FakeOAuthHttpClient, FakeSocialAccountRepository, okJson(),
-// transportFailure(). See libs/identity/include/authforge/identity/testing/.
-#include <authforge/identity/testing/FakeOAuthHttpClient.h>
-#include <authforge/identity/testing/FakeSocialAccountRepository.h>
+// transportFailure(). See libs/identity/include/fulla/identity/testing/.
+#include <fulla/identity/testing/FakeOAuthHttpClient.h>
+#include <fulla/identity/testing/FakeSocialAccountRepository.h>
 
 #include <gtest/gtest.h>
 
@@ -23,9 +23,9 @@
 // doubles (FakeOAuthHttpClient, okJson, ...) into reach at global scope for
 // the TEST bodies below. Previously these resolved via an anonymous-namespace
 // `using namespace` plus local fake definitions; the fakes now live in
-// authforge::identity::testing, so expose both namespaces globally.
-using namespace authforge::identity;
-using namespace authforge::identity::testing;
+// fulla::identity::testing, so expose both namespaces globally.
+using namespace fulla::identity;
+using namespace fulla::identity::testing;
 
 // ============================== Google ==============================
 

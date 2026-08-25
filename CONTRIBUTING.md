@@ -1,4 +1,4 @@
-# Contributing to AuthForge
+# Contributing to Fulla
 
 Thanks for your interest in contributing! This document covers the local
 workflow, conventions, and CI gates a change must pass.
@@ -27,7 +27,7 @@ ctest --test-dir build/linux-release --output-on-failure
 
 Useful variants:
 
-- **No external DB**: configure with `-DOAUTH2_MEMORY_TESTS_ONLY=ON` to run
+- **No external DB**: configure with `-DFULLA_MEMORY_TESTS_ONLY=ON` to run
   the suite against the in-memory storage backend (what Windows CI does).
 - **Debug / sanitizers**: use the `-debug`, `-asan`, `-tsan` preset variants
   (sanitizers are Linux/macOS only).
@@ -78,7 +78,7 @@ guide:
 
 Rules:
 
-- **Domain layer must log through the `ILogger` port** (`authforge::common::ports::ILogger`), not Drogon's `LOG_*` macros, so tests can assert on output via `FakeLogger`. The adapter/infra layers (`libs/drogon`, `libs/storage-*`, `apps/server`) may use `LOG_*` directly. `LogLevel::Trace` routes to `LOG_TRACE`.
+- **Domain layer must log through the `ILogger` port** (`fulla::common::ports::ILogger`), not Drogon's `LOG_*` macros, so tests can assert on output via `FakeLogger`. The adapter/infra layers (`libs/drogon`, `libs/storage-*`, `apps/server`) may use `LOG_*` directly. `LogLevel::Trace` routes to `LOG_TRACE`.
 - **Pick the level by impact, not verbosity**: a caught exception that still succeeds is `warn`, not `error`; a routine cache-miss or 401 is usually `debug`/`info`, not `warn`. When an operation fails outright with no fallback, use `error`.
 - Production runs at `info` by default; `trace`/`debug` are enabled on demand. Adjust via `app.log.log_level` in the Drogon config (values: `TRACE`/`DEBUG`/`INFO`/`WARN`/`ERROR`/`FATAL`).
 - **Test output is minimal by default**: `ctest` prints only failed tests' logs plus the pass/fail/total summary. Add `--verbose` (`-V`) to see every test, or `-Q` (`manage.sh test-backend -q`) for summary only.
@@ -105,7 +105,7 @@ A PR runs `ci.yml` + `security.yml`:
 | Frontend | Vitest property tests |
 | Security | secret & sensitive-file hygiene, dependency EOL check |
 
-If you change public SDK headers (`include/authforge/**`) intentionally,
+If you change public SDK headers (`include/fulla/**`) intentionally,
 update `tools/api-diff/api-baseline.txt` in the same PR and call it out in
 the description — breaking changes require a major version bump.
 

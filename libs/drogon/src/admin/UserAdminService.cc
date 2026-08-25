@@ -1,13 +1,13 @@
-#include <authforge/drogon/admin/UserAdminService.h>
+#include <fulla/drogon/admin/UserAdminService.h>
 
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/storage/postgres/models/UserRoles.h>
-#include <authforge/storage/postgres/models/Roles.h>
-#include <authforge/drogon/error/ErrorResponder.h>
-#include <authforge/drogon/utils/PasswordHasher.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/common/utils/EmailNormalizer.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/UserRoles.h>
+#include <fulla/storage/postgres/models/Roles.h>
+#include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/utils/PasswordHasher.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/common/utils/EmailNormalizer.h>
 
 #include <drogon/drogon.h>
 #include <trantor/utils/Date.h>
@@ -24,7 +24,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace authforge::drogon::admin
+namespace fulla::drogon::admin
 {
 
 namespace
@@ -36,7 +36,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -45,7 +45,7 @@ void respondError(
 }
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 // Parsed pagination query params (page is 1-based).
 struct PaginationParams
@@ -168,7 +168,7 @@ void auditFromRequest(
     auto *plugin = ::drogon::app().getPlugin<::OAuth2Plugin>();
     if (!plugin)
         return;
-    ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+    ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
       plugin->getAuditSink(),
       action,
       outcome,
@@ -648,7 +648,7 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
     std::string passwordHash;
     try
     {
-        passwordHash = ::authforge::common::utils::PasswordHasher::hash(password);
+        passwordHash = ::fulla::common::utils::PasswordHasher::hash(password);
     }
     catch (const std::exception &e)
     {
@@ -668,7 +668,7 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
     row.setSalt("");
     if (!email.empty())
     {
-        row.setEmail(::authforge::common::utils::normalizeEmail(email));
+        row.setEmail(::fulla::common::utils::normalizeEmail(email));
     }
     row.setEmailVerified(emailVerified);
     row.setMfaEnabled(mfaEnabled);
@@ -1004,7 +1004,7 @@ void UserAdminService::updateUser(
                       Users rowLocal = row;
                       if (hasEmail)
                       {
-                          rowLocal.setEmail(::authforge::common::utils::normalizeEmail((*jsonBody)["email"].asString()));
+                          rowLocal.setEmail(::fulla::common::utils::normalizeEmail((*jsonBody)["email"].asString()));
                       }
                       if (hasEmailVerified)
                       {
@@ -1045,7 +1045,7 @@ void UserAdminService::updateUser(
                                 // Dual key form (UserReadCache contract): password-
                                 // flow tokens cache reads under public_sub, github-
                                 // flow tokens under the numeric id — DEL both.
-                                authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                                fulla::drogon::UserCacheInvalidator::instance().invalidateUser(
                                   std::to_string(id), publicSub);
                                 auditFromRequest(req, "user_update", "success", "user", std::to_string(id));
                                 Json::Value json;
@@ -1181,7 +1181,7 @@ void UserAdminService::deleteUser(
                         updateMapper.update(
                           row,
                           [cb, req, id, db, publicSub](const size_t) {
-                              authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                              fulla::drogon::UserCacheInvalidator::instance().invalidateUser(
                                 std::to_string(id), publicSub);
                               // Revoke all outstanding tokens — introspection and
                               // refresh copy the subject from stored token rows and
@@ -1330,7 +1330,7 @@ void UserAdminService::disableUser(
                           row,
                           [cb, userId, publicSub = row.getValueOfPublicSub()](const size_t) {
                               // Dual key form (UserReadCache contract) — see updateUser.
-                              authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                              fulla::drogon::UserCacheInvalidator::instance().invalidateUser(
                                 userId, publicSub);
                               Json::Value json;
                               json["status"] = "success";
@@ -1408,7 +1408,7 @@ void UserAdminService::enableUser(
                         row,
                         [cb, userId, publicSub = row.getValueOfPublicSub()](const size_t) {
                             // Dual key form (UserReadCache contract) — see updateUser.
-                            authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+                            fulla::drogon::UserCacheInvalidator::instance().invalidateUser(
                               userId, publicSub);
                             Json::Value json;
                             json["status"] = "success";
@@ -1602,7 +1602,7 @@ void UserAdminService::assignUserRoles(
         // between the deleteBy and the inserts let a concurrent read refill
         // the EMPTY role set and pin it for the roles TTL (120s).
         auto invalidateCache = [id, publicSub]() {
-            authforge::drogon::UserCacheInvalidator::instance().invalidateUser(
+            fulla::drogon::UserCacheInvalidator::instance().invalidateUser(
               std::to_string(id), publicSub);
         };
         try
@@ -1905,4 +1905,4 @@ void isLastActiveAdmin(
     }
 }
 
-}  // namespace authforge::drogon::admin
+}  // namespace fulla::drogon::admin

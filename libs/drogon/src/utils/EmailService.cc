@@ -1,5 +1,5 @@
-#include <authforge/drogon/utils/EmailService.h>
-#include <authforge/common/config/ConfigManager.h>
+#include <fulla/drogon/utils/EmailService.h>
+#include <fulla/common/config/ConfigManager.h>
 #include <drogon/drogon.h>
 #include <curl/curl.h>
 #include <algorithm>
@@ -10,7 +10,7 @@
 #include <sstream>
 #include <thread>
 
-namespace authforge::drogon::utils
+namespace fulla::drogon::utils
 {
 
 // ============================================================
@@ -242,10 +242,10 @@ IEmailService &getEmailService()
     static std::once_flag initFlag;
 
     std::call_once(initFlag, []() {
-        using authforge::common::config::ConfigManager;
-        const char *smtpHost = ConfigManager::getEnv("OAUTH2_SMTP_HOST");
-        const char *smtpUser = ConfigManager::getEnv("OAUTH2_SMTP_USER");
-        const char *smtpPass = ConfigManager::getEnv("OAUTH2_SMTP_PASSWORD");
+        using fulla::common::config::ConfigManager;
+        const char *smtpHost = ConfigManager::getEnv("FULLA_SMTP_HOST");
+        const char *smtpUser = ConfigManager::getEnv("FULLA_SMTP_USER");
+        const char *smtpPass = ConfigManager::getEnv("FULLA_SMTP_PASSWORD");
 
         if (
           smtpHost && smtpUser && smtpPass && std::strlen(smtpHost) > 0 &&
@@ -261,15 +261,15 @@ IEmailService &getEmailService()
             config.username = smtpUser;
             config.password = smtpPass;
 
-            const char *smtpPort = ConfigManager::getEnv("OAUTH2_SMTP_PORT");
+            const char *smtpPort = ConfigManager::getEnv("FULLA_SMTP_PORT");
             if (smtpPort)
                 config.port = std::atoi(smtpPort);
 
-            const char *smtpFrom = ConfigManager::getEnv("OAUTH2_SMTP_FROM_NAME");
+            const char *smtpFrom = ConfigManager::getEnv("FULLA_SMTP_FROM_NAME");
             if (smtpFrom)
                 config.fromName = smtpFrom;
 
-            const char *smtpSsl = ConfigManager::getEnv("OAUTH2_SMTP_SSL");
+            const char *smtpSsl = ConfigManager::getEnv("FULLA_SMTP_SSL");
             if (smtpSsl && std::string(smtpSsl) == "false")
                 config.useSsl = false;
 
@@ -278,7 +278,7 @@ IEmailService &getEmailService()
         }
         else
         {
-            LOG_INFO << "Email service: Console (set OAUTH2_SMTP_* env vars to enable SMTP)";
+            LOG_INFO << "Email service: Console (set FULLA_SMTP_* env vars to enable SMTP)";
             instance = std::make_unique<ConsoleEmailService>();
         }
     });
@@ -286,4 +286,4 @@ IEmailService &getEmailService()
     return *instance;
 }
 
-}  // namespace authforge::drogon::utils
+}  // namespace fulla::drogon::utils

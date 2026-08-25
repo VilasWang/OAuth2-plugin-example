@@ -16,13 +16,13 @@
 // causing a link error. __gcov_dump() is the gcc >= 11 / clang >= 14 API;
 // the older __gcov_flush() is the pre-11/pre-14 name.
 //
-// Guarded by AUTHFORGE_GCOV_INSTRUMENTED (defined by cmake/Coverage.cmake's
-// oauth2_apply_gcov ONLY when OAUTH2_TEST_COVERAGE=ON actually applies the
+// Guarded by FULLA_GCOV_INSTRUMENTED (defined by cmake/Coverage.cmake's
+// oauth2_apply_gcov ONLY when FULLA_TEST_COVERAGE=ON actually applies the
 // -fprofile-arcs/-ftest-coverage flags and links libgcov). Guarding with
 // `defined(__GNUC__)` broke plain GCC/Clang CI builds: AppleClang also
 // defines __GNUC__, but without coverage instrumentation __gcov_dump is
 // never linked -> undefined-symbol link errors (linux + macos CI jobs).
-#if defined(AUTHFORGE_GCOV_INSTRUMENTED)
+#if defined(FULLA_GCOV_INSTRUMENTED)
 extern "C" void __gcov_dump(void);
 extern "C" void __gcov_flush(void);
 static void flushGcovIfInstrumented()
@@ -46,37 +46,37 @@ static void flushGcovIfInstrumented()
 #endif
 #include "../src/bootstrap/ControllerRegistration.h"
 #include "../src/bootstrap/IdentityAssembly.h"
-#include <authforge/drogon/controllers/HealthController.h>
+#include <fulla/drogon/controllers/HealthController.h>
 #ifdef WITH_SOCIAL
-#include <authforge/drogon/controllers/GoogleController.h>
-#include <authforge/drogon/controllers/WeChatController.h>
+#include <fulla/drogon/controllers/GoogleController.h>
+#include <fulla/drogon/controllers/WeChatController.h>
 #endif  // WITH_SOCIAL
 // M5 Task 30: OrganizationController moved to the product app
 // (apps/server/src/organization/, namespace `organization`).
 #include <OrganizationController.h>
-#include <authforge/drogon/controllers/ClientRegistrationController.h>
-#include <authforge/drogon/controllers/ApiDocController.h>
-#include <authforge/drogon/controllers/DeviceAuthController.h>
-#include <authforge/drogon/controllers/EmailVerificationController.h>
+#include <fulla/drogon/controllers/ClientRegistrationController.h>
+#include <fulla/drogon/controllers/ApiDocController.h>
+#include <fulla/drogon/controllers/DeviceAuthController.h>
+#include <fulla/drogon/controllers/EmailVerificationController.h>
 #ifdef WITH_SOCIAL
-#include <authforge/drogon/controllers/GitHubController.h>
+#include <fulla/drogon/controllers/GitHubController.h>
 #endif  // WITH_SOCIAL
-#include <authforge/drogon/controllers/MfaController.h>
-#include <authforge/drogon/controllers/PasswordResetController.h>
-#include <authforge/drogon/controllers/SessionController.h>
-#include <authforge/drogon/controllers/UserSelfServiceController.h>
+#include <fulla/drogon/controllers/MfaController.h>
+#include <fulla/drogon/controllers/PasswordResetController.h>
+#include <fulla/drogon/controllers/SessionController.h>
+#include <fulla/drogon/controllers/UserSelfServiceController.h>
 #ifdef WITH_WEBAUTHN
-#include <authforge/drogon/controllers/WebAuthnController.h>
+#include <fulla/drogon/controllers/WebAuthnController.h>
 #endif  // WITH_WEBAUTHN
-#include <authforge/drogon/controllers/ClientAdminController.h>
-#include <authforge/drogon/controllers/UserAdminController.h>
-#include <authforge/drogon/controllers/RoleScopeAdminController.h>
-#include <authforge/drogon/controllers/TokenAdminController.h>
-#include <authforge/drogon/controllers/AuditController.h>
-#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
-#include <authforge/drogon/controllers/TokenEndpointController.h>
-#include <authforge/drogon/controllers/DiscoveryController.h>
-#include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <fulla/drogon/controllers/ClientAdminController.h>
+#include <fulla/drogon/controllers/UserAdminController.h>
+#include <fulla/drogon/controllers/RoleScopeAdminController.h>
+#include <fulla/drogon/controllers/TokenAdminController.h>
+#include <fulla/drogon/controllers/AuditController.h>
+#include <fulla/drogon/controllers/AuthorizationEndpointController.h>
+#include <fulla/drogon/controllers/TokenEndpointController.h>
+#include <fulla/drogon/controllers/DiscoveryController.h>
+#include <fulla/drogon/authz/ResourceScopeRegistry.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -191,17 +191,17 @@ std::string loadConfigWithEnv(const std::string &configPath)
     // not empty)
     if (!isMemoryStorage && root["db_clients"].isArray() && root["db_clients"].size() > 0)
     {
-        if (const char *env = std::getenv("OAUTH2_DB_HOST"))
+        if (const char *env = std::getenv("FULLA_DB_HOST"))
         {
             if (env[0] != '\0')
                 root["db_clients"][0]["host"] = env;
         }
-        if (const char *env = std::getenv("OAUTH2_DB_NAME"))
+        if (const char *env = std::getenv("FULLA_DB_NAME"))
         {
             if (env[0] != '\0')
                 root["db_clients"][0]["dbname"] = env;
         }
-        if (const char *env = std::getenv("OAUTH2_DB_PASSWORD"))
+        if (const char *env = std::getenv("FULLA_DB_PASSWORD"))
         {
             // Always override password if env var is set, even if empty
             // This allows CI to disable password authentication
@@ -213,12 +213,12 @@ std::string loadConfigWithEnv(const std::string &configPath)
     // array is not empty)
     if (!isMemoryStorage && root["redis_clients"].isArray() && root["redis_clients"].size() > 0)
     {
-        if (const char *env = std::getenv("OAUTH2_REDIS_HOST"))
+        if (const char *env = std::getenv("FULLA_REDIS_HOST"))
         {
             if (env[0] != '\0')
                 root["redis_clients"][0]["host"] = env;
         }
-        if (const char *env = std::getenv("OAUTH2_REDIS_PASSWORD"))
+        if (const char *env = std::getenv("FULLA_REDIS_PASSWORD"))
         {
             // Always override password if env var is set, even if empty
             // This allows CI to disable password authentication
@@ -227,7 +227,7 @@ std::string loadConfigWithEnv(const std::string &configPath)
     }
 
     // Override Client Secret in OAuth2Plugin
-    if (const char *env = std::getenv("OAUTH2_VUE_CLIENT_SECRET"))
+    if (const char *env = std::getenv("FULLA_VUE_CLIENT_SECRET"))
     {
         if (env[0] != '\0' && root["plugins"].isArray())
         {
@@ -304,100 +304,100 @@ int main(int argc, char **argv)
     // below. Without this, every /health* request in this test binary would
     // 404.
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::HealthController>()
+      std::make_shared<fulla::drogon::controllers::HealthController>()
     );
 #ifdef WITH_SOCIAL
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::GoogleController>()
+      std::make_shared<fulla::drogon::controllers::GoogleController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::WeChatController>()
+      std::make_shared<fulla::drogon::controllers::WeChatController>()
     );
 #endif  // WITH_SOCIAL
     drogon::app().registerController(std::make_shared<::organization::OrganizationController>());
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::ClientRegistrationController>()
+      std::make_shared<fulla::drogon::controllers::ClientRegistrationController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::ApiDocController>()
+      std::make_shared<fulla::drogon::controllers::ApiDocController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::DeviceAuthController>()
+      std::make_shared<fulla::drogon::controllers::DeviceAuthController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::EmailVerificationController>()
+      std::make_shared<fulla::drogon::controllers::EmailVerificationController>()
     );
 #ifdef WITH_SOCIAL
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::GitHubController>()
+      std::make_shared<fulla::drogon::controllers::GitHubController>()
     );
 #endif  // WITH_SOCIAL
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::MfaController>()
+      std::make_shared<fulla::drogon::controllers::MfaController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::PasswordResetController>()
+      std::make_shared<fulla::drogon::controllers::PasswordResetController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::SessionController>()
+      std::make_shared<fulla::drogon::controllers::SessionController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::UserSelfServiceController>()
+      std::make_shared<fulla::drogon::controllers::UserSelfServiceController>()
     );
 #ifdef WITH_WEBAUTHN
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::WebAuthnController>()
+      std::make_shared<fulla::drogon::controllers::WebAuthnController>()
     );
 #endif  // WITH_WEBAUTHN
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::ClientAdminController>()
+      std::make_shared<fulla::drogon::controllers::ClientAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::UserAdminController>()
+      std::make_shared<fulla::drogon::controllers::UserAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::RoleScopeAdminController>()
+      std::make_shared<fulla::drogon::controllers::RoleScopeAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::TokenAdminController>()
+      std::make_shared<fulla::drogon::controllers::TokenAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::AuditController>()
+      std::make_shared<fulla::drogon::controllers::AuditController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>()
+      std::make_shared<fulla::drogon::controllers::AuthorizationEndpointController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::TokenEndpointController>()
+      std::make_shared<fulla::drogon::controllers::TokenEndpointController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::DiscoveryController>()
+      std::make_shared<fulla::drogon::controllers::DiscoveryController>()
     );
     // M3 Task 20 continuation: OAuth2Plugin.cc no longer calls this itself
     // (removed to break a circular dependency, see OAuth2Plugin.cc's own
     // comment) -- this test binary must call it explicitly, same as
     // OAuth2Server/main.cc already does, so OpenAPI docs are registered
     // before app().run() below.
-    authforge::drogon::controllers::AuthorizationEndpointController::initApiDocs();
-    authforge::drogon::controllers::TokenEndpointController::initApiDocs();
-    authforge::drogon::controllers::DiscoveryController::initApiDocs();
+    fulla::drogon::controllers::AuthorizationEndpointController::initApiDocs();
+    fulla::drogon::controllers::TokenEndpointController::initApiDocs();
+    fulla::drogon::controllers::DiscoveryController::initApiDocs();
     // #43: admin + user-self-service controllers declare per-route scopes.
-    authforge::drogon::controllers::UserAdminController::initApiDocs();
-    authforge::drogon::controllers::ClientAdminController::initApiDocs();
-    authforge::drogon::controllers::TokenAdminController::initApiDocs();
-    authforge::drogon::controllers::RoleScopeAdminController::initApiDocs();
-    authforge::drogon::controllers::AuditController::initApiDocs();
-    authforge::drogon::controllers::UserSelfServiceController::initApiDocs();
+    fulla::drogon::controllers::UserAdminController::initApiDocs();
+    fulla::drogon::controllers::ClientAdminController::initApiDocs();
+    fulla::drogon::controllers::TokenAdminController::initApiDocs();
+    fulla::drogon::controllers::RoleScopeAdminController::initApiDocs();
+    fulla::drogon::controllers::AuditController::initApiDocs();
+    fulla::drogon::controllers::UserSelfServiceController::initApiDocs();
     // #43: OrganizationController (product-app level).
     ::organization::OrganizationController::initApiDocs();
     // #43: build the resource-scope registry from the declared EndpointInfo.
-    authforge::drogon::authz::ResourceScopeRegistry::buildFromEndpoints();
+    fulla::drogon::authz::ResourceScopeRegistry::buildFromEndpoints();
     // #43: catch-all prefix so all /api/me/* subpaths (MFA, WebAuthn, ...)
     // inherit the `profile` scope, matching the old OAuth2AuthFilter behavior.
     {
-        authforge::drogon::authz::ResourceScopeRequirement profileReq;
+        fulla::drogon::authz::ResourceScopeRequirement profileReq;
         profileReq.scopes = {"profile"};
-        authforge::drogon::authz::ResourceScopeRegistry::registerPrefix("/api/me", profileReq);
+        fulla::drogon::authz::ResourceScopeRegistry::registerPrefix("/api/me", profileReq);
     }
 
     std::promise<void> p1;

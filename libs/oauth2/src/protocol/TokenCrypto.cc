@@ -1,12 +1,12 @@
-#include <authforge/oauth2/protocol/TokenCrypto.h>
+#include <fulla/oauth2/protocol/TokenCrypto.h>
 
 #include <cctype>
 #include <vector>
 
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 
-std::string generateSecureToken(authforge::common::ports::ICryptoProvider &crypto, size_t bytes)
+std::string generateSecureToken(fulla::common::ports::ICryptoProvider &crypto, size_t bytes)
 {
     std::vector<unsigned char> buffer(bytes);
     if (!crypto.secureRandomBytes(buffer.data(), bytes))
@@ -24,7 +24,7 @@ std::string generateSecureToken(authforge::common::ports::ICryptoProvider &crypt
 }
 
 std::string hashToken(
-  authforge::common::ports::ICryptoProvider &crypto,
+  fulla::common::ports::ICryptoProvider &crypto,
   const std::string &rawToken
 )
 {
@@ -36,4 +36,4 @@ std::string hashToken(
     return hex;
 }
 
-}  // namespace authforge::oauth2::protocol
+}  // namespace fulla::oauth2::protocol

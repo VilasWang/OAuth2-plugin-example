@@ -1,4 +1,4 @@
-// B2 social account link/unlink: unit tests for authforge::identity::
+// B2 social account link/unlink: unit tests for fulla::identity::
 // SocialLinkService, exercised against the shared FakeOAuthHttpClient +
 // FakeSocialAccountRepository doubles (no DB/no Drogon/no real network).
 // The flow contract under test is docs/productization-evolution/in-progress/
@@ -6,16 +6,16 @@
 
 #ifdef WITH_SOCIAL
 
-#include <authforge/identity/SocialLinkService.h>
-#include <authforge/identity/testing/FakeOAuthHttpClient.h>
-#include <authforge/identity/testing/FakeSocialAccountRepository.h>
+#include <fulla/identity/SocialLinkService.h>
+#include <fulla/identity/testing/FakeOAuthHttpClient.h>
+#include <fulla/identity/testing/FakeSocialAccountRepository.h>
 
 #include <gtest/gtest.h>
 
 #include <memory>
 
-using namespace authforge::identity;
-using namespace authforge::identity::testing;
+using namespace fulla::identity;
+using namespace fulla::identity::testing;
 
 namespace
 {

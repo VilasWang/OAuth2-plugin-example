@@ -1,40 +1,40 @@
-#include <authforge/drogon/controllers/SessionController.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/controllers/SessionController.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
 
-#include <authforge/drogon/AuthService.h>
-#include <authforge/drogon/controllers/EmailVerificationController.h>
+#include <fulla/drogon/AuthService.h>
+#include <fulla/drogon/controllers/EmailVerificationController.h>
 #include <drogon/drogon.h>
 #include <drogon/HttpClient.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/oauth2/jwk/JwkManager.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
 #include <chrono>
 #include <functional>
 #include <json/json.h>
 #include <sstream>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/validation/RuleSet.h>
-#include <authforge/drogon/validation/HttpResponder.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/validation/RuleSet.h>
+#include <fulla/drogon/validation/HttpResponder.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 
-// Task 24 slice 4 (authforge-sdk-refactor): identity-layer services this
+// Task 24 slice 4 (fulla-sdk-refactor): identity-layer services this
 // controller now optionally consumes (see SessionController.h's
 // setIdentityAuthService()/setSessionManager() comments for the
 // wiring/fallback contract).
-#include <authforge/identity/AuthService.h>
-#include <authforge/identity/SessionManager.h>
+#include <fulla/identity/AuthService.h>
+#include <fulla/identity/SessionManager.h>
 
 // Phase 1.5d (Task 39): `using namespace oauth2;` was removed -- this TU
 // has no actual oauth2:: symbol references (all calls are fully qualified
-// ::authforge::...). The directive previously compiled only because
+// ::fulla::...). The directive previously compiled only because
 // OAuth2Plugin.h transitively pulled in `namespace oauth2` via the legacy
 // oauth2/storage/I*Repository.h headers, which the plugin no longer includes.
-using namespace authforge::drogon::services;
-using namespace ::authforge::drogon::observability::openapi;
+using namespace fulla::drogon::services;
+using namespace ::fulla::drogon::observability::openapi;
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 OAuth2Plugin *SessionController::resolvePlugin() const
@@ -55,7 +55,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb = std::move(cb)](const ::drogon::HttpResponsePtr &r) { cb(r); },
       std::move(code),
@@ -83,9 +83,9 @@ void sendOAuthErrorRedirect(
 }
 }  // namespace
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
@@ -136,9 +136,9 @@ Json::Value decodeJwtPayloadClaims(const std::string &jwt)
 // #78: stable short names for JwkManager::verifyJwt() rejection reasons, used
 // as Internal_Detail in the AUTH_INVALID_ID_TOKEN_HINT error's server-side
 // log line only (the client envelope stays generic).
-const char *jwtVerificationName(authforge::oauth2::JwkManager::JwtVerificationResult result)
+const char *jwtVerificationName(fulla::oauth2::JwkManager::JwtVerificationResult result)
 {
-    using R = authforge::oauth2::JwkManager::JwtVerificationResult;
+    using R = fulla::oauth2::JwkManager::JwtVerificationResult;
     switch (result)
     {
         case R::Ok:
@@ -166,7 +166,7 @@ const char *jwtVerificationName(authforge::oauth2::JwkManager::JwtVerificationRe
 }  // namespace
 
 using namespace ::drogon::orm;
-using namespace ::drogon_model::oauth2_db;
+using namespace ::drogon_model::fulla_db;
 
 // API documentation initialization
 namespace
@@ -181,7 +181,7 @@ struct OAuth2ControllerDocs
             successExample["status"] = "ok";
             successExample["version"] = "1.0.0";
 
-            ::authforge::drogon::observability::openapi::EndpointInfo healthEndpoint;
+            ::fulla::drogon::observability::openapi::EndpointInfo healthEndpoint;
             healthEndpoint.path = "/health";
             healthEndpoint.method = "GET";
             healthEndpoint.summary = "Health check";
@@ -203,7 +203,7 @@ struct OAuth2ControllerDocs
             Json::Value errorExample;
             errorExample["error"] = "invalid_client";
 
-            ::authforge::drogon::observability::openapi::EndpointInfo loginEndpoint;
+            ::fulla::drogon::observability::openapi::EndpointInfo loginEndpoint;
             loginEndpoint.path = "/oauth2/login";
             loginEndpoint.method = "POST";
             loginEndpoint.summary = "Authenticate user";
@@ -212,53 +212,53 @@ struct OAuth2ControllerDocs
               "Usually called by the frontend login page during the authorization code flow.";
             loginEndpoint.tags = {"OAuth2", "Authentication"};
 
-            ::authforge::drogon::observability::openapi::ParameterInfo usernameParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo usernameParam;
             usernameParam.name = "username";
             usernameParam.description = "User's account username (required)";
-            usernameParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            usernameParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             usernameParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             usernameParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo passwordParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo passwordParam;
             passwordParam.name = "password";
             passwordParam.description = "User's password (required)";
-            passwordParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            passwordParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             passwordParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             passwordParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo clientIdParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo clientIdParam;
             clientIdParam.name = "client_id";
             clientIdParam.description = "Client identifier matches the requesting app (required)";
-            clientIdParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            clientIdParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             clientIdParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             clientIdParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo redirectUriParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo redirectUriParam;
             redirectUriParam.name = "redirect_uri";
             redirectUriParam.description = "Redirect URI matching the registered client (required)";
             redirectUriParam.type =
-              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+              ::fulla::drogon::observability::openapi::ParameterType::STRING;
             redirectUriParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             redirectUriParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo scopeParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo scopeParam;
             scopeParam.name = "scope";
             scopeParam.description = "Requested scope, space-separated (optional)";
-            scopeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            scopeParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             scopeParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             scopeParam.required = false;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo stateParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo stateParam;
             stateParam.name = "state";
             stateParam.description = "Opaque value to maintain state (recommended)";
-            stateParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            stateParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             stateParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             stateParam.required = false;
 
             // PKCE (RFC 7636 / F-011): code_challenge is REQUIRED for PUBLIC
@@ -266,24 +266,24 @@ struct OAuth2ControllerDocs
             // is enabled (default). The matching code_verifier goes on the
             // /oauth2/token exchange. Declared in the generated openapi.json
             // so client generators emit PKCE-aware clients.
-            ::authforge::drogon::observability::openapi::ParameterInfo codeChallengeParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo codeChallengeParam;
             codeChallengeParam.name = "code_challenge";
             codeChallengeParam.description =
               "PKCE code challenge (RFC 7636). Required for PUBLIC clients when "
               "auth.require_pkce_for_public is enabled (default true).";
             codeChallengeParam.type =
-              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+              ::fulla::drogon::observability::openapi::ParameterType::STRING;
             codeChallengeParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             codeChallengeParam.required = false;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo codeChallengeMethodParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo codeChallengeMethodParam;
             codeChallengeMethodParam.name = "code_challenge_method";
             codeChallengeMethodParam.description = "PKCE method: S256 (recommended) or plain.";
             codeChallengeMethodParam.type =
-              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+              ::fulla::drogon::observability::openapi::ParameterType::STRING;
             codeChallengeMethodParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             codeChallengeMethodParam.required = false;
 
             loginEndpoint.parameters = {usernameParam,
@@ -309,35 +309,35 @@ struct OAuth2ControllerDocs
             successExample["status"] = "success";
             successExample["message"] = "User registered successfully";
 
-            ::authforge::drogon::observability::openapi::EndpointInfo registerEndpoint;
+            ::fulla::drogon::observability::openapi::EndpointInfo registerEndpoint;
             registerEndpoint.path = "/api/register";
             registerEndpoint.method = "POST";
             registerEndpoint.summary = "Register new user";
             registerEndpoint.description = "Registers a new user account into the system.";
             registerEndpoint.tags = {"User", "Registration"};
 
-            ::authforge::drogon::observability::openapi::ParameterInfo usernameParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo usernameParam;
             usernameParam.name = "username";
             usernameParam.description = "Desired username (required)";
-            usernameParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            usernameParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             usernameParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             usernameParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo passwordParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo passwordParam;
             passwordParam.name = "password";
             passwordParam.description = "Strong password (required)";
-            passwordParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            passwordParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             passwordParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             passwordParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo emailParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo emailParam;
             emailParam.name = "email";
             emailParam.description = "Email address (optional)";
-            emailParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            emailParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             emailParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             emailParam.required = false;
 
             registerEndpoint.parameters = {usernameParam, passwordParam, emailParam};
@@ -350,7 +350,7 @@ struct OAuth2ControllerDocs
 
         // Consent endpoint
         {
-            ::authforge::drogon::observability::openapi::EndpointInfo consentEndpoint;
+            ::fulla::drogon::observability::openapi::EndpointInfo consentEndpoint;
             consentEndpoint.path = "/oauth2/consent";
             consentEndpoint.method = "POST";
             consentEndpoint.summary = "Submit user consent";
@@ -358,53 +358,53 @@ struct OAuth2ControllerDocs
               "Submit user consent for requested scopes. Redirects back to client.";
             consentEndpoint.tags = {"OAuth2", "Consent"};
 
-            ::authforge::drogon::observability::openapi::ParameterInfo clientIdParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo clientIdParam;
             clientIdParam.name = "client_id";
             clientIdParam.description = "Client identifier (required)";
-            clientIdParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            clientIdParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             clientIdParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             clientIdParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo userIdParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo userIdParam;
             userIdParam.name = "user_id";
             userIdParam.description = "User identifier (required)";
-            userIdParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            userIdParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             userIdParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             userIdParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo scopeParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo scopeParam;
             scopeParam.name = "scope";
             scopeParam.description = "Requested scope to consent (required)";
-            scopeParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            scopeParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             scopeParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             scopeParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo redirectUriParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo redirectUriParam;
             redirectUriParam.name = "redirect_uri";
             redirectUriParam.description = "Redirect URI (required)";
             redirectUriParam.type =
-              ::authforge::drogon::observability::openapi::ParameterType::STRING;
+              ::fulla::drogon::observability::openapi::ParameterType::STRING;
             redirectUriParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             redirectUriParam.required = true;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo stateParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo stateParam;
             stateParam.name = "state";
             stateParam.description = "Opaque value to maintain state";
-            stateParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            stateParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             stateParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             stateParam.required = false;
 
-            ::authforge::drogon::observability::openapi::ParameterInfo actionParam;
+            ::fulla::drogon::observability::openapi::ParameterInfo actionParam;
             actionParam.name = "action";
             actionParam.description = "Action to perform: 'approve' or 'deny' (required)";
-            actionParam.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
+            actionParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
             actionParam.location =
-              ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             actionParam.required = true;
             actionParam.enumValues = "approve,deny";
 
@@ -419,7 +419,7 @@ struct OAuth2ControllerDocs
 
         // Logout endpoint (Bearer-protected programmatic logout)
         {
-            ::authforge::drogon::observability::openapi::EndpointInfo logoutEndpoint;
+            ::fulla::drogon::observability::openapi::EndpointInfo logoutEndpoint;
             logoutEndpoint.path = "/oauth2/logout";
             logoutEndpoint.method = "POST";
             logoutEndpoint.summary = "Logout";
@@ -436,16 +436,16 @@ struct OAuth2ControllerDocs
         // OIDC RP-Initiated Logout (GET link-based + POST form-based)
         {
             auto endSessionParam = [](const char *name, const char *desc) {
-                ::authforge::drogon::observability::openapi::ParameterInfo p;
+                ::fulla::drogon::observability::openapi::ParameterInfo p;
                 p.name = name;
                 p.description = desc;
-                p.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
-                p.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+                p.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+                p.location = ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
                 p.required = false;
                 return p;
             };
 
-            ::authforge::drogon::observability::openapi::EndpointInfo endSessionGet;
+            ::fulla::drogon::observability::openapi::EndpointInfo endSessionGet;
             endSessionGet.path = "/oauth2/end_session";
             endSessionGet.method = "GET";
             endSessionGet.summary = "RP-Initiated Logout";
@@ -467,7 +467,7 @@ struct OAuth2ControllerDocs
             endSessionGet.requiresAuth = false;
             OpenApiGenerator::addEndpoint(endSessionGet);
 
-            ::authforge::drogon::observability::openapi::EndpointInfo endSessionPost;
+            ::fulla::drogon::observability::openapi::EndpointInfo endSessionPost;
             endSessionPost.path = "/oauth2/end_session";
             endSessionPost.method = "POST";
             endSessionPost.summary = "RP-Initiated Logout (POST)";
@@ -485,7 +485,7 @@ struct OAuth2ControllerDocs
         // doc-registration idiom; the static-ctor self-registers in both the
         // server and the test binary.
         {
-            ::authforge::drogon::observability::openapi::EndpointInfo liveEndpoint;
+            ::fulla::drogon::observability::openapi::EndpointInfo liveEndpoint;
             liveEndpoint.path = "/health/live";
             liveEndpoint.method = "GET";
             liveEndpoint.summary = "Liveness probe";
@@ -495,7 +495,7 @@ struct OAuth2ControllerDocs
             liveEndpoint.requiresAuth = false;
             OpenApiGenerator::addEndpoint(liveEndpoint);
 
-            ::authforge::drogon::observability::openapi::EndpointInfo readyEndpoint;
+            ::fulla::drogon::observability::openapi::EndpointInfo readyEndpoint;
             readyEndpoint.path = "/health/ready";
             readyEndpoint.method = "GET";
             readyEndpoint.summary = "Readiness probe";
@@ -584,17 +584,17 @@ void SessionController::login(
 )
 {
     // Use ValidatorHelper for consistent validation
-    auto errors = ::authforge::drogon::validation::RuleSet::login(req);
+    auto errors = ::fulla::drogon::validation::RuleSet::login(req);
 
     // Return validation errors if any
     if (
-      ::authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback))
+      ::fulla::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback))
     )
     {
         if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
             m->incrementCounter(
               "oauth2_login_failures_total",
-              authforge::common::ports::MetricLabels{{"reason", "validation_failed"}}
+              fulla::common::ports::MetricLabels{{"reason", "validation_failed"}}
             );
         return;
     }
@@ -637,10 +637,10 @@ void SessionController::login(
         nonce = params["nonce"];
     }
 
-    // Task 24 slice 4 (authforge-sdk-refactor): validateUser's continuation
+    // Task 24 slice 4 (fulla-sdk-refactor): validateUser's continuation
     // is identical regardless of which AuthService implementation ran it.
     // Phase 1.5a (Task 39, direction Y) retracted
-    // authforge::identity::AuthResult.internalId to int32_t (aligned with the
+    // fulla::identity::AuthResult.internalId to int32_t (aligned with the
     // legacy drogon::services::AuthResult and the int4 DB column), so the
     // previously-widened int64_t bridge here is gone: both branches below
     // (new identity::AuthService if injected, else the legacy
@@ -687,7 +687,7 @@ void SessionController::login(
             req->session()->insert("amr", std::string("pwd"));
 
             // Audit: login success
-            ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+            ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
               ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
               "login_success",
               "success",
@@ -699,7 +699,7 @@ void SessionController::login(
 
             // === CHECK 1/2: email verification + MFA enforcement ===
             // Task 24 slice 4: delegates to
-            // authforge::identity::evaluateLoginPolicy() (design.md §5.1/§6),
+            // fulla::identity::evaluateLoginPolicy() (design.md §5.1/§6),
             // the pure-function extraction of this exact if/else chain
             // (email-verification precedence over MFA verified against
             // this file's own pre-Task-24 source, see SessionManager.h's
@@ -715,15 +715,15 @@ void SessionController::login(
                 requireEmailVerification = customCfg["auth"]["require_email_verification"].asBool();
             }
 
-            authforge::identity::AuthResult policyInput;
+            fulla::identity::AuthResult policyInput;
             policyInput.internalId = internalId;
             policyInput.publicSub = publicSub;
             policyInput.emailVerified = emailVerified;
             policyInput.mfaEnabled = mfaEnabled;
             auto decision =
-              authforge::identity::evaluateLoginPolicy(policyInput, requireEmailVerification);
+              fulla::identity::evaluateLoginPolicy(policyInput, requireEmailVerification);
 
-            if (decision == authforge::identity::LoginDecision::DenyEmailNotVerified)
+            if (decision == fulla::identity::LoginDecision::DenyEmailNotVerified)
             {
                 respondError(
                   req, std::move(callback), "AUTHZ_ACCESS_DENIED", "login: email not verified"
@@ -731,7 +731,7 @@ void SessionController::login(
                 return;
             }
 
-            if (decision == authforge::identity::LoginDecision::RequireMfa)
+            if (decision == fulla::identity::LoginDecision::RequireMfa)
             {
                 auto sharedCb =
                   std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
@@ -935,11 +935,11 @@ void SessionController::login(
             if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                 m->incrementCounter(
                   "oauth2_login_failures_total",
-                  authforge::common::ports::MetricLabels{{"reason", "bad_credentials"}}
+                  fulla::common::ports::MetricLabels{{"reason", "bad_credentials"}}
                 );
 
             // Audit: login failure
-            ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+            ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
               ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
               "login_failure",
               "failure",
@@ -955,13 +955,13 @@ void SessionController::login(
         }
     };
 
-    // Task 24 slice 4: prefer the injected authforge::identity::AuthService
+    // Task 24 slice 4: prefer the injected fulla::identity::AuthService
     // (constructed once at startup by
     // bootstrap::wireIdentityServices()/OAuth2Server/bootstrap/
     // IdentityAssembly.cc, backed by PostgresIdentityRepository +
     // OpenSslCryptoProvider + SystemClock -- see that file for the
     // construction site) when wired; otherwise fall back to the
-    // pre-Task-24 authforge::drogon::services::AuthService (static,
+    // pre-Task-24 fulla::drogon::services::AuthService (static,
     // Mapper<Users>-backed) so this controller keeps working unchanged in
     // any binary that has not called setIdentityAuthService() yet (e.g.
     // tests/e2e-backend's direct-construction tests, until they are
@@ -973,7 +973,7 @@ void SessionController::login(
           username,
           password,
           [onValidated = std::move(onValidated)](
-            std::optional<authforge::identity::AuthResult> result
+            std::optional<fulla::identity::AuthResult> result
           ) mutable {
               if (!result)
               {
@@ -1175,7 +1175,7 @@ void SessionController::consent(
                           if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                               m->incrementCounter(
                                 "oauth2_requests_total",
-                                authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                                fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
                                 static_cast<double>(302)
                               );
                           callback(resp);
@@ -1221,7 +1221,7 @@ void SessionController::consent(
                     if (auto m = ::drogon::app().getPlugin<::OAuth2Plugin>()->getMetrics())
                         m->incrementCounter(
                           "oauth2_requests_total",
-                          authforge::common::ports::MetricLabels{{"endpoint", "authorize"}},
+                          fulla::common::ports::MetricLabels{{"endpoint", "authorize"}},
                           static_cast<double>(302)
                         );
                     callback(resp);
@@ -1358,7 +1358,7 @@ void SessionController::endSession(
                                     .count();
         const auto verification = jwkManager->verifyJwt(idTokenHint, plugin->getIssuer(), nowSecs);
         if (verification !=
-            authforge::oauth2::JwkManager::JwtVerificationResult::Ok)
+            fulla::oauth2::JwkManager::JwtVerificationResult::Ok)
         {
             respondError(
               req,
@@ -1500,9 +1500,9 @@ void SessionController::registerUser(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    auto errors = ::authforge::drogon::validation::RuleSet::registerUser(req);
+    auto errors = ::fulla::drogon::validation::RuleSet::registerUser(req);
     if (
-      ::authforge::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback))
+      ::fulla::drogon::validation::HttpResponder::respondIfErrors(errors, std::move(callback))
     )
         return;
     // Parse the same fields RuleSet::registerUser validated. Duplicated inline
@@ -1556,4 +1556,4 @@ void SessionController::registerUser(
         AuthService::registerUser(username, password, email, onRegistered);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

@@ -1,7 +1,7 @@
-// examples/full-stack-host (Task 28a, authforge-sdk-refactor design.md §1.1/§6):
+// examples/full-stack-host (Task 28a, fulla-sdk-refactor design.md §1.1/§6):
 // the FULL-STACK SDK smoke. It boots a real Drogon HTTP server assembled
-// entirely from the authforge product stack consumed via find_package
-// (authforge::drogon + its transitive closure), reuses the product's
+// entirely from the fulla product stack consumed via find_package
+// (fulla::drogon + its transitive closure), reuses the product's
 // controllers / OAuth2Plugin / views, and drives the authorization-code flow
 // over HTTP to assert the three acceptance points of Task 28a:
 //

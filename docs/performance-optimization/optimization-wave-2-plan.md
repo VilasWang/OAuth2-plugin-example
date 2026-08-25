@@ -24,9 +24,9 @@
 
 **设计**：
 - `RedisCachedClientRepository::validateClient`（现透传点 `:226-234`）改为：经本装饰器的 `getClient` 取缓存行 → 命中则**本地执行与 PG 路径完全同构的校验**（蓝本 `PostgresClientRepository.cc:190-251`：PUBLIC 客户端免密放行、CONFIDENTIAL 空 secret 拒绝、`sha256(secret+salt)` 小写归一、`constantTimeMemcmp` 常量时间比较 + 长度等价检查——四条缺一不可）；未命中 → 回源 PG 现行路径 + 回填（复用 getClient 的 fill 逻辑，使后续校验命中）。
-- `constantTimeMemcmp` **已在共享处**：`libs/common/include/authforge/common/utils/ConstantTimeCompare.h:22`（F-004 已完成去重迁移，api-diff 基线已含该符号）——P0 无任何 api-diff 动作，直接 include 即用。~~迁移~~/静态副本方案作废（后者是对 F-004 的倒退）。
+- `constantTimeMemcmp` **已在共享处**：`libs/common/include/fulla/common/utils/ConstantTimeCompare.h:22`（F-004 已完成去重迁移，api-diff 基线已含该符号）——P0 无任何 api-diff 动作，直接 include 即用。~~迁移~~/静态副本方案作废（后者是对 F-004 的倒退）。
 - **行为变化（须显式接受）**：现状 secret 校验每请求实时查 PG（轮换/删除即时生效）；改后走缓存行（TTL 300s）→ 引入最长 300s 陈旧窗口。
-- **失效钩子（全部 3 个客户端写路径，一个不能少）**：`libs/drogon/src/admin/ClientManagementService.cc` 的 `updateClient`（:311）、**`deleteClient`（:444）**、**`updateClientScopes`（:569，allowedScopes 是缓存序列化字段）** —— 各自成功回调后 fire-and-forget `DEL authforge:cache:client:<id>`。删除语义：DEL 丢失时已删客户端凭据最长 300s 仍可过校验（TTL 兜底）—— 已入风险表显式评审。
+- **失效钩子（全部 3 个客户端写路径，一个不能少）**：`libs/drogon/src/admin/ClientManagementService.cc` 的 `updateClient`（:311）、**`deleteClient`（:444）**、**`updateClientScopes`（:569，allowedScopes 是缓存序列化字段）** —— 各自成功回调后 fire-and-forget `DEL fulla:cache:client:<id>`。删除语义：DEL 丢失时已删客户端凭据最长 300s 仍可过校验（TTL 兜底）—— 已入风险表显式评审。
 - 触点：`libs/storage-redis/src/RedisCachedClientRepository.cc`、`ClientManagementService.cc`（DEL ×3）。
 
 **A/B**：S2+S3 阶梯同日两臂。**单测**：命中路径正确/错误 secret、PUBLIC 客户端、secret 轮换后 DEL 即时生效、Redis 故障软回退 PG。
@@ -36,7 +36,7 @@
 **仪器依据**：S6 每请求 3 次 PG 往返（roles 2 查 1,416µs + profile 1 查 667µs）= 端到端 54%；执行器合计仅 54µs。
 
 **设计**：
-- 键与**标识符规范化（评审 M2）**：读路径入参是 subject 字符串，存在**数字内部 id 与 public_sub 两种形态**（`PostgresIdentityRepository.cc:634-654` / `OAuth2Plugin.cc:768-805` 的 stoi 双分派）。规范：**缓存键 = 读入参的原样形态**（`authforge:cache:user:profile:<subject>` / `:roles:<subject>`）。失效时写路径从 users 行同时取数字 id 与 public_sub，**DEL 两种形态 × 两种键 = 4 键**（fire-and-forget），确保非数字 subject 的条目可达。
+- 键与**标识符规范化（评审 M2）**：读路径入参是 subject 字符串，存在**数字内部 id 与 public_sub 两种形态**（`PostgresIdentityRepository.cc:634-654` / `OAuth2Plugin.cc:768-805` 的 stoi 双分派）。规范：**缓存键 = 读入参的原样形态**（`fulla:cache:user:profile:<subject>` / `:roles:<subject>`）。失效时写路径从 users 行同时取数字 id 与 public_sub，**DEL 两种形态 × 两种键 = 4 键**（fire-and-forget），确保非数字 subject 的条目可达。
 - 值：profile = JSON（id/username/email/email_verified）；roles = JSON 数组（**角色名** `vector<string>`，与 `PostgresIdentityRepository.cc:540-543` 返回一致）。
 - TTL 接线（评审 m3）：`cache.ttl_seconds.user_profile`（默认 300）/ `user_roles`（默认 120），对齐 `OAuth2Plugin.cc:298-305` 既有模式，不硬编码。
 - 负缓存（评审 m1，偏离 client 模式的显式决定）：用户不存在 60s —— 偏离 `RedisCachedClientRepository.cc:144-148` 的"不缓存 miss"惯例，理由：public_sub 在注册时才铸造、60s 影子窗口对 userinfo 语义无害（读场景，非凭据校验）。

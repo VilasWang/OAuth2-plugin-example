@@ -22,8 +22,8 @@
 #include <drogon/drogon.h>
 #include <drogon/nosql/RedisClient.h>
 
-#include <authforge/common/ports/IMetrics.h>
-#include <authforge/storage/redis/DelayedDoubleDelete.h>
+#include <fulla/common/ports/IMetrics.h>
+#include <fulla/storage/redis/DelayedDoubleDelete.h>
 
 #include <atomic>
 #include <chrono>
@@ -33,9 +33,9 @@
 #include <thread>
 #include <vector>
 
-using authforge::common::ports::IMetrics;
-using authforge::common::ports::MetricLabels;
-using authforge::storage::redis::invalidateWithDoubleDelete;
+using fulla::common::ports::IMetrics;
+using fulla::common::ports::MetricLabels;
+using fulla::storage::redis::invalidateWithDoubleDelete;
 
 namespace
 {
@@ -143,7 +143,7 @@ DROGON_TEST(Integration_P1_Storage_DelayedDoubleDelete_RacingRefill_EvictedBySec
         return;  // SKIP: no live Redis
     }
 
-    const std::string key = "authforge:cache:client:test-dd-race-79";
+    const std::string key = "fulla:cache:client:test-dd-race-79";
     auto metrics = std::make_shared<CapturingMetrics>();
 
     // t0: pre-write fill with the OLD row.
@@ -247,7 +247,7 @@ DROGON_TEST(Integration_P0_Storage_DelayedDoubleDelete_UnreachableRedis_CountsFa
     // Phase 1 (immediate DEL + its retry) fails synchronously on this thread;
     // phase 2 fires on the loop at +kTestDelayMs. The promise/future join
     // below establishes the happens-before for reading the counters.
-    invalidateWithDoubleDelete(deadRedis, "authforge:cache:client:dead-80", metrics, "client", kTestDelayMs);
+    invalidateWithDoubleDelete(deadRedis, "fulla:cache:client:dead-80", metrics, "client", kTestDelayMs);
     CHECK(metrics->names_.size() == 2);
 
     int attempts = 0;
@@ -257,7 +257,7 @@ DROGON_TEST(Integration_P0_Storage_DelayedDoubleDelete_UnreachableRedis_CountsFa
     CHECK(attempts == 4);
     for (std::size_t i = 0; i < metrics->names_.size(); ++i)
     {
-        CHECK(metrics->names_[i] == "authforge_cache_invalidation_failures_total");
+        CHECK(metrics->names_[i] == "fulla_cache_invalidation_failures_total");
         CHECK(metrics->kinds_[i] == "client");
     }
 }

@@ -1,21 +1,21 @@
-#include <authforge/drogon/validation/HttpResponder.h>
-#include <authforge/common/error/ErrorTypes.h>
-#include <authforge/common/error/ErrorContext.h>
-#include <authforge/drogon/error/ErrorHandler.h>
-#include <authforge/drogon/error/RequestId.h>
+#include <fulla/drogon/validation/HttpResponder.h>
+#include <fulla/common/error/ErrorTypes.h>
+#include <fulla/common/error/ErrorContext.h>
+#include <fulla/drogon/error/ErrorHandler.h>
+#include <fulla/drogon/error/RequestId.h>
 
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 
 #include <sstream>
 
-namespace authforge::drogon::validation
+namespace fulla::drogon::validation
 {
 
-using authforge::common::error::Error;
-using authforge::common::error::ErrorContext;
-using authforge::common::error::ErrorHandler;
-using authforge::common::error::RequestId;
+using fulla::common::error::Error;
+using fulla::common::error::ErrorContext;
+using fulla::common::error::ErrorHandler;
+using fulla::common::error::RequestId;
 
 namespace
 {
@@ -126,4 +126,4 @@ bool HttpResponder::respondIfErrors(
     return false;
 }
 
-}  // namespace authforge::drogon::validation
+}  // namespace fulla::drogon::validation

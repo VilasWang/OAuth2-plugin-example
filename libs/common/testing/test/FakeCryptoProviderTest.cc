@@ -1,10 +1,10 @@
-// Task 15 (authforge-sdk-refactor, design.md §6/§8): pure gtest unit tests
+// Task 15 (fulla-sdk-refactor, design.md §6/§8): pure gtest unit tests
 // proving FakeCryptoProvider gives Domain code deterministic, reproducible
 // randomness (its one faked primitive) while every real crypto primitive
 // (SHA-256/HMAC/PBKDF2/base64url/RSA-sign) stays a real, correct
 // implementation.
 
-#include <authforge/common/testing/FakeCryptoProvider.h>
+#include <fulla/common/testing/FakeCryptoProvider.h>
 
 #include <gtest/gtest.h>
 
@@ -14,7 +14,7 @@
 
 #include <cstring>
 
-using namespace authforge::common::testing;
+using namespace fulla::common::testing;
 
 TEST(FakeCryptoProviderTest, SecureRandomBytesIsDeterministicForSameSeed)
 {

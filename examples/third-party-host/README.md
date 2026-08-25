@@ -1,8 +1,8 @@
 # examples/third-party-host
 
-Minimal standalone consumer that proves the **authforge SDK is independently
-consumable** (authforge-sdk-refactor design.md §1.1: "第三方 Drogon 应用仅
-`find_package(authforge-oauth2)` + 实现端口即可跑通授权码流").
+Minimal standalone consumer that proves the **fulla SDK is independently
+consumable** (fulla-sdk-refactor design.md §1.1: "第三方 Drogon 应用仅
+`find_package(fulla-oauth2)` + 实现端口即可跑通授权码流").
 
 ## What this proves
 
@@ -22,16 +22,16 @@ deferred.
 
 ## Packages it links (and only these)
 
-- `authforge::oauth2` — the protocol engine (`AuthorizationService`,
+- `fulla::oauth2` — the protocol engine (`AuthorizationService`,
   `TokenService`, repository interfaces).
-- `authforge::common` — shared ports / value objects.
-- `authforge::common::testing` — `FakeCryptoProvider` (real OpenSSL hashing/
+- `fulla::common` — shared ports / value objects.
+- `fulla::common::testing` — `FakeCryptoProvider` (real OpenSSL hashing/
   HMAC/base64url; only `secureRandomBytes` determinized → tokens are
   real-crypto correct, just reproducible).
-- `authforge::storage::memory` — in-memory repository implementations.
+- `fulla::storage::memory` — in-memory repository implementations.
 
-It deliberately does **not** link `OAuth2Plugin`, `authforge::drogon`, or
-`authforge::storage::postgres`. If it ever needs to, that is a regression in
+It deliberately does **not** link `OAuth2Plugin`, `fulla::drogon`, or
+`fulla::storage::postgres`. If it ever needs to, that is a regression in
 SDK independence and must be investigated.
 
 ## Build and run

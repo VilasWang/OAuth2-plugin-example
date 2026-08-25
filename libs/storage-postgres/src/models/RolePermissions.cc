@@ -13,7 +13,7 @@
 
 using namespace drogon;
 using namespace drogon::orm;
-using namespace drogon_model::oauth2_db;
+using namespace drogon_model::fulla_db;
 
 const std::string RolePermissions::Cols::_role_id = "\"role_id\"";
 const std::string RolePermissions::Cols::_permission_id = "\"permission_id\"";

@@ -79,7 +79,7 @@ docker-compose -f "%PROJECT_DIR%\%COMPOSE_FILE_REL%" down >nul 2>&1
 
 REM Start PostgreSQL and Redis containers
 echo Starting PostgreSQL and Redis containers...
-docker-compose -f "%PROJECT_DIR%\%COMPOSE_FILE_REL%" up -d oauth2-postgres oauth2-redis
+docker-compose -f "%PROJECT_DIR%\%COMPOSE_FILE_REL%" up -d fulla-postgres fulla-redis
 if %ERRORLEVEL% neq 0 (
     echo [FAILED] Failed to start containers
     goto cleanup_and_exit
@@ -91,7 +91,7 @@ set MAX_WAIT=30
 set WAIT_COUNT=0
 
 :wait_postgres
-docker exec oauth2-postgres pg_isready -U oauth2_user -d oauth2_db >nul 2>&1
+docker exec fulla-postgres pg_isready -U fulla_user -d fulla_db >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     echo [SUCCESS] PostgreSQL is ready
     goto postgres_ready
@@ -114,28 +114,28 @@ REM ========================================
 REM Step 2: Reinitialize Database
 REM ========================================
 echo ========================================
-echo Step 2: Reinitializing oauth2_db database
+echo Step 2: Reinitializing fulla_db database
 echo ========================================
 
 REM Drop and recreate database using docker exec
 echo Dropping existing database...
-docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "DROP DATABASE IF EXISTS oauth2_db;"
+docker exec fulla-postgres psql -U fulla_user -d postgres -c "DROP DATABASE IF EXISTS fulla_db;"
 if %ERRORLEVEL% neq 0 (
     echo [FAILED] Failed to drop database
     goto cleanup_and_exit
 )
 
 echo Creating new database...
-docker exec oauth2-postgres psql -U oauth2_user -d postgres -c "CREATE DATABASE oauth2_db;"
+docker exec fulla-postgres psql -U fulla_user -d postgres -c "CREATE DATABASE fulla_db;"
 if %ERRORLEVEL% neq 0 (
     echo [FAILED] Failed to create database
     goto cleanup_and_exit
 )
 
 echo Applying migrations...
-for %%f in ("%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_MIGRATIONS_REL_DIR%\V*.sql") do (
+for %%f in ("%PROJECT_DIR%\%FULLA_SERVER_DIR%\%SQL_MIGRATIONS_REL_DIR%\V*.sql") do (
     echo   Applying %%~nxf...
-    docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "%%f"
+    docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < "%%f"
     if %ERRORLEVEL% neq 0 (
         echo [FAILED] Failed to apply %%~nxf
         goto cleanup_and_exit
@@ -143,9 +143,9 @@ for %%f in ("%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_MIGRATIONS_REL_DIR%\V*.sql")
 )
 
 echo Applying seed data...
-for %%f in ("%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%SQL_SEED_REL_DIR%\*.sql") do (
+for %%f in ("%PROJECT_DIR%\%FULLA_SERVER_DIR%\%SQL_SEED_REL_DIR%\*.sql") do (
     echo   Applying %%~nxf...
-    docker exec -i oauth2-postgres psql -U oauth2_user -d oauth2_db < "%%f"
+    docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < "%%f"
     if %ERRORLEVEL% neq 0 (
         echo [FAILED] Failed to apply seed %%~nxf
         goto cleanup_and_exit
@@ -223,11 +223,11 @@ if exist "%PROJECT_DIR%\%BUILD_DIR%\%SERVER_BUILD_SUBDIR%\Release\%SERVER_BINARY
 
 echo Starting server: %SERVER_EXE%
 pushd "%EXE_DIR%"
-set OAUTH2_DB_HOST=127.0.0.1
-set OAUTH2_DB_PORT=5433
-set OAUTH2_REDIS_HOST=127.0.0.1
-set OAUTH2_REDIS_PORT=6380
-set OAUTH2_REDIS_PASSWORD=redis_secret_pass
+set FULLA_DB_HOST=127.0.0.1
+set FULLA_DB_PORT=5433
+set FULLA_REDIS_HOST=127.0.0.1
+set FULLA_REDIS_PORT=6380
+set FULLA_REDIS_PASSWORD=redis_secret_pass
 start "" "%SERVER_EXE%" -c "%PROJECT_DIR%\%CONFIG_FILE%"
 popd
 

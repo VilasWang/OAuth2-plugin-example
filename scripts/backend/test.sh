@@ -49,7 +49,7 @@ echo "[PASS] Standard config tests successful."
 # Run 2: config.ci.json
 echo ""
 echo "[2/2] Running tests with $CONFIG_CI_FILE..."
-CI_CONFIG="$OAUTH2_SERVER_ABS_DIR/$CONFIG_CI_FILE"
+CI_CONFIG="$FULLA_SERVER_ABS_DIR/$CONFIG_CI_FILE"
 # build.sh stages the tests' runtime config as a flat config.json under
 # <preset>/tests (single-config Unix generators); fall back to a per-config
 # subdir for multi-config generators.

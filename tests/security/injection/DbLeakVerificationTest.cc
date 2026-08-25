@@ -13,7 +13,7 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
 namespace db_leak_test
 {

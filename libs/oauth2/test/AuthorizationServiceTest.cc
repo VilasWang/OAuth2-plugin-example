@@ -1,11 +1,11 @@
-// Task 17 remainder (authforge-sdk-refactor): unit tests for the new
-// authforge::oauth2::protocol::AuthorizationService -- the first time
+// Task 17 remainder (fulla-sdk-refactor): unit tests for the new
+// fulla::oauth2::protocol::AuthorizationService -- the first time
 // this class exists in the codebase (see its header comment: the
 // consent/scope decision was previously spread across ClientService +
 // IdentityService + OAuth2StandardController with no single owner).
 
-#include <authforge/common/model/Subject.h>
-#include <authforge/oauth2/protocol/AuthorizationService.h>
+#include <fulla/common/model/Subject.h>
+#include <fulla/oauth2/protocol/AuthorizationService.h>
 
 #include <gtest/gtest.h>
 
@@ -14,9 +14,9 @@
 namespace
 {
 
-using namespace authforge::oauth2::model;
-using namespace authforge::oauth2::repository;
-using authforge::oauth2::protocol::AuthorizationService;
+using namespace fulla::oauth2::model;
+using namespace fulla::oauth2::repository;
+using fulla::oauth2::protocol::AuthorizationService;
 
 class FakeClientRepo : public IClientRepository
 {
@@ -84,19 +84,19 @@ class FakeConsentRepo : public IConsentRepository
     }
 };
 
-class FakeSubjectResolver : public authforge::common::ports::ISubjectResolver
+class FakeSubjectResolver : public fulla::common::ports::ISubjectResolver
 {
   public:
     std::unordered_map<std::string, int32_t> mapping;
 
-    void resolve(const authforge::common::model::Subject &subject, ResolveCallback &&cb) override
+    void resolve(const fulla::common::model::Subject &subject, ResolveCallback &&cb) override
     {
         auto it = mapping.find(subject.value());
         cb(it == mapping.end() ? std::nullopt : std::make_optional(it->second));
     }
 };
 
-class FakeRoleProvider : public authforge::common::ports::IRoleProvider
+class FakeRoleProvider : public fulla::common::ports::IRoleProvider
 {
   public:
     std::unordered_map<int32_t, std::vector<std::string>> roles;
@@ -126,7 +126,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_UnknownClient_AllInvalid)
     auto clients = makeClientRepo();
     AuthorizationService svc(clients);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("unknown-client", "local:alice", {"openid"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -142,7 +142,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_ScopeNotAllowed_Invalid)
     auto clients = makeClientRepo();
     AuthorizationService svc(clients);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"not-allowed"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -160,7 +160,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_NoConsentPort_NonAdminScope_Consen
     // confirm consent, so do not assume it).
     AuthorizationService svc(clients);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -179,7 +179,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AdminScope_NoRoleProvider_TreatedA
     // roleProvider intentionally left null.
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"admin"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -201,7 +201,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AdminScope_WithAdminRole_ConsentRe
     roleProvider->roles[42] = {"admin"};
     AuthorizationService svc(clients, consents, subjectResolver, roleProvider);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"admin"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -220,7 +220,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AlreadyConsented_Valid)
     consents->consents[FakeConsentRepo::key(UserRef{42}, "test-client", "openid")] = true;
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -243,7 +243,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AlreadyConsented_Valid)
 TEST(AuthorizationServiceTest, EvaluateScopes_NullClientRepo_AllInvalidServerError)
 {
     AuthorizationService svc(nullptr);
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -264,7 +264,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_ConsentsSetButNoResolver_ConsentRe
     // resolver intentionally null.
     AuthorizationService svc(clients, consents, nullptr, nullptr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -284,7 +284,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_ResolverMiss_ConsentRequired)
     // mapping intentionally empty -> resolve returns nullopt.
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -306,7 +306,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AdminScope_RolesDoNotContainAdmin_
     roleProvider->roles[42] = {"user"};  // no "admin"
     AuthorizationService svc(clients, consents, subjectResolver, roleProvider);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"admin"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -330,7 +330,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_AdminScope_WithAdminRoleAndConsent
     consents->consents[FakeConsentRepo::key(UserRef{42}, "test-client", "admin")] = true;
     AuthorizationService svc(clients, consents, subjectResolver, roleProvider);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"admin"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -351,7 +351,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_NonAdminScope_RealConsentMiss_Cons
     // consent intentionally absent.
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"openid"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -371,7 +371,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_EmptyScopeList_RealConsentFanOut_C
     subjectResolver->mapping["local:alice"] = 42;
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     bool called = false;
     svc.evaluateScopes("test-client", "local:alice", {}, [&](auto s) {
         summary = std::move(s);
@@ -397,7 +397,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_MultipleScopes_ParallelConsentFanO
     consents->consents[FakeConsentRepo::key(UserRef{42}, "test-client", "profile")] = true;
     AuthorizationService svc(clients, consents, subjectResolver, nullptr);
 
-    authforge::oauth2::access::ScopeValidationSummary summary;
+    fulla::oauth2::access::ScopeValidationSummary summary;
     svc.evaluateScopes("test-client", "local:alice", {"openid", "profile"}, [&](auto s) {
         summary = std::move(s);
     });
@@ -407,7 +407,7 @@ TEST(AuthorizationServiceTest, EvaluateScopes_MultipleScopes_ParallelConsentFanO
     // Now without consent -> both ConsentRequired.
     auto consents2 = std::make_shared<FakeConsentRepo>();
     AuthorizationService svc2(clients, consents2, subjectResolver, nullptr);
-    authforge::oauth2::access::ScopeValidationSummary summary2;
+    fulla::oauth2::access::ScopeValidationSummary summary2;
     svc2.evaluateScopes("test-client", "local:alice", {"openid", "profile"}, [&](auto s) {
         summary2 = std::move(s);
     });

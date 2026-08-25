@@ -1,4 +1,4 @@
-// Coverage additions (P1, authforge coverage push): HttpResponder's
+// Coverage additions (P1, fulla coverage push): HttpResponder's
 // respondIfErrors decision logic (HttpResponder.cc:115-127) had no direct
 // coverage -- it was exercised only indirectly through controllers. These
 // pin the short-circuit: an empty error vector returns false and does NOT
@@ -8,8 +8,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/common/error/ErrorContext.h>
-#include <authforge/drogon/validation/HttpResponder.h>
+#include <fulla/common/error/ErrorContext.h>
+#include <fulla/drogon/validation/HttpResponder.h>
 #include <json/json.h>
 
 #include <sstream>
@@ -17,8 +17,8 @@
 #include <vector>
 
 using namespace drogon;
-using authforge::common::error::ErrorContext;
-using authforge::drogon::validation::HttpResponder;
+using fulla::common::error::ErrorContext;
+using fulla::drogon::validation::HttpResponder;
 
 namespace
 {

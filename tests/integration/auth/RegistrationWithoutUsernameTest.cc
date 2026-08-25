@@ -1,8 +1,8 @@
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/storage/postgres/models/Users.h>
-#include <authforge/common/utils/EmailNormalizer.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/storage/postgres/models/Users.h>
+#include <fulla/common/utils/EmailNormalizer.h>
 #include <future>
 #include <chrono>
 
@@ -22,7 +22,7 @@ void cleanupEmail(const std::string &email)
       "DELETE FROM users WHERE email = $1",
       [&](const Result &) { p.set_value(); },
       [&](const DrogonDbException &) { p.set_value(); },
-      authforge::common::utils::normalizeEmail(email)
+      fulla::common::utils::normalizeEmail(email)
     );
     p.get_future().get();
 }
@@ -43,21 +43,21 @@ DROGON_TEST(Integration_P1_Registration_EmailOnly_JsonBody)
     REQUIRE(db != nullptr);
 
     const std::string rawEmail = "Alice+promo@Example.COM";
-    const std::string canonical = authforge::common::utils::normalizeEmail(rawEmail);
+    const std::string canonical = fulla::common::utils::normalizeEmail(rawEmail);
     cleanupEmail(rawEmail);
 
     // Insert the way AuthService::registerUser would (validate the contract):
     // username omitted -> NULL; email normalized; password hashed non-empty.
-    drogon_model::oauth2_db::Users u;
+    drogon_model::fulla_db::Users u;
     u.setPasswordHash("$argon2id$placeholder$notempty");  // shape only
     u.setSalt("");
     u.setEmail(canonical);
     // username deliberately NOT set (NULL)
 
     std::promise<bool> pIns;
-    Mapper<drogon_model::oauth2_db::Users>(db).insert(
+    Mapper<drogon_model::fulla_db::Users>(db).insert(
       u,
-      [&](const drogon_model::oauth2_db::Users &) { pIns.set_value(true); },
+      [&](const drogon_model::fulla_db::Users &) { pIns.set_value(true); },
       [&](const DrogonDbException &e) {
           LOG_ERROR << "insert failed: " << e.base().what();
           pIns.set_value(false);

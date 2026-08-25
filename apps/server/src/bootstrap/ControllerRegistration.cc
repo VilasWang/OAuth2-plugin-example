@@ -1,39 +1,39 @@
 #include "ControllerRegistration.h"
 #include <drogon/drogon.h>
 #include <drogon/DrClassMap.h>
-#include <authforge/drogon/controllers/AuthorizationEndpointController.h>
-#include <authforge/drogon/controllers/TokenEndpointController.h>
-#include <authforge/drogon/controllers/DiscoveryController.h>
-#include <authforge/drogon/controllers/HealthController.h>
+#include <fulla/drogon/controllers/AuthorizationEndpointController.h>
+#include <fulla/drogon/controllers/TokenEndpointController.h>
+#include <fulla/drogon/controllers/DiscoveryController.h>
+#include <fulla/drogon/controllers/HealthController.h>
 #ifdef WITH_SOCIAL
-#include <authforge/drogon/controllers/GoogleController.h>
-#include <authforge/drogon/controllers/WeChatController.h>
+#include <fulla/drogon/controllers/GoogleController.h>
+#include <fulla/drogon/controllers/WeChatController.h>
 #endif  // WITH_SOCIAL
 // M5 Task 30: OrganizationController moved to the product app
 // (apps/server/src/organization/, namespace `organization`).
 #include <OrganizationController.h>
-#include <authforge/drogon/controllers/ClientRegistrationController.h>
-#include <authforge/drogon/controllers/ApiDocController.h>
-#include <authforge/drogon/controllers/DeviceAuthController.h>
-#include <authforge/drogon/controllers/EmailVerificationController.h>
+#include <fulla/drogon/controllers/ClientRegistrationController.h>
+#include <fulla/drogon/controllers/ApiDocController.h>
+#include <fulla/drogon/controllers/DeviceAuthController.h>
+#include <fulla/drogon/controllers/EmailVerificationController.h>
 #ifdef WITH_SOCIAL
-#include <authforge/drogon/controllers/GitHubController.h>
+#include <fulla/drogon/controllers/GitHubController.h>
 #endif  // WITH_SOCIAL
-#include <authforge/drogon/controllers/MfaController.h>
-#include <authforge/drogon/controllers/PasswordResetController.h>
-#include <authforge/drogon/controllers/SessionController.h>
-#include <authforge/drogon/controllers/UserSelfServiceController.h>
+#include <fulla/drogon/controllers/MfaController.h>
+#include <fulla/drogon/controllers/PasswordResetController.h>
+#include <fulla/drogon/controllers/SessionController.h>
+#include <fulla/drogon/controllers/UserSelfServiceController.h>
 #ifdef WITH_WEBAUTHN
-#include <authforge/drogon/controllers/WebAuthnController.h>
+#include <fulla/drogon/controllers/WebAuthnController.h>
 #endif  // WITH_WEBAUTHN
-#include <authforge/drogon/controllers/ClientAdminController.h>
-#include <authforge/drogon/controllers/UserAdminController.h>
-#include <authforge/drogon/controllers/RoleScopeAdminController.h>
-#include <authforge/drogon/controllers/TokenAdminController.h>
-#include <authforge/drogon/controllers/AuditController.h>
-#include <authforge/drogon/filters/AuthorizationFilter.h>
-#include <authforge/drogon/filters/OAuth2AuthFilter.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/controllers/ClientAdminController.h>
+#include <fulla/drogon/controllers/UserAdminController.h>
+#include <fulla/drogon/controllers/RoleScopeAdminController.h>
+#include <fulla/drogon/controllers/TokenAdminController.h>
+#include <fulla/drogon/controllers/AuditController.h>
+#include <fulla/drogon/filters/AuthorizationFilter.h>
+#include <fulla/drogon/filters/OAuth2AuthFilter.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
 namespace bootstrap
 {
@@ -45,77 +45,77 @@ void registerAllControllers()
     // registration only happens via this explicit call chain -- there is
     // no static-initialization side effect to rely on. This establishes a
     // real, linker-visible reference into each controller's translation
-    // unit inside the authforge-drogon static library, which is why a
+    // unit inside the fulla-drogon static library, which is why a
     // PLAIN (non-whole-archive) link is sufficient.
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::HealthController>()
+      std::make_shared<fulla::drogon::controllers::HealthController>()
     );
 #ifdef WITH_SOCIAL
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::GoogleController>()
+      std::make_shared<fulla::drogon::controllers::GoogleController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::WeChatController>()
+      std::make_shared<fulla::drogon::controllers::WeChatController>()
     );
 #endif  // WITH_SOCIAL
     drogon::app().registerController(std::make_shared<::organization::OrganizationController>());
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::ClientRegistrationController>()
+      std::make_shared<fulla::drogon::controllers::ClientRegistrationController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::ApiDocController>()
+      std::make_shared<fulla::drogon::controllers::ApiDocController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::DeviceAuthController>()
+      std::make_shared<fulla::drogon::controllers::DeviceAuthController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::EmailVerificationController>()
+      std::make_shared<fulla::drogon::controllers::EmailVerificationController>()
     );
 #ifdef WITH_SOCIAL
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::GitHubController>()
+      std::make_shared<fulla::drogon::controllers::GitHubController>()
     );
 #endif  // WITH_SOCIAL
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::MfaController>()
+      std::make_shared<fulla::drogon::controllers::MfaController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::PasswordResetController>()
+      std::make_shared<fulla::drogon::controllers::PasswordResetController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::SessionController>()
+      std::make_shared<fulla::drogon::controllers::SessionController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::UserSelfServiceController>()
+      std::make_shared<fulla::drogon::controllers::UserSelfServiceController>()
     );
 #ifdef WITH_WEBAUTHN
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::WebAuthnController>()
+      std::make_shared<fulla::drogon::controllers::WebAuthnController>()
     );
 #endif  // WITH_WEBAUTHN
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::ClientAdminController>()
+      std::make_shared<fulla::drogon::controllers::ClientAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::UserAdminController>()
+      std::make_shared<fulla::drogon::controllers::UserAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::RoleScopeAdminController>()
+      std::make_shared<fulla::drogon::controllers::RoleScopeAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::TokenAdminController>()
+      std::make_shared<fulla::drogon::controllers::TokenAdminController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::AuditController>()
+      std::make_shared<fulla::drogon::controllers::AuditController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::AuthorizationEndpointController>()
+      std::make_shared<fulla::drogon::controllers::AuthorizationEndpointController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::TokenEndpointController>()
+      std::make_shared<fulla::drogon::controllers::TokenEndpointController>()
     );
     drogon::app().registerController(
-      std::make_shared<authforge::drogon::controllers::DiscoveryController>()
+      std::make_shared<fulla::drogon::controllers::DiscoveryController>()
     );
 }
 
@@ -142,35 +142,35 @@ void wireControllerPluginDependencies()
         return;
     }
 
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::HealthController>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::HealthController>()
       ->setPlugin(plugin);
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::DeviceAuthController>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::DeviceAuthController>()
       ->setPlugin(plugin);
 #ifdef WITH_SOCIAL
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::GitHubController>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::GitHubController>()
       ->setPlugin(plugin);
 #endif  // WITH_SOCIAL
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::MfaController>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::MfaController>()
       ->setPlugin(plugin);
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::SessionController>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::SessionController>()
       ->setPlugin(plugin);
     drogon::DrClassMap::getSingleInstance<
-      authforge::drogon::controllers::AuthorizationEndpointController>()
+      fulla::drogon::controllers::AuthorizationEndpointController>()
       ->setPlugin(plugin);
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::TokenEndpointController>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::TokenEndpointController>()
       ->setPlugin(plugin);
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::controllers::DiscoveryController>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::DiscoveryController>()
       ->setPlugin(plugin);
 
     // Filters are looked up by the same by-name DrClassMap mechanism their
     // ADD_METHOD_TO string references use -- the
-    // authforge::drogon::filters::{AuthorizationFilter,OAuth2AuthFilter} classes
-    // now live in libs/drogon (include/authforge/drogon/filters/*.h) since the
+    // fulla::drogon::filters::{AuthorizationFilter,OAuth2AuthFilter} classes
+    // now live in libs/drogon (include/fulla/drogon/filters/*.h) since the
     // old OAuth2Plugin/ directory was dissolved in Phase 4 of the directory
     // restructure.
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::filters::AuthorizationFilter>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::filters::AuthorizationFilter>()
       ->setPlugin(plugin);
-    drogon::DrClassMap::getSingleInstance<authforge::drogon::filters::OAuth2AuthFilter>()
+    drogon::DrClassMap::getSingleInstance<fulla::drogon::filters::OAuth2AuthFilter>()
       ->setPlugin(plugin);
 }
 

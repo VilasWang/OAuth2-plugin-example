@@ -1,10 +1,10 @@
-#include <authforge/drogon/observability/Metrics.h>
+#include <fulla/drogon/observability/Metrics.h>
 #include <drogon/drogon.h>
 #include <drogon/plugins/PromExporter.h>
 
 using namespace drogon;
 
-namespace authforge::drogon::observability
+namespace fulla::drogon::observability
 {
 
 // Thread-safety contract for this component is documented on the Metrics class
@@ -85,4 +85,4 @@ OperationTimer::~OperationTimer()
     Metrics::observeLatency(operation_, storage_, diff.count());
 }
 
-}  // namespace authforge::drogon::observability
+}  // namespace fulla::drogon::observability

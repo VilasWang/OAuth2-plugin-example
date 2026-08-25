@@ -67,7 +67,7 @@ echo Copying config files...
 REM cmd's copy mishandles the forward slashes used by paths.env values
 REM (apps/server, config/config.json): it silently copies 0 files and
 REM leaves errorlevel 1. Normalize to backslashes first.
-set "CFG_SRC=%PROJECT_DIR%\%OAUTH2_SERVER_DIR%\%CONFIG_FILE%"
+set "CFG_SRC=%PROJECT_DIR%\%FULLA_SERVER_DIR%\%CONFIG_FILE%"
 set "CFG_SRC=%CFG_SRC:/=\%"
 set "SRV_OUT=%PRESET_DIR%\%SERVER_BUILD_SUBDIR%\%BUILD_TYPE%"
 set "SRV_OUT=%SRV_OUT:/=\%"

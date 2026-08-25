@@ -1,12 +1,12 @@
-#include <authforge/storage/redis/RedisConsentRepository.h>
+#include <fulla/storage/redis/RedisConsentRepository.h>
 #include <chrono>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 // Task 27.5: callback + DTO aliases for the new base interface; safe at namespace scope here (this
 // .cc does not include IOAuth2Storage.h, so no oauth2::* clash).
-using UserRef = ::authforge::oauth2::model::UserRef;
+using UserRef = ::fulla::oauth2::model::UserRef;
 using BoolCallback = IConsentRepositoryBase::BoolCallback;
 using VoidCallback = IConsentRepositoryBase::VoidCallback;
 
@@ -117,4 +117,4 @@ void RedisConsentRepository::revokeUserConsent(
     );
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

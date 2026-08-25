@@ -4,7 +4,7 @@
 //
 // Validates: Requirements 7.2, 11.3
 //   - 7.2:  每个 OAuth2_Protocol_Endpoint 经由 OAuth2 错误处理入口
-//           (authforge::common::error::OAuth2ErrorHandler) 产生错误响应，输出 RFC 6749 错误体。
+//           (fulla::common::error::OAuth2ErrorHandler) 产生错误响应，输出 RFC 6749 错误体。
 //   - 11.3: 协议端点错误响应的字段名、字段类型与错误码取值与 RFC 6749 §5.2 基线一致，
 //           不新增/删除/重命名 `error`、`error_description`、`error_uri` 字段，且
 //           不使用 Requirement 1 的 Error Envelope（无嵌套 error.code 对象）。
@@ -17,7 +17,7 @@
 //
 //   Part A — Protocol entry point (always runs, DB-independent):
 //     The single OAuth2 protocol error entry point is
-//     authforge::common::error::OAuth2ErrorHandler::sendErrorResponse (see Requirement 7.2
+//     fulla::common::error::OAuth2ErrorHandler::sendErrorResponse (see Requirement 7.2
 //     and design task 5.1). Every protocol endpoint that emits an error funnels
 //     its protocol code through this entry point (introspect/revoke call it
 //     directly; the token endpoint's RFC branches emit the same RFC §5.2 body
@@ -58,8 +58,8 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/drogon/error/OAuth2ErrorHandler.h>
-#include <authforge/common/error/ErrorCatalog.h>
+#include <fulla/drogon/error/OAuth2ErrorHandler.h>
+#include <fulla/common/error/ErrorCatalog.h>
 #include <json/json.h>
 
 #include <memory>
@@ -68,7 +68,7 @@
 #include <vector>
 
 using namespace drogon;
-using namespace authforge::common::error;
+using namespace fulla::common::error;
 
 namespace
 {

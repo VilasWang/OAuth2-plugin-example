@@ -20,7 +20,7 @@ type AuthError struct {
 }
 
 func (e *AuthError) Error() string {
-	msg := fmt.Sprintf("authforge: token endpoint rejected client: %s", e.ErrorCode)
+	msg := fmt.Sprintf("fulla: token endpoint rejected client: %s", e.ErrorCode)
 	if e.ErrorDescription != "" {
 		msg += " (" + e.ErrorDescription + ")"
 	}
@@ -82,7 +82,7 @@ func postFormWithBasic(ctx context.Context, httpClient *http.Client, tokenURL st
 	}
 	var tokens TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokens); err != nil {
-		return nil, fmt.Errorf("authforge: decoding token response: %w", err)
+		return nil, fmt.Errorf("fulla: decoding token response: %w", err)
 	}
 	return &tokens, nil
 }

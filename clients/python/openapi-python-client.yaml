@@ -1,10 +1,10 @@
 # openapi-python-client generation config (consumed by
 # tools/clients/regen_clients.py; pinned generator version lives there).
 #
-# The generated package is relocated to src/authforge/generated/ by the regen
+# The generated package is relocated to src/fulla/generated/ by the regen
 # script: 0.29.0 emits package-internal relative imports, so the package dir
 # survives the move, and the project-level files the generator writes next to
 # it (pyproject.toml, README.md, ...) are deliberately NOT copied -- this
 # handwritten pyproject.toml is the packaging source of truth.
-project_name_override: authforge-oauth2
-package_name_override: authforge
+project_name_override: fulla-oauth2
+package_name_override: fulla

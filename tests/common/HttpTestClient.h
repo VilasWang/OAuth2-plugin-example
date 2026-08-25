@@ -1,6 +1,6 @@
 // tests/common/HttpTestClient.h
 //
-// Shared HTTP integration-test plumbing for the authforge backend suite.
+// Shared HTTP integration-test plumbing for the fulla backend suite.
 //
 // Scope: in-process HTTP integration tests that hit the Drogon app the test
 // binary itself starts (tests/test_main.cc boots `app().run()` on a background
@@ -10,7 +10,7 @@
 // send them through the framework-owned HttpClient, and parse responses.
 //
 // Convention follows tests/contract/ContractFixtures.h: header-only `inline`
-// free functions in a namespace (authforge::test::http). Unlike the contract
+// free functions in a namespace (fulla::test::http). Unlike the contract
 // helpers, the request builders here do NOT take a TEST_CTX parameter because
 // they perform no assertions -- they just return an HttpResponsePtr (or nullptr
 // on transport failure) and the caller runs CHECK/REQUIRE against the result.
@@ -39,8 +39,8 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 
 #include <json/json.h>
 
@@ -50,12 +50,12 @@
 #include <string>
 #include <thread>
 
-namespace authforge::test::http
+namespace fulla::test::http
 {
 
 // Namespace-visibility trap (see tests/contract/ContractFixtures.h:92-95):
-// inside `authforge::test::http`, an unqualified `drogon::` resolves to
-// `authforge::drogon` (the SDK adapter namespace) before the global
+// inside `fulla::test::http`, an unqualified `drogon::` resolves to
+// `fulla::drogon` (the SDK adapter namespace) before the global
 // `::drogon` framework namespace, so EVERY drogon reference below is
 // explicitly qualified `::drogon::` to reach the framework.
 
@@ -367,9 +367,9 @@ inline std::optional<Json::Value> loginAsUserTokens(
     // yields a 43-char base64url string -- a valid RFC 7636 §4.1 verifier
     // charset-wise -- and CryptoUtils::computeCodeChallenge matches the
     // server's spec-correct BASE64URL(SHA256(verifier)) verification.
-    const std::string codeVerifier = ::authforge::drogon::utils::generateSecureToken(32);
+    const std::string codeVerifier = ::fulla::drogon::utils::generateSecureToken(32);
     const std::string codeChallenge =
-      ::authforge::drogon::utils::computeCodeChallenge(codeVerifier, "S256");
+      ::fulla::drogon::utils::computeCodeChallenge(codeVerifier, "S256");
 
     // Step 1: login -> authorization code.
     const std::string loginForm =
@@ -466,4 +466,4 @@ inline ::drogon::HttpResponsePtr authedDelete(const std::string &path)
     return sendDelete(path, *token);
 }
 
-}  // namespace authforge::test::http
+}  // namespace fulla::test::http

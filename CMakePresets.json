@@ -51,7 +51,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-release-asan/conan_toolchain.cmake",
-        "OAUTH2_SANITIZER": "address"
+        "FULLA_SANITIZER": "address"
       }
     },
     {
@@ -63,19 +63,19 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-release-tsan/conan_toolchain.cmake",
-        "OAUTH2_SANITIZER": "thread"
+        "FULLA_SANITIZER": "thread"
       }
     },
     {
       "name": "linux-release-lto",
       "inherits": "linux-release",
       "displayName": "Linux Release + LTO (Conan)",
-      "description": "conan install . --output-folder=build/linux-release-lto -s build_type=Release -s compiler.cppstd=17 --build=missing. Opt-in LTO arm (AUTHFORGE_ENABLE_LTO=ON via cmake/Lto.cmake); used by the bench-image build with AUTHFORGE_CMAKE_PRESET=linux-release-lto. Default presets are unaffected.",
+      "description": "conan install . --output-folder=build/linux-release-lto -s build_type=Release -s compiler.cppstd=17 --build=missing. Opt-in LTO arm (FULLA_ENABLE_LTO=ON via cmake/Lto.cmake); used by the bench-image build with FULLA_CMAKE_PRESET=linux-release-lto. Default presets are unaffected.",
       "binaryDir": "${sourceDir}/build/linux-release-lto",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-release-lto/conan_toolchain.cmake",
-        "AUTHFORGE_ENABLE_LTO": "ON"
+        "FULLA_ENABLE_LTO": "ON"
       }
     },
     {
@@ -119,7 +119,7 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-asan/conan_toolchain.cmake",
         "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
-        "OAUTH2_SANITIZER": "address"
+        "FULLA_SANITIZER": "address"
       }
     },
     {
@@ -131,19 +131,19 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-tsan/conan_toolchain.cmake",
         "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
-        "OAUTH2_SANITIZER": "thread"
+        "FULLA_SANITIZER": "thread"
       }
     },
     {
       "name": "windows-msvc-lto",
       "inherits": "windows-msvc",
       "displayName": "Windows MSVC + LTO (Conan)",
-      "description": "conan install . --output-folder=build/windows-msvc-lto -s build_type=Release -s compiler.cppstd=17 --build=missing. Opt-in LTO arm (AUTHFORGE_ENABLE_LTO=ON via cmake/Lto.cmake) — local compilability/ctest validation of the LTO configuration; the benchmark binary is Linux GCC.",
+      "description": "conan install . --output-folder=build/windows-msvc-lto -s build_type=Release -s compiler.cppstd=17 --build=missing. Opt-in LTO arm (FULLA_ENABLE_LTO=ON via cmake/Lto.cmake) — local compilability/ctest validation of the LTO configuration; the benchmark binary is Linux GCC.",
       "binaryDir": "${sourceDir}/build/windows-msvc-lto",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/windows-msvc-lto/conan_toolchain.cmake",
         "CMAKE_POLICY_DEFAULT_CMP0091": "NEW",
-        "AUTHFORGE_ENABLE_LTO": "ON"
+        "FULLA_ENABLE_LTO": "ON"
       }
     },
     {
@@ -184,7 +184,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/macos-arm64-asan/conan_toolchain.cmake",
-        "OAUTH2_SANITIZER": "address"
+        "FULLA_SANITIZER": "address"
       }
     },
     {
@@ -196,7 +196,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/macos-arm64-tsan/conan_toolchain.cmake",
-        "OAUTH2_SANITIZER": "thread"
+        "FULLA_SANITIZER": "thread"
       }
     }
   ],

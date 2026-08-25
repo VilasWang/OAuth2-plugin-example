@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
-# libs/drogon (authforge::drogon) -- M3 Task 20, authforge-sdk-refactor
-# (design.md §6 "libs/drogon # authforge::drogon [drogon 绑定] ...
+# libs/drogon (fulla::drogon) -- M3 Task 20, fulla-sdk-refactor
+# (design.md §6 "libs/drogon # fulla::drogon [drogon 绑定] ...
 # 插件(装配器)/controllers/filters/views"; §5.5 "Drogon 绑定 |
-# authforge::drogon | libs/drogon | 是 | Drogon 插件（DI 装配器）、
+# fulla::drogon | libs/drogon | 是 | Drogon 插件（DI 装配器）、
 # controller、filter、view；含 Drogon 自注册符号，消费者链接须
 # whole-archive").
 #
@@ -27,7 +27,7 @@ cmake_minimum_required(VERSION 3.16)
 # (de-singletonization) so the migration order doesn't create a
 # circular/premature dependency on work those tasks haven't done yet.
 #
-# Namespace: authforge::drogon::validation (design.md §6 namespace sync).
+# Namespace: fulla::drogon::validation (design.md §6 namespace sync).
 # The old oauth2::validation:: location becomes a compatibility shim (same
 # pattern as libs/oauth2's JwkManager.h shim from Task 17 slice 10) so
 # existing call sites (RequestValidationFilter, OAuth2StandardController,
@@ -46,8 +46,8 @@ cmake_minimum_required(VERSION 3.16)
 # config.json plugin reflection ("name": "OAuth2Plugin") depends on it.
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
-if(NOT DEFINED OAUTH2_PROJECT_VERSION)
-    set(OAUTH2_PROJECT_VERSION 1.0.0)
+if(NOT DEFINED FULLA_PROJECT_VERSION)
+    set(FULLA_PROJECT_VERSION 1.0.0)
 endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
@@ -56,7 +56,7 @@ if(NOT COMMAND oauth2_apply_warnings)
     include(Warnings)
 endif()
 
-project(authforge-drogon VERSION ${OAUTH2_PROJECT_VERSION} LANGUAGES CXX)
+project(fulla-drogon VERSION ${FULLA_PROJECT_VERSION} LANGUAGES CXX)
 
 find_package(Drogon CONFIG REQUIRED)
 # Phase 4 (A6): the plugin sources absorbed from the old OAuth2Plugin
@@ -67,7 +67,7 @@ find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
-add_library(authforge::drogon ALIAS ${PROJECT_NAME})
+add_library(fulla::drogon ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
@@ -75,7 +75,7 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
 )
 
-# M5 Task 31 (authforge-sdk-refactor, F9): conditional compilation for the
+# M5 Task 31 (fulla-sdk-refactor, F9): conditional compilation for the
 # optional social-login + WebAuthn controllers. Declared here too (no-op if
 # the top-level CMakeLists.txt already set them) so this library still
 # configures standalone. When OFF, the corresponding controllers are excluded
@@ -84,23 +84,23 @@ target_include_directories(${PROJECT_NAME}
 option(WITH_SOCIAL "Build social-login (Google/WeChat/GitHub) controllers" ON)
 option(WITH_WEBAUTHN "Build the WebAuthn/FIDO2 controller" ON)
 
-file(GLOB_RECURSE AUTHFORGE_DROGON_SOURCES "src/*.cc")
+file(GLOB_RECURSE FULLA_DROGON_SOURCES "src/*.cc")
 
 # Task 31: drop the optional social + WebAuthn controller sources when their
 # feature is disabled (the .cc files already carry `#ifdef WITH_SOCIAL` bodies,
 # but excluding them entirely is cleaner -- no dead TU, smaller binary, and
 # the compile definition below keeps headers' #ifdef guards consistent).
-foreach(_src ${AUTHFORGE_DROGON_SOURCES})
+foreach(_src ${FULLA_DROGON_SOURCES})
     get_filename_component(_src_dir "${_src}" DIRECTORY)
     get_filename_component(_src_name "${_src}" NAME)
     if((NOT WITH_SOCIAL) AND _src_name MATCHES "^(Google|WeChat|GitHub)Controller\\.cc$")
-        list(REMOVE_ITEM AUTHFORGE_DROGON_SOURCES "${_src}")
+        list(REMOVE_ITEM FULLA_DROGON_SOURCES "${_src}")
     elseif((NOT WITH_WEBAUTHN) AND _src_name STREQUAL "WebAuthnController.cc")
-        list(REMOVE_ITEM AUTHFORGE_DROGON_SOURCES "${_src}")
+        list(REMOVE_ITEM FULLA_DROGON_SOURCES "${_src}")
     endif()
 endforeach()
 
-target_sources(${PROJECT_NAME} PRIVATE ${AUTHFORGE_DROGON_SOURCES})
+target_sources(${PROJECT_NAME} PRIVATE ${FULLA_DROGON_SOURCES})
 
 # Task 31: surface WITH_SOCIAL / WITH_WEBAUTHN as compile definitions so the
 # controllers' `#ifdef WITH_*` guards see a consistent on/off decision across
@@ -117,25 +117,25 @@ endif()
 # Phase 4 (A6): OAuth2Plugin's former link set, inherited explicitly now
 # that the OBJECT library is merged into this STATIC target (the link
 # edge and its transitive deps died with it):
-#   - authforge::storage::{postgres,memory,redis}: OAuth2Plugin.cc's
+#   - fulla::storage::{postgres,memory,redis}: OAuth2Plugin.cc's
 #     initStorage() constructs all three bundles.
-#   - authforge::common / authforge::oauth2: adapters + services here
+#   - fulla::common / fulla::oauth2: adapters + services here
 #     implement common::ports and call oauth2 domain code (pkce, consent).
 #   - OpenSSL::Crypto / CURL::libcurl: crypto utils + SMTP email service.
 #
 # Task 24 slice 5: DrogonOAuthHttpClient.cc implements
-# authforge::identity::IOAuthHttpClient -- authforge::identity linked
+# fulla::identity::IOAuthHttpClient -- fulla::identity linked
 # explicitly (not via the storage-postgres transitive chain).
 target_link_libraries(${PROJECT_NAME} PUBLIC
     Drogon::Drogon
     OpenSSL::Crypto
     CURL::libcurl
-    authforge::common
-    authforge::oauth2
-    authforge::identity
-    authforge::storage::postgres
-    authforge::storage::memory
-    authforge::storage::redis
+    fulla::common
+    fulla::oauth2
+    fulla::identity
+    fulla::storage::postgres
+    fulla::storage::memory
+    fulla::storage::redis
 )
 
 # Conan provides a STATIC libcurl by default. On Windows the curl headers
@@ -155,22 +155,22 @@ oauth2_apply_warnings(${PROJECT_NAME})
 oauth2_apply_gcov(${PROJECT_NAME})
 
 include(GNUInstallDirs)
-install(DIRECTORY include/authforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/fulla DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # SDK packaging: install-tree + build-tree find_package() config carrying the
-# transitive find_dependency() closure (authforge-sdk-refactor Task 28a).
-if(NOT COMMAND authforge_package)
-    include(AuthForgePackage)
+# transitive find_dependency() closure (fulla-sdk-refactor Task 28a).
+if(NOT COMMAND fulla_package)
+    include(FullaPackage)
 endif()
-authforge_package(
+fulla_package(
     TARGET ${PROJECT_NAME}
-    PACKAGE authforge-drogon
+    PACKAGE fulla-drogon
     EXPORT_NAME drogon
     DEPENDENCIES
         Drogon OpenSSL CURL
-        authforge-common authforge-oauth2 authforge-identity
-        authforge-storage-postgres authforge-storage-memory authforge-storage-redis
+        fulla-common fulla-oauth2 fulla-identity
+        fulla-storage-postgres fulla-storage-memory fulla-storage-redis
 )
 
-# --- Adapter-layer unit tests (link Drogon via authforge::drogon; no DB) ---
+# --- Adapter-layer unit tests (link Drogon via fulla::drogon; no DB) ---
 add_subdirectory(test)

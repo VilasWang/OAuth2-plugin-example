@@ -1,5 +1,5 @@
 # ==========================================
-# Unified Dockerfile for authforge
+# Unified Dockerfile for fulla
 # Supports multiple targets: backend-dev, backend-runtime, frontend-runtime
 # ==========================================
 
@@ -38,48 +38,48 @@ CMD ["/bin/bash"]
 # binaries, e.g. the boost/drogon source builds) across image rebuilds, so a
 # transient network failure does not restart hours of `--build=missing` work.
 # The mount shadows the image's /root/.conan2, so re-detect the profile here.
-# AUTHFORGE_CMAKE_PRESET (build arg, default empty = OS-default preset) lets
+# FULLA_CMAKE_PRESET (build arg, default empty = OS-default preset) lets
 # an image build select an alternate preset — e.g. the LTO bench arm via
-# compose build.args + `AUTHFORGE_CMAKE_PRESET=linux-release-lto`.
+# compose build.args + `FULLA_CMAKE_PRESET=linux-release-lto`.
 FROM backend-base AS backend-builder
 WORKDIR /app
 COPY . .
-ARG AUTHFORGE_CMAKE_PRESET=""
-ENV AUTHFORGE_CMAKE_PRESET=${AUTHFORGE_CMAKE_PRESET}
+ARG FULLA_CMAKE_PRESET=""
+ENV FULLA_CMAKE_PRESET=${FULLA_CMAKE_PRESET}
 RUN --mount=type=cache,target=/root/.conan2 \
     conan profile detect --force && \
     bash scripts/backend/build.sh Release
 
 # --- Stage 4: Backend Runtime (Target: backend-runtime) ---
-# Conan links all C/C++ dependencies statically: `ldd authforge-server` inside
+# Conan links all C/C++ dependencies statically: `ldd fulla-server` inside
 # the image resolves only libstdc++/libm/libgcc_s/libc, which the ubuntu:22.04
 # base already ships. The former per-library apt list (libjsoncpp25, libpq5,
 # libhiredis0.14, ...) is gone; only TLS roots for outbound HTTPS (SMTP,
 # social login) and curl for container healthchecks remain.
 FROM ubuntu:22.04 AS backend-runtime
 # Mirrors the builder stage's preset choice for the artifact path: an empty
-# AUTHFORGE_CMAKE_PRESET resolves to the Linux default (linux-release) inside
+# FULLA_CMAKE_PRESET resolves to the Linux default (linux-release) inside
 # build.sh, so the fallback here must match; alternate presets (e.g.
 # linux-release-lto) relocate the binary to build/<preset>/apps/server/.
-ARG AUTHFORGE_CMAKE_PRESET=""
-ENV AUTHFORGE_CMAKE_PRESET=${AUTHFORGE_CMAKE_PRESET:-linux-release}
+ARG FULLA_CMAKE_PRESET=""
+ENV FULLA_CMAKE_PRESET=${FULLA_CMAKE_PRESET:-linux-release}
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 # Phase 5 (directory restructure): sources live in apps/server, the binary
-# is authforge-server; the in-container layout (/app/config.json, /app/views,
+# is fulla-server; the in-container layout (/app/config.json, /app/views,
 # /app/sql/{migrations,seed}) is kept unchanged. The binary comes from the
 # Conan preset build dir (build/<preset>, see CMakePresets.json binaryDir).
-COPY --from=backend-builder /app/build/${AUTHFORGE_CMAKE_PRESET}/apps/server/authforge-server .
+COPY --from=backend-builder /app/build/${FULLA_CMAKE_PRESET}/apps/server/fulla-server .
 COPY --from=backend-builder /app/apps/server/config/config.prod.json ./config.json
 COPY --from=backend-builder /app/apps/server/views ./views
 COPY --from=backend-builder /app/apps/server/migrations ./sql/migrations
 COPY --from=backend-builder /app/apps/server/seed ./sql/seed
 RUN mkdir -p logs uploads
 EXPOSE 5555
-CMD ["./authforge-server"]
+CMD ["./fulla-server"]
 
 # --- Stage 5: Frontend Builder ---
 # Only proxy Node as it was the one failing

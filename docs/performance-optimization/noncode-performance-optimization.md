@@ -1,4 +1,4 @@
-# AuthForge 非代码层性能优化方案
+# Fulla 非代码层性能优化方案
 
 > **版本**: v1.1（2026-08-18：audit 降级拍板为 C 分区 + B BRIN 辅助，原则"不破坏功能正确性"；UNLOGGED 否决）
 > **日期**: 2026-08-18
@@ -38,7 +38,7 @@
 
 两个铁证：
 - **GC 抖动曲线的周期性尖峰**（655ms/1480ms，30 段中 7 段 >1.5x 中位）——S6 纯读、服务器无写，尖峰只能来自 **PG checkpoint full-page-write 风暴 + WSL2 IO**。PG 出厂默认（checkpoint_timeout=5min、max_wal_size=1GB、shared_buffers=128MB）在 S2 写入的 WAL 积累下必然周期刷盘。
-- **高并发 P99 退化**（S1 c≥64 达 107–403ms）是连接池排队（Phase 0 已裁决）；池 25 是四产品对齐值，非 AuthForge 最优。
+- **高并发 P99 退化**（S1 c≥64 达 107–403ms）是连接池排队（Phase 0 已裁决）；池 25 是四产品对齐值，非 Fulla 最优。
 
 ---
 
@@ -190,8 +190,8 @@ autovacuum_vacuum_scale_factor = 0.02
 
 ## 六、基准 SOP 逻辑改进
 
-1. **cache 应该开**：现口径把 AuthForge 按"裸 DB"测，而 Keycloak S6 优势恰来自 JWT 离线校验——cache on 才是同语义对比。主表用官方推荐配置（cache on），附录保留 cache off 消融数据。
-2. **池=25 是公平约束不是性能结论**：补 AuthForge 池扫描轮。
+1. **cache 应该开**：现口径把 Fulla 按"裸 DB"测，而 Keycloak S6 优势恰来自 JWT 离线校验——cache on 才是同语义对比。主表用官方推荐配置（cache on），附录保留 cache off 消融数据。
+2. **池=25 是公平约束不是性能结论**：补 Fulla 池扫描轮。
 3. **单次 10s → 每档 3 次取中位**：R7 说了"复跑取中位"但 runner 没实现。
 4. **GC 抖动实验补 PG 侧证据**：同步采集 `pg_stat_bgwriter`/`pg_stat_checkpointer`，把尖峰归因坐实（checkpoint vs WSL 调度）。
 5. **PG 配置快照入 JSON**：env 块记录 PG 版本 + 关键 GUC，保证可复现。
@@ -211,7 +211,7 @@ autovacuum_vacuum_scale_factor = 0.02
 
 | 阶段 | 内容 | 验证 |
 |---|---|---|
-| 快赢（半天）✅ 2026-08-18（8838ac6） | cache on（**Redis 池 20→64 联动**）+ PG conf + bench 档微优化（关 gzip/date/server header、去 PromExporter）。**host network 实测否决**（Docker Desktop WSL2 下 host netns 不可达，见 overlay 注释）。实测：S2 全档 **+23~43%**、S1 +3~14%、S6 c≥64 +9~13%（c≤4 -38~-43% cache 税）、S3 混合（N2 判别器限制，见 §四.1 注）、S5 持平；GC 极值 655→292ms。详见 `benchmarks/results/SUMMARY.md` 快赢 A/B 节 | `run-authforge-session.sh` A/B ✅（20260818-8838ac6 vs 20260817-03965fa） |
+| 快赢（半天）✅ 2026-08-18（8838ac6） | cache on（**Redis 池 20→64 联动**）+ PG conf + bench 档微优化（关 gzip/date/server header、去 PromExporter）。**host network 实测否决**（Docker Desktop WSL2 下 host netns 不可达，见 overlay 注释）。实测：S2 全档 **+23~43%**、S1 +3~14%、S6 c≥64 +9~13%（c≤4 -38~-43% cache 税）、S3 混合（N2 判别器限制，见 §四.1 注）、S5 持平；GC 极值 655→292ms。详见 `benchmarks/results/SUMMARY.md` 快赢 A/B 节 | `run-fulla-session.sh` A/B ✅（20260818-8838ac6 vs 20260817-03965fa） |
 | 第二步（1 天）✅ 2026-08-18（f23d142→a9d6327） | audit 降级落地（V025 分区+BRIN，migration + /orm-gen + Windows full-test 8/8 回归）+ 池扫描（**定稿 db 64 / redis 64**：池 25→64 在 c≥64 提 QPS 40-48%，100 无增益）+ PG17（四家同升，deploy/ 仍 15 待 pg_upgrade runbook）+ max_connections=200。**实测修正**：分区对小表吞吐中性（预估 +15-25% 的前提——索引深度退化——在基准规模不存在；分区收益=治理：DROP PARTITION 保留策略+索引深度受控）；新发现**缓存 TTL 同步到期雷群**（30s 周期 ~800ms 尖峰，池越大雷群越深，修复=代码层 TTL 抖动/single-flight，已录 §十） | bench ✅（20260818-a9d6327）+ full-test 8/8 ✅ |
 | 第二步补 ✅ 2026-08-18（c9c13d8→c5654a4） | **auto_batch 同日 A/B 定谳**：true 在 S2 +13~49%、S3/S6 +5~53%（S5 持平）→ **bench/prod/default 维持 true**；`is_fast` 全配置本就 false（启用需代码改造，§十）。**V026 token 冗余索引清理**（introspect 覆盖索引方案 C 案，子代理评审：CONCURRENTLY 被 SchemaManager 单事务阻断 → 普通 DROP INDEX；全行 INCLUDE B 案降级 backlog） | bench ✅（20260818-3c1ced3 vs 20260818-c9c13d8；V026 抽查 20260818-c5654a4）+ full-test 8/8 ✅（462 ctest + 59+55 端点） |
 | 第三步（2–3 天） | token 表分区 + 覆盖索引 + LTO/PGO 构建档 | bench + full-test |
@@ -253,5 +253,5 @@ autovacuum_vacuum_scale_factor = 0.02
 
 - S2 写路径双 INSERT（token + audit）：`libs/oauth2/src/protocol/TokenService.cc`（audit 调用于 316/407/448/512）+ `libs/drogon/src/observability/AuditLogger.cc`（Mapper::insert 落库）
 - cache 能力与开关：`libs/drogon/src/plugin/OAuth2Plugin.cc:270-340`（RedisCachedClientRepository + RedisCachedTokenRepository，默认 OFF）
-- 尖峰数据：`benchmarks/competitors/results/20260817-03965fa-authforge-gcjitter.json`（30 段 P99，7 段尖峰，最大 655.5ms）
+- 尖峰数据：`benchmarks/competitors/results/20260817-03965fa-fulla-gcjitter.json`（30 段 P99，7 段尖峰，最大 655.5ms）
 - Drogon 字段语义：官方 wiki ENG-11（配置）/ ENG-08-4（FastDbClient）/ ENG-08-5（auto_batch 使用限制）/ ENG-18（Redis is_fast 连接数语义）

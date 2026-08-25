@@ -1,7 +1,7 @@
-#include <authforge/storage/redis/RedisRepositoryBase.h>
+#include <fulla/storage/redis/RedisRepositoryBase.h>
 #include <drogon/drogon.h>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 RedisRepositoryBase::RedisRepositoryBase(const std::string &redisClientName)
@@ -18,4 +18,4 @@ RedisRepositoryBase::RedisRepositoryBase(const std::string &redisClientName)
     }
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

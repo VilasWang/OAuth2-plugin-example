@@ -18,7 +18,7 @@ echo ""
 # -f to point at it while keeping the repo root ("." / $PROJECT_DIR) as the
 # build context so COPY paths still resolve.
 cd "$PROJECT_DIR"
-docker build --no-cache -f "$DOCKERFILE" --target backend-dev -t oauth2-backend-debug:v1.9.13 .
+docker build --no-cache -f "$DOCKERFILE" --target backend-dev -t fulla-backend-debug:v1.9.13 .
 
 echo ""
 echo "========================================"
@@ -26,7 +26,7 @@ echo "Build completed!"
 echo "========================================"
 echo ""
 echo "Verifying installation..."
-docker run --rm oauth2-backend-debug:v1.9.13 bash -c "
+docker run --rm fulla-backend-debug:v1.9.13 bash -c "
   echo 'Checking Drogon files:'
   # Note: Drogon is installed in /usr/local in the Dockerfile
   ls -la /usr/local/include/drogon/drogon.h && echo '  [PASS] Headers found'

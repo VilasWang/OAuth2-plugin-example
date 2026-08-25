@@ -1,11 +1,11 @@
-// M2.5 identity completion (authforge-sdk-refactor): unit tests for
-// authforge::identity::SessionManager, exercised against a minimal
+// M2.5 identity completion (fulla-sdk-refactor): unit tests for
+// fulla::identity::SessionManager, exercised against a minimal
 // hand-written FakeBackchannelLogoutNotifier (no DB/no Drogon),
 // mirroring FakeMfaRepository/FakeCryptoProvider's established style.
 
-#include <authforge/identity/AuthService.h>
-#include <authforge/identity/IBackchannelLogoutNotifier.h>
-#include <authforge/identity/SessionManager.h>
+#include <fulla/identity/AuthService.h>
+#include <fulla/identity/IBackchannelLogoutNotifier.h>
+#include <fulla/identity/SessionManager.h>
 
 #include <gtest/gtest.h>
 
@@ -14,7 +14,7 @@
 namespace
 {
 
-using namespace authforge::identity;
+using namespace fulla::identity;
 
 class FakeBackchannelLogoutNotifier : public IBackchannelLogoutNotifier
 {

@@ -5,7 +5,7 @@
 > 范围：面向开源 IAM（身份与访问管理）系统的领域驱动设计（DDD）完整方案 ——
 > 战略设计（子域/限界上下文/上下文映射）+ 战术设计（聚合/实体/值对象/领域服务/领域事件）
 > + 分层架构与跨上下文集成机制。
-> 附录给出与 authforge 仓库现状的映射，供演进参考；正文设计独立成立，不依赖仓库现状。
+> 附录给出与 fulla 仓库现状的映射，供演进参考；正文设计独立成立，不依赖仓库现状。
 
 ## 0. 设计目标与原则
 
@@ -385,11 +385,11 @@ frontends/           # admin / user 前端(经 OHS 消费)
 
 ---
 
-## 6. 附录：与 authforge 现状的映射
+## 6. 附录：与 fulla 现状的映射
 
 本仓库的模块化重构已在朝这个模型演进，映射与差距如下（基于当前 `libs/` 结构核实）：
 
-| 目标模型 | authforge 现状 | 差距 / 建议方向 |
+| 目标模型 | fulla 现状 | 差距 / 建议方向 |
 |---|---|---|
 | BC3 授权上下文 | `libs/oauth2`（`protocol/ClientService`、`repository/IConsentRepository`、TokenService、consent/grant 相关） | 已具雏形；`AuthorizationGrant` 的不变量（码单次使用、PKCE 绑定）多散在服务里，可上收进聚合 |
 | BC4 客户端聚合 | `libs/oauth2/model/Client.h` 自述为 "the Client aggregate"（含 `isRegisteredRedirectUri`/`allowsAllScopes` 不变量） | 方向一致；目前是 DTO 薄包装，`ClientSecret` 轮换实体可显式化 |

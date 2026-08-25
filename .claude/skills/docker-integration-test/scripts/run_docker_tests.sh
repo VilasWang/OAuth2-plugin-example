@@ -47,8 +47,8 @@ echo "检查容器状态..."
 docker-compose ps > "${RESULTS_DIR}/container_status.txt"
 
 echo "检查服务日志..."
-docker-compose logs oauth2-backend > "${RESULTS_DIR}/server_logs.txt" 2>&1
-docker-compose logs oauth2-frontend > "${RESULTS_DIR}/client_logs.txt" 2>&1
+docker-compose logs fulla-backend > "${RESULTS_DIR}/server_logs.txt" 2>&1
+docker-compose logs fulla-frontend > "${RESULTS_DIR}/client_logs.txt" 2>&1
 
 # 健康检查JSON生成
 python3 <<'EOF'
@@ -57,10 +57,10 @@ import subprocess
 import sys
 
 services = {
-    "oauth2-backend": "http://localhost:5555/health",
-    "oauth2-frontend": "http://localhost:8080",
-    "oauth2-postgres": "localhost:5433",
-    "oauth2-redis": "localhost:6380",
+    "fulla-backend": "http://localhost:5555/health",
+    "fulla-frontend": "http://localhost:8080",
+    "fulla-postgres": "localhost:5433",
+    "fulla-redis": "localhost:6380",
     "prometheus": "http://localhost:9090"
 }
 
@@ -68,18 +68,18 @@ health_status = {}
 
 for service, endpoint in services.items():
     try:
-        if service == "oauth2-postgres":
+        if service == "fulla-postgres":
             result = subprocess.run(
-                ["docker", "exec", "oauth2-postgres", "pg_isready", "-U", "test"],
+                ["docker", "exec", "fulla-postgres", "pg_isready", "-U", "test"],
                 capture_output=True, text=True, timeout=10
             )
             health_status[service] = {
                 "status": "healthy" if result.returncode == 0 else "unhealthy",
                 "uptime": "unknown"
             }
-        elif service == "oauth2-redis":
+        elif service == "fulla-redis":
             result = subprocess.run(
-                ["docker", "exec", "oauth2-redis", "redis-cli", "-a", "redis_secret_pass", "ping"],
+                ["docker", "exec", "fulla-redis", "redis-cli", "-a", "redis_secret_pass", "ping"],
                 capture_output=True, text=True, timeout=10
             )
             health_status[service] = {
@@ -112,24 +112,24 @@ echo -e "\n${BLUE}💾 步骤3: 数据库初始化验证${NC}"
 echo "-------------------------------------------"
 
 echo "验证PostgreSQL schema..."
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "\dt" > "${RESULTS_DIR}/db_schema.txt" 2>&1
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\dt" > "${RESULTS_DIR}/db_schema.txt" 2>&1
 
 echo "验证数据表..."
-docker exec oauth2-postgres psql -U oauth2_user -d oauth2_db -c "SELECT COUNT(*) FROM oauth2_clients;" > "${RESULTS_DIR}/db_data.txt" 2>&1
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT COUNT(*) FROM oauth2_clients;" > "${RESULTS_DIR}/db_data.txt" 2>&1
 
 # 步骤4: 后端集成测试
 echo -e "\n${BLUE}🔧 步骤4: 后端集成测试${NC}"
 echo "-------------------------------------------"
 
 echo "在Docker容器中运行C++测试..."
-docker exec oauth2-backend /bin/bash -c "cd build && ctest --output-on-failure -V -C Release" > "${RESULTS_DIR}/backend_tests.txt" 2>&1 || true
+docker exec fulla-backend /bin/bash -c "cd build && ctest --output-on-failure -V -C Release" > "${RESULTS_DIR}/backend_tests.txt" 2>&1 || true
 
 # 步骤5: 前端集成测试
 echo -e "\n${BLUE}🎨 步骤5: 前端集成测试${NC}"
 echo "-------------------------------------------"
 
 echo "在Docker容器中运行Vue测试..."
-docker exec oauth2-frontend npm run test > "${RESULTS_DIR}/frontend_tests.txt" 2>&1 || true
+docker exec fulla-frontend npm run test > "${RESULTS_DIR}/frontend_tests.txt" 2>&1 || true
 
 # 步骤6: OAuth2端到端测试
 echo -e "\n${BLUE}🔐 步骤6: OAuth2端到端测试${NC}"

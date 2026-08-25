@@ -1,9 +1,9 @@
-#include <authforge/drogon/controllers/HealthController.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/controllers/HealthController.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <drogon/drogon.h>
 #include <json/json.h>
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 OAuth2Plugin *HealthController::resolvePlugin() const
@@ -169,4 +169,4 @@ void HealthController::healthReady(
     }
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

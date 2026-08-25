@@ -11,9 +11,9 @@
 //     absent; in non-Production_Mode `details` is present and lists the field
 //     names and the corresponding failure reasons.
 //
-// authforge::drogon::validation::HttpResponder::buildErrorResponse is the entry point under
-// test; it builds the Envelope via authforge::common::error::Error and gates `details` on
-// authforge::common::error::ErrorContext. The ErrorContext test hooks
+// fulla::drogon::validation::HttpResponder::buildErrorResponse is the entry point under
+// test; it builds the Envelope via fulla::common::error::Error and gates `details` on
+// fulla::common::error::ErrorContext. The ErrorContext test hooks
 // (setDetailedErrorsOverride / clearDetailedErrorsOverride) switch
 // Production_Mode deterministically without relying on build flags or
 // environment variables. Every test restores the default state with
@@ -25,8 +25,8 @@
 
 #include <drogon/drogon_test.h>
 #include <drogon/HttpResponse.h>
-#include <authforge/drogon/validation/HttpResponder.h>
-#include <authforge/common/error/ErrorContext.h>
+#include <fulla/drogon/validation/HttpResponder.h>
+#include <fulla/common/error/ErrorContext.h>
 #include <json/json.h>
 
 #include <memory>
@@ -34,8 +34,8 @@
 #include <vector>
 
 using namespace drogon;
-using namespace authforge::common::error;
-using authforge::drogon::validation::HttpResponder;
+using namespace fulla::common::error;
+using fulla::drogon::validation::HttpResponder;
 
 namespace
 {

@@ -1,10 +1,10 @@
-#include <authforge/drogon/adapters/OpenSslUuidGenerator.h>
+#include <fulla/drogon/adapters/OpenSslUuidGenerator.h>
 
 #include <openssl/rand.h>
 
 #include <cstdio>
 
-namespace authforge::drogon::adapters
+namespace fulla::drogon::adapters
 {
 
 std::string OpenSslUuidGenerator::generate()
@@ -49,4 +49,4 @@ std::string OpenSslUuidGenerator::generate()
     return std::string(buf);
 }
 
-}  // namespace authforge::drogon::adapters
+}  // namespace fulla::drogon::adapters

@@ -4,9 +4,9 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
-#include <authforge/drogon/utils/SubjectGenerator.h>
+#include <fulla/drogon/utils/SubjectGenerator.h>
 
-using namespace authforge::common::utils;
+using namespace fulla::common::utils;
 
 DROGON_TEST(Performance_P1_Benchmark_SubjectGeneration_StressTest)
 {

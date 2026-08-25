@@ -49,7 +49,7 @@ FINGERPRINT_TEST = Path("tests/integration/concurrency/Property4_OpenApiValidati
 OPENAPI_YAML = Path("apps/server/openapi.yaml")
 VERSION_CMAKE = Path("cmake/Version.cmake")
 CONTROLLER_GLOBS = [
-    "libs/drogon/include/authforge/drogon/controllers/*.h",
+    "libs/drogon/include/fulla/drogon/controllers/*.h",
     # .cc globs: today the route macros live in headers, but scanning the
     # implementation trees too closes the "new controller defines its macro in
     # the .cc" blind spot. Comment-only mentions of ADD_METHOD_TO don't match
@@ -160,7 +160,7 @@ def extract_cmake_version(version_cmake: Path) -> str:
             raise ValueError(f"{name} not found in {version_cmake}")
         return m.group(1)
 
-    return ".".join(var("OAUTH2_PROJECT_VERSION_" + p) for p in ("MAJOR", "MINOR", "PATCH"))
+    return ".".join(var("FULLA_PROJECT_VERSION_" + p) for p in ("MAJOR", "MINOR", "PATCH"))
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +202,7 @@ def run_checks(
     if yaml_version != cmake_version:
         failures.append(
             f"[version] openapi.yaml info.version={yaml_version} != "
-            f"cmake/Version.cmake OAUTH2_PROJECT_VERSION={cmake_version}"
+            f"cmake/Version.cmake FULLA_PROJECT_VERSION={cmake_version}"
         )
     return failures
 

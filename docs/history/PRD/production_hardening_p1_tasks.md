@@ -15,7 +15,7 @@
 - `OAuth2Plugin/src/common/utils/JwkManager.cc`
 
 **功能**:
-- 启动时从配置路径加载 RSA 私钥 PEM（或从环境变量 `OAUTH2_SIGNING_KEY`）
+- 启动时从配置路径加载 RSA 私钥 PEM（或从环境变量 `FULLA_SIGNING_KEY`）
 - 支持密钥轮转：`active_kid` + `previous_kid`（JWKS 同时暴露两把公钥）
 - 提供 `signIdToken(claims) -> std::string` 方法（RS256）
 
@@ -526,7 +526,7 @@ DELETE FROM audit_logs WHERE timestamp < NOW() - INTERVAL '90 days';
 
 **撤销授权**:
 ```cpp
-// 1. 删除 oauth2_user_consents WHERE user_id=$1 AND client_id=$2
+// 1. 删除 fulla_user_consents WHERE user_id=$1 AND client_id=$2
 // 2. 撤销该 client 为该用户颁发的所有 token
 // 3. 审计日志
 ```

@@ -1,4 +1,4 @@
-#include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <fulla/drogon/authz/ResourceScopeRegistry.h>
 
 #include <drogon/drogon.h>
 
@@ -9,15 +9,15 @@
 #include <sstream>
 #include <unordered_map>
 
-namespace authforge::drogon::authz
+namespace fulla::drogon::authz
 {
 namespace
 {
 
-// NOTE on namespace qualification: this TU lives in authforge::drogon::authz.
-// The top-level Drogon namespace (::drogon) is shadowed by authforge::drogon,
+// NOTE on namespace qualification: this TU lives in fulla::drogon::authz.
+// The top-level Drogon namespace (::drogon) is shadowed by fulla::drogon,
 // so every Drogon type/macro below is spelled with a leading :: to resolve
-// against the global ::drogon rather than authforge::drogon. (Same convention
+// against the global ::drogon rather than fulla::drogon. (Same convention
 // as the controllers, e.g. ::drogon::Get in ADD_METHOD_TO.)
 
 // ---------------------------------------------------------------------------
@@ -415,4 +415,4 @@ bool ResourceScopeRegistry::isBuilt()
     return built();
 }
 
-}  // namespace authforge::drogon::authz
+}  // namespace fulla::drogon::authz

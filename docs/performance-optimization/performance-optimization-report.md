@@ -10,7 +10,7 @@
 |---|---|
 | 机器 | Docker Desktop (WSL2)，8 vCPU / 15.6 GiB；驱动 = WSL 内 wrk 4.1.0（`localhost-cross-container`） |
 | 栈 | bench overlay：cache ON（client 300s / token 60s）、PG 池 64 / Redis 池 64、`auto_batch=true`、PG17 + 实例调优、V025/V026 schema |
-| 阶梯口径 | 每级 5 s 预热 + 10 s 测量（会话协议，`run-authforge-session.sh`），S1-S6 全 8 级 c2→c128 |
+| 阶梯口径 | 每级 5 s 预热 + 10 s 测量（会话协议，`run-fulla-session.sh`），S1-S6 全 8 级 c2→c128 |
 | 已知方差 | 跨日 S3/S6 ±8-9%；A/B 判定一律同日背靠背；本机 bench 期间禁跑任何子代理/构建 |
 
 CPU 热点说明：容器内无 perf/gdb，`perf_event_paranoid=2` —— 提示词文档预期的 perf 路径在本机被环境阻断。降级方案：负载下 docker stats 容器 CPU 分布采样（§3.4）+ 静态扫描 + EXPLAIN 三方证据交叉。
@@ -132,4 +132,4 @@ backend ≈ 267% · postgres ≈ 266% · redis ≈ 40%（各为 8 核中的 ~2.7
 
 \* S4 恒定 err ~0.02%（全 VU 共享限流桶的已知产品特性），不满足 <0.01% 稳态门 —— 表内给峰值。
 
-注：竞品列对比倍数最初为方向性推断（2026-08-18 旧表口径）—— **2026-08-23 四产品同环境全量重跑已完成**（`benchmarks/competitors/results/COMPARISON.md`，AuthForge TTL=30 留存有界 session 口径 + 生产镜像 LTO 构建档；08-21 轮为 session 口径遗留）：正式表定格 S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x，五场景全部领先；调研报告 §3.1 已同步引用。本表保留作为单一出处的终测快照（本表数字为 08-21 轮自测口径；对外以 COMPARISON.md 为准）。S5 的逆转（1,998→4,593→5,506）主要来自测量口径修复与 TTL=30 留存有界化，部分来自写路径相关优化；旧 "S5 输 Keycloak" 结论作废。
+注：竞品列对比倍数最初为方向性推断（2026-08-18 旧表口径）—— **2026-08-23 四产品同环境全量重跑已完成**（`benchmarks/competitors/results/COMPARISON.md`，Fulla TTL=30 留存有界 session 口径 + 生产镜像 LTO 构建档；08-21 轮为 session 口径遗留）：正式表定格 S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x，五场景全部领先；调研报告 §3.1 已同步引用。本表保留作为单一出处的终测快照（本表数字为 08-21 轮自测口径；对外以 COMPARISON.md 为准）。S5 的逆转（1,998→4,593→5,506）主要来自测量口径修复与 TTL=30 留存有界化，部分来自写路径相关优化；旧 "S5 输 Keycloak" 结论作废。

@@ -1,15 +1,15 @@
-#include <authforge/storage/redis/CachedClientRepository.h>
+#include <fulla/storage/redis/CachedClientRepository.h>
 #include <drogon/drogon.h>
 
-namespace authforge::storage::redis
+namespace fulla::storage::redis
 {
 
 // Task 27.5 phase 4.4: callback + DTO aliases now live on the new base
-// interface (authforge::oauth2::repository::IClientRepository); bring them into
+// interface (fulla::oauth2::repository::IClientRepository); bring them into
 // scope for the out-of-class method definitions below.
 using ClientCallback = CachedClientRepositoryBase::ClientCallback;
 using BoolCallback = CachedClientRepositoryBase::BoolCallback;
-using OAuth2Client = ::authforge::oauth2::model::OAuth2Client;
+using OAuth2Client = ::fulla::oauth2::model::OAuth2Client;
 
 CachedClientRepository::CachedClientRepository(std::shared_ptr<CachedClientRepositoryBase> impl)
     : impl_(std::move(impl)),
@@ -49,4 +49,4 @@ void CachedClientRepository::validateClient(
     impl_->validateClient(clientId, clientSecret, std::move(cb));
 }
 
-}  // namespace authforge::storage::redis
+}  // namespace fulla::storage::redis

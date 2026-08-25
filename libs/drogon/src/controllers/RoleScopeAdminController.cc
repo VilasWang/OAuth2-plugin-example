@@ -1,23 +1,23 @@
-#include <authforge/drogon/controllers/RoleScopeAdminController.h>
-#include <authforge/drogon/admin/RoleScopeAdminService.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/authz/ResourceScopeRegistry.h>
+#include <fulla/drogon/controllers/RoleScopeAdminController.h>
+#include <fulla/drogon/admin/RoleScopeAdminService.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/authz/ResourceScopeRegistry.h>
 
 #include <memory>
 
-// M5 Task 29b batch 4 (authforge-sdk-refactor): inline raw-SQL DB access from
+// M5 Task 29b batch 4 (fulla-sdk-refactor): inline raw-SQL DB access from
 // the Task 29a verbatim move is now delegated to RoleScopeAdminService (Mapper
 // + Criteria, per .claude/rules/db-operations.md). The listRoles JOIN+GROUP-BY
 // +COUNT is split into separate Mapper queries (JOIN-in-one-query forbidden).
 // Controller is now a thin HTTP adapter. Behavior equivalent (Admin API tests
 // must stay green).
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 namespace
 {
-namespace openapi = ::authforge::drogon::observability::openapi;
+namespace openapi = ::fulla::drogon::observability::openapi;
 
 // #43 resource-scope authorization: declare one EndpointInfo with its
 // requiredScopes + impliedBy. All role/scope-admin routes are admin-gated; the
@@ -86,7 +86,7 @@ void RoleScopeAdminController::initApiDocsImpl()
               {"Admin", "Scopes"}, {"roles:read"}));
 }
 
-using RoleScopeService = ::authforge::drogon::admin::RoleScopeAdminService;
+using RoleScopeService = ::fulla::drogon::admin::RoleScopeAdminService;
 
 void RoleScopeAdminController::listRoles(
   const ::drogon::HttpRequestPtr &req,
@@ -181,7 +181,7 @@ void RoleScopeAdminController::scopeResources(
     // #43 discovery: return the (path, method) -> required-scopes matrix from
     // the central ResourceScopeRegistry. Read-only; no DB access needed.
     Json::Value resources(Json::arrayValue);
-    for (const auto &entry : authforge::drogon::authz::ResourceScopeRegistry::snapshot())
+    for (const auto &entry : fulla::drogon::authz::ResourceScopeRegistry::snapshot())
     {
         Json::Value e;
         e["path"] = entry.path;
@@ -202,4 +202,4 @@ void RoleScopeAdminController::scopeResources(
     callback(resp);
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

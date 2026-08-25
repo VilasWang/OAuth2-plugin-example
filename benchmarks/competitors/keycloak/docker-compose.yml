@@ -6,7 +6,7 @@
 #
 # Deviations from stock defaults — every one fairness-annotated in
 # benchmarks/competitors/results/COMPARISON.md (design D2 / AC4):
-#   * KC_DB_POOL_MAX_SIZE=25 — align the PG connection pool with AuthForge's
+#   * KC_DB_POOL_MAX_SIZE=25 — align the PG connection pool with Fulla's
 #     benchmark config (design D1 "same backend, pool aligned"; KC default 100).
 #   * KC_HEALTH_ENABLED=true — exposes /health/ready as the cold-start probe
 #     (official production observability recommendation).
@@ -22,7 +22,7 @@ name: kc-bench
 
 services:
   postgres:
-    image: postgres:17-alpine        # same image tag as the AuthForge bench stack (D1, bumped 15->17 in step 2)
+    image: postgres:17-alpine        # same image tag as the Fulla bench stack (D1, bumped 15->17 in step 2)
     container_name: kc-bench-postgres
     environment:
       POSTGRES_DB: keycloak

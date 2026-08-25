@@ -1,6 +1,6 @@
-#include <authforge/oauth2/protocol/ClientService.h>
+#include <fulla/oauth2/protocol/ClientService.h>
 
-namespace authforge::oauth2::protocol
+namespace fulla::oauth2::protocol
 {
 
 void ClientService::validateClient(
@@ -32,13 +32,13 @@ void ClientService::validateRedirectUri(
     clients_->getClient(
       clientId,
       [callback = std::move(callback),
-       redirectUri](std::optional<authforge::oauth2::model::OAuth2Client> client) {
+       redirectUri](std::optional<fulla::oauth2::model::OAuth2Client> client) {
           if (!client)
           {
               callback(false);
               return;
           }
-          authforge::oauth2::model::Client agg(*client);
+          fulla::oauth2::model::Client agg(*client);
           callback(agg.isRegisteredRedirectUri(redirectUri));
       }
     );
@@ -59,14 +59,14 @@ void ClientService::validateClientScopes(
     clients_->getClient(
       clientId,
       [callback = std::move(callback),
-       requestedScopes](std::optional<authforge::oauth2::model::OAuth2Client> client) mutable {
+       requestedScopes](std::optional<fulla::oauth2::model::OAuth2Client> client) mutable {
           if (!client)
           {
               callback(false, "Client not found");
               return;
           }
 
-          authforge::oauth2::model::Client agg(*client);
+          fulla::oauth2::model::Client agg(*client);
           std::vector<std::string> invalidScopes;
           for (const auto &scope : requestedScopes)
           {
@@ -92,4 +92,4 @@ void ClientService::validateClientScopes(
     );
 }
 
-}  // namespace authforge::oauth2::protocol
+}  // namespace fulla::oauth2::protocol

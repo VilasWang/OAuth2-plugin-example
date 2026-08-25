@@ -103,7 +103,7 @@ P1（admin/self-service 响应 schema）与 P2（WebAuthn/social 等）维持现
 
 1. **routes ↔ docs**：源码扫描 `ADD_METHOD_TO`（多行宏需跨行匹配；本仓库无 `METHOD_ADD`）覆盖 `libs/drogon/include/.../controllers/*.h` + `apps/server/**`，提取 `METHOD path` 集——每个宏只取第一个方法 token（GitHub/Google/WeChat 的 `::drogon::Post, ::drogon::Options` 双方法声明只取主方法，OPTIONS 忽略）；解析指纹测试 `kFingerprint` 字符串提取文档注册集；断言 `docs == routes − ROUTE_ONLY`。
 2. **docs ↔ yaml**：解析 `openapi.yaml` paths；断言 `yaml_ops == docs − YAML_EXCLUDED`。
-3. **version sync**：`openapi.yaml` `info.version` == `cmake/Version.cmake` 的 `OAUTH2_PROJECT_VERSION`。
+3. **version sync**：`openapi.yaml` `info.version` == `cmake/Version.cmake` 的 `FULLA_PROJECT_VERSION`。
 
 工程约束：
 - 遵循仓库脚本惯例：`--selftest`（fixture 驱动）、退出码 0/1/2、ASCII 输出

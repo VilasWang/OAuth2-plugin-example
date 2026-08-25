@@ -50,7 +50,7 @@ A/B 节裁决 2）。TTL 同步到期雷群（30s 周期 ~800ms 尖峰）的全�
 6. **migration 执行方式（v1 论断错误，评审已纠正）**：`MigrationRunner` 委托
    `SchemaManager::migrate`，后者（`apps/server/src/SchemaManager.cc:196-211`，
    #46）**把全部待应用迁移包在一个事务里**逐条 `trans->execSqlSync` 执行。
-   → **`CREATE/DROP INDEX CONCURRENTLY` 在服务器/Helm Job/OAUTH2_AUTO_MIGRATE
+   → **`CREATE/DROP INDEX CONCURRENTLY` 在服务器/Helm Job/FULLA_AUTO_MIGRATE
    路径必然失败**（"cannot run inside a transaction block"，迁移失败=进程退出）。
    本方案所有 SQL 用普通 DDL（索引 DDL 事务内合法；DROP 瞬时；生产走 Helm
    迁移 Job 变更窗口）。本地 db-reset skill 的 `psql -f` 逐文件 autocommit 路径

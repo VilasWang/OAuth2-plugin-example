@@ -26,15 +26,15 @@
 #include <future>
 #include <string>
 
-using authforge::test::http::loginAsAdmin;
-using authforge::test::http::parseJsonBody;
-using authforge::test::http::postgresAvailable;
-using authforge::test::http::sendGet;
-using authforge::test::http::sendDelete;
-using authforge::test::http::sendPostJson;
-using authforge::test::http::sendPutJson;
-using authforge::test::http::serverReachable;
-using authforge::test::http::statusIs;
+using fulla::test::http::loginAsAdmin;
+using fulla::test::http::parseJsonBody;
+using fulla::test::http::postgresAvailable;
+using fulla::test::http::sendGet;
+using fulla::test::http::sendDelete;
+using fulla::test::http::sendPostJson;
+using fulla::test::http::sendPutJson;
+using fulla::test::http::serverReachable;
+using fulla::test::http::statusIs;
 
 #define ADMIN_USER_SKIP_GUARD                                   \
     do                                                          \

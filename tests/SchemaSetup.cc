@@ -1,7 +1,7 @@
 #include <drogon/drogon_test.h>
 #include <drogon/orm/DbClient.h>
 #include <drogon/drogon.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <iostream>
 
 #include "StorageSeed.h"  // tests/common/, in the test target's include dirs
@@ -77,7 +77,7 @@ DROGON_TEST(Database_P0_Seed_Setup_Works)
         return;
     }
 
-    const bool ok = authforge::test::seed::seedDatabase();
+    const bool ok = fulla::test::seed::seedDatabase();
     if (!ok)
     {
         // A DB-configured but unreachable/seed-failed state is a real problem

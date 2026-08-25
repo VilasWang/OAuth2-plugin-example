@@ -1,23 +1,23 @@
-#include <authforge/drogon/controllers/MfaController.h>
-#include <authforge/drogon/utils/TotpUtils.h>
-#include <authforge/drogon/utils/CryptoUtils.h>
-#include <authforge/drogon/plugin/OAuth2Plugin.h>
-#include <authforge/drogon/adapters/DrogonAuditSink.h>
-#include <authforge/drogon/observability/openapi/OpenApiGenerator.h>
-#include <authforge/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/controllers/MfaController.h>
+#include <fulla/drogon/utils/TotpUtils.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
+#include <fulla/drogon/adapters/DrogonAuditSink.h>
+#include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/error/ErrorResponder.h>
 #include <drogon/drogon.h>
 #include <chrono>
 
-// Task 24 slice 5 (authforge-sdk-refactor): identity-layer services this
+// Task 24 slice 5 (fulla-sdk-refactor): identity-layer services this
 // controller now optionally consumes.
-#include <authforge/identity/IUserRepository.h>
-#include <authforge/identity/MfaService.h>
+#include <fulla/identity/IUserRepository.h>
+#include <fulla/identity/MfaService.h>
 
-#include <authforge/storage/postgres/models/Users.h>
+#include <fulla/storage/postgres/models/Users.h>
 
 using namespace ::drogon::orm;
 
-namespace authforge::drogon::controllers
+namespace fulla::drogon::controllers
 {
 
 OAuth2Plugin *MfaController::resolvePlugin() const
@@ -35,7 +35,7 @@ void respondError(
   std::string detailForLog = ""
 )
 {
-    ::authforge::common::error::ErrorResponder::respond(
+    ::fulla::common::error::ErrorResponder::respond(
       req,
       [cb](const ::drogon::HttpResponsePtr &r) { (*cb)(r); },
       std::move(code),
@@ -47,7 +47,7 @@ struct MfaControllerDocs
 {
     MfaControllerDocs()
     {
-        ::authforge::drogon::observability::openapi::EndpointInfo setupDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo setupDocs;
         // Path must equal the ADD_METHOD_TO route (MfaController.h): the MFA
         // self-service routes live under /api/me/mfa/*, NOT /oauth2/mfa/*
         // (those old paths have no backing routes — OpenAPI governance gate
@@ -58,27 +58,27 @@ struct MfaControllerDocs
         setupDocs.description = "Initiate MFA setup by generating a TOTP secret.";
         setupDocs.tags = {"MFA"};
         setupDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(setupDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(setupDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo verifySetupDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo verifySetupDocs;
         verifySetupDocs.path = "/api/me/mfa/verify";
         verifySetupDocs.method = "POST";
         verifySetupDocs.summary = "Verify MFA Setup";
         verifySetupDocs.description = "Verify a TOTP code to finalize MFA setup.";
         verifySetupDocs.tags = {"MFA"};
         verifySetupDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifySetupDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifySetupDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo disableDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo disableDocs;
         disableDocs.path = "/api/me/mfa/disable";
         disableDocs.method = "POST";
         disableDocs.summary = "Disable MFA";
         disableDocs.description = "Disable MFA for the authenticated user.";
         disableDocs.tags = {"MFA"};
         disableDocs.requiresAuth = true;
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(disableDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(disableDocs);
 
-        ::authforge::drogon::observability::openapi::EndpointInfo verifyDocs;
+        ::fulla::drogon::observability::openapi::EndpointInfo verifyDocs;
         verifyDocs.path = "/oauth2/mfa/verify";
         verifyDocs.method = "POST";
         verifyDocs.summary = "Verify MFA Code (Login)";
@@ -95,11 +95,11 @@ struct MfaControllerDocs
         // parameters, so client generators emitted clients that didn't send
         // mfa_token/code/client_id/redirect_uri/code_verifier).
         auto mkStrParam = [](const char *name, const char *desc, bool required) {
-            ::authforge::drogon::observability::openapi::ParameterInfo p;
+            ::fulla::drogon::observability::openapi::ParameterInfo p;
             p.name = name;
             p.description = desc;
-            p.type = ::authforge::drogon::observability::openapi::ParameterType::STRING;
-            p.location = ::authforge::drogon::observability::openapi::ParameterLocation::QUERY;
+            p.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+            p.location = ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
             p.required = required;
             return p;
         };
@@ -116,7 +116,7 @@ struct MfaControllerDocs
         verifyDocs.responses = {{200, "MFA verification successful — returns the token pair"},
                                 {400, "Invalid request (missing mfa_token/code, malformed TOTP)"},
                                 {401, "Invalid MFA code or client/redirect mismatch"}};
-        ::authforge::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyDocs);
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(verifyDocs);
     }
 };
 
@@ -133,7 +133,7 @@ void MfaController::setup(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
-    // Task 24 slice 5: prefer the injected authforge::identity::MfaService
+    // Task 24 slice 5: prefer the injected fulla::identity::MfaService
     // (constructed once at startup by
     // bootstrap::wireIdentityServices()/OAuth2Server/bootstrap/
     // IdentityAssembly.cc), falling back to the pre-Task-24 raw SQL below
@@ -142,7 +142,7 @@ void MfaController::setup(
     if (mfaService_ && userRepo_)
     {
         userRepo_->findByPublicSub(
-          userId, [this, sharedCb, req, userId](std::optional<authforge::identity::UserData> user) {
+          userId, [this, sharedCb, req, userId](std::optional<fulla::identity::UserData> user) {
               if (!user)
               {
                   respondError(
@@ -153,7 +153,7 @@ void MfaController::setup(
               mfaService_->setupSecret(
                 user->id,
                 userId,
-                [sharedCb, req](std::optional<authforge::identity::MfaSetupResult> result) {
+                [sharedCb, req](std::optional<fulla::identity::MfaSetupResult> result) {
                     if (!result)
                     {
                         respondError(
@@ -175,18 +175,18 @@ void MfaController::setup(
         return;
     }
 
-    std::string secret = ::authforge::common::utils::TotpUtils::generateSecret();
+    std::string secret = ::fulla::common::utils::TotpUtils::generateSecret();
 
     auto db = ::drogon::app().getDbClient();
     // #54: deleted_at filter — a soft-deleted user must not mutate MFA state
     // (V024: deleted users are excluded from all queries).
     try
     {
-        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-          Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
-            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+        Mapper<drogon_model::fulla_db::Users>(db).findBy(
+          Criteria(drogon_model::fulla_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
+            Criteria(drogon_model::fulla_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
           [sharedCb, secret, userId, db, req](
-            const std::vector<drogon_model::oauth2_db::Users> &users
+            const std::vector<drogon_model::fulla_db::Users> &users
           ) {
               if (users.empty())
               {
@@ -195,14 +195,14 @@ void MfaController::setup(
                   );
                   return;
               }
-              drogon_model::oauth2_db::Users updated = users[0];
+              drogon_model::fulla_db::Users updated = users[0];
               updated.setMfaSecret(secret);
               try
               {
-                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                  Mapper<drogon_model::fulla_db::Users>(db).update(
                     updated,
                     [sharedCb, secret, userId](const size_t) {
-                        std::string otpUri = ::authforge::common::utils::TotpUtils::generateOtpAuthUri(
+                        std::string otpUri = ::fulla::common::utils::TotpUtils::generateOtpAuthUri(
                           secret, userId, "OAuth2Server"
                         );
                         Json::Value json;
@@ -265,7 +265,7 @@ void MfaController::verifySetup(
 
     if (code.empty() || code.length() != 6)
     {
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_FORMAT_ERROR",
@@ -283,7 +283,7 @@ void MfaController::verifySetup(
     {
         userRepo_->findByPublicSub(
           userId,
-          [this, sharedCb, req, userId, code](std::optional<authforge::identity::UserData> user) {
+          [this, sharedCb, req, userId, code](std::optional<fulla::identity::UserData> user) {
               if (!user)
               {
                   respondError(
@@ -296,7 +296,7 @@ void MfaController::verifySetup(
                 code,
                 [sharedCb,
                  req,
-                 userId](std::optional<authforge::identity::MfaEnableResult> result) {
+                 userId](std::optional<fulla::identity::MfaEnableResult> result) {
                     if (!result)
                     {
                         // MfaService::verifyAndEnable collapses "no
@@ -314,7 +314,7 @@ void MfaController::verifySetup(
                         );
                         return;
                     }
-                    ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                    ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                       ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                       "mfa_enabled",
                       "success",
@@ -344,10 +344,10 @@ void MfaController::verifySetup(
     // #54: deleted_at filter — a soft-deleted user must not enable MFA.
     try
     {
-        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-          Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
-            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
-          [sharedCb, code, userId, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
+        Mapper<drogon_model::fulla_db::Users>(db).findBy(
+          Criteria(drogon_model::fulla_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
+            Criteria(drogon_model::fulla_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [sharedCb, code, userId, db, req](const std::vector<drogon_model::fulla_db::Users> &users) {
               if (users.empty())
               {
                   respondError(
@@ -371,7 +371,7 @@ void MfaController::verifySetup(
                   return;
               }
 
-              if (!::authforge::common::utils::TotpUtils::verifyCode(secret, code))
+              if (!::fulla::common::utils::TotpUtils::verifyCode(secret, code))
               {
                   respondError(
                     req, sharedCb, "AUTH_MFA_CODE_INVALID", "verifySetup: TOTP code is incorrect"
@@ -379,28 +379,28 @@ void MfaController::verifySetup(
                   return;
               }
 
-              auto backupCodes = ::authforge::common::utils::TotpUtils::generateBackupCodes(10);
+              auto backupCodes = ::fulla::common::utils::TotpUtils::generateBackupCodes(10);
               Json::Value codesJson(Json::arrayValue);
               Json::Value hashedCodesJson(Json::arrayValue);
               for (const auto &bc : backupCodes)
               {
                   codesJson.append(bc);
-                  hashedCodesJson.append(::authforge::drogon::utils::hashToken(bc));
+                  hashedCodesJson.append(::fulla::drogon::utils::hashToken(bc));
               }
 
               Json::StreamWriterBuilder writer;
               writer["indentation"] = "";
               std::string hashedCodesStr = Json::writeString(writer, hashedCodesJson);
 
-              drogon_model::oauth2_db::Users updated = users[0];
+              drogon_model::fulla_db::Users updated = users[0];
               updated.setMfaEnabled(true);
               updated.setMfaBackupCodes(hashedCodesStr);
               try
               {
-                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                  Mapper<drogon_model::fulla_db::Users>(db).update(
                     updated,
                     [sharedCb, codesJson, userId, req](const size_t) {
-                        ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                        ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                           ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                           "mfa_enabled",
                           "success",
@@ -467,7 +467,7 @@ void MfaController::disable(
     if (mfaService_ && userRepo_)
     {
         userRepo_->findByPublicSub(
-          userId, [this, sharedCb, req](std::optional<authforge::identity::UserData> user) {
+          userId, [this, sharedCb, req](std::optional<fulla::identity::UserData> user) {
               if (!user)
               {
                   respondError(
@@ -498,10 +498,10 @@ void MfaController::disable(
     // (mutating a deleted account's state).
     try
     {
-        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-          Criteria(drogon_model::oauth2_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
-            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
-          [sharedCb, db, req](const std::vector<drogon_model::oauth2_db::Users> &users) {
+        Mapper<drogon_model::fulla_db::Users>(db).findBy(
+          Criteria(drogon_model::fulla_db::Users::Cols::_public_sub, CompareOperator::EQ, userId) &&
+            Criteria(drogon_model::fulla_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+          [sharedCb, db, req](const std::vector<drogon_model::fulla_db::Users> &users) {
               if (users.empty())
               {
                   respondError(
@@ -509,13 +509,13 @@ void MfaController::disable(
                   );
                   return;
               }
-              drogon_model::oauth2_db::Users updated = users[0];
+              drogon_model::fulla_db::Users updated = users[0];
               updated.setMfaEnabled(false);
               updated.setMfaSecretToNull();
               updated.setMfaBackupCodesToNull();
               try
               {
-                  Mapper<drogon_model::oauth2_db::Users>(db).update(
+                  Mapper<drogon_model::fulla_db::Users>(db).update(
                     updated,
                     [sharedCb](const size_t) {
                         Json::Value json;
@@ -591,7 +591,7 @@ void MfaController::verifyLogin(
 
     if (mfaToken.empty() || code.empty())
     {
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -602,7 +602,7 @@ void MfaController::verifyLogin(
 
     if (clientId.empty() || redirectUri.empty())
     {
-        ::authforge::common::error::ErrorResponder::respond(
+        ::fulla::common::error::ErrorResponder::respond(
           req,
           std::move(callback),
           "VALIDATION_MISSING_REQUIRED_FIELD",
@@ -794,7 +794,7 @@ void MfaController::verifyLogin(
                                     return;
                                 }
 
-                                ::authforge::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                   "mfa_verified",
                                   "success",
@@ -853,7 +853,7 @@ void MfaController::verifyLogin(
         userRepo_->findById(
           userId,
           [this, sharedCb, req, code, userId, onTotpVerified](
-            std::optional<authforge::identity::UserData> user
+            std::optional<fulla::identity::UserData> user
           ) {
               if (!user)
               {
@@ -936,11 +936,11 @@ void MfaController::verifyLogin(
     // MFA verify).
     try
     {
-        Mapper<drogon_model::oauth2_db::Users>(db).findBy(
-          Criteria(drogon_model::oauth2_db::Users::Cols::_id, CompareOperator::EQ, fallbackUserId) &&
-            Criteria(drogon_model::oauth2_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
+        Mapper<drogon_model::fulla_db::Users>(db).findBy(
+          Criteria(drogon_model::fulla_db::Users::Cols::_id, CompareOperator::EQ, fallbackUserId) &&
+            Criteria(drogon_model::fulla_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
           [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin, mfaAuthTime, mfaAmr](
-            const std::vector<drogon_model::oauth2_db::Users> &users
+            const std::vector<drogon_model::fulla_db::Users> &users
           ) {
               if (users.empty())
               {
@@ -970,7 +970,7 @@ void MfaController::verifyLogin(
           auto puri = u.getMfaPendingRedirectUri();
           std::string pendingRedirectUri = puri ? *puri : "";
 
-          if (::authforge::common::utils::TotpUtils::verifyCode(secret, code))
+          if (::fulla::common::utils::TotpUtils::verifyCode(secret, code))
           {
               plugin->validateClient(
                 clientId,
@@ -1085,7 +1085,7 @@ void MfaController::verifyLogin(
                                           return;
                                       }
 
-                                      ::authforge::drogon::adapters::DrogonAuditSink::
+                                      ::fulla::drogon::adapters::DrogonAuditSink::
                                         logFromRequest(
                                           ::drogon::app()
                                             .getPlugin<::OAuth2Plugin>()
@@ -1120,24 +1120,24 @@ void MfaController::verifyLogin(
                                               sendSuccess();
                                               return;
                                           }
-                                          Mapper<drogon_model::oauth2_db::Users>(clearDb).findBy(
+                                          Mapper<drogon_model::fulla_db::Users>(clearDb).findBy(
                                             Criteria(
-                                              drogon_model::oauth2_db::Users::Cols::_id,
+                                              drogon_model::fulla_db::Users::Cols::_id,
                                               CompareOperator::EQ,
                                               clearUserId
                                             ),
                                             [sendSuccess, clearDb](
-                                              const std::vector<drogon_model::oauth2_db::Users> &u
+                                              const std::vector<drogon_model::fulla_db::Users> &u
                                             ) {
                                                 if (u.empty())
                                                 {
                                                     sendSuccess();
                                                     return;
                                                 }
-                                                drogon_model::oauth2_db::Users clr = u[0];
+                                                drogon_model::fulla_db::Users clr = u[0];
                                                 clr.setMfaPendingClientIdToNull();
                                                 clr.setMfaPendingRedirectUriToNull();
-                                                Mapper<drogon_model::oauth2_db::Users>(clearDb)
+                                                Mapper<drogon_model::fulla_db::Users>(clearDb)
                                                   .update(
                                                     clr,
                                                     [sendSuccess](const size_t) { sendSuccess(); },
@@ -1205,4 +1205,4 @@ void MfaController::verifyLogin(
     }
 }
 
-}  // namespace authforge::drogon::controllers
+}  // namespace fulla::drogon::controllers

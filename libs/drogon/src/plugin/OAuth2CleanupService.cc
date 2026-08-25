@@ -1,12 +1,12 @@
-#include <authforge/drogon/plugin/OAuth2CleanupService.h>
+#include <fulla/drogon/plugin/OAuth2CleanupService.h>
 #include <drogon/drogon.h>
 
-namespace authforge::drogon
+namespace fulla::drogon
 {
 
 OAuth2CleanupService::OAuth2CleanupService(
-  std::shared_ptr<::authforge::oauth2::repository::IGrantRepository> grantRepo,
-  std::shared_ptr<::authforge::oauth2::repository::ITokenRepository> tokenRepo
+  std::shared_ptr<::fulla::oauth2::repository::IGrantRepository> grantRepo,
+  std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo
 )
     : grantRepo_(std::move(grantRepo)), tokenRepo_(std::move(tokenRepo))
 {
@@ -194,4 +194,4 @@ void OAuth2CleanupService::doPurge()
         tokenRepo_->purgeExpired();
 }
 
-}  // namespace authforge::drogon
+}  // namespace fulla::drogon

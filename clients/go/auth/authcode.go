@@ -92,7 +92,7 @@ func (f *AuthCodeFlow) ExchangeCode(ctx context.Context, code, codeVerifier stri
 	return postFormWithBasic(ctx, f.HTTPClient, f.BaseURL+TokenURLPath, form, f.ClientID, f.ClientSecret)
 }
 
-// Refresh POSTs grant_type=refresh_token. AuthForge rotates refresh tokens
+// Refresh POSTs grant_type=refresh_token. Fulla rotates refresh tokens
 // on every use (migration V008): always adopt the new RefreshToken from the
 // returned response.
 func (f *AuthCodeFlow) Refresh(ctx context.Context, refreshToken string) (*TokenResponse, error) {

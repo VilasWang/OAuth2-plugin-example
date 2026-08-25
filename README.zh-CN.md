@@ -1,25 +1,25 @@
-# AuthForge — 全栈 OAuth2/OIDC 授权服务器
+# Fulla — 全栈 OAuth2/OIDC 授权服务器
 
 [English](README.md)
 
-![CI](https://github.com/voidvec/authforge/actions/workflows/ci.yml/badge.svg)
-![Security](https://github.com/voidvec/authforge/actions/workflows/security.yml/badge.svg)
-[![Release](https://img.shields.io/github/v/release/voidvec/authforge)](https://github.com/voidvec/authforge/releases/latest)
+![CI](https://github.com/voidvec/fulla/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/voidvec/fulla/actions/workflows/security.yml/badge.svg)
+[![Release](https://img.shields.io/github/v/release/voidvec/fulla)](https://github.com/voidvec/fulla/releases/latest)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
-生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(authforge-*)`）集成。包含管理后台、前端客户端和完整的测试体系。
+生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(fulla-*)`）集成。包含管理后台、前端客户端和完整的测试体系。
 
 ---
 
 ## 项目架构
 
 ```
-authforge/
+fulla/
 ├── apps/server/        # 授权服务器后端（Drogon C++ 框架）
-├── libs/               # SDK 库包（authforge::common/oauth2/identity/storage-*/drogon）
+├── libs/               # SDK 库包（fulla::common/oauth2/identity/storage-*/drogon）
 ├── frontends/admin/    # 管理后台前端（Vue 3 + TailwindCSS）
 ├── frontends/user/     # 用户端前端（Vue 3 + Pinia + TailwindCSS）
 ├── examples/           # SDK 消费示例（find_package 冒烟宿主）
@@ -35,18 +35,18 @@ authforge/
 
 ```mermaid
 graph TD
-    server["authforge-server<br/>(apps/server)"] --> drogon
-    drogon["authforge::drogon<br/>插件 · 控制器 · 过滤器 · 视图"] --> oauth2
+    server["fulla-server<br/>(apps/server)"] --> drogon
+    drogon["fulla::drogon<br/>插件 · 控制器 · 过滤器 · 视图"] --> oauth2
     drogon --> identity
     drogon --> memory
     drogon --> redis
     drogon --> postgres
-    memory["authforge::storage::memory"] --> oauth2
-    redis["authforge::storage::redis"] --> oauth2
-    postgres["authforge::storage::postgres<br/>(ORM 模型)"] --> identity
-    oauth2["authforge::oauth2<br/>OAuth2/OIDC 引擎"] --> common
-    identity["authforge::identity<br/>认证 · MFA · WebAuthn · RBAC"] --> common
-    common["authforge::common<br/>共享内核 · 端口接口"]
+    memory["fulla::storage::memory"] --> oauth2
+    redis["fulla::storage::redis"] --> oauth2
+    postgres["fulla::storage::postgres<br/>(ORM 模型)"] --> identity
+    oauth2["fulla::oauth2<br/>OAuth2/OIDC 引擎"] --> common
+    identity["fulla::identity<br/>认证 · MFA · WebAuthn · RBAC"] --> common
+    common["fulla::common<br/>共享内核 · 端口接口"]
 ```
 
 可选特性面由 Conan/CMake 选项门控（`with_identity` / `with_social` / `with_webauthn`），SDK 消费方可据此收缩依赖表面。
@@ -139,11 +139,11 @@ graph TD
 
 与 Keycloak 26.7.1 / Ory Hydra v26.2.0 / Zitadel v4.17.1 的同环境对比（同一台空闲主机、
 同 session 串行执行、各家官方推荐配置、同一 PostgreSQL 17 后端、同一 wrk 阶梯 2→128）。
-AuthForge 使用文档化基准档（池 64/64、cache on、`auto_batch`、`reuse_port`、opt-in LTO
+Fulla 使用文档化基准档（池 64/64、cache on、`auto_batch`、`reuse_port`、opt-in LTO
 构建、TTL=30 留存有界 session）。**五个对比场景全部领先**（2026-08-23 刷新，
 [完整报告与方法论](benchmarks/competitors/results/COMPARISON.md)）：
 
-| 场景 | AuthForge | 对亚军倍数 |
+| 场景 | Fulla | 对亚军倍数 |
 |---|---|---|
 | discovery（`/.well-known/openid-configuration`） | 87,499 QPS | 2.1x Keycloak |
 | client_credentials 签发 | 14,438 QPS | 2.6x Keycloak |
@@ -167,7 +167,7 @@ python3 benchmarks/reporting/gen-comparison.py
 
 方法论与公平性偏离项（各家配置出处、对齐了什么没对齐什么）：
 [competitor-benchmark-design.md](docs/productization-evolution/in-progress/competitor-benchmark-design.md)。
-AuthForge 侧场景细节：[benchmarks/README.md](benchmarks/README.md)。
+Fulla 侧场景细节：[benchmarks/README.md](benchmarks/README.md)。
 
 ---
 
@@ -208,7 +208,7 @@ ctest --test-dir build/linux-release --output-on-failure
 ```powershell
 # 后端
 cd apps\server
-..\..\build\windows-msvc\apps\server\Release\authforge-server.exe
+..\..\build\windows-msvc\apps\server\Release\fulla-server.exe
 
 # 管理后台 — http://localhost:5174/admin/
 cd frontends\admin && npm install && npm run dev
@@ -219,34 +219,34 @@ cd frontends\user && npm install && npm run dev
 
 ### 路径 C — 以 SDK 方式集成
 
-通过 `find_package` 将 AuthForge 嵌入自己的 C++ 宿主（SDK 包取自 [Releases](https://github.com/voidvec/authforge/releases)，或从源码 `cmake --install`）：
+通过 `find_package` 将 Fulla 嵌入自己的 C++ 宿主（SDK 包取自 [Releases](https://github.com/voidvec/fulla/releases)，或从源码 `cmake --install`）：
 
 ```cmake
 # 全栈：一个包拉取完整闭包（引擎 + Drogon 插件/控制器）
-find_package(authforge-drogon CONFIG REQUIRED)
-target_link_libraries(my-host PRIVATE authforge::drogon)
+find_package(fulla-drogon CONFIG REQUIRED)
+target_link_libraries(my-host PRIVATE fulla::drogon)
 
 # 或仅取引擎面（无 Drogon 依赖）：
-find_package(authforge-oauth2 CONFIG REQUIRED)
-find_package(authforge-storage-memory CONFIG REQUIRED)
-target_link_libraries(my-engine PRIVATE authforge::oauth2 authforge::storage::memory)
+find_package(fulla-oauth2 CONFIG REQUIRED)
+find_package(fulla-storage-memory CONFIG REQUIRED)
+target_link_libraries(my-engine PRIVATE fulla::oauth2 fulla::storage::memory)
 ```
 
-> v1.x 对公共头（`include/authforge/**`）承诺**源码级 SemVer**（CI 中 api-diff 门禁强制），不承诺二进制 ABI。第三方依赖请用仓库的 `conanfile.py` + `conan.lock` 解析。详见 [SDK 集成指南](docs/backend/sdk-integration-guide.md) · [SDK 运行时契约](docs/backend/sdk-runtime-contract.md)；参考消费方：[`examples/full-stack-host`](examples/full-stack-host)、[`examples/third-party-host`](examples/third-party-host)（均由 CI 持续验证）。
+> v1.x 对公共头（`include/fulla/**`）承诺**源码级 SemVer**（CI 中 api-diff 门禁强制），不承诺二进制 ABI。第三方依赖请用仓库的 `conanfile.py` + `conan.lock` 解析。详见 [SDK 集成指南](docs/backend/sdk-integration-guide.md) · [SDK 运行时契约](docs/backend/sdk-runtime-contract.md)；参考消费方：[`examples/full-stack-host`](examples/full-stack-host)、[`examples/third-party-host`](examples/third-party-host)（均由 CI 持续验证）。
 
 ### 路径 D — 客户端 SDK（Python / Go）
 
-非 C++ 服务通过 HTTP API 使用 AuthForge：类型化生成客户端 + 手写 auth 层（token 生命周期绝不模板化生成）：
+非 C++ 服务通过 HTTP API 使用 Fulla：类型化生成客户端 + 手写 auth 层（token 生命周期绝不模板化生成）：
 
 ```python
-# Python（发行名 authforge-oauth2，导入名 authforge）
-from authforge import m2m_client
+# Python（发行名 fulla-oauth2，导入名 fulla）
+from fulla import m2m_client
 
 client = m2m_client("http://localhost:5555", "backend-svc", "…", scopes=["tokens:read"])
 ```
 
 ```go
-// Go（github.com/voidvec/authforge/clients/go）
+// Go（github.com/voidvec/fulla/clients/go）
 client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…", []string{"tokens:read"})
 ```
 
@@ -266,10 +266,10 @@ client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…",
 |------|------|------|
 | Docker Compose（开发） | `deploy/docker/docker-compose.yml` | 全栈 + PostgreSQL + Redis，一条命令拉起 |
 | Docker Compose（生产） | `deploy/docker/docker-compose.prod.yml` | TLS/nginx，env 文件驱动的密钥配置 |
-| Kubernetes（Helm） | `deploy/helm/authforge` | values 驱动配置；数据库 Schema 迁移以 Helm hook Job 执行 |
+| Kubernetes（Helm） | `deploy/helm/fulla` | values 驱动配置；数据库 Schema 迁移以 Helm hook Job 执行 |
 
 ```bash
-helm install authforge deploy/helm/authforge -f my-values.yaml
+helm install fulla deploy/helm/fulla -f my-values.yaml
 ```
 
 完整流程：[生产部署指南](docs/ops/deployment.md) · [Windows / Docker Desktop](docs/ops/deployment-windows-docker-desktop.md) · [安全清单](docs/ops/security-checklist.md)
@@ -280,8 +280,8 @@ helm install authforge deploy/helm/authforge -f my-values.yaml
 
 发布由 SemVer 标签（`vX.Y.Z`）触发 [`release.yml`](.github/workflows/release.yml) 产出：
 
-- **SDK 包** — `authforge-sdk-<ver>-linux-x86_64.tar.gz`（8 个静态库 + 头文件 + CMake 包配置）附 `.sha256` 校验和，挂在 GitHub Release 附件。
-- **容器镜像** — 多架构（amd64 + arm64）发布到 GHCR：`ghcr.io/voidvec/authforge-{backend,frontend,admin}:<ver>`。
+- **SDK 包** — `fulla-sdk-<ver>-linux-x86_64.tar.gz`（8 个静态库 + 头文件 + CMake 包配置）附 `.sha256` 校验和，挂在 GitHub Release 附件。
+- **容器镜像** — 多架构（amd64 + arm64）发布到 GHCR：`ghcr.io/voidvec/fulla-{backend,frontend,admin}:<ver>`。
 - **签名** — 镜像 manifest 按 digest 用 cosign 签名（keyless，GitHub OIDC）。
 - **SBOM** — 每个镜像及源码树的 SPDX JSON（syft 生成），附在 Release 中。
 
@@ -289,12 +289,12 @@ helm install authforge deploy/helm/authforge -f my-values.yaml
 
 ```bash
 # 镜像签名
-cosign verify ghcr.io/voidvec/authforge-backend:<version> \
+cosign verify ghcr.io/voidvec/fulla-backend:<version> \
   --certificate-identity-regexp 'github.com/voidvec/.+/.github/workflows/release.yml' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # SDK 包完整性
-sha256sum -c authforge-sdk-<version>-linux-x86_64.tar.gz.sha256
+sha256sum -c fulla-sdk-<version>-linux-x86_64.tar.gz.sha256
 ```
 
 ---

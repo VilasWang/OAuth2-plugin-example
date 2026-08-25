@@ -1,17 +1,17 @@
-#include <authforge/storage/memory/MemoryClientRepository.h>
-#include <authforge/common/utils/ConstantTimeCompare.h>
+#include <fulla/storage/memory/MemoryClientRepository.h>
+#include <fulla/common/utils/ConstantTimeCompare.h>
 #include <drogon/drogon.h>
 
-namespace authforge::storage::memory
+namespace fulla::storage::memory
 {
 
 // F-004: constant-time comparison now comes from the shared
-// authforge::common::utils::constantTimeMemcmp (previously a verbatim
+// fulla::common::utils::constantTimeMemcmp (previously a verbatim
 // anonymous-namespace copy lived here and in the Postgres/Redis backends).
-using ::authforge::common::utils::constantTimeMemcmp;
+using ::fulla::common::utils::constantTimeMemcmp;
 
 // Task 27.5: callback type aliases now live on the new base interface
-// (authforge::oauth2::repository::IClientRepository); bring them into scope
+// (fulla::oauth2::repository::IClientRepository); bring them into scope
 // for the out-of-class method definitions below.
 using ClientCallback = IClientRepositoryBase::ClientCallback;
 using BoolCallback = IClientRepositoryBase::BoolCallback;
@@ -27,7 +27,7 @@ void MemoryClientRepository::initFromConfig(const Json::Value &clientsConfig)
     for (const auto &clientId : clientsConfig.getMemberNames())
     {
         const auto &clientData = clientsConfig[clientId];
-        ::authforge::oauth2::model::OAuth2Client client;
+        ::fulla::oauth2::model::OAuth2Client client;
         client.clientId = clientId;
 
         // Parse client type. The canonical config key is "client_type" (every
@@ -41,13 +41,13 @@ void MemoryClientRepository::initFromConfig(const Json::Value &clientsConfig)
             .asString();
         try
         {
-            client.clientType = ::authforge::oauth2::model::stringToClientType(clientTypeStr);
+            client.clientType = ::fulla::oauth2::model::stringToClientType(clientTypeStr);
         }
         catch (const std::exception &)
         {
             LOG_WARN << "MemoryClientRepository: Invalid client type '" << clientTypeStr << "' for "
                      << clientId << ", defaulting to CONFIDENTIAL";
-            client.clientType = ::authforge::oauth2::model::ClientType::CONFIDENTIAL;
+            client.clientType = ::fulla::oauth2::model::ClientType::CONFIDENTIAL;
         }
 
         // In memory mode, we store plain text or whatever provided as "secret"
@@ -128,7 +128,7 @@ void MemoryClientRepository::validateClient(
     const auto &client = it->second;
 
     // PUBLIC clients skip secret validation
-    if (client.clientType == ::authforge::oauth2::model::ClientType::PUBLIC)
+    if (client.clientType == ::fulla::oauth2::model::ClientType::PUBLIC)
     {
         LOG_DEBUG << "MemoryClientRepository validateClient: PUBLIC client " << clientId
                   << " accepted without secret";
@@ -158,4 +158,4 @@ void MemoryClientRepository::validateClient(
     cb(valid);
 }
 
-}  // namespace authforge::storage::memory
+}  // namespace fulla::storage::memory

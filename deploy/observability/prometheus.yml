@@ -2,6 +2,6 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  - job_name: "oauth2-backend"
+  - job_name: "fulla-backend"
     static_configs:
-      - targets: ["oauth2-backend:5555"]
+      - targets: ["fulla-backend:5555"]

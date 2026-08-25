@@ -71,7 +71,7 @@
 `perf_event_paranoid` 已通过 WSL sysctl 打开（值 2→1，全局内核 sysctl，容器内可见性已验证），但三重诊断证明采样不可用：
 - 自采样（`perf record -e cpu-clock -- sleep 2`）：**2 秒仅 1 个样本**；
 - `perf stat -p 1`：cycles/instructions **`<not supported>`**（无硬件 PMU）；
-- 系统级 `perf record -a -F 199`（8s）：12,736 样本几乎全部为内核 idle（`pv_native_safe_halt`），负载中的 authforge-server/wrk **用户态样本为零**。
+- 系统级 `perf record -a -F 199`（8s）：12,736 样本几乎全部为内核 idle（`pv_native_safe_halt`），负载中的 fulla-server/wrk **用户态样本为零**。
 
 官方解法（Microsoft Learn / 内核文档）：`.wslconfig [wsl2] kernelCommandLine = perf_event_paranoid=1` 仅解除权限位，采样能力缺失需**自编译带 perf 支持的 WSL2 内核** —— 改整机内核超出分析任务范畴，记为 follow-up。
 
@@ -83,7 +83,7 @@
 | 采样对象 | 全部样本 idle | 容器内 **PID 1 是监督进程（2 线程，`wait4` 等子进程），真服务器是 fork 出的 PID 8（26 线程）** —— 必须采子进程 |
 | 负载挂载 | 负载没跑 | `(wrk &)` 在 wsl.exe 退出即死 —— 负载必须作为 harness 级后台任务（或 `nohup setsid`） |
 
-sidecar 配方：`docker run --rm --pid=container:oauth2-backend --cap-add=SYS_PTRACE <server-image> bash -c "apt-get install gdb && gdb -batch -ex 'set sysroot /' -ex 'file /app/authforge-server' -ex 'attach 8' -ex 'thread apply all bt 20'"`（sidecar 必须用服务器镜像自身 —— 符号文件路径才与 /proc/PID/exe 对齐）。
+sidecar 配方：`docker run --rm --pid=container:fulla-backend --cap-add=SYS_PTRACE <server-image> bash -c "apt-get install gdb && gdb -batch -ex 'set sysroot /' -ex 'file /app/fulla-server' -ex 'attach 8' -ex 'thread apply all bt 20'"`（sidecar 必须用服务器镜像自身 —— 符号文件路径才与 /proc/PID/exe 对齐）。
 
 ### 3.3 采样结果（35 轮 × 26 线程，S6 c64 负载下，520+ 叶子帧）
 
@@ -122,4 +122,4 @@ sidecar 配方：`docker run --rm --pid=container:oauth2-backend --cap-add=SYS_P
 
 ## 附录：插桩复现要点（未入库）
 
-脏树改动 4 文件（分析后已还原）：`libs/drogon/src/StageProbe.h`（新文件：atomic 计数 + 100µs 线性分桶 201 桶 + 每 10k 样本 LOG_WARN 汇总，`steady_clock` 计时）；`OAuth2AuthFilter.cc`（userinfo 路径 entry→validateAccessToken 回调）；`TokenEndpointController.cc`（userInfo 的 roles/profile/total 三段）；`RedisCachedTokenRepository.cc`（getAccessToken 的 EXISTS/GET 两段）。跨库相对路径 include（`../../drogon/src/StageProbe.h`），namespace 需全限定 `::authforge::drogon::stageprobe`。
+脏树改动 4 文件（分析后已还原）：`libs/drogon/src/StageProbe.h`（新文件：atomic 计数 + 100µs 线性分桶 201 桶 + 每 10k 样本 LOG_WARN 汇总，`steady_clock` 计时）；`OAuth2AuthFilter.cc`（userinfo 路径 entry→validateAccessToken 回调）；`TokenEndpointController.cc`（userInfo 的 roles/profile/total 三段）；`RedisCachedTokenRepository.cc`（getAccessToken 的 EXISTS/GET 两段）。跨库相对路径 include（`../../drogon/src/StageProbe.h`），namespace 需全限定 `::fulla::drogon::stageprobe`。
