@@ -336,12 +336,84 @@ def _multiset_diff(old: List[str], new: List[str]) -> Tuple[List[str], List[str]
     return removed, added
 
 
+# A declaration parameter line carrying a default value, e.g.
+# "      int doubleDeleteDelayMs = 0" (optionally with a trailing comma when
+# it is no longer the last parameter). Comparison operators and full
+# definitions (with ';') are excluded via the [^=;] value charset.
+_DEFAULTED_PARAM_RE = re.compile(r'^\s*[\w:<>,\s*&.]+\s+\w+\s*=\s*[^=;]+,?\s*$')
+
+
+def _strip_close_paren(line: str) -> str:
+    """Drop a trailing ');' from a declaration's last-parameter line so both
+    brace styles (close-paren on its own line vs. sharing the parameter line)
+    normalize to the same shape."""
+    s = line.rstrip()
+    return s[:-2] if s.endswith(');') else s
+
+
+def _extract_defaulted_param_appends(removed: List[str],
+                                     added: List[str]) -> Tuple[List[str], List[str], int]:
+    """#89: reclassify line changes that are actually trailing defaulted-
+    parameter appends on an existing declaration.
+
+    Shape (as produced by _multiset_diff): the old LAST parameter line
+    ``int x = 60`` (or ``int x = 60);`` when the close-paren shares the line)
+    disappears while the comma-terminated form plus one or more NEW defaulted
+    parameters appear. Appending parameters that all carry defaults is
+    semantically ADDITIVE (existing call sites compile unchanged), so the
+    paired old line must not count as BREAKING. A non-defaulted append WOULD
+    break callers and is deliberately left in ``removed``.
+
+    Conservative pairing rule: for each removed line R, R's comma form
+    (close-paren stripped, ',' appended) must be present in ``added`` AND
+    every co-added line at R's indentation that looks like a parameter must
+    match the defaulted shape. Returns (removed, added, pair_count) with the
+    comma forms dropped from ``added``.
+    """
+    added_set = set(added)
+    pair_count = 0
+    kept_removed: List[str] = []
+    consumed: set = set()
+    for r in removed:
+        base = _strip_close_paren(r)
+        comma_form = base.rstrip().rstrip(',') + ','
+        if base.endswith(',') or comma_form not in added_set:
+            kept_removed.append(r)
+            continue
+        indent = r[:len(r) - len(r.lstrip())]
+        param_shaped = [a for a in added_set
+                        if a != comma_form and a not in consumed
+                        and a.startswith(indent)
+                        and not a.strip().startswith(('}', ')', '{'))]
+        shaped_ok = all(_DEFAULTED_PARAM_RE.match(_strip_close_paren(a))
+                        for a in param_shaped)
+        if not param_shaped or not shaped_ok:
+            # No co-added parameters, or at least one append lacks a default
+            # (a caller-breaking change) — keep R as BREAKING.
+            kept_removed.append(r)
+            continue
+        # Additive append: pair R <-> comma form; the co-added defaulted
+        # params stay in `added` (they are the ADDITIONS).
+        pair_count += 1
+        consumed.add(comma_form)
+    if not pair_count:
+        return removed, added, 0
+    new_added = [a for a in added if a not in consumed]
+    return kept_removed, new_added, pair_count
+
+
 def diff_snapshots(base: Dict[str, List[str]], cur: Dict[str, List[str]]) -> Drift:
     d = Drift()
     d.added_headers = sorted(set(cur) - set(base))
     d.removed_headers = sorted(set(base) - set(cur))
     for rel in sorted(set(base) & set(cur)):
         removed, added = _multiset_diff(base[rel], cur[rel])
+        removed, added, pairs = _extract_defaulted_param_appends(removed, added)
+        if pairs:
+            print(f"  [ADDITIVE] {rel}: {pairs} trailing defaulted-parameter "
+                  f"append(s) recognized (old last-param line gained a comma; "
+                  f"all appended parameters carry defaults — existing call "
+                  f"sites unchanged)")
         if removed:
             d.removed_lines[rel] = removed
         if added:
