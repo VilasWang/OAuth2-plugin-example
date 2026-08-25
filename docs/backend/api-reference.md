@@ -99,7 +99,7 @@ Location: http://localhost:5173/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=xyz12
 revoke 成功響應都帶 `Cache-Control: no-store` 與 `Pragma: no-cache`，禁止中間
 代理緩存含憑證的響應體。
 
-*(注：`grant_type=refresh_token` 需先通过客户端认证（F-003，RFC 6749 §3.2.1/§6）：CONFIDENTIAL 客户端必须携带 `client_secret`（body 或 Basic 头），缺失或错误返回 401 `invalid_client`；PUBLIC 客户端仅校验 `client_id` 存在。refresh token 持久化仅 Postgres 后端支持；`storage_type="redis"` 已弃用，该模式下 refresh grant 返回 `unsupported_grant_type`（F-005）。)*
+*(注：`grant_type=refresh_token` 需先通过客户端认证（F-003/F-017，RFC 6749 §3.2.1/§6）：认证方式必须匹配客户端注册的 `token_endpoint_auth_method`——`client_secret_basic`（默认）仅接受 HTTP Basic（body 携带 `client_secret` 会被拒）；`client_secret_post` 仅接受表单字段；PUBLIC 客户端仅发 `client_id`（携带 secret 会被拒）。缺失或错误返回 401 `invalid_client`。refresh token 持久化仅 Postgres 后端支持；`storage_type="redis"` 已弃用，该模式下 refresh grant 返回 `unsupported_grant_type`（F-005）。)*
 
 **失败 (400/401)**:
 
