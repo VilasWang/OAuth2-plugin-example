@@ -255,12 +255,12 @@ certbot --version
 
 ### 域名和 DNS 配置
 
-1. **域名解析**：确保您的域名（如 `vilas-api.cn`）的 A 记录指向服务器公网 IP
+1. **域名解析**：确保您的域名（如 `your-domain.example.com`）的 A 记录指向服务器公网 IP
 2. **DNS 传播验证**：
    ```bash
    # 检查域名是否正确解析
-   dig +short vilas-api.cn
-   nslookup vilas-api.cn
+   dig +short your-domain.example.com
+   nslookup your-domain.example.com
    ```
 3. **防火墙配置**：确保以下端口可访问：
    - `80/tcp` (HTTP)

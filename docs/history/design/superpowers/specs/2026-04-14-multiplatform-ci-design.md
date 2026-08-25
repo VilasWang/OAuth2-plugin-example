@@ -1,7 +1,7 @@
 # Multi-Platform CI/CD Design for OAuth2 Plugin Example
 
 **Date:** 2026-04-14  
-**Author:** vilas  
+**Author:** Luca  
 **Status:** Design Approved - Pending Implementation
 
 ## 1. Overview
