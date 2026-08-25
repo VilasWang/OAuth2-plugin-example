@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 
-const screenshotDir = 'C:\\Users\\vilas\\.gemini\\antigravity-cli\\brain\\1f6677d1-54e0-4109-a26e-e46c8302381d';
+const screenshotDir = 'C:\\Users\\<you>\\.gemini\\antigravity-cli\\brain\\<session-id>';
 const results = [];
 
 // 1. 数据库状态重置

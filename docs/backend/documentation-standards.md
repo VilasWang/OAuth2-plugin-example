@@ -86,7 +86,7 @@ When creating a new document, ask:
 
 - **Created:** 2026-04-14
 - **Purpose:** Resolve ambiguity about document placement
-- **Maintainer:** vilas
+- **Maintainer:** Luca
 - **Update process:** Revise this document when organizational patterns change
 
 ---
