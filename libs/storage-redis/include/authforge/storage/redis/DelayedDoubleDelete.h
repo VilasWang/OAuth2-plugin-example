@@ -23,7 +23,9 @@
 // Failure semantics: up to 4 counted attempts per invalidation with a dead
 // Redis (immediate fail + its retry, delayed fail + its retry). The delayed
 // DEL is scheduled regardless of the immediate phase's outcome. Losing the
-// delayed DEL entirely (process death inside the delay window) degrades to
+// delayed DEL entirely -- process death OR event-loop shutdown inside the
+// delay window (the timer rides drogon::app().getLoop()->runAfter; an
+// invalidation racing server shutdown may never fire it) -- degrades to
 // the pre-#79 single-DEL behavior, which the cache TTL already bounds --
 // soft-fail: callers never receive errors from this helper.
 //
