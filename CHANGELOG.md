@@ -10,6 +10,38 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-26
+
+> **版本序列重置说明**：项目由 **authforge 更名为 fulla**（北欧神话中 Frigg
+> 的秘库守钥女神 Fulla），版本序列自本版起**重置为 1.0.0**——改名视为新产品
+> 身份，SemVer 约束包身份而非仓库（PyPI 包 `fulla-oauth2`、镜像
+> `ghcr.io/voidvec/fulla-*`、CMake 包 `fulla` 均为全新身份）。此前历史见
+> 下方 authforge 时代的 [1.0.0]–[1.4.1] 条目（git 提交历史完整保留）。
+
+### 更名与品牌
+
+- **全库更名 authforge → fulla**：C++ 命名空间与公共头路径
+  （`#include <fulla/...>`）、CMake 包与目标（`fulla::*`）、二进制
+  （`fulla-server` / `fulla-tests`）、Go module path、Helm chart、
+  benchmark 设施；api-diff 基线按新符号面重生成（179 头文件，`--force`
+  批准，PR #94）。
+- **环境变量前缀统一 `FULLA_*`**（原 `OAUTH2_*`，903 处；协议类名如
+  `OAuth2Plugin` 保持不变）。
+- **基础设施命名规范化**：数据库/角色 `fulla_db` / `fulla_user`、容器名
+  `fulla-*`、Redis 键前缀 `fulla:cache:`、Prometheus 指标 `fulla_*`
+  （升级即全量缓存失效，属预期一次性行为）。
+- **前端品牌**：Fulla Admin / Fulla，包名 `fulla-admin` / `fulla-user`。
+- **专业仓库治理**（PR #93）：AI 工具工作区出库、kiro 设计文档迁入
+  `docs/history/design/kiro-specs/`、`.claude/` 为唯一权威规则源。
+
+### 兼容性
+
+- **C++ SDK 消费方**：破坏性（include 路径/命名空间/CMake 包名全变）；
+  迁移即一段 sed（映射表见 `docs/branding/rename-impact-fulla.md` §3）。
+- **存量 JWT / 会话 / 数据库 schema**：完全兼容（协议面无项目名字样，
+  表名与迁移不变）。
+- Python SDK 包名变更为 `fulla-oauth2`；旧 `authforge-oauth2` 停更。
+
 ## [1.4.1] - 2026-08-24
 
 安全与缺陷修复版（无新 API 面）：一批 High 级安全修复 + 社交会话修复 +

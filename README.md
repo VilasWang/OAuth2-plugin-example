@@ -1,4 +1,4 @@
-# Fulla — Full-Stack OAuth2/OIDC Authorization Server
+# Fulla — High-Performance Open-Source IAM Core (C++17)
 
 [中文文档](README.zh-CN.md)
 
@@ -10,7 +10,16 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
-Production-grade OAuth2.0/OIDC authorization server with full support for RFC 6749, RFC 7662, RFC 7009, and RFC 8414 — usable as a **ready-to-run product** (Docker/Helm) or as an **embeddable C++ SDK** (`find_package(fulla-*)`). Includes admin console, user-facing frontend, and a comprehensive test suite.
+Fulla is a high-performance **open-source identity & access management (IAM) core** built in
+C++17: a production-grade OAuth2.0/OIDC authorization server (RFC 6749/7662/7009/8414) with
+full support for user authentication, MFA, WebAuthn, RBAC and multi-tenancy — usable as a
+**ready-to-run product** (Docker/Helm) or as an **embeddable C++ SDK**
+(`find_package(fulla-*)`). Includes admin console, user-facing frontend, and a comprehensive
+test suite.
+
+> **Roadmap — open core:** the open-source core is the base for optional commercial
+> enhancement modules (enterprise integration & support offerings, planned). Everything
+> needed to run a complete IAM is and stays open source under MIT.
 
 ---
 

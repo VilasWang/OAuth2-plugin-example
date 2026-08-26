@@ -26,7 +26,7 @@ from conan.tools.cmake import CMakeToolchain, CMakeDeps
 
 class FullaConan(ConanFile):
     name = "fulla"
-    version = "1.4.1"
+    version = "1.0.0"
     settings = "os", "compiler", "build_type", "arch"
 
     options = {
