@@ -1,0 +1,24 @@
+{
+  "name": "fulla-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "fulla.dev documentation site — content source is the repo's docs/ tree (zero copies)",
+  "scripts": {
+    "docusaurus": "docusaurus",
+    "start": "docusaurus start",
+    "build": "docusaurus build",
+    "serve": "docusaurus serve",
+    "clear": "docusaurus clear"
+  },
+  "dependencies": {
+    "@docusaurus/core": "^3.7.0",
+    "@docusaurus/preset-classic": "^3.7.0",
+    "@docusaurus/theme-mermaid": "^3.7.0",
+    "@mermaid-js/layout-elk": "^0.1.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

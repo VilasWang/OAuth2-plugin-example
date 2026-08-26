@@ -146,7 +146,7 @@ std::pair<std::string, std::string> OAuth2Controller::extractClientCredentials(
 ### 3.3 Authentication Validation
 
 ```cpp
-plugin->validateClient(clientId, clientSecret, [=, callback](bool valid) {
+plugin->validateClient(clientId, clientSecret, =, callback {
     if (!valid) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k401Unauthorized);
@@ -168,7 +168,7 @@ plugin->validateClient(clientId, clientSecret, [=, callback](bool valid) {
 
 ```cpp
 // Token revocation permission check
-plugin->introspectToken(token, [=, callback, requestingClientId](auto introspection) {
+plugin->introspectToken(token, =, callback, requestingClientId {
     if (!introspection || !introspection.active) {
         // Token doesn't exist or inactive, return success (RFC 7009)
         callback(createSuccessResponse());
@@ -406,7 +406,7 @@ void OAuth2Controller::introspect(
 
 **Timeout handling**:
 ```cpp
-plugin->introspectToken(token, [=, callback](auto introspection) {
+plugin->introspectToken(token, =, callback {
     if (!introspection) {
         // Query timeout or failure, return active=false
         TokenIntrospection fallback;

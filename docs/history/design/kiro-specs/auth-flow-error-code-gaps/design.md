@@ -180,7 +180,7 @@ using RegisterCallback = std::function<void(const std::string &errorCode /* 结�
   using RegisterCallback = std::function<void(const std::string &errorCode /* 空串=成功 */)>;
 
   // AuthService.cc::registerUser 的 insert 失败分支
-  [sharedCb](const DrogonDbException &e) {
+  sharedCb {
       const std::string what = e.base().what();
       LOG_ERROR << "Register Failed: " << what;
       if (what.find("users_username_key") != std::string::npos)
@@ -208,7 +208,7 @@ using RegisterCallback = std::function<void(const std::string &errorCode /* 结�
 - **G3**：在 `WebAuthnController::registerFinish` 的 INSERT 的 `DrogonDbException` 回调中，通过 `e.base().what()` 子串匹配识别 `credential_id` 唯一约束冲突（与 G1 一致的模式匹配思路），命中时用 `VALIDATION_CREDENTIAL_ALREADY_REGISTERED` 取代通用 `DB_QUERY_ERROR`：
 
   ```cpp
-  [sharedCb, req](const DrogonDbException &e) {
+  sharedCb, req {
       const std::string what = e.base().what();
       if (what.find("webauthn_credentials") != std::string::npos &&
           what.find("credential_id") != std::string::npos)
@@ -361,7 +361,7 @@ Requirement 6（Hodor 限流响应体 Envelope 化，含 6.1-6.3 的拒绝响应
 - **Property 6**（邮箱验证 token 不可区分性）：同上，验证 EmailVerificationController
 - **Property 7**（账户锁定防枚举）：生成随机账户与登录尝试组合（锁定期内 vs 密码错误），断言两者响应完全相同（**G7 回归测试**，防止后续改动误将其"修复"为可区分的提示）
 
-以上属性测试均遵循前提特性已建成的测试框架（后端 `drogon_test.h` / `DROGON_TEST`，前端 `vitest` + `fast-check`），每个属性测试至少运行 100 次迭代，并标注 **Feature: auth-flow-error-code-gaps, Property {number}: {property_text}**。
+以上属性测试均遵循前提特性已建成的测试框架（后端 `drogon_test.h` / `DROGON_TEST`，前端 `vitest` + `fast-check`），每个属性测试至少运行 100 次迭代，并标注 **Feature: auth-flow-error-code-gaps, Property \{number\}: \{property_text\}**。
 
 此外，仍需要新增以下**示例/回归测试**（非属性测试），用于固化具体取值：
 

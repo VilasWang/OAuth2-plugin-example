@@ -125,7 +125,7 @@ ctest -V -C Release --output-on-failure --timeout 120
 
 ## 4. 镜像构建与签名
 
-CI 流水线本身不构建 Docker 镜像。容器镜像的多架构构建、推送 GHCR、cosign 签名与 syft SBOM 由 `release.yml` 在打 SemVer Tag（`vX.Y.Z`）时完成。详见 [Releases & Supply Chain Security](../../README.md#releases--supply-chain-security)。
+CI 流水线本身不构建 Docker 镜像。容器镜像的多架构构建、推送 GHCR、cosign 签名与 syft SBOM 由 `release.yml` 在打 SemVer Tag（`vX.Y.Z`）时完成。详见 [Releases & Supply Chain Security](https://github.com/voidvec/fulla#releases--supply-chain-security)。
 
 ---
 

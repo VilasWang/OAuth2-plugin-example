@@ -371,7 +371,7 @@ axios 响应拦截器在 401 刷新失败后，经 `normalizeError` 得到会话
 
 ### Property 1: Error Envelope 结构不变量
 
-*对任意* 已在 Error_Catalog 中登记的 Error_Code，经统一入口产生的 Application 错误响应，其 JSON 顶层有且仅有一个键 `error`（值为对象）；该 `error` 对象包含非空字符串 `code`（且 `code` 属于 Error_Catalog 已登记集合）、属于枚举集合 {NETWORK, DATABASE, VALIDATION, AUTHENTICATION, AUTHORIZATION, INTERNAL, UNKNOWN} 的字符串 `category`、长度 1..500 的字符串 `message`、非空字符串 `request_id`；该对象的键集合仅取自 {`code`, `category`, `message`, `request_id`, `numeric_code`, `details`, `timestamp`}（不含 `error_description`、`reason` 等别名）；且响应头 `Content-Type` 为 `application/json`。
+*对任意* 已在 Error_Catalog 中登记的 Error_Code，经统一入口产生的 Application 错误响应，其 JSON 顶层有且仅有一个键 `error`（值为对象）；该 `error` 对象包含非空字符串 `code`（且 `code` 属于 Error_Catalog 已登记集合）、属于枚举集合 \{NETWORK, DATABASE, VALIDATION, AUTHENTICATION, AUTHORIZATION, INTERNAL, UNKNOWN\} 的字符串 `category`、长度 1..500 的字符串 `message`、非空字符串 `request_id`；该对象的键集合仅取自 {`code`, `category`, `message`, `request_id`, `numeric_code`, `details`, `timestamp`}（不含 `error_description`、`reason` 等别名）；且响应头 `Content-Type` 为 `application/json`。
 
 **Validates: Requirements 1.1, 1.2, 1.4, 1.6, 7.5**
 

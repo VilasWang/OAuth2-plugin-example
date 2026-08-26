@@ -189,7 +189,7 @@ void OAuth2Plugin::validateSingleScope(
 
     // 第1重: Client允许检查
     storage_->isScopeAllowedForClient(clientId, scope,
-        [this, scope, subject, clientId, cb](bool allowed) {
+        this, scope, subject, clientId, cb {
             if (!allowed) {
                 cb({ScopeValidationStatus::INVALID, scope, "scope_not_allowed_for_client"});
                 return;
@@ -197,13 +197,13 @@ void OAuth2Plugin::validateSingleScope(
 
             // 第2重: 角色要求检查
             storage_->getScopeRequirements(scope,
-                [this, scope, subject, clientId, cb](auto req) {
+                this, scope, subject, clientId, cb {
                     // ✅ 解析provider和subject，不写死"local"
                     auto [provider, sub] = SubjectGenerator::parse(subject);
 
                     // subject → internal_user_id
                     storage_->getInternalUserId(sub, provider,
-                        [this, scope, req, clientId, cb](auto userIdOpt) {
+                        this, scope, req, clientId, cb {
                             if (!userIdOpt) {
                                 cb({ScopeValidationStatus::INVALID, scope, "subject_mapping_not_found"});
                                 return;
@@ -215,7 +215,7 @@ void OAuth2Plugin::validateSingleScope(
                             // 检查角色要求
                             if (req.requiresAdminRole) {
                                 storage_->getUserRoles(internalUserId,
-                                    [this, scope, clientId, internalUserId, cb](std::vector<std::string> roles) {
+                                    this, scope, clientId, internalUserId, cb {
                                         bool hasAdmin = std::find(roles.begin(), roles.end(), "admin") != roles.end();
                                         if (!hasAdmin) {
                                             cb({ScopeValidationStatus::INVALID, scope, "admin_role_required"});
@@ -242,7 +242,7 @@ void OAuth2Plugin::checkUserConsent(
     std::function<void(ScopeCheckResult)> &&cb) {
 
     storage_->hasUserConsent(internalUserId, clientId, scope,
-        [scope, cb](bool hasConsent) {
+        scope, cb {
             if (hasConsent) {
                 cb({ScopeValidationStatus::VALID, scope, ""});  // 已授权，验证通过
             } else {
@@ -263,7 +263,7 @@ void OAuth2Controller::authorize(/* ... */) {
 
     // ✅ 获取client信息
     storage_->getClient(clientId,
-        [codeChallenge, codeChallengeMethod, ...](auto client) {
+        codeChallenge, codeChallengeMethod, ... {
 
             bool isPublicClient = (client->clientType == ClientType::PUBLIC);
 
@@ -388,7 +388,7 @@ void OAuth2Plugin::validateNextScope(
 
     // 验证当前scope
     validateSingleScope(scope, subject, clientId,
-        [state, scope, subject, clientId, cb](ScopeCheckResult result) {
+        state, scope, subject, clientId, cb {
             if (result.status == ScopeValidationStatus::VALID) {
                 state->validScopes.push_back(scope);
             } else if (result.status == ScopeValidationStatus::CONSENT_REQUIRED) {
@@ -448,7 +448,7 @@ void OAuth2Controller::authorize(/* ... */) {
     std::string acceptType = request->getHeader("Accept");
 
     plugin_->validateScopesSerial(requestedScopes, transaction->subject, clientId,
-        [this, transaction, callback, acceptType](ScopeValidationSummary summary) {
+        this, transaction, callback, acceptType {
             
             if (summary.hasErrors()) {
                 // 返回错误
@@ -465,7 +465,7 @@ void OAuth2Controller::authorize(/* ... */) {
             
             // ✅ 保存transaction并显示授权确认页面
             storage_->saveAuthorizationTransaction(*transaction,
-                [this, transaction, callback, acceptType](bool success) {
+                this, transaction, callback, acceptType {
                     if (!success) {
                         return error("internal_error", "Failed to save transaction", callback);
                     }
@@ -517,7 +517,7 @@ void OAuth2Controller::consent(
     
     // 恢复transaction
     storage_->getAuthorizationTransaction(transactionId,
-        [this, transactionId, action, callback](auto transactionOpt) {
+        this, transactionId, action, callback {
             if (!transactionOpt) {
                 return error("invalid_request", "Invalid or expired transaction", callback);
             }
@@ -534,7 +534,7 @@ void OAuth2Controller::consent(
             
             // ✅ 立即标记transaction为已消费，防止重复提交
             storage_->markTransactionConsumed(transactionId,
-                [this, transaction, action, callback](bool success) {
+                this, transaction, action, callback {
                     if (!success) {
                         return error("invalid_request", "Transaction already consumed", callback);
                     }
@@ -543,7 +543,7 @@ void OAuth2Controller::consent(
                     
                     // 获取internal_user_id
                     storage_->getInternalUserId(sub, provider,
-                        [this, transaction, action, callback](auto userIdOpt) {
+                        this, transaction, action, callback {
                             if (!userIdOpt) {
                                 // ✅ 失败时也要删除已消费标记
                                 storage_->deleteAuthorizationTransaction(transaction->transactionId,
@@ -603,7 +603,7 @@ void OAuth2Controller::saveConsentsAndContinue(
         (*currentIndex)++;
         
         storage_->saveUserConsent(internalUserId, transaction->clientId, scope,
-            [this, scope, anyFailed, saveNextConsent](bool success) {
+            this, scope, anyFailed, saveNextConsent {
                 if (!success) {
                     *anyFailed = true;
                     LOG_ERROR << "Failed to save consent for scope: " << scope;
@@ -629,7 +629,7 @@ void OAuth2Controller::generateAuthorizationCode(
         transaction->codeChallenge,
         transaction->codeChallengeMethod,
         transaction->requestedScopes,  // ✅ 原始请求的完整scopes
-        [this, transaction, callback](bool success, std::string code, std::string error) {
+        this, transaction, callback {
             if (!success) {
                 // ✅ 失败时也要删除transaction
                 storage_->deleteAuthorizationTransaction(transaction->transactionId,

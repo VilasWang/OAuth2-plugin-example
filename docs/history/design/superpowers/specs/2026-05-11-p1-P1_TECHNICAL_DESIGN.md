@@ -102,7 +102,7 @@ void OAuth2Controller::introspectToken(
     // 1. Authenticate client (Basic auth or POST body)
     auto [clientId, clientSecret] = extractClientCredentials(req);
     
-    plugin->validateClient(clientId, clientSecret, [=, callback](bool valid) {
+    plugin->validateClient(clientId, clientSecret, =, callback {
         if (!valid) {
             auto resp = HttpResponse::newHttpResponse();
             resp->setStatusCode(k401Unauthorized);
@@ -121,7 +121,7 @@ void OAuth2Controller::introspectToken(
         }
         
         // 3. Introspect token
-        plugin->introspectToken(token, [=, callback, clientId](auto introspection) {
+        plugin->introspectToken(token, =, callback, clientId {
             auto resp = HttpResponse::newHttpJsonResponse(introspection.toJson());
             resp->setStatusCode(k200OK);
             callback(resp);
@@ -184,7 +184,7 @@ void OAuth2Controller::revokeToken(
     // 1. Authenticate client
     auto [clientId, clientSecret] = extractClientCredentials(req);
     
-    plugin->validateClient(clientId, clientSecret, [=, callback](bool valid) {
+    plugin->validateClient(clientId, clientSecret, =, callback {
         if (!valid) {
             auto resp = HttpResponse::newHttpResponse();
             resp->setStatusCode(k401Unauthorized);
@@ -205,7 +205,7 @@ void OAuth2Controller::revokeToken(
         std::string tokenTypeHint = req->getParameter("token_type_hint");
         
         // 3. Revoke token (always return 200 OK per RFC 7009)
-        plugin->revokeToken(token, clientId, tokenTypeHint, [=, callback](bool success) {
+        plugin->revokeToken(token, clientId, tokenTypeHint, =, callback {
             // Always return 200 OK to prevent token probing
             auto resp = HttpResponse::newHttpResponse();
             resp->setStatusCode(k200OK);

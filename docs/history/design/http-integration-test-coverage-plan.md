@@ -50,7 +50,7 @@ a branch-coverage matrix per endpoint (I4).
 
 ### Phase 1 — Foundation
 1. `tests/common/HttpTestClient.h` — shared HTTP helper (kTestBaseUrl, serverReachable,
-   send{Get,PostForm,PostJson,PutJson,Delete}, parseJsonBody, loginAsAdmin,
+   send\{Get,PostForm,PostJson,PutJson,Delete\}, parseJsonBody, loginAsAdmin,
    authed* wrappers). Model on ContractFixtures.h.
 2. `tests/common/StorageSeed.h` + extend `tests/SchemaSetup.cc` — in-process seeder:
    when not memory, run SchemaManager::migrate + seed SQL + admin lockout reset.

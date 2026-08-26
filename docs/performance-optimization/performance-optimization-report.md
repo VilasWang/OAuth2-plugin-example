@@ -17,7 +17,7 @@ CPU 热点说明：容器内无 perf/gdb，`perf_event_paranoid=2` —— 提示
 
 ## 1. 基线解析（20260819-97c9254，pin 组）
 
-| 场景 | 峰值 QPS（档位） | steady 容量（err<0.01%） | knee | p99 范围 | 占 S1 天花板 |
+| 场景 | 峰值 QPS（档位） | steady 容量（err&lt;0.01%） | knee | p99 范围 | 占 S1 天花板 |
 |---|---|---|---|---|---|
 | S1 discovery | **102,758**（c32） | c32 | c32→c64 | 0.17–334.7 ms | 100% |
 | S2 client_credentials | 14,688（c128） | c128 | c32→c64* | 1.48–60.8 ms | 14.3% |
@@ -64,7 +64,7 @@ CPU 热点说明：容器内无 perf/gdb，`perf_event_paranoid=2` —— 提示
 | `oauth2_clients` by client_id（S2） | Index Scan `oauth2_clients_pkey` | **0.021 ms** | shared hit=2 |
 | `users` by username（S4 login） | Index Scan `users_username_key` | **0.021 ms** | shared hit=3 |
 
-**结论：DB 执行器不是瓶颈**（全部 <0.1ms、全缓冲命中）；V026 判断被证实（PK 覆盖点查，所删索引冗余）。瓶颈在 **RTT 次数**（§2 账目）而非单查询执行。
+**结论：DB 执行器不是瓶颈**（全部 &lt;0.1ms、全缓冲命中）；V026 判断被证实（PK 覆盖点查，所删索引冗余）。瓶颈在 **RTT 次数**（§2 账目）而非单查询执行。
 
 ### 3.2 CPU 分布（S2 c32 ≈ 12.8k QPS 负载下采样）
 
@@ -97,7 +97,7 @@ backend ≈ 267% · postgres ≈ 266% · redis ≈ 40%（各为 8 核中的 ~2.7
 - **控制器 JSON 大对象拷贝**：S1 每请求重建 discovery 文档仍 102k，非瓶颈。
 - **日志开销**：WARN 级别宏短路；仅 dev 配置 DEBUG 需注意（`PostgresClientRepository.cc` 单函数 7 条 LOG_DEBUG）。
 - **S5 家族行锁竞争**：bench 每 RT 独立 family，`UPDATE WHERE token=$1` 无行竞争（`gen-tokens.py:101`）。
-- **DB 执行器/索引**：§3.1 全部 <0.1ms 点查。
+- **DB 执行器/索引**：§3.1 全部 &lt;0.1ms 点查。
 - **RateLimiter 单 mutex**：当前量级 4k 锁/s 无感（`RateLimiter.h:97,145`），S1 化吞吐才需分片。
 
 ## 6. 待验证附录（无直接量化证据，不进瓶颈表主序）
@@ -130,6 +130,6 @@ backend ≈ 267% · postgres ≈ 266% · redis ≈ 40%（各为 8 核中的 ~2.7
 | S6 userinfo | 18,085（c256） | 13.9 / 29.5 ms | 18,085 | -1%（持平，本轮无 S6 优化项） | 0.5x Keycloak(33,347) |
 | GC 长跑 P99 | 中位 3.77 ms | 极值 166.4 ms（4/30 尖峰段） | — | — | 中位最低（KC 5.0 / Ory 27.0 / ZA 20.5 ms） |
 
-\* S4 恒定 err ~0.02%（全 VU 共享限流桶的已知产品特性），不满足 <0.01% 稳态门 —— 表内给峰值。
+\* S4 恒定 err ~0.02%（全 VU 共享限流桶的已知产品特性），不满足 &lt;0.01% 稳态门 —— 表内给峰值。
 
 注：竞品列对比倍数最初为方向性推断（2026-08-18 旧表口径）—— **2026-08-23 四产品同环境全量重跑已完成**（`benchmarks/competitors/results/COMPARISON.md`，Fulla TTL=30 留存有界 session 口径 + 生产镜像 LTO 构建档；08-21 轮为 session 口径遗留）：正式表定格 S1 2.1x / S2 2.6x / S3 2.0x / S5 1.9x / S6 1.5x，五场景全部领先；调研报告 §3.1 已同步引用。本表保留作为单一出处的终测快照（本表数字为 08-21 轮自测口径；对外以 COMPARISON.md 为准）。S5 的逆转（1,998→4,593→5,506）主要来自测量口径修复与 TTL=30 留存有界化，部分来自写路径相关优化；旧 "S5 输 Keycloak" 结论作废。
