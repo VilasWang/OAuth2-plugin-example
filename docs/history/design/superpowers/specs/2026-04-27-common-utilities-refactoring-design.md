@@ -248,7 +248,7 @@ void OAuth2Controller::token(const HttpRequestPtr& req,
             };
         }
         // ... business logic
-    }, [&](const common::error::Error& error) {
+    }, & {
         common::error::ErrorHandler::logError(error, "OAuth2Controller::token");
 
         Json::Value errorJson = error.toJson();
@@ -723,7 +723,7 @@ test/
 - ✅ Configuration code in main.cc reduced from 90 to 15 lines
 - ✅ Input validation blocks all identified security vulnerabilities
 - ✅ API documentation accessible and accurate
-- ✅ No performance degradation (<5% variance)
+- ✅ No performance degradation (&lt;5% variance)
 - ✅ Code review approved by maintainers
 
 ---

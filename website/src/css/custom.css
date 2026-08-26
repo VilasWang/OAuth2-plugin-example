@@ -1,0 +1,13 @@
+/**
+ * Any CSS included here will be global. The classic template bundles
+ * Infima by default; use it sparingly — content wins over chrome.
+ */
+:root {
+  --ifm-color-primary: #7e14ff;
+  --ifm-color-primary-dark: #6b0fd8;
+  --ifm-color-primary-darker: #5d0dc0;
+  --ifm-color-primary-darkest: #4c0b9c;
+  --ifm-color-primary-light: #863bff;
+  --ifm-color-primary-lighter: #9a53ff;
+  --ifm-color-primary-lightest: #b385ff;
+}

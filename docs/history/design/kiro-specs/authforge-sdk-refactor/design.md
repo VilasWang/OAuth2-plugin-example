@@ -384,7 +384,7 @@ fulla/                          # umbrella monorepo（repo 名不变）
 | `Scope` | 单个 scope 名 | 字符集受限；集合去重 |
 | `ClientId` | 客户端标识 | 非空 |
 | `RedirectUri` | 回调地址 | 绝对 URI；与登记值精确匹配 |
-| `PkceChallenge` | code_challenge + method | method ∈ {plain, S256}；长度 43–128 |
+| `PkceChallenge` | code_challenge + method | method ∈ \{plain, S256\}；长度 43–128 |
 | `TokenValue` | 令牌原值/哈希 | 存储用哈希，禁止日志原值 |
 | `TenantId` | 租户维度（预留） | 可空（单租户默认） |
 
@@ -419,7 +419,7 @@ ORM 模型（`Oauth2*` / `Users` / `Roles` 等）是 `drogon::orm` 生成类型�
 | 构建预设 | build/ 内生成、未入库 | 顶层 `CMakePresets.json` 入库：`linux-release`/`windows-msvc`/`macos-arm64`/`*-asan`/`*-tsan` |
 | 缓存 | CI 全禁用 | 恢复缓存，用 `conan.lock` + 内容哈希键保证正确性 |
 
-> 核实依据：Conan Center drogon recipe 声明 `openssl/[>=1.1 <4]`（支持 3.x）；Homebrew drogon 依赖 `openssl@3`；Conan Center 已有 `drogon/1.9.13`（= 项目 pin 版本）。**最强直接证据（F8）：本项目 Linux CI 现已用 apt 的 OpenSSL 3.0.2 构建并通过全部测试**——即 Drogon 1.9.13 + 本项目在 3.x 上已被验证可用，升级 3.5 主要是版本对齐而非兼容性攻关。
+> 核实依据：Conan Center drogon recipe 声明 `openssl/[>=1.1 &lt;4]`（支持 3.x）；Homebrew drogon 依赖 `openssl@3`；Conan Center 已有 `drogon/1.9.13`（= 项目 pin 版本）。**最强直接证据（F8）：本项目 Linux CI 现已用 apt 的 OpenSSL 3.0.2 构建并通过全部测试**——即 Drogon 1.9.13 + 本项目在 3.x 上已被验证可用，升级 3.5 主要是版本对齐而非兼容性攻关。
 > 待落地验证：Conan drogon 包的 `drogon_ctl`（`with_ctl`）能否用于 ORM 生成；若不可用则单独安装 `drogon_ctl`（生成是离线开发动作，不影响运行期依赖）。
 
 ### 9.2 跨平台矩阵

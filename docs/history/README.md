@@ -7,14 +7,14 @@
 > pre-refactor layouts are expected and intentionally left uncorrected).
 >
 > For the current state of the system, always start from
-> [docs/README.md](../README.md) and the guides under `docs/backend/`,
+> docs/README.md（仓库文档导航） and the guides under `docs/backend/`,
 > `docs/ops/`, and `docs/admin/`.
 
 | Directory | What it was |
 |-----------|-------------|
-| [PRD/](PRD/) | Product requirement documents, phase plans, and production-hardening task batches that drove the initial implementation |
-| [design/](design/) | Feature design docs, test-coverage analyses, and the `superpowers/` plan/spec/validation records from earlier development iterations |
-| [frontend/](frontend/) | Original user-frontend design and implementation plan (superseded by `frontends/user/` as built and `docs/frontend/`) |
+| PRD/（见下方文件清单） | Product requirement documents, phase plans, and production-hardening task batches that drove the initial implementation |
+| design/（见下方文件清单） | Feature design docs, test-coverage analyses, and the `superpowers/` plan/spec/validation records from earlier development iterations |
+| frontend/（见下方文件清单） | Original user-frontend design and implementation plan (superseded by `frontends/user/` as built and `docs/frontend/`) |
 
 Archived on 2026-07 as part of the post-SDK-refactor documentation
 professionalization (README overhaul + docs portal restructure).

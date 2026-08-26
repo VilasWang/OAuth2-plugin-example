@@ -139,3 +139,9 @@ docs/productization-evolution/*
 docs/productization-evolution/done/*
 !docs/productization-evolution/done/oauth-oidc-compliance-audit.md
 docs/branding/rename-candidates.md
+
+# Maintainer-local docs (out of repo & out of site source; governance §2.4)
+docs-local/
+
+# Docusaurus build cache
+website/.docusaurus/

@@ -377,8 +377,8 @@ curl -X POST http://127.0.0.1:5555/oauth2/login \
 ---
 
 **相关文档**:
-- [Security Hardening Guide](./security-hardening.md) - 安全加固措施
+- [Security Hardening Guide](./security-architecture.md) - 安全加固措施
 - [Security Architecture](./security-architecture.md) - 安全架构设计
-- [Data Consistency](./data-consistency.md) - 数据一致性和威胁模型
+- [Data Consistency](./data-persistence.md) - 数据一致性和威胁模型
 - [API Reference](./api-reference.md) - API 接口文档
 - [Bug Analysis] - 完整 Bug 分析报告（本地文档，已归档）

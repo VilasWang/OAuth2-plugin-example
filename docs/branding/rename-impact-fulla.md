@@ -1,7 +1,7 @@
 # authforge → fulla 改名影响范围分析
 
 > 分析日期：2026-08-25（第一轮 + 同日第二轮补充审查，见 §2bis）｜ 方法：`git grep` 全仓实测 + 外部 registry/API 实查
-> 前置文档：[rename-candidates.md](rename-candidates.md)（命名调研，fulla 排名第 9）
+> 前置文档：rename-candidates.md（本地维护副本）（命名调研，fulla 排名第 9）
 >
 > **版本策略（2026-08-25 已定）**：改名视为**新产品身份**，版本序列**重置为 v1.0.0**（而非 v2.0.0）。依据：SemVer 约束的是包身份而非仓库——`fulla-oauth2`/`fulla-*` 镜像/`fulla` CMake 包均为新身份，1.0.0 起步是唯一自然选择；项目零外部用户，v2.0.0 的"破坏性升级"信号无处安放，反而让新项目首发 2.0 显得来历不明。先例：OpenSearch fork 自 ES 7.10 仍以 1.0.0 首发。直接 1.0.0（不用 0.x）是因为代码库已有 353 ctest + 完整 CI 矩阵 + benchmark 体系，0.x 会低估成熟度。红线（不可随之重置）见 §6 末尾。
 
@@ -149,7 +149,7 @@
 - **owner 不一致（既有问题，改名时一并修）**：仓库内 `github.com/lucaswang420/authforge` 引用 **36 处**（README 徽章等）vs 实际 remote/go module/GHCR 的 `voidvec` —— 统一为 voidvec（`git remote -v` 实测 origin）；
 - **GitHub 仓库元数据**：description 含 "the auth forge for your apps" 双关语需重写；topics 存在拼写错误 `rabc`→`rbac`，可补充 iam/authorization-server 等；homepageUrl 当前为空 → 注册 fulla.dev 后填入。
 
-### D. 五环境配置项审查（config.{json,dev,ci,prod,bench}）
+### D. 五环境配置项审查（config.\{json,dev,ci,prod,bench\}）
 
 - config.json / dev / bench 三份实质相同（dbname oauth2_db、host 127.0.0.1、port 5555）—— 改名落地后可另行决策是否合并为 overlay，减少三份漂移面（非改名必需）；
 - config.prod.json：db host `"postgres"`、redis host `"redis"`（compose 服务键名）—— 服务键名不改则此处只改 dbname；

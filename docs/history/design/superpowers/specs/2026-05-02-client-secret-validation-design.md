@@ -214,7 +214,7 @@ void exchangeCodeForToken(
 std::string clientId, clientSecret, grantType, code;
 
 // 2. Validate client first
-plugin->validateClient(clientId, clientSecret, [this, code, clientId, grantType, callback](bool isValid) {
+plugin->validateClient(clientId, clientSecret, this, code, clientId, grantType, callback {
     if (!isValid) {
         return error("invalid_client", "Client authentication failed");
     }

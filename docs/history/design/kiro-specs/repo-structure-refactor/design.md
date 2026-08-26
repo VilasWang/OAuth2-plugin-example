@@ -38,7 +38,7 @@
 - **§6.4 OAuth2Controller 拆分**：`SessionController` + `HealthController` + `UserSelfServiceController::registerUser`；Plugin 侧 `OAuth2StandardController` 维持不变。
 - **§6.5 Plugin vs Server 控制器边界规则**。
 - **§6.6 Observability 子层**：`AuditLogger`, `OAuth2Metrics`, `OpenApiGenerator` 迁入 `observability/`。
-- **§6.7 manage.{ps1,sh} 命令面**：统一 entrypoint。
+- **§6.7 manage.\{ps1,sh\} 命令面**：统一 entrypoint。
 
 最终公共 include 树见 §5，文件 / 目录迁移表见 §4。
 
@@ -134,7 +134,7 @@ FOR each compose_file IN {docker-compose.yml, .debug.yml, .prod.yml}:
 ```
 **校验脚本**: `scripts/smoke-parity.{sh,ps1}` 与 §12.5 docker 烟测清单。
 
-### Property 5: 跨平台命令面对等 (manage.{ps1,sh} parity)
+### Property 5: 跨平台命令面对等 (manage.\{ps1,sh\} parity)
 
 **Validates: Requirements 5.1** (Success Criterion G5 — Windows-only 脚本均有 `.sh` 等价；manage 入口命令集对等)
 
@@ -1779,7 +1779,7 @@ add_subdirectory(test)
 
 > **决议**：根 `scripts/` 下的 `.sh` 是开发者侧的辅助工具，未在 `manage.ps1` 中暴露；不要求 `.ps1` 等价物。如有需要可在后续 spec 补全。
 
-### 8.3 manage.{ps1,sh} 一致性校验
+### 8.3 manage.\{ps1,sh\} 一致性校验
 
 `tools/manage-parity-check.sh`：
 1. 提取 `manage.ps1` `switch ($Action)` 中所有 case 标签。
@@ -1943,7 +1943,7 @@ PRD 目录保留**仅产品需求**：`PRD/admin_console_design.md`、`PRD/admin
 | `<oauth2/ValidationRules\.h>` | `<oauth2/validation/Rules.h>` | |
 | `<oauth2/ConfigManager\.h>` / `<oauth2/ConfigTypes\.h>` | `<oauth2/config/...>` | |
 | `<oauth2/ErrorHandler\.h>` / `<oauth2/OAuth2ErrorHandler\.h>` / `<oauth2/ErrorTypes\.h>` | `<oauth2/error/...>` | |
-| `<oauth2/(EmailService|JwkManager|PasswordHasher|TotpUtils\|CryptoUtils\|SubjectGenerator)\.h>` | `<oauth2/utils/$1.h>` | |
+| `<oauth2/(EmailService\|JwkManager\|PasswordHasher\|TotpUtils\|CryptoUtils\|SubjectGenerator)\.h>` | `<oauth2/utils/$1.h>` | |
 | `<oauth2/(ClientService\|IdentityService\|TokenService)\.h>` | `<oauth2/services/$1.h>` | |
 | `<oauth2/IOAuth2Storage\.h>` | `<oauth2/storage/IOAuth2Storage.h>` | |
 | `<oauth2/(OAuth2Plugin\|OAuth2CleanupService)\.h>` | `<oauth2/plugin/$1.h>` | |
@@ -1991,7 +1991,7 @@ PRD 目录保留**仅产品需求**：`PRD/admin_console_design.md`、`PRD/admin
 
 `scripts/check-doc-links.sh` (新增，P9)：
 1. 列出所有 `.md` 文件。
-2. 解析 `[text](path)` 与 `<path>` 引用。
+2. 解析 `text` 与 `<path>` 引用。
 3. 对相对路径检查 `test -f` 通过；不通过则失败退出。
 4. 对绝对仓内路径（以 `/OAuth2` 开头等）同样校验。
 5. 排除 `http(s)://` 与 `mailto:`。
@@ -2245,7 +2245,7 @@ Reviewer 必须按以下清单逐条标 ✅/❌，并最终汇总：
 - [ ] §6.4 `OAuth2Controller` 改名 `SessionController`，并把 `/health` `/api/register` 拆分到 `HealthController` / `UserSelfServiceController`。
 - [ ] §6.5 Plugin / Server boundary 规则清晰。
 - [ ] §6.6 observability 子层明确。
-- [ ] §6.7 manage.{ps1,sh} 命令面一致。
+- [ ] §6.7 manage.\{ps1,sh\} 命令面一致。
 
 #### C. 增量阶段独立绿
 - [ ] §2.8 每个 phase 都给出单独 acceptance gate。

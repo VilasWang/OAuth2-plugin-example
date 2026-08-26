@@ -306,9 +306,7 @@ if (authResult->mfaEnabled)
     db->execSqlAsync(
       "UPDATE users SET mfa_pending_client_id = $1, mfa_pending_redirect_uri = $2 "
       "WHERE id = $3",
-      [req, internalId = authResult->internalId, callback = std::move(callback)](
-        const drogon::orm::Result &
-      ) mutable {
+      req, internalId = authResult->internalId, callback = std::move(callback) mutable {
           // Only NOW build and send the mfa_required response - the pending
           // binding is durably recorded before the client can act on mfa_token.
           Json::Value mfaResp;
@@ -320,7 +318,7 @@ if (authResult->mfaEnabled)
           resp->setStatusCode(k200OK);
           callback(resp);
       },
-      [req, callback = std::move(callback)](const drogon::orm::DrogonDbException &e) mutable {
+      req, callback = std::move(callback) mutable {
           // Fail closed (see design rationale): do not return mfa_required if
           // the pending binding could not be persisted.
           respondError(

@@ -3,7 +3,7 @@
 > **版本**: v1.1（2026-08-15 评审修订：新增 M0 前置参数化、S5 池规模修正、GC 抖动场景钉死、Fulla 同 session 重跑、Zitadel JWT-profile 认证说明、warmup 口径对齐入仓数据）
 > **日期**: 2026-08-15
 > **文档性质**: 技术设计（Phase 0.5 落地蓝图，**非代码**——实施见 §七 milestone）
-> **上游规划**: [演进方案 §三 Phase 0](../productization-evolution-plan.md) P0「自托管竞品对比基准」
+> **上游规划**: [演进方案 §三 Phase 0]（productization-evolution-plan：本地维护档案） P0「自托管竞品对比基准」
 > **前置依赖**: 基准设施设计（内部档案，已随 productization-evolution 目录转为本地维护） M1–M4 已交付（S1–S6 自测数据已入仓 `benchmarks/results/`）
 > **验证对象**: 调研报告 §3.1（内部档案，已转本地维护） 竞品列（Keycloak/Ory）的量级参考数字
 
@@ -27,7 +27,7 @@
 |---|------|------|
 | G1 | **同环境竞品对比数据**：把调研报告 §3.1 的竞品列（"来自各产品社区公开基准，非同环境对比"）替换为同环境实测 | §六验收 ✅ COMPARISON.md |
 | G2 | **验证差异化叙事**：C++ 无 GC / 低内存 / 低尾延迟的卖点是否有同环境数据支撑 | GC 抖动长跑 + 稳态 RSS 对比 |
-| G3 | **可复现**：第三方按 `benchmarks/competitors/README.md` 在同规格机器跑出误差 <15% 的数据 | 复现门槛（沿用自测设施 AC1） |
+| G3 | **可复现**：第三方按 `benchmarks/competitors/README.md` 在同规格机器跑出误差 &lt;15% 的数据 | 复现门槛（沿用自测设施 AC1） |
 | G4 | **诚实修订**：若某维度 Fulla 不领先，据实修订调研报告 §3.1/§3.2 的卖点排序 | 报告更新 |
 
 ### 1.2 非目标
@@ -54,7 +54,7 @@ Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 
 
 | 场景 | 稳态 QPS | 稳态 P99 | 错误率 |
 |------|---------|---------|--------|
-| S1 discovery | 86,332 | —（低并发 <1ms） | 0.006% |
+| S1 discovery | 86,332 | —（低并发 &lt;1ms） | 0.006% |
 | S2 client_credentials | 8,915 | 8ms | 0.000% |
 | S3 introspect | 17,132 | 12ms | 0.000% |
 | S5 refresh_token | 1,982 | 26ms | 0.000% |
@@ -87,7 +87,7 @@ Phase 0（benchmark M1–M4）已于 2026-08-12 交付：S1–S6 六场景、40 
 | 硬件 | 同一台机器（Phase 0 用的 WSL2 8 vCPU/16GB，或后续专用裸机） | 四家依次跑，中间 `docker compose down -v` 清场 |
 | OS/内核 | 同一 WSL2 Ubuntu | — |
 | 压测工具 | wrk 4.1.0，同一份阶梯参数（2→4→8→16→32→64→128）、warmup 5s / measure 10s（与入仓自测数据口径一致；Keycloak warmup 60s，见 D2 豁免） | 复用 `run-scenario.sh`，不写第二套 runner |
-| 后端存储 | PostgreSQL 15（同一 image tag），连接池对齐 25 | 竞品各自支持的连接池上限可能 <25，取 `min(25, 官方上限)` 并在结果中标注 |
+| 后端存储 | PostgreSQL 15（同一 image tag），连接池对齐 25 | 竞品各自支持的连接池上限可能 &lt;25，取 `min(25, 官方上限)` 并在结果中标注 |
 | 网络拓扑 | localhost cross-container（wrk 在宿主机） | 与自测一致 |
 | 结果格式 | schema v1 JSON（`parse-wrk.py`） | 四家数据同构，`run-comparison.sh` 才能聚合 |
 | 端口 | 各家栈固定端口（fulla 5555 / Keycloak 8080 / Hydra 4444+4445 / Zitadel 8080） | 串行执行互不冲突；每家 setup 前置断言端口空闲 |
@@ -189,7 +189,7 @@ Phase 0 承重验证发现 Fulla 容器 RSS ~2.4GB（含 Drogon 连接池/共享
 
 | 指标 | 采集方式 | 对比表列 |
 |------|---------|---------|
-| 稳态 QPS（err<0.01% 最高档） | wrk 阶梯 + parse-wrk.py | ✅ |
+| 稳态 QPS（err&lt;0.01% 最高档） | wrk 阶梯 + parse-wrk.py | ✅ |
 | P50 / P95 / P99（稳态档） | wrk `--latency` | ✅ |
 | 错误率 | wrk non-2xx | ✅（门槛列） |
 | 冷启动（→health 200） | 各家等价计时脚本 | ✅ |
@@ -247,7 +247,7 @@ Phase 0 承重验证发现 Fulla 容器 RSS ~2.4GB（含 Drogon 连接池/共享
 
 | # | 验收项 | 衡量 | 状态 |
 |---|--------|------|------|
-| AC1 | **四家同口径对比表**：S1/S2/S3/S5/S6 × {QPS, P99, RSS, 冷启动} 入仓 `benchmarks/competitors/results/COMPARISON.md`，每行带产品版本号 | COMPARISON.md | ✅ |
+| AC1 | **四家同口径对比表**：S1/S2/S3/S5/S6 × \{QPS, P99, RSS, 冷启动\} 入仓 `benchmarks/competitors/results/COMPARISON.md`，每行带产品版本号 | COMPARISON.md | ✅ |
 | AC2 | **GC 抖动曲线**：四家 5 分钟 P99 时间序列 JSON + 对比小节（Fulla 是否平线、Keycloak 是否有周期尖峰） | gcjitter JSON + 小节 | ✅（结论与预期相反，见 G4 注记：GC 语言全平线、Fulla 有环境层秒级尖峰——已在报告与研究报告中诚实修订） |
 | AC3 | **可复现**：`run-comparison.sh` 一键串行跑四家；README 含环境要求与复现步骤 | 复现指引 | ✅（`benchmarks/competitors/README.md`） |
 | AC4 | **公平性声明**：每家竞品的配置来源（官方文档链接）、偏离默认的每一项、warmup 差异（Keycloak 60s）均显式标注 | COMPARISON.md 附录 + setup.sh 注释 | ✅ |
@@ -292,11 +292,11 @@ Phase 0 承重验证发现 Fulla 容器 RSS ~2.4GB（含 Drogon 连接池/共享
 | M1.1 | `docker-compose.yml` | keycloak + postgres；healthcheck 打 `/realms/master`；卷/网络显式前缀 `kc-bench-` | **AC-M1.1a** `up -d` 后探针 200；**AC-M1.1b** `down -v` 后 `docker ps -a`/`docker volume ls`/`docker network ls` 无 kc-bench 残留 |
 | M1.2 | `setup.sh` | 等健康 → `kcadm.sh` 建 realm `bench`、client `bench-svc`（confidential + service account + introspection 权限）、user `bench-user`（direct grant）→ **校准跑**（c=8 单档 S2/S5/S6 估 QPS）→ 按 `池 = QPS×10s×1.3` 生成 RT 池（ROPC 批量签发，xargs -P8 并行）+ AT 池 ≥2000（S3/S6 复用）→ warmup 验证一发 token 请求 | **AC-M1.2a** `set -euo pipefail`，任何 kcadm/curl 失败即非零退出；**AC-M1.2b** 结尾自检：两个池文件行数 ≥ 期望、单发 client_credentials 得 200；**AC-M1.2c** 幂等：`down -v` 后重跑 setup 成功 |
 | M1.3 | `scenarios/`（5 个 lua） | s1/s2/s3/s5/s6 按 §4.1 端点改写；S2 用 Basic（bench-svc）；S3 Basic + AT 池（线程切片，复用 s3 模式）；S5 RT one-shot 池；S6 Bearer AT 池 | **AC-M1.3** 每个场景 `wrk c=2 -d5s` 冒烟：非 2xx=0、socket 错误=0（S5 允许池尾 nil 关连接，但不得有 invalid_grant） |
-| M1.4 | 阶梯数据 | `WARMUP_S=60 DURATION_S=10` 阶梯 2→128 × 5 场景 → 35 个 JSON；S2 档挂 `--observe-stats` 采 RSS | **AC-M1.4a** 35 JSON 全带 `product=keycloak` + 版本；**AC-M1.4b** 每档 driver CPU <80% 或 JSON 标 `limited=true`；**AC-M1.4c** RSS tsv 落盘且含 keycloak+postgres 行 |
+| M1.4 | 阶梯数据 | `WARMUP_S=60 DURATION_S=10` 阶梯 2→128 × 5 场景 → 35 个 JSON；S2 档挂 `--observe-stats` 采 RSS | **AC-M1.4a** 35 JSON 全带 `product=keycloak` + 版本；**AC-M1.4b** 每档 driver CPU &lt;80% 或 JSON 标 `limited=true`；**AC-M1.4c** RSS tsv 落盘且含 keycloak+postgres 行 |
 | M1.5 | GC 抖动 | `run-gc-jitter.sh`：S6 c=32，30×10s 段（D6） | **AC-M1.5** JSON 含 30 个 P99 数据点 + 段起始时间戳；无段失败 |
 | M1.6 | 冷启动 | 两模式：A=全新卷完整初始化（含 realm/client 建立）；B=预初始化卷仅重启 keycloak 容器 | **AC-M1.6** 2 个 JSON（mode A/B），含秒数与 RSS 峰值 |
 | M1.7 | `teardown.sh` | down -v + 残留断言 | 同 AC-M1.1b |
-| M1.8 | 首版两方对比 | Fulla 同 session 重跑（§5.1）+ Keycloak 数据 → 草稿对比表 | **AC-M1.8** 5 场景 × {QPS, P50/P95/P99, RSS, 冷启动} 行齐、版本列齐 |
+| M1.8 | 首版两方对比 | Fulla 同 session 重跑（§5.1）+ Keycloak 数据 → 草稿对比表 | **AC-M1.8** 5 场景 × `QPS / P50/P95/P99 / RSS / 冷启动` 行齐、版本列齐 |
 
 ### M2 — Ory Hydra + Zitadel（~3 天）
 
@@ -383,7 +383,7 @@ benchmarks/reporting/gen-comparison.py
 | 上游 | 关系 |
 |------|------|
 | 基准设施设计（内部档案，已随 productization-evolution 目录转为本地维护） | 本文档是其 N1（Phase 0.5 竞品对比）的展开；复用其 runner/parser/schema/observe |
-| [演进方案](../productization-evolution-plan.md) §三 Phase 0 P0 第 2 项 | 本文档是该工作项的落地设计 |
+| [演进方案]（productization-evolution-plan：本地维护档案） §三 Phase 0 P0 第 2 项 | 本文档是该工作项的落地设计 |
 | 调研报告（内部档案） §3.1 | 竞品列的**替换数据源**；M3 据实修订 |
 | `benchmarks/results/SUMMARY.md` | Fulla 侧基线（同环境自测，2026-08-12） |
 

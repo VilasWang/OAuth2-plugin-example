@@ -14,7 +14,7 @@
 当前注册/登录以 **username** 为核心标识：
 
 - 注册：`username`（必填、`VARCHAR(50) UNIQUE NOT NULL`）、`email`（历史可选）
-- 登录：仅按 `username` 查询（[AuthService.cc:26-30](../../OAuth2Server/AuthService.cc)）
+- 登录：仅按 `username` 查询（AuthService.cc:26-30）
 - 前端登录页字段固定为 username
 
 这不符合 AI 时代主流身份系统的实践（Google / GitHub / Auth0 / Supabase 均以 email 为主标识），用户需记忆两套凭证，且 email 未能承担其应有的"主登录键"角色。
@@ -61,7 +61,7 @@
 
 **冲突点（Convention Beats Novelty）**：
 
-- 当前 `username` 是 `UNIQUE NOT NULL`（[V004](../../OAuth2Server/sql/migrations/V004__users_table.sql#L5)）
+- 当前 `username` 是 `UNIQUE NOT NULL`（V004）
 - 目标是 username 可选（可空）
 
 **决策：username 仍保留 UNIQUE，但改为可空**
@@ -122,20 +122,20 @@ ALTER TABLE users ADD CONSTRAINT users_username_check
 
 ### 3.2 校验层（RuleSet）
 
-**`RuleSet::login`**（[RuleSet.cc:389](../../OAuth2Plugin/src/validation/RuleSet.cc#L389)）改为接受"登录标识"：
+**`RuleSet::login`**（RuleSet.cc:389）改为接受"登录标识"：
 
 - 新增可选 `email` 字段解析（与 username 二选一）
 - 校验规则：`username` 与 `email` **不能同时为空**；email 非空时走 `EMAIL_PATTERN`
 - 移除"username 必填"硬约束
 
-**`RuleSet::registerUser`**（[RuleSet.cc:435](../../OAuth2Plugin/src/validation/RuleSet.cc#L435)）：
+**`RuleSet::registerUser`**（RuleSet.cc:435）：
 
 - `email` 改为**必填**（与"email 为主"目标一致）
 - `username` 改为**可选**（非空时校验长度+正则）
 
 ### 3.3 服务层（AuthService）
 
-**`AuthService::validateUser`**（[AuthService.cc:16](../../OAuth2Server/AuthService.cc#L16)）：
+**`AuthService::validateUser`**（AuthService.cc:16）：
 
 当前只按 `_username` 查。改为：
 
@@ -147,7 +147,7 @@ ALTER TABLE users ADD CONSTRAINT users_username_check
 4. 查不到 → 统一返回"用户名或密码错误"（防枚举，见 2.5）
 ```
 
-**`AuthService::registerUser`**（[AuthService.cc:170](../../OAuth2Server/AuthService.cc#L170)）：
+**`AuthService::registerUser`**（AuthService.cc:170）：
 
 - email 必填校验（已在 RuleSet 做，AuthService 作为兜底）
 - username 可选：仅 `if (!username.empty())` 才 setUsername（当前已是此逻辑 ✅）
@@ -156,10 +156,10 @@ ALTER TABLE users ADD CONSTRAINT users_username_check
 
 OIDC `name` claim 在 username 可空后可能缺失，严格 OIDC 客户端会报错。两处生成点改为"username 优先、为空回退 email"：
 
-- [AuthService.cc:297](../../OAuth2Server/AuthService.cc#L297) 和 [AuthService.cc:316](../../OAuth2Server/AuthService.cc#L316)（`getUserInfo`）：`name = username.empty() ? email : username`
-- [OAuth2StandardController.cc:1571](../../OAuth2Plugin/src/controllers/OAuth2StandardController.cc#L1571)（OIDC userinfo）：从 `dbUserInfo["username"]` 取——getUserInfo 做 fallback 后此处透传；dbUserInfo 无 username 分支用 email 兜底
+- AuthService.cc:297 和 AuthService.cc:316（`getUserInfo`）：`name = username.empty() ? email : username`
+- OAuth2StandardController.cc:1571（OIDC userinfo）：从 `dbUserInfo["username"]` 取——getUserInfo 做 fallback 后此处透传；dbUserInfo 无 username 分支用 email 兜底
 
-**`SessionController::login`**（[SessionController.cc:320](../../OAuth2Server/controllers/SessionController.cc#L320)）：
+**`SessionController::login`**（SessionController.cc:320）：
 
 - 解析参数：从 `username` 字段读"登录标识"（前端继续用 username 字段名提交，兼容；或新增 `identifier` 字段，见 3.4）
 - 调用 `validateUser` 时传入标识
@@ -170,14 +170,14 @@ OIDC `name` claim 在 username 可空后可能缺失，严格 OIDC 客户端会�
 
 | 位置 | 改动 |
 |------|------|
-| [OAuth2Frontend/.../LoginPage.vue](../../OAuth2Frontend/src/pages/auth/LoginPage.vue) | label `Username` → `Email or Username`，placeholder 改 `you@example.com` |
-| [OAuth2Admin/.../LoginPage.vue](../../OAuth2Admin/src/pages/LoginPage.vue) | 同上 |
-| [authService.ts](../../OAuth2Frontend/src/services/authService.ts) | 函数签名 `login(username, ...)` 语义注释为"登录标识"，不改字段名（后端兼容） |
-| [login.csp](../../OAuth2Server/views/login.csp) | 同样改 label/placeholder |
+| OAuth2Frontend/.../LoginPage.vue | label `Username` → `Email or Username`，placeholder 改 `you@example.com` |
+| OAuth2Admin/.../LoginPage.vue | 同上 |
+| authService.ts | 函数签名 `login(username, ...)` 语义注释为"登录标识"，不改字段名（后端兼容） |
+| login.csp | 同样改 label/placeholder |
 
 **前端字段名决策**：前端继续用 `username` 字段名提交（后端把它当"登录标识"解析），**避免破坏 API 契约**。这是最小改动。
 
-**注册页**（[RegisterPage.vue](../../OAuth2Frontend/src/pages/auth/RegisterPage.vue)）：email 标为必填、username 标为可选（调整 label 和 required）。
+**注册页**（RegisterPage.vue）：email 标为必填、username 标为可选（调整 label 和 required）。
 
 ### 3.5 测试层
 
@@ -233,7 +233,7 @@ POST /oauth2/login { username: "<登录标识>", password }
 
 ### 5.2 email 归一一致性
 
-注册和登录**必须用同一个 `normalizeEmail`**，否则会出现"用 `user.x@gmail.com` 注册、用 `userx@gmail.com` 登录查不到"的故障。本方案两侧都调用 [EmailNormalizer.h](../../OAuth2Plugin/include/oauth2/utils/EmailNormalizer.h)。
+注册和登录**必须用同一个 `normalizeEmail`**，否则会出现"用 `user.x@gmail.com` 注册、用 `userx@gmail.com` 登录查不到"的故障。本方案两侧都调用 EmailNormalizer.h。
 
 ### 5.3 时序攻击
 

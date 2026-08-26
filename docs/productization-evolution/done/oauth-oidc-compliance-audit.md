@@ -8,7 +8,7 @@
 | 不在范围 | 动态渗透测试、性能/可用性评估、前端 SPA 实现审查 |
 | 评级分档 | 核心规范按 MUST/SHOULD 分档；OIDC profile 按「核心 MUST」「扩展 SHOULD」分档 |
 
-> 配套文档：审查计划（检查要点、检查方法、判定标准）见 [`oauth-oidc-compliance-audit-plan.md`](oauth-oidc-compliance-audit-plan.md)。本报告为评估结果（符合性评级、发现、整改）。
+> 配套文档：审查计划（检查要点、检查方法、判定标准）见 `oauth-oidc-compliance-audit-plan.md`。本报告为评估结果（符合性评级、发现、整改）。
 
 ---
 
@@ -546,7 +546,7 @@ access token 为 opaque 随机串（`TokenCrypto.cc:9-24`，32 字节 base64url�
 ### F-013 [Medium] authorize 端不校验 code_challenge_method 集合
 - **依据**：RFC 7636 §4.3。
 - **现象**：见 3.5.1。
-- **整改**：authorize 入口校验 method ∈ {plain, S256}，否则 `invalid_request` 直接 4xx（属 client 错误，可直接返回）。
+- **整改**：authorize 入口校验 method ∈ \{plain, S256\}，否则 `invalid_request` 直接 4xx（属 client 错误，可直接返回）。
 - **阶段**：P1。
 
 ### F-014 [Medium] 无 HTTPS 强制 / 无 loopback 例外
@@ -759,7 +759,7 @@ F-001（OpenAPI enum）/ F-019（Cache-Control）/ F-020（state urlEncode）/ F
 | #32 | F-025 refresh/device 不重发 id_token | 修复：refresh/device 在 openid scope 时重签 id_token | ✅ Batch 2 (`a7fd184`) |
 | #33 | F-011 PKCE 默认不强制 | 修复：默认值改 true + 4 个 config 显式 true | ✅ Batch 0+1 (`040639b`) |
 | #34 | F-012 device flow 无 slow_down | 修复：`last_polled_at` 列 + interval 递增 5s | ✅ Batch 0+1 (`040639b`) |
-| #35 | F-008+F-009+F-013 token 错误信封/redirect_uri/挑战方法校验 | 修复：token gate 发 OAuth2 invalid_request 信封；空 redirect_uri 不再绕过；authorize 校验 code_challenge_method ∈ {plain,S256} | ✅ Batch 0+1 (`040639b`) |
+| #35 | F-008+F-009+F-013 token 错误信封/redirect_uri/挑战方法校验 | 修复：token gate 发 OAuth2 invalid_request 信封；空 redirect_uri 不再绕过；authorize 校验 code_challenge_method ∈ \{plain,S256\} | ✅ Batch 0+1 (`040639b`) |
 | #36 | F-014 redirect_uri 无 https 强制/loopback 例外 | 修复：https 强制 + 仅 IP 字面量 loopback（127.0.0.1/[::1]）豁免 + `auth.allow_http_redirect_uri` 开关；seed/测试 localhost→127.0.0.1 | ✅ Batch 0+1 (`040639b`) |
 | #37 | F-017+F-023+F-026 | F-017 持久化 + 强制 token_endpoint_auth_method（NULL 保留回退）；F-023 userinfo 校验 openid scope + email_verified（F-024）；F-026（nonce 服务端防重放）**伪问题关闭**：OIDC §15.5.2 的 nonce 校验是客户端 MUST，服务端存储非规范强制，文档说明 | ✅ Batch 2 (`a7fd184`) |
 | #38 | F-018 端点无限流 | 修复：进程内滑动窗口限流（per IP+client_id，仅计失败，429 + Retry-After） | ✅ Batch 3 (`c911ee9`) |

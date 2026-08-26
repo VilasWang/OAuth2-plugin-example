@@ -93,9 +93,9 @@ sidecar 配方：`docker run --rm --pid=container:fulla-backend --cap-add=SYS_PT
 | `__libc_send` / `__libc_write` / `recv` | ~49 | **9%** | 响应/socket 写出；其中 6 帧在 **`pqsecure_raw_write`/`pqSendSome`（libpq 线缆写）** —— PG 往返在线程栈上的直接可见证据 |
 | `__tz_convert` / `__tzfile_read`（glibc tz 锁） | ~20 | **4%** | **热路径存在 localtime 类调用，每调用拿 glibc 全局 tz 锁**；一方代码 grep 零命中（排除），来自 trantor/drogon/libpq 层；精确调用点被 LTO 内联吞掉（栈归因到 EpollPoller::poll/handleEventSafely）。可用非 LTO 构建或 ltrace 解析；缓解假设：TZ=UTC 实验 |
 | malloc arena / rand 锁（futex） | ~8 | ~1.5% | glibc 分配器竞争，量级可忽略 |
-| 纯 CPU 计算（memcpy/malloc/RB-tree/…） | <10 | **<2%** | 与 Phase B 结论一致：CPU 计算不是瓶颈 |
+| 纯 CPU 计算（memcpy/malloc/RB-tree/…） | &lt;10 | **&lt;2%** | 与 Phase B 结论一致：CPU 计算不是瓶颈 |
 
-**Phase C 结论**：CPU 侧确认无显著热点（计算 <2%）；新发现的唯一可行动小项是 **glibc tz 锁竞争（~4%）**；libpq 线缆写在栈上直接可见，与 Phase A/B 的"往返主导"互证。采样扰动说明：attach 风暴会使吞吐从 ~16.9k 降到 ~14.5k QPS（样本期数据只用于归因，不用于吞吐）。
+**Phase C 结论**：CPU 侧确认无显著热点（计算 &lt;2%）；新发现的唯一可行动小项是 **glibc tz 锁竞争（~4%）**；libpq 线缆写在栈上直接可见，与 Phase A/B 的"往返主导"互证。采样扰动说明：attach 风暴会使吞吐从 ~16.9k 降到 ~14.5k QPS（样本期数据只用于归因，不用于吞吐）。
 
 ## 4. 修正后的瓶颈排序与量化杠杆（**均未实施**）
 

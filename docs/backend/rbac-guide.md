@@ -12,8 +12,8 @@
 
 ### 关系模型
 
-- User <-> Role: 多对多 (Many-to-Many)
-- Role <-> Permission: 多对多 (Many-to-Many)
+- `User <-> Role`：多对多（Many-to-Many）
+- `Role <-> Permission`：多对多（Many-to-Many）
 
 ## 2. 数据库设计
 
