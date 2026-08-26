@@ -206,6 +206,38 @@ void waitForVoid(Op &&op)
     }
 }
 
+// #90 case 1: bounded poll until `key` exists in Redis. The cache fill after a
+// MISS is an async SET; under load it can outlast any fixed sleep, so tests
+// must wait for the key itself (same event-driven discipline the
+// DelayedDoubleDeleteTest applies to its DEL). Returns false on timeout so the
+// caller fails with a clear cause.
+bool waitForRedisKey(
+  const ::drogon::nosql::RedisClientPtr &redis,
+  const std::string &key,
+  std::chrono::milliseconds timeout = std::chrono::milliseconds(5000)
+)
+{
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        std::promise<int> p;
+        auto f = p.get_future();
+        redis->execCommandAsync(
+          [&p](const ::drogon::nosql::RedisResult &r) {
+              p.set_value(static_cast<int>(r.asInteger()));
+          },
+          [&p](const ::drogon::nosql::RedisException &) { p.set_value(-1); },
+          "EXISTS %s", key.c_str()
+        );
+        if (
+          f.wait_for(std::chrono::seconds(2)) == std::future_status::ready &&
+          f.get() == 1)
+            return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return false;
+}
+
 void evictTokenKeys(const std::string &hash)
 {
     auto redis = getRedisOrNull();
@@ -262,7 +294,9 @@ DROGON_TEST(Integration_P2_Storage_RedisCachedTokenRepository_GetAccessToken_Mis
     CHECK(first->introspectCount == 0);
     CHECK(fake->getAccessTokenCalls.load() == 1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    // Wait for the async cache fill (SET) to land before asserting the HIT
+    // (#90 case 1: a fixed sleep flakes under load).
+    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:access:" + hash));
 
     // Second read: HIT → does NOT touch impl.
     auto second = waitForAccess([&](auto cb) { decorator->getAccessToken(hash, std::move(cb)); });
@@ -298,12 +332,14 @@ DROGON_TEST(Integration_P2_Storage_RedisCachedTokenRepository_Revoked_NotServed)
     // Populate the access cache.
     auto first = waitForAccess([&](auto cb) { decorator->getAccessToken(hash, std::move(cb)); });
     REQUIRE(first.has_value());
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:access:" + hash));
 
     // Revoke via the decorator (sets token:revoked + DELs access/introspect).
     waitForVoid([&](auto cb) { decorator->revokeAccessToken(hash, "test-revoker", std::move(cb)); });
     CHECK(fake->revokeAccessTokenCalls.load() == 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    // getAccessToken consults token:revoked first, so waiting for that key to
+    // exist (not the DELs) is what makes the negative-cache read deterministic.
+    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:revoked:" + hash));
 
     // getAccessToken now returns nullopt (negative cache hit — does NOT
     // delegate to impl, because C1 checks token:revoked first).
@@ -350,7 +386,7 @@ DROGON_TEST(Integration_P2_Storage_RedisCachedTokenRepository_Introspect_N2_Disc
 
     // --- Access-token path: warm the access cache first (the N2 gate). ---
     waitForAccess([&](auto cb) { decorator->getAccessToken(accessHash, std::move(cb)); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:access:" + accessHash));
 
     // First introspect of the ACCESS token → MISS → delegate → cache (N2
     // gate passes because access:{hash} exists).
@@ -358,7 +394,7 @@ DROGON_TEST(Integration_P2_Storage_RedisCachedTokenRepository_Introspect_N2_Disc
     REQUIRE(intro1.has_value());
     CHECK(intro1->active == true);
     CHECK(fake->introspectTokenCalls.load() == 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:introspect:" + accessHash));
 
     // Second introspect of the ACCESS token → HIT (impl NOT consulted).
     auto intro2 = waitForIntro([&](auto cb) { decorator->introspectToken(accessHash, std::move(cb)); });
@@ -371,7 +407,9 @@ DROGON_TEST(Integration_P2_Storage_RedisCachedTokenRepository_Introspect_N2_Disc
     REQUIRE(rtIntro1.has_value());
     CHECK(rtIntro1->active == true);
     int rtCallsAfter1 = fake->introspectTokenCalls.load();
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    // Wait out the introspect cache fill: it lands, yet must NOT be served
+    // (the N2 gate below fails), so the next call still reaches the impl.
+    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:introspect:" + refreshHash));
 
     // Second introspect of the REFRESH token → NOT cached (N2 gate fails:
     // access:{refreshHash} does not exist) → impl consulted again.
@@ -429,7 +467,7 @@ DROGON_TEST(Integration_P2_Storage_RedisCachedTokenRepository_SaveAccessToken_Wa
     auto t = makeAccessToken(hash);
     waitForVoid([&](auto cb) { decorator->saveAccessToken(t, std::move(cb)); });
     CHECK(fake->saveAccessTokenCalls.load() == 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:access:" + hash));
 
     // getAccessToken → HIT (impl NOT consulted, the warm entry served).
     auto r = waitForAccess([&](auto cb) { decorator->getAccessToken(hash, std::move(cb)); });
