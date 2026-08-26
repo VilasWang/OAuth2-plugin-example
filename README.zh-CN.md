@@ -1,4 +1,4 @@
-# Fulla — 全栈 OAuth2/OIDC 授权服务器
+# Fulla — 高性能开源 IAM 核心（C++17）
 
 [English](README.md)
 
@@ -10,7 +10,9 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 [![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
-生产级 OAuth2.0/OIDC 授权服务器，完整支持 RFC 6749、RFC 7662、RFC 7009、RFC 8414 标准——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(fulla-*)`）集成。包含管理后台、前端客户端和完整的测试体系。
+Fulla 是以 C++17 构建的**高性能开源身份与访问管理（IAM）核心**：生产级 OAuth2.0/OIDC 授权服务器（RFC 6749/7662/7009/8414），完整覆盖用户认证、MFA、WebAuthn、RBAC 与多租户——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(fulla-*)`）集成。包含管理后台、用户前端与完整的测试体系。
+
+> **路线图 · 开源核心：** 开源核心是可选商业增强模块（企业集成与支持服务，规划中）的底座。运行一套完整 IAM 所需的一切，现在且永远以 MIT 许可开源。
 
 ---
 
