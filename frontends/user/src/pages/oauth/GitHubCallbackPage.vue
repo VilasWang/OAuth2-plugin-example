@@ -19,22 +19,32 @@ onMounted(async () => {
     return
   }
 
-  // Link flow (SecurityPage's "Link GitHub Account" sets state=link). MUST
-  // short-circuit before the login POST below, and must NEVER fall through
-  // to it: the OAuth round-trip is a full page reload, so the in-memory
-  // access token is gone even for a signed-in user -- restore the session
-  // first; only if that fails (logged out / expired) show an error. A
-  // fall-through would silently mint a login session, and for an unmapped
-  // identity auto-CREATE an account (review W1). Absent state = login flow
-  // (LoginPage sends none).
-  if (route.query.state === 'link') {
+  // Link flow (#71): SecurityPage's beginSocialLink sets a sessionStorage
+  // marker before redirecting, and the link callback always carries the
+  // server-minted non-empty state (login sends none -- LoginPage builds no
+  // state). Either signal identifies the link flow. MUST short-circuit
+  // before the login POST below, and must NEVER fall through to it: the
+  // OAuth round-trip is a full page reload, so the in-memory access token is
+  // gone even for a signed-in user -- restore the session first; only if
+  // that fails (logged out / expired) show an error. A fall-through would
+  // silently mint a login session, and for an unmapped identity auto-CREATE
+  // an account (review W1).
+  const queryState = typeof route.query.state === 'string' ? route.query.state : ''
+  const isLinkFlow =
+    sessionStorage.getItem('social_link_flow') === 'github' || queryState.length > 0
+  if (isLinkFlow) {
+    sessionStorage.removeItem('social_link_flow')
+    if (!queryState) {
+      error.value = 'Missing link state; restart the link flow from the security page.'
+      return
+    }
     const hasSession = getAccessToken() ? true : await tryRestoreSession()
     if (!hasSession) {
       error.value = 'Please sign in first, then retry linking your GitHub account.'
       return
     }
     try {
-      await userService.linkSocialAccount('github', code)
+      await userService.linkSocialAccount('github', code, queryState)
       router.replace('/security')
       return
     } catch (e: unknown) {

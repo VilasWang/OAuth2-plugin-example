@@ -27,9 +27,28 @@ const disablePassword = ref('')
 const socialLinks = ref<SocialLink[]>([])
 const socialLinksLoaded = ref(false)
 const unlinkingProvider = ref('')
-const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || ''
-const githubLinkAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=user:email&state=link&redirect_uri=${encodeURIComponent(window.location.origin + '/callback/github')}`
+const linkingProvider = ref('')
 const providerLabels: Record<string, string> = { github: 'GitHub', google: 'Google', wechat: 'WeChat' }
+
+// #71: the link entry point goes through the server, which mints a one-time
+// state bound to (user, provider) and returns the full authorize URL (the
+// VITE_GITHUB_CLIENT_ID env dependency is gone).
+async function beginSocialLink(provider: string) {
+  if (linkingProvider.value) return
+  linkingProvider.value = provider
+  try {
+    const { authorize_url: authorizeUrl } = await userService.beginSocialLink(provider)
+    // Flow marker for the callback page (survives the full-page round trip
+    // within this tab); the non-empty state in the callback is the backstop.
+    sessionStorage.setItem('social_link_flow', provider)
+    window.location.href = authorizeUrl
+  } catch (e: unknown) {
+    // Show the failure inline instead of leaving the card silently inert.
+    window.alert(normalizeError(e).message)
+  } finally {
+    linkingProvider.value = ''
+  }
+}
 
 async function fetchSocialLinks() {
   try {
@@ -345,10 +364,12 @@ onMounted(fetchProfile)
           No social accounts linked.
         </div>
 
-        <a v-if="GITHUB_CLIENT_ID" :href="githubLinkAuthUrl"
-          class="inline-block px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800">
-          Link GitHub Account
-        </a>
+        <button v-if="!unlinkingProvider"
+          :disabled="linkingProvider !== ''"
+          @click="beginSocialLink('github')"
+          class="inline-block px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:opacity-50">
+          {{ linkingProvider === 'github' ? 'Redirecting...' : 'Link GitHub Account' }}
+        </button>
       </div>
 
       <!-- Delete Account -->

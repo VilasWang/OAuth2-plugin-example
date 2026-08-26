@@ -57,12 +57,50 @@ static void queueGithubOk(const fulla::test::social::SocialLinkFakeHandle &h, in
     h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 }
 
-// POST body {"code": "..."} as Json::Value (sendPostJson's parameter type).
+// POST body {"code": "..."} (pre-validation tests: rejected before the
+// state gate parses anything).
 static Json::Value codeBody(const char *code)
 {
     Json::Value body;
     body["code"] = code;
     return body;
+}
+
+// POST body {"code": "...", "state": "..."} -- the real link request (#71).
+static Json::Value linkBody(const char *code, const std::string &state)
+{
+    Json::Value body;
+    body["code"] = code;
+    body["state"] = state;
+    return body;
+}
+
+// The link state must be bound to the caller's internal id (#71). Resolve the
+// seeded admin's id through the admin API (same technique as
+// UserAdminHardeningTest's LastAdminGuard).
+static int32_t adminInternalId(const std::string &token)
+{
+    auto resp = sendGet("/api/admin/users?q=admin", token);
+    if (!resp)
+        return -1;
+    Json::Value body;
+    if (!parseJsonBody(resp, body) || !body.isMember("users"))
+        return -1;
+    for (const auto &u : body["users"])
+    {
+        if (u.get("username", "").asString() == "admin")
+            return u.get("id", -1).asInt();
+    }
+    return -1;
+}
+
+// Mint a state bound to (admin, provider) through the injected fake's store.
+static std::string mintAdminState(
+  const fulla::test::social::SocialLinkFakeHandle &h,
+  const std::string &token,
+  const std::string &provider)
+{
+    return h.mintState(adminInternalId(token), provider);
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +161,8 @@ DROGON_TEST(Integration_P0_SocialLink_LinkGithubThenList_ShowsEntry)
     REQUIRE(token.has_value());
 
     queueGithubOk(h, 4242);
-    auto linkResp = sendPostJson("/api/me/social/links/github", codeBody("c1"), *token);
+    auto linkResp = sendPostJson(
+      "/api/me/social/links/github", linkBody("c1", mintAdminState(h, *token, "github")), *token);
     REQUIRE(linkResp != nullptr);
     CHECK(statusIs(linkResp, drogon::k200OK));
     Json::Value linkBody;
@@ -153,10 +192,13 @@ DROGON_TEST(Integration_P0_SocialLink_RelinkSameSubject_Returns409)
 
     queueGithubOk(h, 4242);
     CHECK(statusIs(
-      sendPostJson("/api/me/social/links/github", codeBody("c1"), *token), drogon::k200OK
+      sendPostJson(
+        "/api/me/social/links/github", linkBody("c1", mintAdminState(h, *token, "github")), *token),
+      drogon::k200OK
     ));
     queueGithubOk(h, 4242);
-    auto resp = sendPostJson("/api/me/social/links/github", codeBody("c2"), *token);
+    auto resp = sendPostJson(
+      "/api/me/social/links/github", linkBody("c2", mintAdminState(h, *token, "github")), *token);
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k409Conflict));
 }
@@ -180,7 +222,8 @@ DROGON_TEST(Integration_P0_SocialLink_SubjectOwnedByOtherUser_Returns409)
       other;
     queueGithubOk(h, 4242);
 
-    auto resp = sendPostJson("/api/me/social/links/github", codeBody("c1"), *token);
+    auto resp = sendPostJson(
+      "/api/me/social/links/github", linkBody("c1", mintAdminState(h, *token, "github")), *token);
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k409Conflict));
     Json::Value body;
@@ -202,7 +245,8 @@ DROGON_TEST(Integration_P1_SocialLink_ExchangeFailure_Returns502)
     REQUIRE(token.has_value());
 
     h.http->postFormResponses.push_back(fulla::identity::testing::transportFailure());
-    auto resp = sendPostJson("/api/me/social/links/github", codeBody("bad"), *token);
+    auto resp = sendPostJson(
+      "/api/me/social/links/github", linkBody("bad", mintAdminState(h, *token, "github")), *token);
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k502BadGateway));
 }
@@ -235,7 +279,9 @@ DROGON_TEST(Integration_P1_SocialUnlink_LastLinkNoPassword_Returns409)
 
     queueGithubOk(h, 4242);
     CHECK(statusIs(
-      sendPostJson("/api/me/social/links/github", codeBody("c1"), *token), drogon::k200OK
+      sendPostJson(
+        "/api/me/social/links/github", linkBody("c1", mintAdminState(h, *token, "github")), *token),
+      drogon::k200OK
     ));
 
     auto resp = sendDelete("/api/me/social/links/github", *token);
@@ -264,7 +310,9 @@ DROGON_TEST(Integration_P0_SocialUnlink_WithPassword_Succeeds)
 
     queueGithubOk(h, 4242);
     CHECK(statusIs(
-      sendPostJson("/api/me/social/links/github", codeBody("c1"), *token), drogon::k200OK
+      sendPostJson(
+        "/api/me/social/links/github", linkBody("c1", mintAdminState(h, *token, "github")), *token),
+      drogon::k200OK
     ));
 
     // The fake's inserted mapping carries the controller-resolved internal id.
@@ -299,7 +347,9 @@ DROGON_TEST(Integration_P0_SocialUnlink_SecondLinkPresent_NoGuard)
 
     queueGithubOk(h, 4242);
     CHECK(statusIs(
-      sendPostJson("/api/me/social/links/github", codeBody("c1"), *token), drogon::k200OK
+      sendPostJson(
+        "/api/me/social/links/github", linkBody("c1", mintAdminState(h, *token, "github")), *token),
+      drogon::k200OK
     ));
     Json::Value gToken;
     gToken["access_token"] = "gtok";
@@ -308,7 +358,9 @@ DROGON_TEST(Integration_P0_SocialUnlink_SecondLinkPresent_NoGuard)
     gUser["sub"] = "google-sub-1";
     h.http->getResponses.push_back(fulla::identity::testing::okJson(gUser));
     CHECK(statusIs(
-      sendPostJson("/api/me/social/links/google", codeBody("c2"), *token), drogon::k200OK
+      sendPostJson(
+        "/api/me/social/links/google", linkBody("c2", mintAdminState(h, *token, "google")), *token),
+      drogon::k200OK
     ));
 
     auto resp = sendDelete("/api/me/social/links/github", *token);
@@ -321,4 +373,52 @@ DROGON_TEST(Integration_P0_SocialUnlink_SecondLinkPresent_NoGuard)
     REQUIRE(parseJsonBody(listResp, listBody));
     CHECK(listBody["total"].asInt() == 1);
     CHECK(listBody["social_links"][0]["provider"].asString() == "google");
+}
+
+// ---------------------------------------------------------------------------
+// #71: the state gate over HTTP.
+// ---------------------------------------------------------------------------
+
+// A link POST without state is a 400 (VALIDATION_MISSING_REQUIRED_FIELD) --
+// the stateless injection surface is closed.
+DROGON_TEST(Integration_P1_SocialLink_MissingState_Returns400)
+{
+    SOCIALLINK_SKIP_GUARD;
+    auto h = injectSocialLinkFake();
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    auto resp = sendPostJson("/api/me/social/links/github", codeBody("c1"), *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k400BadRequest));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body["error"]["code"].asString() == "VALIDATION_MISSING_REQUIRED_FIELD");
+}
+
+// A state bound to a DIFFERENT internal user is rejected (envelope 400,
+// generic wording -- no oracle about which check failed).
+DROGON_TEST(Integration_P1_SocialLink_StateBoundToOtherUser_Returns400)
+{
+    SOCIALLINK_SKIP_GUARD;
+    auto h = injectSocialLinkFake();
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    const std::string foreignState = h.mintState(999999, "github");
+    queueGithubOk(h, 4242);
+    auto resp = sendPostJson("/api/me/social/links/github", linkBody("c1", foreignState), *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k400BadRequest));
+}
+
+// The authorize endpoint sits behind the auth filter like its siblings.
+DROGON_TEST(Integration_P1_SocialLink_Authorize_NoToken_Returns401)
+{
+    SOCIALLINK_SKIP_GUARD;
+    injectSocialLinkFake();
+    CHECK(statusIs(
+      sendPostJson("/api/me/social/links/github/authorize", Json::Value(Json::objectValue)),
+      drogon::k401Unauthorized
+    ));
 }

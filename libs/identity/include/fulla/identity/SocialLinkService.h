@@ -21,6 +21,7 @@
 
 #include <fulla/common/ports/ICryptoProvider.h>
 #include <fulla/identity/ISocialAccountRepository.h>
+#include <fulla/identity/ISocialLinkStateStore.h>
 #include <fulla/identity/IWebAuthnRepository.h>
 #include <fulla/identity/SocialAuthService.h>
 
@@ -53,6 +54,9 @@ enum class SocialLinkOpStatus
     NoLink,                  ///< Unlink: no mapping for (user, provider).
     LastCredentialGuard,     ///< Unlink: last social link and no usable
                              ///  password -- refusing to avoid lockout.
+    InvalidState,            ///< Link (#71): the server-side state token is
+                             ///  missing/unknown/expired/replayed, or bound
+                             ///  to another user/provider.
     RepositoryError
 };
 
@@ -65,6 +69,9 @@ struct SocialLinkOpResult
     std::string errorCode;     ///< Provider-level error code (ExchangeFailed).
     SocialLinkEntry entry;     ///< Populated on Ok (link: provider+subject;
                                ///< unlink: provider only).
+    std::string state;         ///< beginLink only (#71): the minted one-time
+                               ///< state token the SPA must carry through
+                               ///< the provider round-trip.
     bool lockoutRiskObserved = false;  ///< #73a: Ok-path post-delete re-check
                                ///< found the user left with NO usable
                                ///< credential (concurrent-unlink race beat
@@ -83,27 +90,50 @@ class SocialLinkService
     // passwordless user whose remaining credential is a passkey may unlink
     // their last social link); nullptr keeps the password-only guard
     // (unverifiable != unusable -- never widen the refusal on a missing dep).
-    // cryptoProvider is reserved for the server-side link-state flow (#71).
+    // stateStore backs the server-side link-state flow (#71); nullptr makes
+    // beginLink and code-linking fail closed as NotConfigured.
+    // cryptoProvider seeds link-state tokens in the Redis store (#71).
     SocialLinkService(
       std::shared_ptr<GitHubAuthService> gitHubService,
       std::shared_ptr<GoogleAuthService> googleService,
       std::shared_ptr<WeChatAuthService> weChatService,
       std::shared_ptr<ISocialAccountRepository> accountRepo,
       std::shared_ptr<IWebAuthnRepository> webAuthnRepo = nullptr,
-      std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider = nullptr
+      std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider = nullptr,
+      std::shared_ptr<ISocialLinkStateStore> stateStore = nullptr
+    );
+
+    /**
+     * @brief #71: mint the one-time link state for (user, provider).
+     *
+     * The SPA starts a link at the authorize endpoint, which embeds the
+     * returned state (result.state on Ok) in the provider authorize URL.
+     * linkAccount refuses to exchange a code unless that same state is
+     * presented and consumed (single use), closing the provider-code
+     * injection / login-CSRF window. NotConfigured when the state store is
+     * unavailable -- linking is deliberately fail-closed stateless.
+     */
+    void beginLink(
+      const std::string &provider,
+      int32_t internalUserId,
+      std::function<void(SocialLinkOpResult)> &&cb
     );
 
     /**
      * @brief Verify @p code against @p provider and link the resolved
      * provider identity to @p internalUserId.
      *
-     * Flow: provider exchange -> subject; findLinkedUser conflict pre-check;
-     * one-link-per-provider pre-check; insertLink (UNIQUE constraint is the
-     * race backstop). Never creates or mutates the local user row.
+     * Flow (#71): consume the one-time @p state (must be bound to this user
+     * AND provider, else InvalidState -- fail closed before any upstream
+     * call); provider exchange -> subject; findLinkedUser conflict
+     * pre-check; one-link-per-provider pre-check; insertLink (UNIQUE
+     * constraint is the race backstop). Never creates or mutates the local
+     * user row.
      */
     void linkAccount(
       const std::string &provider,
       const std::string &code,
+      const std::string &state,
       int32_t internalUserId,
       std::function<void(SocialLinkOpResult)> &&cb
     );
@@ -132,12 +162,27 @@ class SocialLinkService
     static bool isValidProvider(const std::string &provider);
 
   private:
+    // linkAccount's post-state-gate continuation (provider exchange +
+    // mapping checks + insert). Static on purpose: takes every dependency
+    // as an argument so the async chains never need [this] (domain rule).
+    static void proceedWithExchange(
+      const std::shared_ptr<GitHubAuthService> &gitHubService,
+      const std::shared_ptr<GoogleAuthService> &googleService,
+      const std::shared_ptr<WeChatAuthService> &weChatService,
+      const std::shared_ptr<ISocialAccountRepository> &accountRepo,
+      const std::shared_ptr<std::function<void(SocialLinkOpResult)>> &sharedCb,
+      const std::string &provider,
+      const std::string &code,
+      int32_t internalUserId
+    );
+
     std::shared_ptr<GitHubAuthService> gitHubService_;
     std::shared_ptr<GoogleAuthService> googleService_;
     std::shared_ptr<WeChatAuthService> weChatService_;
     std::shared_ptr<ISocialAccountRepository> accountRepo_;
     std::shared_ptr<IWebAuthnRepository> webAuthnRepo_;
     std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider_;
+    std::shared_ptr<ISocialLinkStateStore> stateStore_;
 };
 
 }  // namespace fulla::identity

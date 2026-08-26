@@ -10,6 +10,7 @@
 #include <fulla/identity/testing/FakeOAuthHttpClient.h>
 #include <fulla/identity/testing/FakeSocialAccountRepository.h>
 #include <fulla/identity/testing/FakeWebAuthnRepository.h>
+#include <fulla/identity/testing/MemorySocialLinkStateStore.h>
 
 #include <gtest/gtest.h>
 
@@ -36,10 +37,16 @@ struct LinkServiceFixture
       std::make_shared<GoogleAuthService>(http, "g-id", "g-secret", "https://example.test/cb");
     std::shared_ptr<WeChatAuthService> wechat =
       std::make_shared<WeChatAuthService>(http, "wx-appid", "wx-secret");
+    // #71: link state store; declared BEFORE svc (members initialize in
+    // declaration order and svc's constructor uses it).
+    std::shared_ptr<MemorySocialLinkStateStore> stateStore =
+      std::make_shared<MemorySocialLinkStateStore>();
     std::shared_ptr<SocialLinkService> svc;
 
     LinkServiceFixture()
-        : svc(std::make_shared<SocialLinkService>(github, google, wechat, repo))
+        : svc(std::make_shared<SocialLinkService>(
+            github, google, wechat, repo, nullptr, nullptr, stateStore
+          ))
     {
     }
 
@@ -76,14 +83,22 @@ struct LinkServiceFixture
     }
 };
 
+// #71: the legitimate two-step flow -- mint a state for (user, provider),
+// then link carrying it. Most tests only care about the exchange outcome,
+// so they go through this helper.
 SocialLinkOpResult runLink(
   SocialLinkService &svc,
   const std::string &provider,
   const std::string &code,
   int32_t userId)
 {
+    SocialLinkOpResult begin;
+    svc.beginLink(provider, userId, [&](SocialLinkOpResult r) { begin = std::move(r); });
+    if (begin.status != SocialLinkOpStatus::Ok)
+        return begin;
     SocialLinkOpResult result;
-    svc.linkAccount(provider, code, userId, [&](SocialLinkOpResult r) { result = std::move(r); });
+    svc.linkAccount(
+      provider, code, begin.state, userId, [&](SocialLinkOpResult r) { result = std::move(r); });
     return result;
 }
 
@@ -571,4 +586,102 @@ TEST(SocialLinkServiceTest, Unlink_MultiLink_NoRace_NoFlag)
     EXPECT_EQ(result.status, SocialLinkOpStatus::Ok);
     EXPECT_FALSE(result.lockoutRiskObserved);
     EXPECT_EQ(f.repo->linked.count(FakeSocialAccountRepository::key("google", "g1")), 1u);
+}
+
+
+// --------------------------- #71: link state flow ---------------------------
+
+TEST(SocialLinkServiceTest, BeginLink_MintsUsableState)
+{
+    LinkServiceFixture f;
+    SocialLinkOpResult result;
+    f.svc->beginLink("github", 7, [&](SocialLinkOpResult r) { result = std::move(r); });
+    EXPECT_EQ(result.status, SocialLinkOpStatus::Ok);
+    EXPECT_FALSE(result.state.empty());
+}
+
+TEST(SocialLinkServiceTest, BeginLink_InvalidProvider)
+{
+    LinkServiceFixture f;
+    SocialLinkOpResult result;
+    f.svc->beginLink("facebook", 7, [&](SocialLinkOpResult r) { result = std::move(r); });
+    EXPECT_EQ(result.status, SocialLinkOpStatus::InvalidProvider);
+}
+
+TEST(SocialLinkServiceTest, BeginLink_NoStateStore_FailClosed)
+{
+    // No store wired: linking must not degrade to stateless (#71).
+    LinkServiceFixture f;
+    f.svc = std::make_shared<SocialLinkService>(f.github, f.google, f.wechat, f.repo);
+    SocialLinkOpResult begin;
+    f.svc->beginLink("github", 7, [&](SocialLinkOpResult r) { begin = std::move(r); });
+    EXPECT_EQ(begin.status, SocialLinkOpStatus::NotConfigured);
+    SocialLinkOpResult link;
+    f.svc->linkAccount(
+      "github", "code", "any-state", 7, [&](SocialLinkOpResult r) { link = std::move(r); });
+    EXPECT_EQ(link.status, SocialLinkOpStatus::NotConfigured);
+}
+
+TEST(SocialLinkServiceTest, Link_WithoutState_IsRejected)
+{
+    LinkServiceFixture f;
+    SocialLinkOpResult result;
+    f.svc->linkAccount(
+      "github", "code", "", 7, [&](SocialLinkOpResult r) { result = std::move(r); });
+    EXPECT_EQ(result.status, SocialLinkOpStatus::InvalidState);
+    // No upstream exchange was attempted (queues untouched).
+    EXPECT_TRUE(f.http->postFormResponses.empty());
+}
+
+TEST(SocialLinkServiceTest, Link_UnknownState_IsRejected)
+{
+    LinkServiceFixture f;
+    SocialLinkOpResult result;
+    f.svc->linkAccount(
+      "github", "code", "never-issued", 7, [&](SocialLinkOpResult r) { result = std::move(r); });
+    EXPECT_EQ(result.status, SocialLinkOpStatus::InvalidState);
+}
+
+TEST(SocialLinkServiceTest, Link_StateBoundToOtherUser_IsRejected)
+{
+    LinkServiceFixture f;
+    SocialLinkOpResult begin;
+    f.svc->beginLink("github", 8, [&](SocialLinkOpResult r) { begin = std::move(r); });
+    ASSERT_EQ(begin.status, SocialLinkOpStatus::Ok);
+    SocialLinkOpResult result;
+    f.svc->linkAccount(
+      "github", "code", begin.state, 7, [&](SocialLinkOpResult r) { result = std::move(r); });
+    EXPECT_EQ(result.status, SocialLinkOpStatus::InvalidState);
+}
+
+TEST(SocialLinkServiceTest, Link_StateBoundToOtherProvider_IsRejected)
+{
+    LinkServiceFixture f;
+    SocialLinkOpResult begin;
+    f.svc->beginLink("google", 7, [&](SocialLinkOpResult r) { begin = std::move(r); });
+    ASSERT_EQ(begin.status, SocialLinkOpStatus::Ok);
+    SocialLinkOpResult result;
+    f.svc->linkAccount(
+      "github", "code", begin.state, 7, [&](SocialLinkOpResult r) { result = std::move(r); });
+    EXPECT_EQ(result.status, SocialLinkOpStatus::InvalidState);
+}
+
+TEST(SocialLinkServiceTest, Link_StateReplay_IsRejected)
+{
+    LinkServiceFixture f;
+    SocialLinkOpResult begin;
+    f.svc->beginLink("github", 7, [&](SocialLinkOpResult r) { begin = std::move(r); });
+    ASSERT_EQ(begin.status, SocialLinkOpStatus::Ok);
+    f.queueGithub(4242, "octocat");
+    SocialLinkOpResult first;
+    f.svc->linkAccount(
+      "github", "code", begin.state, 7, [&](SocialLinkOpResult r) { first = std::move(r); });
+    ASSERT_EQ(first.status, SocialLinkOpStatus::Ok);
+    // Replaying the same state (the token was consumed by the first use):
+    // rejected before any exchange.
+    f.queueGithub(4242, "octocat");
+    SocialLinkOpResult replay;
+    f.svc->linkAccount(
+      "github", "code", begin.state, 7, [&](SocialLinkOpResult r) { replay = std::move(r); });
+    EXPECT_EQ(replay.status, SocialLinkOpStatus::InvalidState);
 }

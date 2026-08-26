@@ -35,14 +35,16 @@ SocialLinkService::SocialLinkService(
   std::shared_ptr<WeChatAuthService> weChatService,
   std::shared_ptr<ISocialAccountRepository> accountRepo,
   std::shared_ptr<IWebAuthnRepository> webAuthnRepo,
-  std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider
+  std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider,
+  std::shared_ptr<ISocialLinkStateStore> stateStore
 )
     : gitHubService_(std::move(gitHubService)),
       googleService_(std::move(googleService)),
       weChatService_(std::move(weChatService)),
       accountRepo_(std::move(accountRepo)),
       webAuthnRepo_(std::move(webAuthnRepo)),
-      cryptoProvider_(std::move(cryptoProvider))
+      cryptoProvider_(std::move(cryptoProvider)),
+      stateStore_(std::move(stateStore))
 {
 }
 
@@ -51,9 +53,56 @@ bool SocialLinkService::isValidProvider(const std::string &provider)
     return isGithub(provider) || isGoogle(provider) || isWeChat(provider);
 }
 
+void SocialLinkService::beginLink(
+  const std::string &provider,
+  int32_t internalUserId,
+  std::function<void(SocialLinkOpResult)> &&cb
+)
+{
+    auto sharedCb = std::make_shared<std::function<void(SocialLinkOpResult)>>(std::move(cb));
+
+    if (!isValidProvider(provider))
+    {
+        SocialLinkOpResult invalid;
+        invalid.status = SocialLinkOpStatus::InvalidProvider;
+        (*sharedCb)(std::move(invalid));
+        return;
+    }
+    // Fail closed: without a state store there is no server-side link flow
+    // (#71) -- a stateless link endpoint is exactly the injection surface
+    // this closes.
+    if (!stateStore_)
+    {
+        SocialLinkOpResult unwired;
+        unwired.status = SocialLinkOpStatus::NotConfigured;
+        (*sharedCb)(std::move(unwired));
+        return;
+    }
+    auto stateStore = stateStore_;
+    stateStore->issue(
+      internalUserId,
+      provider,
+      [sharedCb](std::optional<std::string> token) mutable {
+          if (!token)
+          {
+              // Store unavailable / collision: do not degrade to stateless.
+              SocialLinkOpResult result;
+              result.status = SocialLinkOpStatus::NotConfigured;
+              (*sharedCb)(std::move(result));
+              return;
+          }
+          SocialLinkOpResult result;
+          result.status = SocialLinkOpStatus::Ok;
+          result.state = *token;
+          (*sharedCb)(std::move(result));
+      }
+    );
+}
+
 void SocialLinkService::linkAccount(
   const std::string &provider,
   const std::string &code,
+  const std::string &state,
   int32_t internalUserId,
   std::function<void(SocialLinkOpResult)> &&cb
 )
@@ -78,12 +127,67 @@ void SocialLinkService::linkAccount(
         return;
     }
 
+    // #71: the one-time state gate. The token must exist (issue-time bound to
+    // THIS user and provider), be unconsumed, and be presented by the same
+    // authenticated user that started the flow -- otherwise someone scripting
+    // a POST with an attacker-chosen provider code could graft their own
+    // social identity onto a victim's account. Checked BEFORE any upstream
+    // call. A missing store also fails closed (beginLink refused to mint, so
+    // no legitimate stateless flow exists).
+    if (!stateStore_)
+    {
+        SocialLinkOpResult unwired;
+        unwired.status = SocialLinkOpStatus::NotConfigured;
+        (*sharedCb)(std::move(unwired));
+        return;
+    }
+    auto stateStore = stateStore_;
+    stateStore->consume(
+      state,
+      [gitHubService = gitHubService_, googleService = googleService_,
+       weChatService = weChatService_, accountRepo = accountRepo_, sharedCb, provider, code,
+       internalUserId](std::optional<SocialLinkStateData> bound) mutable {
+          if (!bound || bound->internalUserId != internalUserId || bound->provider != provider)
+          {
+              SocialLinkOpResult result;
+              result.status = SocialLinkOpStatus::InvalidState;
+              (*sharedCb)(std::move(result));
+              return;
+          }
+          // State consumed -- continue with the provider exchange. The
+          // continuation takes every dependency explicitly (domain rule:
+          // no [this] in async chains).
+          proceedWithExchange(
+            gitHubService,
+            googleService,
+            weChatService,
+            accountRepo,
+            sharedCb,
+            provider,
+            code,
+            internalUserId
+          );
+      }
+    );
+}
+
+void SocialLinkService::proceedWithExchange(
+  const std::shared_ptr<GitHubAuthService> &gitHubService,
+  const std::shared_ptr<GoogleAuthService> &googleService,
+  const std::shared_ptr<WeChatAuthService> &weChatService,
+  const std::shared_ptr<ISocialAccountRepository> &accountRepo,
+  const std::shared_ptr<std::function<void(SocialLinkOpResult)>> &sharedCb,
+  const std::string &provider,
+  const std::string &code,
+  int32_t internalUserId
+)
+{
     // Step 1: provider code exchange -> subject. Google/WeChat's login() is
     // already profile-only; GitHub uses fetchProfile (login() would
     // find-or-create a local account -- exactly the side effect linking an
     // EXISTING user must not trigger).
     auto onSubject =
-      [accountRepo = accountRepo_, sharedCb, provider, internalUserId](
+      [accountRepo, sharedCb, provider, internalUserId](
         const std::string &errorCode, const std::string &subject) mutable {
           // W2 (PR review): a 200 userinfo response that is missing its
           // identifier (Google's .get("sub", ""), WeChat's .get("openid",
@@ -200,14 +304,14 @@ void SocialLinkService::linkAccount(
 
     if (isGithub(provider))
     {
-        if (!gitHubService_)
+        if (!gitHubService)
         {
             SocialLinkOpResult result;
             result.status = SocialLinkOpStatus::NotConfigured;
             (*sharedCb)(std::move(result));
             return;
         }
-        auto service = gitHubService_;
+        auto service = gitHubService;
         service->fetchProfile(
           code,
           [onSubject = std::move(onSubject)](GitHubProfileResult profile) mutable {
@@ -219,14 +323,14 @@ void SocialLinkService::linkAccount(
 
     if (isGoogle(provider))
     {
-        if (!googleService_)
+        if (!googleService)
         {
             SocialLinkOpResult result;
             result.status = SocialLinkOpStatus::NotConfigured;
             (*sharedCb)(std::move(result));
             return;
         }
-        auto service = googleService_;
+        auto service = googleService;
         service->login(
           code,
           [onSubject = std::move(onSubject)](GoogleLoginResult result) mutable {
@@ -237,14 +341,14 @@ void SocialLinkService::linkAccount(
     }
 
     // isValidProvider() filtered everything but wechat by now.
-    if (!weChatService_)
+    if (!weChatService)
     {
         SocialLinkOpResult result;
         result.status = SocialLinkOpStatus::NotConfigured;
         (*sharedCb)(std::move(result));
         return;
     }
-    auto service = weChatService_;
+    auto service = weChatService;
     service->login(
       code,
       [onSubject = std::move(onSubject)](WeChatLoginResult result) mutable {

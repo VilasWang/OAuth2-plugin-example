@@ -54,10 +54,23 @@ export const userService = {
     return resp.data?.social_links || []
   },
 
-  async linkSocialAccount(provider: string, code: string): Promise<void> {
-    await http.post(`/api/me/social/links/${encodeURIComponent(provider)}`, JSON.stringify({ code }), {
-      headers: { 'Content-Type': 'application/json' },
-    })
+  // #71: server-minted one-time link state + the provider authorize URL to
+  // redirect to. The link-back POST must present the same state.
+  async beginSocialLink(provider: string): Promise<{ state: string; authorize_url: string }> {
+    const resp = await http.post(
+      `/api/me/social/links/${encodeURIComponent(provider)}/authorize`,
+      JSON.stringify({}),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+    return resp.data
+  },
+
+  async linkSocialAccount(provider: string, code: string, state: string): Promise<void> {
+    await http.post(
+      `/api/me/social/links/${encodeURIComponent(provider)}`,
+      JSON.stringify({ code, state }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
   },
 
   async unlinkSocialAccount(provider: string): Promise<void> {

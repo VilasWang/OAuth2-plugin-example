@@ -94,9 +94,15 @@ void UserSelfServiceController::initApiDocsImpl()
       "/api/me/social/links", "GET", "List Linked Social Accounts",
       "List the social provider identities linked to the current user."));
     openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
+      "/api/me/social/links/{provider}/authorize", "POST", "Begin Social Link",
+      "Mint the one-time link state (#71) and return the provider authorize "
+      "URL the SPA must redirect to; the link-back POST must present the "
+      "same state."));
+    openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
       "/api/me/social/links/{provider}", "POST", "Link Social Account",
       "Verify a provider authorization code and link that provider identity "
-      "to the current user."));
+      "to the current user. Requires the state token from the authorize "
+      "step (single use, bound to this user and provider)."));
     openapi::OpenApiGenerator::addEndpoint(selfServiceEp(
       "/api/me/social/links/{provider}", "DELETE", "Unlink Social Account",
       "Remove the current user's linked identity for a provider."));
@@ -1007,6 +1013,72 @@ void resolveInternalUserId(
     }
 }
 
+// #71: server-side provider authorize-URL builder for the link flow. Client
+// ids come from custom_config external_auth.{provider}; the redirect target
+// is external_auth.{provider}.redirect_uri when set, else the frontend URL +
+// /callback/{provider}. Returns "" for an unconfigured provider (the caller
+// fails closed -- no stateless URL ever leaves the server).
+std::string buildSocialAuthorizeUrl(const std::string &provider, const std::string &state)
+{
+    auto config = ::drogon::app().getCustomConfig();
+    if (!config.isMember("external_auth"))
+        return "";
+    const auto &externalAuth = config["external_auth"];
+    if (!externalAuth.isMember(provider) || !externalAuth[provider].isObject())
+        return "";
+
+    std::string frontendUrl = "http://localhost:5173";
+    if (config.isMember("frontend") && config["frontend"].isMember("url"))
+        frontendUrl = config["frontend"]["url"].asString();
+    // Trim a trailing slash once so the fallback never doubles it.
+    if (!frontendUrl.empty() && frontendUrl.back() == '/')
+        frontendUrl.pop_back();
+
+    const auto credentialConfigured = [](const std::string &v) {
+        return !v.empty() && v.rfind("YOUR_", 0) != 0;
+    };
+    const std::string redirectUri = externalAuth[provider].get("redirect_uri", "").asString() !=
+                                        ""
+                                      ? externalAuth[provider].get("redirect_uri", "").asString()
+                                      : frontendUrl + "/callback/" + provider;
+    const std::string encodedRedirect = ::drogon::utils::urlEncode(redirectUri);
+    const std::string encodedState = ::drogon::utils::urlEncode(state);
+
+    if (provider == "github")
+    {
+        const std::string clientId = externalAuth["github"].get("client_id", "").asString();
+        const std::string clientSecret = externalAuth["github"].get("client_secret", "").asString();
+        if (!credentialConfigured(clientId) || !credentialConfigured(clientSecret))
+            return "";
+        return "https://github.com/login/oauth/authorize?client_id=" + clientId +
+               "&scope=user%3Aemail&state=" + encodedState +
+               "&redirect_uri=" + encodedRedirect;
+    }
+    if (provider == "google")
+    {
+        const std::string clientId = externalAuth["google"].get("client_id", "").asString();
+        const std::string clientSecret =
+          externalAuth["google"].get("client_secret", "").asString();
+        if (!credentialConfigured(clientId) || !credentialConfigured(clientSecret))
+            return "";
+        return "https://accounts.google.com/o/oauth2/v2/auth?client_id=" + clientId +
+               "&response_type=code&scope=openid%20email%20profile&state=" + encodedState +
+               "&redirect_uri=" + encodedRedirect;
+    }
+    if (provider == "wechat")
+    {
+        const std::string appId = externalAuth["wechat"].get("appid", "").asString();
+        const std::string secret = externalAuth["wechat"].get("secret", "").asString();
+        if (!credentialConfigured(appId) || !credentialConfigured(secret))
+            return "";
+        return "https://open.weixin.qq.com/connect/qrconnect?appid=" + appId +
+               "&redirect_uri=" + encodedRedirect +
+               "&response_type=code&scope=snsapi_login&state=" + encodedState +
+               "#wechat_redirect";
+    }
+    return "";
+}
+
 // SocialLinkOpStatus -> Error Envelope (design §3.4). Returns false when the
 // status was an error (response sent); true for Ok (caller builds the 200).
 bool respondLinkOpError(
@@ -1072,6 +1144,15 @@ bool respondLinkOpError(
         respondError(
           req, sharedCb, "VALIDATION_RESOURCE_CONFLICT",
           "social links: cannot remove your last sign-in method (set a password first)"
+        );
+        return true;
+    case SocialLinkOpStatus::InvalidState:
+        // #71: unknown/expired/replayed state token, or one bound to a
+        // different user/provider. Deliberately generic -- no oracle about
+        // WHICH check failed.
+        respondError(
+          req, sharedCb, "VALIDATION_INVALID_INPUT",
+          "social links: invalid or expired link state; restart the link flow"
         );
         return true;
     case SocialLinkOpStatus::RepositoryError:
@@ -1142,6 +1223,80 @@ void UserSelfServiceController::listSocialLinks(
     }
 }
 
+void UserSelfServiceController::beginSocialLink(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+  const std::string &provider
+)
+{
+    std::string userId = req->getAttributes()->get<std::string>("userId");
+    auto sharedCb =
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+    if (!socialLinkService_)
+    {
+        respondError(
+          req, sharedCb, "INTERNAL_ERROR", "social links: social linking is not configured"
+        );
+        return;
+    }
+    if (!::fulla::identity::SocialLinkService::isValidProvider(provider))
+    {
+        respondError(
+          req, sharedCb, "VALIDATION_INVALID_INPUT",
+          "social links: unsupported provider '" + provider + "'"
+        );
+        return;
+    }
+
+    auto service = socialLinkService_;
+    try
+    {
+        auto db = ::drogon::app().getDbClient();
+        resolveInternalUserId(
+          db,
+          userId,
+          req,
+          sharedCb,
+          [service, sharedCb, provider, userId, req](bool, int32_t internalId) mutable {
+              service->beginLink(
+                provider,
+                internalId,
+                [sharedCb, provider, userId, req](
+                  ::fulla::identity::SocialLinkOpResult result) mutable {
+                    if (respondLinkOpError(req, sharedCb, result, provider))
+                    {
+                        return;
+                    }
+                    const std::string authorizeUrl =
+                      buildSocialAuthorizeUrl(provider, result.state);
+                    if (authorizeUrl.empty())
+                    {
+                        // Provider disabled/unconfigured (#111): beginLink
+                        // normally never reaches here for unwired providers,
+                        // but the URL builder double-checks credentials.
+                        respondError(
+                          req, sharedCb, "INTERNAL_ERROR",
+                          "social links: provider '" + provider + "' is not configured"
+                        );
+                        return;
+                    }
+                    Json::Value json;
+                    json["provider"] = provider;
+                    json["state"] = result.state;
+                    json["authorize_url"] = authorizeUrl;
+                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                }
+              );
+          }
+        );
+    }
+    catch (...)
+    {
+        respondError(req, sharedCb, "DB_CONNECTION_ERROR", "social links: database unavailable");
+    }
+}
+
 void UserSelfServiceController::linkSocialAccount(
   const ::drogon::HttpRequestPtr &req,
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
@@ -1168,10 +1323,15 @@ void UserSelfServiceController::linkSocialAccount(
         return;
     }
     std::string code;
+    std::string state;
     auto jsonBody = req->getJsonObject();
     if (jsonBody && jsonBody->isMember("code"))
     {
         code = (*jsonBody)["code"].asString();
+    }
+    if (jsonBody && jsonBody->isMember("state"))
+    {
+        state = (*jsonBody)["state"].asString();
     }
     // JSON body only (per spec): codes carry provider credentials and must
     // not ride query strings into access/intermediary logs.
@@ -1180,6 +1340,17 @@ void UserSelfServiceController::linkSocialAccount(
         respondError(
           req, sharedCb, "VALIDATION_MISSING_REQUIRED_FIELD",
           "social links: code is required"
+        );
+        return;
+    }
+    // #71: the one-time state from the authorize step is mandatory -- a
+    // stateless link POST is exactly the provider-code injection surface
+    // this flow closes.
+    if (state.empty())
+    {
+        respondError(
+          req, sharedCb, "VALIDATION_MISSING_REQUIRED_FIELD",
+          "social links: state is required (start at /authorize)"
         );
         return;
     }
@@ -1193,10 +1364,11 @@ void UserSelfServiceController::linkSocialAccount(
           userId,
           req,
           sharedCb,
-          [service, sharedCb, provider, code, userId, req](bool, int32_t internalId) mutable {
+          [service, sharedCb, provider, code, state, userId, req](bool, int32_t internalId) mutable {
               service->linkAccount(
                 provider,
                 code,
+                state,
                 internalId,
                 [sharedCb, req, userId, provider](
                   ::fulla::identity::SocialLinkOpResult result) mutable {

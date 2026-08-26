@@ -162,6 +162,7 @@ const std::string &expectedFingerprint()
       "POST /api/me/mfa/setup\n"
       "POST /api/me/mfa/verify\n"
       "POST /api/me/social/links/{provider}\n"
+      "POST /api/me/social/links/{provider}/authorize\n"
       "POST /api/me/webauthn/register/begin\n"
       "POST /api/me/webauthn/register/finish\n"
       "POST /api/password-reset/confirm\n"
