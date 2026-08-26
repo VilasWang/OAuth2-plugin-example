@@ -11,6 +11,19 @@ instead. This list is not a rubber stamp; reviewers should challenge entries.
 
 ---
 
+## 2026-08-26 · #71 social-link server-side state (PR: issues batch 1)
+
+The link POST gains a REQUIRED `state` property. The endpoint was introduced
+in PR #68 (three weeks old), is consumed only by this repo's own SPA, and both
+SDKs are regenerated in the same PR that adds the field -- there are no
+external callers to break. A stateless POST is precisely the
+provider-code-injection surface this change closes; a soft (optional-state)
+transition would keep the vulnerability open for one release.
+
+- POST /api/me/social/links/{provider} added required request body's property — state minted by the authorize step; see reason above
+
+---
+
 ## 2026-08-16 · spec-governance M0 bootstrap (PR: openapi spec governance)
 
 One-time reconciliation between the spec and the code (design

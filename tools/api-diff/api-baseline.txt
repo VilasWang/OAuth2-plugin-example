@@ -852,6 +852,32 @@ public:
 std::string generate() override;
 };
 }
+=== libs/drogon/include/fulla/drogon/adapters/RedisSocialLinkStateStore.h
+#pragma once
+#ifdef WITH_SOCIAL
+#include <fulla/common/ports/ICryptoProvider.h>
+#include <fulla/identity/ISocialLinkStateStore.h>
+#include <drogon/nosql/RedisClient.h>
+#include <memory>
+namespace fulla::drogon::adapters
+{
+class RedisSocialLinkStateStore : public fulla::identity::ISocialLinkStateStore
+{
+public:
+RedisSocialLinkStateStore(
+::drogon::nosql::RedisClientPtr redisClient,
+std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider,
+int ttlSeconds = 600
+);
+void issue(int32_t internalUserId, const std::string &provider, IssueCallback &&cb) override;
+void consume(const std::string &state, ConsumeCallback &&cb) override;
+private:
+::drogon::nosql::RedisClientPtr redisClient_;
+std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider_;
+int ttlSeconds_;
+};
+}
+#endif
 === libs/drogon/include/fulla/drogon/adapters/StorageRoleProvider.h
 #pragma once
 #include <fulla/common/ports/IRoleProvider.h>
@@ -2216,6 +2242,12 @@ UserSelfServiceController::listSocialLinks,
 "fulla::drogon::filters::OAuth2AuthFilter"
 );
 ADD_METHOD_TO(
+UserSelfServiceController::beginSocialLink,
+"/api/me/social/links/{provider}/authorize",
+::drogon::Post,
+"fulla::drogon::filters::OAuth2AuthFilter"
+);
+ADD_METHOD_TO(
 UserSelfServiceController::linkSocialAccount,
 "/api/me/social/links/{provider}",
 ::drogon::Post,
@@ -2254,6 +2286,11 @@ std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 void listSocialLinks(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+);
+void beginSocialLink(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+const std::string &provider
 );
 void linkSocialAccount(
 const ::drogon::HttpRequestPtr &req,
@@ -3706,6 +3743,31 @@ virtual void userHasUsablePassword(int32_t internalUserId, PasswordUsableCallbac
 };
 }
 #endif
+=== libs/identity/include/fulla/identity/ISocialLinkStateStore.h
+#pragma once
+#ifdef WITH_SOCIAL
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <string>
+namespace fulla::identity
+{
+struct SocialLinkStateData
+{
+int32_t internalUserId = 0;
+std::string provider;
+};
+class ISocialLinkStateStore
+{
+public:
+virtual ~ISocialLinkStateStore() = default;
+using IssueCallback = std::function<void(std::optional<std::string>)>;
+virtual void issue(int32_t internalUserId, const std::string &provider, IssueCallback &&cb) = 0;
+using ConsumeCallback = std::function<void(std::optional<SocialLinkStateData>)>;
+virtual void consume(const std::string &state, ConsumeCallback &&cb) = 0;
+};
+}
+#endif
 === libs/identity/include/fulla/identity/ISubjectMappingRepository.h
 #pragma once
 #include <cstdint>
@@ -4075,6 +4137,7 @@ std::string clientSecret_;
 #ifdef WITH_SOCIAL
 #include <fulla/common/ports/ICryptoProvider.h>
 #include <fulla/identity/ISocialAccountRepository.h>
+#include <fulla/identity/ISocialLinkStateStore.h>
 #include <fulla/identity/IWebAuthnRepository.h>
 #include <fulla/identity/SocialAuthService.h>
 #include <functional>
@@ -4094,6 +4157,7 @@ AlreadyLinkedToOtherUser,
 ProviderConflictForUser,
 NoLink,
 LastCredentialGuard,
+InvalidState,
 RepositoryError
 };
 struct SocialLinkOpResult
@@ -4101,6 +4165,7 @@ struct SocialLinkOpResult
 SocialLinkOpStatus status = SocialLinkOpStatus::RepositoryError;
 std::string errorCode;
 SocialLinkEntry entry;
+std::string state;
 bool lockoutRiskObserved = false;
 };
 class SocialLinkService
@@ -4112,11 +4177,18 @@ std::shared_ptr<GoogleAuthService> googleService,
 std::shared_ptr<WeChatAuthService> weChatService,
 std::shared_ptr<ISocialAccountRepository> accountRepo,
 std::shared_ptr<IWebAuthnRepository> webAuthnRepo = nullptr,
-std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider = nullptr
+std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider = nullptr,
+std::shared_ptr<ISocialLinkStateStore> stateStore = nullptr
+);
+void beginLink(
+const std::string &provider,
+int32_t internalUserId,
+std::function<void(SocialLinkOpResult)> &&cb
 );
 void linkAccount(
 const std::string &provider,
 const std::string &code,
+const std::string &state,
 int32_t internalUserId,
 std::function<void(SocialLinkOpResult)> &&cb
 );
@@ -4131,12 +4203,23 @@ std::function<void(SocialLinkOpStatus, std::vector<SocialLinkEntry>)> &&cb
 );
 static bool isValidProvider(const std::string &provider);
 private:
+static void proceedWithExchange(
+const std::shared_ptr<GitHubAuthService> &gitHubService,
+const std::shared_ptr<GoogleAuthService> &googleService,
+const std::shared_ptr<WeChatAuthService> &weChatService,
+const std::shared_ptr<ISocialAccountRepository> &accountRepo,
+const std::shared_ptr<std::function<void(SocialLinkOpResult)>> &sharedCb,
+const std::string &provider,
+const std::string &code,
+int32_t internalUserId
+);
 std::shared_ptr<GitHubAuthService> gitHubService_;
 std::shared_ptr<GoogleAuthService> googleService_;
 std::shared_ptr<WeChatAuthService> weChatService_;
 std::shared_ptr<ISocialAccountRepository> accountRepo_;
 std::shared_ptr<IWebAuthnRepository> webAuthnRepo_;
 std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider_;
+std::shared_ptr<ISocialLinkStateStore> stateStore_;
 };
 }
 #endif
@@ -4421,6 +4504,31 @@ void listCredentials(int32_t userId, ListCredentialsCallback &&cb) override
 ;
 };
 }
+=== libs/identity/include/fulla/identity/testing/MemorySocialLinkStateStore.h
+#pragma once
+#ifdef WITH_SOCIAL
+#include <fulla/identity/ISocialLinkStateStore.h>
+#include <map>
+#include <mutex>
+#include <string>
+namespace fulla::identity::testing
+{
+class MemorySocialLinkStateStore : public ISocialLinkStateStore
+{
+public:
+long long issued = 0;
+long long consumed = 0;
+long long consumeMisses = 0;
+void issue(int32_t internalUserId, const std::string &provider, IssueCallback &&cb) override
+;
+void consume(const std::string &state, ConsumeCallback &&cb) override
+;
+private:
+std::mutex mutex_;
+std::map<std::string, SocialLinkStateData> states_;
+};
+}
+#endif
 === libs/oauth2/include/fulla/oauth2/access/ScopeDecision.h
 #pragma once
 #include <string>

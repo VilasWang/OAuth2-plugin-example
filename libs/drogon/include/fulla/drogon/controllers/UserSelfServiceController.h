@@ -66,6 +66,15 @@ class UserSelfServiceController : public ::drogon::HttpController<UserSelfServic
       ::drogon::Get,
       "fulla::drogon::filters::OAuth2AuthFilter"
     );
+    // #71: server-side link state -- the SPA starts here, gets the provider
+    // authorize URL (with the one-time state embedded), and the link POST
+    // below must present the same state.
+    ADD_METHOD_TO(
+      UserSelfServiceController::beginSocialLink,
+      "/api/me/social/links/{provider}/authorize",
+      ::drogon::Post,
+      "fulla::drogon::filters::OAuth2AuthFilter"
+    );
     ADD_METHOD_TO(
       UserSelfServiceController::linkSocialAccount,
       "/api/me/social/links/{provider}",
@@ -106,6 +115,11 @@ class UserSelfServiceController : public ::drogon::HttpController<UserSelfServic
     void listSocialLinks(
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+    );
+    void beginSocialLink(
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback,
+      const std::string &provider
     );
     void linkSocialAccount(
       const ::drogon::HttpRequestPtr &req,

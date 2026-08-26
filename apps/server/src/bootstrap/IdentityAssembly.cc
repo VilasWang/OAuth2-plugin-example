@@ -21,6 +21,7 @@
 #include <fulla/identity/SocialAuthService.h>
 #include <fulla/identity/SocialLinkService.h>
 #include <fulla/identity/WebAuthnService.h>
+#include <fulla/drogon/adapters/RedisSocialLinkStateStore.h>
 #include <fulla/storage/postgres/PostgresIdentityRepository.h>
 #include <fulla/storage/postgres/PostgresMfaRepository.h>
 #include <fulla/storage/postgres/PostgresSocialAccountRepository.h>
@@ -139,6 +140,14 @@ void wireIdentityServices()
     // keys mirror each pre-Task-24 controller's own getXxxConfig() reads
     // (custom_config "external_auth.{google,wechat,github}" blocks) --
     // read once here at startup instead of per-request.
+    // #111: a provider whose required credentials are absent or still carry
+    // the legacy YOUR_* template placeholders is DISABLED at startup (its
+    // service is not injected): misconfigured providers fail at request time
+    // with a clear NotConfigured error instead of phoning an upstream that
+    // can never accept them.
+    const auto credentialConfigured = [](const std::string &value) {
+        return !value.empty() && value.rfind("YOUR_", 0) != 0;
+    };
     std::string googleClientId, googleClientSecret, googleRedirectUri;
     std::string wechatAppId, wechatSecret;
     std::string githubClientId, githubClientSecret;
@@ -162,6 +171,21 @@ void wireIdentityServices()
             githubClientSecret = externalAuth["github"].get("client_secret", "").asString();
         }
     }
+    const bool googleConfigured =
+      credentialConfigured(googleClientId) && credentialConfigured(googleClientSecret);
+    const bool wechatConfigured =
+      credentialConfigured(wechatAppId) && credentialConfigured(wechatSecret);
+    const bool githubConfigured =
+      credentialConfigured(githubClientId) && credentialConfigured(githubClientSecret);
+    if (!googleConfigured)
+        LOG_INFO << "IdentityAssembly: social provider 'google' disabled (external_auth.google "
+                    "credentials not configured; see docs on provider setup)";
+    if (!wechatConfigured)
+        LOG_INFO << "IdentityAssembly: social provider 'wechat' disabled (external_auth.wechat "
+                    "credentials not configured; see docs on provider setup)";
+    if (!githubConfigured)
+        LOG_INFO << "IdentityAssembly: social provider 'github' disabled (external_auth.github "
+                    "credentials not configured; see docs on provider setup)";
     auto socialAccountRepo =
       std::make_shared<fulla::storage::postgres::PostgresSocialAccountRepository>(dbClient);
 
@@ -187,13 +211,31 @@ void wireIdentityServices()
 #else
     std::shared_ptr<fulla::identity::IWebAuthnRepository> linkGuardWebAuthnRepo = nullptr;
 #endif
+    // #71: Redis-backed one-time link state (fail-closed when Redis is not
+    // configured -- linking then answers NotConfigured rather than running
+    // stateless, which is the exact surface this flow closes).
+    std::shared_ptr<fulla::identity::ISocialLinkStateStore> linkStateStore = nullptr;
+    try
+    {
+        auto redisClient = ::drogon::app().getRedisClient("default");
+        linkStateStore =
+          std::make_shared<fulla::drogon::adapters::RedisSocialLinkStateStore>(redisClient, crypto);
+    }
+    catch (const std::exception &)
+    {
+        LOG_WARN << "IdentityAssembly: no Redis client configured -- social link "
+                    "authorization disabled (link endpoints fail closed, #71)";
+    }
     static auto socialLinkService = std::make_shared<fulla::identity::SocialLinkService>(
-      gitHubAuthService,
-      googleAuthService,
-      weChatAuthService,
+      // #111: disabled providers enter as nullptr -> NotConfigured at the
+      // link endpoints (same error surface as the login controllers).
+      githubConfigured ? gitHubAuthService : nullptr,
+      googleConfigured ? googleAuthService : nullptr,
+      wechatConfigured ? weChatAuthService : nullptr,
       socialAccountRepo,
       linkGuardWebAuthnRepo,
-      crypto
+      crypto,
+      linkStateStore
     );
 #endif  // WITH_SOCIAL
 
@@ -212,12 +254,14 @@ void wireIdentityServices()
       ->setUserRepository(userRepo.get());
 #endif  // WITH_WEBAUTHN
 #ifdef WITH_SOCIAL
+    // #111: inject nullptr for disabled providers (envelope NotConfigured at
+    // request time instead of a doomed upstream call).
     drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::GoogleController>()
-      ->setGoogleAuthService(googleAuthService.get());
+      ->setGoogleAuthService(googleConfigured ? googleAuthService.get() : nullptr);
     drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::WeChatController>()
-      ->setWeChatAuthService(weChatAuthService.get());
+      ->setWeChatAuthService(wechatConfigured ? weChatAuthService.get() : nullptr);
     drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::GitHubController>()
-      ->setGitHubAuthService(gitHubAuthService.get());
+      ->setGitHubAuthService(githubConfigured ? gitHubAuthService.get() : nullptr);
     drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::UserSelfServiceController>()
       ->setSocialLinkService(socialLinkService.get());
 #endif  // WITH_SOCIAL

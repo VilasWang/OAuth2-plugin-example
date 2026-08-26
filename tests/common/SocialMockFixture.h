@@ -47,9 +47,11 @@
 #include <fulla/identity/SocialLinkService.h>
 #include <fulla/identity/testing/FakeOAuthHttpClient.h>
 #include <fulla/identity/testing/FakeSocialAccountRepository.h>
+#include <fulla/identity/testing/MemorySocialLinkStateStore.h>
 
 #include <drogon/drogon.h>  // DrClassMap
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -156,6 +158,8 @@ struct SocialLinkFakeHandle
 {
     std::shared_ptr<FakeOAuthHttpClient> http;
     std::shared_ptr<FakeSocialAccountRepository> accountRepo;
+    // #71: mint a one-time link state bound to (userId, provider).
+    std::function<std::string(int32_t, const std::string &)> mintState;
 };
 
 inline SocialLinkFakeHandle injectSocialLinkFake()
@@ -169,15 +173,28 @@ inline SocialLinkFakeHandle injectSocialLinkFake()
       h.http, "test-client-id", "test-client-secret", "https://example.test/cb");
     auto wechat =
       std::make_shared<fulla::identity::WeChatAuthService>(h.http, "test-appid", "test-secret");
+    // #71: in-memory one-time link state so HTTP tests run the real
+    // begin/consume flow (and can pre-mint states for direct link POSTs).
+    auto stateStore = std::make_shared<fulla::identity::testing::MemorySocialLinkStateStore>();
     auto svc = std::make_shared<fulla::identity::SocialLinkService>(
-      github, google, wechat, h.accountRepo);
+      github, google, wechat, h.accountRepo, nullptr, nullptr, stateStore);
     // Keep every dependency alive for the process -- the service holds them,
     // and the controller holds only a raw pointer to the service.
     static std::vector<std::shared_ptr<void>> keepAlive;
     keepAlive.push_back(github);
     keepAlive.push_back(google);
     keepAlive.push_back(wechat);
+    keepAlive.push_back(stateStore);
     keepAlive.push_back(svc);
+    // Exposed for tests: mint a state for (user, provider) without going
+    // through the authorize endpoint (the internal id is the admin seed's).
+    h.mintState = [stateStore](int32_t userId, const std::string &provider) {
+        std::optional<std::string> token;
+        stateStore->issue(
+          userId, provider,
+          [&token](std::optional<std::string> t) { token = std::move(t); });
+        return token.value_or("");
+    };
     auto ctrl =
       ::drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::UserSelfServiceController>(
       );

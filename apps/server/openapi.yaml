@@ -2128,6 +2128,60 @@ paths:
       summary: List Linked Social Accounts
       tags:
       - User Profile
+  /api/me/social/links/{provider}/authorize:
+    post:
+      description: 'Begin a social link flow (#71): mint a one-time state
+        bound to (current user, provider) and return the provider authorize
+        URL (with the state embedded) the SPA must redirect to. The link-back
+        POST must present the same state; tokens are single-use with a short
+        TTL. Fails closed (500) when linking or the state store (Redis) is
+        not configured. Requires the `profile` scope.'
+      operationId: post_api_me_social_links_provider_authorize
+      parameters:
+      - description: Social provider name
+        in: path
+        name: provider
+        required: true
+        schema:
+          type: string
+          enum: [github, google, wechat]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                  state:
+                    type: string
+                  authorize_url:
+                    type: string
+          description: One-time state minted; authorize_url to redirect to
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unsupported provider
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Missing/invalid Bearer token
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Linking or state store not configured; provider not configured
+      security:
+      - bearerAuth: []
+      summary: Begin Social Link (mint one-time state)
+      tags:
+      - User Profile
   /api/me/social/links/{provider}:
     delete:
       description: Remove the current user's linked identity for a provider.
@@ -2209,12 +2263,18 @@ paths:
           application/json:
             schema:
               type: object
-              required: [code]
+              required: [code, state]
               properties:
                 code:
                   type: string
                   description: Authorization code from the provider's OAuth2
                     callback.
+                state:
+                  type: string
+                  description: The one-time state token from the authorize
+                    step (single use, bound to this user and provider).
+                    Unknown/expired/replayed or foreign-bound states are
+                    rejected with 400 before any provider call (#71).
       responses:
         '200':
           content:
@@ -2227,8 +2287,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-          description: Unsupported provider, missing code, or provider
-            rejected the code
+          description: Unsupported provider, missing code/state, invalid or
+            expired link state, or provider rejected the code
         '401':
           content:
             application/json:
