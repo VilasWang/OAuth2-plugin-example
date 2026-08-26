@@ -44,7 +44,7 @@
 | `.claude/` | **规则源头**（`rules/`）、agents、commands、skills、settings —— git 跟踪，权威 |
 | `.codebuddy/`、`.qoder/`、`.kiro/`、`.zcode/`、`.workbuddy/` | 各 AI 工具的**本地工作区**（各自的 skills 镜像/plans/记忆）——不入库（.gitignore 忽略，磁盘保留） |
 
-**改规则就改 `.claude/rules/`**（唯一副本）。如需在其它工具里生效，由各工具目录的本地副本自行同步，不再要求版本库维护多份一致镜像。不要在 AGENTS.md 或 TECH_SPECS.md 里复制规则正文。入库范围的标准见 [docs/branding/repo-professionalization-audit.md](docs/branding/repo-professionalization-audit.md)。
+**改规则就改 `.claude/rules/`**（唯一副本）。如需在其它工具里生效，由各工具目录的本地副本自行同步，不再要求版本库维护多份一致镜像。不要在 AGENTS.md 或 TECH_SPECS.md 里复制规则正文。入库范围的标准见 [docs/documentation-governance.md](docs/documentation-governance.md)（入库三判据 + 本地维护区约定）。
 
 ## 其它项目文档
 

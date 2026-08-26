@@ -69,11 +69,11 @@ oauth2_apply_compat(${PROJECT_NAME})
 # First-party warning level (shared module, included from the repo root)
 oauth2_apply_warnings(${PROJECT_NAME})
 
-# Copy Swagger UI to build directory (repo-root docs/, two levels up from
-# apps/server/)
+# Copy Swagger UI to build directory (server-owned static assets, shipped
+# with the server rather than living in the user-facing docs/ tree)
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../docs/backend/api/swagger-ui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/static/swagger-ui"
     "$<TARGET_FILE_DIR:${PROJECT_NAME}>/docs/api/swagger-ui"
 )
 

@@ -9,9 +9,9 @@ Fulla 的版本号方案、bump 判定规则、发布节奏、预发布与补丁
 准并修流水线。
 
 > 相关文档：
-> - [SDK Runtime Contract](sdk-runtime-contract.md) §2 声明了 ABI / 源码级
+> - [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2 声明了 ABI / 源码级
 >   SemVer 承诺与弃用流程，本文是其版本治理侧的展开。
-> - [CI/CD Guide](ci-cd-guide.md) 描述 release 流水线在整体 CI 中的位置。
+> - [CI/CD Guide](../contribute/ci-cd-guide) 描述 release 流水线在整体 CI 中的位置。
 
 ---
 
@@ -33,7 +33,7 @@ MAJOR.MINOR.PATCH[-prerelease]
 | **PATCH** | 向后兼容的缺陷修复 | 源码兼容 |
 | **prerelease** | `-alpha.N` / `-beta.N` / `-rc.N` | 无承诺 |
 
-> v1.x 的"源码兼容"边界由 [SDK Runtime Contract](sdk-runtime-contract.md) §2
+> v1.x 的"源码兼容"边界由 [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2
 > 明确：仅覆盖 `libs/*/include/fulla/**` 公共头的**源码级 API**，不承诺
 > 二进制 ABI。
 
@@ -205,7 +205,7 @@ release/1.2:    └──●(cherry-pick fix)──● tag v1.2.1
 
 ## 10. 弃用流程（Deprecation）
 
-与 [SDK Runtime Contract](sdk-runtime-contract.md) §2 一致：
+与 [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2 一致：
 
 1. 在当次 MINOR 发布时，用 `[[deprecated("Use X instead; removed in vN.0")]]`
    标注被弃用的 API。

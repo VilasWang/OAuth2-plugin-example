@@ -1,0 +1,63 @@
+name: Website
+
+# Phase B of the docs governance plan (docs/documentation-governance.md §四):
+# the site is built straight from the repo's docs/ tree (zero copies), so it
+# rebuilds only when docs or the site itself change. Broken links throw at
+# build time — the CI gate replaces manual link checking.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - 'website/**'
+      - '.github/workflows/website.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'website/**'
+      - '.github/workflows/website.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Build website
+        working-directory: website
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-22.04
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -188,7 +188,7 @@ In test case SomeTestName
 3. 编译项目
 4. 运行 `ctest`
 
-详见 [CI/CD 指南](ci-cd-guide.md)。
+详见 [CI/CD 指南](../contribute/ci-cd-guide)。
 
 ---
 
@@ -371,14 +371,14 @@ curl -X POST http://127.0.0.1:5555/oauth2/login \
 *   **PowerShell 脚本限制**：如提示“禁止运行脚本”，请使用 `-ExecutionPolicy Bypass` 参数。
 
 ### 9.2 调试技巧
-*   **日志级别**：排错时可在 `config.json` 中临时将 `log_level` 调为 `DEBUG`（甚至 `TRACE`）以获取详细输出，定位完成后调回 `INFO`。完整的六级语义与约定见 [observability.md §3.2](./observability.md)。
+*   **日志级别**：排错时可在 `config.json` 中临时将 `log_level` 调为 `DEBUG`（甚至 `TRACE`）以获取详细输出，定位完成后调回 `INFO`。完整的六级语义与约定见 [observability.md §3.2](../operate/observability.md)。
 *   **实时日志**：使用 `Get-Content apps/server/logs/drogon.log -Wait -Tail 20` 监控运行状态。
 
 ---
 
 **相关文档**:
-- [Security Hardening Guide](./security-architecture.md) - 安全加固措施
-- [Security Architecture](./security-architecture.md) - 安全架构设计
-- [Data Consistency](./data-persistence.md) - 数据一致性和威胁模型
-- [API Reference](./api-reference.md) - API 接口文档
+- [Security Hardening Guide](../architecture/security-architecture.md) - 安全加固措施
+- [Security Architecture](../architecture/security-architecture.md) - 安全架构设计
+- [Data Consistency](../architecture/data-persistence.md) - 数据一致性和威胁模型
+- [API Reference](../domains/api-reference.md) - API 接口文档
 - [Bug Analysis] - 完整 Bug 分析报告（本地文档，已归档）

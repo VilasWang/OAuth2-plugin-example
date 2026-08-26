@@ -65,7 +65,7 @@ const config = {
         style: 'dark',
         links: [
           { label: 'Docs', to: '/docs/intro' },
-          { label: 'Architecture', to: '/docs/backend/architecture-overview' },
+          { label: 'Architecture', to: '/docs/architecture/architecture-overview' },
           { label: 'ADRs', to: '/docs/adr/ADR-0001' },
           { label: 'GitHub', href: 'https://github.com/voidvec/fulla' },
           { label: 'Wiki (zh)', href: 'https://github.com/voidvec/fulla/wiki' },
