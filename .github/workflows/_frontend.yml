@@ -33,3 +33,16 @@ jobs:
           echo "=== frontends/admin: error-mapping property tests (shared errorAdapter source) ==="
           npm ci
           npm run test:unit
+
+      # Phase 1 of "frontend tests into CI" (docs task list): production
+      # build is the cheapest real gate — admin's build script type-checks
+      # (tsc && vite build), user's bundles (vue-tsc adoption tracked
+      # separately). Full-stack Playwright e2e (16+8) is Phase 2, its own
+      # path-filtered workflow.
+      - name: Production build (admin, includes tsc type-check)
+        working-directory: ${{ github.workspace }}/frontends/admin
+        run: npm run build
+
+      - name: Production build (user)
+        working-directory: ${{ github.workspace }}/frontends/user
+        run: npm run build
