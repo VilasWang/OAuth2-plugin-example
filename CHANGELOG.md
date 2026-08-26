@@ -38,7 +38,7 @@ For the versioning policy (when to cut, what to bump, why), see
 ### 兼容性
 
 - **C++ SDK 消费方**：破坏性（include 路径/命名空间/CMake 包名全变）；
-  迁移即一段 sed（映射表见 `docs/branding/rename-impact-fulla.md` §3）。
+  迁移即一段 sed（映射表见 `docs/adr/rename-impact-fulla.md` §3）。
 - **存量 JWT / 会话 / 数据库 schema**：完全兼容（协议面无项目名字样，
   表名与迁移不变）。
 - Python SDK 包名变更为 `fulla-oauth2`；旧 `authforge-oauth2` 停更。
@@ -447,11 +447,11 @@ v1.0.0 以来的首次正式發布。涵蓋 842 個 commit，包含完整的 OID
 - **F-008/F-009/F-013**：token 端點 validation gate 發 RFC 6749 §5.2
   `error: invalid_request` 信封；authorization_code 兌換時 redirect_uri 強制
   匹配；authorize 端校驗 `code_challenge_method ∈ {plain, S256}`。
-- **F-019/F-020**：token/introspect/revoke 成功響應加 `Cache-Control: no-store`
-  （RFC 6749 §5.1 / RFC 7009 §2.2.1）；authorize 終態重定向的 `state`/`code`
-  經 urlEncode。
-- **完整審計報告**：見
-  `docs/productization-evolution/done/oauth-oidc-compliance-audit.md`。
+- **F-019/F-020**：token/introspect/revoke 成功响应加 `Cache-Control: no-store`
+  （RFC 6749 §5.1 / RFC 7009 §2.2.1）；authorize 终态重定向的 `state`/`code`
+  经 urlEncode。
+- **完整审计报告**：见
+  `docs/adr/oauth-oidc-compliance-audit.md`。
 
 #### 其他修復
 

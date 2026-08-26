@@ -172,7 +172,9 @@ agent 需要 → `docs-local/`；是结果数据而非文档 → 仓库数据目
 - **Phase A（内容修复与重组）——已完成**（8783c8e5 + 6049e3d3 + 7e5cd55a + d33d1ec3 + 45ca1f30）：
   A1 修矛盾登记簿 12 项 ✓（上站前三区复审补漏：verification-checklist/deployment-windows 残留口径二次清扫 ✓）；
   A2 六组 MERGE 落地 ✓；A3 ADR 转化 12 篇 ✓（status/source/双标题规范统一 ✓）；
-  A4 出库 LOCAL 类 ✓（2 例外迁新家 ✓）；A5 docs/README.md 重写 ✓。
+  A4 出库 LOCAL 类 ✓（2 例外迁新家 ✓；**补执行缺口**：合规尽调报告/rename-impact（脱敏版）/
+  professionalization-audit 三份档案此前误落 docs-local，现已入 docs/adr/ 并修复 CHANGELOG 两处断链 ✓）；
+  A5 docs/README.md 重写 ✓。
   新增收尾：语言统一（全站简体中文，architecture-overview/configuration-guide 中文化 ✓）。
 - **Phase B（站骨架）——已完成**（8a7e3b96）：website/ + 受众分区 sidebar + Pages 部署 + 死链守门。
   收尾项：GitHub Pages 源切换为 GitHub Actions（用户网页操作）+ 首页/主题专业化（本 PR）。

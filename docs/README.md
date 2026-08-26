@@ -39,7 +39,9 @@
 
 ## 决策档案（ADR）
 
-[docs/adr/](adr/) — 12 篇现行架构决策记录（SDK 分层、ErrorCatalog、Opaque token、协程排除等）。
+[docs/adr/](adr/) — 12 篇现行架构决策记录（SDK 分层、ErrorCatalog、Opaque token、协程排除等），
+另附三份历史档案：[OAuth/OIDC 合规尽调报告](adr/oauth-oidc-compliance-audit.md)（2026-08-07
+基线，31 项已全部修复）、[改名影响分析](adr/rename-impact-fulla.md)、[专业仓库改造审计](adr/repo-professionalization-audit.md)。
 
-> 更早期的完整设计档案（kiro specs 全文、PRD 设计、更名决策记录、合规尽调原稿）由
-> git 历史与维护者本地保存；ADR 已提炼其仍有效的决策。
+> 更早期的完整设计档案（kiro specs 全文、PRD 设计）由 git 历史与维护者本地保存；
+> ADR 已提炼其仍有效的决策。
