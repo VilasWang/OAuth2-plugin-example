@@ -206,3 +206,24 @@ SHA-256 加鹽哈希），且：
 存儲後端；獨立 Redis 存儲模式已棄用，見 F-005 / configuration-guide §3）。
 Memory 後端存在的唯一目的是讓 Windows / macOS CI 環境在無 Postgres 時仍能
 跑通不依賴 DB 的測試用例（contract 測試、純單測、協議錯誤信封測試等）。
+
+## 数据一致性专题（合并自 data-consistency.md，docs 治理 A2）
+
+### 授权码单次使用（防双花）
+
+`consumeAuthCode` 在存储层保证原子性：PostgreSQL 用 `UPDATE ... WHERE consumed = false ... RETURNING`
+（raw SQL 豁免条款）；Redis 后端用 Lua 脚本；Memory 后端用互斥锁。契约由
+`tests/contract/GrantRepositoryContractTest.cc` 的三实现同测覆盖。
+
+### 缓存一致性：延迟双删（v1.4.1 起）
+
+Redis L2 缓存（键前缀 `fulla:cache:`）的写路径失效采用**延迟双删**：立即 DEL + 事件循环上
+延迟二次 DEL（默认 200ms，`cache.invalidation_double_delete_delay_ms` 可配，钳位 [50,2000]），
+以覆盖"读线程在 DEL 前刚回填旧值"的竞态窗口（issue #79）。二次 DEL 失败可观测：
+`*_cache_invalidation_failures_total{kind}` 计数器（issue #80）。读路径为 cache-aside，
+未命中回源 PostgreSQL 后回填（TTL 兜底最终一致）。
+
+### refresh token 家族与级联撤销
+
+refresh token 存储家族标识（V008），检测到重放即撤销整个家族；撤销可按 token / client / user
+三个粒度发起（管理 API 与 `/oauth2/revoke`）。

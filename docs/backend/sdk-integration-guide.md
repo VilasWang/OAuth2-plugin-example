@@ -130,3 +130,38 @@ cosign verify ghcr.io/voidvec/fulla-backend:<ver> \
 sha256sum -c fulla-sdk-<ver>-linux-x86_64.tar.gz.sha256
 ```
 
+
+## Quickstart：嵌入你自己的 Drogon 宿主
+
+除 `find_package` 外只需两步（详见上文第 3 节的包引入）：
+
+**1. 在宿主 `config.json` 激活插件**（自动注册协议路由与 Filter）：
+
+```json
+{
+    "plugins": [
+        {
+            "name": "OAuth2Plugin",
+            "dependencies": [],
+            "config": {
+                "storage_type": "postgres",
+                "postgres": { "db_client_name": "default" },
+                "redis": { "client_name": "default" }
+            }
+        }
+    ]
+}
+```
+
+**2. 用 `AuthorizationFilter` 保护业务 API**（全限定名 `fulla::drogon::filters::AuthorizationFilter`）：
+
+```cpp
+METHOD_LIST_BEGIN
+ADD_METHOD_TO(UserApi::getProfile, "/api/me", drogon::Get,
+              "fulla::drogon::filters::AuthorizationFilter");
+METHOD_LIST_END
+```
+
+注意：链接 `fulla::drogon` 后 Controller/Filter 由 Drogon 启动时自动注册，勿手动调用初始化宏；PostgreSQL 存储需先执行 `apps/server/migrations/`（或 `FULLA_AUTO_MIGRATE=true`）。
+
+> 本节合并自已退役的 plugin-integration.md（docs 治理 A2）。

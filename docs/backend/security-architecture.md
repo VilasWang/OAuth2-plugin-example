@@ -115,3 +115,41 @@
 |------|--------|----------|-----------|
 | 自增 ID | ✗ 可预测 | 泄露用户数量 | ✓ |
 | UUID public_sub | ✓ 不可预测 | 无信息泄露 | ✓ |
+
+## HTTP 安全响应头（合并自 security-hardening.md）
+
+全局中间件为所有响应附加：`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、
+`Referrer-Policy: strict-origin-when-cross-origin`、`Content-Security-Policy`（API 域收敛策略）。
+
+## 全局限流：Hodor（仅生产配置启用）
+
+全局侧限流由 Drogon 官方 **Hodor** 插件承担（令牌桶 + 进程内 CacheMap，IP/用户/全局三级），
+**只在 `config.prod.json` 挂载**（开发配置不含该插件）。当前生产阈值（以 `config.prod.json`
+为准，此处为快照）：`/oauth2/login` IP 容量 3 / 用户容量 2；`/oauth2/token` 5/min；其余端点
+全局 5000、每 IP 30。拒绝响应经错误信封 `VALIDATION_RATE_LIMITED`（429）返回。
+
+> 注意与 F-018 的关系：这是**全局侧**限流（任意请求，防扫）；`configuration-guide` §8 的
+> 进程内失败计数限流是**认证侧**防爆破（login/token 失败计数），两者并存、作用面不同。
+
+## 安全运维清单（合并自 ops/security-checklist.md）
+
+**例行验证**：密钥不入库（`git grep` 抽查 + Secret Hygiene CI 门）；`.env*` 均被 ignore；
+前端生产构建无内嵌凭据。
+
+**密钥轮换**：JWKS 当前为单 kid 静态密钥（F-029 为后续运维任务，轮换流程未自动化）；
+DB/SMTP/社交凭据轮换 = 改 env + 滚动重启。
+
+**事件响应**：泄漏怀疑 → 立即轮换受影响凭据 → 如涉历史提交，用 `git filter-repo`
+（勿用已弃用的 filter-branch）重写并强推 → 通报。
+
+**pre-commit 钩子模板**（可选）：
+
+```bash
+#!/bin/sh
+if git diff --cached | grep -qiE '(api[_-]?key|secret|password)\s*[:=]'; then
+  echo "possible credential in commit"; exit 1
+fi
+```
+
+> 本三节合并自已退役的 security-hardening.md 与 ops/security-checklist.md（docs 治理 A2）；
+> 原 security-hardening 的 2026-04 快照、悬空引用与过期限流数字已弃用。
