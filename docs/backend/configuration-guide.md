@@ -35,7 +35,7 @@ The project includes a `docker-compose.yml` for orchestrating the full stack.
 - **fulla-frontend**: Vue SPA + Nginx (Builds from `deploy/docker/Dockerfile`, target `frontend-runtime`).
 - **fulla-admin**: Admin console frontend (Builds from `frontends/admin/Dockerfile`).
 - **fulla-backend**: The Drogon backend (Builds from `deploy/docker/Dockerfile`, target `backend-runtime`).
-- **fulla-postgres**: PostgreSQL 15 (schema applied by the backend on startup via `FULLA_AUTO_MIGRATE=true`, reading `apps/server/migrations/`).
+- **fulla-postgres**: PostgreSQL 17 (schema applied by the backend on startup via `FULLA_AUTO_MIGRATE=true`, reading `apps/server/migrations/`).
 - **fulla-redis**: Redis 7 with password protection.
 - **fulla-prometheus**: Metrics collection agent.
 
@@ -66,7 +66,7 @@ The OAuth2 plugin's `config.storage_type` selects the persistence backend:
 | `redis` | **DEPRECATED** | Historically never persisted refresh tokens (`saveRefreshToken`/`getRefreshToken` were no-ops), so rotation and reuse-detection were silently non-functional. The mode still boots for backward compatibility and logs an ERROR at startup, but the `refresh_token` grant is rejected with `unsupported_grant_type`. Do not use for new deployments. |
 | `memory` | Testing only | Intended for unit/integration tests, not production. |
 
-Target architecture: **Postgres as the storage layer, with Redis returning later as a cache layer in front of Postgres** (tracked as a separate architecture issue; no standalone Redis storage mode will be revived).
+Target architecture: **Postgres as the storage layer, with a live Redis L2 cache in front of it** (shipped v1.4.0+: keys `fulla:cache:*`, configured via the `cache` block in `config.json` with `enabled` / `ttl_seconds` / `invalidation_double_delete_delay_ms`; invalidation is delayed double-delete, see `DelayedDoubleDelete`). No standalone Redis storage mode exists.
 
 ## 4. Issuer Configuration
 
@@ -129,7 +129,7 @@ id_token at exchange: `auth_time` (when >0), `amr` (JSON array when set), and `a
 `/oauth2/end_session` (GET + POST) terminates the server-side session. To redirect
 after logout, the client supplies a `post_logout_redirect_uri` that MUST be one of
 the client's registered redirect URIs; the client is identified via the
-`id_token_hint`'s `aud` claim (signature not verified per §2.2). Without a valid
+`id_token_hint`'s `aud` claim; the hint signature IS verified (RS256 + kid + iss/exp/sub policy, issue #78) and a failed verification is rejected with 400 `AUTH_INVALID_ID_TOKEN_HINT`. Without a valid
 hint + registered URI the request is rejected with 400; on success it redirects
 (302) with `state` echoed, or returns 200 when no redirect URI was supplied.
 
@@ -173,7 +173,7 @@ store (Redis) would be required (future work).
 
 ## 9. JWKS Key Rotation (F-029 — future ops task)
 
-The JWKS endpoint (`/oauth2/.well-known/jwks.json`) currently serves a **single
+The JWKS endpoint (`/.well-known/jwks.json`) currently serves a **single
 static `kid`**, initialized once at plugin startup from the configured JWK
 material (`OAuth2Plugin::initAndStart()` → `JwkManager::init()`). **Key rotation
 is not implemented**: there is no rotation schedule, no kid-rollover window, and

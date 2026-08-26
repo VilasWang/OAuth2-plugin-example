@@ -42,7 +42,7 @@
 |---|---|---|
 | GitHub 仓库 | `voidvec/authforge` | Settings 改名后 web/git 链接 301 重定向（issues/PRs/stars/tags 全保留）；**重定向在别人抢注旧名时失效**——改名后旧名空置即有此风险，可接受 |
 | GitHub org | `voidvec`（不含项目名） | **无影响**。注意：GitHub 用户名/org `fulla` **已被占用**（早前实测 404 检查 github=200），若想要 fulla 同名 org 需变体（`fulla-iam`、`getfulla` 等）或沿用 voidvec |
-| 域名 | — | `fulla.dev` ✅ 可注册（调研报告实测）；`fulla.com` ❌ 已被占 |
+| 域名 | — | `fulla.dev` ✅ 已注册（2026-08-26）；`fulla.com` ❌ 已被占 |
 | PyPI | `authforge-oauth2` 在线（实测 HTTP 200） | 新包 `fulla-oauth2`（裸名 `fulla` 在 PyPI 也空，可考虑直接占）；旧包可继续存在但应在新版描述中标注 deprecated |
 | npm | 无已发布包 | 前端 `oauth2-admin`/`oauth2-frontend` 均非发布包，无影响。注意裸名 `fulla` 在 npm 被 2019 年死包占用——未来若发 JS SDK 用 `fulla-sdk` |
 | Go module | `github.com/voidvec/authforge/clients/go` | 必须改为 `github.com/voidvec/fulla/clients/go`；旧路径靠 GitHub 301 短期可解析，**不可长期依赖**，旧版应打 deprecated 注释 |
@@ -101,14 +101,13 @@
 - `benchmarks/` 821 个命中文件中约 **770 个是历史测量结果**（benchmarks/results/ 359、baseline、各 sweep）——**不应改写**：它们是"authforge@某 commit"的测量记录；仅 `benchmarks/authforge/` 工具目录（~30 文件）需要 `git mv` 为 `benchmarks/fulla/` + .gitignore:33 路径同步；
 - `CHANGELOG.md` 历史条目**不改写**（历史事实）；新条目以新名书写。
 
-### L9 本机与工作区（这台机器特有）
+### L9 本机与工作区（维护者机器特有，细节不入库档）
 
-- 目录改名 `D:\work\development\Repos\cpp\projects\authforge` → `...\fulla` 后：
-  - ZCode 工作区身份 key 变化（记忆库目录 `authforge-1fd31c47528f9b1e` 将与新高位脱钩，需迁移或重建索引）；
-  - `.workbuddy/`、Mimosa 扫描历史（`~/.mimosa/security-scans/<project-id>`）、coverage 工具路径失效；
-  - **WSL 克隆** `~/projects/authforge-benchmark` 路径引用与 bench 脚本（跨两侧已有分歧管理惯例）；
-  - 本机 native PostgreSQL 的 DB 名不变（oauth2_*），无数据迁移；
-  - docker compose `--project-directory` 陷阱（既有记忆）在改名后首次起栈时注意。
+- 仓库目录改名后：
+  - AI 工具工作区身份 key 随目录名变化，需迁移或重建索引；
+  - 辅助工具的本地扫描历史/coverage 路径失效；
+  - 辅助克隆（基准环境）的路径同步；
+  - 本机 native PostgreSQL 的 DB 名不变（oauth2_*），无数据迁移。
 
 ### L10 不可改 / 不应改（负面清单）
 
@@ -191,7 +190,7 @@
 
 ## 5. 建议执行顺序（13 步）
 
-1. **先占资产**：注册 `fulla.dev` 域名；确认 org 策略（沿用 voidvec 最省事）；PyPI 占 `fulla-oauth2`（或裸名 `fulla`）；
+1. **前置外部资产**：域名与包名等外部资产于改名日前置办理（具体清单见本地维护副本）；
 2. 开改名分支，写替换脚本（按 §3 映射表，含拼接变体），先 `git mv` 八个 `include/authforge/` 目录与 `benchmarks/authforge/`；
 3. 跑替换（排除 benchmarks/results、CHANGELOG 历史区、docs/branding/）；替换模式 = §3 映射表全表，**含 `OAUTH2_`→`FULLA_` 前缀替换与 §2bis B 的 DB/容器名规范化**（只替全大写 `OAUTH2_`，不动驼峰 `OAuth2` 类名）；
 4. 重生成 ORM 模型（orm-gen，路径联动）与 **api-diff 基线**，`--force` 批准记录在 PR 描述；
@@ -228,7 +227,7 @@
 
 | Phase | 分支/PR | 内容 | 验证门 | 执行者 |
 |---|---|---|---|---|
-| **P0** 资产占位 | —（无代码） | 注册 `fulla.dev`；占 PyPI `fulla-oauth2` 名；确认 org 沿用 voidvec | 域名/包名到手 | **用户手动**（需注册商/PyPI 凭据） |
+| **P0** 资产占位 | —（无代码） | 域名与包名等外部资产前置办理 | 资产到手 | **用户手动** |
 | **P1** 专业仓库清理 | `chore/professional-repo-cleanup` | 审计清单执行：untrack `.qoder/.codebuddy/.zcode/.kiro`（kiro specs 先迁 docs/history）、删过期 MEMORY.md、.gitignore 增补、AGENTS.md 角色表、绝对路径泛化 | 纯文件操作；`git status` 干净 + CMake configure 冒烟 | 代理可执行 |
 | **P2** 改名机械替换 | `feat/rename-fulla`（基于 P1） | §3 映射全表替换（含 `OAUTH2_`→`FULLA_`、§2bis B 基础设施规范化）+ 8×`include/authforge` 与 `benchmarks/authforge` 的 git mv + config 五份 | **Release 构建 + 353 ctest 全绿** + 前端 tsc/build | 代理可执行 |
 | **P3** 门禁与基线 | 并入 P2 或紧随 | api-baseline 重生成 + `--force` 批准记录；arch-guard；前端 e2e 16+8（含 auth.spec.ts 断言联动） | CI 全绿 + 本地全量前端测试 | 代理可执行 |

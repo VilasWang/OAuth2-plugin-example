@@ -18,7 +18,7 @@ GET /.well-known/openid-configuration
   "authorization_endpoint": "https://your-domain.com/oauth2/authorize",
   "token_endpoint": "https://your-domain.com/oauth2/token",
   "userinfo_endpoint": "https://your-domain.com/oauth2/userinfo",
-  "jwks_uri": "https://your-domain.com/oauth2/jwks",
+  "jwks_uri": "https://your-domain.com/.well-known/jwks.json",
   "response_types_supported": ["code"],
   "subject_types_supported": ["public"],
   "id_token_signing_alg_values_supported": ["RS256"],
@@ -31,7 +31,7 @@ GET /.well-known/openid-configuration
 JSON Web Key Set 端点提供用于验证 `id_token` 签名的公钥：
 
 ```
-GET /oauth2/jwks
+GET /.well-known/jwks.json
 ```
 
 返回示例：

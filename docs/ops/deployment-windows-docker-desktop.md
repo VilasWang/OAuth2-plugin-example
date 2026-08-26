@@ -82,7 +82,7 @@ git branch
 
 ```bash
 # 在项目根目录执行
-cd /d/work/development/Repos/cpp/projects/fulla
+cd /path/to/repo-root
 
 # 生成 JWT 签名密钥
 chmod +x scripts/generate-jwt-keys.sh
@@ -364,7 +364,7 @@ docker exec -it fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT u.usern
 
 ```bash
 # 进入项目目录
-cd /d/work/development/Repos/cpp/projects/fulla
+cd /path/to/repo-root
 
 # 确保测试脚本有执行权限
 chmod +x scripts/backend/test-oauth2-endpoints.sh
@@ -408,7 +408,7 @@ chmod +x scripts/backend/test-admin-endpoints.sh
 wsl
 
 # 2. 进入项目目录（注意路径转换）
-cd /mnt/d/work/development/Repos/cpp/projects/fulla
+cd /path/to/repo-root
 
 # 3. 执行测试
 ./scripts/backend/test-oauth2-endpoints.sh http://localhost:5555
@@ -466,10 +466,7 @@ Test Results: 43/55 passed, 12 failed
 
 #### 成功标准
 
-**通过率 ≥ 80% 即表示部署成功**，因为：
-- 核心功能 100% 正常（OAuth2 流程、用户管理、API 端点）
-- 失败的测试多为边缘功能或测试脚本依赖问题
-- RBAC 权限控制正确工作（预期行为）
+**端点测试应全部通过（当前口径：OAuth2 侧 59、Admin 侧 52）**。个别失败若出现，先核对是否为已知的脚本环境依赖（数据库重置、种子数据、端口占用）；不要把『部分通过』当作部署成功标准。
 
 ### 测试前准备
 
@@ -502,7 +499,7 @@ docker exec fulla-postgres pg_isready -U fulla_user
 
 ```bash
 # 一键执行所有测试
-cd /d/work/development/Repos/cpp/projects/fulla && \
+cd /path/to/repo-root && \
 chmod +x scripts/backend/*.sh && \
 echo "[+] 执行 OAuth2 核心测试..." && \
 ./scripts/backend/test-oauth2-endpoints.sh http://localhost:5555 && \
@@ -536,7 +533,7 @@ echo "[+] 执行管理后台 API 测试..." && \
 **执行 OAuth2 核心端点测试（55个测试）**：
 ```bash
 # 1. 进入项目目录（Git Bash）
-cd /d/work/development/Repos/cpp/projects/fulla
+cd /path/to/repo-root
 
 # 2. 确保测试脚本有执行权限
 chmod +x scripts/backend/test-oauth2-endpoints.sh
@@ -583,7 +580,7 @@ $response = Invoke-RestMethod -Uri "http://localhost:5555/oauth2/token" -Method 
   client_id = "admin-console"
   client_secret = "admin-secret"
   username = "admin"
-  password = "admin123"
+  password = "admin"
   scope = "admin"
 }
 $token = $response.access_token
@@ -603,7 +600,7 @@ Invoke-RestMethod -Uri "http://localhost:5555/api/admin/users" -Headers $headers
 wsl
 
 # 2. 进入项目目录
-cd /mnt/d/work/development/Repos/cpp/projects/fulla
+cd /path/to/repo-root
 
 # 3. 执行测试
 ./scripts/backend/test-oauth2-endpoints.sh http://localhost:5555

@@ -59,7 +59,7 @@ CREATE TABLE user_roles (
    - 用户登录时，系统查询 `user_roles` 表，获取用户所有角色。
 2. **Token 颁发**:
    - `roles` 列表被包含在 Token 响应中 (JSON body)。
-   - (未来支持) `roles` 可签发进 JWT Claim。
+   - `roles` 已随访问令牌签发进 JWT Claim（TokenService 签发时写入）。
 3. **请求拦截 (AuthorizationFilter)**:
    - 解析 Access Token 获取 `userId`。
    - 根据 `userId` 查询缓存/数据库获取当前角色。
