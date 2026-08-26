@@ -9,6 +9,7 @@
 #include <fulla/drogon/adapters/StorageSubjectResolver.h>
 #include <fulla/oauth2/protocol/AuthorizationService.h>
 #include <fulla/storage/postgres/models/Oauth2Scopes.h>  // #43 §5.5: DB-driven admin-scope load
+#include <fulla/storage/postgres/models/Oauth2Clients.h>  // #102: production client-secret scan
 // Phase 4.6a: the god impls + bridges are gone; the plugin now constructs the
 // per-backend RepositoryBundle and extracts its four oauth2 split-repository
 // handles (Phase 1.5e: the bundle's 3 identity accessors are gone; identity
@@ -83,15 +84,18 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // DrogonLogger explicitly here to preserve the pre-move log behavior.
     static fulla::drogon::adapters::DrogonLogger jwkManagerLogger;
     auto jwkManager = std::make_shared<fulla::oauth2::JwkManager>(&jwkManagerLogger);
-    if (config.isMember("oidc"))
+    // #102: honor init() failure. A false return previously left the server
+    // running with an UNINITIALIZED JwkManager (signJwt "" -> id_tokens
+    // silently dropped, empty JWKS). Drogon plugin init has no failure
+    // channel, so mirror main.cc's validate-failure handling and exit.
+    const bool jwkOk = jwkManager->init(
+      config.isMember("oidc") ? config["oidc"] : Json::Value(Json::objectValue)
+    );
+    if (!jwkOk)
     {
-        jwkManager->init(config["oidc"]);
-    }
-    else
-    {
-        // Initialize with empty config (will generate ephemeral key)
-        Json::Value emptyConfig;
-        jwkManager->init(emptyConfig);
+        LOG_FATAL << "OAuth2Plugin: JwkManager initialization failed (see the "
+                     "JwkManager log above) -- refusing to start (#102)";
+        ::exit(1);
     }
     // Publish as shared_ptr<const JwkManager>: read-only from here on.
     jwkManager_ = jwkManager;
@@ -237,6 +241,55 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
       std::make_shared<fulla::drogon::OAuth2CleanupService>(grantRepo_, tokenRepo_);
     double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble();
     cleanupService_->start(cleanupInterval);
+
+    // #102: in production, confidential clients with default/empty secrets
+    // must fail startup. ConfigManager::validate covers CONFIG-declared
+    // clients (memory-storage mode); with storage_type=postgres the registry
+    // lives in the DB, so scan it here. The getDbClient() call is strictly
+    // gated on storageType_ == "postgres" (in memory mode there is no db_clients
+    // entry and the call is a process-terminating assert, not a throw). All
+    // three failure paths are fail-closed: production must not boot past an
+    // unauditable client registry.
+    {
+        const char *fullaEnv = std::getenv("FULLA_ENV");
+        const bool isProduction = fullaEnv && std::string(fullaEnv) == "production";
+        if (isProduction && storageType_ == "postgres")
+        {
+            try
+            {
+                auto db = drogon::app().getDbClient();
+                drogon::orm::Mapper<drogon_model::fulla_db::Oauth2Clients> clientMapper(db);
+                clientMapper.findAll(
+                  [](const std::vector<drogon_model::fulla_db::Oauth2Clients> &rows) {
+                      for (const auto &row : rows)
+                      {
+                          if (row.getValueOfClientType() == "PUBLIC")
+                              continue;  // PKCE public clients do not authenticate with a secret
+                          const std::string &secret = row.getValueOfClientSecret();
+                          if (secret.empty() || secret == "123456" || secret == "password")
+                          {
+                              LOG_FATAL << "OAuth2Plugin: production startup refused: client '"
+                                        << row.getValueOfClientId()
+                                        << "' has an empty/default client_secret (#102). Set a "
+                                           "strong secret before enabling FULLA_ENV=production.";
+                              ::exit(1);
+                          }
+                      }
+                  },
+                  [](const drogon::orm::DrogonDbException &e) {
+                      LOG_FATAL << "OAuth2Plugin: production client-secret scan failed: "
+                                << e.base().what() << " (#102) -- refusing to start";
+                      ::exit(1);
+                  });
+            }
+            catch (const std::exception &e)
+            {
+                LOG_FATAL << "OAuth2Plugin: production client-secret scan could not run: "
+                          << e.what() << " (#102) -- refusing to start";
+                ::exit(1);
+            }
+        }
+    }
 
     LOG_INFO << "OAuth2Plugin initialized with storage type: " << storageType_;
 }

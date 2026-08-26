@@ -174,3 +174,113 @@ DROGON_TEST(Unit_P0_ConfigManager_EnvOverride_VueRedirect_ByNameLookup)
 
     unsetenv("FULLA_VUE_REDIRECT_URI");
 }
+
+
+// ============================================================================
+// #102: production-mode signing-key and weak-secret gates
+// ============================================================================
+
+namespace
+{
+// Passes every PRE-EXISTING production check (HTTPS issuer, non-default DB /
+// Redis passwords) so the #102 gates are the only thing under test.
+Json::Value productionBaseConfig()
+{
+    Json::Value config;
+    Json::Value db;
+    db["port"] = 5432;
+    db["passwd"] = "strong-db-password";
+    config["db_clients"].append(db);
+    Json::Value redis;
+    redis["port"] = 6379;
+    redis["passwd"] = "strong-redis-password";
+    config["redis_clients"].append(redis);
+    config["custom_config"]["metadata"]["issuer"] = "https://auth.example.test";
+    return config;
+}
+
+// RAII: force-set FULLA_ENV and clear both signing-key env vars for the test
+// body, restoring whatever the host had afterwards.
+class ProductionEnvGuard
+{
+  public:
+    ProductionEnvGuard()
+    {
+        setenv("FULLA_ENV", "production", 1);
+        // Empty value un-sets on Windows (_putenv_s removes the variable) and
+        // reads as "not set" (len 0) elsewhere in this codebase.
+        setenv("FULLA_SIGNING_KEY", "", 1);
+        setenv("FULLA_JWT_KEY_PATH", "", 1);
+    }
+    ~ProductionEnvGuard()
+    {
+        unsetenv("FULLA_ENV");
+        unsetenv("FULLA_SIGNING_KEY");
+        unsetenv("FULLA_JWT_KEY_PATH");
+    }
+};
+}  // namespace
+
+DROGON_TEST(Unit_P0_ConfigManager_Production_NoSigningKey_Fails)
+{
+    ProductionEnvGuard env;
+    Json::Value config = productionBaseConfig();
+    std::string errMsg;
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg) == false);
+    CHECK(errMsg.find("signing key") != std::string::npos);
+}
+
+DROGON_TEST(Unit_P0_ConfigManager_Production_SigningKeyEnv_Passes)
+{
+    ProductionEnvGuard env;
+    setenv("FULLA_SIGNING_KEY", "-----BEGIN RSA PRIVATE KEY-----...", 1);
+    Json::Value config = productionBaseConfig();
+    std::string errMsg;
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg) == true);
+}
+
+DROGON_TEST(Unit_P0_ConfigManager_Production_ConfigOidcKeyPath_Passes)
+{
+    ProductionEnvGuard env;
+    Json::Value config = productionBaseConfig();
+    Json::Value plugin;
+    plugin["name"] = "OAuth2Plugin";
+    plugin["config"]["oidc"]["signing_key_path"] = "/etc/fulla/keys/signing.pem";
+    config["plugins"].append(plugin);
+    std::string errMsg;
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg) == true);
+}
+
+DROGON_TEST(Unit_P0_ConfigManager_Production_WeakConfidentialClientSecret_Fails)
+{
+    ProductionEnvGuard env;
+    setenv("FULLA_SIGNING_KEY", "-----BEGIN RSA PRIVATE KEY-----...", 1);
+    Json::Value config = productionBaseConfig();
+    Json::Value plugin;
+    plugin["name"] = "OAuth2Plugin";
+    plugin["config"]["oidc"]["signing_key_path"] = "/etc/fulla/keys/signing.pem";
+    plugin["config"]["clients"]["backend-svc"]["client_type"] = "CONFIDENTIAL";
+    plugin["config"]["clients"]["backend-svc"]["secret"] = "123456";
+    config["plugins"].append(plugin);
+    std::string errMsg;
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg) == false);
+    CHECK(errMsg.find("backend-svc") != std::string::npos);
+}
+
+DROGON_TEST(Unit_P0_ConfigManager_Production_PublicClientSecretNotEnforced)
+{
+    ProductionEnvGuard env;
+    setenv("FULLA_SIGNING_KEY", "-----BEGIN RSA PRIVATE KEY-----...", 1);
+    Json::Value config = productionBaseConfig();
+    Json::Value plugin;
+    plugin["name"] = "OAuth2Plugin";
+    plugin["config"]["oidc"]["signing_key_path"] = "/etc/fulla/keys/signing.pem";
+    // PUBLIC clients authenticate via PKCE, not the secret: the placeholder
+    // must not brick a production boot (OAuth2Plugin's DB scan skips PUBLIC
+    // rows for the same reason).
+    plugin["config"]["clients"]["vue-client"]["client_type"] = "PUBLIC";
+    plugin["config"]["clients"]["vue-client"]["secret"] = "123456";
+    config["plugins"].append(plugin);
+    std::string errMsg;
+    CHECK(fulla::common::config::ConfigManager::validate(config, errMsg) == true);
+}
