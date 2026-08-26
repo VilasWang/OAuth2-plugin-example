@@ -340,6 +340,23 @@ jobs:
         env:
           OUTPUT: RELEASE_NOTES.md
 
+      - name: Guard notes size (fallback to curated CHANGELOG section)
+        # git-cliff --latest diffs against the previous tag; when none exists
+        # (the v1.0.0 series reset deleted the old series) it spans the whole
+        # history and blows past GitHub's 125k-char release-body limit (422).
+        run: |
+          if [ ! -s RELEASE_NOTES.md ] || [ "$(wc -c < RELEASE_NOTES.md)" -gt 120000 ]; then
+            echo "::warning::cliff notes empty/oversized; falling back to CHANGELOG section"
+            awk -v ver="${GITHUB_REF_NAME#v}" '
+              BEGIN { p = 0 }
+              /^## \[/ { p = (index($0, "[" ver "]") == 4) ? 1 : 0 }
+              p { print }
+            ' CHANGELOG.md > RELEASE_NOTES.md
+          fi
+          # Hard stop rather than a 422 downstream if even the fallback failed.
+          test -s RELEASE_NOTES.md || { echo "::error::empty release notes"; exit 1; }
+          echo "notes size: $(wc -c < RELEASE_NOTES.md) bytes"
+
       - name: Append verification instructions to the notes
         run: |
           cat >> RELEASE_NOTES.md <<EOF
