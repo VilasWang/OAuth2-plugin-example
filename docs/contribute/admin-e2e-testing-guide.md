@@ -900,7 +900,7 @@ psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET failed_login_co
 2. **确保凭证正确**：检查测试脚本中的用户名和密码
 3. **测试后自动清理**：在测试脚本末尾添加清理代码
 
-详细说明请参考：`docs/ACCOUNT_LOCKOUT.md`
+详细说明请参考：[账号锁定机制](operate/account-lockout.md)
 
 ---
 
@@ -919,18 +919,18 @@ psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET failed_login_co
 - [ ] 添加 `package.json` 脚本
 - [ ] 配置 CI pipeline
 
-## 附录 B: OAuth2 Admin 项目测试统计
+## 附录 B: Admin 前端 E2E 测试统计
 
 | 指标 | 数值 |
 |------|------|
-| 测试文件 | 7 |
-| 测试用例 | 53+ |
-| 执行时间 | ~5 秒 |
-| 后端依赖 | 无 |
+| 测试文件 | 16 |
+| 测试用例 | 174 |
+| 执行时间 | ~1 分钟 |
+| 后端依赖 | 无（全 Mock） |
 | 浏览器 | Chromium |
 | 并行执行 | 是 |
 | Mock API 端点 | 15+ |
 
 ---
 
-> 本文档基于 OAuth2 Admin 项目实践总结。项目源码：`OAuth2Admin/tests/e2e/`
+> 本文档基于 fulla Admin 前端项目实践总结。项目源码：`frontends/admin/tests/e2e/`

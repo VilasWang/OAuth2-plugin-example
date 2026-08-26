@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS oauth2_codes (
 
 ```sql
 CREATE TABLE IF NOT EXISTS oauth2_access_tokens (
-    token           VARCHAR(100) PRIMARY KEY,
+    token           VARCHAR(100) PRIMARY KEY, -- 存 SHA-256(token) 哈希（64 hex），非明文（ADR-0004）
     client_id       VARCHAR(50) NOT NULL REFERENCES oauth2_clients(client_id),
     user_id         VARCHAR(50),
     scope           TEXT,
@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS oauth2_access_tokens (
 
 ```sql
 CREATE TABLE IF NOT EXISTS oauth2_refresh_tokens (
-    token           VARCHAR(100) PRIMARY KEY,
-    access_token    VARCHAR(100) NOT NULL, -- 关联的访问令牌（无外键约束，按值引用）
+    token           VARCHAR(100) PRIMARY KEY,   -- 存 SHA-256(token) 哈希，非明文（ADR-0004）
+    access_token    VARCHAR(100) NOT NULL, -- 关联的访问令牌哈希（无外键约束，按值引用）
     client_id       VARCHAR(50) NOT NULL REFERENCES oauth2_clients(client_id),
     user_id         VARCHAR(50),
     scope           TEXT,
@@ -91,13 +91,17 @@ CREATE TABLE IF NOT EXISTS oauth2_refresh_tokens (
 
 ---
 
-## 3. Redis 存储方案
+## 3. Redis 存储方案（已弃用）
 
-适用于高性能场景，利用 Redis TTL 自动管理 Token 过期。
+> **⚠️ 独立 Redis 存储已弃用（F-005）**：该模式启动时打 ERROR 日志，并以
+> `unsupported_grant_type` 拒绝 `refresh_token` 授权；历史上 refresh token
+> 从未在该模式持久化。新部署一律用 `postgres` + 可选 Redis 缓存层（§缓存
+> 一致性）。以下键空间仅作存量部署参考。
 
 ### 3.1 Key Pattern 设计
 
-所有 Key 均以 `oauth2:` 前缀开头。
+所有 Key 均以 `oauth2:` 前缀开头（缓存层另有独立的 `fulla:cache:` 前缀，
+事务协调键族 `oauth2:transaction:*` 未列入下表）。
 
 | 实体 | Key 格式 | 类型 | TTL | 说明 |
 |------|-------------|------|-----|------|
@@ -187,27 +191,27 @@ cleanupService_->start(cleanupInterval);
 
 清理不再集中于单一的 `IOAuth2Storage::deleteExpiredData`；而是按仓储拆分，由 `IGrantRepository`（Auth Code）与 `ITokenRepository`（Access/Refresh Token）各自提供过期删除方法，由 `OAuth2CleanupService` 编排调用。
 
-## 6. 存儲後端選型與 Memory 後端警告 (F-031)
+## 6. 存储后端选型与 Memory 后端警告 (F-031)
 
-> **⚠️ Memory 存儲後端僅供測試 / 開發使用，生產環境禁用。**
+> **⚠️ Memory 存储后端仅供测试 / 开发使用，生产环境禁用。**
 
-`storage_type="memory"`（見 `config.ci.json`）將所有 client / token / code /
-consent 數據保存在進程內存中，**密鑰（client_secret）以明文存儲**（不經
-SHA-256 加鹽哈希），且：
+`storage_type="memory"`（见 `config.ci.json`）将所有 client / token / code /
+consent 数据保存在进程内存中，**密钥（client_secret）以明文存储**（不经
+SHA-256 加盐哈希），且：
 
-- 進程重啟即丟失全部數據（無持久化）；
-- 無多用戶 / 多實例共享（每個進程一份獨立狀態）；
-- 無事務、無原子 CAS 保證（測試樁實現）；
-- Memory identity 倉庫永遠從 `findByUsername` 返回 `nullopt`，因此 admin
-  登入鏈路在該模式下不可用（`loginAsAdmin()` 返回 `nullopt`，依賴它的集成
-  測試會乾淨跳過）。
+- 进程重启即丢失全部数据（无持久化）；
+- 无多用户 / 多实例共享（每个进程一份独立状态）；
+- 无事务、无原子 CAS 保证（测试桩实现）；
+- Memory identity 仓库永远从 `findByUsername` 返回 `nullopt`，因此 admin
+  登录链路在该模式下不可用（`loginAsAdmin()` 返回 `nullopt`，依赖它的集成
+  测试会干净跳过）。
 
-**生產部署必須使用 `storage_type="postgres"`**（Postgres 是唯一受支持的生產
-存儲後端；獨立 Redis 存儲模式已棄用，見 F-005 / configuration-guide §3）。
-Memory 後端存在的唯一目的是讓 Windows / macOS CI 環境在無 Postgres 時仍能
-跑通不依賴 DB 的測試用例（contract 測試、純單測、協議錯誤信封測試等）。
+**生产部署必须使用 `storage_type="postgres"`**（Postgres 是唯一受支持的生产
+存储后端；独立 Redis 存储模式已弃用，见 F-005 / [配置指南 §3](../operate/configuration-guide.md)）。
+Memory 后端存在的唯一目的是让 Windows / macOS CI 环境在无 Postgres 时仍能
+跑通不依赖 DB 的测试用例（contract 测试、纯单测、协议错误信封测试等）。
 
-## 数据一致性专题（合并自 data-consistency.md，docs 治理 A2）
+## 数据一致性专题
 
 ### 授权码单次使用（防双花）
 
@@ -215,12 +219,12 @@ Memory 後端存在的唯一目的是讓 Windows / macOS CI 環境在無 Postgre
 （raw SQL 豁免条款）；Redis 后端用 Lua 脚本；Memory 后端用互斥锁。契约由
 `tests/contract/GrantRepositoryContractTest.cc` 的三实现同测覆盖。
 
-### 缓存一致性：延迟双删（v1.4.1 起）
+### 缓存一致性：延迟双删
 
 Redis L2 缓存（键前缀 `fulla:cache:`）的写路径失效采用**延迟双删**：立即 DEL + 事件循环上
 延迟二次 DEL（默认 200ms，`cache.invalidation_double_delete_delay_ms` 可配，钳位 [50,2000]），
 以覆盖"读线程在 DEL 前刚回填旧值"的竞态窗口（issue #79）。二次 DEL 失败可观测：
-`*_cache_invalidation_failures_total{kind}` 计数器（issue #80）。读路径为 cache-aside，
+`fulla_cache_invalidation_failures_total{kind}` 计数器（issue #80）。读路径为 cache-aside，
 未命中回源 PostgreSQL 后回填（TTL 兜底最终一致）。
 
 ### refresh token 家族与级联撤销

@@ -2,11 +2,13 @@
 
 如何获取并集成 Fulla 的发布产物：SDK 二进制包（库 + 头 +
 `fulla-*Config.cmake`）与 GHCR 容器镜像。运行时行为承诺（线程 / ABI /
-异常 / 日志 / 插件注册）见 [SDK Runtime Contract](../sdk/sdk-runtime-contract)，
-本文只讲"怎么拿、怎么接"。
-
-来源：`.kiro/specs/fulla-sdk-refactor/tasks.md` Task 36；发布流水线为
+异常 / 日志 / 插件注册）见 [SDK Runtime Contract](sdk-runtime-contract)，
+本文只讲"怎么拿、怎么接"。发布流水线为
 `.github/workflows/release.yml`（严格 SemVer tag `vX.Y.Z` 触发）。
+
+> 非 C++ 消费者：官方维护的 **Python**（PyPI [`fulla-oauth2`](https://pypi.org/project/fulla-oauth2/)）与
+> **Go**（`github.com/voidvec/fulla/clients/go`）HTTP 客户端开箱即用，
+> 见 [clients/](https://github.com/voidvec/fulla/tree/master/clients)。
 
 ---
 

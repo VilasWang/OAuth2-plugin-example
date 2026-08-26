@@ -4,7 +4,6 @@
 `fulla::identity` / `fulla::storage-*` / `fulla::drogon`）在 v1.x
 期间对消费者承诺的线程模型、ABI、异常、日志与依赖边界。
 
-来源：`.kiro/specs/fulla-sdk-refactor/design.md`（评审 F9、H1 §5.7）。
 本文档是对外承诺的单一出处；SDK 头文件注释与本文冲突时以本文为准并修头。
 
 ---
@@ -60,7 +59,7 @@
 ## 6. 插件注册与配置契约（宿主集成）
 
 - `OAuth2Plugin` 类名与 config `plugins[].name` 反射加载契约**保持稳定**
-  （方案 A）：4 份 config（`config.{json,dev,ci,prod}.json`）中
+  （方案 A）：各 config（`config.{json,dev,ci,prod,bench}.json`）中
   `"plugins":[{"name":"OAuth2Plugin","config":{...}}]` 的类名字符串与
   `config{}` 块 schema 是产品配置契约的一部分，v1.x 不改名。
 - 插件本体以 CMake **OBJECT 库**形态链接进宿主：目标文件逐个直接链入，

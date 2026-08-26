@@ -6,8 +6,8 @@
 
 | 威胁类型 | 描述 | 防御机制 | 对应文档 |
 |----------|------|----------|----------|
-| **Replay Attack** (重放攻击) | 攻击者截获 Auth Code 并在合法客户端之前或之后尝试兑换。 | **Atomic Consume** (原子消费) + **One-Time Use Enforcement**。 | [Data Consistency](../architecture/data-persistence) |
-| **Credential Leakage** (凭据泄露) | 数据库被拖库导致 Client Secret 泄露。 | **SHA256 Salted Hash**。数据库仅存 Hash 值，绝不存明文。 | [Data Persistence](../architecture/data-persistence) |
+| **Replay Attack** (重放攻击) | 攻击者截获 Auth Code 并在合法客户端之前或之后尝试兑换。 | **Atomic Consume** (原子消费) + **One-Time Use Enforcement**。 | [Data Consistency](data-persistence) |
+| **Credential Leakage** (凭据泄露) | 数据库被拖库导致 Client Secret 泄露。 | **SHA256 Salted Hash**。数据库仅存 Hash 值，绝不存明文。 | [Data Persistence](data-persistence) |
 | **Token Theft** (令牌窃取) | Access Token 被截获。 | **Short-lived Token** (1小时) + **Refresh Token Rotation** (轮转机制)。 | 本文档 |
 | **CSRF** | 攻击者诱导用户进行非预期的授权。 | 强制校验 **state** 参数 (推荐客户端实现)。 | [API Reference](../domains/api-reference.md) |
 
@@ -92,12 +92,17 @@
 
 ### 7.3 时序图
 
-```
-用户 → 服务器: 使用 RT-1 刷新
-服务器: 撤销 RT-1, 颁发 RT-2 (同 family)
-攻击者 → 服务器: 使用 RT-1 刷新 (重用!)
-服务器: 检测到 RT-1 已撤销 → 级联撤销 family 所有 Token
-用户: 下次请求失败, 需重新登录
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant S as 服务器
+    participant A as 攻击者
+    U->>S: 使用 RT-1 刷新
+    S-->>U: 撤销 RT-1，颁发 RT-2（同 family）
+    A->>S: 使用 RT-1 刷新（重用!）
+    S->>S: 检测到 RT-1 已撤销
+    S->>S: 级联撤销 family 下所有 Token
+    U--xA: 下次请求失败，需重新登录
 ```
 
 ## 8. Subject 隐私保护 (Subject Privacy)
@@ -116,7 +121,7 @@
 | 自增 ID | ✗ 可预测 | 泄露用户数量 | ✓ |
 | UUID public_sub | ✓ 不可预测 | 无信息泄露 | ✓ |
 
-## HTTP 安全响应头（合并自 security-hardening.md）
+## HTTP 安全响应头
 
 全局中间件为所有响应附加：`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、
 `Referrer-Policy: strict-origin-when-cross-origin`、`Content-Security-Policy`（API 域收敛策略）。
@@ -131,7 +136,7 @@
 > 注意与 F-018 的关系：这是**全局侧**限流（任意请求，防扫）；`configuration-guide` §8 的
 > 进程内失败计数限流是**认证侧**防爆破（login/token 失败计数），两者并存、作用面不同。
 
-## 安全运维清单（合并自 ops/security-checklist.md）
+## 安全运维清单
 
 **例行验证**：密钥不入库（`git grep` 抽查 + Secret Hygiene CI 门）；`.env*` 均被 ignore；
 前端生产构建无内嵌凭据。
@@ -150,6 +155,3 @@ if git diff --cached | grep -qiE '(api[_-]?key|secret|password)\s*[:=]'; then
   echo "possible credential in commit"; exit 1
 fi
 ```
-
-> 本三节合并自已退役的 security-hardening.md 与 ops/security-checklist.md（docs 治理 A2）；
-> 原 security-hardening 的 2026-04 快照、悬空引用与过期限流数字已弃用。
