@@ -231,7 +231,12 @@ DROGON_TEST(Integration_P0_SocialRepo_CreateLinkedUser_FailClosedOnConflict)
         const std::string uname = "gh_rolecheck_" + suffix;
         std::promise<std::optional<fulla::identity::LinkNewSocialAccountResult>> p;
         repo->createLinkedUser(
-          "github", "rolecheck_" + suffix, uname, "x@example.com",
+          // #72: the email must carry the run suffix like the username --
+          // users.email is unique, so a fixed address collides with the
+          // previous run's leftover row and breaks rerun-safety. (The two
+          // conflict blocks below keep a fixed address: their INSERTs are
+          // expected to fail on the held username regardless.)
+          "github", "rolecheck_" + suffix, uname, "x_" + suffix + "@example.com",
           [&p](std::optional<fulla::identity::LinkNewSocialAccountResult> r) {
               p.set_value(r);
           }

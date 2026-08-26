@@ -52,6 +52,17 @@ DROGON_TEST(Integration_P0_UserSystem_General_Works)
 
     auto mapper = Mapper<drogon_model::fulla_db::Users>(db);
 
+    // #72: rerun-safety -- the tail cleanup only runs when the test completes;
+    // a crashed prior run leaves the fixed username/email behind and the
+    // unique index turns this INSERT into a FAIL. Clear the slot first.
+    try
+    {
+        db->execSqlSync("DELETE FROM users WHERE username = $1", "unittest_user_orm");
+    }
+    catch (...)
+    {
+    }
+
     // 2. Insert (ORM)
     try
     {
