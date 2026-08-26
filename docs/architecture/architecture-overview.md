@@ -83,7 +83,7 @@ Vue SPA                 fulla-server (App)     OAuth2Plugin (Core)        Storag
 | storage_type | Implementation | Typical use |
 |---|---|---|
 | memory | `MemoryRepositoryBundle` | Unit tests and quick local demos |
-| redis | `RedisRepositoryBundle` | **DEPRECATED** — logs ERROR at startup and rejects the `refresh_token` grant with `unsupported_grant_type`; do not use. Redis now serves only as an optional cache layer in front of Postgres (see [Configuration Guide §3](configuration-guide.md)). |
+| redis | `RedisRepositoryBundle` | **DEPRECATED** — logs ERROR at startup and rejects the `refresh_token` grant with `unsupported_grant_type`; do not use. Redis now serves only as an optional cache layer in front of Postgres (see [Configuration Guide §3](../operate/configuration-guide.md)). |
 | postgres | `PostgresRepositoryBundle` | Durable production storage |
 
 > 每个 `*RepositoryBundle` 同时装配同一后端下的 client / grant / token / consent / userinfo 五个仓储实现（见各 `libs/storage-*/include` 下的头文件）。

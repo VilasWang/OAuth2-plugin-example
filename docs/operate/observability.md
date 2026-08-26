@@ -96,4 +96,4 @@ LOG_INFO << "Processing request"; // 输出: [ReqId: abc-123] Processing request
 - Adapter / 基础设施层（`libs/drogon`、`libs/storage-*`、`apps/server`）可直接使用 `LOG_*` 宏。
 - 六级对应关系：`LogLevel::Trace`→`LOG_TRACE`、`Debug`→`LOG_DEBUG`、`Info`→`LOG_INFO`、`Warn`→`LOG_WARN`、`Error`→`LOG_ERROR`、`Fatal`→`LOG_FATAL`。
 
-> 关于测试输出的最小化策略（ctest 默认仅打印失败用例与汇总），见 [testing-guide.md](./testing-guide.md)。
+> 关于测试输出的最小化策略（ctest 默认仅打印失败用例与汇总），见 [testing-guide.md](../contribute/testing-guide.md)。

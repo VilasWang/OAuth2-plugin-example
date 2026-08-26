@@ -158,7 +158,7 @@ ctest -V -C Release --output-on-failure
 
 ## 6. 多平台矩阵
 
-多平台 CI 已合并进 `ci.yml` 的 `build-test` Job，通过 `include` 矩阵在同一套可复用工作流（`_build-test.yml`）上跑三个平台。历史设计文档见 [Multi-Platform CI Design](../history/design/superpowers/specs/2026-04-14-multiplatform-ci-design.md)（已归档）。
+多平台 CI 已合并进 `ci.yml` 的 `build-test` Job，通过 `include` 矩阵在同一套可复用工作流（`_build-test.yml`）上跑三个平台。历史设计文档见 [Multi-Platform CI Design](superpowers 的多平台 CI 设计（维护者档案）)（已归档）。
 
 ### Quick Reference
 
