@@ -23,6 +23,7 @@
 #include <string>
 #include <json/json.h>
 #include <memory>
+#include <optional>
 
 namespace fulla::oauth2
 {
@@ -111,7 +112,9 @@ class JwkManager
         BadSignature,    ///< RS256 signature check failed
         IssuerMismatch,  ///< payload iss != expectedIssuer
         Expired,         ///< payload exp <= nowSecs, or exp absent (fail closed)
-        MissingSubject   ///< payload sub absent or empty
+        NotYetValid,     ///< #87 M2: payload nbf present and > nowSecs (RFC 7519 §4.1.5)
+        MissingSubject,  ///< payload sub absent or empty
+        AudienceMismatch ///< #87 M1: expectedAudience requested but the aud claim does not contain it
     };
 
     /**
@@ -121,22 +124,48 @@ class JwkManager
      * not trust an id_token_hint's claims before the signature verifies).
      * Checks, in order: structure; header alg strictly RS256; header kid (if
      * present) equals the current kid; RS256 signature over header.payload;
-     * payload iss == expectedIssuer; payload exp > nowSecs; payload sub
-     * non-empty. Absent kid is tolerated (tokens signed before a kid was
-     * configured still verify); absent exp fails closed as Expired.
+     * payload iss == expectedIssuer; payload exp > nowSecs; payload nbf, if
+     * present, <= nowSecs (#87 M2); payload sub non-empty; payload aud, when
+     * expectedAudience is non-empty, contains it as the whole string claim or
+     * as a string element of the array claim (#87 M1). Absent kid is
+     * tolerated (tokens signed before a kid was configured still verify);
+     * absent exp fails closed as Expired; absent nbf is fine (optional
+     * claim); absent aud with a non-empty expectedAudience fails closed as
+     * AudienceMismatch.
      *
      * Concurrency contract: same as signJwt() -- const, read-only after
      * init(), safe to call concurrently.
      *
-     * @param jwt            The compact JWT (header.payload.signature).
-     * @param expectedIssuer The OP issuer the iss claim must match.
-     * @param nowSecs        Current unix time (seconds) for exp checking.
+     * @param jwt             The compact JWT (header.payload.signature).
+     * @param expectedIssuer  The OP issuer the iss claim must match.
+     * @param nowSecs         Current unix time (seconds) for exp/nbf checks.
+     * @param expectedAudience Optional audience the aud claim must contain
+     *                        (empty = do not check aud). Distinguishes token
+     *                        types (an access token's aud is a resource, not
+     *                        the client an id_token carries).
      * @return Ok, or the first failing reason. Never throws.
      */
     JwtVerificationResult verifyJwt(
       const std::string &jwt,
       const std::string &expectedIssuer,
-      long long nowSecs
+      long long nowSecs,
+      const std::string &expectedAudience = {}
+    ) const;
+
+    /**
+     * @brief verifyJwt + the verified payload in one pass (#87 L2).
+     *
+     * Avoids the second base64+JSON decode callers otherwise perform on an
+     * already-verified token. Returns the payload when verification is Ok,
+     * nullopt otherwise; when `rejectionReason` is non-null it always
+     * receives the verification outcome (Ok on success). Never throws.
+     */
+    std::optional<Json::Value> verifyAndDecode(
+      const std::string &jwt,
+      const std::string &expectedIssuer,
+      long long nowSecs,
+      const std::string &expectedAudience = {},
+      JwtVerificationResult *rejectionReason = nullptr
     ) const;
 
     /**
@@ -174,6 +203,17 @@ class JwkManager
     static bool base64UrlDecode(const std::string &input, std::string &output);
 
     bool getPublicKeyComponents(std::string &n, std::string &e) const;
+
+    /// Shared verification core of verifyJwt()/verifyAndDecode(): runs the
+    /// full check chain; when verifiedPayloadOut is non-null and every check
+    /// passes, receives the decoded payload (left untouched on rejection).
+    JwtVerificationResult verifyCore(
+      const std::string &jwt,
+      const std::string &expectedIssuer,
+      long long nowSecs,
+      const std::string &expectedAudience,
+      Json::Value *verifiedPayloadOut
+    ) const;
 
     /// Log through the injected logger_ if set; no-op if nullptr.
     void log(fulla::common::ports::LogLevel level, const std::string &message) const;

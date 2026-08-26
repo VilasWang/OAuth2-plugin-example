@@ -111,7 +111,10 @@ bool JwkManager::init(const Json::Value &config)
     );
     if (generateEphemeralKey())
     {
-        kid_ = "ephemeral-dev-key";
+        // #87: honor a configured kid on the ephemeral path too (previously
+        // hardcoded, so tests/ops needing a distinct kid had to go through
+        // env+PEM). The ephemeral marker stays the default.
+        kid_ = config.get("kid", "ephemeral-dev-key").asString();
         initialized_ = true;
         return true;
     }
@@ -323,12 +326,22 @@ bool JwkManager::base64UrlDecode(const std::string &input, std::string &output)
     // Decodes one group of `count` (2..4) symbols, emitting count-1 bytes.
     auto decodeGroup = [&output](const char *group, size_t count) -> bool {
         int v[4] = {0, 0, 0, 0};
-        for (size_t i = 0; i < count; ++i)
+        for (size_t i = 0; i < count; i++)
         {
             v[i] = b64UrlValue(group[i]);
             if (v[i] < 0)
                 return false;
         }
+        // #87 L1: reject non-canonical trailing zero bits (RFC 4648 §3.5 --
+        // the unpadded base64url form a JWT mandates). "AB" carries 12 bits
+        // of which only 8 are meaning-bearing, so the low 4 bits of the last
+        // symbol must be zero; "ABC" carries 18 bits for 16, low 2 bits zero.
+        // The signature still pins exact bytes, so this is strictness, not a
+        // vulnerability -- but a strict decoder must not bless them.
+        if (count == 2 && (v[1] & 0x0F) != 0)
+            return false;
+        if (count == 3 && (v[2] & 0x03) != 0)
+            return false;
         const unsigned int triple = (static_cast<unsigned int>(v[0]) << 18) |
                                     (static_cast<unsigned int>(v[1]) << 12) |
                                     (static_cast<unsigned int>(v[2]) << 6) |
@@ -361,7 +374,36 @@ bool JwkManager::base64UrlDecode(const std::string &input, std::string &output)
 JwkManager::JwtVerificationResult JwkManager::verifyJwt(
   const std::string &jwt,
   const std::string &expectedIssuer,
-  long long nowSecs
+  long long nowSecs,
+  const std::string &expectedAudience
+) const
+{
+    return verifyCore(jwt, expectedIssuer, nowSecs, expectedAudience, nullptr);
+}
+
+std::optional<Json::Value> JwkManager::verifyAndDecode(
+  const std::string &jwt,
+  const std::string &expectedIssuer,
+  long long nowSecs,
+  const std::string &expectedAudience,
+  JwtVerificationResult *rejectionReason
+) const
+{
+    Json::Value payload;
+    const auto result = verifyCore(jwt, expectedIssuer, nowSecs, expectedAudience, &payload);
+    if (rejectionReason != nullptr)
+        *rejectionReason = result;
+    if (result != JwtVerificationResult::Ok)
+        return std::nullopt;
+    return payload;
+}
+
+JwkManager::JwtVerificationResult JwkManager::verifyCore(
+  const std::string &jwt,
+  const std::string &expectedIssuer,
+  long long nowSecs,
+  const std::string &expectedAudience,
+  Json::Value *verifiedPayloadOut
 ) const
 {
     if (!initialized_ || !rsaKey_)
@@ -448,9 +490,42 @@ JwkManager::JwtVerificationResult JwkManager::verifyJwt(
     if (!payload.isMember("exp") || !payload["exp"].isNumeric() ||
         payload["exp"].asInt64() <= nowSecs)
         return JwtVerificationResult::Expired;
+    // #87 M2: nbf is optional, but when present it must be a numeric claim
+    // with nbf <= nowSecs (RFC 7519 §4.1.5; no leeway, mirroring exp above).
+    // A non-numeric nbf cannot be evaluated -- fail closed as Malformed.
+    if (payload.isMember("nbf"))
+    {
+        if (!payload["nbf"].isNumeric())
+            return JwtVerificationResult::Malformed;
+        if (payload["nbf"].asInt64() > nowSecs)
+            return JwtVerificationResult::NotYetValid;
+    }
     if (!payload.isMember("sub") || !payload["sub"].isString() ||
         payload["sub"].asString().empty())
         return JwtVerificationResult::MissingSubject;
+    // #87 M1: optional audience pinning. aud may be a string or an array of
+    // strings (RFC 7519 §4.1.3); the expected audience must appear in it.
+    if (!expectedAudience.empty())
+    {
+        bool audOk = false;
+        if (payload["aud"].isString())
+            audOk = payload["aud"].asString() == expectedAudience;
+        else if (payload["aud"].isArray())
+        {
+            for (const auto &element : payload["aud"])
+            {
+                if (element.isString() && element.asString() == expectedAudience)
+                {
+                    audOk = true;
+                    break;
+                }
+            }
+        }
+        if (!audOk)
+            return JwtVerificationResult::AudienceMismatch;
+    }
+    if (verifiedPayloadOut != nullptr)
+        *verifiedPayloadOut = payload;
     return JwtVerificationResult::Ok;
 }
 

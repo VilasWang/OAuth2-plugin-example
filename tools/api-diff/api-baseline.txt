@@ -1,6 +1,14 @@
 // api-diff baseline -- Fulla SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.4.1
+// version: 1.0.0
+//
+// --force ratifications (source-compatible via defaulted trailing args /
+//    additive-only; all construction sites are in-repo, no external header
+//    consumers; no major bump warranted):
+//   fix/issues-batch-1 C4 (#87): JwkManager.h -- verifyJwt gains defaulted
+//     `expectedAudience = {}` (old call sites compile unchanged); enum adds
+//     NotYetValid/AudienceMismatch (additive); verifyAndDecode + private
+//     verifyCore are new.
 === libs/common/include/fulla/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -4474,6 +4482,7 @@ const std::function<bool(const std::string &)> &scopeRequiresAdmin
 #include <string>
 #include <json/json.h>
 #include <memory>
+#include <optional>
 namespace fulla::oauth2
 {
 class JwkManager
@@ -4494,12 +4503,22 @@ KidMismatch,
 BadSignature,
 IssuerMismatch,
 Expired,
-MissingSubject
+NotYetValid,
+MissingSubject,
+AudienceMismatch
 };
 JwtVerificationResult verifyJwt(
 const std::string &jwt,
 const std::string &expectedIssuer,
-long long nowSecs
+long long nowSecs,
+const std::string &expectedAudience = {}
+) const;
+std::optional<Json::Value> verifyAndDecode(
+const std::string &jwt,
+const std::string &expectedIssuer,
+long long nowSecs,
+const std::string &expectedAudience = {},
+JwtVerificationResult *rejectionReason = nullptr
 ) const;
 Json::Value getJwks() const;
 const std::string &getKeyId() const
@@ -4517,6 +4536,13 @@ static std::string base64UrlEncode(const unsigned char *data, size_t len);
 static std::string base64UrlEncode(const std::string &data);
 static bool base64UrlDecode(const std::string &input, std::string &output);
 bool getPublicKeyComponents(std::string &n, std::string &e) const;
+JwtVerificationResult verifyCore(
+const std::string &jwt,
+const std::string &expectedIssuer,
+long long nowSecs,
+const std::string &expectedAudience,
+Json::Value *verifiedPayloadOut
+) const;
 void log(fulla::common::ports::LogLevel level, const std::string &message) const;
 };
 }

@@ -91,48 +91,6 @@ namespace fulla::drogon::controllers
 namespace
 {
 
-// #55/#78: decode a JWT's payload segment WITHOUT verification. Callers must
-// only feed this a hint that already passed JwkManager::verifyJwt —
-// endSession's #78 gate guarantees that ordering (no silent fallback), so
-// the claims extracted here are trustworthy. Returns Json::Value() (null)
-// on any malformed input. Extracted from endSession's former inline
-// aud-only decode so the sub claim (backchannel logout attribution) and aud
-// claim (post-logout redirect client identification) come from one pass.
-Json::Value decodeJwtPayloadClaims(const std::string &jwt)
-{
-    try
-    {
-        const size_t firstDot = jwt.find('.');
-        const size_t secondDot = jwt.find('.', firstDot == std::string::npos ? 0 : firstDot + 1);
-        if (firstDot == std::string::npos || secondDot == std::string::npos)
-            return Json::Value();
-        std::string payloadB64 = jwt.substr(firstDot + 1, secondDot - firstDot - 1);
-        // drogon's base64Decode requires standard padding; add it.
-        std::string padded = payloadB64;
-        while (padded.size() % 4)
-            padded += '=';
-        // base64url -> base64: - -> +, _ -> /
-        for (char &c : padded)
-        {
-            if (c == '-')
-                c = '+';
-            else if (c == '_')
-                c = '/';
-        }
-        const std::string payloadJson = ::drogon::utils::base64Decode(padded);
-        Json::CharReaderBuilder builder;
-        Json::Value payload;
-        std::istringstream iss(payloadJson);
-        if (Json::parseFromStream(builder, iss, &payload, nullptr))
-            return payload;
-    }
-    catch (const std::exception &e)
-    {
-        LOG_DEBUG << "decodeJwtPayloadClaims: failed to decode JWT payload: " << e.what();
-    }
-    return Json::Value();
-}
-
 // #78: stable short names for JwkManager::verifyJwt() rejection reasons, used
 // as Internal_Detail in the AUTH_INVALID_ID_TOKEN_HINT error's server-side
 // log line only (the client envelope stays generic).
@@ -157,8 +115,12 @@ const char *jwtVerificationName(fulla::oauth2::JwkManager::JwtVerificationResult
             return "issuer-mismatch";
         case R::Expired:
             return "expired";
+        case R::NotYetValid:
+            return "not-yet-valid";
         case R::MissingSubject:
             return "missing-sub";
+        case R::AudienceMismatch:
+            return "audience-mismatch";
     }
     return "unknown";
 }
@@ -1356,9 +1318,13 @@ void SessionController::endSession(
                                     std::chrono::system_clock::now().time_since_epoch()
         )
                                     .count();
-        const auto verification = jwkManager->verifyJwt(idTokenHint, plugin->getIssuer(), nowSecs);
-        if (verification !=
-            fulla::oauth2::JwkManager::JwtVerificationResult::Ok)
+        // #87 L2: verifyAndDecode returns the already-verified payload, so
+        // the former second base64+JSON pass (decodeJwtPayloadClaims) is gone.
+        fulla::oauth2::JwkManager::JwtVerificationResult verification =
+          fulla::oauth2::JwkManager::JwtVerificationResult::Malformed;
+        auto verifiedPayload =
+          jwkManager->verifyAndDecode(idTokenHint, plugin->getIssuer(), nowSecs, {}, &verification);
+        if (!verifiedPayload.has_value())
         {
             respondError(
               req,
@@ -1369,7 +1335,7 @@ void SessionController::endSession(
             );
             return;
         }
-        hintPayload = decodeJwtPayloadClaims(idTokenHint);
+        hintPayload = std::move(*verifiedPayload);
         if (hintPayload.isMember("sub") && hintPayload["sub"].isString())
             hintSub = hintPayload["sub"].asString();
         // Subject consistency: with BOTH a browser session and a verified
