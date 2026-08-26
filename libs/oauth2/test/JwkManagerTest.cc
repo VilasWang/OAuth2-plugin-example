@@ -535,4 +535,223 @@ TEST(JwkManagerTest, VerifyJwt_NotInitialized_FailsClosed)
     );
 }
 
+// ---------------------------------------------------------------------------
+// #87 M2: nbf (RFC 7519 §4.1.5) -- optional claim, but when present must be
+// numeric with nbf <= nowSecs (no leeway, mirroring the exp policy).
+// ---------------------------------------------------------------------------
+
+TEST(JwkManagerTest, VerifyJwt_NbfInTheFuture_IsNotYetValid)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const long long now = std::time(nullptr);
+    Json::Value claims = validClaims(600);
+    claims["nbf"] = static_cast<Json::Int64>(now + 30);
+    EXPECT_EQ(
+      jwk.verifyJwt(jwk.signJwt(claims), kTestIssuer, now),
+      JwkManager::JwtVerificationResult::NotYetValid
+    );
+    // Boundary: nbf == now is already valid (strict <= acceptance).
+    claims["nbf"] = static_cast<Json::Int64>(now);
+    EXPECT_EQ(
+      jwk.verifyJwt(jwk.signJwt(claims), kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Ok
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_NbfInThePast_OrAbsent_IsOk)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const long long now = std::time(nullptr);
+    Json::Value claims = validClaims(600);
+    claims["nbf"] = static_cast<Json::Int64>(now - 10);
+    EXPECT_EQ(
+      jwk.verifyJwt(jwk.signJwt(claims), kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Ok
+    );
+    Json::Value noNbf = validClaims(600);
+    EXPECT_EQ(
+      jwk.verifyJwt(jwk.signJwt(noNbf), kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Ok
+    );
+}
+
+TEST(JwkManagerTest, VerifyJwt_NonNumericNbf_IsMalformed)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    Json::Value claims = validClaims(600);
+    claims["nbf"] = "soon-ish";  // unevaluable -> fail closed
+    EXPECT_EQ(
+      jwk.verifyJwt(jwk.signJwt(claims), kTestIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::Malformed
+    );
+}
+
+// ---------------------------------------------------------------------------
+// #87 M1: optional expectedAudience pinning. aud as a string or as an array
+// of strings (RFC 7519 §4.1.3); absent aud with a pin -> AudienceMismatch.
+// ---------------------------------------------------------------------------
+
+TEST(JwkManagerTest, VerifyJwt_ExpectedAudience_StringAndArrayForms)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const long long now = std::time(nullptr);
+
+    Json::Value stringAud = validClaims(600);
+    stringAud["aud"] = "vue-client";
+    const std::string stringJwt = jwk.signJwt(stringAud);
+    EXPECT_EQ(
+      jwk.verifyJwt(stringJwt, kTestIssuer, now, "vue-client"),
+      JwkManager::JwtVerificationResult::Ok
+    );
+    EXPECT_EQ(
+      jwk.verifyJwt(stringJwt, kTestIssuer, now, "other-client"),
+      JwkManager::JwtVerificationResult::AudienceMismatch
+    );
+
+    Json::Value arrayAud = validClaims(600);
+    arrayAud["aud"] = Json::Value(Json::arrayValue);
+    arrayAud["aud"].append("some-api");
+    arrayAud["aud"].append("vue-client");
+    const std::string arrayJwt = jwk.signJwt(arrayAud);
+    EXPECT_EQ(
+      jwk.verifyJwt(arrayJwt, kTestIssuer, now, "vue-client"),
+      JwkManager::JwtVerificationResult::Ok
+    );
+    EXPECT_EQ(
+      jwk.verifyJwt(arrayJwt, kTestIssuer, now, "some-api"),
+      JwkManager::JwtVerificationResult::Ok
+    );
+    EXPECT_EQ(
+      jwk.verifyJwt(arrayJwt, kTestIssuer, now, "absent-client"),
+      JwkManager::JwtVerificationResult::AudienceMismatch
+    );
+
+    // Absent aud fails closed when an audience is pinned.
+    const std::string noAudJwt = jwk.signJwt(validClaims(600));
+    EXPECT_EQ(
+      jwk.verifyJwt(noAudJwt, kTestIssuer, now, "vue-client"),
+      JwkManager::JwtVerificationResult::AudienceMismatch
+    );
+    // ...but is accepted when no pin is requested (back-compat).
+    EXPECT_EQ(
+      jwk.verifyJwt(noAudJwt, kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Ok
+    );
+}
+
+// ---------------------------------------------------------------------------
+// #87 L1: strict base64url -- non-canonical trailing zero bits (RFC 4648
+// §3.5) are rejected. Exercised via the header (decoded before the signature
+// check) and the signature segment (decoded before EVP verify): aliasing the
+// final symbol's unused low bits keeps the *bytes* identical under a lenient
+// decoder, so the rejection proves the tail check fires.
+// ---------------------------------------------------------------------------
+
+TEST(JwkManagerTest, VerifyJwt_NonCanonicalBase64Tail_IsMalformed)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const long long now = std::time(nullptr);
+    const std::string jwt = jwk.signJwt(validClaims(600));
+    const size_t firstDot = jwt.find('.');
+    const size_t secondDot = jwt.find('.', firstDot + 1);
+
+    // Alias the final symbol's unused low bits. Canonical encodings always
+    // leave them zero, so value|1 yields a different symbol that leniently
+    // decodes to the SAME bytes -- only a strict decoder rejects it. |1 stays
+    // <= 61, so the aliased value is always inside the alphabet.
+    auto aliasTail = [](std::string segment) {
+        static const char alphabet[] =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        const size_t remainder = segment.size() % 4;
+        EXPECT_TRUE(remainder == 2 || remainder == 3);
+        const char last = segment.back();
+        const int value = (last >= 'A' && last <= 'Z')   ? last - 'A'
+                          : (last >= 'a' && last <= 'z') ? last - 'a' + 26
+                          : (last >= '0' && last <= '9') ? last - '0' + 52
+                          : (last == '-')                ? 62
+                                                         : 63;
+        segment.back() = alphabet[value | 1];
+        return segment;
+    };
+
+    // 256-byte RS256 signature -> 342 symbols -> a 2-symbol tail group, so
+    // the alias is guaranteed to sit in the tail. The strict decode rejects
+    // it before EVP ever sees the bytes.
+    const std::string aliasedSignature = aliasTail(jwt.substr(secondDot + 1));
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt.substr(0, secondDot + 1) + aliasedSignature, kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Malformed
+    );
+
+    // Header path: craft a header whose JSON length leaves a tail group
+    // ({"alg":"RS256","x":12} is 22 bytes -> 30 symbols -> tail of 2). The
+    // header is decoded before the signature check, so the aliased tail is
+    // rejected as Malformed even though the (unmatching) signature would
+    // fail anyway.
+    const std::string craftedHeader = b64Url("{\"alg\":\"RS256\",\"x\":12}");
+    const std::string payloadAndSig = jwt.substr(firstDot);
+    EXPECT_EQ(
+      jwk.verifyJwt(aliasTail(craftedHeader) + payloadAndSig, kTestIssuer, now),
+      JwkManager::JwtVerificationResult::Malformed
+    );
+    // Control: the canonical crafted header decodes fine and fails LATER, at
+    // the signature check (signed over signJwt's own header).
+    EXPECT_EQ(
+      jwk.verifyJwt(craftedHeader + payloadAndSig, kTestIssuer, now),
+      JwkManager::JwtVerificationResult::BadSignature
+    );
+    // And the untouched round-trip still verifies.
+    EXPECT_EQ(jwk.verifyJwt(jwt, kTestIssuer, now), JwkManager::JwtVerificationResult::Ok);
+}
+
+// ---------------------------------------------------------------------------
+// #87 L2: verifyAndDecode returns the verified payload in one pass.
+// ---------------------------------------------------------------------------
+
+TEST(JwkManagerTest, VerifyAndDecode_Ok_ReturnsPayload_And_Rejection_SetsReason)
+{
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    const long long now = std::time(nullptr);
+
+    Json::Value claims = validClaims(600);
+    claims["aud"] = "vue-client";
+    claims["custom"] = "carry-me";
+    const std::string jwt = jwk.signJwt(claims);
+
+    JwkManager::JwtVerificationResult reason = JwkManager::JwtVerificationResult::Ok;
+    auto payload = jwk.verifyAndDecode(jwt, kTestIssuer, now, "vue-client", &reason);
+    ASSERT_TRUE(payload.has_value());
+    EXPECT_EQ(reason, JwkManager::JwtVerificationResult::Ok);
+    EXPECT_EQ((*payload)["sub"].asString(), "user-123");
+    EXPECT_EQ((*payload)["custom"].asString(), "carry-me");
+
+    reason = JwkManager::JwtVerificationResult::Ok;
+    auto rejected = jwk.verifyAndDecode(jwt, kTestIssuer, now, "wrong-client", &reason);
+    EXPECT_FALSE(rejected.has_value());
+    EXPECT_EQ(reason, JwkManager::JwtVerificationResult::AudienceMismatch);
+}
+
+// ---------------------------------------------------------------------------
+// #87 addendum: the ephemeral fallback path honors a configured kid.
+// ---------------------------------------------------------------------------
+
+TEST(JwkManagerTest, Init_EphemeralKey_RespectsConfiguredKid)
+{
+    JwkManager jwk;
+    Json::Value config(Json::objectValue);
+    config["kid"] = "custom-ephemeral-kid";
+    ASSERT_TRUE(jwk.init(config));
+    EXPECT_EQ(jwk.getKeyId(), "custom-ephemeral-kid");
+    // Absent kid keeps the historical ephemeral marker.
+    JwkManager jwk2;
+    ASSERT_TRUE(jwk2.init(Json::Value(Json::objectValue)));
+    EXPECT_EQ(jwk2.getKeyId(), "ephemeral-dev-key");
+}
+
 }  // namespace
