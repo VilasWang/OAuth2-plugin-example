@@ -13,7 +13,7 @@
 | **PostgreSQL** | `localhost:5432` | 数据库名: `fulla_db` / 用户: `fulla_user` / 密码: `123456` |
 | **Redis** | `localhost:6379` | 密码: `123456`（与 `config.json` 一致）|
 
-> [INFO] **快速启动基础设施**：如果你使用 Docker，可以单独启动 postgres 和 redis 容器:
+> **快速启动基础设施**：如果你使用 Docker，可以单独启动 postgres 和 redis 容器:
 > ```powershell
 > docker run -d -p 5432:5432 -e POSTGRES_USER=fulla_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=fulla_db postgres:17-alpine
 > docker run -d -p 6379:6379 redis:7-alpine redis-server --requirepass 123456
@@ -81,42 +81,22 @@ CHECK(body.isMember("error") || body.isMember("code"));
 
 ### Level 4 补充明细 — 安全测试 (Security Tests)
 
-| 测试文件 | 覆盖范围 | 测试数量 |
-|---|---|---|
-| `SecurityTest.cc` | SQL 注入、XSS、命令注入、输入验证、CORS、Token 安全、速率限制、健康检查安全 | 18 个测试用例 |
+| 测试文件 | 覆盖范围 |
+|---|---|
+| `SecurityTest.cc` | SQL 注入、XSS、命令注入、输入验证、CORS、Token 安全、速率限制、健康检查安全 |
 
-**安全测试覆盖** (2026-04-21):
-- [PASS] 输入验证: SQL 注入、XSS、命令注入、长度限制、空值验证
-- [PASS] 认证授权: 无效凭据、速率限制
-- [PASS] CORS 配置: 授权源访问、未授权源拒绝
-- [PASS] 敏感数据: POST Body 传递、URL 参数后备兼容性
-- [PASS] Token 安全: 无效授权码、缺失授权码、无效 Refresh Token
-- [PASS] 安全头: 基础安全头、HSTS 配置
-- [PASS] 速率限制: 暴力破解防护
-- [PASS] 健康检查: 信息泄露检查
+覆盖要点：输入验证（注入/长度/空值）、认证授权（无效凭据、速率限制）、CORS 双向、敏感数据传递、Token 安全（无效/缺失授权码与 Refresh Token）、安全头（含 HSTS）、暴力破解防护、健康检查信息泄露。
 
 ### Level 5 补充明细 — E2E / 功能测试 (Functional Tests)
 
 | 测试文件 | 覆盖范围 | 依赖 |
 |---|---|---|
 | `IntegrationE2ETest.cc` | 模拟完整 OAuth2 授权码流程：HTTP 请求 → 授权 → 登录 → 换 Token → UserInfo 验证 | Postgres + Redis + 运行中的 Drogon App |
+| `FunctionalTest.cc` | OAuth2 完整流程、错误处理、UTF-8/Emoji 字符、健康检查、RBAC、Token 生命周期、输入验证、速率限制 | Postgres + Redis |
 
-| 测试文件 | 覆盖范围 | 测试数量 |
-|---|---|---|
-| `FunctionalTest.cc` | OAuth2 完整流程、错误处理、UTF-8/Emoji 字符、健康检查、RBAC、Token 生命周期、输入验证、速率限制 | 21 个测试用例 |
+覆盖要点：完整授权码流程、错误场景、UTF-8/Emoji 边界、RBAC 未授权路径、Token 生命周期异常路径、超长输入、速率限制检测、端点可用性。
 
-**功能测试覆盖** (2026-04-21):
-- [PASS] OAuth2 完整流程: 授权码流程
-- [PASS] 错误处理: 5 种错误场景
-- [PASS] UTF-8 字符: 中文、Emoji、4-byte UTF-8 序列
-- [PASS] 健康检查: 基本检查、字段验证、信息泄露检查
-- [PASS] RBAC: 未授权访问、无效 Token
-- [PASS] Token 生命周期: 无效授权码、无效 Refresh Token、缺失 Refresh Token
-- [PASS] 输入验证: 超长用户名、超长密码
-- [PASS] 速率限制: 暴力破解防护检测
-- [PASS] 端点可用性: OAuth2 端点响应
-
-**测试通过率**: 18/18 安全测试 (100%) [PASS], 21/21 功能测试 (100%) [PASS]
+> 用例数量随版本演进，**以 `ctest -N` 实测为准**（当前全套基线见 §7）。
 
 ---
 
@@ -194,72 +174,11 @@ In test case SomeTestName
 
 ## 6. 测试报告 (Test Reports)
 
-项目包含完整的测试报告文档，记录所有测试的执行结果和覆盖率。
+历史的安全/功能测试报告、Bug 状态分析与连接泄漏验证报告属于过程性档案，已随文档治理移出仓库（维护者本地保存）。当前测试状态以 CI 与本节口径为准：
 
-### 安全测试报告
-
-[DOC] **Security Test Report**（本地文档，已归档）
-
-**测试日期**: 2026-04-21
-**测试结果**: 18/18 通过 (100%) [PASS]
-
-报告包含：
-- 完整的安全测试用例列表
-- SQL 注入、XSS、命令注入等攻击防护验证
-- CORS 和安全头配置验证
-- Token 安全和撤销机制验证
-- 速率限制和 DoS 防护验证
-- 安全评分和特性验证
-- 生产环境安全评估
-
-### 功能测试报告
-
-[DOC] **Functional Test Report**（本地文档，已归档）
-
-**测试日期**: 2026-04-21
-**测试结果**: 21/21 通过 (100%) [PASS]
-
-报告包含：
-- 完整的 OAuth2 授权码流程测试
-- 错误处理和边缘情况测试
-- UTF-8 和 Emoji 字符处理测试（包括 4-byte UTF-8 序列）
-- RBAC 权限控制测试
-- Token 生命周期管理测试
-- 输入验证和 DoS 防护测试
-- 健康检查和端点可用性测试
-- 性能指标和测试自动化建议
-
-### Bug 状态报告
-
-[DOC] **Remaining Bugs Analysis**（本地文档，已归档）
-
-**生成日期**: 2026-04-21
-**总Bug数**: 35 个
-**已修复**: 18 个 (51%)
-**剩余未修复**: 17 个 (低优先级技术债务)
-**已确认为误报**: 1 个 (Bug #16 - DB连接泄漏)
-
-报告包含：
-- 详细的 Bug 分类和优先级评估
-- 每个 Bug 的修复状态和建议
-- 生产环境影响评估
-- 剩余 Bug 的风险分析和处理建议
-- 生产就绪状态评估：[PASS] **已就绪**
-
-### 数据库连接泄漏验证报告
-
-[DOC] **DB Leak Verification Report**（本地文档，已归档）
-
-**验证日期**: 2026-04-21
-**结论**: [PASS] **Bug #16 为误报 (FALSE POSITIVE)**
-
-报告包含：
-- Drogon 框架连接池架构分析
-- `getDbClient()` 返回类型和生命周期说明
-- Lambda 捕获行为和引用计数机制
-- 代码模式正确性证明（基于官方文档）
-- 测试证据和配置分析
-- 详细的连接流图和架构说明
+- **CI 全绿**是合入门槛（三平台矩阵，见 [CI/CD 指南](ci-cd-guide.md)）。
+- 安全与功能覆盖面见 §2 Level 4/5 明细；数量以 `ctest -N` 实测为准。
+- 历史报告中的结论性内容（如 April 快照中发现的安全缺陷）已修复并沉淀为回归测试用例。
 
 ---
 
@@ -293,7 +212,7 @@ In test case SomeTestName
 
 > 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/fulla/identity/testing/` 的共享 Fake）将整体提升到 57.9%。社交 OAuth 的 Google/WeChat/GitHub 均可经 mock 注入在 memory 模式下跑（注入路径不写 DB）；其中 GitHub happy-path 最初因 `issueTokensForUser` 直连 `getDbClient()` 无法在 memory 模式覆盖，随后已重构为经 `OAuth2Plugin::saveTokenPair` 存储抽象持久化（见 `SocialLoginHttpTest.cc` 的 `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens`），happy-path 现已可测（GitHubController 从 5.9% 提升到 32.5%）；WebAuthn 为非加密 stub，Postgres 模式下完整可测。注：此前文档的 58.8% 系旧逐库数字求和（其中 common 的 98.8% 为陈旧数据，现 `libs/common/src` 仅 4 个源文件 458 行，实测 69.4%）；本表已全部替换为 7ba8068 的实测值。剩余盲区：storage-postgres 事务/错误回退分支（需故障注入）。
 
-#### ⚠️ 实测覆盖率必须跑全部 5 个测试二进制
+#### ⚠ 实测覆盖率必须跑全部 5 个测试二进制
 
 实测数字依赖**全部 5 个测试二进制**都执行（仅跑主二进制 `fulla-tests` 会漏掉 4 个 per-lib gtest 二进制贡献的 domain 层覆盖率，common 会被低估到 ~60%）：
 
@@ -305,7 +224,7 @@ In test case SomeTestName
 
 在 coverage 构建目录下依次运行这 5 个二进制后再聚合 `.gcda`。
 
-#### ⚠️ gcovr 路径匹配 bug —— 用 `scripts/measure_coverage.py` 代替
+#### ⚠ gcovr 路径匹配 bug —— 用 `scripts/measure_coverage.py` 代替
 
 `gcovr 8.6` 对部分文件（如 `ClientManagementService.cc`）会误报 **0%**：raw `gcov` 明确显示 `Lines executed:55.79% of 328`，但 gcovr 的 `--print-summary` 只列出文件名不带百分比（gcovr 的源路径匹配对含绝对路径 + Drogon 头文件的 `.gcov` 输出处理不一致）。这是 gcovr 的已知路径匹配问题，不是零计数 bug（gcov flush 工作正常，见下）。
 
@@ -327,8 +246,6 @@ gcovr 仍可用于生成逐文件 HTML 报告（`--html-details`），但**汇�
 - `cmake/Coverage.cmake`（`oauth2_apply_gcov(target)`）给每个 first-party 库 + 测试可执行文件加 `-fprofile-arcs -ftest-coverage`，并显式链接 libgcov（仅 GCC；Clang 的 profile 运行时由 `-fprofile-arcs` 链接选项自动提供，无 libgcov）。
 - `tests/test_main.cc` 在两处 `std::_Exit()` 前显式调用 `__gcov_dump()`：因为 `_Exit` 绕过 `atexit`，libgcov 的计数器 flush 不会自动执行（否则 gcov 读到全 0 计数）。这是 Drogon 测试框架 fast-exit 与 gcov 的已知交互，需在测试 main 里手动补 flush。（注：4 个 per-lib gtest 二进制正常退出，不走 `_Exit`，因此它们不需要手动 flush。）
 - 覆盖率当前阶段性目标：60%（7ba8068 实测 57.9%）。剩余盲区集中在难以 HTTP 测试的分支：WebAuthn 典礼/加密深分支、UserSelfService（需逆向 auth 前置 filter）、storage-postgres 事务/错误回退分支（需故障注入）。社交 OAuth 控制器已可通过 `SocialMockFixture.h` 的 Fake 注入在 memory 模式下覆盖（GitHub happy-path 经 `saveTokenPair` 存储抽象重构后不再依赖 `getDbClient()`）。ORM 自动生成的 `libs/storage-postgres/src/models/*.cc` 已从分母排除。
-
----
 
 ---
 
@@ -377,8 +294,6 @@ curl -X POST http://127.0.0.1:5555/oauth2/login \
 ---
 
 **相关文档**:
-- [Security Hardening Guide](../architecture/security-architecture.md) - 安全加固措施
-- [Security Architecture](../architecture/security-architecture.md) - 安全架构设计
+- [Security Architecture](../architecture/security-architecture.md) - 安全加固与安全架构设计
 - [Data Consistency](../architecture/data-persistence.md) - 数据一致性和威胁模型
 - [API Reference](../domains/api-reference.md) - API 接口文档
-- [Bug Analysis] - 完整 Bug 分析报告（本地文档，已归档）

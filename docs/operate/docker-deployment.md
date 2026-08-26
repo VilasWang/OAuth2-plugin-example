@@ -13,26 +13,25 @@ Internet
     │
     │ :8080 / :8081
     ▼
-┌────────────────────────┐
-│  fulla-frontend│  Vue 前端 (Nginx)
-│  Port: 8080             │
-│  → fulla-backend│
-└────────┬───────────────┘
-         │ 内网
-┌────────▼────────────────┐
-│  fulla-backend │  Drogon 后端
-│  Port: 5555              │
-│  → postgres              │
-│  → redis                 │
-└──────────────────────────┘
-         │
-   ┌─────┴──────┐
-   ▼            ▼
-postgres      redis
-(5433:5432)   (6380:6379)
+┌────────────────────────┐   ┌────────────────────────┐
+│  fulla-frontend        │   │  fulla-admin           │
+│  Vue 用户前端 (Nginx)  │   │  管理后台前端 (Nginx)  │
+│  Port: 8080            │   │  Port: 8081            │
+└───────────┬────────────┘   └───────────┬────────────┘
+            │         内网               │
+            └────────────┬───────────────┘
+                         ▼
+            ┌────────────────────────┐
+            │  fulla-backend         │
+            │  Drogon 后端 :5555     │
+            │  → postgres → redis    │
+            └───────────┬────────────┘
+                   ┌────┴─────┐
+                   ▼          ▼
+              postgres      redis
+              (5433:5432)   (6380:6379)
 
-prometheus
-(9090:9090)
+              prometheus (9090:9090)
 ```
 
 | 服务 | 镜像/构建 | 对外端口 | 说明 |
@@ -91,7 +90,7 @@ environment:
   ...
 ```
 
-> [WARNING]️ **生产环境安全提示**：
+> **WARNING** **生产环境安全提示**：
 > - **禁止**将真实密码直接写在 `docker-compose.yml` 中并提交到 Git。
 > - 推荐使用 **Docker Secrets** 或外部密钥管理（Vault、AWS Secrets Manager）。
 > - 最低要求：使用 `.env` 文件，并将其加入 `.gitignore`。
@@ -132,7 +131,7 @@ volumes:
   - ../../apps/server/seed:/docker-entrypoint-initdb.d/seed:ro
 ```
 
-> [WARNING]️ **注意**：postgres entrypoint **不会**递归进入 `/docker-entrypoint-initdb.d` 的子目录，因此这两个挂载对首次初始化是 **no-op**，真正的 schema 初始化由后端的 `FULLA_AUTO_MIGRATE` 完成。
+> **WARNING** **注意**：postgres entrypoint **不会**递归进入 `/docker-entrypoint-initdb.d` 的子目录，因此这两个挂载对首次初始化是 **no-op**，真正的 schema 初始化由后端的 `FULLA_AUTO_MIGRATE` 完成。
 
 ---
 
@@ -242,5 +241,3 @@ docker compose -f deploy/docker/docker-compose.debug.yml run --rm debug-env bash
 
 - `deploy/docker/docker-quick-verify-debug.sh`（容器内全流程：依赖检查 → 等 PG/Redis 就绪 → 建库 → 并行编译 → 单测）；
 - `scripts/backend/full_test_docker.bat`（宿主一键：起容器 → 初始化 → ORM 重生成 → 编译 → 测试 → 起服 → OAuth2/Admin 端点测试 → 清理）。
-
-> 本节合并自已退役的 docker-guide.md（2026-08-26 docs 治理 A2），保留其独有内容。

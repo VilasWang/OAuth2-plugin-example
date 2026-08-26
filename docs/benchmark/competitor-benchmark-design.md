@@ -173,12 +173,12 @@ Phase 0 承重验证发现 Fulla 容器 RSS ~2.4GB（含 Drogon 连接池/共享
 |------|------|-----------|----------|-----------|---------|
 | **S1** discovery | OIDC 发现文档 | `GET /.well-known/openid-configuration` | `GET /realms/{r}/.well-known/openid-configuration` | `GET /.well-known/openid-configuration` (public :4444) | `GET /.well-known/openid-configuration` |
 | **S2** client_credentials | 机器间 token | `POST /oauth2/token` | `POST /realms/{r}/protocol/openid-connect/token` | `POST /oauth2/token` (public :4444) | `POST /oauth/v2/token` |
-| **S3** introspect | token 内省 | `POST /oauth2/introspect` | `POST /realms/{r}/protocol/openid-connect/token/introspect` | `POST /admin/oauth2/introspect` (admin :4445) ⚠️ | `POST /oauth/v2/introspect` |
+| **S3** introspect | token 内省 | `POST /oauth2/introspect` | `POST /realms/{r}/protocol/openid-connect/token/introspect` | `POST /admin/oauth2/introspect` (admin :4445) ⚠ | `POST /oauth/v2/introspect` |
 | **S5** refresh_token | token 刷新 | `POST /oauth2/token` (refresh) | `POST /realms/{r}/protocol/openid-connect/token` (refresh) | `POST /oauth2/token` (refresh) | `POST /oauth/v2/token` (refresh) |
 | **S6** userinfo | 用户信息 | `GET /oauth2/userinfo` | `GET /realms/{r}/protocol/openid-connect/userinfo` | `GET /userinfo` (public :4444) | `GET /oidc/v1/userinfo` |
 | ~~S4~~ auth_code | 用户登录 | ~~`login→token`~~ | ~~登录页不可 headless 驱动~~ | ~~需外部 consent app~~ | ~~登录会话流~~ |
 
-> ⚠️ Ory introspect 的 admin-port 语义差异在结果中标注。Keycloak realm 名、Hydra public/admin 双端口、Zitadel 的 instance domain 都在各自 setup 脚本中固定为常量。
+> ⚠ Ory introspect 的 admin-port 语义差异在结果中标注。Keycloak realm 名、Hydra public/admin 双端口、Zitadel 的 instance domain 都在各自 setup 脚本中固定为常量。
 
 端点出处：
 - Keycloak: [OpenID Connect endpoints](https://www.keycloak.org/docs/latest/securing_apps/)（`/realms/{realm}/protocol/openid-connect/*`）
@@ -265,7 +265,7 @@ Phase 0 承重验证发现 Fulla 容器 RSS ~2.4GB（含 Drogon 连接池/共享
 5. **S5 Zitadel = N/A**（DG-2 提前裁决）：机器用户无 refresh token（RFC 6749 §4.4.3）、password grant 已移除、Session API→auth_code 属用户交互流（D4 同类排除理由）。限制小节注明。
 6. **docker-stats.sh 竖线 glob 回归修复**：bash 5.2 下 `case $x in $GLOB)`（GLOB 含 `|`）不再展开为多分支——Fulla 侧 RSS 采样自 M0 参数化起一直空采；改为拆分逐个匹配。该回归同时解释了 v1.1 后 Fulla RSS 数据缺失。
 7. **Fulla S2 scope 跟随 #43**：seed 摒弃 legacy `read/write`，bench 校验与 s2 lua 改用 `tokens:read`（同码同测，非口径变化）。
-8. **（v1.3）四产品 PG 15 → 17 同步升级**（2026-08-18，f789bda）：设计基线为"与自测相同 tag 的 `postgres:15-alpine`"。偏离动机：D1 同环境公平——维持四产品同 PG 大版本；Fulla 服务端 libpq 已是 17.x，client 17/server 15 的错位消除。Fulla 自身 15 vs 17 A/B 在噪声带内（无自身吞吐诉求）。deploy/ 的 compose 与 Helm 同步到 17（存量卷升级 runbook 见 `docs/ops/postgresql-major-upgrade.md`，CHANGELOG 已标 BREAKING）。
+8. **（v1.3）四产品 PG 15 → 17 同步升级**（2026-08-18，f789bda）：设计基线为"与自测相同 tag 的 `postgres:15-alpine`"。偏离动机：D1 同环境公平——维持四产品同 PG 大版本；Fulla 服务端 libpq 已是 17.x，client 17/server 15 的错位消除。Fulla 自身 15 vs 17 A/B 在噪声带内（无自身吞吐诉求）。deploy/ 的 compose 与 Helm 同步到 17（存量卷升级 runbook 见 `docs/operate/postgresql-major-upgrade.md`，CHANGELOG 已标 BREAKING）。
 9. **（v1.3）Fulla Redis 池 25 → 64**（2026-08-18，快赢 8838ac6）：设计 §5.2 连接池口径按 pool=25 对齐；实施时 cache-on 要求池 ≥ 预期并发（pool 20 时 S6 全连接超时 -18%），bench overlay 调至 64。竞品各按自家官方默认池口径运行（在 COMPARISON.md 公平性附录注明）。
 
 ---

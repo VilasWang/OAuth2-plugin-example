@@ -34,7 +34,7 @@ docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker p
 curl http://localhost:5555/health
 
 # 预期输出
-{"status":"healthy","timestamp":"2024-06-23T10:30:00Z"}
+{"status":"healthy","timestamp":"2026-08-26T10:30:00Z"}
 ```
 
 ### 3. 数据库连接测试
@@ -44,7 +44,8 @@ curl http://localhost:5555/health
 docker exec -it fulla-postgres psql -U fulla_user -d fulla_db -c "\dt"
 
 # 预期输出：OAuth2 相关表列表
-# clients, users, tokens, authorization_codes, refresh_tokens, scopes, etc.
+# oauth2_clients, oauth2_codes, oauth2_access_tokens, oauth2_refresh_tokens,
+# oauth2_scopes, users, roles, user_roles, organizations, audit_logs 等（V026 后共 21 张）
 ```
 
 ### 4. 前端访问测试
@@ -88,7 +89,7 @@ ORDER BY table_name;
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT version();"
 
 # 预期：PostgreSQL 17.x（deploy compose 默认 postgres:17-alpine；
-#       显式钉回 15 的存量部署此处应为 15.x，见 docs/ops/postgresql-major-upgrade.md）
+#       显式钉回 15 的存量部署此处应为 15.x，见 docs/operate/postgresql-major-upgrade.md）
 ```
 
 ### 1.2 Redis 验证
@@ -137,35 +138,37 @@ docker exec fulla-backend nslookup fulla-postgres
 ### 2.1 检查 Seed 数据
 
 ```powershell
-# 检查管理员用户
+# 检查管理员用户（角色经 user_roles 关联，users 表本身没有 role 列）
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
-SELECT username, email, role, created_at 
-FROM users 
-WHERE username = 'admin';
+SELECT u.username, u.email, r.name AS role, u.created_at
+FROM users u
+LEFT JOIN user_roles ur ON ur.user_id = u.id
+LEFT JOIN roles r ON r.id = ur.role_id
+WHERE u.username = 'admin';
 "
 
 # 预期输出：
-# username | email                 | role  | created_at
-# ---------+-----------------------+-------+--------------------
-# admin    | admin@example.com | admin | 2024-06-23 xx:xx:xx
+# username |       email       | role  |         created_at
+# ----------+-------------------+-------+----------------------------
+# admin    | admin@example.com | admin | 2026-xx-xx xx:xx:xx
 
-# 检查默认客户端
+# 检查默认客户端（表名带 oauth2_ 前缀；名称列是 name）
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
-SELECT client_id, client_name, redirect_uris 
-FROM clients 
+SELECT client_id, name, client_type, token_endpoint_auth_method
+FROM oauth2_clients
 WHERE client_id IN ('admin-console', 'vue-client');
 "
 
-# 预期输出：显示管理后台和 Vue 客户端的配置
+# 预期输出：admin-console 与 vue-client 均为 PUBLIC（token_endpoint_auth_method = none）
 
-# 检查默认 Scopes
+# 检查默认 Scopes（scope 名称列是 name）
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
-SELECT scope_id, description 
-FROM scopes 
+SELECT name, description
+FROM oauth2_scopes
 LIMIT 5;
 "
 
-# 预期输出：openid, profile, email, admin, read, write 等标准 scope
+# 预期输出：openid, profile, email, admin 等标准 scope
 ```
 
 ### 2.2 验证数据库迁移
@@ -190,18 +193,25 @@ WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
 
 ### 3.1 获取管理员令牌
 
-```powershell
-# 使用 password grant 获取令牌
-curl -X POST http://localhost:5555/oauth2/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "grant_type": "password",
-    "client_id": "admin-console",
-    "client_secret": "admin-secret",
-    "username": "admin",
-    "password": "admin",
-    "scope": "admin"
-  }'
+`admin-console` 是 **PUBLIC 客户端**（`token_endpoint_auth_method=none`，无 client_secret，不支持 password grant），令牌必须走 **授权码 + PKCE** 两步流程（F-011：PUBLIC 客户端强制 PKCE）。以下等价于 `scripts/backend/test-admin-endpoints.sh` 的 setup 步骤：
+
+```bash
+# 1) 登录换取授权码（表单编码；code_challenge = BASE64URL(SHA256(code_verifier))）
+CODE_VERIFIER=$(head -c 32 /dev/urandom | basenc --base64url | tr -d '=' | tr -d '+/' | head -c 43)
+CODE_CHALLENGE=$(printf '%s' "$CODE_VERIFIER" | openssl dgst -sha256 -binary | basenc --base64url | tr -d '=')
+
+LOGIN_RESP=$(curl -s -X POST http://localhost:5555/oauth2/login \
+  -d "username=admin&password=admin" \
+  -d "client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback" \
+  -d "scope=openid+profile+admin&state=verify-state" \
+  -d "code_challenge=$CODE_CHALLENGE&code_challenge_method=S256&json=true")
+CODE=$(echo "$LOGIN_RESP" | jq -r '.code')
+
+# 2) 授权码换令牌（表单编码；PUBLIC 客户端只带 client_id，不能携带任何 secret）
+curl -s -X POST http://localhost:5555/oauth2/token \
+  -d "grant_type=authorization_code&code=$CODE" \
+  -d "redirect_uri=http://localhost:5174/admin/callback" \
+  -d "client_id=admin-console&code_verifier=$CODE_VERIFIER"
 
 # 预期响应（保存 access_token）：
 {
@@ -209,91 +219,82 @@ curl -X POST http://localhost:5555/oauth2/token \
   "token_type": "Bearer",
   "expires_in": 3600,
   "refresh_token": "tGzv3JH7xN1yQ9X2...",
-  "scope": "admin"
+  "scope": "openid profile admin"
 }
 
 # 设置环境变量（后续测试使用）
-# PowerShell
-$token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-
-# Bash
 export TOKEN="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
+> Windows 下可使用仓库自带的 `scripts/backend/test-admin-endpoints.ps1` 完成同样的登录+令牌流程。
+
 ### 3.2 验证令牌内省（Token Introspection）
 
-```powershell
-# 内省令牌
-curl -X POST http://localhost:5555/oauth2/introspect \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"token\": \"$token\",
-    \"token_type_hint\": \"access_token\"
-  }"
+```bash
+# 内省令牌（RFC 7662，表单编码）
+curl -s -X POST http://localhost:5555/oauth2/introspect \
+  -d "token=$TOKEN" \
+  -d "token_type_hint=access_token" \
+  -d "client_id=admin-console"
 
 # 预期响应：
 {
   "active": true,
   "client_id": "admin-console",
   "username": "admin",
-  "scope": "admin",
+  "scope": "openid profile admin",
   "exp": 1719123456,
   "iat": 1719119856,
   "sub": "admin",
-  "aud": "fulla-backend",
-  "iss": "fulla"
+  "iss": "http://localhost:5555"
 }
 
 # 测试无效令牌
-curl -X POST http://localhost:5555/oauth2/introspect \
-  -H "Content-Type: application/json" \
-  -d '{"token": "invalid_token", "token_type_hint": "access_token"}'
+curl -s -X POST http://localhost:5555/oauth2/introspect \
+  -d "token=invalid_token" \
+  -d "token_type_hint=access_token" \
+  -d "client_id=admin-console"
 
 # 预期响应：{"active": false}
 ```
 
 ### 3.3 刷新令牌（Refresh Token）
 
-```powershell
-# 使用 refresh_token 获取新的 access_token
-curl -X POST http://localhost:5555/oauth2/token \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"grant_type\": \"refresh_token\",
-    \"refresh_token\": \"tGzv3JH7xN1yQ9X2...\",
-    \"client_id\": \"admin-console\",
-    \"client_secret\": \"admin-secret\"
-  }"
+```bash
+# 使用 refresh_token 获取新的 access_token（表单编码；
+# PUBLIC 客户端只带 client_id —— 携带 client_secret 反而会被 F-017 拒绝）
+curl -s -X POST http://localhost:5555/oauth2/token \
+  -d "grant_type=refresh_token" \
+  -d "refresh_token=tGzv3JH7xN1yQ9X2..." \
+  -d "client_id=admin-console"
 
 # 预期响应：返回新的 access_token 和 refresh_token
 {
-  "access_token": "新的 JWT...",
+  "access_token": "新的 access token...",
   "token_type": "Bearer",
   "expires_in": 3600,
-  "refresh_token": "新的 refresh_token...",
-  "scope": "admin"
+  "refresh_token": "新的 refresh token...",
+  "scope": "openid profile admin"
 }
 ```
 
 ### 3.4 撤销令牌（Token Revocation）
 
-```powershell
-# 撤销令牌
-curl -X POST http://localhost:5555/oauth2/revoke \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"token\": \"$token\",
-    \"token_type_hint\": \"access_token\",
-    \"client_id\": \"admin-console\",
-    \"client_secret\": \"admin-secret\"
-  }"
+```bash
+# 撤销令牌（RFC 7009，表单编码；客户端认证方式须与注册的
+# token_endpoint_auth_method 一致 —— PUBLIC 客户端仅 client_id）
+curl -s -X POST http://localhost:5555/oauth2/revoke \
+  -d "token=$TOKEN" \
+  -d "token_type_hint=access_token" \
+  -d "client_id=admin-console"
 
 # 预期响应：HTTP 200 OK（空响应体）
 
 # 验证令牌已被撤销
-curl -X POST http://localhost:5555/oauth2/introspect \
-  -H "Content-Type: application/json" \
-  -d "{\"token\": \"$token\", \"token_type_hint\": \"access_token\"}"
+curl -s -X POST http://localhost:5555/oauth2/introspect \
+  -d "token=$TOKEN" \
+  -d "token_type_hint=access_token" \
+  -d "client_id=admin-console"
 
 # 预期响应：{"active": false}
 ```
@@ -307,7 +308,7 @@ curl -X POST http://localhost:5555/oauth2/introspect \
 ```powershell
 # 获取用户列表
 curl -X GET http://localhost:5555/api/admin/users \
-  -H "Authorization: Bearer $token"
+  -H "Authorization: Bearer $TOKEN"
 
 # 预期响应：用户列表 JSON
 {
@@ -317,8 +318,8 @@ curl -X GET http://localhost:5555/api/admin/users \
       "username": "admin",
       "email": "admin@example.com",
       "role": "admin",
-      "created_at": "2024-06-23T10:00:00Z",
-      "updated_at": "2024-06-23T10:00:00Z"
+      "created_at": "2026-08-26T10:00:00Z",
+      "updated_at": "2026-08-26T10:00:00Z"
     }
   ],
   "total": 1,
@@ -328,7 +329,7 @@ curl -X GET http://localhost:5555/api/admin/users \
 
 # 创建新用户
 curl -X POST http://localhost:5555/api/admin/users \
-  -H "Authorization: Bearer $token" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -343,12 +344,12 @@ curl -X POST http://localhost:5555/api/admin/users \
   "username": "testuser",
   "email": "test@example.com",
   "role": "user",
-  "created_at": "2024-06-23T10:30:00Z"
+  "created_at": "2026-08-26T10:30:00Z"
 }
 
 # 获取单个用户详情
 curl -X GET http://localhost:5555/api/admin/users/2 \
-  -H "Authorization: Bearer $token"
+  -H "Authorization: Bearer $TOKEN"
 
 # 预期响应：显示 testuser 的详细信息
 ```
@@ -358,18 +359,19 @@ curl -X GET http://localhost:5555/api/admin/users/2 \
 ```powershell
 # 获取客户端列表
 curl -X GET http://localhost:5555/api/admin/clients \
-  -H "Authorization: Bearer $token"
+  -H "Authorization: Bearer $TOKEN"
 
-# 预期响应：客户端列表
+# 预期响应：客户端列表（客户端 secret 一律不回显；哈希仅存于库中）
 {
   "clients": [
     {
       "client_id": "admin-console",
-      "client_name": "Admin Console",
-      "redirect_uris": ["http://localhost:8081/admin/callback"],
-      "scopes": ["admin"],
-      "grant_types": ["password", "refresh_token"],
-      "client_secret": "admin-secret"
+      "name": "Admin Console",
+      "client_type": "PUBLIC",
+      "token_endpoint_auth_method": "none",
+      "redirect_uris": ["http://localhost:5174/admin/callback"],
+      "allowed_grant_types": ["authorization_code", "refresh_token"],
+      "scopes": ["openid", "profile", "admin"]
     }
   ],
   "total": 1
@@ -377,18 +379,19 @@ curl -X GET http://localhost:5555/api/admin/clients \
 
 # 创建新客户端
 curl -X POST http://localhost:5555/api/admin/clients \
-  -H "Authorization: Bearer $token" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "test-client",
-    "client_name": "Test Client",
+    "name": "Test Client",
+    "client_type": "CONFIDENTIAL",
     "client_secret": "test-secret",
     "redirect_uris": ["http://localhost:8080/callback"],
-    "scopes": ["openid", "profile", "email"],
-    "grant_types": ["authorization_code", "refresh_token"]
+    "allowed_grant_types": ["authorization_code", "refresh_token"],
+    "scopes": ["openid", "profile", "email"]
   }'
 
-# 预期响应：HTTP 201 Created
+# 预期响应：HTTP 201 Created（响应含新生成客户端的元数据；secret 不回显）
 ```
 
 ### 4.3 Scope 管理 API
@@ -396,24 +399,24 @@ curl -X POST http://localhost:5555/api/admin/clients \
 ```powershell
 # 获取所有 scopes
 curl -X GET http://localhost:5555/api/admin/scopes \
-  -H "Authorization: Bearer $token"
+  -H "Authorization: Bearer $TOKEN"
 
-# 预期响应：scope 列表
+# 预期响应：scope 列表（scope 名称字段为 name，与 oauth2_scopes 表一致）
 {
   "scopes": [
-    {"scope_id": "openid", "description": "OpenID Connect"},
-    {"scope_id": "profile", "description": "User profile"},
-    {"scope_id": "email", "description": "User email"},
-    {"scope_id": "admin", "description": "Administrative access"}
+    {"name": "openid", "description": "OpenID Connect"},
+    {"name": "profile", "description": "User profile"},
+    {"name": "email", "description": "User email"},
+    {"name": "admin", "description": "Administrative access"}
   ]
 }
 
 # 创建新 scope
 curl -X POST http://localhost:5555/api/admin/scopes \
-  -H "Authorization: Bearer $token" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "scope_id": "read",
+    "name": "read",
     "description": "Read access to user resources"
   }'
 
@@ -448,13 +451,14 @@ curl -X POST http://localhost:5555/api/admin/scopes \
 
 ### 5.3 OAuth2 授权码流程验证
 
-```powershell
-# 步骤 1：构建授权 URL
-# 访问以下 URL（在浏览器中）：
+```bash
+# 步骤 1：构建授权 URL（在浏览器中访问）
+# 注意：redirect_uri 必须与客户端注册值精确匹配（vue-client 种子注册的是
+#       http://127.0.0.1:8080/callback —— 用 localhost 会被拒绝）
 # http://localhost:5555/oauth2/authorize?
 #   response_type=code&
 #   client_id=vue-client&
-#   redirect_uri=http://localhost:8080/callback&
+#   redirect_uri=http://127.0.0.1:8080/callback&
 #   scope=openid profile email&
 #   state=random_state_value
 
@@ -469,18 +473,16 @@ curl -X POST http://localhost:5555/api/admin/scopes \
 # 点击"授权"按钮
 
 # 预期：重定向到 redirect_uri，携带 authorization code
-# http://localhost:8080/callback?code=xxx&state=random_state_value
+# http://127.0.0.1:8080/callback?code=xxx&state=random_state_value
 
-# 步骤 4：交换令牌
-curl -X POST http://localhost:5555/oauth2/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "grant_type": "authorization_code",
-    "code": "从回调中获取的 code",
-    "redirect_uri": "http://localhost:8080/callback",
-    "client_id": "vue-client",
-    "client_secret": "vue-secret"
-  }'
+# 步骤 4：交换令牌（vue-client 是 PUBLIC 客户端 → 必须带 PKCE code_verifier，
+#          且不能携带 client_secret）
+curl -s -X POST http://localhost:5555/oauth2/token \
+  -d "grant_type=authorization_code" \
+  -d "code=从回调中获取的code" \
+  -d "redirect_uri=http://127.0.0.1:8080/callback" \
+  -d "client_id=vue-client" \
+  -d "code_verifier=登录时使用的PKCE_verifier"
 
 # 预期响应：返回 access_token 和 refresh_token
 {
@@ -559,17 +561,11 @@ docker logs fulla-backend 2>&1 | grep -i "Email service"
 
 ### 6.1 错误响应验证
 
-```powershell
-# 测试无效客户端 ID
-curl -X POST http://localhost:5555/oauth2/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "grant_type": "password",
-    "client_id": "invalid-client",
-    "client_secret": "secret",
-    "username": "admin",
-    "password": "admin"
-  }'
+```bash
+# 测试无效客户端 ID（token 端点，表单编码）
+curl -s -X POST http://localhost:5555/oauth2/token \
+  -d "grant_type=authorization_code&code=x" \
+  -d "client_id=invalid-client&code_verifier=x"
 
 # 预期响应：HTTP 401 Unauthorized
 {
@@ -577,29 +573,21 @@ curl -X POST http://localhost:5555/oauth2/token \
   "error_description": "Client authentication failed"
 }
 
-# 测试无效密码
-curl -X POST http://localhost:5555/oauth2/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "grant_type": "password",
-    "client_id": "admin-console",
-    "client_secret": "admin-secret",
-    "username": "admin",
-    "password": "wrong-password"
-  }'
+# 测试错误密码（登录端点 —— 注意：失败计数会触发 F-018 限流，别连刷超过阈值）
+curl -s -X POST http://localhost:5555/oauth2/login \
+  -d "username=admin&password=wrong-password" \
+  -d "client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback" \
+  -d "scope=openid&state=t&code_challenge=x&code_challenge_method=S256"
 
-# 预期响应：HTTP 401 Unauthorized
+# 预期响应：HTTP 401 Unauthorized（错误码经 ErrorCatalog，防枚举口径统一）
 {
   "error": "invalid_grant",
   "error_description": "Invalid username or password"
 }
 
 # 测试缺少必需参数
-curl -X POST http://localhost:5555/oauth2/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "grant_type": "password"
-  }'
+curl -s -X POST http://localhost:5555/oauth2/token \
+  -d "grant_type=authorization_code"
 
 # 预期响应：HTTP 400 Bad Request
 {
@@ -648,11 +636,11 @@ curl -X GET http://localhost:5555/api/admin/users \
 # 访问 Prometheus UI
 # 打开浏览器：http://localhost:9090
 
-# 查询示例指标：
-# - oauth2_http_requests_total：总请求数
-# - oauth2_http_request_duration_seconds：请求耗时
+# 查询示例指标（权威清单见 docs/operate/observability.md）：
+# - oauth2_requests_total：总请求数（按 endpoint/status 维度）
+# - oauth2_latency_seconds：关键步骤耗时直方图
 # - oauth2_active_tokens：当前活跃令牌数
-# - oauth2_database_query_duration_seconds：数据库查询耗时
+# - oauth2_login_failures_total：登录失败次数
 
 # 预期：指标正常采集，有数据
 ```
@@ -830,7 +818,7 @@ function Test-DatabaseTables {
     " 2>&1
     
     $tableCount = [int]$result.Trim()
-    if ($tableCount -ge 7) {
+    if ($tableCount -ge 20) {
         Write-Host "[+] 数据库表结构完整 ($tableCount 张表)" -ForegroundColor Green
         return $true
     } else {
@@ -867,26 +855,18 @@ function Test-RedisConnection {
     }
 }
 
-function Test-TokenEndpoint {
-    Write-Host "`n[7/8] 测试令牌端点..." -ForegroundColor Cyan
+function Test-DiscoveryEndpoint {
+    Write-Host "`n[7/8] 测试 OIDC 发现端点..." -ForegroundColor Cyan
+    # 完整登录流程（PKCE）见上文阶段三；脚本化部署检查用发现端点验证
+    # 后端 OAuth2 栈已就绪，且不依赖具体凭证。
     try {
-        $body = @{
-            grant_type = "password"
-            client_id = "admin-console"
-            client_secret = "admin-secret"
-            username = "admin"
-            password = "admin123"
-            scope = "admin"
-        } | ConvertTo-Json
-        
-        $response = Invoke-RestMethod -Uri "$BackendUrl/oauth2/token" -Method Post -Body $body -ContentType "application/json"
-        
-        if ($response.access_token) {
-            Write-Host "[+] 令牌端点正常 (收到 token: $($response.access_token.Substring(0,20))...)" -ForegroundColor Green
+        $response = Invoke-RestMethod -Uri "$BackendUrl/.well-known/openid-configuration" -Method Get
+        if ($response.issuer -and $response.token_endpoint) {
+            Write-Host "[+] OIDC 发现端点正常 (issuer: $($response.issuer))" -ForegroundColor Green
             return $true
         }
     } catch {
-        Write-Host "[-] 令牌端点失败: $_" -ForegroundColor Red
+        Write-Host "[-] OIDC 发现端点失败: $_" -ForegroundColor Red
         return $false
     }
 }
@@ -913,7 +893,7 @@ $results += Test-DatabaseConnection
 $results += Test-DatabaseTables
 $results += Test-SeedData
 $results += Test-RedisConnection
-$results += Test-TokenEndpoint
+$results += Test-DiscoveryEndpoint
 $results += Test-FrontendAccess
 
 # 汇总结果
@@ -956,7 +936,7 @@ if ($passed -eq $total) {
 ```markdown
 ## fulla 部署验证报告
 
-**验证日期**：2024-06-23
+**验证日期**：YYYY-MM-DD
 **验证环境**：Windows Docker Desktop / Linux 生产服务器
 **验证人员**：[姓名]
 
@@ -964,13 +944,13 @@ if ($passed -eq $total) {
 
 | 阶段 | 状态 | 备注 |
 |------|------|------|
-| 基础设施验证 | [+] 通过 | 所有容器正常运行 |
-| 数据库初始化验证 | [+] 通过 | 7 张表，管理员账号已创建 |
-| 后端 API 验证 | [+] 通过 | 令牌端点、内省、撤销功能正常 |
-| 管理后台 API 验证 | [+] 通过 | 用户、客户端、Scope 管理正常 |
-| 前端功能验证 | [+] 通过 | 用户登录、注册、个人资料功能正常 |
-| 安全性验证 | [+] 通过 | 错误处理、令牌验证正常 |
-| 性能和监控验证 | [!] 部分通过 | Prometheus 正常，需要优化慢查询 |
+| 基础设施验证 | 通过 | 所有容器正常运行 |
+| 数据库初始化验证 | 通过 | 21 张表（V026），管理员账号已创建 |
+| 后端 API 验证 | 通过 | 令牌端点、内省、撤销功能正常 |
+| 管理后台 API 验证 | 通过 | 用户、客户端、Scope 管理正常 |
+| 前端功能验证 | 通过 | 用户登录、注册、个人资料功能正常 |
+| 安全性验证 | 通过 | 错误处理、令牌验证正常 |
+| 性能和监控验证 | 部分通过 | Prometheus 正常，需要优化慢查询 |
 
 ### 发现的问题
 
@@ -1003,17 +983,17 @@ if ($passed -eq $total) {
 
 本验证清单涵盖了 fulla 系统的所有核心功能：
 
-[+] **基础设施**：Docker 容器、网络、存储卷  
-[+] **数据层**：PostgreSQL 数据库、Redis 缓存  
-[+] **业务层**：OAuth2 核心流程、管理后台 API  
-[+] **表现层**：Vue.js 用户前端、管理后台  
-[+] **安全性**：认证、授权、令牌管理  
-[+] **可观测性**：日志、指标、健康检查  
+- **基础设施**：Docker 容器、网络、存储卷
+- **数据层**：PostgreSQL 数据库、Redis 缓存
+- **业务层**：OAuth2 核心流程、管理后台 API
+- **表现层**：Vue.js 用户前端、管理后台
+- **安全性**：认证、授权、令牌管理
+- **可观测性**：日志、指标、健康检查
 
 **验证通过标准**：
 - 所有容器状态为 `Up`
 - 后端健康检查通过
-- 数据库表结构完整（至少 7 张表）
+- 数据库表结构完整（V026 后共 21 张 public 表）
 - 管理员账号可用
 - OAuth2 核心流程（授权、令牌、内省、撤销）正常
 - 前端页面可访问并完成基本操作

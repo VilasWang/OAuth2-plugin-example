@@ -75,7 +75,7 @@ CI 在 Linux 矩阵腿中用 Docker 容器启动 Postgres 和 Redis，并通过�
 > PostgreSQL 镜像与 deploy 默认（`postgres:17-alpine`，2026-08-18 起）对齐——CI 覆盖的
 > 就是部署目标大版本（含 V025 分区/V026 等 migration 在 17 上的行为）。
 
-> [WARNING]️ **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `FULLA_REDIS_PASSWORD=""` 覆盖。Windows/macOS 矩阵腿 `use_database=false`，改用内存存储配置（`config.ci.json`）。
+> **WARNING** **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `FULLA_REDIS_PASSWORD=""` 覆盖。Windows/macOS 矩阵腿 `use_database=false`，改用内存存储配置（`config.ci.json`）。
 
 ### 3.2 构建缓存策略
 
@@ -158,7 +158,7 @@ ctest -V -C Release --output-on-failure
 
 ## 6. 多平台矩阵
 
-多平台 CI 已合并进 `ci.yml` 的 `build-test` Job，通过 `include` 矩阵在同一套可复用工作流（`_build-test.yml`）上跑三个平台。历史设计文档见 [Multi-Platform CI Design](superpowers 的多平台 CI 设计（维护者档案）)（已归档）。
+多平台 CI 已合并进 `ci.yml` 的 `build-test` Job，通过 `include` 矩阵在同一套可复用工作流（`_build-test.yml`）上跑三个平台。
 
 ### Quick Reference
 

@@ -92,7 +92,7 @@ LOG_INFO << "Processing request"; // 输出: [ReqId: abc-123] Processing request
 
 **代码约定**：
 
-- Domain 层（`libs/common`、`libs/oauth2`、`libs/identity`）**不得**直接使用 Drogon 的 `LOG_*` 宏，必须经 `fulla::common::ports::ILogger` 端口（design.md §5.6），以便单元测试可用 `FakeLogger` 捕获并断言。
+- Domain 层（`libs/common`、`libs/oauth2`、`libs/identity`）**不得**直接使用 Drogon 的 `LOG_*` 宏，必须经 `fulla::common::ports::ILogger` 端口，以便单元测试可用 `FakeLogger` 捕获并断言。
 - Adapter / 基础设施层（`libs/drogon`、`libs/storage-*`、`apps/server`）可直接使用 `LOG_*` 宏。
 - 六级对应关系：`LogLevel::Trace`→`LOG_TRACE`、`Debug`→`LOG_DEBUG`、`Info`→`LOG_INFO`、`Warn`→`LOG_WARN`、`Error`→`LOG_ERROR`、`Fatal`→`LOG_FATAL`。
 

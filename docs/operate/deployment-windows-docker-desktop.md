@@ -6,22 +6,22 @@
 
 ## 为什么使用 Windows Docker Desktop 验证？
 
-[+] **完全模拟生产环境**：使用相同的 Docker Compose 配置、相同的容器镜像、相同的网络拓扑  
-[+] **快速反馈循环**：本地修改代码 → 立即验证 → 确认无误后再推送到 Linux 服务器  
-[+] **节省时间**：避免每次"推送 → 服务器拉取 → 重启服务 → 发现问题"的漫长循环  
-[+] **核心功能全覆盖**：数据库迁移、API 端点、前端路由、OAuth2 流程全部可测试  
+✓ **完全模拟生产环境**：使用相同的 Docker Compose 配置、相同的容器镜像、相同的网络拓扑  
+✓ **快速反馈循环**：本地修改代码 → 立即验证 → 确认无误后再推送到 Linux 服务器  
+✓ **节省时间**：避免每次"推送 → 服务器拉取 → 重启服务 → 发现问题"的漫长循环  
+✓ **核心功能全覆盖**：数据库迁移、API 端点、前端路由、OAuth2 流程全部可测试  
 
 **与 Linux 生产环境的差异**：
 | 功能 | Windows Docker Desktop | Linux 生产环境 |
 |------|------------------------|----------------|
-| PostgreSQL | [+] 完全相同 | [+] |
-| Redis | [+] 完全相同 | [+] |
-| 后端 API | [+] 完全相同 | [+] |
-| 前端 | [+] 完全相同 | [+] |
-| 管理后台 | [+] 完全相同 | [+] |
-| Nginx 反向代理 | [!] 简化配置（无 TLS） | [+] |
-| 域名访问 | [-] 使用 localhost | [+] |
-| SSL/TLS | [-] 不启用 | [+] |
+| PostgreSQL | ✓ 完全相同 | ✓ |
+| Redis | ✓ 完全相同 | ✓ |
+| 后端 API | ✓ 完全相同 | ✓ |
+| 前端 | ✓ 完全相同 | ✓ |
+| 管理后台 | ✓ 完全相同 | ✓ |
+| Nginx 反向代理 | ⚠ 简化配置（无 TLS） | ✓ |
+| 域名访问 | ✗ 使用 localhost | ✓ |
+| SSL/TLS | ✗ 不启用 | ✓ |
 
 ---
 
@@ -106,7 +106,7 @@ dir deploy\keys
 
 **方法 C：跳过密钥生成（仅用于测试）**
 
-如果只是验证部署流程，可以暂时跳过此步，后端会使用内置测试密钥（[!] 生产环境必须生成真实密钥）。
+如果只是验证部署流程，可以暂时跳过此步，后端会使用内置测试密钥（⚠ 生产环境必须生成真实密钥）。
 
 ### 3. 配置环境变量
 
@@ -429,28 +429,28 @@ bash ./scripts/backend/test-admin-endpoints.sh http://localhost:5555
 
 ```bash
 ========================================
-OAuth2 Endpoints Tests (55 tests)
+OAuth2 Endpoints Tests (59 tests)
 ========================================
 Base URL: http://localhost:5555
 
-[Test 1/55] Test 1: Health Check
+[Test 1/59] Test 1: Health Check
     Status: ok
     [+] PASS (0.1s)
 
-[Test 10/55] Test 10: Client Credentials
+[Test 10/59] Test 10: Client Credentials
     AT: eyJhbGciOiJSUzI1Ni..., Scope: read
     [+] PASS (0.2s)
 
 ...
 
 ========================================
-Test Results: 43/55 passed, 12 failed
+Test Results: 59/59 passed, 0 failed
 ========================================
 ```
 
-#### 常见失败原因
+#### 失败排查
 
-**部分测试失败是正常的**，不影响部署验证：
+**端点测试应全部通过（当前口径：OAuth2 侧 59、Admin 侧 52）**。若出现失败，按以下已知环境依赖排查：
 
 1. **Test 10 失败**：`no access_token`
    - **原因**：缺少测试客户端 `backend-svc`
@@ -466,7 +466,7 @@ Test Results: 43/55 passed, 12 failed
 
 #### 成功标准
 
-**端点测试应全部通过（当前口径：OAuth2 侧 59、Admin 侧 52）**。个别失败若出现，先核对是否为已知的脚本环境依赖（数据库重置、种子数据、端口占用）；不要把『部分通过』当作部署成功标准。
+**59/52 全部通过才算部署验证成功**。个别失败若出现，先核对是否为上述已知的脚本环境依赖（数据库重置、种子数据、端口占用）；不要把『部分通过』当作部署成功标准。
 
 ### 测试前准备
 
@@ -517,7 +517,7 @@ echo "[+] 执行管理后台 API 测试..." && \
 | 测试项 | 测试方法 | 预期结果 |
 |--------|---------|---------|
 | 用户注册 | 前端注册页面 | 注册成功，可登录 |
-| 用户登录 | POST /oauth2/token (password grant) | 返回 access_token |
+| 用户登录 | POST /oauth2/login（授权码 + PKCE 流程第一步） | 返回授权码 code |
 | 刷新令牌 | POST /oauth2/token (refresh_token grant) | 返回新的 access_token |
 | 令牌校验 | POST /oauth2/introspect | 返回 token 有效信息 |
 | 令牌撤销 | POST /oauth2/revoke | 返回 200 OK |
@@ -530,7 +530,7 @@ echo "[+] 执行管理后台 API 测试..." && \
 
 项目包含完整的端点测试脚本，推荐使用 Git Bash 执行：
 
-**执行 OAuth2 核心端点测试（55个测试）**：
+**执行 OAuth2 核心端点测试（59 个测试）**：
 ```bash
 # 1. 进入项目目录（Git Bash）
 cd /path/to/repo-root
@@ -542,7 +542,7 @@ chmod +x scripts/backend/test-oauth2-endpoints.sh
 ./scripts/backend/test-oauth2-endpoints.sh http://localhost:5555
 ```
 
-**执行管理后台 API 测试（51个测试）**：
+**执行管理后台 API 测试（52 个测试）**：
 ```bash
 chmod +x scripts/backend/test-admin-endpoints.sh
 ./scripts/backend/test-admin-endpoints.sh http://localhost:5555
@@ -551,45 +551,34 @@ chmod +x scripts/backend/test-admin-endpoints.sh
 **预期输出示例**：
 ```bash
 ========================================
-OAuth2 Endpoints Tests (55 tests)
+OAuth2 Endpoints Tests (59 tests)
 ========================================
 Base URL: http://localhost:5555
 
-[Test 1/55] Test 1: Health Check
+[Test 1/59] Test 1: Health Check
     Status: ok
     [+] PASS (0.1s)
 
 ...
 
 ========================================
-Test Results: 43/55 passed, 12 failed
+Test Results: 59/59 passed, 0 failed
 ========================================
 ```
 
-**重要说明**：部分测试失败是正常的，原因包括：
-- 测试脚本需要特定的测试客户端（运行 `dev_backend_client.sql` 可解决）
-- RBAC 权限控制正确工作（预期行为）
-- 令牌依赖性测试（前序测试撤销令牌导致后续测试无令牌）
+**成功标准**：全部通过（59/52）。个别失败先按上文「失败排查」核对环境依赖；不要把『部分通过』当作部署成功标准。
 
-#### 方法 2：使用 PowerShell 手动测试
+#### 方法 2：使用 PowerShell 脚本测试
+
+`admin-console` 是 PUBLIC 客户端（PKCE 强制、无 secret、无 password grant），手工构造令牌流程较繁琐，推荐直接使用仓库自带的 PowerShell 测试脚本（内部已实现 PKCE 登录）：
 
 ```powershell
-# 1. 获取管理员令牌
-$response = Invoke-RestMethod -Uri "http://localhost:5555/oauth2/token" -Method Post -Body @{
-  grant_type = "password"
-  client_id = "admin-console"
-  client_secret = "admin-secret"
-  username = "admin"
-  password = "admin"
-  scope = "admin"
-}
-$token = $response.access_token
+# 执行管理后台端点测试（含 PKCE 登录 + 52 项断言）
+.\scripts\backend\test-admin-endpoints.ps1 -BaseUrl "http://localhost:5555"
 
-# 2. 调用受保护的 API
-$headers = @{ Authorization = "Bearer $token" }
+# 若已从其他途径拿到 access_token，可直接手工调用受保护 API 验证：
+$headers = @{ Authorization = "Bearer <access_token>" }
 Invoke-RestMethod -Uri "http://localhost:5555/api/admin/users" -Headers $headers
-
-# 3. 验证返回数据
 # 预期：用户列表 JSON
 ```
 
@@ -830,18 +819,18 @@ docker system df
 
 ## 总结
 
-[+] **可行**：Windows Docker Desktop 可以完全验证部署流程（除域名和 SSL）  
-[+] **推荐**：本地验证 → 推送代码 → Linux 部署，大幅减少调试时间  
-[+] **一致性**：数据库模式、API 接口、前端逻辑与生产环境 100% 一致  
+✓ **可行**：Windows Docker Desktop 可以完全验证部署流程（除域名和 SSL）  
+✓ **推荐**：本地验证 → 推送代码 → Linux 部署，大幅减少调试时间  
+✓ **一致性**：数据库模式、API 接口、前端逻辑与生产环境 100% 一致  
 
 **适用场景**：
-- [+] 验证代码更改
-- [+] 测试数据库迁移
-- [+] 调试 API 端点
-- [+] 验证前端路由
-- [+] 测试 OAuth2 流程
+- ✓ 验证代码更改
+- ✓ 测试数据库迁移
+- ✓ 调试 API 端点
+- ✓ 验证前端路由
+- ✓ 测试 OAuth2 流程
 
 **不适用场景**：
-- [-] TLS/SSL 测试（使用自签名证书可部分替代）
-- [-] 性能压测（使用 Linux 服务器）
-- [-] 高可用配置（需要多台服务器）
+- ✗ TLS/SSL 测试（使用自签名证书可部分替代）
+- ✗ 性能压测（使用 Linux 服务器）
+- ✗ 高可用配置（需要多台服务器）

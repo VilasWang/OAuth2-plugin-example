@@ -602,8 +602,8 @@ docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < apps/server/seed/
 
 ## 性能调优（推荐配置）
 
-> 本节是官方推荐的生产性能基线（分析与依据见
-> `docs/performance-optimization/noncode-performance-optimization.md`）。
+> 本节是官方推荐的生产性能基线（分析依据为维护者基准档案，关键结论与实测
+> 数据已直接收录本节）。
 > 基准测试以本节配置为准——写进本节的配置即"官方配置"。
 
 ### 1. 开启 Redis L2 缓存（吞吐档推荐，须配套扩容 Redis 连接池）
@@ -672,8 +672,7 @@ PostgreSQL。`config.prod.json` 出厂保持关闭（`cache.enabled: false`）�
 `benchmarks/fulla/docker-compose.bench.yml`（bench overlay，叠加在
 `deploy/docker/docker-compose.yml` 之上）。纯 conf 调优对现有数据卷无
 兼容性影响，可随时启用/回退。**注**：bench overlay 已将 `shared_buffers`
-调至 1GB（2026-08-22 三臂 A/B 验证与 4GB 等效，见
-`docs/performance-optimization/` 相关报告）；上表 4GB 仍为 16GB 主机的
+调至 1GB（2026-08-22 三臂 A/B 验证与 4GB 等效）；上表 4GB 仍为 16GB 主机的
 PG 官方推荐起点。
 
 **版本与升级注记**：deploy compose 自 2026-08-18 起使用 `postgres:17-alpine`
@@ -689,8 +688,7 @@ PG 官方推荐起点。
 已实测验证）。机器/API 流量（token / introspect / userinfo / discovery ——
 客户端从不带 cookie）按请求付费。
 
-**实测代价（生产 LTO 构建，2026-08-22，验证细节见
-`docs/performance-optimization/backend-memory-retention-investigation.md`）**：
+**实测代价（生产 LTO 构建，2026-08-22，三场 60s c128 风暴实测）**：
 
 | 项 | 实测值 |
 |---|---|
@@ -698,9 +696,9 @@ PG 官方推荐起点。
 | 稳态常驻公式 | `API_QPS × session_timeout × 750 B` |
 | discovery 吞吐税 | **~-54%**（生产 LTO 构建同窗口 6 轮交错 OFF/ON：164.6k → 76.3k QPS） |
 
-> ⚠️ 吞吐税影响所有端点（session 创建在 drogon 框架层、先于路由）。历史
+> ⚠ 吞吐税影响所有端点（session 创建在 drogon 框架层、先于路由）。历史
 > 基准（S1 87-104k）均为 session 开启状态下的测量值；无 session 真天花板
-> ~165k。修复需上游惰性化，跟踪 `upstream-drogon-session-issue.md`。
+> ~165k。修复需上游惰性化，跟踪 [drogon#278](https://github.com/an-tao/drogon/issues/278)。
 
 **尺寸速查**（按公式，交互登录写→读间隔为毫秒级，TTL 不影响流内正确性 ——
 S4 登录/authcode 全阶梯在 120s 下验证通过，机制与 TTL 大小无关）：
@@ -719,7 +717,7 @@ S4 登录/authcode 全阶梯在 120s 下验证通过，机制与 TTL 大小无�
 - 基准档采用 30s（`config.bench.json`，`QPS × 30 × 750 B` 封顶）。
 - **注**：吞吐税（生产构建 ~-54% discovery；ASan 构建曾测得 -24%，系插装
   压低基线所致的低估）与 TTL 无关、开 session 即存在；根修
-  需上游惰性/按路径建 session（跟踪：`docs/performance-optimization/upstream-drogon-session-issue.md`）。
+  需上游惰性/按路径建 session（跟踪 [drogon#278](https://github.com/an-tao/drogon/issues/278)）。
 
 ### 4. Docker 网络拓扑（原生引擎可选；Docker Desktop 下不可用）
 
