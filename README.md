@@ -231,6 +231,15 @@ docker compose -f deploy/docker/docker-compose.yml up -d --build
 - Admin Console: `http://localhost:8081`
 - Backend API: `http://localhost:5555`
 
+> **Dev-only credentials (#112):** this compose file hardcodes weak passwords
+> (DB `123456`, Redis `redis_secret_pass`, vue-client `123456`, seeded
+> `admin`/`admin`) and the seed admin account exists for evaluation only.
+> PostgreSQL (127.0.0.1:5433) and Redis (127.0.0.1:6380) are loopback-bound on
+> purpose. For anything beyond local evaluation use
+> [`docker-compose.prod.yml`](deploy/docker/docker-compose.prod.yml) with
+> `.env.docker` — the production validator (`FULLA_ENV=production`) rejects
+> these defaults at startup.
+
 ### Path B — Build from source
 
 The canonical build is Conan 2 + CMake presets (identical to CI):

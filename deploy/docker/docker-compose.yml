@@ -1,4 +1,9 @@
-
+# DEV-ONLY compose: hardcoded weak credentials (DB "123456", Redis
+# "redis_secret_pass", vue-client secret "123456", seeded admin/admin).
+# Production MUST use docker-compose.prod.yml (.env.docker driven) -- the
+# server's production validator (FULLA_ENV=production) rejects these defaults.
+# Data-service ports are loopback-bound on purpose; widen them only on a
+# trusted network.
 services:
   fulla-admin:
     build:
@@ -82,7 +87,7 @@ services:
       - POSTGRES_PASSWORD=123456
       - POSTGRES_DB=fulla_db
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       # Mounted as SUBDIRECTORIES of initdb.d: the postgres entrypoint does
@@ -104,7 +109,7 @@ services:
     restart: always
     command: redis-server --requirepass redis_secret_pass
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redisdata:/data
     networks:
