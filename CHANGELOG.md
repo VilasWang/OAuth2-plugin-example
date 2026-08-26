@@ -28,7 +28,8 @@ For the versioning policy (when to cut, what to bump, why), see
 - **环境变量前缀统一 `FULLA_*`**（原 `OAUTH2_*`，903 处；协议类名如
   `OAuth2Plugin` 保持不变）。
 - **基础设施命名规范化**：数据库/角色 `fulla_db` / `fulla_user`、容器名
-  `fulla-*`、Redis 键前缀 `fulla:cache:`、Prometheus 指标 `fulla_*`
+  `fulla-*`、Redis 键前缀 `fulla:cache:`、带 authforge 前缀的 Prometheus
+  指标改 `fulla_*`（`oauth2_*` 功能指标名保持不变）
   （升级即全量缓存失效，属预期一次性行为）。
 - **前端品牌**：Fulla Admin / Fulla，包名 `fulla-admin` / `fulla-user`。
 - **专业仓库治理**（PR #93）：AI 工具工作区出库、kiro 设计文档迁入
