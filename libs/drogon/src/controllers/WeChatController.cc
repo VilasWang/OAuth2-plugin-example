@@ -15,7 +15,9 @@ namespace fulla::drogon::controllers
 namespace
 {
 
-// TODO: REPLACE WITH YOUR REAL CREDENTIALS
+// Provider configuration lives in custom_config "external_auth.wechat"
+// (appid / secret); see the deployment docs. A missing or YOUR_*-placeholder
+// credential disables the provider (#111).
 const std::string WECHAT_APPID_KEY = "appid";
 const std::string WECHAT_SECRET_KEY = "secret";
 
@@ -168,7 +170,37 @@ void WeChatController::login(
         }
 #endif  // WITH_SOCIAL
 
+        // #111: empty OR still the YOUR_* template -> the provider is
+        // disabled; fail fast with an envelope instead of a doomed upstream
+        // call. See docs on provider configuration (external_auth.wechat).
+        {
+            const auto credentialConfigured = [](const std::string &v) {
+                return !v.empty() && v.rfind("YOUR_", 0) != 0;
+            };
+            if (!credentialConfigured(getWeChatConfig(WECHAT_APPID_KEY)) ||
+                !credentialConfigured(getWeChatConfig(WECHAT_SECRET_KEY)))
+            {
+                respondError(
+                  req,
+                  std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+                    std::move(callback)
+                  ),
+                  "INTERNAL_ERROR",
+                  "wechat login: WeChat OAuth not configured"
+                );
+                return;
+            }
+        }
+
         // 1. Exchange Code for Access Token
+        // Upstream API shape (WeChat Open Platform "授权后接口调用"):
+        // GET /sns/oauth2/access_token with appid/secret/code/grant_type as
+        // QUERY parameters -- the official docs specify GET only (POST
+        // variants like /cgi-bin/stable_token are for the APP-level token,
+        // not the code exchange, and cannot substitute). The secret therefore
+        // must travel in the query string here; it is NEVER logged (the URL
+        // is not passed to any log statement -- keep it that way) and the
+        // transport is HTTPS.
         // API:
         // https://api.weixin.qq.com/sns/oauth2/access_token?appid=APPID&secret=SECRET&code=CODE&grant_type=authorization_code
         auto client = ::drogon::HttpClient::newHttpClient("https://api.weixin.qq.com");
