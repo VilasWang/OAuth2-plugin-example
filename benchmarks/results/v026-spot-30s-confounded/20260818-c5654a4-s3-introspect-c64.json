@@ -24,7 +24,7 @@
     "date": "2026-08-18T14:56:42+00:00",
     "git_sha": "c5654a4",
     "git_branch": "feat/competitor-benchmark",
-    "product": "authforge",
+    "product": "fulla",
     "product_version": "",
     "target_image": "",
     "target_config": "config.bench.json",

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "gcjitter",
-  "product": "authforge",
+  "product": "fulla",
   "product_version": "34c5017",
   "scenario": "s6-userinfo",
   "concurrency": 32,
