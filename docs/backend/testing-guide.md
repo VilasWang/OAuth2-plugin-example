@@ -271,7 +271,7 @@ In test case SomeTestName
 
 | 测试来源 | 通过 | 失败 | 总计 | 通过率 |
 |---------|------|------|------|--------|
-| **按库 gtest 二进制**（common 40 + common-testing 43 + oauth2 151 + identity 130） | 364 | 0 | 364 | 100% |
+| **按库 gtest 二进制**（2026-06 基线快照；当前全套 ctest 为 501，以 `ctest -N` 实测为准） | 364 | 0 | 364 | 100% |
 | **主测试二进制 ctest 条目**（含 Contract 标签 + OAuth2Tests 全量） | 450 | 0 | 450 | 100% |
 
 > 注：两列数字有重叠关系——主二进制内含所有 `DROGON_TEST` 单元/集成测试（作为一个 `OAuth2Tests` 条目运行）；按库 gtest 二进制是 Domain 层的纯单元测试，独立编译运行。`450` 条 ctest 中 84 条带 `Contract` 标签（可用 `ctest -L Contract` 单独跑）。

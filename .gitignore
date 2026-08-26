@@ -131,3 +131,11 @@ clients/python/.venv/
 .zcode/
 .workbuddy/
 frontends/user/scratch/scratch-output/
+
+# Internal docs (governance: docs/documentation-governance.md) — local-only;
+# the compliance audit stays tracked (CHANGELOG-linked trust artifact)
+docs/productization-evolution/*
+!docs/productization-evolution/done/
+docs/productization-evolution/done/*
+!docs/productization-evolution/done/oauth-oidc-compliance-audit.md
+docs/branding/rename-candidates.md

@@ -20,7 +20,6 @@ docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker p
 
 | 容器名 | 状态 | 端口映射 |
 |--------|------|---------|
-| oauth2-nginx | Up | 80:80, 443:443 |
 | fulla-frontend | Up | 8080:80 |
 | fulla-admin | Up | 8081:80 |
 | fulla-backend | Up (healthy) | 5555:5555 |
@@ -78,14 +77,12 @@ WHERE table_schema = 'public'
 ORDER BY table_name;
 "
 
-# 预期表列表：
-# - access_tokens
-# - admin_tokens
-# - authorization_codes
-# - clients
-# - refresh_tokens
-# - scopes
-# - users
+# 预期表列表（V002-V026 实际 schema，均带 oauth2_ 前缀）：
+# - oauth2_access_tokens, oauth2_refresh_tokens, oauth2_codes
+# - oauth2_clients, oauth2_scopes, oauth2_client_scopes
+# - oauth2_user_consents, oauth2_subject_mappings, oauth2_device_codes
+# - users, roles, permissions, user_roles, role_permissions
+# - organizations, audit_logs, webauthn_credentials 等
 
 # 数据库版本检查
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT version();"
@@ -98,18 +95,18 @@ docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT version();"
 
 ```powershell
 # 进入 redis 容器
-docker exec -it fulla-redis redis-cli -a WinDockerTest2024! ping
+docker exec -it fulla-redis redis-cli -a redis_secret_pass ping
 
 # 预期输出：PONG
 
 # 测试读写
-docker exec fulla-redis redis-cli -a WinDockerTest2024! SET test_key "hello"
-docker exec fulla-redis redis-cli -a WinDockerTest2024! GET test_key
+docker exec fulla-redis redis-cli -a redis_secret_pass SET test_key "hello"
+docker exec fulla-redis redis-cli -a redis_secret_pass GET test_key
 
 # 预期输出："hello"
 
 # 检查内存使用
-docker exec fulla-redis redis-cli -a WinDockerTest2024! INFO memory
+docker exec fulla-redis redis-cli -a redis_secret_pass INFO memory
 
 # 预期：used_memory_human 显示合理的内存占用
 ```
@@ -150,7 +147,7 @@ WHERE username = 'admin';
 # 预期输出：
 # username | email                 | role  | created_at
 # ---------+-----------------------+-------+--------------------
-# admin    | admin@fulla.local | admin | 2024-06-23 xx:xx:xx
+# admin    | admin@example.com | admin | 2024-06-23 xx:xx:xx
 
 # 检查默认客户端
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
@@ -175,7 +172,7 @@ LIMIT 5;
 
 ```powershell
 # 检查 migrations 表（如果有的话）
-docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\d oauth2_migrations"
+docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\d schema_migrations"
 
 # 或检查表结构完整性
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
@@ -184,7 +181,7 @@ FROM information_schema.tables
 WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
 "
 
-# 预期：table_count >= 7 (至少 7 张核心表)
+# 预期：table_count >= 15（V026 后实测 21 张 public 表）
 ```
 
 ---
@@ -202,7 +199,7 @@ curl -X POST http://localhost:5555/oauth2/token \
     "client_id": "admin-console",
     "client_secret": "admin-secret",
     "username": "admin",
-    "password": "admin123",
+    "password": "admin",
     "scope": "admin"
   }'
 
@@ -318,7 +315,7 @@ curl -X GET http://localhost:5555/api/admin/users \
     {
       "user_id": 1,
       "username": "admin",
-      "email": "admin@fulla.local",
+      "email": "admin@example.com",
       "role": "admin",
       "created_at": "2024-06-23T10:00:00Z",
       "updated_at": "2024-06-23T10:00:00Z"
@@ -443,7 +440,7 @@ curl -X POST http://localhost:5555/api/admin/scopes \
 | 测试项 | 操作步骤 | 预期结果 |
 |--------|---------|---------|
 | 访问管理后台 | 打开 http://localhost:8081/admin | 显示管理后台登录页 |
-| 管理员登录 | 使用 admin/admin123 登录 | 登录成功，显示仪表板 |
+| 管理员登录 | 使用 admin/admin 登录 | 登录成功，显示仪表板 |
 | 应用管理 | 点击"应用"菜单 | 显示客户端列表（至少有 admin-console） |
 | 创建应用 | 点击"新建应用"，填写表单 | 应用创建成功，出现在列表中 |
 | 用户管理 | 点击"用户"菜单 | 显示用户列表（至少有 admin 和刚注册的用户） |
@@ -571,7 +568,7 @@ curl -X POST http://localhost:5555/oauth2/token \
     "client_id": "invalid-client",
     "client_secret": "secret",
     "username": "admin",
-    "password": "admin123"
+    "password": "admin"
   }'
 
 # 预期响应：HTTP 401 Unauthorized
@@ -860,7 +857,7 @@ function Test-SeedData {
 
 function Test-RedisConnection {
     Write-Host "`n[6/8] 检查 Redis 连接..." -ForegroundColor Cyan
-    $result = docker exec fulla-redis redis-cli -a WinDockerTest2024! ping 2>&1
+    $result = docker exec fulla-redis redis-cli -a redis_secret_pass ping 2>&1
     if ($result -match "PONG") {
         Write-Host "[+] Redis 连接正常" -ForegroundColor Green
         return $true

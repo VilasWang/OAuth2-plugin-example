@@ -214,7 +214,7 @@ python3 benchmarks/reporting/gen-comparison.py
 ```
 
 Methodology and fairness deviations (per-product config sources, what is and isn't aligned):
-[competitor-benchmark-design.md](docs/productization-evolution/in-progress/competitor-benchmark-design.md).
+[competitor-benchmark-design.md](docs/benchmark/competitor-benchmark-design.md).
 Fulla-side scenario details: [benchmarks/README.md](benchmarks/README.md).
 
 ---

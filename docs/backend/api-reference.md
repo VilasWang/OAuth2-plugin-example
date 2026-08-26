@@ -223,7 +223,7 @@ OIDC RP-Initiated Logout 1.0 §2 — 終止用戶的 server-side session，並�
 
 | 參數名 | 必選 | 描述 |
 |---|---|---|
-| `id_token_hint` | 否* | 此前簽發的 id_token，其 `aud` 聲明標識客戶端用於校驗 `post_logout_redirect_uri`（按 §2.2 不驗簽名）。*提供 `post_logout_redirect_uri` 時必需 |
+| `id_token_hint` | 否* | 此前簽發的 id_token，其 `aud` 聲明標識客戶端用於校驗 `post_logout_redirect_uri`（签名强制校验：RS256 + kid 匹配 + iss/exp/sub 策略；验签失败返回 400 AUTH_INVALID_ID_TOKEN_HINT，错误码 4006）。*提供 `post_logout_redirect_uri` 時必需 |
 | `post_logout_redirect_uri` | 否 | 登出後重定向 URI，須為 `id_token_hint` 客戶端註冊的 redirect_uri，否則 400 |
 | `state` | 否 | 不透明值，原樣回顯到重定向 URI |
 
@@ -231,7 +231,7 @@ OIDC RP-Initiated Logout 1.0 §2 — 終止用戶的 server-side session，並�
 
 - **200 OK**：未提供 `post_logout_redirect_uri` 時，返回 `{ "message": "Logged out successfully" }`，session 已清除。
 - **302 Found**：提供並校驗通過的 `post_logout_redirect_uri`（附 `state`）。
-- **400 Bad Request**：`post_logout_redirect_uri` 未註冊 / 缺 `id_token_hint` 無法標識客戶端。
+- **400 Bad Request**：`post_logout_redirect_uri` 未註冊 / 缺 `id_token_hint` 無法標識客戶端 / `id_token_hint` 驗簽失敗（過期、issuer 不符、簽名無效，錯誤碼 4006）。
 
 ---
 
@@ -251,7 +251,7 @@ OIDC RP-Initiated Logout 1.0 §2 — 終止用戶的 server-side session，並�
 
 ### Google 登录回调 (Optional)
 
-- **URL**: `/google/login`
+- **URL**: `/api/google/login`
 - **Method**: `POST`
 - **Desc**: 接收前端传来的 Google Authorization Code，服务端向 Google 换取 Access Token 并调用 UserInfo API，返回过滤后的用户信息（`sub`, `name`, `email`, `picture`）。
 - **请求参数**:

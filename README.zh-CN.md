@@ -201,7 +201,7 @@ python3 benchmarks/reporting/gen-comparison.py
 ```
 
 方法论与公平性偏离项（各家配置出处、对齐了什么没对齐什么）：
-[competitor-benchmark-design.md](docs/productization-evolution/in-progress/competitor-benchmark-design.md)。
+[competitor-benchmark-design.md](docs/benchmark/competitor-benchmark-design.md)。
 Fulla 侧场景细节：[benchmarks/README.md](benchmarks/README.md)。
 
 ---

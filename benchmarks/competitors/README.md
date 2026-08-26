@@ -5,7 +5,7 @@ Hydra / Zitadel**: same machine, same wrk staircase (2→128, warmup 5s /
 measure 10s), same PostgreSQL 17 backend (15 until 2026-08-18; all products
 moved together — fairness rule D1), official recommended production
 configs per product. Methodology and fairness rules:
-[competitor-benchmark-design.md](../../docs/productization-evolution/in-progress/competitor-benchmark-design.md).
+[competitor-benchmark-design.md](../../docs/benchmark/competitor-benchmark-design.md).
 Aggregated report: [results/COMPARISON.md](results/COMPARISON.md).
 
 ## Environment requirements
