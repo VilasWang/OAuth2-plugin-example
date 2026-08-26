@@ -12,7 +12,7 @@ using namespace fulla::common::error;
 
 // Feature: error-code-message-standardization
 // Documentation generator/validator (Task 11.1) guarding Requirements 3.5, 3.7
-// and 12.1: the committed "通用错误码" section of docs/backend/api-reference.md is
+// and 12.1: the committed "通用错误码" section of docs/domains/api-reference.md is
 // the published Error_Catalog and MUST stay consistent with the single source of
 // truth (ErrorCatalog::allEntries()/allOAuthEntries()). This validator parses the
 // section's two tables and asserts there is exactly one row per Application

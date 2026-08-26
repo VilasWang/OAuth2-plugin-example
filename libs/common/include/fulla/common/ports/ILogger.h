@@ -18,7 +18,7 @@
 // -- the generated ORM model headers emit LOG_TRACE for SQL strings, and Trace
 // is now the documented tier for the finest-grained tracing (function args/
 // return values, SQL, per-iteration detail) per the repo logging standard
-// (docs/backend/observability.md §3.2). Order matches Drogon/Trantor's own
+// (docs/operate/observability.md §3.2). Order matches Drogon/Trantor's own
 // severity ordering: Trace < Debug < Info < Warn < Error < Fatal.
 
 #include <string>

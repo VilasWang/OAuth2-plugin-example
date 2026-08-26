@@ -144,14 +144,14 @@ elseif(APPLE)
 endif()
 
 # Repo-root documentation path for the ErrorCatalog doc validator test (task 11.1).
-# The committed "通用错误码" section of docs/backend/api-reference.md is validated
+# The committed "通用错误码" section of docs/domains/api-reference.md is validated
 # against ErrorCatalog::allEntries()/allOAuthEntries() at test time. The test runs
 # from the test executable directory, so the absolute source path is injected here
 # (CMake normalizes the path with forward slashes, usable by std::ifstream on all
 # platforms). Defined as an absolute path derived from this CMakeLists location.
 get_filename_component(FULLA_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    "FULLA_DOC_API_REFERENCE=\"${FULLA_REPO_ROOT_DIR}/docs/backend/api-reference.md\"")
+    "FULLA_DOC_API_REFERENCE=\"${FULLA_REPO_ROOT_DIR}/docs/domains/api-reference.md\"")
 
 # Repo-source golden-snapshot directory for the success-response / route-manifest
 # regression test (task 12.4). The committed golden files under
