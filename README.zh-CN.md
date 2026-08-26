@@ -22,13 +22,13 @@ Fulla 是以 C++17 构建的**高性能开源身份与访问管理（IAM）核�
 
 | 领域 | 能力 | 深入文档 |
 |------|------|----------|
-| **认证** | 登录/注册、邮箱验证、密码重置、TOTP MFA、WebAuthn (FIDO2)、Google/微信社交登录、渐进式账户锁定 | [安全架构](docs/backend/security-architecture.md) |
-| **授权（OAuth2/OIDC）** | 授权码 + PKCE、client-credentials、刷新轮换、设备流、动态客户端注册、用户同意、内省、吊销、OIDC discovery/JWKS/UserInfo、含前/后向通道登出的 end-session | [架构总览](docs/backend/architecture-overview.md) |
-| **访问控制** | RBAC（内置 admin/user + 自定义角色）、细粒度 scope、DB 驱动的资源 scope 注册表、三重校验（客户端限制 + 角色 + 同意） | [RBAC 指南](docs/backend/rbac-guide.md) |
+| **认证** | 登录/注册、邮箱验证、密码重置、TOTP MFA、WebAuthn (FIDO2)、Google/微信社交登录、渐进式账户锁定 | [安全架构](docs/architecture/security-architecture.md) |
+| **授权（OAuth2/OIDC）** | 授权码 + PKCE、client-credentials、刷新轮换、设备流、动态客户端注册、用户同意、内省、吊销、OIDC discovery/JWKS/UserInfo、含前/后向通道登出的 end-session | [架构总览](docs/architecture/architecture-overview.md) |
+| **访问控制** | RBAC（内置 admin/user + 自定义角色）、细粒度 scope、DB 驱动的资源 scope 注册表、三重校验（客户端限制 + 角色 + 同意） | [RBAC 指南](docs/domains/rbac-guide.md) |
 | **令牌生命周期** | 签发、TTL 约束保留、基于家族的刷新轮换、按令牌/客户端/用户吊销、延迟双删的缓存旁路失效 | — |
 | **多租户** | 组织、组织级客户端与用户、租户感知的管理 | — |
-| **可观测性** | Prometheus 指标、结构化审计日志（登录/令牌/密码事件）、健康探针（live/ready） | [可观测性](docs/backend/observability.md) |
-| **运维** | Docker Compose / Helm 部署、cosign 签名多架构镜像、SBOM、配置文件 + 环境变量驱动配置 | [生产部署](docs/ops/deployment.md) |
+| **可观测性** | Prometheus 指标、结构化审计日志（登录/令牌/密码事件）、健康探针（live/ready） | [可观测性](docs/operate/observability.md) |
+| **运维** | Docker Compose / Helm 部署、cosign 签名多架构镜像、SBOM、配置文件 + 环境变量驱动配置 | [生产部署](docs/operate/deployment.md) |
 
 ## 模块地图（Module Map）
 
@@ -267,7 +267,7 @@ find_package(fulla-storage-memory CONFIG REQUIRED)
 target_link_libraries(my-engine PRIVATE fulla::oauth2 fulla::storage::memory)
 ```
 
-> v1.x 对公共头（`include/fulla/**`）承诺**源码级 SemVer**（CI 中 api-diff 门禁强制），不承诺二进制 ABI。第三方依赖请用仓库的 `conanfile.py` + `conan.lock` 解析。详见 [SDK 集成指南](docs/backend/sdk-integration-guide.md) · [SDK 运行时契约](docs/backend/sdk-runtime-contract.md)；参考消费方：[`examples/full-stack-host`](examples/full-stack-host)、[`examples/third-party-host`](examples/third-party-host)（均由 CI 持续验证）。
+> v1.x 对公共头（`include/fulla/**`）承诺**源码级 SemVer**（CI 中 api-diff 门禁强制），不承诺二进制 ABI。第三方依赖请用仓库的 `conanfile.py` + `conan.lock` 解析。详见 [SDK 集成指南](docs/sdk/sdk-integration-guide.md) · [SDK 运行时契约](docs/sdk/sdk-runtime-contract.md)；参考消费方：[`examples/full-stack-host`](examples/full-stack-host)、[`examples/third-party-host`](examples/third-party-host)（均由 CI 持续验证）。
 
 ### 路径 D — 客户端 SDK（Python / Go）
 
@@ -307,7 +307,7 @@ client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…",
 helm install fulla deploy/helm/fulla -f my-values.yaml
 ```
 
-完整流程：[生产部署指南](docs/ops/deployment.md) · [Windows / Docker Desktop](docs/ops/deployment-windows-docker-desktop.md) · [安全清单](docs/ops/security-checklist.md)
+完整流程：[生产部署指南](docs/operate/deployment.md) · [Windows / Docker Desktop](docs/operate/deployment-windows-docker-desktop.md) · [安全清单](docs/architecture/security-architecture.md)
 
 ---
 
@@ -377,19 +377,21 @@ ctest --output-on-failure
 
 - **OpenAPI 规范**：[openapi.yaml](apps/server/openapi.yaml)
 - **Swagger UI**：`http://localhost:5555/docs/api`（需部署 Swagger UI 静态文件）
-- **E2E 测试指南**：[E2E_TESTING_GUIDE.md](docs/admin/e2e-testing-guide.md)
+- **E2E 测试指南**：[Admin E2E 方法论](docs/contribute/admin-e2e-testing-guide.md)
 
 ---
 
 ## 项目文档
 
-**评估选型** — [架构总览](docs/backend/architecture-overview.md) · [安全架构](docs/backend/security-architecture.md) · [RBAC 权限](docs/backend/rbac-guide.md)
+**在线文档站：[fulla.dev](https://fulla.dev)** —— 由本仓库 `docs/` 目录直接构建，随 master 持续更新。
 
-**SDK 集成** — [SDK 集成指南](docs/backend/sdk-integration-guide.md) · [SDK 运行时契约](docs/backend/sdk-runtime-contract.md) · [API 参考](docs/backend/api-reference.md)
+**评估选型** — [架构总览](docs/architecture/architecture-overview.md) · [安全架构](docs/architecture/security-architecture.md) · [RBAC 权限](docs/domains/rbac-guide.md) · [性能对比](benchmarks/competitors/results/COMPARISON.md)
 
-**运维部署** — [生产部署指南](docs/ops/deployment.md) · [配置指南](docs/backend/configuration-guide.md) · [可观测性](docs/backend/observability.md) · [账号锁定机制](docs/ops/account-lockout.md)
+**SDK 集成** — [SDK 集成指南](docs/sdk/sdk-integration-guide.md) · [SDK 运行时契约](docs/sdk/sdk-runtime-contract.md) · [API 参考](docs/domains/api-reference.md)
 
-**参与贡献** — [CONTRIBUTING.md](CONTRIBUTING.md) · [测试指南](docs/backend/testing-guide.md) · [CI/CD 流水线](docs/backend/ci-cd-guide.md)
+**运维部署** — [生产部署指南](docs/operate/deployment.md) · [配置指南](docs/operate/configuration-guide.md) · [可观测性](docs/operate/observability.md) · [账号锁定机制](docs/operate/account-lockout.md)
+
+**参与贡献** — [CONTRIBUTING.md](CONTRIBUTING.md) · [测试指南](docs/contribute/testing-guide.md) · [CI/CD 流水线](docs/contribute/ci-cd-guide.md)
 
 完整索引：[docs/README.md](docs/README.md)
 
