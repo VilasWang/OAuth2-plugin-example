@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <algorithm>
 #include <unordered_map>
@@ -392,6 +393,69 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
                 errorMessage =
                   "Production requires non-default Redis password "
                   "(set FULLA_REDIS_PASSWORD env var)";
+                return false;
+            }
+        }
+
+        // #102: a real signing-key source MUST exist in production. Without
+        // one, JwkManager falls back to a per-boot ephemeral key: every
+        // restart invalidates all tokens and the JWKS kid resolves to nothing,
+        // with no operator-visible failure. NOTE: these two env reads are
+        // deliberately raw std::getenv (NOT the .env-aware getEnvValue) to
+        // match exactly what JwkManager::init() sees -- a key supplied only
+        // via .env must not pass here and fail (or silently degrade) later.
+        {
+            const char *keyEnv = std::getenv("FULLA_SIGNING_KEY");
+            const char *keyPathEnv = std::getenv("FULLA_JWT_KEY_PATH");
+            std::string configKeyPath;
+            if (config.isMember("plugins") && config["plugins"].isArray())
+            {
+                for (const auto &plugin : config["plugins"])
+                {
+                    if (plugin.get("name", "").asString() != "OAuth2Plugin" ||
+                        !plugin.isMember("config"))
+                        continue;
+                    const Json::Value &pluginConfig = plugin["config"];
+                    // The plugin hands config["oidc"] to JwkManager::init, so
+                    // signing_key_path lives under "oidc".
+                    if (pluginConfig.isMember("oidc"))
+                        configKeyPath =
+                          pluginConfig["oidc"].get("signing_key_path", "").asString();
+
+                    // #102 (memory-storage scope): config-declared clients
+                    // with default/empty secrets. In postgres mode the client
+                    // registry lives in the DB and OAuth2Plugin scans it at
+                    // startup instead -- both paths fail closed.
+                    if (pluginConfig.isMember("clients") && pluginConfig["clients"].isObject())
+                    {
+                        for (const std::string &clientName :
+                             pluginConfig["clients"].getMemberNames())
+                        {
+                            const Json::Value &client = pluginConfig["clients"][clientName];
+                            if (client.get("client_type", "").asString() == "PUBLIC")
+                                continue;  // PKCE public clients do not use the secret
+                            const std::string secret = client.get("secret", "").asString();
+                            if (secret.empty() || secret == "123456" || secret == "password")
+                            {
+                                errorMessage =
+                                  "Production requires a non-default secret for config client "
+                                  "'" +
+                                  clientName +
+                                  "' (plugins.OAuth2Plugin.config.clients)";
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            const bool hasEnvKey = keyEnv && std::strlen(keyEnv) > 0;
+            const bool hasEnvPath = keyPathEnv && std::strlen(keyPathEnv) > 0;
+            if (!hasEnvKey && !hasEnvPath && configKeyPath.empty())
+            {
+                errorMessage =
+                  "Production requires a real signing key: set FULLA_SIGNING_KEY, "
+                  "FULLA_JWT_KEY_PATH, or plugins.OAuth2Plugin.config.oidc."
+                  "signing_key_path (the ephemeral dev key is rejected in production)";
                 return false;
             }
         }

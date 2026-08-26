@@ -754,4 +754,29 @@ TEST(JwkManagerTest, Init_EphemeralKey_RespectsConfiguredKid)
     EXPECT_EQ(jwk2.getKeyId(), "ephemeral-dev-key");
 }
 
+// #102: the ephemeral fallback is DEV ONLY -- under FULLA_ENV=production with
+// no key source configured, init() must fail (the caller refuses to start)
+// instead of silently signing with a per-boot random key.
+TEST(JwkManagerTest, Init_ProductionEnv_NoKeySource_RefusesEphemeral)
+{
+    EnvVarGuard envGuard("FULLA_ENV", "production");
+    EnvVarGuard keyGuard("FULLA_SIGNING_KEY", "");
+    EnvVarGuard keyPathGuard("FULLA_JWT_KEY_PATH", "");
+    JwkManager jwk;
+    EXPECT_FALSE(jwk.init(Json::Value(Json::objectValue)));
+    EXPECT_FALSE(jwk.isInitialized());
+}
+
+// Control: any non-production value keeps the dev fallback alive (the
+// quick-start path with no key configured must not regress).
+TEST(JwkManagerTest, Init_DevelopmentEnv_NoKeySource_EphemeralOk)
+{
+    EnvVarGuard envGuard("FULLA_ENV", "development");
+    EnvVarGuard keyGuard("FULLA_SIGNING_KEY", "");
+    EnvVarGuard keyPathGuard("FULLA_JWT_KEY_PATH", "");
+    JwkManager jwk;
+    EXPECT_TRUE(jwk.init(Json::Value(Json::objectValue)));
+    EXPECT_TRUE(jwk.isInitialized());
+}
+
 }  // namespace

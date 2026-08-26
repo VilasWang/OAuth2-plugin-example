@@ -105,6 +105,26 @@ bool JwkManager::init(const Json::Value &config)
         );
     }
 
+    // #102: the ephemeral fallback is DEV ONLY. In production a per-boot
+    // random key silently invalidates every outstanding token on restart and
+    // publishes a JWKS kid nothing can resolve -- refuse instead (defense in
+    // depth: ConfigManager::validate() gates this earlier; this catches any
+    // path that bypasses validation). init() false makes the caller abort.
+    {
+        const char *fullaEnv = std::getenv("FULLA_ENV");
+        if (fullaEnv && std::string(fullaEnv) == "production")
+        {
+            log(
+              fulla::common::ports::LogLevel::Error,
+              "JwkManager: no signing key configured and FULLA_ENV=production -- "
+              "the ephemeral fallback is DEV ONLY. Configure FULLA_SIGNING_KEY, "
+              "FULLA_JWT_KEY_PATH, or plugins.OAuth2Plugin.config.oidc."
+              "signing_key_path and restart"
+            );
+            return false;
+        }
+    }
+
     log(
       fulla::common::ports::LogLevel::Warn,
       "JwkManager: No signing key configured, generating ephemeral key (DEV ONLY)"
