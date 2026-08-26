@@ -38,7 +38,7 @@
 | `code_challenge_method` | 否 | `plain` 或 `S256`（提供 challenge 时默认 `plain`） | `S256` |
 | `nonce` | 否 | OIDC nonce（防重放），openid scope 时回显到 id_token | `n-0S6_WzA2Mj` |
 | `prompt` | 否 | OIDC 提示值，空格分隔：`none`/`login`/`consent`/`select_account`（§3.1.2.1）。`none` 禁止 UI；`login` 强制重认证；`consent` 强制同意页。`none` 与其他值并用 → 400 | `none` |
-| `max_age` | 否 | 認證最大允許年齡（秒）。session auth_time 超齡 → 強制重認證 | `3600` |
+| `max_age` | 否 | 认证最大允許年齡（秒）。session auth_time 超齡 → 強制重认证 | `3600` |
 
 ### 响应
 
@@ -96,8 +96,8 @@ Location: http://localhost:5173/callback?code=SplxlOBeZQQYbYS6WxSbIA&state=xyz12
 ```
 
 **响应头（F-019，RFC 6749 §5.1 / RFC 7009 §2.2.1）**：所有 token / introspect /
-revoke 成功響應都帶 `Cache-Control: no-store` 與 `Pragma: no-cache`，禁止中間
-代理緩存含憑證的響應體。
+revoke 成功响应都带 `Cache-Control: no-store` 与 `Pragma: no-cache`，禁止中间
+代理缓存含憑证的响应体。
 
 *(注：`grant_type=refresh_token` 需先通过客户端认证（F-003/F-017，RFC 6749 §3.2.1/§6）：认证方式必须匹配客户端注册的 `token_endpoint_auth_method`——`client_secret_basic`（默认）仅接受 HTTP Basic（body 携带 `client_secret` 会被拒）；`client_secret_post` 仅接受表单字段；PUBLIC 客户端仅发 `client_id`（携带 secret 会被拒）。缺失或错误返回 401 `invalid_client`。refresh token 持久化仅 Postgres 后端支持；`storage_type="redis"` 已弃用，该模式下 refresh grant 返回 `unsupported_grant_type`（F-005）。)*
 
@@ -111,10 +111,10 @@ revoke 成功響應都帶 `Cache-Control: no-store` 與 `Pragma: no-cache`，禁
 ```
 
 **失败 (429 Too Many Requests)** — F-018 限流：`/oauth2/token`、
-`/oauth2/introspect`、`/oauth2/revoke` 與 device_code 輪詢共享一個進程內滑動窗口
-限流器，按 `(client_ip, client_id)` 分桶。窗口內（默認 60s）**失敗**計數達閾值
-（默認 30，可經 `custom_config["auth"]["rate_limit"]` 配置 `max_failures` /
-`window_seconds`）後，後續請求返回 429。僅計失敗（認證/校驗失敗），成功清零。
+`/oauth2/introspect`、`/oauth2/revoke` 与 device_code 轮询共享一個进程内滑动窗口
+限流器，按 `(client_ip, client_id)` 分桶。窗口内（默认 60s）**失败**計数達閾值
+（默认 30，可經 `custom_config["auth"]["rate_limit"]` 配置 `max_failures` /
+`window_seconds`）后，后续請求返回 429。仅計失败（认证/校验失败），成功清零。
 
 ```http
 HTTP/1.1 429 Too Many Requests
@@ -163,8 +163,8 @@ Authorization: `Bearer {access_token}`
 }
 ```
 
-**失敗 (403 Forbidden)** — F-023：access token scope 不含 `openid`，或為 M2M
-token（subject `client:*`）。響應附帶
+**失败 (403 Forbidden)** — F-023：access token scope 不含 `openid`，或为 M2M
+token（subject `client:*`）。响应附带
 `WWW-Authenticate: Bearer error="insufficient_scope"`：
 
 ```json
@@ -174,64 +174,64 @@ token（subject `client:*`）。響應附帶
 }
 ```
 
-### 3.x 路徑→required-scope 映射（F-010 最小資源-scope 模型）
+### 3.x 路徑→required-scope 映射（F-010 最小资源-scope 模型）
 
-`OAuth2AuthFilter` / `AuthorizationFilter` 在 access token 校驗通過後，按請求
-路徑強制最小 required-scope（RFC 6750 §3.1）。token scope 不足時返回 403，
-響應附帶 `WWW-Authenticate: Bearer realm="fulla", error="insufficient_scope",
-scope="<required>"`，其中 `scope` 屬性命名解鎖該資源所需的 scope。
+`OAuth2AuthFilter` / `AuthorizationFilter` 在 access token 校验通过后，按請求
+路徑強制最小 required-scope（RFC 6750 §3.1）。token scope 不足时返回 403，
+响应附带 `WWW-Authenticate: Bearer realm="fulla", error="insufficient_scope",
+scope="<required>"`，其中 `scope` 屬性命名解锁该资源所需的 scope。
 
-| 路徑 | Required Scope | 備註 |
+| 路徑 | Required Scope | 備注 |
 |---|---|---|
-| `/oauth2/userinfo` | `openid` | 與 userinfo handler 內的 F-023 檢查並存（defense-in-depth） |
+| `/oauth2/userinfo` | `openid` | 与 userinfo handler 内的 F-023 检查并存（defense-in-depth） |
 | `/api/me`、`/api/me/*` | `profile` | 經 `OAuth2AuthFilter` |
-| `/api/admin/*` | `admin` | 經 `AuthorizationFilter`，**疊加在既有 RBAC 角色檢查之上**（scope 閘門先跑，角色閘門後跑，兩者都須通過） |
+| `/api/admin/*` | `admin` | 經 `AuthorizationFilter`，**疊加在既有 RBAC 角色检查之上**（scope 閘門先跑，角色閘門后跑，两者都須通过） |
 
-> **完整資源-scope 授權模型為後續工作**（獨立 issue「完整資源-scope 授權模型」）。
-> 當前僅上述最小映射；其餘 `/api/*` 路徑仍僅由既有 RBAC 規則（`rbac_rules`）
-> 把關，不額外要求特定 scope。Scope 匹配為空格分隔 token 的精確匹配
-> （`fulla::drogon::utils::hasScope()`），避免 `openidprofile` 誤過
+> **完整资源-scope 授權模型为后续工作**（独立 issue「完整资源-scope 授權模型」）。
+> 當前仅上述最小映射；其餘 `/api/*` 路徑仍仅由既有 RBAC 规則（`rbac_rules`）
+> 把关，不额外要求特定 scope。Scope 匹配为空格分隔 token 的精确匹配
+> （`fulla::drogon::utils::hasScope()`），避免 `openidprofile` 误过
 > `openid`/`profile`。
 
-### 3.y 客戶端管理（F-030：admin-only，無 RFC 7592 自管理）
+### 3.y 客户端管理（F-030：admin-only，无 RFC 7592 自管理）
 
-客戶端註冊與管理**僅**經 admin API `/api/admin/clients/*`（需 admin scope +
-admin 角色）。本服務**不**實作 RFC 7592 動態客戶端管理的
-`registration_access_token` 自管理端點 —— 客戶端無法自助查看/修改自身註冊
-信息。需要變更的客戶端須聯繫管理員經 admin API 處理。
+客户端注册与管理**仅**經 admin API `/api/admin/clients/*`（需 admin scope +
+admin 角色）。本服務**不**实作 RFC 7592 動態客户端管理的
+`registration_access_token` 自管理端点 —— 客户端无法自助查看/修改自身注册
+信息。需要變更的客户端須联繫管理員經 admin API 处理。
 
-### 3.z nonce 重放防護（F-026：客戶端責任）
+### 3.z nonce 重放防護（F-026：客户端責任）
 
-OIDC Core §15.5.2 規定 nonce 重放檢查為**客戶端 MUST**：服務端在 id_token 中
-**回顯**（echo）客戶端提交的 nonce，但**不**為其存儲或做服務端重放檢查。客戶端
-必須（1）為每次認證請求生成唯一的 nonce，（2）在收到 id_token 後比對回顯值與
-本地 nonce，並（3）拒絕重複或缺失 nonce 的 id_token。本服務遵循此分工，不
+OIDC Core §15.5.2 规定 nonce 重放检查为**客户端 MUST**：服務端在 id_token 中
+**回顯**（echo）客户端提交的 nonce，但**不**为其存储或做服務端重放检查。客户端
+必須（1）为每次认证請求生成唯一的 nonce，（2）在收到 id_token 后比对回顯值与
+本地 nonce，并（3）拒絕重複或缺失 nonce 的 id_token。本服務遵循此分工，不
 提供服務端 nonce 重放防護。
 
 ---
 
-## 3.1 RP-Initiated Logout 端點 (End Session Endpoint)
+## 3.1 RP-Initiated Logout 端点 (End Session Endpoint)
 
-OIDC RP-Initiated Logout 1.0 §2 — 終止用戶的 server-side session，並（可選）重
-定向到客戶端註冊的 `post_logout_redirect_uri`。
+OIDC RP-Initiated Logout 1.0 §2 — 終止用户的 server-side session，并（可選）重
+定向到客户端注册的 `post_logout_redirect_uri`。
 
 - **URL**: `/oauth2/end_session`
 - **Method**: `GET`（鏈接式）或 `POST`（表單式）
-- **Access**: 公開（不需 Bearer token）
+- **Access**: 公开（不需 Bearer token）
 
-### 請求參數 (Query/Form)
+### 請求參数 (Query/Form)
 
-| 參數名 | 必選 | 描述 |
+| 參数名 | 必選 | 描述 |
 |---|---|---|
-| `id_token_hint` | 否* | 此前簽發的 id_token，其 `aud` 聲明標識客戶端用於校驗 `post_logout_redirect_uri`（签名强制校验：RS256 + kid 匹配 + iss/exp/sub 策略；验签失败返回 400 AUTH_INVALID_ID_TOKEN_HINT，错误码 4006）。*提供 `post_logout_redirect_uri` 時必需 |
-| `post_logout_redirect_uri` | 否 | 登出後重定向 URI，須為 `id_token_hint` 客戶端註冊的 redirect_uri，否則 400 |
-| `state` | 否 | 不透明值，原樣回顯到重定向 URI |
+| `id_token_hint` | 否* | 此前签发的 id_token，其 `aud` 声明标识客户端用于校验 `post_logout_redirect_uri`（签名强制校验：RS256 + kid 匹配 + iss/exp/sub 策略；验签失败返回 400 AUTH_INVALID_ID_TOKEN_HINT，错误码 4006）。*提供 `post_logout_redirect_uri` 时必需 |
+| `post_logout_redirect_uri` | 否 | 登出后重定向 URI，須为 `id_token_hint` 客户端注册的 redirect_uri，否則 400 |
+| `state` | 否 | 不透明值，原样回顯到重定向 URI |
 
-### 響應
+### 响应
 
-- **200 OK**：未提供 `post_logout_redirect_uri` 時，返回 `{ "message": "Logged out successfully" }`，session 已清除。
-- **302 Found**：提供並校驗通過的 `post_logout_redirect_uri`（附 `state`）。
-- **400 Bad Request**：`post_logout_redirect_uri` 未註冊 / 缺 `id_token_hint` 無法標識客戶端 / `id_token_hint` 驗簽失敗（過期、issuer 不符、簽名無效，錯誤碼 4006）。
+- **200 OK**：未提供 `post_logout_redirect_uri` 时，返回 `{ "message": "Logged out successfully" }`，session 已清除。
+- **302 Found**：提供并校验通过的 `post_logout_redirect_uri`（附 `state`）。
+- **400 Bad Request**：`post_logout_redirect_uri` 未注册 / 缺 `id_token_hint` 无法标识客户端 / `id_token_hint` 验签失败（过期、issuer 不符、签名无效，错误码 4006）。
 
 ---
 
@@ -372,22 +372,24 @@ OAuth2 协议端点（OAuth2_Protocol_Endpoint）保持 RFC 6749 §5.2 错误体
 
 ---
 
-## 6. API 文档维护流程
+## 6. API 契约维护流程（OpenAPI 治理）
 
-为确保 OpenAPI 文档与代码实现保持同步，本项目采用自动化生成与验证机制。
+HTTP API 契约的**单一事实源是 [`apps/server/openapi.yaml`](https://github.com/voidvec/fulla/blob/master/apps/server/openapi.yaml)**；本篇是它的导读与补全（含错误码表等 yaml 未承载的内容）。
 
-### 6.1 开发阶段维护
+### 6.1 变更流程
 
-**新增或修改端点时：**
-1. 在对应 Controller 的初始化方法中添加或更新 `OpenApiGenerator::addEndpoint()` 调用。
-2. 运行项目或测试以生成更新的 `openapi.json`。
-3. 验证 Swagger UI (`http://localhost:5555/docs/api/`) 显示正确。
-4. 提交代码时必须包含更新后的 `apps/server/docs/api/openapi.json`。
+1. 修改端点行为时，同步修改 `apps/server/openapi.yaml`（新端点 / 参数 / 响应）。
+2. Controller 内经 `OpenApiGenerator::addEndpoint()` 登记的元数据保持一致（`fulla-tests -r OpenApiGenerator` 校验登记完整性）。
+3. Swagger UI（`http://localhost:5555/docs/api/`）由服务器托管，用于人工核对。
 
-### 6.2 自动化验证机制
+### 6.2 破坏性变更门（CI）
 
-*   **CI 集成检查**：在 GitHub Actions 中会自动运行 `swagger-cli validate` 验证 OpenAPI 规范的合法性。
-*   **Pre-commit Hook**：建议在本地配置 Git 钩子。当修改 Controller 文件时，自动运行 `OpenApiGenerator` 测试并检查 `openapi.json` 是否已更新。
+`OpenAPI Governance` workflow 在 PR 上运行 **oasdiff breaking** 门：对比 PR 与 master 的 `openapi.yaml`，任何破坏性变更（删路径、收紧请求体、收窄响应等）都会使 CI 失败，除非：
+
+- 变更伴随主版本号升级；或
+- 在 `tools/openapi-governance/oasdiff-breaking-ignore.md` 中显式豁免并写明理由。
+
+本地可复现同一命令（见 `.github/workflows/openapi-governance.yml` 头部注释）。
 
 ### 6.3 质量标准
 
@@ -396,7 +398,7 @@ OAuth2 协议端点（OAuth2_Protocol_Endpoint）保持 RFC 6749 §5.2 错误体
 
 ### 6.4 故障排查
 
-*   **Swagger UI 无法访问**：检查 `docs/api/swagger-ui/` 目录是否存在，确认静态文件服务已启用。
-*   **OpenAPI 生成失败**：运行 `fulla-tests -r OpenApiGenerator` 单元测试，查看具体的注册错误。
-*   **文档不一致**：确认是否在 Controller 代码变更后重新运行了生成流程，并提交了最新的 `openapi.json`。
+*   **Swagger UI 无法访问**：检查静态资源是否随服务器分发，确认静态文件服务已启用。
+*   **登记校验失败**：运行 `fulla-tests -r OpenApiGenerator` 单元测试，查看具体的注册错误。
+*   **治理门误报**：核对 `oasdiff breaking` 输出与豁免清单条目是否对应同一 path/operation。
 
