@@ -154,7 +154,7 @@ jobs:
         # examples/full-stack-host is a standalone find_package(fulla-drogon)
         # consumer; CI's SdkSmoke gate exercises it against the build tree --
         # here we point it at the install tree, proving the tarball content is
-        # consumable exactly as docs/backend/sdk-integration-guide.md describes.
+        # consumable exactly as docs/sdk/sdk-integration-guide.md describes.
         run: |
           cmake -S examples/full-stack-host -B build/sdk-install-smoke \
             -DCMAKE_BUILD_TYPE=Release \
