@@ -1,67 +1,56 @@
-# Documentation Index
+# 文档中心
 
-Start here and pick your track. File names use **kebab-case**; cross-references
-use relative paths.
+按受众组织（治理标准见 [documentation-governance.md](documentation-governance.md)）。
+**评估**=想了解这个项目是什么；**集成**=要把 Fulla 接入你的系统；**运维**=要部署与保障它；
+**贡献**=要给它提代码/文档；**档案**=决策与历史记录。
 
-## Evaluating Fulla
+## 评估（Evaluate）
 
-- [Project README](../README.md) — features, quick start, tech stack
-- [Architecture Overview](backend/architecture-overview.md) — package layering, request flow
-- [Security Architecture](backend/security-architecture.md) — token lifecycle, protection strategies
-- [RBAC Guide](backend/rbac-guide.md) — roles, permissions, triple-scope control
-- [DDD Domain Model](backend/ddd-domain-model.md) — target DDD design: bounded contexts, aggregates, domain events
+- [架构总览](backend/architecture-overview.md) — 技术栈、模块布局、授权码时序、存储策略
+- [安全架构](backend/security-architecture.md) — 威胁模型、token 生命周期、密钥与哈希、安全头与限流
+- [性能对比](../benchmarks/competitors/results/COMPARISON.md) — 与 Keycloak/Ory/Zitadel 的同环境五场景对比
+- [对比方法论](benchmark/competitor-benchmark-design.md) — 上述对比的公平性规则与复现方式
 
-## Integrating (SDK consumers)
+## 集成（Integrate）
 
-- [SDK Integration Guide](backend/sdk-integration-guide.md) — release artifacts, `find_package` wiring
-- [SDK Runtime Contract](backend/sdk-runtime-contract.md) — threading / ABI / exception / logging promises
-- [API Reference](backend/api-reference.md) — endpoints, error catalog
-- [Plugin Integration](backend/plugin-integration.md) — hosting `OAuth2Plugin` in a Drogon app
-- [OIDC Guide](backend/oidc-guide.md) · [Google](backend/google-guide.md) / [WeChat](backend/wechat-guide.md) social login
+**C++ SDK（嵌入）**
+- [SDK 集成指南](backend/sdk-integration-guide.md) — find_package、包矩阵、Drogon 宿主快速上手、验签与校验
+- [SDK 运行时契约](backend/sdk-runtime-contract.md) — 线程模型、ABI 政策、异常与日志约定
 
-## Operating
+**HTTP API（任意语言）**
+- [API 参考](backend/api-reference.md) — 端点详解与错误码全表（权威契约：[openapi.yaml](../apps/server/openapi.yaml)）
+- [OIDC 集成指南](backend/oidc-guide.md) — discovery/JWKS/id_token 验签、RP 登出
+- [社交登录指南](backend/social-login.md) — GitHub（完整接线）/ Google / 微信
+- [RBAC 与访问控制](backend/rbac-guide.md) — 角色与 scope 双闸模型
 
-- [Production Deployment](ops/deployment.md) — Docker Compose / Helm walkthrough
-- [Windows / Docker Desktop](ops/deployment-windows-docker-desktop.md)
-- [Configuration Guide](backend/configuration-guide.md) — config files, env vars, secrets
-- [Observability](backend/observability.md) — metrics, audit logging, health checks
-- [Security Checklist](ops/security-checklist.md) · [Verification Checklist](ops/verification-checklist.md)
-- [Account Lockout](ops/account-lockout.md) — lockout rules and reset procedures
-- [Data Persistence](backend/data-persistence.md) · [Data Consistency](backend/data-consistency.md)
+## 运维（Operate）
 
-## Contributing
+- [生产部署](ops/deployment.md) — Linux 全流程（域名/证书/SMTP/性能调优/安全清单）
+- [Docker 部署](backend/docker-deployment.md) — compose 三形态、命名规范、调试环境、自动化验证
+- [Windows / Docker Desktop](ops/deployment-windows-docker-desktop.md) — 本地验证路线
+- [配置指南](backend/configuration-guide.md) — FULLA_* 环境变量、存储后端、issuer、缓存块
+- [可观测性](backend/observability.md) — Prometheus 指标、审计日志、日志级别
+- [账号锁定运维](ops/account-lockout.md) — 锁定规则与四种重置方法
+- [PostgreSQL 大版本升级](ops/postgresql-major-upgrade.md) — dump/restore 与 pg_upgrade 双路线
+- [部署验收清单](ops/verification-checklist.md) — 5 分钟 / 30 分钟两档验证
 
-- [CONTRIBUTING.md](../CONTRIBUTING.md) — build, conventions, CI gates
-- [Testing Guide](backend/testing-guide.md) — test tree, categories, how to run
-- [CI/CD Pipeline](backend/ci-cd-guide.md) — workflows, release pipeline
-- [Documentation Standards](backend/documentation-standards.md)
-- Frontend: [admin E2E guide](admin/e2e-testing-guide.md) · [admin test cases](admin/test-cases.md) · [user test cases](frontend/test-cases.md)
+## 贡献（Contribute）
 
-## Productization
+- [测试指南](backend/testing-guide.md) — 五层测试、执行方式、覆盖率方法论
+- [CI/CD 指南](backend/ci-cd-guide.md) — 三门体系、平台矩阵、本地复现
+- [版本与发版](backend/versioning-and-release.md) — SemVer 方案、发版 SOP
+- [文档治理](documentation-governance.md) — 入库判据与文档站内容源设计
+- 前端测试：[Admin 用例矩阵](admin/test-cases.md) · [User 用例矩阵](frontend/test-cases.md) · [E2E 方法论](admin/e2e-testing-guide.md)
 
-- [Productization Evolution Plan](productization-evolution/productization-evolution-plan.md) — roadmap, priorities, risks (companion to the research report)
-- [Progress Status](productization-evolution/progress-status.md) — what's done, in-progress, and not started across all phases
-- [Next-Phase Implementation Plan](productization-evolution/next-phase-implementation-plan.md) — detailed action items for the immediate next stage
-- [IAM Architecture Audit](productization-evolution/iam-architecture-audit.md) — codebase-wide IAM capability audit with file:line evidence
-- [Productization Research](productization-evolution/productization-research.md) — market/competitor/pricing analysis (input to the evolution plan)
-- [Benchmark Facility Design](productization-evolution/in-progress/benchmark-facility-design.md) — Phase 0 HTTP performance baseline design (M1 done, M2–M4 pending)
+## 档案（Archive）
 
-## Performance
+- [ADR 决策记录](adr/) — 12 篇现行架构决策（SDK 分层、ErrorCatalog、Opaque token、协程排除等）
+- [历史设计归档](history/) — 已冻结的设计文档（README 声明其口径为写作当时）
+- [DDD 领域模型提案](backend/ddd-domain-model.md) — 未评审的未来演进底稿
+- [更名决策记录](branding/rename-impact-fulla.md) · [入库标准审计](branding/repo-professionalization-audit.md)
+- [OAuth/OIDC 合规尽调报告](productization-evolution/done/oauth-oidc-compliance-audit.md) — 31 项偏差全修复（2026-08-07 基线）
 
-All performance-optimization program docs live in
-[performance-optimization/](performance-optimization/) — the program brief,
-analysis reports (static + instrumented), the non-code optimization plan, and
-the rolling optimization-wave implementation plans:
+## 本地维护区（不入库）
 
-- [Program Brief (prompt)](performance-optimization/performance-optimization-prompt.md) — methodology, acceptance rules
-- [Wave-1 Static Analysis Report](performance-optimization/performance-optimization-report.md) — baseline parse, bottleneck table (pre-instrumentation)
-- [Instrumented Hotspot Report](performance-optimization/performance-hotspot-instrumented-report.md) — pg_stat_statements ledger + stage-probe decomposition + gdb sampling; the quantified lever table
-- [Non-Code Optimization Plan](performance-optimization/noncode-performance-optimization.md) — config/DB-level wave (delivered) + §十 backlog
-- [Wave-2 Optimization Plan](performance-optimization/optimization-wave-2-plan.md) — code-level levers from the instrumented findings (caching, RTT elimination, tz-lock)
-- [Backend Memory Retention Investigation](performance-optimization/backend-memory-retention-investigation.md) — discovery-path unbounded leak (~730 B/request), root of the comparison table's heaviest-stack RSS
-
-## Archive
-
-Historical PRDs, design documents, and iteration plans live under
-[history/](history/README.md) — kept for traceability, not current-state
-reference.
+过程性文档（productization-evolution、域名调研、各设计 tasks/plans 等）已按治理标准转为本地维护，
+不入版本库；判据见 documentation-governance.md §一。

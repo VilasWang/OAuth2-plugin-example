@@ -219,3 +219,28 @@ docker exec -it fulla-redis redis-cli -a redis_secret_pass ping
 docker-compose down -v
 docker-compose up -d --build
 ```
+
+## 镜像 / 容器 / 网络命名规范
+
+| 镜像用途 | 名称 | 构建目标 | 说明 |
+|---------|------|--------------------|------|
+| 生产后端 | `fulla-backend` | `backend-runtime` | 仅运行时，体积小；GHCR 多架构发布 |
+| 调试后端 | `fulla-backend-debug` | `backend-dev` | 含完整编译工具链 |
+| 生产前端 | `fulla-frontend` | `frontend-runtime` | Nginx + 静态资源 |
+
+容器命名：`fulla-{service}[-debug]`（backend/frontend/postgres/redis）；网络：Release 为 `oauth2-net`，Debug 为 `fulla-debug-net`（历史保留名见 compose 文件）。三份 compose 矩阵：`docker-compose.yml`（开发，6 服务）、`docker-compose.debug.yml`（调试，3 服务）、`docker-compose.prod.yml`（生产，8 服务含 Nginx 与 migrate 作业）。**所有 compose 命令在仓库根目录执行并带 `-f deploy/docker/...`**。
+
+## 调试环境（挂载源码 / GDB）
+
+```bash
+docker build -f deploy/docker/Dockerfile --target backend-dev -t fulla-backend-debug:v1.0.0 .
+docker compose -f deploy/docker/docker-compose.debug.yml up -d
+docker compose -f deploy/docker/docker-compose.debug.yml run --rm debug-env bash
+```
+
+## 自动化验证
+
+- `deploy/docker/docker-quick-verify-debug.sh`（容器内全流程：依赖检查 → 等 PG/Redis 就绪 → 建库 → 并行编译 → 单测）；
+- `scripts/backend/full_test_docker.bat`（宿主一键：起容器 → 初始化 → ORM 重生成 → 编译 → 测试 → 起服 → OAuth2/Admin 端点测试 → 清理）。
+
+> 本节合并自已退役的 docker-guide.md（2026-08-26 docs 治理 A2），保留其独有内容。
