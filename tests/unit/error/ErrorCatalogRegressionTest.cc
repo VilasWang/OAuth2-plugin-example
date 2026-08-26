@@ -57,9 +57,11 @@ DROGON_TEST(Unit_P0_ErrorCatalog_Regression_ExistingNumericCodesUnchanged)
     // (VALIDATION_RESOURCE_NOT_FOUND/CONFLICT, Requirement 11.4) to preserve the
     // pre-migration 404/409 statuses. The auth-flow-error-code-gaps feature adds
     // a further 9 codes (G1-G6). #78 adds AUTH_INVALID_ID_TOKEN_HINT (end_session
-    // id_token_hint verification failure, HTTP 400), for a total of 26 registered
+    // id_token_hint verification failure, HTTP 400). #88 adds
+    // VALIDATION_REDIRECT_URI_NOT_REGISTERED (end_session unregistered
+    // post_logout_redirect_uri, HTTP 400), for a total of 27 registered
     // Application codes; no others may be introduced silently.
-    CHECK(ErrorCatalog::allEntries().size() == kExpected.size() + 2 + 9 + 1);
+    CHECK(ErrorCatalog::allEntries().size() == kExpected.size() + 2 + 9 + 1 + 1);
     // #78: the new entry is registered exactly once, in the AUTHENTICATION
     // segment, with the explicit 400 status override.
     const CatalogEntry *hintEntry = ErrorCatalog::find("AUTH_INVALID_ID_TOKEN_HINT");
@@ -67,6 +69,12 @@ DROGON_TEST(Unit_P0_ErrorCatalog_Regression_ExistingNumericCodesUnchanged)
     CHECK(hintEntry->numericCode == 4006);
     CHECK(hintEntry->category == ErrorCategory::AUTHENTICATION);
     CHECK(hintEntry->httpStatus == 400);
+    // #88: VALIDATION segment, next free numeric 3013, explicit 400.
+    const CatalogEntry *redirectEntry = ErrorCatalog::find("VALIDATION_REDIRECT_URI_NOT_REGISTERED");
+    REQUIRE(redirectEntry != nullptr);
+    CHECK(redirectEntry->numericCode == 3013);
+    CHECK(redirectEntry->category == ErrorCategory::VALIDATION);
+    CHECK(redirectEntry->httpStatus == 400);
 }
 
 // --- Requirement 3.6: every Application numeric code falls inside its segment.

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { setupMocks, loginUser } from './helpers/mock-api'
+import { setupMocks, loginUser, MOCK_SLOW_TOKEN_PAIR } from './helpers/mock-api'
 
 test.describe('OAuth2 Consent Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -79,7 +79,7 @@ test.describe('Callback Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ access_token: 'slow-token', refresh_token: 'slow-refresh', token_type: 'Bearer', expires_in: 3600 }),
+        body: JSON.stringify(MOCK_SLOW_TOKEN_PAIR),
       })
     })
     await page.goto('/callback?code=valid-code&state=test-state')

@@ -165,7 +165,8 @@ DROGON_TEST(Integration_P1_OidcBatch2_EndSession_NoRedirectUri_Returns200)
 // ---------------------------------------------------------------------------
 // F-027: end_session with a post_logout_redirect_uri but no id_token_hint is
 // rejected with 400 (the server requires pre-registration + client
-// identification via the hint).
+// identification via the hint). #88: the 400 is an Error Envelope carrying
+// AUTH_INVALID_ID_TOKEN_HINT (was a plain-text body).
 // ---------------------------------------------------------------------------
 DROGON_TEST(Integration_P1_OidcBatch2_EndSession_RedirectUriWithoutHint_Returns400)
 {
@@ -175,6 +176,34 @@ DROGON_TEST(Integration_P1_OidcBatch2_EndSession_RedirectUriWithoutHint_Returns4
       "/oauth2/end_session?post_logout_redirect_uri=http://127.0.0.1:5173/&state=xyz12345");
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k400BadRequest));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body["error"]["code"].asString() == "AUTH_INVALID_ID_TOKEN_HINT");
+}
+
+// ---------------------------------------------------------------------------
+// #88: a VERIFIED hint whose post_logout_redirect_uri is NOT registered for
+// any aud client is rejected with 400 VALIDATION_REDIRECT_URI_NOT_REGISTERED
+// (Error Envelope; was a plain-text body).
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_UnregisteredRedirect_Returns400Envelope)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    auto tokens = loginAsUserTokens("admin", "admin", "openid profile admin");
+    REQUIRE(tokens.has_value());
+    const std::string idToken = tokens->get("id_token", "").asString();
+    REQUIRE(!idToken.empty());
+
+    auto resp = sendGet(
+      "/oauth2/end_session?id_token_hint=" + idToken +
+      "&post_logout_redirect_uri=https://attacker.example.net/logout"
+    );
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k400BadRequest));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body["error"]["code"].asString() == "VALIDATION_REDIRECT_URI_NOT_REGISTERED");
 }
 
 // ---------------------------------------------------------------------------

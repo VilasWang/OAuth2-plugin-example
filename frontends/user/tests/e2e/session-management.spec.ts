@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { setupMocks, loginUser } from './helpers/mock-api'
+import { setupMocks, loginUser, MOCK_TOKEN_PAIR, MOCK_REFRESHED_TOKEN_PAIR } from './helpers/mock-api'
 
 test.describe('Session Management', () => {
   test.beforeEach(async ({ page }) => {
@@ -38,21 +38,13 @@ test.describe('Session Management', () => {
           await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
-              access_token: 'refreshed-access-token',
-              refresh_token: 'new-refresh-token',
-              expires_in: 3600,
-            }),
+            body: JSON.stringify(MOCK_REFRESHED_TOKEN_PAIR),
           })
         } else {
           await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
-              access_token: 'mock-access-token',
-              refresh_token: 'mock-refresh-token',
-              expires_in: 3600,
-            }),
+            body: JSON.stringify(MOCK_TOKEN_PAIR),
           })
         }
       })
