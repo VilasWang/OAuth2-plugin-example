@@ -64,7 +64,7 @@ npx playwright test                                # E2E
 
 Six log levels mirror Drogon/Trantor (trace < debug < info < warn < error <
 fatal). Full definitions and typical use cases are in
-[docs/backend/observability.md §3.2](docs/backend/observability.md). Quick
+[docs/operate/observability.md §3.2](docs/operate/observability.md). Quick
 guide:
 
 | Level | When to use |

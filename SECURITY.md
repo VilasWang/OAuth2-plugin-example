@@ -35,7 +35,7 @@ in the [README](README.md#releases--supply-chain-security).
 
 ## Hardening Guidance
 
-- [Security Architecture](docs/backend/security-architecture.md)
-- [Security Hardening Guide](docs/backend/security-hardening.md)
-- [Production Security Checklist](docs/ops/security-checklist.md)
-- [Account Lockout](docs/ops/account-lockout.md)
+- [Security Architecture](docs/architecture/security-architecture.md)
+- [Security Architecture](docs/architecture/security-architecture.md)
+- [Production Security Checklist](docs/architecture/security-architecture.md)
+- [Account Lockout](docs/operate/account-lockout.md)

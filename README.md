@@ -31,13 +31,13 @@ roadmap).
 
 | Domain | Capabilities | Deep dive |
 |--------|--------------|-----------|
-| **Authentication** | Login/registration, email verification, password reset, TOTP MFA, WebAuthn (FIDO2), Google/WeChat social login, progressive account lockout | [Security Architecture](docs/backend/security-architecture.md) |
-| **Authorization (OAuth2/OIDC)** | Auth-code + PKCE, client-credentials, refresh rotation, device flow, dynamic client registration, user consent, introspection, revocation, OIDC discovery/JWKS/UserInfo, end-session with front/back-channel logout | [Architecture Overview](docs/backend/architecture-overview.md) |
-| **Access control** | RBAC (built-in admin/user + custom roles), granular scopes, DB-driven resource-scope registry, triple check (client restriction + role + consent) | [RBAC Guide](docs/backend/rbac-guide.md) |
+| **Authentication** | Login/registration, email verification, password reset, TOTP MFA, WebAuthn (FIDO2), Google/WeChat social login, progressive account lockout | [Security Architecture](docs/architecture/security-architecture.md) |
+| **Authorization (OAuth2/OIDC)** | Auth-code + PKCE, client-credentials, refresh rotation, device flow, dynamic client registration, user consent, introspection, revocation, OIDC discovery/JWKS/UserInfo, end-session with front/back-channel logout | [Architecture Overview](docs/architecture/architecture-overview.md) |
+| **Access control** | RBAC (built-in admin/user + custom roles), granular scopes, DB-driven resource-scope registry, triple check (client restriction + role + consent) | [RBAC Guide](docs/domains/rbac-guide.md) |
 | **Token lifecycle** | Issuance, TTL-bounded retention, family-based refresh rotation, revocation by token/client/user, cache-aside with delayed double-delete invalidation | — |
 | **Multi-tenancy** | Organizations, org-scoped clients and users, tenant-aware administration | — |
-| **Observability** | Prometheus metrics, structured audit log (login/token/password events), health probes (live/ready) | [Observability](docs/backend/observability.md) |
-| **Operations** | Docker Compose / Helm deploys, cosign-signed multi-arch images, SBOMs, config-file + env-driven configuration | [Production Deployment](docs/ops/deployment.md) |
+| **Observability** | Prometheus metrics, structured audit log (login/token/password events), health probes (live/ready) | [Observability](docs/operate/observability.md) |
+| **Operations** | Docker Compose / Helm deploys, cosign-signed multi-arch images, SBOMs, config-file + env-driven configuration | [Production Deployment](docs/operate/deployment.md) |
 
 ## Module Map
 
@@ -280,7 +280,7 @@ find_package(fulla-storage-memory CONFIG REQUIRED)
 target_link_libraries(my-engine PRIVATE fulla::oauth2 fulla::storage::memory)
 ```
 
-> v1.x promises **source-level SemVer** for the public headers (`include/fulla/**`), enforced by an api-diff gate in CI — no binary ABI guarantee. Resolve third-party dependencies with the repository's `conanfile.py` + `conan.lock`. Details: [SDK Integration Guide](docs/backend/sdk-integration-guide.md) · [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md); reference consumers: [`examples/full-stack-host`](examples/full-stack-host), [`examples/third-party-host`](examples/third-party-host) (both CI-verified).
+> v1.x promises **source-level SemVer** for the public headers (`include/fulla/**`), enforced by an api-diff gate in CI — no binary ABI guarantee. Resolve third-party dependencies with the repository's `conanfile.py` + `conan.lock`. Details: [SDK Integration Guide](docs/sdk/sdk-integration-guide.md) · [SDK Runtime Contract](docs/sdk/sdk-runtime-contract.md); reference consumers: [`examples/full-stack-host`](examples/full-stack-host), [`examples/third-party-host`](examples/third-party-host) (both CI-verified).
 
 ### Path D — Client SDKs (Python / Go)
 
@@ -320,7 +320,7 @@ Both are generated from the single-source OpenAPI spec (`apps/server/openapi.yam
 helm install fulla deploy/helm/fulla -f my-values.yaml
 ```
 
-Full walkthroughs: [Production Deployment Guide](docs/ops/deployment.md) · [Windows / Docker Desktop](docs/ops/deployment-windows-docker-desktop.md) · [Security Checklist](docs/ops/security-checklist.md)
+Full walkthroughs: [Production Deployment Guide](docs/operate/deployment.md) · [Windows / Docker Desktop](docs/operate/deployment-windows-docker-desktop.md) · [Security Checklist](docs/architecture/security-architecture.md)
 
 ---
 
@@ -390,19 +390,21 @@ ctest --output-on-failure
 
 - **OpenAPI Spec**: [openapi.yaml](apps/server/openapi.yaml)
 - **Swagger UI**: `http://localhost:5555/docs/api` (requires Swagger UI static files)
-- **E2E Testing Guide**: [E2E_TESTING_GUIDE.md](docs/admin/e2e-testing-guide.md)
+- **E2E Testing Guide**: [Admin E2E Methodology](docs/contribute/admin-e2e-testing-guide.md)
 
 ---
 
 ## Documentation
 
-**Evaluating** — [Architecture Overview](docs/backend/architecture-overview.md) · [Security Architecture](docs/backend/security-architecture.md) · [RBAC Guide](docs/backend/rbac-guide.md)
+**Read the docs at [fulla.dev](https://fulla.dev)** — the site is built straight from this repo's `docs/` tree.
 
-**Integrating (SDK)** — [SDK Integration Guide](docs/backend/sdk-integration-guide.md) · [SDK Runtime Contract](docs/backend/sdk-runtime-contract.md) · [API Reference](docs/backend/api-reference.md)
+**Evaluating** — [Architecture Overview](docs/architecture/architecture-overview.md) · [Security Architecture](docs/architecture/security-architecture.md) · [RBAC Guide](docs/domains/rbac-guide.md) · [Benchmarks](benchmarks/competitors/results/COMPARISON.md)
 
-**Operating** — [Production Deployment](docs/ops/deployment.md) · [Configuration Guide](docs/backend/configuration-guide.md) · [Observability](docs/backend/observability.md) · [Account Lockout](docs/ops/account-lockout.md)
+**Integrating** — [SDK Integration Guide](docs/sdk/sdk-integration-guide.md) · [SDK Runtime Contract](docs/sdk/sdk-runtime-contract.md) · [API Reference](docs/domains/api-reference.md) · [OIDC Guide](docs/domains/oidc-guide.md)
 
-**Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md) · [Testing Guide](docs/backend/testing-guide.md) · [CI/CD Pipeline](docs/backend/ci-cd-guide.md) · [Versioning & Release](docs/backend/versioning-and-release.md)
+**Operating** — [Production Deployment](docs/operate/deployment.md) · [Configuration Guide](docs/operate/configuration-guide.md) · [Observability](docs/operate/observability.md) · [Account Lockout](docs/operate/account-lockout.md)
+
+**Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md) · [Testing Guide](docs/contribute/testing-guide.md) · [CI/CD Pipeline](docs/contribute/ci-cd-guide.md) · [Versioning & Release](docs/contribute/versioning-and-release.md)
 
 Full index: [docs/README.md](docs/README.md)
 

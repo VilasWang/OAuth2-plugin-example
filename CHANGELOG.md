@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 For the versioning policy (when to cut, what to bump, why), see
-[Versioning & Release](docs/backend/versioning-and-release.md).
+[Versioning & Release](docs/contribute/versioning-and-release.md).
 
 ## [Unreleased]
 
@@ -109,7 +109,7 @@ M0–M3（Keycloak 26.7.1 / Ory Hydra v26.2.0 / Zitadel v4.17.1 同环境套件
   Helm `values.yaml`）：升级动机是与基准环境对齐（四产品同 PG 版本的公平性 D1）
   及服务端 libpq 17.x 客户端对齐。**存量部署的 15 数据卷无法直接在 17 上启动**
   （PG 大版本拒绝挂载旧数据目录，数据库容器会循环重启）。升级前必须按
-  [docs/ops/postgresql-major-upgrade.md](docs/ops/postgresql-major-upgrade.md)
+  [docs/ops/postgresql-major-upgrade.md](docs/operate/postgresql-major-upgrade.md)
   做 dump/restore（或 pg_upgrade）。AuthForge 自身在 15 vs 17 的基准差异在
   噪声带内，本次升级对自身吞吐无诉求；不急于升级的部署可把镜像 tag 钉回
   `postgres:15-alpine`（应用与 15 完全兼容）。
@@ -326,7 +326,7 @@ v1.0.0 以来的首次正式發布。涵蓋 842 個 commit，包含完整的 OID
 ### ⚠️ Breaking (security hardening)
 
 > 以下變更收緊了原本寬鬆（且多為 spec 違規）的行為。按版本策略
-> ([§3](docs/backend/versioning-and-release.md#3-安全-hardening-的灰色地带显式取舍声明))
+> ([§3 ](docs/contribute/versioning-and-release.md#3-安全-hardening-的灰色地带显式取舍声明))
 > 在 MINOR 內推進，不升 MAJOR。依賴舊寬鬆行為的下游需對照遷移。
 
 - **PKCE 對 PUBLIC 客戶端強制**（RFC 9700 §2.1.1）：`require_pkce_for_public`
