@@ -178,8 +178,22 @@ void wireIdentityServices()
     // back the self-service /api/me/social/links* routes. Process-lifetime
     // static (same contract as the services above) so the raw pointer handed
     // to the controller singleton stays valid.
+    // #73b: the last-credential guard also counts WebAuthn credentials when
+    // built with WebAuthn support (passkey-only users may unlink their last
+    // social link). cryptoProvider is wired for the server-side link-state
+    // flow (#71).
+#if defined(WITH_WEBAUTHN)
+    std::shared_ptr<fulla::identity::IWebAuthnRepository> linkGuardWebAuthnRepo = webAuthnRepo;
+#else
+    std::shared_ptr<fulla::identity::IWebAuthnRepository> linkGuardWebAuthnRepo = nullptr;
+#endif
     static auto socialLinkService = std::make_shared<fulla::identity::SocialLinkService>(
-      gitHubAuthService, googleAuthService, weChatAuthService, socialAccountRepo
+      gitHubAuthService,
+      googleAuthService,
+      weChatAuthService,
+      socialAccountRepo,
+      linkGuardWebAuthnRepo,
+      crypto
     );
 #endif  // WITH_SOCIAL
 

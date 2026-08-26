@@ -9,6 +9,7 @@
 #include <fulla/identity/SocialLinkService.h>
 #include <fulla/identity/testing/FakeOAuthHttpClient.h>
 #include <fulla/identity/testing/FakeSocialAccountRepository.h>
+#include <fulla/identity/testing/FakeWebAuthnRepository.h>
 
 #include <gtest/gtest.h>
 
@@ -454,3 +455,120 @@ TEST(SocialLinkServiceTest, List_RepositoryError)
 }
 
 #endif  // WITH_SOCIAL
+
+
+// --------------------- #73: last-credential guard refinements -------------
+
+namespace
+{
+// Fixture variant wiring a FakeWebAuthnRepository into the service (the
+// default fixture passes nullptr, preserving the password-only guard).
+struct LinkServiceWithWebAuthnFixture : LinkServiceFixture
+{
+    std::shared_ptr<FakeWebAuthnRepository> webauthn = std::make_shared<FakeWebAuthnRepository>();
+
+    LinkServiceWithWebAuthnFixture()
+        : LinkServiceFixture()
+    {
+        svc = std::make_shared<SocialLinkService>(github, google, wechat, repo, webauthn);
+    }
+
+    void addPasskey(int32_t userId)
+    {
+        webauthn->credentials["cred-" + std::to_string(userId)] =
+          StoredCredential{userId, "pk", "key", 0, 0, std::nullopt};
+    }
+};
+}  // namespace
+
+// #73b: a passkey IS a usable credential -- the last social link of a
+// passwordless, passkey-holding user may be unlinked (was a false 409).
+TEST(SocialLinkServiceTest, Unlink_LastCredential_WithPasskey_Allowed)
+{
+    LinkServiceWithWebAuthnFixture f;
+    f.repo->linked[FakeSocialAccountRepository::key("github", "4242")] = lookupFor(7);
+    f.addPasskey(7);
+
+    auto result = runUnlink(*f.svc, "github", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::Ok);
+    EXPECT_FALSE(result.lockoutRiskObserved);
+    EXPECT_EQ(f.repo->linked.count(FakeSocialAccountRepository::key("github", "4242")), 0u);
+}
+
+// #73b control: no password AND no passkey (empty registry) still refuses.
+TEST(SocialLinkServiceTest, Unlink_LastCredential_NoPasswordNoPasskey_Refused)
+{
+    LinkServiceWithWebAuthnFixture f;
+    f.repo->linked[FakeSocialAccountRepository::key("github", "4242")] = lookupFor(7);
+
+    auto result = runUnlink(*f.svc, "github", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::LastCredentialGuard);
+}
+
+// #73b: webAuthnRepo == nullptr (dep not wired) keeps the old password-only
+// refusal for a passkey-only user -- unverifiable must not widen to "allow".
+TEST(SocialLinkServiceTest, Unlink_LastCredential_NullWebAuthnRepo_OldBehavior)
+{
+    LinkServiceFixture f;  // no webAuthnRepo wired
+    f.repo->linked[FakeSocialAccountRepository::key("github", "4242")] = lookupFor(7);
+
+    auto result = runUnlink(*f.svc, "github", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::LastCredentialGuard);
+}
+
+// #73a: concurrent-unlink race detection. Two links observed up front (guard
+// skipped); by the time the post-delete re-read runs, the OTHER link is also
+// gone and the user has no usable credential -> Ok + lockoutRiskObserved.
+TEST(SocialLinkServiceTest, Unlink_MultiLink_RaceToZeroCredentials_FlagsLockoutRisk)
+{
+    LinkServiceWithWebAuthnFixture f;
+    f.repo->linked[FakeSocialAccountRepository::key("github", "4242")] = lookupFor(7);
+    f.repo->linked[FakeSocialAccountRepository::key("google", "g1")] = lookupFor(7);
+
+    // Simulate the racing unlink: remove the google link the moment the
+    // github delete starts (deleteLink on the fake mutates synchronously, so
+    // the re-read inside the Deleted callback sees the empty set).
+    f.repo->onDeleteStart = [fakeRepo = f.repo.get()]() {
+        fakeRepo->linked.erase(FakeSocialAccountRepository::key("google", "g1"));
+    };
+
+    auto result = runUnlink(*f.svc, "github", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::Ok);
+    EXPECT_TRUE(result.lockoutRiskObserved);
+}
+
+// #73a control: same race shape but the user still has a password -> no flag.
+TEST(SocialLinkServiceTest, Unlink_MultiLink_RaceWithPasswordRemaining_NoFlag)
+{
+    LinkServiceWithWebAuthnFixture f;
+    f.repo->linked[FakeSocialAccountRepository::key("github", "4242")] = lookupFor(7);
+    f.repo->linked[FakeSocialAccountRepository::key("google", "g1")] = lookupFor(7);
+    f.repo->usersWithUsablePassword.insert(7);
+    f.repo->onDeleteStart = [fakeRepo = f.repo.get()]() {
+        fakeRepo->linked.erase(FakeSocialAccountRepository::key("google", "g1"));
+    };
+
+    auto result = runUnlink(*f.svc, "github", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::Ok);
+    EXPECT_FALSE(result.lockoutRiskObserved);
+}
+
+// #73a control: no race (other link still present after delete) -> no flag.
+TEST(SocialLinkServiceTest, Unlink_MultiLink_NoRace_NoFlag)
+{
+    LinkServiceFixture f;
+    f.repo->linked[FakeSocialAccountRepository::key("github", "4242")] = lookupFor(7);
+    f.repo->linked[FakeSocialAccountRepository::key("google", "g1")] = lookupFor(7);
+    f.repo->usersWithUsablePassword.insert(7);  // guard would pass anyway
+
+    auto result = runUnlink(*f.svc, "github", 7);
+
+    EXPECT_EQ(result.status, SocialLinkOpStatus::Ok);
+    EXPECT_FALSE(result.lockoutRiskObserved);
+    EXPECT_EQ(f.repo->linked.count(FakeSocialAccountRepository::key("google", "g1")), 1u);
+}
