@@ -1,0 +1,44 @@
+name: "\U0001F4A1 Feature request"
+description: Suggest a capability or improvement
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component / domain
+      options:
+        - Authentication (password / MFA / WebAuthn / social login)
+        - Authorization (OAuth2 / OIDC flows, scopes, consent)
+        - Token lifecycle (issue / refresh / introspect / revoke)
+        - Multi-tenancy / organizations
+        - Admin console (frontends/admin)
+        - User frontend (frontends/user)
+        - C++ SDK
+        - Python client (fulla-oauth2)
+        - Go client
+        - Deployment & ops (Docker / Helm / observability)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What are you trying to achieve that the project currently makes hard or impossible?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What should exist instead? Rough is fine — references to other products or RFCs help.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you can live with, or designs you rejected.

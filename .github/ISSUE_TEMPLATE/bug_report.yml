@@ -1,0 +1,70 @@
+name: "\U0001F41B Bug report"
+description: Something is broken or behaves incorrectly
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component / domain
+      options:
+        - Authentication (password / MFA / WebAuthn / social login)
+        - Authorization (OAuth2 / OIDC flows, scopes, consent)
+        - Token lifecycle (issue / refresh / introspect / revoke)
+        - Admin console (frontends/admin)
+        - User frontend (frontends/user)
+        - C++ SDK (find_package / headers)
+        - Python client (fulla-oauth2)
+        - Go client
+        - Deployment & ops (Docker / Helm / config)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Server version (GitHub Release tag) and, if relevant, client package version. e.g. v1.0.0 / fulla-oauth2 1.0.0"
+      placeholder: "v1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment mode
+      options:
+        - Docker Compose (dev)
+        - Docker Compose (prod)
+        - Helm / Kubernetes
+        - Built from source
+        - Embedded via C++ SDK
+        - Client SDK only (no server)
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the incorrect behavior, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal reproduction — endpoint calls, config snippets, or UI clicks. Include request/response where possible.
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / error envelope
+      description: Server logs, error envelopes (code/message/request_id), or browser console output. Redact secrets.
+      render: text
