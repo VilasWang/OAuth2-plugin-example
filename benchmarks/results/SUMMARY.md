@@ -1,11 +1,11 @@
-# AuthForge HTTP 基准测试结果摘要
+# Fulla HTTP 基准测试结果摘要
 
 > **测试日期**: 2026-08-12（本文件 = 自测首版快照）
 > **Git SHA**: 1702246
 > **承重背景**: 验证 [调研报告 §3.1](../../docs/productization-evolution/productization-research.md) 的性能声明
 > **完整设计**: [benchmark-facility-design.md](../../docs/productization-evolution/in-progress/benchmark-facility-design.md)
 >
-> ⚠️ **2026-08-23 更新——本文件数字已过时（偏保守）**：后续性能优化计划（Redis 读缓存 wave-2 P0–P4、PG17 + 实例调优、bench 配档池 64/64 + cache-on + LTO、TTL=30 会话）大幅提升了实测值，且竞品同环境对比已完成。**当前权威数字见 [`benchmarks/competitors/results/COMPARISON.md`](../competitors/results/COMPARISON.md)**（2026-08-23 TTL=30 档，同环境四产品对比，AuthForge **五场景全部领先**）：S1 discovery 87.5k（Keycloak 41.1k）、S2 client_credentials **14.4k**（本文件 8.9k → +62%）、S3 introspect **22.5k**（17.1k）、S5 refresh **5.5k**（2.0k）、S6 userinfo **49.3k**（16.7k → +195%）。本文件保留作为优化前基线与承重假设首验记录。
+> ⚠️ **2026-08-23 更新——本文件数字已过时（偏保守）**：后续性能优化计划（Redis 读缓存 wave-2 P0–P4、PG17 + 实例调优、bench 配档池 64/64 + cache-on + LTO、TTL=30 会话）大幅提升了实测值，且竞品同环境对比已完成。**当前权威数字见 [`benchmarks/competitors/results/COMPARISON.md`](../competitors/results/COMPARISON.md)**（2026-08-23 TTL=30 档，同环境四产品对比，Fulla **五场景全部领先**）：S1 discovery 87.5k（Keycloak 41.1k）、S2 client_credentials **14.4k**（本文件 8.9k → +62%）、S3 introspect **22.5k**（17.1k）、S5 refresh **5.5k**（2.0k）、S6 userinfo **49.3k**（16.7k → +195%）。本文件保留作为优化前基线与承重假设首验记录。
 
 ---
 
@@ -17,7 +17,7 @@
 | **WSL2 虚拟机** | 8 vCPU, 16 GB RAM (`.wslconfig` 分配) |
 | **Docker** | Docker Desktop 29.7.2, WSL2 集成 |
 | **压测工具** | wrk 4.1.0 (Debian, epoll) |
-| **目标栈** | postgres:15-alpine + redis:7-alpine + authforge-backend (Docker overlay 网络) |
+| **目标栈** | postgres:15-alpine + redis:7-alpine + fulla-backend (Docker overlay 网络) |
 | **后端配置** | `config.bench.json` — PG 连接池=25, Redis 连接池=20, log_level=WARN |
 | **网络拓扑** | localhost cross-container (wrk 在 WSL 内, target 在 Docker overlay) |
 | **压测参数** | 阶梯 2→4→8→16→32→64→128 连接; 5s 预热 (丢弃) + 10s 测量; S4 强制 -t==-c |
@@ -111,7 +111,7 @@
 
 ## 承重假设验证（对照调研报告 §3.1）
 
-> 调研报告 §3.1 的 AuthForge 列标注为"目标值，待 benchmark 验证"。以下是实测裁决。
+> 调研报告 §3.1 的 Fulla 列标注为"目标值，待 benchmark 验证"。以下是实测裁决。
 
 | 声明 | 实测 | 裁决 | 说明 |
 |------|------|------|------|
@@ -147,9 +147,9 @@
 
 快赢档（noncode-performance-optimization.md §八）对 20260817-03965fa 基线的
 同机对比：cache on（Redis 池 20→64）+ PG 实例调优（shared_buffers 4GB /
-checkpoint 15min / max_wal_size 4GB 等，见 `benchmarks/authforge/docker-compose.bench.yml`）
+checkpoint 15min / max_wal_size 4GB 等，见 `benchmarks/fulla/docker-compose.bench.yml`）
 + bench 档微优化（gzip/brotli/server/date 头关、去 PromExporter）。完整阶梯
-JSON：`20260818-8838ac6-*.json`；GC 抖动：`competitors/results/20260818-8838ac6-authforge-gcjitter.json`。
+JSON：`20260818-8838ac6-*.json`；GC 抖动：`competitors/results/20260818-8838ac6-fulla-gcjitter.json`。
 
 | 场景 | 基线峰值 (c) | 快赢峰值 (c) | 变化 | 各档一致性 |
 |---|---|---|---|---|
@@ -183,7 +183,7 @@ Redis 客户端批处理 —— 发布前按 §六.4 补 PG 侧证据）。
 
 第二步档（V025 audit 月度分区 + BRIN / PG 15→17 / db 池 25→64）对快赢档
 （8838ac6）与原始基线（03965fa）的同机对比。完整数据：
-`20260818-a9d6327-*.json` + `competitors/results/20260818-a9d6327-authforge-gcjitter.json`。
+`20260818-a9d6327-*.json` + `competitors/results/20260818-a9d6327-fulla-gcjitter.json`。
 
 **对快赢档（增量归因）**：吞吐中性偏差（S1 -5%、S2 -4~-14%、S6 高并发 -9%，
 均在会话漂移噪声带内；S1 不触库也 -5% 即为漂移佐证）。**文档预估的
@@ -271,7 +271,7 @@ A/B + V026 线，第二亲 8679d72 = WSL 会话的 deploy PG17 升级线；auto_
 bench/default/prod 全 true）。合并对 bench 环境无功能性差异（bench 栈本就经 overlay 锁
 PG17、config.bench.json 未变），本复测确认合并树健康并取代跨日旧数成为后续对照基线。
 
-全套同会话协议（`run-authforge-session.sh`：S1/S2/S3/S5/S6 × c2–c128，WARMUP_S=5
+全套同会话协议（`run-fulla-session.sh`：S1/S2/S3/S5/S6 × c2–c128，WARMUP_S=5
 DURATION_S=10，GC 抖动 30×10s，冷启动×2）：
 
 | 场景 | 昨日 true 臂峰值 (3c1ced3) | 本日峰值 (97c9254) | 峰值变化 | 备注 |
@@ -300,10 +300,10 @@ S3/S6 偏低判读为**跨日环境方差而非合并回归**：① 昨日两臂
 ```bash
 # 1. 配置 WSL2（.wslconfig: processors=8, memory=16GB）
 # 2. 启动栈 + 种子 + token 池 + 预热
-bash benchmarks/authforge/setup.sh
+bash benchmarks/fulla/setup.sh
 
 # 3. 跑阶梯测试
-bash benchmarks/authforge/run-scenario.sh scenarios/s1-discovery.lua 2 4 8 16 32 64 128
+bash benchmarks/fulla/run-scenario.sh scenarios/s1-discovery.lua 2 4 8 16 32 64 128
 # ... 对 S2–S6 重复
 
 # 4. 查看结果
