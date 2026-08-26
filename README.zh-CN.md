@@ -16,6 +16,39 @@ Fulla 是以 C++17 构建的**高性能开源身份与访问管理（IAM）核�
 
 ---
 
+## 能力地图（Capability Map）
+
+产品按领域能做什么。深入文档在 `docs/` 下（会话管理、令牌生命周期、多租户三篇深度文档在文档路线图中）。
+
+| 领域 | 能力 | 深入文档 |
+|------|------|----------|
+| **认证** | 登录/注册、邮箱验证、密码重置、TOTP MFA、WebAuthn (FIDO2)、Google/微信社交登录、渐进式账户锁定 | [安全架构](docs/backend/security-architecture.md) |
+| **授权（OAuth2/OIDC）** | 授权码 + PKCE、client-credentials、刷新轮换、设备流、动态客户端注册、用户同意、内省、吊销、OIDC discovery/JWKS/UserInfo、含前/后向通道登出的 end-session | [架构总览](docs/backend/architecture-overview.md) |
+| **访问控制** | RBAC（内置 admin/user + 自定义角色）、细粒度 scope、DB 驱动的资源 scope 注册表、三重校验（客户端限制 + 角色 + 同意） | [RBAC 指南](docs/backend/rbac-guide.md) |
+| **令牌生命周期** | 签发、TTL 约束保留、基于家族的刷新轮换、按令牌/客户端/用户吊销、延迟双删的缓存旁路失效 | — |
+| **多租户** | 组织、组织级客户端与用户、租户感知的管理 | — |
+| **可观测性** | Prometheus 指标、结构化审计日志（登录/令牌/密码事件）、健康探针（live/ready） | [可观测性](docs/backend/observability.md) |
+| **运维** | Docker Compose / Helm 部署、cosign 签名多架构镜像、SBOM、配置文件 + 环境变量驱动配置 | [生产部署](docs/ops/deployment.md) |
+
+## 模块地图（Module Map）
+
+[SDK 分层](#sdk-分层)图背后的 8 个 CMake 包——各自负责什么、公共头在哪（`libs/<name>/include/fulla/…`）：
+
+| 包 | 职责 | 备注 |
+|----|------|------|
+| `fulla::common` | 共享内核：值对象、Result、错误目录、端口（时钟/加密/指标/邮件/审计） | 零 Drogon 依赖 |
+| `fulla::oauth2` | OAuth2/OIDC 引擎：授权流、令牌服务、PKCE、JWK 管理、scope 决策引擎 | 协议核心，存储无关 |
+| `fulla::identity` | 认证域：用户、会话、MFA、WebAuthn、社交账号、角色提供 | 构建期可选 |
+| `fulla::drogon` | Drogon 适配层：HTTP 控制器、过滤器、视图、OAuth2 插件、管理服务 | 服务器宿主链接的包 |
+| `fulla::storage::memory` | 内存仓储实现（测试、嵌入式单进程场景） | 零外部依赖 |
+| `fulla::storage::postgres` | PostgreSQL 仓储 + Drogon ORM 模型、schema 管理 | PostgreSQL 14+ |
+| `fulla::storage::redis` | Redis 缓存旁路层（延迟双删失效） | 包装任意仓储层 |
+| `fulla::storage` 契约 | `IClientRepository` / `IGrantRepository` / `ITokenRepository` / `IConsentRepository` | 契约测试套件跨实现验证 |
+
+通过 Conan/CMake 选项（`with_identity` / `with_social` / `with_webauthn`）收缩功能面，SDK 消费方只拉取所需部分。
+
+---
+
 ## 项目架构
 
 ```

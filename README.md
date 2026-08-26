@@ -23,6 +23,43 @@ test suite.
 
 ---
 
+## Capability Map
+
+What the product does, by domain. Deep-dive links go to the guides under `docs/`
+(session management, token lifecycle and multi-tenancy deep-dives are on the docs
+roadmap).
+
+| Domain | Capabilities | Deep dive |
+|--------|--------------|-----------|
+| **Authentication** | Login/registration, email verification, password reset, TOTP MFA, WebAuthn (FIDO2), Google/WeChat social login, progressive account lockout | [Security Architecture](docs/backend/security-architecture.md) |
+| **Authorization (OAuth2/OIDC)** | Auth-code + PKCE, client-credentials, refresh rotation, device flow, dynamic client registration, user consent, introspection, revocation, OIDC discovery/JWKS/UserInfo, end-session with front/back-channel logout | [Architecture Overview](docs/backend/architecture-overview.md) |
+| **Access control** | RBAC (built-in admin/user + custom roles), granular scopes, DB-driven resource-scope registry, triple check (client restriction + role + consent) | [RBAC Guide](docs/backend/rbac-guide.md) |
+| **Token lifecycle** | Issuance, TTL-bounded retention, family-based refresh rotation, revocation by token/client/user, cache-aside with delayed double-delete invalidation | — |
+| **Multi-tenancy** | Organizations, org-scoped clients and users, tenant-aware administration | — |
+| **Observability** | Prometheus metrics, structured audit log (login/token/password events), health probes (live/ready) | [Observability](docs/backend/observability.md) |
+| **Operations** | Docker Compose / Helm deploys, cosign-signed multi-arch images, SBOMs, config-file + env-driven configuration | [Production Deployment](docs/ops/deployment.md) |
+
+## Module Map
+
+The 8 CMake packages behind the [SDK layering](#sdk-layering) diagram — what each owns
+and where its public headers live (`libs/<name>/include/fulla/…`):
+
+| Package | Owns | Notes |
+|---------|------|-------|
+| `fulla::common` | Shared kernel: value objects, Result, error catalog, ports (clock, crypto, metrics, email, audit) | Zero Drogon dependency |
+| `fulla::oauth2` | OAuth2/OIDC engine: grant flows, token service, PKCE, JWK manager, scope decision engine | Protocol core, storage-agnostic |
+| `fulla::identity` | Authentication domain: users, sessions, MFA, WebAuthn, social accounts, role provider | Optional at build time |
+| `fulla::drogon` | Drogon adapters: HTTP controllers, filters, views, OAuth2 plugin, admin services | What a server host links |
+| `fulla::storage::memory` | In-memory repositories (tests, embedded single-process use) | Zero external deps |
+| `fulla::storage::postgres` | PostgreSQL repositories + Drogon ORM models, schema manager | PostgreSQL 14+ |
+| `fulla::storage::redis` | Redis cache-aside layer with delayed double-delete invalidation | Wraps any repository tier |
+| `fulla::storage` concepts | `IClientRepository` / `IGrantRepository` / `ITokenRepository` / `IConsentRepository` contracts | Verified cross-tier by the contract test suite |
+
+Feature surface shrinks via Conan/CMake options (`with_identity` / `with_social` /
+`with_webauthn`) so SDK consumers only pull what they use.
+
+---
+
 ## Architecture
 
 ```
