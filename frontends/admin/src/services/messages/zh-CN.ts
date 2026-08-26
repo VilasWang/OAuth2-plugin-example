@@ -44,6 +44,7 @@ export const zhCN: Record<string, string> = {
   VALIDATION_VERIFICATION_TOKEN_INVALID: '验证链接已失效，请重新发送邮件',
   VALIDATION_DEVICE_CODE_INVALID: '设备码无效、已过期或已被处理',
   VALIDATION_RATE_LIMITED: '请求过于频繁，请稍后重试',
+  VALIDATION_REDIRECT_URI_NOT_REGISTERED: '登出重定向地址未注册',
   AUTH_MFA_CODE_INVALID: '验证码不正确',
   AUTH_MFA_NOT_CONFIGURED: '尚未设置双重验证，请先完成设置',
 

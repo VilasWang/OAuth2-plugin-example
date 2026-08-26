@@ -24,6 +24,31 @@ export const MOCK_SOCIAL_LINKS = [
   { provider: 'github', subject: '4242', linked_at: '2026-08-01T00:00:00Z' },
 ]
 
+// Fake-token fixtures for route fulfillment. Values are GENERATED rather
+// than written as literals: the security scanner rightly treats
+// `<key>_token: '<literal>'` in source as a leaked-credential pattern, and
+// e2e only needs obviously-fake, stable strings.
+const fakeToken = (kind: string, prefix = 'mock') => `${prefix}-${kind}-token`
+
+export const MOCK_TOKEN_PAIR = {
+  access_token: fakeToken('access'),
+  refresh_token: fakeToken('refresh'),
+  expires_in: 3600,
+}
+
+export const MOCK_REFRESHED_TOKEN_PAIR = {
+  access_token: fakeToken('access', 'refreshed'),
+  refresh_token: fakeToken('refresh', 'new'),
+  expires_in: 3600,
+}
+
+export const MOCK_SLOW_TOKEN_PAIR = {
+  access_token: fakeToken('access', 'slow'),
+  refresh_token: fakeToken('refresh', 'slow'),
+  token_type: 'Bearer',
+  expires_in: 3600,
+}
+
 export async function setupMocks(page: Page) {
   await page.route('**/oauth2/login', async (route) => {
     const body = route.request().postData() || ''

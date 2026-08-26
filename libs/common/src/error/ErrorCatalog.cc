@@ -65,9 +65,9 @@ struct RawEntry
 
 // Verbatim copy of oauth2::error::ErrorCatalog's table (numeric codes/messages
 // preserved unchanged); grows as new codes are ratified.
-const std::array<RawEntry, 26> &rawEntries()
+const std::array<RawEntry, 27> &rawEntries()
 {
-    static const std::array<RawEntry, 26> kEntries = {{
+    static const std::array<RawEntry, 27> kEntries = {{
       // NETWORK (1000-1099)
       {"NET_CONNECTION_FAILED",
        1001,
@@ -198,6 +198,14 @@ const std::array<RawEntry, 26> &rawEntries()
        "请求过于频繁，请稍后重试",
        "Hodor 限流拒绝（VALIDATION 类，HTTP 429）",
        429},
+      // #88：end_session 的 post_logout_redirect_uri 未注册到 id_token_hint
+      // 的任一 aud 客户端（原为纯文本 400，迁移至 Error Envelope）。
+      {"VALIDATION_REDIRECT_URI_NOT_REGISTERED",
+       3013,
+       ErrorCategory::VALIDATION,
+       "登出重定向地址未注册",
+       "end_session 的 post_logout_redirect_uri 未注册（VALIDATION 类，HTTP 400）",
+       400},
 
       // AUTHENTICATION (4000-4099) —— MFA 补充缺口。
       {"AUTH_MFA_CODE_INVALID",

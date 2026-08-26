@@ -14,6 +14,7 @@
 #include <functional>
 #include <json/json.h>
 #include <sstream>
+#include <vector>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <fulla/drogon/validation/RuleSet.h>
 #include <fulla/drogon/validation/HttpResponder.h>
@@ -1365,9 +1366,42 @@ void SessionController::endSession(
     // oauth2_access_tokens.user_id), then the VERIFIED id_token_hint's sub
     // claim (#78: unreachable for unverified hints -- they 400 above).
     // Bearer-style callers without either stay unattributed (no notify).
-    std::string hintClientId;
-    if (hintPayload.isMember("aud") && hintPayload["aud"].isString())
-        hintClientId = hintPayload["aud"].asString();
+    //
+    // #88: the aud claim may be a string OR an array of strings (RFC 7519
+    // §4.1.3; OIDC allows multi-audience id_tokens). Collect every string
+    // element as a client-identification candidate; the post-logout redirect
+    // validation tries each against the client registry (fail-closed only
+    // when none validates).
+    std::vector<std::string> audCandidates;
+    if (hintPayload.isMember("aud"))
+    {
+        if (hintPayload["aud"].isString())
+        {
+            if (!hintPayload["aud"].asString().empty())
+                audCandidates.push_back(hintPayload["aud"].asString());
+        }
+        else if (hintPayload["aud"].isArray())
+        {
+            for (const auto &element : hintPayload["aud"])
+            {
+                if (element.isString() && !element.asString().empty())
+                    audCandidates.push_back(element.asString());
+            }
+        }
+        // A present-but-unusable aud structure (e.g. [42]) is not an
+        // id_token this OP would issue: reject rather than degrade to the
+        // no-hint path below.
+        if (!idTokenHint.empty() && audCandidates.empty())
+        {
+            respondError(
+              req,
+              callback,
+              "AUTH_INVALID_ID_TOKEN_HINT",
+              "end_session: id_token_hint aud claim carries no usable client identifier"
+            );
+            return;
+        }
+    }
     std::string subject;
     if (req->session())
         subject = req->session()->get<std::string>("sub");
@@ -1394,20 +1428,23 @@ void SessionController::endSession(
 
     if (!postLogoutRedirectUri.empty())
     {
-        // hintClientId comes from the up-front id_token_hint decode above.
+        // audCandidates come from the up-front verified id_token_hint decode
+        // above (#88: possibly several, for a multi-audience array aud).
 
-        // Async: validateRedirectUri resolves the client's registered URIs.
         // Without an id_token_hint (no client to attribute the URI to) we
         // reject immediately -- this server requires pre-registration per
-        // §2.3 ("the OP MAY require pre-registration").
-        if (hintClientId.empty())
+        // §2.3 ("the OP MAY require pre-registration"). #88: enveloped as
+        // AUTH_INVALID_ID_TOKEN_HINT (was a plain-text body), still routed
+        // through finish so no backchannel notification fires.
+        if (audCandidates.empty())
         {
-            auto resp = ::drogon::HttpResponse::newHttpResponse();
-            resp->setStatusCode(::drogon::k400BadRequest);
-            resp->setBody(
-              "post_logout_redirect_uri requires a valid id_token_hint for client identification"
+            respondError(
+              req,
+              [finish](const ::drogon::HttpResponsePtr &r) mutable { finish("", r); },
+              "AUTH_INVALID_ID_TOKEN_HINT",
+              "end_session: post_logout_redirect_uri requires a valid id_token_hint "
+              "for client identification"
             );
-            finish("", resp);
             return;
         }
         if (!plugin)
@@ -1418,35 +1455,56 @@ void SessionController::endSession(
             finish("", resp);
             return;
         }
-        plugin->validateRedirectUri(
-          hintClientId,
-          postLogoutRedirectUri,
-          [req, postLogoutRedirectUri, state, finish, subject](bool valid) mutable {
-              if (!valid)
+        // Try each aud candidate against the client registry in order; the
+        // first that owns the redirect URI wins, exhaustion is a 400 (#88:
+        // enveloped as VALIDATION_REDIRECT_URI_NOT_REGISTERED, was
+        // plain text). shared_ptr state: the chain outlives this stack frame
+        // and re-enters itself from validateRedirectUri's async callback.
+        auto candidates = std::make_shared<std::vector<std::string>>(std::move(audCandidates));
+        auto tryCandidate = std::make_shared<std::function<void(size_t)>>();
+        *tryCandidate =
+          [req, postLogoutRedirectUri, state, finish, subject, plugin, candidates, tryCandidate](
+            size_t index) mutable {
+              if (index >= candidates->size())
               {
-                  // §2.3: an invalid/unregistered post_logout_redirect_uri is a
-                  // client error -> 400 (do NOT redirect to it, do NOT notify).
-                  auto resp = ::drogon::HttpResponse::newHttpResponse();
-                  resp->setStatusCode(::drogon::k400BadRequest);
-                  resp->setBody(
-                    "post_logout_redirect_uri is not registered for the id_token_hint client"
+                  respondError(
+                    req,
+                    [finish](const ::drogon::HttpResponsePtr &r) mutable { finish("", r); },
+                    "VALIDATION_REDIRECT_URI_NOT_REGISTERED",
+                    "end_session: post_logout_redirect_uri is not registered for any "
+                    "id_token_hint client"
                   );
-                  finish("", resp);
                   return;
               }
-              // Terminate the server-side session (F-027/F-028) and notify the
-              // user's other RPs (#55).
-              if (req->session())
-                  req->session()->clear();
-              std::string location = postLogoutRedirectUri;
-              if (!state.empty())
-                  location += (location.find('?') == std::string::npos ? "?" : "&") +
-                              std::string("state=") + ::drogon::utils::urlEncode(state);
-              auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-              resp->setStatusCode(::drogon::k302Found);
-              finish(subject, resp);
-          }
-        );
+              plugin->validateRedirectUri(
+                (*candidates)[index],
+                postLogoutRedirectUri,
+                [req, postLogoutRedirectUri, state, finish, subject, index, candidates,
+                 tryCandidate](bool valid) mutable {
+                    if (valid)
+                    {
+                        // Terminate the server-side session (F-027/F-028) and
+                        // notify the user's other RPs (#55).
+                        if (req->session())
+                            req->session()->clear();
+                        std::string location = postLogoutRedirectUri;
+                        if (!state.empty())
+                            location += (location.find('?') == std::string::npos ? "?" : "&") +
+                                        std::string("state=") +
+                                        ::drogon::utils::urlEncode(state);
+                        auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
+                        resp->setStatusCode(::drogon::k302Found);
+                        finish(subject, resp);
+                        return;
+                    }
+                    // §2.3: this candidate does not own the URI -- fail closed
+                    // across ALL candidates before answering (do NOT redirect,
+                    // do NOT notify).
+                    (*tryCandidate)(index + 1);
+                }
+              );
+            };
+        (*tryCandidate)(0);
         return;
     }
 
