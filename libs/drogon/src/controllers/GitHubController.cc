@@ -164,7 +164,12 @@ void GitHubController::login(
     std::string clientId = getGitHubConfig("client_id");
     std::string clientSecret = getGitHubConfig("client_secret");
 
-    if (clientId.empty() || clientSecret.empty())
+    // #111: empty OR still the YOUR_* template -> the provider is disabled;
+    // fail fast with an envelope instead of a doomed upstream call.
+    const auto credentialConfigured = [](const std::string &v) {
+        return !v.empty() && v.rfind("YOUR_", 0) != 0;
+    };
+    if (!credentialConfigured(clientId) || !credentialConfigured(clientSecret))
     {
         ::fulla::common::error::ErrorResponder::respond(
           req, std::move(callback), "INTERNAL_ERROR", "github login: GitHub OAuth not configured"

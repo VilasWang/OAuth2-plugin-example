@@ -34,6 +34,18 @@ void GoogleAuthService::login(
         return;
     }
 
+    // #111: a service constructed with empty/placeholder credentials (a
+    // disabled provider that still got wired, or a direct construction)
+    // must fail locally instead of calling the upstream with garbage.
+    if (clientId_.empty() || clientSecret_.empty() || clientId_.rfind("YOUR_", 0) == 0 ||
+        clientSecret_.rfind("YOUR_", 0) == 0)
+    {
+        GoogleLoginResult result;
+        result.errorCode = "NET_CONNECTION_FAILED";
+        callback(std::move(result));
+        return;
+    }
+
     auto httpClient = httpClient_;
     auto sharedCb = std::make_shared<std::function<void(GoogleLoginResult)>>(std::move(callback));
 

@@ -499,3 +499,54 @@ TEST(WeChatAuthServiceTest, Login_TokenExchangeNon200_ReturnsNetError)
 }
 
 #endif  // WITH_SOCIAL
+
+
+// ====================== #111: placeholder/empty credentials =================
+
+// A service constructed with empty credentials fails locally -- no upstream
+// call is attempted (the fake would throw on an exhausted queue anyway; the
+// explicit zero-call assertion pins the contract).
+TEST(GoogleAuthServiceTest, Login_EmptyCredentials_FailsLocallyWithoutHttpCall)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    GoogleAuthService service(http, "", "", "https://example.test/cb");
+    GoogleLoginResult result;
+    service.login("some-code", [&](GoogleLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+    EXPECT_TRUE(http->postFormCalls.empty());
+    EXPECT_TRUE(http->getCalls.empty());
+}
+
+TEST(GoogleAuthServiceTest, Login_PlaceholderCredentials_FailsLocallyWithoutHttpCall)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    GoogleAuthService service(http, "YOUR_GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_SECRET",
+                              "https://example.test/cb");
+    GoogleLoginResult result;
+    service.login("some-code", [&](GoogleLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+    EXPECT_TRUE(http->postFormCalls.empty());
+    EXPECT_TRUE(http->getCalls.empty());
+}
+
+TEST(WeChatAuthServiceTest, Login_EmptyCredentials_FailsLocallyWithoutHttpCall)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    WeChatAuthService service(http, "", "");
+    WeChatLoginResult result;
+    service.login("some-code", [&](WeChatLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+    EXPECT_TRUE(http->postFormCalls.empty());
+    EXPECT_TRUE(http->getCalls.empty());
+}
+
+TEST(WeChatAuthServiceTest, Login_PlaceholderCredentials_FailsLocallyWithoutHttpCall)
+{
+    auto http = std::make_shared<FakeOAuthHttpClient>();
+    WeChatAuthService service(http, "YOUR_WECHAT_APPID", "YOUR_WECHAT_SECRET");
+    WeChatLoginResult result;
+    service.login("some-code", [&](WeChatLoginResult r) { result = std::move(r); });
+    EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
+    EXPECT_TRUE(http->postFormCalls.empty());
+    EXPECT_TRUE(http->getCalls.empty());
+}

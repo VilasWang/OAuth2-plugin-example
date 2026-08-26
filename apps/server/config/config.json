@@ -213,16 +213,16 @@
         },
         "external_auth": {
             "github": {
-                "client_id": "YOUR_GITHUB_CLIENT_ID",
-                "client_secret": "YOUR_GITHUB_CLIENT_SECRET"
+                "client_id": "",
+                "client_secret": ""
             },
             "wechat": {
-                "appid": "YOUR_WECHAT_APPID",
-                "secret": "YOUR_WECHAT_SECRET"
+                "appid": "",
+                "secret": ""
             },
             "google": {
-                "client_id": "YOUR_GOOGLE_CLIENT_ID",
-                "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
+                "client_id": "",
+                "client_secret": "",
                 "redirect_uri": "http://localhost:5173/callback"
             }
         }

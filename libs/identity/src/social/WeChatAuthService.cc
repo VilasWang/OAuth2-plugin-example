@@ -30,6 +30,18 @@ void WeChatAuthService::login(
         return;
     }
 
+    // #111: a service constructed with empty/placeholder credentials (a
+    // disabled provider that still got wired, or a direct construction)
+    // must fail locally instead of calling the upstream with garbage.
+    if (appId_.empty() || secret_.empty() || appId_.rfind("YOUR_", 0) == 0 ||
+        secret_.rfind("YOUR_", 0) == 0)
+    {
+        WeChatLoginResult result;
+        result.errorCode = "NET_CONNECTION_FAILED";
+        callback(std::move(result));
+        return;
+    }
+
     auto httpClient = httpClient_;
     auto sharedCb = std::make_shared<std::function<void(WeChatLoginResult)>>(std::move(callback));
 
@@ -38,6 +50,12 @@ void WeChatAuthService::login(
     // header comment for the rationale on why this uses
     // getWithBearerToken() with an empty bearer token, mirroring
     // WeChatController.cc's own request construction verbatim.
+    // Upstream API shape (official docs, "授权后接口调用"): the code-exchange
+    // endpoint accepts the appid/secret ONLY as query parameters on GET (the
+    // POST /cgi-bin/stable_token endpoint is for the app-level token and
+    // cannot substitute). The secret therefore travels in the query string;
+    // the URL is never logged (maintain that invariant) and the transport is
+    // HTTPS.
     std::string tokenUrl = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=" + appId_ +
                            "&secret=" + secret_ + "&code=" + code +
                            "&grant_type=authorization_code";

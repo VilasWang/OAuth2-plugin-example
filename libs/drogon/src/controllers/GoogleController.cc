@@ -15,7 +15,9 @@ namespace fulla::drogon::controllers
 namespace
 {
 
-// TODO: REPLACE WITH YOUR REAL GOOGLE CREDENTIALS
+// Provider configuration lives in custom_config "external_auth.google"
+// (client_id / client_secret / redirect_uri); see the deployment docs. A
+// missing or YOUR_*-placeholder credential disables the provider (#111).
 const std::string GOOGLE_CLIENT_ID_KEY = "client_id";
 const std::string GOOGLE_CLIENT_SECRET_KEY = "client_secret";
 const std::string GOOGLE_REDIRECT_URI_KEY = "redirect_uri";
@@ -171,6 +173,26 @@ void GoogleController::login(
             return;
         }
 #endif  // WITH_SOCIAL
+
+        // #111: empty OR still the YOUR_* template -> the provider is
+        // disabled; fail fast with an envelope instead of a doomed upstream
+        // call. See docs on provider configuration (external_auth.google).
+        {
+            const auto credentialConfigured = [](const std::string &v) {
+                return !v.empty() && v.rfind("YOUR_", 0) != 0;
+            };
+            if (!credentialConfigured(getGoogleConfig(GOOGLE_CLIENT_ID_KEY)) ||
+                !credentialConfigured(getGoogleConfig(GOOGLE_CLIENT_SECRET_KEY)))
+            {
+                ::fulla::common::error::ErrorResponder::respond(
+                  req,
+                  std::move(callback),
+                  "INTERNAL_ERROR",
+                  "google login: Google OAuth not configured"
+                );
+                return;
+            }
+        }
 
         // 1. Exchange Code for Access Token
         // API: https://oauth2.googleapis.com/token
