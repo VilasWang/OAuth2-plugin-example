@@ -13,6 +13,7 @@
 #include <fulla/identity/ISocialAccountRepository.h>
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <set>
 #include <string>
@@ -49,6 +50,8 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
     bool failList = false;
     bool failInsert = false;
     bool failDelete = false;
+    // See deleteLink: post-delete, pre-callback hook for #73a race tests.
+    std::function<void()> onDeleteStart;
     bool failPasswordCheck = false;
     // Test seam: make insertLink answer Conflict even though the map lookup
     // said NoMapping -- simulates the UNIQUE(provider, subject) race where
@@ -198,6 +201,11 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
                 ++it;
             }
         }
+        // #73a race-simulation hook: invoked after the delete lands but
+        // before the caller's callback -- lets tests mutate the map the way a
+        // concurrent unlink of ANOTHER provider's link would.
+        if (onDeleteStart)
+            onDeleteStart();
         cb(deleted ? LinkMutationStatus::Deleted : LinkMutationStatus::NoLink);
     }
 

@@ -33,12 +33,16 @@ SocialLinkService::SocialLinkService(
   std::shared_ptr<GitHubAuthService> gitHubService,
   std::shared_ptr<GoogleAuthService> googleService,
   std::shared_ptr<WeChatAuthService> weChatService,
-  std::shared_ptr<ISocialAccountRepository> accountRepo
+  std::shared_ptr<ISocialAccountRepository> accountRepo,
+  std::shared_ptr<IWebAuthnRepository> webAuthnRepo,
+  std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider
 )
     : gitHubService_(std::move(gitHubService)),
       googleService_(std::move(googleService)),
       weChatService_(std::move(weChatService)),
-      accountRepo_(std::move(accountRepo))
+      accountRepo_(std::move(accountRepo)),
+      webAuthnRepo_(std::move(webAuthnRepo)),
+      cryptoProvider_(std::move(cryptoProvider))
 {
 }
 
@@ -279,7 +283,7 @@ void SocialLinkService::unlinkAccount(
     // "is this the last one" count come from the same read.
     accountRepo_->listForUser(
       internalUserId,
-      [accountRepo = accountRepo_, sharedCb, provider, internalUserId](
+      [accountRepo = accountRepo_, webAuthnRepo = webAuthnRepo_, sharedCb, provider, internalUserId](
         std::optional<std::vector<SocialLinkEntry>> entries) mutable {
           if (!entries)
           {
@@ -306,36 +310,116 @@ void SocialLinkService::unlinkAccount(
           }
 
           // Step 2: last-credential guard -- removing the user's ONLY social
-          // link with no usable password would lock them out permanently
-          // (social-created accounts carry a random password placeholder).
+          // link with no other usable credential would lock them out
+          // permanently (social-created accounts carry a random password
+          // placeholder). Usable = password (#68) OR registered WebAuthn
+          // credential (#73b; passkey-only users were false-refused before).
+          // webAuthnRepo == nullptr keeps the password-only guard: an
+          // unverifiable dependency must not widen the refusal.
           // Copy target->subject by value: `target` points into `entries`,
           // whose lifetime ends when this callback returns, while doDelete's
           // continuation runs later.
           const std::string targetSubject = target->subject;
+          const size_t originalLinkCount = entries->size();
+          // Step 3 (#73a): after a multi-link delete, re-read the list; a
+          // concurrent unlink of the OTHER link can leave the user with zero
+          // credentials. The delete is already committed -- this is detection
+          // for the controller to alert on, not a rollback.
           auto doDelete =
-            [accountRepo, sharedCb, provider, internalUserId, targetSubject]() mutable {
+            [accountRepo, webAuthnRepo, sharedCb, provider, internalUserId, targetSubject,
+             originalLinkCount]() mutable {
                 accountRepo->deleteLink(
                   provider,
                   internalUserId,
-                  [sharedCb, provider, targetSubject](LinkMutationStatus mutation) mutable {
-                      SocialLinkOpResult result;
-                      switch (mutation)
-                      {
-                      case LinkMutationStatus::Deleted:
+                  [accountRepo, webAuthnRepo, sharedCb, provider, targetSubject, internalUserId,
+                   originalLinkCount](LinkMutationStatus mutation) mutable {
+                      auto finishOk = [sharedCb, provider, targetSubject](bool lockoutRisk) {
+                          SocialLinkOpResult result;
                           result.status = SocialLinkOpStatus::Ok;
                           result.entry.provider = provider;
                           result.entry.subject = targetSubject;
-                          break;
+                          result.lockoutRiskObserved = lockoutRisk;
+                          (*sharedCb)(std::move(result));
+                      };
+                      switch (mutation)
+                      {
+                      case LinkMutationStatus::Deleted:
+                      {
+                          // #73a: only multi-link unlinks can race the guard
+                          // (single-link deletions passed it explicitly, and
+                          // the single link remaining empty is the expected
+                          // outcome there). Re-check only that window.
+                          if (originalLinkCount < 2)
+                          {
+                              finishOk(false);
+                              return;
+                          }
+                          accountRepo->listForUser(
+                            internalUserId,
+                            [accountRepo, webAuthnRepo, internalUserId, sharedCb, finishOk](
+                              std::optional<std::vector<SocialLinkEntry>> remaining) mutable {
+                                if (!remaining || !remaining->empty())
+                                {
+                                    // Re-check failed or links remain: no
+                                    // confirmed lockout -- do not cry wolf.
+                                    finishOk(false);
+                                    return;
+                                }
+                                // Zero links now. Password still usable?
+                                accountRepo->userHasUsablePassword(
+                                  internalUserId,
+                                  [webAuthnRepo, internalUserId, sharedCb, finishOk](
+                                    std::optional<bool> passwordUsable) mutable {
+                                      if (!passwordUsable)
+                                      {
+                                          // Indeterminate: alert ONLY on a
+                                          // confirmed zero-credential state.
+                                          finishOk(false);
+                                          return;
+                                      }
+                                      if (*passwordUsable)
+                                      {
+                                          finishOk(false);
+                                          return;
+                                      }
+                                      if (!webAuthnRepo)
+                                      {
+                                          // Passkeys unverifiable (dep not
+                                          // wired): skip the alert rather
+                                          // than false-positive on
+                                          // passkey-only users.
+                                          finishOk(false);
+                                          return;
+                                      }
+                                      webAuthnRepo->listCredentials(
+                                        internalUserId,
+                                        [finishOk](std::vector<WebAuthnCredentialSummary> creds) {
+                                            finishOk(creds.empty());
+                                        }
+                                      );
+                                  }
+                                );
+                            }
+                          );
+                          return;
+                      }
                       case LinkMutationStatus::NoLink:  // raced with another unlink
+                      {
+                          SocialLinkOpResult result;
                           result.status = SocialLinkOpStatus::NoLink;
+                          (*sharedCb)(std::move(result));
                           break;
+                      }
                       case LinkMutationStatus::Inserted:
                       case LinkMutationStatus::Conflict:
                       case LinkMutationStatus::Error:
+                      {
+                          SocialLinkOpResult result;
                           result.status = SocialLinkOpStatus::RepositoryError;
+                          (*sharedCb)(std::move(result));
                           break;
                       }
-                      (*sharedCb)(std::move(result));
+                      }
                   }
                 );
             };
@@ -344,7 +428,8 @@ void SocialLinkService::unlinkAccount(
           {
               accountRepo->userHasUsablePassword(
                 internalUserId,
-                [doDelete = std::move(doDelete), sharedCb](std::optional<bool> usable) mutable {
+                [doDelete = std::move(doDelete), webAuthnRepo, sharedCb, internalUserId](
+                  std::optional<bool> usable) mutable {
                     if (!usable)
                     {
                         SocialLinkOpResult result;
@@ -352,14 +437,33 @@ void SocialLinkService::unlinkAccount(
                         (*sharedCb)(std::move(result));
                         return;
                     }
-                    if (!*usable)
+                    if (*usable)
+                    {
+                        doDelete();
+                        return;
+                    }
+                    if (!webAuthnRepo)
                     {
                         SocialLinkOpResult result;
                         result.status = SocialLinkOpStatus::LastCredentialGuard;
                         (*sharedCb)(std::move(result));
                         return;
                     }
-                    doDelete();
+                    // #73b: passkeys count as a usable credential.
+                    webAuthnRepo->listCredentials(
+                      internalUserId,
+                      [doDelete = std::move(doDelete), sharedCb](
+                        std::vector<WebAuthnCredentialSummary> creds) mutable {
+                          if (creds.empty())
+                          {
+                              SocialLinkOpResult result;
+                              result.status = SocialLinkOpStatus::LastCredentialGuard;
+                              (*sharedCb)(std::move(result));
+                              return;
+                          }
+                          doDelete();
+                      }
+                    );
                 }
               );
               return;

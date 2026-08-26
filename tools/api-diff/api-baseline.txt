@@ -1,14 +1,6 @@
 // api-diff baseline -- Fulla SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
 // version: 1.0.0
-//
-// --force ratifications (source-compatible via defaulted trailing args /
-//    additive-only; all construction sites are in-repo, no external header
-//    consumers; no major bump warranted):
-//   fix/issues-batch-1 C4 (#87): JwkManager.h -- verifyJwt gains defaulted
-//     `expectedAudience = {}` (old call sites compile unchanged); enum adds
-//     NotYetValid/AudienceMismatch (additive); verifyAndDecode + private
-//     verifyCore are new.
 === libs/common/include/fulla/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -4081,7 +4073,9 @@ std::string clientSecret_;
 === libs/identity/include/fulla/identity/SocialLinkService.h
 #pragma once
 #ifdef WITH_SOCIAL
+#include <fulla/common/ports/ICryptoProvider.h>
 #include <fulla/identity/ISocialAccountRepository.h>
+#include <fulla/identity/IWebAuthnRepository.h>
 #include <fulla/identity/SocialAuthService.h>
 #include <functional>
 #include <memory>
@@ -4107,6 +4101,7 @@ struct SocialLinkOpResult
 SocialLinkOpStatus status = SocialLinkOpStatus::RepositoryError;
 std::string errorCode;
 SocialLinkEntry entry;
+bool lockoutRiskObserved = false;
 };
 class SocialLinkService
 {
@@ -4115,7 +4110,9 @@ SocialLinkService(
 std::shared_ptr<GitHubAuthService> gitHubService,
 std::shared_ptr<GoogleAuthService> googleService,
 std::shared_ptr<WeChatAuthService> weChatService,
-std::shared_ptr<ISocialAccountRepository> accountRepo
+std::shared_ptr<ISocialAccountRepository> accountRepo,
+std::shared_ptr<IWebAuthnRepository> webAuthnRepo = nullptr,
+std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider = nullptr
 );
 void linkAccount(
 const std::string &provider,
@@ -4138,6 +4135,8 @@ std::shared_ptr<GitHubAuthService> gitHubService_;
 std::shared_ptr<GoogleAuthService> googleService_;
 std::shared_ptr<WeChatAuthService> weChatService_;
 std::shared_ptr<ISocialAccountRepository> accountRepo_;
+std::shared_ptr<IWebAuthnRepository> webAuthnRepo_;
+std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider_;
 };
 }
 #endif
@@ -4322,6 +4321,7 @@ inline OAuthHttpResult transportFailure()
 #pragma once
 #include <fulla/identity/ISocialAccountRepository.h>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <set>
 #include <string>
@@ -4342,6 +4342,7 @@ std::set<int32_t> usersWithUsablePassword;
 bool failList = false;
 bool failInsert = false;
 bool failDelete = false;
+std::function<void()> onDeleteStart;
 bool failPasswordCheck = false;
 bool forceInsertConflict = false;
 static std::string key(const std::string &provider, const std::string &subject)

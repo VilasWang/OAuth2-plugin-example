@@ -1317,6 +1317,18 @@ void UserSelfServiceController::unlinkSocialAccount(
                     {
                         return;
                     }
+                    // #73a: the delete raced a concurrent unlink of the user's
+                    // other link and the post-delete re-check found no usable
+                    // credential left. Nothing to roll back -- this is the
+                    // support-actionable alert the design calls for.
+                    if (result.lockoutRiskObserved)
+                    {
+                        LOG_ERROR << "social unlink: user '" << userId
+                                  << "' was left with NO usable credential after unlinking '"
+                                  << provider
+                                  << "' (concurrent-unlink race beat the last-credential "
+                                     "guard); admin password reset required";
+                    }
                     Json::Value json;
                     json["provider"] = result.entry.provider;
                     json["subject"] = result.entry.subject;

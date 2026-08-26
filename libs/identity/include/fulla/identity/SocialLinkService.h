@@ -19,7 +19,9 @@
 // async chain copies its shared_ptr dependencies + the shared callback into
 // the lambda by value. No [this], no [&] captures.
 
+#include <fulla/common/ports/ICryptoProvider.h>
 #include <fulla/identity/ISocialAccountRepository.h>
+#include <fulla/identity/IWebAuthnRepository.h>
 #include <fulla/identity/SocialAuthService.h>
 
 #include <functional>
@@ -63,6 +65,12 @@ struct SocialLinkOpResult
     std::string errorCode;     ///< Provider-level error code (ExchangeFailed).
     SocialLinkEntry entry;     ///< Populated on Ok (link: provider+subject;
                                ///< unlink: provider only).
+    bool lockoutRiskObserved = false;  ///< #73a: Ok-path post-delete re-check
+                               ///< found the user left with NO usable
+                               ///< credential (concurrent-unlink race beat
+                               ///< the guard). The operation itself already
+                               ///  succeeded and is NOT rolled back; the
+                               ///< controller logs this for support action.
 };
 
 /**
@@ -71,11 +79,18 @@ struct SocialLinkOpResult
 class SocialLinkService
 {
   public:
+    // webAuthnRepo participates in the last-credential guard (#73b: a
+    // passwordless user whose remaining credential is a passkey may unlink
+    // their last social link); nullptr keeps the password-only guard
+    // (unverifiable != unusable -- never widen the refusal on a missing dep).
+    // cryptoProvider is reserved for the server-side link-state flow (#71).
     SocialLinkService(
       std::shared_ptr<GitHubAuthService> gitHubService,
       std::shared_ptr<GoogleAuthService> googleService,
       std::shared_ptr<WeChatAuthService> weChatService,
-      std::shared_ptr<ISocialAccountRepository> accountRepo
+      std::shared_ptr<ISocialAccountRepository> accountRepo,
+      std::shared_ptr<IWebAuthnRepository> webAuthnRepo = nullptr,
+      std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider = nullptr
     );
 
     /**
@@ -121,6 +136,8 @@ class SocialLinkService
     std::shared_ptr<GoogleAuthService> googleService_;
     std::shared_ptr<WeChatAuthService> weChatService_;
     std::shared_ptr<ISocialAccountRepository> accountRepo_;
+    std::shared_ptr<IWebAuthnRepository> webAuthnRepo_;
+    std::shared_ptr<fulla::common::ports::ICryptoProvider> cryptoProvider_;
 };
 
 }  // namespace fulla::identity
