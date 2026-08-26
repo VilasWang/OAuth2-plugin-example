@@ -1,9 +1,8 @@
-# 文档治理设计 v2 — 基于全文深读的内容裁决 · Docusaurus 内容源
+# 文档治理设计 v3 — 基于全文深读的内容裁决 · Docusaurus 内容源
 
-> 状态：提案 v2（2026-08-26）。v1 只做了目录/文件名级分类；本版基于**四路并行全文深读**
-> （backend 23 篇 / ops+admin+frontend+perf 16 篇 / history 60 篇 / productization+branding 25 篇）
-> 逐篇给出内容级裁决，全部结论有 file:line 证据支撑。深读原始报告四份存于会话记录，
-> 本文档是其可执行浓缩。
+> 状态：v3（2026-08-26）。v1 目录级分类 → v2 四路全文深读的内容级裁决（file:line 证据）
+> → v3 落地终稿：IA 三层模型定稿（§四·A）、双语策略修订为中文主站、
+> Phase A/B 执行完毕 + 上站前内容质检（三区审计）完成。
 > 原则：**入库是给别人看的（stranger 能据此完成一件事）；留在本地是给维护者和 agent 看的。**
 
 ## 一、入库判据（不变）
@@ -122,14 +121,64 @@
 | adr | **12 篇新转化 ADR** + ddd-domain-model（标注提案）+ 合规尽调报告（信任档案）+ rename-impact（脱敏后）+ professionalization-audit | 新建 |
 | API | openapi.yaml 直渲染（swagger-ui 静态资源不上站，属服务器托管物） | 插件 |
 
-双语：英文先行，中文由 README.zh-CN + wiki 承载（已上线），Phase C 视流量上 i18n。
+双语（v3 修订）：**中文为主站语言**（fulla.dev 全站简体中文）；英文由 README.md（GitHub 门面）承载，中文 README（README.zh-CN.md）与 GitHub wiki 承载入门导流。英文 i18n（Docusaurus 原生支持）视海外流量/贡献者出现后再启用，切换成本低。
 
-## 五、执行 Phase（修订）
+### 四·A、终稿信息架构（2026-08-26 定稿）
 
-- **Phase A（内容修复与重组，量最大）**：
-  A1 修矛盾登记簿 12 项（含 seed SQL 定谳凭证）；A2 六组 MERGE 落地；A3 ADR 转化 12 篇；A4 出库 LOCAL 类（productization-evolution 出库时把 2 个例外先迁新家 + 修三处公开链接）+ DELETE 3 篇；A5 docs/README.md 重写为受众导航。
-- **Phase B（站骨架）**：website/ + 七区 sidebar + Pages 部署 + 死链守门。
-- **Phase C（内容补齐）**：三篇新写深潜 + api-reference 重写 + 双语策略评估。
+内容资产分**三层**，各层有明确边界与进入判据：
+
+**第 1 层：`docs/`（入库 + 上站）** —— 唯一的站点内容源（Docusaurus `docs.path=../docs`，零拷贝）。
+只收"stranger 可据此完成一件事 / 理解一个决策 / 建立一份信任"的用户向内容：
+
+```
+docs/
+├── intro.md                     # 站点入口（快速路由表）
+├── README.md                    # GitHub 侧索引（Docusaurus exclude，不上站）
+├── documentation-governance.md  # 本文档（治理规则，贡献者区引用）
+├── architecture/   # 评估+深潜：architecture-overview / security-architecture / data-persistence
+├── domains/        # 领域指南：api-reference / oidc-guide / rbac-guide / social-login
+├── sdk/            # C++ SDK：sdk-integration-guide / sdk-runtime-contract
+├── operate/        # 运维：deployment / docker-deployment / deployment-windows-docker-desktop /
+│                  #        configuration-guide / observability / account-lockout /
+│                  #        postgresql-major-upgrade / verification-checklist
+├── contribute/     # 贡献：testing-guide / ci-cd-guide / versioning-and-release /
+│                  #        admin-test-cases / user-frontend-test-cases / admin-e2e-testing-guide
+├── benchmark/      # 竞品基准方法论（competitor-benchmark-design；结果表在仓库 benchmarks/）
+└── adr/            # ADR-0001..0012（现行架构决策记录）
+```
+
+**第 2 层：仓库内非 docs 资产（入库、不上站）** —— 站内以绝对链接引用，不复制：
+
+| 资产 | 角色 |
+|---|---|
+| `README.md` / `README.zh-CN.md` | GitHub 门面（能力地图、Quick Start、徽章） |
+| `benchmarks/competitors/results/COMPARISON.md` | 基准结果表（评估区链接） |
+| `apps/server/openapi.yaml` | API 契约 SSoT（api-reference 导读指向它） |
+| `.claude/rules/`、`TECH_SPECS.md`、`AGENTS.md` | 维护者契约（贡献者区可链接，不入站内容） |
+
+**第 3 层：`docs-local/`（不入库，磁盘保留）** —— 维护者与 agent 的过程档案（history、
+productization-evolution、branding、performance-optimization、performance 报告等）。
+gitignore；判据：不满足第一层三判据（可执行/可决策/可信任）中任何一条的过程性文档。
+
+**wiki 分工**：GitHub wiki 是自动生成的中文快照镜像（repowiki 转换），不做双向同步；
+其 Home 指向 fulla.dev 为权威内容源。站点与 wiki 内容重叠时以 `docs/` 为准。
+
+**边界速判**：新文档先问"stranger 需要它吗？"——需要 → `docs/` 对应分区；只有维护者/
+agent 需要 → `docs-local/`；是结果数据而非文档 → 仓库数据目录（如 `benchmarks/`）；
+是对外承诺 → `docs/` + 版本化（CHANGELOG 引用）。
+
+## 五、执行 Phase（v3 进度标注）
+
+- **Phase A（内容修复与重组）——已完成**（8783c8e5 + 6049e3d3 + 7e5cd55a + d33d1ec3 + 45ca1f30）：
+  A1 修矛盾登记簿 12 项 ✓（上站前三区复审补漏：verification-checklist/deployment-windows 残留口径二次清扫 ✓）；
+  A2 六组 MERGE 落地 ✓；A3 ADR 转化 12 篇 ✓（status/source/双标题规范统一 ✓）；
+  A4 出库 LOCAL 类 ✓（2 例外迁新家 ✓）；A5 docs/README.md 重写 ✓。
+  新增收尾：语言统一（全站简体中文，architecture-overview/configuration-guide 中文化 ✓）。
+- **Phase B（站骨架）——已完成**（8a7e3b96）：website/ + 受众分区 sidebar + Pages 部署 + 死链守门。
+  收尾项：GitHub Pages 源切换为 GitHub Actions（用户网页操作）+ 首页/主题专业化（本 PR）。
+- **Phase C（内容补齐）——待办**：三篇新写深潜（token-lifecycle / session-management /
+  multi-tenancy）；api-reference 长期重写（§6 已改为 OpenAPI 治理流程，正文已统一简体）；
+  英文 i18n 视流量启动。
 
 ## 六、验收标准（不变，略增）
 

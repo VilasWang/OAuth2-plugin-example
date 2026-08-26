@@ -1,13 +1,94 @@
 /**
- * Any CSS included here will be global. The classic template bundles
- * Infima by default; use it sparingly — content wins over chrome.
+ * Global theme — fulla.dev
+ * Brand: deep violet (echoes the favicon mark), Chinese-first typography,
+ * refined chrome so content wins.
  */
+
 :root {
-  --ifm-color-primary: #7e14ff;
-  --ifm-color-primary-dark: #6b0fd8;
-  --ifm-color-primary-darker: #5d0dc0;
-  --ifm-color-primary-darkest: #4c0b9c;
-  --ifm-color-primary-light: #863bff;
-  --ifm-color-primary-lighter: #9a53ff;
-  --ifm-color-primary-lightest: #b385ff;
+  /* Primary scale — deep violet */
+  --ifm-color-primary: #5b2fd1;
+  --ifm-color-primary-dark: #5128bc;
+  --ifm-color-primary-darker: #4c25b0;
+  --ifm-color-primary-darkest: #3f1f91;
+  --ifm-color-primary-light: #6f46db;
+  --ifm-color-primary-lighter: #7d55df;
+  --ifm-color-primary-lightest: #9b7fe8;
+
+  --ifm-hero-bg: #fafaff;
+
+  /* Typography — Chinese-first stack */
+  --ifm-font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC',
+    sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'Fira Code', 'SF Mono',
+    Consolas, 'Liberation Mono', Menlo, monospace;
+
+  /* Slightly tighter headings for CJK density */
+  --ifm-heading-margin-bottom: 0.65rem;
+  --ifm-paragraph-margin-bottom: 0.9rem;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #9b7fe8;
+  --ifm-color-primary-dark: #8a6ce3;
+  --ifm-color-primary-darker: #8261e0;
+  --ifm-color-primary-darkest: #6d47d1;
+  --ifm-color-primary-light: #ac97ed;
+  --ifm-color-primary-lighter: #b8a7f0;
+  --ifm-color-primary-lightest: #cdc2f5;
+}
+
+/* ---------------- Navbar ---------------- */
+
+.navbar {
+  box-shadow: 0 1px 0 var(--ifm-color-emphasis-200);
+  backdrop-filter: saturate(1.4) blur(8px);
+}
+
+.navbar__brand {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-size: 1.25rem;
+}
+
+.navbar__logo {
+  border-radius: 6px;
+}
+
+/* ---------------- Docs polish ---------------- */
+
+.markdown h1 {
+  letter-spacing: -0.01em;
+}
+
+/* Roomier tables (docs use many wide tables) */
+.markdown table {
+  display: block;
+  overflow-x: auto;
+}
+
+/* Code blocks: soft corners */
+.theme-code-block {
+  border-radius: 10px;
+}
+
+/* Mermaid diagrams: center + horizontal scroll safety */
+.mermaid {
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* Admonitions inherit brand radius */
+.admonition {
+  border-radius: 10px;
+}
+
+/* Docs sidebar: subtler active highlight */
+.menu__link--active:not(.menu__link--sublist) {
+  font-weight: 600;
+}
+
+/* Footer breathing room */
+.footer {
+  padding-top: 2.6rem;
 }

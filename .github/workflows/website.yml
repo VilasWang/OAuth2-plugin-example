@@ -17,6 +17,10 @@ on:
       - 'docs/**'
       - 'website/**'
       - '.github/workflows/website.yml'
+  # Manual deploy: lets the site go live from a branch before merge (requires
+  # Pages Source = GitHub Actions in repo settings). The operator triggers
+  # this deliberately; normal production deploys stay master-push-only.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -52,7 +56,7 @@ jobs:
           path: website/build
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
     needs: build
     environment:
       name: github-pages
