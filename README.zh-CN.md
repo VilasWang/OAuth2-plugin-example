@@ -32,7 +32,7 @@ Fulla 是以 C++17 构建的**高性能开源身份与访问管理（IAM）核�
 
 ## 模块地图（Module Map）
 
-[SDK 分层](#sdk-分层)图背后的 8 个 CMake 包——各自负责什么、公共头在哪（`libs/<name>/include/fulla/…`）：
+[SDK 分层](#sdk-分层架构)图背后的 8 个 CMake 包——各自负责什么、公共头在哪（`libs/<name>/include/fulla/…`）：
 
 | 包 | 职责 | 备注 |
 |----|------|------|
