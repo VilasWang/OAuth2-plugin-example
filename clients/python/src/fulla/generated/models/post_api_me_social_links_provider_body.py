@@ -14,19 +14,25 @@ class PostApiMeSocialLinksProviderBody:
     """
     Attributes:
         code (str): Authorization code from the provider's OAuth2 callback.
+        state (str): The one-time state token from the authorize step (single use, bound to this user and provider).
+            Unknown/expired/replayed or foreign-bound states are rejected with 400 before any provider call (#71).
     """
 
     code: str
+    state: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         code = self.code
+
+        state = self.state
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "code": code,
+                "state": state,
             }
         )
 
@@ -37,8 +43,11 @@ class PostApiMeSocialLinksProviderBody:
         d = dict(src_dict)
         code = d.pop("code")
 
+        state = d.pop("state")
+
         post_api_me_social_links_provider_body = cls(
             code=code,
+            state=state,
         )
 
         post_api_me_social_links_provider_body.additional_properties = d
