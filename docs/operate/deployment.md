@@ -722,6 +722,30 @@ docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < backup_20260526.s
 - Backend metrics: `https://your-domain.com/metrics` (internal network only)
 - Health check: `https://your-domain.com/health`
 
+### audit_logs 分区维护（#83）
+
+`audit_logs` 自 V025 起按月分区（`[当前月-12, 当前月+25]` 的窗口 + 一个 DEFAULT 兜底分区）。
+**分区窗口不再需要手工 cron**：postgres 存储部署下，后端的清理服务
+（`cleanup_interval_seconds`，默认 3600s）每个周期会在分布式锁内调用
+`ensure_audit_partitions()`，自动创建缺失的月分区并把落入 DEFAULT 分区的行迁出。
+
+排查命令：
+
+```sql
+-- 窗口内各分区的行量与 DEFAULT 分区是否在堆积（堆积 = 维护没在跑）
+SELECT tableoid::regclass AS partition, count(*) FROM audit_logs GROUP BY 1 ORDER BY 1;
+
+-- 手工触发一次维护（与自动路径相同的幂等函数；ahead/behind 可调）
+SELECT ensure_audit_partitions();          -- 默认 ahead 24 / behind 12
+SELECT ensure_audit_partitions(36, 12);    -- 扩大预建窗口
+```
+
+注意：
+
+- 该函数幂等但非并发安全——自动路径已在清理锁内串行化；手工调用请避开整点清理时刻。
+- memory/redis 存储模式没有 audit 分区（该功能仅 postgres）。
+- 维护失败只会 `LOG_ERROR` 并在下个清理周期重试，不影响清理主流程。
+
 ---
 
 ## Troubleshooting

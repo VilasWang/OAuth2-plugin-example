@@ -237,8 +237,28 @@ void OAuth2Plugin::initAndStart(const Json::Value &config)
     // Initialize Cleanup Service (Phase 4.2: now keyed on the NEW split repos,
     // not storage_. grantRepo is the local bridge over storage_; tokenRepo_ is
     // the member retained in 4.1.)
-    cleanupService_ =
-      std::make_shared<fulla::drogon::OAuth2CleanupService>(grantRepo_, tokenRepo_);
+    // #83: postgres deployments also schedule ensure_audit_partitions() on the
+    // same cycle (V025's partition horizon). The DbClient is resolved ONLY in
+    // the postgres branch -- in memory mode there is no db_clients entry and
+    // getDbClient() is a process-terminating assert, not a throw.
+    if (storageType_ == "postgres")
+    {
+        try
+        {
+            cleanupService_ = std::make_shared<fulla::drogon::OAuth2CleanupService>(
+              grantRepo_, tokenRepo_, drogon::app().getDbClient(), true
+            );
+        }
+        catch (const std::exception &e)
+        {
+            LOG_WARN << "OAuth2Plugin: audit partition maintenance disabled (DbClient "
+                        "unavailable): "
+                     << e.what();
+        }
+    }
+    if (!cleanupService_)
+        cleanupService_ =
+          std::make_shared<fulla::drogon::OAuth2CleanupService>(grantRepo_, tokenRepo_);
     double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble();
     cleanupService_->start(cleanupInterval);
 
