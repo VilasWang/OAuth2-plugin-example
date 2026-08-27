@@ -2755,6 +2755,7 @@ static Json::Value generateSchema();
 #include <drogon/drogon.h>
 #include <fulla/oauth2/repository/IGrantRepository.h>
 #include <fulla/oauth2/repository/ITokenRepository.h>
+#include <functional>
 #include <memory>
 namespace fulla::drogon
 {
@@ -2763,14 +2764,19 @@ class OAuth2CleanupService : public std::enable_shared_from_this<OAuth2CleanupSe
 public:
 OAuth2CleanupService(
 std::shared_ptr<::fulla::oauth2::repository::IGrantRepository> grantRepo,
-std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo
+std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo,
+::drogon::orm::DbClientPtr auditDbClient = nullptr,
+bool postgresStorage = false
 );
 ~OAuth2CleanupService();
 void start(double intervalSeconds);
 void stop();
+void maintainAuditPartitions(std::function<void()> &&completion = nullptr);
 private:
 std::shared_ptr<::fulla::oauth2::repository::IGrantRepository> grantRepo_;
 std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo_;
+::drogon::orm::DbClientPtr auditDbClient_;
+bool postgresStorage_ = false;
 uint64_t timerId_ = 0;
 bool running_ = false;
 bool stopped_ = false;

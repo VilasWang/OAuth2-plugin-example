@@ -6,9 +6,14 @@ namespace fulla::drogon
 
 OAuth2CleanupService::OAuth2CleanupService(
   std::shared_ptr<::fulla::oauth2::repository::IGrantRepository> grantRepo,
-  std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo
+  std::shared_ptr<::fulla::oauth2::repository::ITokenRepository> tokenRepo,
+  ::drogon::orm::DbClientPtr auditDbClient,
+  bool postgresStorage
 )
-    : grantRepo_(std::move(grantRepo)), tokenRepo_(std::move(tokenRepo))
+    : grantRepo_(std::move(grantRepo)),
+      tokenRepo_(std::move(tokenRepo)),
+      auditDbClient_(std::move(auditDbClient)),
+      postgresStorage_(postgresStorage)
 {
 }
 
@@ -192,6 +197,44 @@ void OAuth2CleanupService::doPurge()
         grantRepo_->purgeExpired();
     if (tokenRepo_)
         tokenRepo_->purgeExpired();
+    // #83: keep the audit_logs partition horizon advancing on the same cycle
+    // (inside the distributed lock when one exists -- ensure_audit_partitions
+    // is idempotent but not concurrency-safe between instances).
+    maintainAuditPartitions();
+}
+
+void OAuth2CleanupService::maintainAuditPartitions(std::function<void()> &&completion)
+{
+    auto sharedCompletion =
+      std::make_shared<std::function<void()>>(std::move(completion));
+    // Memory/no-DB deployments have no audit partitioning to maintain, and
+    // resolving a DbClient here would be a process-terminating assert.
+    if (!postgresStorage_ || !auditDbClient_)
+    {
+        (*sharedCompletion)();
+        return;
+    }
+    // Raw-SQL exemption ① (db-operations.md): DDL-by-proxy -- the function
+    // CREATEs/ATTACHes monthly partitions; no Mapper expression can invoke a
+    // SQL function. Fire-and-forget: a maintenance failure logs and never
+    // blocks the cleanup cycle.
+    auditDbClient_->execSqlAsync(
+      "SELECT ensure_audit_partitions() AS created",
+      [sharedCompletion](const ::drogon::orm::Result &result) {
+          const long created =
+            (result.empty() ? 0 : result[0]["created"].as<long>());
+          if (created > 0)
+              LOG_INFO << "audit_logs partition maintenance created " << created
+                       << " new monthly partition(s)";
+          (*sharedCompletion)();
+      },
+      [sharedCompletion](const ::drogon::orm::DrogonDbException &e) {
+          LOG_ERROR << "audit_logs partition maintenance failed (next cleanup "
+                       "cycle retries): "
+                    << e.base().what();
+          (*sharedCompletion)();
+      }
+    );
 }
 
 }  // namespace fulla::drogon
