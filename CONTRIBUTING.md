@@ -93,6 +93,15 @@ Rules:
 - Branch names: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`.
 - Target branch is `master`; every PR must pass all CI checks before merge.
 
+### Documentation changes are bilingual (same-PR dual write)
+
+The docs are bilingual: `docs/` is the English canonical and
+`website/i18n/zh-CN/docusaurus-plugin-content-docs/current/` is the Chinese
+mirror (identical layout/URLs; both feed [fulla.dev](https://fulla.dev)).
+A PR that changes a document under `docs/` **must update its Chinese
+counterpart in the same PR** (and vice versa). Full rules:
+[docs/documentation-governance.md](docs/documentation-governance.md) §4.
+
 ## CI Gates
 
 A PR runs `ci.yml` + `security.yml`:

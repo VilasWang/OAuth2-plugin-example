@@ -10,6 +10,17 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+### 文档
+
+- **文档治理收官**（PR #114/#116，治理文档 v4，[docs/documentation-governance.md](docs/documentation-governance.md)）：
+  用户向文档树按受众七区重构（evaluate / integrate / deep dives / operate /
+  contribute / benchmark / adr），12 篇 ADR + 三份信任档案（合规尽调、改名
+  影响、仓库审计）入库；fulla.dev 上线为 Docusaurus 双语站——**英文主站**
+  （`docs/` 为英文正本）+ `/zh-CN` 中文站（译本树
+  `website/i18n/zh-CN/`，同构同 URL，导航栏切换）；新增三篇深潜
+  （令牌生命周期 / 会话管理 / 多租户）；站点带离线中文搜索与死链门。
+  文档改动义务：**同 PR 双写**（en/zh 同步，见 CONTRIBUTING）。
+
 ## [1.0.0] - 2026-08-26
 
 > **版本序列重置说明**：项目由 **authforge 更名为 fulla**（北欧神话中 Frigg
