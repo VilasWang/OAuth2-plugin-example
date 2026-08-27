@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { setupMocks, loginUser, mockApiError, mockNetworkError } from './helpers/mock-api'
+import { setupMocks, loginUser } from './helpers/mock-api'
 
 test.describe('Security', () => {
   test.describe('Injection & XSS', () => {

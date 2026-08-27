@@ -16,7 +16,10 @@ defineProps<{
       'p-6',
     ]"
   >
-    <div v-if="$slots.header" class="flex items-center justify-between mb-5">
+    <div
+      v-if="$slots.header"
+      class="flex items-center justify-between mb-5"
+    >
       <slot name="header" />
     </div>
     <slot />

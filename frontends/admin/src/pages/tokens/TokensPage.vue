@@ -147,11 +147,13 @@ onMounted(fetchTokens)
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold text-gray-900">Tokens</h2>
+      <h2 class="text-2xl font-bold text-gray-900">
+        Tokens
+      </h2>
       <div class="relative">
         <button
-          @click="showBulkMenu = !showBulkMenu"
           class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          @click="showBulkMenu = !showBulkMenu"
         >
           Revoke All by App ▾
         </button>
@@ -163,12 +165,15 @@ onMounted(fetchTokens)
             <button
               v-for="cid in uniqueClientIds"
               :key="cid"
-              @click="revokeByClient(cid)"
               class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              @click="revokeByClient(cid)"
             >
               {{ cid }}
             </button>
-            <p v-if="uniqueClientIds.length === 0" class="px-4 py-2 text-sm text-gray-400">
+            <p
+              v-if="uniqueClientIds.length === 0"
+              class="px-4 py-2 text-sm text-gray-400"
+            >
               No clients in current results
             </p>
           </div>
@@ -177,15 +182,28 @@ onMounted(fetchTokens)
     </div>
 
     <!-- Error Banner -->
-    <div v-if="errorMessage" class="mb-6 rounded-md bg-red-50 p-4">
+    <div
+      v-if="errorMessage"
+      class="mb-6 rounded-md bg-red-50 p-4"
+    >
       <div class="flex">
         <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+          <svg
+            class="h-5 w-5 text-red-400"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+              clip-rule="evenodd"
+            />
           </svg>
         </div>
         <div class="ml-3">
-          <p class="text-sm text-red-800">{{ errorMessage }}</p>
+          <p class="text-sm text-red-800">
+            {{ errorMessage }}
+          </p>
         </div>
       </div>
     </div>
@@ -199,7 +217,7 @@ onMounted(fetchTokens)
           type="text"
           placeholder="Filter by client_id"
           class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-        />
+        >
       </div>
       <div class="flex items-center gap-2">
         <label class="text-sm font-medium text-gray-700">User ID:</label>
@@ -208,63 +226,106 @@ onMounted(fetchTokens)
           type="text"
           placeholder="Filter by user_id"
           class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-        />
+        >
       </div>
       <button
-        @click="applyFilters"
         class="px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
+        @click="applyFilters"
       >
         Apply
       </button>
       <button
-        @click="clearFilters"
         class="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+        @click="clearFilters"
       >
         Clear
       </button>
       <button
         v-if="userIdFilter"
-        @click="revokeByUser"
         class="px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 ml-auto"
+        @click="revokeByUser"
       >
         Revoke All for User
       </button>
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="text-center py-12 text-gray-500">Loading...</div>
+    <div
+      v-if="loading"
+      class="text-center py-12 text-gray-500"
+    >
+      Loading...
+    </div>
 
     <!-- Empty state -->
-    <div v-else-if="tokens.length === 0" class="text-center py-12">
-      <p class="text-gray-500">No active tokens found</p>
+    <div
+      v-else-if="tokens.length === 0"
+      class="text-center py-12"
+    >
+      <p class="text-gray-500">
+        No active tokens found
+      </p>
     </div>
 
     <!-- Token table -->
-    <div v-else class="bg-white shadow rounded-lg overflow-hidden">
+    <div
+      v-else
+      class="bg-white shadow rounded-lg overflow-hidden"
+    >
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Token</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scope</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expires</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Token
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Type
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Client
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              User
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Scope
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Expires
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="token in tokens" :key="token.token_prefix" class="hover:bg-gray-50">
-            <td class="px-4 py-3 text-sm font-mono text-gray-900">{{ token.token_prefix }}</td>
-            <td class="px-4 py-3 text-sm text-gray-500">access</td>
-            <td class="px-4 py-3 text-sm text-gray-500">{{ token.client_id || '—' }}</td>
-            <td class="px-4 py-3 text-sm text-gray-500">{{ token.user_id || '—' }}</td>
-            <td class="px-4 py-3 text-xs text-gray-500 max-w-[200px] truncate">{{ token.scope || '—' }}</td>
-            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{{ formatTime(token.expires_at) }}</td>
+          <tr
+            v-for="token in tokens"
+            :key="token.token_prefix"
+            class="hover:bg-gray-50"
+          >
+            <td class="px-4 py-3 text-sm font-mono text-gray-900">
+              {{ token.token_prefix }}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-500">
+              access
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-500">
+              {{ token.client_id || '—' }}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-500">
+              {{ token.user_id || '—' }}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-500 max-w-[200px] truncate">
+              {{ token.scope || '—' }}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+              {{ formatTime(token.expires_at) }}
+            </td>
             <td class="px-4 py-3">
               <button
-                @click="revokeToken(token.token_prefix)"
                 class="text-sm text-red-600 hover:text-red-800 font-medium"
+                @click="revokeToken(token.token_prefix)"
               >
                 Revoke
               </button>
@@ -276,17 +337,17 @@ onMounted(fetchTokens)
       <!-- Pagination -->
       <div class="px-4 py-3 border-t flex justify-between items-center">
         <button
-          @click="page > 1 && (page--, fetchTokens())"
           :disabled="page <= 1"
           class="text-sm text-indigo-600 disabled:text-gray-400"
+          @click="page > 1 && (page--, fetchTokens())"
         >
           ← Previous
         </button>
         <span class="text-sm text-gray-500">Page {{ page }} · {{ total }} total</span>
         <button
-          @click="page++; fetchTokens()"
           :disabled="tokens.length < perPage"
           class="text-sm text-indigo-600 disabled:text-gray-400"
+          @click="page++; fetchTokens()"
         >
           Next →
         </button>
@@ -294,21 +355,31 @@ onMounted(fetchTokens)
     </div>
 
     <!-- Confirmation Dialog -->
-    <div v-if="confirmDialog" class="fixed inset-0 z-50 flex items-center justify-center">
-      <div class="fixed inset-0 bg-black bg-opacity-30" @click="cancelConfirm"></div>
+    <div
+      v-if="confirmDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+    >
+      <div
+        class="fixed inset-0 bg-black bg-opacity-30"
+        @click="cancelConfirm"
+      />
       <div class="relative bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
-        <h3 class="text-lg font-medium text-gray-900 mb-2">Confirm Action</h3>
-        <p class="text-sm text-gray-600 mb-4">{{ confirmMessage }}</p>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">
+          Confirm Action
+        </h3>
+        <p class="text-sm text-gray-600 mb-4">
+          {{ confirmMessage }}
+        </p>
         <div class="flex justify-end gap-3">
           <button
-            @click="cancelConfirm"
             class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+            @click="cancelConfirm"
           >
             Cancel
           </button>
           <button
-            @click="executeConfirm"
             class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            @click="executeConfirm"
           >
             Confirm
           </button>

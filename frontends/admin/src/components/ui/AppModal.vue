@@ -85,19 +85,32 @@ onUnmounted(() => {
           ]"
         >
           <!-- Header -->
-          <div v-if="title || $slots.header" class="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-            <h2 v-if="title" class="text-lg font-semibold text-neutral-900">{{ title }}</h2>
+          <div
+            v-if="title || $slots.header"
+            class="flex items-center justify-between px-6 py-4 border-b border-neutral-100"
+          >
+            <h2
+              v-if="title"
+              class="text-lg font-semibold text-neutral-900"
+            >
+              {{ title }}
+            </h2>
             <slot name="header" />
 
             <button
               type="button"
               class="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-              @click="emit('close')"
               aria-label="Close dialog"
+              @click="emit('close')"
             >
-              <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/>
+              <svg
+                class="w-5 h-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
               </svg>
             </button>
           </div>
@@ -108,7 +121,10 @@ onUnmounted(() => {
           </div>
 
           <!-- Footer -->
-          <div v-if="$slots.footer" class="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-100 bg-neutral-50 rounded-b-xl">
+          <div
+            v-if="$slots.footer"
+            class="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-100 bg-neutral-50 rounded-b-xl"
+          >
             <slot name="footer" />
           </div>
         </div>

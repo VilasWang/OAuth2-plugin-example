@@ -21,9 +21,17 @@ const errorId = useId()
 
 <template>
   <div class="space-y-1.5">
-    <label v-if="label" :for="selectId" class="block text-sm font-medium text-neutral-700">
+    <label
+      v-if="label"
+      :for="selectId"
+      class="block text-sm font-medium text-neutral-700"
+    >
       {{ label }}
-      <span v-if="required" class="text-rose-500 ml-0.5" aria-hidden="true">*</span>
+      <span
+        v-if="required"
+        class="text-rose-500 ml-0.5"
+        aria-hidden="true"
+      >*</span>
     </label>
 
     <select
@@ -44,7 +52,13 @@ const errorId = useId()
       ]"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
-      <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
+      <option
+        v-if="placeholder"
+        value=""
+        disabled
+      >
+        {{ placeholder }}
+      </option>
       <option
         v-for="opt in options"
         :key="opt.value"
@@ -55,6 +69,13 @@ const errorId = useId()
       </option>
     </select>
 
-    <p v-if="error" :id="errorId" class="text-xs text-rose-600" role="alert">{{ error }}</p>
+    <p
+      v-if="error"
+      :id="errorId"
+      class="text-xs text-rose-600"
+      role="alert"
+    >
+      {{ error }}
+    </p>
   </div>
 </template>

@@ -36,14 +36,29 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-50">
-    <div class="text-center" v-if="!error">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-      <p class="mt-4 text-gray-600">Completing sign in...</p>
+    <div
+      v-if="!error"
+      class="text-center"
+    >
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto" />
+      <p class="mt-4 text-gray-600">
+        Completing sign in...
+      </p>
     </div>
-    <div class="max-w-md bg-white rounded-lg shadow p-6" v-else>
-      <h2 class="text-lg font-semibold text-red-600">Authentication Error</h2>
-      <p class="mt-2 text-sm text-gray-600">{{ error }}</p>
-      <router-link to="/login" class="mt-4 inline-block text-indigo-600 hover:text-indigo-500 text-sm">
+    <div
+      v-else
+      class="max-w-md bg-white rounded-lg shadow p-6"
+    >
+      <h2 class="text-lg font-semibold text-red-600">
+        Authentication Error
+      </h2>
+      <p class="mt-2 text-sm text-gray-600">
+        {{ error }}
+      </p>
+      <router-link
+        to="/login"
+        class="mt-4 inline-block text-indigo-600 hover:text-indigo-500 text-sm"
+      >
         ← Back to login
       </router-link>
     </div>

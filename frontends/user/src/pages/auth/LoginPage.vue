@@ -41,29 +41,54 @@ async function handleMfa() {
   <div>
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">Sign in to your account</h1>
+      <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">
+        Sign in to your account
+      </h1>
       <p class="mt-2 text-sm text-neutral-500">
         Or
-        <router-link to="/register" class="text-sky-600 font-medium hover:text-sky-700 transition-colors">
+        <router-link
+          to="/register"
+          class="text-sky-600 font-medium hover:text-sky-700 transition-colors"
+        >
           create a new account
         </router-link>
       </p>
     </div>
 
-    <AppAlert v-if="auth.error" type="error" class="mb-6" dismissible>
+    <AppAlert
+      v-if="auth.error"
+      type="error"
+      class="mb-6"
+      dismissible
+    >
       {{ auth.error }}
     </AppAlert>
 
     <!-- MFA Challenge -->
-    <form v-if="showMfa" @submit.prevent="handleMfa" class="space-y-6">
+    <form
+      v-if="showMfa"
+      class="space-y-6"
+      @submit.prevent="handleMfa"
+    >
       <div class="text-center py-4">
         <div class="w-14 h-14 rounded-2xl bg-sky-50 flex items-center justify-center mx-auto mb-4">
-          <svg class="w-7 h-7 text-sky-600" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v4H4a2 2 0 00-2 2v4a2 2 0 002 2h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2V6a4 4 0 00-4-4zm1.5 6.5a1 1 0 11-2 0 1 1 0 012 0zM4 14h12v4H4v-4z"/>
+          <svg
+            class="w-7 h-7 text-sky-600"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10 2a4 4 0 00-4 4v4H4a2 2 0 00-2 2v4a2 2 0 002 2h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2V6a4 4 0 00-4-4zm1.5 6.5a1 1 0 11-2 0 1 1 0 012 0zM4 14h12v4H4v-4z"
+            />
           </svg>
         </div>
-        <h2 class="text-lg font-semibold text-neutral-900">Two-Factor Authentication</h2>
-        <p class="text-sm text-neutral-500 mt-1">Enter the 6-digit code from your authenticator app</p>
+        <h2 class="text-lg font-semibold text-neutral-900">
+          Two-Factor Authentication
+        </h2>
+        <p class="text-sm text-neutral-500 mt-1">
+          Enter the 6-digit code from your authenticator app
+        </p>
       </div>
       <div>
         <input
@@ -75,22 +100,31 @@ async function handleMfa() {
           class="block w-full px-4 py-4 text-center text-2xl tracking-[0.5em] font-mono border border-neutral-300 rounded-lg
                  focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
           placeholder="000000"
-        />
+        >
       </div>
-      <AppButton type="submit" :loading="auth.loading" :disabled="mfaCode.length !== 6" block>
+      <AppButton
+        type="submit"
+        :loading="auth.loading"
+        :disabled="mfaCode.length !== 6"
+        block
+      >
         Verify Code
       </AppButton>
       <button
         type="button"
-        @click="showMfa = false; mfaCode = ''"
         class="w-full text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
+        @click="showMfa = false; mfaCode = ''"
       >
         Back to sign in
       </button>
     </form>
 
     <!-- Login Form -->
-    <form v-else @submit.prevent="handleLogin" class="space-y-5">
+    <form
+      v-else
+      class="space-y-5"
+      @submit.prevent="handleLogin"
+    >
       <AppInput
         v-model="username"
         label="Email or Username"
@@ -109,17 +143,27 @@ async function handleMfa() {
       />
 
       <div class="flex justify-end">
-        <router-link to="/forgot-password" class="text-sm text-sky-600 hover:text-sky-700 font-medium transition-colors">
+        <router-link
+          to="/forgot-password"
+          class="text-sm text-sky-600 hover:text-sky-700 font-medium transition-colors"
+        >
           Forgot password?
         </router-link>
       </div>
 
-      <AppButton type="submit" :loading="auth.loading" block>
+      <AppButton
+        type="submit"
+        :loading="auth.loading"
+        block
+      >
         Sign In
       </AppButton>
 
       <!-- Social Login Divider -->
-      <div v-if="GITHUB_CLIENT_ID" class="relative my-6">
+      <div
+        v-if="GITHUB_CLIENT_ID"
+        class="relative my-6"
+      >
         <div class="absolute inset-0 flex items-center">
           <div class="w-full border-t border-neutral-200" />
         </div>
@@ -135,8 +179,13 @@ async function handleMfa() {
         class="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-neutral-300
                rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
       >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+        <svg
+          class="w-5 h-5"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
         </svg>
         Sign in with GitHub
       </a>

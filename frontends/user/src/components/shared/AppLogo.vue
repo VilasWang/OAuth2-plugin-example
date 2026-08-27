@@ -5,7 +5,10 @@ defineProps<{
 </script>
 
 <template>
-  <div class="flex items-center gap-2.5 select-none" :class="size === 'lg' ? 'gap-3' : ''">
+  <div
+    class="flex items-center gap-2.5 select-none"
+    :class="size === 'lg' ? 'gap-3' : ''"
+  >
     <div
       :class="[
         'rounded-lg bg-sky-700 flex items-center justify-center text-white font-bold tracking-tight',

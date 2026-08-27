@@ -1,9 +1,15 @@
-name: Reusable — Frontend Property Tests
+name: Reusable — Frontend Quality Gate
 
-# Reusable workflow (Task 32): the shared Frontend_Error_Module release-readiness
-# gate. Pure vitest + fast-check property tests (errorAdapter / message catalog /
-# cross-app consistency, Requirement 12.5). DB-independent, so this is part of
-# the FAST gate and gates the pipeline early. Called by ci.yml.
+# Reusable workflow: the frontend gate called by ci.yml.
+#   1. vitest unit/property tests (errorAdapter / message catalog /
+#      cross-app consistency, Requirement 12.5) — DB-independent, part of the
+#      FAST gate.
+#   2. ESLint on both frontends (#108; previously zero lint gate).
+#   3. Production builds — BOTH type-check now: admin runs tsc via its build
+#      script, user's build is 'tsc && vite build' since #108.
+#   4. Playwright e2e (both frontends, API-mocked via tests/e2e/helpers/
+#      mock-api.ts — no backend needed), previously local-only (#108).
+#      vue-tsc full .vue type-checking remains tracked separately.
 
 on:
   workflow_call:
@@ -11,7 +17,7 @@ on:
 jobs:
   frontend:
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -20,41 +26,69 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Run Frontend Error-Mapping Property Tests (Req 12.5)
+      - name: Unit / property tests (user portal)
         working-directory: ${{ github.workspace }}/frontends/user
         run: |
-          echo "=== frontends/user: error-mapping property tests (Property 11/12/13/14) ==="
           npm ci
           npm run test:unit
 
-      - name: Run Admin Error-Mapping Property Tests (Req 12.5)
+      - name: Unit / property tests (admin console)
         working-directory: ${{ github.workspace }}/frontends/admin
         run: |
-          echo "=== frontends/admin: error-mapping property tests (shared errorAdapter source) ==="
           npm ci
           npm run test:unit
 
-      # Phase 1 of "frontend tests into CI": production build is the cheapest
-      # real gate. Admin's build script type-checks (tsc && vite build);
-      # user's bundles (vue-tsc adoption tracked separately). Full-stack
-      # Playwright e2e (16+8) is Phase 2, its own path-filtered workflow.
-      - name: Production build (admin, includes tsc type-check)
-        working-directory: ${{ github.workspace }}/frontends/admin
-        run: npm run build
+      - name: Lint (user portal, #108)
+        working-directory: ${{ github.workspace }}/frontends/user
+        run: npm run lint
 
-      - name: Production build (user)
+      - name: Lint (admin console, #108)
+        working-directory: ${{ github.workspace }}/frontends/admin
+        run: npm run lint
+
+      # Production build IS a type-check gate now: admin's build script is
+      # `tsc && vite build`; user's build became `tsc && vite build` in #108
+      # (it previously bundled without any type-check).
+      - name: Production build (user portal, includes tsc type-check)
         working-directory: ${{ github.workspace }}/frontends/user
         run: npm run build
 
-      # Phase 1 of "frontend tests into CI" (docs task list): production
-      # build is the cheapest real gate — admin's build script type-checks
-      # (tsc && vite build), user's bundles (vue-tsc adoption tracked
-      # separately). Full-stack Playwright e2e (16+8) is Phase 2, its own
-      # path-filtered workflow.
-      - name: Production build (admin, includes tsc type-check)
+      - name: Production build (admin console, includes tsc type-check)
         working-directory: ${{ github.workspace }}/frontends/admin
         run: npm run build
 
-      - name: Production build (user)
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
         working-directory: ${{ github.workspace }}/frontends/user
-        run: npm run build
+
+      # E2E is API-mocked (tests/e2e/helpers/mock-api.ts route interception);
+      # the vite dev server is started by each playwright config's webServer.
+      - name: Playwright e2e (user portal)
+        working-directory: ${{ github.workspace }}/frontends/user
+        run: npx playwright test
+
+      - name: Playwright e2e (admin console)
+        working-directory: ${{ github.workspace }}/frontends/admin
+        run: |
+          npx playwright install chromium --with-deps
+          npx playwright test
+
+      - name: Upload Playwright reports on failure (user)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report-user
+          path: |
+            frontends/user/playwright-report/
+            frontends/user/test-results/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright reports on failure (admin)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report-admin
+          path: |
+            frontends/admin/playwright-report/
+            frontends/admin/test-results/
+          if-no-files-found: ignore

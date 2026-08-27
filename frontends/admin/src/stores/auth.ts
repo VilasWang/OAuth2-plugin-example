@@ -171,7 +171,9 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         const resp = await axios.post('/oauth2/token', new URLSearchParams({
           grant_type: 'refresh_token',
-          refresh_token: refreshToken.value,
+          // Narrowed by the refreshToken.value guard above, but the closure
+          // re-reads the ref (nullable) -- pin the value for the body.
+          refresh_token: refreshToken.value ?? '',
           client_id: 'admin-console',
         }), {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

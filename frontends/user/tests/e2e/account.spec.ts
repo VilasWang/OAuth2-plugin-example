@@ -252,7 +252,7 @@ test.describe('Security', () => {
     // Simulate browser without PublicKeyCredential
     await page.goto('/login')
     await page.evaluate(() => {
-      // @ts-ignore
+      // @ts-expect-error -- test-only removal; the DOM lib types the property as readonly
       delete window.PublicKeyCredential
     })
     await loginUser(page)
