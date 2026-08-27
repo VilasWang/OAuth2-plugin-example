@@ -396,6 +396,30 @@ DROGON_TEST(Integration_P0_AdminUser_LastAdminGuard_409)
     auto token = loginAsAdmin();
     REQUIRE(token.has_value());
 
+    // #72 rerun-safety sweep: this test's premise is "the seeded admin is
+    // the ONLY active admin". A previous full-test round leaves admin-role
+    // testuser_* rows behind (the endpoint suites create them for
+    // role/lockout tests; their lockouts then EXPIRE, which the
+    // isLastActiveAdmin liveness rule counts as active again), silently
+    // defeating every 409 below. Demote every non-seed admin (including
+    // this test's own leftover throwaway from an aborted run) so the
+    // premise is re-established regardless of prior state.
+    try
+    {
+        auto db = drogon::app().getDbClient();
+        db->execSqlSync(
+          "UPDATE user_roles SET role_id = (SELECT id FROM roles WHERE name = 'user') "
+          "WHERE role_id = (SELECT id FROM roles WHERE name = 'admin') "
+          "AND user_id IN (SELECT id FROM users WHERE username <> 'admin')"
+        );
+    }
+    catch (const std::exception &e)
+    {
+        // Non-fatal by design: on a clean DB the sweep is a no-op; if it
+        // fails here the assertions below will name the real problem.
+        LOG_WARN << "LastAdminGuard pre-sweep failed (continuing): " << e.what();
+    }
+
     // Resolve the seeded admin's id.
     auto listResp = sendGet("/api/admin/users?q=admin", *token);
     REQUIRE(listResp != nullptr);
