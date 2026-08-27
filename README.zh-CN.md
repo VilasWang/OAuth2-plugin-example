@@ -383,7 +383,8 @@ ctest --output-on-failure
 
 ## 项目文档
 
-**在线文档站：[fulla.dev](https://fulla.dev)** —— 由本仓库 `docs/` 目录直接构建，随 master 持续更新。
+**在线文档站：[fulla.dev/zh-CN](https://fulla.dev/zh-CN)** —— 由本仓库 `docs/` 目录（英文正本）及其
+`website/i18n/zh-CN/` 中文译本直接构建，随 master 持续更新；站点右上角可切换中英文。
 
 **评估选型** — [架构总览](docs/architecture/architecture-overview.md) · [安全架构](docs/architecture/security-architecture.md) · [RBAC 权限](docs/domains/rbac-guide.md) · [性能对比](benchmarks/competitors/results/COMPARISON.md)
 

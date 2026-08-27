@@ -1,7 +1,8 @@
-// Sidebar mirrors the site IA; docs/ is user-facing only (governance §2):
-// architecture / domains / sdk / operate / contribute zones + ADRs.
-// Maintainer archives (history, branding records, process docs) live in
-// docs-local/ outside this tree and are NOT site content.
+// Sidebar mirrors the site IA; docs/ is user-facing only (governance §4A).
+// Category labels are English (site default locale); doc item labels derive
+// from each file's own H1, so the zh-CN tree shows Chinese titles
+// automatically. Maintainer archives (history, branding, process docs) live
+// in docs-local/ outside this tree and are NOT site content.
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
@@ -9,13 +10,13 @@ const sidebars = {
     'intro',
     {
       type: 'category',
-      label: '评估 · Evaluate',
+      label: 'Evaluate',
       items: [
         'architecture/architecture-overview',
         'architecture/security-architecture',
         {
           type: 'link',
-          label: '性能对比报告',
+          label: 'Benchmark Report',
           href: 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md',
         },
         'benchmark/competitor-benchmark-design',
@@ -23,7 +24,7 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: '集成 · Integrate',
+      label: 'Integrate',
       items: [
         'sdk/sdk-integration-guide',
         'sdk/sdk-runtime-contract',
@@ -35,12 +36,17 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: '架构深潜 · Architecture',
-      items: ['architecture/data-persistence'],
+      label: 'Deep Dives',
+      items: [
+        'domains/token-lifecycle',
+        'domains/session-management',
+        'domains/multi-tenancy',
+        'architecture/data-persistence',
+      ],
     },
     {
       type: 'category',
-      label: '运维 · Operate',
+      label: 'Operate',
       items: [
         'operate/deployment',
         'operate/docker-deployment',
@@ -54,7 +60,7 @@ const sidebars = {
     },
     {
       type: 'category',
-      label: '贡献 · Contribute',
+      label: 'Contribute',
       items: [
         'contribute/testing-guide',
         'contribute/ci-cd-guide',

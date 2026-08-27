@@ -1,27 +1,27 @@
-# OAuth2 数据持久化文档 (Data Persistence)
+# OAuth2 Data Persistence
 
-本文档详细描述了 OAuth2 插件的持久化层设计、数据库 Schema、Redis 键值结构以及安全加固方案。
+This document describes the OAuth2 plugin's persistence layer design, database schema, Redis key-value structure, and security hardening.
 
-## 1. 设计目标
+## 1. Design Goals
 
-- **存储解耦**：通过仓储接口（`libs/oauth2/include/fulla/oauth2/repository/` 下的 `IClientRepository`、`IGrantRepository`、`ITokenRepository` 等）抽象，支持内存、PostgreSQL、Redis 等多种存储后端，各后端以 `*RepositoryBundle` 装配实现。
-- **数据持久化**：确保 Client 信息、Token、Auth Code 等关键数据不丢失。
-- **安全加固**：Client Secret 绝不明文存储，强制使用 SHA256 加盐哈希。
-- **异步高性能**：底层操作全部采用 `execSqlAsync` 和 `execCommandAsync`，基于回调机制，充分利用 Drogon 的非阻塞 I/O 能力。
+- **Storage decoupling**: repository interfaces (`IClientRepository`, `IGrantRepository`, `ITokenRepository`, etc. under `libs/oauth2/include/fulla/oauth2/repository/`) abstract over multiple storage backends such as memory, PostgreSQL, and Redis; each backend is assembled as a `*RepositoryBundle` implementation.
+- **Data durability**: ensure that critical data — client information, tokens, auth codes — is never lost.
+- **Security hardening**: client secrets are never stored in plaintext; salted SHA256 hashing is mandatory.
+- **Asynchronous, high performance**: all low-level operations use `execSqlAsync` and `execCommandAsync` on a callback basis, fully exploiting Drogon's non-blocking I/O.
 
 ---
 
-## 2. PostgreSQL 存储方案
+## 2. PostgreSQL Storage
 
-适用于生产环境，提供严格的全部关系型数据一致性。
+Suited to production environments; provides strict, full relational data consistency.
 
 ### 2.1 Database Schema
 
-由迁移脚本 `apps/server/migrations/V002__oauth2_core.sql` 创建（幂等，`IF NOT EXISTS`；后续迁移会追加 scopes、device codes、lockout 等列）。核心表结构如下：
+Created by the migration script `apps/server/migrations/V002__oauth2_core.sql` (idempotent, `IF NOT EXISTS`; subsequent migrations add scopes, device codes, lockout, and other columns). The core tables:
 
-#### 客户端表 (`oauth2_clients`)
+#### Client table (`oauth2_clients`)
 
-存储接入的客户端应用信息。
+Stores information about registered client applications.
 
 ```sql
 CREATE TABLE IF NOT EXISTS oauth2_clients (
@@ -35,9 +35,9 @@ CREATE TABLE IF NOT EXISTS oauth2_clients (
 );
 ```
 
-#### 授权码表 (`oauth2_codes`)
+#### Authorization-code table (`oauth2_codes`)
 
-短期有效的授权凭证。
+Short-lived authorization credentials.
 
 ```sql
 CREATE TABLE IF NOT EXISTS oauth2_codes (
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS oauth2_codes (
 );
 ```
 
-#### 访问令牌表 (`oauth2_access_tokens`)
+#### Access-token table (`oauth2_access_tokens`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS oauth2_access_tokens (
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS oauth2_access_tokens (
 );
 ```
 
-#### 刷新令牌表 (`oauth2_refresh_tokens`)
+#### Refresh-token table (`oauth2_refresh_tokens`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS oauth2_refresh_tokens (
@@ -91,34 +91,36 @@ CREATE TABLE IF NOT EXISTS oauth2_refresh_tokens (
 
 ---
 
-## 3. Redis 存储方案（已弃用）
+## 3. Redis Storage (Deprecated)
 
-> **⚠️ 独立 Redis 存储已弃用（F-005）**：该模式启动时打 ERROR 日志，并以
-> `unsupported_grant_type` 拒绝 `refresh_token` 授权；历史上 refresh token
-> 从未在该模式持久化。新部署一律用 `postgres` + 可选 Redis 缓存层（§缓存
-> 一致性）。以下键空间仅作存量部署参考。
+> **⚠️ The standalone Redis storage mode is deprecated (F-005)**: in this mode the server logs an
+> ERROR at startup and rejects the `refresh_token` grant with `unsupported_grant_type`;
+> historically, refresh tokens were never persisted in this mode. New deployments must use
+> `postgres` plus the optional Redis cache layer (§ Cache Consistency). The key space below is
+> kept only as a reference for existing deployments.
 
-### 3.1 Key Pattern 设计
+### 3.1 Key Pattern Design
 
-所有 Key 均以 `oauth2:` 前缀开头（缓存层另有独立的 `fulla:cache:` 前缀，
-事务协调键族 `oauth2:transaction:*` 未列入下表）。
+All keys are prefixed with `oauth2:` (the cache layer has its own separate `fulla:cache:`
+prefix; the transaction-coordination key family `oauth2:transaction:*` is not listed in the
+table below).
 
-| 实体 | Key 格式 | 类型 | TTL | 说明 |
+| Entity | Key format | Type | TTL | Notes |
 |------|-------------|------|-----|------|
-| **Client** | `oauth2:client:{client_id}` | Hash | 无 | 字段: `secret` (Hash), `salt`, `redirect_uris` (JSON), `allowed_scopes` (JSON) |
-| **Auth Code** | `oauth2:code:{code}` | String | 10分钟 | Value: JSON 序列化对象 |
-| **Access Token** | `oauth2:token:{token}` | String | 1小时 | Value: JSON 序列化对象 |
-| **Refresh Token**| `oauth2:refresh:{token}` | String | 30天 | Value: JSON 序列化对象 |
+| **Client** | `oauth2:client:{client_id}` | Hash | none | Fields: `secret` (hash), `salt`, `redirect_uris` (JSON), `allowed_scopes` (JSON) |
+| **Auth Code** | `oauth2:code:{code}` | String | 10 minutes | Value: JSON-serialized object |
+| **Access Token** | `oauth2:token:{token}` | String | 1 hour | Value: JSON-serialized object |
+| **Refresh Token**| `oauth2:refresh:{token}` | String | 30 days | Value: JSON-serialized object |
 
-### 3.2 示例数据
+### 3.2 Sample Data
 
-**Client (Hash Structure)**:
+**Client (Hash structure)**:
 
 ```bash
 HSET oauth2:client:vue-client secret "42a121b66fb9f1d4f73125788f42eb6799110c6aeae5a9a12a2fed5307a0088d" salt "random_salt" redirect_uris "[\"http://localhost:5173/callback\"]"
 ```
 
-**Auth Code (String Value)**:
+**Auth Code (String value)**:
 
 ```json
 {
@@ -133,26 +135,26 @@ HSET oauth2:client:vue-client secret "42a121b66fb9f1d4f73125788f42eb6799110c6aea
 
 ---
 
-## 4. 安全加固 (Security Hardening)
+## 4. Security Hardening
 
-为了防止数据库泄露导致 Client Secret 暴露，本系统实施了强制哈希策略。
+To prevent client-secret exposure in the event of a database breach, the system enforces a strict hashing policy.
 
-### 4.1 算法与流程
+### 4.1 Algorithm and Flow
 
-1. **存储时**：
-    - 生成随机 `salt`（可选，但在 Postgres Schema 中建议预留）。
-    - 计算 `Hash = SHA256(raw_secret + salt)`。
-    - 数据库存储 `Hash` (Hex String) 和 `salt`。
+1. **On storage**:
+    - Generate a random `salt` (optional, but recommended to reserve in the Postgres schema).
+    - Compute `Hash = SHA256(raw_secret + salt)`.
+    - Store `Hash` (hex string) and `salt` in the database.
 
-2. **验证时**：
-    - 用户提交 `input_secret`。
-    - 系统读取库中的 `stored_hash` 和 `salt`。
-    - 计算 `CheckHash = SHA256(input_secret + salt)`。
-    - 比对 `CheckHash` 与 `stored_hash` (忽略大小写)。
+2. **On validation**:
+    - The client submits `input_secret`.
+    - The system reads `stored_hash` and `salt` from the database.
+    - Compute `CheckHash = SHA256(input_secret + salt)`.
+    - Compare `CheckHash` with `stored_hash` (case-insensitive).
 
-### 4.2 代码实现
+### 4.2 Code
 
-位于 `RedisClientRepository::validateClient` 和 `PostgresClientRepository::validateClient` 中。
+Implemented in `RedisClientRepository::validateClient` and `PostgresClientRepository::validateClient`.
 
 ```cpp
 // 核心逻辑示例
@@ -163,21 +165,21 @@ return lower(calculatedHash) == lower(storedHash);
 
 ---
 
-## 5. 数据生命周期管理 (Data Lifecycle)
+## 5. Data Lifecycle Management
 
-为了防止数据库无限增长，系统实现了自动化的过期数据清理机制。
+To keep the database from growing without bound, the system implements an automated expired-data cleanup mechanism.
 
-### 5.1 策略概览
+### 5.1 Policy Overview
 
-| 存储后端 | 清理策略 | 实现机制 | 频率 |
+| Storage backend | Cleanup strategy | Mechanism | Frequency |
 |----------|----------|----------|------|
-| **Redis** | **TTL 自动清理** | 依赖 Redis 原生 `SETEX`/`EXPIRE` 机制，无需应用层干预。 | 实时 |
-| **PostgreSQL**| **定期删除** | 由 `OAuth2CleanupService` 调用 `IGrantRepository` / `ITokenRepository` 的清理方法删除过期 Auth Code、Access/Refresh Token。 | 默认每 1 小时 |
-| **Memory** | **定期扫描** | 同上，由 `OAuth2CleanupService` 触发各仓储的过期清理。 | 默认每 1 小时 |
+| **Redis** | **TTL auto-expiry** | Relies on Redis-native `SETEX`/`EXPIRE`; no application-layer involvement. | Real time |
+| **PostgreSQL**| **Periodic deletion** | `OAuth2CleanupService` calls the cleanup methods of `IGrantRepository` / `ITokenRepository` to delete expired auth codes and access/refresh tokens. | Default: every 1 hour |
+| **Memory** | **Periodic scan** | Same as above; `OAuth2CleanupService` triggers each repository's expiry cleanup. | Default: every 1 hour |
 
-### 5.2 调度器实现
+### 5.2 Scheduler Implementation
 
-清理由独立的 `OAuth2CleanupService`（`libs/drogon/src/plugin/OAuth2CleanupService.cc`）承担，在 `OAuth2Plugin::initAndStart` 中创建并启动，间隔由插件配置项 `cleanup_interval_seconds` 控制（默认 `3600`，见 `config.json`）：
+Cleanup is performed by a dedicated `OAuth2CleanupService` (`libs/drogon/src/plugin/OAuth2CleanupService.cc`), created and started in `OAuth2Plugin::initAndStart`; the interval is controlled by the plugin configuration key `cleanup_interval_seconds` (default `3600`; see `config.json`):
 
 ```cpp
 cleanupService_ = std::make_shared<OAuth2CleanupService>(grantRepo_, tokenRepo_);
@@ -185,49 +187,54 @@ double cleanupInterval = config.get("cleanup_interval_seconds", 3600.0).asDouble
 cleanupService_->start(cleanupInterval);
 ```
 
-服务内部用 `drogon::app().getLoop()->runEvery(interval, ...)` 周期触发，并通过 `weak_from_this()` 防止在销毁后回调。
+Internally the service uses `drogon::app().getLoop()->runEvery(interval, ...)` for periodic firing, and `weak_from_this()` to guard against callbacks after destruction.
 
-### 5.3 接口定义
+### 5.3 Interface Definition
 
-清理不再集中于单一的 `IOAuth2Storage::deleteExpiredData`；而是按仓储拆分，由 `IGrantRepository`（Auth Code）与 `ITokenRepository`（Access/Refresh Token）各自提供过期删除方法，由 `OAuth2CleanupService` 编排调用。
+Cleanup is no longer concentrated in a single `IOAuth2Storage::deleteExpiredData`; it is split per repository — `IGrantRepository` (auth codes) and `ITokenRepository` (access/refresh tokens) each expose their own expired-deletion methods, orchestrated by `OAuth2CleanupService`.
 
-## 6. 存储后端选型与 Memory 后端警告 (F-031)
+## 6. Storage Backend Selection and the Memory-Backend Warning (F-031)
 
-> **⚠️ Memory 存储后端仅供测试 / 开发使用，生产环境禁用。**
+> **⚠️ The memory storage backend is for testing/development only; it must not be used in production.**
 
-`storage_type="memory"`（见 `config.ci.json`）将所有 client / token / code /
-consent 数据保存在进程内存中，**密钥（client_secret）以明文存储**（不经
-SHA-256 加盐哈希），且：
+`storage_type="memory"` (see `config.ci.json`) keeps all client / token / code / consent
+data in process memory, with **secrets (client_secret) stored in plaintext** (no SHA-256
+salted hashing), and:
 
-- 进程重启即丢失全部数据（无持久化）；
-- 无多用户 / 多实例共享（每个进程一份独立状态）；
-- 无事务、无原子 CAS 保证（测试桩实现）；
-- Memory identity 仓库永远从 `findByUsername` 返回 `nullopt`，因此 admin
-  登录链路在该模式下不可用（`loginAsAdmin()` 返回 `nullopt`，依赖它的集成
-  测试会干净跳过）。
+- All data is lost on process restart (no persistence);
+- No multi-user / multi-instance sharing (each process holds an independent copy of the state);
+- No transactions, no atomic CAS guarantees (test-stub implementation);
+- The memory identity repository always returns `nullopt` from `findByUsername`, so the
+  admin login path is unavailable in this mode (`loginAsAdmin()` returns `nullopt`;
+  integration tests that depend on it skip cleanly).
 
-**生产部署必须使用 `storage_type="postgres"`**（Postgres 是唯一受支持的生产
-存储后端；独立 Redis 存储模式已弃用，见 F-005 / [配置指南 §3](../operate/configuration-guide.md)）。
-Memory 后端存在的唯一目的是让 Windows / macOS CI 环境在无 Postgres 时仍能
-跑通不依赖 DB 的测试用例（contract 测试、纯单测、协议错误信封测试等）。
+**Production deployments must use `storage_type="postgres"`** (Postgres is the only supported
+production storage backend; the standalone Redis storage mode is deprecated — see F-005 /
+[Configuration Guide §3](../operate/configuration-guide.md)). The only reason the memory
+backend exists is to let Windows/macOS CI environments run the DB-independent test cases
+(contract tests, pure unit tests, protocol error-envelope tests, etc.) when no Postgres is
+available.
 
-## 数据一致性专题
+## Data Consistency Notes
 
-### 授权码单次使用（防双花）
+### Authorization-code single use (anti double-spend)
 
-`consumeAuthCode` 在存储层保证原子性：PostgreSQL 用 `UPDATE ... WHERE consumed = false ... RETURNING`
-（raw SQL 豁免条款）；Redis 后端用 Lua 脚本；Memory 后端用互斥锁。契约由
-`tests/contract/GrantRepositoryContractTest.cc` 的三实现同测覆盖。
+`consumeAuthCode` guarantees atomicity at the storage layer: PostgreSQL uses `UPDATE ... WHERE consumed = false ... RETURNING`
+(a raw-SQL exemption); the Redis backend uses a Lua script; the memory backend uses a mutex. The contract
+is covered for all three implementations by `tests/contract/GrantRepositoryContractTest.cc`.
 
-### 缓存一致性：延迟双删
+### Cache consistency: delayed double-delete
 
-Redis L2 缓存（键前缀 `fulla:cache:`）的写路径失效采用**延迟双删**：立即 DEL + 事件循环上
-延迟二次 DEL（默认 200ms，`cache.invalidation_double_delete_delay_ms` 可配，钳位 [50,2000]），
-以覆盖"读线程在 DEL 前刚回填旧值"的竞态窗口（issue #79）。二次 DEL 失败可观测：
-`fulla_cache_invalidation_failures_total{kind}` 计数器（issue #80）。读路径为 cache-aside，
-未命中回源 PostgreSQL 后回填（TTL 兜底最终一致）。
+Write-path invalidation for the Redis L2 cache (key prefix `fulla:cache:`) uses a **delayed
+double-delete**: an immediate DEL plus a second, delayed DEL on the event loop (default 200ms,
+configurable via `cache.invalidation_double_delete_delay_ms`, clamped to [50,2000]). This covers
+the race window where "a reader thread backfills a stale value just before the DEL" (issue #79).
+Second-DEL failures are observable via the `fulla_cache_invalidation_failures_total{kind}`
+counter (issue #80). The read path is cache-aside: on a miss it falls through to PostgreSQL and
+backfills (with TTL as the eventual-consistency backstop).
 
-### refresh token 家族与级联撤销
+### Refresh-token families and cascading revocation
 
-refresh token 存储家族标识（V008），检测到重放即撤销整个家族；撤销可按 token / client / user
-三个粒度发起（管理 API 与 `/oauth2/revoke`）。
+Refresh tokens store a family identifier (V008); on detected replay the entire family is
+revoked. Revocation can be initiated at three granularities — per token / per client / per
+user (admin API and `/oauth2/revoke`).

@@ -1,43 +1,43 @@
-# CI/CD 流水线指南 (CI/CD Guide)
+# CI/CD Pipeline Guide (CI/CD Guide)
 
-本文档说明项目的持续集成与持续交付（CI/CD）机制，基于 **GitHub Actions**。
+This document describes the project's continuous integration and continuous delivery (CI/CD) mechanism, built on **GitHub Actions**.
 
 ---
 
-## 1. 流水线概览
+## 1. Pipeline Overview
 
-CI 配置位于 `.github/workflows/ci.yml`，由三个 fail-fast 串联的 Job（含一条可复用工作流矩阵）组成：
+The CI configuration lives in `.github/workflows/ci.yml` and consists of three fail-fast, chained jobs (including a reusable-workflow matrix):
 
 ```
-Push/PR 到 master (及 workflow_dispatch)
+Push/PR to master (and workflow_dispatch)
         │
         ├── FAST gate
-        │     ├── static-checks (ubuntu-22.04) — 源码级守卫：
+        │     ├── static-checks (ubuntu-22.04) — source-level guards:
         │     │     arch-guard / migration-check / api-diff /
-        │     │     测试命名 / manage 脚本对等 / OpenAPI 校验 /
-        │     │     OpenAPI 治理门（三层一致性 + 版本同步）
-        │     └── frontend (_frontend.yml) — 前端属性测试
+        │     │     test naming / manage-script parity / OpenAPI checks /
+        │     │     OpenAPI governance gate (three-layer consistency + version sync)
+        │     └── frontend (_frontend.yml) — frontend property tests
         │
-        ├── openapi-governance (openapi-governance.yml, PR 触发) —
-        │     oasdiff 破坏性变更门（base vs PR 的 openapi.yaml；
-        │     豁免清单 tools/openapi-governance/oasdiff-breaking-ignore.md）
+        ├── openapi-governance (openapi-governance.yml, PR-triggered) —
+        │     oasdiff breaking-change gate (base vs PR openapi.yaml;
+        │     exemption list tools/openapi-governance/oasdiff-breaking-ignore.md)
         │
         ├── MAIN gate
-        │     └── build-test (_build-test.yml × {linux, windows, macos} 矩阵)
-        │           ├── 安装系统依赖 / Conan
-        │           ├── 配置并构建 (Conan + cmake --preset，带缓存)
-        │           ├── [linux] 启动 Postgres/Redis 容器并等待就绪
-        │           ├── [linux] 初始化数据库 Schema
-        │           ├── 运行 ctest + 命名发布门禁
-        │           └── [失败时] 上传测试日志 Artifact
+        │     └── build-test (_build-test.yml × {linux, windows, macos} matrix)
+        │           ├── install system dependencies / Conan
+        │           ├── configure and build (Conan + cmake --preset, with cache)
+        │           ├── [linux] start Postgres/Redis containers and wait until ready
+        │           ├── [linux] initialize the database schema
+        │           ├── run ctest + release naming gate
+        │           └── [on failure] upload test-log artifacts
         │
         └── RELEASE gate
-              └── sdk-smoke (_sdk-smoke.yml) — 全栈 find_package 冒烟
+              └── sdk-smoke (_sdk-smoke.yml) — full-stack find_package smoke test
 ```
 
 ---
 
-## 2. 触发条件
+## 2. Triggers
 
 ```yaml
 on:
@@ -52,93 +52,94 @@ concurrency:
   cancel-in-progress: true
 ```
 
-- **Push to master**：每次合并到 master 后自动触发全量检查。
-- **Pull Request**：每次 PR 创建/更新时在合并前自动触发，作为门禁检查。
-- **workflow_dispatch**：支持手动触发。
-- **并发控制**：同一分支的新运行会取消其进行中的旧运行。
+- **Push to master**: every merge to master automatically triggers the full check suite.
+- **Pull Request**: triggered automatically on PR creation/update, serving as a pre-merge gate check.
+- **workflow_dispatch**: manual triggering is supported.
+- **Concurrency control**: a new run for the same branch cancels any in-progress older run.
 
 ---
 
-## 3. 核心 Job 详解：`build-test`
+## 3. Core Job in Depth: `build-test`
 
-`build-test` 是一条可复用工作流（`_build-test.yml`），由 `ci.yml` 以 `{linux, windows, macos}` 矩阵调用，三个平台执行同一套 Conan + `cmake --preset` 构建与 CTest 测试，仅在需要时通过矩阵输入启用数据库。
+`build-test` is a reusable workflow (`_build-test.yml`) invoked by `ci.yml` as a `{linux, windows, macos}` matrix. All three platforms run the same Conan + `cmake --preset` build and CTest suite; the database is enabled via matrix inputs only where needed.
 
-### 3.1 Service Containers（仅 linux 矩阵腿）
+### 3.1 Service Containers (linux matrix leg only)
 
-CI 在 Linux 矩阵腿中用 Docker 容器启动 Postgres 和 Redis，并通过真实查询（非仅 `pg_isready`）确保就绪：
+In the Linux matrix leg, CI starts Postgres and Redis in Docker containers and confirms readiness with real queries (not just `pg_isready`):
 
-| Service | 镜像 | 端口 | 密码 |
+| Service | Image | Port | Password |
 |---|---|---|---|
 | PostgreSQL | `postgres:17-alpine` | `5432` | `123456` |
-| Redis | `redis:7-alpine` | `6379` | 无（CI 环境简化配置）|
+| Redis | `redis:7-alpine` | `6379` | None (simplified CI configuration)|
 
-> PostgreSQL 镜像与 deploy 默认（`postgres:17-alpine`，2026-08-18 起）对齐——CI 覆盖的
-> 就是部署目标大版本（含 V025 分区/V026 等 migration 在 17 上的行为）。
+> The PostgreSQL image matches the deploy default (`postgres:17-alpine`, since 2026-08-18) — CI therefore covers
+> the major version actually deployed (including how migrations such as V025 partitioning / V026 behave on 17).
 
-> **WARNING** **注意**：CI 中 Redis 无密码，因此测试配置通过环境变量 `FULLA_REDIS_PASSWORD=""` 覆盖。Windows/macOS 矩阵腿 `use_database=false`，改用内存存储配置（`config.ci.json`）。
+> **WARNING**: Redis runs without a password in CI, so the test configuration overrides it with the environment variable `FULLA_REDIS_PASSWORD=""`. The Windows/macOS matrix legs use `use_database=false` and fall back to the in-memory storage configuration (`config.ci.json`).
 
-### 3.2 构建缓存策略
+### 3.2 Build Cache Strategy
 
-为加速 CI 构建速度，对 Conan 依赖做缓存：
+To speed up CI builds, Conan dependencies are cached:
 
-| 缓存 | 缓存键 | 内容 |
+| Cache | Cache key | Contents |
 |---|---|---|
-| **Conan 依赖缓存** | `conan-{OS}-v1-cpp17-{conanfile.py + conan.lock hash}` | `~/.conan2` 目录（第三方依赖，含 Drogon）|
+| **Conan dependency cache** | `conan-{OS}-v1-cpp17-{conanfile.py + conan.lock hash}` | The `~/.conan2` directory (third-party dependencies, including Drogon)|
 
-初次构建约需 **15-20 分钟**；缓存命中后降至 **3-5 分钟**。
+A cold build takes roughly **15-20 minutes**; with a cache hit this drops to **3-5 minutes**.
 
-### 3.3 数据库初始化
+### 3.3 Database Initialization
 
-测试前执行 migration 脚本初始化数据库：
+Before testing, migration scripts initialize the database:
 
 ```bash
-# 按顺序执行所有 migration 文件
+# Run all migration files in order
 for f in apps/server/migrations/V*.sql; do
     psql -h localhost -U fulla_user -d fulla_db -f "$f"
 done
 
-# 执行 seed 数据（开发/测试环境）
+# Load seed data (dev/test environments)
 for f in apps/server/seed/*.sql; do
     psql -h localhost -U fulla_user -d fulla_db -f "$f"
 done
 ```
 
-> **注意**: 旧的 `sql/001_*.sql` ~ `sql/004_*.sql` 文件已废弃并删除，所有 schema 定义统一在 `apps/server/migrations/` 目录中管理。
+> **Note**: the legacy `sql/001_*.sql` through `sql/004_*.sql` files are deprecated and removed; all schema definitions are now managed centrally under `apps/server/migrations/`.
 
-### 3.4 测试执行
+### 3.4 Test Execution
 
 ```bash
 ctest -V -C Release --output-on-failure --timeout 120
 ```
 
-- `-V` : 详细输出
-- `--output-on-failure` : 失败时打印测试标准输出
-- `--timeout 120` : 单个测试最长 2 分钟
+- `-V` : verbose output
+- `--output-on-failure` : print test stdout on failure
+- `--timeout 120` : each test gets at most 2 minutes
 
-### 3.5 失败日志上传
+### 3.5 Failure Log Upload
 
-测试失败时，CI 会自动打包并上传以下内容作为 Artifact（保留 7 天）：
-- `build/Testing/` — CTest 测试报告
-- `apps/server/logs/` — 应用运行日志
+When tests fail, CI automatically packages and uploads the following as artifacts (retained for 7 days):
 
----
-
-## 4. 镜像构建与签名
-
-CI 流水线本身不构建 Docker 镜像。容器镜像的多架构构建、推送 GHCR、cosign 签名与 syft SBOM 由 `release.yml` 在打 SemVer Tag（`vX.Y.Z`）时完成。详见 [Releases & Supply Chain Security](https://github.com/voidvec/fulla#releases--supply-chain-security)。
+- `build/Testing/` — CTest test reports
+- `apps/server/logs/` — application runtime logs
 
 ---
 
-## 5. 本地复现 CI 环境
+## 4. Image Build and Signing
 
-如需本地模拟 CI 行为：
+The CI pipeline itself does not build Docker images. Multi-arch container image builds, GHCR pushes, cosign signing, and syft SBOMs are handled by `release.yml` when a SemVer tag (`vX.Y.Z`) is pushed. See [Releases & Supply Chain Security](https://github.com/voidvec/fulla#releases--supply-chain-security).
+
+---
+
+## 5. Reproducing the CI Environment Locally
+
+To simulate CI behavior locally:
 
 ```powershell
-# 1. 启动基础设施（CI 中使用 Service Container，本地用 Docker）
+# 1. Start the infrastructure (CI uses service containers; locally, use Docker)
 docker run -d -p 5432:5432 -e POSTGRES_USER=fulla_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=fulla_db postgres:17-alpine
 docker run -d -p 6379:6379 redis:7-alpine
 
-# 2. 初始化数据库
+# 2. Initialize the database
 $env:PGPASSWORD = "123456"
 Get-ChildItem "apps\server\migrations\V*.sql" | Sort-Object Name | ForEach-Object {
     psql -h localhost -U fulla_user -d fulla_db -f $_.FullName
@@ -147,7 +148,7 @@ Get-ChildItem "apps\server\seed\*.sql" | ForEach-Object {
     psql -h localhost -U fulla_user -d fulla_db -f $_.FullName
 }
 
-# 3. 构建并运行测试（build.bat 走 Conan + cmake --preset，Release 落到 build/windows-msvc）
+# 3. Build and run tests (build.bat uses Conan + cmake --preset; Release lands in build/windows-msvc)
 .\scripts\backend\build.bat -release
 cd build\windows-msvc
 $env:FULLA_REDIS_PASSWORD = ""
@@ -156,23 +157,23 @@ ctest -V -C Release --output-on-failure
 
 ---
 
-## 6. 多平台矩阵
+## 6. Multi-Platform Matrix
 
-多平台 CI 已合并进 `ci.yml` 的 `build-test` Job，通过 `include` 矩阵在同一套可复用工作流（`_build-test.yml`）上跑三个平台。
+Multi-platform CI has been consolidated into the `build-test` job in `ci.yml`; an `include` matrix runs all three platforms on the same reusable workflow (`_build-test.yml`).
 
 ### Quick Reference
 
-- **Workflow File:** `.github/workflows/ci.yml`（调用 `_build-test.yml`）
+- **Workflow File:** `.github/workflows/ci.yml` (invokes `_build-test.yml`)
 - **Platforms:** Linux (ubuntu-22.04), Windows (windows-2022), macOS (macos-14)
 - **Trigger:** Push to master, pull requests, manual workflow dispatch
 - **Runtime:** ~15-20 minutes cold cache, ~3-5 minutes warm cache per platform
 
 ### Platform-Specific Features
 
-每个平台的差异仅通过矩阵输入表达（无复制粘贴的流水线）：
+Per-platform differences are expressed entirely through matrix inputs (no copy-pasted pipelines):
 
-- **Linux:** 系统依赖经 apt 安装；用 Docker 容器跑 PostgreSQL/Redis；执行数据库初始化与命名发布门禁
-- **Windows:** Conan 依赖管理，MSVC 2022 编译器；内存存储配置（`use_ci_config`），无外部 DB
-- **macOS:** Homebrew（仅 `brew update`）；arm64 构建（`-s arch=armv8`，runner 为 `macos-14`）；内存存储配置
+- **Linux:** system dependencies installed via apt; PostgreSQL/Redis run in Docker containers; performs database initialization and the release naming gate
+- **Windows:** Conan dependency management with the MSVC 2022 compiler; in-memory storage configuration (`use_ci_config`), no external DB
+- **macOS:** Homebrew (`brew update` only); arm64 builds (`-s arch=armv8`, runner is `macos-14`); in-memory storage configuration
 
 ---

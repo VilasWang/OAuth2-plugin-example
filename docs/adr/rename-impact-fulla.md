@@ -1,9 +1,11 @@
 ---
-title: 档案 · authforge→fulla 改名影响分析（2026-08-25 快照）
-date: 2026-08-25
-status: 已执行（PR #93/#94/#95 落地；v1.0.0 序列重置首发）
-sidebar_label: 档案 · 改名影响分析
+title: Archive · authforge→fulla Rename Impact Analysis (in Chinese)
 ---
+
+> **Language note**: historical archive, kept in its original Chinese. The
+> authforge→fulla rename impact analysis (executed via PR #93/#94/#95;
+> version series reset to v1.0.0). Current rules live in
+> [documentation-governance.md](../documentation-governance.md).
 
 > 本文档是改名决策的历史档案（入库版，本机细节已泛化）。其中的执行计划已全部
 > 完成：仓库已改名 voidvec/fulla、版本序列重置为 v1.0.0、PyPI fulla-oauth2 已

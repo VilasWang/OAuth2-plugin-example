@@ -1,12 +1,12 @@
-# 部署验证清单
+# Deployment Verification Checklist
 
-本文档提供完整的部署验证步骤，确保 fulla 全栈系统在 Windows Docker Desktop 或 Linux 生产环境上正确运行。
+This document provides complete deployment verification procedures to ensure the fulla full-stack system runs correctly on Windows Docker Desktop or in a Linux production environment.
 
 ---
 
-## 快速验证（5 分钟）
+## Quick Verification (5 Minutes)
 
-### 1. 检查所有容器状态
+### 1. Check All Container Statuses
 
 ```powershell
 # Windows
@@ -16,9 +16,9 @@ docker compose -f deploy/docker/docker-compose.yml ps
 docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker ps
 ```
 
-**预期结果**：所有容器状态为 `Up` 或 `Up (healthy)`
+**Expected result**: all containers show a status of `Up` or `Up (healthy)`
 
-| 容器名 | 状态 | 端口映射 |
+| Container | Status | Port Mapping |
 |--------|------|---------|
 | fulla-frontend | Up | 8080:80 |
 | fulla-admin | Up | 8081:80 |
@@ -27,50 +27,50 @@ docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker p
 | fulla-redis | Up | 6380:6379 |
 | fulla-prometheus | Up | 9090:9090 |
 
-### 2. 健康检查
+### 2. Health Check
 
 ```powershell
-# 后端健康端点
+# Backend health endpoint
 curl http://localhost:5555/health
 
-# 预期输出
+# Expected output
 {"status":"healthy","timestamp":"2026-08-26T10:30:00Z"}
 ```
 
-### 3. 数据库连接测试
+### 3. Database Connection Test
 
 ```powershell
-# 进入 postgres 容器
+# Enter the postgres container
 docker exec -it fulla-postgres psql -U fulla_user -d fulla_db -c "\dt"
 
-# 预期输出：OAuth2 相关表列表
+# Expected output: list of OAuth2-related tables
 # oauth2_clients, oauth2_codes, oauth2_access_tokens, oauth2_refresh_tokens,
-# oauth2_scopes, users, roles, user_roles, organizations, audit_logs 等（V026 后共 21 张）
+# oauth2_scopes, users, roles, user_roles, organizations, audit_logs, etc. (21 tables in total after V026)
 ```
 
-### 4. 前端访问测试
+### 4. Frontend Access Test
 
-在浏览器中打开：
-- **用户前端**：http://localhost:8080 或 https://your-domain.com
-- **管理后台**：http://localhost:8081 或 https://your-domain.com/admin
+Open the following in a browser:
+- **User frontend**: http://localhost:8080 or https://your-domain.com
+- **Admin console**: http://localhost:8081 or https://your-domain.com/admin
 
-**预期结果**：页面正常加载，无 404 或 502 错误
+**Expected result**: pages load normally with no 404 or 502 errors
 
 ---
 
-## 完整验证（30 分钟）
+## Full Verification (30 Minutes)
 
-## 阶段一：基础设施验证
+## Phase 1: Infrastructure Verification
 
-### 1.1 PostgreSQL 验证
+### 1.1 PostgreSQL Verification
 
 ```powershell
-# 连接测试
+# Connection test
 docker exec fulla-postgres pg_isready -U fulla_user
 
-# 预期输出：/var/run/postgresql:5432 - accepting connections
+# Expected output: /var/run/postgresql:5432 - accepting connections
 
-# 表结构检查
+# Table structure check
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT table_name 
 FROM information_schema.tables 
@@ -78,67 +78,67 @@ WHERE table_schema = 'public'
 ORDER BY table_name;
 "
 
-# 预期表列表（V002-V026 实际 schema，均带 oauth2_ 前缀）：
+# Expected table list (V002-V026 actual schema, all with the oauth2_ prefix):
 # - oauth2_access_tokens, oauth2_refresh_tokens, oauth2_codes
 # - oauth2_clients, oauth2_scopes, oauth2_client_scopes
 # - oauth2_user_consents, oauth2_subject_mappings, oauth2_device_codes
 # - users, roles, permissions, user_roles, role_permissions
-# - organizations, audit_logs, webauthn_credentials 等
+# - organizations, audit_logs, webauthn_credentials, etc.
 
-# 数据库版本检查
+# Database version check
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT version();"
 
-# 预期：PostgreSQL 17.x（deploy compose 默认 postgres:17-alpine；
-#       显式钉回 15 的存量部署此处应为 15.x，见 docs/operate/postgresql-major-upgrade.md）
+# Expected: PostgreSQL 17.x (deploy compose defaults to postgres:17-alpine;
+#           existing deployments explicitly pinned to 15 should show 15.x here, see docs/operate/postgresql-major-upgrade.md)
 ```
 
-### 1.2 Redis 验证
+### 1.2 Redis Verification
 
 ```powershell
-# 进入 redis 容器
+# Enter the redis container
 docker exec -it fulla-redis redis-cli -a redis_secret_pass ping
 
-# 预期输出：PONG
+# Expected output: PONG
 
-# 测试读写
+# Test read/write
 docker exec fulla-redis redis-cli -a redis_secret_pass SET test_key "hello"
 docker exec fulla-redis redis-cli -a redis_secret_pass GET test_key
 
-# 预期输出："hello"
+# Expected output: "hello"
 
-# 检查内存使用
+# Check memory usage
 docker exec fulla-redis redis-cli -a redis_secret_pass INFO memory
 
-# 预期：used_memory_human 显示合理的内存占用
+# Expected: used_memory_human shows a reasonable amount of memory usage
 ```
 
-### 1.3 网络连通性验证
+### 1.3 Network Connectivity Verification
 
 ```powershell
-# 从后端容器测试数据库连接
+# Test database connectivity from the backend container
 docker exec fulla-backend ping -c 3 fulla-postgres
 
-# 预期：3 packets transmitted, 3 received, 0% packet loss
+# Expected: 3 packets transmitted, 3 received, 0% packet loss
 
-# 从后端容器测试 Redis 连接
+# Test Redis connectivity from the backend container
 docker exec fulla-backend ping -c 3 fulla-redis
 
-# 预期：3 packets transmitted, 3 received, 0% packet loss
+# Expected: 3 packets transmitted, 3 received, 0% packet loss
 
-# 检查 DNS 解析
+# Check DNS resolution
 docker exec fulla-backend nslookup fulla-postgres
 
-# 预期：返回 fulla-postgres 的容器 IP 地址（如 172.x.x.x）
+# Expected: returns the container IP address of fulla-postgres (e.g., 172.x.x.x)
 ```
 
 ---
 
-## 阶段二：数据库初始化验证
+## Phase 2: Database Initialization Verification
 
-### 2.1 检查 Seed 数据
+### 2.1 Check Seed Data
 
 ```powershell
-# 检查管理员用户（角色经 user_roles 关联，users 表本身没有 role 列）
+# Check the admin user (roles are linked through user_roles; the users table itself has no role column)
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT u.username, u.email, r.name AS role, u.created_at
 FROM users u
@@ -147,56 +147,56 @@ LEFT JOIN roles r ON r.id = ur.role_id
 WHERE u.username = 'admin';
 "
 
-# 预期输出：
+# Expected output:
 # username |       email       | role  |         created_at
 # ----------+-------------------+-------+----------------------------
 # admin    | admin@example.com | admin | 2026-xx-xx xx:xx:xx
 
-# 检查默认客户端（表名带 oauth2_ 前缀；名称列是 name）
+# Check the default clients (the table name carries the oauth2_ prefix; the name column is name)
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT client_id, name, client_type, token_endpoint_auth_method
 FROM oauth2_clients
 WHERE client_id IN ('admin-console', 'vue-client');
 "
 
-# 预期输出：admin-console 与 vue-client 均为 PUBLIC（token_endpoint_auth_method = none）
+# Expected output: both admin-console and vue-client are PUBLIC (token_endpoint_auth_method = none)
 
-# 检查默认 Scopes（scope 名称列是 name）
+# Check the default scopes (the scope name column is name)
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT name, description
 FROM oauth2_scopes
 LIMIT 5;
 "
 
-# 预期输出：openid, profile, email, admin 等标准 scope
+# Expected output: standard scopes such as openid, profile, email, admin
 ```
 
-### 2.2 验证数据库迁移
+### 2.2 Verify Database Migrations
 
 ```powershell
-# 检查 migrations 表（如果有的话）
+# Check the migrations table (if present)
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "\d schema_migrations"
 
-# 或检查表结构完整性
+# Or check table structure integrity
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT COUNT(*) AS table_count 
 FROM information_schema.tables 
 WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
 "
 
-# 预期：table_count >= 15（V026 后实测 21 张 public 表）
+# Expected: table_count >= 15 (measured 21 public tables after V026)
 ```
 
 ---
 
-## 阶段三：后端 API 验证
+## Phase 3: Backend API Verification
 
-### 3.1 获取管理员令牌
+### 3.1 Obtain an Admin Token
 
-`admin-console` 是 **PUBLIC 客户端**（`token_endpoint_auth_method=none`，无 client_secret，不支持 password grant），令牌必须走 **授权码 + PKCE** 两步流程（F-011：PUBLIC 客户端强制 PKCE）。以下等价于 `scripts/backend/test-admin-endpoints.sh` 的 setup 步骤：
+`admin-console` is a **PUBLIC client** (`token_endpoint_auth_method=none`, no client_secret, password grant not supported). Tokens must go through the two-step **authorization code + PKCE** flow (F-011: PKCE is mandatory for PUBLIC clients). The following is equivalent to the setup step in `scripts/backend/test-admin-endpoints.sh`:
 
 ```bash
-# 1) 登录换取授权码（表单编码；code_challenge = BASE64URL(SHA256(code_verifier))）
+# 1) Log in to obtain an authorization code (form-encoded; code_challenge = BASE64URL(SHA256(code_verifier)))
 CODE_VERIFIER=$(head -c 32 /dev/urandom | basenc --base64url | tr -d '=' | tr -d '+/' | head -c 43)
 CODE_CHALLENGE=$(printf '%s' "$CODE_VERIFIER" | openssl dgst -sha256 -binary | basenc --base64url | tr -d '=')
 
@@ -207,13 +207,13 @@ LOGIN_RESP=$(curl -s -X POST http://localhost:5555/oauth2/login \
   -d "code_challenge=$CODE_CHALLENGE&code_challenge_method=S256&json=true")
 CODE=$(echo "$LOGIN_RESP" | jq -r '.code')
 
-# 2) 授权码换令牌（表单编码；PUBLIC 客户端只带 client_id，不能携带任何 secret）
+# 2) Exchange the authorization code for tokens (form-encoded; a PUBLIC client sends only client_id and must not include any secret)
 curl -s -X POST http://localhost:5555/oauth2/token \
   -d "grant_type=authorization_code&code=$CODE" \
   -d "redirect_uri=http://localhost:5174/admin/callback" \
   -d "client_id=admin-console&code_verifier=$CODE_VERIFIER"
 
-# 预期响应（保存 access_token）：
+# Expected response (save the access_token):
 {
   "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "Bearer",
@@ -222,22 +222,22 @@ curl -s -X POST http://localhost:5555/oauth2/token \
   "scope": "openid profile admin"
 }
 
-# 设置环境变量（后续测试使用）
+# Set an environment variable (used by the tests below)
 export TOKEN="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
-> Windows 下可使用仓库自带的 `scripts/backend/test-admin-endpoints.ps1` 完成同样的登录+令牌流程。
+> On Windows, use the repository-provided `scripts/backend/test-admin-endpoints.ps1` to run the same login + token flow.
 
-### 3.2 验证令牌内省（Token Introspection）
+### 3.2 Verify Token Introspection
 
 ```bash
-# 内省令牌（RFC 7662，表单编码）
+# Introspect the token (RFC 7662, form-encoded)
 curl -s -X POST http://localhost:5555/oauth2/introspect \
   -d "token=$TOKEN" \
   -d "token_type_hint=access_token" \
   -d "client_id=admin-console"
 
-# 预期响应：
+# Expected response:
 {
   "active": true,
   "client_id": "admin-console",
@@ -249,68 +249,68 @@ curl -s -X POST http://localhost:5555/oauth2/introspect \
   "iss": "http://localhost:5555"
 }
 
-# 测试无效令牌
+# Test an invalid token
 curl -s -X POST http://localhost:5555/oauth2/introspect \
   -d "token=invalid_token" \
   -d "token_type_hint=access_token" \
   -d "client_id=admin-console"
 
-# 预期响应：{"active": false}
+# Expected response: {"active": false}
 ```
 
-### 3.3 刷新令牌（Refresh Token）
+### 3.3 Refresh a Token
 
 ```bash
-# 使用 refresh_token 获取新的 access_token（表单编码；
-# PUBLIC 客户端只带 client_id —— 携带 client_secret 反而会被 F-017 拒绝）
+# Use the refresh_token to obtain a new access_token (form-encoded;
+# a PUBLIC client sends only client_id — including a client_secret would actually be rejected by F-017)
 curl -s -X POST http://localhost:5555/oauth2/token \
   -d "grant_type=refresh_token" \
   -d "refresh_token=tGzv3JH7xN1yQ9X2..." \
   -d "client_id=admin-console"
 
-# 预期响应：返回新的 access_token 和 refresh_token
+# Expected response: returns a new access_token and refresh_token
 {
-  "access_token": "新的 access token...",
+  "access_token": "new access token...",
   "token_type": "Bearer",
   "expires_in": 3600,
-  "refresh_token": "新的 refresh token...",
+  "refresh_token": "new refresh token...",
   "scope": "openid profile admin"
 }
 ```
 
-### 3.4 撤销令牌（Token Revocation）
+### 3.4 Revoke a Token
 
 ```bash
-# 撤销令牌（RFC 7009，表单编码；客户端认证方式须与注册的
-# token_endpoint_auth_method 一致 —— PUBLIC 客户端仅 client_id）
+# Revoke the token (RFC 7009, form-encoded; the client authentication method must match
+# the registered token_endpoint_auth_method — a PUBLIC client uses only client_id)
 curl -s -X POST http://localhost:5555/oauth2/revoke \
   -d "token=$TOKEN" \
   -d "token_type_hint=access_token" \
   -d "client_id=admin-console"
 
-# 预期响应：HTTP 200 OK（空响应体）
+# Expected response: HTTP 200 OK (empty response body)
 
-# 验证令牌已被撤销
+# Verify the token has been revoked
 curl -s -X POST http://localhost:5555/oauth2/introspect \
   -d "token=$TOKEN" \
   -d "token_type_hint=access_token" \
   -d "client_id=admin-console"
 
-# 预期响应：{"active": false}
+# Expected response: {"active": false}
 ```
 
 ---
 
-## 阶段四：管理后台 API 验证
+## Phase 4: Admin Console API Verification
 
-### 4.1 用户管理 API
+### 4.1 User Management API
 
 ```powershell
-# 获取用户列表
+# Get the user list
 curl -X GET http://localhost:5555/api/admin/users \
   -H "Authorization: Bearer $TOKEN"
 
-# 预期响应：用户列表 JSON
+# Expected response: user list JSON
 {
   "users": [
     {
@@ -327,7 +327,7 @@ curl -X GET http://localhost:5555/api/admin/users \
   "per_page": 20
 }
 
-# 创建新用户
+# Create a new user
 curl -X POST http://localhost:5555/api/admin/users \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -338,7 +338,7 @@ curl -X POST http://localhost:5555/api/admin/users \
     "role": "user"
   }'
 
-# 预期响应：HTTP 201 Created
+# Expected response: HTTP 201 Created
 {
   "user_id": 2,
   "username": "testuser",
@@ -347,21 +347,21 @@ curl -X POST http://localhost:5555/api/admin/users \
   "created_at": "2026-08-26T10:30:00Z"
 }
 
-# 获取单个用户详情
+# Get a single user's details
 curl -X GET http://localhost:5555/api/admin/users/2 \
   -H "Authorization: Bearer $TOKEN"
 
-# 预期响应：显示 testuser 的详细信息
+# Expected response: shows the details of testuser
 ```
 
-### 4.2 客户端管理 API
+### 4.2 Client Management API
 
 ```powershell
-# 获取客户端列表
+# Get the client list
 curl -X GET http://localhost:5555/api/admin/clients \
   -H "Authorization: Bearer $TOKEN"
 
-# 预期响应：客户端列表（客户端 secret 一律不回显；哈希仅存于库中）
+# Expected response: client list (client secrets are never echoed back; only hashes are stored in the database)
 {
   "clients": [
     {
@@ -377,7 +377,7 @@ curl -X GET http://localhost:5555/api/admin/clients \
   "total": 1
 }
 
-# 创建新客户端
+# Create a new client
 curl -X POST http://localhost:5555/api/admin/clients \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -391,17 +391,17 @@ curl -X POST http://localhost:5555/api/admin/clients \
     "scopes": ["openid", "profile", "email"]
   }'
 
-# 预期响应：HTTP 201 Created（响应含新生成客户端的元数据；secret 不回显）
+# Expected response: HTTP 201 Created (the response contains the newly created client's metadata; the secret is not echoed back)
 ```
 
-### 4.3 Scope 管理 API
+### 4.3 Scope Management API
 
 ```powershell
-# 获取所有 scopes
+# Get all scopes
 curl -X GET http://localhost:5555/api/admin/scopes \
   -H "Authorization: Bearer $TOKEN"
 
-# 预期响应：scope 列表（scope 名称字段为 name，与 oauth2_scopes 表一致）
+# Expected response: scope list (the scope name field is name, consistent with the oauth2_scopes table)
 {
   "scopes": [
     {"name": "openid", "description": "OpenID Connect"},
@@ -411,7 +411,7 @@ curl -X GET http://localhost:5555/api/admin/scopes \
   ]
 }
 
-# 创建新 scope
+# Create a new scope
 curl -X POST http://localhost:5555/api/admin/scopes \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -420,41 +420,41 @@ curl -X POST http://localhost:5555/api/admin/scopes \
     "description": "Read access to user resources"
   }'
 
-# 预期响应：HTTP 201 Created
+# Expected response: HTTP 201 Created
 ```
 
 ---
 
-## 阶段五：前端功能验证
+## Phase 5: Frontend Feature Verification
 
-### 5.1 用户前端验证
+### 5.1 User Frontend Verification
 
-| 测试项 | 操作步骤 | 预期结果 |
+| Test Item | Steps | Expected Result |
 |--------|---------|---------|
-| 访问首页 | 打开 http://localhost:8080 | 显示登录页面 |
-| 用户注册 | 填写注册表单（用户名、邮箱、密码） | 注册成功，跳转到登录页 |
-| 用户登录 | 使用刚注册的账号登录 | 登录成功，跳转到个人资料页 |
-| 访问个人资料 | 点击"个人资料"菜单 | 显示用户信息（用户名、邮箱） |
-| 修改密码 | 输入旧密码和新密码 | 密码修改成功，需要重新登录 |
-| 退出登录 | 点击"退出"按钮 | 退出成功，跳转到登录页 |
+| Visit the home page | Open http://localhost:8080 | The login page is displayed |
+| User registration | Fill in the registration form (username, email, password) | Registration succeeds and redirects to the login page |
+| User login | Log in with the account just registered | Login succeeds and redirects to the profile page |
+| View profile | Click the "Profile" menu | User information is displayed (username, email) |
+| Change password | Enter the old and new passwords | The password change succeeds and the user must log in again |
+| Log out | Click the "Log out" button | Logout succeeds and redirects to the login page |
 
-### 5.2 管理后台验证
+### 5.2 Admin Console Verification
 
-| 测试项 | 操作步骤 | 预期结果 |
+| Test Item | Steps | Expected Result |
 |--------|---------|---------|
-| 访问管理后台 | 打开 http://localhost:8081/admin | 显示管理后台登录页 |
-| 管理员登录 | 使用 admin/admin 登录 | 登录成功，显示仪表板 |
-| 应用管理 | 点击"应用"菜单 | 显示客户端列表（至少有 admin-console） |
-| 创建应用 | 点击"新建应用"，填写表单 | 应用创建成功，出现在列表中 |
-| 用户管理 | 点击"用户"菜单 | 显示用户列表（至少有 admin 和刚注册的用户） |
-| Token 管理 | 点击"Token"菜单 | 显示 active tokens 列表 |
+| Open the admin console | Open http://localhost:8081/admin | The admin console login page is displayed |
+| Admin login | Log in with admin/admin | Login succeeds and the dashboard is displayed |
+| App management | Click the "Apps" menu | The client list is displayed (contains at least admin-console) |
+| Create an app | Click "New App" and fill in the form | The app is created successfully and appears in the list |
+| User management | Click the "Users" menu | The user list is displayed (contains at least admin and the newly registered user) |
+| Token management | Click the "Token" menu | The list of active tokens is displayed |
 
-### 5.3 OAuth2 授权码流程验证
+### 5.3 OAuth2 Authorization Code Flow Verification
 
 ```bash
-# 步骤 1：构建授权 URL（在浏览器中访问）
-# 注意：redirect_uri 必须与客户端注册值精确匹配（vue-client 种子注册的是
-#       http://127.0.0.1:8080/callback —— 用 localhost 会被拒绝）
+# Step 1: Build the authorization URL (visit it in a browser)
+# Note: the redirect_uri must exactly match the client's registered value
+#       (vue-client's seed registration uses http://127.0.0.1:8080/callback — using localhost will be rejected)
 # http://localhost:5555/oauth2/authorize?
 #   response_type=code&
 #   client_id=vue-client&
@@ -462,29 +462,29 @@ curl -X POST http://localhost:5555/api/admin/scopes \
 #   scope=openid profile email&
 #   state=random_state_value
 
-# 预期：重定向到登录页面
+# Expected: redirect to the login page
 
-# 步骤 2：用户登录
-# 使用测试账号登录（如 testuser）
+# Step 2: User login
+# Log in with a test account (e.g., testuser)
 
-# 预期：显示授权确认页面
+# Expected: the authorization consent page is displayed
 
-# 步骤 3：用户授权
-# 点击"授权"按钮
+# Step 3: User consent
+# Click the "Authorize" button
 
-# 预期：重定向到 redirect_uri，携带 authorization code
+# Expected: redirect to the redirect_uri carrying the authorization code
 # http://127.0.0.1:8080/callback?code=xxx&state=random_state_value
 
-# 步骤 4：交换令牌（vue-client 是 PUBLIC 客户端 → 必须带 PKCE code_verifier，
-#          且不能携带 client_secret）
+# Step 4: Exchange the token (vue-client is a PUBLIC client → must include the PKCE code_verifier
+#          and must not include a client_secret)
 curl -s -X POST http://localhost:5555/oauth2/token \
   -d "grant_type=authorization_code" \
-  -d "code=从回调中获取的code" \
+  -d "code=<code obtained from the callback>" \
   -d "redirect_uri=http://127.0.0.1:8080/callback" \
   -d "client_id=vue-client" \
-  -d "code_verifier=登录时使用的PKCE_verifier"
+  -d "code_verifier=<PKCE verifier used at login>"
 
-# 预期响应：返回 access_token 和 refresh_token
+# Expected response: returns an access_token and refresh_token
 {
   "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "Bearer",
@@ -496,130 +496,130 @@ curl -s -X POST http://localhost:5555/oauth2/token \
 
 ---
 
-## 阶段五·补充：邮件服务验证
+## Phase 5 Supplement: Email Service Verification
 
-邮件服务有两种模式，由后端 `getEmailService()` 根据 `FULLA_SMTP_*` 环境变量决定。
+The email service has two modes, selected by the backend's `getEmailService()` based on the `FULLA_SMTP_*` environment variables.
 
-### 5.4 确认邮件服务模式
+### 5.4 Confirm the Email Service Mode
 
 ```powershell
-# 查看后端启动日志中的邮件服务模式
+# Check the email service mode in the backend startup logs
 docker logs fulla-backend 2>&1 | grep -i "Email service"
 ```
 
-**预期输出（二选一）**：
+**Expected output (one of the following)**:
 
-- Console 模式（未配置 SMTP）：`Email service: Console (set FULLA_SMTP_* env vars to enable SMTP)`
-- SMTP 模式（已配置）：`Email service: SMTP (smtp.163.com:465)`
+- Console mode (SMTP not configured): `Email service: Console (set FULLA_SMTP_* env vars to enable SMTP)`
+- SMTP mode (configured): `Email service: SMTP (smtp.163.com:465)`
 
-### 5.5 邮箱验证邮件
+### 5.5 Email Address Verification Message
 
-**操作**：登录用户前端 → Profile 页面 → 点击"发送邮箱验证"
+**Steps**: log in to the user frontend → Profile page → click "Send Email Verification"
 
-| 模式 | 验证方式 |
+| Mode | Verification Method |
 |------|---------|
-| Console 模式 | 邮件内容打到后端日志，从中复制验证链接 |
-| SMTP 模式 | 收件箱应收到真实邮件 |
+| Console mode | The message content is written to the backend logs; copy the verification link from there |
+| SMTP mode | A real message should arrive in the inbox |
 
-**Console 模式下查看验证链接**：
+**To view the verification link in Console mode**:
 
 ```powershell
 docker logs fulla-backend --tail 50 2>&1 | grep -A 5 -iE "verify|email"
-# 预期：含 "verify-email?token=xxx" 的链接
+# Expected: a link containing "verify-email?token=xxx"
 ```
 
-**SMTP 模式下验证邮件发送**：
+**To verify message delivery in SMTP mode**:
 
 ```powershell
-# 触发发送后，检查后端是否有 SMTP 错误
+# After triggering the send, check the backend for SMTP errors
 docker logs fulla-backend --tail 50 2>&1 | grep -iE "smtp|email|curl"
-# 预期：无 ERROR 级别日志；收件箱收到 "Verify Your Email" 邮件
+# Expected: no ERROR-level logs; a "Verify Your Email" message arrives in the inbox
 ```
 
-### 5.6 密码重置邮件
+### 5.6 Password Reset Message
 
-**操作**：前端"忘记密码"页面 → 输入邮箱 → 提交
+**Steps**: frontend "Forgot Password" page → enter the email address → submit
 
-- **预期响应**（防枚举）：无论邮箱是否存在，统一返回 `If the email exists, a reset link has been sent`
-- Console 模式下，重置链接同样打到后端日志
+- **Expected response** (anti-enumeration): regardless of whether the email address exists, the same message is returned: `If the email exists, a reset link has been sent`
+- In Console mode, the reset link is likewise written to the backend logs
 
-### 5.7 启用真实 SMTP（可选，详见部署指南）
+### 5.7 Enable Real SMTP (Optional; see the deployment guide for details)
 
-如需真实邮件发送，在 `.env.docker` 设置 `FULLA_SMTP_HOST` / `FULLA_SMTP_USER` / `FULLA_SMTP_PASSWORD` 三项后重启后端：
+For real message delivery, set `FULLA_SMTP_HOST` / `FULLA_SMTP_USER` / `FULLA_SMTP_PASSWORD` in `.env.docker` and restart the backend:
 
 ```powershell
 docker compose -f deploy/docker/docker-compose.yml --env-file .env.docker up -d fulla-backend
 docker logs fulla-backend 2>&1 | grep -i "Email service"
-# 预期：Email service: SMTP (...)
+# Expected: Email service: SMTP (...)
 ```
 
-> **注意**：邮件验证链接使用 `FULLA_FRONTEND_URL`。本地部署为 `http://localhost:8080`，从其他机器点击会失效。
+> **Note**: email verification links use `FULLA_FRONTEND_URL`. In a local deployment this is `http://localhost:8080`; clicking the link from another machine will not work.
 
 ---
 
-## 阶段六：安全性验证
+## Phase 6: Security Verification
 
-### 6.1 错误响应验证
+### 6.1 Error Response Verification
 
 ```bash
-# 测试无效客户端 ID（token 端点，表单编码）
+# Test an invalid client ID (token endpoint, form-encoded)
 curl -s -X POST http://localhost:5555/oauth2/token \
   -d "grant_type=authorization_code&code=x" \
   -d "client_id=invalid-client&code_verifier=x"
 
-# 预期响应：HTTP 401 Unauthorized
+# Expected response: HTTP 401 Unauthorized
 {
   "error": "invalid_client",
   "error_description": "Client authentication failed"
 }
 
-# 测试错误密码（登录端点 —— 注意：失败计数会触发 F-018 限流，别连刷超过阈值）
+# Test a wrong password (login endpoint — note: failed attempts trigger F-018 rate limiting, so do not exceed the threshold with repeated attempts)
 curl -s -X POST http://localhost:5555/oauth2/login \
   -d "username=admin&password=wrong-password" \
   -d "client_id=admin-console&redirect_uri=http://localhost:5174/admin/callback" \
   -d "scope=openid&state=t&code_challenge=x&code_challenge_method=S256"
 
-# 预期响应：HTTP 401 Unauthorized（错误码经 ErrorCatalog，防枚举口径统一）
+# Expected response: HTTP 401 Unauthorized (error codes go through the ErrorCatalog, ensuring a unified anti-enumeration posture)
 {
   "error": "invalid_grant",
   "error_description": "Invalid username or password"
 }
 
-# 测试缺少必需参数
+# Test a missing required parameter
 curl -s -X POST http://localhost:5555/oauth2/token \
   -d "grant_type=authorization_code"
 
-# 预期响应：HTTP 400 Bad Request
+# Expected response: HTTP 400 Bad Request
 {
   "error": "invalid_request",
   "error_description": "Missing required parameter: client_id"
 }
 ```
 
-### 6.2 令牌过期验证
+### 6.2 Token Expiration Verification
 
 ```powershell
-# 等待令牌过期（3600 秒），或修改后端配置为较短的过期时间进行测试
+# Wait for the token to expire (3600 seconds), or change the backend configuration to a shorter expiration time for testing
 
-# 或使用已撤销的令牌
+# Or use an already-revoked token
 curl -X GET http://localhost:5555/api/admin/users \
   -H "Authorization: Bearer revoked_token"
 
-# 预期响应：HTTP 401 Unauthorized
+# Expected response: HTTP 401 Unauthorized
 {
   "error": "invalid_token",
   "error_description": "The access token expired or has been revoked"
 }
 ```
 
-### 6.3 Scope 授权验证
+### 6.3 Scope Authorization Verification
 
 ```powershell
-# 请求超出授权范围的资源（如果实现了 scope-based access control）
+# Request a resource beyond the granted scope (if scope-based access control is implemented)
 curl -X GET http://localhost:5555/api/admin/users \
   -H "Authorization: Bearer $token_with_limited_scope"
 
-# 预期响应：HTTP 403 Forbidden
+# Expected response: HTTP 403 Forbidden
 {
   "error": "insufficient_scope",
   "error_description": "The request requires higher privileges than provided by the access token"
@@ -628,53 +628,53 @@ curl -X GET http://localhost:5555/api/admin/users \
 
 ---
 
-## 阶段七：性能和监控验证
+## Phase 7: Performance and Monitoring Verification
 
-### 7.1 Prometheus 指标验证
+### 7.1 Prometheus Metrics Verification
 
 ```powershell
-# 访问 Prometheus UI
-# 打开浏览器：http://localhost:9090
+# Access the Prometheus UI
+# Open in a browser: http://localhost:9090
 
-# 查询示例指标（权威清单见 docs/operate/observability.md）：
-# - oauth2_requests_total：总请求数（按 endpoint/status 维度）
-# - oauth2_latency_seconds：关键步骤耗时直方图
-# - oauth2_active_tokens：当前活跃令牌数
-# - oauth2_login_failures_total：登录失败次数
+# Example metric queries (the authoritative list is in docs/operate/observability.md):
+# - oauth2_requests_total: total number of requests (by endpoint/status dimensions)
+# - oauth2_latency_seconds: latency histogram for key steps
+# - oauth2_active_tokens: current number of active tokens
+# - oauth2_login_failures_total: number of login failures
 
-# 预期：指标正常采集，有数据
+# Expected: metrics are collected normally and data is present
 ```
 
-### 7.2 日志验证
+### 7.2 Log Verification
 
 ```powershell
-# 查看后端日志
+# View backend logs
 docker logs fulla-backend --tail 50
 
-# 预期：无 ERROR 级别日志，正常的 INFO/DEBUG 日志
+# Expected: no ERROR-level logs, normal INFO/DEBUG logs
 
-# 查看 nginx 日志（Linux 生产环境）
+# View nginx logs (Linux production environment)
 docker logs oauth2-nginx --tail 50
 
-# 预期：正常的访问日志，无 5xx 错误
+# Expected: normal access logs, no 5xx errors
 
-# 实时跟踪日志
+# Follow logs in real time
 docker compose -f deploy/docker/docker-compose.yml logs -f fulla-backend
 ```
 
-### 7.3 数据库性能验证
+### 7.3 Database Performance Verification
 
 ```powershell
-# 检查数据库连接数
+# Check the number of database connections
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT count(*) AS connections 
 FROM pg_stat_activity 
 WHERE datname = 'fulla_db';
 "
 
-# 预期：connections 为合理值（通常 < 20）
+# Expected: connections is a reasonable value (usually < 20)
 
-# 检查慢查询（如果有 pg_stat_statements 扩展）
+# Check slow queries (if the pg_stat_statements extension is available)
 docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "
 SELECT query, calls, total_time, mean_time 
 FROM pg_stat_statements 
@@ -682,89 +682,89 @@ ORDER BY mean_time DESC
 LIMIT 5;
 "
 
-# 预期：无明显的慢查询（mean_time < 100ms）
+# Expected: no significant slow queries (mean_time < 100ms)
 ```
 
 ---
 
-## 故障排除检查点
+## Troubleshooting Checkpoints
 
-### 问题 1：容器无法启动
+### Problem 1: Containers fail to start
 
-**检查步骤**：
+**Check steps**:
 
 ```powershell
-# 查看容器状态
+# View container status
 docker compose -f deploy/docker/docker-compose.yml ps
 
-# 查看失败容器的日志
+# View the failed container's logs
 docker logs fulla-backend
 
-# 检查资源占用
+# Check resource usage
 docker stats
 
-# 验证配置文件
+# Validate the configuration file
 docker compose -f deploy/docker/docker-compose.yml config
 ```
 
-### 问题 2：数据库连接失败
+### Problem 2: Database connection failures
 
-**检查步骤**：
+**Check steps**:
 
 ```powershell
-# 验证 postgres 容器健康状态
+# Verify the postgres container health status
 docker exec fulla-postgres pg_isready -U fulla_user
 
-# 检查网络连通性
+# Check network connectivity
 docker exec fulla-backend ping fulla-postgres
 
-# 验证环境变量
+# Verify environment variables
 docker exec fulla-backend env | grep FULLA_DB
 
-# 查看数据库日志
+# View database logs
 docker logs fulla-postgres
 ```
 
-### 问题 3：前端无法访问后端 API
+### Problem 3: Frontend cannot reach the backend API
 
-**检查步骤**：
+**Check steps**:
 
 ```powershell
-# 从前端容器测试后端连接
+# Test the backend connection from the frontend container
 docker exec fulla-frontend curl -s http://fulla-backend:5555/health
 
-# 检查 nginx 配置（生产环境）
+# Check the nginx configuration (production environment)
 docker exec oauth2-nginx nginx -t
 
-# 查看后端 CORS 配置
+# View the backend CORS configuration
 docker logs fulla-backend | grep -i cors
 ```
 
-### 问题 4：令牌验证失败
+### Problem 4: Token verification failures
 
-**检查步骤**：
+**Check steps**:
 
 ```powershell
-# 验证 JWT 密钥存在
+# Verify that the JWT keys exist
 docker exec fulla-backend ls -la /app/keys/
 
-# 检查令牌签名
-# 复制 access_token 到 https://jwt.io 解码验证
+# Check the token signature
+# Copy the access_token to https://jwt.io to decode and verify it
 
-# 查看后端日志中的认证错误
+# View authentication errors in the backend logs
 docker logs fulla-backend | grep -i "auth\|token"
 ```
 
 ---
 
-## 自动化验证脚本
+## Automated Verification Script
 
-### 完整验证脚本（PowerShell）
+### Full Verification Script (PowerShell)
 
-保存为 `verify-deployment.ps1`：
+Save as `verify-deployment.ps1`:
 
 ```powershell
-# fulla 部署验证脚本
+# fulla deployment verification script
 param(
     [string]$BackendUrl = "http://localhost:5555",
     [string]$FrontendUrl = "http://localhost:8080",
@@ -773,45 +773,45 @@ param(
 }
 
 function Test-ContainerStatus {
-    Write-Host "`n[1/8] 检查容器状态..." -ForegroundColor Cyan
+    Write-Host "`n[1/8] Checking container status..." -ForegroundColor Cyan
     $containers = docker compose -f deploy/docker/docker-compose.yml ps
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[+] 所有容器运行正常" -ForegroundColor Green
+        Write-Host "[+] All containers are running normally" -ForegroundColor Green
         return $true
     } else {
-        Write-Host "[-] 容器状态异常" -ForegroundColor Red
+        Write-Host "[-] Container status abnormal" -ForegroundColor Red
         return $false
     }
 }
 
 function Test-BackendHealth {
-    Write-Host "`n[2/8] 检查后端健康..." -ForegroundColor Cyan
+    Write-Host "`n[2/8] Checking backend health..." -ForegroundColor Cyan
     try {
         $response = Invoke-RestMethod -Uri "$BackendUrl/health" -Method Get
         if ($response.status -eq "healthy") {
-            Write-Host "[+] 后端健康检查通过" -ForegroundColor Green
+            Write-Host "[+] Backend health check passed" -ForegroundColor Green
             return $true
         }
     } catch {
-        Write-Host "[-] 后端健康检查失败: $_" -ForegroundColor Red
+        Write-Host "[-] Backend health check failed: $_" -ForegroundColor Red
         return $false
     }
 }
 
 function Test-DatabaseConnection {
-    Write-Host "`n[3/8] 检查数据库连接..." -ForegroundColor Cyan
+    Write-Host "`n[3/8] Checking database connection..." -ForegroundColor Cyan
     $result = docker exec fulla-postgres pg_isready -U fulla_user 2>&1
     if ($LASTEXITCODE -eq 0 -and $result -match "accepting connections") {
-        Write-Host "[+] 数据库连接正常" -ForegroundColor Green
+        Write-Host "[+] Database connection is normal" -ForegroundColor Green
         return $true
     } else {
-        Write-Host "[-] 数据库连接失败" -ForegroundColor Red
+        Write-Host "[-] Database connection failed" -ForegroundColor Red
         return $false
     }
 }
 
 function Test-DatabaseTables {
-    Write-Host "`n[4/8] 检查数据库表结构..." -ForegroundColor Cyan
+    Write-Host "`n[4/8] Checking database table structure..." -ForegroundColor Cyan
     $result = docker exec fulla-postgres psql -U fulla_user -d fulla_db -t -c "
         SELECT COUNT(*) FROM information_schema.tables 
         WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
@@ -819,73 +819,73 @@ function Test-DatabaseTables {
     
     $tableCount = [int]$result.Trim()
     if ($tableCount -ge 20) {
-        Write-Host "[+] 数据库表结构完整 ($tableCount 张表)" -ForegroundColor Green
+        Write-Host "[+] Database table structure complete ($tableCount tables)" -ForegroundColor Green
         return $true
     } else {
-        Write-Host "[-] 数据库表结构不完整 (仅 $tableCount 张表)" -ForegroundColor Red
+        Write-Host "[-] Database table structure incomplete (only $tableCount tables)" -ForegroundColor Red
         return $false
     }
 }
 
 function Test-SeedData {
-    Write-Host "`n[5/8] 检查种子数据..." -ForegroundColor Cyan
+    Write-Host "`n[5/8] Checking seed data..." -ForegroundColor Cyan
     $result = docker exec fulla-postgres psql -U fulla_user -d fulla_db -t -c "
         SELECT COUNT(*) FROM users WHERE username = 'admin';
     " 2>&1
     
     $count = [int]$result.Trim()
     if ($count -eq 1) {
-        Write-Host "[+] 管理员账号已创建" -ForegroundColor Green
+        Write-Host "[+] Admin account has been created" -ForegroundColor Green
         return $true
     } else {
-        Write-Host "[-] 管理员账号未创建" -ForegroundColor Red
+        Write-Host "[-] Admin account has not been created" -ForegroundColor Red
         return $false
     }
 }
 
 function Test-RedisConnection {
-    Write-Host "`n[6/8] 检查 Redis 连接..." -ForegroundColor Cyan
+    Write-Host "`n[6/8] Checking Redis connection..." -ForegroundColor Cyan
     $result = docker exec fulla-redis redis-cli -a redis_secret_pass ping 2>&1
     if ($result -match "PONG") {
-        Write-Host "[+] Redis 连接正常" -ForegroundColor Green
+        Write-Host "[+] Redis connection is normal" -ForegroundColor Green
         return $true
     } else {
-        Write-Host "[-] Redis 连接失败" -ForegroundColor Red
+        Write-Host "[-] Redis connection failed" -ForegroundColor Red
         return $false
     }
 }
 
 function Test-DiscoveryEndpoint {
-    Write-Host "`n[7/8] 测试 OIDC 发现端点..." -ForegroundColor Cyan
-    # 完整登录流程（PKCE）见上文阶段三；脚本化部署检查用发现端点验证
-    # 后端 OAuth2 栈已就绪，且不依赖具体凭证。
+    Write-Host "`n[7/8] Testing the OIDC discovery endpoint..." -ForegroundColor Cyan
+    # For the full login flow (PKCE), see Phase 3 above; scripted deployment checks use the discovery
+    # endpoint to verify that the backend OAuth2 stack is ready without depending on specific credentials.
     try {
         $response = Invoke-RestMethod -Uri "$BackendUrl/.well-known/openid-configuration" -Method Get
         if ($response.issuer -and $response.token_endpoint) {
-            Write-Host "[+] OIDC 发现端点正常 (issuer: $($response.issuer))" -ForegroundColor Green
+            Write-Host "[+] OIDC discovery endpoint is normal (issuer: $($response.issuer))" -ForegroundColor Green
             return $true
         }
     } catch {
-        Write-Host "[-] OIDC 发现端点失败: $_" -ForegroundColor Red
+        Write-Host "[-] OIDC discovery endpoint failed: $_" -ForegroundColor Red
         return $false
     }
 }
 
 function Test-FrontendAccess {
-    Write-Host "`n[8/8] 检查前端访问..." -ForegroundColor Cyan
+    Write-Host "`n[8/8] Checking frontend access..." -ForegroundColor Cyan
     try {
         $response = Invoke-WebRequest -Uri $FrontendUrl -Method Get -UseBasicParsing
         if ($response.StatusCode -eq 200) {
-            Write-Host "[+] 前端页面可访问" -ForegroundColor Green
+            Write-Host "[+] Frontend page is accessible" -ForegroundColor Green
             return $true
         }
     } catch {
-        Write-Host "[-] 前端页面访问失败: $_" -ForegroundColor Red
+        Write-Host "[-] Frontend page access failed: $_" -ForegroundColor Red
         return $false
     }
 }
 
-# 执行所有测试
+# Run all tests
 $results = @()
 $results += Test-ContainerStatus
 $results += Test-BackendHealth
@@ -896,106 +896,106 @@ $results += Test-RedisConnection
 $results += Test-DiscoveryEndpoint
 $results += Test-FrontendAccess
 
-# 汇总结果
+# Summarize the results
 $passed = ($results | Where-Object { $_ -eq $true }).Count
 $total = $results.Count
 
 Write-Host "`n" -NoNewline
 Write-Host ("=" * 60) -ForegroundColor DarkGray
-Write-Host "验证结果: $passed / $total 通过" -ForegroundColor $(if ($passed -eq $total) { "Green" } else { "Yellow" })
+Write-Host "Verification results: $passed / $total passed" -ForegroundColor $(if ($passed -eq $total) { "Green" } else { "Yellow" })
 Write-Host ("=" * 60) -ForegroundColor DarkGray
 
 if ($passed -eq $total) {
-    Write-Host "`n[+] 部署验证完全通过！系统可以投入使用。" -ForegroundColor Green
+    Write-Host "`n[+] Deployment verification fully passed! The system is ready for use." -ForegroundColor Green
     exit 0
 } else {
-    Write-Host "`n[-] 部署验证失败，请检查上述错误项。" -ForegroundColor Red
+    Write-Host "`n[-] Deployment verification failed; please review the failed items above." -ForegroundColor Red
     exit 1
 }
 ```
 
-**使用方法**：
+**Usage**:
 
 ```powershell
-# 基本验证
+# Basic verification
 .\verify-deployment.ps1
 
-# 详细模式
+# Verbose mode
 .\verify-deployment.ps1 -Verbose
 
-# 自定义端点
+# Custom endpoints
 .\verify-deployment.ps1 -BackendUrl "https://your-domain.com" -FrontendUrl "https://your-domain.com"
 ```
 
 ---
 
-## 验证报告模板
+## Verification Report Template
 
-完成验证后，建议填写以下报告模板：
+After completing verification, fill in the following report template:
 
 ```markdown
-## fulla 部署验证报告
+## fulla Deployment Verification Report
 
-**验证日期**：YYYY-MM-DD
-**验证环境**：Windows Docker Desktop / Linux 生产服务器
-**验证人员**：[姓名]
+**Verification date**: YYYY-MM-DD
+**Verification environment**: Windows Docker Desktop / Linux production server
+**Verified by**: [Name]
 
-### 验证结果汇总
+### Verification Results Summary
 
-| 阶段 | 状态 | 备注 |
+| Phase | Status | Notes |
 |------|------|------|
-| 基础设施验证 | 通过 | 所有容器正常运行 |
-| 数据库初始化验证 | 通过 | 21 张表（V026），管理员账号已创建 |
-| 后端 API 验证 | 通过 | 令牌端点、内省、撤销功能正常 |
-| 管理后台 API 验证 | 通过 | 用户、客户端、Scope 管理正常 |
-| 前端功能验证 | 通过 | 用户登录、注册、个人资料功能正常 |
-| 安全性验证 | 通过 | 错误处理、令牌验证正常 |
-| 性能和监控验证 | 部分通过 | Prometheus 正常，需要优化慢查询 |
+| Infrastructure verification | Passed | All containers running normally |
+| Database initialization verification | Passed | 21 tables (V026), admin account created |
+| Backend API verification | Passed | Token endpoint, introspection, and revocation working normally |
+| Admin console API verification | Passed | User, client, and scope management working normally |
+| Frontend feature verification | Passed | User login, registration, and profile features working normally |
+| Security verification | Passed | Error handling and token verification working normally |
+| Performance and monitoring verification | Partially passed | Prometheus normal; slow queries need optimization |
 
-### 发现的问题
+### Issues Found
 
-1. **问题描述**：[具体问题]
-   - **影响范围**：[哪些功能受影响]
-   - **解决方案**：[如何解决]
-   - **状态**：[待解决 | 已解决]
+1. **Issue description**: [specific issue]
+   - **Impact scope**: [affected functionality]
+   - **Resolution**: [how it was resolved]
+   - **Status**: [Open | Resolved]
 
-### 优化建议
+### Optimization Suggestions
 
-1. [建议 1]
-2. [建议 2]
+1. [Suggestion 1]
+2. [Suggestion 2]
 
-### 下一步行动
+### Next Actions
 
-- [ ] 部署到生产环境
-- [ ] 配置 Let's Encrypt 证书
-- [ ] 设置监控告警
-- [ ] 执行性能压测
+- [ ] Deploy to production
+- [ ] Configure Let's Encrypt certificates
+- [ ] Set up monitoring alerts
+- [ ] Run performance load tests
 
-### 签名确认
+### Sign-off
 
-验证人员：__________  日期：__________
-审核人员：__________  日期：__________
+Verified by: __________  Date: __________
+Reviewed by: __________  Date: __________
 ```
 
 ---
 
-## 总结
+## Summary
 
-本验证清单涵盖了 fulla 系统的所有核心功能：
+This verification checklist covers all core functionality of the fulla system:
 
-- **基础设施**：Docker 容器、网络、存储卷
-- **数据层**：PostgreSQL 数据库、Redis 缓存
-- **业务层**：OAuth2 核心流程、管理后台 API
-- **表现层**：Vue.js 用户前端、管理后台
-- **安全性**：认证、授权、令牌管理
-- **可观测性**：日志、指标、健康检查
+- **Infrastructure**: Docker containers, networking, storage volumes
+- **Data layer**: PostgreSQL database, Redis cache
+- **Business layer**: OAuth2 core flows, admin console APIs
+- **Presentation layer**: Vue.js user frontend, admin console
+- **Security**: authentication, authorization, token management
+- **Observability**: logs, metrics, health checks
 
-**验证通过标准**：
-- 所有容器状态为 `Up`
-- 后端健康检查通过
-- 数据库表结构完整（V026 后共 21 张 public 表）
-- 管理员账号可用
-- OAuth2 核心流程（授权、令牌、内省、撤销）正常
-- 前端页面可访问并完成基本操作
+**Pass criteria**:
+- All containers have a status of `Up`
+- Backend health check passes
+- Database table structure is complete (21 public tables in total after V026)
+- The admin account is usable
+- OAuth2 core flows (authorization, tokens, introspection, revocation) work correctly
+- Frontend pages are accessible and basic operations complete successfully
 
-完成本清单验证后，系统即可投入生产使用。
+Once this checklist has been fully verified, the system is ready for production use.

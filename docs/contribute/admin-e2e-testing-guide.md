@@ -1,107 +1,110 @@
-# Playwright E2E 自动化测试接入指南
+# Playwright E2E Automated Testing Integration Guide
 
-> 基于 OAuth2 Admin 项目实践总结，面向其他前端项目的 Playwright E2E 测试接入参考。
-
----
-
-## 目录
-
-1. [核心原理](#1-核心原理)
-2. [项目初始化](#2-项目初始化)
-3. [Mock API 层设计](#3-mock-api-层设计)
-4. [测试文件组织](#4-测试文件组织)
-5. [测试编写模式](#5-测试编写模式)
-6. [进阶技巧](#6-进阶技巧)
-7. [CI/CD 集成](#7-cicd-集成)
-8. [常见问题](#8-常见问题)
+> Summarized from the OAuth2 Admin project's practices, as a reference for adopting Playwright E2E testing in other frontend projects.
 
 ---
 
-## 1. 核心原理
+## Table of Contents
 
-### 1.1 为什么选择请求拦截而不是真实后端
+1. [Core Principles](#1-core-principles)
+2. [Project Setup](#2-project-setup)
+3. [Mock API Layer Design](#3-mock-api-layer-design)
+4. [Test File Organization](#4-test-file-organization)
+5. [Test Writing Patterns](#5-test-writing-patterns)
+6. [Advanced Techniques](#6-advanced-techniques)
+7. [CI/CD Integration](#7-cicd-integration)
+8. [FAQ](#8-faq)
 
-| 方案 | 优点 | 缺点 |
+---
+
+## 1. Core Principles
+
+### 1.1 Why request interception instead of a real backend
+
+| Approach | Pros | Cons |
 |------|------|------|
-| **请求拦截 Mock** | 无需后端依赖、执行快(&lt;5s)、稳定不 flaky、可自由控制响应 | 不验证前后端集成 |
-| **真实后端** | 验证端到端集成 | 需要数据库/缓存/服务、慢(分钟级)、环境依赖多、数据隔离难 |
-| **MSW (Mock Service Worker)** | 浏览器层拦截、更贴近真实 | 配置复杂、需要 Service Worker 支持 |
+| **Request interception mocks** | No backend dependency, fast execution (&lt;5s), stable and non-flaky, full control over responses | Does not verify frontend-backend integration |
+| **Real backend** | Verifies end-to-end integration | Requires database/cache/services, slow (minutes), many environment dependencies, hard data isolation |
+| **MSW (Mock Service Worker)** | Intercepts at the browser layer, closer to real behavior | Complex configuration, requires Service Worker support |
 
-本项目选择 **Playwright 原生 `page.route()` 请求拦截**，理由：
-- 零额外依赖（Playwright 内置）
-- API 简洁直观
-- 拦截发生在网络层之前，性能最好
-- 支持精确匹配 URL 模式和 HTTP 方法
-- 支持在单个测试中覆盖全局 Mock
+This project uses **Playwright's native `page.route()` request interception**, for the following reasons:
 
-### 1.2 请求拦截工作流程
+- Zero extra dependencies (built into Playwright)
+- Clean and intuitive API
+- Interception happens before the network layer, delivering the best performance
+- Supports precise URL pattern and HTTP method matching
+- Supports overriding the global mocks within a single test
+
+### 1.2 How request interception works
 
 ```
-┌──────────────┐      HTTP 请求       ┌──────────────────┐
-│  前端应用代码  │ ───────────────────→ │  page.route()    │
-│  (浏览器)     │                      │  URL 模式匹配     │
-│              │ ←─────────────────── │  route.fulfill() │
-└──────────────┘     Mock 响应         └──────────────────┘
-                                          ↑ 不经过网络层
-                                     (无真实 HTTP 连接)
+┌──────────────┐     HTTP request     ┌──────────────────┐
+│  Frontend    │ ───────────────────→ │  page.route()    │
+│  app code    │                      │  URL pattern     │
+│  (browser)   │ ←─────────────────── │  route.fulfill() │
+└──────────────┘    Mock response     └──────────────────┘
+                                          ↑ bypasses the
+                                    network layer entirely
+                                    (no real HTTP connection)
 ```
 
-Playwright 的 `page.route()` 在浏览器网络层拦截请求，**请求不会离开浏览器进程**。这意味着：
-- 不需要启动后端服务
-- 不需要网络连接
-- 响应是即时的，无延迟
-- 测试完全确定性，无网络 flaky
+Playwright's `page.route()` intercepts requests at the browser's network layer, so **requests never leave the browser process**. This means:
 
-### 1.3 三层架构
+- No backend service needs to be running
+- No network connection required
+- Responses are immediate, with zero latency
+- Tests are fully deterministic, with no network flakiness
+
+### 1.3 Three-layer architecture
 
 ```
 tests/e2e/
 ├── helpers/
-│   └── mock-api.ts          ← Layer 1: Mock 数据 + 拦截器
-├── auth.spec.ts             ← Layer 2: 测试用例
+│   └── mock-api.ts          ← Layer 1: mock data + interceptors
+├── auth.spec.ts             ← Layer 2: test cases
 ├── applications.spec.ts
 └── ...
 
-playwright.config.ts         ← Layer 3: Playwright 配置
+playwright.config.ts         ← Layer 3: Playwright configuration
 ```
 
-| 层次 | 职责 | 修改频率 |
+| Layer | Responsibility | Change frequency |
 |------|------|---------|
-| **Mock 层** | 定义 Mock 数据常量 + `setupAuthenticatedMocks()` 全局拦截函数 | 后端 API 变更时 |
-| **测试层** | 编写具体测试用例，调用 Mock 层提供的函数 | 新功能/新页面时 |
-| **配置层** | Playwright 运行参数、浏览器、webServer | 项目初始化时 |
+| **Mock layer** | Defines mock data constants + the `setupAuthenticatedMocks()` global interception function | When the backend API changes |
+| **Test layer** | Contains the actual test cases and calls functions provided by the mock layer | When new features/pages are added |
+| **Config layer** | Playwright runtime options, browsers, webServer | At project setup |
 
 ---
 
-## 2. 项目初始化
+## 2. Project Setup
 
-### 2.1 安装依赖
+### 2.1 Install dependencies
 
 ```bash
 npm install -D @playwright/test
 npx playwright install chromium
 ```
 
-仅需 Chromium，无需安装 WebKit/Firefox。E2E 测试的目标是验证功能逻辑，不是跨浏览器兼容性。
+Chromium alone is enough; there is no need to install WebKit/Firefox. The goal of E2E tests is to verify functional logic, not cross-browser compatibility.
 
-### 2.2 Playwright 配置
+### 2.2 Playwright configuration
 
-创建 `playwright.config.ts`：
+Create `playwright.config.ts`:
 
 ```typescript
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
-  testDir: './tests/e2e',        // 测试文件目录
-  fullyParallel: true,            // 全并行执行（测试间无依赖时开启）
-  forbidOnly: !!process.env.CI,   // CI 禁止 test.only（防止误提交）
-  retries: process.env.CI ? 2 : 0, // CI 重试 2 次（抗 flaky）
-  workers: process.env.CI ? 1 : undefined, // CI 单 worker（避免资源竞争）
-  reporter: 'html',               // HTML 测试报告
+  testDir: './tests/e2e',        // test file directory
+  fullyParallel: true,            // run fully in parallel (enable when tests have no interdependencies)
+  forbidOnly: !!process.env.CI,   // forbid test.only on CI (prevents accidental commits)
+  retries: process.env.CI ? 2 : 0, // retry twice on CI (mitigates flakiness)
+  workers: process.env.CI ? 1 : undefined, // single worker on CI (avoids resource contention)
+  reporter: 'html',               // HTML test report
 
   use: {
-    baseURL: 'http://localhost:5174',  // 应用基础 URL（配合 page.goto() 使用）
-    trace: 'on-first-retry',           // 失败重试时记录 trace（调试用）
+    baseURL: 'http://localhost:5174',  // application base URL (used with page.goto())
+    trace: 'on-first-retry',           // record a trace on failed retries (for debugging)
   },
 
   projects: [
@@ -112,25 +115,25 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',              // 自动启动 dev server
-    url: 'http://localhost:5174/',       // 等待此 URL 可访问
-    reuseExistingServer: !process.env.CI, // 本地复用已运行的 server
-    timeout: 30000,                      // 启动超时 30s
+    command: 'npm run dev',              // start the dev server automatically
+    url: 'http://localhost:5174/',       // wait until this URL is reachable
+    reuseExistingServer: !process.env.CI, // reuse an already-running server locally
+    timeout: 30000,                      // 30s startup timeout
   },
 })
 ```
 
-**关键配置说明：**
+**Key configuration notes:**
 
-| 配置项 | 作用 | 推荐值 |
+| Option | Purpose | Recommended value |
 |--------|------|--------|
-| `baseURL` | `page.goto('/path')` 时自动拼接此前缀 | 开发服务器地址 |
-| `webServer` | 自动启动/复用 dev server | 开发模式 + CI 模式区分 |
-| `trace` | 失败时生成 trace 文件，可用 `npx playwright show-trace` 调试 | `on-first-retry` |
-| `fullyParallel` | 多个 test 文件并行执行 | `true`（Mock 模式下安全） |
-| `retries` | 失败重试次数 | CI: 2, 本地: 0 |
+| `baseURL` | Prefix automatically prepended when calling `page.goto('/path')` | Dev server address |
+| `webServer` | Starts/reuses the dev server automatically | Distinct settings for dev mode vs CI mode |
+| `trace` | Generates a trace file on failure, inspectable with `npx playwright show-trace` | `on-first-retry` |
+| `fullyParallel` | Runs multiple test files in parallel | `true` (safe with mocking) |
+| `retries` | Number of retries on failure | CI: 2, local: 0 |
 
-### 2.3 package.json 脚本
+### 2.3 package.json scripts
 
 ```json
 {
@@ -142,50 +145,50 @@ export default defineConfig({
 }
 ```
 
-### 2.4 目录结构
+### 2.4 Directory structure
 
 ```
 your-project/
 ├── playwright.config.ts
 ├── package.json
-├── src/                        ← 应用源码
+├── src/                        ← application source
 └── tests/
     └── e2e/
         ├── helpers/
-        │   └── mock-api.ts     ← Mock 数据 + 拦截函数
-        ├── auth.spec.ts        ← 认证相关测试
-        ├── page-a.spec.ts      ← 页面 A 测试
-        └── page-b.spec.ts      ← 页面 B 测试
+        │   └── mock-api.ts     ← mock data + interception functions
+        ├── auth.spec.ts        ← authentication-related tests
+        ├── page-a.spec.ts      ← page A tests
+        └── page-b.spec.ts      ← page B tests
 ```
 
 ---
 
-## 3. Mock API 层设计
+## 3. Mock API Layer Design
 
-Mock API 层是整个测试体系的**核心**。设计好这一层，编写测试用例会非常简单。
+The mock API layer is the **core** of the entire testing system. Design this layer well and writing test cases becomes straightforward.
 
-### 3.1 文件结构
+### 3.1 File structure
 
-`tests/e2e/helpers/mock-api.ts` 分为三个部分：
+`tests/e2e/helpers/mock-api.ts` consists of three parts:
 
 ```
-Part 1: Mock 数据常量    →  定义所有 API 的假数据
-Part 2: setupAuthenticatedMocks()  →  注册全局路由拦截
-Part 3: 辅助函数         →  loginAsAdmin() 等常用操作
+Part 1: Mock data constants       →  fake data for all APIs
+Part 2: setupAuthenticatedMocks() →  registers global route interception
+Part 3: Helper functions          →  common operations such as loginAsAdmin()
 ```
 
-### 3.2 Mock 数据常量
+### 3.2 Mock data constants
 
-**原则：数据尽量真实，字段与后端 API 响应一致。**
+**Principle: keep the data as realistic as possible, with fields matching the backend API responses.**
 
 ```typescript
-// ✅ 好的设计：字段名、类型与真实 API 一致
+// ✅ Good design: field names and types match the real API
 export const MOCK_USERS = [
   {
     id: '550e8400-e29b-41d4-a716-446655440000',
     username: 'admin',
     email: 'admin@example.com',
-    email_verified: true,    // boolean，不是字符串
+    email_verified: true,    // boolean, not a string
     mfa_enabled: true,
   },
   {
@@ -197,27 +200,28 @@ export const MOCK_USERS = [
   },
 ]
 
-// ❌ 不好的设计：字段名随意、数据不真实
+// ❌ Bad design: arbitrary field names, unrealistic data
 export const users = [
-  { uid: 1, name: 'a', mail: 'a@b' },  // 字段名不匹配真实 API
+  { uid: 1, name: 'a', mail: 'a@b' },  // field names don't match the real API
 ]
 ```
 
-**为什么需要多组数据？**
+**Why multiple data sets?**
 
-Mock 数据至少准备两种状态，覆盖不同的 UI 表现：
-- `email_verified: true` + `false` → 测试"已验证"和"待验证"Badge
-- `mfa_enabled: true` + `false` → 测试"已开启"和"未开启"Badge
+Prepare at least two states in the mock data to cover different UI presentations:
 
-### 3.3 路由拦截：setupAuthenticatedMocks()
+- `email_verified: true` + `false` → test the "verified" and "pending verification" badges
+- `mfa_enabled: true` + `false` → test the "enabled" and "disabled" badges
 
-这是最关键的函数，负责拦截前端发出的所有 API 请求。
+### 3.3 Route interception: setupAuthenticatedMocks()
+
+This is the most critical function; it intercepts every API request the frontend makes.
 
 ```typescript
 import { Page } from '@playwright/test'
 
 export async function setupAuthenticatedMocks(page: Page) {
-  // 拦截规则：** 是通配符，匹配任何 origin
+  // Interception rule: ** is a wildcard that matches any origin
   await page.route('**/api/users', async (route) => {
     await route.fulfill({
       status: 200,
@@ -228,16 +232,16 @@ export async function setupAuthenticatedMocks(page: Page) {
 }
 ```
 
-**URL 匹配模式说明：**
+**URL matching patterns:**
 
-| 模式 | 匹配范围 | 示例 |
+| Pattern | What it matches | Example |
 |------|---------|------|
-| `**/api/users` | 任何 origin + 路径精确匹配 | `http://localhost:5174/api/users` ✅ |
-| `**/api/admin/logs**` | 路径前缀匹配（含查询参数） | `/api/admin/logs?page=2` ✅ |
-| `**/api/admin/clients/*` | 路径 + 单段通配 | `/api/admin/clients/vue-client` ✅ |
-| `**/api/admin/clients/*/reset-secret` | 多段路径混合 | `/api/admin/clients/vue-client/reset-secret` ✅ |
+| `**/api/users` | Any origin + exact path match | `http://localhost:5174/api/users` ✅ |
+| `**/api/admin/logs**` | Path prefix match (including query parameters) | `/api/admin/logs?page=2` ✅ |
+| `**/api/admin/clients/*` | Path + single-segment wildcard | `/api/admin/clients/vue-client` ✅ |
+| `**/api/admin/clients/*/reset-secret` | Multi-segment path combination | `/api/admin/clients/vue-client/reset-secret` ✅ |
 
-**同一个 URL，不同 HTTP 方法：**
+**Same URL, different HTTP methods:**
 
 ```typescript
 await page.route('**/api/admin/clients', async (route) => {
@@ -246,34 +250,34 @@ await page.route('**/api/admin/clients', async (route) => {
   } else if (route.request().method() === 'POST') {
     await route.fulfill({ status: 201, body: JSON.stringify({ client_id: 'new-123' }) })
   } else {
-    // 未预期的方法，交给下一个 handler 或真实网络
+    // Unexpected method: pass to the next handler or the real network
     await route.continue()
   }
 })
 ```
 
-**子资源路由优先级：**
+**Sub-resource route priority:**
 
-Playwright 路由匹配按注册顺序，**更具体的路由应先注册**：
+Playwright matches routes in registration order, so **more specific routes should be registered first**:
 
 ```typescript
-// ✅ 正确：更具体的路由先注册
-await page.route('**/api/admin/clients/*/reset-secret', ...)  // 先匹配
-await page.route('**/api/admin/clients/*', ...)                // 后匹配（兜底）
+// ✅ Correct: register more specific routes first
+await page.route('**/api/admin/clients/*/reset-secret', ...)  // matched first
+await page.route('**/api/admin/clients/*', ...)                // matched later (fallback)
 
-// 实际上 Playwright 的通配符匹配有隐式优先级
-// 但在 handler 内主动判断更安全：
+// In practice, Playwright's wildcard matching has an implicit priority,
+// but explicitly checking inside the handler is safer:
 await page.route('**/api/admin/clients/*', async (route) => {
   const url = route.request().url()
   if (url.includes('/scopes') || url.includes('/reset-secret')) {
-    await route.continue()  // 跳过，让更具体的 handler 处理
+    await route.continue()  // skip; let a more specific handler deal with it
     return
   }
-  // ... 处理 DELETE / GET / PUT
+  // ... handle DELETE / GET / PUT
 })
 ```
 
-### 3.4 辅助函数：loginAsAdmin()
+### 3.4 Helper function: loginAsAdmin()
 
 ```typescript
 export async function loginAsAdmin(page: Page) {
@@ -281,23 +285,24 @@ export async function loginAsAdmin(page: Page) {
   await page.fill('input[type="text"]', 'admin')
   await page.fill('input[type="password"]', 'admin')
   await page.click('button[type="submit"]')
-  await page.waitForURL('**/dashboard')  // 等待登录成功跳转
+  await page.waitForURL('**/dashboard')  // wait for the successful-login redirect
 }
 ```
 
-**设计要点：**
-- 通过 UI 操作完成登录（模拟真实用户行为）
-- 依赖 `setupAuthenticatedMocks()` 已拦截认证 API
-- `waitForURL` 确保登录完成，后续测试处于已认证状态
+**Design notes:**
 
-### 3.5 适配其他项目的 Mock 模板
+- Logs in through UI interactions (simulating a real user)
+- Relies on `setupAuthenticatedMocks()` having intercepted the authentication APIs
+- `waitForURL` guarantees the login has completed, so subsequent tests run in an authenticated state
+
+### 3.5 Mock template for adapting to other projects
 
 ```typescript
-// === helpers/mock-api.ts 模板 ===
+// === helpers/mock-api.ts template ===
 
 import { Page } from '@playwright/test'
 
-// ---- Part 1: Mock 数据 ----
+// ---- Part 1: mock data ----
 
 export const CURRENT_USER = {
   id: '1',
@@ -311,10 +316,10 @@ export const MOCK_ITEMS = [
   { id: '2', title: 'Item B', status: 'inactive' },
 ]
 
-// ---- Part 2: 全局路由拦截 ----
+// ---- Part 2: global route interception ----
 
 export async function setupAuthenticatedMocks(page: Page) {
-  // 认证相关
+  // Authentication
   await page.route('**/auth/login', async (route) => {
     await route.fulfill({
       status: 200,
@@ -331,7 +336,7 @@ export async function setupAuthenticatedMocks(page: Page) {
     })
   })
 
-  // 业务数据
+  // Business data
   await page.route('**/api/items', async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({
@@ -351,7 +356,7 @@ export async function setupAuthenticatedMocks(page: Page) {
     }
   })
 
-  // 单项操作（GET / PUT / DELETE）
+  // Single-item operations (GET / PUT / DELETE)
   await page.route('**/api/items/*', async (route) => {
     if (route.request().method() === 'DELETE') {
       await route.fulfill({ status: 204 })
@@ -365,7 +370,7 @@ export async function setupAuthenticatedMocks(page: Page) {
   })
 }
 
-// ---- Part 3: 辅助函数 ----
+// ---- Part 3: helper functions ----
 
 export async function loginAs(page: Page, username = 'admin', password = 'admin') {
   await page.goto('/login')
@@ -378,35 +383,35 @@ export async function loginAs(page: Page, username = 'admin', password = 'admin'
 
 ---
 
-## 4. 测试文件组织
+## 4. Test File Organization
 
-### 4.1 命名规范
+### 4.1 Naming conventions
 
 ```
 tests/e2e/
   ├── helpers/
-  │   └── mock-api.ts         ← 固定命名，所有测试共享
-  ├── auth.spec.ts             ← 认证/登录相关
-  ├── {page-name}.spec.ts      ← 每个页面一个文件
-  └── navigation.spec.ts       ← 全局导航/布局
+  │   └── mock-api.ts         ← fixed name, shared by all tests
+  ├── auth.spec.ts             ← authentication/login related
+  ├── {page-name}.spec.ts      ← one file per page
+  └── navigation.spec.ts       ← global navigation/layout
 ```
 
-**一个页面 = 一个 spec 文件**，按功能域划分，不按操作类型划分。
+**One page = one spec file**, organized by functional domain rather than by operation type.
 
-### 4.2 test.describe 分组
+### 4.2 test.describe grouping
 
 ```typescript
-test.describe('页面/功能名称', () => {
-  // beforeEach: 统一 setup
+test.describe('Page/Feature name', () => {
+  // beforeEach: shared setup
   test.beforeEach(async ({ page }) => {
     await setupAuthenticatedMocks(page)
     await loginAsAdmin(page)
-    // 导航到目标页面
+    // navigate to the target page
     await page.click('nav a:has-text("Target Page")')
     await page.waitForURL('**/target-page')
   })
 
-  // 测试用例按：渲染 → 数据 → 交互 → 边界 排列
+  // Test cases ordered: rendering → data → interaction → edge cases
   test('displays page title', ...)
   test('shows data from API', ...)
   test('button click triggers action', ...)
@@ -414,37 +419,37 @@ test.describe('页面/功能名称', () => {
 })
 ```
 
-### 4.3 测试用例命名
+### 4.3 Test case naming
 
-使用**陈述句**描述预期行为，而非操作步骤：
+Use **declarative sentences** that describe expected behavior, not operation steps:
 
 ```typescript
-// ✅ 好：描述预期结果
+// ✅ Good: describes the expected outcome
 test('displays users list with correct columns', ...)
 test('shows error on login failure', ...)
 test('delete button removes item from list', ...)
 
-// ❌ 不好：描述操作步骤
+// ❌ Bad: describes operation steps
 test('clicks button and checks result', ...)
 test('test 1', ...)
 ```
 
 ---
 
-## 5. 测试编写模式
+## 5. Test Writing Patterns
 
-### 5.1 标准测试流程（beforeEach 模式）
+### 5.1 Standard test flow (the beforeEach pattern)
 
-**最常用的模式**，90% 的测试都遵循这个流程：
+**The most common pattern** — 90% of tests follow this flow:
 
 ```typescript
 test.describe('User Management', () => {
   test.beforeEach(async ({ page }) => {
-    // Step 1: 注册全局 Mock
+    // Step 1: register global mocks
     await setupAuthenticatedMocks(page)
-    // Step 2: 模拟登录
+    // Step 2: simulate login
     await loginAsAdmin(page)
-    // Step 3: 导航到目标页面
+    // Step 3: navigate to the target page
     await page.click('nav a:has-text("Users")')
     await page.waitForURL('**/users')
   })
@@ -456,7 +461,7 @@ test.describe('User Management', () => {
 })
 ```
 
-**流程图：**
+**Flow diagram:**
 
 ```
 beforeEach:
@@ -464,79 +469,79 @@ beforeEach:
        ↓
   loginAsAdmin(page)
        ↓
-  导航到目标页面 + waitForURL
+  navigate to the target page + waitForURL
        ↓
   ═══════════════════════════
-  ↓  test case 1 执行      ↓
-  ↓  test case 2 执行      ↓
-  ↓  ...                   ↓
+  ↓  test case 1 runs     ↓
+  ↓  test case 2 runs     ↓
+  ↓  ...                  ↓
   ═══════════════════════════
 ```
 
-### 5.2 页面渲染验证
+### 5.2 Verifying page rendering
 
-验证页面正确显示数据：
+Verify that the page displays data correctly:
 
 ```typescript
 test('displays users list with correct columns', async ({ page }) => {
-  // 验证标题
+  // Verify the title
   await expect(page.locator('h2')).toContainText('Users')
-  // 验证表头
+  // Verify the table headers
   await expect(page.locator('th:has-text("Username")')).toBeVisible()
   await expect(page.locator('th:has-text("Email")')).toBeVisible()
-  // 验证数据行（来自 Mock 数据）
+  // Verify data rows (from the mock data)
   const tableBody = page.locator('tbody')
   await expect(tableBody.getByRole('cell', { name: 'admin', exact: true })).toBeVisible()
 })
 ```
 
-### 5.3 表单交互测试
+### 5.3 Form interaction tests
 
-验证表单填写、提交、响应：
+Verify form filling, submission, and responses:
 
 ```typescript
 test('creates a new application and shows secret', async ({ page }) => {
-  // 1. 触发弹窗
+  // 1. Open the dialog
   await page.click('button:has-text("Create Application")')
-  // 2. 验证弹窗出现
+  // 2. Verify the dialog appears
   await expect(page.locator('h3:has-text("Create Application")')).toBeVisible()
-  // 3. 填写表单
+  // 3. Fill in the form
   await page.fill('input[placeholder="My App"]', 'Test Application')
   await page.selectOption('select', 'CONFIDENTIAL')
-  // 4. 提交
+  // 4. Submit
   await page.locator('.fixed button[type="submit"]').click()
-  // 5. 验证结果
+  // 5. Verify the result
   await expect(page.locator('h3:has-text("Client Secret")')).toBeVisible()
   await expect(page.locator('.font-mono.select-all')).toContainText('generated-secret-abc123xyz')
 })
 ```
 
-### 5.4 Modal/对话框测试
+### 5.4 Modal/dialog tests
 
 ```typescript
 test('opens and closes role assignment modal', async ({ page }) => {
-  // 打开
+  // Open
   await page.click('button:has-text("Assign Roles")')
   await expect(page.locator('h3:has-text("Assign Roles")')).toBeVisible()
 
-  // 关闭
+  // Close
   await page.click('button:has-text("Cancel")')
   await expect(page.locator('h3:has-text("Assign Roles")')).not.toBeVisible()
 })
 
-// 原生 confirm 对话框处理
+// Handling native confirm dialogs
 test('delete with confirmation', async ({ page }) => {
-  page.on('dialog', (dialog) => dialog.accept())  // 自动接受 confirm
+  page.on('dialog', (dialog) => dialog.accept())  // auto-accept the confirm
   await page.click('button:has-text("Delete")')
   await expect(page.locator('h2')).toContainText('Applications')
 })
 ```
 
-### 5.5 分页测试
+### 5.5 Pagination tests
 
 ```typescript
 test('pagination sends correct page parameter', async ({ page }) => {
-  // 构造足够多的数据以启用"下一页"
+  // Build enough data to enable the "Next" button
   const manyItems = Array.from({ length: 50 }, (_, i) => ({
     id: i + 1, title: `Item ${i}`, status: 'active',
   }))
@@ -551,12 +556,12 @@ test('pagination sends correct page parameter', async ({ page }) => {
     })
   })
 
-  // 导航触发重新加载
+  // Navigate away and back to trigger a reload
   await page.click('nav a:has-text("Dashboard")')
   await page.click('nav a:has-text("Items")')
   await page.waitForURL('**/items')
 
-  // 点击下一页
+  // Click Next
   const nextBtn = page.locator('button:has-text("Next")')
   await expect(nextBtn).not.toBeDisabled()
   await nextBtn.click()
@@ -565,20 +570,20 @@ test('pagination sends correct page parameter', async ({ page }) => {
 })
 ```
 
-### 5.6 导航测试
+### 5.6 Navigation tests
 
 ```typescript
 test('sidebar navigation works for all pages', async ({ page }) => {
-  // 验证导航项可见
+  // Verify nav items are visible
   await expect(page.locator('nav a:has-text("Dashboard")')).toBeVisible()
   await expect(page.locator('nav a:has-text("Users")')).toBeVisible()
 
-  // 点击并验证 URL + 页面标题
+  // Click and verify URL + page title
   await page.click('nav a:has-text("Users")')
   await expect(page).toHaveURL(/\/users/)
   await expect(page.locator('h2')).toContainText('Users')
 
-  // 返回验证
+  // Navigate back and verify
   await page.click('nav a:has-text("Dashboard")')
   await expect(page).toHaveURL(/\/dashboard/)
 })
@@ -586,27 +591,27 @@ test('sidebar navigation works for all pages', async ({ page }) => {
 
 ---
 
-## 6. 进阶技巧
+## 6. Advanced Techniques
 
-### 6.1 覆盖全局 Mock（测试异常场景）
+### 6.1 Overriding global mocks (testing error scenarios)
 
-这是本方案最强大的特性：**在单个测试中覆盖全局 Mock，无需修改 setupAuthenticatedMocks()**。
+This is the most powerful feature of this approach: **override the global mocks within a single test, without modifying setupAuthenticatedMocks()**.
 
-**原理：** `page.route()` 后注册的 handler 优先匹配。后注册的会覆盖先注册的同 URL 模式。
+**How it works:** handlers registered later via `page.route()` are matched first. A later registration overrides an earlier one for the same URL pattern.
 
 ```typescript
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await setupAuthenticatedMocks(page)  // 全局 Mock：health 返回 ok
+    await setupAuthenticatedMocks(page)  // global mocks: health returns ok
     await loginAsAdmin(page)
   })
 
   test('displays healthy status', async ({ page }) => {
-    await expect(page.locator('text=Healthy')).toBeVisible()  // 使用全局 Mock
+    await expect(page.locator('text=Healthy')).toBeVisible()  // uses the global mock
   })
 
   test('shows unhealthy status when backend is down', async ({ page }) => {
-    // 关键：在全局 Mock 之后注册，覆盖全局的 health 响应
+    // Key point: registered after the global mocks, overriding the global health response
     await page.route('**/health/ready', async (route) => {
       await route.fulfill({
         status: 200,
@@ -615,21 +620,21 @@ test.describe('Dashboard', () => {
       })
     })
 
-    await loginAsAdmin(page)  // 重新登录以触发 health check
+    await loginAsAdmin(page)  // log in again to trigger the health check
     await expect(page.locator('text=Unhealthy')).toBeVisible()
   })
 })
 ```
 
-**常见覆盖场景：**
+**Common override scenarios:**
 
 ```typescript
-// 场景 1：API 返回错误
+// Scenario 1: API returns an error
 await page.route('**/oauth2/login', async (route) => {
   await route.fulfill({ status: 401, body: JSON.stringify({ error: 'invalid_credentials' }) })
 })
 
-// 场景 2：API 返回空数据
+// Scenario 2: API returns empty data
 await page.route('**/api/admin/clients', async (route) => {
   if (route.request().method() === 'GET') {
     await route.fulfill({ status: 200, body: JSON.stringify({ clients: [] }) })
@@ -638,7 +643,7 @@ await page.route('**/api/admin/clients', async (route) => {
   }
 })
 
-// 场景 3：非管理员用户
+// Scenario 3: non-admin user
 await page.route('**/oauth2/userinfo', async (route) => {
   await route.fulfill({
     status: 200,
@@ -646,7 +651,7 @@ await page.route('**/oauth2/userinfo', async (route) => {
   })
 })
 
-// 场景 4：MFA 要求
+// Scenario 4: MFA required
 await page.route('**/oauth2/login', async (route) => {
   await route.fulfill({
     status: 200,
@@ -655,15 +660,15 @@ await page.route('**/oauth2/login', async (route) => {
 })
 ```
 
-### 6.2 捕获请求体验证
+### 6.2 Capturing and verifying request bodies
 
-验证前端发送的请求参数是否正确：
+Verify that the parameters the frontend sends are correct:
 
 ```typescript
 test('assigns roles with correct request body', async ({ page }) => {
   let requestBody: any = null
 
-  // 覆盖全局 Mock，同时捕获请求体
+  // Override the global mock and capture the request body at the same time
   await page.route('**/api/admin/users/*/roles', async (route) => {
     requestBody = JSON.parse(route.request().postData() || '{}')
     await route.fulfill({
@@ -672,23 +677,23 @@ test('assigns roles with correct request body', async ({ page }) => {
     })
   })
 
-  // 执行操作
+  // Perform the action
   await page.locator('button:has-text("Assign Roles")').first().click()
   await page.fill('input[placeholder="admin, user"]', 'admin, editor')
   await page.click('button:has-text("Save Roles")')
 
-  // 验证请求体
+  // Verify the request body
   expect(requestBody).toEqual({ roles: ['admin', 'editor'] })
 })
 ```
 
-### 6.3 空状态测试
+### 6.3 Empty-state tests
 
-验证列表为空时的 UI 表现：
+Verify the UI presentation when the list is empty:
 
 ```typescript
 test('shows empty state when no items exist', async ({ page }) => {
-  // 覆盖 Mock 返回空列表
+  // Override the mock to return an empty list
   await page.route('**/api/items', async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({ status: 200, body: JSON.stringify({ items: [] }) })
@@ -697,24 +702,25 @@ test('shows empty state when no items exist', async ({ page }) => {
     }
   })
 
-  // 导航走再回来，触发数据重新加载
+  // Navigate away and back to trigger a data reload
   await page.click('nav a:has-text("Dashboard")')
   await page.click('nav a:has-text("Items")')
   await page.waitForURL('**/items')
 
-  // 验证空状态提示
+  // Verify the empty-state prompt
   await expect(page.locator('text=No items yet')).toBeVisible()
   await expect(page.locator('button:has-text("Create your first item")')).toBeVisible()
 })
 ```
 
-**为什么需要"导航走再回来"？**
+**Why "navigate away and back"?**
 
-因为 `beforeEach` 中已经导航到了目标页面，数据已经加载。覆盖 Mock 后需要触发组件重新挂载数据重新获取。两个方法：
-1. 导航到其他页面再回来（推荐，模拟真实用户操作）
-2. `await page.reload()`（简单，但有些组件可能不重新请求）
+Because `beforeEach` has already navigated to the target page and the data is loaded, overriding the mock requires forcing the component to remount and re-fetch the data. Two approaches:
 
-### 6.4 验证请求查询参数
+1. Navigate to another page and back (recommended; simulates real user behavior)
+2. `await page.reload()` (simple, but some components may not re-request)
+
+### 6.4 Verifying request query parameters
 
 ```typescript
 test('filter sends correct parameters', async ({ page }) => {
@@ -724,11 +730,11 @@ test('filter sends correct parameters', async ({ page }) => {
     await route.fulfill({ status: 200, body: JSON.stringify({ items: [] }) })
   })
 
-  // 执行筛选操作
+  // Perform the filter operation
   await page.selectOption('select[name="status"]', 'active')
   await page.click('button:has-text("Filter")')
 
-  // 验证 URL 参数
+  // Verify the URL parameters
   const url = new URL(capturedUrl)
   expect(url.searchParams.get('status')).toBe('active')
 })
@@ -736,9 +742,9 @@ test('filter sends correct parameters', async ({ page }) => {
 
 ---
 
-## 7. CI/CD 集成
+## 7. CI/CD Integration
 
-### 7.1 GitHub Actions 示例
+### 7.1 GitHub Actions example
 
 ```yaml
 name: E2E Tests
@@ -771,38 +777,38 @@ jobs:
           path: playwright-report/
 ```
 
-### 7.2 CI 配置要点
+### 7.2 CI configuration notes
 
-| 配置 | CI 值 | 本地值 | 原因 |
+| Option | CI value | Local value | Reason |
 |------|-------|-------|------|
-| `workers` | 1 | 自动(多) | CI 资源有限，避免竞争 |
-| `retries` | 2 | 0 | CI 网络不稳定，重试抗 flaky |
-| `reuseExistingServer` | `false` | `true` | CI 必须启动新 server |
-| `forbidOnly` | `true` | `false` | 防止 `test.only` 被提交 |
+| `workers` | 1 | auto (multiple) | CI resources are limited; avoids contention |
+| `retries` | 2 | 0 | CI networks are unstable; retries mitigate flakiness |
+| `reuseExistingServer` | `false` | `true` | CI must start a fresh server |
+| `forbidOnly` | `true` | `false` | Prevents `test.only` from being committed |
 
 ---
 
-## 8. 常见问题
+## 8. FAQ
 
-### Q1: 测试偶尔失败（flaky）怎么办？
+### Q1: What if tests fail intermittently (flaky)?
 
-1. 检查是否用了 `page.waitForTimeout()` — 改用 `waitForSelector` / `waitForURL` / `expect().toBeVisible()`
-2. 检查 Mock 是否有条件竞争 — 确保所有 API 都被拦截，没有未 Mock 的请求
-3. 开启 `trace: 'on-first-retry'`，用 `npx playwright show-trace` 分析失败
+1. Check whether you use `page.waitForTimeout()` — switch to `waitForSelector` / `waitForURL` / `expect().toBeVisible()`
+2. Check the mocks for race conditions — make sure every API is intercepted and no request is left unmocked
+3. Enable `trace: 'on-first-retry'` and analyze failures with `npx playwright show-trace`
 
-### Q2: 某个请求没被拦截怎么办？
+### Q2: What if a request is not intercepted?
 
-- 检查 URL 模式是否匹配（`**` 通配符范围）
-- 打开浏览器开发者工具，看实际请求的完整 URL
-- 在 handler 内加 `console.log(route.request().url())` 调试
+- Check that the URL pattern matches (the scope of the `**` wildcard)
+- Open the browser DevTools and inspect the full URL of the actual request
+- Add `console.log(route.request().url())` inside the handler to debug
 
-### Q3: 如何测试文件上传？
+### Q3: How do I test file uploads?
 
 ```typescript
-// 监听 file chooser 事件
+// Listen for the filechooser event
 const [fileChooser] = await Promise.all([
   page.waitForEvent('filechooser'),
-  page.click('button:has-text("Upload")'),  // 触发文件选择
+  page.click('button:has-text("Upload")'),  // triggers the file selection
 ])
 await fileChooser.setFiles({
   name: 'test.csv',
@@ -811,126 +817,128 @@ await fileChooser.setFiles({
 })
 ```
 
-### Q4: 如何在不启动 dev server 的情况下测试？
+### Q4: How do I run tests without auto-starting the dev server?
 
-修改 `playwright.config.ts`，移除 `webServer` 配置，手动启动 dev server 后运行测试：
+Edit `playwright.config.ts`, remove the `webServer` configuration, start the dev server manually, then run the tests:
 
 ```bash
-# 终端 1
+# Terminal 1
 npm run dev
 
-# 终端 2
+# Terminal 2
 npm run test:e2e
 ```
 
-### Q5: Mock 模式和真实后端测试如何共存？
+### Q5: How do mock-mode and real-backend tests coexist?
 
 ```
 tests/
 ├── e2e/
 │   ├── helpers/
-│   │   ├── mock-api.ts      ← Mock 模式
-│   │   └── api-client.ts    ← 真实 API 调用
-│   ├── auth.spec.ts          ← Mock 测试
+│   │   ├── mock-api.ts      ← mock mode
+│   │   └── api-client.ts    ← real API calls
+│   ├── auth.spec.ts          ← mock tests
 │   └── ...
 └── integration/
-    └── full-flow.spec.ts     ← 真实后端集成测试
+    └── full-flow.spec.ts     ← real-backend integration tests
 ```
 
-使用不同的 `playwright.config.ts`：
-- `playwright.config.ts` — Mock 模式（日常开发、每次提交）
-- `playwright.integration.config.ts` — 真实后端（发布前、 nightly）
+Use separate `playwright.config.ts` files:
+
+- `playwright.config.ts` — mock mode (daily development, every commit)
+- `playwright.integration.config.ts` — real backend (pre-release, nightly)
 
 ---
 
-## 9. 后端集成测试故障排查
+## 9. Backend Integration Test Troubleshooting
 
-### 问题：测试脚本第二次运行时全部失败
+### Problem: the test script fails entirely on its second run
 
-**症状**：
+**Symptoms**:
 ```
 POST http://localhost:5174/oauth2/login 401 (Unauthorized)
 ```
 
-后端日志：
+Backend logs:
 ```
 WARN  Account locked for user: admin until 1779441748
 INFO  [METRIC] oauth2_login_failures_total reason=bad_credentials
 ```
 
-**原因**：
-OAuth2 系统实现了账号锁定机制。当登录失败次数达到阈值时，账号会被临时锁定：
-- 5次失败 → 锁定1分钟
-- 10次失败 → 锁定5分钟
-- 15次失败 → 锁定30分钟
-- 20次以上 → 锁定1小时
+**Cause**:
+The OAuth2 system implements an account lockout mechanism. Once the number of failed logins reaches a threshold, the account is temporarily locked:
 
-**解决方案**：
+- 5 failures → 1-minute lockout
+- 10 failures → 5-minute lockout
+- 15 failures → 30-minute lockout
+- 20+ failures → 1-hour lockout
 
-#### 方案1：使用自动清理的测试脚本
+**Solutions**:
 
-后端测试脚本（如 `test-admin-endpoints.ps1`）已经在结束时自动重置账号锁定状态。
+#### Option 1: use a test script with automatic cleanup
 
-对于本地PostgreSQL数据库，需要配置数据库密码：
+The backend test scripts (for example `test-admin-endpoints.ps1`) already reset the account lockout state automatically when they finish.
+
+For a local PostgreSQL database, you need to configure the database password:
 
 ```powershell
-# 编辑测试脚本，找到清理部分，设置密码
-$env:PGPASSWORD = "your_password"  # 修改为实际密码
+# Edit the test script, find the cleanup section, and set the password
+$env:PGPASSWORD = "your_password"  # change to the actual password
 ```
 
-#### 方案2：手动重置账号锁定
+#### Option 2: manually reset the account lockout
 
 ```powershell
-# 使用重置脚本
+# Use the reset script
 $env:PGPASSWORD = "your_password"
 .\scripts\backend\reset-account-lockout.ps1
 $env:PGPASSWORD = $null
 
-# 或直接使用SQL
+# Or use SQL directly
 psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
 ```
 
-#### 方案3：等待锁定自动解除
+#### Option 3: wait for the lockout to expire
 
-根据失败次数，等待相应的时间后账号会自动解锁。
+Depending on the number of failures, the account unlocks automatically after the corresponding time.
 
-**预防措施**：
+**Preventive measures**:
 
-1. **使用专用测试账号**：不要在测试中使用生产admin账号
-2. **确保凭证正确**：检查测试脚本中的用户名和密码
-3. **测试后自动清理**：在测试脚本末尾添加清理代码
+1. **Use a dedicated test account**: never use the production admin account in tests
+2. **Make sure credentials are correct**: check the username and password in the test script
+3. **Clean up automatically after testing**: append cleanup code at the end of the test script
 
-详细说明请参考：[账号锁定机制](operate/account-lockout.md)
+For details, see [Account lockout mechanism](operate/account-lockout.md).
 
 ---
 
-## 附录 A: 从零接入检查清单
+## Appendix A: From-scratch adoption checklist
 
-将此清单用于新项目的 E2E 测试接入：
+Use this checklist when adopting E2E testing in a new project:
 
 - [ ] `npm install -D @playwright/test`
 - [ ] `npx playwright install chromium`
-- [ ] 创建 `playwright.config.ts`
-- [ ] 创建 `tests/e2e/helpers/mock-api.ts`
-- [ ] 定义 Mock 数据常量（与后端 API 响应结构一致）
-- [ ] 实现 `setupAuthenticatedMocks(page)` — 拦截所有认证 + 业务 API
-- [ ] 实现 `loginAsAdmin(page)` — UI 登录辅助函数
-- [ ] 创建第一个测试文件（建议从 auth 开始）
-- [ ] 添加 `package.json` 脚本
-- [ ] 配置 CI pipeline
+- [ ] Create `playwright.config.ts`
+- [ ] Create `tests/e2e/helpers/mock-api.ts`
+- [ ] Define mock data constants (matching the backend API response structure)
+- [ ] Implement `setupAuthenticatedMocks(page)` — intercept all authentication + business APIs
+- [ ] Implement `loginAsAdmin(page)` — a UI login helper
+- [ ] Create the first test file (auth is a good starting point)
+- [ ] Add `package.json` scripts
+- [ ] Configure the CI pipeline
 
-## 附录 B: Admin 前端 E2E 测试统计
+## Appendix B: Admin frontend E2E test statistics
 
-| 指标 | 数值 |
+| Metric | Value |
 |------|------|
-| 测试文件 | 16 |
-| 测试用例 | 174 |
-| 执行时间 | ~1 分钟 |
-| 后端依赖 | 无（全 Mock） |
-| 浏览器 | Chromium |
-| 并行执行 | 是 |
-| Mock API 端点 | 15+ |
+| Test files | 16 |
+| Test cases | 174 |
+| Execution time | ~1 minute |
+| Backend dependency | None (fully mocked) |
+| Browser | Chromium |
+| Parallel execution | Yes |
+| Mocked API endpoints | 15+ |
 
 ---
 
-> 本文档基于 fulla Admin 前端项目实践总结。项目源码：`frontends/admin/tests/e2e/`
+> This document summarizes practices from the fulla Admin frontend project. Project source: `frontends/admin/tests/e2e/`
