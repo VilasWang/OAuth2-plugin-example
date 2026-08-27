@@ -761,170 +761,20 @@ docker logs fulla-backend | grep -i "auth\|token"
 
 ### 完整验证脚本（PowerShell）
 
-保存为 `verify-deployment.ps1`：
-
-```powershell
-# fulla 部署验证脚本
-param(
-    [string]$BackendUrl = "http://localhost:5555",
-    [string]$FrontendUrl = "http://localhost:8080",
-    [string]$AdminUrl = "http://localhost:8081",
-    [switch]$Verbose
-}
-
-function Test-ContainerStatus {
-    Write-Host "`n[1/8] 检查容器状态..." -ForegroundColor Cyan
-    $containers = docker compose -f deploy/docker/docker-compose.yml ps
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "[+] 所有容器运行正常" -ForegroundColor Green
-        return $true
-    } else {
-        Write-Host "[-] 容器状态异常" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Test-BackendHealth {
-    Write-Host "`n[2/8] 检查后端健康..." -ForegroundColor Cyan
-    try {
-        $response = Invoke-RestMethod -Uri "$BackendUrl/health" -Method Get
-        if ($response.status -eq "healthy") {
-            Write-Host "[+] 后端健康检查通过" -ForegroundColor Green
-            return $true
-        }
-    } catch {
-        Write-Host "[-] 后端健康检查失败: $_" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Test-DatabaseConnection {
-    Write-Host "`n[3/8] 检查数据库连接..." -ForegroundColor Cyan
-    $result = docker exec fulla-postgres pg_isready -U fulla_user 2>&1
-    if ($LASTEXITCODE -eq 0 -and $result -match "accepting connections") {
-        Write-Host "[+] 数据库连接正常" -ForegroundColor Green
-        return $true
-    } else {
-        Write-Host "[-] 数据库连接失败" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Test-DatabaseTables {
-    Write-Host "`n[4/8] 检查数据库表结构..." -ForegroundColor Cyan
-    $result = docker exec fulla-postgres psql -U fulla_user -d fulla_db -t -c "
-        SELECT COUNT(*) FROM information_schema.tables 
-        WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
-    " 2>&1
-    
-    $tableCount = [int]$result.Trim()
-    if ($tableCount -ge 20) {
-        Write-Host "[+] 数据库表结构完整 ($tableCount 张表)" -ForegroundColor Green
-        return $true
-    } else {
-        Write-Host "[-] 数据库表结构不完整 (仅 $tableCount 张表)" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Test-SeedData {
-    Write-Host "`n[5/8] 检查种子数据..." -ForegroundColor Cyan
-    $result = docker exec fulla-postgres psql -U fulla_user -d fulla_db -t -c "
-        SELECT COUNT(*) FROM users WHERE username = 'admin';
-    " 2>&1
-    
-    $count = [int]$result.Trim()
-    if ($count -eq 1) {
-        Write-Host "[+] 管理员账号已创建" -ForegroundColor Green
-        return $true
-    } else {
-        Write-Host "[-] 管理员账号未创建" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Test-RedisConnection {
-    Write-Host "`n[6/8] 检查 Redis 连接..." -ForegroundColor Cyan
-    $result = docker exec fulla-redis redis-cli -a redis_secret_pass ping 2>&1
-    if ($result -match "PONG") {
-        Write-Host "[+] Redis 连接正常" -ForegroundColor Green
-        return $true
-    } else {
-        Write-Host "[-] Redis 连接失败" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Test-DiscoveryEndpoint {
-    Write-Host "`n[7/8] 测试 OIDC 发现端点..." -ForegroundColor Cyan
-    # 完整登录流程（PKCE）见上文阶段三；脚本化部署检查用发现端点验证
-    # 后端 OAuth2 栈已就绪，且不依赖具体凭证。
-    try {
-        $response = Invoke-RestMethod -Uri "$BackendUrl/.well-known/openid-configuration" -Method Get
-        if ($response.issuer -and $response.token_endpoint) {
-            Write-Host "[+] OIDC 发现端点正常 (issuer: $($response.issuer))" -ForegroundColor Green
-            return $true
-        }
-    } catch {
-        Write-Host "[-] OIDC 发现端点失败: $_" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Test-FrontendAccess {
-    Write-Host "`n[8/8] 检查前端访问..." -ForegroundColor Cyan
-    try {
-        $response = Invoke-WebRequest -Uri $FrontendUrl -Method Get -UseBasicParsing
-        if ($response.StatusCode -eq 200) {
-            Write-Host "[+] 前端页面可访问" -ForegroundColor Green
-            return $true
-        }
-    } catch {
-        Write-Host "[-] 前端页面访问失败: $_" -ForegroundColor Red
-        return $false
-    }
-}
-
-# 执行所有测试
-$results = @()
-$results += Test-ContainerStatus
-$results += Test-BackendHealth
-$results += Test-DatabaseConnection
-$results += Test-DatabaseTables
-$results += Test-SeedData
-$results += Test-RedisConnection
-$results += Test-DiscoveryEndpoint
-$results += Test-FrontendAccess
-
-# 汇总结果
-$passed = ($results | Where-Object { $_ -eq $true }).Count
-$total = $results.Count
-
-Write-Host "`n" -NoNewline
-Write-Host ("=" * 60) -ForegroundColor DarkGray
-Write-Host "验证结果: $passed / $total 通过" -ForegroundColor $(if ($passed -eq $total) { "Green" } else { "Yellow" })
-Write-Host ("=" * 60) -ForegroundColor DarkGray
-
-if ($passed -eq $total) {
-    Write-Host "`n[+] 部署验证完全通过！系统可以投入使用。" -ForegroundColor Green
-    exit 0
-} else {
-    Write-Host "`n[-] 部署验证失败，请检查上述错误项。" -ForegroundColor Red
-    exit 1
-}
-```
+脚本已随仓库提供：
+[`scripts/backend/verify-deployment.ps1`](https://github.com/voidvec/fulla/blob/master/scripts/backend/verify-deployment.ps1)。
+在仓库根目录运行——它执行下述八项检查（容器状态、后端健康、数据库连接、
+表完整性、种子管理员、Redis、OIDC 发现端点、前端可达性），任一失败即以
+非零码退出（脚本输出为英文）。
 
 **使用方法**：
 
 ```powershell
 # 基本验证
-.\verify-deployment.ps1
-
-# 详细模式
-.\verify-deployment.ps1 -Verbose
+.\scriptsackenderify-deployment.ps1
 
 # 自定义端点
-.\verify-deployment.ps1 -BackendUrl "https://your-domain.com" -FrontendUrl "https://your-domain.com"
+.\scriptsackenderify-deployment.ps1 -BackendUrl "https://your-domain.com" -FrontendUrl "https://your-domain.com"
 ```
 
 ---
