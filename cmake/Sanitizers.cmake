@@ -99,21 +99,33 @@ function(oauth2_apply_sanitizer target)
             "current CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'.")
     endif()
 
-    # Compose the flag set from the requested kinds. UBSan runs with
-    # -fno-sanitize-recover so UB aborts instead of limping on (CI must see it).
-    set(_flags -g -fno-omit-frame-pointer)
+    # Compose the flag set. UBSan runs with -fno-sanitize-recover so UB
+    # aborts instead of limping on (CI must see it).
+    set(_compile_flags -g -fno-omit-frame-pointer)
+    set(_link_flags)
     foreach(_kind IN LISTS _kinds)
         if(_kind STREQUAL "thread")
-            list(APPEND _flags -fsanitize=thread)
+            list(APPEND _compile_flags -fsanitize=thread)
+            list(APPEND _link_flags -fsanitize=thread)
         elseif(_kind STREQUAL "address")
-            list(APPEND _flags -fsanitize=address)
+            list(APPEND _compile_flags -fsanitize=address)
+            list(APPEND _link_flags -fsanitize=address)
         else() # undefined
-            list(APPEND _flags -fsanitize=undefined -fno-sanitize-recover=undefined)
+            list(APPEND _compile_flags -fsanitize=undefined -fno-sanitize-recover=undefined)
+            list(APPEND _link_flags -fsanitize=undefined)
         endif()
     endforeach()
 
     message(STATUS
-        "FULLA_SANITIZER=${_san}: applying '${_flags}' to '${target}' (compile + link)")
-    target_compile_options(${target} PRIVATE ${_flags})
-    target_link_options(${target} PRIVATE ${_flags})
+        "FULLA_SANITIZER=${_san}: applying compile '${_compile_flags}' (PRIVATE) and "
+        "link '${_link_flags}' (PUBLIC) to '${target}'")
+    # Compile PRIVATE: only this target's own sources get instrumented.
+    # Link PUBLIC: an instrumented static library's objects reference the
+    # sanitizer runtimes, so EVERY consumer (per-lib test executables, the
+    # main test binary, the server, examples) must link them too --
+    # INTERFACE_LINK_OPTIONS on the library propagates exactly that. (The
+    # first sanitizer CI run failed with undefined __asan_*/__ubsan_* refs
+    # in fulla-common-test: PRIVATE link flags never reached the consumer.)
+    target_compile_options(${target} PRIVATE ${_compile_flags})
+    target_link_options(${target} PUBLIC ${_link_flags})
 endfunction()
