@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useId } from 'vue'
 
-const props = defineProps<{
+defineProps<{
   modelValue?: string
   label?: string
   type?: string
@@ -29,7 +29,11 @@ const errorId = useId()
       class="block text-sm font-medium text-neutral-700 select-none"
     >
       {{ label }}
-      <span v-if="required" class="text-rose-500 ml-0.5" aria-hidden="true">*</span>
+      <span
+        v-if="required"
+        class="text-rose-500 ml-0.5"
+        aria-hidden="true"
+      >*</span>
     </label>
 
     <div class="relative">
@@ -52,19 +56,39 @@ const errorId = useId()
           ? 'border border-rose-300 focus:ring-rose-500/20 focus:border-rose-500'
           : 'border border-neutral-300 focus:ring-sky-500/20 focus:border-sky-600'"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-      />
+      >
 
       <div
         v-if="error"
         class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"
       >
-        <svg class="w-4 h-4 text-rose-500" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zM7.25 4.5a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0v-3zm.75 6.25a.75.75 0 100-1.5.75.75 0 000 1.5z"/>
+        <svg
+          class="w-4 h-4 text-rose-500"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M8 1a7 7 0 100 14A7 7 0 008 1zM7.25 4.5a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0v-3zm.75 6.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+          />
         </svg>
       </div>
     </div>
 
-    <p v-if="error" :id="errorId" class="text-xs text-rose-600" role="alert">{{ error }}</p>
-    <p v-else-if="hint" class="text-xs text-neutral-500">{{ hint }}</p>
+    <p
+      v-if="error"
+      :id="errorId"
+      class="text-xs text-rose-600"
+      role="alert"
+    >
+      {{ error }}
+    </p>
+    <p
+      v-else-if="hint"
+      class="text-xs text-neutral-500"
+    >
+      {{ hint }}
+    </p>
   </div>
 </template>

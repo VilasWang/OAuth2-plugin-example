@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { setupMocks, loginViaForm } from './helpers/mock-api'
+import { setupMocks } from './helpers/mock-api'
 
 test.describe('Login', () => {
   test.beforeEach(async ({ page }) => {

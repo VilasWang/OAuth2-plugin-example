@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 
 const route = useRoute()
-const router = useRouter()
 const clientId = computed(() => route.params.id as string)
 
 const loading = ref(true)
@@ -165,35 +164,51 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
       <div class="flex items-center gap-3">
-        <router-link :to="{ name: 'applications' }" class="text-gray-500 hover:text-gray-700 text-sm">
+        <router-link
+          :to="{ name: 'applications' }"
+          class="text-gray-500 hover:text-gray-700 text-sm"
+        >
           ← Back to Applications
         </router-link>
       </div>
       <button
         v-if="activeTab === 'info' || activeTab === 'auth'"
-        @click="saveChanges"
         :disabled="saving"
         class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium disabled:opacity-50"
+        @click="saveChanges"
       >
         {{ saving ? 'Saving...' : 'Save Changes' }}
       </button>
     </div>
 
     <!-- Toast Messages -->
-    <div v-if="successMessage" class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm">
+    <div
+      v-if="successMessage"
+      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+    >
       {{ successMessage }}
     </div>
-    <div v-if="errorMessage" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+    <div
+      v-if="errorMessage"
+      class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm"
+    >
       {{ errorMessage }}
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-12 text-gray-500">Loading...</div>
+    <div
+      v-if="loading"
+      class="text-center py-12 text-gray-500"
+    >
+      Loading...
+    </div>
 
     <!-- Content -->
     <div v-else>
       <!-- App Title -->
-      <h2 class="text-2xl font-bold text-gray-900 mb-6">{{ client.name || client.client_id }}</h2>
+      <h2 class="text-2xl font-bold text-gray-900 mb-6">
+        {{ client.name || client.client_id }}
+      </h2>
 
       <!-- Tabs -->
       <div class="border-b border-gray-200 mb-6">
@@ -206,13 +221,13 @@ onMounted(() => {
               { key: 'credentials', label: 'Credentials' },
             ]"
             :key="tab.key"
-            @click="activeTab = tab.key as any"
             :class="[
               'py-3 px-1 border-b-2 text-sm font-medium transition-colors',
               activeTab === tab.key
                 ? 'border-indigo-500 text-indigo-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             ]"
+            @click="activeTab = tab.key as any"
           >
             {{ tab.label }}
           </button>
@@ -220,30 +235,46 @@ onMounted(() => {
       </div>
 
       <!-- Info Tab -->
-      <div v-if="activeTab === 'info'" class="bg-white shadow rounded-lg p-6 space-y-5">
+      <div
+        v-if="activeTab === 'info'"
+        class="bg-white shadow rounded-lg p-6 space-y-5"
+      >
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
           <div class="flex items-center gap-2">
             <code class="flex-1 px-3 py-2 bg-gray-100 rounded-md text-sm font-mono text-gray-800">{{ client.client_id }}</code>
-            <button @click="copyToClipboard(client.client_id)" class="px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors">
+            <button
+              class="px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+              @click="copyToClipboard(client.client_id)"
+            >
               Copy
             </button>
           </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-          <input v-model="editName" class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Application name" />
+          <input
+            v-model="editName"
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Application name"
+          >
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-          <span class="px-3 py-1 text-sm rounded-full" :class="client.client_type === 'PUBLIC' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'">
+          <span
+            class="px-3 py-1 text-sm rounded-full"
+            :class="client.client_type === 'PUBLIC' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'"
+          >
             {{ client.client_type }}
           </span>
         </div>
       </div>
 
       <!-- Auth Config Tab -->
-      <div v-if="activeTab === 'auth'" class="bg-white shadow rounded-lg p-6 space-y-5">
+      <div
+        v-if="activeTab === 'auth'"
+        class="bg-white shadow rounded-lg p-6 space-y-5"
+      >
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Token Endpoint Auth Method</label>
           <div class="px-3 py-2 bg-gray-50 rounded-md text-sm font-mono text-gray-700 inline-block">
@@ -262,18 +293,22 @@ onMounted(() => {
             rows="4"
             class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-indigo-500 focus:border-indigo-500"
             placeholder="https://myapp.com/callback"
-          ></textarea>
+          />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Allowed Grant Types</label>
           <div class="space-y-2">
-            <label v-for="gt in AVAILABLE_GRANT_TYPES" :key="gt.value" class="flex items-start gap-2 cursor-pointer">
+            <label
+              v-for="gt in AVAILABLE_GRANT_TYPES"
+              :key="gt.value"
+              class="flex items-start gap-2 cursor-pointer"
+            >
               <input
+                v-model="editGrantTypes"
                 type="checkbox"
                 :value="gt.value"
-                v-model="editGrantTypes"
                 class="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
+              >
               <div>
                 <span class="text-sm font-medium text-gray-700">{{ gt.label }}</span>
                 <p class="text-xs text-gray-500">{{ gt.description }}</p>
@@ -287,7 +322,7 @@ onMounted(() => {
             v-model="editBackchannelLogoutUri"
             class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:ring-indigo-500 focus:border-indigo-500"
             placeholder="https://rp.example.com/backchannel-logout"
-          />
+          >
           <p class="text-xs text-gray-500 mt-1">
             OIDC Back-Channel Logout 1.0. When set (https), the OP POSTs a signed
             logout_token here on user logout. Leave empty to disable.
@@ -296,31 +331,55 @@ onMounted(() => {
       </div>
 
       <!-- Scopes Tab -->
-      <div v-if="activeTab === 'scopes'" class="bg-white shadow rounded-lg p-6">
-        <div v-if="editGrantTypes.includes('client_credentials')" class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-sm">
+      <div
+        v-if="activeTab === 'scopes'"
+        class="bg-white shadow rounded-lg p-6"
+      >
+        <div
+          v-if="editGrantTypes.includes('client_credentials')"
+          class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-sm"
+        >
           这些 Scope 决定了该应用通过 Client Credentials 模式获取的 Token 权限范围
         </div>
-        <div v-if="allScopes.length === 0" class="text-gray-500 text-sm">No scopes available in the system.</div>
-        <div v-else class="space-y-3">
-          <label v-for="scope in allScopes" :key="scope.name" class="flex items-start gap-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+        <div
+          v-if="allScopes.length === 0"
+          class="text-gray-500 text-sm"
+        >
+          No scopes available in the system.
+        </div>
+        <div
+          v-else
+          class="space-y-3"
+        >
+          <label
+            v-for="scope in allScopes"
+            :key="scope.name"
+            class="flex items-start gap-3 cursor-pointer p-2 rounded hover:bg-gray-50"
+          >
             <input
+              v-model="clientScopes"
               type="checkbox"
               :value="scope.name"
-              v-model="clientScopes"
               class="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
+            >
             <div>
               <span class="text-sm font-medium text-gray-700">{{ scope.name }}</span>
-              <p v-if="scope.description" class="text-xs text-gray-500">{{ scope.description }}</p>
-              <p v-if="scope.requires_admin_role" class="text-xs text-orange-600">Requires admin role</p>
+              <p
+                v-if="scope.description"
+                class="text-xs text-gray-500"
+              >{{ scope.description }}</p>
+              <p
+                v-if="scope.requires_admin_role"
+                class="text-xs text-orange-600"
+              >Requires admin role</p>
             </div>
           </label>
         </div>
         <div class="mt-6 pt-4 border-t border-gray-200">
           <button
-            @click="saveScopes"
             :disabled="savingScopes"
             class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium disabled:opacity-50"
+            @click="saveScopes"
           >
             {{ savingScopes ? 'Saving...' : 'Save Scopes' }}
           </button>
@@ -328,15 +387,20 @@ onMounted(() => {
       </div>
 
       <!-- Credentials Tab -->
-      <div v-if="activeTab === 'credentials'" class="bg-white shadow rounded-lg p-6">
+      <div
+        v-if="activeTab === 'credentials'"
+        class="bg-white shadow rounded-lg p-6"
+      >
         <div v-if="client.client_type === 'CONFIDENTIAL'">
-          <h3 class="text-sm font-medium text-gray-700 mb-2">Client Secret</h3>
+          <h3 class="text-sm font-medium text-gray-700 mb-2">
+            Client Secret
+          </h3>
           <p class="text-sm text-gray-500 mb-4">
             The client secret is stored securely and cannot be viewed. You can reset it to generate a new one.
           </p>
           <button
-            @click="resetSecret"
             class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium"
+            @click="resetSecret"
           >
             Reset Client Secret
           </button>
@@ -350,14 +414,33 @@ onMounted(() => {
     </div>
 
     <!-- Secret Display Modal -->
-    <div v-if="showSecretModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div
+      v-if="showSecretModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
       <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-        <h3 class="text-lg font-semibold mb-2">New Client Secret</h3>
-        <p class="text-sm text-red-600 mb-4">Copy this secret now. It will not be shown again.</p>
-        <div class="bg-gray-100 p-3 rounded-md font-mono text-sm break-all select-all">{{ newClientSecret }}</div>
+        <h3 class="text-lg font-semibold mb-2">
+          New Client Secret
+        </h3>
+        <p class="text-sm text-red-600 mb-4">
+          Copy this secret now. It will not be shown again.
+        </p>
+        <div class="bg-gray-100 p-3 rounded-md font-mono text-sm break-all select-all">
+          {{ newClientSecret }}
+        </div>
         <div class="flex justify-end mt-4 gap-2">
-          <button @click="copyToClipboard(newClientSecret)" class="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50">Copy</button>
-          <button @click="showSecretModal = false; newClientSecret = ''" class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">Done</button>
+          <button
+            class="px-4 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+            @click="copyToClipboard(newClientSecret)"
+          >
+            Copy
+          </button>
+          <button
+            class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700"
+            @click="showSecretModal = false; newClientSecret = ''"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>

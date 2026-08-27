@@ -120,7 +120,6 @@ test.describe('Session Management', () => {
       await page.goto('/')
       await page.waitForTimeout(1000)
       // Should either redirect to login or show error
-      const url = page.url()
       // Verify page didn't crash
       const bodyText = await page.locator('body').textContent()
       expect(bodyText!.length).toBeGreaterThan(0)

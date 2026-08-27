@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { setupMocks, loginUser, loginViaForm } from './helpers/mock-api'
+import {setupMocks, loginUser} from './helpers/mock-api'
 
 test.describe('Navigation & Route Guards', () => {
   test.beforeEach(async ({ page }) => {

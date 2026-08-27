@@ -227,35 +227,78 @@ onMounted(fetchProfile)
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Security Settings</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">
+      Security Settings
+    </h1>
 
-    <div v-if="success" class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{{ success }}</div>
-    <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{{ error }}</div>
+    <div
+      v-if="success"
+      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm"
+    >
+      {{ success }}
+    </div>
+    <div
+      v-if="error"
+      class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"
+    >
+      {{ error }}
+    </div>
 
-    <div v-if="loading" class="text-center py-12 text-gray-500">Loading...</div>
+    <div
+      v-if="loading"
+      class="text-center py-12 text-gray-500"
+    >
+      Loading...
+    </div>
 
-    <div v-else class="space-y-6">
+    <div
+      v-else
+      class="space-y-6"
+    >
       <!-- Change Password -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Change Password</h2>
-        <form @submit.prevent="changePassword" class="space-y-4 max-w-md">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Change Password
+        </h2>
+        <form
+          class="space-y-4 max-w-md"
+          @submit.prevent="changePassword"
+        >
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-            <input v-model="oldPassword" type="password" required autocomplete="current-password"
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+            <input
+              v-model="oldPassword"
+              type="password"
+              required
+              autocomplete="current-password"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+            >
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-            <input v-model="newPassword" type="password" required autocomplete="new-password"
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+            <input
+              v-model="newPassword"
+              type="password"
+              required
+              autocomplete="new-password"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+            >
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-            <input v-model="confirmNewPassword" type="password" required autocomplete="new-password"
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" />
+            <input
+              v-model="confirmNewPassword"
+              type="password"
+              required
+              autocomplete="new-password"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+            >
           </div>
-          <button type="submit" :disabled="changingPassword"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+          <button
+            type="submit"
+            :disabled="changingPassword"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50"
+          >
             {{ changingPassword ? 'Changing...' : 'Change Password' }}
           </button>
         </form>
@@ -263,118 +306,203 @@ onMounted(fetchProfile)
 
       <!-- MFA -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Two-Factor Authentication (MFA)</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Two-Factor Authentication (MFA)
+        </h2>
 
-        <div v-if="profile?.mfa_enabled" class="space-y-4">
+        <div
+          v-if="profile?.mfa_enabled"
+          class="space-y-4"
+        >
           <div class="flex items-center gap-2">
             <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full font-medium">Enabled</span>
-            <p class="text-sm text-gray-600">Your account is protected with TOTP-based MFA.</p>
+            <p class="text-sm text-gray-600">
+              Your account is protected with TOTP-based MFA.
+            </p>
           </div>
           <div class="border-t pt-4">
-            <p class="text-sm text-gray-600 mb-2">Enter your password to disable MFA:</p>
+            <p class="text-sm text-gray-600 mb-2">
+              Enter your password to disable MFA:
+            </p>
             <div class="flex gap-2 max-w-md">
-              <input v-model="disablePassword" type="password" placeholder="Your password"
-                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-              <button @click="disableMfa" :disabled="disablingMfa"
-                class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50">
+              <input
+                v-model="disablePassword"
+                type="password"
+                placeholder="Your password"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+              <button
+                :disabled="disablingMfa"
+                class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
+                @click="disableMfa"
+              >
                 {{ disablingMfa ? 'Disabling...' : 'Disable MFA' }}
               </button>
             </div>
           </div>
         </div>
 
-        <div v-else-if="mfaSetupData" class="space-y-4">
-          <p class="text-sm text-gray-600">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
+        <div
+          v-else-if="mfaSetupData"
+          class="space-y-4"
+        >
+          <p class="text-sm text-gray-600">
+            Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):
+          </p>
           <div class="bg-gray-50 p-4 rounded-lg text-center">
-            <p class="text-xs text-gray-500 mb-2">Manual entry key:</p>
+            <p class="text-xs text-gray-500 mb-2">
+              Manual entry key:
+            </p>
             <code class="text-sm font-mono bg-white px-3 py-1 rounded border select-all">{{ mfaSetupData.secret }}</code>
           </div>
           <div class="max-w-xs">
             <label class="block text-sm font-medium text-gray-700 mb-1">Verification Code</label>
-            <input v-model="mfaVerifyCode" type="text" inputmode="numeric" maxlength="6"
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center tracking-widest" placeholder="000000" />
+            <input
+              v-model="mfaVerifyCode"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center tracking-widest"
+              placeholder="000000"
+            >
           </div>
           <div class="flex gap-2">
-            <button @click="verifyMfaSetup" :disabled="mfaVerifyCode.length !== 6"
-              class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">Verify & Enable</button>
-            <button @click="mfaSetupData = null; settingUpMfa = false"
-              class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+            <button
+              :disabled="mfaVerifyCode.length !== 6"
+              class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50"
+              @click="verifyMfaSetup"
+            >
+              Verify & Enable
+            </button>
+            <button
+              class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              @click="mfaSetupData = null; settingUpMfa = false"
+            >
+              Cancel
+            </button>
           </div>
         </div>
 
         <div v-else>
-          <p class="text-sm text-gray-600 mb-4">Add an extra layer of security to your account with time-based one-time passwords (TOTP).</p>
-          <button @click="setupMfa" :disabled="settingUpMfa"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+          <p class="text-sm text-gray-600 mb-4">
+            Add an extra layer of security to your account with time-based one-time passwords (TOTP).
+          </p>
+          <button
+            :disabled="settingUpMfa"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50"
+            @click="setupMfa"
+          >
             {{ settingUpMfa ? 'Setting up...' : 'Enable MFA' }}
           </button>
         </div>
       </div>
 
       <!-- WebAuthn / Passkeys -->
-      <div v-if="webauthnSupported" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Passkeys (WebAuthn)</h2>
+      <div
+        v-if="webauthnSupported"
+        class="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+      >
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Passkeys (WebAuthn)
+        </h2>
         <p class="text-sm text-gray-600 mb-4">
           Use your fingerprint, face, or security key for passwordless sign-in.
         </p>
 
         <!-- Registered credentials -->
-        <div v-if="webauthnCredentials.length > 0" class="space-y-2 mb-4">
-          <div v-for="cred in webauthnCredentials" :key="cred.id" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div
+          v-if="webauthnCredentials.length > 0"
+          class="space-y-2 mb-4"
+        >
+          <div
+            v-for="cred in webauthnCredentials"
+            :key="cred.id"
+            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+          >
             <div>
-              <p class="text-sm font-medium text-gray-900">{{ cred.name || 'Passkey' }}</p>
-              <p class="text-xs text-gray-500">Registered: {{ cred.created_at ? new Date(cred.created_at).toLocaleDateString() : 'Unknown' }}</p>
+              <p class="text-sm font-medium text-gray-900">
+                {{ cred.name || 'Passkey' }}
+              </p>
+              <p class="text-xs text-gray-500">
+                Registered: {{ cred.created_at ? new Date(cred.created_at).toLocaleDateString() : 'Unknown' }}
+              </p>
             </div>
             <span class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">Active</span>
           </div>
         </div>
-        <div v-else class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500">
+        <div
+          v-else
+          class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500"
+        >
           No passkeys registered yet.
         </div>
 
-        <button @click="registerPasskey" :disabled="registeringPasskey"
-          class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50">
+        <button
+          :disabled="registeringPasskey"
+          class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50"
+          @click="registerPasskey"
+        >
           {{ registeringPasskey ? 'Registering...' : '+ Add Passkey' }}
         </button>
       </div>
 
       <!-- Connected social accounts (B2 link/unlink) -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Connected Accounts</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Connected Accounts
+        </h2>
         <p class="text-sm text-gray-600 mb-4">
           Link social identities to sign in with them. Unlinking removes the association but does not revoke active sessions.
         </p>
 
-        <div v-if="socialLinksLoaded && socialLinks.length > 0" class="space-y-2 mb-4">
-          <div v-for="link in socialLinks" :key="link.provider"
-            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div
+          v-if="socialLinksLoaded && socialLinks.length > 0"
+          class="space-y-2 mb-4"
+        >
+          <div
+            v-for="link in socialLinks"
+            :key="link.provider"
+            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+          >
             <div>
-              <p class="text-sm font-medium text-gray-900">{{ providerLabels[link.provider] || link.provider }}</p>
+              <p class="text-sm font-medium text-gray-900">
+                {{ providerLabels[link.provider] || link.provider }}
+              </p>
               <p class="text-xs text-gray-500">
                 Linked {{ link.linked_at ? new Date(link.linked_at).toLocaleDateString() : '' }}
               </p>
             </div>
-            <button @click="unlinkSocial(link.provider)" :disabled="unlinkingProvider === link.provider"
-              class="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50">
+            <button
+              :disabled="unlinkingProvider === link.provider"
+              class="px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 disabled:opacity-50"
+              @click="unlinkSocial(link.provider)"
+            >
               {{ unlinkingProvider === link.provider ? 'Unlinking...' : 'Unlink' }}
             </button>
           </div>
         </div>
-        <div v-else-if="socialLinksLoaded" class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500">
+        <div
+          v-else-if="socialLinksLoaded"
+          class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-500"
+        >
           No social accounts linked.
         </div>
 
-        <button v-if="!unlinkingProvider"
+        <button
+          v-if="!unlinkingProvider"
           :disabled="linkingProvider !== ''"
+          class="inline-block px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:opacity-50"
           @click="beginSocialLink('github')"
-          class="inline-block px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:opacity-50">
+        >
           {{ linkingProvider === 'github' ? 'Redirecting...' : 'Link GitHub Account' }}
         </button>
       </div>
 
       <!-- Delete Account -->
       <div class="bg-white rounded-xl shadow-sm border border-rose-200 p-6">
-        <h2 class="text-lg font-semibold text-rose-700 mb-2">Danger Zone</h2>
+        <h2 class="text-lg font-semibold text-rose-700 mb-2">
+          Danger Zone
+        </h2>
         <p class="text-sm text-gray-600 mb-4">
           Permanently delete your account and all associated data. This action cannot be undone.
         </p>
@@ -383,12 +511,19 @@ onMounted(fetchProfile)
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Type <strong>{{ profile?.username }}</strong> to confirm
             </label>
-            <input v-model="deleteConfirmUsername" type="text" autocomplete="off"
+            <input
+              v-model="deleteConfirmUsername"
+              type="text"
+              autocomplete="off"
               class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
-              :placeholder="profile?.username" />
+              :placeholder="profile?.username"
+            >
           </div>
-          <button @click="deleteAccount" :disabled="deletingAccount || deleteConfirmUsername !== profile?.username"
-            class="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button
+            :disabled="deletingAccount || deleteConfirmUsername !== profile?.username"
+            class="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="deleteAccount"
+          >
             {{ deletingAccount ? 'Deleting...' : 'Delete My Account' }}
           </button>
         </div>

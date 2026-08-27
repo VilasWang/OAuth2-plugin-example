@@ -48,7 +48,7 @@ export function getErrorMessage(code: string, locale: string = DEFAULT_LOCALE): 
   }
 
   // Missing key: log the missing code and fall back to the generic unknown.
-  // eslint-disable-next-line no-console
+   
   console.warn(`[errorAdapter] missing message for code: ${code} (locale: ${locale})`)
 
   const fallback = table?.[UNKNOWN_CODE] ?? messages[DEFAULT_LOCALE]?.[UNKNOWN_CODE]

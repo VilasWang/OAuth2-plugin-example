@@ -74,7 +74,6 @@ test.describe('User Detail Page', () => {
   test('can save role changes', async ({ page }) => {
     // Verify the mock is working by checking the network
     let rolesPutCalled = false
-    let rolesPutResponse: any = null
     
     await page.route('**/api/admin/users/*/roles', async (route) => {
       if (route.request().method() === 'PUT') {
