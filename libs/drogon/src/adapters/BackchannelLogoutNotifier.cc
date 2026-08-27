@@ -4,9 +4,11 @@
 #include <fulla/oauth2/protocol/LogoutToken.h>
 #include <fulla/storage/postgres/models/Oauth2AccessTokens.h>
 #include <fulla/storage/postgres/models/Oauth2Clients.h>
+#include <fulla/storage/postgres/models/Users.h>
 
 #include <drogon/drogon.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <ctime>
 #include <memory>
@@ -85,76 +87,139 @@ void BackchannelLogoutNotifier::notify(
     auto self = shared_from_this();
     const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
 
-    // Query 1: active sessions for this user. "Active" mirrors
-    // TokenManagementService::listTokens -- expires_at > now AND
-    // (revoked = false OR revoked IS NULL) -- evaluated in C++ (app clock,
-    // NTP-synced in practice) so the query stays pure-Criteria (no raw SQL).
-    Criteria active =
-      Criteria(Oauth2AccessTokens::Cols::_expires_at, CompareOperator::GT, now) &&
-      (Criteria(Oauth2AccessTokens::Cols::_revoked, CompareOperator::EQ, false) ||
-       Criteria(Oauth2AccessTokens::Cols::_revoked, CompareOperator::IsNull));
-    active =
-      active && Criteria(Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ, userId);
+    // #82: tokens carry EITHER subject form in user_id (password-flow rows
+    // store the public sub, social-flow rows the internal id -- the dual-key
+    // convention UserAdminService/UserSelfServiceController revoke with).
+    // The notifier previously matched only the handed form, so an RP holding
+    // tokens from the other form never learned about the logout. Resolve the
+    // user row to get BOTH keys, then match either; if the row is gone (hard
+    // delete), fall back to the single handed form exactly as before.
+    auto queryTokens = [self, sharedCb, now, userId](
+                        std::optional<std::pair<std::string, std::string>> keys) {
+        Criteria active =
+          Criteria(Oauth2AccessTokens::Cols::_expires_at, CompareOperator::GT, now) &&
+          (Criteria(Oauth2AccessTokens::Cols::_revoked, CompareOperator::EQ, false) ||
+           Criteria(Oauth2AccessTokens::Cols::_revoked, CompareOperator::IsNull));
+        if (keys)
+        {
+            // "Active" mirrors TokenManagementService::listTokens -- expires_at
+            // > now AND not revoked -- evaluated in C++ (app clock) so the
+            // query stays pure-Criteria (no raw SQL).
+            active = active &&
+                     (Criteria(Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ, keys->first) ||
+                      Criteria(Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ, keys->second));
+        }
+        else
+        {
+            active = active &&
+                     Criteria(Oauth2AccessTokens::Cols::_user_id, CompareOperator::EQ, userId);
+        }
+        try
+        {
+            Mapper<Oauth2AccessTokens> tokenMapper(self->dbClient_);
+            tokenMapper.findBy(
+              active,
+              [self, sharedCb, userId](const std::vector<Oauth2AccessTokens> &tokenRows) {
+                  // Distinct client_ids across the user's active sessions.
+                  std::set<std::string> clientIds;
+                  for (const auto &row : tokenRows)
+                      clientIds.insert(row.getValueOfClientId());
 
+                  if (clientIds.empty())
+                  {
+                      (*sharedCb)();
+                      return;
+                  }
+                  std::vector<std::string> clientIdVec(clientIds.begin(), clientIds.end());
+
+                  // Query 2: load those clients' backchannel_logout_uri. Own
+                  // try-catch -- this Mapper is constructed inside an async cb, so
+                  // the outer guard does not reach it (db-operations.md 要求 1).
+                  try
+                  {
+                      Mapper<Oauth2Clients> clientMapper(self->dbClient_);
+                      clientMapper.findBy(
+                        Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::In, clientIdVec),
+                        [self, sharedCb, userId](const std::vector<Oauth2Clients> &clientRows) {
+                            std::vector<BackchannelRpTarget> targets;
+                            for (const auto &c : clientRows)
+                            {
+                                const auto &uri = c.getValueOfBackchannelLogoutUri();
+                                if (!uri.empty())
+                                    targets.push_back({c.getValueOfClientId(), uri});
+                            }
+                            self->dispatch(
+                              userId, std::move(targets),
+                              [sharedCb]() { (*sharedCb)(); });
+                        },
+                        [sharedCb](const DrogonDbException &) {
+                            // Client lookup failed -- best-effort: complete without
+                            // notifying (a transient DB error must not wedge logout).
+                            (*sharedCb)();
+                        });
+                  }
+                  catch (const std::exception &)
+                  {
+                      (*sharedCb)();
+                  }
+              },
+              [sharedCb](const DrogonDbException &) {
+                  // Token lookup failed -- complete (db-operations.md 要求 2: a
+                  // failure must reach the callback, not just LOG+return).
+                  (*sharedCb)();
+              });
+        }
+        catch (const std::exception &)
+        {
+            // Mapper construction threw -- complete (same rule as above).
+            (*sharedCb)();
+        }
+    };
+
+    // Resolve the other subject form from the users row (numeric input -> id
+    // lookup -> public_sub; otherwise public_sub lookup -> id). std::stol
+    // with pos-check + try/catch: an out-of-range numeric string throws and
+    // must not escape into the event loop.
+    std::optional<int32_t> numericId;
+    if (!userId.empty() &&
+        std::all_of(userId.begin(), userId.end(), [](char c) { return c >= '0' && c <= '9'; }))
+    {
+        try
+        {
+            size_t pos = 0;
+            long parsed = std::stol(userId, &pos);
+            constexpr long kMaxInt32 = 2147483647L;
+            if (pos == userId.size() && parsed > 0 && parsed <= kMaxInt32)
+                numericId = static_cast<int32_t>(parsed);
+        }
+        catch (const std::exception &)
+        {
+            numericId = std::nullopt;
+        }
+    }
     try
     {
-        Mapper<Oauth2AccessTokens> tokenMapper(dbClient_);
-        tokenMapper.findBy(
-          active,
-          [self, sharedCb, userId](const std::vector<Oauth2AccessTokens> &tokenRows) {
-              // Distinct client_ids across the user's active sessions.
-              std::set<std::string> clientIds;
-              for (const auto &row : tokenRows)
-                  clientIds.insert(row.getValueOfClientId());
-
-              if (clientIds.empty())
-              {
-                  (*sharedCb)();
-                  return;
-              }
-              std::vector<std::string> clientIdVec(clientIds.begin(), clientIds.end());
-
-              // Query 2: load those clients' backchannel_logout_uri. Own
-              // try-catch -- this Mapper is constructed inside an async cb, so
-              // the outer guard does not reach it (db-operations.md 要求 1).
-              try
-              {
-                  Mapper<Oauth2Clients> clientMapper(self->dbClient_);
-                  clientMapper.findBy(
-                    Criteria(Oauth2Clients::Cols::_client_id, CompareOperator::In, clientIdVec),
-                    [self, sharedCb, userId](const std::vector<Oauth2Clients> &clientRows) {
-                        std::vector<BackchannelRpTarget> targets;
-                        for (const auto &c : clientRows)
-                        {
-                            const auto &uri = c.getValueOfBackchannelLogoutUri();
-                            if (!uri.empty())
-                                targets.push_back({c.getValueOfClientId(), uri});
-                        }
-                        self->dispatch(
-                          userId, std::move(targets),
-                          [sharedCb]() { (*sharedCb)(); });
-                    },
-                    [sharedCb](const DrogonDbException &) {
-                        // Client lookup failed -- best-effort: complete without
-                        // notifying (a transient DB error must not wedge logout).
-                        (*sharedCb)();
-                    });
-              }
-              catch (const std::exception &)
-              {
-                  (*sharedCb)();
-              }
+        Mapper<Users> userMapper(dbClient_);
+        userMapper.findOne(
+          numericId ? Criteria(Users::Cols::_id, CompareOperator::EQ, *numericId)
+                    : Criteria(Users::Cols::_public_sub, CompareOperator::EQ, userId),
+          [queryTokens, sharedCb](const Users &user) {
+              const std::string publicSub = user.getValueOfPublicSub();
+              const std::string internalId = std::to_string(user.getValueOfId());
+              if (publicSub.empty() || internalId.empty())
+                  queryTokens(std::nullopt);
+              else
+                  queryTokens(std::make_pair(publicSub, internalId));
           },
-          [sharedCb](const DrogonDbException &) {
-              // Token lookup failed -- complete (db-operations.md 要求 2: a
-              // failure must reach the callback, not just LOG+return).
-              (*sharedCb)();
+          [queryTokens](const DrogonDbException &) {
+              // Row gone (hard-deleted user): single-form fallback.
+              queryTokens(std::nullopt);
           });
     }
     catch (const std::exception &)
     {
-        // Mapper construction threw -- complete (same rule as above).
-        (*sharedCb)();
+        // Users Mapper construction threw: single-form fallback.
+        queryTokens(std::nullopt);
     }
 }
 

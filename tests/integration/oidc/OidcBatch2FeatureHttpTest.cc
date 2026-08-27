@@ -17,9 +17,14 @@
 #include <json/json.h>
 
 #include <fulla/oauth2/jwk/JwkManager.h>
+#include <fulla/drogon/adapters/BackchannelLogoutNotifier.h>
+#include <fulla/identity/testing/FakeOAuthHttpClient.h>
 
 #include "HttpTestClient.h"
 
+#include <chrono>
+#include <ctime>
+#include <future>
 #include <string>
 
 using fulla::test::http::kAdminClientId;
@@ -423,4 +428,121 @@ DROGON_TEST(Integration_P1_OidcBatch2_EndSession_HintSubjectMismatch_Returns400)
     }
     REQUIRE(resp != nullptr);
     CHECK(isInvalidHintRejection(resp));
+}
+
+// ---------------------------------------------------------------------------
+// #82: backchannel logout must match BOTH user_id subject forms. A user can
+// hold password-flow tokens (user_id = public sub) AND social-flow tokens
+// (user_id = internal numeric id); the notifier previously matched only the
+// handed form, so one RP population never received the logout_token.
+// Seeds one user with one token row PER FORM, both pointing at a client with
+// a backchannel_logout_uri behind a recording fake HTTP client, then calls
+// notify() once per form -- each call must fan out to the (same single) RP.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_OidcBatch2_BackchannelLogout_DualSubjectForm_CoversBothTokenRows)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    auto *plugin = ::drogon::app().getPlugin<::OAuth2Plugin>();
+    REQUIRE(plugin != nullptr);
+    auto db = ::drogon::app().getDbClient();
+    REQUIRE(db != nullptr);
+
+    const std::string suffix = std::to_string(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
+    );
+
+    // Shared fake: preloaded OK responses; postFormCalls counts fan-outs.
+    auto http = std::make_shared<fulla::identity::testing::FakeOAuthHttpClient>();
+    http->postFormResponses.push_back(fulla::identity::testing::okJson(Json::Value(Json::objectValue)));
+    http->postFormResponses.push_back(fulla::identity::testing::okJson(Json::Value(Json::objectValue)));
+
+    // A client with a backchannel URI (registered via the admin API is not
+    // needed -- the notifier reads the row directly).
+    const std::string clientId = "dualsub-cli-" + suffix;
+    db->execSqlSync(
+      "INSERT INTO oauth2_clients (client_id, client_name, client_type, client_secret, "
+      "redirect_uri, backchannel_logout_uri, is_active) "
+      "VALUES ($1, $2, 'CONFIDENTIAL', 'dualsub-secret', 'http://127.0.0.1:9/callback', "
+      "'http://127.0.0.1:9/backchannel', true) ON CONFLICT (client_id) DO NOTHING",
+      clientId, clientId
+    );
+
+    // A user; capture both subject forms.
+    const std::string uname = "dualsub_" + suffix;
+    const std::string email = "dualsub_" + suffix + "@example.test";
+    auto reg = sendPostForm(
+      "/api/register", "username=" + uname + "&password=Passw0rd!82&email=" + email
+    );
+    REQUIRE(reg != nullptr);
+
+    std::string publicSub;
+    std::string internalId;
+    {
+        auto rows = db->execSqlSync(
+          "SELECT id, public_sub FROM users WHERE username = $1", uname
+        );
+        REQUIRE(rows.size() == 1);
+        internalId = std::to_string(rows[0]["id"].as<int32_t>());
+        publicSub = rows[0]["public_sub"].as<std::string>();
+        REQUIRE(!publicSub.empty());
+    }
+    // One token row per subject form, both active, same client.
+    const auto insertToken = [&](const std::string &form, const char *tag) {
+        db->execSqlSync(
+          "INSERT INTO oauth2_access_tokens (token_hash, client_id, user_id, scope, "
+          "expires_at, issued_at, revoked) "
+          "VALUES ($1, $2, $3, 'openid', $4, $5, false)",
+          std::string("dualsub-hash-") + tag + "-" + suffix,
+          clientId,
+          form,
+          static_cast<int64_t>(std::time(nullptr)) + 3600,
+          static_cast<int64_t>(std::time(nullptr))
+        );
+    };
+    insertToken(publicSub, "pub");
+    insertToken(internalId, "int");
+
+    // RAII cleanup (token rows + client + user) -- rerun-safe by suffix anyway.
+    struct Cleanup
+    {
+        ::drogon::orm::DbClientPtr db;
+        std::string clientId;
+        std::string uname;
+        ~Cleanup()
+        {
+            try
+            {
+                db->execSqlSync(
+                  "DELETE FROM oauth2_access_tokens WHERE client_id = $1", clientId
+                );
+                db->execSqlSync("DELETE FROM oauth2_clients WHERE client_id = $1", clientId);
+                db->execSqlSync("DELETE FROM users WHERE username = $1", uname);
+            }
+            catch (...)
+            {
+            }
+        }
+    } cleanup{db, clientId, uname};
+
+    auto notifier = std::make_shared<fulla::drogon::adapters::BackchannelLogoutNotifier>(
+      db,
+      plugin->getJwkManager(),
+      plugin->getIssuer(),
+      http,
+      nullptr  // audit sink optional; fan-out is what is asserted
+    );
+
+    // Entry form 1: public sub -> BOTH rows (both forms) match -> the (single
+    // distinct) client is notified.
+    std::promise<void> done1;
+    notifier->notify(publicSub, [&done1]() { done1.set_value(); });
+    REQUIRE(done1.get_future().wait_for(std::chrono::seconds(10)) == std::future_status::ready);
+    CHECK(http->postFormCalls.size() == 1);
+
+    // Entry form 2: internal id -> same coverage from the other direction.
+    std::promise<void> done2;
+    notifier->notify(internalId, [&done2]() { done2.set_value(); });
+    REQUIRE(done2.get_future().wait_for(std::chrono::seconds(10)) == std::future_status::ready);
+    CHECK(http->postFormCalls.size() == 2);
 }
