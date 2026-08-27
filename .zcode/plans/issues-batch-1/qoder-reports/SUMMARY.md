@@ -4,7 +4,7 @@
 |------|------|------|
 | A — coverage.yml 修复 (#105) | ✅ 已修复 | 根因：`drogon_ctl: not found`（Conan 包缓存不在 PATH）。修复：Configure 步骤查找 `drogon_ctl` 路径并注入 `$GITHUB_PATH`。待 CI 验证。 |
 | B — 文档同步 | ✅ 已完成 | api-reference.md：end_session `id_token_hint` 补充数组 aud 支持 + 新错误码 3013/4006。deployment.md：新增社交账号绑定 Redis 依赖说明。 |
-| C — Docker 端口验证 (#112) | ✅ 静态验证通过 | compose 端口绑定 `127.0.0.1:5433->5432` 和 `127.0.0.1:6380->6379`，正确。运行时验证因 Docker Desktop 未运行跳过。 |
+| C — Docker 端口验证 (#112) | ✅ 运行时验证通过 | `docker ps` 确认 `127.0.0.1:5433->5432` 和 `127.0.0.1:6380->6379`；psql `SELECT 1` + TCP 测试均通过。 |
 | D — 生产门禁验证 (#102) | ✅ 两路径通过 | 失败路径：无 signing key → FATAL 退出含 "signing key"。通过路径：提供 `FULLA_SIGNING_KEY` → 越过门禁进入初始化（DB 连接失败属预期）。 |
 | E — Issue 留痕 | ✅ 草稿完成 | #88/#90/#105 三条评论已起草存于 `task-e-issue-comments.md`，待 PR #115 定稿后发布。 |
 
