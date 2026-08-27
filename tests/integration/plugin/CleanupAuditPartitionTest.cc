@@ -13,27 +13,13 @@
 #include <drogon/drogon.h>
 #include <fulla/drogon/plugin/OAuth2CleanupService.h>
 
+#include "HttpTestClient.h"
+
 #include <chrono>
 #include <future>
 
 using fulla::drogon::OAuth2CleanupService;
-
-namespace
-{
-bool postgresAvailable()
-{
-    try
-    {
-        auto db = drogon::app().getDbClient();
-        db->execSqlSync("SELECT 1");
-        return true;
-    }
-    catch (...)
-    {
-        return false;
-    }
-}
-}  // namespace
+using fulla::test::http::postgresAvailable;
 
 DROGON_TEST(Integration_P2_Cleanup_AuditPartitions_RunsAndIsIdempotent)
 {
@@ -69,25 +55,28 @@ DROGON_TEST(Integration_P2_Cleanup_AuditPartitions_RunsAndIsIdempotent)
 
 DROGON_TEST(Integration_P2_Cleanup_AuditPartitions_DisabledPaths_CompleteWithoutDb)
 {
-    // Non-postgres / no client: direct completion, no DB access (a
-    // getDbClient() in memory mode is a process-terminating assert).
+    // Non-postgres / no client: direct completion, no DB access. Resolving a
+    // DbClient in memory mode is a process-terminating assert (not a throw),
+    // so the client-present sub-case only runs under postgres storage.
     {
         OAuth2CleanupService service(nullptr, nullptr, nullptr, false);
         std::promise<void> done;
         service.maintainAuditPartitions([&done]() { done.set_value(); });
         CHECK(done.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready);
     }
+    if (postgresAvailable())
     {
-        // Client present but flag false: still short-circuits.
         auto db = drogon::app().getDbClient();
-        if (!db)
-        {
-            CHECK(true);
-            return;
-        }
+        REQUIRE(db != nullptr);
         OAuth2CleanupService service(nullptr, nullptr, db, false);
         std::promise<void> done;
         service.maintainAuditPartitions([&done]() { done.set_value(); });
         CHECK(done.get_future().wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+    }
+    else
+    {
+        // Memory mode: the nullptr-client branch above already covered the
+        // short-circuit; nothing more to assert here.
+        CHECK(true);
     }
 }
