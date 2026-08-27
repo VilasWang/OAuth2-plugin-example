@@ -238,6 +238,27 @@ func (e PostApiMeSocialLinksProviderParamsProvider) Valid() bool {
 	}
 }
 
+// Defines values for PostApiMeSocialLinksProviderAuthorizeParamsProvider.
+const (
+	PostApiMeSocialLinksProviderAuthorizeParamsProviderGithub PostApiMeSocialLinksProviderAuthorizeParamsProvider = "github"
+	PostApiMeSocialLinksProviderAuthorizeParamsProviderGoogle PostApiMeSocialLinksProviderAuthorizeParamsProvider = "google"
+	PostApiMeSocialLinksProviderAuthorizeParamsProviderWechat PostApiMeSocialLinksProviderAuthorizeParamsProvider = "wechat"
+)
+
+// Valid indicates whether the value is a known member of the PostApiMeSocialLinksProviderAuthorizeParamsProvider enum.
+func (e PostApiMeSocialLinksProviderAuthorizeParamsProvider) Valid() bool {
+	switch e {
+	case PostApiMeSocialLinksProviderAuthorizeParamsProviderGithub:
+		return true
+	case PostApiMeSocialLinksProviderAuthorizeParamsProviderGoogle:
+		return true
+	case PostApiMeSocialLinksProviderAuthorizeParamsProviderWechat:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostOauth2ConsentParamsAction.
 const (
 	Approve PostOauth2ConsentParamsAction = "approve"
@@ -734,10 +755,16 @@ type DeleteApiMeSocialLinksProviderParamsProvider string
 type PostApiMeSocialLinksProviderJSONBody struct {
 	// Code Authorization code from the provider's OAuth2 callback.
 	Code string `json:"code"`
+
+	// State The one-time state token from the authorize step (single use, bound to this user and provider). Unknown/expired/replayed or foreign-bound states are rejected with 400 before any provider call (#71).
+	State string `json:"state"`
 }
 
 // PostApiMeSocialLinksProviderParamsProvider defines parameters for PostApiMeSocialLinksProvider.
 type PostApiMeSocialLinksProviderParamsProvider string
+
+// PostApiMeSocialLinksProviderAuthorizeParamsProvider defines parameters for PostApiMeSocialLinksProviderAuthorize.
+type PostApiMeSocialLinksProviderAuthorizeParamsProvider string
 
 // PostApiRegisterParams defines parameters for PostApiRegister.
 type PostApiRegisterParams struct {
@@ -836,7 +863,7 @@ type PostOauth2DeviceAuthorizationFormdataBody struct {
 
 // GetOauth2EndSessionParams defines parameters for GetOauth2EndSession.
 type GetOauth2EndSessionParams struct {
-	// IdTokenHint Previously issued id_token hinting at the client/session to terminate. Signature-verified against the OP key set (#78); a bad or expired signature, wrong issuer, or a subject contradicting the current session yields 400 AUTH_INVALID_ID_TOKEN_HINT. The aud claim identifies the client for validating post_logout_redirect_uri.
+	// IdTokenHint Previously issued id_token hinting at the client/session to terminate. Signature-verified against the OP key set (#78); a bad or expired signature, wrong issuer, or a subject contradicting the current session yields 400 AUTH_INVALID_ID_TOKEN_HINT. The aud claim (string or array, RFC 7519 §4.1.3) identifies the client(s) for validating post_logout_redirect_uri; the first candidate owning the URI wins.
 	IdTokenHint *string `form:"id_token_hint,omitempty" json:"id_token_hint,omitempty"`
 
 	// PostLogoutRedirectUri URI to redirect to after logout. Must be registered for the id_token_hint client; rejected with 400 otherwise.
@@ -1640,6 +1667,13 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
 	PostApiMeSocialLinksProvider(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiMeSocialLinksProviderAuthorize Begin Social Link (mint one-time state)
+	//
+	// Begin a social link flow (#71): mint a one-time state bound to (current user, provider) and return the provider authorize URL (with the state embedded) the SPA must redirect to. The link-back POST must present the same state; tokens are single-use with a short TTL. Fails closed (500) when linking or the state store (Redis) is not configured. Requires the `profile` scope.
+	//
+	// Corresponds with POST /api/me/social/links/{provider}/authorize (the `PostApiMeSocialLinksProviderAuthorize` operationId).
+	PostApiMeSocialLinksProviderAuthorize(ctx context.Context, provider PostApiMeSocialLinksProviderAuthorizeParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiMeWebauthnCredentials List WebAuthn Credentials
 	//
@@ -3148,6 +3182,23 @@ func (c *Client) PostApiMeSocialLinksProviderWithBody(ctx context.Context, provi
 // Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
 func (c *Client) PostApiMeSocialLinksProvider(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiMeSocialLinksProviderRequest(c.Server, provider, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiMeSocialLinksProviderAuthorize Begin Social Link (mint one-time state)
+//
+// Begin a social link flow (#71): mint a one-time state bound to (current user, provider) and return the provider authorize URL (with the state embedded) the SPA must redirect to. The link-back POST must present the same state; tokens are single-use with a short TTL. Fails closed (500) when linking or the state store (Redis) is not configured. Requires the `profile` scope.
+//
+// Corresponds with POST /api/me/social/links/{provider}/authorize (the `PostApiMeSocialLinksProviderAuthorize` operationId).
+func (c *Client) PostApiMeSocialLinksProviderAuthorize(ctx context.Context, provider PostApiMeSocialLinksProviderAuthorizeParamsProvider, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiMeSocialLinksProviderAuthorizeRequest(c.Server, provider)
 	if err != nil {
 		return nil, err
 	}
@@ -5739,6 +5790,40 @@ func NewPostApiMeSocialLinksProviderRequestWithBody(server string, provider Post
 	return req, nil
 }
 
+// NewPostApiMeSocialLinksProviderAuthorizeRequest constructs an http.Request for the PostApiMeSocialLinksProviderAuthorize method
+func NewPostApiMeSocialLinksProviderAuthorizeRequest(server string, provider PostApiMeSocialLinksProviderAuthorizeParamsProvider) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "provider", provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/social/links/%s/authorize", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetApiMeWebauthnCredentialsRequest constructs an http.Request for the GetApiMeWebauthnCredentials method
 func NewGetApiMeWebauthnCredentialsRequest(server string) (*http.Request, error) {
 	var err error
@@ -7634,6 +7719,15 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/me/social/links/{provider} (the `PostApiMeSocialLinksProvider` operationId).
 	PostApiMeSocialLinksProviderWithResponse(ctx context.Context, provider PostApiMeSocialLinksProviderParamsProvider, body PostApiMeSocialLinksProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMeSocialLinksProviderResponse, error)
+
+	// PostApiMeSocialLinksProviderAuthorizeWithResponse Begin Social Link (mint one-time state)
+	//
+	// Begin a social link flow (#71): mint a one-time state bound to (current user, provider) and return the provider authorize URL (with the state embedded) the SPA must redirect to. The link-back POST must present the same state; tokens are single-use with a short TTL. Fails closed (500) when linking or the state store (Redis) is not configured. Requires the `profile` scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/me/social/links/{provider}/authorize (the `PostApiMeSocialLinksProviderAuthorize` operationId).
+	PostApiMeSocialLinksProviderAuthorizeWithResponse(ctx context.Context, provider PostApiMeSocialLinksProviderAuthorizeParamsProvider, reqEditors ...RequestEditorFn) (*PostApiMeSocialLinksProviderAuthorizeResponse, error)
 
 	// GetApiMeWebauthnCredentialsWithResponse List WebAuthn Credentials
 	//
@@ -10229,6 +10323,76 @@ func (r PostApiMeSocialLinksProviderResponse) ContentType() string {
 	return ""
 }
 
+type PostApiMeSocialLinksProviderAuthorizeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		AuthorizeUrl *string `json:"authorize_url,omitempty"`
+		Provider     *string `json:"provider,omitempty"`
+		State        *string `json:"state,omitempty"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *ErrorEnvelope
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *ErrorEnvelope
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) GetJSON200() *struct {
+	AuthorizeUrl *string `json:"authorize_url,omitempty"`
+	Provider     *string `json:"provider,omitempty"`
+	State        *string `json:"state,omitempty"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) GetJSON400() *ErrorEnvelope {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) GetJSON401() *ErrorEnvelope {
+	return r.JSON401
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) GetJSON500() *ErrorEnvelope {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostApiMeSocialLinksProviderAuthorizeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetApiMeWebauthnCredentialsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12569,6 +12733,21 @@ func (c *ClientWithResponses) PostApiMeSocialLinksProviderWithResponse(ctx conte
 	return ParsePostApiMeSocialLinksProviderResponse(rsp)
 }
 
+// PostApiMeSocialLinksProviderAuthorizeWithResponse Begin Social Link (mint one-time state)
+//
+// Begin a social link flow (#71): mint a one-time state bound to (current user, provider) and return the provider authorize URL (with the state embedded) the SPA must redirect to. The link-back POST must present the same state; tokens are single-use with a short TTL. Fails closed (500) when linking or the state store (Redis) is not configured. Requires the `profile` scope.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/me/social/links/{provider}/authorize (the `PostApiMeSocialLinksProviderAuthorize` operationId).
+func (c *ClientWithResponses) PostApiMeSocialLinksProviderAuthorizeWithResponse(ctx context.Context, provider PostApiMeSocialLinksProviderAuthorizeParamsProvider, reqEditors ...RequestEditorFn) (*PostApiMeSocialLinksProviderAuthorizeResponse, error) {
+	rsp, err := c.PostApiMeSocialLinksProviderAuthorize(ctx, provider, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiMeSocialLinksProviderAuthorizeResponse(rsp)
+}
+
 // GetApiMeWebauthnCredentialsWithResponse List WebAuthn Credentials
 //
 // List registered WebAuthn credentials.
@@ -14438,6 +14617,57 @@ func ParsePostApiMeSocialLinksProviderResponse(rsp *http.Response) (*PostApiMeSo
 			return nil, err
 		}
 		response.JSON502 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiMeSocialLinksProviderAuthorizeResponse parses an HTTP response from a PostApiMeSocialLinksProviderAuthorizeWithResponse call
+func ParsePostApiMeSocialLinksProviderAuthorizeResponse(rsp *http.Response) (*PostApiMeSocialLinksProviderAuthorizeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiMeSocialLinksProviderAuthorizeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			AuthorizeUrl *string `json:"authorize_url,omitempty"`
+			Provider     *string `json:"provider,omitempty"`
+			State        *string `json:"state,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
