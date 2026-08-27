@@ -1,47 +1,57 @@
-# 文档中心
+# Documentation
 
-按受众组织的**用户向**文档树（维护者过程文档在仓库外的 `docs-local/`，判据见
-[documentation-governance.md](documentation-governance.md)）。本树同时是
-[fulla.dev](https://fulla.dev) 文档站的唯一内容源（零拷贝）。
+The **user-facing** documentation tree, organized by audience (maintainer
+process docs live outside the repo in `docs-local/`; criteria in
+[documentation-governance.md](documentation-governance.md)). This tree is the
+**English canonical** and the sole content source of
+[fulla.dev](https://fulla.dev) (Docusaurus, zero copies); the Chinese
+translation mirrors it at `website/i18n/zh-CN/` and is served at
+[fulla.dev/zh-CN](https://fulla.dev/zh-CN).
 
-## 评估（Evaluate）
+## Evaluate
 
-- [架构总览](architecture/architecture-overview) — 技术栈、模块布局、授权码时序、存储策略
-- [安全架构](architecture/security-architecture) — 威胁模型、token 生命周期、密钥与哈希、安全头与限流
-- [性能对比](../benchmarks/competitors/results/COMPARISON.md)（[方法论](benchmark/competitor-benchmark-design.md)）
+- [Architecture Overview](architecture/architecture-overview.md) — tech stack, module layout, authorization-code flow, storage strategy
+- [Security Architecture](architecture/security-architecture.md) — threat model, token lifecycle, keys & hashes, security headers & rate limiting
+- [Benchmark comparison](https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md) ([methodology](benchmark/competitor-benchmark-design.md))
 
-## 集成（Integrate）
+## Integrate
 
-**C++ SDK（嵌入）**：[集成指南](sdk/sdk-integration-guide) · [运行时契约](sdk/sdk-runtime-contract)
+**C++ SDK (embedded)**: [Integration Guide](sdk/sdk-integration-guide.md) · [Runtime Contract](sdk/sdk-runtime-contract.md)
 
-**HTTP API（任意语言）**：[API 参考](domains/api-reference)（权威契约：
-[openapi.yaml](../apps/server/openapi.yaml)）· [OIDC 集成](domains/oidc-guide) ·
-[社交登录](domains/social-login) · [RBAC 与访问控制](domains/rbac-guide)
+**HTTP API (any language)**: [API Reference](domains/api-reference.md) (authoritative contract:
+[openapi.yaml](https://github.com/voidvec/fulla/blob/master/apps/server/openapi.yaml)) ·
+[OIDC Integration](domains/oidc-guide.md) · [Social Login](domains/social-login.md) ·
+[RBAC & Access Control](domains/rbac-guide.md)
 
-## 架构深潜（Architecture）
+## Deep dives
 
-- [数据与持久化](architecture/data-persistence) — 存储分层、缓存一致性（延迟双删）、token 家族
+[Token Lifecycle](domains/token-lifecycle.md) · [Session Management](domains/session-management.md) · [Multi-Tenancy](domains/multi-tenancy.md) · [Data & Persistence](architecture/data-persistence.md)
 
-## 运维（Operate）
+## Operate
 
-[生产部署](operate/deployment) · [Docker 部署](operate/docker-deployment) ·
-[Windows/Docker Desktop](operate/deployment-windows-docker-desktop) ·
-[配置指南](operate/configuration-guide) · [可观测性](operate/observability) ·
-[账号锁定](operate/account-lockout) · [PG 大版本升级](operate/postgresql-major-upgrade) ·
-[部署验收清单](operate/verification-checklist)
+[Production Deployment](operate/deployment.md) · [Docker Deployment](operate/docker-deployment.md) ·
+[Windows / Docker Desktop](operate/deployment-windows-docker-desktop.md) ·
+[Configuration Guide](operate/configuration-guide.md) · [Observability](operate/observability.md) ·
+[Account Lockout](operate/account-lockout.md) · [PostgreSQL Major Upgrades](operate/postgresql-major-upgrade.md) ·
+[Deployment Verification Checklist](operate/verification-checklist.md)
 
-## 贡献（Contribute）
+## Contribute
 
-[测试指南](contribute/testing-guide) · [CI/CD](contribute/ci-cd-guide) ·
-[版本与发版](contribute/versioning-and-release) · [文档治理](documentation-governance.md) ·
-前端测试：[Admin 用例](contribute/admin-test-cases) · [User 用例](contribute/user-frontend-test-cases) ·
-[E2E 方法论](contribute/admin-e2e-testing-guide)
+[Testing Guide](contribute/testing-guide.md) · [CI/CD](contribute/ci-cd-guide.md) ·
+[Versioning & Release](contribute/versioning-and-release.md) · [Documentation Governance](documentation-governance.md) ·
+Frontend tests: [Admin cases](contribute/admin-test-cases.md) · [User cases](contribute/user-frontend-test-cases.md) ·
+[E2E methodology](contribute/admin-e2e-testing-guide.md)
 
-## 决策档案（ADR）
+## Decision record (ADR)
 
-[docs/adr/](adr/) — 12 篇现行架构决策记录（SDK 分层、ErrorCatalog、Opaque token、协程排除等），
-另附三份历史档案：[OAuth/OIDC 合规尽调报告](adr/oauth-oidc-compliance-audit.md)（2026-08-07
-基线，31 项已全部修复）、[改名影响分析](adr/rename-impact-fulla.md)、[专业仓库改造审计](adr/repo-professionalization-audit.md)。
+[docs/adr/](adr/) — 12 current architecture decision records (SDK layering,
+ErrorCatalog, opaque tokens, coroutine exclusion, …) plus three historical
+archives: the [OAuth/OIDC compliance audit](adr/oauth-oidc-compliance-audit.md)
+(2026-08-07 baseline, all 31 findings fixed), the
+[rename impact analysis](adr/rename-impact-fulla.md), and the
+[repo professionalization audit](adr/repo-professionalization-audit.md)
+(the three archives are kept in Chinese with an English note).
 
-> 更早期的完整设计档案（kiro specs 全文、PRD 设计）由 git 历史与维护者本地保存；
-> ADR 已提炼其仍有效的决策。
+> Earlier design archives (kiro specs in full, PRD designs) live in git
+> history and maintainer-local storage; the ADRs distill the decisions that
+> still hold.

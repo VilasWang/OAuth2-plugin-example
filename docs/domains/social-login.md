@@ -1,19 +1,18 @@
-# 社交登录指南
+# Social Login Guide
 
-后端社交登录按"提供方适配器"模式实现；**GitHub 是当前唯一前后端完整接线的提供方**，
-Google 与微信为"后端就绪、前端自接"模式（后端路由与配置已就绪，前端按钮需自行接入）。
+Backend social login is implemented with a "provider adapter" pattern; **GitHub is currently the only provider fully wired end to end**, while Google and WeChat follow a "backend-ready, frontend wires itself" model (backend routes and configuration are in place; the frontend buttons must be wired in separately).
 
-## GitHub（已完整接线，主线索）
+## GitHub (fully wired, mainline)
 
-- 后端路由：`POST /api/github/login`；前端 `frontends/user` 已有"Sign in with GitHub"按钮
-  （OAuth App 的 client id 经 `VITE_GITHUB_CLIENT_ID` 注入）。
-- 账号模型：`oauth2_subject_mappings(provider, subject)` 映射到本地用户；首次登录按
-  `createLinkedUser` 语义创建带默认 `user` 角色的本地账号（用户名冲突时拒绝采用，fail-closed）。
+- Backend route: `POST /api/github/login`; the `frontends/user` frontend already has a "Sign in with GitHub" button
+  (the OAuth App's client id is injected via `VITE_GITHUB_CLIENT_ID`).
+- Account model: `oauth2_subject_mappings(provider, subject)` maps to a local user; on first login, a local account with
+  the default `user` role is created per the `createLinkedUser` semantics (username collisions are rejected — fail-closed).
 
-## Google（后端就绪）
+## Google (backend ready)
 
-1. Google Cloud 侧创建 OAuth 2.0 客户端（Web 应用，回调填 `https://<your-host>/api/google/login`）。
-2. 后端配置（`config.json`）：
+1. Create an OAuth 2.0 client on the Google Cloud side (Web application; set the callback to `https://<your-host>/api/google/login`).
+2. Backend configuration (`config.json`):
 
 ```json
 "external_auth": {
@@ -24,22 +23,22 @@ Google 与微信为"后端就绪、前端自接"模式（后端路由与配置�
 }
 ```
 
-3. 后端路由 `POST /api/google/login` 接收 `{ code, redirect_uri }` 并完成 code 交换。
-4. **前端按钮需自行接线**（当前 UI 未内置 Google 按钮——验证时用 curl 直接调后端路由）。
+3. The backend route `POST /api/google/login` accepts `{ code, redirect_uri }` and completes the code exchange.
+4. **The frontend button must be wired in yourself** (the current UI has no built-in Google button — use curl to call the backend route directly when verifying).
 
-## 微信（后端就绪；要求公网回调域名）
+## WeChat (backend ready; requires a public callback domain)
 
-1. 微信开放平台创建网站应用（**不支持 localhost 回调**，需备案域名）。
-2. 后端配置同上结构（`external_auth.wechat`：appid / app_secret）。
-3. 后端路由 `POST /api/wechat/login`。
-4. 本地开发三招：hosts 把回调域名指到 127.0.0.1 / Nginx 反代 / 内网穿透。
+1. Create a website application on the WeChat Open Platform (**localhost callbacks are not supported**; an ICP-registered domain is required).
+2. Backend configuration follows the same structure (`external_auth.wechat`: appid / app_secret).
+3. Backend route: `POST /api/wechat/login`.
+4. Three tricks for local development: point the callback domain to 127.0.0.1 via the hosts file / an Nginx reverse proxy / an intranet tunnel.
 
-## 通用安全注意
+## General Security Notes
 
-- 社交回调的 `state` 必须校验（防 CSRF）；提供方返回的 subject 只信任服务端 code 交换结果，
-  绝不信任前端提交的用户信息。
-- 解绑社交账号有"最后一种登录方式"保护与并发解绑竞态的已知限制（见 `docs/history`
-  归档的 social-link 设计与 CHANGELOG #54/#69 修复记录）。
+- The `state` on social callbacks must be verified (CSRF protection); the subject returned by a provider is trusted only
+  from the server-side code exchange result — never trust user information submitted by the frontend.
+- Unlinking a social account has "last login method" protection and a known limitation around concurrent-unlink races
+  (see the social-link design archived under `docs/history` and the CHANGELOG #54/#69 fix records).
 
-> 合并自已退役的 google-guide.md 与 wechat-guide.md（docs 治理 A2），并修正了 google 指南
-> 中"前端无按钮却让用户点击按钮"的自相矛盾。
+> Merged from the retired google-guide.md and wechat-guide.md (docs governance A2), and fixed the self-contradiction
+> in the Google guide where "there was no frontend button, yet users were told to click the button".

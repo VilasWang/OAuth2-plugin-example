@@ -1,16 +1,21 @@
 // fulla.dev — Docusaurus site.
-// Core decision (docs/documentation-governance.md §四): the repo's docs/ tree
-// IS the site source (docs.path below points one level up). No content copies,
-// no sync scripts — a drifted duplicate is exactly what the governance kills.
-// Local-only process docs live in docs-local/ (outside this tree, gitignored).
+// Core decision (docs/documentation-governance.md §4): the repo's docs trees
+// ARE the site source (docs.path below points one level up for the default
+// en locale; the zh-CN translation tree lives under website/i18n/zh-CN/).
+// No content copies between locales' structure — same layout, same URLs.
+// Local-only process docs live in docs-local/ (outside the trees, gitignored).
 
 const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
+// Locale-aware labels for config strings: Docusaurus sets DOCUSAURUS_CURRENT_LOCALE
+// when loading the config for each locale's build pass.
+const CURRENT_LOCALE = process.env.DOCUSAURUS_CURRENT_LOCALE || 'en';
+const L = (en, zh) => (CURRENT_LOCALE === 'zh-CN' ? zh : en);
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'fulla',
-  tagline: '高性能开源 IAM 内核 · C++17',
+  tagline: 'High-performance open-source IAM core · C++17',
   url: 'https://fulla.dev',
   baseUrl: '/',
   onBrokenLinks: 'throw',
@@ -18,12 +23,16 @@ const config = {
   organizationName: 'voidvec',
   projectName: 'fulla',
 
-  // Chinese-primary site (governance v3 §四): docs are simplified Chinese;
-  // English lives in README.md on GitHub. i18n ready if an English locale
-  // is ever added (Docusaurus native, low switching cost).
+  // English-primary site (governance v4): '/' serves English, '/zh-CN'
+  // serves the Chinese translation, navbar carries a locale switcher.
+  // Both locales build in CI; translation duty = same-PR dual writes.
   i18n: {
-    defaultLocale: 'zh-CN',
-    locales: ['zh-CN'],
+    defaultLocale: 'en',
+    locales: ['en', 'zh-CN'],
+    localeConfigs: {
+      en: { label: 'English', htmlLang: 'en' },
+      'zh-CN': { label: '简体中文', htmlLang: 'zh-CN' },
+    },
   },
 
   presets: [
@@ -36,6 +45,7 @@ const config = {
           routeBasePath: '/docs',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl: 'https://github.com/voidvec/fulla/edit/master/docs',
+          editLocalizedFiles: true,
           showLastUpdateTime: true,
           exclude: [
             'README.md',
@@ -80,14 +90,18 @@ const config = {
         title: 'fulla',
         logo: { alt: 'fulla', src: 'img/favicon.svg' },
         items: [
-          { to: '/docs/intro', label: '文档', position: 'left' },
+          { to: '/docs/intro', label: L('Docs', '文档'), position: 'left' },
           { to: '/docs/domains/api-reference', label: 'API', position: 'left' },
           {
             href: 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md',
-            label: '性能基准',
+            label: L('Benchmarks', '性能基准'),
             position: 'left',
           },
           { to: '/docs/adr/ADR-0001', label: 'ADR', position: 'left' },
+          {
+            type: 'localeDropdown',
+            position: 'right',
+          },
           {
             href: 'https://github.com/voidvec/fulla',
             label: 'GitHub',
@@ -99,33 +113,36 @@ const config = {
         style: 'dark',
         links: [
           {
-            title: '文档',
+            title: L('Docs', '文档'),
             items: [
-              { label: '开始', to: '/docs/intro' },
-              { label: '架构总览', to: '/docs/architecture/architecture-overview' },
-              { label: 'API 参考', to: '/docs/domains/api-reference' },
-              { label: 'SDK 集成', to: '/docs/sdk/sdk-integration-guide' },
+              { label: L('Get Started', '开始'), to: '/docs/intro' },
+              { label: L('Architecture', '架构总览'), to: '/docs/architecture/architecture-overview' },
+              { label: L('API Reference', 'API 参考'), to: '/docs/domains/api-reference' },
+              { label: L('SDK Integration', 'SDK 集成'), to: '/docs/sdk/sdk-integration-guide' },
             ],
           },
           {
-            title: '资源',
+            title: L('Resources', '资源'),
             items: [
-              { label: '生产部署', to: '/docs/operate/deployment' },
-              { label: '性能基准', href: 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md' },
-              { label: 'OpenAPI 契约', href: 'https://github.com/voidvec/fulla/blob/master/apps/server/openapi.yaml' },
-              { label: '架构决策记录', to: '/docs/adr/ADR-0001' },
+              { label: L('Production Deployment', '生产部署'), to: '/docs/operate/deployment' },
+              { label: L('Benchmarks', '性能基准'), href: 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md' },
+              { label: L('OpenAPI Contract', 'OpenAPI 契约'), href: 'https://github.com/voidvec/fulla/blob/master/apps/server/openapi.yaml' },
+              { label: L('ADRs', '架构决策记录'), to: '/docs/adr/ADR-0001' },
             ],
           },
           {
-            title: '社区',
+            title: L('Community', '社区'),
             items: [
               { label: 'GitHub', href: 'https://github.com/voidvec/fulla' },
-              { label: '中文 Wiki', href: 'https://github.com/voidvec/fulla/wiki' },
-              { label: '问题反馈', href: 'https://github.com/voidvec/fulla/issues' },
+              { label: L('Chinese Wiki', '中文 Wiki'), href: 'https://github.com/voidvec/fulla/wiki' },
+              { label: L('Issues', '问题反馈'), href: 'https://github.com/voidvec/fulla/issues' },
             ],
           },
         ],
-        copyright: `Copyright © 2026 Luca · MIT License · 本站内容来自仓库 docs/ 目录（单一事实源）`,
+          copyright: L(
+            'Copyright © 2026 Luca · MIT License · Site content from the repo’s docs tree (single source of truth)',
+            'Copyright © 2026 Luca · MIT License · 本站内容来自仓库 docs 目录（单一事实源）',
+          ),
       },
       prism: {
         theme: lightCodeTheme,

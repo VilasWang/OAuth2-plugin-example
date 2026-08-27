@@ -1,36 +1,36 @@
-# RBAC 权限控制系统 (Role-Based Access Control)
+# RBAC Access Control System (Role-Based Access Control)
 
-本文档详细说明了系统的基于角色的访问控制 (RBAC) 设计与使用。
+This document details the design and usage of the system's role-based access control (RBAC).
 
-## 1. 核心概念
+## 1. Core Concepts
 
-系统采用标准的 RBAC 模型：
+The system adopts the standard RBAC model:
 
-- **User (用户)**: 系统的操作主体。
-- **Role (角色)**: 权限的集合 (e.g., `admin`, `user`)。
-- **Permission (权限)**: 具体的访问能力 (e.g., `user:delete`, `sys:monitor`) - *注: 目前简化为基于角色的 URL 拦截*。
+- **User**: the acting subject of the system.
+- **Role**: a collection of permissions (e.g., `admin`, `user`).
+- **Permission**: a specific access capability (e.g., `user:delete`, `sys:monitor`) - *Note: currently simplified to role-based URL interception*.
 
-### 关系模型
+### Relationship Model
 
-- `User <-> Role`：多对多（Many-to-Many）
-- `Role <-> Permission`：多对多（Many-to-Many）
+- `User <-> Role`: many-to-many
+- `Role <-> Permission`: many-to-many
 
-## 2. 数据库设计
+## 2. Database Design
 
-相关表结构 (PostgreSQL):
+Relevant table structures (PostgreSQL):
 
 ```sql
--- 用户表
+-- Users table
 CREATE TABLE users (...);
 
--- 角色表
+-- Roles table
 CREATE TABLE roles (
     id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL, -- e.g. 'admin', 'user'
     description TEXT
 );
 
--- 用户-角色关联表
+-- User-role association table
 CREATE TABLE user_roles (
     user_id INT REFERENCES users(id),
     role_id INT REFERENCES roles(id),
@@ -38,45 +38,45 @@ CREATE TABLE user_roles (
 );
 ```
 
-## 3. 配置规则 (rbac_rules)
+## 3. Configuration Rules (rbac_rules)
 
-在 `config.json` 中配置 URL 路径与所需角色的映射：
+Configure the mapping between URL paths and required roles in `config.json`:
 
 ```json
 "rbac_rules": {
-    "/api/admin/.*": ["admin"],       // 仅 admin 可访问
-    "/api/user/.*": ["user", "admin"] // user 或 admin 均可访问
+    "/api/admin/.*": ["admin"],       // admin only
+    "/api/user/.*": ["user", "admin"] // user or admin
 }
 ```
 
-- **逻辑**: OR 逻辑 (只要具备列表中任意一个角色即可通过)。
-- **匹配**: 正则表达式匹配 URL Path。
+- **Logic**: OR logic (possessing any single role in the list is sufficient to pass).
+- **Matching**: URL paths are matched by regular expression.
 
-## 4. 认证流程
+## 4. Authentication Flow
 
-1. **登录/注册**:
-   - 用户注册时，默认自动分配 `user` 角色。
-   - 用户登录时，系统查询 `user_roles` 表，获取用户所有角色。
-2. **Token 颁发**:
-   - `roles` 列表被包含在 Token 响应中 (JSON body)。
-   - `roles` 已随访问令牌签发进 JWT Claim（TokenService 签发时写入）。
-3. **请求拦截 (AuthorizationFilter)**:
-   - 解析 Access Token 获取 `userId`。
-   - 根据 `userId` 查询缓存/数据库获取当前角色。
-   - 匹配请求 URL 是否命中 `rbac_rules`。
-   - 验证用户是否持有要求角色。
-   - **通过**: 继续处理。
-   - **拒绝**: 返回 `403 Forbidden`。
+1. **Login/Registration**:
+   - On registration, users are automatically assigned the default `user` role.
+   - On login, the system queries the `user_roles` table to load all of the user's roles.
+2. **Token Issuance**:
+   - The `roles` list is included in the token response (JSON body).
+   - `roles` are also issued into the JWT claims along with the access token (written by TokenService at issuance).
+3. **Request Interception (AuthorizationFilter)**:
+   - Parse the access token to obtain the `userId`.
+   - Query the cache/database by `userId` to fetch the current roles.
+   - Match the request URL against `rbac_rules`.
+   - Verify that the user holds a required role.
+   - **Pass**: continue processing.
+   - **Deny**: return `403 Forbidden`.
 
-## 5. 管理接口
+## 5. Management Endpoints
 
-- **Dashboard**: `/api/admin/dashboard` (需 `admin` 角色)
+- **Dashboard**: `/api/admin/dashboard` (requires the `admin` role)
 
-## 6. 如何授予 Admin 权限
+## 6. How to Grant Admin Privileges
 
-目前需通过 SQL 手动授予（生产环境通常由 SuperAdmin 界面操作）：
+Currently this must be granted manually via SQL (in production it is usually done through the SuperAdmin UI):
 
 ```sql
--- 假设目标用户 ID 为 5，Admin 角色 ID 为 1
+-- Assume the target user ID is 5 and the Admin role ID is 1
 INSERT INTO user_roles (user_id, role_id) VALUES (5, 1);
 ```

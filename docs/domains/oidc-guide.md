@@ -1,16 +1,16 @@
-# OpenID Connect (OIDC) 集成指南
+# OpenID Connect (OIDC) Integration Guide
 
-本指南介绍如何将本 OAuth2 服务作为 OIDC Provider 集成到你的应用中。
+This guide describes how to integrate this OAuth2 service into your application as an OIDC Provider.
 
-## 1. Discovery 端点
+## 1. Discovery Endpoint
 
-OIDC Discovery 端点提供 Provider 的所有配置信息：
+The OIDC discovery endpoint provides all configuration information about the Provider:
 
 ```
 GET /.well-known/openid-configuration
 ```
 
-返回示例：
+Example response:
 
 ```json
 {
@@ -26,15 +26,15 @@ GET /.well-known/openid-configuration
 }
 ```
 
-## 2. JWKS 端点
+## 2. JWKS Endpoint
 
-JSON Web Key Set 端点提供用于验证 `id_token` 签名的公钥：
+The JSON Web Key Set endpoint provides the public keys used to verify `id_token` signatures:
 
 ```
 GET /.well-known/jwks.json
 ```
 
-返回示例：
+Example response:
 
 ```json
 {
@@ -51,59 +51,59 @@ GET /.well-known/jwks.json
 }
 ```
 
-## 3. id_token 格式
+## 3. id_token Format
 
-`id_token` 是一个 RS256 签名的 JWT，包含以下标准 claims：
+The `id_token` is an RS256-signed JWT containing the following standard claims:
 
-| Claim | 描述 | 示例 |
+| Claim | Description | Example |
 |-------|------|------|
-| `iss` | 签发者 (Issuer) | `https://your-domain.com` |
-| `sub` | 用户唯一标识 (UUID public_sub) | `550e8400-e29b-41d4-a716-446655440000` |
-| `aud` | 受众 (Client ID) | `your-client-id` |
-| `exp` | 过期时间 (Unix timestamp) | `1700000000` |
-| `iat` | 签发时间 (Unix timestamp) | `1699996400` |
-| `nonce` | 请求中传入的 nonce 值 | `abc123` |
+| `iss` | Issuer | `https://your-domain.com` |
+| `sub` | Unique user identifier (UUID public_sub) | `550e8400-e29b-41d4-a716-446655440000` |
+| `aud` | Audience (Client ID) | `your-client-id` |
+| `exp` | Expiration time (Unix timestamp) | `1700000000` |
+| `iat` | Issued-at time (Unix timestamp) | `1699996400` |
+| `nonce` | The nonce value sent in the request | `abc123` |
 
-根据请求的 scope，还可能包含：
+Depending on the requested scopes, it may also contain:
 
 - **profile scope**: `name`, `preferred_username`
 - **email scope**: `email`, `email_verified`
 
-## 4. 验证 id_token
+## 4. Verifying the id_token
 
-### 4.1 验证步骤
+### 4.1 Verification Steps
 
-1. **解码 JWT Header**：提取 `kid`（Key ID）和 `alg`（应为 RS256）
-2. **获取公钥**：从 JWKS 端点获取对应 `kid` 的公钥
-3. **验证签名**：使用 RSA 公钥验证 JWT 签名
-4. **验证 Claims**：
-   - `iss` 必须匹配你配置的 Issuer URL
-   - `aud` 必须包含你的 Client ID
-   - `exp` 必须大于当前时间
-   - `nonce` 必须匹配你在授权请求中发送的值
+1. **Decode the JWT header**: extract `kid` (Key ID) and `alg` (should be RS256)
+2. **Fetch the public key**: retrieve the public key matching the `kid` from the JWKS endpoint
+3. **Verify the signature**: verify the JWT signature with the RSA public key
+4. **Verify the claims**:
+   - `iss` must match your configured Issuer URL
+   - `aud` must include your Client ID
+   - `exp` must be in the future
+   - `nonce` must match the value you sent in the authorization request
 
-### 4.2 安全注意事项
+### 4.2 Security Considerations
 
-- **始终验证签名**，不要信任未验证的 JWT
-- **缓存 JWKS** 但设置合理的刷新间隔（建议 24 小时或按 Cache-Control 头）
-- **检查 `alg` 头**，拒绝 `none` 算法（防止算法降级攻击）
+- **Always verify the signature**; never trust an unverified JWT
+- **Cache the JWKS**, but with a sensible refresh interval (24 hours is recommended, or follow the Cache-Control header)
+- **Check the `alg` header** and reject the `none` algorithm (prevents algorithm downgrade attacks)
 
-## 5. 支持的 Scopes 与 Claims
+## 5. Supported Scopes and Claims
 
-| Scope | 返回的 Claims |
+| Scope | Returned Claims |
 |-------|---------------|
-| `openid` | `sub` (必需 scope，启用 OIDC) |
+| `openid` | `sub` (required scope; enables OIDC) |
 | `profile` | `name`, `preferred_username` |
 | `email` | `email`, `email_verified` |
 
-## 6. 集成示例
+## 6. Integration Examples
 
-### 6.1 使用标准 OIDC 客户端库 (Node.js)
+### 6.1 Using a Standard OIDC Client Library (Node.js)
 
 ```javascript
 const { Issuer } = require('openid-client');
 
-// 自动发现 Provider 配置
+// Discover the Provider configuration automatically
 const issuer = await Issuer.discover('https://your-domain.com');
 
 const client = new issuer.Client({
@@ -113,14 +113,14 @@ const client = new issuer.Client({
   response_types: ['code'],
 });
 
-// 生成授权 URL
+// Generate the authorization URL
 const authUrl = client.authorizationUrl({
   scope: 'openid profile email',
   state: 'random-state-value',
   nonce: 'random-nonce-value',
 });
 
-// 处理回调
+// Handle the callback
 const params = client.callbackParams(req);
 const tokenSet = await client.callback('http://localhost:3000/callback', params, {
   state: 'random-state-value',
@@ -131,7 +131,7 @@ console.log('ID Token claims:', tokenSet.claims());
 console.log('Access Token:', tokenSet.access_token);
 ```
 
-### 6.2 使用 Python (authlib)
+### 6.2 Using Python (authlib)
 
 ```python
 from authlib.integrations.requests_client import OAuth2Session
@@ -143,22 +143,22 @@ client = OAuth2Session(
     scope='openid profile email'
 )
 
-# 获取授权 URL
+# Build the authorization URL
 uri, state = client.create_authorization_url(
     'https://your-domain.com/oauth2/authorize'
 )
 
-# 处理回调，换取 Token
+# Handle the callback and exchange for tokens
 token = client.fetch_token(
     'https://your-domain.com/oauth2/token',
     authorization_response=callback_url
 )
 
-# 获取用户信息
+# Fetch user information
 userinfo = client.get('https://your-domain.com/oauth2/userinfo').json()
 ```
 
-### 6.3 使用 Go (coreos/go-oidc)
+### 6.3 Using Go (coreos/go-oidc)
 
 ```go
 provider, err := oidc.NewProvider(ctx, "https://your-domain.com")
@@ -171,18 +171,18 @@ oauth2Config := oauth2.Config{
     Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 }
 
-// 验证 id_token
+// Verify the id_token
 verifier := provider.Verifier(&oidc.Config{ClientID: "your-client-id"})
 idToken, err := verifier.Verify(ctx, rawIDToken)
 ```
 
-## 7. 常见问题
+## 7. FAQ
 
-**Q: id_token 的有效期是多久？**
-A: 与 Access Token 一致，默认 1 小时。
+**Q: How long is the id_token valid?**
+A: The same as the access token — 1 hour by default.
 
-**Q: 如何处理密钥轮转？**
-A: 定期从 JWKS 端点刷新公钥。当验证失败时，先尝试刷新 JWKS 再重试验证。
+**Q: How should key rotation be handled?**
+A: Refresh the public keys from the JWKS endpoint periodically. When verification fails, refresh the JWKS first, then retry the verification.
 
-**Q: 是否支持 PKCE？**
-A: 支持。PKCE (RFC 7636) 已实现并默认对 PUBLIC 客户端强制启用（同时支持 `plain` 与 `S256`）。SPA 和移动端客户端应使用 `S256`。
+**Q: Is PKCE supported?**
+A: Yes. PKCE (RFC 7636) is implemented and enforced by default for PUBLIC clients (both `plain` and `S256` are supported). SPA and mobile clients should use `S256`.

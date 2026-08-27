@@ -1,21 +1,21 @@
-# 架构总览
+# Architecture Overview
 
-本文从技术栈、模块布局、请求流转与部署形态四个视角，概括 fulla 的整体架构。
+This page summarizes the overall architecture of fulla from four perspectives: technology stack, module layout, request flow, and deployment topology.
 
-## 1. 技术栈
+## 1. Technology Stack
 
-| 层 | 技术 | 用途 |
+| Layer | Technology | Purpose |
 |---|---|---|
-| Web 框架 | Drogon | 高性能异步 C++ HTTP 服务 |
-| 主数据库 | PostgreSQL 17 | 用户、角色、客户端、授权码与令牌的持久化（2026-08-18 起为部署默认；服务端也可运行在 15 上——升级路径见 [PG 大版本升级](../operate/postgresql-major-upgrade.md)） |
-| 缓存 / KV | Redis | Postgres 前置的可选 L2 缓存（client 与 access-token 读路径）；独立 Redis 存储已弃用（限流为进程内实现，不依赖 Redis） |
-| 前端 | Vue 3 + Vite | OAuth2 授权码流程的 SPA 客户端 |
-| 部署 | Docker Compose | 本地与类生产全栈部署 |
-| 可观测 | Prometheus | 经 Drogon PromExporter 采集指标 |
+| Web framework | Drogon | High-performance asynchronous C++ HTTP services |
+| Primary database | PostgreSQL 17 | Persistence for users, roles, clients, authorization codes, and tokens (deployment default since 2026-08-18; the server also runs on 15 — see [PG Major-Version Upgrade](../operate/postgresql-major-upgrade.md) for the upgrade path) |
+| Cache / KV | Redis | Optional L2 cache in front of Postgres (client and access-token read paths); the standalone Redis store is deprecated (rate limiting is implemented in-process and does not depend on Redis) |
+| Frontend | Vue 3 + Vite | SPA client for the OAuth2 authorization-code flow |
+| Deployment | Docker Compose | Local and production-like full-stack deployment |
+| Observability | Prometheus | Metrics collected via the Drogon PromExporter |
 
-## 2. 模块布局
+## 2. Module Layout
 
-为保证真正的可插拔，项目重构为「核心插件库 + 演示服务器」两层：
+To keep the system genuinely pluggable, the project is structured as two tiers: a core plugin library plus a demo server:
 
 ```text
 HTTP 请求
@@ -44,7 +44,7 @@ HTTP 请求
           `-- RedisRepositoryBundle：Redis 存储（libs/storage-redis）
 ```
 
-## 3. 授权码流程
+## 3. Authorization-Code Flow
 
 ```mermaid
 sequenceDiagram
@@ -68,40 +68,42 @@ sequenceDiagram
     Core-->>SPA: userinfo JSON
 ```
 
-## 4. 存储策略
+## 4. Storage Strategy
 
-`OAuth2Plugin` 依据 `config.json` 中的 `storage_type` 选择后端。
+`OAuth2Plugin` selects the backend according to `storage_type` in `config.json`.
 
-| storage_type | 实现 | 典型用途 |
+| storage_type | Implementation | Typical use |
 |---|---|---|
-| memory | `MemoryRepositoryBundle` | 单元测试与本地快速演示 |
-| redis | `RedisRepositoryBundle` | **已弃用**——启动时打 ERROR 日志，并以 `unsupported_grant_type` 拒绝 `refresh_token` 授权；不要使用。Redis 现在仅作为 Postgres 前置的可选缓存层（见[配置指南 §3](../operate/configuration-guide.md)） |
-| postgres | `PostgresRepositoryBundle` | 生产持久化存储 |
+| memory | `MemoryRepositoryBundle` | Unit tests and fast local demos |
+| redis | `RedisRepositoryBundle` | **Deprecated** — logs an ERROR at startup and rejects the `refresh_token` grant with `unsupported_grant_type`; do not use. Redis now serves only as an optional cache layer in front of Postgres (see [Configuration Guide §3](../operate/configuration-guide.md)) |
+| postgres | `PostgresRepositoryBundle` | Production persistent storage |
 
-> 每个 `*RepositoryBundle` 同时装配同一后端下的 client / grant / token / consent / userinfo 五个仓储实现（见各 `libs/storage-*/include` 下的头文件）。
+> Each `*RepositoryBundle` assembles all five repository implementations for its backend — client / grant / token / consent / userinfo (see the headers under each `libs/storage-*/include`).
 
-## 5. 前后端集成
+## 5. Frontend–Backend Integration
 
-前端从登录页发起 OAuth2 授权码流程：将 CSRF `state` 存于 localStorage，
-处理 `/callback`、用授权码换取令牌，随后调用 `/oauth2/userinfo`。
+The frontend starts the OAuth2 authorization-code flow from the login page: it stores
+the CSRF `state` in localStorage, handles `/callback`, exchanges the authorization
+code for tokens, and then calls `/oauth2/userinfo`.
 
-第三方社交登录时，前端接收外部授权码后提交给后端端点：
+For third-party social login, the frontend receives the external authorization code
+and submits it to backend endpoints:
 
 - `/api/google/login`
 - `/api/wechat/login`
 
-与 provider 的令牌交换在服务端完成，provider 密钥不暴露给浏览器。
+Token exchange with the provider happens on the server side; provider secrets are never exposed to the browser.
 
-## 6. 部署形态
+## 6. Deployment Topology
 
-Docker Compose 默认启动：
+Docker Compose starts the following by default:
 
-- `fulla-frontend`：端口 `8080`
-- `fulla-admin`（管理后台）：端口 `8081`
-- `fulla-backend`：端口 `5555`
-- PostgreSQL：宿主端口 `5433`
-- Redis：宿主端口 `6380`
-- Prometheus：端口 `9090`
+- `fulla-frontend`: port `8080`
+- `fulla-admin` (admin console): port `8081`
+- `fulla-backend`: port `5555`
+- PostgreSQL: host port `5433`
+- Redis: host port `6380`
+- Prometheus: port `9090`
 
-生产环境建议在反向代理终结 TLS，再将 API 请求代理到 Drogon 后端
-（完整步骤见[生产部署](../operate/deployment.md)）。
+For production, terminate TLS at a reverse proxy and proxy API requests to the Drogon
+backend (see [Production Deployment](../operate/deployment.md) for the full procedure).

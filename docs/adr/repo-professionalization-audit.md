@@ -1,9 +1,11 @@
 ---
-title: 档案 · 专业仓库改造审计（2026-08-25）
-date: 2026-08-25
-status: 已执行（chore/professional-repo-cleanup 落地）
-sidebar_label: 档案 · 仓库改造审计
+title: Archive · Repo Professionalization Audit (in Chinese)
 ---
+
+> **Language note**: historical archive, kept in its original Chinese. The
+> 2026-08-25 repo-professionalization audit (executed via
+> chore/professional-repo-cleanup). Current rules live in
+> [documentation-governance.md](../documentation-governance.md).
 
 # 专业仓库改造审计 — 入库范围清理清单
 

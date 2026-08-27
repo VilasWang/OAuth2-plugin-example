@@ -1,12 +1,12 @@
-# Docker 部署与容器编排指南 (Docker Deployment)
+# Docker Deployment and Container Orchestration Guide
 
-本文档详细说明如何使用 Docker Compose 在本地或生产环境部署完整的 OAuth2 服务栈。
+This document explains how to deploy the complete OAuth2 service stack with Docker Compose, locally or in production.
 
 ---
 
-## 1. 服务栈架构
+## 1. Service Stack Architecture
 
-`docker-compose.yml` 编排以下 6 个服务：
+`docker-compose.yml` orchestrates the following 6 services:
 
 ```
 Internet
@@ -34,20 +34,20 @@ Internet
               prometheus (9090:9090)
 ```
 
-| 服务 | 镜像/构建 | 对外端口 | 说明 |
+| Service | Image/build | Exposed port | Notes |
 |---|---|---|---|
-| `fulla-frontend` | `deploy/docker/Dockerfile` (`frontend-runtime`) | `8080:80` | Vue SPA (用户端) + Nginx |
-| `fulla-admin` | `frontends/admin/Dockerfile` | `8081:80` | 管理后台前端 |
-| `fulla-backend` | `deploy/docker/Dockerfile` (`backend-runtime`) | `5555:5555` | Drogon C++ 后端 |
-| `fulla-postgres` | `postgres:17-alpine` | `5433:5432` | PostgreSQL（宿主机 5433，避开本地冲突）|
-| `fulla-redis` | `redis:7-alpine` | `6380:6379` | Redis（宿主机 6380，避开本地冲突）|
-| `fulla-prometheus` | `prom/prometheus:latest` | `9090:9090` | 指标采集 |
+| `fulla-frontend` | `deploy/docker/Dockerfile` (`frontend-runtime`) | `8080:80` | Vue SPA (user-facing) + Nginx |
+| `fulla-admin` | `frontends/admin/Dockerfile` | `8081:80` | Admin console frontend |
+| `fulla-backend` | `deploy/docker/Dockerfile` (`backend-runtime`) | `5555:5555` | Drogon C++ backend |
+| `fulla-postgres` | `postgres:17-alpine` | `5433:5432` | PostgreSQL (host port 5433, avoiding local conflicts)|
+| `fulla-redis` | `redis:7-alpine` | `6380:6379` | Redis (host port 6380, avoiding local conflicts)|
+| `fulla-prometheus` | `prom/prometheus:latest` | `9090:9090` | Metrics collection |
 
 ---
 
-## 2. 快速启动
+## 2. Quick Start
 
-详见 [Docker 容器和镜像规范指南](#镜像--容器--网络命名规范)。
+See the [Docker image and container specification guide](#image--container--network-naming-conventions).
 
 ```bash
 # 第一次或代码变更后：重新构建并启动（在项目根目录执行）
@@ -71,9 +71,11 @@ docker-compose -f deploy/docker/docker-compose.yml down -v
 
 ---
 
-## 3. 环境变量与密钥注入
+## 3. Environment Variables and Secret Injection
 
-`fulla-backend` 在 `docker-compose.yml` 的 `environment` 节中通过环境变量注入敏感配置，**完全覆盖 `config.json` 中的默认值**。开发环境默认值（仅用于本地评估）如下：
+`fulla-backend` receives sensitive configuration through environment variables in the `environment`
+section of `docker-compose.yml`, **fully overriding the defaults in `config.json`**. The development
+defaults (for local evaluation only) are:
 
 ```yaml
 environment:
@@ -90,14 +92,14 @@ environment:
   ...
 ```
 
-> **WARNING** **生产环境安全提示**：
-> - **禁止**将真实密码直接写在 `docker-compose.yml` 中并提交到 Git。
-> - 推荐使用 **Docker Secrets** 或外部密钥管理（Vault、AWS Secrets Manager）。
-> - 最低要求：使用 `.env` 文件，并将其加入 `.gitignore`。
+> **WARNING** **Production security notes**:
+> - **Never** write real passwords directly into `docker-compose.yml` and commit them to Git.
+> - **Docker Secrets** or an external secret manager (Vault, AWS Secrets Manager) is recommended.
+> - Minimum requirement: use an `.env` file and add it to `.gitignore`.
 
-### 使用 `.env` 文件（推荐）
+### Using an `.env` file (recommended)
 
-仓库提供了示例文件 `deploy/env/docker.env.example`（以及 `deploy/env/server.env.example`）。复制为 `.env.docker`（已在 `.gitignore` 中排除）并填入生产值：
+The repository ships the example files `deploy/env/docker.env.example` (and `deploy/env/server.env.example`). Copy one to `.env.docker` (already excluded via `.gitignore`) and fill in production values:
 
 ```env
 FULLA_DB_PASSWORD=your_strong_password
@@ -109,13 +111,13 @@ FULLA_SMTP_PORT=465
 ...
 ```
 
-然后 `docker-compose.yml` 中通过 `${VAR_NAME:-default}` 引用即可。
+Then reference the values from `docker-compose.yml` via `${VAR_NAME:-default}`.
 
 ---
 
-## 4. 数据持久化
+## 4. Data Persistence
 
-通过命名 Volume 实现数据持久化，容器重启不丢数据：
+Data persistence is achieved through named volumes, so container restarts do not lose data:
 
 ```yaml
 volumes:
@@ -123,7 +125,10 @@ volumes:
   redisdata: # Redis RDB / AOF 文件
 ```
 
-数据库初始化由后端在启动时自动完成（`FULLA_AUTO_MIGRATE=true`，按文件名顺序执行 `apps/server/migrations/V*.sql`，再执行 `apps/server/seed/*.sql`）。`docker-compose.yml` 同时把迁移与种子脚本挂进 postgres 容器的子目录：
+Database initialization is performed automatically by the backend at startup (`FULLA_AUTO_MIGRATE=true`
+executes `apps/server/migrations/V*.sql` in filename order, followed by `apps/server/seed/*.sql`).
+`docker-compose.yml` also mounts the migration and seed scripts into subdirectories of the
+postgres container:
 
 ```yaml
 volumes:
@@ -131,13 +136,15 @@ volumes:
   - ../../apps/server/seed:/docker-entrypoint-initdb.d/seed:ro
 ```
 
-> **WARNING** **注意**：postgres entrypoint **不会**递归进入 `/docker-entrypoint-initdb.d` 的子目录，因此这两个挂载对首次初始化是 **no-op**，真正的 schema 初始化由后端的 `FULLA_AUTO_MIGRATE` 完成。
+> **WARNING** **Note**: the postgres entrypoint does **not** recurse into subdirectories of
+> `/docker-entrypoint-initdb.d`, so these two mounts are **no-ops** for first-time
+> initialization; actual schema initialization is performed by the backend's `FULLA_AUTO_MIGRATE`.
 
 ---
 
-## 5. Prometheus 监控配置
+## 5. Prometheus Monitoring Configuration
 
-`prometheus.yml` 配置 Prometheus 采集 `fulla-backend` 的 `/metrics` 端点：
+`prometheus.yml` configures Prometheus to scrape the `/metrics` endpoint of `fulla-backend`:
 
 ```yaml
 scrape_configs:
@@ -146,17 +153,17 @@ scrape_configs:
       - targets: ["fulla-backend:5555"]
 ```
 
-Prometheus 与 fulla-backend 位于同一 Docker 网络 `oauth2-net`，使用服务名直接访问（无需暴露宿主机端口）。
+Prometheus sits on the same Docker network as fulla-backend, `oauth2-net`, and reaches it directly by service name (no host port needs to be exposed).
 
-访问 `http://localhost:9090` 即可查看 Prometheus UI。
+Visit `http://localhost:9090` for the Prometheus UI.
 
 ---
 
-## 6. 生产部署建议
+## 6. Production Deployment Recommendations
 
-### 6.1 在 Nginx 前端服务添加 SSL 终结
+### 6.1 Add SSL termination in front of the frontend service
 
-前端 `fulla-frontend` 的 Nginx 负责静态文件托管，应在其前面增加一层带 SSL 的 Nginx/Traefik：
+The Nginx inside `fulla-frontend` serves static files; put an SSL-terminating Nginx/Traefik layer in front of it:
 
 ```nginx
 server {
@@ -179,11 +186,11 @@ server {
 }
 ```
 
-> **重要**：转发 `X-Forwarded-For` 头，确保后端的 Hodor 插件能正确获取真实客户端 IP。
+> **Important**: forward the `X-Forwarded-For` header so the backend's Hodor plugin can obtain the real client IP.
 
-### 6.2 屏蔽 `/metrics` 端点
+### 6.2 Block the `/metrics` endpoint
 
-Prometheus `/metrics` 端点不应暴露到公网，在 Nginx 中添加：
+The Prometheus `/metrics` endpoint must not be exposed to the public internet. Add to Nginx:
 
 ```nginx
 location /metrics {
@@ -191,15 +198,15 @@ location /metrics {
 }
 ```
 
-或通过 Docker 不对外暴露 `fulla-backend:5555`，仅允许 Prometheus 内网访问。
+Alternatively, do not expose `fulla-backend:5555` through Docker at all, allowing access only to Prometheus on the internal network.
 
-### 6.3 数据库连接池调优
+### 6.3 Database connection pool tuning
 
-生产环境建议将 `config.prod.json` 的 `number_of_connections` 从 `4` 调整为 `10-50`，根据实际并发量测试确定。
+For production, consider raising `number_of_connections` in `config.prod.json` from `4` to `10-50`, determined by testing against actual concurrency.
 
 ---
 
-## 7. 健康检查与故障排查
+## 7. Health Checks and Troubleshooting
 
 ```bash
 # 检查所有容器状态
@@ -219,17 +226,17 @@ docker-compose down -v
 docker-compose up -d --build
 ```
 
-## 镜像 / 容器 / 网络命名规范
+## Image / Container / Network Naming Conventions
 
-| 镜像用途 | 名称 | 构建目标 | 说明 |
+| Image purpose | Name | Build target | Notes |
 |---------|------|--------------------|------|
-| 生产后端 | `fulla-backend` | `backend-runtime` | 仅运行时，体积小；GHCR 多架构发布 |
-| 调试后端 | `fulla-backend-debug` | `backend-dev` | 含完整编译工具链 |
-| 生产前端 | `fulla-frontend` | `frontend-runtime` | Nginx + 静态资源 |
+| Production backend | `fulla-backend` | `backend-runtime` | Runtime only, small footprint; multi-arch GHCR release |
+| Debug backend | `fulla-backend-debug` | `backend-dev` | Includes the full compilation toolchain |
+| Production frontend | `fulla-frontend` | `frontend-runtime` | Nginx + static assets |
 
-容器命名：`fulla-{service}[-debug]`（backend/frontend/postgres/redis）；网络：Release 为 `oauth2-net`，Debug 为 `fulla-debug-net`（历史保留名见 compose 文件）。三份 compose 矩阵：`docker-compose.yml`（开发，6 服务）、`docker-compose.debug.yml`（调试，3 服务）、`docker-compose.prod.yml`（生产，8 服务含 Nginx 与 migrate 作业）。**所有 compose 命令在仓库根目录执行并带 `-f deploy/docker/...`**。
+Container naming: `fulla-{service}[-debug]` (backend/frontend/postgres/redis); networks: `oauth2-net` for Release, `fulla-debug-net` for Debug (see the compose files for legacy retained names). Three compose matrices: `docker-compose.yml` (development, 6 services), `docker-compose.debug.yml` (debug, 3 services), and `docker-compose.prod.yml` (production, 8 services including Nginx and a migrate job). **All compose commands are run from the repository root with `-f deploy/docker/...`**.
 
-## 调试环境（挂载源码 / GDB）
+## Debug Environment (source mounts / GDB)
 
 ```bash
 docker build -f deploy/docker/Dockerfile --target backend-dev -t fulla-backend-debug:v1.0.0 .
@@ -237,7 +244,7 @@ docker compose -f deploy/docker/docker-compose.debug.yml up -d
 docker compose -f deploy/docker/docker-compose.debug.yml run --rm debug-env bash
 ```
 
-## 自动化验证
+## Automated Verification
 
-- `deploy/docker/docker-quick-verify-debug.sh`（容器内全流程：依赖检查 → 等 PG/Redis 就绪 → 建库 → 并行编译 → 单测）；
-- `scripts/backend/full_test_docker.bat`（宿主一键：起容器 → 初始化 → ORM 重生成 → 编译 → 测试 → 起服 → OAuth2/Admin 端点测试 → 清理）。
+- `deploy/docker/docker-quick-verify-debug.sh` (full in-container pipeline: dependency check → wait for PG/Redis readiness → create the database → parallel build → unit tests);
+- `scripts/backend/full_test_docker.bat` (one-click on the host: start containers → initialize → regenerate the ORM → build → test → start the server → OAuth2/Admin endpoint tests → cleanup).

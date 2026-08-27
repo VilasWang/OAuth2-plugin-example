@@ -1,19 +1,19 @@
-# 测试策略与执行指南 (Testing Guide)
+# Testing Strategy and Execution Guide (Testing Guide)
 
-本文档说明项目的测试分层策略、各测试文件的覆盖范围，以及如何在本地执行全套测试。
+This document describes the project's test layering strategy, the coverage of each test file, and how to run the full test suite locally.
 
 ---
 
-## 1. 测试前置要求
+## 1. Test Prerequisites
 
-在运行测试前，请确保以下服务已就绪：
+Before running tests, make sure the following services are ready:
 
-| 服务 | 地址 | 说明 |
+| Service | Address | Notes |
 |---|---|---|
-| **PostgreSQL** | `localhost:5432` | 数据库名: `fulla_db` / 用户: `fulla_user` / 密码: `123456` |
-| **Redis** | `localhost:6379` | 密码: `123456`（与 `config.json` 一致）|
+| **PostgreSQL** | `localhost:5432` | Database: `fulla_db` / user: `fulla_user` / password: `123456` |
+| **Redis** | `localhost:6379` | Password: `123456` (consistent with `config.json`)|
 
-> **快速启动基础设施**：如果你使用 Docker，可以单独启动 postgres 和 redis 容器:
+> **Quick-start infrastructure**: if you use Docker, you can start the postgres and redis containers separately:
 > ```powershell
 > docker run -d -p 5432:5432 -e POSTGRES_USER=fulla_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=fulla_db postgres:17-alpine
 > docker run -d -p 6379:6379 redis:7-alpine redis-server --requirepass 123456
@@ -21,279 +21,272 @@
 
 ---
 
-## 2. 测试分层
+## 2. Test Layering
 
-测试编译为**两类可执行文件**：
+Tests are compiled into **two categories of executables**:
 
-1. **按库的 gtest 二进制文件**（Domain 层，纯单元测试，无 DB/无 Drogon）：
-   - `libs/common/test/fulla-common-test` — `ConfigManager`、`ErrorCatalog`、`Result`、值对象
-   - `libs/common/testing/test/fulla-common-testing-test` — 假实现（`FakeClock`/`FakeCryptoProvider`/`FakeLogger` 等）的确定性验证
+1. **Per-library gtest binaries** (Domain layer, pure unit tests, no DB / no Drogon):
+   - `libs/common/test/fulla-common-test` — `ConfigManager`, `ErrorCatalog`, `Result`, value objects
+   - `libs/common/testing/test/fulla-common-testing-test` — deterministic verification of fake implementations (`FakeClock`/`FakeCryptoProvider`/`FakeLogger`, etc.)
    - `libs/oauth2/test/fulla-oauth2-test` — `TokenService`/`AuthorizationService`/`ClientService`/`JwkManager`/`Pkce`/`ScopeDecisionEngine`/`TokenCrypto`
-   - `libs/identity/test/fulla-identity-test` — `AuthService`/`MfaService`/`TotpUtils`/`SessionManager`/`WebAuthnService`/社交登录（Google/WeChat/GitHub）
-   - 这些用 gtest（非 `DROGON_TEST`），由各 lib 的 `test/CMakeLists.txt` 通过 `gtest_discover_tests` 注册为独立 ctest 条目。
+   - `libs/identity/test/fulla-identity-test` — `AuthService`/`MfaService`/`TotpUtils`/`SessionManager`/`WebAuthnService`/social login (Google/WeChat/GitHub)
+   - These use gtest (not `DROGON_TEST`) and are registered as independent ctest entries by each lib's `test/CMakeLists.txt` via `gtest_discover_tests`.
 
-2. **主测试二进制文件 `tests/fulla-tests`**（`DROGON_TEST` 框架，包含所有需要 Drogon/DB 的层级）：
+2. **Main test binary `tests/fulla-tests`** (`DROGON_TEST` framework, contains all layers that require Drogon/DB):
 
-| 层级 | 目录 | 覆盖范围 | 外部依赖 |
+| Level | Directory | Coverage | External dependencies |
 |---|---|---|---|
-| **Level 1 — 单元测试** | `tests/unit/`（`config/`、`error/`、`utils/`、`validation/`、`plugin/`、`schema/`、`subject/`、`initorder/`） | 纯逻辑：错误信封、密码哈希、PKCE/CryptoUtils、RuleSet 校验、配置加载、OpenAPI 生成 | 无 |
-| **Level 2 — 契约测试** | `tests/contract/` | 跨后端（Postgres/Redis/Memory）的仓储契约一致性：`IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository`/`IUserRepository` | Memory 必跑；Postgres/Redis 在 `getPostgresClientOrNull()`/`getRedisClientOrNull()` 返回空时自动 skip |
-| **Level 3 — 集成测试** | `tests/integration/`（`auth/`、`token/`、`storage/`、`concurrency/`、`error/`、`plugin/`） | 完整业务流程、并发竞态、错误信封、插件组装 | Postgres / Redis（memory-only 模式 `-DFULLA_MEMORY_TESTS_ONLY=ON` 下跑 Memory 子集） |
-| **Level 4 — 安全测试** | `tests/security/` | SQL 注入、XSS、命令注入、CORS、Token 安全、速率限制 | Postgres / Redis |
-| **Level 5 — E2E/功能** | `tests/e2e-backend/`、`tests/performance/` | OAuth2 完整流程、性能基准 | Postgres + Redis + Drogon App |
+| **Level 1 — Unit tests** | `tests/unit/` (`config/`, `error/`, `utils/`, `validation/`, `plugin/`, `schema/`, `subject/`, `initorder/`) | Pure logic: error envelopes, password hashing, PKCE/CryptoUtils, RuleSet validation, config loading, OpenAPI generation | None |
+| **Level 2 — Contract tests** | `tests/contract/` | Repository contract consistency across backends (Postgres/Redis/Memory): `IClientRepository`/`IGrantRepository`/`ITokenRepository`/`IConsentRepository`/`IUserRepository` | Memory always runs; Postgres/Redis are automatically skipped when `getPostgresClientOrNull()`/`getRedisClientOrNull()` return null |
+| **Level 3 — Integration tests** | `tests/integration/` (`auth/`, `token/`, `storage/`, `concurrency/`, `error/`, `plugin/`) | Full business flows, concurrency races, error envelopes, plugin assembly | Postgres / Redis (in memory-only mode `-DFULLA_MEMORY_TESTS_ONLY=ON`, the Memory subset runs) |
+| **Level 4 — Security tests** | `tests/security/` | SQL injection, XSS, command injection, CORS, token security, rate limiting | Postgres / Redis |
+| **Level 5 — E2E/functional** | `tests/e2e-backend/`, `tests/performance/` | Complete OAuth2 flows, performance benchmarks | Postgres + Redis + Drogon App |
 
-> 内存模式：配置 `-DFULLA_MEMORY_TESTS_ONLY=ON` 可在**无外部 DB** 时跑完整套件（Postgres/Redis 测试自动 skip）——这是 Windows CI 的做法。
+> Memory mode: configuring `-DFULLA_MEMORY_TESTS_ONLY=ON` lets the full suite run **without an external DB** (Postgres/Redis tests are automatically skipped) — this is how Windows CI does it.
 
-> 安全测试用例数、功能测试用例数与覆盖清单见各目录下的测试文件头注释；本节不再硬编码具体数量（数量随迭代增长，统一以 §7 的实测统计为准）。
+> For security test case counts, functional test case counts, and coverage lists, see the header comments of the test files in each directory; this section no longer hardcodes specific counts (counts grow with each iteration — the measured statistics in §7 are authoritative).
 
-### DROGON_TEST 断言书写规范 — `CHECK`/`REQUIRE` 内禁止裸布尔运算符 [#MUST]
+### DROGON_TEST assertion style — bare boolean operators are forbidden inside `CHECK`/`REQUIRE` [#MUST]
 
-drogon 的 `CHECK`/`REQUIRE` 是**宏不是函数**：`CHECK_INTERNAL__` 把表达式展开为
-`(drogon::test::internal::Decomposer() <= expr)`，而宏实参替换不加括号，所以**裸写的
-`a || b`（或 `a && b`）会重结合成 `(Decomposer() <= a) || b`**——结果静默错误，症状像
-"断言随机挂"。真实案例（PR #68 调试）：`CHECK(body.isMember("error") || body.isMember("code"))`
-失败，但 `LOG_INFO` 打出的原始 body 里明明有 `error` 键。
+drogon's `CHECK`/`REQUIRE` are **macros, not functions**: `CHECK_INTERNAL__` expands the expression to `(drogon::test::internal::Decomposer() <= expr)`, and macro argument substitution adds no parentheses, so a **bare `a || b` (or `a && b`) re-associates into `(Decomposer() <= a) || b`** — the result is silently wrong, with symptoms that look like "assertions randomly failing". Real case (PR #68 debugging): `CHECK(body.isMember("error") || body.isMember("code"))` failed, even though the raw body printed by `LOG_INFO` clearly contained the `error` key.
 
-**规则**：`CHECK(...)`/`REQUIRE(...)` 的顶层实参里出现 `||`/`&&` 时，必须满足其一：
+**Rule**: whenever `||`/`&&` appears in the top-level argument of `CHECK(...)`/`REQUIRE(...)`, one of the following must hold:
 
 ```cpp
-// ✅ 拆成两条断言（首选——失败信息更精确）
+// ✅ Split into two assertions (preferred — more precise failure messages)
 CHECK(body.isMember("error"));
 CHECK(body.isMember("code"));
 
-// ✅ 整体加括号（外层括号让链式表达式作为一个操作数绑定到 <=）
+// ✅ Wrap the whole expression in parentheses (outer parentheses bind the chained expression as a single operand to <=)
 CHECK((a != std::string::npos || b != std::string::npos));
 
-// ✅ 仓库既有先例：显式 (bool) 转换（tests/e2e-backend/oauth2_flows/FunctionalTest.cc）
+// ✅ Existing repo precedent: explicit (bool) cast (tests/e2e-backend/oauth2_flows/FunctionalTest.cc)
 CHECK((bool)(response.find("code=") != std::string::npos ||
              response.find("error") != std::string::npos));
 
-// ❌ 禁止：裸顶层布尔链（宏展开后语义被破坏）
+// ❌ Forbidden: bare top-level boolean chain (semantics broken after macro expansion)
 CHECK(body.isMember("error") || body.isMember("code"));
 ```
 
-说明：运算符嵌套在**调用/下标/子表达式括号内**（如 `CHECK(f(a || b))`、`CHECK(x == (a || b))`）
-不受影响——它在绑定给 `<=` 之前已求值。`CHECK_THROWS`/`REQUIRE_THROWS` 系列走 `EVAL__`
-路径，也不受影响。
+Note: operators nested **inside call/subscript/sub-expression parentheses** (e.g. `CHECK(f(a || b))`, `CHECK(x == (a || b))`) are unaffected — they are evaluated before being bound to `<=`. The `CHECK_THROWS`/`REQUIRE_THROWS` family goes through the `EVAL__` path and is also unaffected.
 
-**CI 强制**：`tools/test/scripts/drogon_macro_bool_check.py` 扫描 `tests/` 树并对违规
-报错（static-checks 步骤，与命名规范检查并列）；`--selftest` 可自验。
+**CI enforcement**: `tools/test/scripts/drogon_macro_bool_check.py` scans the `tests/` tree and fails on violations (a static-checks step, alongside the naming-convention check); `--selftest` can self-verify.
 
-### Level 4 补充明细 — 安全测试 (Security Tests)
+### Level 4 details — Security Tests
 
-| 测试文件 | 覆盖范围 |
+| Test file | Coverage |
 |---|---|
-| `SecurityTest.cc` | SQL 注入、XSS、命令注入、输入验证、CORS、Token 安全、速率限制、健康检查安全 |
+| `SecurityTest.cc` | SQL injection, XSS, command injection, input validation, CORS, token security, rate limiting, health-check security |
 
-覆盖要点：输入验证（注入/长度/空值）、认证授权（无效凭据、速率限制）、CORS 双向、敏感数据传递、Token 安全（无效/缺失授权码与 Refresh Token）、安全头（含 HSTS）、暴力破解防护、健康检查信息泄露。
+Coverage highlights: input validation (injection/length/null values), authentication and authorization (invalid credentials, rate limiting), CORS in both directions, sensitive-data transmission, token security (invalid/missing authorization codes and refresh tokens), security headers (including HSTS), brute-force protection, health-check information leakage.
 
-### Level 5 补充明细 — E2E / 功能测试 (Functional Tests)
+### Level 5 details — E2E / Functional Tests
 
-| 测试文件 | 覆盖范围 | 依赖 |
+| Test file | Coverage | Dependencies |
 |---|---|---|
-| `IntegrationE2ETest.cc` | 模拟完整 OAuth2 授权码流程：HTTP 请求 → 授权 → 登录 → 换 Token → UserInfo 验证 | Postgres + Redis + 运行中的 Drogon App |
-| `FunctionalTest.cc` | OAuth2 完整流程、错误处理、UTF-8/Emoji 字符、健康检查、RBAC、Token 生命周期、输入验证、速率限制 | Postgres + Redis |
+| `IntegrationE2ETest.cc` | Simulates the complete OAuth2 authorization code flow: HTTP request → authorize → login → token exchange → UserInfo verification | Postgres + Redis + a running Drogon App |
+| `FunctionalTest.cc` | Complete OAuth2 flows, error handling, UTF-8/Emoji characters, health checks, RBAC, token lifecycle, input validation, rate limiting | Postgres + Redis |
 
-覆盖要点：完整授权码流程、错误场景、UTF-8/Emoji 边界、RBAC 未授权路径、Token 生命周期异常路径、超长输入、速率限制检测、端点可用性。
+Coverage highlights: the complete authorization code flow, error scenarios, UTF-8/Emoji boundaries, RBAC unauthorized paths, token lifecycle exception paths, overlong input, rate-limit detection, endpoint availability.
 
-> 用例数量随版本演进，**以 `ctest -N` 实测为准**（当前全套基线见 §7）。
+> Test case counts evolve with each version — **the `ctest -N` measurement is authoritative** (see §7 for the current full-suite baseline).
 
 ---
 
-## 3. 执行方式
+## 3. How to Run
 
-### 方式一：通过 CTest（推荐）
+### Option 1: via CTest (recommended)
 
 ```powershell
-# 在构建完成后执行（目录为 build/<preset>，Windows Release 为 windows-msvc）
+# Run after the build completes (directory is build/<preset>; on Windows Release it is windows-msvc)
 cd build\windows-msvc
 ctest -C Release --output-on-failure --timeout 120
 ```
 
-> **输出策略**：默认仅打印失败用例的日志与末尾汇总（`成功数 / 失败数 / 总数`）。如需查看每个用例（含通过用例）的完整输出，加 `--verbose`（`-V`）；如需完全静默、只看汇总行，加 `-Q`。`manage.sh test-backend -q` / `manage.ps1 test-backend -q` 等价于 `-Q`。
+> **Output policy**: by default only the logs of failed test cases and the final summary (`passed / failed / total`) are printed. To see the full output of every test case (including passing ones), add `--verbose` (`-V`); for complete silence with only the summary line, add `-Q`. `manage.sh test-backend -q` / `manage.ps1 test-backend -q` is equivalent to `-Q`.
 
-### 方式二：直接运行测试可执行文件
+### Option 2: run the test executable directly
 
-测试可执行文件内部会自动启动 Drogon App 实例（`test_main.cc` 中通过信号量同步），**无需手动启动后端服务**。
+The test executable automatically starts a Drogon App instance internally (synchronized via a semaphore in `test_main.cc`); **there is no need to start the backend service manually**.
 
 ```powershell
 cd build\windows-msvc\tests\Release
 .\fulla-tests.exe
 ```
 
-### 方式三：使用 manage 脚本
+### Option 3: use the manage scripts
 
-`manage.ps1`（Windows）/ `manage.sh`（Linux/macOS）封装了与 CI 相同的构建+测试流程：
+`manage.ps1` (Windows) / `manage.sh` (Linux/macOS) wraps the same build + test pipeline used by CI:
 
 ```powershell
-# 构建并运行后端测试套件（与 manage.sh test-backend 等价）
+# Build and run the backend test suite (equivalent to manage.sh test-backend)
 .\manage.ps1 test-backend
 
-# 完整循环：构建 + 单元/集成测试 + 管理端点 API 测试
+# Full loop: build + unit/integration tests + admin endpoint API tests
 .\manage.ps1 full-test
 
-# 仅跑管理端点 / OAuth2 端点的 API 脚本
+# Run only the admin-endpoint / OAuth2-endpoint API scripts
 .\manage.ps1 test-admin-endpoints
 .\manage.ps1 test-oauth2-endpoints
 ```
 
 ---
 
-## 4. 测试输出示例
+## 4. Sample Test Output
 
 ```
 All tests passed (N assertions in M tests)
 ```
 
-如果出现失败，失败的测试名称和断言位置会被打印：
+If a failure occurs, the failed test name and assertion location are printed:
 ```
 In test case SomeTestName
   SomeTestFile.cc:63  FAILED:
     CHECK(c.has_optional())
 ```
 
-**常见失败原因**：
-- Redis 或 PostgreSQL 服务未启动 → 检查服务是否可达
-- Redis 密码不匹配 → 检查 `config.json` 中的 `passwd` 字段
-- 数据库未初始化 → 执行 `apps/server/migrations/` 目录下的迁移脚本（后端在 `FULLA_AUTO_MIGRATE=true` 时也会自动执行）
+**Common failure causes**:
+- Redis or PostgreSQL service not started → check that the services are reachable
+- Redis password mismatch → check the `passwd` field in `config.json`
+- Database not initialized → run the migration scripts under `apps/server/migrations/` (the backend also runs them automatically when `FULLA_AUTO_MIGRATE=true`)
 
 ---
 
-## 5. CI 中的测试
+## 5. Tests in CI
 
-每次 Push 到 `master` 或发起 PR 时，GitHub Actions CI 会自动执行：
+On every push to `master` or PR, GitHub Actions CI automatically:
 
-1. 启动 Postgres 和 Redis Service Container
-2. 初始化数据库 Schema
-3. 编译项目
-4. 运行 `ctest`
+1. Starts the Postgres and Redis service containers
+2. Initializes the database schema
+3. Builds the project
+4. Runs `ctest`
 
-详见 [CI/CD 指南](../contribute/ci-cd-guide)。
-
----
-
-## 6. 测试报告 (Test Reports)
-
-历史的安全/功能测试报告、Bug 状态分析与连接泄漏验证报告属于过程性档案，已随文档治理移出仓库（维护者本地保存）。当前测试状态以 CI 与本节口径为准：
-
-- **CI 全绿**是合入门槛（三平台矩阵，见 [CI/CD 指南](ci-cd-guide.md)）。
-- 安全与功能覆盖面见 §2 Level 4/5 明细；数量以 `ctest -N` 实测为准。
-- 历史报告中的结论性内容（如 April 快照中发现的安全缺陷）已修复并沉淀为回归测试用例。
+See the [CI/CD Guide](../contribute/ci-cd-guide) for details.
 
 ---
 
-## 7. 测试覆盖率总结
+## 6. Test Reports
 
-### 总体测试状态
+Historical security/functional test reports, bug status analyses, and connection-leak verification reports are process archives that were moved out of the repository as part of documentation governance (kept locally by maintainers). Current test status is defined by CI and the scope of this section:
 
-> 以下数字为**实测统计**（Windows MSVC Release 构建，无外部 DB，Postgres/Redis 测试 skip）。在带 Postgres+Redis 的环境（如 Linux CI 或本地 WSL+Docker）下，被 skip 的契约/集成测试会激活，ctest 条目数会进一步增加。
+- **A fully green CI** is the merge gate (three-platform matrix; see the [CI/CD Guide](ci-cd-guide.md)).
+- For security and functional coverage see the §2 Level 4/5 details; counts are authoritative per `ctest -N`.
+- Actionable findings from the historical reports (e.g. security defects found in the April snapshot) have been fixed and preserved as regression test cases.
 
-| 测试来源 | 通过 | 失败 | 总计 | 通过率 |
+---
+
+## 7. Test Coverage Summary
+
+### Overall test status
+
+> The numbers below are **measured statistics** (Windows MSVC Release build, no external DB, Postgres/Redis tests skipped). In an environment with Postgres+Redis (e.g. Linux CI or local WSL+Docker), the skipped contract/integration tests activate and the ctest entry count increases further.
+
+| Test source | Passed | Failed | Total | Pass rate |
 |---------|------|------|------|--------|
-| **按库 gtest 二进制**（2026-06 基线快照；当前全套 ctest 为 501，以 `ctest -N` 实测为准） | 364 | 0 | 364 | 100% |
-| **主测试二进制 ctest 条目**（含 Contract 标签 + OAuth2Tests 全量） | 450 | 0 | 450 | 100% |
+| **Per-library gtest binaries** (2026-06 baseline snapshot; the current full ctest count is 501 — the `ctest -N` measurement is authoritative) | 364 | 0 | 364 | 100% |
+| **Main test binary ctest entries** (including the Contract label + the full OAuth2Tests run) | 450 | 0 | 450 | 100% |
 
-> 注：两列数字有重叠关系——主二进制内含所有 `DROGON_TEST` 单元/集成测试（作为一个 `OAuth2Tests` 条目运行）；按库 gtest 二进制是 Domain 层的纯单元测试，独立编译运行。`450` 条 ctest 中 84 条带 `Contract` 标签（可用 `ctest -L Contract` 单独跑）。
+> Note: the two rows overlap — the main binary contains all `DROGON_TEST` unit/integration tests (run as a single `OAuth2Tests` entry), while the per-library gtest binaries are pure Domain-layer unit tests compiled and run independently. Of the `450` ctest entries, 84 carry the `Contract` label (run them alone with `ctest -L Contract`).
 
-### 代码覆盖率
+### Code coverage
 
-实测行覆盖率（gcov，gcc 13.3 Debug 构建，WSL Ubuntu 24.04，Postgres+Redis 激活；排除 ORM 自动生成的 `models/`；测量于 7ba8068，全部 5 个测试二进制均已执行）：
+Measured line coverage (gcov, gcc 13.3 Debug build, WSL Ubuntu 24.04, Postgres+Redis active; ORM-generated `models/` excluded; measured at 7ba8068 with all 5 test binaries executed):
 
-| 库 | 行覆盖 | 备注 |
+| Library | Line coverage | Notes |
 |---|---|---|
-| libs/common | 69.4% (318/458) | ErrorCatalog/ErrorTypes/ErrorContext/ConfigManager（由 per-lib gtest 二进制 `fulla-common-test` 驱动）；ConfigManager 环境相关分支与 ErrorCatalog 部分分支未覆盖 |
+| libs/common | 69.4% (318/458) | ErrorCatalog/ErrorTypes/ErrorContext/ConfigManager (driven by the per-lib gtest binary `fulla-common-test`); ConfigManager environment-related branches and some ErrorCatalog branches uncovered |
 | libs/identity | **96.9%** (590/609) | Auth/Mfa/WebAuthn/Social/Totp/Session |
-| libs/storage-memory | **97.1%** (431/444) | Memory 后端全方法覆盖（CI 必跑路径） |
+| libs/storage-memory | **97.1%** (431/444) | All methods of the Memory backend covered (the mandatory CI path) |
 | libs/oauth2 | **92.1%** (627/681) | TokenService/AuthService/ClientService/JwkManager/Pkce |
-| libs/storage-redis | 46.2% (306/663) | 契约测试覆盖 getClient/validate/grant/token/consent 主路径；Lua 脚本与 transaction CRUD 待补 |
-| libs/storage-postgres | 43.9% (727/1657) | 契约测试覆盖主路径；剩余盲区为事务/错误回退分支（需注入故障才能触发） |
-| libs/drogon | **53.5%** (4807/8978) | admin 0%→55-69%、admin 控制器 0%→91-100%；authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc 控制器补强；社交 OAuth 控制器经 mock 注入补强（Google 38.3%、WeChat 30.6%、GitHub 32.5%）；WebAuthn 39.2%（非加密 stub，无需 authenticator） |
-| **整体** | **57.9%** (7806/13490) | 上表逐库求和（`scripts/measure_coverage.py` 的 OVERALL 即逐库之和）；从 48.5% 基线提升 +9.4pp |
+| libs/storage-redis | 46.2% (306/663) | Contract tests cover the getClient/validate/grant/token/consent main paths; Lua scripts and transaction CRUD still to be covered |
+| libs/storage-postgres | 43.9% (727/1657) | Contract tests cover the main paths; the remaining blind spots are transaction/error-fallback branches (require fault injection to trigger) |
+| libs/drogon | **53.5%** (4807/8978) | admin 0%→55-69%, admin controllers 0%→91-100%; authorize/health/discovery/mfa/deviceauth/userselfservice/apidoc controllers reinforced; social OAuth controllers reinforced via mock injection (Google 38.3%, WeChat 30.6%, GitHub 32.5%); WebAuthn 39.2% (non-crypto stub, no authenticator needed) |
+| **Overall** | **57.9%** (7806/13490) | Sum of the per-library rows above (the OVERALL of `scripts/measure_coverage.py` is exactly that per-library sum); +9.4pp improvement over the 48.5% baseline |
 
-> 上一轮基线为 48.5% (7091/14631)；本轮通过 admin 层 HTTP 集成测试 + 控制器补强 + 社交 OAuth/WebAuthn 的 mock 注入测试（`tests/common/SocialMockFixture.h` + `libs/identity/include/fulla/identity/testing/` 的共享 Fake）将整体提升到 57.9%。社交 OAuth 的 Google/WeChat/GitHub 均可经 mock 注入在 memory 模式下跑（注入路径不写 DB）；其中 GitHub happy-path 最初因 `issueTokensForUser` 直连 `getDbClient()` 无法在 memory 模式覆盖，随后已重构为经 `OAuth2Plugin::saveTokenPair` 存储抽象持久化（见 `SocialLoginHttpTest.cc` 的 `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens`），happy-path 现已可测（GitHubController 从 5.9% 提升到 32.5%）；WebAuthn 为非加密 stub，Postgres 模式下完整可测。注：此前文档的 58.8% 系旧逐库数字求和（其中 common 的 98.8% 为陈旧数据，现 `libs/common/src` 仅 4 个源文件 458 行，实测 69.4%）；本表已全部替换为 7ba8068 的实测值。剩余盲区：storage-postgres 事务/错误回退分支（需故障注入）。
+> The previous-round baseline was 48.5% (7091/14631); this round raised the overall figure to 57.9% through admin-layer HTTP integration tests + controller reinforcement + mock-injection tests for social OAuth/WebAuthn (`tests/common/SocialMockFixture.h` + the shared Fakes in `libs/identity/include/fulla/identity/testing/`). All of social OAuth's Google/WeChat/GitHub can run in memory mode via mock injection (the injection path writes no DB); the GitHub happy-path initially could not be covered in memory mode because `issueTokensForUser` called `getDbClient()` directly, and was subsequently refactored to persist through the `OAuth2Plugin::saveTokenPair` storage abstraction (see `Integration_P0_GitHubLogin_FakeExchange_ReturnsTokens` in `SocialLoginHttpTest.cc`), so the happy-path is now testable (GitHubController improved from 5.9% to 32.5%); WebAuthn is a non-crypto stub, fully testable in Postgres mode. Note: the 58.8% quoted by an earlier version of this document was a sum of stale per-library numbers (the 98.8% for common was outdated data — `libs/common/src` now has only 4 source files totaling 458 lines, measured at 69.4%); this table has been fully replaced with the values measured at 7ba8068. Remaining blind spots: storage-postgres transaction/error-fallback branches (require fault injection).
 
-#### ⚠ 实测覆盖率必须跑全部 5 个测试二进制
+#### ⚠ Measured coverage requires running all 5 test binaries
 
-实测数字依赖**全部 5 个测试二进制**都执行（仅跑主二进制 `fulla-tests` 会漏掉 4 个 per-lib gtest 二进制贡献的 domain 层覆盖率，common 会被低估到 ~60%）：
+The measured numbers depend on **all 5 test binaries** being executed (running only the main binary `fulla-tests` misses the domain-layer coverage contributed by the 4 per-lib gtest binaries, and common would be underestimated at ~60%):
 
-1. `libs/common/test/fulla-common-test`（40 用例）
-2. `libs/common/testing/test/fulla-common-testing-test`（43 用例）
-3. `libs/identity/test/fulla-identity-test`（130 用例）
-4. `libs/oauth2/test/fulla-oauth2-test`（151 用例）
-5. `tests/fulla-tests`（450 条 ctest，含所有 `DROGON_TEST` 单元/集成/契约/admin HTTP 测试）
+1. `libs/common/test/fulla-common-test` (40 test cases)
+2. `libs/common/testing/test/fulla-common-testing-test` (43 test cases)
+3. `libs/identity/test/fulla-identity-test` (130 test cases)
+4. `libs/oauth2/test/fulla-oauth2-test` (151 test cases)
+5. `tests/fulla-tests` (450 ctest entries, including all `DROGON_TEST` unit/integration/contract/admin HTTP tests)
 
-在 coverage 构建目录下依次运行这 5 个二进制后再聚合 `.gcda`。
+Run these 5 binaries in sequence under the coverage build directory, then aggregate the `.gcda` files.
 
-#### ⚠ gcovr 路径匹配 bug —— 用 `scripts/measure_coverage.py` 代替
+#### ⚠ gcovr path-matching bug — use `scripts/measure_coverage.py` instead
 
-`gcovr 8.6` 对部分文件（如 `ClientManagementService.cc`）会误报 **0%**：raw `gcov` 明确显示 `Lines executed:55.79% of 328`，但 gcovr 的 `--print-summary` 只列出文件名不带百分比（gcovr 的源路径匹配对含绝对路径 + Drogon 头文件的 `.gcov` 输出处理不一致）。这是 gcovr 的已知路径匹配问题，不是零计数 bug（gcov flush 工作正常，见下）。
+`gcovr 8.6` falsely reports **0%** for some files (e.g. `ClientManagementService.cc`): raw `gcov` clearly shows `Lines executed:55.79% of 328`, yet gcovr's `--print-summary` lists only the file name without a percentage (gcovr's source-path matching handles `.gcov` output containing absolute paths + Drogon headers inconsistently). This is a known gcovr path-matching issue, not a zero-count bug (gcov flushing works correctly; see below).
 
-**可靠的聚合方式**：`scripts/measure_coverage.py` 直接用 `gcov -j`（JSON 格式，每文件 `{file, lines[{count, unexecuted_block}]}`）聚合，绕过 gcovr 的文本路径匹配。用法：
+**Reliable aggregation**: `scripts/measure_coverage.py` aggregates directly with `gcov -j` (JSON format, per file `{file, lines[{count, unexecuted_block}]}`), bypassing gcovr's text path matching. Usage:
 
 ```bash
 cd <repo>
-# 先跑全部 5 个二进制（见上一节），再生成 JSON + 聚合：
+# First run all 5 binaries (see the previous section), then generate JSON + aggregate:
 find build/linux-coverage/libs -path "*/src/*" -name "*.gcda" ! -path "*/models/*" \
   | xargs -I{} bash -c 'cd "$(dirname {})" && gcov -j "$(basename {})" >/dev/null 2>&1'
 find build/linux-coverage/libs -path "*/src/*" -name "*.gcov.json.gz" ! -path "*/models/*" \
   | python3 scripts/measure_coverage.py
 ```
 
-gcovr 仍可用于生成逐文件 HTML 报告（`--html-details`），但**汇总百分比以 `scripts/measure_coverage.py` 为准**。
+gcovr is still usable for per-file HTML reports (`--html-details`), but **for summary percentages `scripts/measure_coverage.py` is authoritative**.
 
-#### 覆盖率工具链
+#### Coverage toolchain
 
-- `cmake/Coverage.cmake`（`oauth2_apply_gcov(target)`）给每个 first-party 库 + 测试可执行文件加 `-fprofile-arcs -ftest-coverage`，并显式链接 libgcov（仅 GCC；Clang 的 profile 运行时由 `-fprofile-arcs` 链接选项自动提供，无 libgcov）。
-- `tests/test_main.cc` 在两处 `std::_Exit()` 前显式调用 `__gcov_dump()`：因为 `_Exit` 绕过 `atexit`，libgcov 的计数器 flush 不会自动执行（否则 gcov 读到全 0 计数）。这是 Drogon 测试框架 fast-exit 与 gcov 的已知交互，需在测试 main 里手动补 flush。（注：4 个 per-lib gtest 二进制正常退出，不走 `_Exit`，因此它们不需要手动 flush。）
-- 覆盖率当前阶段性目标：60%（7ba8068 实测 57.9%）。剩余盲区集中在难以 HTTP 测试的分支：WebAuthn 典礼/加密深分支、UserSelfService（需逆向 auth 前置 filter）、storage-postgres 事务/错误回退分支（需故障注入）。社交 OAuth 控制器已可通过 `SocialMockFixture.h` 的 Fake 注入在 memory 模式下覆盖（GitHub happy-path 经 `saveTokenPair` 存储抽象重构后不再依赖 `getDbClient()`）。ORM 自动生成的 `libs/storage-postgres/src/models/*.cc` 已从分母排除。
+- `cmake/Coverage.cmake` (`oauth2_apply_gcov(target)`) adds `-fprofile-arcs -ftest-coverage` to every first-party library + test executable and explicitly links libgcov (GCC only; on Clang the profile runtime is provided automatically by the `-fprofile-arcs` link option, no libgcov).
+- `tests/test_main.cc` explicitly calls `__gcov_dump()` before both `std::_Exit()` sites: because `_Exit` bypasses `atexit`, libgcov's counter flush does not run automatically (otherwise gcov reads all-zero counts). This is a known interaction between the Drogon test framework's fast exit and gcov, requiring a manual flush in the test main. (Note: the 4 per-lib gtest binaries exit normally without `_Exit`, so they need no manual flush.)
+- Current phase target for coverage: 60% (57.9% measured at 7ba8068). The remaining blind spots concentrate in branches that are hard to test over HTTP: deep WebAuthn ceremony/crypto branches, UserSelfService (requires driving the auth pre-filter in reverse), storage-postgres transaction/error-fallback branches (require fault injection). Social OAuth controllers can now be covered in memory mode via the Fake injection of `SocialMockFixture.h` (the GitHub happy-path no longer depends on `getDbClient()` after the `saveTokenPair` storage-abstraction refactor). The ORM-generated `libs/storage-postgres/src/models/*.cc` files are excluded from the denominator.
 
 ---
 
-## 8. 手动验证与 API 测试 (Manual Validation)
+## 8. Manual Validation & API Testing (Manual Validation)
 
-除了自动化测试套件外，项目还提供了用于手动验证端点功能的工具和脚本。
+Beyond the automated test suite, the project also provides tools and scripts for manually validating endpoint functionality.
 
-### 8.1 PowerShell 自动化验证脚本
-项目提供了完整的 OAuth2 端点测试脚本：`scripts/backend/test-oauth2-endpoints.ps1`。
+### 8.1 PowerShell automation script
+The project ships a complete OAuth2 endpoint test script: `scripts/backend/test-oauth2-endpoints.ps1`.
 
-**使用方法：**
+**Usage:**
 ```powershell
-# 临时绕过执行策略运行测试
+# Run the test, temporarily bypassing the execution policy
 powershell -ExecutionPolicy Bypass -File scripts/backend/test-oauth2-endpoints.ps1
 ```
-该脚本会依次执行健康检查、登录、授权码交换、UserInfo 访问及管理员面板验证。
+The script runs, in order: a health check, login, authorization code exchange, UserInfo access, and admin panel verification.
 
-### 8.2 多环境 API 测试 (curl)
-不同的命令行工具对 curl 语法的支持不同：
+### 8.2 Multi-environment API testing (curl)
+Different command-line tools vary in their support for curl syntax:
 
-*   **PowerShell (推荐)**: 使用 `Invoke-RestMethod`。
-*   **Git Bash**: 支持标准的 Unix 单引号语法。
-*   **CMD**: 需要使用双引号并转义 `&` 符号为 `^&`。
+*   **PowerShell (recommended)**: use `Invoke-RestMethod`.
+*   **Git Bash**: supports standard Unix single-quote syntax.
+*   **CMD**: requires double quotes and escaping `&` as `^&`.
 
-**示例：登录并获取 JSON 响应**
+**Example: log in and get a JSON response**
 ```bash
-# Git Bash 示例
+# Git Bash example
 curl -X POST http://127.0.0.1:5555/oauth2/login \
   -d 'username=admin&password=admin&client_id=vue-client&redirect_uri=http://localhost:5173/callback&json=true'
 ```
 
 ---
 
-## 9. 故障排查 (Troubleshooting)
+## 9. Troubleshooting
 
-### 9.1 常见问题与对策
-*   **服务器无法启动**：检查端口 5555 是否被占用 (`netstat -ano | findstr :5555`)，并确保 `config.json` 路径正确。
-*   **登录失败 (400)**：确认用户名密码匹配，且数据库中存在该用户。检查 `redirect_uri` 是否与配置完全一致。
-*   **Token 交换失败**：授权码 (Code) 仅能使用一次且有有效期。确保 `client_id` 和 `client_secret` 正确。
-*   **PowerShell 脚本限制**：如提示“禁止运行脚本”，请使用 `-ExecutionPolicy Bypass` 参数。
+### 9.1 Common problems and remedies
+*   **Server fails to start**: check whether port 5555 is occupied (`netstat -ano | findstr :5555`) and make sure the `config.json` path is correct.
+*   **Login fails (400)**: confirm the username and password match and that the user exists in the database. Check that `redirect_uri` exactly matches the configuration.
+*   **Token exchange fails**: the authorization code can be used only once and has a validity window. Make sure `client_id` and `client_secret` are correct.
+*   **PowerShell script restriction**: if you see a "running scripts is disabled" message, use the `-ExecutionPolicy Bypass` parameter.
 
-### 9.2 调试技巧
-*   **日志级别**：排错时可在 `config.json` 中临时将 `log_level` 调为 `DEBUG`（甚至 `TRACE`）以获取详细输出，定位完成后调回 `INFO`。完整的六级语义与约定见 [observability.md §3.2](../operate/observability.md)。
-*   **实时日志**：使用 `Get-Content apps/server/logs/drogon.log -Wait -Tail 20` 监控运行状态。
+### 9.2 Debugging tips
+*   **Log level**: when troubleshooting, temporarily set `log_level` in `config.json` to `DEBUG` (or even `TRACE`) for verbose output, and back to `INFO` once the issue is located. For the full six-level semantics and conventions see [observability.md §3.2](../operate/observability.md).
+*   **Live logs**: use `Get-Content apps/server/logs/drogon.log -Wait -Tail 20` to monitor the running state.
 
 ---
 
-**相关文档**:
-- [Security Architecture](../architecture/security-architecture.md) - 安全加固与安全架构设计
-- [Data Consistency](../architecture/data-persistence.md) - 数据一致性和威胁模型
-- [API Reference](../domains/api-reference.md) - API 接口文档
+**Related documentation**:
+- [Security Architecture](../architecture/security-architecture.md) - security hardening and security architecture design
+- [Data Consistency](../architecture/data-persistence.md) - data consistency and the threat model
+- [API Reference](../domains/api-reference.md) - API interface documentation

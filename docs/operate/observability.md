@@ -1,86 +1,86 @@
-# OAuth2 可观测性设计文档 (Observability)
+# OAuth2 Observability Design
 
-本系统集成了完整的 Prometheus 监控指标与结构化上下文日志，支持生产环境的实时监控与问题排查。
+The system integrates complete Prometheus monitoring metrics and structured, context-aware logging, supporting real-time monitoring and troubleshooting in production.
 
 ## 1. Prometheus Metrics
 
-系统通过 Exporter 暴露标准的 Prometheus 指标。
+The system exposes standard Prometheus metrics through an exporter.
 
-### 1.1 指标列表
+### 1.1 Metric List
 
-| 指标名称 | 类型 | 标签 (Labels) | 说明 |
+| Metric | Type | Labels | Description |
 |----------|------|--------------|------|
-| `oauth2_requests_total` | Counter | `endpoint`, `status` | OAuth2 请求总数 |
-| `oauth2_login_failures_total` | Counter | `reason` | 登录失败次数 |
-| `oauth2_introspect_requests_total` | Counter | `client_id` | Token Introspection 请求总数 |
-| `oauth2_introspect_errors_total` | Counter | `client_id`, `error` | Introspection 错误次数 |
-| `oauth2_revocation_requests_total` | Counter | `client_id` | Token Revocation 请求总数 |
-| `oauth2_revocation_errors_total` | Counter | `client_id`, `error` | Revocation 错误次数 |
-| `oauth2_latency_seconds` | Histogram | `operation`, `storage` | 关键步骤（含存储后端）耗时分布 |
-| `oauth2_active_tokens` | Gauge | — | 当前活跃（未过期）Token 估算值 |
+| `oauth2_requests_total` | Counter | `endpoint`, `status` | Total OAuth2 requests |
+| `oauth2_login_failures_total` | Counter | `reason` | Login failures |
+| `oauth2_introspect_requests_total` | Counter | `client_id` | Total token introspection requests |
+| `oauth2_introspect_errors_total` | Counter | `client_id`, `error` | Introspection errors |
+| `oauth2_revocation_requests_total` | Counter | `client_id` | Total token revocation requests |
+| `oauth2_revocation_errors_total` | Counter | `client_id`, `error` | Revocation errors |
+| `oauth2_latency_seconds` | Histogram | `operation`, `storage` | Latency distribution of key steps (including storage backend) |
+| `oauth2_active_tokens` | Gauge | — | Current estimate of active (unexpired) tokens |
 
-> 指标由 `libs/drogon/src/observability/Metrics.cc` 与 `libs/drogon/src/adapters/DrogonMetrics.cc` 统一发射（经 `LOG_INFO` 的 `[METRIC]` 结构化日志，供 PromExporter/日志采集端消费），定义见 `libs/drogon/include/fulla/drogon/observability/Metrics.h`。
+> Metrics are emitted uniformly by `libs/drogon/src/observability/Metrics.cc` and `libs/drogon/src/adapters/DrogonMetrics.cc` (as `[METRIC]` structured logs via `LOG_INFO`, consumed by PromExporter/log collectors); definitions live in `libs/drogon/include/fulla/drogon/observability/Metrics.h`.
 
-### 1.2 监控面板示例 (Grafana)
+### 1.2 Sample Dashboard Panels (Grafana)
 
-建议配置以下面板：
+Recommended panels:
 
 - **QPS & Error Rate**: `rate(oauth2_requests_total[1m])` vs `rate(oauth2_login_failures_total[1m])`
 - **P99 Latency**: `histogram_quantile(0.99, rate(oauth2_latency_seconds_bucket[1m]))`
-- **Business**: Active Tokens trend.
+- **Business**: Active tokens trend.
 
-## 2. Structured Logging (结构化日志)
+## 2. Structured Logging
 
-系统采用上下文感知的结构化日志，便于 Splunk/ELK 收集分析。
+The system uses context-aware structured logging that Splunk/ELK can easily collect and analyze.
 
-### 2.1 Audit Logs (审计日志)
+### 2.1 Audit Logs
 
-关键安全操作（如颁发 Token）会输出带有 `[AUDIT]` 标记的日志。
+Critical security operations (such as token issuance) emit logs tagged with `[AUDIT]`.
 
-**格式**:
+**Format**:
 `[AUDIT] Action={Action} User={UserId} Client={ClientId} Success={True/False} IP={RemoteAddr}`
 
-**示例**:
+**Example**:
 
 ```
 2026-01-18 10:00:00 INFO [AUDIT] Action=IssueToken User=admin Client=vue-client Success=True
 2026-01-18 10:05:00 WARN [AUDIT] Action=ExchangeCode User=admin Client=vue-client Success=False Reason="Replay Detected"
 ```
 
-### 2.2 Contextual Logs (上下文日志)
+### 2.2 Contextual Logs
 
-在请求处理链路中，所有日志自动附带 `RequestId`，用于关联分布式追踪。
+Along the request-processing chain, every log line automatically carries a `RequestId` for correlation in distributed tracing.
 
 ```cpp
 LOG_INFO << "Processing request"; // 输出: [ReqId: abc-123] Processing request
 ```
 
-## 3. 配置与集成
+## 3. Configuration and Integration
 
-### 3.1 开启 Metrics
+### 3.1 Enabling Metrics
 
-默认情况下，Metrics Exporter 监听 `/metrics` 端点（需在 Drogon 配置文件中开启 Exporter）。
+By default the metrics exporter listens on the `/metrics` endpoint (the exporter must be enabled in the Drogon configuration file).
 
-### 3.2 日志级别
+### 3.2 Log Levels
 
-系统统一使用六级日志，等级与 Drogon/Trantor 的内置级别一一对应（trace < debug < info < warn < error < fatal）：
+The system uses six log levels throughout, mapping one-to-one to Drogon/Trantor's built-in levels (trace < debug < info < warn < error < fatal):
 
-| 等级 | 含义 | 典型场景 |
+| Level | Meaning | Typical scenarios |
 |------|------|----------|
-| `trace` | 最细粒度追踪 | 函数入参 / 出参、循环迭代、逐行执行轨迹，用于深度调试定位 |
-| `debug` | 调试信息 | 变量值、分支走向、内部状态变化，开发阶段排查问题用 |
-| `info` | 常规信息 | 服务启动 / 停止、关键流程节点、用户登录、任务完成等正常业务事件 |
-| `warn` | 警告 | 可恢复的异常、降级处理、配置使用默认值、资源接近阈值等，系统仍能正常运行 |
-| `error` | 错误 | 功能失败、请求异常、数据库连接失败等，影响单次操作但服务整体可用 |
-| `fatal` | 致命错误 | 导致服务崩溃、无法继续运行的严重故障，需立即告警并人工介入 |
+| `trace` | Finest-grained tracing | Function inputs/outputs, loop iterations, line-by-line execution traces — for deep debugging and pinpointing |
+| `debug` | Debug information | Variable values, branch decisions, internal state changes — for troubleshooting during development |
+| `info` | Routine information | Service start/stop, key flow milestones, user logins, task completion and other normal business events |
+| `warn` | Warnings | Recoverable anomalies, degraded handling, configuration falling back to defaults, resources nearing thresholds — the system still runs normally |
+| `error` | Errors | Feature failures, request errors, database connection failures — affect a single operation but the service remains available overall |
+| `fatal` | Fatal errors | Severe faults that crash the service or prevent it from running; requires immediate alerting and human intervention |
 
-**约定**：
+**Conventions**:
 
-- 生产环境默认开启 `info` 及以上级别；`trace`/`debug` 按需动态开启。
-- 等级越高输出越少，`fatal` 应极少出现。
-- `apps/server/config/config.prod.json` 默认为 `INFO`，`config.dev.json` 默认为 `DEBUG`，`config.json`/`config.ci.json` 默认为 `DEBUG`。
+- Production enables `info` and above by default; `trace`/`debug` are enabled dynamically on demand.
+- Higher levels log less; `fatal` should be extremely rare.
+- `apps/server/config/config.prod.json` defaults to `INFO`, `config.dev.json` defaults to `DEBUG`, and `config.json`/`config.ci.json` default to `DEBUG`.
 
-**动态调整**：修改配置文件 `app.log.log_level` 字段即可，可选值为 `TRACE`/`DEBUG`/`INFO`/`WARN`/`ERROR`/`FATAL`（不区分大小写）：
+**Dynamic adjustment**: edit the `app.log.log_level` field in the configuration file; allowed values are `TRACE`/`DEBUG`/`INFO`/`WARN`/`ERROR`/`FATAL` (case-insensitive):
 
 ```json
 "app": {
@@ -90,10 +90,10 @@ LOG_INFO << "Processing request"; // 输出: [ReqId: abc-123] Processing request
 }
 ```
 
-**代码约定**：
+**Code conventions**:
 
-- Domain 层（`libs/common`、`libs/oauth2`、`libs/identity`）**不得**直接使用 Drogon 的 `LOG_*` 宏，必须经 `fulla::common::ports::ILogger` 端口，以便单元测试可用 `FakeLogger` 捕获并断言。
-- Adapter / 基础设施层（`libs/drogon`、`libs/storage-*`、`apps/server`）可直接使用 `LOG_*` 宏。
-- 六级对应关系：`LogLevel::Trace`→`LOG_TRACE`、`Debug`→`LOG_DEBUG`、`Info`→`LOG_INFO`、`Warn`→`LOG_WARN`、`Error`→`LOG_ERROR`、`Fatal`→`LOG_FATAL`。
+- The domain layer (`libs/common`, `libs/oauth2`, `libs/identity`) **must not** use Drogon's `LOG_*` macros directly; it must go through the `fulla::common::ports::ILogger` port so that unit tests can capture and assert with `FakeLogger`.
+- The adapter / infrastructure layer (`libs/drogon`, `libs/storage-*`, `apps/server`) may use `LOG_*` macros directly.
+- Six-level mapping: `LogLevel::Trace`→`LOG_TRACE`, `Debug`→`LOG_DEBUG`, `Info`→`LOG_INFO`, `Warn`→`LOG_WARN`, `Error`→`LOG_ERROR`, `Fatal`→`LOG_FATAL`.
 
-> 关于测试输出的最小化策略（ctest 默认仅打印失败用例与汇总），见 [testing-guide.md](../contribute/testing-guide.md)。
+> For the test-output minimization strategy (ctest prints only failed cases and a summary by default), see [testing-guide.md](../contribute/testing-guide.md).

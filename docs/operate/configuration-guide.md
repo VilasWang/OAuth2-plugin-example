@@ -1,48 +1,51 @@
-# 配置指南
+# Configuration Guide
 
-## 1. 环境变量注入
+## 1. Environment Variable Injection
 
-应用支持用环境变量覆盖关键配置项。这在 Docker/Kubernetes 环境下尤为重要——
-敏感信息不应硬编码在 `config.json` 中。
+The application supports overriding key configuration items with environment variables. This matters
+especially in Docker/Kubernetes environments — sensitive values should not be hardcoded in
+`config.json`.
 
-### 支持的环境变量
+### Supported Environment Variables
 
-| 变量名 | 说明 | 覆盖的配置路径 | 示例 |
+| Variable | Description | Config path overridden | Example |
 |---|---|---|---|
-| `FULLA_DB_HOST` | 数据库主机名 | `db_clients[0].host` | `postgres` |
-| `FULLA_DB_NAME` | 数据库名 | `db_clients[0].dbname` | `fulla_db` |
-| `FULLA_DB_PASSWORD` | 数据库密码 | `db_clients[0].passwd` | `secret` |
-| `FULLA_REDIS_HOST` | Redis 主机名 | `redis_clients[0].host` | `redis` |
-| `FULLA_REDIS_PASSWORD` | Redis 密码 | `redis_clients[0].passwd` | `secret` |
-| `FULLA_VUE_CLIENT_SECRET` | Vue 客户端密钥 | `plugins[OAuth2Plugin].config.clients.vue-client.secret` | `...` |
+| `FULLA_DB_HOST` | Database host | `db_clients[0].host` | `postgres` |
+| `FULLA_DB_NAME` | Database name | `db_clients[0].dbname` | `fulla_db` |
+| `FULLA_DB_PASSWORD` | Database password | `db_clients[0].passwd` | `secret` |
+| `FULLA_REDIS_HOST` | Redis host | `redis_clients[0].host` | `redis` |
+| `FULLA_REDIS_PASSWORD` | Redis password | `redis_clients[0].passwd` | `secret` |
+| `FULLA_VUE_CLIENT_SECRET` | Vue client secret | `plugins[OAuth2Plugin].config.clients.vue-client.secret` | `...` |
 
-> 生产部署的完整环境变量清单（30+ 项）见[生产部署](deployment.md)的变量表；本表只列注入机制的六个核心项。
+> For the full production environment variable list (30+ entries), see the variable table in
+> [Production Deployment](deployment.md); this table lists only the six core items of the
+> injection mechanism.
 
-### 工作机制
+### How It Works
 
-1. **加载钩子**：启动时 `main.cc` 的 `loadConfiguration()` 先调用 `common::config::ConfigManager::load()`，再调用 `ConfigManager::validate()`。
-2. **解析**：把基础 `config.json` 读入 `Json::Value` 对象。
-3. **注入**：检查上述环境变量是否存在；存在则就地更新 `Json::Value` 中对应节点。
-4. **加载**：Drogon 通过 `drogon::app().loadConfigJson(config)` 直接加载修改后的配置对象，磁盘上不产生临时文件。
+1. **Load hook**: at startup, `loadConfiguration()` in `main.cc` first calls `common::config::ConfigManager::load()`, then `ConfigManager::validate()`.
+2. **Parse**: the base `config.json` is read into a `Json::Value` object.
+3. **Inject**: the environment variables above are checked; when present, the corresponding nodes in the `Json::Value` are updated in place.
+4. **Load**: Drogon loads the modified configuration object directly via `drogon::app().loadConfigJson(config)`; no temporary files are written to disk.
 
-### 验证
+### Verification
 
-专用测试 `EnvInjectionVerify`（`EnvConfigTest.cc`）保证该逻辑正确。
+A dedicated test, `EnvInjectionVerify` (`EnvConfigTest.cc`), guarantees this logic is correct.
 
-## 2. Docker 部署
+## 2. Docker Deployment
 
-仓库内置 `docker-compose.yml` 编排全栈（详解见 [Docker 部署](docker-deployment.md)）。
+The repository ships a `docker-compose.yml` that orchestrates the full stack (see [Docker Deployment](docker-deployment.md) for details).
 
-### 服务栈
+### Service Stack
 
-- **fulla-frontend**：Vue SPA + Nginx（构建自 `deploy/docker/Dockerfile` 的 `frontend-runtime`）。
-- **fulla-admin**：管理后台前端（构建自 `frontends/admin/Dockerfile`）。
-- **fulla-backend**：Drogon 后端（构建自 `deploy/docker/Dockerfile` 的 `backend-runtime`）。
-- **fulla-postgres**：PostgreSQL 17（后端启动时经 `FULLA_AUTO_MIGRATE=true` 应用 `apps/server/migrations/` 下的 schema）。
-- **fulla-redis**：带密码保护的 Redis 7。
-- **fulla-prometheus**：指标采集。
+- **fulla-frontend**: Vue SPA + Nginx (built from the `frontend-runtime` stage of `deploy/docker/Dockerfile`).
+- **fulla-admin**: admin console frontend (built from `frontends/admin/Dockerfile`).
+- **fulla-backend**: Drogon backend (built from the `backend-runtime` stage of `deploy/docker/Dockerfile`).
+- **fulla-postgres**: PostgreSQL 17 (schema under `apps/server/migrations/` applied at backend startup via `FULLA_AUTO_MIGRATE=true`).
+- **fulla-redis**: password-protected Redis 7.
+- **fulla-prometheus**: metrics collection.
 
-### 快速开始
+### Quick Start
 
 ```bash
 # 构建并启动（在仓库根目录执行）
@@ -55,103 +58,109 @@ docker compose -f deploy/docker/docker-compose.yml logs -f fulla-backend
 docker compose -f deploy/docker/docker-compose.yml down
 ```
 
-### Docker 下的配置处理
+### Configuration Handling under Docker
 
-`docker-compose.yml` 将 `apps/server/config/config.json` 只读挂载进容器；
-`environment` 段注入环境变量（见 §1），运行时经 `ConfigManager::load()` +
-环境注入覆盖文件默认值。
+`docker-compose.yml` mounts `apps/server/config/config.json` into the container read-only;
+the `environment` section injects environment variables (see §1), and at runtime
+`ConfigManager::load()` plus environment injection override the file defaults.
 
-## 3. 存储后端选择
+## 3. Storage Backend Selection
 
-OAuth2 插件的 `config.storage_type` 决定持久化后端：
+The OAuth2 plugin's `config.storage_type` determines the persistence backend:
 
-| `storage_type` | 状态 | 说明 |
+| `storage_type` | Status | Notes |
 |---|---|---|
-| `postgres` | **支持（唯一生产后端）** | 完整令牌持久化、refresh token 轮换与重用检测。 |
-| `redis` | **已弃用** | 历史上从未持久化 refresh token（`saveRefreshToken`/`getRefreshToken` 为空操作），轮换与重用检测静默失效。该模式仍可启动（兼容考虑，启动时打 ERROR 日志），但 `refresh_token` 授权会以 `unsupported_grant_type` 被拒绝。新部署不要使用。 |
-| `memory` | 仅测试 | 面向单元/集成测试，不用于生产。 |
+| `postgres` | **Supported (the only production backend)** | Full token persistence, refresh token rotation and reuse detection. |
+| `redis` | **Deprecated** | Never persisted refresh tokens historically (`saveRefreshToken`/`getRefreshToken` are no-ops), so rotation and reuse detection silently fail. The mode still starts (for compatibility; it logs an ERROR at startup), but the `refresh_token` grant is rejected with `unsupported_grant_type`. Do not use in new deployments. |
+| `memory` | Test only | For unit/integration tests; not for production. |
 
-目标架构：**Postgres 作为存储层，前置一个在线 Redis L2 缓存**（键空间
-`fulla:cache:*`，经 `config.json` 的 `cache` 块配置 `enabled` /
-`ttl_seconds` / `invalidation_double_delete_delay_ms`；失效采用延迟双删，
-见 `DelayedDoubleDelete`）。不存在独立 Redis 存储模式。
+Target architecture: **Postgres as the storage layer, fronted by an online Redis L2 cache**
+(keyspace `fulla:cache:*`, configured via the `cache` block in `config.json` — `enabled` /
+`ttl_seconds` / `invalidation_double_delete_delay_ms`; invalidation uses the delayed
+double-delete, see `DelayedDoubleDelete`). There is no standalone Redis storage mode.
 
-## 4. Issuer 配置
+## 4. Issuer Configuration
 
-`config.metadata.issuer`（custom config）是服务器 issuer URL 的唯一事实源。
-`OAuth2Plugin` 启动时读取一次，一致地用于：
+`config.metadata.issuer` (custom config) is the single source of truth for the server's issuer
+URL. `OAuth2Plugin` reads it once at startup and uses it consistently for:
 
-- 签发 access token 时打上的 `iss` 声明（authorization_code / refresh_token / client_credentials / device_code 授权）；
-- 内省响应的 `iss`（存储行未携带时以配置值回填）；
-- 发现文档（`/.well-known/openid-configuration`、`/.well-known/oauth-authorization-server`）。
+- the `iss` claim stamped on issued access tokens (authorization_code / refresh_token / client_credentials / device_code grants);
+- `iss` in introspection responses (backfilled from the configured value when the stored row carries none);
+- the discovery documents (`/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server`).
 
-约束：
+Constraints:
 
-- 末尾斜杠会被自动规范化掉，不要依赖它。
-- 未设置时默认 `http://localhost:5555`，此时打 `LOG_WARN`。
-- 生产部署**必须**配置 `https://` issuer；非回环主机上使用明文 http issuer 会有启动告警。
-- 内省 `iss` 与发现文档 `issuer` 保证逐字节一致（OIDC Discovery §3 要求）。
+- Trailing slashes are normalized away automatically; do not rely on them.
+- Defaults to `http://localhost:5555` when unset, with a `LOG_WARN`.
+- Production deployments **must** configure an `https://` issuer; a plaintext http issuer on a non-loopback host triggers a startup warning.
+- Introspection `iss` and the discovery documents' `issuer` are guaranteed byte-for-byte identical (as OIDC Discovery §3 requires).
 
-## 5. 客户端令牌端点认证方式（F-017）
+## 5. Client Token-Endpoint Authentication Methods (F-017)
 
-每个客户端通过 `oauth2_clients.token_endpoint_auth_method` 列声明其在
-`/oauth2/token`、`/oauth2/introspect`、`/oauth2/revoke` 的认证方式：
+Each client declares, via the `oauth2_clients.token_endpoint_auth_method` column, how it
+authenticates at `/oauth2/token`, `/oauth2/introspect`, and `/oauth2/revoke`:
 
-| 取值 | 语义 |
+| Value | Semantics |
 |---|---|
-| `client_secret_basic` | 密钥**必须**走 `Authorization: Basic` 头；body 携带 `client_secret` 会被拒绝。 |
-| `client_secret_post` | 密钥**必须**走 POST body；Basic 头会被拒绝。 |
-| `none` | PUBLIC 客户端；携带任何 `client_secret` 都会被拒绝。 |
-| NULL / 空 | 旧版宽松回退：接受 Basic 头，也接受 body 密钥（Basic→body 回退）。 |
+| `client_secret_basic` | The secret **must** be sent in the `Authorization: Basic` header; a `client_secret` in the body is rejected. |
+| `client_secret_post` | The secret **must** be sent in the POST body; the Basic header is rejected. |
+| `none` | PUBLIC client; any `client_secret` present is rejected. |
+| NULL / empty | Legacy lenient fallback: accepts the Basic header and also a body secret (Basic→body fallback). |
 
-注册/管理端创建时若省略该字段，按以下默认值落库：
+When the field is omitted at creation through the registration/admin endpoints, the following
+defaults are stored:
 
-- `PUBLIC` 客户端 → `none`（本就没有密钥）。
-- `CONFIDENTIAL` 客户端 → `client_secret_basic`。
+- `PUBLIC` clients → `none` (they have no secret to begin with).
+- `CONFIDENTIAL` clients → `client_secret_basic`.
 
-种子客户端均显式声明：`vue-client` 与 `admin-console` → `none`；
-`backend-svc` → `client_secret_basic`。已有 NULL 值的客户端保持升级前的
-行为，升级不破坏存量部署。
+Seed clients declare it explicitly: `vue-client` and `admin-console` → `none`;
+`backend-svc` → `client_secret_basic`. Existing clients with NULL values keep their
+pre-upgrade behavior; the upgrade does not break existing deployments.
 
-## 6. OIDC prompt / max_age / auth_time（F-022）
+## 6. OIDC prompt / max_age / auth_time (F-022)
 
-授权端点支持 OIDC Core §3.1.2.1 的 `prompt` 与 `max_age` 参数：
+The authorization endpoint supports the `prompt` and `max_age` parameters from OIDC Core
+§3.1.2.1:
 
-- **`prompt=none`**：禁止任何 UI。无会话 → 302 `error=login_required`；
-  需要同意 → `error=consent_required`。错误会带着回显的 `state` 重定向回
-  已验证的 `redirect_uri`。`none` 与其他值组合（如 `none login`）自相矛盾，
-  直接返回 400。
-- **`prompt=login`**：即使已有会话也强制重新认证。
-- **`prompt=consent`**：即使既有同意已覆盖所请求的 scope，也强制显示同意页。
-- **`max_age=<秒>`**：若会话的 `auth_time`（登录 / MFA 验证时设置）早于
-  `max_age`，强制重新认证。
+- **`prompt=none`**: no UI of any kind. No session → 302 `error=login_required`;
+  consent required → `error=consent_required`. Errors redirect back to the validated
+  `redirect_uri` carrying the echoed `state`. Combining `none` with other values (such as
+  `none login`) is self-contradictory and returns 400 outright.
+- **`prompt=login`**: forces re-authentication even when a session already exists.
+- **`prompt=consent`**: forces the consent page even when existing consent already covers the requested scopes.
+- **`max_age=<seconds>`**: forces re-authentication if the session's `auth_time` (set at
+  login / MFA verification) is older than `max_age`.
 
-`auth_time` 与 `amr` 随授权码持久化，并在换票时打进 id_token：`auth_time`
-（大于 0 时）、`amr`（设置时为 JSON 数组）、`acr`（`1` = 仅密码，`2` = MFA）。
-发现文档宣告 `prompt_values_supported`、`acr_values_supported` 与相关 claims。
+`auth_time` and `amr` are persisted with the authorization code and included in the id_token
+at redemption: `auth_time` (when greater than 0), `amr` (a JSON array when set), `acr`
+(`1` = password only, `2` = MFA). The discovery document advertises
+`prompt_values_supported`, `acr_values_supported`, and related claims.
 
-## 7. RP-Initiated Logout（F-027）与会话失效（F-028）
+## 7. RP-Initiated Logout (F-027) and Session Invalidation (F-028)
 
-`/oauth2/end_session`（GET + POST）终结服务端会话。要在登出后重定向，
-客户端须提供 `post_logout_redirect_uri`，且它**必须**是该客户端已注册的
-redirect URI 之一；客户端由 `id_token_hint` 的 `aud` 声明识别。hint 的
-签名**会**被验证（RS256 + kid + iss/exp/sub 策略，issue #78），验证失败以
-400 `AUTH_INVALID_ID_TOKEN_HINT` 拒绝。没有合法 hint + 已注册 URI 时请求
-被 400 拒绝；成功时带 `state` 回显 302 重定向，未提供重定向 URI 时返回 200。
+`/oauth2/end_session` (GET + POST) terminates the server-side session. To redirect after
+logout, the client must supply a `post_logout_redirect_uri`, and it **must** be one of the
+client's registered redirect URIs; the client is identified by the `aud` claim of the
+`id_token_hint`. The hint's signature **is** verified (RS256 + kid + iss/exp/sub policy,
+issue #78); failed verification is rejected with 400 `AUTH_INVALID_ID_TOKEN_HINT`. Without
+a valid hint plus a registered URI, the request is rejected with 400; on success a 302
+redirect carries the echoed `state`, and a 200 is returned when no redirect URI is provided.
 
-`POST /oauth2/logout`（既有的 API 登出）额外调用 `session()->clear()`
-（F-028），因此服务端会话随 access token 撤销一并终结。
+`POST /oauth2/logout` (the existing API logout) additionally calls `session()->clear()`
+(F-028), so the server-side session is terminated together with access-token revocation.
 
-## 8. 认证失败限流（F-018）
+## 8. Authentication Failure Rate Limiting (F-018)
 
-token / introspect / revoke / device-code 轮询四个端点共享一个进程内
-滑动窗口限流器，按 `(client_ip, client_id)` 分桶。滚动窗口
-（默认 60s）内**失败**计数达 `max_failures`（默认 30）后，后续请求返回
-**HTTP 429**，带 `Retry-After` 头与 OAuth2 风格的
-`{error, error_description}` 响应体。只计**失败**；一次成功即清零，因此
-正常负载（以及大量连续成功请求的集成测试套件）不会被限流。
+The token / introspect / revoke / device-code polling endpoints share one in-process
+sliding-window rate limiter, bucketed by `(client_ip, client_id)`. Once **failed** attempts
+within the rolling window (default 60s) reach `max_failures` (default 30), subsequent
+requests return **HTTP 429** with a `Retry-After` header and an OAuth2-style
+`{error, error_description}` body. Only **failures** count; a single success resets the
+counter, so normal load (and integration suites making many consecutive successful requests)
+is never rate-limited.
 
-经 `custom_config.auth.rate_limit` 配置（所有 `config*.json` 都显式携带默认值）：
+Configured via `custom_config.auth.rate_limit` (all `config*.json` carry the defaults
+explicitly):
 
 ```json
 "custom_config": {
@@ -166,19 +175,21 @@ token / introspect / revoke / device-code 轮询四个端点共享一个进程�
 }
 ```
 
-两个键均可省略；`rate_limit` 对象缺失时使用内置默认（30 / 60）。限流器是
-函数局部单例（`libs/common/include/fulla/common/utils/RateLimiter.h` 的
-`RateLimiter::instance()`），四个受保护端点在同一进程内共享一份计数表。
-这是最小化的暴力破解/令牌探测防护；多实例部署需要共享存储（Redis），
-为后续工作。
+Both keys may be omitted; when the `rate_limit` object is missing, built-in defaults are used
+(30 / 60). The limiter is a function-local singleton (`RateLimiter::instance()` from
+`libs/common/include/fulla/common/utils/RateLimiter.h`); the four protected endpoints share
+one counter table within the same process. This is minimal brute-force / token-probing
+protection; multi-instance deployments require shared storage (Redis), which is future work.
 
-## 9. JWKS 密钥轮换（F-029 —— 运维待办）
+## 9. JWKS Key Rotation (F-029 — Operations To-Do)
 
-JWKS 端点（`/.well-known/jwks.json`）当前只服务**单个静态 `kid`**，在插件
-启动时由配置的 JWK 物料初始化一次（`OAuth2Plugin::initAndStart()` →
-`JwkManager::init()`）。**轮换尚未实现**：没有轮换周期、没有 kid 滚动窗口、
-没有双密钥发布。当前密钥签发的令牌在其整个生命周期内有效；轮换密钥会使
-前任密钥签发的所有存量令牌失效。
+The JWKS endpoint (`/.well-known/jwks.json`) currently serves a **single static `kid`**,
+initialized once at plugin startup from the configured JWK material
+(`OAuth2Plugin::initAndStart()` → `JwkManager::init()`). **Rotation is not implemented**:
+there is no rotation schedule, no kid rolling window, and no dual-key publication. Tokens
+signed by the current key remain valid for their entire lifetime; rotating the key would
+invalidate all outstanding tokens signed by its predecessor.
 
-生产轮换已登记为运维待办。在此之前，将密钥泄露纳入威胁模型的运维者应
-以新 JWK 物料重启服务器（并接受此前签发的全部令牌失效）。
+Production rotation is registered as an operations to-do. Until then, operators who include
+key compromise in their threat model should restart the server with new JWK material (and
+accept the invalidation of all previously issued tokens).

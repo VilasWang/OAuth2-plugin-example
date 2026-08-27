@@ -2,23 +2,20 @@
 sidebar_position: 0
 ---
 
-# 开始
+# Getting Started
 
-**Fulla** 是以 C++17 构建的高性能开源身份与访问管理（IAM）核心：生产级 OAuth2/OIDC
-授权服务器，完整覆盖用户认证、MFA、WebAuthn、RBAC 与多租户——既可作为**开箱即用的
-产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(fulla-*)`）集成。
+**fulla** is a high-performance, open-source identity and access management (IAM) core built in C++17: a production-grade OAuth2/OIDC authorization server with full coverage of user authentication, MFA, WebAuthn, RBAC, and multi-tenancy — it can be deployed as an **out-of-the-box product** (Docker/Helm) or integrated as an **embeddable C++ SDK** (`find_package(fulla-*)`).
 
-快速入口：
+Quick entry points:
 
-| 你想… | 去 |
+| If you want to… | Go to |
 |---|---|
-| 五分钟了解架构 | [架构总览](architecture/architecture-overview) |
-| 跑起来试试 | [Docker 部署](operate/docker-deployment) · README 的 [Quick Start](https://github.com/voidvec/fulla#quick-start) |
-| 把 OAuth2 引擎嵌进你的 C++ 项目 | [SDK 集成指南](sdk/sdk-integration-guide) |
-| 用任意语言调 HTTP API | [API 参考](domains/api-reference) · [OIDC 集成](domains/oidc-guide) |
-| 部署到生产 | [生产部署](operate/deployment) · [配置指南](operate/configuration-guide) |
-| 理解某个设计为什么是这样 | [ADR 决策记录](adr/ADR-0001.md) |
-| 给项目贡献 | [贡献区](contribute/testing-guide) |
+| Understand the architecture in five minutes | [Architecture Overview](architecture/architecture-overview) |
+| Get it running | [Docker Deployment](operate/docker-deployment) · [Quick Start](https://github.com/voidvec/fulla#quick-start) in the README |
+| Embed the OAuth2 engine in your C++ project | [SDK Integration Guide](sdk/sdk-integration-guide) |
+| Call the HTTP API from any language | [API Reference](domains/api-reference) · [OIDC Integration](domains/oidc-guide) |
+| Deploy to production | [Production Deployment](operate/deployment) · [Configuration Guide](operate/configuration-guide) |
+| Understand why a design is the way it is | [ADR Decision Records](adr/ADR-0001.md) |
+| Contribute to the project | [Contribute](contribute/testing-guide) |
 
-本站内容直接来自[仓库的 docs/ 目录](https://github.com/voidvec/fulla/tree/master/docs)
-（单一事实源，零拷贝）；发现错误请提 PR 修改仓库文档，站点随 master 自动重建。
+The content on this site comes directly from [the repository's docs/ directory](https://github.com/voidvec/fulla/tree/master/docs) (single source of truth, zero copying); if you find an error, please open a PR against the repository documentation — the site is rebuilt automatically from master.

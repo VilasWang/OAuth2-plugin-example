@@ -1,299 +1,334 @@
 # Versioning & Release Policy
 
-Fulla 的版本号方案、bump 判定规则、发布节奏、预发布与补丁通道，以及
-版本发布的标准操作流程（SOP）。
+fulla's version numbering scheme, bump decision rules, release cadence, pre-release
+and patch channels, and the standard operating procedure (SOP) for shipping a
+release.
 
-本文档是版本治理（governance）的单一出处。**版本工程的"怎么做"（CI 流水
-线、签名、SBOM）由 [`.github/workflows/release.yml`](../../.github/workflows/release.yml)
-实现；本文回答的是"何时发版、bump 什么、为什么"。** 二者冲突时，以本文为
-准并修流水线。
+This document is the single source of truth for versioning governance. **The "how"
+of release engineering (CI pipeline, signing, SBOM) is implemented by
+[`.github/workflows/release.yml`](https://github.com/voidvec/fulla/blob/master/.github/workflows/release.yml); this
+document answers "when to release, what to bump, and why".** When the two
+conflict, this document wins — fix the pipeline.
 
-> 相关文档：
-> - [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2 声明了 ABI / 源码级
->   SemVer 承诺与弃用流程，本文是其版本治理侧的展开。
-> - [CI/CD Guide](../contribute/ci-cd-guide) 描述 release 流水线在整体 CI 中的位置。
+> Related documents:
+> - [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2 declares the ABI /
+>   source-level SemVer commitments and the deprecation process; this document
+>   expands on their versioning-governance side.
+> - [CI/CD Guide](../contribute/ci-cd-guide) describes where the release pipeline
+>   sits in the overall CI.
 
 ---
 
-## 1. 版本号方案
+## 1. Version Numbering Scheme
 
 ### 1.1 SemVer 2.0.0
 
-Fulla 遵循 [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)：
+fulla follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html):
 
 ```
 MAJOR.MINOR.PATCH[-prerelease]
    1  .  0 .  0  -rc.1
 ```
 
-| 段 | bump 依据（简述，详见 §2 决策表） | 兼容性承诺 |
+| Segment | Bump trigger (summary; see the decision table in §2) | Compatibility commitment |
 |---|---|---|
-| **MAJOR** | 破坏性变更（breaking change） | 无 —— 用户需改代码 |
-| **MINOR** | 新增功能、向后兼容 | 源码兼容 |
-| **PATCH** | 向后兼容的缺陷修复 | 源码兼容 |
-| **prerelease** | `-alpha.N` / `-beta.N` / `-rc.N` | 无承诺 |
+| **MAJOR** | Breaking change | None — users must change their code |
+| **MINOR** | New functionality, backwards compatible | Source compatible |
+| **PATCH** | Backwards-compatible defect fixes | Source compatible |
+| **prerelease** | `-alpha.N` / `-beta.N` / `-rc.N` | No commitment |
 
-> v1.x 的"源码兼容"边界由 [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2
-> 明确：仅覆盖 `libs/*/include/fulla/**` 公共头的**源码级 API**，不承诺
-> 二进制 ABI。
+> The boundary of "source compatible" for v1.x is defined by
+> [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2: it covers only the
+> **source-level API** of the public headers under `libs/*/include/fulla/**` and
+> makes no binary-ABI commitment.
 
-### 1.2 版本号单一来源（SSoT）
+### 1.2 Single source of truth for the version number (SSoT)
 
-| 组件 | 版本来源 | 同步校验 |
+| Component | Version source | Sync validation |
 |---|---|---|
-| C++ 库 + server | [`cmake/Version.cmake`](../../cmake/Version.cmake) 的 `MAJOR/MINOR/PATCH` | ✅ `tools/api-diff/api_diff.py` 交叉校验 `Version.cmake` / `CMakeLists.txt project(VERSION)` / `conanfile.py version` |
-| Docker 镜像 | 由 `release.yml` 从 `Version.cmake` 读取 | GHCR tag = `<version>` |
-| DB schema | `apps/server/migrations/V0NN_*.sql` 编号 | **不耦合产品版本**（见 §6） |
+| C++ libraries + server | `MAJOR/MINOR/PATCH` in [`cmake/Version.cmake`](https://github.com/voidvec/fulla/blob/master/cmake/Version.cmake) | ✅ `tools/api-diff/api_diff.py` cross-checks `Version.cmake` / `CMakeLists.txt project(VERSION)` / `conanfile.py version` |
+| Docker images | Read from `Version.cmake` by `release.yml` | GHCR tag = `<version>` |
+| DB schema | The numbering of `apps/server/migrations/V0NN_*.sql` | **Not coupled to the product version** (see §6) |
 
-**任何版本发布的第一步都是改 `cmake/Version.cmake`**；三处版本号漂移会被
-`api-diff` 在 `release.yml` 的 `version-check` job 拦截。
+**The first step of any release is editing `cmake/Version.cmake`**; version drift
+across the three locations is intercepted by `api-diff` in the `version-check`
+job of `release.yml`.
 
 ---
 
-## 2. 版本号 bump 决策表
+## 2. Version Bump Decision Table
 
-一个改动到底触发 MAJOR / MINOR / PATCH bump？按下表判定。**当多行命中时，
-取最高级别（MAJOR > MINOR > PATCH）。**
+Which bump does a change trigger — MAJOR / MINOR / PATCH? Decide with the table
+below. **When multiple rows match, take the highest level (MAJOR > MINOR >
+PATCH).**
 
-| 改动类型 | → MAJOR | → MINOR | → PATCH |
+| Change type | → MAJOR | → MINOR | → PATCH |
 |---|:---:|:---:|:---:|
-| SDK 公共头**删除 / 重命名 / 签名变更 / 默认实参变更**（api-diff 判为 BREAKING） | ✅ | | |
-| 公共 API **行为语义变更**（返回值含义、错误码、副作用、协议字段语义） | ✅ | | |
-| 最低 C++ 标准 / 编译器版本提升 | ✅ | | |
-| Drogon / Postgres / Redis **大版本**依赖升级 | ✅ | | |
-| 配置项**删除**或**改默认值且旧行为无法兼容** | ✅ | | |
-| DB schema 的**破坏性 migration**（删列 / 改类型无回填 / 重命名） | ✅ | | |
-| 新增 SDK API / 新 OAuth2 端点 / 新 OIDC claim | | ✅ | |
-| 已有 API 的**新增可选参数 / 字段**（带默认值） | | ✅ | |
-| 新增可选配置项（旧配置仍可工作） | | ✅ | |
-| 新增可选依赖 | | ✅ | |
-| 性能优化（不改公共 API） | | ✅ | |
-| `feat:` conventional commit（无 `!`） | | ✅ | |
-| `fix:` conventional commit —— API 行为回归到"正确" | | | ✅ |
-| 安全漏洞修复（CVE 类，不改 API） | | | ✅ |
-| 文档 / 测试 / CI 修复（若决定发版） | | | ✅ |
-| 纯 `docs: / test: / chore: / build: / ci:` 提交 | | | 不发版 |
+| SDK public header **removed / renamed / signature changed / default argument changed** (judged BREAKING by api-diff) | ✅ | | |
+| **Behavioral semantics change** of a public API (meaning of return values, error codes, side effects, protocol field semantics) | ✅ | | |
+| Raise of the minimum C++ standard / compiler version | ✅ | | |
+| **Major-version** dependency upgrade of Drogon / Postgres / Redis | ✅ | | |
+| Config option **removed**, or **default value changed with no compatible old behavior** | ✅ | | |
+| **Breaking migration** of the DB schema (column drop / type change without backfill / rename) | ✅ | | |
+| New SDK API / new OAuth2 endpoint / new OIDC claim | | ✅ | |
+| **New optional parameter / field** on an existing API (with default value) | | ✅ | |
+| New optional config option (old configs keep working) | | ✅ | |
+| New optional dependency | | ✅ | |
+| Performance optimization (no public API change) | | ✅ | |
+| `feat:` conventional commit (no `!`) | | ✅ | |
+| `fix:` conventional commit — API behavior regressing back to "correct" | | | ✅ |
+| Security vulnerability fix (CVE-type, no API change) | | | ✅ |
+| Docs / tests / CI fixes (if a release is decided) | | | ✅ |
+| Purely `docs: / test: / chore: / build: / ci:` commits | | | No release |
 
-### Conventional Commits → bump 自动映射
+### Conventional Commits → bump automatic mapping
 
-提交前缀与 bump 的默认映射（`!` 后缀或 `BREAKING CHANGE:` footer 强制升
-MAJOR）：
+The default mapping from commit prefix to bump (an `!` suffix or a
+`BREAKING CHANGE:` footer forces MAJOR):
 
 ```
 feat:     → MINOR      feat!:    → MAJOR
 fix:      → PATCH      fix!:     → MAJOR
 perf:     → PATCH      perf!:    → MAJOR
-refactor: → 不发版（除非 !）
-docs/test/chore/build/ci: → 不发版
+refactor: → no release (unless !)
+docs/test/chore/build/ci: → no release
 ```
 
-scope 不改变默认映射，但 maintainer 可按 scope 上调（见 §3）。`cliff.toml`
-的 commit parser 已与上表对齐。
+A scope does not change the default mapping, but a maintainer may raise the level
+based on the scope (see §3). The commit parser in `cliff.toml` is already aligned
+with the table above.
 
 ---
 
-## 3. 安全 hardening 的"灰色地带"——显式取舍声明
+## 3. The security-hardening "gray zone" — an explicit trade-off statement
 
-OAuth/OIDC 合规审计产生的一类改动特殊：它们**收紧了原本宽松的行为**（例：
-强制 redirect_uri https、强制 PKCE、CONFIDENTIAL 客户端 refresh grant 强制
-client_secret）。这类改动：
+One category of changes arising from OAuth/OIDC compliance audits is special:
+they **tighten previously lenient behavior** (e.g. enforcing https
+redirect_uri, enforcing PKCE, requiring client_secret for the refresh grant of
+CONFIDENTIAL clients). Such changes:
 
-- **严格 SemVer 视角**：是 breaking（依赖旧宽松行为的下游会断）。
-- **行业惯例**：多在 MINOR bump 内推进，Release Notes 显著标注。
+- **From a strict SemVer perspective**: breaking (downstreams relying on the old
+  lenient behavior break).
+- **Industry practice**: mostly shipped within a MINOR bump, prominently flagged
+  in the Release Notes.
 
-**Fulla 的取舍：**
+**fulla's trade-off:**
 
-> 安全 hardening 在 **MINOR** 内推进，**不强制 MAJOR**。理由：本项目此前的
-> "宽松行为"本身就是 spec 违规（bug），修复是回归正确，不是产品语义的有意
-> 改变。但每次此类改动**必须**在 Release Notes 的 **⚠️ Breaking (security
-> hardening)** 小节显式列出，并给出迁移指引。
+> Security hardening ships within a **MINOR** and does **not force a MAJOR**.
+> Rationale: the previous "lenient behavior" was itself a spec violation (a bug);
+> fixing it is a return to correctness, not an intentional change of product
+> semantics. But every such change **must** be explicitly listed in the
+> **⚠️ Breaking (security hardening)** section of the Release Notes, together
+> with migration guidance.
 
-这是**显式权衡**，不是含糊处理。若某次 hardening 的影响面经评估确实广泛
-（例：移除整个 grant type），仍应走 MAJOR + pre-release 通道（见 §5）。
+This is an **explicit trade-off**, not a vague compromise. If the impact of a
+particular hardening is assessed as genuinely broad (e.g. removing an entire
+grant type), it should still go through the MAJOR + pre-release channel
+(see §5).
 
 ---
 
-## 4. 发布节奏（cadence）
+## 4. Release Cadence
 
-采用**混合模式**：周期性 MINOR + 按需 PATCH + 紧急安全 hotfix。
+A **hybrid model**: periodic MINOR + on-demand PATCH + emergency security
+hotfix.
 
-| 事件 | 触发条件 |
+| Event | Trigger |
 |---|---|
-| **计划性 MINOR**（新功能） | 每 **4–6 周** 一次；或累计 ≥ 3 个 `feat:` commit 时 |
-| **PATCH**（bug fix） | 累计 ≥ 5 个 `fix:` commit；或有用户报告的 bug 已修复 |
-| **紧急安全 PATCH** | P0 / CVE 漏洞修复后**立即**（不等 cadence） |
-| **MAJOR** | 有 breaking change 累积时；必须走 pre-release 通道（§5） |
+| **Scheduled MINOR** (new features) | Every **4–6 weeks**; or when ≥ 3 `feat:` commits have accumulated |
+| **PATCH** (bug fix) | When ≥ 5 `fix:` commits have accumulated; or when a user-reported bug has been fixed |
+| **Emergency security PATCH** | **Immediately** after a P0 / CVE vulnerability fix (without waiting for the cadence) |
+| **MAJOR** | When breaking changes have accumulated; must go through the pre-release channel (§5) |
 
-节奏是**指引不是教条**：无值得发版的改动时跳过一个周期完全正常；反之 P0
-安全修复永远立即发版。
+The cadence is **guidance, not dogma**: skipping a cycle when nothing
+release-worthy changed is perfectly fine; conversely, a P0 security fix always
+ships immediately.
 
 ---
 
-## 5. Pre-release 通道
+## 5. Pre-release Channel
 
-正式 MAJOR 发布前走阶梯式预发布：
+Before an official MAJOR release, go through a staged pre-release ladder:
 
 ```
 v2.0.0-alpha.1 → alpha.2 → … → v2.0.0-beta.1 → … → v2.0.0-rc.1 → … → v2.0.0
 ```
 
-| 阶段 | 语义 | 接受的改动 |
+| Stage | Semantics | Accepted changes |
 |---|---|---|
-| `alpha.N` | 功能可能不全，CI 不保证通过 | 任何（含新功能、行为调整） |
-| `beta.N` | 功能冻结，征集反馈 | bug fix + 反馈驱动的非破坏调整 |
-| `rc.N` | 发布候选 | **仅** P0/P1 bug fix |
-| （去后缀） | 正式版 | 不接受新改动 |
+| `alpha.N` | Functionality may be incomplete; CI not guaranteed to pass | Anything (including new features, behavior adjustments) |
+| `beta.N` | Feature freeze, feedback gathering | Bug fixes + non-breaking feedback-driven adjustments |
+| `rc.N` | Release candidate | **Only** P0/P1 bug fixes |
+| (suffix removed) | Official release | No new changes accepted |
 
-**镜像 tag 规则**：
-- 正式版 → 打 `<version>` **和** `latest`
-- pre-release → **只打** `<version>`（如 `v2.0.0-rc.1`），**不打** `latest`
+**Image tag rules**:
+- Official release → tagged `<version>` **and** `latest`
+- pre-release → tagged **only** `<version>` (e.g. `v2.0.0-rc.1`), **not**
+  `latest`
 
-> **当前流水线状态**：`release.yml` 的 tag 触发模式 `v[0-9]+.[0-9]+.[0-9]+`
-> **不接受后缀**，故 pre-release tag 当前不会触发发版。启用 pre-release
-> 通道需扩展该正则以匹配 `v[0-9]+.[0-9]+.[0-9]+(-[a-z]+\.[0-9]+)?`，并在
-> `github-release` job 按 tag 是否含 `-` 决定是否标记 GitHub Release 为
-> "Pre-release" 且跳过 `latest` manifest 合并。这是本 policy 的**待实施
-> 改造项**（见 §11）。
-
----
-
-## 6. DB Schema 版本与产品版本解耦
-
-Fulla 用编号式 migration（`V001_*` … `V0NN_*`），编号独立递增。
-
-- **新增 migration（加表 / 加列 / 加索引）** = 向后兼容 → 触发 **MINOR** 评估。
-- **破坏性 migration（删列 / 改类型无回填 / 重命名）** → 触发 **MAJOR** 评估。
-- Schema 版本表只记录 migration 应用历史，**不**映射到 `MAJOR.MINOR.PATCH`。
+> **Current pipeline status**: the tag trigger pattern of `release.yml`,
+> `v[0-9]+.[0-9]+.[0-9]+`, **accepts no suffix**, so pre-release tags currently
+> do not trigger a release. Enabling the pre-release channel requires extending
+> that regex to match `v[0-9]+.[0-9]+.[0-9]+(-[a-z]+\.[0-9]+)?` and, in the
+> `github-release` job, deciding from whether the tag contains `-` whether to
+> mark the GitHub Release as "Pre-release" and skip the `latest` manifest merge.
+> This is a **pending pipeline change** of this policy (see §11).
 
 ---
 
-## 7. Release Branch 与 Patch Release
+## 6. DB Schema Versioning Is Decoupled from the Product Version
 
-当 v1.2.0 发布后，主线开发 v1.3.0。若 v1.2.0 发现 P0 漏洞：
+fulla uses numbered migrations (`V001_*` … `V0NN_*`) whose numbers increment
+independently.
+
+- **Additive migration (new table / new column / new index)** = backwards
+  compatible → triggers a **MINOR** assessment.
+- **Breaking migration (column drop / type change without backfill / rename)**
+  → triggers a **MAJOR** assessment.
+- The schema version table only records the migration application history and
+  does **not** map to `MAJOR.MINOR.PATCH`.
+
+---
+
+## 7. Release Branch and Patch Release
+
+After v1.2.0 is released, the mainline develops v1.3.0. If a P0 vulnerability
+is found in v1.2.0:
 
 ```
-master:  ──●──●──●──●──●──●──→  (开发 v1.3.0)
+master:  ──●──●──●──●──●──●──→  (developing v1.3.0)
                \
 release/1.2:    └──●(cherry-pick fix)──● tag v1.2.1
 ```
 
-**约定**：
-- 分支命名：`release/<MAJOR>.<MINOR>`（如 `release/1.2`）。
-- 该分支**只接受 cherry-pick 的 bug fix**，不接受新功能。
-- 每个 patch release 打一个 `v<MAJOR>.<MINOR>.<PATCH>` tag，触发 `release.yml`。
-- **维护窗口**：仅维护**最新一个** release branch 的 patch。上一个 branch
-  在新 minor 发布后 EOL（不提供 LTS —— 见 §8）。
+**Conventions**:
+- Branch naming: `release/<MAJOR>.<MINOR>` (e.g. `release/1.2`).
+- The branch **accepts only cherry-picked bug fixes**, no new features.
+- Each patch release cuts a `v<MAJOR>.<MINOR>.<PATCH>` tag, which triggers
+  `release.yml`.
+- **Maintenance window**: patches are maintained only for the **latest**
+  release branch. The previous branch is EOL once a new minor is released
+  (no LTS — see §8).
 
 ---
 
-## 8. LTS（长期支持）
+## 8. LTS (Long-Term Support)
 
-**当前阶段不提供 LTS。** 仅维护最新 minor 的 patch release。当下游用户规模
-增长、升级成本显现时再评估是否引入 LTS（如 Node.js / Kubernetes 模式）。
-
----
-
-## 9. `latest` tag 语义与生产部署
-
-- `:latest` 指向**最新正式版**（不含 pre-release）。
-- [`deploy/docker/docker-compose.prod.yml`](../../deploy/docker/docker-compose.prod.yml)
-  使用 `${FULLA_VERSION:-latest}`：部署便利的默认值。
-- ⚠️ **生产部署应显式 pin 到具体版本号**（`FULLA_VERSION=1.2.0`），
-  不要依赖 `latest` —— 它会在新版本发布时不可控地滚动。
+**No LTS at the current stage.** Only the latest minor's patch releases are
+maintained. Whether to introduce LTS (à la the Node.js / Kubernetes model) will
+be reconsidered when the downstream user base grows and upgrade costs become
+visible.
 
 ---
 
-## 10. 弃用流程（Deprecation）
+## 9. `latest` Tag Semantics and Production Deployment
 
-与 [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2 一致：
-
-1. 在当次 MINOR 发布时，用 `[[deprecated("Use X instead; removed in vN.0")]]`
-   标注被弃用的 API。
-2. Release Notes 的 **Deprecated** 段记录该弃用 + 迁移指引。
-3. **至少保留一个 MINOR 周期**（建议两个）。
-4. 在下一个 MAJOR 删除。
-
-非 SDK 的弃用（配置项、端点参数）遵循同样的"标注 → 过渡 → 删除"流程，
-标注方式用 Release Notes + 配置加载时的 LOG_WARNING。
+- `:latest` points to the **latest official release** (pre-releases excluded).
+- [`deploy/docker/docker-compose.prod.yml`](https://github.com/voidvec/fulla/blob/master/deploy/docker/docker-compose.prod.yml)
+  uses `${FULLA_VERSION:-latest}`: a default for deployment convenience.
+- ⚠️ **Production deployments should pin an explicit version number**
+  (`FULLA_VERSION=1.2.0`) instead of relying on `latest` — it rolls
+  uncontrollably whenever a new version is published.
 
 ---
 
-## 11. 版本发布标准操作流程（SOP）
+## 10. Deprecation Process
 
-### 11.1 正式版 MINOR / PATCH（从 master）
+Consistent with [SDK Runtime Contract](../sdk/sdk-runtime-contract.md) §2:
+
+1. At the current MINOR release, annotate the deprecated API with
+   `[[deprecated("Use X instead; removed in vN.0")]]`.
+2. Record the deprecation + migration guidance in the **Deprecated** section of
+   the Release Notes.
+3. **Keep it for at least one MINOR cycle** (two recommended).
+4. Remove it in the next MAJOR.
+
+Non-SDK deprecations (config options, endpoint parameters) follow the same
+"annotate → transition → remove" process, using Release Notes plus a
+LOG_WARNING at config load time as the annotation mechanism.
+
+---
+
+## 11. Release Standard Operating Procedure (SOP)
+
+### 11.1 Official MINOR / PATCH (from master)
 
 ```sh
-# 1. 确认 master 绿（CI 全过）
+# 1. Confirm master is green (CI fully passing)
 git checkout master && git pull
 
-# 2. 更新版本号 SSoT
-#    编辑 cmake/Version.cmake 的 MINOR 或 PATCH
+# 2. Update the version number SSoT
+#    Edit MINOR or PATCH in cmake/Version.cmake
 
-# 3. 校验 API 表面（关键步骤）
+# 3. Validate the API surface (critical step)
 python3 tools/api-diff/api_diff.py
-#   - additive drift（新增头/新增声明）→ MINOR 允许，ratify:
+#   - additive drift (new headers / new declarations) → allowed for MINOR, ratify:
 #       python3 tools/api-diff/api_diff.py --update-baseline
-#   - breaking drift（删/改声明）→ 必须先确认 MAJOR 已 bump；
-#     若属"私有成员/include 重排"等不影响消费表面的改动，需 review 后:
+#   - breaking drift (removed / changed declarations) → MAJOR must be confirmed
+#     bumped first; for changes that do not affect the consumed surface (private
+#     members / include reordering, etc.), after review:
 #       python3 tools/api-diff/api_diff.py --force --update-baseline
 
-# 4. 生成 CHANGELOG 草稿，再手工策展
+# 4. Generate a CHANGELOG draft, then curate manually
 git cliff --unreleased --tag vX.Y.Z --prepend CHANGELOG.md
-#   手工编辑要点：
-#     - 归类到 Added / Fixed / Changed / Security / Deprecated / ⚠️ Breaking
-#     - 安全 hardening 进 ⚠️ Breaking (security hardening) 小节 + 迁移指引
-#     - 删除无信息量的条目
+#   Manual editing essentials:
+#     - Categorize into Added / Fixed / Changed / Security / Deprecated / ⚠️ Breaking
+#     - Put security hardening into the ⚠️ Breaking (security hardening) section + migration guidance
+#     - Drop entries with no information value
 
-# 5. 提交版本号 + baseline + CHANGELOG
+# 5. Commit the version number + baseline + CHANGELOG
 git add cmake/Version.cmake tools/api-diff/*.baseline CHANGELOG.md
 git commit -m "chore(release): vX.Y.Z"
 
-# 6. 打 tag 并推送 —— 触发 release.yml
+# 6. Tag and push — triggers release.yml
 git tag vX.Y.Z
 git push origin master --tags
 ```
 
-`release.yml` 自动完成：version-check → SDK tarball → 多架构镜像 → cosign
-签名 → SBOM → GitHub Release（含 git-cliff 生成的 notes + 验证指引）。
+`release.yml` completes automatically: version-check → SDK tarball →
+multi-arch images → cosign signing → SBOM → GitHub Release (with
+git-cliff-generated notes + verification guidance).
 
-### 11.2 紧急安全 PATCH（从 release branch）
+### 11.2 Emergency Security PATCH (from a release branch)
 
 ```sh
-# 1. 基于 release/<MAJOR>.<MINOR> 分支 cherry-pick fix commit
+# 1. Cherry-pick the fix commit onto the release/<MAJOR>.<MINOR> branch
 git checkout release/1.2
 git cherry-pick <fix-commit-sha>
 
-# 2. 在该分支上 bump PATCH（步骤同 11.1 的 2–6，但操作对象是 release branch）
+# 2. Bump PATCH on that branch (same steps 2–6 as 11.1, but targeting the release branch)
 ```
 
-### 11.3 MAJOR（走 pre-release 通道）
+### 11.3 MAJOR (via the pre-release channel)
 
 ```sh
-# 1. 在 master（或专用候选分支）上累积 breaking 改动
-# 2. bump MAJOR，依次打 prerelease tag：
-git tag v2.0.0-alpha.1 && git push --tags   # → alpha 阶段
-# ... 反馈迭代 ...
-git tag v2.0.0-beta.1  && git push --tags   # → beta 阶段
-git tag v2.0.0-rc.1    && git push --tags   # → rc 阶段（仅修 P0/P1）
-# 3. rc 通过后去掉后缀即正式版：
+# 1. Accumulate breaking changes on master (or a dedicated candidate branch)
+# 2. Bump MAJOR, then tag prereleases in sequence:
+git tag v2.0.0-alpha.1 && git push --tags   # → alpha stage
+# ... feedback iterations ...
+git tag v2.0.0-beta.1  && git push --tags   # → beta stage
+git tag v2.0.0-rc.1    && git push --tags   # → rc stage (only P0/P1 fixes)
+# 3. Once rc passes, drop the suffix for the official release:
 git tag v2.0.0         && git push --tags
-# 4. 正式版发布后创建 release/2.0 分支
+# 4. After the official release, create the release/2.0 branch
 git checkout -b release/2.0 v2.0.0 && git push origin release/2.0
 ```
 
-> ⚠️ §5 已述：pre-release tag 当前**不触发** `release.yml`。启用此通道前
-> 需先完成流水线改造（见 §12 待办）。
+> ⚠️ As stated in §5: pre-release tags currently do **not trigger**
+> `release.yml`. Complete the pipeline change (see the §12 backlog) before
+> enabling this channel.
 
 ---
 
-## 12. 待办（本 policy 与现状的差距）
+## 12. Backlog (Gaps Between This Policy and the Current State)
 
-| # | 项 | 解决的问题 |
+| # | Item | Problem it solves |
 |---|---|---|
-| **T1** | 写本文档（✅ 本文件） | 此前无成文 bump 规则 |
-| **T2** | 执行 v1.0.0 以来的首次正式发版（v1.0.1 或 v1.1.0） | 840 个 commit 堆积在 v1.0.0 后未释放 |
-| **T3** | 扩展 `release.yml` tag 触发模式 + `latest` 跳过逻辑，启用 pre-release 通道 | 当前 prerelease tag 不触发发版 |
-| **T4** | 在 prod 部署文档（`docker-deployment.md`）加 `latest` 警告交叉引用 | 默认 `latest` 对生产有滚动风险 |
-| **T5** | 定义 release branch 命名约定并在 README 加指针（首次实际需要时再立分支） | patch release 流程未实例化 |
+| **T1** | Write this document (✅ this file) | No written bump rules before |
+| **T2** | Execute the first official release since v1.0.0 (v1.0.1 or v1.1.0) | 840 commits piled up after v1.0.0, unreleased |
+| **T3** | Extend the `release.yml` tag trigger pattern + `latest` skip logic, enabling the pre-release channel | Prerelease tags currently do not trigger a release |
+| **T4** | Add a `latest` warning cross-reference to the prod deployment doc (`docker-deployment.md`) | The `latest` default poses a rolling-update risk in production |
+| **T5** | Define the release branch naming convention and add a pointer in the README (create the branch when first actually needed) | The patch release process is not yet instantiated |
 
-T1 是本文件；T2 是当务之急；T3–T5 可在对应场景首次出现时落地。
+T1 is this file; T2 is the immediate priority; T3–T5 can land when their
+scenarios first occur.

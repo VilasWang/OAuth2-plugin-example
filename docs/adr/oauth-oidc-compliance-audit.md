@@ -1,9 +1,12 @@
 ---
-title: 档案 · OAuth/OIDC 规范性审查报告（2026-08-07 基线）
-date: 2026-08-07
-status: 已整改（31 项发现全部修复并有回归测试守护）
-sidebar_label: 档案 · 合规尽调报告
+title: Archive · OAuth/OIDC Compliance Audit (2026-08-07 baseline, in Chinese)
 ---
+
+> **Language note**: this is a historical trust archive kept in its original
+> Chinese. The 2026-08-07 OAuth/OIDC compliance-audit baseline (all 31
+> findings fixed, regression-tested) is preserved verbatim for third-party
+> assessors. The current security design lives in
+> [Security Architecture](../architecture/security-architecture.md).
 
 > 本报告是 2026-08-07 对 fulla（时名 authforge）的完整 OAuth/OIDC 合规尽调
 > **基线快照**：逐条附 file:line 证据与规范章节引文。报告发布后所有发现均已在
