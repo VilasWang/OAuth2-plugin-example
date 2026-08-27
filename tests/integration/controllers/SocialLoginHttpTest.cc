@@ -509,8 +509,11 @@ DROGON_TEST(Integration_P0_GitHubLogin_IssuedToken_AuthenticatedEndpointsWork)
     linkUserBody["id"] = 60692;
     linkUserBody["login"] = "gh-user-60692";
     h2.http->getResponses.push_back(fulla::identity::testing::okJson(linkUserBody));
+    // #71: the link POST must carry the one-time state minted for THIS user
+    // (adminId) and provider; the handle's memory store mints synchronously.
     Json::Value codeJson;
     codeJson["code"] = "c-75";
+    codeJson["state"] = h2.mintState(adminId, "github");
     auto linkResp = sendPostJson("/api/me/social/links/github", codeJson, tokens->first);
     REQUIRE(linkResp != nullptr);
     CHECK(statusIs(linkResp, drogon::k200OK));

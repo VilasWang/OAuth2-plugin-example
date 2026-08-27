@@ -35,6 +35,7 @@ using fulla::test::http::parseJsonBody;
 using fulla::test::http::postgresAvailable;
 using fulla::test::http::sendGet;
 using fulla::test::http::sendPostForm;
+using fulla::test::http::sendPostJson;
 using fulla::test::http::serverReachable;
 using fulla::test::http::statusIs;
 
@@ -452,21 +453,33 @@ DROGON_TEST(Integration_P1_OidcBatch2_BackchannelLogout_DualSubjectForm_CoversBo
       std::chrono::high_resolution_clock::now().time_since_epoch().count() % 1000000
     );
 
+    // Admin-scoped token: the throwaway client is registered through the
+    // admin API (canonical schema path; the notifier reads its row directly,
+    // but hand-rolled SQL here once used non-existent columns and the
+    // resulting uncaught DrogonDbException fast-failed the whole binary).
+    auto adminTokens = loginAsUserTokens("admin", "admin", "openid profile admin");
+    REQUIRE(adminTokens.has_value());
+    const std::string adminBearer = adminTokens->get("access_token", "").asString();
+    REQUIRE(!adminBearer.empty());
+
     // Shared fake: preloaded OK responses; postFormCalls counts fan-outs.
     auto http = std::make_shared<fulla::identity::testing::FakeOAuthHttpClient>();
     http->postFormResponses.push_back(fulla::identity::testing::okJson(Json::Value(Json::objectValue)));
     http->postFormResponses.push_back(fulla::identity::testing::okJson(Json::Value(Json::objectValue)));
 
-    // A client with a backchannel URI (registered via the admin API is not
-    // needed -- the notifier reads the row directly).
-    const std::string clientId = "dualsub-cli-" + suffix;
-    db->execSqlSync(
-      "INSERT INTO oauth2_clients (client_id, client_name, client_type, client_secret, "
-      "redirect_uri, backchannel_logout_uri, is_active) "
-      "VALUES ($1, $2, 'CONFIDENTIAL', 'dualsub-secret', 'http://127.0.0.1:9/callback', "
-      "'http://127.0.0.1:9/backchannel', true) ON CONFLICT (client_id) DO NOTHING",
-      clientId, clientId
-    );
+    // A client with a backchannel URI (https -- B1 validates the scheme).
+    Json::Value createBody;
+    createBody["name"] = "dualsub-cli-" + suffix;
+    createBody["redirect_uris"] = "http://127.0.0.1:9/callback";
+    createBody["client_type"] = "CONFIDENTIAL";
+    createBody["backchannel_logout_uri"] = "https://example.test/backchannel";
+    auto createResp = sendPostJson("/api/admin/clients", createBody, adminBearer);
+    REQUIRE(createResp != nullptr);
+    REQUIRE(statusIs(createResp, drogon::k201Created));
+    Json::Value created;
+    REQUIRE(parseJsonBody(createResp, created));
+    const std::string clientId = created["client_id"].asString();
+    REQUIRE(!clientId.empty());
 
     // A user; capture both subject forms.
     const std::string uname = "dualsub_" + suffix;
@@ -487,13 +500,14 @@ DROGON_TEST(Integration_P1_OidcBatch2_BackchannelLogout_DualSubjectForm_CoversBo
         publicSub = rows[0]["public_sub"].as<std::string>();
         REQUIRE(!publicSub.empty());
     }
-    // One token row per subject form, both active, same client.
+    // One token row per subject form, both active, same client. Column names
+    // per V002: the PK is `token` (not token_hash).
     const auto insertToken = [&](const std::string &form, const char *tag) {
         db->execSqlSync(
-          "INSERT INTO oauth2_access_tokens (token_hash, client_id, user_id, scope, "
+          "INSERT INTO oauth2_access_tokens (token, client_id, user_id, scope, "
           "expires_at, issued_at, revoked) "
           "VALUES ($1, $2, $3, 'openid', $4, $5, false)",
-          std::string("dualsub-hash-") + tag + "-" + suffix,
+          std::string("dualsub-tok-") + tag + "-" + suffix,
           clientId,
           form,
           static_cast<int64_t>(std::time(nullptr)) + 3600,

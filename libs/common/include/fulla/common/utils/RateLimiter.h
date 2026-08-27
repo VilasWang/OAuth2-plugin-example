@@ -81,6 +81,14 @@ class RateLimiter
         config_ = cfg;
     }
 
+    // Returns the current configuration. Useful for tests that need to save
+    // and restore the original config after modifying it.
+    RateLimiterConfig getConfig()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return config_;
+    }
+
     // Returns the seconds-remaining in the rolling window for which this key
     // is currently throttled, or 0 when the key is NOT throttled (i.e. the
     // caller may proceed). Callers emit HTTP 429 with `Retry-After: <n>` when

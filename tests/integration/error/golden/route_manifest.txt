@@ -60,6 +60,7 @@ POST /api/me/mfa/disable
 POST /api/me/mfa/setup
 POST /api/me/mfa/verify
 POST /api/me/social/links/{provider}
+POST /api/me/social/links/{provider}/authorize
 POST /api/me/webauthn/register/begin
 POST /api/me/webauthn/register/finish
 POST /api/password-reset/confirm
