@@ -1,0 +1,60 @@
+# Dependabot configuration (#107).
+#
+# Ecosystems covered: GitHub Actions (every workflow dir root), npm for both
+# frontends, Go modules for clients/go, pip for clients/python.
+# Conan (conan.lock at the repo root) has NO dependabot support -- dependency
+# updates there are manual `conan lockfile` refresh PRs on a periodic cadence
+# (see the dependency-EOL scan in security.yml, which gates known-EOL
+# versions in the meantime).
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "ci(deps)"
+
+  - package-ecosystem: npm
+    directory: /frontends/user
+    schedule:
+      interval: weekly
+    groups:
+      user-frontend-minor:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps-user)"
+
+  - package-ecosystem: npm
+    directory: /frontends/admin
+    schedule:
+      interval: weekly
+    groups:
+      admin-frontend-minor:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps-admin)"
+
+  - package-ecosystem: gomod
+    directory: /clients/go
+    schedule:
+      interval: weekly
+    groups:
+      go-minor:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps-go)"
+
+  - package-ecosystem: pip
+    directory: /clients/python
+    schedule:
+      interval: monthly
+    groups:
+      python-minor:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps-python)"

@@ -53,7 +53,7 @@ jobs:
     outputs:
       version: ${{ steps.ver.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Read version from cmake/Version.cmake
         id: ver
@@ -93,7 +93,7 @@ jobs:
       VERSION: ${{ needs.version-check.outputs.version }}
       PRESET_DIR: build/linux-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install Linux build dependencies
         # Same rationale as _build-test.yml: library deps come from Conan;
@@ -108,7 +108,7 @@ jobs:
           conan profile detect --force
 
       - name: Cache Conan packages
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.conan2
           # runner.arch added vs ci.yml key: keeps this reusable if an arm64
@@ -169,7 +169,7 @@ jobs:
           sha256sum "fulla-sdk-${VERSION}-linux-x86_64.tar.gz" \
             > "fulla-sdk-${VERSION}-linux-x86_64.tar.gz.sha256"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sdk-linux-x86_64
           path: |
@@ -196,13 +196,13 @@ jobs:
       # Dry run (workflow_dispatch): build everything, push nothing.
       PUSH: ${{ github.ref_type == 'tag' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca # v3.9.0
 
       - name: Log in to GHCR
         if: env.PUSH == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -210,7 +210,7 @@ jobs:
 
       - name: Build backend image
         # Same context/target as deploy/docker/docker-compose.yml fulla-backend.
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -219,7 +219,7 @@ jobs:
           tags: ${{ env.IMAGE_PREFIX }}-backend:${{ env.VERSION }}-${{ env.ARCH }}
 
       - name: Build frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -228,7 +228,7 @@ jobs:
           tags: ${{ env.IMAGE_PREFIX }}-frontend:${{ env.VERSION }}-${{ env.ARCH }}
 
       - name: Build admin image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
           context: frontends/admin
           file: frontends/admin/Dockerfile
@@ -245,7 +245,7 @@ jobs:
       VERSION: ${{ needs.version-check.outputs.version }}
     steps:
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -262,7 +262,7 @@ jobs:
           done
 
       # ---- Task 38: supply-chain artifacts -------------------------------
-      - uses: sigstore/cosign-installer@v3
+      - uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: Sign multi-arch manifests (cosign keyless, OIDC)
         # Sign by digest, not tag -- tags are mutable. Verify with:
@@ -278,7 +278,7 @@ jobs:
           done
 
       - name: Install syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@f6c3d0fe42c3cf876e3462574e4c9416b5e0f07a # v0.9.0
         with:
           syft-version: v1.19.0
 
@@ -292,7 +292,7 @@ jobs:
               > "fulla-${image}-${VERSION}.spdx.json"
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: image-sboms
           path: "*.spdx.json"
@@ -308,20 +308,20 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.version-check.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # git-cliff needs full history + tags for the notes
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: sdk-linux-x86_64
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: image-sboms
 
       - name: Install syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@f6c3d0fe42c3cf876e3462574e4c9416b5e0f07a # v0.9.0
         with:
           syft-version: v1.19.0
 
@@ -333,7 +333,7 @@ jobs:
             > "fulla-source-${VERSION}.spdx.json"
 
       - name: Generate release notes (git-cliff)
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
         with:
           config: cliff.toml
           args: --latest --strip header
@@ -416,9 +416,9 @@ jobs:
       VERSION: ${{ needs.version-check.outputs.version }}
       PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
