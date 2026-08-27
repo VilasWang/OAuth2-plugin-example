@@ -1,12 +1,18 @@
 # cmake/Sanitizers.cmake
-# Optional ThreadSanitizer (TSan) / AddressSanitizer (ASan) toggle for the
-# test target of the concurrency & lifetime safety audit.
+# Optional sanitizer instrumentation for the concurrency & lifetime safety
+# audit (and, since #104, for product libraries + CI).
 #
-# Cache option (single-value enum -> TSan and ASan are mutually exclusive):
-#   FULLA_SANITIZER = off (default) | thread | address
+# Cache option (comma-separated list; TSan is mutually exclusive with the
+# others because its runtime cannot be composed with ASan/UBSan):
+#   FULLA_SANITIZER = off (default) | thread | address | undefined
+#                     | address,undefined
 #
-#   thread  -> -fsanitize=thread  -g -fno-omit-frame-pointer
-#   address -> -fsanitize=address -g -fno-omit-frame-pointer
+#   thread           -> -fsanitize=thread  -g -fno-omit-frame-pointer
+#   address          -> -fsanitize=address -g -fno-omit-frame-pointer
+#   undefined        -> -fsanitize=undefined -fno-sanitize-recover=undefined
+#                       -g -fno-omit-frame-pointer
+#   address,undefined-> both of the above (the recommended CI combination;
+#                       ASan + UBSan compose on GCC/Clang)
 #
 # Rules:
 #   * GCC/Clang only. MSVC does not accept the GCC/Clang `-fsanitize=` flags and
@@ -15,19 +21,22 @@
 #     the option is ignored with a WARNING so the normal build still succeeds.
 #   * Intended for Debug builds only (Sanitizer 仅用于 Debug 构建). A WARNING is
 #     emitted for non-Debug build types.
-#   * TSan and ASan cannot be enabled simultaneously — the single-value enum
-#     enforces this (you select exactly one of off/thread/address per build).
-#     Run two separate builds to cover both.
+#   * `thread` combined with anything else is a FATAL configuration error.
 #
 # Provides function oauth2_apply_sanitizer(target) which appends the selected
 # `-fsanitize` flags to BOTH the COMPILE and LINK options of `target`.
+#
+# Since #104 the function is applied per-target to every first-party library
+# (mirroring oauth2_apply_gcov's pattern) plus the test executable, so product
+# code — not just the test harness — is instrumented.
 #
 # _Spec: concurrency-lifetime-safety-audit, Task 0 (TSan/ASan scaffolding)_
 # _Requirements: 2.4, 2.5, 2.6, 2.8, 2.9, 2.10, 2.11_
 
 set(FULLA_SANITIZER "off" CACHE STRING
-    "Enable a sanitizer for the test target: off | thread | address")
-set_property(CACHE FULLA_SANITIZER PROPERTY STRINGS off thread address)
+    "Sanitizer(s) to apply: off | thread | address | undefined | address,undefined")
+set_property(CACHE FULLA_SANITIZER PROPERTY STRINGS
+             off thread address undefined address,undefined)
 
 function(oauth2_apply_sanitizer target)
     if(NOT TARGET ${target})
@@ -41,10 +50,26 @@ function(oauth2_apply_sanitizer target)
         return()
     endif()
 
-    # Validate the requested value early.
-    if(NOT (_san STREQUAL "thread" OR _san STREQUAL "address"))
+    # Parse the comma-separated list; validate every element up front.
+    string(REPLACE "," ";" _san_list "${_san}")
+    set(_kinds "")
+    foreach(_entry IN LISTS _san_list)
+        string(STRIP "${_entry}" _entry)
+        if(NOT (_entry STREQUAL "thread" OR _entry STREQUAL "address"
+                OR _entry STREQUAL "undefined"))
+            message(FATAL_ERROR
+                "FULLA_SANITIZER must be a comma-separated list of: off | thread | address | "
+                "undefined (got '${FULLA_SANITIZER}')")
+        endif()
+        list(APPEND _kinds "${_entry}")
+    endforeach()
+
+    # TSan cannot be composed with ASan/UBSan runtimes.
+    list(LENGTH _kinds _kinds_len)
+    if("thread" IN_LIST _kinds AND NOT _kinds_len EQUAL 1)
         message(FATAL_ERROR
-            "FULLA_SANITIZER must be one of: off | thread | address (got '${FULLA_SANITIZER}')")
+            "FULLA_SANITIZER: 'thread' cannot be combined with other sanitizers "
+            "(got '${FULLA_SANITIZER}'); TSan's runtime is exclusive. Build TSan separately.")
     endif()
 
     # GCC/Clang only.
@@ -62,8 +87,8 @@ function(oauth2_apply_sanitizer target)
         message(WARNING
             "FULLA_SANITIZER=${_san} requested, but Clang is targeting the MSVC ABI "
             "(${CMAKE_CXX_COMPILER_ID}, simulate=${CMAKE_CXX_SIMULATE_ID}). "
-            "ThreadSanitizer is unsupported on this target. Sanitizer NOT applied to '${target}'. "
-            "Use a Linux/macOS GCC or Clang toolchain for TSan/ASan builds.")
+            "Sanitizer runtimes are unsupported on this target. Sanitizer NOT applied "
+            "to '${target}'. Use a Linux/macOS GCC or Clang toolchain for sanitizer builds.")
         return()
     endif()
 
@@ -74,11 +99,18 @@ function(oauth2_apply_sanitizer target)
             "current CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'.")
     endif()
 
-    if(_san STREQUAL "thread")
-        set(_flags -fsanitize=thread -g -fno-omit-frame-pointer)
-    else() # address
-        set(_flags -fsanitize=address -g -fno-omit-frame-pointer)
-    endif()
+    # Compose the flag set from the requested kinds. UBSan runs with
+    # -fno-sanitize-recover so UB aborts instead of limping on (CI must see it).
+    set(_flags -g -fno-omit-frame-pointer)
+    foreach(_kind IN LISTS _kinds)
+        if(_kind STREQUAL "thread")
+            list(APPEND _flags -fsanitize=thread)
+        elseif(_kind STREQUAL "address")
+            list(APPEND _flags -fsanitize=address)
+        else() # undefined
+            list(APPEND _flags -fsanitize=undefined -fno-sanitize-recover=undefined)
+        endif()
+    endforeach()
 
     message(STATUS
         "FULLA_SANITIZER=${_san}: applying '${_flags}' to '${target}' (compile + link)")

@@ -67,6 +67,30 @@
       }
     },
     {
+      "name": "linux-asan-ubsan",
+      "inherits": "linux-release",
+      "displayName": "Linux ASan + UBSan (CI gate)",
+      "description": "conan install . --output-folder=build/linux-asan-ubsan -s build_type=Debug -s compiler.cppstd=17 --build=missing. ASan+UBSan compose on GCC/Clang; UBSan runs with -fno-sanitize-recover (UB aborts). Instruments every first-party lib + the test binary (#104).",
+      "binaryDir": "${sourceDir}/build/linux-asan-ubsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-asan-ubsan/conan_toolchain.cmake",
+        "FULLA_SANITIZER": "address,undefined"
+      }
+    },
+    {
+      "name": "linux-coverage",
+      "inherits": "linux-release",
+      "displayName": "Linux gcov coverage build",
+      "description": "conan install . --output-folder=build/linux-coverage -s build_type=Debug -s compiler.cppstd=17 --build=missing. FULLA_TEST_COVERAGE instruments first-party libs; after ctest run gcov to emit *.gcov.json.gz then scripts/measure_coverage.py (#105).",
+      "binaryDir": "${sourceDir}/build/linux-coverage",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/linux-coverage/conan_toolchain.cmake",
+        "FULLA_TEST_COVERAGE": "ON"
+      }
+    },
+    {
       "name": "linux-release-lto",
       "inherits": "linux-release",
       "displayName": "Linux Release + LTO (Conan)",
@@ -216,6 +240,14 @@
     {
       "name": "linux-release-tsan",
       "configurePreset": "linux-release-tsan"
+    },
+    {
+      "name": "linux-asan-ubsan",
+      "configurePreset": "linux-asan-ubsan"
+    },
+    {
+      "name": "linux-coverage",
+      "configurePreset": "linux-coverage"
     },
     {
       "name": "linux-release-lto",

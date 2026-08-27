@@ -161,6 +161,7 @@ endif()
 oauth2_apply_compat(${PROJECT_NAME})
 oauth2_apply_warnings(${PROJECT_NAME})
 oauth2_apply_gcov(${PROJECT_NAME})
+oauth2_apply_sanitizer(${PROJECT_NAME})  # #104: instrument product code in sanitizer builds
 
 include(GNUInstallDirs)
 install(DIRECTORY include/fulla DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
