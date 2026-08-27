@@ -630,6 +630,8 @@ static RateLimiter &instance()
 ;
 void configure(const RateLimiterConfig &cfg)
 ;
+RateLimiterConfig getConfig()
+;
 std::chrono::seconds checkThrottled(std::string_view key)
 ;
 void recordFailure(std::string_view key)

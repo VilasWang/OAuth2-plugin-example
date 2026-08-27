@@ -20,7 +20,7 @@ external callers to break. A stateless POST is precisely the
 provider-code-injection surface this change closes; a soft (optional-state)
 transition would keep the vulnerability open for one release.
 
-- POST /api/me/social/links/{provider} added the new required request property — `state`, minted by the authorize step; see reason above
+- POST /api/me/social/links/{provider} added the new required request property `state`
 
 ---
 
