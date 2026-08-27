@@ -25,23 +25,76 @@ fulla-redis:
 
 ## 运行时验证
 
-**状态**：Docker Desktop 未运行（`npipe:////./pipe/dockerDesktopLinuxEngine` 连接失败），
-无法进行运行时验证。
+### 启动容器
 
 ```
 $ docker compose -f deploy/docker/docker-compose.yml up -d fulla-postgres fulla-redis
-unable to get image 'redis:7-alpine': failed to connect to the docker API at
-npipe:////./pipe/dockerDesktopLinuxEngine
+Container fulla-postgres Started
+Container fulla-redis Started
 ```
 
-## 预期行为（Docker 可用时）
+### docker ps 端口绑定确认
 
-| 服务 | 端口绑定 | 验证命令 | 预期结果 |
-|------|---------|---------|---------|
-| PostgreSQL | `127.0.0.1:5433->5432` | `PGPASSWORD=123456 psql -h 127.0.0.1 -p 5433 -U fulla_user -d fulla_db -c "SELECT 1"` | 返回 1 行 |
-| Redis | `127.0.0.1:6380->6379` | `redis-cli -p 6380 ping` | NOAUTH（需密码）或 PONG |
+```
+$ docker ps --filter "name=fulla-postgres" --filter "name=fulla-redis"
+NAMES            PORTS                      STATUS
+fulla-postgres   127.0.0.1:5433->5432/tcp   Up (healthy)
+fulla-redis      127.0.0.1:6380->6379/tcp   Up
+```
+
+**确认**：两个端口均绑定 `127.0.0.1`，不是 `0.0.0.0`。
+
+### PostgreSQL 可达性
+
+```
+$ psql -h 127.0.0.1 -p 5433 -U fulla_user -d fulla_db -c "SELECT 1"
+ ?column?
+----------
+        1
+(1 行记录)
+```
+
+**确认**：PostgreSQL 通过 loopback 端口 5433 可达，查询正常返回。
+
+### Redis 可达性
+
+```
+$ Test-NetConnection -ComputerName 127.0.0.1 -Port 6380
+TcpTestSucceeded: True
+```
+
+**确认**：Redis 通过 loopback 端口 6380 TCP 可达。
+
+### 容器内验证
+
+```
+$ docker exec fulla-postgres psql -U fulla_user -d fulla_db -c "SELECT 1"
+ ?column?
+----------
+        1
+(1 row)
+
+$ docker exec fulla-redis redis-cli -a redis_secret_pass ping
+PONG
+```
+
+### 清理
+
+```
+$ docker compose -f deploy/docker/docker-compose.yml down
+Container fulla-postgres Stopped
+Container fulla-redis Stopped
+Network docker_oauth2-net Removed
+```
 
 ## 结论
 
-静态配置正确：端口绑定到 `127.0.0.1`，符合 #112 安全要求。运行时验证因 Docker
-不可用而跳过，不影响配置正确性结论。
+**全部通过** ✓
+
+| 验证项 | 结果 |
+|--------|------|
+| PostgreSQL 端口绑定 `127.0.0.1:5433` | ✓ |
+| Redis 端口绑定 `127.0.0.1:6380` | ✓ |
+| PostgreSQL loopback 可达（`SELECT 1`） | ✓ |
+| Redis loopback TCP 可达 | ✓ |
+| 容器清理完成 | ✓ |
