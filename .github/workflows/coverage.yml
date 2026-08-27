@@ -60,6 +60,16 @@ jobs:
         run: |
           conan install . --output-folder=build/$PRESET --build=missing \
             -s build_type=Debug -s compiler.cppstd=17
+          # drogon_ctl lives in the Conan package cache, not in $PATH;
+          # drogon_create_views() invokes it at build time, so prepend
+          # its directory for the subsequent cmake --build step.
+          DROGON_BIN_DIR="$(find ~/.conan2/p -name drogon_ctl -type f -executable -printf '%h\n' | head -1)"
+          if [ -z "$DROGON_BIN_DIR" ]; then
+            echo "::error::drogon_ctl not found in Conan cache"
+            exit 1
+          fi
+          echo "Found drogon_ctl in $DROGON_BIN_DIR"
+          echo "$DROGON_BIN_DIR" >> "$GITHUB_PATH"
           cmake --preset "$PRESET"
 
       - name: Build
