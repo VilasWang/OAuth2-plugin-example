@@ -338,6 +338,7 @@ Business endpoints (Application_Endpoint) return a uniform error envelope whose 
 | `VALIDATION_VERIFICATION_TOKEN_INVALID` | 3010 | VALIDATION | 400 | 验证链接已失效，请重新发送邮件 |
 | `VALIDATION_DEVICE_CODE_INVALID` | 3011 | VALIDATION | 400 | 设备码无效、已过期或已被处理 |
 | `VALIDATION_RATE_LIMITED` | 3012 | VALIDATION | 429 | 请求过于频繁，请稍后重试 |
+| `VALIDATION_REDIRECT_URI_NOT_REGISTERED` | 3013 | VALIDATION | 400 | 登出重定向地址未注册 |
 | `AUTH_INVALID_CREDENTIALS` | 4001 | AUTHENTICATION | 401 | 用户名或密码错误 |
 | `AUTH_TOKEN_EXPIRED` | 4002 | AUTHENTICATION | 401 | 登录已过期 |
 | `AUTH_TOKEN_INVALID` | 4003 | AUTHENTICATION | 401 | 登录凭证无效 |
