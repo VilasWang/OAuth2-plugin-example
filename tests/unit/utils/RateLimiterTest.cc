@@ -19,6 +19,12 @@ using namespace drogon;
 DROGON_TEST(Unit_P1_Utils_RateLimiter_CapBoundedOnCheckThrottledInsert)
 {
     auto &limiter = fulla::common::utils::RateLimiter::instance();
+    // Save the original config so we can restore it after the test.
+    // This test modifies the global singleton's config, which would otherwise
+    // pollute subsequent tests (e.g. integration tests that depend on the
+    // production max_failures threshold).
+    auto originalCfg = limiter.getConfig();
+
     // Configure a tiny cap so the test is deterministic. Use a high failure
     // threshold so none of the probes below are throttled (we are exercising
     // the insert path, not the failure path).
@@ -64,6 +70,10 @@ DROGON_TEST(Unit_P1_Utils_RateLimiter_CapBoundedOnCheckThrottledInsert)
     CHECK(cleanRetry.count() == 0);
 
     limiter.reset();  // leave clean for other tests
+    // Restore the original config so subsequent tests see the production
+    // thresholds (e.g. max_failures=30 from config.json), not this test's
+    // modified values (max_failures=1000).
+    limiter.configure(originalCfg);
     CHECK(true);
 }
 
