@@ -407,9 +407,30 @@ DROGON_TEST(Integration_P2_Storage_RedisCachedTokenRepository_Introspect_N2_Disc
     REQUIRE(rtIntro1.has_value());
     CHECK(rtIntro1->active == true);
     int rtCallsAfter1 = fake->introspectTokenCalls.load();
-    // Wait out the introspect cache fill: it lands, yet must NOT be served
-    // (the N2 gate below fails), so the next call still reaches the impl.
-    REQUIRE(waitForRedisKey(redis, "fulla:cache:token:introspect:" + refreshHash));
+    // The N2 gate fails for a refresh hash (no access:{hash} entry), so the
+    // decorator issues NO cache write at all -- the old fixed sleep waited
+    // for a SET that never happens. Bounded absence check instead: poll that
+    // the introspect key stays absent, then assert the next call still
+    // reaches the impl.
+    {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(200);
+        while (std::chrono::steady_clock::now() < deadline)
+        {
+            std::promise<int> p;
+            auto f = p.get_future();
+            redis->execCommandAsync(
+              [&p](const ::drogon::nosql::RedisResult &r) {
+                  p.set_value(static_cast<int>(r.asInteger()));
+              },
+              [&p](const ::drogon::nosql::RedisException &) { p.set_value(-1); },
+              "EXISTS fulla:cache:token:introspect:%s", refreshHash.c_str()
+            );
+            REQUIRE(f.wait_for(std::chrono::seconds(2)) == std::future_status::ready);
+            if (f.get() == 1)
+                FAIL("refresh-token introspect result was cached despite the N2 gate");
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
 
     // Second introspect of the REFRESH token → NOT cached (N2 gate fails:
     // access:{refreshHash} does not exist) → impl consulted again.

@@ -161,22 +161,6 @@ void GitHubController::login(
         return;
     }
 
-    std::string clientId = getGitHubConfig("client_id");
-    std::string clientSecret = getGitHubConfig("client_secret");
-
-    // #111: empty OR still the YOUR_* template -> the provider is disabled;
-    // fail fast with an envelope instead of a doomed upstream call.
-    const auto credentialConfigured = [](const std::string &v) {
-        return !v.empty() && v.rfind("YOUR_", 0) != 0;
-    };
-    if (!credentialConfigured(clientId) || !credentialConfigured(clientSecret))
-    {
-        ::fulla::common::error::ErrorResponder::respond(
-          req, std::move(callback), "INTERNAL_ERROR", "github login: GitHub OAuth not configured"
-        );
-        return;
-    }
-
     auto callbackPtr = CallbackPtr(std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
       std::move(callback)
     ));
@@ -188,7 +172,9 @@ void GitHubController::login(
     // path when unwired. Token issuance (issueTokensForUser below) stays
     // in this controller either way -- GitHubAuthService::login() deliberately
     // stops short of it (identity <-> oauth2 boundary, see
-    // SocialAuthService.h's own scope-boundary comment).
+    // SocialAuthService.h's own scope-boundary comment). The service's own
+    // credentials were validated at assembly time (#111) -- no config re-read
+    // on this path.
     if (gitHubAuthService_)
     {
         gitHubAuthService_->login(
@@ -210,7 +196,24 @@ void GitHubController::login(
     // Fallback path: raw drogon::HttpClient + direct DB. Previously this was
     // a single ~560-line method with 7 nested callbacks; it now reads as the
     // linear step sequence below (see the step helpers' header comments).
-    exchangeCodeForToken(req, callbackPtr, clientId, clientSecret, code);
+    // #111 (fallback scope only): empty OR still the YOUR_* template -> the
+    // provider is disabled; fail fast with an envelope instead of a doomed
+    // upstream call.
+    {
+        std::string clientId = getGitHubConfig("client_id");
+        std::string clientSecret = getGitHubConfig("client_secret");
+        const auto credentialConfigured = [](const std::string &v) {
+            return !v.empty() && v.rfind("YOUR_", 0) != 0;
+        };
+        if (!credentialConfigured(clientId) || !credentialConfigured(clientSecret))
+        {
+            ::fulla::common::error::ErrorResponder::respond(
+              req, std::move(callback), "INTERNAL_ERROR", "github login: GitHub OAuth not configured"
+            );
+            return;
+        }
+        exchangeCodeForToken(req, callbackPtr, clientId, clientSecret, code);
+    }
 }
 
 // ---------------------------------------------------------------------------
