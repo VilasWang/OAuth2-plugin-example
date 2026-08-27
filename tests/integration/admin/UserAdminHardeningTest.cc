@@ -407,8 +407,12 @@ DROGON_TEST(Integration_P0_AdminUser_LastAdminGuard_409)
     try
     {
         auto db = drogon::app().getDbClient();
+        // DELETE the grant (not UPDATE-to-user): most strays already hold the
+        // 'user' role, and repointing would violate user_roles_pkey
+        // (user_id, role_id) -- the first version of this sweep threw exactly
+        // there and silently no-opped behind this catch.
         db->execSqlSync(
-          "UPDATE user_roles SET role_id = (SELECT id FROM roles WHERE name = 'user') "
+          "DELETE FROM user_roles "
           "WHERE role_id = (SELECT id FROM roles WHERE name = 'admin') "
           "AND user_id IN (SELECT id FROM users WHERE username <> 'admin')"
         );
