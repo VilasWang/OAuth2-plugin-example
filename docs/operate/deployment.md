@@ -746,6 +746,16 @@ SELECT ensure_audit_partitions(36, 12);    -- 扩大预建窗口
 - memory/redis 存储模式没有 audit 分区（该功能仅 postgres）。
 - 维护失败只会 `LOG_ERROR` 并在下个清理周期重试，不影响清理主流程。
 
+### 社交账号绑定（#71）Redis 依赖
+
+社交账号绑定功能的 link state（绑定流程的临时状态）存储在 Redis 中（`SET NX EX 600` / `GETDEL`，TTL 10 分钟）。
+
+- **有 Redis 时**：绑定发起端点正常工作，link state 存入 Redis 并在回调时校验。
+- **无 Redis 时**：绑定发起端点 fail-closed，返回 `NotConfigured` 类错误（HTTP 503）。
+- **登录不受影响**：社交登录（已绑定账号的直接登录）不依赖 Redis link state，无需 Redis 也可正常工作。
+
+生产部署确保 `fulla-redis` 容器运行即可（默认 compose 已包含）。
+
 ---
 
 ## Troubleshooting

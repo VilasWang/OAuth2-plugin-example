@@ -231,7 +231,7 @@ OIDC RP-Initiated Logout 1.0 §2 — terminates the user's server-side session a
 
 | Parameter | Required | Description |
 |---|---|---|
-| `id_token_hint` | No* | A previously issued id_token whose `aud` claim identifies the client, used to validate `post_logout_redirect_uri` (signature verification is mandatory: RS256 + kid match + iss/exp/sub policy; verification failure returns 400 AUTH_INVALID_ID_TOKEN_HINT, error code 4006). *Required when `post_logout_redirect_uri` is provided |
+| `id_token_hint` | No* | A previously issued id_token whose `aud` claim identifies the client, used to validate `post_logout_redirect_uri` (signature verification is mandatory: RS256 + kid match + iss/exp/sub policy; `aud` supports string or array per RFC 7519 §4.1.3, server tries each candidate). Verification failure returns 400 `AUTH_INVALID_ID_TOKEN_HINT` (error code 4006); unregistered `post_logout_redirect_uri` returns 400 `VALIDATION_REDIRECT_URI_NOT_REGISTERED` (error code 3013). *Required when `post_logout_redirect_uri` is provided |
 | `post_logout_redirect_uri` | No | Post-logout redirect URI; must be a redirect_uri registered by the `id_token_hint` client, otherwise 400 |
 | `state` | No | Opaque value echoed verbatim into the redirect URI |
 
@@ -239,7 +239,7 @@ OIDC RP-Initiated Logout 1.0 §2 — terminates the user's server-side session a
 
 - **200 OK**: When no `post_logout_redirect_uri` is provided, returns `{ "message": "Logged out successfully" }`; the session has been cleared.
 - **302 Found**: A provided and successfully validated `post_logout_redirect_uri` (with `state` attached).
-- **400 Bad Request**: `post_logout_redirect_uri` not registered / missing `id_token_hint` so the client cannot be identified / `id_token_hint` signature verification failed (expired, issuer mismatch, invalid signature; error code 4006).
+- **400 Bad Request**: `post_logout_redirect_uri` not registered (`VALIDATION_REDIRECT_URI_NOT_REGISTERED`, error code 3013) / missing `id_token_hint` so the client cannot be identified (`AUTH_INVALID_ID_TOKEN_HINT`, 4006) / `id_token_hint` signature verification failed (expired, issuer mismatch, invalid signature; `AUTH_INVALID_ID_TOKEN_HINT`, 4006).
 
 ---
 
