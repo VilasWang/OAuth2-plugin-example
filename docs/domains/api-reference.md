@@ -315,36 +315,38 @@ OIDC RP-Initiated Logout 1.0 §2 — terminates the user's server-side session a
 
 ### 5.1 Application Error Codes
 
+> **Language note**: the `Default Message` / `Description` columns quote the **exact strings the server emits** (registered in `ErrorCatalog`); they are kept verbatim — currently Chinese — because a client matching on `error_description` must see precisely what the catalog defines. A CI test (`Unit_P0_ErrorCatalogDoc_*`) fails if these tables drift from the catalog.
+
 Business endpoints (Application_Endpoint) return a uniform error envelope whose `error.code` values belong to the Error_Code set registered in the table below; `numeric_code` and `category` likewise come from the table, and the HTTP status code maps consistently by Error_Category (the NETWORK category distinguishes 502/504 by numeric_code). A few resource-semantics VALIDATION codes retain their pre-migration HTTP status codes via entry-level explicit overrides (Option A / requirement 11.4): `VALIDATION_RESOURCE_NOT_FOUND` → 404, resource-already-exists/conflict codes (`VALIDATION_RESOURCE_CONFLICT`, `VALIDATION_USERNAME_TAKEN`, `VALIDATION_EMAIL_TAKEN`, `VALIDATION_CREDENTIAL_ALREADY_REGISTERED`) → 409, `VALIDATION_RATE_LIMITED` → 429; all other VALIDATION codes remain 400.
 
 | Error_Code | numeric_code | Error_Category | HTTP Status | Default Message (Client_Safe_Message) |
 |---|---|---|---|---|
-| `NET_CONNECTION_FAILED` | 1001 | NETWORK | 502 | Upstream connection failed |
-| `NET_TIMEOUT` | 1002 | NETWORK | 504 | Request timed out |
-| `DB_CONNECTION_ERROR` | 2001 | DATABASE | 500 | Service temporarily unavailable |
-| `DB_QUERY_ERROR` | 2002 | DATABASE | 500 | Service temporarily unavailable |
-| `DB_CONSTRAINT_VIOLATION` | 2003 | DATABASE | 500 | Data conflict |
-| `VALIDATION_INVALID_INPUT` | 3001 | VALIDATION | 400 | Invalid input parameters |
-| `VALIDATION_MISSING_REQUIRED_FIELD` | 3002 | VALIDATION | 400 | Missing required field |
-| `VALIDATION_FORMAT_ERROR` | 3003 | VALIDATION | 400 | Malformed format |
-| `VALIDATION_RESOURCE_NOT_FOUND` | 3004 | VALIDATION | 404 | Resource not found |
-| `VALIDATION_RESOURCE_CONFLICT` | 3005 | VALIDATION | 409 | Resource already exists or conflicts |
-| `VALIDATION_USERNAME_TAKEN` | 3006 | VALIDATION | 409 | This username is already registered |
-| `VALIDATION_EMAIL_TAKEN` | 3007 | VALIDATION | 409 | This email is already registered |
-| `VALIDATION_CREDENTIAL_ALREADY_REGISTERED` | 3008 | VALIDATION | 409 | This security key is already registered; no need to add it again |
-| `VALIDATION_RESET_TOKEN_INVALID` | 3009 | VALIDATION | 400 | The reset link has expired; please request a new one |
-| `VALIDATION_VERIFICATION_TOKEN_INVALID` | 3010 | VALIDATION | 400 | The verification link has expired; please resend the email |
-| `VALIDATION_DEVICE_CODE_INVALID` | 3011 | VALIDATION | 400 | The device code is invalid, expired, or already processed |
-| `VALIDATION_RATE_LIMITED` | 3012 | VALIDATION | 429 | Too many requests; please retry later |
-| `AUTH_INVALID_CREDENTIALS` | 4001 | AUTHENTICATION | 401 | Incorrect username or password |
-| `AUTH_TOKEN_EXPIRED` | 4002 | AUTHENTICATION | 401 | Login has expired |
-| `AUTH_TOKEN_INVALID` | 4003 | AUTHENTICATION | 401 | Login credentials are invalid |
-| `AUTH_MFA_CODE_INVALID` | 4004 | AUTHENTICATION | 401 | Incorrect verification code |
-| `AUTH_MFA_NOT_CONFIGURED` | 4005 | AUTHENTICATION | 401 | Two-factor verification is not configured yet; complete setup first |
-| `AUTH_INVALID_ID_TOKEN_HINT` | 4006 | AUTHENTICATION | 400 | Invalid login token hint |
-| `AUTHZ_ACCESS_DENIED` | 5001 | AUTHORIZATION | 403 | Access denied |
-| `AUTHZ_INSUFFICIENT_PERMISSIONS` | 5002 | AUTHORIZATION | 403 | Insufficient permissions |
-| `INTERNAL_ERROR` | 6001 | INTERNAL | 500 | Internal server error |
+| `NET_CONNECTION_FAILED` | 1001 | NETWORK | 502 | 上游连接失败 |
+| `NET_TIMEOUT` | 1002 | NETWORK | 504 | 请求超时 |
+| `DB_CONNECTION_ERROR` | 2001 | DATABASE | 500 | 服务暂时不可用 |
+| `DB_QUERY_ERROR` | 2002 | DATABASE | 500 | 服务暂时不可用 |
+| `DB_CONSTRAINT_VIOLATION` | 2003 | DATABASE | 500 | 数据冲突 |
+| `VALIDATION_INVALID_INPUT` | 3001 | VALIDATION | 400 | 输入参数有误 |
+| `VALIDATION_MISSING_REQUIRED_FIELD` | 3002 | VALIDATION | 400 | 缺少必填字段 |
+| `VALIDATION_FORMAT_ERROR` | 3003 | VALIDATION | 400 | 格式不正确 |
+| `VALIDATION_RESOURCE_NOT_FOUND` | 3004 | VALIDATION | 404 | 资源不存在 |
+| `VALIDATION_RESOURCE_CONFLICT` | 3005 | VALIDATION | 409 | 资源已存在或冲突 |
+| `VALIDATION_USERNAME_TAKEN` | 3006 | VALIDATION | 409 | 该用户名已被注册 |
+| `VALIDATION_EMAIL_TAKEN` | 3007 | VALIDATION | 409 | 该邮箱已被注册 |
+| `VALIDATION_CREDENTIAL_ALREADY_REGISTERED` | 3008 | VALIDATION | 409 | 该安全密钥已注册，无需重复添加 |
+| `VALIDATION_RESET_TOKEN_INVALID` | 3009 | VALIDATION | 400 | 重置链接已失效，请重新申请 |
+| `VALIDATION_VERIFICATION_TOKEN_INVALID` | 3010 | VALIDATION | 400 | 验证链接已失效，请重新发送邮件 |
+| `VALIDATION_DEVICE_CODE_INVALID` | 3011 | VALIDATION | 400 | 设备码无效、已过期或已被处理 |
+| `VALIDATION_RATE_LIMITED` | 3012 | VALIDATION | 429 | 请求过于频繁，请稍后重试 |
+| `AUTH_INVALID_CREDENTIALS` | 4001 | AUTHENTICATION | 401 | 用户名或密码错误 |
+| `AUTH_TOKEN_EXPIRED` | 4002 | AUTHENTICATION | 401 | 登录已过期 |
+| `AUTH_TOKEN_INVALID` | 4003 | AUTHENTICATION | 401 | 登录凭证无效 |
+| `AUTH_MFA_CODE_INVALID` | 4004 | AUTHENTICATION | 401 | 验证码不正确 |
+| `AUTH_MFA_NOT_CONFIGURED` | 4005 | AUTHENTICATION | 401 | 尚未设置双重验证，请先完成设置 |
+| `AUTH_INVALID_ID_TOKEN_HINT` | 4006 | AUTHENTICATION | 400 | 登录令牌提示无效 |
+| `AUTHZ_ACCESS_DENIED` | 5001 | AUTHORIZATION | 403 | 没有访问权限 |
+| `AUTHZ_INSUFFICIENT_PERMISSIONS` | 5002 | AUTHORIZATION | 403 | 权限不足 |
+| `INTERNAL_ERROR` | 6001 | INTERNAL | 500 | 服务器内部错误 |
 
 ### 5.2 OAuth2 Protocol Error Codes (RFC 6749 §5.2 / RFC 7009 / RFC 8628)
 
@@ -352,19 +354,19 @@ OAuth2 protocol endpoints (OAuth2_Protocol_Endpoint) keep the RFC 6749 §5.2 err
 
 | error | HTTP Status | Default error_description |
 |---|---|---|
-| `invalid_request` | 400 | Missing or invalid request parameters |
-| `invalid_client` | 401 | Client authentication failed |
-| `invalid_grant` | 400 | The authorization grant is invalid or has expired |
-| `unauthorized_client` | 400 | The client is not authorized to use this grant type |
-| `unsupported_grant_type` | 400 | Unsupported grant type |
-| `invalid_scope` | 400 | The requested scope is invalid |
-| `server_error` | 500 | Internal server error |
-| `temporarily_unavailable` | 503 | Service temporarily unavailable |
-| `access_denied` | 403 | The authorization request was denied (the user lacks permission or refused consent) |
-| `unsupported_token_type` | 400 | Unsupported token type |
-| `authorization_pending` | 400 | Authorization is not yet complete; please retry later |
-| `slow_down` | 400 | Polling too frequently; please slow down |
-| `expired_token` | 400 | The device code has expired; please restart the authorization |
+| `invalid_request` | 400 | 请求参数缺失或无效 |
+| `invalid_client` | 401 | 客户端认证失败 |
+| `invalid_grant` | 400 | 授权许可无效或已过期 |
+| `unauthorized_client` | 400 | 客户端无权使用该授权类型 |
+| `unsupported_grant_type` | 400 | 不支持的授权类型 |
+| `invalid_scope` | 400 | 请求的 scope 无效 |
+| `server_error` | 500 | 服务器内部错误 |
+| `temporarily_unavailable` | 503 | 服务暂时不可用 |
+| `access_denied` | 403 | 授权请求被拒绝（用户无权或拒绝授权） |
+| `unsupported_token_type` | 400 | 不支持的令牌类型 |
+| `authorization_pending` | 400 | 授权尚未完成，请稍后重试 |
+| `slow_down` | 400 | 轮询过于频繁，请降低频率 |
+| `expired_token` | 400 | 设备码已过期，请重新发起授权 |
 
 ### 5.3 HTTP Status Code Quick Reference
 
