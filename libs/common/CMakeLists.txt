@@ -63,6 +63,7 @@ oauth2_apply_compat(${PROJECT_NAME})
 oauth2_apply_warnings(${PROJECT_NAME})
 # gcov instrumentation (no-op unless -DFULLA_TEST_COVERAGE=ON); PRIVATE.
 oauth2_apply_gcov(${PROJECT_NAME})
+oauth2_apply_sanitizer(${PROJECT_NAME})  # #104: instrument product code in sanitizer builds
 
 # --- arch-guard note (enforced by tooling in a later M6 task, Task 33) ---
 # This target must never gain a Drogon dependency. There is no automated

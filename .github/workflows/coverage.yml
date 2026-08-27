@@ -1,0 +1,133 @@
+name: Coverage
+
+# #105: produce (not gate) line coverage on Linux. FULLA_TEST_COVERAGE +
+# cmake/Coverage.cmake instrument every first-party lib; scripts/
+# measure_coverage.py aggregates the gcov JSON into a per-library report.
+# No threshold/ratchet yet -- the first goal is a visible baseline (a
+# ratchet that starts red is worse than no ratchet). Codecov integration is
+# deliberately deferred (needs an account/token decision); artifacts carry
+# the raw data meanwhile.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "libs/**"
+      - "apps/server/**"
+      - "tests/**"
+      - "scripts/measure_coverage.py"
+      - "cmake/Coverage.cmake"
+      - "CMakePresets.json"
+      - ".github/workflows/coverage.yml"
+  push:
+    branches: ["master"]
+    paths:
+      - "libs/**"
+      - "apps/server/**"
+      - "tests/**"
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: gcov line coverage (linux)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      PRESET: linux-coverage
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ cmake uuid-dev redis-tools gcovr
+          pip install conan
+          conan profile detect --force
+
+      - name: Cache Conan packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-v1-cpp17-debug-${{ hashFiles('conanfile.py', 'conan.lock') }}
+          restore-keys: |
+            conan-${{ runner.os }}-v1-cpp17-debug-
+
+      - name: Configure CMake using Conan (Debug + FULLA_TEST_COVERAGE=ON)
+        run: |
+          conan install . --output-folder=build/$PRESET --build=missing \
+            -s build_type=Debug -s compiler.cppstd=17
+          cmake --preset "$PRESET"
+
+      - name: Build
+        run: cmake --build --preset "$PRESET"
+
+      - name: Start PostgreSQL and Redis
+        run: |
+          docker run -d --name fulla-postgres \
+            -e POSTGRES_USER=fulla_user -e POSTGRES_PASSWORD=123456 \
+            -e POSTGRES_DB=fulla_db -p 5432:5432 postgres:17-alpine
+          docker run -d --name fulla-redis -p 6379:6379 redis:7-alpine
+
+      - name: Wait for services and initialize database
+        working-directory: ${{ github.workspace }}/apps/server
+        env:
+          PGPASSWORD: 123456
+        run: |
+          for i in $(seq 1 15); do
+            PGPASSWORD=123456 psql -h localhost -U fulla_user -d fulla_db -c 'SELECT 1' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          PGPASSWORD=123456 psql -h localhost -U fulla_user -d fulla_db -c 'SELECT 1'
+          for i in $(seq 1 15); do
+            redis-cli -h localhost ping | grep -q PONG && break
+            sleep 2
+          done
+          redis-cli -h localhost ping
+          for f in migrations/V*.sql seed/*.sql; do
+            echo "Applying $f..."
+            psql -h localhost -U fulla_user -d fulla_db -f "$f"
+          done
+
+      - name: Run tests (ctest, full suite)
+        working-directory: build/${{ env.PRESET }}
+        run: ctest -C Debug --output-on-failure --timeout 300
+
+      - name: Generate gcov JSON reports
+        # Coverage.cmake only adds the instrumentation flags; the *.gcov.json.gz
+        # files consumed by measure_coverage.py must be produced by an explicit
+        # gcov pass over the .gcda files the test run left behind (#105 review:
+        # without this step the report is empty and the job is a false green).
+        working-directory: build/${{ env.PRESET }}
+        run: |
+          gcda_count=$(find . -name '*.gcda' | wc -l)
+          echo "Found $gcda_count .gcda files"
+          if [ "$gcda_count" -eq 0 ]; then
+            echo "::error::No coverage data produced (instrumentation or test run failed)"
+            exit 1
+          fi
+          find libs -name '*.gcda' -print0 | xargs -0 -n 32 gcov -j -p -o . >/dev/null || true
+          json_count=$(find libs -name '*.gcov.json.gz' | wc -l)
+          echo "Generated $json_count gcov JSON reports"
+
+      - name: Summarize coverage (measure_coverage.py)
+        working-directory: ${{ github.workspace }}
+        run: |
+          {
+            echo "## Line coverage (libs, gcov)"
+            echo '```'
+            find build/$PRESET/libs -name '*.gcov.json.gz' | python3 scripts/measure_coverage.py
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-reports
+          path: |
+            build/${{ env.PRESET }}/libs/**/*.gcov.json.gz
+            build/${{ env.PRESET }}/Testing/
+          if-no-files-found: error

@@ -115,6 +115,7 @@ if(NOT COMMAND oauth2_apply_warnings)
 endif()
 oauth2_apply_warnings(fulla-identity)
 oauth2_apply_gcov(fulla-identity)
+oauth2_apply_sanitizer(fulla-identity)  # #104: instrument product code in sanitizer builds
 
 # Install rules
 install(DIRECTORY include/
