@@ -266,8 +266,8 @@
                 "client_secret": "OVERRIDE_VIA_FULLA_GITHUB_CLIENT_SECRET"
             },
             "wechat": {
-                "appid": "OVERRIDE_VIA_ENV",
-                "secret": "OVERRIDE_VIA_ENV"
+                "appid": "OVERRIDE_VIA_FULLA_WECHAT_APPID",
+                "secret": "OVERRIDE_VIA_FULLA_WECHAT_SECRET"
             },
             "google": {
                 "client_id": "OVERRIDE_VIA_FULLA_GOOGLE_CLIENT_ID",

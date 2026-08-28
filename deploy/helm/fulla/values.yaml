@@ -32,6 +32,7 @@ backend:
   autoMigrate: false
   githubClientId: ""
   googleClientId: ""
+  wechatAppid: ""
   smtp:
     host: ""
     port: 465
@@ -84,7 +85,7 @@ migration:
 # or point existingSecret at a Secret carrying the same env-var-named keys:
 # FULLA_DB_PASSWORD, FULLA_REDIS_PASSWORD, FULLA_VUE_CLIENT_SECRET,
 # FULLA_GITHUB_CLIENT_SECRET, FULLA_GOOGLE_CLIENT_SECRET,
-# FULLA_SMTP_PASSWORD.
+# FULLA_WECHAT_SECRET, FULLA_SMTP_PASSWORD.
 secrets:
   existingSecret: ""
   dbPassword: ""
@@ -92,6 +93,7 @@ secrets:
   vueClientSecret: ""
   githubClientSecret: ""
   googleClientSecret: ""
+  wechatSecret: ""
   smtpPassword: ""
 
 # In-chart PostgreSQL (demo/local). Disable for production and configure
