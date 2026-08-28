@@ -423,7 +423,7 @@ void UserAdminService::listUsers(const ::drogon::HttpRequestPtr &req, ResponseCa
                           filter,
                           [cb, req, db, pagination, total, totalPages](const std::vector<Users> &rows) {
                               attachRolesAndRespond(
-                                db, std::move(rows), pagination.page, pagination.perPage, total, totalPages, cb, req
+                                db, rows, pagination.page, pagination.perPage, total, totalPages, cb, req
                               );
                           },
                           [req, cb](const ::drogon::orm::DrogonDbException &e) {

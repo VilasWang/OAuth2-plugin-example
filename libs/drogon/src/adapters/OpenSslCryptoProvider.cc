@@ -82,7 +82,7 @@ std::vector<unsigned char> base64UrlDecodeImpl(const std::string &encoded)
     std::vector<unsigned char> out;
     out.reserve(encoded.size() / 4 * 3 + 3);
 
-    int buffer = 0;
+    uint32_t buffer = 0;
     int bitsCollected = 0;
 
     for (unsigned char c : encoded)
@@ -95,7 +95,7 @@ std::vector<unsigned char> base64UrlDecodeImpl(const std::string &encoded)
             // comment).
             return {};
         }
-        buffer = (buffer << 6) | value;
+        buffer = (buffer << 6) | static_cast<uint32_t>(value);
         bitsCollected += 6;
         if (bitsCollected >= 8)
         {
@@ -103,6 +103,9 @@ std::vector<unsigned char> base64UrlDecodeImpl(const std::string &encoded)
             out.push_back(static_cast<unsigned char>((buffer >> bitsCollected) & 0xFF));
         }
     }
+    // Truncate any leftover bits in the buffer to prevent UB on the next
+    // call-site that might inspect buffer (defensive; buffer is local).
+    buffer &= (bitsCollected == 0) ? 0u : ((1u << bitsCollected) - 1);
 
     return out;
 }
