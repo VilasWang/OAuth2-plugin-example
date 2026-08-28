@@ -108,6 +108,7 @@ FULLA_AUTO_MIGRATE: {{ .Values.backend.autoMigrate | toString | quote }}
 DETAILED_VALIDATION_ERRORS: {{ .Values.backend.detailedValidationErrors | quote }}
 FULLA_GITHUB_CLIENT_ID: {{ .Values.backend.githubClientId | quote }}
 FULLA_GOOGLE_CLIENT_ID: {{ .Values.backend.googleClientId | quote }}
+FULLA_WECHAT_APPID: {{ .Values.backend.wechatAppid | quote }}
 FULLA_SMTP_HOST: {{ .Values.backend.smtp.host | quote }}
 FULLA_SMTP_PORT: {{ .Values.backend.smtp.port | toString | quote }}
 FULLA_SMTP_USER: {{ .Values.backend.smtp.user | quote }}
@@ -125,5 +126,6 @@ FULLA_REDIS_PASSWORD: {{ required "secrets.redisPassword is required (or set sec
 FULLA_VUE_CLIENT_SECRET: {{ required "secrets.vueClientSecret is required (or set secrets.existingSecret)" .Values.secrets.vueClientSecret | quote }}
 FULLA_GITHUB_CLIENT_SECRET: {{ .Values.secrets.githubClientSecret | quote }}
 FULLA_GOOGLE_CLIENT_SECRET: {{ .Values.secrets.googleClientSecret | quote }}
+FULLA_WECHAT_SECRET: {{ .Values.secrets.wechatSecret | quote }}
 FULLA_SMTP_PASSWORD: {{ .Values.secrets.smtpPassword | quote }}
 {{- end }}
