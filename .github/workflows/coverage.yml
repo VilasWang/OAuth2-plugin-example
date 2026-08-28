@@ -104,6 +104,11 @@ jobs:
 
       - name: Run tests (ctest, full suite)
         working-directory: build/${{ env.PRESET }}
+        env:
+          # CI Redis has no password; override the dev config's passwd so
+          # the test binary doesn't AUTH against a passwordless server
+          # (mirrors _build-test.yml's FULLA_REDIS_PASSWORD="").
+          FULLA_REDIS_PASSWORD: ""
         run: ctest -C Debug --output-on-failure --timeout 300
 
       - name: Generate gcov JSON reports
