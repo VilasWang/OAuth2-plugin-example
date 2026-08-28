@@ -56,6 +56,8 @@ inline const std::vector<EnvOverride> FULLA_ENV_OVERRIDES =
 {"custom_config.external_auth.google.client_id", "FULLA_GOOGLE_CLIENT_ID", false},
 {"custom_config.external_auth.google.client_secret", "FULLA_GOOGLE_CLIENT_SECRET", false},
 {"custom_config.external_auth.google.redirect_uri", "FULLA_GOOGLE_REDIRECT_URI", false},
+{"custom_config.external_auth.wechat.appid", "FULLA_WECHAT_APPID", false},
+{"custom_config.external_auth.wechat.secret", "FULLA_WECHAT_SECRET", false},
 {"listeners.0.port", "FULLA_LISTEN_PORT", true},
 {"vue_client.secret", "FULLA_VUE_CLIENT_SECRET", false},
 {"plugins[name=OAuth2Plugin].config.clients.vue-client.redirect_uri",
