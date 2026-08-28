@@ -111,10 +111,16 @@ class RateLimiter
         // insertion and run the cap sweep here too.
         std::string keyStr(key);
         bool inserted = (buckets_.find(keyStr) == buckets_.end());
-        auto &bucket = buckets_[std::move(keyStr)];
-        purgeOldLocked(bucket, now);
+        buckets_[keyStr]; // ensure insertion (default-constructs empty deque)
+        purgeOldLocked(buckets_[keyStr], now);
         if (inserted && buckets_.size() > config_.maxBuckets)
             sweepLocked(now);
+        // sweepLocked may have erased our (empty) bucket, so re-look it up
+        // rather than holding a reference across the sweep (heap-use-after-free).
+        auto it = buckets_.find(keyStr);
+        if (it == buckets_.end())
+            return std::chrono::seconds(0); // swept away → not throttled
+        const auto &bucket = it->second;
         if (bucket.size() >= config_.maxFailures && !bucket.empty())
         {
             // The oldest surviving failure rolls off at now+window - oldest.

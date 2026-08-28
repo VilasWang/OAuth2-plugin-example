@@ -52,7 +52,10 @@ for lib in sorted(tot):
     print(f"  {lib:22} {cov[lib]:6d} / {tot[lib]:<6d}  {cov[lib]*100.0/tot[lib]:5.1f}%")
 tc = sum(cov.values())
 tt = sum(tot.values())
-print(f"\n  {'OVERALL libs/':22} {tc:6d} / {tt:<6d}  {tc*100.0/tt:5.1f}%")
+if tt == 0:
+    print("\n  OVERALL libs/: no coverage data (0 instrumented lines found)")
+else:
+    print(f"\n  {'OVERALL libs/':22} {tc:6d} / {tt:<6d}  {tc*100.0/tt:5.1f}%")
 
 print("\n=== admin service per-file (was 0% in baseline) ===")
 for rel in sorted(perfile):

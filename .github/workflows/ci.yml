@@ -32,7 +32,7 @@ jobs:
   # --- FAST gate --------------------------------------------------------------
   static-checks:
     name: Static Checks (source-only)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -100,7 +100,7 @@ jobs:
       matrix:
         include:
           - platform: linux
-            runs_on: ubuntu-22.04
+            runs_on: ubuntu-24.04
             cmake_preset: linux-release
             preset_dir: build/linux-release
             configure_extra_args: "-DFULLA_WERROR=ON"

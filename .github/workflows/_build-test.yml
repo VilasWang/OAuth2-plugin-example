@@ -18,7 +18,7 @@ on:
         type: string
         required: true
       runs_on:
-        description: "GitHub runner label (e.g. ubuntu-22.04)"
+        description: "GitHub runner label (e.g. ubuntu-24.04)"
         type: string
         required: true
       cmake_preset:
@@ -114,7 +114,7 @@ jobs:
         # Library deps (jsoncpp/libpq/openssl/zlib/hiredis/libcurl) come from
         # Conan; still need the system toolchain, uuid-dev (Drogon's Conan recipe
         # does not wrap libuuid on Linux), and redis-tools (redis-cli for the
-        # wait/init steps; psql/pg_isready ship on the ubuntu-22.04 image).
+        # wait/init steps; psql/pg_isready ship on the ubuntu-24.04 image).
         run: |
           sudo apt-get update
           sudo apt-get install -y \
