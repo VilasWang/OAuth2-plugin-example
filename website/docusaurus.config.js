@@ -4,13 +4,15 @@
 // en locale; the zh-CN translation tree lives under website/i18n/zh-CN/).
 // No content copies between locales' structure — same layout, same URLs.
 // Local-only process docs live in docs-local/ (outside the trees, gitignored).
+//
+// i18n note: the config module is evaluated ONCE per process even when
+// building all locales, so per-locale strings (navbar/footer labels, sidebar
+// categories) are localized through the official translation files under
+// i18n/zh-CN/ (theme-classic navbar.json/footer.json + plugin-content-docs
+// current.json) — NOT through any config-level locale detection.
 
 const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
-// Locale-aware labels for config strings: Docusaurus sets DOCUSAURUS_CURRENT_LOCALE
-// when loading the config for each locale's build pass.
-const CURRENT_LOCALE = process.env.DOCUSAURUS_CURRENT_LOCALE || 'en';
-const L = (en, zh) => (CURRENT_LOCALE === 'zh-CN' ? zh : en);
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -90,11 +92,11 @@ const config = {
         title: 'fulla',
         logo: { alt: 'fulla', src: 'img/favicon.svg' },
         items: [
-          { to: '/docs/intro', label: L('Docs', '文档'), position: 'left' },
+          { to: '/docs/intro', label: 'Docs', position: 'left' },
           { to: '/docs/domains/api-reference', label: 'API', position: 'left' },
           {
             href: 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md',
-            label: L('Benchmarks', '性能基准'),
+            label: 'Benchmarks',
             position: 'left',
           },
           { to: '/docs/adr/ADR-0001', label: 'ADR', position: 'left' },
@@ -113,36 +115,33 @@ const config = {
         style: 'dark',
         links: [
           {
-            title: L('Docs', '文档'),
+            title: 'Docs',
             items: [
-              { label: L('Get Started', '开始'), to: '/docs/intro' },
-              { label: L('Architecture', '架构总览'), to: '/docs/architecture/architecture-overview' },
-              { label: L('API Reference', 'API 参考'), to: '/docs/domains/api-reference' },
-              { label: L('SDK Integration', 'SDK 集成'), to: '/docs/sdk/sdk-integration-guide' },
+              { label: 'Get Started', to: '/docs/intro' },
+              { label: 'Architecture', to: '/docs/architecture/architecture-overview' },
+              { label: 'API Reference', to: '/docs/domains/api-reference' },
+              { label: 'SDK Integration', to: '/docs/sdk/sdk-integration-guide' },
             ],
           },
           {
-            title: L('Resources', '资源'),
+            title: 'Resources',
             items: [
-              { label: L('Production Deployment', '生产部署'), to: '/docs/operate/deployment' },
-              { label: L('Benchmarks', '性能基准'), href: 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md' },
-              { label: L('OpenAPI Contract', 'OpenAPI 契约'), href: 'https://github.com/voidvec/fulla/blob/master/apps/server/openapi.yaml' },
-              { label: L('ADRs', '架构决策记录'), to: '/docs/adr/ADR-0001' },
+              { label: 'Production Deployment', to: '/docs/operate/deployment' },
+              { label: 'Benchmarks', href: 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md' },
+              { label: 'OpenAPI Contract', href: 'https://github.com/voidvec/fulla/blob/master/apps/server/openapi.yaml' },
+              { label: 'ADRs', to: '/docs/adr/ADR-0001' },
             ],
           },
           {
-            title: L('Community', '社区'),
+            title: 'Community',
             items: [
               { label: 'GitHub', href: 'https://github.com/voidvec/fulla' },
-              { label: L('Chinese Wiki', '中文 Wiki'), href: 'https://github.com/voidvec/fulla/wiki' },
-              { label: L('Issues', '问题反馈'), href: 'https://github.com/voidvec/fulla/issues' },
+              { label: 'Chinese Wiki', href: 'https://github.com/voidvec/fulla/wiki' },
+              { label: 'Issues', href: 'https://github.com/voidvec/fulla/issues' },
             ],
           },
         ],
-          copyright: L(
-            'Copyright © 2026 Luca · MIT License · Site content from the repo’s docs tree (single source of truth)',
-            'Copyright © 2026 Luca · MIT License · 本站内容来自仓库 docs 目录（单一事实源）',
-          ),
+          copyright: 'Copyright © 2026 Luca · MIT License · Site content from the repo’s docs tree (single source of truth)',
       },
       prism: {
         theme: lightCodeTheme,
