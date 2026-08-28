@@ -34,7 +34,7 @@ concurrency:
 jobs:
   coverage:
     name: gcov line coverage (linux)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       PRESET: linux-coverage

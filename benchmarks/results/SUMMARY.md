@@ -17,7 +17,7 @@
 | **WSL2 虚拟机** | 8 vCPU, 16 GB RAM (`.wslconfig` 分配) |
 | **Docker** | Docker Desktop 29.7.2, WSL2 集成 |
 | **压测工具** | wrk 4.1.0 (Debian, epoll) |
-| **目标栈** | postgres:15-alpine + redis:7-alpine + fulla-backend (Docker overlay 网络) |
+| **目标栈** | postgres:17-alpine + redis:7-alpine + fulla-backend (Docker overlay 网络) |
 | **后端配置** | `config.bench.json` — PG 连接池=25, Redis 连接池=20, log_level=WARN |
 | **网络拓扑** | localhost cross-container (wrk 在 WSL 内, target 在 Docker overlay) |
 | **压测参数** | 阶梯 2→4→8→16→32→64→128 连接; 5s 预热 (丢弃) + 10s 测量; S4 强制 -t==-c |
