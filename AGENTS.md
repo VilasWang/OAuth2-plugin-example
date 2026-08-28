@@ -15,6 +15,16 @@
 | ORM 模型 | [`.claude/rules/orm-models.md`](.claude/rules/orm-models.md) | `**/models/**` | `models/` 下的 ORM 类由 `drogon_ctl` 从 schema 生成，**禁止手改**；要改模型就改 schema 再 `/orm-gen` |
 | 开发流程 | [`.claude/rules/dev-workflow.md`](.claude/rules/dev-workflow.md) | `apps/server/**`、`frontends/**` | 优先 `./manage.sh`（Linux/macOS）/ `./manage.ps1`（Windows）；`/build-and-test` 等 skill 是详解，不是首选入口 |
 
+## 模块级 AGENTS.md
+
+热点模块的嵌套指令文件，聚焦该模块的职责边界、关键文件路由和开发约束：
+
+| 模块 | 文件 | 职责 | 高频变更 Top 1 |
+|---|---|---|---|
+| Drogon 绑定层 | [`libs/drogon/AGENTS.md`](libs/drogon/AGENTS.md) | Adapter 层 Drogon 适配包（Controllers、Filters、Plugin、Adapters） | `src/controllers/SessionController.cc`（31 次变更） |
+| Postgres 存储层 | [`libs/storage-postgres/AGENTS.md`](libs/storage-postgres/AGENTS.md) | Adapter 层 Postgres Repository 实现（ORM 模型 + Repository 接口） | `src/PostgresIdentityRepository.cc`（18 次变更） |
+| 服务器装配层 | [`apps/server/AGENTS.md`](apps/server/AGENTS.md) | 纯装配层（Bootstrap、配置、迁移、OpenAPI） | `openapi.yaml`（33 次变更） |
+
 ## 异步编程与 DB 访问
 
 **完整规则见 [`.claude/rules/db-operations.md`](.claude/rules/db-operations.md)，本文件不重复。**
