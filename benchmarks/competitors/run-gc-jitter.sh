@@ -13,6 +13,8 @@
 #       --out-dir benchmarks/competitors/results
 #
 # Options: --segments 30 --seg-secs 10 --conn 32 --pre-secs 0 (pre-heat load)
+#          --discard-spikes 5.0   (spike threshold: P99 > N*median -> contaminated)
+#          --env-monitor          (background vmstat + meminfo collection)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -21,6 +23,7 @@ PARSE="$REPO_ROOT/benchmarks/reporting/parse-wrk.py"
 TARGET="" READY_PATH="/health/ready" PRODUCT="" PRODUCT_VERSION=""
 SCENARIO="" LIB_DIR="" OUT_DIR=""
 SEGMENTS=30 SEG_SECS=10 CONN=32 PRE_SECS=0
+DISCARD_SPIKES=0.0 ENV_MONITOR=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --target) TARGET="$2"; shift 2 ;;
@@ -34,6 +37,8 @@ while [ "$#" -gt 0 ]; do
         --seg-secs) SEG_SECS="$2"; shift 2 ;;
         --conn) CONN="$2"; shift 2 ;;
         --pre-secs) PRE_SECS="$2"; shift 2 ;;
+        --discard-spikes) DISCARD_SPIKES="$2"; shift 2 ;;
+        --env-monitor) ENV_MONITOR=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
@@ -64,6 +69,21 @@ fi
 
 SERIES_FILE="$(mktemp)"
 FAILS=0
+
+# --- environment monitor (optional background collectors) ---
+ENV_MONITOR_PID=""
+ENV_MONITOR_DIR=""
+MEMINFO_PID=""
+if [ "$ENV_MONITOR" -eq 1 ]; then
+    ENV_MONITOR_DIR="$(mktemp -d)"
+    echo "[gcjitter] env-monitor started (vmstat + meminfo -> $ENV_MONITOR_DIR)"
+    TOTAL_DUR=$(( SEGMENTS * SEG_SECS + PRE_SECS + 30 ))
+    vmstat 1 "$TOTAL_DUR" > "$ENV_MONITOR_DIR/vmstat.log" 2>/dev/null &
+    ENV_MONITOR_PID=$!
+    ( while true; do cat /proc/meminfo >> "$ENV_MONITOR_DIR/meminfo.log" 2>/dev/null; echo "---" >> "$ENV_MONITOR_DIR/meminfo.log"; sleep 5; done ) &
+    MEMINFO_PID=$!
+fi
+
 echo "[gcjitter] product=$PRODUCT c=$CONN segments=$SEGMENTS×${SEG_SECS}s scenario=$(basename "$SCENARIO")"
 for i in $(seq 0 $((SEGMENTS - 1))); do
     T_START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -105,13 +125,77 @@ PY
     rm -f "$WRK_OUT.json"
 done
 
+# --- stop env monitor ---
+if [ -n "$ENV_MONITOR_PID" ]; then
+    kill "$ENV_MONITOR_PID" 2>/dev/null || true
+    wait "$ENV_MONITOR_PID" 2>/dev/null || true
+fi
+if [ -n "${MEMINFO_PID:-}" ]; then
+    kill "$MEMINFO_PID" 2>/dev/null || true
+    wait "$MEMINFO_PID" 2>/dev/null || true
+fi
+
 OUT_FILE="$OUT_DIR/${DATE_TAG}-${GIT_SHA}-${PRODUCT}-gcjitter.json"
 python3 - "$SERIES_FILE" "$OUT_FILE" "$PRODUCT" "$PRODUCT_VERSION" "$CONN" "$THREADS" \
-    "$SEGMENTS" "$SEG_SECS" "$(basename "$SCENARIO" .lua)" "$GIT_SHA" "$WRK_VERSION" <<'PY'
-import json, sys
+    "$SEGMENTS" "$SEG_SECS" "$(basename "$SCENARIO" .lua)" "$GIT_SHA" "$WRK_VERSION" \
+    "$DISCARD_SPIKES" "${ENV_MONITOR_DIR:-}" <<'PY'
+import json, sys, statistics, os
+
 series = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
+discard_threshold = float(sys.argv[11])
+env_monitor_dir = sys.argv[12] if len(sys.argv) > 12 and sys.argv[12] else ""
+
+# --- spike detection ---
+valid_p99s = [s["p99_us"] for s in series if s.get("p99_us") is not None]
+median_p99 = statistics.median(valid_p99s) if valid_p99s else 0
+spike_threshold = median_p99 * discard_threshold if discard_threshold > 0 else float("inf")
+
+contaminated_indices = []
+clean_series = []
+for s in series:
+    p99 = s.get("p99_us")
+    is_contaminated = (p99 is not None and discard_threshold > 0 and p99 > spike_threshold)
+    if is_contaminated:
+        contaminated_indices.append(s["i"])
+    else:
+        clean_series.append(s)
+
+# --- cleaned stats (after removing contaminated segments) ---
+cleaned_stats = None
+if contaminated_indices and clean_series:
+    clean_p99s = [s["p99_us"] for s in clean_series if s.get("p99_us") is not None]
+    clean_p50s = [s["p50_us"] for s in clean_series if s.get("p50_us") is not None]
+    clean_qps  = [s["qps"] for s in clean_series if s.get("qps") is not None]
+    if clean_p99s:
+        cleaned_stats = {
+            "p50_us": round(statistics.median(clean_p50s), 1) if clean_p50s else None,
+            "p99_us": round(statistics.median(clean_p99s), 1) if clean_p99s else None,
+            "qps_avg": round(statistics.mean(clean_qps), 1) if clean_qps else None,
+            "cleaned_segments": len(clean_series),
+        }
+
+# --- env noise summary ---
+env_noise = None
+if discard_threshold > 0:
+    env_noise = {
+        "spike_threshold_multiplier": discard_threshold,
+        "spike_threshold_us": round(spike_threshold, 1) if spike_threshold != float("inf") else None,
+        "median_p99_us": round(median_p99, 1),
+        "contaminated_count": len(contaminated_indices),
+        "contaminated_ratio": round(len(contaminated_indices) / len(series), 4) if series else 0,
+        "contaminated_indices": contaminated_indices,
+    }
+
+# --- env monitor data paths ---
+env_monitor_info = None
+if env_monitor_dir and os.path.isdir(env_monitor_dir):
+    env_monitor_info = {
+        "vmstat_log": os.path.join(env_monitor_dir, "vmstat.log"),
+        "meminfo_log": os.path.join(env_monitor_dir, "meminfo.log"),
+    }
+
 doc = {
-    "schema_version": 1,
+    "schema_version": 2,
     "kind": "gcjitter",
     "product": sys.argv[3],
     "product_version": sys.argv[4],
@@ -127,10 +211,29 @@ doc = {
         "network": "localhost-cross-container",
     },
 }
+if env_noise:
+    doc["env_noise"] = env_noise
+if cleaned_stats:
+    doc["cleaned_stats"] = cleaned_stats
+if env_monitor_info:
+    doc["env_monitor"] = env_monitor_info
+
 json.dump(doc, open(sys.argv[2], "w"), indent=2)
 print(f"[gcjitter] wrote {sys.argv[2]} ({len(series)} segments)")
+if env_noise:
+    print(f"[gcjitter] spike detection: threshold={env_noise['spike_threshold_us']}us "
+          f"({discard_threshold}x median {env_noise['median_p99_us']}us), "
+          f"contaminated={env_noise['contaminated_count']}/{len(series)} "
+          f"({env_noise['contaminated_ratio']*100:.1f}%)")
+if cleaned_stats:
+    print(f"[gcjitter] cleaned stats (excl. env noise): "
+          f"p50={cleaned_stats['p50_us']}us p99={cleaned_stats['p99_us']}us "
+          f"qps={cleaned_stats['qps_avg']} ({cleaned_stats['cleaned_segments']} clean segments)")
 PY
 rm -f "$SERIES_FILE"
+if [ -n "${ENV_MONITOR_DIR:-}" ] && [ -d "${ENV_MONITOR_DIR:-/nonexistent}" ]; then
+    echo "[gcjitter] env-monitor data at: $ENV_MONITOR_DIR"
+fi
 
 [ "$FAILS" -le 3 ] || { echo "[gcjitter] ERROR: $FAILS failed segments (>3)"; exit 1; }
 exit 0

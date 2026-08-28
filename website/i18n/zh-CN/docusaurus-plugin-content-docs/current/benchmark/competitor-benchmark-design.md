@@ -1,6 +1,6 @@
 # Fulla 竞品性能基准对比设计
 
-> **版本**: v1.1（2026-08-15 评审修订：新增 M0 前置参数化、S5 池规模修正、GC 抖动场景钉死、Fulla 同 session 重跑、Zitadel JWT-profile 认证说明、warmup 口径对齐入仓数据）
+> **版本**: v1.2（2026-08-28 修订：GC 抖动根因分析——WSL2 I/O 调度停顿而非运行时 GC；run-gc-jitter.sh 新增 `--discard-spikes` / `--env-monitor`；COMPARISON.md 新增 Cleaned P99 统计）
 > **日期**: 2026-08-15
 > **文档性质**: 技术设计（Phase 0.5 落地蓝图，**非代码**——实施见 §七 milestone）
 > **上游规划**: [演进方案 §三 Phase 0]（productization-evolution-plan：本地维护档案） P0「自托管竞品对比基准」
@@ -12,7 +12,7 @@
 ## 零、TL;DR
 
 - **做什么**：在**同一台机器、同一套 wrk 阶梯、同一个 PostgreSQL 后端**下压 Keycloak / Ory Hydra / Zitadel，与 Fulla 已入仓的自测数据（`benchmarks/results/SUMMARY.md`）产出同口径对比表。
-- **比什么**：S1 discovery / S2 client_credentials / S3 introspect / S5 refresh_token / S6 userinfo 五个单步场景 + 冷启动 + 稳态 RSS + **GC 抖动长跑**（5 分钟 P99 时间序列——Fulla 无 GC 的核心差异化证据）。
+- **比什么**：S1 discovery / S2 client_credentials / S3 introspect / S5 refresh_token / S6 userinfo 五个单步场景 + 冷启动 + 稳态 RSS + **GC 抖动长跑**（5 分钟 P99 时间序列——根因：WSL2 I/O 调度停顿而非运行时 GC；去除环境噪声后 Cleaned P99：Fulla 3.0ms < Keycloak 4.6ms < Zitadel 18.1ms < Ory 24.1ms）。
 - **不比什么**：S4 auth_code（各产品登录/consent 流程不可 wrk 统一驱动）；Auth0（SaaS，无法自托管）；竞品的极限调优配置（一律用官方推荐生产配置）。
 - **核心原则**：公平性优先于数字好看。竞品社区会质疑，方法论必须无懈可击——同硬件、同并发阶梯、同后端、各产品官方推荐配置、脚本全部入仓可复现。
 - **验收**：四家同口径对比表（QPS / P99 / 稳态 RSS / 冷启动 / GC 抖动）落盘 `benchmarks/competitors/results/COMPARISON.md`；第三方按 README 一键复现。
@@ -26,7 +26,7 @@
 | # | 目标 | 衡量 |
 |---|------|------|
 | G1 | **同环境竞品对比数据**：把调研报告 §3.1 的竞品列（"来自各产品社区公开基准，非同环境对比"）替换为同环境实测 | §六验收 ✅ COMPARISON.md |
-| G2 | **验证差异化叙事**：C++ 无 GC / 低内存 / 低尾延迟的卖点是否有同环境数据支撑 | GC 抖动长跑 + 稳态 RSS 对比 |
+| G2 | **验证差异化叙事**：C++ 低尾延迟的卖点是否有同环境数据支撑（注：原始"无 GC"叙事已被证伪——四家均出现相同的 WSL2 环境尖峰；真正的差异化在 Cleaned P99） | GC 抖动长跑 + 稳态 RSS 对比 |
 | G3 | **可复现**：第三方按 `benchmarks/competitors/README.md` 在同规格机器跑出误差 &lt;15% 的数据 | 复现门槛（沿用自测设施 AC1） |
 | G4 | **诚实修订**：若某维度 Fulla 不领先，据实修订调研报告 §3.1/§3.2 的卖点排序 | 报告更新 |
 
@@ -136,7 +136,7 @@ Fulla 自测的 S3/S6 用 SQL 预种 token（`gen-tokens.py`）。**竞品不行
 - **S5 池（单发单耗）**：每个 refresh token 用一次即失效，池必须 ≥ 该档 QPS × 测量时长 × 1.3 余量。Fulla 自测的实测口径：20,000 池 ÷ 10s ≈ 1,982 QPS（池刚好覆盖测量窗口）。竞品每档前须**重发池**（`run-scenario.sh` 新增 `--reissue "<cmd>"` 钩子，等价自测的 SQL `--reseed`，但走各家 API）。
 - **RT 不能来自 client_credentials**：RFC 6749 §4.4.3 规定该 grant 不得签发 refresh token。竞品 RT 池须经用户上下文流程获取——Keycloak 用 ROPC（direct access grants）；Hydra 用 accept 流（见 M2）；Zitadel 用 Session API/auth_code（见 M2）。
 
-### D6 — GC 抖动 = 长跑 P99 时间序列（Fulla 核心差异化证据）
+### D6 — 长跑 P99 时间序列（环境噪声感知的尾延迟对比）
 
 单次 30s 跑看不出 GC 周期。设计专门的**长跑测试**：
 
@@ -147,10 +147,11 @@ Fulla 自测的 S3/S6 用 SQL 预种 token（`gen-tokens.py`）。**竞品不行
 四家功能等价，是最公平的载波。Hydra 若 S6 标 N/A 则降级 S2 并在结果中标注。）
 采集：每 10s 窗口记录一次该窗口的 P99（wrk 不支持原生分段 → 30 个串行 10s 段近似）
 输出：P99 随时间的曲线（JSON 数组）
-预期：Keycloak 出现周期性 P99 尖峰（GC STW）；Ory 出现 Go GC 小尖峰；Fulla 平线
+预期（原始，已被证伪）：Keycloak 出现周期性 P99 尖峰（GC STW）；Ory 出现 Go GC 小尖峰；Fulla 平线
+实际（2026-08-28 根因分析）：四家全部出现完全相同的 ~30s 周期、~1.8s P99 上限尖峰——由 WSL2 virtio-blk I/O 调度停顿引起，非任何运行时 GC。Cleaned P99（去除污染段后）才是可比较指标：Fulla 3.0ms、Keycloak 4.6ms、Zitadel 18.1ms、Ory 24.1ms
 ```
 
-实现：`benchmarks/competitors/run-gc-jitter.sh`——循环调用 wrk `-d10s` 30 次串联，每段 parse 出 P99 存数组。**这是对外叙事最有力的一张图**（"零 GC 抖动"的可视化证据）。
+实现：`benchmarks/competitors/run-gc-jitter.sh`——循环调用 wrk `-d10s` 30 次串联，每段 parse 出 P99 存数组。**这是对外叙事最有力的一张图**（尾延迟稳定性的可视化证据；使用 `--discard-spikes 5.0` 过滤 WSL2 环境噪声尖峰后报告 Cleaned P99）。
 
 ### D7 — 内存口径统一：容器全栈 RSS + 标注逻辑层
 
@@ -248,7 +249,7 @@ Phase 0 承重验证发现 Fulla 容器 RSS ~2.4GB（含 Drogon 连接池/共享
 | # | 验收项 | 衡量 | 状态 |
 |---|--------|------|------|
 | AC1 | **四家同口径对比表**：S1/S2/S3/S5/S6 × \{QPS, P99, RSS, 冷启动\} 入仓 `benchmarks/competitors/results/COMPARISON.md`，每行带产品版本号 | COMPARISON.md | ✅ |
-| AC2 | **GC 抖动曲线**：四家 5 分钟 P99 时间序列 JSON + 对比小节（Fulla 是否平线、Keycloak 是否有周期尖峰） | gcjitter JSON + 小节 | ✅（结论与预期相反，见 G4 注记：GC 语言全平线、Fulla 有环境层秒级尖峰——已在报告与研究报告中诚实修订） |
+| AC2 | **GC 抖动曲线**：四家 5 分钟 P99 时间序列 JSON + 对比小节（Fulla 是否平线、Keycloak 是否有周期尖峰） | gcjitter JSON + 小节 | ✅（结论与预期相反：四家全部出现相同的 ~30s 周期 ~1.8s 上限尖峰，根因为 WSL2 I/O 调度停顿而非运行时 GC——见 G4 注记及 `GC_JITTER_ROOT_CAUSE_ANALYSIS.md`；去除环境噪声后 Cleaned P99：Fulla 3.0ms 最优） |
 | AC3 | **可复现**：`run-comparison.sh` 一键串行跑四家；README 含环境要求与复现步骤 | 复现指引 | ✅（`benchmarks/competitors/README.md`） |
 | AC4 | **公平性声明**：每家竞品的配置来源（官方文档链接）、偏离默认的每一项、warmup 差异（Keycloak 60s）均显式标注 | COMPARISON.md 附录 + setup.sh 注释 | ✅ |
 | AC5 | **诚实修订**：调研报告 §3.1 竞品列更新为"同环境实测"，§3.2 卖点若被证伪则收敛 | research.md 更新 | ✅（S5/S6 与 GC 抖动主张按实测收敛，见 §3.1/3.2 修订） |
