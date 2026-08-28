@@ -30,7 +30,7 @@
     "vitest": "4.1.11",
     "vue-tsc": "^3.3.11",
     "eslint": "^9.20.0",
-    "@eslint/js": "^9.20.0",
+    "@eslint/js": "^10.0.1",
     "typescript-eslint": "^8.24.0",
     "eslint-plugin-vue": "^9.32.0",
     "globals": "^17.11.0"
