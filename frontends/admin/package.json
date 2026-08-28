@@ -27,7 +27,7 @@
     "@eslint/js": "^9.20.0",
     "typescript-eslint": "^8.24.0",
     "eslint-plugin-vue": "^9.32.0",
-    "globals": "^15.14.0"
+    "globals": "^17.11.0"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
