@@ -1,0 +1,30 @@
+{
+  "title": {
+    "message": "fulla",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "fulla",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Docs": {
+    "message": "文档",
+    "description": "Navbar item with label Docs"
+  },
+  "item.label.API": {
+    "message": "API",
+    "description": "Navbar item with label API"
+  },
+  "item.label.Benchmarks": {
+    "message": "性能基准",
+    "description": "Navbar item with label Benchmarks"
+  },
+  "item.label.ADR": {
+    "message": "ADR",
+    "description": "Navbar item with label ADR"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Navbar item with label GitHub"
+  }
+}

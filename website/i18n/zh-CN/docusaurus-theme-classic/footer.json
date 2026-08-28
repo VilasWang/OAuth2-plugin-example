@@ -1,0 +1,62 @@
+{
+  "link.title.Docs": {
+    "message": "文档",
+    "description": "The title of the footer links column with title=Docs in the footer"
+  },
+  "link.title.Resources": {
+    "message": "资源",
+    "description": "The title of the footer links column with title=Resources in the footer"
+  },
+  "link.title.Community": {
+    "message": "社区",
+    "description": "The title of the footer links column with title=Community in the footer"
+  },
+  "link.item.label.Get Started": {
+    "message": "开始",
+    "description": "The label of footer link with label=Get Started linking to /docs/intro"
+  },
+  "link.item.label.Architecture": {
+    "message": "架构总览",
+    "description": "The label of footer link with label=Architecture linking to /docs/architecture/architecture-overview"
+  },
+  "link.item.label.API Reference": {
+    "message": "API 参考",
+    "description": "The label of footer link with label=API Reference linking to /docs/domains/api-reference"
+  },
+  "link.item.label.SDK Integration": {
+    "message": "SDK 集成",
+    "description": "The label of footer link with label=SDK Integration linking to /docs/sdk/sdk-integration-guide"
+  },
+  "link.item.label.Production Deployment": {
+    "message": "生产部署",
+    "description": "The label of footer link with label=Production Deployment linking to /docs/operate/deployment"
+  },
+  "link.item.label.Benchmarks": {
+    "message": "性能基准",
+    "description": "The label of footer link with label=Benchmarks linking to https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md"
+  },
+  "link.item.label.OpenAPI Contract": {
+    "message": "OpenAPI 契约",
+    "description": "The label of footer link with label=OpenAPI Contract linking to https://github.com/voidvec/fulla/blob/master/apps/server/openapi.yaml"
+  },
+  "link.item.label.ADRs": {
+    "message": "架构决策记录",
+    "description": "The label of footer link with label=ADRs linking to /docs/adr/ADR-0001"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "The label of footer link with label=GitHub linking to https://github.com/voidvec/fulla"
+  },
+  "link.item.label.Chinese Wiki": {
+    "message": "中文 Wiki",
+    "description": "The label of footer link with label=Chinese Wiki linking to https://github.com/voidvec/fulla/wiki"
+  },
+  "link.item.label.Issues": {
+    "message": "问题反馈",
+    "description": "The label of footer link with label=Issues linking to https://github.com/voidvec/fulla/issues"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 Luca · MIT License · 本站内容来自仓库 docs 目录（单一事实源）",
+    "description": "The footer copyright"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "version.label": {
+    "message": "当前",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Evaluate": {
+    "message": "评估",
+    "description": "The label for category 'Evaluate' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Integrate": {
+    "message": "集成",
+    "description": "The label for category 'Integrate' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Deep Dives": {
+    "message": "架构深潜",
+    "description": "The label for category 'Deep Dives' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Operate": {
+    "message": "运维",
+    "description": "The label for category 'Operate' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Contribute": {
+    "message": "贡献",
+    "description": "The label for category 'Contribute' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.ADRs": {
+    "message": "决策记录（ADR）",
+    "description": "The label for category 'ADRs' in sidebar 'docs'"
+  },
+  "sidebar.docs.link.Benchmark Report": {
+    "message": "性能基准报告",
+    "description": "The label for link 'Benchmark Report' in sidebar 'docs', linking to 'https://github.com/voidvec/fulla/blob/master/benchmarks/competitors/results/COMPARISON.md'"
+  }
+}
