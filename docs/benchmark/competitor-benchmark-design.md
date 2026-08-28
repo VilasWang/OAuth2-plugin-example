@@ -1,6 +1,6 @@
 # fulla Competitor Performance Benchmark Comparison Design
 
-> **Version**: v1.1 (2026-08-15 review revision: adds M0 prerequisite parameterization, S5 pool-size correction, pinned GC-jitter scenario, fulla same-session rerun, Zitadel JWT-profile authentication note, warmup methodology aligned with in-repo data)
+> **Version**: v1.2 (2026-08-28 revision: GC-jitter root cause analysis — WSL2 I/O scheduling pauses, not runtime GC; adds `--discard-spikes` / `--env-monitor` to run-gc-jitter.sh; Cleaned P99 stats in COMPARISON.md)
 > **Date**: 2026-08-15
 > **Document type**: Technical design (Phase 0.5 implementation blueprint, **not code** — for implementation see the §7 milestones)
 > **Upstream planning**: [Evolution Plan §3 Phase 0] (productization-evolution-plan: locally maintained archive), item P0 "self-hosted competitor comparison benchmark"
@@ -12,7 +12,7 @@
 ## 0. TL;DR
 
 - **What**: Load-test Keycloak / Ory Hydra / Zitadel on the **same machine, with the same wrk ladder and the same PostgreSQL backend**, producing a like-for-like comparison table against fulla's committed self-test data (`benchmarks/results/SUMMARY.md`).
-- **What gets compared**: The five single-step scenarios S1 discovery / S2 client_credentials / S3 introspect / S5 refresh_token / S6 userinfo, plus cold start, steady-state RSS, and the **GC-jitter long run** (5-minute P99 time series — fulla's core no-GC differentiation evidence).
+- **What gets compared**: The five single-step scenarios S1 discovery / S2 client_credentials / S3 introspect / S5 refresh_token / S6 userinfo, plus cold start, steady-state RSS, and the **GC-jitter long run** (5-minute P99 time series — root cause: WSL2 I/O scheduling pauses, not runtime GC; Cleaned P99 after env-noise removal shows fulla 3.0ms < Keycloak 4.6ms < Zitadel 18.1ms < Ory 24.1ms).
 - **What does not get compared**: S4 auth_code (each product's login/consent flows cannot be driven uniformly by wrk); Auth0 (SaaS, cannot be self-hosted); competitors' extreme tuned configurations (official recommended production configurations are used throughout).
 - **Core principle**: Fairness over flattering numbers. Competitor communities will challenge the results, so the methodology must be beyond reproach — same hardware, same concurrency ladder, same backend, each product's officially recommended configuration, all scripts committed and reproducible.
 - **Acceptance**: A four-product like-for-like comparison table (QPS / P99 / steady-state RSS / cold start / GC jitter) landed in `benchmarks/competitors/results/COMPARISON.md`; a third party can reproduce it one-command-style from the README.
@@ -26,7 +26,7 @@
 | # | Goal | Measured by |
 |---|------|------|
 | G1 | **Same-environment competitor data**: replace the survey report §3.1 competitor column ("from each product community's public benchmarks, not a same-environment comparison") with same-environment measurements | §6 acceptance ✅ COMPARISON.md |
-| G2 | **Validate the differentiation narrative**: whether the C++ no-GC / low-memory / low-tail-latency claims are supported by same-environment data | GC-jitter long run + steady-state RSS comparison |
+| G2 | **Validate the differentiation narrative**: whether the C++ low-tail-latency claims are supported by same-environment data (note: the original "no-GC" narrative was falsified — all four products show identical WSL2-environment spikes; the real differentiation is in Cleaned P99) | GC-jitter long run + steady-state RSS comparison |
 | G3 | **Reproducible**: a third party following `benchmarks/competitors/README.md` on an identically specced machine obtains data within &lt;15% deviation | Reproduction threshold (reusing the self-test infrastructure's AC1) |
 | G4 | **Honest revision**: if fulla does not lead on some dimension, revise the claim ordering in survey report §3.1/§3.2 accordingly | Report update |
 
@@ -136,9 +136,9 @@ fulla's self-tests pre-seed tokens for S3/S6 via SQL (`gen-tokens.py`). **Not po
 - **S5 pool (single-issued, single-consumed)**: Every refresh token is invalidated after a single use; the pool must be ≥ that step's QPS × measurement duration × a 1.3 margin. fulla's self-test measured basis: 20,000 pool ÷ 10 s ≈ 1,982 QPS (the pool exactly covers the measurement window). Competitors must **re-issue the pool** before every step (`run-scenario.sh` gains a `--reissue "<cmd>"` hook, equivalent to the self-test's SQL `--reseed` but going through each product's API).
 - **RTs cannot come from client_credentials**: RFC 6749 §4.4.3 forbids issuing refresh tokens under that grant. Competitor RT pools must be obtained through user-context flows — Keycloak via ROPC (direct access grants); Hydra via the accept flow (see M2); Zitadel via the Session API/auth_code (see M2).
 
-### D6 — GC jitter = long-run P99 time series (fulla's core differentiation evidence)
+### D6 — Long-run P99 time series (env-noise-aware tail-latency comparison)
 
-A single 30 s run cannot reveal GC cycles. A dedicated **long-run test** is designed:
+A single 30 s run cannot reveal tail-latency patterns. A dedicated **long-run test** is designed:
 
 ```
 Per product: c=32 fixed, sustained for 5 minutes, scenario pinned to S6 userinfo
@@ -151,11 +151,15 @@ fall back to S2 and note it in the results.)
 Sampling: record each 10 s window's P99 once (wrk has no native segmentation
 → approximated by 30 serial 10 s segments)
 Output: a P99-over-time curve (JSON array)
-Expected: Keycloak shows periodic P99 spikes (GC STW); Ory shows small Go GC
-spikes; fulla stays flat
+Expected (original, falsified): Keycloak shows periodic P99 spikes (GC STW);
+Ory shows small Go GC spikes; fulla stays flat.
+Actual (2026-08-28 root cause analysis): ALL four products show identical ~30s
+period, ~1.8s P99-ceiling spikes — caused by WSL2 virtio-blk I/O scheduling
+pauses, not any runtime GC. Cleaned P99 (after removing contaminated segments)
+is the comparable metric: fulla 3.0ms, Keycloak 4.6ms, Zitadel 18.1ms, Ory 24.1ms
 ```
 
-Implementation: `benchmarks/competitors/run-gc-jitter.sh` — loops wrk `-d10s` 30 times in series, parsing each segment's P99 into an array. **This is the single most compelling chart for the external narrative** (visual evidence of "zero GC jitter").
+Implementation: `benchmarks/competitors/run-gc-jitter.sh` — loops wrk `-d10s` 30 times in series, parsing each segment's P99 into an array. **This is the single most compelling chart for the external narrative** (visual evidence of tail-latency stability; use `--discard-spikes 5.0` to filter WSL2 env-noise spikes and report Cleaned P99).
 
 ### D7 — Unified memory basis: full-stack container RSS + annotated logical layer
 
@@ -231,10 +235,12 @@ Every `setup.sh` must:
 4. **Bulk-issue the token pool** (D5: N client_credentials requests → `access_tokens.txt`)
 5. Warmup validation (one token request to confirm the pipeline works)
 
-### 5.3 Long-run GC jitter (D6)
+### 5.3 Long-run P99 time series (D6)
 
 Parameters: `c = the concurrency step at each product's steady-state knee`, 30 × 10 s segments (5 minutes total), no gaps between segments.
-Output: `results/<date>-<sha>-<product>-gcjitter.json` (P99 array + segment timestamps).
+Output: `results/<date>-<sha>-<product>-gcjitter.json` (P99 array + segment timestamps, schema v2 with `env_noise` + `cleaned_stats` fields).
+Spike detection: `--discard-spikes 5.0` marks segments with P99 > 5×median as contaminated (WSL2 env noise). Cleaned P99 is computed from remaining segments.
+Env monitoring: `--env-monitor` collects vmstat + /proc/meminfo for post-hoc correlation.
 
 ### 5.4 Cold start
 
@@ -255,7 +261,7 @@ The `env` block of the result JSONs follows schema v1, gaining `product` / `prod
 | # | Acceptance item | Measured by | Status |
 |---|--------|------|------|
 | AC1 | **Four-product like-for-like comparison table**: S1/S2/S3/S5/S6 × \{QPS, P99, RSS, cold start\} committed to `benchmarks/competitors/results/COMPARISON.md`, each row carrying the product version | COMPARISON.md | ✅ |
-| AC2 | **GC jitter curves**: four products' 5-minute P99 time-series JSON + comparison section (is fulla flat; does Keycloak show periodic spikes) | gcjitter JSON + section | ✅ (conclusion opposite to expectation, see the G4 note: the GC languages are all flat and fulla shows environment-level second-scale spikes — honestly revised in the report and the research report) |
+| AC2 | **GC jitter curves**: four products' 5-minute P99 time-series JSON + comparison section (is fulla flat; does Keycloak show periodic spikes) | gcjitter JSON + section | ✅ (conclusion opposite to expectation: all four products show identical ~30s-period ~1.8s-ceiling spikes caused by WSL2 I/O scheduling pauses, not runtime GC — see the G4 note and `GC_JITTER_ROOT_CAUSE_ANALYSIS.md`; Cleaned P99 after env-noise removal: fulla 3.0ms best) |
 | AC3 | **Reproducible**: `run-comparison.sh` runs all four products serially with one command; the README covers environment requirements and reproduction steps | Reproduction guide | ✅ (`benchmarks/competitors/README.md`) |
 | AC4 | **Fairness statement**: each competitor's configuration source (official documentation links), every deviation from the defaults, and the warmup difference (Keycloak 60 s) are all explicitly annotated | COMPARISON.md appendix + setup.sh comments | ✅ |
 | AC5 | **Honest revision**: survey report §3.1 competitor column updated to "same-environment measurements"; §3.2 claims converge if falsified | research.md update | ✅ (the S5/S6 and GC-jitter claims converged per the measurements, see the §3.1/3.2 revisions) |
