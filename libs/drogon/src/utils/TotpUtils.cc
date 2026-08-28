@@ -17,7 +17,13 @@ std::string TotpUtils::base32Encode(const uint8_t *data, size_t len)
     std::string result;
     result.reserve((len * 8 + 4) / 5);
 
-    int buffer = 0;
+    // #104 (second ASan+UBSan pass): same accumulation bug as the identity
+    // lib's TotpUtils — `int buffer` grew 5-8 bits per input unit and
+    // overflowed into signed left-shift territory (UB that happened to wrap
+    // benignly on two's-complement targets). uint32_t buffer + truncate to
+    // the live bits after each emit; emitted values read exactly those bits,
+    // so outputs are byte-identical to the historical wrapped-int behavior.
+    uint32_t buffer = 0;
     int bitsLeft = 0;
 
     for (size_t i = 0; i < len; ++i)
@@ -29,6 +35,7 @@ std::string TotpUtils::base32Encode(const uint8_t *data, size_t len)
             result += BASE32_ALPHABET[(buffer >> (bitsLeft - 5)) & 0x1F];
             bitsLeft -= 5;
         }
+        buffer &= (bitsLeft == 0) ? 0u : ((1u << bitsLeft) - 1);
     }
 
     if (bitsLeft > 0)
@@ -42,7 +49,7 @@ std::string TotpUtils::base32Encode(const uint8_t *data, size_t len)
 std::vector<uint8_t> TotpUtils::base32Decode(const std::string &encoded)
 {
     std::vector<uint8_t> result;
-    int buffer = 0;
+    uint32_t buffer = 0;
     int bitsLeft = 0;
 
     for (char c : encoded)
@@ -57,13 +64,15 @@ std::vector<uint8_t> TotpUtils::base32Decode(const std::string &encoded)
         else
             continue;  // Skip padding/invalid
 
-        buffer = (buffer << 5) | val;
+        buffer = (buffer << 5) | static_cast<uint32_t>(val);
         bitsLeft += 5;
 
         if (bitsLeft >= 8)
         {
             result.push_back(static_cast<uint8_t>((buffer >> (bitsLeft - 8)) & 0xFF));
             bitsLeft -= 8;
+            // Same truncate-to-live-bits discipline as base32Encode.
+            buffer &= (bitsLeft == 0) ? 0u : ((1u << bitsLeft) - 1);
         }
     }
 
