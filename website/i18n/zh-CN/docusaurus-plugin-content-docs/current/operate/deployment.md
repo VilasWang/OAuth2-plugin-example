@@ -300,25 +300,27 @@ cd fulla
 chmod +x scripts/generate-jwt-keys.sh
 ./scripts/generate-jwt-keys.sh
 
-# 生成 TLS 证书（开发用自签名，生产用 Let's Encrypt）
+# 生成临时自签名 TLS 证书（nginx 启动需要证书文件存在）
 chmod +x scripts/generate-certs.sh
 ./scripts/generate-certs.sh
 ```
 
-**生产环境使用 Let's Encrypt**：
+> 自签名证书是启动引导用的临时占位——nginx 要求证书文件存在才能启动。后续第 6 步会替换为 Let's Encrypt 正式证书。
+
+**生产环境使用 Let's Encrypt**（在第 4 步启动服务之后）：
 ```bash
-# 安装 certbot
-sudo apt install certbot
+# 1. 停止 nginx 容器以释放 80 端口
+docker compose -f deploy/docker/docker-compose.prod.yml stop nginx
 
-# 创建 SSL 证书目录
-mkdir -p deploy/nginx/ssl/
-
-# 获取证书（先停止 nginx）
+# 2. 获取证书（standalone 模式需要 80 端口空闲）
 sudo certbot certonly --standalone -d your-domain.com
 
-# 复制证书
+# 3. 复制证书
 cp /etc/letsencrypt/live/your-domain.com/fullchain.pem deploy/nginx/ssl/
 cp /etc/letsencrypt/live/your-domain.com/privkey.pem deploy/nginx/ssl/
+
+# 4. 重启 nginx 加载正式证书
+docker compose -f deploy/docker/docker-compose.prod.yml start nginx
 ```
 
 ### 3. 配置环境变量
@@ -333,6 +335,9 @@ cp deploy/env/docker.env.example .env.docker
 编辑 `.env.docker`，设置强密码与 HTTPS 域名相关配置：
 
 ```env
+# 镜像版本 tag（ghcr.io/voidvec/fulla-*，默认 latest）
+FULLA_VERSION=latest
+
 # 运行模式（生产强制校验 HTTPS issuer / 强密码；须配合 FULLA_ISSUER=https://）
 FULLA_ENV=production
 FULLA_ISSUER=https://your-domain.com
@@ -340,17 +345,18 @@ FULLA_ISSUER=https://your-domain.com
 # JWT 签名密钥（生产必填；不设则每次重启 token 失效）
 FULLA_JWT_KEY_PATH=/app/keys/signing.pem
 
+# ⚠ POSTGRES_PASSWORD 与 FULLA_DB_PASSWORD 必须保持一致
 POSTGRES_USER=fulla_user
 POSTGRES_PASSWORD=<生成强密码>
 POSTGRES_DB=fulla_db
-
-REDIS_PASSWORD=<生成强密码>
-
 FULLA_DB_HOST=fulla-postgres
 FULLA_DB_PORT=5432
 FULLA_DB_NAME=fulla_db
 FULLA_DB_USER=fulla_user
 FULLA_DB_PASSWORD=<与 POSTGRES_PASSWORD 相同>
+
+# ⚠ REDIS_PASSWORD 与 FULLA_REDIS_PASSWORD 必须保持一致
+REDIS_PASSWORD=<生成强密码>
 FULLA_REDIS_HOST=fulla-redis
 FULLA_REDIS_PORT=6379
 FULLA_REDIS_PASSWORD=<与 REDIS_PASSWORD 相同>
@@ -358,12 +364,21 @@ FULLA_REDIS_PASSWORD=<与 REDIS_PASSWORD 相同>
 # CORS / OAuth 回调（HTTPS 域名必填，否则浏览器请求被拦截）
 FULLA_FRONTEND_URL=https://your-domain.com
 FULLA_CORS_ALLOW_ORIGINS=https://your-domain.com
+# ⚠ FULLA_VUE_REDIRECT_URI 与 VITE_REDIRECT_URI 必须保持一致
 FULLA_VUE_REDIRECT_URI=https://your-domain.com/callback
 FULLA_VUE_CLIENT_SECRET=<生成强密码>
 FULLA_GOOGLE_REDIRECT_URI=https://your-domain.com/callback
 
 # 错误详细度（生产建议 false，不暴露字段级校验错误）
 DETAILED_VALIDATION_ERRORS=false
+
+# 第三方登录（可选）
+FULLA_GITHUB_CLIENT_ID=
+FULLA_GITHUB_CLIENT_SECRET=
+FULLA_GOOGLE_CLIENT_ID=
+FULLA_GOOGLE_CLIENT_SECRET=
+FULLA_WECHAT_APPID=
+FULLA_WECHAT_SECRET=
 
 # 邮件服务（SMTP）— 生产环境必须配置
 FULLA_SMTP_HOST=smtp.example.com
@@ -379,8 +394,6 @@ VITE_API_BASE_URL=
 VITE_CLIENT_ID=vue-client
 VITE_REDIRECT_URI=https://your-domain.com/callback
 VITE_GITHUB_CLIENT_ID=
-
-DOMAIN=your-domain.com
 ```
 
 > **重要耦合**：`FULLA_ENV=production` 与 `FULLA_ISSUER=https://...` 必须同时设置。仅设 production 而不配 HTTPS issuer 会导致后端启动校验失败（`ConfigManager` 的 prod-mode 校验拒绝非 https issuer）。同理 DB/Redis 密码不能是默认的 `123456` / `password`，否则 prod 校验也会拒绝启动。
@@ -430,8 +443,11 @@ docker compose -f deploy/docker/docker-compose.prod.yml logs fulla-backend | gre
 ### 4. 启动服务
 
 ```bash
-docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker up -d
+# --build 从源码编译镜像（从克隆仓库首次部署时必填）
+docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker up -d --build
 ```
+
+> 后续仅修改配置（无代码变更）的重启可省略 `--build`。`git pull` 更新代码后务必加上 `--build` 以拉取变更。
 
 ### 5. 验证部署
 
@@ -527,7 +543,8 @@ curl -k https://localhost/admin/
 | `DETAILED_VALIDATION_ERRORS` | 是否返回字段级校验错误（生产建议 false） | false |
 | `FULLA_GITHUB_CLIENT_ID` / `FULLA_GITHUB_CLIENT_SECRET` | GitHub OAuth（可选） | (空) |
 | `FULLA_GOOGLE_CLIENT_ID` / `FULLA_GOOGLE_CLIENT_SECRET` | Google OAuth（可选） | (空) |
-| `FULLA_SMTP_HOST` | SMTP 服务器主机（未设置则邮件走 Console 模式） | (可选) |
+| `FULLA_WECHAT_APPID` / `FULLA_WECHAT_SECRET` | 微信 OAuth（可选） | (空) |
+| `FULLA_SMTP_HOST` | SMTP 服务器主機（未设置则邮件走 Console 模式） | (可选) |
 | `FULLA_SMTP_PORT` | SMTP 端口 | 465 |
 | `FULLA_SMTP_USER` | SMTP 用户名（完整邮箱地址） | (可选) |
 | `FULLA_SMTP_PASSWORD` | SMTP 授权码（非邮箱登录密码） | (可选) |
@@ -566,37 +583,94 @@ curl -k https://localhost/admin/
 
 ## 数据库初始化
 
-首次部署时，后端会自动执行数据库迁移（`FULLA_AUTO_MIGRATE=true`）。
+首次部署时，后端会自动执行数据库迁移（`FULLA_AUTO_MIGRATE=true`），创建所有必要的表。但**不会自动创建种子数据**——需要手动创建管理员用户和 OAuth2 客户端。
 
-如需手动初始化：
+> `apps/server/seed/` 下的 `dev_*.sql` 文件使用硬编码密码和 localhost 回调地址，**不要在生产环境使用**。请按以下步骤操作。
 
-```bash
-# 进入 postgres 容器
-docker exec -it fulla-postgres psql -U fulla_user -d fulla_db
+### 1. 创建管理员账号
 
-# 或从宿主机执行迁移
-docker exec -it fulla-postgres sh -c '
-  for f in /docker-entrypoint-initdb.d/migrations/V*.sql; do
-    psql -U fulla_user -d fulla_db -f "$f"
-  done
-'
-```
-
-### 创建管理员账号
-
-首次部署后，执行 seed 脚本创建默认管理员：
+生成安全密码并创建 admin 用户：
 
 ```bash
-# 验证 seed 文件存在
-ls apps/server/seed/dev_*.sql || echo "错误：Seed 文件缺失，请检查项目结构"
+# 生成 admin 随机密码
+ADMIN_PASSWORD=$(openssl rand -base64 24)
+echo "Admin 密码: $ADMIN_PASSWORD"
+echo "请保存此密码——登录管理后台时需要。"
 
-# 创建管理员账号
-docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < apps/server/seed/dev_admin_user.sql
-docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < apps/server/seed/dev_admin_console_client.sql
-docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < apps/server/seed/dev_vue_client.sql
+# 生成密码哈希（SHA-256 + 随机盐）
+ADMIN_SALT=$(openssl rand -hex 16)
+ADMIN_HASH=$(echo -n "${ADMIN_PASSWORD}${ADMIN_SALT}" | sha256sum | cut -d' ' -f1)
+
+# 创建 admin 用户
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db <<EOF
+INSERT INTO users (username, password_hash, salt, email)
+VALUES ('admin', '${ADMIN_HASH}', '${ADMIN_SALT}', 'admin@your-domain.com')
+ON CONFLICT (username) DO NOTHING;
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id FROM users u, roles r
+WHERE u.username = 'admin' AND r.name = 'admin'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO oauth2_subject_mappings (subject, internal_user_id, provider)
+SELECT u.id::text, u.id, 'local'
+FROM users u WHERE u.username = 'admin'
+ON CONFLICT (provider, subject) DO NOTHING;
+EOF
 ```
 
-**重要**：生产环境部署后立即修改 admin 密码！
+### 2. 创建 OAuth2 客户端
+
+创建 `vue-client`（用户前端）和 `admin-console`（管理后台），配置生产回调地址：
+
+```bash
+# 生成 vue-client 密钥
+VUE_SECRET=$(openssl rand -hex 32)
+VUE_SALT=$(openssl rand -hex 16)
+VUE_HASH=$(echo -n "${VUE_SECRET}${VUE_SALT}" | sha256sum | cut -d' ' -f1)
+
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db <<EOF
+-- 用户前端客户端（PUBLIC，PKCE）
+INSERT INTO oauth2_clients (client_id, client_type, client_secret, salt, name, redirect_uris, allowed_grant_types, token_endpoint_auth_method)
+VALUES (
+    'vue-client',
+    'PUBLIC',
+    '${VUE_HASH}',
+    '${VUE_SALT}',
+    'User Frontend',
+    'https://your-domain.com/callback',
+    'authorization_code,refresh_token',
+    'none'
+)
+ON CONFLICT (client_id) DO NOTHING;
+
+INSERT INTO oauth2_client_scopes (client_id, scope_name)
+SELECT 'vue-client', name FROM oauth2_scopes
+WHERE is_default = TRUE
+ON CONFLICT (client_id, scope_name) DO NOTHING;
+
+-- 管理后台客户端（PUBLIC，PKCE）
+INSERT INTO oauth2_clients (client_id, client_type, client_secret, salt, name, redirect_uris, allowed_grant_types, token_endpoint_auth_method)
+VALUES (
+    'admin-console',
+    'PUBLIC',
+    'not-used-public-client',
+    '',
+    'Admin Console',
+    'https://your-domain.com/admin/callback',
+    'authorization_code,refresh_token',
+    'none'
+)
+ON CONFLICT (client_id) DO NOTHING;
+
+INSERT INTO oauth2_client_scopes (client_id, scope_name)
+SELECT 'admin-console', name FROM oauth2_scopes
+WHERE name IN ('openid', 'profile', 'admin')
+ON CONFLICT (client_id, scope_name) DO NOTHING;
+EOF
+```
+
+> 将上方命令中的 `your-domain.com` 替换为你的实际域名。`vue-client` 的 client_id 必须与 `.env.docker` 中的 `VITE_CLIENT_ID` 一致（默认值：`vue-client`）。
 
 ---
 
@@ -749,6 +823,24 @@ docker exec fulla-postgres pg_dump -U fulla_user fulla_db > backup_$(date +%Y%m%
 docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < backup_20260526.sql
 ```
 
+### TLS 证书续期
+
+Let's Encrypt 证书 90 天过期。设置自动续期：
+
+```bash
+# 测试续期流程（dry run）
+sudo certbot renew --dry-run
+
+# 启用 systemd 定时器（多数发行版安装 certbot 时已自动创建）
+sudo systemctl enable certbot.timer
+sudo systemctl start certbot.timer
+
+# 或使用 cron 定时任务
+(crontab -l 2>/dev/null; echo "0 3 1 * * sudo certbot renew --quiet && cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /path/to/repo/deploy/nginx/ssl/ && cp /etc/letsencrypt/live/your-domain.com/privkey.pem /path/to/repo/deploy/nginx/ssl/ && docker compose -f /path/to/repo/deploy/docker/docker-compose.prod.yml restart nginx") | sudo crontab -
+```
+
+> cron 任务将续期后的证书复制到 nginx SSL 目录并重启 nginx 容器。请根据实际部署路径调整上方命令中的路径。
+
 ### 监控
 
 - Prometheus: `http://your-server:9090`
@@ -800,7 +892,7 @@ openssl x509 -in deploy/nginx/ssl/fullchain.pem -noout -dates
 ## 安全清单
 
 - [ ] 所有密码使用强随机值（`openssl rand -base64 32`）
-- [ ] TLS 证书有效且自动续期
+- [ ] TLS 证书有效且自动续期（certbot timer 或 cron 任务已配置）
 - [ ] `.env.docker` 文件权限设为 600
 - [ ] `deploy/keys/signing.pem` 权限设为 600
 - [ ] 首次部署后修改 admin 默认密码

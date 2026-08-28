@@ -301,25 +301,27 @@ cd fulla
 chmod +x scripts/generate-jwt-keys.sh
 ./scripts/generate-jwt-keys.sh
 
-# Generate TLS certificates (self-signed for development; Let's Encrypt for production)
+# Generate a temporary self-signed TLS certificate (needed for nginx to start)
 chmod +x scripts/generate-certs.sh
 ./scripts/generate-certs.sh
 ```
 
-**Using Let's Encrypt in production**:
+> The self-signed certificate is a bootstrap placeholder — nginx requires cert files to exist before it can start. You will replace it with a Let's Encrypt certificate in step 6 below.
+
+**Using Let's Encrypt in production** (after step 4 starts the services):
 ```bash
-# Install certbot
-sudo apt install certbot
+# 1. Stop the nginx container to free port 80
+docker compose -f deploy/docker/docker-compose.prod.yml stop nginx
 
-# Create the SSL certificate directory
-mkdir -p deploy/nginx/ssl/
-
-# Obtain the certificate (stop nginx first)
+# 2. Obtain the certificate (port 80 must be free for standalone challenge)
 sudo certbot certonly --standalone -d your-domain.com
 
-# Copy the certificates
+# 3. Copy the certificates
 cp /etc/letsencrypt/live/your-domain.com/fullchain.pem deploy/nginx/ssl/
 cp /etc/letsencrypt/live/your-domain.com/privkey.pem deploy/nginx/ssl/
+
+# 4. Restart nginx with the real certificate
+docker compose -f deploy/docker/docker-compose.prod.yml start nginx
 ```
 
 ### 3. Configure environment variables
@@ -334,6 +336,9 @@ cp deploy/env/docker.env.example .env.docker
 Edit `.env.docker` to set strong passwords and the HTTPS-domain-related configuration:
 
 ```env
+# Image version tag for ghcr.io/voidvec/fulla-* images (default: latest)
+FULLA_VERSION=latest
+
 # Run mode (production enforces HTTPS issuer / strong passwords; must be paired with FULLA_ISSUER=https://)
 FULLA_ENV=production
 FULLA_ISSUER=https://your-domain.com
@@ -341,17 +346,18 @@ FULLA_ISSUER=https://your-domain.com
 # JWT signing key (required in production; without it tokens are invalidated on every restart)
 FULLA_JWT_KEY_PATH=/app/keys/signing.pem
 
+# ⚠ POSTGRES_PASSWORD and FULLA_DB_PASSWORD must be identical
 POSTGRES_USER=fulla_user
 POSTGRES_PASSWORD=<generate a strong password>
 POSTGRES_DB=fulla_db
-
-REDIS_PASSWORD=<generate a strong password>
-
 FULLA_DB_HOST=fulla-postgres
 FULLA_DB_PORT=5432
 FULLA_DB_NAME=fulla_db
 FULLA_DB_USER=fulla_user
 FULLA_DB_PASSWORD=<same as POSTGRES_PASSWORD>
+
+# ⚠ REDIS_PASSWORD and FULLA_REDIS_PASSWORD must be identical
+REDIS_PASSWORD=<generate a strong password>
 FULLA_REDIS_HOST=fulla-redis
 FULLA_REDIS_PORT=6379
 FULLA_REDIS_PASSWORD=<same as REDIS_PASSWORD>
@@ -359,12 +365,21 @@ FULLA_REDIS_PASSWORD=<same as REDIS_PASSWORD>
 # CORS / OAuth callbacks (HTTPS domain required, otherwise browser requests are blocked)
 FULLA_FRONTEND_URL=https://your-domain.com
 FULLA_CORS_ALLOW_ORIGINS=https://your-domain.com
+# ⚠ FULLA_VUE_REDIRECT_URI and VITE_REDIRECT_URI must be identical
 FULLA_VUE_REDIRECT_URI=https://your-domain.com/callback
 FULLA_VUE_CLIENT_SECRET=<generate a strong password>
 FULLA_GOOGLE_REDIRECT_URI=https://your-domain.com/callback
 
 # Error verbosity (false recommended in production; do not expose field-level validation errors)
 DETAILED_VALIDATION_ERRORS=false
+
+# External Auth (optional)
+FULLA_GITHUB_CLIENT_ID=
+FULLA_GITHUB_CLIENT_SECRET=
+FULLA_GOOGLE_CLIENT_ID=
+FULLA_GOOGLE_CLIENT_SECRET=
+FULLA_WECHAT_APPID=
+FULLA_WECHAT_SECRET=
 
 # Email service (SMTP) — must be configured in production
 FULLA_SMTP_HOST=smtp.example.com
@@ -380,8 +395,6 @@ VITE_API_BASE_URL=
 VITE_CLIENT_ID=vue-client
 VITE_REDIRECT_URI=https://your-domain.com/callback
 VITE_GITHUB_CLIENT_ID=
-
-DOMAIN=your-domain.com
 ```
 
 > **Critical coupling**: `FULLA_ENV=production` and `FULLA_ISSUER=https://...` must be set together. Setting production without an HTTPS issuer makes backend startup validation fail (the prod-mode check in `ConfigManager` rejects non-https issuers). Likewise, the DB/Redis passwords must not be the defaults `123456` / `password`, or the prod validation will also refuse to start.
@@ -431,8 +444,11 @@ docker compose -f deploy/docker/docker-compose.prod.yml logs fulla-backend | gre
 ### 4. Start the services
 
 ```bash
-docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker up -d
+# --build compiles images from source (required for first deployment from a cloned repo)
+docker compose -f deploy/docker/docker-compose.prod.yml --env-file .env.docker up -d --build
 ```
+
+> Subsequent restarts (after config changes only, no code changes) can omit `--build`. After code updates via `git pull`, always include `--build` to pick up the changes.
 
 ### 5. Verify the deployment
 
@@ -528,6 +544,7 @@ The backend overrides configuration-file values with environment variables (prec
 | `DETAILED_VALIDATION_ERRORS` | Whether to return field-level validation errors (false recommended in production) | false |
 | `FULLA_GITHUB_CLIENT_ID` / `FULLA_GITHUB_CLIENT_SECRET` | GitHub OAuth (optional) | (empty) |
 | `FULLA_GOOGLE_CLIENT_ID` / `FULLA_GOOGLE_CLIENT_SECRET` | Google OAuth (optional) | (empty) |
+| `FULLA_WECHAT_APPID` / `FULLA_WECHAT_SECRET` | WeChat OAuth (optional) | (empty) |
 | `FULLA_SMTP_HOST` | SMTP server host (unset means email stays in Console mode) | (optional) |
 | `FULLA_SMTP_PORT` | SMTP port | 465 |
 | `FULLA_SMTP_USER` | SMTP username (full email address) | (optional) |
@@ -567,37 +584,94 @@ The frontend (the user-facing OAuth2Frontend) is configured through Vite environ
 
 ## Database initialization
 
-On first deployment the backend runs database migrations automatically (`FULLA_AUTO_MIGRATE=true`).
+On first deployment the backend runs database migrations automatically (`FULLA_AUTO_MIGRATE=true`), creating all required tables. However, **no seed data is created automatically** — you must manually create the admin user and OAuth2 clients.
 
-To initialize manually:
+> The `dev_*.sql` files in `apps/server/seed/` use hard-coded passwords and localhost redirect URIs. **Do not use them in production.** Follow the steps below instead.
 
-```bash
-# Enter the postgres container
-docker exec -it fulla-postgres psql -U fulla_user -d fulla_db
+### 1. Create the administrator account
 
-# Or run the migrations from the host
-docker exec -it fulla-postgres sh -c '
-  for f in /docker-entrypoint-initdb.d/migrations/V*.sql; do
-    psql -U fulla_user -d fulla_db -f "$f"
-  done
-'
-```
-
-### Create the administrator account
-
-After the first deployment, run the seed scripts to create the default administrator:
+Generate a secure password hash and create the admin user:
 
 ```bash
-# Verify the seed files exist
-ls apps/server/seed/dev_*.sql || echo "Error: seed files missing, check the project structure"
+# Generate a random password for the admin user
+ADMIN_PASSWORD=$(openssl rand -base64 24)
+echo "Admin password: $ADMIN_PASSWORD"
+echo "Save this password — you will need it to log in to the admin console."
 
-# Create the administrator account
-docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < apps/server/seed/dev_admin_user.sql
-docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < apps/server/seed/dev_admin_console_client.sql
-docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < apps/server/seed/dev_vue_client.sql
+# Generate password hash (SHA-256 with a random salt)
+ADMIN_SALT=$(openssl rand -hex 16)
+ADMIN_HASH=$(echo -n "${ADMIN_PASSWORD}${ADMIN_SALT}" | sha256sum | cut -d' ' -f1)
+
+# Create the admin user
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db <<EOF
+INSERT INTO users (username, password_hash, salt, email)
+VALUES ('admin', '${ADMIN_HASH}', '${ADMIN_SALT}', 'admin@your-domain.com')
+ON CONFLICT (username) DO NOTHING;
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id FROM users u, roles r
+WHERE u.username = 'admin' AND r.name = 'admin'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO oauth2_subject_mappings (subject, internal_user_id, provider)
+SELECT u.id::text, u.id, 'local'
+FROM users u WHERE u.username = 'admin'
+ON CONFLICT (provider, subject) DO NOTHING;
+EOF
 ```
 
-**Important**: change the admin password immediately after deploying to production!
+### 2. Create the OAuth2 clients
+
+Create the `vue-client` (user frontend) and `admin-console` (admin console) with production redirect URIs:
+
+```bash
+# Generate a secret for vue-client (used if client type is changed to CONFIDENTIAL)
+VUE_SECRET=$(openssl rand -hex 32)
+VUE_SALT=$(openssl rand -hex 16)
+VUE_HASH=$(echo -n "${VUE_SECRET}${VUE_SALT}" | sha256sum | cut -d' ' -f1)
+
+docker exec -i fulla-postgres psql -U fulla_user -d fulla_db <<EOF
+-- User frontend client (PUBLIC, PKCE)
+INSERT INTO oauth2_clients (client_id, client_type, client_secret, salt, name, redirect_uris, allowed_grant_types, token_endpoint_auth_method)
+VALUES (
+    'vue-client',
+    'PUBLIC',
+    '${VUE_HASH}',
+    '${VUE_SALT}',
+    'User Frontend',
+    'https://your-domain.com/callback',
+    'authorization_code,refresh_token',
+    'none'
+)
+ON CONFLICT (client_id) DO NOTHING;
+
+INSERT INTO oauth2_client_scopes (client_id, scope_name)
+SELECT 'vue-client', name FROM oauth2_scopes
+WHERE is_default = TRUE
+ON CONFLICT (client_id, scope_name) DO NOTHING;
+
+-- Admin console client (PUBLIC, PKCE)
+INSERT INTO oauth2_clients (client_id, client_type, client_secret, salt, name, redirect_uris, allowed_grant_types, token_endpoint_auth_method)
+VALUES (
+    'admin-console',
+    'PUBLIC',
+    'not-used-public-client',
+    '',
+    'Admin Console',
+    'https://your-domain.com/admin/callback',
+    'authorization_code,refresh_token',
+    'none'
+)
+ON CONFLICT (client_id) DO NOTHING;
+
+INSERT INTO oauth2_client_scopes (client_id, scope_name)
+SELECT 'admin-console', name FROM oauth2_scopes
+WHERE name IN ('openid', 'profile', 'admin')
+ON CONFLICT (client_id, scope_name) DO NOTHING;
+EOF
+```
+
+> Replace `your-domain.com` with your actual domain in the redirect URIs above. The `vue-client` client_id must match `VITE_CLIENT_ID` in `.env.docker` (default: `vue-client`).
 
 ---
 
@@ -716,6 +790,24 @@ docker exec fulla-postgres pg_dump -U fulla_user fulla_db > backup_$(date +%Y%m%
 docker exec -i fulla-postgres psql -U fulla_user -d fulla_db < backup_20260526.sql
 ```
 
+### TLS certificate renewal
+
+Let's Encrypt certificates expire after 90 days. Set up automatic renewal:
+
+```bash
+# Test the renewal process (dry run)
+sudo certbot renew --dry-run
+
+# Add a systemd timer for automatic renewal (most distros already do this on certbot install)
+sudo systemctl enable certbot.timer
+sudo systemctl start certbot.timer
+
+# Or use a cron job as an alternative
+(crontab -l 2>/dev/null; echo "0 3 1 * * sudo certbot renew --quiet && cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /path/to/repo/deploy/nginx/ssl/ && cp /etc/letsencrypt/live/your-domain.com/privkey.pem /path/to/repo/deploy/nginx/ssl/ && docker compose -f /path/to/repo/deploy/docker/docker-compose.prod.yml restart nginx") | sudo crontab -
+```
+
+> The cron job copies the renewed certs to the nginx SSL directory and restarts the nginx container. Adjust paths to match your deployment location.
+
 ### Monitoring
 
 - Prometheus: `http://your-server:9090`
@@ -801,7 +893,7 @@ If frontend pages return 404 after a refresh, check the SPA fallback configurati
 ## Security checklist
 
 - [ ] All passwords use strong random values (`openssl rand -base64 32`)
-- [ ] TLS certificates are valid and auto-renew
+- [ ] TLS certificates are valid and auto-renew (certbot timer or cron job configured)
 - [ ] `.env.docker` file permissions set to 600
 - [ ] `deploy/keys/signing.pem` permissions set to 600
 - [ ] Default admin password changed after the first deployment
