@@ -211,7 +211,12 @@ test.describe('Security', () => {
     if (await codeInput.isVisible()) {
       await codeInput.fill('123456')
       await page.locator('button:has-text("Verify")').click()
-      await expect(page.locator('text=MFA enabled')).toBeVisible()
+      // Gap-fix P0: success now surfaces the one-time backup codes in a
+      // confirmation layer (previously the codes were silently discarded).
+      const dialog = page.getByRole('dialog', { name: /backup codes/i })
+      await expect(dialog).toBeVisible()
+      await dialog.getByRole('button', { name: 'I have safely saved my codes' }).click()
+      await expect(page.locator('text=MFA enabled successfully!')).toBeVisible()
     }
   })
 

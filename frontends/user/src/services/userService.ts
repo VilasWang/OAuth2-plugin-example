@@ -18,7 +18,7 @@ export const userService = {
     })
   },
 
-  async setupMfa(): Promise<{ secret: string; qr_uri?: string }> {
+  async setupMfa(): Promise<{ secret: string; otpauth_uri?: string }> {
     const resp = await http.post('/api/me/mfa/setup')
     return resp.data
   },
@@ -32,8 +32,11 @@ export const userService = {
   },
 
   async getAuthorizedApps(): Promise<AuthorizedApp[]> {
+    // Backend envelope: {authorized_apps: [...], total} (UserSelfServiceController).
+    // The old `resp.data.apps || resp.data` fell through to the whole wrapper
+    // object instead of the array (gap-fix E5).
     const resp = await http.get('/api/me/authorized-apps')
-    return resp.data.apps || resp.data || []
+    return resp.data?.authorized_apps || []
   },
 
   async revokeApp(clientId: string): Promise<void> {

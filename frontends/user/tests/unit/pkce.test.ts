@@ -5,7 +5,7 @@
  * test vector, and the structural invariants of the generated pair.
  */
 import { describe, it, expect } from 'vitest'
-import { generatePkcePair } from '../../src/utils/pkce'
+import { generatePkcePair, base64UrlEncode, base64UrlDecode } from '../../src/utils/pkce'
 
 describe('PKCE (RFC 7636) utility', () => {
   describe('generatePkcePair', () => {
@@ -52,6 +52,29 @@ describe('PKCE (RFC 7636) utility', () => {
         .replace(/\//g, '_')
         .replace(/=+$/, '')
       expect(pair.challenge).toBe(expected)
+    })
+  })
+
+  // base64url codec round-trip — exported for the WebAuthn challenge handling
+  // (gap-fix E1 review: server challenges contain `-_`, which atob rejects).
+  describe('base64UrlEncode / base64UrlDecode', () => {
+    it('round-trips arbitrary bytes', () => {
+      const bytes = new Uint8Array([0, 1, 2, 250, 251, 252, 253, 254, 255])
+      const decoded = base64UrlDecode(base64UrlEncode(bytes))
+      expect(Array.from(decoded)).toEqual(Array.from(bytes))
+    })
+
+    it('decodes strings containing - and _ (server challenge alphabet)', () => {
+      // 42 chars (len % 4 == 2, valid) containing both base64url-only
+      // characters; it must decode without throwing.
+      const decoded = base64UrlDecode('mock-Challenge_43-chars_base64url-ABCD-_12')
+      expect(decoded.length).toBeGreaterThan(0)
+    })
+
+    it('handles empty input and unpadded tails', () => {
+      expect(base64UrlDecode('').length).toBe(0)
+      // 'cw==' → [115]; unpadded 'cw' must decode identically.
+      expect(Array.from(base64UrlDecode('cw'))).toEqual([115])
     })
   })
 })

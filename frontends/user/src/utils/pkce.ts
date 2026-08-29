@@ -57,8 +57,24 @@ export async function generatePkcePair(): Promise<PkcePair> {
 }
 
 /** Base64url-encode raw bytes without padding (RFC 4648 §5). */
-function base64UrlEncode(bytes: Uint8Array): string {
+export function base64UrlEncode(bytes: Uint8Array): string {
   let str = ''
   for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i])
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/**
+ * Base64url string → raw bytes (RFC 4648 §5). Accepts padded or unpadded
+ * input and tolerates standard-base64 characters. Used to decode WebAuthn
+ * server challenges (`options.challenge` / `options.user.id` are base64url
+ * strings) into the ArrayBuffers the browser credential API requires —
+ * `atob` alone throws on the `-_` alphabet.
+ */
+export function base64UrlDecode(value: string): Uint8Array<ArrayBuffer> {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+  const str = atob(padded)
+  const bytes = new Uint8Array(str.length)
+  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i)
+  return bytes
 }

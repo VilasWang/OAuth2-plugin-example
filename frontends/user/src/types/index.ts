@@ -3,13 +3,14 @@ export interface User {
   name: string
   email?: string
   email_verified?: boolean
-  mfa_enabled?: boolean
   roles?: string[]
 }
 
 export interface TokenResponse {
   access_token: string
-  refresh_token: string
+  // Optional per the OAuth2/OIDC specs (and openapi.yaml): M2M flows may not
+  // mint one. Writing an undefined value would persist the string "undefined".
+  refresh_token?: string
   token_type: string
   expires_in: number
   id_token?: string
@@ -25,8 +26,6 @@ export interface LoginResult {
 export interface AuthorizedApp {
   client_id: string
   name?: string
-  scope?: string
-  granted_at?: string
 }
 
 export interface UserProfile {

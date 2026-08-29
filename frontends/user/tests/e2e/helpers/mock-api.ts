@@ -16,9 +16,27 @@ export const MOCK_PROFILE = {
 }
 
 export const MOCK_AUTHORIZED_APPS = [
-  { client_id: 'third-party-app', name: 'Third Party App', scope: 'openid profile' },
-  { client_id: 'mobile-app', name: 'Mobile App', scope: 'openid email' },
+  { client_id: 'third-party-app', name: 'Third Party App' },
+  { client_id: 'mobile-app', name: 'Mobile App' },
 ]
+
+// Real backend shape for /api/me/webauthn/credentials (WebAuthnController):
+// {credential_id, name, sign_count} — no id/created_at (gap-fix E4/E8).
+export const MOCK_WEBAUTHN_CREDENTIALS = [
+  { credential_id: 'cred-1', name: 'My Passkey', sign_count: 0 },
+]
+
+// Real backend shape for /api/me/mfa/verify (self-service setup verify): the
+// 10 single-use recovery codes are returned exactly once (gap-fix P0).
+export const MOCK_BACKUP_CODES = [
+  'B7XK-2Q9M', 'N4TD-8HVL', 'P3RW-6YCN', 'K9JS-5FZD', 'M2GH-7XQB',
+  'V8LC-3TNK', 'R5DY-9WPH', 'Q6FM-4BXS', 'Z3KN-7JTV', 'H8PW-2MRD',
+]
+
+// Valid base64url challenge (gap-fix E1 review): the real backend issues
+// 32-byte base64url challenges containing `-_`; a plain-word challenge hides
+// atob/decode bugs. (42 chars → len % 4 == 2, a legal unpadded base64 length.)
+export const MOCK_WEBAUTHN_CHALLENGE = 'mock-Challenge_43-chars_base64url-ABCD-_12'
 
 export const MOCK_SOCIAL_LINKS = [
   { provider: 'github', subject: '4242', linked_at: '2026-08-01T00:00:00Z' },
@@ -106,11 +124,13 @@ export async function setupMocks(page: Page) {
   })
 
   await page.route('**/api/me/mfa/setup', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ secret: 'JBSWY3DPEHPK3PXP', qr_uri: 'otpauth://totp/OAuth2:testuser?secret=JBSWY3DPEHPK3PXP' }) })
+    // Real field is otpauth_uri (MfaController) — the old qr_uri shape was a
+    // mock-only fiction (gap-fix E8).
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ secret: 'JBSWY3DPEHPK3PXP', otpauth_uri: 'otpauth://totp/Fulla:testuser?secret=JBSWY3DPEHPK3PXP' }) })
   })
 
   await page.route('**/api/me/mfa/verify', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'MFA enabled' }) })
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'MFA enabled', backup_codes: MOCK_BACKUP_CODES }) })
   })
 
   await page.route('**/api/me/mfa/disable', async (route) => {
@@ -118,7 +138,9 @@ export async function setupMocks(page: Page) {
   })
 
   await page.route('**/api/me/authorized-apps', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ apps: MOCK_AUTHORIZED_APPS }) })
+    // Real envelope: {authorized_apps, total} (UserSelfServiceController) —
+    // the old {apps} shape was mock-only (gap-fix E8).
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authorized_apps: MOCK_AUTHORIZED_APPS, total: MOCK_AUTHORIZED_APPS.length }) })
   })
 
   await page.route('**/api/me/authorized-apps/*', async (route) => {
@@ -127,9 +149,25 @@ export async function setupMocks(page: Page) {
     } else { await route.continue() }
   })
 
-  // WebAuthn credentials
+  // WebAuthn credentials — real shape {credential_id, name, sign_count}
   await page.route('**/api/me/webauthn/credentials', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ credentials: [{ id: 'cred-1', name: 'My Passkey', created_at: '2026-05-20T00:00:00Z' }] }) })
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ credentials: MOCK_WEBAUTHN_CREDENTIALS, total: MOCK_WEBAUTHN_CREDENTIALS.length }) })
+  })
+
+  // WebAuthn registration — real begin shape nests creation options under
+  // `options` (WebAuthnController); finish validates the backend's contract
+  // fields, not the browser attestation envelope (gap-fix E1/E8).
+  await page.route('**/api/me/webauthn/register/begin', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ options: { challenge: MOCK_WEBAUTHN_CHALLENGE, rp: { name: 'Fulla', id: 'localhost' }, user: { id: 'dXNlci0x', name: 'testuser', displayName: 'testuser' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }], timeout: 60000, authenticatorSelection: { userVerification: 'preferred' } } }) })
+  })
+
+  await page.route('**/api/me/webauthn/register/finish', async (route) => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    if (!body.credential_id || !body.public_key || !body.name) {
+      await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { code: 'VALIDATION_MISSING_REQUIRED_FIELD', category: 'VALIDATION', message: 'credential_id and public_key are required', numeric_code: 1001, request_id: 'req-e2e-webauthn' } }) })
+    } else {
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ message: 'Passkey registered successfully', credential_id: body.credential_id }) })
+    }
   })
 
   // Social links (B2 link/unlink)
@@ -153,8 +191,10 @@ export async function setupMocks(page: Page) {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ redirect_uri: 'http://localhost:5173/callback?code=consent-code&state=test' }) })
   })
 
-  await page.route('**/oauth2/device/verify', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'Device authorized' }) })
+  // Gap-fix E3: logout now goes through POST /oauth2/logout (Bearer) —
+  // intercepted here so logout flows and request assertions work offline.
+  await page.route('**/oauth2/logout', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'Logged out successfully' }) })
   })
 
   await page.route('**/oauth2/revoke', async (route) => {

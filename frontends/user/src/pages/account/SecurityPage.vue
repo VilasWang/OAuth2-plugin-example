@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import http from '../../services/http'
 import { userService } from '../../services/userService'
 import { normalizeError } from '../../services/errorAdapter'
+import { base64UrlEncode, base64UrlDecode } from '../../utils/pkce'
 import type { SocialLink } from '../../types'
 
 const loading = ref(true)
@@ -22,6 +23,9 @@ const mfaVerifyCode = ref('')
 const settingUpMfa = ref(false)
 const disablingMfa = ref(false)
 const disablePassword = ref('')
+// One-time backup codes shown exactly once after MFA setup verification.
+const backupCodes = ref<string[]>([])
+const showBackupCodes = ref(false)
 
 // Connected social accounts (B2 link/unlink)
 const socialLinks = ref<SocialLink[]>([])
@@ -117,15 +121,50 @@ async function setupMfa() {
 
 async function verifyMfaSetup() {
   try {
-    await http.post('/api/me/mfa/verify', new URLSearchParams({ code: mfaVerifyCode.value }))
-    showSuccess('MFA enabled successfully!')
+    const resp = await http.post('/api/me/mfa/verify', new URLSearchParams({ code: mfaVerifyCode.value }))
+    // One-shot recovery codes: the backend returns 10 single-use backup codes
+    // with an explicit "cannot be shown again" warning (MfaController). The
+    // old code discarded them, leaving no self-service recovery path. Hold
+    // the confirmation layer open until the user acknowledges saving.
+    const codes: string[] = resp.data?.backup_codes || []
     mfaSetupData.value = null
     settingUpMfa.value = false
     mfaVerifyCode.value = ''
+    if (codes.length > 0) {
+      backupCodes.value = codes
+      showBackupCodes.value = true
+    } else {
+      showSuccess('MFA enabled successfully!')
+    }
     await fetchProfile()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
   }
+}
+
+function dismissBackupCodes() {
+  showBackupCodes.value = false
+  backupCodes.value = []
+  showSuccess('MFA enabled successfully!')
+}
+
+async function copyBackupCodes() {
+  try {
+    await navigator.clipboard.writeText(backupCodes.value.join('\n'))
+  } catch {
+    // Clipboard API unavailable (permissions/insecure context); the download
+    // button remains as the fallback path.
+  }
+}
+
+function downloadBackupCodes() {
+  const blob = new Blob([backupCodes.value.join('\n')], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'fulla-backup-codes.txt'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 async function disableMfa() {
@@ -148,6 +187,7 @@ const deletingAccount = ref(false)
 // WebAuthn / Passkeys
 const webauthnCredentials = ref<any[]>([])
 const registeringPasskey = ref(false)
+const passkeyName = ref('')
 
 async function fetchWebauthnCredentials() {
   try {
@@ -159,17 +199,21 @@ async function fetchWebauthnCredentials() {
 async function registerPasskey() {
   registeringPasskey.value = true
   try {
-    // Step 1: Get challenge from server
+    // Step 1: Get creation options from the server. The payload nests the
+    // PublicKeyCredentialCreationOptions under `options`, and the challenge
+    // (and user.id) are base64url strings that must be decoded to bytes
+    // before the browser API accepts them (atob throws on the -_ alphabet).
     const beginResp = await http.post('/api/me/webauthn/register/begin')
-    const options = beginResp.data
+    const options = beginResp.data?.options
+    if (!options?.challenge) throw new Error('Passkey registration: invalid server options')
 
-    // Step 2: Call browser WebAuthn API
+    // Step 2: Call the browser WebAuthn API
     const credential = await navigator.credentials.create({
       publicKey: {
-        challenge: Uint8Array.from(atob(options.challenge), c => c.charCodeAt(0)),
-        rp: options.rp || { name: 'OAuth2 App', id: window.location.hostname },
+        challenge: base64UrlDecode(options.challenge),
+        rp: options.rp || { name: 'Fulla', id: window.location.hostname },
         user: {
-          id: Uint8Array.from(atob(options.user?.id || btoa(profile.value?.username || 'user')), c => c.charCodeAt(0)),
+          id: base64UrlDecode(options.user?.id || base64UrlEncode(new TextEncoder().encode(profile.value?.username || 'user'))),
           name: options.user?.name || profile.value?.username || 'user',
           displayName: options.user?.displayName || profile.value?.username || 'User',
         },
@@ -181,18 +225,23 @@ async function registerPasskey() {
 
     if (!credential) { showError('Passkey registration cancelled'); return }
 
-    // Step 3: Send credential to server
+    // Step 3: Send the credential to the server in ITS contract shape:
+    // {credential_id, public_key, name} (base64url strings) — not the raw
+    // browser attestation envelope. getPublicKey() (WebAuthn L3) yields the
+    // SPKI DER public key; TS 5.9 lib.dom types it as ArrayBuffer | null.
     const attestationResponse = credential.response as AuthenticatorAttestationResponse
+    const publicKeyBuffer = attestationResponse.getPublicKey()
+    if (!publicKeyBuffer) {
+      throw new Error('This browser did not expose the credential public key; passkey registration is not supported here')
+    }
+    const label = passkeyName.value.trim() || `Passkey ${new Date().toISOString().slice(0, 10)}`
     await http.post('/api/me/webauthn/register/finish', {
-      id: credential.id,
-      rawId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId))),
-      type: credential.type,
-      response: {
-        attestationObject: btoa(String.fromCharCode(...new Uint8Array(attestationResponse.attestationObject))),
-        clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(attestationResponse.clientDataJSON))),
-      }
+      credential_id: base64UrlEncode(new Uint8Array(credential.rawId)),
+      public_key: base64UrlEncode(new Uint8Array(publicKeyBuffer)),
+      name: label,
     }, { headers: { 'Content-Type': 'application/json' } })
 
+    passkeyName.value = ''
     showSuccess('Passkey registered successfully!')
     await fetchWebauthnCredentials()
   } catch (e: any) {
@@ -406,7 +455,9 @@ onMounted(fetchProfile)
           Passkeys (WebAuthn)
         </h2>
         <p class="text-sm text-gray-600 mb-4">
-          Use your fingerprint, face, or security key for passwordless sign-in.
+          Register a fingerprint, face, or security key to this account now —
+          passkey sign-in becomes available once server-side assertion
+          verification ships.
         </p>
 
         <!-- Registered credentials -->
@@ -416,7 +467,7 @@ onMounted(fetchProfile)
         >
           <div
             v-for="cred in webauthnCredentials"
-            :key="cred.id"
+            :key="cred.credential_id"
             class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
           >
             <div>
@@ -424,7 +475,7 @@ onMounted(fetchProfile)
                 {{ cred.name || 'Passkey' }}
               </p>
               <p class="text-xs text-gray-500">
-                Registered: {{ cred.created_at ? new Date(cred.created_at).toLocaleDateString() : 'Unknown' }}
+                Sign counter: {{ cred.sign_count ?? 0 }}
               </p>
             </div>
             <span class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">Active</span>
@@ -437,13 +488,21 @@ onMounted(fetchProfile)
           No passkeys registered yet.
         </div>
 
-        <button
-          :disabled="registeringPasskey"
-          class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50"
-          @click="registerPasskey"
-        >
-          {{ registeringPasskey ? 'Registering...' : '+ Add Passkey' }}
-        </button>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            v-model="passkeyName"
+            type="text"
+            placeholder="Passkey name (optional)"
+            class="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+          >
+          <button
+            :disabled="registeringPasskey"
+            class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+            @click="registerPasskey"
+          >
+            {{ registeringPasskey ? 'Registering...' : '+ Add Passkey' }}
+          </button>
+        </div>
       </div>
 
       <!-- Connected social accounts (B2 link/unlink) -->
@@ -525,6 +584,57 @@ onMounted(fetchProfile)
             @click="deleteAccount"
           >
             {{ deletingAccount ? 'Deleting...' : 'Delete My Account' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- One-time MFA backup codes (gap-fix P0): the backend returns the 10
+           single-use recovery codes exactly once and never again. The modal
+           blocks until the user explicitly confirms saving them. -->
+      <div
+        v-if="showBackupCodes"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Save your MFA backup codes"
+      >
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-2">
+            Save your backup codes
+          </h2>
+          <p class="text-sm text-red-600 font-medium mb-4">
+            These 10 one-time codes are the only way to sign in if you lose your
+            authenticator. They cannot be shown again.
+          </p>
+          <div class="grid grid-cols-2 gap-2 mb-4">
+            <code
+              v-for="code in backupCodes"
+              :key="code"
+              class="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded text-sm font-mono text-center"
+            >{{ code }}</code>
+          </div>
+          <div class="flex gap-2 mb-4">
+            <button
+              type="button"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              @click="copyBackupCodes"
+            >
+              Copy all
+            </button>
+            <button
+              type="button"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              @click="downloadBackupCodes"
+            >
+              Download .txt
+            </button>
+          </div>
+          <button
+            type="button"
+            class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+            @click="dismissBackupCodes"
+          >
+            I have safely saved my codes
           </button>
         </div>
       </div>

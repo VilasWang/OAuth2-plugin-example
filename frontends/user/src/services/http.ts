@@ -14,11 +14,14 @@ const http = axios.create({
 let accessToken: string | null = null
 let refreshToken: string | null = localStorage.getItem('refresh_token')
 
-export function setTokens(access: string, refresh: string) {
+export function setTokens(access: string, refresh?: string) {
   accessToken = access
-  refreshToken = refresh
-  // Only persist refresh_token (access_token stays in memory)
-  localStorage.setItem('refresh_token', refresh)
+  refreshToken = refresh ?? null
+  // Only persist refresh_token (access_token stays in memory). A missing
+  // refresh token (optional per spec) must not persist "undefined".
+  if (refresh) {
+    localStorage.setItem('refresh_token', refresh)
+  }
 }
 
 export function clearTokens() {
@@ -79,13 +82,32 @@ async function redirectToLogin(): Promise<void> {
   }
 }
 
+// Endpoints whose 401 must NOT trigger the silent refresh-and-retry. These are
+// the credential-bearing calls themselves (retrying them with a refreshed
+// token would be wrong or pointless) — everything else, including Bearer-
+// protected resources like /oauth2/userinfo and /api/*, auto-refreshes.
+//
+// Gap-fix: the previous blanket test (`url.includes('/oauth2/')`) excluded
+// userinfo from the refresh path, so an expired access token nulled the user
+// in the UI ("User" placeholder) until some unrelated /api/* request happened
+// to 401 first.
+const NO_AUTO_REFRESH_ENDPOINTS = [
+  '/oauth2/login',
+  '/oauth2/token',
+  '/oauth2/mfa/verify',
+  '/oauth2/revoke',
+]
+
+function isNoAutoRefreshEndpoint(url: string | undefined): boolean {
+  return !!url && NO_AUTO_REFRESH_ENDPOINTS.some((endpoint) => url.includes(endpoint))
+}
+
 // Response interceptor: auto-refresh on 401
 http.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-    const isOauthRoute = originalRequest.url?.includes('/oauth2/')
-    if (error.response?.status === 401 && refreshToken && !originalRequest._retry && !isOauthRoute) {
+    if (error.response?.status === 401 && refreshToken && !originalRequest._retry && !isNoAutoRefreshEndpoint(originalRequest.url)) {
       originalRequest._retry = true
       try {
         const CLIENT_ID = import.meta.env.VITE_CLIENT_ID || 'vue-client'

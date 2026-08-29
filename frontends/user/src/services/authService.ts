@@ -150,12 +150,24 @@ export const authService = {
           keepalive: true,
         }))
       }
-      await Promise.all(revokes)
-      // OIDC RP-Initiated Logout (F-027): clear the server-side session.
-      await http.post('/oauth2/end_session', new URLSearchParams({
-        client_id: CLIENT_ID,
-        post_logout_redirect_uri: REDIRECT_URI,
-      }))
+      // #55 gap-fix (user E3): end the server-side session via POST
+      // /oauth2/logout (Bearer). The previous call to /oauth2/end_session was
+      // protocol-invalid — client_id is not a parameter of that endpoint, and
+      // post_logout_redirect_uri without id_token_hint is rejected with 400
+      // BEFORE the session is cleared, so neither the server session nor the
+      // backchannel RP notification ever happened. /oauth2/logout with the
+      // access token revokes it, clears the session, and fans the signed
+      // logout_token out to RPs (SessionController::logout). It requires a
+      // still-valid access token (OAuth2AuthFilter); an expired-token 401 must
+      // not block the local cleanup below.
+      if (access) {
+        revokes.push(fetch('/oauth2/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${access}` },
+          keepalive: true,
+        }))
+      }
+      await Promise.allSettled(revokes)
     } catch {} finally {
       clearTokens()
     }
