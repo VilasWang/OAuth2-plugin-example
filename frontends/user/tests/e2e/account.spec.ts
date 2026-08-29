@@ -295,7 +295,8 @@ test.describe('Authorized Apps', () => {
 
   test('empty authorized apps list', async ({ page }) => {
     await page.route('**/api/me/authorized-apps', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ apps: [] }) })
+      // Real backend envelope (PR-review fix): {authorized_apps, total}.
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authorized_apps: [], total: 0 }) })
     })
     await page.reload()
     await page.waitForLoadState('networkidle')
@@ -327,7 +328,10 @@ test.describe('Authorized Apps', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ apps: [{ client_id: 'nameless-app', name: '', scope: 'openid' }] }),
+        // Real backend envelope (PR-review fix): {authorized_apps, total};
+        // the backend never returns name/scope for authorized apps, which is
+        // exactly the branch this case exercises.
+        body: JSON.stringify({ authorized_apps: [{ client_id: 'nameless-app' }], total: 1 }),
       })
     })
     // Navigate away and back to trigger fresh fetch

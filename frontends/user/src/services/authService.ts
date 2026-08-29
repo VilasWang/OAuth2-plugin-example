@@ -123,24 +123,26 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    // RFC 7009: revoke BOTH the access token (so it can no longer be used
-    // immediately) and the refresh token (so it can no longer mint new
-    // access tokens). The server's revoke handler (C3 fix) now actually
-    // revokes a refresh token presented here — previously it was a silent
-    // no-op. Both revokes use fetch({keepalive:true}) so they survive page
-    // teardown (navigation/tab-close), which axios would cancel mid-flight.
+    // Revoke the refresh token (RFC 7009) and end the server-side session,
+    // both via fetch({keepalive:true}) so they survive page teardown
+    // (navigation/tab-close), which axios would cancel mid-flight.
     try {
       const access = getAccessToken()
       const refresh = localStorage.getItem('refresh_token')
-      const body = (token: string) =>
-        new URLSearchParams({ token, client_id: CLIENT_ID })
-      // Fire both revokes; keepalive ensures delivery even on fast navigation.
       const revokes: Promise<Response>[] = []
+      // PR-review fix: the access token goes ONLY to /oauth2/logout. It used
+      // to be sent concurrently to /oauth2/revoke and /oauth2/logout — but
+      // logout authenticates the Bearer token (OAuth2AuthFilter validates
+      // against the store), so whichever request landed first revoked the
+      // other's credentials: logout would 401 and the server-side session
+      // clear + backchannel RP fanout would never happen. /oauth2/logout
+      // itself revokes the access token (SessionController::logout ->
+      // plugin->revokeAccessToken), so a separate revoke call is redundant.
+      // The refresh token is a different credential with no such conflict.
       if (access) {
-        revokes.push(fetch('/oauth2/revoke', {
+        revokes.push(fetch('/oauth2/logout', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body(access),
+          headers: { Authorization: `Bearer ${access}` },
           keepalive: true,
         }))
       }
@@ -148,24 +150,7 @@ export const authService = {
         revokes.push(fetch('/oauth2/revoke', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body(refresh),
-          keepalive: true,
-        }))
-      }
-      // #55 gap-fix (user E3): end the server-side session via POST
-      // /oauth2/logout (Bearer). The previous call to /oauth2/end_session was
-      // protocol-invalid — client_id is not a parameter of that endpoint, and
-      // post_logout_redirect_uri without id_token_hint is rejected with 400
-      // BEFORE the session is cleared, so neither the server session nor the
-      // backchannel RP notification ever happened. /oauth2/logout with the
-      // access token revokes it, clears the session, and fans the signed
-      // logout_token out to RPs (SessionController::logout). It requires a
-      // still-valid access token (OAuth2AuthFilter); an expired-token 401 must
-      // not block the local cleanup below.
-      if (access) {
-        revokes.push(fetch('/oauth2/logout', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${access}` },
+          body: new URLSearchParams({ token: refresh, client_id: CLIENT_ID }),
           keepalive: true,
         }))
       }

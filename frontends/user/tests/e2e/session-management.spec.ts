@@ -180,8 +180,13 @@ test.describe('Session Management', () => {
       await setupMocks(page)
       const logoutRequest = page.waitForRequest('**/oauth2/logout')
       const endSessionRequests: string[] = []
+      const revokeBodies: string[] = []
       page.on('request', (request) => {
         if (request.url().includes('/oauth2/end_session')) endSessionRequests.push(request.url())
+        // PR-review regression guard: the access token must never be sent to
+        // /oauth2/revoke — it authenticates /oauth2/logout, and revoking it
+        // first would 401 the logout (session clear + backchannel fanout lost).
+        if (request.url().includes('/oauth2/revoke')) revokeBodies.push(request.postData() || '')
       })
 
       // Seed an authenticated session (localStorage tokens → restore path).
@@ -196,6 +201,10 @@ test.describe('Session Management', () => {
       expect(authHeader).toMatch(/^Bearer /)
       await page.waitForTimeout(500)
       expect(endSessionRequests).toHaveLength(0)
+      for (const body of revokeBodies) {
+        expect(body).toContain('token=mock-refresh-token') // only the refresh token is revoked
+        expect(body).not.toContain('mock-access-token')
+      }
       await expect(page).toHaveURL(/\/login/)
     })
 

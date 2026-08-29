@@ -16,10 +16,15 @@ let refreshToken: string | null = localStorage.getItem('refresh_token')
 
 export function setTokens(access: string, refresh?: string) {
   accessToken = access
-  refreshToken = refresh ?? null
-  // Only persist refresh_token (access_token stays in memory). A missing
-  // refresh token (optional per spec) must not persist "undefined".
+  // RFC 6749 §6: a new refresh token replaces the old one ONLY when the
+  // server actually issues one. When the response carries no refresh_token
+  // field, the existing token remains valid and MUST be kept — deleting it
+  // (the previously suggested fix) would force a needless logout on the
+  // next page load. Leaving the state untouched also keeps the in-memory
+  // token and the persisted copy consistent (no more localStorage residue
+  // diverging from a nulled in-memory value).
   if (refresh) {
+    refreshToken = refresh
     localStorage.setItem('refresh_token', refresh)
   }
 }

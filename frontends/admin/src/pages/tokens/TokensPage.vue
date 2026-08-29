@@ -39,7 +39,6 @@ const uniqueClientIds = computed(() => {
 
 async function fetchTokens() {
   loading.value = true
-  errorMessage.value = ''
   try {
     const params: Record<string, string | number> = { page: page.value, per_page: perPage.value }
     if (clientIdFilter.value) params.client_id = clientIdFilter.value
@@ -90,9 +89,13 @@ function cancelConfirm() {
 
 async function revokeToken(tokenPrefix: string) {
   showConfirm(`Revoke token starting with "${tokenPrefix}"?`, async () => {
+    // Each action owns the banner lifecycle: clear stale banners up front,
+    // then show the outcome — never inside fetchTokens, which the actions
+    // call afterwards (clearing there would wipe the just-set message).
+    errorMessage.value = ''
+    successMessage.value = ''
     try {
       await axios.delete(`/api/admin/tokens/${tokenPrefix}`)
-      errorMessage.value = ''
       await fetchTokens()
     } catch (e) {
       const normalized = normalizeError(e)
@@ -104,11 +107,12 @@ async function revokeToken(tokenPrefix: string) {
 async function revokeByClient(clientId: string) {
   showBulkMenu.value = false
   showConfirm(`Revoke ALL tokens for client "${clientId}"?`, async () => {
+    errorMessage.value = ''
+    successMessage.value = ''
     try {
       const resp = await axios.post('/api/admin/tokens/revoke-by-client', { client_id: clientId })
       // Gap-fix: surface the backend count ("revoked N tokens") instead of a
       // silent success (the response carries the number of deleted rows).
-      errorMessage.value = ''
       successMessage.value = `Revoked ${resp.data?.count ?? 0} token(s) for client "${clientId}"`
       await fetchTokens()
     } catch (e) {
@@ -121,9 +125,10 @@ async function revokeByClient(clientId: string) {
 async function revokeByUser() {
   if (!userIdFilter.value) return
   showConfirm(`Revoke ALL tokens for user "${userIdFilter.value}"?`, async () => {
+    errorMessage.value = ''
+    successMessage.value = ''
     try {
       const resp = await axios.post('/api/admin/tokens/revoke-by-user', { user_id: userIdFilter.value })
-      errorMessage.value = ''
       successMessage.value = `Revoked ${resp.data?.count ?? 0} token(s) for user "${userIdFilter.value}"`
       await fetchTokens()
     } catch (e) {
