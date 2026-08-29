@@ -180,6 +180,52 @@ export async function setupAuthenticatedMocks(page: Page) {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   })
 
+  // MFA login completion (gap-fix E2): mirrors the backend contract —
+  // required mfa_token/code/client_id/redirect_uri, optional code_verifier;
+  // responds with a TokenResponse superset (message/mfa_verified included).
+  await page.route('**/oauth2/mfa/verify', async (route) => {
+    const body = route.request().postData() || ''
+    const required = ['mfa_token=', 'code=', 'client_id=', 'redirect_uri=']
+    if (required.some((k) => !body.includes(k))) {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'VALIDATION_MISSING_REQUIRED_FIELD', category: 'VALIDATION', message: 'mfa_token, code, client_id and redirect_uri are required', numeric_code: 1001, request_id: 'req-e2e-mfa' } }),
+      })
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: process.env.E2E_MOCK_AT ?? 'fixture',
+          refresh_token: process.env.E2E_MOCK_RT ?? 'fixture',
+          token_type: 'Bearer',
+          expires_in: 3600,
+          message: 'MFA verification successful',
+          mfa_verified: true,
+        }),
+      })
+    }
+  })
+
+  // Device approval (gap-fix E2/plan D5): form-urlencoded user_code+user_id.
+  await page.route('**/oauth2/device/approve', async (route) => {
+    const body = route.request().postData() || ''
+    if (!body.includes('user_code=') || !body.includes('user_id=')) {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'VALIDATION_MISSING_REQUIRED_FIELD', category: 'VALIDATION', message: 'user_code and user_id are required', numeric_code: 1001, request_id: 'req-e2e-device' } }),
+      })
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'approved', user_code: 'WDJB-MJHT' }),
+      })
+    }
+  })
+
   // Admin clients
   await page.route('**/api/admin/clients', async (route) => {
     if (route.request().method() === 'GET') {

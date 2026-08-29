@@ -10,12 +10,11 @@ const router = createRouter({
       component: () => import('../pages/LoginPage.vue'),
       meta: { requiresAuth: false },
     },
-    {
-      path: '/callback',
-      name: 'callback',
-      component: () => import('../pages/CallbackPage.vue'),
-      meta: { requiresAuth: false },
-    },
+    // Note: no /callback route — the admin SPA logs in via the json-mode
+    // /oauth2/login + /oauth2/token flow and never receives a browser
+    // redirect. The former CallbackPage called a nonexistent store method
+    // (gap-fix E1 dead code) and has been removed. The redirect_uri passed
+    // to login/token remains the registered '.../admin/callback' string.
     {
       path: '/',
       component: () => import('../components/layout/AdminLayout.vue'),
@@ -65,6 +64,11 @@ const router = createRouter({
           path: 'tokens',
           name: 'tokens',
           component: () => import('../pages/tokens/TokensPage.vue'),
+        },
+        {
+          path: 'devices',
+          name: 'devices',
+          component: () => import('../pages/devices/DeviceApprovePage.vue'),
         },
         {
           path: 'settings',
