@@ -61,10 +61,11 @@ export const authService = {
 
   async verifyMfa(mfaToken: string, code: string): Promise<LoginResult> {
     // The PKCE verifier generated during login() — needed if the backend
-    // MFA path threads the challenge through to the token exchange.
-    // Read and clear immediately (one-shot use per RFC 7636 §4.4).
+    // MFA path threads the challenge through to the token exchange. It is
+    // consumed only on success: clearing it on a wrong-code attempt would
+    // make the retry fail PKCE (the token exchange rejects an empty verifier
+    // whenever a challenge is bound to the code).
     const codeVerifier = sessionStorage.getItem(PKCE_VERIFIER_KEY) || ''
-    if (codeVerifier) sessionStorage.removeItem(PKCE_VERIFIER_KEY)
 
     const params = new URLSearchParams({
       mfa_token: mfaToken,
@@ -76,6 +77,7 @@ export const authService = {
 
     const resp = await http.post<TokenResponse>('/oauth2/mfa/verify', params)
     if (resp.data.access_token) {
+      sessionStorage.removeItem(PKCE_VERIFIER_KEY)
       setTokens(resp.data.access_token, resp.data.refresh_token)
       return { success: true }
     }

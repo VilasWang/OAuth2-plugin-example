@@ -153,6 +153,66 @@ test.describe('Authentication', () => {
     await expect(page).toHaveURL(/\/admin\/login/)
   })
 
+  test('a wrong code does not burn the PKCE verifier — retry succeeds', async ({ page }) => {
+    // Regression: the verifier was consumed on entry, so a failed attempt
+    // made every retry fail server-side PKCE (empty code_verifier against
+    // the challenge bound at login) — the login loop returned via retry.
+    await page.route('**/oauth2/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mfa_required: true, mfa_token: 'mfa-token-123' }),
+      })
+    })
+    const verifyRequests: string[] = []
+    await page.route('**/oauth2/mfa/verify', async (route) => {
+      verifyRequests.push(route.request().postData() || '')
+      if (verifyRequests.length === 1) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'AUTH_INVALID_CREDENTIALS', category: 'AUTHENTICATION', message: 'wrong code', numeric_code: 4001, request_id: 'req-e2e-mfa-try1' } }),
+        })
+      } else {
+        // Generated placeholder values (mock-api.ts rationale): the security
+        // scanner treats token literals as leaks; e2e needs obviously-fake
+        // stable strings only.
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            access_token: process.env.E2E_MOCK_AT ?? 'fixture',
+            refresh_token: process.env.E2E_MOCK_RT ?? 'fixture',
+            token_type: 'Bearer',
+            expires_in: 3600,
+          }),
+        })
+      }
+    })
+    await page.route('**/oauth2/userinfo', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sub: 'admin-1', name: 'admin', roles: ['admin'] }) })
+    })
+
+    await page.goto('/admin/login')
+    await page.fill('input[type="text"]', 'admin')
+    await page.fill('input[type="password"]', 'admin')
+    await page.click('button[type="submit"]')
+    await page.fill('#mfa-code-field', '000000')
+    await page.click('button:has-text("Verify code")')
+    await expect(page.locator('[role="alert"]')).toBeVisible()
+
+    await page.fill('#mfa-code-field', '123456')
+    await page.click('button:has-text("Verify code")')
+    await expect(page).toHaveURL(/\/admin\/?$|\/admin\/dashboard/)
+
+    // Both attempts must carry the SAME verifier — the first failure must
+    // not have consumed it.
+    expect(verifyRequests).toHaveLength(2)
+    const verifierOf = (body: string) => new URLSearchParams(body).get('code_verifier')
+    expect(verifierOf(verifyRequests[0])).toBeTruthy()
+    expect(verifierOf(verifyRequests[1])).toBe(verifierOf(verifyRequests[0]))
+  })
+
   test('empty username prevents form submission', async ({ page }) => {
     await page.goto('/admin/login')
     // Clear any default value and try to submit
