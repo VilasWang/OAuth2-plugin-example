@@ -70,7 +70,10 @@ test.describe('Authentication', () => {
     await expect(page.locator('[role="alert"]')).toContainText('Admin role required')
   })
 
-  test('handles MFA required response', async ({ page }) => {
+  // Gap-fix E2: an mfa_required response now switches the form to the
+  // 6-digit code view and completes the login via POST /oauth2/mfa/verify —
+  // previously the flow dead-ended in a redirect loop back to /login.
+  test('completes the MFA login flow end to end', async ({ page }) => {
     await page.route('**/oauth2/login', async (route) => {
       await route.fulfill({
         status: 200,
@@ -78,13 +81,75 @@ test.describe('Authentication', () => {
         body: JSON.stringify({ mfa_required: true, mfa_token: 'mfa-token-123' }),
       })
     })
+    const mfaVerify = page.waitForRequest('**/oauth2/mfa/verify')
+    await page.route('**/oauth2/mfa/verify', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'mfa-access-token',
+          refresh_token: 'mfa-refresh-token',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        }),
+      })
+    })
+    await page.route('**/oauth2/userinfo', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sub: 'admin-1', name: 'admin', roles: ['admin'] }) })
+    })
 
     await page.goto('/admin/login')
     await page.fill('input[type="text"]', 'admin')
     await page.fill('input[type="password"]', 'admin')
     await page.click('button[type="submit"]')
 
-    // Login should not navigate away (MFA flow not fully implemented in UI yet)
+    // The MFA code view replaces the credential form.
+    await expect(page.getByText('Two-factor authentication')).toBeVisible()
+    await page.fill('#mfa-code-field', '123456')
+    await page.click('button:has-text("Verify code")')
+
+    // The verify call must carry the challenge state (mfa_token + verifier).
+    const request = await mfaVerify
+    const body = request.postData() || ''
+    expect(body).toContain('mfa_token=mfa-token-123')
+    expect(body).toContain('code=123456')
+    expect(body).toContain('client_id=admin-console')
+    expect(body).toContain('code_verifier=')
+
+    await expect(page).toHaveURL(/\/admin\/?$|\/admin\/dashboard/)
+  })
+
+  test('stays on the MFA view with an error banner when the code is wrong', async ({ page }) => {
+    await page.route('**/oauth2/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ mfa_required: true, mfa_token: 'mfa-token-123' }),
+      })
+    })
+    await page.route('**/oauth2/mfa/verify', async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        // The backend rejects a wrong TOTP code with AUTH_INVALID_CREDENTIALS
+        // (MfaController verifyLogin); the zh-CN catalog maps it to the
+        // localized banner message.
+        body: JSON.stringify({ error: { code: 'AUTH_INVALID_CREDENTIALS', category: 'AUTHENTICATION', message: 'Invalid MFA code', numeric_code: 4001, request_id: 'req-e2e-mfa-bad' } }),
+      })
+    })
+
+    await page.goto('/admin/login')
+    await page.fill('input[type="text"]', 'admin')
+    await page.fill('input[type="password"]', 'admin')
+    await page.click('button[type="submit"]')
+    await expect(page.getByText('Two-factor authentication')).toBeVisible()
+
+    await page.fill('#mfa-code-field', '000000')
+    await page.click('button:has-text("Verify code")')
+
+    // Error banner shows and the user can retry on the same view.
+    await expect(page.locator('[role="alert"]')).toContainText('用户名或密码错误')
+    await expect(page.getByText('Two-factor authentication')).toBeVisible()
     await expect(page).toHaveURL(/\/admin\/login/)
   })
 

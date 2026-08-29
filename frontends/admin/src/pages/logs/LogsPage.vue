@@ -9,9 +9,11 @@ const page = ref(1)
 const errorMessage = ref('')
 
 // Filters (A-LOG-004). action/outcome/actor_id are passed as query params; the
-// backend applies them server-side.
+// backend applies them server-side (gap-fix: actor_id filter existed on the
+// backend but had no input here).
 const actionFilter = ref('')
 const outcomeFilter = ref('')
+const actorIdFilter = ref('')
 
 async function fetchLogs() {
   loading.value = true
@@ -20,12 +22,12 @@ async function fetchLogs() {
     const params: Record<string, string | number> = { page: page.value, per_page: 50 }
     if (actionFilter.value) params.action = actionFilter.value
     if (outcomeFilter.value) params.outcome = outcomeFilter.value
+    if (actorIdFilter.value) params.actor_id = actorIdFilter.value
     const resp = await axios.get('/api/admin/logs', { params })
     logs.value = resp.data.logs || []
   } catch (e) {
     const normalized = normalizeError(e)
     errorMessage.value = normalized.message
-    console.error('Failed to fetch logs:', e)
   } finally {
     loading.value = false
   }
@@ -39,6 +41,7 @@ function applyFilters() {
 function clearFilters() {
   actionFilter.value = ''
   outcomeFilter.value = ''
+  actorIdFilter.value = ''
   page.value = 1
   fetchLogs()
 }
@@ -85,6 +88,16 @@ onMounted(fetchLogs)
             failure
           </option>
         </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-700">Actor ID:</label>
+        <input
+          v-model="actorIdFilter"
+          type="text"
+          placeholder="filter by actor uuid"
+          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          @keyup.enter="applyFilters"
+        >
       </div>
       <button
         class="px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
@@ -160,6 +173,9 @@ onMounted(fetchLogs)
               Actor
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Target
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               Outcome
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -181,6 +197,13 @@ onMounted(fetchLogs)
             </td>
             <td class="px-4 py-3 text-xs text-gray-500">
               <span class="text-gray-400">{{ log.actor_type }}:</span> {{ log.actor_id?.substring(0, 12) || '—' }}
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-500 font-mono">
+              <span
+                v-if="log.target_type || log.target_id"
+                :title="`${log.target_type || ''}:${log.target_id || ''}`"
+              >{{ log.target_type || '—' }}<span class="text-gray-400">:</span>{{ log.target_id?.substring(0, 8) || '—' }}</span>
+              <span v-else>—</span>
             </td>
             <td class="px-4 py-3">
               <span

@@ -34,6 +34,7 @@ const navSections = [
       { name: 'Roles', path: '/roles', icon: 'roles' },
       { name: 'Scopes', path: '/scopes', icon: 'scopes' },
       { name: 'Tokens', path: '/tokens', icon: 'tokens' },
+      { name: 'Devices', path: '/devices', icon: 'devices' },
     ],
   },
   {
@@ -217,6 +218,19 @@ const breadcrumbs = computed(() => {
                   <path
                     fill-rule="evenodd"
                     d="M10 2a4 4 0 00-4 4v4H4a2 2 0 00-2 2v4a2 2 0 002 2h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2V6a4 4 0 00-4-4zm1.5 6.5a1 1 0 11-2 0 1 1 0 012 0zM4 14h12v4H4v-4z"
+                  />
+                </svg>
+
+                <!-- Devices icon (device approval) -->
+                <svg
+                  v-else-if="item.icon === 'devices'"
+                  class="w-5 h-5 shrink-0"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M8 2a2 2 0 00-2 2v12a2 2 0 002 2h4a2 2 0 002-2V4a2 2 0 00-2-2H8zm.75 13.5a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5z"
                   />
                 </svg>
 

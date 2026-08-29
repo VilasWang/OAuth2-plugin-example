@@ -58,7 +58,19 @@ async function redirectToLogin(): Promise<void> {
   }
 }
 
+// Result shape shared by login()/verifyMfa() — the LoginPage branches on it.
+export interface AdminLoginResult {
+  success?: boolean
+  mfaRequired?: boolean
+  mfaToken?: string
+  error?: string
+}
+
 export const useAuthStore = defineStore('auth', () => {
+  // Registered redirect_uri for the admin-console client (seed); passed as the
+  // login/token parameter — the json login flow never actually redirects here.
+  const REDIRECT_URI = window.location.origin + '/admin/callback'
+
   const accessToken = ref<string | null>(null)
   const refreshToken = ref<string | null>(null)
   const user = ref<any>(null)
@@ -67,11 +79,31 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!accessToken.value)
 
   /**
+   * Shared post-token-exchange path: store tokens, load the profile, and gate
+   * on the admin role. Used by both the direct login() and the MFA completion
+   * verifyMfa() so the two entry points cannot drift.
+   */
+  async function applySession(tokenResp: { data: { access_token: string; refresh_token?: string } }): Promise<AdminLoginResult> {
+    accessToken.value = tokenResp.data.access_token
+    refreshToken.value = tokenResp.data.refresh_token ?? null
+    persistRefreshToken(refreshToken.value)
+
+    await fetchUserInfo()
+
+    if (!user.value?.roles?.includes('admin')) {
+      logout()
+      loginError.value = 'Admin role required to access this console'
+      return { error: 'forbidden' }
+    }
+    return { success: true }
+  }
+
+  /**
    * Direct login: POST credentials to /oauth2/login (json mode)
    * Then exchange the code for tokens.
    * This avoids the redirect-based flow for the admin SPA.
    */
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string): Promise<AdminLoginResult> {
     loginError.value = ''
     try {
       // PKCE (RFC 7636): generate a verifier/challenge pair so the backend's
@@ -86,7 +118,7 @@ export const useAuthStore = defineStore('auth', () => {
         username,
         password,
         client_id: 'admin-console',
-        redirect_uri: window.location.origin + '/admin/callback',
+        redirect_uri: REDIRECT_URI,
         scope: 'openid profile admin',
         state: crypto.randomUUID(),
         code_challenge: pkce.challenge,
@@ -100,8 +132,8 @@ export const useAuthStore = defineStore('auth', () => {
         // MFA required: the backend persists the code_challenge on the
         // session (C4 fix, SessionController) so verifyLogin can thread it
         // onto the code it generates at MFA completion. Stash our verifier
-        // too — the future admin MFA-completion call must send code_verifier
-        // so the exchange passes PKCE verification (RFC 7636).
+        // too — verifyMfa() must send code_verifier so the exchange passes
+        // PKCE verification (RFC 7636). One-shot: read+cleared there.
         sessionStorage.setItem('pkce_code_verifier', pkce.verifier)
         return { mfaRequired: true, mfaToken: loginResp.data.mfa_token }
       }
@@ -115,31 +147,52 @@ export const useAuthStore = defineStore('auth', () => {
       const tokenResp = await axios.post('/oauth2/token', new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: window.location.origin + '/admin/callback',
+        redirect_uri: REDIRECT_URI,
         client_id: 'admin-console',
         code_verifier: pkce.verifier,
       }), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
 
-      accessToken.value = tokenResp.data.access_token
-      refreshToken.value = tokenResp.data.refresh_token
-      persistRefreshToken(refreshToken.value)
-
-      // Step 3: Fetch user info
-      await fetchUserInfo()
-
-      // Verify admin role
-      if (!user.value?.roles?.includes('admin')) {
-        logout()
-        loginError.value = 'Admin role required to access this console'
-        return { error: 'forbidden' }
-      }
-
-      return { success: true }
+      return await applySession(tokenResp)
     } catch (e: unknown) {
       // Surface a consistent localized message via the Frontend_Error_Module
       // instead of reading raw e.response.data.* (Requirements 10.2, 10.3).
+      loginError.value = normalizeError(e).message
+      return { error: loginError.value }
+    }
+  }
+
+  /**
+   * Complete an MFA-challenged login (gap-fix E2): exchange the mfa_token
+   * issued by /oauth2/login plus the user's TOTP code for tokens via
+   * /oauth2/mfa/verify. The PKCE verifier stashed by login() is consumed here
+   * one-shot — the backend threads the challenge through the code it generates
+   * at MFA completion (C4), so the internal token exchange needs the matching
+   * verifier (RFC 7636). Errors land in loginError so the LoginPage banner
+   * shows them and the user can retry without losing the challenge state.
+   */
+  async function verifyMfa(mfaToken: string, code: string): Promise<AdminLoginResult> {
+    const codeVerifier = sessionStorage.getItem('pkce_code_verifier') || ''
+    if (codeVerifier) sessionStorage.removeItem('pkce_code_verifier')
+
+    const params = new URLSearchParams({
+      mfa_token: mfaToken,
+      code,
+      client_id: 'admin-console',
+      redirect_uri: REDIRECT_URI,
+    })
+    if (codeVerifier) params.set('code_verifier', codeVerifier)
+
+    try {
+      const resp = await axios.post('/oauth2/mfa/verify', params, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      })
+      if (!resp.data.access_token) {
+        throw new Error('MFA verification failed')
+      }
+      return await applySession(resp)
+    } catch (e: unknown) {
       loginError.value = normalizeError(e).message
       return { error: loginError.value }
     }
@@ -314,6 +367,7 @@ export const useAuthStore = defineStore('auth', () => {
     loginError,
     isAuthenticated,
     login,
+    verifyMfa,
     fetchUserInfo,
     refreshAccessToken,
     restoreSession,

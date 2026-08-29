@@ -23,7 +23,7 @@ const roleFilter = ref('')
 const lockedFilter = ref('')
 
 // Create-user form state
-const createForm = ref({ username: '', password: '', email: '', roles: '' })
+const createForm = ref({ username: '', password: '', email: '', roles: '', email_verified: false, mfa_enabled: false })
 
 const hasPrev = computed(() => currentPage.value > 1)
 const hasNext = computed(() => currentPage.value < totalPages.value)
@@ -103,15 +103,25 @@ async function createUser() {
     const body: any = {
       username: createForm.value.username,
       password: createForm.value.password,
+      email_verified: createForm.value.email_verified,
+      mfa_enabled: createForm.value.mfa_enabled,
     }
     if (createForm.value.email) body.email = createForm.value.email
     if (createForm.value.roles) {
       body.roles = createForm.value.roles.split(',').map((r: string) => r.trim()).filter(Boolean)
     }
-    await axios.post('/api/admin/users', body, { headers: { 'Content-Type': 'application/json' } })
+    const resp = await axios.post('/api/admin/users', body, { headers: { 'Content-Type': 'application/json' } })
     showCreateModal.value = false
-    createForm.value = { username: '', password: '', email: '', roles: '' }
-    showSuccess('User created successfully')
+    createForm.value = { username: '', password: '', email: '', roles: '', email_verified: false, mfa_enabled: false }
+    // Gap-fix: surface partial failures instead of always reporting success —
+    // the create response carries roles_failed/warning when role assignment
+    // failed for some entries (UserAdminService).
+    const failedRoles: string[] = resp.data?.roles_failed || []
+    if (failedRoles.length > 0 || resp.data?.warning) {
+      showError(`User created, but role assignment failed for: ${failedRoles.join(', ')}${resp.data?.warning ? ` — ${resp.data.warning}` : ''}`)
+    } else {
+      showSuccess('User created successfully')
+    }
     await fetchUsers()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -123,8 +133,15 @@ async function createUser() {
 async function deleteUser(user: any) {
   if (!confirm(`Delete user "${user.username}"? This action cannot be undone.`)) return
   try {
-    await axios.delete(`/api/admin/users/${user.id}`)
-    showSuccess('User deleted successfully')
+    const resp = await axios.delete(`/api/admin/users/${user.id}`)
+    // Gap-fix: the delete response reports whether tokens were revoked; a
+    // tokens_revoked=false + warning means some tokens may outlive the user
+    // row — surface it instead of a blanket success.
+    if (resp.data?.tokens_revoked === false) {
+      showError(`User deleted, but token revocation reported: ${resp.data?.warning || 'some tokens could not be revoked'}`)
+    } else {
+      showSuccess('User deleted successfully')
+    }
     await fetchUsers()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -369,6 +386,24 @@ onMounted(fetchUsers)
             <p class="mt-1 text-xs text-gray-500">
               Default: user. Available: admin, user
             </p>
+          </div>
+          <div class="flex gap-6">
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                v-model="createForm.email_verified"
+                type="checkbox"
+                class="rounded border-gray-300 text-indigo-600"
+              >
+              Email verified
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                v-model="createForm.mfa_enabled"
+                type="checkbox"
+                class="rounded border-gray-300 text-indigo-600"
+              >
+              MFA enabled
+            </label>
           </div>
         </div>
         <div class="flex justify-end space-x-3 mt-6">

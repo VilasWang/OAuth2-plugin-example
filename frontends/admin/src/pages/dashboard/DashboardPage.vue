@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 import AppAlert from '../../components/ui/AppAlert.vue'
@@ -9,6 +9,24 @@ const health = ref<any>(null)
 const stats = ref<any>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+
+// GET /health/ready value domains (HealthController): status ∈ {ok, degraded,
+// unhealthy}, database ∈ {connected, not_configured, disconnected,
+// unavailable}, redis ∈ {connected, not_configured, disconnected}.
+// Gap-fix E3: the old template hardcoded green dots and a 'Connected'
+// fallback, rendering disconnected/degraded components as healthy.
+// not_configured is a healthy state (the backend reports status=ok with it).
+function componentDotClass(value: string | undefined): string {
+  if (!value || value === 'connected' || value === 'not_configured') return 'bg-emerald-500'
+  return 'bg-rose-500'
+}
+
+const overall = computed(() => {
+  const status = health.value?.status
+  if (status === 'ok') return { dot: 'bg-emerald-500', text: 'text-emerald-600', label: 'Healthy' }
+  if (status === 'degraded') return { dot: 'bg-amber-500', text: 'text-amber-600', label: 'Degraded' }
+  return { dot: 'bg-rose-500', text: 'text-rose-600', label: 'Unhealthy' }
+})
 
 onMounted(async () => {
   try {
@@ -60,7 +78,7 @@ onMounted(async () => {
 
     <div
       v-else
-      class="grid grid-cols-2 lg:grid-cols-4 gap-5"
+      class="grid grid-cols-2 lg:grid-cols-5 gap-5"
     >
       <!-- Users -->
       <div class="bg-white rounded-xl border border-neutral-200 p-5 hover:border-sky-300 hover:shadow-sm transition-all duration-150">
@@ -168,6 +186,31 @@ onMounted(async () => {
           Failed auth attempts
         </p>
       </div>
+
+      <!-- Logs Today (gap-fix: field returned by /stats but never displayed) -->
+      <div class="bg-white rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Logs Today</span>
+          <div class="w-9 h-9 rounded-lg bg-neutral-50 flex items-center justify-center">
+            <svg
+              class="w-5 h-5 text-neutral-500"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4 3.5A1.5 1.5 0 015.5 2h9A1.5 1.5 0 0116 3.5v13a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 014 16.5v-13zM6 6a.75.75 0 01.75-.75h6.5a.75.75 0 010 1.5h-6.5A.75.75 0 016 6zm.75 3.25a.75.75 0 000 1.5h5.5a.75.75 0 000-1.5h-5.5zM6 12.5a.75.75 0 01.75-.75h6.5a.75.75 0 010 1.5h-6.5A.75.75 0 016 12.5z"
+              />
+            </svg>
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-neutral-900 tracking-tight">
+          {{ stats?.logs_today ?? 0 }}
+        </p>
+        <p class="mt-1 text-xs text-neutral-400">
+          Audit events
+        </p>
+      </div>
     </div>
 
     <!-- Health + Quick Actions -->
@@ -198,31 +241,44 @@ onMounted(async () => {
             <div class="flex items-center gap-3">
               <div
                 class="w-2 h-2 rounded-full"
-                :class="health?.status === 'ok' ? 'bg-emerald-500' : 'bg-rose-500'"
+                :class="overall.dot"
               />
               <span class="text-sm font-medium text-neutral-700">System Status</span>
             </div>
             <span
               class="text-sm font-medium"
-              :class="health?.status === 'ok' ? 'text-emerald-600' : 'text-rose-600'"
+              :class="overall.text"
+              data-testid="system-status"
             >
-              {{ health?.status === 'ok' ? 'Healthy' : 'Unhealthy' }}
+              {{ overall.label }}
             </span>
           </div>
 
           <div class="flex items-center justify-between px-6 py-4">
             <span class="text-sm text-neutral-600">Database</span>
             <div class="flex items-center gap-2">
-              <div class="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span class="text-sm font-medium text-neutral-700">{{ health?.database || 'Connected' }}</span>
+              <div
+                class="w-1.5 h-1.5 rounded-full"
+                :class="componentDotClass(health?.database)"
+              />
+              <span
+                class="text-sm font-medium text-neutral-700"
+                data-testid="db-status"
+              >{{ health?.database || 'Unknown' }}</span>
             </div>
           </div>
 
           <div class="flex items-center justify-between px-6 py-4">
             <span class="text-sm text-neutral-600">Redis</span>
             <div class="flex items-center gap-2">
-              <div class="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span class="text-sm font-medium text-neutral-700">{{ health?.redis || 'Connected' }}</span>
+              <div
+                class="w-1.5 h-1.5 rounded-full"
+                :class="componentDotClass(health?.redis)"
+              />
+              <span
+                class="text-sm font-medium text-neutral-700"
+                data-testid="redis-status"
+              >{{ health?.redis || 'Unknown' }}</span>
             </div>
           </div>
         </div>

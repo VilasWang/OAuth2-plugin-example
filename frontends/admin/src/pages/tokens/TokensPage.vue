@@ -18,6 +18,7 @@ const page = ref(1)
 const perPage = ref(50)
 const total = ref(0)
 const errorMessage = ref('')
+const successMessage = ref('')
 
 // Filters
 const clientIdFilter = ref('')
@@ -91,11 +92,11 @@ async function revokeToken(tokenPrefix: string) {
   showConfirm(`Revoke token starting with "${tokenPrefix}"?`, async () => {
     try {
       await axios.delete(`/api/admin/tokens/${tokenPrefix}`)
+      errorMessage.value = ''
       await fetchTokens()
     } catch (e) {
       const normalized = normalizeError(e)
       errorMessage.value = normalized.message
-      console.error('Failed to revoke token:', e)
     }
   })
 }
@@ -104,12 +105,15 @@ async function revokeByClient(clientId: string) {
   showBulkMenu.value = false
   showConfirm(`Revoke ALL tokens for client "${clientId}"?`, async () => {
     try {
-      await axios.post('/api/admin/tokens/revoke-by-client', { client_id: clientId })
+      const resp = await axios.post('/api/admin/tokens/revoke-by-client', { client_id: clientId })
+      // Gap-fix: surface the backend count ("revoked N tokens") instead of a
+      // silent success (the response carries the number of deleted rows).
+      errorMessage.value = ''
+      successMessage.value = `Revoked ${resp.data?.count ?? 0} token(s) for client "${clientId}"`
       await fetchTokens()
     } catch (e) {
       const normalized = normalizeError(e)
       errorMessage.value = normalized.message
-      console.error('Failed to revoke tokens by client:', e)
     }
   })
 }
@@ -118,12 +122,13 @@ async function revokeByUser() {
   if (!userIdFilter.value) return
   showConfirm(`Revoke ALL tokens for user "${userIdFilter.value}"?`, async () => {
     try {
-      await axios.post('/api/admin/tokens/revoke-by-user', { user_id: userIdFilter.value })
+      const resp = await axios.post('/api/admin/tokens/revoke-by-user', { user_id: userIdFilter.value })
+      errorMessage.value = ''
+      successMessage.value = `Revoked ${resp.data?.count ?? 0} token(s) for user "${userIdFilter.value}"`
       await fetchTokens()
     } catch (e) {
       const normalized = normalizeError(e)
       errorMessage.value = normalized.message
-      console.error('Failed to revoke tokens by user:', e)
     }
   })
 }
@@ -179,6 +184,19 @@ onMounted(fetchTokens)
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Success Banner (bulk revocation count, gap-fix) -->
+    <div
+      v-if="successMessage"
+      class="mb-6 rounded-md bg-emerald-50 p-4"
+    >
+      <p
+        class="text-sm text-emerald-800"
+        data-testid="tokens-success"
+      >
+        {{ successMessage }}
+      </p>
     </div>
 
     <!-- Error Banner -->
