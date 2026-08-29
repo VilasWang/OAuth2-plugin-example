@@ -196,6 +196,9 @@
             ],
             "/oauth2/register": [
                 "admin"
+            ],
+            "/oauth2/device/approve": [
+                "admin"
             ]
         },
         "cors": {
