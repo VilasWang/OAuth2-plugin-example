@@ -165,7 +165,8 @@
         "rbac_rules": {
             "/api/admin/.*": ["admin"],
             "/api/user/.*": ["user", "admin"],
-            "/oauth2/register": ["admin"]
+            "/oauth2/register": ["admin"],
+            "/oauth2/device/approve": ["admin"]
         },
         "cors": {
             "allow_origins": [
