@@ -173,8 +173,12 @@ export const useAuthStore = defineStore('auth', () => {
    * shows them and the user can retry without losing the challenge state.
    */
   async function verifyMfa(mfaToken: string, code: string): Promise<AdminLoginResult> {
+    // The verifier is consumed only on success: a wrong TOTP code must not
+    // burn it, or the retry would hit the token exchange with an empty
+    // code_verifier and fail PKCE (TokenService rejects empty verifier when a
+    // challenge is bound to the code) — trading the old login loop for a
+    // retry loop.
     const codeVerifier = sessionStorage.getItem('pkce_code_verifier') || ''
-    if (codeVerifier) sessionStorage.removeItem('pkce_code_verifier')
 
     const params = new URLSearchParams({
       mfa_token: mfaToken,
@@ -191,6 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (!resp.data.access_token) {
         throw new Error('MFA verification failed')
       }
+      sessionStorage.removeItem('pkce_code_verifier')
       return await applySession(resp)
     } catch (e: unknown) {
       loginError.value = normalizeError(e).message
