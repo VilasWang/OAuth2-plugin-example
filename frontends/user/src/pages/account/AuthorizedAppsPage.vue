@@ -12,7 +12,11 @@ async function fetchApps() {
   loading.value = true
   try {
     const resp = await http.get('/api/me/authorized-apps')
-    apps.value = resp.data.apps || resp.data.authorized_apps || []
+    // Backend envelope: {authorized_apps: [...], total} (UserSelfServiceController).
+    // The old `resp.data.apps ||` first fallback matched only a mock shape the
+    // real backend never returns — PR-review cleanup removed it so the page
+    // parses the actual contract.
+    apps.value = resp.data?.authorized_apps || []
   } catch {
     error.value = 'Failed to load authorized apps'
   } finally {

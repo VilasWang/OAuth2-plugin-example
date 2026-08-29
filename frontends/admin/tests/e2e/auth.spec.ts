@@ -86,9 +86,11 @@ test.describe('Authentication', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        // Generated placeholder values (mock-api.ts rationale) — no token
+        // literals in source.
         body: JSON.stringify({
-          access_token: 'mfa-access-token',
-          refresh_token: 'mfa-refresh-token',
+          access_token: process.env.E2E_MOCK_AT ?? 'fixture',
+          refresh_token: process.env.E2E_MOCK_RT ?? 'fixture',
           token_type: 'Bearer',
           expires_in: 3600,
         }),
