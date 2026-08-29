@@ -11,6 +11,12 @@ const clientId = route.query.client_id as string || ''
 const scope = route.query.scope as string || ''
 const redirectUri = route.query.redirect_uri as string || ''
 const state = route.query.state as string || ''
+// Gap-fix E7: the server's consent page URL explicitly carries the session
+// user's id (AuthorizationEndpointController). Trust that value first — the
+// store's userinfo may not have loaded yet (no auth meta on this route before
+// the guard was added), and `sub` used to be silently submitted as ''.
+const serverUserId = route.query.user_id as string || ''
+const userId = serverUserId || auth.user?.sub || ''
 // P0 #1: PKCE/nonce must round-trip through the consent page, otherwise the
 // authorization code is issued without a stored code_challenge and the token
 // endpoint's PKCE verification is silently skipped.
@@ -19,6 +25,11 @@ const codeChallengeMethod = route.query.code_challenge_method as string || ''
 const nonce = route.query.nonce as string || ''
 
 const scopes = scope.split(' ').filter(Boolean)
+
+// Neither the server-provided nor the store user id is known — submitting
+// would 500 server-side ("failed to get user mapping"). Block the action
+// instead of firing a request that cannot succeed.
+const missingUserId = !userId
 
 // #43: resource-scope vocabulary. The legacy bare 'read'/'write' labels are
 // dropped; the OIDC standard scopes keep their human-readable descriptions and
@@ -59,7 +70,7 @@ function handleConsent(action: 'approve' | 'deny') {
 
   const fields: Record<string, string> = {
     client_id: clientId,
-    user_id: auth.user?.sub || '',
+    user_id: userId,
     scope,
     redirect_uri: redirectUri,
     state,
@@ -118,16 +129,23 @@ function handleConsent(action: 'approve' | 'deny') {
       </div>
 
       <!-- Actions -->
+      <p
+        v-if="missingUserId"
+        class="mb-3 text-center text-sm text-red-600"
+        data-testid="consent-missing-user"
+      >
+        Your session could not be identified. Please sign in again.
+      </p>
       <div class="flex gap-3">
         <button
-          :disabled="loading"
+          :disabled="loading || missingUserId"
           class="flex-1 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50"
           @click="handleConsent('deny')"
         >
           Deny
         </button>
         <button
-          :disabled="loading"
+          :disabled="loading || missingUserId"
           class="flex-1 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
           @click="handleConsent('approve')"
         >

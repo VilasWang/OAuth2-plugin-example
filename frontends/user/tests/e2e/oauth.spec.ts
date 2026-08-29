@@ -27,27 +27,46 @@ test.describe('OAuth2 Consent Page', () => {
   })
 })
 
-test.describe('Device Verification Page', () => {
+// Gap-fix E7: the consent POST must carry the server-provided user_id (URL
+// query first, store sub as fallback). These cases actually click the buttons
+// — previously they were never executed (gap-analysis §5.2 zero-coverage).
+test.describe('Consent actions', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
+    await loginUser(page)
   })
 
-  test('displays device code input', async ({ page }) => {
-    await page.goto('/device/verify')
-    await expect(page.getByRole('heading', { name: /device/i })).toBeVisible()
-    await expect(page.locator('input')).toBeVisible()
+  test('approve submits user_id from the server-provided query param', async ({ page }) => {
+    await page.goto('/consent?client_id=third-party&scope=openid+profile&redirect_uri=http://example.com/callback&state=st1&user_id=server-user-42')
+    const consentRequest = page.waitForRequest('**/oauth2/consent')
+    await page.locator('button:has-text("Authorize")').click()
+
+    const request = await consentRequest
+    const body = request.postData() || ''
+    expect(body).toContain('action=approve')
+    expect(body).toContain('user_id=server-user-42')
   })
 
-  test('pre-fills code from URL', async ({ page }) => {
-    await page.goto('/device/verify?user_code=ABCD-EFGH')
-    await expect(page.locator('input')).toHaveValue('ABCD-EFGH')
+  test('deny submits the deny action', async ({ page }) => {
+    await page.goto('/consent?client_id=third-party&scope=openid&redirect_uri=http://example.com/callback&state=st2&user_id=server-user-42')
+    const consentRequest = page.waitForRequest('**/oauth2/consent')
+    await page.locator('button:has-text("Deny")').click()
+
+    const request = await consentRequest
+    expect(request.postData()).toContain('action=deny')
   })
 
-  test('shows success after verification', async ({ page }) => {
-    await page.goto('/device/verify')
-    await page.locator('input').fill('ABCD-EFGH')
-    await page.click('button:has-text("Authorize Device")')
-    await expect(page.locator('text=authorized successfully')).toBeVisible()
+  test('without any user id the actions are disabled', async ({ page }) => {
+    // No user_id in the query and an empty userinfo sub → submitting would 500
+    // server-side; the page must block the action instead (gap-fix E7).
+    // (userinfo answers 200 with an empty sub so no 401-refresh cascade fires.)
+    await page.route('**/oauth2/userinfo', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sub: '', name: '' }) })
+    })
+    await page.goto('/consent?client_id=third-party&scope=openid&redirect_uri=http://example.com/callback&state=st3')
+    await expect(page.getByTestId('consent-missing-user')).toBeVisible()
+    await expect(page.locator('button:has-text("Authorize")')).toBeDisabled()
+    await expect(page.locator('button:has-text("Deny")')).toBeDisabled()
   })
 })
 

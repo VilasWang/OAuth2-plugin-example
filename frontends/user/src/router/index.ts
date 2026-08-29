@@ -51,14 +51,16 @@ const router = createRouter({
       path: '/consent',
       name: 'consent',
       component: () => import('../pages/oauth/ConsentPage.vue'),
-      meta: { layout: 'auth' },
+      // Gap-fix E7: the consent form needs the session user id; an anonymous
+      // visit used to render a form that could only submit user_id='' and 500.
+      // The guard restores the session (or sends the full target — query
+      // included — to /login via the redirect param) before rendering.
+      meta: { layout: 'auth', auth: true },
     },
-    {
-      path: '/device/verify',
-      name: 'device-verify',
-      component: () => import('../pages/oauth/DeviceVerifyPage.vue'),
-      meta: { layout: 'auth' },
-    },
+    // Note: no /device/verify route — the page called a nonexistent endpoint
+    // (/oauth2/device/verify), and the real /oauth2/device/approve is
+    // admin-gated server-side, so device approval moved to the admin console
+    // (gap-fix E2 / plan D5).
 
     // Protected account pages (AppLayout)
     {

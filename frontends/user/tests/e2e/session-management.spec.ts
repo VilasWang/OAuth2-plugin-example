@@ -172,6 +172,33 @@ test.describe('Session Management', () => {
       expect(refreshToken).toBeTruthy()
     })
 
+    // Gap-fix E3: logout must end the server-side session via POST
+    // /oauth2/logout (Bearer) and must NOT call the protocol-invalid
+    // end_session combination anymore. Neither request was ever asserted
+    // before — which is exactly why the broken end_session call survived.
+    test('logout issues POST /oauth2/logout with Bearer and no end_session', async ({ page }) => {
+      await setupMocks(page)
+      const logoutRequest = page.waitForRequest('**/oauth2/logout')
+      const endSessionRequests: string[] = []
+      page.on('request', (request) => {
+        if (request.url().includes('/oauth2/end_session')) endSessionRequests.push(request.url())
+      })
+
+      // Seed an authenticated session (localStorage tokens → restore path).
+      await loginUser(page)
+
+      // Trigger the real store logout path: open the user menu, then Sign out.
+      await page.getByRole('button', { name: /testuser/i }).first().click()
+      await page.getByRole('button', { name: 'Sign out' }).click()
+
+      const request = await logoutRequest
+      const authHeader = await request.headerValue('Authorization')
+      expect(authHeader).toMatch(/^Bearer /)
+      await page.waitForTimeout(500)
+      expect(endSessionRequests).toHaveLength(0)
+      await expect(page).toHaveURL(/\/login/)
+    })
+
     test('tokens removed from localStorage after logout', async ({ page }) => {
       await page.goto('/login')
       await page.evaluate(() => {
