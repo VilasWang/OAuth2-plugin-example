@@ -145,3 +145,4 @@ docs-local/
 
 # Docusaurus build cache
 website/.docusaurus/
+.qoder-*.txt
