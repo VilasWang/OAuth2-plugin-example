@@ -15,7 +15,7 @@ disable-model-invocation: true
 ## 发布流程
 
 ### 1. 版本号确认
-版本号的**唯一真相来源**是 `cmake/Version.cmake`（`FULLA_PROJECT_VERSION_MAJOR` / `_MINOR` / `_PATCH` → `FULLA_PROJECT_VERSION`，当前 `1.1.0`）。`apps/server/CMakeLists.txt` 与 `libs/drogon/CMakeLists.txt` 均引用 `${FULLA_PROJECT_VERSION}`（`libs/drogon` 在未传播时回退默认 `1.0.0`）。确认这些文件解析出的版本一致（语义化版本：MAJOR.MINOR.PATCH）。
+版本号的**唯一真相来源**是 `cmake/Version.cmake`（`FULLA_PROJECT_VERSION_MAJOR` / `_MINOR` / `_PATCH` → `FULLA_PROJECT_VERSION`，当前 `1.0.1`）。`apps/server/CMakeLists.txt` 与 `libs/drogon/CMakeLists.txt` 均引用 `${FULLA_PROJECT_VERSION}`（`libs/drogon` 在未传播时回退默认 `1.0.0`）。确认这些文件解析出的版本一致（语义化版本：MAJOR.MINOR.PATCH）。
 
 ### 2. 版本号更新
 更新所有相关文件中的版本号：

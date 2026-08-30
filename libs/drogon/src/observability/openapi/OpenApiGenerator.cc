@@ -74,7 +74,11 @@ Json::Value OpenApiGenerator::generateOpenApiSpec()
     {
         setApiInfo(
           "OAuth2 Authorization Server API",
-          "1.0.0",
+#ifdef FULLA_VERSION_TEXT
+          FULLA_VERSION_TEXT,
+#else
+          "1.0.1",
+#endif
           "OAuth2.0 authorization server with token management"
         );
     }

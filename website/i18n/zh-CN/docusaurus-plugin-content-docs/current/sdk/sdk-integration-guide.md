@@ -38,7 +38,7 @@
 
 ```bash
 # 1) 解包
-tar xzf fulla-sdk-1.0.0-linux-x86_64.tar.gz   # -> fulla-sdk-1.0.0-linux-x86_64/
+tar xzf fulla-sdk-1.0.1-linux-x86_64.tar.gz   # -> fulla-sdk-1.0.1-linux-x86_64/
 
 # 2) 用仓库的 conanfile.py 解析依赖（生成 toolchain + 各依赖的 CMake config）
 conan install <fulla-repo> --output-folder=deps --build=missing \
@@ -48,7 +48,7 @@ conan install <fulla-repo> --output-folder=deps --build=missing \
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE=$PWD/deps/conan_toolchain.cmake \
-  -DCMAKE_PREFIX_PATH=$PWD/fulla-sdk-1.0.0-linux-x86_64
+  -DCMAKE_PREFIX_PATH=$PWD/fulla-sdk-1.0.1-linux-x86_64
 cmake --build build -j
 ```
 
@@ -93,7 +93,7 @@ target_link_libraries(my-engine PRIVATE fulla::oauth2 fulla::storage::memory)
 ## 5. 镜像使用
 
 ```bash
-docker pull ghcr.io/voidvec/fulla-backend:1.0.0
+docker pull ghcr.io/voidvec/fulla-backend:1.0.1
 ```
 
 三镜像与 `deploy/docker/docker-compose.yml` 的构建目标一一对应
