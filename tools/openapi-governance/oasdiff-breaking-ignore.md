@@ -72,3 +72,12 @@ any non-empty password — NIST SP 800-63B length floor. The only caller is this
 repo's own user SPA (updated in the same PR); the SDKs are regenerated here.
 The old behavior accepted 1-character passwords; nothing external can depend
 on keeping that hole open. Other register params unaffected.
+
+- in API POST /oauth2/consent added the new required `query` request parameter `consent_csrf`
+
+Same tranche as the register minLength above: the consent endpoint was an
+unauthenticated browser-interaction form; the required nonce IS the security
+fix (anonymous consent forgery). The only caller is this repo's own consent
+SPA (updated in the same PR) and the server-minted nonce is delivered in the
+authorize redirect; SDKs are regenerated here.
+
