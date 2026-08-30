@@ -2672,6 +2672,12 @@ paths:
           - approve
           - deny
           type: string
+      - description: Server-minted one-shot CSRF nonce from the authorize->consent redirect (required; consumed on use)
+        in: query
+        name: consent_csrf
+        required: true
+        schema:
+          type: string
       responses:
         '302':
           description: Redirect to client with authorization code or error

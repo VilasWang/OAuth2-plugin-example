@@ -1,4 +1,5 @@
 #include <fulla/drogon/admin/UserAdminService.h>
+#include <fulla/drogon/validation/RuleSet.h>
 
 #include <fulla/storage/postgres/models/Users.h>
 #include <fulla/storage/postgres/models/UserRoles.h>
@@ -640,6 +641,17 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
     if (password.empty())
     {
         respondError(req, cb, "VALIDATION_MISSING_REQUIRED_FIELD", "password is required");
+        return;
+    }
+    if (password.length() < fulla::drogon::validation::RuleSet::passwordMinLength())
+    {
+        respondError(
+          req,
+          cb,
+          "VALIDATION_PASSWORD_TOO_SHORT",
+          "createUser: password must be at least " +
+            std::to_string(fulla::drogon::validation::RuleSet::passwordMinLength()) + " characters"
+        );
         return;
     }
 

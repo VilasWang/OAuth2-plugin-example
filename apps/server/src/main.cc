@@ -38,6 +38,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <thread>
+#include <future>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -339,17 +340,30 @@ int main(int argc, char *argv[])
         {
             drogon::app().registerBeginningAdvice([]() {
                 std::thread([]() {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-                    const char *envPwd = std::getenv("FULLA_BOOTSTRAP_ADMIN_PASSWORD");
-                    bootstrap::AdminBootstrapper::run(
-                      envPwd ? std::string(envPwd) : std::string(),
-                      [](bool created, const std::string &detail) {
-                          if (created)
-                              LOG_INFO << "AdminBootstrap: " << detail;
-                          else
-                              LOG_DEBUG << "AdminBootstrap: " << detail;
-                      }
-                    );
+                    // Retry with backoff: on a cold boot the auto-migrate
+                    // thread may still be creating tables; the roles lookup
+                    // fails soft and is retried before giving up.
+                    for (int attempt = 1; attempt <= 5; ++attempt)
+                    {
+                        std::this_thread::sleep_for(
+                          std::chrono::seconds(2 * attempt)
+                        );
+                        const char *envPwd = std::getenv("FULLA_BOOTSTRAP_ADMIN_PASSWORD");
+                        auto result = std::make_shared<std::promise<bool>>();
+                        bootstrap::AdminBootstrapper::run(
+                          envPwd ? std::string(envPwd) : std::string(),
+                          [result](bool ok, const std::string &detail) {
+                              if (!ok)
+                                  LOG_WARN << "AdminBootstrap attempt: " << detail;
+                              else
+                                  LOG_INFO << "AdminBootstrap: " << detail;
+                              result->set_value(ok);
+                          }
+                        );
+                        if (result->get_future().get())
+                            break;
+                        LOG_WARN << "AdminBootstrap retry " << attempt << "/5 scheduled";
+                    }
                 }).detach();
             });
         }

@@ -584,7 +584,7 @@ The frontend (the user-facing OAuth2Frontend) is configured through Vite environ
 
 ## Database initialization
 
-On first deployment the backend runs database migrations automatically (`FULLA_AUTO_MIGRATE=true`), creating all required tables. However, **no seed data is created automatically** — you must manually create the admin user and OAuth2 clients.
+On first deployment the backend runs database migrations automatically (`FULLA_AUTO_MIGRATE=true`), creating all required tables. The **administrator account is bootstrapped automatically** on first start (see next step); OAuth2 clients are not — create them manually.
 
 > The `dev_*.sql` files in `apps/server/seed/` use hard-coded passwords and localhost redirect URIs. **Do not use them in production.** Follow the steps below instead.
 
@@ -598,19 +598,20 @@ ADMIN_PASSWORD=$(openssl rand -base64 24)
 echo "Admin password: $ADMIN_PASSWORD"
 echo "Save this password — you will need it to log in to the admin console."
 
-# Generate password hash (SHA-256 with a random salt)
-ADMIN_SALT=$(openssl rand -hex 16)
 # Preferred: let the server bootstrap the admin on first start (random
 # PBKDF2 password printed ONCE to the container log):
 #   docker compose logs backend | grep Bootstrap
 # Or set it explicitly before first start: FULLA_BOOTSTRAP_ADMIN_PASSWORD=...
-# Manual fallback (PBKDF2-SHA256, 310k iterations, same format as the server):
+# Manual fallback (PBKDF2-SHA256, 310k iterations, same format as the
+# server). Note: the users.salt column stays empty — it is only used by the
+# retired legacy SHA-256 verification path; PBKDF2 embeds the salt in the
+# hash string:
 ADMIN_HASH=$(python3 -c "import hashlib,os;pw=os.environ['ADMIN_PASSWORD'];salt=os.urandom(16);print('\$pbkdf2-sha256\$310000\$'+salt.hex()+'\$'+hashlib.pbkdf2_hmac('sha256',pw.encode(),salt,310000,32).hex())")
 
 # Create the admin user
 docker exec -i fulla-postgres psql -U fulla_user -d fulla_db <<EOF
 INSERT INTO users (username, password_hash, salt, email)
-VALUES ('admin', '${ADMIN_HASH}', '${ADMIN_SALT}', 'admin@your-domain.com')
+VALUES ('admin', '${ADMIN_HASH}', '', 'admin@your-domain.com')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO user_roles (user_id, role_id)

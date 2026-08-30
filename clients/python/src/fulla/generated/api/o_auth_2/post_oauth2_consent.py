@@ -17,6 +17,7 @@ def _get_kwargs(
     redirect_uri: str,
     state: str | Unset = UNSET,
     action: PostOauth2ConsentAction,
+    consent_csrf: str,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
@@ -33,6 +34,8 @@ def _get_kwargs(
 
     json_action = action.value
     params["action"] = json_action
+
+    params["consent_csrf"] = consent_csrf
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -82,6 +85,7 @@ def sync_detailed(
     redirect_uri: str,
     state: str | Unset = UNSET,
     action: PostOauth2ConsentAction,
+    consent_csrf: str,
 ) -> Response[Any]:
     """Submit user consent
 
@@ -94,6 +98,7 @@ def sync_detailed(
         redirect_uri (str):
         state (str | Unset):
         action (PostOauth2ConsentAction):
+        consent_csrf (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,6 +115,7 @@ def sync_detailed(
         redirect_uri=redirect_uri,
         state=state,
         action=action,
+        consent_csrf=consent_csrf,
     )
 
     response = client.get_httpx_client().request(
@@ -128,6 +134,7 @@ async def asyncio_detailed(
     redirect_uri: str,
     state: str | Unset = UNSET,
     action: PostOauth2ConsentAction,
+    consent_csrf: str,
 ) -> Response[Any]:
     """Submit user consent
 
@@ -140,6 +147,7 @@ async def asyncio_detailed(
         redirect_uri (str):
         state (str | Unset):
         action (PostOauth2ConsentAction):
+        consent_csrf (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -156,6 +164,7 @@ async def asyncio_detailed(
         redirect_uri=redirect_uri,
         state=state,
         action=action,
+        consent_csrf=consent_csrf,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

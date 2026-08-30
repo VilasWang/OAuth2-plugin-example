@@ -10,7 +10,6 @@
 #include <openssl/rand.h>
 
 #include <memory>
-#include <vector>
 
 using namespace drogon;
 using namespace drogon::orm;
@@ -75,181 +74,205 @@ std::string randomPassword()
     return out;
 }
 
-using DonePtr = std::shared_ptr<AdminBootstrapper::DoneCallback>;
-
-void finish(const DonePtr &done, bool created, const std::string &detail)
+// Shared per-run state threaded through the async steps.
+struct BootstrapRun
 {
-    (*done)(created, detail);
+    AdminBootstrapper::DoneCallback done;
+    DbClientPtr db;
+    std::string explicitPassword;  // may be empty -> random
+    int32_t roleId = 0;
+    int32_t userId = 0;
+};
+
+using RunPtr = std::shared_ptr<BootstrapRun>;
+
+void finish(const RunPtr &run, bool created, const std::string &detail)
+{
+    run->done(created, detail);
 }
 
-void insertSubjectMapping(
-  const DbClientPtr &db,
-  const DonePtr &done,
-  int32_t userId
-)
+// Step 4: local subject mapping (subject = internal id text, provider
+// 'local' — the seed/dev_admin_user.sql shape the consent/login flows read).
+void ensureSubjectMapping(const RunPtr &run)
 {
     try
     {
-        Mapper<Oauth2SubjectMappings> mapMapper(db);
-        Oauth2SubjectMappings mapping;
-        mapping.setSubject(std::to_string(userId));
-        mapping.setInternalUserId(userId);
-        mapping.setProvider("local");
-        mapMapper.insert(
-          mapping,
-          [done](const Oauth2SubjectMappings &) { finish(done, true, "admin bootstrapped"); },
-          [done](const DrogonDbException &e) {
-              // User + role exist; the mapping is recoverable on next login
-              // paths — report success with a note.
-              LOG_WARN << "AdminBootstrapper: subject mapping insert failed: " << e.base().what();
-              finish(done, true, "admin bootstrapped (mapping deferred)");
+        Mapper<Oauth2SubjectMappings> mapper(run->db);
+        mapper.findOne(
+          Criteria(Oauth2SubjectMappings::Cols::_provider, CompareOperator::EQ, std::string("local")) &&
+            Criteria(Oauth2SubjectMappings::Cols::_subject, CompareOperator::EQ, std::to_string(run->userId)),
+          [run](const Oauth2SubjectMappings &) { finish(run, true, "admin bootstrapped"); },
+          [run](const DrogonDbException &) {
+              try
+              {
+                  Mapper<Oauth2SubjectMappings> mapper(run->db);
+                  Oauth2SubjectMappings mapping;
+                  mapping.setSubject(std::to_string(run->userId));
+                  mapping.setInternalUserId(run->userId);
+                  mapping.setProvider("local");
+                  mapper.insert(
+                    mapping,
+                    [run](const Oauth2SubjectMappings &) { finish(run, true, "admin bootstrapped"); },
+                    [run](const DrogonDbException &e2) {
+                        finish(run, false, std::string("subject mapping insert failed: ") + e2.base().what());
+                    }
+                  );
+              }
+              catch (const DrogonDbException &e2)
+              {
+                  finish(run, false, std::string("mapping mapper failed: ") + e2.base().what());
+              }
           }
         );
     }
     catch (const DrogonDbException &e)
     {
-        LOG_WARN << "AdminBootstrapper: mapping mapper failed: " << e.base().what();
-        finish(done, true, "admin bootstrapped (mapping deferred)");
+        finish(run, false, std::string("mapping mapper failed: ") + e.base().what());
     }
 }
 
-void assignAdminRole(
-  const DbClientPtr &db,
-  const DonePtr &done,
-  int32_t userId,
-  int32_t roleId
-)
+// Step 3: admin role assignment for the resolved user.
+void ensureAdminRole(const RunPtr &run)
 {
     try
     {
-        Mapper<UserRoles> urMapper(db);
-        UserRoles ur;
-        ur.setUserId(userId);
-        ur.setRoleId(roleId);
-        urMapper.insert(
-          ur,
-          [db, done, userId](const UserRoles &) { insertSubjectMapping(db, done, userId); },
-          [done, userId](const DrogonDbException &e) {
-              LOG_WARN << "AdminBootstrapper: role assignment failed: " << e.base().what();
-              // User exists; without the role it is not an admin — surface as
-              // not-created so the operator sees the failure.
-              finish(done, false, "role assignment failed (user 'admin' exists without role)");
-              (void)userId;
+        Mapper<UserRoles> urMapper(run->db);
+        urMapper.findOne(
+          Criteria(UserRoles::Cols::_user_id, CompareOperator::EQ, run->userId) &&
+            Criteria(UserRoles::Cols::_role_id, CompareOperator::EQ, run->roleId),
+          [run](const UserRoles &) { ensureSubjectMapping(run); },
+          [run](const DrogonDbException &) {
+              try
+              {
+                  Mapper<UserRoles> urMapper(run->db);
+                  UserRoles ur;
+                  ur.setUserId(run->userId);
+                  ur.setRoleId(run->roleId);
+                  urMapper.insert(
+                    ur,
+                    [run](const UserRoles &) { ensureSubjectMapping(run); },
+                    [run](const DrogonDbException &e2) {
+                        finish(run, false, std::string("admin role assignment failed: ") + e2.base().what());
+                    }
+                  );
+              }
+              catch (const DrogonDbException &e2)
+              {
+                  finish(run, false, std::string("user_roles mapper failed: ") + e2.base().what());
+              }
           }
         );
     }
     catch (const DrogonDbException &e)
     {
-        finish(done, false, std::string("user_roles mapper failed: ") + e.base().what());
+        finish(run, false, std::string("user_roles mapper failed: ") + e.base().what());
     }
 }
 
-void createAdmin(const DbClientPtr &db, const DonePtr &done, int32_t roleId, const std::string &explicitPassword)
+// Step 2b: the user row exists (created now or pre-existing) — proceed to
+// the role step.
+void resolveUserById(const RunPtr &run)
 {
-    const bool generated = explicitPassword.empty();
-    const std::string password = generated ? randomPassword() : explicitPassword;
-    std::string passwordHash;
+    ensureAdminRole(run);
+}
+
+// Step 2: the 'admin' user row. Created here when missing; an existing row
+// is REUSED (partial-failure self-heal: a previous run may have inserted the
+// user but died before the role/mapping steps).
+void ensureAdminUser(const RunPtr &run)
+{
     try
     {
-        passwordHash = hashPasswordPbkdf2(password);
-    }
-    catch (const std::exception &e)
-    {
-        finish(done, false, e.what());
-        return;
-    }
-
-    if (generated)
-    {
-        LOG_WARN << "==========================================================";
-        LOG_WARN << "Bootstrap: created administrator 'admin' with password: " << password;
-        LOG_WARN << "SAVE IT NOW and change it after first login. It is shown ONCE.";
-        LOG_WARN << "==========================================================";
-    }
-    else
-    {
-        LOG_INFO << "Bootstrap: created administrator 'admin' (password from env)";
-    }
-
-    try
-    {
-        Mapper<Users> userMapper(db);
-        Users admin;
-        admin.setUsername("admin");
-        admin.setPasswordHash(passwordHash);
-        admin.setEmail("admin@example.com");
-        userMapper.insert(
-          admin,
-          [db, done, roleId](const Users &inserted) {
-              assignAdminRole(db, done, inserted.getValueOfId(), roleId);
+        Mapper<Users> userMapper(run->db);
+        userMapper.findOne(
+          Criteria(Users::Cols::_username, CompareOperator::EQ, std::string("admin")),
+          [run](const Users &existing) {
+              run->userId = existing.getValueOfId();
+              resolveUserById(run);
           },
-          [done](const DrogonDbException &e) {
-              const std::string what = e.base().what();
-              if (what.find("users_username_key") != std::string::npos)
-                  finish(done, false, "username 'admin' already exists (without admin role)");
-              else
-                  finish(done, false, "user insert failed: " + what);
+          [run](const DrogonDbException &) {
+              const bool generated = run->explicitPassword.empty();
+              const std::string password = generated ? randomPassword() : run->explicitPassword;
+              std::string passwordHash;
+              try
+              {
+                  passwordHash = hashPasswordPbkdf2(password);
+              }
+              catch (const std::exception &e)
+              {
+                  finish(run, false, e.what());
+                  return;
+              }
+
+              try
+              {
+                  Mapper<Users> userMapper(run->db);
+                  Users admin;
+                  admin.setUsername("admin");
+                  admin.setPasswordHash(passwordHash);
+                  admin.setEmail("admin@example.com");
+                  userMapper.insert(
+                    admin,
+                    [run, generated, password](const Users &inserted) {
+                        run->userId = inserted.getValueOfId();
+                        if (generated)
+                        {
+                            // Print AFTER the insert succeeded: a failed insert
+                            // must not claim a credential was minted.
+                            LOG_WARN << "==========================================================";
+                            LOG_WARN << "Bootstrap: created administrator 'admin' with password: " << password;
+                            LOG_WARN << "SAVE IT NOW and change it after first login. It is shown ONCE.";
+                            LOG_WARN << "==========================================================";
+                        }
+                        else
+                        {
+                            LOG_INFO << "Bootstrap: created administrator 'admin' (password from env)";
+                        }
+                        resolveUserById(run);
+                    },
+                    [run](const DrogonDbException &e2) {
+                        finish(run, false, std::string("admin user insert failed: ") + e2.base().what());
+                    }
+                  );
+              }
+              catch (const DrogonDbException &e2)
+              {
+                  finish(run, false, std::string("users mapper failed: ") + e2.base().what());
+              }
           }
         );
     }
     catch (const DrogonDbException &e)
     {
-        finish(done, false, std::string("users mapper failed: ") + e.base().what());
+        finish(run, false, std::string("users mapper failed: ") + e.base().what());
     }
 }
 }  // namespace
 
 void AdminBootstrapper::run(const std::string &explicitPassword, DoneCallback &&done)
 {
-    auto sharedDone = std::make_shared<DoneCallback>(std::move(done));
-    auto db = app().getDbClient();
-    if (!db)
+    auto run = std::make_shared<BootstrapRun>();
+    run->done = std::move(done);
+    run->explicitPassword = explicitPassword;
+    run->db = app().getDbClient();
+    if (!run->db)
     {
-        finish(sharedDone, false, "no db client (memory storage?)");
+        finish(run, false, "no db client (memory storage?)");
         return;
     }
 
     try
     {
-        Mapper<Roles> roleMapper(db);
+        Mapper<Roles> roleMapper(run->db);
         roleMapper.findOne(
           Criteria(Roles::Cols::_name, CompareOperator::EQ, std::string("admin")),
-          [db, sharedDone, explicitPassword](const Roles &adminRole) mutable {
-              try
-              {
-                  Mapper<UserRoles> urMapper(db);
-                  urMapper.findBy(
-                    Criteria(
-                      UserRoles::Cols::_role_id, CompareOperator::EQ, adminRole.getValueOfId()
-                    ),
-                    [db, sharedDone, explicitPassword, roleId = adminRole.getValueOfId()](
-                      const std::vector<UserRoles> &rows) mutable {
-                        if (!rows.empty())
-                        {
-                            finish(sharedDone, false, "admin role already assigned; nothing to do");
-                            return;
-                        }
-                        createAdmin(db, sharedDone, roleId, explicitPassword);
-                    },
-                    [sharedDone](const DrogonDbException &e) {
-                        finish(
-                          sharedDone, false,
-                          std::string("user_roles query failed: ") + e.base().what()
-                        );
-                    }
-                  );
-              }
-              catch (const DrogonDbException &e)
-              {
-                  finish(
-                    sharedDone, false,
-                    std::string("user_roles mapper failed: ") + e.base().what()
-                  );
-              }
+          [run](const Roles &adminRole) {
+              run->roleId = adminRole.getValueOfId();
+              ensureAdminUser(run);
           },
-          [sharedDone](const DrogonDbException &e) {
+          [run](const DrogonDbException &e) {
               finish(
-                sharedDone, false,
+                run, false,
                 std::string("role 'admin' not found (roles not seeded?): ") + e.base().what()
               );
           }
@@ -257,7 +280,7 @@ void AdminBootstrapper::run(const std::string &explicitPassword, DoneCallback &&
     }
     catch (...)
     {
-        finish(sharedDone, false, "INTERNAL_ERROR");
+        finish(run, false, "INTERNAL_ERROR");
     }
 }
 }  // namespace bootstrap
