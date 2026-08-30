@@ -143,7 +143,7 @@ struct OAuth2ControllerDocs
         {
             Json::Value successExample;
             successExample["status"] = "ok";
-            successExample["version"] = "1.0.0";
+            successExample["version"] = FULLA_VERSION_TEXT;
 
             ::fulla::drogon::observability::openapi::EndpointInfo healthEndpoint;
             healthEndpoint.path = "/health";

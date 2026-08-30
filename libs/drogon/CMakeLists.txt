@@ -47,7 +47,7 @@ cmake_minimum_required(VERSION 3.16)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
 if(NOT DEFINED FULLA_PROJECT_VERSION)
-    set(FULLA_PROJECT_VERSION 1.0.0)
+    set(FULLA_PROJECT_VERSION 1.0.1)
 endif()
 if(NOT COMMAND oauth2_apply_compat)
     include(Compatibility)
@@ -68,6 +68,12 @@ find_package(CURL REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC)
 add_library(fulla::drogon ALIAS ${PROJECT_NAME})
+
+# Compile-time version string for the generated OpenAPI info block and the
+# /health example (single source: cmake/Version.cmake via FULLA_PROJECT_VERSION).
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  FULLA_VERSION_TEXT="${FULLA_PROJECT_VERSION}"
+)
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
