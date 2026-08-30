@@ -64,8 +64,8 @@ accepts both, so existing callers keep working.
 
 ## 2026-08-30 · IAM hardening tranche 1: /api/register password minLength (PR: hardening tranche 1)
 
-`in API POST /api/register for the \`query\` request parameter \`password\`, the
-minLength was increased from \`0\` to \`8\``
+`in API POST /api/register for the `query` request parameter `password`, the
+minLength was increased from `0` to `8``
 
 Intentional security tightening (#103): the server now enforces a minimum
 password length (auth.min_password_length, default 8) that previously accepted

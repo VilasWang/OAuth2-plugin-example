@@ -55,7 +55,7 @@ std::string loginCookie(const std::string &username, const std::string &password
 }
 }  // namespace
 
-DROGON_TEST(Integration_ConsentAuthGate_NoSession_Rejected)
+DROGON_TEST(Integration_P1_Consent_NoSession_Returns401)
 {
     if (!fulla::test::http::postgresAvailable())
     {
@@ -68,7 +68,7 @@ DROGON_TEST(Integration_ConsentAuthGate_NoSession_Rejected)
     CHECK(resp->getStatusCode() == k401Unauthorized);
 }
 
-DROGON_TEST(Integration_ConsentAuthGate_WrongUser_Forbidden)
+DROGON_TEST(Integration_P1_Consent_UserMismatch_Returns403)
 {
     if (!fulla::test::http::postgresAvailable())
     {
@@ -84,7 +84,7 @@ DROGON_TEST(Integration_ConsentAuthGate_WrongUser_Forbidden)
     CHECK(resp->getStatusCode() == k403Forbidden);
 }
 
-DROGON_TEST(Integration_ConsentAuthGate_MissingNonce_BadRequest)
+DROGON_TEST(Integration_P1_Consent_MissingNonce_Returns400)
 {
     if (!fulla::test::http::postgresAvailable())
     {
@@ -102,7 +102,7 @@ DROGON_TEST(Integration_ConsentAuthGate_MissingNonce_BadRequest)
     CHECK(resp->getStatusCode() == k403Forbidden);
 }
 
-DROGON_TEST(Integration_ConsentAuthGate_DenyUnregisteredUri_BadRequest)
+DROGON_TEST(Integration_P1_Consent_DenyUnregisteredUri_Gated)
 {
     if (!fulla::test::http::postgresAvailable())
     {
@@ -118,7 +118,7 @@ DROGON_TEST(Integration_ConsentAuthGate_DenyUnregisteredUri_BadRequest)
     CHECK(resp->getStatusCode() == k401Unauthorized);
 }
 
-DROGON_TEST(Integration_ConsentAuthGate_AuthorizeMintsNonceAndConsentApproves)
+DROGON_TEST(Integration_P1_Consent_NonceRoundTrip_ApprovesAndRejectsReplay)
 {
     if (!fulla::test::http::postgresAvailable())
     {
@@ -190,7 +190,6 @@ DROGON_TEST(Integration_ConsentAuthGate_AuthorizeMintsNonceAndConsentApproves)
         "&action=approve",
       cookie
     );
-    std::cout << "APPROVE=" << approve->getBody() << std::endl;
     CHECK(approve->getStatusCode() == k302Found);
 
     // One-shot: replaying the same nonce must fail.
