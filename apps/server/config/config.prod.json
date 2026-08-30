@@ -1,11 +1,4 @@
 {
-    "auth": {
-        "bootstrap_admin": {
-            "enabled": true
-        },
-        "allow_legacy_hash": true,
-        "min_password_length": 8
-    },
     "listeners": [
         {
             "address": "0.0.0.0",
@@ -243,7 +236,12 @@
             "rate_limit": {
                 "max_failures": 30,
                 "window_seconds": 60
-            }
+            },
+            "bootstrap_admin": {
+                "enabled": true
+            },
+            "allow_legacy_hash": true,
+            "min_password_length": 8
         },
         "rbac_rules": {
             "/api/admin/.*": [
