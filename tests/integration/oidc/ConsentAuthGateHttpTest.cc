@@ -15,9 +15,6 @@ using namespace drogon;
 
 namespace
 {
-constexpr const char *kAdminClientId = "admin-console";
-constexpr const char *kAdminRedirectUri = "http://127.0.0.1:5174/admin/callback";
-
 HttpResponsePtr post(const std::string &path, const std::string &body, const std::string &cookie = "")
 {
     auto client = HttpClient::newHttpClient("http://127.0.0.1:5555", app().getLoop());
