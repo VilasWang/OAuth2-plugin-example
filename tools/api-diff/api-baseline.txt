@@ -3509,6 +3509,8 @@ static std::optional<std::string> validateToken(const std::string &token);
 static std::vector<std::string> oauth2Authorize(const ::drogon::HttpRequestPtr &req);
 static std::vector<std::string> oauth2Token(const ::drogon::HttpRequestPtr &req);
 static std::vector<std::string> login(const ::drogon::HttpRequestPtr &req);
+static void setPasswordMinLength(size_t minLen) ;
+static size_t passwordMinLength() ;
 static std::vector<std::string> registerUser(const ::drogon::HttpRequestPtr &req);
 static std::vector<std::string> oauth2Introspect(const ::drogon::HttpRequestPtr &req);
 static std::vector<std::string> oauth2Revoke(const ::drogon::HttpRequestPtr &req);
@@ -3523,6 +3525,8 @@ const ::drogon::HttpRequestPtr &req,
 const std::string &field,
 const std::string &source
 );
+private:
+static size_t passwordMinLength_;
 };
 }
 === libs/identity/include/fulla/identity/AuthService.h
@@ -3549,6 +3553,8 @@ bool mfaEnabled = false;
 class AuthService
 {
 public:
+void setAllowLegacyHash(bool allow) ;
+public:
 AuthService(
 std::shared_ptr<IUserRepository> userRepo,
 std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto,
@@ -3570,6 +3576,8 @@ private:
 std::shared_ptr<IUserRepository> userRepo_;
 std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
 std::shared_ptr<fulla::common::ports::IClock> clock_;
+private:
+bool allowLegacyHash_ = true;
 };
 }
 === libs/identity/include/fulla/identity/IBackchannelLogoutNotifier.h
