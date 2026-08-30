@@ -61,3 +61,15 @@ accepts both, so existing callers keep working.
 ### Response body correction (1) — the old spec lied
 
 - POST /oauth2/revoke removed the media type `application/json` for the response with the status `200` — the 200 body is EMPTY per RFC 7009 (the old spec declared a JSON object that never existed)
+
+## 2026-08-30 · IAM hardening tranche 1: /api/register password minLength (PR: hardening tranche 1)
+
+`in API POST /api/register for the \`query\` request parameter \`password\`, the
+minLength was increased from \`0\` to \`8\``
+
+Intentional security tightening (#103): the server now enforces a minimum
+password length (auth.min_password_length, default 8) that previously accepted
+any non-empty password — NIST SP 800-63B length floor. The only caller is this
+repo's own user SPA (updated in the same PR); the SDKs are regenerated here.
+The old behavior accepted 1-character passwords; nothing external can depend
+on keeping that hole open. Other register params unaffected.
