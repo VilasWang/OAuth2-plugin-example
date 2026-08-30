@@ -836,6 +836,9 @@ type PostOauth2ConsentParams struct {
 
 	// Action Action to perform: 'approve' or 'deny' (required)
 	Action PostOauth2ConsentParamsAction `form:"action" json:"action"`
+
+	// ConsentCsrf Server-minted one-shot CSRF nonce from the authorize->consent redirect (required; consumed on use)
+	ConsentCsrf string `form:"consent_csrf" json:"consent_csrf"`
 }
 
 // PostOauth2ConsentParamsAction defines parameters for PostOauth2Consent.
@@ -6437,6 +6440,14 @@ func NewPostOauth2ConsentRequest(server string, params *PostOauth2ConsentParams)
 		}
 
 		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "action", params.Action, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "consent_csrf", params.ConsentCsrf, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 			return nil, err
 		} else {
 			for _, qp := range strings.Split(queryFrag, "&") {

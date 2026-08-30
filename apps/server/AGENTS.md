@@ -137,7 +137,6 @@
 
 ### 视图（`views/*.csp`）
 - `login.csp`：用户登录页面（CSP 模板）
-- `consent.csp`：用户授权同意页面（CSP 模板）
 
 ## 开发约束
 

@@ -23,8 +23,6 @@ For the versioning policy (when to cut, what to bump, why), see
 - `/api/register` password 参数新增 minLength 8;改密/重置密码过短错误码由 `VALIDATION_FORMAT_ERROR` 改为 `VALIDATION_PASSWORD_TOO_SHORT`。
 - 文档:README/部署指南移除公开凭证示例,管理员创建改为 bootstrap 流程。
 
-## [Unreleased]
-
 ### 文档
 
 - **文档治理收官**（PR #114/#116，治理文档 v4，[docs/documentation-governance.md](docs/documentation-governance.md)）：

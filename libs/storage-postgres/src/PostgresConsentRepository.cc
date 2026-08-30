@@ -83,9 +83,23 @@ void PostgresConsentRepository::saveUserConsent(
               (*sharedCb)(true);
           },
           [sharedCb](const DrogonDbException &e) {
-              // Check if it's a constraint violation (consent already exists)
-              if (std::string(e.base().what()).find("duplicate key") != std::string::npos ||
-                  std::string(e.base().what()).find("已经存在") != std::string::npos)
+              // Unique-violation detection, layered (mirrors
+              // PostgresSocialAccountRepository::isUniqueViolation): SQLSTATE
+              // 23505 where delivered, then the auto-generated constraint
+              // NAME (identifiers are never localized), then the English
+              // substring, then the zh_CN localized text. The localized
+              // matches are empirically required on this driver: the async
+              // error path delivers a plain Failure(PQerrorMessage) with an
+              // empty sqlState().
+              const std::string what = e.base().what();
+              const auto *sqlErr = dynamic_cast<const drogon::orm::SqlError *>(&e);
+              const bool uniqueViolation =
+                (sqlErr && sqlErr->sqlState() == "23505") ||
+                what.find("oauth2_user_consents_internal_user_id_client_id_scope_name_key") !=
+                  std::string::npos ||
+                what.find("duplicate key") != std::string::npos ||
+                what.find("已经存在") != std::string::npos;
+              if (uniqueViolation)
               {
                   LOG_DEBUG << "User consent already exists (not an error)";
                   (*sharedCb)(true);  // Already exists is considered success

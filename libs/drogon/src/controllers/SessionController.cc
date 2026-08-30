@@ -1,3 +1,4 @@
+#include <mutex>
 #include <fulla/drogon/controllers/SessionController.h>
 #include <fulla/storage/postgres/models/Users.h>
 #include <fulla/drogon/adapters/DrogonAuditSink.h>
@@ -371,8 +372,18 @@ struct OAuth2ControllerDocs
             actionParam.required = true;
             actionParam.enumValues = "approve,deny";
 
+            ::fulla::drogon::observability::openapi::ParameterInfo consentCsrfParam;
+            consentCsrfParam.name = "consent_csrf";
+            consentCsrfParam.description =
+              "Server-minted one-shot CSRF nonce from the authorize->consent redirect (required)";
+            consentCsrfParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+            consentCsrfParam.location =
+              ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
+            consentCsrfParam.required = true;
+
             consentEndpoint.parameters =
-              {clientIdParam, userIdParam, scopeParam, redirectUriParam, stateParam, actionParam};
+              {clientIdParam, userIdParam, scopeParam, redirectUriParam, stateParam, actionParam,
+               consentCsrfParam};
             consentEndpoint.responses = {
               {302, "Redirect to client with authorization code or error"},
               {400, "Missing/expired/mismatched consent_csrf nonce, or deny redirect_uri not registered"},
@@ -1033,6 +1044,14 @@ void SessionController::consent(
         return;
     }
 
+    // Gate 3 — CSRF nonce (the find/verify/erase sequence must be atomic:
+    // two concurrent submissions on one session could otherwise both pass
+    // verification and mint two codes; consent traffic is tiny, so a
+    // process-wide mutex is sufficient. Cross-instance deployments share
+    // session storage only with sticky routing — same limitation as the
+    // rest of the in-memory session surface.)
+    static std::mutex consentCsrfMutex;
+    std::lock_guard<std::mutex> consentCsrfLock(consentCsrfMutex);
     // Gate 3 — CSRF nonce (server-minted at the authorize->consent redirect;
     // deliberately NOT the client-chosen `state`, which is attacker-known).
     // One-shot: consumed here so replays fail; TTL 10 minutes.
@@ -1080,9 +1099,11 @@ void SessionController::consent(
 
     if (action == "deny")
     {
-        // Gate 4 — the deny redirect must go to a redirect_uri registered for
-        // the client, exactly like the approve branch (RFC 6749 §3.1.2.2);
-        // an unvalidated 302 here is an open redirect. validateRedirectUri
+        // Gate 4 — the deny redirect must go to a redirect_uri registered
+        // for the client (RFC 6749 §3.1.2.2); an unvalidated 302 here is an
+        // open redirect. (The approve branch derives its redirect target
+        // from the authorize request itself and is gated by Gate 2; adding
+        // the same validation there is tracked as follow-up.) validateRedirectUri
         // alone is used on purpose: it looks the client up itself, and
         // validateClient(clientId, "") would false-reject CONFIDENTIAL
         // clients (empty secret is rejected by the repository).

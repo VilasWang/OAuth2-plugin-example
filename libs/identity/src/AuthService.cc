@@ -180,7 +180,11 @@ void AuthService::validateUser(
     // email-normalization policy, which is deployment-specific.)
     bool isEmail = identifier.find('@') != std::string::npos;
 
-    auto onFound = [this, sharedCb, crypto, clock, userRepo, password](std::optional<UserData> found) {
+    // Value-capture the policy flag: async callbacks must not capture
+    // `this` (db-operations rule 4 -- do not rely on the instance's
+    // process-lifetime binding).
+    const bool allowLegacy = allowLegacyHash_;
+    auto onFound = [allowLegacy, sharedCb, crypto, clock, userRepo, password](std::optional<UserData> found) {
         if (!found)
         {
             (*sharedCb)(std::nullopt);
@@ -198,7 +202,7 @@ void AuthService::validateUser(
         // #103 gate: when the migration window is closed (auth.
         // allow_legacy_hash=false), legacy-format hashes are rejected
         // outright -- no verify, no rehash.
-        if (!allowLegacyHash_ && isLegacyHash(user.passwordHash))
+        if (!allowLegacy && isLegacyHash(user.passwordHash))
         {
             userRepo->incrementFailedLogins(user.id, [](bool) {});
             (*sharedCb)(std::nullopt);
