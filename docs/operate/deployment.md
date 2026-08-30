@@ -600,7 +600,12 @@ echo "Save this password — you will need it to log in to the admin console."
 
 # Generate password hash (SHA-256 with a random salt)
 ADMIN_SALT=$(openssl rand -hex 16)
-ADMIN_HASH=$(echo -n "${ADMIN_PASSWORD}${ADMIN_SALT}" | sha256sum | cut -d' ' -f1)
+# Preferred: let the server bootstrap the admin on first start (random
+# PBKDF2 password printed ONCE to the container log):
+#   docker compose logs backend | grep Bootstrap
+# Or set it explicitly before first start: FULLA_BOOTSTRAP_ADMIN_PASSWORD=...
+# Manual fallback (PBKDF2-SHA256, 310k iterations, same format as the server):
+ADMIN_HASH=$(python3 -c "import hashlib,os;pw=os.environ['ADMIN_PASSWORD'];salt=os.urandom(16);print('\$pbkdf2-sha256\$310000\$'+salt.hex()+'\$'+hashlib.pbkdf2_hmac('sha256',pw.encode(),salt,310000,32).hex())")
 
 # Create the admin user
 docker exec -i fulla-postgres psql -U fulla_user -d fulla_db <<EOF

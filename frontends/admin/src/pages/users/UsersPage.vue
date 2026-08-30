@@ -98,6 +98,10 @@ async function createUser() {
     showError('Username and password are required')
     return
   }
+  if (createForm.value.password.length < 8) {
+    showError('Password must be at least 8 characters')
+    return
+  }
   saving.value = true
   try {
     const body: any = {

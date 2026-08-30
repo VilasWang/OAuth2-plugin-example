@@ -84,7 +84,8 @@ void PostgresConsentRepository::saveUserConsent(
           },
           [sharedCb](const DrogonDbException &e) {
               // Check if it's a constraint violation (consent already exists)
-              if (std::string(e.base().what()).find("duplicate key") != std::string::npos)
+              if (std::string(e.base().what()).find("duplicate key") != std::string::npos ||
+                  std::string(e.base().what()).find("已经存在") != std::string::npos)
               {
                   LOG_DEBUG << "User consent already exists (not an error)";
                   (*sharedCb)(true);  // Already exists is considered success

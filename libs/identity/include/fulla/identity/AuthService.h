@@ -52,6 +52,12 @@ struct AuthResult
 class AuthService
 {
   public:
+    // #103: gate for the legacy unsalted-SHA256 verification branch
+    // (auth.allow_legacy_hash, default true = migration window with
+    // rehash-on-login; set false once all hashes are PBKDF2).
+    void setAllowLegacyHash(bool allow) { allowLegacyHash_ = allow; }
+
+  public:
     /**
      * @brief Construct auth service with dependencies.
      * @param userRepo Persistence for user records (required).
@@ -107,6 +113,8 @@ class AuthService
     std::shared_ptr<IUserRepository> userRepo_;
     std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
     std::shared_ptr<fulla::common::ports::IClock> clock_;
+  private:
+    bool allowLegacyHash_ = true;
 };
 
 }  // namespace fulla::identity

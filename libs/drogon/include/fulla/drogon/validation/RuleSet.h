@@ -45,6 +45,12 @@ class RuleSet
     static std::vector<std::string> oauth2Authorize(const ::drogon::HttpRequestPtr &req);
     static std::vector<std::string> oauth2Token(const ::drogon::HttpRequestPtr &req);
     static std::vector<std::string> login(const ::drogon::HttpRequestPtr &req);
+    // D4 (#103): minimum password length policy (auth.min_password_length,
+    // default 8). Static because RuleSet is a stateless validator; the server
+    // assembly (and tests) set it once at startup.
+    static void setPasswordMinLength(size_t minLen) { passwordMinLength_ = minLen; }
+    static size_t passwordMinLength() { return passwordMinLength_; }
+
     static std::vector<std::string> registerUser(const ::drogon::HttpRequestPtr &req);
     static std::vector<std::string> oauth2Introspect(const ::drogon::HttpRequestPtr &req);
     static std::vector<std::string> oauth2Revoke(const ::drogon::HttpRequestPtr &req);
@@ -60,6 +66,8 @@ class RuleSet
       const std::string &field,
       const std::string &source
     );
+  private:
+    static size_t passwordMinLength_;
 };
 
 }  // namespace fulla::drogon::validation

@@ -313,7 +313,7 @@ Both are generated from the single-source OpenAPI spec (`apps/server/openapi.yam
 
 | Username | Password | Role |
 |----------|----------|------|
-| admin | admin | admin |
+| admin | *(auto-generated on first boot — see the server log once, or set `FULLA_BOOTSTRAP_ADMIN_PASSWORD`)* | admin |
 
 ---
 

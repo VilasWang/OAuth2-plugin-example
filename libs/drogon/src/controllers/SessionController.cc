@@ -374,7 +374,10 @@ struct OAuth2ControllerDocs
             consentEndpoint.parameters =
               {clientIdParam, userIdParam, scopeParam, redirectUriParam, stateParam, actionParam};
             consentEndpoint.responses = {
-              {302, "Redirect to client with authorization code or error"}
+              {302, "Redirect to client with authorization code or error"},
+              {400, "Missing/expired/mismatched consent_csrf nonce, or deny redirect_uri not registered"},
+              {401, "No authenticated session (AUTH_SESSION_REQUIRED)"},
+              {403, "user_id does not match the session (AUTHZ_ACCESS_DENIED)"}
             };
             consentEndpoint.requiresAuth = false;
             OpenApiGenerator::addEndpoint(consentEndpoint);
@@ -993,6 +996,73 @@ void SessionController::consent(
     std::string codeChallenge = params["code_challenge"];
     std::string codeChallengeMethod = params["code_challenge_method"];
     std::string nonce = params["nonce"];
+    std::string consentCsrf = params["consent_csrf"];
+
+    // F1 (consent auth gates, fail-closed before ANY plugin call):
+    // Gate 1 — the request must belong to an authenticated session. A
+    // session without `sub` was never logged in; consent cannot be granted
+    // anonymously (OIDC Core §3.1.2.1: the authorization endpoint MUST NOT
+    // fulfill a request without authenticating the end-user).
+    std::string sessSub;
+    std::string sessUserId;
+    if (req->session())
+    {
+        if (req->session()->find("sub"))
+            sessSub = req->session()->get<std::string>("sub");
+        if (req->session()->find("userId"))
+            sessUserId = req->session()->get<std::string>("userId");
+    }
+    if (sessSub.empty() || sessUserId.empty())
+    {
+        respondError(
+          req, std::move(callback), "AUTH_SESSION_REQUIRED",
+          "consent: an authenticated session is required"
+        );
+        return;
+    }
+
+    // Gate 2 — the consented user must be the session user. The authorize
+    // flow hands `user_id` = session["userId"] (internal id as string);
+    // a mismatch means someone is submitting consent for another user.
+    if (userId != sessUserId)
+    {
+        respondError(
+          req, std::move(callback), "AUTHZ_ACCESS_DENIED",
+          "consent: user_id does not match the authenticated session"
+        );
+        return;
+    }
+
+    // Gate 3 — CSRF nonce (server-minted at the authorize->consent redirect;
+    // deliberately NOT the client-chosen `state`, which is attacker-known).
+    // One-shot: consumed here so replays fail; TTL 10 minutes.
+    {
+        std::string slot;
+        int64_t slotTs = 0;
+        bool hasSlot = false;
+        if (req->session()->find("pending_consent_csrf"))
+        {
+            slot = req->session()->get<std::string>("pending_consent_csrf");
+            hasSlot = true;
+        }
+        if (req->session()->find("pending_consent_csrf_ts"))
+            slotTs = req->session()->get<int64_t>("pending_consent_csrf_ts");
+        const int64_t now = static_cast<int64_t>(
+          ::trantor::Date::now().secondsSinceEpoch()
+        );
+        const bool fresh = hasSlot && !slot.empty() && (now - slotTs) <= 600;
+        if (!fresh || consentCsrf != slot)
+        {
+            respondError(
+              req, std::move(callback), "VALIDATION_INVALID_INPUT",
+              "consent: missing, expired, or mismatched consent_csrf"
+            );
+            return;
+        }
+        req->session()->erase("pending_consent_csrf");
+        req->session()->erase("pending_consent_csrf_ts");
+    }
+
     // F-022 (OIDC Core §3.1.3.7): read auth_time/amr from the session so the
     // consent-issued code carries them to the id_token. Consent always
     // follows a login that populated these on the session; if absent (e.g.
@@ -1010,12 +1080,45 @@ void SessionController::consent(
 
     if (action == "deny")
     {
-        std::string location =
-          redirectUri + "?error=access_denied&error_description=User+denied+consent";
-        if (!state.empty())
-            location += "&state=" + ::drogon::utils::urlEncode(state);
-        auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
-        callback(resp);
+        // Gate 4 — the deny redirect must go to a redirect_uri registered for
+        // the client, exactly like the approve branch (RFC 6749 §3.1.2.2);
+        // an unvalidated 302 here is an open redirect. validateRedirectUri
+        // alone is used on purpose: it looks the client up itself, and
+        // validateClient(clientId, "") would false-reject CONFIDENTIAL
+        // clients (empty secret is rejected by the repository).
+        auto plugin = resolvePlugin();
+        if (!plugin)
+        {
+            respondError(
+              req, std::move(callback), "INTERNAL_ERROR",
+              "consent: OAuth2 Plugin not loaded"
+            );
+            return;
+        }
+        auto sharedCb =
+          std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+            std::move(callback)
+          );
+        plugin->validateRedirectUri(
+          clientId,
+          redirectUri,
+          [req, clientId, redirectUri, state, sharedCb](bool validUri) mutable {
+              if (!validUri)
+              {
+                  respondError(
+                    req, *sharedCb, "VALIDATION_REDIRECT_URI_NOT_REGISTERED",
+                    "consent: deny redirect_uri is not registered for the client"
+                  );
+                  return;
+              }
+              std::string location =
+                redirectUri +
+                "?error=access_denied&error_description=User+denied+consent";
+              if (!state.empty())
+                  location += "&state=" + ::drogon::utils::urlEncode(state);
+              (*sharedCb)(::drogon::HttpResponse::newRedirectionResponse(location));
+          }
+        );
         return;
     }
 

@@ -183,7 +183,7 @@ test.describe('Security', () => {
     await newPassFields.first().fill('12345')
     await newPassFields.nth(1).fill('12345')
     await page.locator('button:has-text("Change Password")').click()
-    await expect(page.locator('text=at least 6 characters')).toBeVisible()
+    await expect(page.locator('text=at least 8 characters')).toBeVisible()
   })
 
   test('wrong old password shows error', async ({ page }) => {

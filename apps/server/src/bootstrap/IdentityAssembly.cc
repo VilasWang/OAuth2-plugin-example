@@ -110,6 +110,13 @@ void wireIdentityServices()
     // (main.cc's registerBeginningAdvice) runs exactly once at startup.
     static auto authService =
       std::make_shared<fulla::identity::AuthService>(userRepo, crypto, clock);
+    // #103: auth.allow_legacy_hash (default true = migration window with
+    // rehash-on-login; operators flip to false after full migration).
+    {
+        const auto &custom = ::drogon::app().getCustomConfig();
+        if (custom.isMember("auth") && custom["auth"].isMember("allow_legacy_hash"))
+            authService->setAllowLegacyHash(custom["auth"]["allow_legacy_hash"].asBool());
+    }
     // B1: shared outbound-HTTP client (Drogon-backed) used by both the
     // backchannel-logout notifier and, when built, the social auth services.
     static auto oauthHttpClient =

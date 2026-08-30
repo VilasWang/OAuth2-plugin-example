@@ -1,4 +1,5 @@
 #include <fulla/drogon/controllers/UserSelfServiceController.h>
+#include <fulla/drogon/validation/RuleSet.h>
 #include <fulla/storage/postgres/models/Oauth2AccessTokens.h>
 #include <fulla/storage/postgres/models/Oauth2Clients.h>
 #include <fulla/storage/postgres/models/Oauth2RefreshTokens.h>
@@ -205,13 +206,14 @@ void UserSelfServiceController::changePassword(
         return;
     }
 
-    if (newPassword.length() < 8)
+    if (newPassword.length() < fulla::drogon::validation::RuleSet::passwordMinLength())
     {
         respondError(
           req,
           sharedCb,
-          "VALIDATION_FORMAT_ERROR",
-          "changePassword: new password must be at least 8 characters"
+          "VALIDATION_PASSWORD_TOO_SHORT",
+          "changePassword: new password must be at least " +
+            std::to_string(fulla::drogon::validation::RuleSet::passwordMinLength()) + " characters"
         );
         return;
     }

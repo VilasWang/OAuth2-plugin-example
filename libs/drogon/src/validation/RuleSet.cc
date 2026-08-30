@@ -691,6 +691,10 @@ std::vector<std::string> RuleSet::registerUser(const ::drogon::HttpRequestPtr &r
     {
         errors.push_back("password exceeds maximum length of 200 characters");
     }
+    else if (password.length() < passwordMinLength())
+    {
+        errors.push_back("password must be at least " + std::to_string(passwordMinLength()) + " characters");
+    }
 
     // 验证 email（必填字段：email 是主登录键）
     if (email.empty())
@@ -782,4 +786,9 @@ std::vector<std::string> RuleSet::oauth2Revoke(const ::drogon::HttpRequestPtr &r
     return errors;
 }
 
+}  // namespace fulla::drogon::validation
+
+namespace fulla::drogon::validation
+{
+size_t RuleSet::passwordMinLength_ = 8;
 }  // namespace fulla::drogon::validation

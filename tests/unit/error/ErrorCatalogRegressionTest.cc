@@ -61,7 +61,7 @@ DROGON_TEST(Unit_P0_ErrorCatalog_Regression_ExistingNumericCodesUnchanged)
     // VALIDATION_REDIRECT_URI_NOT_REGISTERED (end_session unregistered
     // post_logout_redirect_uri, HTTP 400), for a total of 27 registered
     // Application codes; no others may be introduced silently.
-    CHECK(ErrorCatalog::allEntries().size() == kExpected.size() + 2 + 9 + 1 + 1);
+    CHECK(ErrorCatalog::allEntries().size() == kExpected.size() + 2 + 9 + 1 + 1 + 2);
     // #78: the new entry is registered exactly once, in the AUTHENTICATION
     // segment, with the explicit 400 status override.
     const CatalogEntry *hintEntry = ErrorCatalog::find("AUTH_INVALID_ID_TOKEN_HINT");
