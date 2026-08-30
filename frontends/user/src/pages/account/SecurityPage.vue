@@ -97,7 +97,7 @@ function showError(msg: string) { error.value = msg; success.value = '' }
 
 async function changePassword() {
   if (newPassword.value !== confirmNewPassword.value) { showError('Passwords do not match'); return }
-  if (newPassword.value.length < 6) { showError('Password must be at least 6 characters'); return }
+  if (newPassword.value.length < 8) { showError('Password must be at least 8 characters'); return }
   changingPassword.value = true
   try {
     await http.put('/api/me/password', { old_password: oldPassword.value, new_password: newPassword.value }, { headers: { 'Content-Type': 'application/json' } })

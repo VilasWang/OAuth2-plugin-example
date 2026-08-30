@@ -19,8 +19,8 @@ async function handleRegister() {
     error.value = 'Passwords do not match'
     return
   }
-  if (password.value.length < 6) {
-    error.value = 'Password must be at least 6 characters'
+  if (password.value.length < 8) {
+    error.value = 'Password must be at least 8 characters'
     return
   }
   loading.value = true

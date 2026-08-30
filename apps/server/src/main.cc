@@ -25,6 +25,8 @@
 #include <fulla/drogon/authz/ResourceScopeRegistry.h>
 #include <OrganizationController.h>  // #43: product-app org controller scope decls
 
+#include "bootstrap/AdminBootstrapper.h"
+#include <fulla/drogon/validation/RuleSet.h>
 #include "bootstrap/ControllerRegistration.h"
 #include "bootstrap/CorsSetup.h"
 #include "bootstrap/ExceptionHandlerSetup.h"
@@ -33,7 +35,9 @@
 #include "bootstrap/OpenApiSetup.h"
 #include "bootstrap/SecurityHeaders.h"
 
+#include <chrono>
 #include <cstdlib>
+#include <thread>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -308,6 +312,49 @@ int main(int argc, char *argv[])
 
     // 5. Database migrations (opt-in via FULLA_AUTO_MIGRATE=true)
     bootstrap::setupMigrations();
+
+    // 5a. Password policy (#103): auth.min_password_length (default 8).
+    {
+        const auto &custom = drogon::app().getCustomConfig();
+        size_t minLen = 8;
+        if (custom.isMember("auth") && custom["auth"].isMember("min_password_length"))
+            minLen = static_cast<size_t>(custom["auth"]["min_password_length"].asUInt());
+        fulla::drogon::validation::RuleSet::setPasswordMinLength(minLen);
+    }
+
+    // 5b. First-boot admin bootstrap (#103): when enabled and no user holds
+    // the admin role, create 'admin' with a PBKDF2 password (env-provided or
+    // random-printed-once). Delayed past the auto-migrate thread's start;
+    // if migrations are still running the roles lookup fails soft and the
+    // next restart retries. Dev/test seeds pre-create admin -> no-op.
+    {
+        const auto &custom = drogon::app().getCustomConfig();
+        bool bootstrapEnabled = true;
+        if (custom.isMember("auth") && custom["auth"].isMember("bootstrap_admin") &&
+            custom["auth"]["bootstrap_admin"].isMember("enabled"))
+        {
+            bootstrapEnabled = custom["auth"]["bootstrap_admin"]["enabled"].asBool();
+        }
+        if (bootstrapEnabled)
+        {
+            drogon::app().registerBeginningAdvice([]() {
+                std::thread([]() {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+                    const char *envPwd = std::getenv("FULLA_BOOTSTRAP_ADMIN_PASSWORD");
+                    bootstrap::AdminBootstrapper::run(
+                      envPwd ? std::string(envPwd) : std::string(),
+                      [](bool created, const std::string &detail) {
+                          if (created)
+                              LOG_INFO << "AdminBootstrap: " << detail;
+                          else
+                              LOG_DEBUG << "AdminBootstrap: " << detail;
+                      }
+                    );
+                }).detach();
+            });
+        }
+    }
+
     registerLeakDiagHook();
 
     // 6. Start the server

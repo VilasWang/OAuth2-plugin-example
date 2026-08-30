@@ -298,7 +298,7 @@ client, _ := af.NewM2MClient(ctx, "http://localhost:5555", "backend-svc", "…",
 
 | 用户名 | 密码 | 角色 |
 |--------|------|------|
-| admin | admin | admin |
+| admin | *（首次启动自动生成——仅打印一次在服务日志中，或用 `FULLA_BOOTSTRAP_ADMIN_PASSWORD` 指定）* | admin |
 
 ---
 

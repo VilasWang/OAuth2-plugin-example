@@ -2408,6 +2408,7 @@ paths:
         name: password
         required: true
         schema:
+          minLength: 8
           type: string
       - description: Email address (optional)
         in: query
@@ -2674,6 +2675,12 @@ paths:
       responses:
         '302':
           description: Redirect to client with authorization code or error
+        '400':
+          description: Missing/expired/mismatched consent_csrf nonce, or (deny) redirect_uri not registered for the client (VALIDATION_INVALID_INPUT / VALIDATION_REDIRECT_URI_NOT_REGISTERED)
+        '401':
+          description: No authenticated session (AUTH_SESSION_REQUIRED)
+        '403':
+          description: user_id does not match the authenticated session (AUTHZ_ACCESS_DENIED)
       summary: Submit user consent
       tags:
       - OAuth2

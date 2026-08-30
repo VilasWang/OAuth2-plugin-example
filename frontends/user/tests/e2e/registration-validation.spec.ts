@@ -14,7 +14,7 @@ test.describe('Registration Validation', () => {
     await page.locator('input[autocomplete="new-password"]').first().fill('12345')
     await page.locator('input[autocomplete="new-password"]').last().fill('12345')
     await page.locator('button[type="submit"]').click()
-    await expect(page.locator('text=at least 6 characters')).toBeVisible()
+    await expect(page.locator('text=at least 8 characters')).toBeVisible()
   })
 
   test('passwords do not match shows error', async ({ page }) => {

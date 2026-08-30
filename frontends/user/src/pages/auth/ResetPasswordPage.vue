@@ -15,7 +15,7 @@ const success = ref(false)
 
 async function handleReset() {
   if (newPassword.value !== confirmPassword.value) { error.value = 'Passwords do not match'; return }
-  if (newPassword.value.length < 6) { error.value = 'Password must be at least 6 characters'; return }
+  if (newPassword.value.length < 8) { error.value = 'Password must be at least 8 characters'; return }
   error.value = ''
   loading.value = true
   try {

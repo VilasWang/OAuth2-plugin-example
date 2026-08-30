@@ -10,6 +10,21 @@ For the versioning policy (when to cut, what to bump, why), see
 
 ## [Unreleased]
 
+### Security
+
+- **consent 端点认证闭环(F1)**:`POST /oauth2/consent` 原先完全无认证(知道 user_id 即可代批/代拒)。现在强制四道门:已认证会话、user_id 与会话身份绑定、服务端随机一次性 CSRF nonce(TTL 10 分钟)、deny 分支 redirect_uri 注册校验(修复开放重定向)。SPA ConsentPage 回传 `consent_csrf`。新增错误码 `AUTH_SESSION_REQUIRED`(4007)、`VALIDATION_PASSWORD_TOO_SHORT`(3014)。
+- **bootstrap 管理员(#103)**:服务首次启动在无 admin 角色用户时自动创建 `admin`(PBKDF2-SHA256;密码取 `FULLA_BOOTSTRAP_ADMIN_PASSWORD` 或随机生成并在日志打印一次)。dev seed `admin/admin` 仍仅用于开发环境。
+- **密码策略(#103)**:注册新增服务端最小长度校验(`auth.min_password_length`,默认 8;改密/重置的既有 8 位硬编码统一走同一配置);新错误码 `VALIDATION_PASSWORD_TOO_SHORT`。
+- **遗留哈希迁移门(#103)**:`auth.allow_legacy_hash`(默认 true,迁移窗口)控制无盐 SHA256 校验路径,确认全量迁移后可关闭。
+
+### Changed
+
+- `POST /oauth2/consent` 响应新增 400/401/403(openapi 同步);deny 对未注册 redirect_uri 返回 400 而非 302。
+- `/api/register` password 参数新增 minLength 8;改密/重置密码过短错误码由 `VALIDATION_FORMAT_ERROR` 改为 `VALIDATION_PASSWORD_TOO_SHORT`。
+- 文档:README/部署指南移除公开凭证示例,管理员创建改为 bootstrap 流程。
+
+## [Unreleased]
+
 ### 文档
 
 - **文档治理收官**（PR #114/#116，治理文档 v4，[docs/documentation-governance.md](docs/documentation-governance.md)）：

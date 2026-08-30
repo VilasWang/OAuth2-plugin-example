@@ -5,6 +5,7 @@
 #include <fulla/drogon/validation/HttpResponder.h>
 #include <fulla/drogon/error/OAuth2ErrorHandler.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -551,6 +552,7 @@ void AuthorizationEndpointController::authorize(
                   userId,
                   requestedScopes,
                   [plugin,
+                   req,
                    clientId,
                    userId,
                    redirectUri,
@@ -635,6 +637,26 @@ void AuthorizationEndpointController::authorize(
                           }
                           if (!nonce.empty())
                               location += "&nonce=" + ::drogon::utils::urlEncode(nonce);
+                          // F1 (consent auth): mint a SERVER-side random CSRF
+                          // nonce for the consent round-trip. The consent form
+                          // must echo it and POST /oauth2/consent verifies it
+                          // against this session slot (one-shot, TTL-bounded).
+                          // It deliberately does NOT reuse the client-chosen
+                          // `state` (client-controllable, empty-matchable).
+                          if (req->session())
+                          {
+                              std::string consentCsrf =
+                                ::fulla::drogon::utils::generateSecureToken();
+                              req->session()->insert("pending_consent_csrf", consentCsrf);
+                              req->session()->insert(
+                                "pending_consent_csrf_ts",
+                                static_cast<int64_t>(
+                                  ::trantor::Date::now().secondsSinceEpoch()
+                                )
+                              );
+                              location +=
+                                "&consent_csrf=" + ::drogon::utils::urlEncode(consentCsrf);
+                          }
                           auto resp = ::drogon::HttpResponse::newRedirectionResponse(location);
                           callback(resp);
                           return;

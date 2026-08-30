@@ -65,9 +65,9 @@ struct RawEntry
 
 // Verbatim copy of oauth2::error::ErrorCatalog's table (numeric codes/messages
 // preserved unchanged); grows as new codes are ratified.
-const std::array<RawEntry, 27> &rawEntries()
+const std::array<RawEntry, 29> &rawEntries()
 {
-    static const std::array<RawEntry, 27> kEntries = {{
+    static const std::array<RawEntry, 29> kEntries = {{
       // NETWORK (1000-1099)
       {"NET_CONNECTION_FAILED",
        1001,
@@ -109,6 +109,11 @@ const std::array<RawEntry, 27> &rawEntries()
        ErrorCategory::VALIDATION,
        "格式不正确",
        "字段格式不正确（VALIDATION 类）"},
+      {"VALIDATION_PASSWORD_TOO_SHORT",
+       3014,
+       ErrorCategory::VALIDATION,
+       "密码长度不足",
+       "密码未达到最小长度要求（VALIDATION 类）"},
       {"VALIDATION_RESOURCE_NOT_FOUND",
        3004,
        ErrorCategory::VALIDATION,
@@ -138,6 +143,11 @@ const std::array<RawEntry, 27> &rawEntries()
        ErrorCategory::AUTHENTICATION,
        "登录凭证无效",
        "令牌无效（AUTHENTICATION 类）"},
+      {"AUTH_SESSION_REQUIRED",
+       4007,
+       ErrorCategory::AUTHENTICATION,
+       "需要先登录",
+       "该操作要求已认证的浏览器会话（AUTHENTICATION 类）"},
 
       // AUTHORIZATION (5000-5099)
       {"AUTHZ_ACCESS_DENIED",

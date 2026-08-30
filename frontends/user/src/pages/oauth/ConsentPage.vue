@@ -21,6 +21,9 @@ const userId = serverUserId || auth.user?.sub || ''
 // authorization code is issued without a stored code_challenge and the token
 // endpoint's PKCE verification is silently skipped.
 const codeChallenge = route.query.code_challenge as string || ''
+// F1: server-minted CSRF nonce from the authorize->consent redirect; the
+// consent POST must echo it (one-shot, TTL-bounded server-side).
+const consentCsrf = route.query.consent_csrf as string || ''
 const codeChallengeMethod = route.query.code_challenge_method as string || ''
 const nonce = route.query.nonce as string || ''
 
@@ -75,6 +78,9 @@ function handleConsent(action: 'approve' | 'deny') {
     redirect_uri: redirectUri,
     state,
     action,
+  }
+  if (consentCsrf) {
+    fields.consent_csrf = consentCsrf
   }
   if (codeChallenge) {
     fields.code_challenge = codeChallenge
