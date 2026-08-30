@@ -141,7 +141,7 @@ const config = {
             ],
           },
         ],
-          copyright: 'Copyright © 2026 Luca · MIT License · Site content from the repo’s docs tree (single source of truth)',
+          copyright: 'Copyright © 2026 Luca · AGPL-3.0 · Site content from the repo’s docs tree (single source of truth)',
       },
       prism: {
         theme: lightCodeTheme,

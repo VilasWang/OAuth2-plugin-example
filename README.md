@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/voidvec/fulla)](https://github.com/voidvec/fulla/releases/latest)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![License](https://img.shields.io/badge/license-AGPL_v3-blue.svg)
 [![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
 Fulla is a high-performance **open-source identity & access management (IAM) core** built in
@@ -441,7 +441,7 @@ Full index: [docs/README.md](docs/README.md)
 
 ## License
 
-MIT License — see [LICENSE](LICENSE)
+AGPL-3.0 — see [LICENSE](LICENSE). Prior releases (v1.0.0) remain MIT.
 
 ---
 

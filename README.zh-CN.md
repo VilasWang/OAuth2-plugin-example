@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/voidvec/fulla)](https://github.com/voidvec/fulla/releases/latest)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![License](https://img.shields.io/badge/license-AGPL_v3-blue.svg)
 [![Benchmark](https://img.shields.io/badge/benchmark-5%2F5%20scenarios%20lead-brightgreen)](benchmarks/competitors/results/COMPARISON.md)
 
 Fulla 是以 C++17 构建的**高性能开源身份与访问管理（IAM）核心**：生产级 OAuth2.0/OIDC 授权服务器（RFC 6749/7662/7009/8414），完整覆盖用户认证、MFA、WebAuthn、RBAC 与多租户——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(fulla-*)`）集成。包含管理后台、用户前端与完整的测试体系。
@@ -427,7 +427,7 @@ ctest --output-on-failure
 
 ## 许可证
 
-MIT License — 详见 [LICENSE](LICENSE)
+AGPL-3.0 — 详见 [LICENSE](LICENSE)。历史版本(v1.0.0)仍为 MIT。
 
 ---
 
