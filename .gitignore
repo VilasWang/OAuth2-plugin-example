@@ -145,4 +145,11 @@ docs-local/
 
 # Docusaurus build cache
 website/.docusaurus/
-.qoder-*.txt
+
+# Local deliverables (session outputs, not for the repo)
+deliverables/
+
+# Runtime config copy & local issue drafts
+apps/server/config.json
+.gh-issues/
+.video_agent/

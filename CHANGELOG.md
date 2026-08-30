@@ -8,7 +8,18 @@ and this project adheres to
 For the versioning policy (when to cut, what to bump, why), see
 [Versioning & Release](docs/contribute/versioning-and-release.md).
 
-## [Unreleased]
+## [1.0.1] - 2026-08-30
+
+### Security
+
+- **License change: MIT -> AGPL-3.0**. Starting with this version the project
+  is licensed under the GNU Affero General Public License v3.0; the v1.0.0
+  release remains MIT. The core stays fully open source — individuals,
+  study, self-hosting and internal use are unaffected. Vendors offering the
+  software (modified or not) as a hosted service must release their
+  modifications per AGPL-3.0 §13, or obtain a commercial license
+  (open-core: enterprise features are distributed separately). A CLA is
+  required for contributions so the project can keep dual-licensing.
 
 ### Security
 
@@ -536,6 +547,7 @@ v1.0.0 以来的首次正式發布。涵蓋 842 個 commit，包含完整的 OID
 
 ---
 
-[Unreleased]: https://github.com/voidvec/authforge/compare/v1.1.0...HEAD
+[1.0.1]: https://github.com/voidvec/fulla/compare/v1.0.0...v1.0.1
+[Unreleased]: https://github.com/voidvec/fulla/compare/v1.0.1...HEAD
 [1.1.0]: https://github.com/voidvec/authforge/releases/tag/v1.1.0
 [1.0.0]: https://github.com/voidvec/authforge/releases/tag/v1.0.0

@@ -54,7 +54,7 @@
   "info": {
     "description": "OAuth2.0 authorization server with token management",
     "title": "OAuth2 Authorization Server API",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "openapi": "3.0.0",
   "paths": {

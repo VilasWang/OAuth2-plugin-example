@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fulla-oauth2"
-version = "1.0.0"
+version = "1.0.1"
 description = "Python client SDK for Fulla, the embeddable C++ OAuth2/OIDC authorization server"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 authors = [{ name = "Fulla contributors" }]
 keywords = ["oauth2", "oidc", "openid-connect", "fulla", "authorization", "client", "sdk"]
