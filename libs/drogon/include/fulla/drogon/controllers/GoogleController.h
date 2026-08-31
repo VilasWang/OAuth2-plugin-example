@@ -7,6 +7,10 @@
 
 #include <drogon/HttpController.h>
 
+// #70: forward declaration for the token-issuance path (see the private
+// resolvePlugin() below), mirroring GitHubController.h's pattern.
+class OAuth2Plugin;
+
 #ifdef WITH_SOCIAL
 // Task 24 slice 5 (fulla-sdk-refactor): see SessionController.h's
 // identical forward-declaration comment.
@@ -44,6 +48,11 @@ class GoogleController : public ::drogon::HttpController<GoogleController, false
     );
 
   private:
+    // #70: token issuance for the account-linked login path needs the
+    // OAuth2Plugin (saveTokenPair/TTLs/issuer). Same seam as
+    // GitHubController: overridable for tests, app plugin otherwise.
+    OAuth2Plugin *plugin_ = nullptr;
+    OAuth2Plugin *resolvePlugin() const;
 #ifdef WITH_SOCIAL
     fulla::identity::GoogleAuthService *googleAuthService_ = nullptr;
 #endif  // WITH_SOCIAL

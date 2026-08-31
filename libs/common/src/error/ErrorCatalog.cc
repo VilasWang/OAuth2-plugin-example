@@ -65,9 +65,9 @@ struct RawEntry
 
 // Verbatim copy of oauth2::error::ErrorCatalog's table (numeric codes/messages
 // preserved unchanged); grows as new codes are ratified.
-const std::array<RawEntry, 29> &rawEntries()
+const std::array<RawEntry, 30> &rawEntries()
 {
-    static const std::array<RawEntry, 29> kEntries = {{
+    static const std::array<RawEntry, 30> kEntries = {{
       // NETWORK (1000-1099)
       {"NET_CONNECTION_FAILED",
        1001,
@@ -160,6 +160,17 @@ const std::array<RawEntry, 29> &rawEntries()
        ErrorCategory::AUTHORIZATION,
        "权限不足",
        "权限不足（AUTHORIZATION 类）"},
+      // #70: social identity not linked to a local account (and first-login
+      // auto-create disabled). 403, not 401: "not linked" is an
+      // authorization state the client can act on (guide the user to the
+      // link flow), not an authentication failure; probing requires the
+      // target account's own upstream provider code, so there is no
+      // cross-user enumeration vector.
+      {"AUTH_SOCIAL_ACCOUNT_NOT_LINKED",
+       5003,
+       ErrorCategory::AUTHORIZATION,
+       "该第三方账号尚未绑定本地账户",
+       "社交账号未绑定（AUTHORIZATION 类）"},
 
       // INTERNAL (6000-6099)
       {"INTERNAL_ERROR",

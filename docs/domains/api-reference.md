@@ -349,6 +349,7 @@ Business endpoints (Application_Endpoint) return a uniform error envelope whose 
 | `AUTH_INVALID_ID_TOKEN_HINT` | 4006 | AUTHENTICATION | 400 | 登录令牌提示无效 |
 | `AUTHZ_ACCESS_DENIED` | 5001 | AUTHORIZATION | 403 | 没有访问权限 |
 | `AUTHZ_INSUFFICIENT_PERMISSIONS` | 5002 | AUTHORIZATION | 403 | 权限不足 |
+| `AUTH_SOCIAL_ACCOUNT_NOT_LINKED` | 5003 | AUTHORIZATION | 403 | 该第三方账号尚未绑定本地账户 |
 | `INTERNAL_ERROR` | 6001 | INTERNAL | 500 | 服务器内部错误 |
 
 ### 5.2 OAuth2 Protocol Error Codes (RFC 6749 §5.2 / RFC 7009 / RFC 8628)

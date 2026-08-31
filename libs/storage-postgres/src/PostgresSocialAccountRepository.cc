@@ -121,6 +121,8 @@ void PostgresSocialAccountRepository::findLinkedUser(
                         SocialAccountLookup lookup;
                         lookup.userId = userId32;
                         lookup.username = users[0].getValueOfUsername();
+                        // #70: token rows must carry the platform subject.
+                        lookup.publicSub = users[0].getValueOfPublicSub();
                         (*sharedCb)(SocialLinkStatus::Linked, lookup);
                     },
                     [sharedCb](const DrogonDbException &e) {
@@ -201,7 +203,7 @@ void PostgresSocialAccountRepository::createLinkedUser(
       "INSERT INTO users (username, password_hash, salt, email, email_verified) "
       "VALUES ($1, $2, '', $3, true) "
       "ON CONFLICT (username) DO NOTHING "
-      "RETURNING id",
+      "RETURNING id, public_sub",
       [db, sharedCb, provider, subject, username](const Result &userResult) {
           // DO NOTHING on conflict → no row returned. Check BEFORE indexing:
           // Result::operator[](0) on an empty Result is UB, not an exception.
@@ -214,6 +216,9 @@ void PostgresSocialAccountRepository::createLinkedUser(
               return;
           }
           int32_t userId32 = userResult[0]["id"].as<int32_t>();
+          // #70: token rows must carry the platform subject (UUID), never
+          // the internal numeric id.
+          std::string publicSub = userResult[0]["public_sub"].as<std::string>();
 
           Oauth2SubjectMappings mapping;
           mapping.setSubject(subject);
@@ -225,7 +230,7 @@ void PostgresSocialAccountRepository::createLinkedUser(
               Mapper<Oauth2SubjectMappings> mapMapper(db);
               mapMapper.insert(
                 mapping,
-                [db, sharedCb, userId32, username](const Oauth2SubjectMappings &) {
+                [db, sharedCb, userId32, username, publicSub](const Oauth2SubjectMappings &) {
                     // Default-role grant. PR-review finding 1: this insert
                     // previously set ONLY user_id — role_id is NOT NULL with
                     // no default, so every grant raised a constraint
@@ -233,13 +238,14 @@ void PostgresSocialAccountRepository::createLinkedUser(
                     // silently: every social account was created with ZERO
                     // roles. Resolve the 'user' role id first (split query,
                     // JOIN-forbidden), then insert with both columns.
-                    auto finish = [sharedCb, userId32, username]() {
+                    auto finish = [sharedCb, userId32, username, publicSub]() {
                         LinkNewSocialAccountResult result;
                         result.userId = userId32;
                         result.username = username;
+                        result.publicSub = publicSub;
                         (*sharedCb)(result);
                     };
-                    auto grantRole = [db, sharedCb, userId32, username,
+                    auto grantRole = [db, sharedCb, userId32, username, publicSub,
                                       finish = std::move(finish)](int32_t roleId) {
                         UserRoles ur;
                         ur.setUserId(userId32);
@@ -287,6 +293,7 @@ void PostgresSocialAccountRepository::createLinkedUser(
                         LinkNewSocialAccountResult result;
                         result.userId = userId32;
                         result.username = username;
+                        result.publicSub = publicSub;
                         (*sharedCb)(result);
                     }
                 },

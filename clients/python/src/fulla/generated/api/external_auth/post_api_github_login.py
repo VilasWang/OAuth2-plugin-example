@@ -5,7 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.post_api_github_login_response_200 import PostApiGithubLoginResponse200
+from ...models.social_login_token_response import SocialLoginTokenResponse
 from ...types import UNSET, Response
 
 
@@ -31,15 +31,19 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | PostApiGithubLoginResponse200 | None:
+) -> Any | SocialLoginTokenResponse | None:
     if response.status_code == 200:
-        response_200 = PostApiGithubLoginResponse200.from_dict(response.json())
+        response_200 = SocialLoginTokenResponse.from_dict(response.json())
 
         return response_200
 
     if response.status_code == 400:
         response_400 = cast(Any, None)
         return response_400
+
+    if response.status_code == 403:
+        response_403 = cast(Any, None)
+        return response_403
 
     if response.status_code == 502:
         response_502 = cast(Any, None)
@@ -53,7 +57,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | PostApiGithubLoginResponse200]:
+) -> Response[Any | SocialLoginTokenResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -66,7 +70,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     code: str,
-) -> Response[Any | PostApiGithubLoginResponse200]:
+) -> Response[Any | SocialLoginTokenResponse]:
     """GitHub OAuth2 Login
 
      Exchange GitHub authorization code for user information. This endpoint handles the server-side
@@ -80,7 +84,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | PostApiGithubLoginResponse200]
+        Response[Any | SocialLoginTokenResponse]
     """
 
     kwargs = _get_kwargs(
@@ -98,7 +102,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     code: str,
-) -> Any | PostApiGithubLoginResponse200 | None:
+) -> Any | SocialLoginTokenResponse | None:
     """GitHub OAuth2 Login
 
      Exchange GitHub authorization code for user information. This endpoint handles the server-side
@@ -112,7 +116,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | PostApiGithubLoginResponse200
+        Any | SocialLoginTokenResponse
     """
 
     return sync_detailed(
@@ -125,7 +129,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     code: str,
-) -> Response[Any | PostApiGithubLoginResponse200]:
+) -> Response[Any | SocialLoginTokenResponse]:
     """GitHub OAuth2 Login
 
      Exchange GitHub authorization code for user information. This endpoint handles the server-side
@@ -139,7 +143,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | PostApiGithubLoginResponse200]
+        Response[Any | SocialLoginTokenResponse]
     """
 
     kwargs = _get_kwargs(
@@ -155,7 +159,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     code: str,
-) -> Any | PostApiGithubLoginResponse200 | None:
+) -> Any | SocialLoginTokenResponse | None:
     """GitHub OAuth2 Login
 
      Exchange GitHub authorization code for user information. This endpoint handles the server-side
@@ -169,7 +173,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | PostApiGithubLoginResponse200
+        Any | SocialLoginTokenResponse
     """
 
     return (

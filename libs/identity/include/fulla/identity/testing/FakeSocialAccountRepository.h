@@ -57,6 +57,17 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
     // said NoMapping -- simulates the UNIQUE(provider, subject) race where
     // another user claims the subject between the pre-check and the insert.
     bool forceInsertConflict = false;
+    // #70: platform subject per internal user id. Absent entries synthesize
+    // "sub-<id>" (the InMemoryUserRepository convention) so social token
+    // issuance always has a non-empty subject; PG-backed tests point real
+    // users' rows at their actual public_sub.
+    std::unordered_map<int32_t, std::string> userPublicSubs;
+
+    std::string publicSubFor(int32_t userId) const
+    {
+        auto it = userPublicSubs.find(userId);
+        return it != userPublicSubs.end() ? it->second : "sub-" + std::to_string(userId);
+    }
 
     static std::string key(const std::string &provider, const std::string &subject)
     {
@@ -85,7 +96,10 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
             cb(SocialLinkStatus::NoMapping, SocialAccountLookup{});
             return;
         }
-        cb(SocialLinkStatus::Linked, it->second);
+        SocialAccountLookup entry = it->second;
+        if (entry.publicSub.empty())
+            entry.publicSub = publicSubFor(entry.userId);  // #70
+        cb(SocialLinkStatus::Linked, entry);
     }
 
     void createLinkedUser(
@@ -103,11 +117,13 @@ class FakeSocialAccountRepository : public ISocialAccountRepository
         SocialAccountLookup entry;
         entry.userId = nextUserId++;
         entry.username = username;
+        entry.publicSub = publicSubFor(entry.userId);  // #70
         linked[key(provider, subject)] = entry;
 
         LinkNewSocialAccountResult result;
         result.userId = entry.userId;
         result.username = entry.username;
+        result.publicSub = entry.publicSub;
         cb(result);
     }
 

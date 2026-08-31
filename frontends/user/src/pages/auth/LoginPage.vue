@@ -19,6 +19,12 @@ const showMfa = ref(false)
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || ''
 const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=user:email&redirect_uri=${encodeURIComponent(window.location.origin + '/callback/github')}`
 
+// #70: Google login entry; rendered only when the deployment configured a
+// client id (unconfigured providers stay hidden rather than broken).
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&response_type=code&scope=openid%20email%20profile&redirect_uri=${encodeURIComponent(window.location.origin + '/callback/google')}`
+const WECHAT_ENABLED = Boolean(import.meta.env.VITE_WECHAT_APPID)
+
 async function handleLogin() {
   const result = await auth.login(username.value, password.value)
   if (result.mfaRequired) {
@@ -161,7 +167,7 @@ async function handleMfa() {
 
       <!-- Social Login Divider -->
       <div
-        v-if="GITHUB_CLIENT_ID"
+        v-if="GITHUB_CLIENT_ID || GOOGLE_CLIENT_ID"
         class="relative my-6"
       >
         <div class="absolute inset-0 flex items-center">
@@ -189,6 +195,48 @@ async function handleMfa() {
         </svg>
         Sign in with GitHub
       </a>
+
+      <!-- Google Login (#70) -->
+      <a
+        v-if="GOOGLE_CLIENT_ID"
+        :href="googleAuthUrl"
+        class="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-neutral-300
+               rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+      >
+        <svg
+          class="w-5 h-5"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            fill="#4285F4"
+            d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.57 5.57 0 0 1-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+          />
+          <path
+            fill="#34A853"
+            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A11.99 11.99 0 0 0 12 24z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M5.27 14.29A7.2 7.2 0 0 1 4.89 12c0-.8.14-1.57.38-2.29V6.62H1.29a12 12 0 0 0 0 10.76l3.98-3.09z"
+          />
+          <path
+            fill="#EA4335"
+            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.97 11.97 0 0 0 12 0 11.99 11.99 0 0 0 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
+          />
+        </svg>
+        Sign in with Google
+      </a>
+
+      <!-- WeChat (#70): QR-scan login requires a mobile browser agent; the
+           desktop SPA can only surface the entry point when configured. -->
+      <p
+        v-if="WECHAT_ENABLED"
+        class="mt-4 text-xs text-neutral-400 text-center"
+      >
+        WeChat sign-in uses the mobile app scan flow — scan the QR code shown
+        by your provider on a WeChat-enabled device.
+      </p>
     </form>
   </div>
 </template>

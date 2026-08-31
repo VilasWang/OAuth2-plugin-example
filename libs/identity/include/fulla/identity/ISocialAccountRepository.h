@@ -88,6 +88,10 @@ struct SocialAccountLookup
 {
     int32_t userId = 0;  // Internal user id already linked to this provider+subject.
     std::string username;
+    // #70: platform subject (users.public_sub UUID) of the linked user —
+    // social token rows store the public subject (the same value the
+    // password/code flows persist), never the internal numeric id.
+    std::string publicSub;
 };
 
 /**
@@ -98,6 +102,7 @@ struct LinkNewSocialAccountResult
 {
     int32_t userId = 0;
     std::string username;
+    std::string publicSub;  // #70: users.public_sub of the created row (see SocialAccountLookup).
 };
 
 /**

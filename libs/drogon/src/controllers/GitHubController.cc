@@ -1,6 +1,7 @@
 #include <fulla/drogon/controllers/GitHubController.h>
 #include <drogon/HttpClient.h>
 #include <drogon/drogon.h>
+#include <fulla/drogon/controllers/SocialTokenIssuer.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/drogon/utils/CryptoUtils.h>
@@ -110,8 +111,9 @@ struct GitHubControllerDocs
         ep.parameters = {codeParam};
 
         ep.responses =
-          {{200, "GitHub user info retrieved successfully"},
+          {{200, "First-party token pair for the GitHub-linked account"},
            {400, "Invalid request (missing or invalid code)"},
+           {403, "Not linked to a local account and auto-create disabled"},
            {502, "Failed to contact GitHub API"}};
 
         ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(ep);
@@ -186,7 +188,7 @@ void GitHubController::login(
                   );
                   return;
               }
-              issueTokensForUser(req, callbackPtr, result.userId);
+              issueTokensForUser(req, callbackPtr, result.userId, result.publicSub);
           }
         );
         return;
@@ -223,89 +225,25 @@ void GitHubController::login(
 void GitHubController::issueTokensForUser(
   const ::drogon::HttpRequestPtr &req,
   const CallbackPtr &callbackPtr,
-  int64_t userId
+  int64_t userId,
+  const std::string& userPublicSub
 )
 {
+    // #70: token issuance delegated to the shared SocialTokenIssuer (the
+    // same flow as Google/WeChat). The platform subject — what token rows
+    // must store (the original implementation stored
+    // std::to_string(internal id), so social tokens 404'd on every
+    // Bearer-authenticated handler) — is threaded in by every call site;
+    // resolving it here via the DB would crash memory-storage deployments
+    // (getDbClient assert). Empty fails closed inside the issuer.
     auto plugin = resolvePlugin();
     if (!plugin)
     {
         respondError(req, callbackPtr, "INTERNAL_ERROR", "github login: OAuth2Plugin not available");
         return;
     }
-    // Phase 4 follow-up (coverage push, product defect B): route token issuance
-    // through OAuth2Plugin::saveTokenPair (the same API TokenEndpointController's
-    // device-code flow uses, TokenEndpointController.cc:1116) instead of calling
-    // drogon::app().getDbClient() + Mapper<Oauth2AccessTokens/RefreshTokens>
-    // directly. The direct path (a) bypassed the storage abstraction so memory
-    // storage mode crashed the process via an uncatchable getDbClient() assert,
-    // and (b) made the happy-path untestable. saveTokenPair forwards to the
-    // ITokenRepository selected by storage_type (Memory/Postgres/Redis), so this
-    // now works in every storage mode and is mock-testable.
-    auto accessTokenStr = ::fulla::drogon::utils::generateSecureToken();
-    auto refreshTokenStr = ::fulla::drogon::utils::generateSecureToken();
-    auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                 std::chrono::system_clock::now().time_since_epoch()
-    )
-                 .count();
-    const long long accessTokenTtl = plugin->getAccessTokenTtl();
-    const long long refreshTokenTtl = plugin->getRefreshTokenTtl();
-    const std::string clientId = "vue-client";
-    const std::string scope = "openid profile email";
-
-    fulla::oauth2::model::OAuth2AccessToken accessToken;
-    // #69: store the HASH of the token, mirroring the canonical paths
-    // (TokenService's grant issuance and TokenEndpointController's
-    // controller-constructed pairs -- CryptoUtils::hashToken and
-    // TokenCrypto::hashToken are byte-identical UPPER(SHA256 hex)). The
-    // previous raw storage meant every hash-based lookup missed:
-    // validateAccessToken / introspection resolve the presented bearer via
-    // hashToken before the repository read, so a social-issued token 401'd
-    // on every authenticated endpoint, the refresh grant could never find
-    // the row, and the raw refreshToken.accessToken mirror never matched
-    // revokeTokenFamily's hashed-column SQL. No legacy migration: the
-    // raw-stored tokens were unusable from the day they were issued.
-    const std::string accessTokenHash = ::fulla::drogon::utils::hashToken(accessTokenStr);
-    const std::string refreshTokenHash = ::fulla::drogon::utils::hashToken(refreshTokenStr);
-    accessToken.token = accessTokenHash;
-    accessToken.clientId = clientId;
-    accessToken.userId = std::to_string(userId);
-    accessToken.scope = scope;
-    accessToken.issuedAt = now;
-    accessToken.expiresAt = now + accessTokenTtl;
-    // F-016: stamp the configured issuer (same as the token endpoint's
-    // controller-constructed paths).
-    accessToken.issuer = plugin->getIssuer();
-
-    fulla::oauth2::model::OAuth2RefreshToken refreshToken;
-    refreshToken.token = refreshTokenHash;
-    refreshToken.accessToken = accessTokenHash;
-    refreshToken.clientId = clientId;
-    refreshToken.userId = std::to_string(userId);
-    refreshToken.scope = scope;
-    refreshToken.expiresAt = now + refreshTokenTtl;
-
-    plugin->saveTokenPair(
-      accessToken,
-      refreshToken,
-      [req, callbackPtr, accessTokenStr, refreshTokenStr, accessTokenTtl](bool ok) {
-          if (!ok)
-          {
-              // Persistence failed: returning 200 + these tokens would be a
-              // silent failure (they were never stored, so userinfo /
-              // introspection / refresh lookups all miss). Surface a real
-              // error instead.
-              respondError(
-                req, callbackPtr, "INTERNAL_ERROR", "github login: failed to persist token pair"
-              );
-              return;
-          }
-          Json::Value result;
-          result["access_token"] = accessTokenStr;
-          result["refresh_token"] = refreshTokenStr;
-          result["token_type"] = "Bearer";
-          result["expires_in"] = (Json::Int64)accessTokenTtl;
-          (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
-      }
+    ::fulla::drogon::controllers::SocialTokenIssuer::issueTokensForUser(
+      req, callbackPtr, plugin, "github", userId, userPublicSub
     );
 }
 
@@ -558,7 +496,10 @@ void GitHubController::linkExistingUser(
                   reject();
                   return;
               }
-              issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
+              issueTokensForUser(
+                req, callbackPtr, static_cast<int64_t>(userId),
+                users[0].getValueOfPublicSub()
+              );
           },
           [req, callbackPtr](const ::drogon::orm::DrogonDbException &e) {
               respondDbError(req, callbackPtr, "failed to fetch user", e);
@@ -641,9 +582,12 @@ void GitHubController::createNewLinkedUser(
                     // the 'user' role id first, then insert both columns.
                     // ([this] is the controller-singleton exemption to the
                     // domain no-[this] rule.)
-                    auto issueTokens = [this, req, callbackPtr, userId]() {
-                        issueTokensForUser(req, callbackPtr, static_cast<int64_t>(userId));
-                    };
+                    auto issueTokens =
+                      [this, req, callbackPtr, userId, publicSub]() {
+                          issueTokensForUser(
+                            req, callbackPtr, static_cast<int64_t>(userId), publicSub
+                          );
+                      };
                     auto grantRole =
                       [db, userId, publicSub, issueTokens](int32_t roleId) {
                           UserRoles ur;
