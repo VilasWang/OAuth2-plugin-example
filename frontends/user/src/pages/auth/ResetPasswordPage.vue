@@ -3,6 +3,9 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+import AppAlert from '../../components/ui/AppAlert.vue'
+import AppButton from '../../components/ui/AppButton.vue'
+import AppInput from '../../components/ui/AppInput.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,81 +34,80 @@ async function handleReset() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 px-4">
-    <div class="w-full max-w-md">
-      <div class="bg-surface rounded-2xl shadow-xl p-8">
-        <h1 class="text-2xl font-bold text-neutral-900 text-center mb-6">
-          Set New Password
-        </h1>
+  <div>
+    <h1 class="font-display text-2xl font-bold text-neutral-900 tracking-tight text-center mb-8">
+      Set New Password
+    </h1>
 
-        <div
-          v-if="!token"
-          class="text-center text-error-600"
-        >
-          <p>Invalid or missing reset token.</p>
-          <router-link
-            to="/forgot-password"
-            class="mt-4 inline-block text-brand-600"
-          >
-            Request a new link
-          </router-link>
-        </div>
-
-        <div
-          v-else-if="success"
-          class="text-center space-y-3"
-        >
-          <div class="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto">
-            <span class="text-2xl">✅</span>
-          </div>
-          <p class="text-neutral-700 font-medium">
-            Password reset successfully!
-          </p>
-          <p class="text-sm text-neutral-500">
-            Redirecting to login...
-          </p>
-        </div>
-
-        <form
-          v-else
-          class="space-y-4"
-          @submit.prevent="handleReset"
-        >
-          <div
-            v-if="error"
-            class="p-3 bg-error-50 border border-error-200 text-error-700 rounded-lg text-sm"
-          >
-            {{ error }}
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">New Password</label>
-            <input
-              v-model="newPassword"
-              type="password"
-              required
-              autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-            >
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Confirm Password</label>
-            <input
-              v-model="confirmPassword"
-              type="password"
-              required
-              autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500"
-            >
-          </div>
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full py-3 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50"
-          >
-            {{ loading ? 'Resetting...' : 'Reset Password' }}
-          </button>
-        </form>
-      </div>
+    <div
+      v-if="!token"
+      class="text-center text-error-600"
+    >
+      <p>Invalid or missing reset token.</p>
+      <router-link
+        to="/forgot-password"
+        class="mt-4 inline-block text-brand-600"
+      >
+        Request a new link
+      </router-link>
     </div>
+
+    <div
+      v-else-if="success"
+      class="text-center space-y-3"
+    >
+      <div class="w-16 h-16 bg-success-100 rounded-card flex items-center justify-center mx-auto">
+        <svg
+          class="w-8 h-8 text-success-600"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <p class="text-neutral-700 font-medium">
+        Password reset successfully!
+      </p>
+      <p class="text-sm text-neutral-500">
+        Redirecting to login...
+      </p>
+    </div>
+
+    <form
+      v-else
+      class="space-y-4"
+      @submit.prevent="handleReset"
+    >
+      <AppAlert
+        v-if="error"
+        type="error"
+      >
+        {{ error }}
+      </AppAlert>
+      <AppInput
+        v-model="newPassword"
+        label="New Password"
+        type="password"
+        required
+        autocomplete="new-password"
+        placeholder="••••••••"
+      />
+      <AppInput
+        v-model="confirmPassword"
+        label="Confirm Password"
+        type="password"
+        required
+        autocomplete="new-password"
+        placeholder="••••••••"
+      />
+      <AppButton
+        type="submit"
+        :loading="loading"
+        block
+      >
+        {{ loading ? 'Resetting...' : 'Reset Password' }}
+      </AppButton>
+    </form>
   </div>
 </template>

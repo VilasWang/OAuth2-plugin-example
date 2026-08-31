@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+import AppAlert from '../../components/ui/AppAlert.vue'
+import AppButton from '../../components/ui/AppButton.vue'
+import AppInput from '../../components/ui/AppInput.vue'
 
 const router = useRouter()
 const username = ref('')
@@ -12,6 +15,23 @@ const confirmPassword = ref('')
 const error = ref('')
 const loading = ref(false)
 const success = ref(false)
+
+// Password strength meter (mockup 17): 4 segments, error -> warning ->
+// success progression. Backend floor is auth.min_password_length = 8
+// (RuleSet D4); segment 1 is the hard floor, the rest reward length and
+// character-class mixing.
+const strength = computed(() => {
+  const pw = password.value
+  if (!pw) return -1
+  let score = 0
+  if (pw.length >= 8) score++
+  if (pw.length >= 12) score++
+  const classes = /[a-z]/.test(pw) && /[A-Z]/.test(pw) ? 1 : 0
+  const digits = /\d/.test(pw) ? 1 : 0
+  const symbols = /[^a-zA-Z0-9]/.test(pw) ? 1 : 0
+  if (classes + digits + symbols >= 2) score++
+  return Math.min(score, 4)
+})
 
 async function handleRegister() {
   error.value = ''
@@ -41,100 +61,119 @@ async function handleRegister() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 px-4">
-    <div class="w-full max-w-md">
-      <div class="bg-surface rounded-2xl shadow-xl p-8">
-        <div class="text-center mb-8">
-          <h1 class="text-3xl font-bold text-neutral-900">
-            Create Account
-          </h1>
-          <p class="mt-2 text-neutral-500">
-            Join us today
-          </p>
-        </div>
+  <div>
+    <div class="mb-8">
+      <h1 class="font-display text-2xl font-bold text-neutral-900 tracking-tight">
+        Create Account
+      </h1>
+      <p class="mt-2 text-sm text-neutral-500">
+        Join us today
+      </p>
+    </div>
 
+    <div
+      v-if="success"
+      class="text-center space-y-4 py-4"
+    >
+      <div class="w-16 h-16 bg-success-100 rounded-card flex items-center justify-center mx-auto">
+        <svg
+          class="w-8 h-8 text-success-600"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <p class="text-neutral-700 font-medium">
+        Account created successfully!
+      </p>
+      <p class="text-sm text-neutral-500">
+        Redirecting to login...
+      </p>
+    </div>
+
+    <AppAlert
+      v-if="error"
+      type="error"
+      class="mb-4"
+    >
+      {{ error }}
+    </AppAlert>
+
+    <form
+      v-if="!success"
+      class="space-y-4"
+      @submit.prevent="handleRegister"
+    >
+      <AppInput
+        v-model="email"
+        label="Email"
+        type="email"
+        required
+        autocomplete="email"
+        placeholder="you@example.com"
+      />
+      <AppInput
+        v-model="username"
+        label="Username"
+        hint="Optional — generated for you when left blank"
+        autocomplete="username"
+        placeholder="mia"
+      />
+      <div>
+        <AppInput
+          v-model="password"
+          label="Password"
+          type="password"
+          required
+          autocomplete="new-password"
+          placeholder="••••••••"
+        />
+        <!-- Strength meter: 4 hairline segments (mockup .pw-meter) -->
         <div
-          v-if="success"
-          class="p-4 bg-success-50 border border-success-200 text-success-700 rounded-lg text-center"
+          v-if="strength >= 0"
+          class="flex gap-1.5 mt-2"
+          aria-hidden="true"
         >
-          <p class="font-medium">
-            Account created successfully!
-          </p>
-          <p class="text-sm mt-1">
-            Redirecting to login...
-          </p>
+          <span
+            v-for="i in 4"
+            :key="i"
+            class="h-[3px] flex-1 rounded-full transition-colors duration-150"
+            :class="i <= strength
+              ? (strength <= 1 ? 'bg-error-500' : strength <= 2 ? 'bg-warning-500' : 'bg-success-500')
+              : 'bg-neutral-200'"
+          />
         </div>
-
-        <div
-          v-if="error"
-          class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-lg text-sm"
-        >
-          {{ error }}
-        </div>
-
-        <form
-          v-if="!success"
-          class="space-y-4"
-          @submit.prevent="handleRegister"
-        >
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Email</label>
-            <input
-              v-model="email"
-              type="email"
-              required
-              autocomplete="email"
-              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-            >
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Username <span class="text-neutral-400 font-normal">(optional)</span></label>
-            <input
-              v-model="username"
-              type="text"
-              autocomplete="username"
-              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-            >
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Password</label>
-            <input
-              v-model="password"
-              type="password"
-              required
-              autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-            >
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Confirm Password</label>
-            <input
-              v-model="confirmPassword"
-              type="password"
-              required
-              autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-            >
-          </div>
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full py-3 px-4 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
-          >
-            {{ loading ? 'Creating...' : 'Create Account' }}
-          </button>
-        </form>
-
-        <p class="mt-6 text-center text-sm text-neutral-500">
-          Already have an account?
-          <router-link
-            to="/login"
-            class="text-brand-600 font-medium hover:text-brand-800"
-          >
-            Sign in
-          </router-link>
+        <p class="text-xs text-neutral-500 mt-1.5">
+          Minimum 8 characters. A longer passphrase of 3–4 random words works well.
         </p>
       </div>
-    </div>
+      <AppInput
+        v-model="confirmPassword"
+        label="Confirm Password"
+        type="password"
+        required
+        autocomplete="new-password"
+        placeholder="••••••••"
+      />
+      <AppButton
+        type="submit"
+        :loading="loading"
+        block
+      >
+        {{ loading ? 'Creating...' : 'Create Account' }}
+      </AppButton>
+    </form>
+
+    <p class="mt-6 text-center text-sm text-neutral-500">
+      Already have an account?
+      <router-link
+        to="/login"
+        class="text-brand-600 font-medium hover:text-brand-800"
+      >
+        Sign in
+      </router-link>
+    </p>
   </div>
 </template>

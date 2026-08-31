@@ -9,6 +9,9 @@ import AppLogo from '../components/shared/AppLogo.vue'
 const auth = useAuthStore()
 const router = useRouter()
 
+// Issuer verification line (mockup 06): hidden when not configured.
+const issuer = (import.meta.env.VITE_ISSUER as string | undefined) || ''
+
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -57,21 +60,24 @@ function backToLogin() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-page p-4">
-    <div class="w-full max-w-[400px]">
-      <!-- Logo -->
-      <div class="flex justify-center mb-7">
-        <AppLogo size="lg" />
-      </div>
+  <div class="min-h-screen flex flex-col items-center bg-page blueprint-grid p-4">
+    <!-- Machined top blade -->
+    <div class="fixed inset-x-0 top-0 h-[3px] bg-brand-600 z-10" />
 
-      <!-- Card -->
-      <div class="bg-surface rounded-auth border border-neutral-200 shadow-md p-8">
-        <h1 class="font-display text-[23px] leading-tight font-semibold text-neutral-900 tracking-tight">
-          Sign in to Fulla Admin
-        </h1>
-        <p class="mt-1.5 mb-6 text-sm text-neutral-500">
-          Sign in to your administrator account
-        </p>
+    <!-- Logo + admin chip -->
+    <div class="flex items-center gap-2.5 mb-7 mt-12">
+      <AppLogo size="lg" />
+      <span class="font-mono text-[11.5px] leading-none px-2 py-[5px] rounded-ctl bg-brand-50 border border-brand-200 text-brand-700 font-semibold">admin</span>
+    </div>
+
+    <!-- Card -->
+    <div class="w-full max-w-[440px] bg-surface rounded-auth border border-neutral-200 shadow-md p-9 pb-[30px]">
+      <h1 class="font-display text-[23px] leading-tight font-semibold text-neutral-900 tracking-tight">
+        Sign in to Fulla Admin
+      </h1>
+      <p class="mt-1.5 mb-6 text-sm text-neutral-500">
+        Sign in to your administrator account
+      </p>
         <AppAlert
           v-if="auth.loginError"
           type="error"
@@ -232,9 +238,16 @@ function backToLogin() {
         </form>
       </div>
 
-      <p class="mt-6 text-center text-xs text-neutral-400">
+      <!-- Issuer verification line (hidden when unconfigured) -->
+      <p
+        v-if="issuer"
+        class="mt-6 font-mono text-xs text-neutral-500 tabular-nums"
+      >
+        <span class="font-semibold text-neutral-600">issuer</span> &middot; {{ issuer }}
+      </p>
+
+      <p class="mt-2.5 text-center text-xs text-neutral-400">
         Fulla Identity Platform &middot; Enterprise OAuth2/OIDC Server
       </p>
     </div>
-  </div>
 </template>

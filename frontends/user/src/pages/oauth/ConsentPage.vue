@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import DData from '../../components/ui/DData.vue'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -101,63 +102,96 @@ function handleConsent(action: 'approve' | 'deny') {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 px-4">
-    <div class="w-full max-w-md bg-surface rounded-2xl shadow-xl p-8">
-      <div class="text-center mb-6">
-        <h1 class="text-2xl font-bold text-neutral-900">
-          Authorize Application
-        </h1>
-        <p class="mt-2 text-neutral-500">
-          <strong class="text-neutral-700">{{ clientId }}</strong> is requesting access to your account
-        </p>
-      </div>
+  <div>
+    <h1 class="font-display text-[25px] font-bold text-neutral-900 tracking-tight leading-tight">
+      Authorize Access
+    </h1>
+    <p class="mt-1.5 text-sm text-neutral-500">
+      This application is asking to access your account.
+    </p>
 
-      <!-- Requested Permissions -->
-      <div class="bg-neutral-50 rounded-lg p-4 mb-6">
-        <p class="text-sm font-medium text-neutral-700 mb-3">
-          This application will be able to:
-        </p>
-        <ul class="space-y-2">
-          <li
-            v-for="s in scopes"
-            :key="s"
-            class="flex items-center gap-2 text-sm text-neutral-600"
-          >
-            <span class="w-5 h-5 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center text-xs">&#10003;</span>
-            {{ scopeDescriptions[s] || s }}
-          </li>
-        </ul>
+    <!-- Client identity block -->
+    <div class="flex items-center gap-3.5 mt-6 px-4 py-3.5 bg-page border border-neutral-200 rounded-card">
+      <div class="w-[38px] h-[38px] rounded-[9px] bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-[15px] shrink-0">
+        {{ clientId.slice(0, 2).toUpperCase() || 'CL' }}
       </div>
-
-      <!-- Signed in as -->
-      <div class="text-center text-sm text-neutral-500 mb-6">
-        Signed in as <strong>{{ auth.user?.name || auth.user?.sub }}</strong>
-      </div>
-
-      <!-- Actions -->
-      <p
-        v-if="missingUserId"
-        class="mb-3 text-center text-sm text-error-600"
-        data-testid="consent-missing-user"
-      >
-        Your session could not be identified. Please sign in again.
-      </p>
-      <div class="flex gap-3">
-        <button
-          :disabled="loading || missingUserId"
-          class="flex-1 py-3 border border-neutral-300 text-neutral-700 font-medium rounded-lg hover:bg-neutral-50 disabled:opacity-50"
-          @click="handleConsent('deny')"
-        >
-          Deny
-        </button>
-        <button
-          :disabled="loading || missingUserId"
-          class="flex-1 py-3 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50"
-          @click="handleConsent('approve')"
-        >
-          {{ loading ? 'Authorizing...' : 'Authorize' }}
-        </button>
+      <div class="min-w-0">
+        <div class="font-bold text-[15.5px] leading-tight text-neutral-900 truncate">
+          {{ clientId || 'Unknown client' }}
+        </div>
+        <DData
+          :value="clientId.length > 10 ? clientId.slice(0, 10) + '…' : clientId"
+          label="client_id"
+          class="mt-1"
+        />
       </div>
     </div>
+
+    <!-- Requested permissions: human voice left, machine voice right -->
+    <div class="mt-7">
+      <p class="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-neutral-500 mb-1">
+        It will be able to
+      </p>
+      <div
+        v-for="s in scopes"
+        :key="s"
+        class="flex items-center gap-3 py-3 border-b border-neutral-100"
+      >
+        <span class="w-[21px] h-[21px] rounded-full bg-success-50 border border-success-200 text-success-600 flex items-center justify-center shrink-0">
+          <svg
+            class="w-[11px] h-[11px]"
+            viewBox="0 0 12 12"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M2.5 6.2 5 8.7l4.5-5.4"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+        <span class="flex-1 text-sm text-neutral-600">{{ scopeDescriptions[s] || s }}</span>
+        <DData :value="s" />
+      </div>
+    </div>
+
+    <!-- Blocking state: no usable user id (gap-fix E7 companion) -->
+    <p
+      v-if="missingUserId"
+      class="mt-4 text-center text-sm text-error-600"
+      data-testid="consent-missing-user"
+    >
+      Your session could not be identified. Please sign in again.
+    </p>
+
+    <!-- Actions: Deny (quiet) / Authorize (primary stamp) -->
+    <div class="flex gap-2.5 mt-7">
+      <button
+        :disabled="loading || missingUserId"
+        class="flex-1 py-3 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-ctl hover:bg-neutral-50
+               focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring
+               disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        @click="handleConsent('deny')"
+      >
+        Deny
+      </button>
+      <button
+        :disabled="loading || missingUserId"
+        class="flex-1 py-3 bg-brand-600 text-white text-sm font-medium rounded-ctl hover:bg-brand-700 shadow-sm
+               focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring
+               disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 active:scale-[0.98]"
+        @click="handleConsent('approve')"
+      >
+        {{ loading ? 'Authorizing...' : 'Authorize' }}
+      </button>
+    </div>
+
+    <!-- Session microcopy (mono) -->
+    <p class="mt-7 pt-4 border-t border-neutral-100 font-mono text-[11.5px] text-neutral-500 text-center">
+      signed in as {{ auth.user?.name || auth.user?.sub || '—' }}
+    </p>
   </div>
 </template>

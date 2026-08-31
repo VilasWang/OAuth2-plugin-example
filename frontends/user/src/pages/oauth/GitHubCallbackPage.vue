@@ -74,11 +74,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center">
-    <div class="text-center max-w-md">
+  <div class="min-h-screen flex items-center justify-center bg-page blueprint-grid px-4">
+    <div class="fixed inset-x-0 top-0 h-[3px] bg-brand-600 z-10" />
+    <div class="text-center max-w-md w-full">
       <div
         v-if="error"
-        class="p-6 bg-error-50 border border-error-200 rounded-lg"
+        class="p-6 bg-surface border border-error-200 rounded-card shadow-sm text-left"
       >
         <p class="text-error-700 font-medium">
           GitHub Login Failed
@@ -88,7 +89,8 @@ onMounted(async () => {
         </p>
         <router-link
           to="/login"
-          class="mt-4 inline-block text-brand-600 hover:text-brand-800"
+          class="mt-4 inline-block text-brand-600 hover:text-brand-800 rounded-ctl
+                 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           Back to Login
         </router-link>

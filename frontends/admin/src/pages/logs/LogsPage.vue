@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '@/services/errorAdapter'
+import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 import DData from '@/components/ui/DData.vue'
 
 const logs = ref<any[]>([])
@@ -148,14 +149,11 @@ onMounted(fetchLogs)
       Loading...
     </div>
 
-    <div
+    <AppEmptyState
       v-else-if="logs.length === 0"
-      class="text-center py-12"
-    >
-      <p class="text-neutral-500">
-        No audit logs recorded yet
-      </p>
-    </div>
+      title="No audit logs recorded yet"
+      description="Audit events will appear here as administrators and services act."
+    />
 
     <div
       v-else

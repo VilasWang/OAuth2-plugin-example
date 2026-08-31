@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+import AppEmptyState from '../../components/ui/AppEmptyState.vue'
 
 const clients = ref<any[]>([])
 const loading = ref(true)
@@ -125,20 +126,13 @@ onMounted(fetchClients)
       Loading...
     </div>
 
-    <div
+    <AppEmptyState
       v-else-if="clients.length === 0"
-      class="text-center py-12"
-    >
-      <p class="text-neutral-500 mb-4">
-        No applications registered yet
-      </p>
-      <button
-        class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm"
-        @click="showCreateModal = true"
-      >
-        Create your first application
-      </button>
-    </div>
+      title="No applications registered yet"
+      description="Register an OAuth2 client to start issuing tokens."
+      action-label="Create your first application"
+      @action="showCreateModal = true"
+    />
 
     <div
       v-else
