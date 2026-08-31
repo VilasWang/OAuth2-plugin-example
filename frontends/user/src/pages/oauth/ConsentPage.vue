@@ -180,9 +180,10 @@ function handleConsent(action: 'approve' | 'deny') {
       </button>
       <button
         :disabled="loading || missingUserId"
-        class="flex-1 py-3 bg-brand-600 text-white text-sm font-medium rounded-ctl hover:bg-brand-700 shadow-sm
+        class="consent-authorize flex-1 py-3 bg-brand-600 text-white text-sm font-medium rounded-ctl hover:bg-brand-700 shadow-sm
                focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring
                disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 active:scale-[0.98]"
+        :class="loading ? 'stamp-pulse' : ''"
         @click="handleConsent('approve')"
       >
         {{ loading ? 'Authorizing...' : 'Authorize' }}
@@ -195,3 +196,23 @@ function handleConsent(action: 'approve' | 'deny') {
     </p>
   </div>
 </template>
+
+<style scoped>
+/* Stamp micro-interaction: one 400ms brand-ring pulse at the moment of
+   authorization — the class mounts when loading flips true on approve.
+   Static under prefers-reduced-motion. */
+.stamp-pulse {
+  animation: stamp-pulse 400ms var(--ease-spring, ease-out);
+}
+
+@keyframes stamp-pulse {
+  0%   { box-shadow: 0 0 0 0 oklch(46% 0.150 252 / 0.45); }
+  100% { box-shadow: 0 0 0 14px oklch(46% 0.150 252 / 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-pulse {
+    animation: none;
+  }
+}
+</style>
