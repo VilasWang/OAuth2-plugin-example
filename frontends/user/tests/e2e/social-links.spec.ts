@@ -159,10 +159,16 @@ test.describe('Connected Accounts (social links)', () => {
     })
 
     await page.goto('/callback/google?code=e2e-google-code')
-    await page.waitForTimeout(1000)
 
-    expect(await page.evaluate(() => localStorage.getItem('access_token'))).toBe('e2e-google-access')
-    expect(await page.evaluate(() => localStorage.getItem('refresh_token'))).toBe('e2e-google-refresh')
-    await expect(page).toHaveURL(/\/$/)
+    // Poll instead of a fixed sleep: the callback page stores the tokens
+    // in onMounted after the mocked round-trips; CI runners can be slow
+    // enough that a 1s wait observes the page mid-flight.
+    await expect
+      .poll(async () => page.evaluate(() => localStorage.getItem('access_token')), { timeout: 10_000 })
+      .toBe('e2e-google-access')
+    await expect
+      .poll(async () => page.evaluate(() => localStorage.getItem('refresh_token')), { timeout: 10_000 })
+      .toBe('e2e-google-refresh')
+    await expect(page).toHaveURL(/\/$/, { timeout: 10_000 })
   })
 })
