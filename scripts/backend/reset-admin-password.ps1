@@ -18,7 +18,7 @@ Write-Host ""
 
 # Default admin password hash (PBKDF2-SHA256, salt embedded in the hash
 # Password: 'admin'
-$defaultHash = "$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62"
+$defaultHash = '$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62'
 $defaultSalt = ""
 
 # Try Docker first

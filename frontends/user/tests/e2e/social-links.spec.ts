@@ -155,8 +155,8 @@ test.describe('Connected Accounts (social links)', () => {
     await page.goto('/callback/google?code=e2e-google-code')
     await page.waitForTimeout(1000)
 
-    expect(localStorage.getItem('access_token')).toBe('e2e-google-access')
-    expect(localStorage.getItem('refresh_token')).toBe('e2e-google-refresh')
+    expect(await page.evaluate(() => localStorage.getItem('access_token'))).toBe('e2e-google-access')
+    expect(await page.evaluate(() => localStorage.getItem('refresh_token'))).toBe('e2e-google-refresh')
     await expect(page).toHaveURL(/\/$/)
   })
 })

@@ -81,3 +81,26 @@ fix (anonymous consent forgery). The only caller is this repo's own consent
 SPA (updated in the same PR) and the server-minted nonce is delivered in the
 authorize redirect; SDKs are regenerated here.
 
+## 2026-08-31 · P0 issues: WebAuthn real verification request bodies (PR: p0 issues 143/103/70/142)
+
+- in API POST /api/me/webauthn/register/finish added required request body
+
+Intentional security fix (#142): the endpoint previously documented no
+body while the runtime consumed an unverified legacy
+{credential_id, public_key} contract — the spec had no request shape at
+all. Real attestation verification replaces it: the required body is the
+browser PublicKeyCredential {id, rawId, response:{attestationObject,
+clientDataJSON}}. Old callers (this repo's SPA, updated in the same PR;
+SDKs regenerated here) sending the legacy shape are rejected with 400 —
+the legacy shape was the vulnerability (client-asserted key material).
+
+- in API POST /oauth2/webauthn/authenticate/finish added required request body
+
+Same fix (#142): the endpoint previously accepted a bare credential_id,
+which authenticated on knowledge of the id alone (a credential-id
+oracle). The required body is now the browser assertion envelope
+{id, rawId, response:{authenticatorData, clientDataJSON, signature},
+userHandle?}; every failure answers the generic
+AUTH_INVALID_CREDENTIALS. The GitHub response-schema correction in the
+same PR (profile object -> SocialLoginTokenResponse) is additive on the
+response side and not reported as breaking.

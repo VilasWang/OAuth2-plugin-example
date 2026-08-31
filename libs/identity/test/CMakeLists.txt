@@ -29,6 +29,11 @@ target_link_libraries(fulla-identity-test
         fulla::common::testing
         GTest::gtest
         GTest::Main
+        # #142: the tests include src/webauthn/{CborReader,
+        # WebAuthnCrypto}.h directly, which include <cbor/...>;
+        # libcbor is PRIVATE on fulla-identity (it must not leak
+        # into the exported package interface), so link it here.
+        libcbor::libcbor
 )
 
 set_target_properties(fulla-identity-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
