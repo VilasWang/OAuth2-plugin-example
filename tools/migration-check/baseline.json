@@ -24,5 +24,6 @@
   "V023__resource_scopes.sql": "9bf8effd881165bf26b5dceef66d7dc7ab5138b38bbb3a09fb3412da175a0e92",
   "V024__users_soft_delete.sql": "2a3e4ee037161d4182f5befc13d000eee12a131baed127fb0d6fdcdd17787fbb",
   "V025__audit_logs_partitioning.sql": "d8af858657f13518431d6fa542a9c48287d0b1b5eec1382111106e0267a224e0",
-  "V026__token_redundant_index_cleanup.sql": "fc1bc4c51737c20deab14b07fd1719770baad78c7251908776e4fa68cac8464d"
+  "V026__token_redundant_index_cleanup.sql": "fc1bc4c51737c20deab14b07fd1719770baad78c7251908776e4fa68cac8464d",
+  "V027__local_subject_mapping_backfill.sql": "5965f1553c53b6e3a05cfe7ad1dda7f9a34154b80c3f29338a5ea55835248bc8"
 }

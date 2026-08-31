@@ -202,16 +202,52 @@ void PostgresIdentityRepository::create(
           newUser,
           [sharedCb, db](const Users &inserted) {
               int32_t newUserId = inserted.getValueOfId();
+
+              // #143: every completion path must end with a (local, <id>)
+              // subject mapping — consent's getInternalUserId resolves users
+              // exclusively through that table and 500s without a row. A
+              // mapping failure is logged but does not fail user creation
+              // (same tolerance as the role assignment below); the startup
+              // backfill converges the invariant.
+              auto ensureMapping = [sharedCb, db, newUserId]() {
+                  try
+                  {
+                      db->execSqlAsync(
+                        "INSERT INTO oauth2_subject_mappings "
+                        "(subject, internal_user_id, provider) "
+                        "VALUES ($1, $2, 'local') "
+                        "ON CONFLICT (provider, subject) DO NOTHING",
+                        [sharedCb, newUserId](const Result &) {
+                            (*sharedCb)(newUserId, "");
+                        },
+                        [sharedCb, newUserId](const DrogonDbException &e) {
+                            LOG_ERROR << "PostgresIdentityRepository::create: subject "
+                                         "mapping insert failed for user "
+                                      << newUserId << ": " << e.base().what();
+                            (*sharedCb)(newUserId, "");
+                        },
+                        std::to_string(newUserId), newUserId);
+                  }
+                  catch (...)
+                  {
+                      LOG_ERROR << "PostgresIdentityRepository::create: subject mapping "
+                                   "exec setup failed for user "
+                                << newUserId;
+                      (*sharedCb)(newUserId, "");
+                  }
+              };
+
               // Assign default "user" role, mirroring
               // OAuth2Server/AuthService.cc::registerUser's existing
               // behavior. A role-assignment failure is logged but does
-              // not fail user creation (same tolerance as the original).
+              // not fail user creation (same tolerance as the original);
+              // all paths fall through to ensureMapping().
               try
               {
                   Mapper<Roles> roleMapper(db);
                   roleMapper.findOne(
                     Criteria(Roles::Cols::_name, CompareOperator::EQ, "user"),
-                    [sharedCb, db, newUserId](const Roles &role) {
+                    [sharedCb, db, newUserId, ensureMapping](const Roles &role) {
                         try
                         {
                             Mapper<UserRoles> urMapper(db);
@@ -220,37 +256,35 @@ void PostgresIdentityRepository::create(
                             ur.setRoleId(role.getValueOfId());
                             urMapper.insert(
                               ur,
-                              [sharedCb, newUserId](const UserRoles &) {
-                                  (*sharedCb)(newUserId, "");
-                              },
-                              [sharedCb, newUserId](const DrogonDbException &e) {
+                              [ensureMapping](const UserRoles &) { ensureMapping(); },
+                              [ensureMapping, newUserId](const DrogonDbException &e) {
                                   // Recoverable: user is already created; role
                                   // assignment is a side effect (callback reports
                                   // success with empty error string).
                                   LOG_WARN << "PostgresIdentityRepository::create: role "
                                               "assignment failed: "
                                            << e.base().what();
-                                  (*sharedCb)(newUserId, "");
+                                  ensureMapping();
                               }
                             );
                         }
                         catch (...)
                         {
-                            (*sharedCb)(newUserId, "");
+                            ensureMapping();
                         }
                     },
-                    [sharedCb, newUserId](const DrogonDbException &e) {
+                    [ensureMapping, newUserId](const DrogonDbException &e) {
                         // Recoverable: user created without a role.
                         LOG_WARN << "PostgresIdentityRepository::create: default role 'user' "
                                     "not found: "
                                  << e.base().what();
-                        (*sharedCb)(newUserId, "");
+                        ensureMapping();
                     }
                   );
               }
               catch (...)
               {
-                  (*sharedCb)(newUserId, "");
+                  ensureMapping();
               }
           },
           [sharedCb](const DrogonDbException &e) {
