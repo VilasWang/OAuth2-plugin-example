@@ -117,7 +117,7 @@ test.describe('Profile', () => {
     })
     await page.reload()
     await page.waitForTimeout(1000)
-    const errorEl = page.locator('[class*="red"]')
+    const errorEl = page.locator('[class*="error-"]')
     await expect(errorEl.first()).toBeVisible({ timeout: 5000 })
   })
 
@@ -200,7 +200,7 @@ test.describe('Security', () => {
     await newPassFields.nth(1).fill('NewPass123!')
     await page.locator('button:has-text("Change Password")').click()
     await page.waitForTimeout(500)
-    const errorEl = page.locator('[class*="red"]')
+    const errorEl = page.locator('[class*="error-"]')
     await expect(errorEl.first()).toBeVisible()
   })
 
@@ -319,7 +319,7 @@ test.describe('Authorized Apps', () => {
     page.on('dialog', (dialog) => dialog.accept())
     await page.locator('button:has-text("Revoke")').first().click()
     await page.waitForTimeout(500)
-    const errorEl = page.locator('[class*="red"]')
+    const errorEl = page.locator('[class*="error-"]')
     await expect(errorEl.first()).toBeVisible()
   })
 

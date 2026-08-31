@@ -157,32 +157,32 @@ onMounted(fetchTokens)
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold text-gray-900">
+      <h2 class="text-2xl font-bold text-neutral-900">
         Tokens
       </h2>
       <div class="relative">
         <button
-          class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          class="inline-flex items-center px-4 py-2 border border-neutral-300 rounded-md shadow-sm text-sm font-medium text-neutral-700 bg-surface hover:bg-neutral-50"
           @click="showBulkMenu = !showBulkMenu"
         >
           Revoke All by App ▾
         </button>
         <div
           v-if="showBulkMenu"
-          class="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
+          class="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-surface ring-1 ring-black ring-opacity-5 z-10"
         >
           <div class="py-1">
             <button
               v-for="cid in uniqueClientIds"
               :key="cid"
-              class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              class="block w-full text-left px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
               @click="revokeByClient(cid)"
             >
               {{ cid }}
             </button>
             <p
               v-if="uniqueClientIds.length === 0"
-              class="px-4 py-2 text-sm text-gray-400"
+              class="px-4 py-2 text-sm text-neutral-400"
             >
               No clients in current results
             </p>
@@ -194,10 +194,10 @@ onMounted(fetchTokens)
     <!-- Success Banner (bulk revocation count, gap-fix) -->
     <div
       v-if="successMessage"
-      class="mb-6 rounded-md bg-emerald-50 p-4"
+      class="mb-6 rounded-md bg-success-50 p-4"
     >
       <p
-        class="text-sm text-emerald-800"
+        class="text-sm text-success-700"
         data-testid="tokens-success"
       >
         {{ successMessage }}
@@ -207,12 +207,12 @@ onMounted(fetchTokens)
     <!-- Error Banner -->
     <div
       v-if="errorMessage"
-      class="mb-6 rounded-md bg-red-50 p-4"
+      class="mb-6 rounded-md bg-error-50 p-4"
     >
       <div class="flex">
         <div class="flex-shrink-0">
           <svg
-            class="h-5 w-5 text-red-400"
+            class="h-5 w-5 text-error-500"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -224,7 +224,7 @@ onMounted(fetchTokens)
           </svg>
         </div>
         <div class="ml-3">
-          <p class="text-sm text-red-800">
+          <p class="text-sm text-error-700">
             {{ errorMessage }}
           </p>
         </div>
@@ -232,40 +232,40 @@ onMounted(fetchTokens)
     </div>
 
     <!-- Filter bar -->
-    <div class="bg-white shadow rounded-lg p-4 mb-4 flex items-center gap-4 flex-wrap">
+    <div class="bg-surface shadow rounded-lg p-4 mb-4 flex items-center gap-4 flex-wrap">
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-gray-700">Client ID:</label>
+        <label class="text-sm font-medium text-neutral-700">Client ID:</label>
         <input
           v-model="clientIdFilter"
           type="text"
           placeholder="Filter by client_id"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
         >
       </div>
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-gray-700">User ID:</label>
+        <label class="text-sm font-medium text-neutral-700">User ID:</label>
         <input
           v-model="userIdFilter"
           type="text"
           placeholder="Filter by user_id"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
         >
       </div>
       <button
-        class="px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
+        class="px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-md hover:bg-brand-700"
         @click="applyFilters"
       >
         Apply
       </button>
       <button
-        class="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+        class="px-4 py-1.5 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-md hover:bg-neutral-50"
         @click="clearFilters"
       >
         Clear
       </button>
       <button
         v-if="userIdFilter"
-        class="px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 ml-auto"
+        class="px-4 py-1.5 bg-error-600 text-white text-sm font-medium rounded-md hover:bg-error-700 ml-auto"
         @click="revokeByUser"
       >
         Revoke All for User
@@ -275,7 +275,7 @@ onMounted(fetchTokens)
     <!-- Loading state -->
     <div
       v-if="loading"
-      class="text-center py-12 text-gray-500"
+      class="text-center py-12 text-neutral-500"
     >
       Loading...
     </div>
@@ -285,7 +285,7 @@ onMounted(fetchTokens)
       v-else-if="tokens.length === 0"
       class="text-center py-12"
     >
-      <p class="text-gray-500">
+      <p class="text-neutral-500">
         No active tokens found
       </p>
     </div>
@@ -293,61 +293,61 @@ onMounted(fetchTokens)
     <!-- Token table -->
     <div
       v-else
-      class="bg-white shadow rounded-lg overflow-hidden"
+      class="bg-surface shadow rounded-lg overflow-hidden"
     >
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-neutral-200">
+        <thead class="bg-neutral-50">
           <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Token
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Type
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Client
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               User
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Scope
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Expires
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-surface divide-y divide-neutral-200">
           <tr
             v-for="token in tokens"
             :key="token.token_prefix"
-            class="hover:bg-gray-50"
+            class="hover:bg-neutral-50"
           >
-            <td class="px-4 py-3 text-sm font-mono text-gray-900">
+            <td class="px-4 py-3 text-sm font-mono text-neutral-900">
               {{ token.token_prefix }}
             </td>
-            <td class="px-4 py-3 text-sm text-gray-500">
+            <td class="px-4 py-3 text-sm text-neutral-500">
               access
             </td>
-            <td class="px-4 py-3 text-sm text-gray-500">
+            <td class="px-4 py-3 text-sm text-neutral-500">
               {{ token.client_id || '—' }}
             </td>
-            <td class="px-4 py-3 text-sm text-gray-500">
+            <td class="px-4 py-3 text-sm text-neutral-500">
               {{ token.user_id || '—' }}
             </td>
-            <td class="px-4 py-3 text-xs text-gray-500 max-w-[200px] truncate">
+            <td class="px-4 py-3 text-xs text-neutral-500 max-w-[200px] truncate">
               {{ token.scope || '—' }}
             </td>
-            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+            <td class="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">
               {{ formatTime(token.expires_at) }}
             </td>
             <td class="px-4 py-3">
               <button
-                class="text-sm text-red-600 hover:text-red-800 font-medium"
+                class="text-sm text-error-600 hover:text-error-700 font-medium"
                 @click="revokeToken(token.token_prefix)"
               >
                 Revoke
@@ -361,15 +361,15 @@ onMounted(fetchTokens)
       <div class="px-4 py-3 border-t flex justify-between items-center">
         <button
           :disabled="page <= 1"
-          class="text-sm text-indigo-600 disabled:text-gray-400"
+          class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page > 1 && (page--, fetchTokens())"
         >
           ← Previous
         </button>
-        <span class="text-sm text-gray-500">Page {{ page }} · {{ total }} total</span>
+        <span class="text-sm text-neutral-500">Page {{ page }} · {{ total }} total</span>
         <button
           :disabled="tokens.length < perPage"
-          class="text-sm text-indigo-600 disabled:text-gray-400"
+          class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page++; fetchTokens()"
         >
           Next →
@@ -386,22 +386,22 @@ onMounted(fetchTokens)
         class="fixed inset-0 bg-black bg-opacity-30"
         @click="cancelConfirm"
       />
-      <div class="relative bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
-        <h3 class="text-lg font-medium text-gray-900 mb-2">
+      <div class="relative bg-surface rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+        <h3 class="text-lg font-medium text-neutral-900 mb-2">
           Confirm Action
         </h3>
-        <p class="text-sm text-gray-600 mb-4">
+        <p class="text-sm text-neutral-600 mb-4">
           {{ confirmMessage }}
         </p>
         <div class="flex justify-end gap-3">
           <button
-            class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+            class="px-4 py-2 text-sm font-medium text-neutral-700 border border-neutral-300 rounded-md hover:bg-neutral-50"
             @click="cancelConfirm"
           >
             Cancel
           </button>
           <button
-            class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            class="px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-md hover:bg-error-700"
             @click="executeConfirm"
           >
             Confirm

@@ -21,7 +21,7 @@ const colAlign = (col: { align?: string }) => {
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+  <div class="overflow-hidden rounded-xl border border-neutral-200 bg-surface">
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-neutral-200">
         <thead>

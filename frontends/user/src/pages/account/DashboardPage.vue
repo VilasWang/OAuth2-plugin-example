@@ -17,9 +17,9 @@ const auth = useAuthStore()
     </div>
 
     <!-- Welcome Card -->
-    <div class="bg-white rounded-xl border border-neutral-200 shadow-sm p-6">
+    <div class="bg-surface rounded-xl border border-neutral-200 shadow-sm p-6">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-sm font-semibold">
+        <div class="w-12 h-12 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-semibold">
           {{ (auth.user?.name || 'U')[0].toUpperCase() }}
         </div>
         <div>
@@ -35,7 +35,7 @@ const auth = useAuthStore()
 
     <!-- Account Overview Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-      <div class="bg-white rounded-xl border border-neutral-200 p-5">
+      <div class="bg-surface rounded-xl border border-neutral-200 p-5">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Account ID
         </p>
@@ -44,7 +44,7 @@ const auth = useAuthStore()
         </p>
       </div>
 
-      <div class="bg-white rounded-xl border border-neutral-200 p-5">
+      <div class="bg-surface rounded-xl border border-neutral-200 p-5">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Email
         </p>
@@ -53,7 +53,7 @@ const auth = useAuthStore()
         </p>
       </div>
 
-      <div class="bg-white rounded-xl border border-neutral-200 p-5">
+      <div class="bg-surface rounded-xl border border-neutral-200 p-5">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Roles
         </p>
@@ -61,7 +61,7 @@ const auth = useAuthStore()
           <span
             v-for="role in (auth.user?.roles || [])"
             :key="role"
-            class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-sky-50 text-sky-700 border border-sky-100"
+            class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-brand-50 text-brand-700 border border-brand-100"
           >
             {{ role }}
           </span>
@@ -77,12 +77,12 @@ const auth = useAuthStore()
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <router-link
         to="/profile"
-        class="group p-5 bg-white rounded-xl border border-neutral-200 hover:border-sky-300 hover:shadow-sm transition-all duration-150"
+        class="group p-5 bg-surface rounded-xl border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150"
       >
         <div class="flex items-center gap-3 mb-2">
-          <div class="w-9 h-9 rounded-lg bg-sky-50 flex items-center justify-center group-hover:bg-sky-100 transition-colors">
+          <div class="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center group-hover:bg-brand-100 transition-colors">
             <svg
-              class="w-5 h-5 text-sky-600"
+              class="w-5 h-5 text-brand-700"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -103,12 +103,12 @@ const auth = useAuthStore()
 
       <router-link
         to="/security"
-        class="group p-5 bg-white rounded-xl border border-neutral-200 hover:border-sky-300 hover:shadow-sm transition-all duration-150"
+        class="group p-5 bg-surface rounded-xl border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150"
       >
         <div class="flex items-center gap-3 mb-2">
-          <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+          <div class="w-9 h-9 rounded-lg bg-warning-50 flex items-center justify-center group-hover:bg-warning-100 transition-colors">
             <svg
-              class="w-5 h-5 text-amber-600"
+              class="w-5 h-5 text-warning-600"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -129,12 +129,12 @@ const auth = useAuthStore()
 
       <router-link
         to="/authorized-apps"
-        class="group p-5 bg-white rounded-xl border border-neutral-200 hover:border-sky-300 hover:shadow-sm transition-all duration-150"
+        class="group p-5 bg-surface rounded-xl border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150"
       >
         <div class="flex items-center gap-3 mb-2">
-          <div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+          <div class="w-9 h-9 rounded-lg bg-success-50 flex items-center justify-center group-hover:bg-success-100 transition-colors">
             <svg
-              class="w-5 h-5 text-emerald-600"
+              class="w-5 h-5 text-success-600"
               viewBox="0 0 20 20"
               fill="currentColor"
             >

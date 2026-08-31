@@ -17,15 +17,15 @@ const errorMessage = ref('')
 // fallback, rendering disconnected/degraded components as healthy.
 // not_configured is a healthy state (the backend reports status=ok with it).
 function componentDotClass(value: string | undefined): string {
-  if (!value || value === 'connected' || value === 'not_configured') return 'bg-emerald-500'
-  return 'bg-rose-500'
+  if (!value || value === 'connected' || value === 'not_configured') return 'bg-success-500'
+  return 'bg-error-500'
 }
 
 const overall = computed(() => {
   const status = health.value?.status
-  if (status === 'ok') return { dot: 'bg-emerald-500', text: 'text-emerald-600', label: 'Healthy' }
-  if (status === 'degraded') return { dot: 'bg-amber-500', text: 'text-amber-600', label: 'Degraded' }
-  return { dot: 'bg-rose-500', text: 'text-rose-600', label: 'Unhealthy' }
+  if (status === 'ok') return { dot: 'bg-success-500', text: 'text-success-600', label: 'Healthy' }
+  if (status === 'degraded') return { dot: 'bg-warning-500', text: 'text-warning-600', label: 'Degraded' }
+  return { dot: 'bg-error-500', text: 'text-error-600', label: 'Unhealthy' }
 })
 
 onMounted(async () => {
@@ -81,12 +81,12 @@ onMounted(async () => {
       class="grid grid-cols-2 lg:grid-cols-5 gap-5"
     >
       <!-- Users -->
-      <div class="bg-white rounded-xl border border-neutral-200 p-5 hover:border-sky-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Total Users</span>
-          <div class="w-9 h-9 rounded-lg bg-sky-50 flex items-center justify-center">
+          <div class="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center">
             <svg
-              class="w-5 h-5 text-sky-600"
+              class="w-5 h-5 text-brand-700"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -103,12 +103,12 @@ onMounted(async () => {
       </div>
 
       <!-- Applications -->
-      <div class="bg-white rounded-xl border border-neutral-200 p-5 hover:border-sky-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Applications</span>
-          <div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+          <div class="w-9 h-9 rounded-lg bg-success-50 flex items-center justify-center">
             <svg
-              class="w-5 h-5 text-emerald-600"
+              class="w-5 h-5 text-success-600"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -128,12 +128,12 @@ onMounted(async () => {
       </div>
 
       <!-- Active Tokens -->
-      <div class="bg-white rounded-xl border border-neutral-200 p-5 hover:border-sky-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Active Tokens</span>
-          <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+          <div class="w-9 h-9 rounded-lg bg-warning-50 flex items-center justify-center">
             <svg
-              class="w-5 h-5 text-amber-600"
+              class="w-5 h-5 text-warning-600"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -144,7 +144,7 @@ onMounted(async () => {
             </svg>
           </div>
         </div>
-        <p class="text-3xl font-bold text-amber-600 tracking-tight">
+        <p class="text-3xl font-bold text-warning-600 tracking-tight">
           {{ stats?.active_tokens ?? 0 }}
         </p>
         <p class="mt-1 text-xs text-neutral-400">
@@ -154,18 +154,18 @@ onMounted(async () => {
 
       <!-- Failures Today -->
       <div
-        class="bg-white rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150"
-        :class="(stats?.failures_today || 0) > 0 ? 'border-rose-200' : ''"
+        class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150"
+        :class="(stats?.failures_today || 0) > 0 ? 'border-error-200' : ''"
       >
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Failures Today</span>
           <div
             class="w-9 h-9 rounded-lg flex items-center justify-center"
-            :class="(stats?.failures_today || 0) > 0 ? 'bg-rose-50' : 'bg-neutral-50'"
+            :class="(stats?.failures_today || 0) > 0 ? 'bg-error-50' : 'bg-neutral-50'"
           >
             <svg
               class="w-5 h-5"
-              :class="(stats?.failures_today || 0) > 0 ? 'text-rose-600' : 'text-neutral-400'"
+              :class="(stats?.failures_today || 0) > 0 ? 'text-error-600' : 'text-neutral-400'"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -178,7 +178,7 @@ onMounted(async () => {
         </div>
         <p
           class="text-3xl font-bold tracking-tight"
-          :class="(stats?.failures_today || 0) > 0 ? 'text-rose-600' : 'text-neutral-900'"
+          :class="(stats?.failures_today || 0) > 0 ? 'text-error-600' : 'text-neutral-900'"
         >
           {{ stats?.failures_today ?? 0 }}
         </p>
@@ -188,7 +188,7 @@ onMounted(async () => {
       </div>
 
       <!-- Logs Today (gap-fix: field returned by /stats but never displayed) -->
-      <div class="bg-white rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Logs Today</span>
           <div class="w-9 h-9 rounded-lg bg-neutral-50 flex items-center justify-center">
@@ -216,7 +216,7 @@ onMounted(async () => {
     <!-- Health + Quick Actions -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <!-- System Health -->
-      <div class="lg:col-span-2 bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+      <div class="lg:col-span-2 bg-surface rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-neutral-100">
           <h2 class="text-sm font-semibold text-neutral-900">
             System Health
@@ -285,7 +285,7 @@ onMounted(async () => {
       </div>
 
       <!-- Quick Actions -->
-      <div class="bg-white rounded-xl border border-neutral-200 shadow-sm">
+      <div class="bg-surface rounded-xl border border-neutral-200 shadow-sm">
         <div class="px-6 py-4 border-b border-neutral-100">
           <h2 class="text-sm font-semibold text-neutral-900">
             Quick Actions
@@ -295,10 +295,10 @@ onMounted(async () => {
         <div class="p-4 space-y-1">
           <router-link
             to="/applications"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-sky-50 hover:text-sky-700 transition-colors group"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors group"
           >
             <svg
-              class="w-4 h-4 text-neutral-400 group-hover:text-sky-500"
+              class="w-4 h-4 text-neutral-400 group-hover:text-brand-500"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -312,10 +312,10 @@ onMounted(async () => {
 
           <router-link
             to="/users"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-sky-50 hover:text-sky-700 transition-colors group"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors group"
           >
             <svg
-              class="w-4 h-4 text-neutral-400 group-hover:text-sky-500"
+              class="w-4 h-4 text-neutral-400 group-hover:text-brand-500"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -326,10 +326,10 @@ onMounted(async () => {
 
           <router-link
             to="/roles"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-sky-50 hover:text-sky-700 transition-colors group"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors group"
           >
             <svg
-              class="w-4 h-4 text-neutral-400 group-hover:text-sky-500"
+              class="w-4 h-4 text-neutral-400 group-hover:text-brand-500"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -343,10 +343,10 @@ onMounted(async () => {
 
           <router-link
             to="/scopes"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-sky-50 hover:text-sky-700 transition-colors group"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors group"
           >
             <svg
-              class="w-4 h-4 text-neutral-400 group-hover:text-sky-500"
+              class="w-4 h-4 text-neutral-400 group-hover:text-brand-500"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -360,10 +360,10 @@ onMounted(async () => {
 
           <router-link
             to="/logs"
-            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-sky-50 hover:text-sky-700 transition-colors group"
+            class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-700 hover:bg-brand-50 hover:text-brand-700 transition-colors group"
           >
             <svg
-              class="w-4 h-4 text-neutral-400 group-hover:text-sky-500"
+              class="w-4 h-4 text-neutral-400 group-hover:text-brand-500"
               viewBox="0 0 20 20"
               fill="currentColor"
             >

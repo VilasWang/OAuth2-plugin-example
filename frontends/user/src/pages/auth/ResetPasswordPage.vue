@@ -31,21 +31,21 @@ async function handleReset() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100 px-4">
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 px-4">
     <div class="w-full max-w-md">
-      <div class="bg-white rounded-2xl shadow-xl p-8">
-        <h1 class="text-2xl font-bold text-gray-900 text-center mb-6">
+      <div class="bg-surface rounded-2xl shadow-xl p-8">
+        <h1 class="text-2xl font-bold text-neutral-900 text-center mb-6">
           Set New Password
         </h1>
 
         <div
           v-if="!token"
-          class="text-center text-red-600"
+          class="text-center text-error-600"
         >
           <p>Invalid or missing reset token.</p>
           <router-link
             to="/forgot-password"
-            class="mt-4 inline-block text-indigo-600"
+            class="mt-4 inline-block text-brand-600"
           >
             Request a new link
           </router-link>
@@ -58,10 +58,10 @@ async function handleReset() {
           <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
             <span class="text-2xl">✅</span>
           </div>
-          <p class="text-gray-700 font-medium">
+          <p class="text-neutral-700 font-medium">
             Password reset successfully!
           </p>
-          <p class="text-sm text-gray-500">
+          <p class="text-sm text-neutral-500">
             Redirecting to login...
           </p>
         </div>
@@ -73,34 +73,34 @@ async function handleReset() {
         >
           <div
             v-if="error"
-            class="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"
+            class="p-3 bg-error-50 border border-error-200 text-error-700 rounded-lg text-sm"
           >
             {{ error }}
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">New Password</label>
             <input
               v-model="newPassword"
               type="password"
               required
               autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">Confirm Password</label>
             <input
               v-model="confirmPassword"
               type="password"
               required
               autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500"
             >
           </div>
           <button
             type="submit"
             :disabled="loading"
-            class="w-full py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            class="w-full py-3 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50"
           >
             {{ loading ? 'Resetting...' : 'Reset Password' }}
           </button>

@@ -132,7 +132,7 @@ test.describe('Applications Management', () => {
     await modal.locator('button[type="submit"]').click()
     await page.waitForTimeout(500)
     // The error message should appear (either inside modal or as page-level banner)
-    const errorEl = page.locator('.bg-red-50, .text-red-700, [class*="red"]')
+    const errorEl = page.locator('.bg-error-50, .text-error-700, [class*="error-"]')
     await expect(errorEl.first()).toBeVisible({ timeout: 3000 })
   })
 

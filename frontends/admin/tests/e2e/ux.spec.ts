@@ -48,9 +48,9 @@ test.describe('UX Polish', () => {
       await page.locator('.fixed button:has-text("Create")').click()
 
       // Error message should appear
-      await expect(page.locator('.bg-red-50, .text-red-700').first()).toBeVisible({ timeout: 3000 })
+      await expect(page.locator('.bg-error-50, .text-error-700').first()).toBeVisible({ timeout: 3000 })
       // After 5s, it should disappear
-      await expect(page.locator('.bg-red-50, .text-red-700').first()).not.toBeVisible({ timeout: 7000 })
+      await expect(page.locator('.bg-error-50, .text-error-700').first()).not.toBeVisible({ timeout: 7000 })
     })
   })
 
@@ -90,8 +90,8 @@ test.describe('UX Polish', () => {
         })
       })
       await loginAsAdmin(page)
-      // The failures card should have red color class when > 0
-      const redText = page.locator('.text-rose-600')
+      // The failures card should have error color class when > 0
+      const redText = page.locator('.text-error-600')
       await expect(redText.first()).toBeVisible({ timeout: 3000 })
     })
 
@@ -107,7 +107,7 @@ test.describe('UX Polish', () => {
       await loginAsAdmin(page)
       // Check the "Failures Today" card: 0 should not be red
       // We check the failures value card (4th stat card)
-      const blocks = page.locator('.grid .bg-white')
+      const blocks = page.locator('.grid .bg-surface')
       await expect(blocks.last()).toBeVisible()
     })
   })

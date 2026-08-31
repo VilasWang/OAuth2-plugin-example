@@ -29,7 +29,7 @@ const errorId = useId()
       {{ label }}
       <span
         v-if="required"
-        class="text-rose-500 ml-0.5"
+        class="text-error-500 ml-0.5"
         aria-hidden="true"
       >*</span>
     </label>
@@ -43,12 +43,12 @@ const errorId = useId()
       :aria-describedby="error ? errorId : undefined"
       :class="[
         'block w-full px-3.5 py-2.5 text-sm rounded-lg transition-colors duration-150',
-        'bg-white text-neutral-900 appearance-none cursor-pointer',
+        'bg-surface text-neutral-900 appearance-none cursor-pointer',
         'disabled:bg-neutral-50 disabled:text-neutral-500 disabled:cursor-not-allowed',
         'focus:outline-none focus:ring-2 focus:ring-offset-0',
         error
-          ? 'border border-rose-300 focus:ring-rose-500/20 focus:border-rose-500'
-          : 'border border-neutral-300 focus:ring-sky-500/20 focus:border-sky-600',
+          ? 'border border-error-200 focus:ring-error-500/20 focus:border-error-500'
+          : 'border border-neutral-300 focus:ring-brand-500/20 focus:border-brand-700',
       ]"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
@@ -72,7 +72,7 @@ const errorId = useId()
     <p
       v-if="error"
       :id="errorId"
-      class="text-xs text-rose-600"
+      class="text-xs text-error-600"
       role="alert"
     >
       {{ error }}

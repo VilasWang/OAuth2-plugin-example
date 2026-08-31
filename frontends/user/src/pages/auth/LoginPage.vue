@@ -48,7 +48,7 @@ async function handleMfa() {
         Or
         <router-link
           to="/register"
-          class="text-sky-600 font-medium hover:text-sky-700 transition-colors"
+          class="text-brand-700 font-medium hover:text-brand-700 transition-colors"
         >
           create a new account
         </router-link>
@@ -71,9 +71,9 @@ async function handleMfa() {
       @submit.prevent="handleMfa"
     >
       <div class="text-center py-4">
-        <div class="w-14 h-14 rounded-2xl bg-sky-50 flex items-center justify-center mx-auto mb-4">
+        <div class="w-14 h-14 rounded-2xl bg-brand-50 flex items-center justify-center mx-auto mb-4">
           <svg
-            class="w-7 h-7 text-sky-600"
+            class="w-7 h-7 text-brand-700"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -98,7 +98,7 @@ async function handleMfa() {
           maxlength="6"
           autocomplete="one-time-code"
           class="block w-full px-4 py-4 text-center text-2xl tracking-[0.5em] font-mono border border-neutral-300 rounded-lg
-                 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
+                 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-700"
           placeholder="000000"
         >
       </div>
@@ -145,7 +145,7 @@ async function handleMfa() {
       <div class="flex justify-end">
         <router-link
           to="/forgot-password"
-          class="text-sm text-sky-600 hover:text-sky-700 font-medium transition-colors"
+          class="text-sm text-brand-700 hover:text-brand-700 font-medium transition-colors"
         >
           Forgot password?
         </router-link>
@@ -168,7 +168,7 @@ async function handleMfa() {
           <div class="w-full border-t border-neutral-200" />
         </div>
         <div class="relative flex justify-center text-sm">
-          <span class="px-3 bg-white text-neutral-400">or continue with</span>
+          <span class="px-3 bg-surface text-neutral-400">or continue with</span>
         </div>
       </div>
 

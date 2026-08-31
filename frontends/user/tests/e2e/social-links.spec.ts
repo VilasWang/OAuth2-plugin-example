@@ -29,7 +29,7 @@ test.describe('Connected Accounts (social links)', () => {
     // returns the entry, so assert the request happened and the success
     // toast appeared instead of an error banner.
     await expect(page.getByText('GitHub account unlinked')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('.bg-red-50')).toHaveCount(0)
+    await expect(page.locator('.bg-error-50')).toHaveCount(0)
   })
 
   test('unlink cancelled at the confirm dialog sends no request', async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe('Connected Accounts (social links)', () => {
 
     await page.getByRole('button', { name: 'Unlink' }).click()
 
-    await expect(page.locator('.bg-red-50')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('.bg-error-50')).toBeVisible({ timeout: 5000 })
   })
 
   test('callback page with state=link posts the link endpoint, not login', async ({ page }) => {

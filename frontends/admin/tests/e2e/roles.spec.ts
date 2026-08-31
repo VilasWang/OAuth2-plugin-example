@@ -132,7 +132,7 @@ test.describe('Roles Page - Custom Role', () => {
     await page.fill('input[placeholder="e.g. editor"]', 'admin')
     await page.locator('.fixed button:has-text("Create")').click()
     await page.waitForTimeout(300)
-    const errorEl = page.locator('.bg-red-50, .text-red-700')
+    const errorEl = page.locator('.bg-error-50, .text-error-700')
     await expect(errorEl.first()).toBeVisible()
   })
 

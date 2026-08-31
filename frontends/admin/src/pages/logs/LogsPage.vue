@@ -56,27 +56,27 @@ onMounted(fetchLogs)
 
 <template>
   <div>
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">
+    <h2 class="text-2xl font-bold text-neutral-900 mb-6">
       Audit Logs
     </h2>
 
     <!-- Filter bar -->
-    <div class="bg-white shadow rounded-lg p-4 mb-4 flex items-center gap-4 flex-wrap">
+    <div class="bg-surface shadow rounded-lg p-4 mb-4 flex items-center gap-4 flex-wrap">
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-gray-700">Action:</label>
+        <label class="text-sm font-medium text-neutral-700">Action:</label>
         <input
           v-model="actionFilter"
           type="text"
           placeholder="e.g. login_success"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
           @keyup.enter="applyFilters"
         >
       </div>
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-gray-700">Outcome:</label>
+        <label class="text-sm font-medium text-neutral-700">Outcome:</label>
         <select
           v-model="outcomeFilter"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
         >
           <option value="">
             (any)
@@ -90,23 +90,23 @@ onMounted(fetchLogs)
         </select>
       </div>
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-gray-700">Actor ID:</label>
+        <label class="text-sm font-medium text-neutral-700">Actor ID:</label>
         <input
           v-model="actorIdFilter"
           type="text"
           placeholder="filter by actor uuid"
-          class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
           @keyup.enter="applyFilters"
         >
       </div>
       <button
-        class="px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700"
+        class="px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-md hover:bg-brand-700"
         @click="applyFilters"
       >
         Apply
       </button>
       <button
-        class="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+        class="px-4 py-1.5 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-md hover:bg-neutral-50"
         @click="clearFilters"
       >
         Clear
@@ -116,12 +116,12 @@ onMounted(fetchLogs)
     <!-- Error Banner -->
     <div
       v-if="errorMessage"
-      class="mb-6 rounded-md bg-red-50 p-4"
+      class="mb-6 rounded-md bg-error-50 p-4"
     >
       <div class="flex">
         <div class="flex-shrink-0">
           <svg
-            class="h-5 w-5 text-red-400"
+            class="h-5 w-5 text-error-500"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -133,7 +133,7 @@ onMounted(fetchLogs)
           </svg>
         </div>
         <div class="ml-3">
-          <p class="text-sm text-red-800">
+          <p class="text-sm text-error-700">
             {{ errorMessage }}
           </p>
         </div>
@@ -142,7 +142,7 @@ onMounted(fetchLogs)
 
     <div
       v-if="loading"
-      class="text-center py-12 text-gray-500"
+      class="text-center py-12 text-neutral-500"
     >
       Loading...
     </div>
@@ -151,69 +151,69 @@ onMounted(fetchLogs)
       v-else-if="logs.length === 0"
       class="text-center py-12"
     >
-      <p class="text-gray-500">
+      <p class="text-neutral-500">
         No audit logs recorded yet
       </p>
     </div>
 
     <div
       v-else
-      class="bg-white shadow rounded-lg overflow-hidden"
+      class="bg-surface shadow rounded-lg overflow-hidden"
     >
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-neutral-200">
+        <thead class="bg-neutral-50">
           <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Time
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Action
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Actor
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Target
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Outcome
             </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               IP
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-surface divide-y divide-neutral-200">
           <tr
             v-for="log in logs"
             :key="log.id"
-            class="hover:bg-gray-50"
+            class="hover:bg-neutral-50"
           >
-            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+            <td class="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">
               {{ formatTime(log.timestamp) }}
             </td>
-            <td class="px-4 py-3 text-sm font-medium text-gray-900">
+            <td class="px-4 py-3 text-sm font-medium text-neutral-900">
               {{ log.action }}
             </td>
-            <td class="px-4 py-3 text-xs text-gray-500">
-              <span class="text-gray-400">{{ log.actor_type }}:</span> {{ log.actor_id?.substring(0, 12) || '—' }}
+            <td class="px-4 py-3 text-xs text-neutral-500">
+              <span class="text-neutral-400">{{ log.actor_type }}:</span> {{ log.actor_id?.substring(0, 12) || '—' }}
             </td>
-            <td class="px-4 py-3 text-xs text-gray-500 font-mono">
+            <td class="px-4 py-3 text-xs text-neutral-500 font-mono">
               <span
                 v-if="log.target_type || log.target_id"
                 :title="`${log.target_type || ''}:${log.target_id || ''}`"
-              >{{ log.target_type || '—' }}<span class="text-gray-400">:</span>{{ log.target_id?.substring(0, 8) || '—' }}</span>
+              >{{ log.target_type || '—' }}<span class="text-neutral-400">:</span>{{ log.target_id?.substring(0, 8) || '—' }}</span>
               <span v-else>—</span>
             </td>
             <td class="px-4 py-3">
               <span
                 class="px-2 py-0.5 text-xs rounded-full"
-                :class="log.outcome === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                :class="log.outcome === 'success' ? 'bg-green-100 text-green-800' : 'bg-error-100 text-error-700'"
               >
                 {{ log.outcome }}
               </span>
             </td>
-            <td class="px-4 py-3 text-xs text-gray-500 font-mono">
+            <td class="px-4 py-3 text-xs text-neutral-500 font-mono">
               {{ log.ip || '—' }}
             </td>
           </tr>
@@ -223,15 +223,15 @@ onMounted(fetchLogs)
       <div class="px-4 py-3 border-t flex justify-between items-center">
         <button
           :disabled="page <= 1"
-          class="text-sm text-indigo-600 disabled:text-gray-400"
+          class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page > 1 && (page--, fetchLogs())"
         >
           ← Previous
         </button>
-        <span class="text-sm text-gray-500">Page {{ page }}</span>
+        <span class="text-sm text-neutral-500">Page {{ page }}</span>
         <button
           :disabled="logs.length < 50"
-          class="text-sm text-indigo-600 disabled:text-gray-400"
+          class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page++; fetchLogs()"
         >
           Next →

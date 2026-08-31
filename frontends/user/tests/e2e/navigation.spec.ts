@@ -111,6 +111,6 @@ test.describe('Navigation & Route Guards', () => {
     await page.waitForURL('/security')
     const securityLink = page.locator('nav a:has-text("Security")')
     const classes = await securityLink.getAttribute('class')
-    expect(classes).toContain('sky')
+    expect(classes).toContain('brand')
   })
 })

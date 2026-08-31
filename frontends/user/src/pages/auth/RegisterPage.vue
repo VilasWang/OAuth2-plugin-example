@@ -41,14 +41,14 @@ async function handleRegister() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-100 px-4">
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 px-4">
     <div class="w-full max-w-md">
-      <div class="bg-white rounded-2xl shadow-xl p-8">
+      <div class="bg-surface rounded-2xl shadow-xl p-8">
         <div class="text-center mb-8">
-          <h1 class="text-3xl font-bold text-gray-900">
+          <h1 class="text-3xl font-bold text-neutral-900">
             Create Account
           </h1>
-          <p class="mt-2 text-gray-500">
+          <p class="mt-2 text-neutral-500">
             Join us today
           </p>
         </div>
@@ -67,7 +67,7 @@ async function handleRegister() {
 
         <div
           v-if="error"
-          class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm"
+          class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-lg text-sm"
         >
           {{ error }}
         </div>
@@ -78,58 +78,58 @@ async function handleRegister() {
           @submit.prevent="handleRegister"
         >
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">Email</label>
             <input
               v-model="email"
               type="email"
               required
               autocomplete="email"
-              class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Username <span class="text-gray-400 font-normal">(optional)</span></label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">Username <span class="text-neutral-400 font-normal">(optional)</span></label>
             <input
               v-model="username"
               type="text"
               autocomplete="username"
-              class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">Password</label>
             <input
               v-model="password"
               type="password"
               required
               autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">Confirm Password</label>
             <input
               v-model="confirmPassword"
               type="password"
               required
               autocomplete="new-password"
-              class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              class="block w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             >
           </div>
           <button
             type="submit"
             :disabled="loading"
-            class="w-full py-3 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            class="w-full py-3 px-4 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
           >
             {{ loading ? 'Creating...' : 'Create Account' }}
           </button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-gray-500">
+        <p class="mt-6 text-center text-sm text-neutral-500">
           Already have an account?
           <router-link
             to="/login"
-            class="text-indigo-600 font-medium hover:text-indigo-800"
+            class="text-brand-600 font-medium hover:text-brand-800"
           >
             Sign in
           </router-link>

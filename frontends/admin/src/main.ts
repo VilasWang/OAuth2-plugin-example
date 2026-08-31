@@ -3,6 +3,12 @@ import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
 import { useAuthStore } from './stores/auth'
+import '@fontsource/dm-sans/400.css'
+import '@fontsource/dm-sans/500.css'
+import '@fontsource/dm-sans/600.css'
+import '@fontsource/dm-sans/700.css'
+import '@fontsource-variable/archivo'
+import '@fontsource-variable/jetbrains-mono'
 import './style.css'
 
 const app = createApp(App)

@@ -60,7 +60,7 @@ test.describe('Password Reset', () => {
       await submitButton.click()
       await page.waitForTimeout(500)
       // Error should be displayed
-      const errorEl = page.locator('.bg-red-50, [class*="red"]')
+      const errorEl = page.locator('.bg-error-50, [class*="error-"]')
       if (await errorEl.first().isVisible()) {
         await expect(errorEl.first()).toBeVisible()
       }
@@ -94,7 +94,7 @@ test.describe('Password Reset', () => {
     if (await submitButton.isVisible()) {
       await submitButton.click()
       await page.waitForTimeout(500)
-      const errorEl = page.locator('.bg-red-50, [class*="red"]')
+      const errorEl = page.locator('.bg-error-50, [class*="error-"]')
       if (await errorEl.first().isVisible()) {
         await expect(errorEl.first()).toBeVisible()
       }

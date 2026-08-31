@@ -27,9 +27,9 @@ const navItems = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-neutral-50">
+  <div class="min-h-screen bg-page">
     <!-- Top Navigation -->
-    <header class="bg-white border-b border-neutral-200 sticky top-0 z-40">
+    <header class="bg-surface border-b border-neutral-200 sticky top-0 z-40">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
           <!-- Left: Logo + Nav -->
@@ -45,15 +45,15 @@ const navItems = [
                 v-for="item in navItems"
                 :key="item.path"
                 :to="item.path"
-                class="relative px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                class="relative px-3 py-2 rounded-ctl text-sm transition-colors"
                 :class="route.path === item.path
-                  ? 'text-sky-700'
-                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
+                  ? 'text-brand-700 font-semibold'
+                  : 'text-neutral-600 font-medium hover:text-neutral-900 hover:bg-neutral-50'"
               >
                 {{ item.name }}
                 <div
                   v-if="route.path === item.path"
-                  class="absolute bottom-0 left-3 right-3 h-0.5 bg-sky-600 rounded-full"
+                  class="absolute bottom-0 left-3 right-3 h-0.5 bg-brand-600 rounded-[2px]"
                 />
               </router-link>
             </nav>
@@ -63,11 +63,11 @@ const navItems = [
           <div class="flex items-center">
             <div class="relative">
               <button
-                class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-neutral-100 transition-colors
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                class="flex items-center gap-2.5 px-2 py-1.5 rounded-ctl hover:bg-neutral-100 transition-colors
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 @click="showUserMenu = !showUserMenu"
               >
-                <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-semibold">
+                <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">
                   {{ (auth.user?.name || 'U')[0].toUpperCase() }}
                 </div>
                 <span class="hidden sm:block text-sm font-medium text-neutral-700">
@@ -89,7 +89,7 @@ const navItems = [
               <Transition name="dropdown">
                 <div
                   v-if="showUserMenu"
-                  class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-neutral-200 py-1.5 z-50"
+                  class="absolute right-0 mt-2 w-56 bg-surface rounded-xl shadow-lg border border-neutral-200 py-1.5 z-50"
                 >
                   <div class="px-4 py-3 border-b border-neutral-100">
                     <p class="text-sm font-medium text-neutral-900">
@@ -139,7 +139,7 @@ const navItems = [
                   <div class="border-t border-neutral-100 my-1" />
 
                   <button
-                    class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+                    class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-error-600 hover:bg-error-50 transition-colors"
                     @click="handleLogout"
                   >
                     <svg

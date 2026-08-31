@@ -31,7 +31,7 @@ const errorId = useId()
       {{ label }}
       <span
         v-if="required"
-        class="text-rose-500 ml-0.5"
+        class="text-error-500 ml-0.5"
         aria-hidden="true"
       >*</span>
     </label>
@@ -48,13 +48,13 @@ const errorId = useId()
         :aria-invalid="!!error"
         :aria-describedby="error ? errorId : undefined"
         class="block w-full px-3.5 py-2.5 text-sm rounded-lg transition-colors duration-150
-               bg-white text-neutral-900
+               bg-surface text-neutral-900
                placeholder:text-neutral-400
                disabled:bg-neutral-50 disabled:text-neutral-500 disabled:cursor-not-allowed
                focus:outline-none focus:ring-2 focus:ring-offset-0"
         :class="error
-          ? 'border border-rose-300 focus:ring-rose-500/20 focus:border-rose-500'
-          : 'border border-neutral-300 focus:ring-sky-500/20 focus:border-sky-600'"
+          ? 'border border-error-200 focus:ring-error-500/20 focus:border-error-500'
+          : 'border border-neutral-300 focus:ring-brand-500/20 focus:border-brand-700'"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       >
 
@@ -63,7 +63,7 @@ const errorId = useId()
         class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"
       >
         <svg
-          class="w-4 h-4 text-rose-500"
+          class="w-4 h-4 text-error-500"
           viewBox="0 0 16 16"
           fill="currentColor"
           aria-hidden="true"
@@ -79,7 +79,7 @@ const errorId = useId()
     <p
       v-if="error"
       :id="errorId"
-      class="text-xs text-rose-600"
+      class="text-xs text-error-600"
       role="alert"
     >
       {{ error }}

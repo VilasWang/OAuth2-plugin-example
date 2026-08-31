@@ -76,7 +76,7 @@ onUnmounted(() => {
           ref="modalRef"
           tabindex="-1"
           :class="[
-            'relative w-full bg-white rounded-xl shadow-xl border border-neutral-200',
+            'relative w-full bg-surface rounded-xl shadow-xl border border-neutral-200',
             'max-h-[85vh] overflow-y-auto',
             'outline-none',
             size === 'sm' ? 'max-w-sm' :
@@ -100,7 +100,7 @@ onUnmounted(() => {
             <button
               type="button"
               class="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
               aria-label="Close dialog"
               @click="emit('close')"
             >

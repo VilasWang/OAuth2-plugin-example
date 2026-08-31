@@ -100,11 +100,11 @@ onMounted(fetchClients)
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold text-gray-900">
+      <h2 class="text-2xl font-bold text-neutral-900">
         Applications
       </h2>
       <button
-        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-medium"
+        class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm font-medium"
         @click="showCreateModal = true"
       >
         + Create Application
@@ -113,14 +113,14 @@ onMounted(fetchClients)
 
     <div
       v-if="errorMessage"
-      class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-md text-sm"
     >
       {{ errorMessage }}
     </div>
 
     <div
       v-if="loading"
-      class="text-center py-12 text-gray-500"
+      class="text-center py-12 text-neutral-500"
     >
       Loading...
     </div>
@@ -129,11 +129,11 @@ onMounted(fetchClients)
       v-else-if="clients.length === 0"
       class="text-center py-12"
     >
-      <p class="text-gray-500 mb-4">
+      <p class="text-neutral-500 mb-4">
         No applications registered yet
       </p>
       <button
-        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
+        class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm"
         @click="showCreateModal = true"
       >
         Create your first application
@@ -142,46 +142,46 @@ onMounted(fetchClients)
 
     <div
       v-else
-      class="bg-white shadow rounded-lg overflow-hidden"
+      class="bg-surface shadow rounded-lg overflow-hidden"
     >
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-neutral-200">
+        <thead class="bg-neutral-50">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Name
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Client ID
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Type
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-surface divide-y divide-neutral-200">
           <tr
             v-for="client in clients"
             :key="client.client_id"
-            class="hover:bg-gray-50"
+            class="hover:bg-neutral-50"
           >
-            <td class="px-6 py-4 text-sm font-medium text-gray-900">
+            <td class="px-6 py-4 text-sm font-medium text-neutral-900">
               <router-link
                 :to="{ name: 'application-detail', params: { id: client.client_id } }"
-                class="text-indigo-600 hover:text-indigo-800 hover:underline"
+                class="text-brand-600 hover:text-brand-800 hover:underline"
               >
                 {{ client.name || client.client_id }}
               </router-link>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-500 font-mono text-xs">
+            <td class="px-6 py-4 text-sm text-neutral-500 font-mono text-xs">
               {{ client.client_id }}
             </td>
             <td class="px-6 py-4">
               <span
                 class="px-2 py-1 text-xs rounded-full"
-                :class="client.client_type === 'PUBLIC' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'"
+                :class="client.client_type === 'PUBLIC' ? 'bg-brand-100 text-brand-800' : 'bg-purple-100 text-purple-800'"
               >
                 {{ client.client_type }}
               </span>
@@ -189,13 +189,13 @@ onMounted(fetchClients)
             <td class="px-6 py-4 text-sm space-x-2">
               <button
                 v-if="client.client_type === 'CONFIDENTIAL'"
-                class="px-2 py-1 rounded text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800 font-medium transition-colors"
+                class="px-2 py-1 rounded text-brand-600 hover:bg-brand-50 hover:text-brand-800 font-medium transition-colors"
                 @click="resetSecret(client.client_id)"
               >
                 Reset Secret
               </button>
               <button
-                class="px-2 py-1 rounded text-red-600 hover:bg-red-50 hover:text-red-800 font-medium transition-colors"
+                class="px-2 py-1 rounded text-error-600 hover:bg-error-50 hover:text-error-700 font-medium transition-colors"
                 @click="deleteClient(client.client_id)"
               >
                 Delete
@@ -211,7 +211,7 @@ onMounted(fetchClients)
       v-if="showCreateModal"
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     >
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+      <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
           Create Application
         </h3>
@@ -220,19 +220,19 @@ onMounted(fetchClients)
           @submit.prevent="createClient"
         >
           <div>
-            <label class="block text-sm font-medium text-gray-700">Name</label>
+            <label class="block text-sm font-medium text-neutral-700">Name</label>
             <input
               v-model="createForm.name"
               required
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="My App"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">Type</label>
+            <label class="block text-sm font-medium text-neutral-700">Type</label>
             <select
               v-model="createForm.client_type"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
             >
               <option value="CONFIDENTIAL">
                 Confidential (Server-side)
@@ -243,26 +243,26 @@ onMounted(fetchClients)
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">Redirect URIs (comma-separated)</label>
+            <label class="block text-sm font-medium text-neutral-700">Redirect URIs (comma-separated)</label>
             <input
               v-model="createForm.redirect_uris"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="https://myapp.com/callback"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">Backchannel Logout URI (optional)</label>
+            <label class="block text-sm font-medium text-neutral-700">Backchannel Logout URI (optional)</label>
             <input
               v-model="createForm.backchannel_logout_uri"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="https://rp.example.com/backchannel-logout"
             >
-            <p class="mt-1 text-xs text-gray-500">
+            <p class="mt-1 text-xs text-neutral-500">
               OIDC Back-Channel Logout 1.0 (https). Leave empty to disable.
             </p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Grant Types</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-2">Grant Types</label>
             <div class="space-y-2">
               <label
                 v-for="gt in AVAILABLE_GRANT_TYPES"
@@ -273,11 +273,11 @@ onMounted(fetchClients)
                   v-model="createForm.grant_types"
                   type="checkbox"
                   :value="gt.value"
-                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  class="mt-0.5 h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                 >
                 <div>
-                  <span class="text-sm font-medium text-gray-700">{{ gt.label }}</span>
-                  <p class="text-xs text-gray-500">{{ gt.description }}</p>
+                  <span class="text-sm font-medium text-neutral-700">{{ gt.label }}</span>
+                  <p class="text-xs text-neutral-500">{{ gt.description }}</p>
                 </div>
               </label>
             </div>
@@ -285,7 +285,7 @@ onMounted(fetchClients)
           <div class="flex justify-end space-x-3 pt-2">
             <button
               type="button"
-              class="px-4 py-2 border border-gray-300 rounded-md text-sm"
+              class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
               @click="showCreateModal = false"
             >
               Cancel
@@ -293,7 +293,7 @@ onMounted(fetchClients)
             <button
               type="submit"
               :disabled="creating"
-              class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+              class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             >
               {{ creating ? 'Creating...' : 'Create' }}
             </button>
@@ -307,19 +307,19 @@ onMounted(fetchClients)
       v-if="showSecretModal"
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     >
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+      <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-2">
           Client Secret
         </h3>
-        <p class="text-sm text-red-600 mb-4">
+        <p class="text-sm text-error-600 mb-4">
           Copy this secret now. It will not be shown again.
         </p>
-        <div class="bg-gray-100 p-3 rounded-md font-mono text-sm break-all select-all">
+        <div class="bg-neutral-100 p-3 rounded-md font-mono text-sm break-all select-all">
           {{ newClientSecret }}
         </div>
         <div class="flex justify-end mt-4">
           <button
-            class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm"
+            class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm"
             @click="showSecretModal = false; newClientSecret = ''"
           >
             Done
