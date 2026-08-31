@@ -176,7 +176,7 @@ run_psql() {
 # reset_admin_account - reset admin password and lockout
 reset_admin_account() {
     echo -e "${C_CYAN}Resetting admin account (password + lockout)...${C_NC}"
-    local hash="$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62"
+    local hash='$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62'
     local salt=""
     local query="UPDATE users SET password_hash = '$hash', salt = '$salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
     if run_psql "$query" >/dev/null 2>&1; then

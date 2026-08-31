@@ -102,13 +102,10 @@ target_include_directories(fulla-identity
 target_link_libraries(fulla-identity
     PUBLIC
         fulla-common
-        # PUBLIC (not PRIVATE): the tests include src/webauthn/
-        # CborReader.h directly, so its <cbor/...> dependency must
-        # propagate to consumers of the build interface.
-        libcbor::libcbor
     PRIVATE
         JsonCpp::JsonCpp
         OpenSSL::Crypto
+        libcbor::libcbor
 )
 
 # Compile definitions for conditional features
@@ -150,7 +147,7 @@ fulla_package(
     TARGET fulla-identity
     PACKAGE fulla-identity
     EXPORT_NAME identity
-    DEPENDENCIES jsoncpp OpenSSL fulla-common
+    DEPENDENCIES jsoncpp OpenSSL libcbor fulla-common
 )
 
 # --- Tests (pure unit, no DB/no Drogon) ---

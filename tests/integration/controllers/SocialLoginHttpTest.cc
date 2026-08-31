@@ -389,10 +389,12 @@ DROGON_TEST(Integration_P0_GitHubLogin_RepoError_Returns5xx_NoCreation)
     CHECK(h.accountRepo->linked.empty());
 }
 
-// #54 (review F1): a derived username held by an existing row (active or
-// soft-deleted) makes createLinkedUser fail closed (ON CONFLICT DO NOTHING —
-// no row adoption/account takeover) -> DB_QUERY_ERROR, no tokens.
-DROGON_TEST(Integration_P0_GitHubLogin_ConflictingUsername_NoAdoption)
+
+// #54 (review F1) + #70 (retry): a derived username held by an existing row
+// (active or soft-deleted) is NEVER adopted (ON CONFLICT DO NOTHING — no
+// account takeover); the login retries once with a random suffix and
+// succeeds on the fresh name.
+DROGON_TEST(Integration_P0_GitHubLogin_ConflictingUsername_RetriesWithoutAdoption)
 {
     SOCIAL_SKIP_GUARD;
 
@@ -412,10 +414,17 @@ DROGON_TEST(Integration_P0_GitHubLogin_ConflictingUsername_NoAdoption)
 
     auto resp = sendPostForm("/api/github/login", "code=gh-auth-code");
     REQUIRE(resp != nullptr);
-    CHECK(statusIs(resp, drogon::k500InternalServerError));
+    // #70: the suffixed retry succeeds — the CONFLICTING account itself is
+    // still never adopted (no takeover), a NEW account is created instead.
+    CHECK(statusIs(resp, drogon::k200OK));
     Json::Value body;
     REQUIRE(parseJsonBody(resp, body));
-    CHECK(!body.isMember("access_token"));
+    CHECK(body.isMember("access_token"));
+    // One linked account exists, under a suffixed name (not the victim's).
+    CHECK(h.accountRepo->linked.size() == 1);
+    const auto &created = h.accountRepo->linked.begin()->second;
+    CHECK(created.username != "gh_gh-test-user");
+    CHECK(created.username.rfind("gh_gh-test-user_", 0) == 0);
 }
 
 // ===========================================================================

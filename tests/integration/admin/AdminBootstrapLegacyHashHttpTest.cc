@@ -65,8 +65,14 @@ class ScopedAdminRename
   public:
     explicit ScopedAdminRename(std::string backupName) : backup_(std::move(backupName))
     {
+        // Move BOTH the username and the email aside: the bootstrapper's
+        // insert carries admin@example.com, and the users email UNIQUE
+        // constraint would reject it while the (renamed) original still
+        // holds it — a genuinely fresh database has neither row.
         auto db = drogon::app().getDbClient();
-        db->execSqlSync("UPDATE users SET username = $1 WHERE username = 'admin'", backup_);
+        db->execSqlSync(
+          "UPDATE users SET username = $1, email = $2 WHERE username = 'admin'",
+          backup_, backup_ + "@example.test");
     }
     ~ScopedAdminRename()
     {
@@ -75,12 +81,11 @@ class ScopedAdminRename
             auto db = drogon::app().getDbClient();
             if (db)
             {
+                db->execSqlSync("DELETE FROM users WHERE username = 'admin'");
                 db->execSqlSync(
-                  "DELETE FROM users WHERE username = 'admin'"
-                );  // bootstrap-created row (cascade drops its mapping/roles)
-                db->execSqlSync(
-                  "UPDATE users SET username = 'admin' WHERE username = $1", backup_
-                );
+                  "UPDATE users SET username = 'admin', email = 'admin@example.com' "
+                  "WHERE username = $1",
+                  backup_);
             }
         }
     }
@@ -88,7 +93,10 @@ class ScopedAdminRename
     {
         auto db = drogon::app().getDbClient();
         db->execSqlSync("DELETE FROM users WHERE username = 'admin'");
-        db->execSqlSync("UPDATE users SET username = 'admin' WHERE username = $1", backup_);
+        db->execSqlSync(
+          "UPDATE users SET username = 'admin', email = 'admin@example.com' "
+          "WHERE username = $1",
+          backup_);
         restored_ = true;
     }
 

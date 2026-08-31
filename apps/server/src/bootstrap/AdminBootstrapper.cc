@@ -210,6 +210,11 @@ void ensureAdminUser(const RunPtr &run)
                   Users admin;
                   admin.setUsername("admin");
                   admin.setPasswordHash(passwordHash);
+                  // users.salt is NOT NULL: PBKDF2 embeds the salt in the
+                  // hash string, so the column carries the empty string
+                  // (same convention as every other creation path). Missing
+                  // this made the first-boot insert fail on the constraint.
+                  admin.setSalt("");
                   admin.setEmail("admin@example.com");
                   userMapper.insert(
                     admin,
