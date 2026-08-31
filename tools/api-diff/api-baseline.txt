@@ -1,6 +1,6 @@
 // api-diff baseline -- Fulla SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.0.0
+// version: 1.0.1
 === libs/common/include/fulla/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -1580,7 +1580,8 @@ fulla::identity::GitHubAuthService *gitHubAuthService_ = nullptr;
 void issueTokensForUser(
 const ::drogon::HttpRequestPtr &req,
 const CallbackPtr &callbackPtr,
-int64_t userId
+int64_t userId,
+const std::string& userPublicSub = ""
 );
 void exchangeCodeForToken(
 const ::drogon::HttpRequestPtr &req,
@@ -1619,6 +1620,7 @@ const std::string &subject
 === libs/drogon/include/fulla/drogon/controllers/GoogleController.h
 #pragma once
 #include <drogon/HttpController.h>
+class OAuth2Plugin;
 #ifdef WITH_SOCIAL
 namespace fulla::identity
 {
@@ -1642,6 +1644,8 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 private:
+OAuth2Plugin *plugin_ = nullptr;
+OAuth2Plugin *resolvePlugin() const;
 #ifdef WITH_SOCIAL
 fulla::identity::GoogleAuthService *googleAuthService_ = nullptr;
 #endif
@@ -1938,6 +1942,29 @@ OAuth2Plugin *plugin_ = nullptr;
 OAuth2Plugin *resolvePlugin() const;
 fulla::identity::AuthService *identityAuthService_ = nullptr;
 fulla::identity::SessionManager *sessionManager_ = nullptr;
+};
+}
+=== libs/drogon/include/fulla/drogon/controllers/SocialTokenIssuer.h
+#pragma once
+#include <drogon/drogon.h>
+#include <functional>
+#include <memory>
+#include <string>
+class OAuth2Plugin;
+namespace fulla::drogon::controllers
+{
+class SocialTokenIssuer
+{
+public:
+using CallbackPtr = std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>>;
+static void issueTokensForUser(
+const ::drogon::HttpRequestPtr &req,
+const CallbackPtr &callbackPtr,
+::OAuth2Plugin *plugin,
+const std::string &provider,
+int64_t internalUserId,
+const std::string &userPublicSub
+);
 };
 }
 === libs/drogon/include/fulla/drogon/controllers/TokenAdminController.h
@@ -2320,6 +2347,7 @@ static void initApiDocsImpl();
 === libs/drogon/include/fulla/drogon/controllers/WeChatController.h
 #pragma once
 #include <drogon/HttpController.h>
+class OAuth2Plugin;
 #ifdef WITH_SOCIAL
 namespace fulla::identity
 {
@@ -2343,6 +2371,8 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 private:
+OAuth2Plugin *plugin_ = nullptr;
+OAuth2Plugin *resolvePlugin() const;
 #ifdef WITH_SOCIAL
 fulla::identity::WeChatAuthService *weChatAuthService_ = nullptr;
 #endif
@@ -3554,6 +3584,8 @@ class AuthService
 {
 public:
 void setAllowLegacyHash(bool allow) ;
+void setLegacyHashRejectionNotifier(std::function<void(int32_t internalUserId)> notifier)
+;
 public:
 AuthService(
 std::shared_ptr<IUserRepository> userRepo,
@@ -3578,6 +3610,7 @@ std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
 std::shared_ptr<fulla::common::ports::IClock> clock_;
 private:
 bool allowLegacyHash_ = true;
+std::function<void(int32_t)> legacyHashRejectionNotifier_;
 };
 }
 === libs/identity/include/fulla/identity/IBackchannelLogoutNotifier.h
@@ -3703,11 +3736,13 @@ struct SocialAccountLookup
 {
 int32_t userId = 0;
 std::string username;
+std::string publicSub;
 };
 struct LinkNewSocialAccountResult
 {
 int32_t userId = 0;
 std::string username;
+std::string publicSub;
 };
 struct SocialLinkEntry
 {
@@ -4068,6 +4103,10 @@ struct GoogleLoginResult
 {
 std::string errorCode;
 GoogleUserInfo profile;
+int32_t userId = 0;
+std::string username;
+bool isNewUser = false;
+std::string publicSub;
 };
 class GoogleAuthService
 {
@@ -4078,12 +4117,17 @@ std::string clientId,
 std::string clientSecret,
 std::string redirectUri
 );
+void setAccountRepository(std::shared_ptr<ISocialAccountRepository> repo)
+;
+void setAutoCreate(bool allow) ;
 void login(const std::string &code, std::function<void(GoogleLoginResult)> &&callback);
 private:
 std::shared_ptr<IOAuthHttpClient> httpClient_;
 std::string clientId_;
 std::string clientSecret_;
 std::string redirectUri_;
+std::shared_ptr<ISocialAccountRepository> accountRepo_;
+bool autoCreate_ = true;
 };
 struct WeChatUserInfo
 {
@@ -4099,6 +4143,10 @@ struct WeChatLoginResult
 {
 std::string errorCode;
 WeChatUserInfo profile;
+int32_t userId = 0;
+std::string username;
+bool isNewUser = false;
+std::string publicSub;
 };
 class WeChatAuthService
 {
@@ -4108,11 +4156,16 @@ std::shared_ptr<IOAuthHttpClient> httpClient,
 std::string appId,
 std::string secret
 );
+void setAccountRepository(std::shared_ptr<ISocialAccountRepository> repo)
+;
+void setAutoCreate(bool allow) ;
 void login(const std::string &code, std::function<void(WeChatLoginResult)> &&callback);
 private:
 std::shared_ptr<IOAuthHttpClient> httpClient_;
 std::string appId_;
 std::string secret_;
+std::shared_ptr<ISocialAccountRepository> accountRepo_;
+bool autoCreate_ = true;
 };
 struct GitHubLoginResult
 {
@@ -4120,6 +4173,7 @@ std::string errorCode;
 int32_t userId = 0;
 std::string username;
 bool isNewUser = false;
+std::string publicSub;
 };
 struct GitHubProfileResult
 {
@@ -4137,6 +4191,7 @@ std::shared_ptr<ISocialAccountRepository> accountRepo,
 std::string clientId,
 std::string clientSecret
 );
+void setAutoCreate(bool allow) ;
 void login(const std::string &code, std::function<void(GitHubLoginResult)> &&callback);
 void fetchProfile(
 const std::string &code,
@@ -4147,6 +4202,7 @@ std::shared_ptr<IOAuthHttpClient> httpClient_;
 std::shared_ptr<ISocialAccountRepository> accountRepo_;
 std::string clientId_;
 std::string clientSecret_;
+bool autoCreate_ = true;
 };
 }
 #endif
@@ -4446,6 +4502,9 @@ bool failDelete = false;
 std::function<void()> onDeleteStart;
 bool failPasswordCheck = false;
 bool forceInsertConflict = false;
+std::unordered_map<int32_t, std::string> userPublicSubs;
+std::string publicSubFor(int32_t userId) const
+;
 static std::string key(const std::string &provider, const std::string &subject)
 ;
 void findLinkedUser(

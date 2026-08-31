@@ -47,6 +47,20 @@ const router = createRouter({
       name: 'github-callback',
       component: () => import('../pages/oauth/GitHubCallbackPage.vue'),
     },
+    // #70: Google/WeChat login callbacks — the generalized
+    // SocialCallbackPage with the provider carried in route meta.
+    {
+      path: '/callback/google',
+      name: 'google-callback',
+      component: () => import('../pages/oauth/SocialCallbackPage.vue'),
+      meta: { provider: 'google' },
+    },
+    {
+      path: '/callback/wechat',
+      name: 'wechat-callback',
+      component: () => import('../pages/oauth/SocialCallbackPage.vue'),
+      meta: { provider: 'wechat' },
+    },
     {
       path: '/consent',
       name: 'consent',

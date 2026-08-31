@@ -5,6 +5,8 @@
 
 #include <fulla/identity/SocialAuthService.h>
 
+#include "AccountLinkFlow.h"
+
 namespace fulla::identity
 {
 
@@ -45,6 +47,12 @@ void WeChatAuthService::login(
     auto httpClient = httpClient_;
     auto sharedCb = std::make_shared<std::function<void(WeChatLoginResult)>>(std::move(callback));
 
+    // #70: after the profile fetch, resolve-or-create the local account
+    // behind the WeChat identity (when a repository has been injected —
+    // the assembly path always injects one; profile-only otherwise).
+    auto accountRepo = accountRepo_;
+    const bool autoCreate = autoCreate_;
+
     // 1. Exchange code for access token -- WeChat's API is GET-with-query
     // params (no POST body, no Bearer header): see IOAuthHttpClient.h's
     // header comment for the rationale on why this uses
@@ -61,7 +69,7 @@ void WeChatAuthService::login(
                            "&grant_type=authorization_code";
 
     httpClient_
-      ->getWithBearerToken(tokenUrl, "", [httpClient, sharedCb](OAuthHttpResult tokenResp) {
+      ->getWithBearerToken(tokenUrl, "", [httpClient, sharedCb, accountRepo, autoCreate](OAuthHttpResult tokenResp) {
           if (!tokenResp.transportOk || tokenResp.statusCode != 200)
           {
               WeChatLoginResult result;
@@ -86,27 +94,65 @@ void WeChatAuthService::login(
             "https://api.weixin.qq.com/sns/userinfo?access_token=" + accessToken +
             "&openid=" + openid;
 
-          httpClient->getWithBearerToken(userInfoUrl, "", [sharedCb](OAuthHttpResult userResp) {
-              if (!userResp.transportOk)
-              {
-                  WeChatLoginResult result;
-                  result.errorCode = "NET_CONNECTION_FAILED";
-                  (*sharedCb)(std::move(result));
-                  return;
-              }
+          httpClient->getWithBearerToken(
+            userInfoUrl,
+            "",
+            [sharedCb, accountRepo, autoCreate](OAuthHttpResult userResp) {
+                if (!userResp.transportOk)
+                {
+                    WeChatLoginResult result;
+                    result.errorCode = "NET_CONNECTION_FAILED";
+                    (*sharedCb)(std::move(result));
+                    return;
+                }
 
-              // Filter response to only include necessary fields
-              // (security best practice) -- mirrors WeChatController.cc.
-              WeChatLoginResult result;
-              result.profile.openid = userResp.body.get("openid", "").asString();
-              result.profile.nickname = userResp.body.get("nickname", "").asString();
-              result.profile.headimgurl = userResp.body.get("headimgurl", "").asString();
-              result.profile.sex = userResp.body.get("sex", 0).asInt();
-              result.profile.city = userResp.body.get("city", "").asString();
-              result.profile.province = userResp.body.get("province", "").asString();
-              result.profile.country = userResp.body.get("country", "").asString();
-              (*sharedCb)(std::move(result));
-          });
+                // Filter response to only include necessary fields
+                // (security best practice) -- mirrors WeChatController.cc.
+                WeChatLoginResult result;
+                result.profile.openid = userResp.body.get("openid", "").asString();
+                result.profile.nickname = userResp.body.get("nickname", "").asString();
+                result.profile.headimgurl = userResp.body.get("headimgurl", "").asString();
+                result.profile.sex = userResp.body.get("sex", 0).asInt();
+                result.profile.city = userResp.body.get("city", "").asString();
+                result.profile.province = userResp.body.get("province", "").asString();
+                result.profile.country = userResp.body.get("country", "").asString();
+
+                if (!accountRepo)
+                {
+                    // Degraded (no repository injected): the pre-#70
+                    // profile-only shape.
+                    (*sharedCb)(std::move(result));
+                    return;
+                }
+
+                // #70: four-state account resolution (see
+                // AccountLinkFlow.h). Subject = WeChat `openid`; WeChat
+                // provides no email (empty, mirroring GitHub's handling).
+                const WeChatUserInfo profile = result.profile;
+                social_detail::resolveOrCreateAccount(
+                  accountRepo,
+                  autoCreate,
+                  "wechat",
+                  result.profile.openid,
+                  "wx_" + result.profile.openid.substr(0, 12),
+                  "",
+                  [sharedCb, profile](int32_t userId, const std::string &username, bool isNewUser, const std::string &publicSub) {
+                      WeChatLoginResult out;
+                      out.profile = profile;
+                      out.userId = userId;
+                      out.username = username;
+                      out.isNewUser = isNewUser;
+                      out.publicSub = publicSub;
+                      (*sharedCb)(std::move(out));
+                  },
+                  [sharedCb](std::string errorCode) {
+                      WeChatLoginResult out;
+                      out.errorCode = std::move(errorCode);
+                      (*sharedCb)(std::move(out));
+                  }
+                );
+            }
+          );
       });
 }
 

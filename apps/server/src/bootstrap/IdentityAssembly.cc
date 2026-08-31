@@ -222,6 +222,29 @@ void wireIdentityServices()
     static auto gitHubAuthService = std::make_shared<fulla::identity::GitHubAuthService>(
       oauthHttpClient, socialAccountRepo, githubClientId, githubClientSecret
     );
+    // #70: Google/WeChat get the same account-linking repository GitHub was
+    // constructed with (additive setter seam — their constructors and the
+    // SocialLinkService wiring below stay untouched), plus the global
+    // first-login auto-create gate. One switch for all three providers: a
+    // social policy, not a per-provider toggle.
+    {
+        bool autoCreate = true;  // default keeps GitHub's historical behavior
+        if (customConfig.isMember("external_auth") &&
+            customConfig["external_auth"].isMember("auto_create_on_first_login"))
+        {
+            autoCreate =
+              customConfig["external_auth"]["auto_create_on_first_login"].asBool();
+        }
+        googleAuthService->setAccountRepository(socialAccountRepo);
+        googleAuthService->setAutoCreate(autoCreate);
+        weChatAuthService->setAccountRepository(socialAccountRepo);
+        weChatAuthService->setAutoCreate(autoCreate);
+        gitHubAuthService->setAutoCreate(autoCreate);
+        if (!autoCreate)
+            LOG_INFO << "IdentityAssembly: social first-login auto-create disabled "
+                        "(external_auth.auto_create_on_first_login=false; unlinked "
+                        "provider logins will answer AUTH_SOCIAL_ACCOUNT_NOT_LINKED)";
+    }
     // B2 social link/unlink: the same provider services + mapping repository
     // back the self-service /api/me/social/links* routes. Process-lifetime
     // static (same contract as the services above) so the raw pointer handed

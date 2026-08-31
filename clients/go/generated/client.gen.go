@@ -540,6 +540,16 @@ type SocialLinksList struct {
 	Total       int               `json:"total"`
 }
 
+// SocialLoginTokenResponse First-party token pair issued by a social login endpoint (/api/{github,google,wechat}/login) once the provider identity is linked to a local account (or auto-created on first login). Issued for the configured first-party client (external_auth.social_token_client_id, default vue-client) with scope "openid profile email". Recorded as a SOCIAL_LOGIN_TOKEN_ISSUED audit event (NOT a consent row) — an explicit social-consent interaction is a registered follow-up.
+type SocialLoginTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+
+	// TokenType Always "Bearer".
+	TokenType string `json:"token_type"`
+}
+
 // TokenRequest RFC 6749 §4.1.3 token request (form-encoded). Field requirements are grant-dependent: authorization_code needs code (+ redirect_uri + code_verifier when PKCE was used); refresh_token needs refresh_token; client_credentials may send scope; device_code needs device_code. Client auth follows the client's registered token_endpoint_auth_method (F-017): client_secret_basic (default) -> HTTP Basic ONLY; client_secret_post -> these form fields ONLY; 'none' (PUBLIC) -> client_id only, secrets rejected.
 type TokenRequest struct {
 	// ClientId Client identifier (alternative to HTTP Basic authentication).
@@ -9683,23 +9693,11 @@ type PostApiGithubLoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *struct {
-		AvatarUrl *string `json:"avatar_url,omitempty"`
-		Email     *string `json:"email,omitempty"`
-		Id        *int    `json:"id,omitempty"`
-		Login     *string `json:"login,omitempty"`
-		Name      *string `json:"name,omitempty"`
-	}
+	JSON200 *SocialLoginTokenResponse
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r PostApiGithubLoginResponse) GetJSON200() *struct {
-	AvatarUrl *string `json:"avatar_url,omitempty"`
-	Email     *string `json:"email,omitempty"`
-	Id        *int    `json:"id,omitempty"`
-	Login     *string `json:"login,omitempty"`
-	Name      *string `json:"name,omitempty"`
-} {
+func (r PostApiGithubLoginResponse) GetJSON200() *SocialLoginTokenResponse {
 	return r.JSON200
 }
 
@@ -9735,6 +9733,13 @@ func (r PostApiGithubLoginResponse) ContentType() string {
 type PostApiGoogleLoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SocialLoginTokenResponse
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiGoogleLoginResponse) GetJSON200() *SocialLoginTokenResponse {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -10679,6 +10684,13 @@ func (r PostApiVerifyEmailResendResponse) ContentType() string {
 type PostApiWechatLoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SocialLoginTokenResponse
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostApiWechatLoginResponse) GetJSON200() *SocialLoginTokenResponse {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -14220,19 +14232,16 @@ func ParsePostApiGithubLoginResponse(rsp *http.Response) (*PostApiGithubLoginRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			AvatarUrl *string `json:"avatar_url,omitempty"`
-			Email     *string `json:"email,omitempty"`
-			Id        *int    `json:"id,omitempty"`
-			Login     *string `json:"login,omitempty"`
-			Name      *string `json:"name,omitempty"`
-		}
+		var dest SocialLoginTokenResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
 
 	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
 		break // No content-type
 
 	case rsp.StatusCode == 502:
@@ -14254,6 +14263,22 @@ func ParsePostApiGoogleLoginResponse(rsp *http.Response) (*PostApiGoogleLoginRes
 	response := &PostApiGoogleLoginResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SocialLoginTokenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -14824,6 +14849,22 @@ func ParsePostApiWechatLoginResponse(rsp *http.Response) (*PostApiWechatLoginRes
 	response := &PostApiWechatLoginResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SocialLoginTokenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
 	}
 
 	return response, nil

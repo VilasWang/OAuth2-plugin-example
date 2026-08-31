@@ -96,11 +96,14 @@ class GitHubController : public ::drogon::HttpController<GitHubController, false
     // across Memory/Postgres/Redis), then emit the JSON token response via
     // @p callbackPtr. Shared by both the WITH_SOCIAL path
     // (GitHubAuthService yields a userId) and the fallback path (raw HttpClient
-    // + DB find-or-create).
+    // + DB find-or-create). #70: token rows store the PLATFORM SUBJECT
+    // (users.public_sub), passed by every call site; an empty userPublicSub
+    // fails closed (no token is minted against an unresolvable subject).
     void issueTokensForUser(
       const ::drogon::HttpRequestPtr &req,
       const CallbackPtr &callbackPtr,
-      int64_t userId
+      int64_t userId,
+      const std::string& userPublicSub = ""
     );
 
     // ---- fallback (pre-Task-24) path step helpers ---------------------------

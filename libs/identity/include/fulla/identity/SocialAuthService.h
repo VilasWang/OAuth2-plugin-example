@@ -83,9 +83,21 @@ struct GoogleLoginResult
     // ErrorResponder calls verbatim: "NET_CONNECTION_FAILED" (token
     // exchange or userinfo fetch could not be contacted / did not return
     // HTTP 200) or "VALIDATION_INVALID_INPUT" (token response missing
-    // access_token).
+    // access_token). #70 adds "AUTH_SOCIAL_ACCOUNT_NOT_LINKED" (no
+    // mapping and auto-create disabled) and "AUTH_INVALID_CREDENTIALS"
+    // (linked account soft-deleted/locked) and "VALIDATION_USERNAME_TAKEN"
+    // (username collision exhausted the retry) for the account-linked
+    // path.
     std::string errorCode;
     GoogleUserInfo profile;
+    // #70 account-linking fields — populated only when an
+    // ISocialAccountRepository has been injected (setAccountRepository).
+    // userId/publicSub empty = profile-only (degraded) result; callers
+    // keep the legacy profile-response behavior for that case.
+    int32_t userId = 0;      // Internal user id (existing or newly created).
+    std::string username;    // Local username (existing, or "google_" + sub prefix).
+    bool isNewUser = false;  // True iff a new local account was created by this call.
+    std::string publicSub;   // Platform subject (UUID) — what token rows must store.
 };
 
 /**
@@ -110,6 +122,24 @@ class GoogleAuthService
       std::string redirectUri
     );
 
+    // #70 account-linking seam (additive): with a repository injected,
+    // login() additionally resolves-or-creates the local account behind
+    // the Google identity (GitHub's four-state flow) and populates
+    // userId/username/isNewUser/publicSub on the result. Without one the
+    // service keeps its profile-only behavior (assembly always injects
+    // when built with WITH_SOCIAL and DB storage; the profile-only shape
+    // remains for direct construction/tests).
+    void setAccountRepository(std::shared_ptr<ISocialAccountRepository> repo)
+    {
+        accountRepo_ = std::move(repo);
+    }
+
+    // #70: gate for first-login auto account creation (assembly-level
+    // global switch external_auth.auto_create_on_first_login, default
+    // true). When false, a NoMapping lookup ends with
+    // AUTH_SOCIAL_ACCOUNT_NOT_LINKED instead of creating an account.
+    void setAutoCreate(bool allow) { autoCreate_ = allow; }
+
     /**
      * @brief Exchange an authorization code for Google userinfo.
      * @param code Authorization code from Google's OAuth2 callback
@@ -126,6 +156,8 @@ class GoogleAuthService
     std::string clientId_;
     std::string clientSecret_;
     std::string redirectUri_;
+    std::shared_ptr<ISocialAccountRepository> accountRepo_;
+    bool autoCreate_ = true;
 };
 
 // ---------------------------------------------------------------------
@@ -158,9 +190,16 @@ struct WeChatLoginResult
     // "NET_CONNECTION_FAILED" (token exchange or userinfo fetch could
     // not be contacted / did not return HTTP 200) or
     // "VALIDATION_INVALID_INPUT" (WeChat returned a non-zero errcode
-    // during token exchange).
+    // during token exchange). #70 account-linking codes as documented on
+    // GoogleLoginResult.
     std::string errorCode;
     WeChatUserInfo profile;
+    // #70 account-linking fields — see GoogleLoginResult's counterpart
+    // comment (populated only with an injected repository).
+    int32_t userId = 0;
+    std::string username;    // "wx_" + openid prefix for new accounts.
+    bool isNewUser = false;
+    std::string publicSub;
 };
 
 /**
@@ -185,6 +224,16 @@ class WeChatAuthService
       std::string secret
     );
 
+    // #70 account-linking seam — see GoogleAuthService's counterpart
+    // comments (same semantics; new-account usernames are "wx_" + the
+    // openid's first 12 characters).
+    void setAccountRepository(std::shared_ptr<ISocialAccountRepository> repo)
+    {
+        accountRepo_ = std::move(repo);
+    }
+
+    void setAutoCreate(bool allow) { autoCreate_ = allow; }
+
     /**
      * @brief Exchange an authorization code for WeChat userinfo.
      * @param code Authorization code from WeChat's OAuth2 callback.
@@ -197,6 +246,8 @@ class WeChatAuthService
     std::shared_ptr<IOAuthHttpClient> httpClient_;
     std::string appId_;
     std::string secret_;
+    std::shared_ptr<ISocialAccountRepository> accountRepo_;
+    bool autoCreate_ = true;
 };
 
 // ---------------------------------------------------------------------
@@ -222,6 +273,7 @@ struct GitHubLoginResult
     int32_t userId = 0;      // Internal user id (existing or newly created).
     std::string username;    // Local username (existing, or "gh_" + github login for new accounts).
     bool isNewUser = false;  // True iff a new local account was created by this call.
+    std::string publicSub;   // #70: platform subject (UUID) — what token rows must store.
 };
 
 /**
@@ -263,6 +315,13 @@ class GitHubAuthService
       std::string clientSecret
     );
 
+    // #70: gate for first-login auto account creation — the same global
+    // external_auth.auto_create_on_first_login switch as Google/WeChat
+    // (one social policy, no per-provider asymmetry). When false, a
+    // NoMapping lookup ends with AUTH_SOCIAL_ACCOUNT_NOT_LINKED instead
+    // of creating an account; ALREADY-LINKED users are unaffected.
+    void setAutoCreate(bool allow) { autoCreate_ = allow; }
+
     /**
      * @brief Exchange an authorization code for a GitHub profile, then
      * find or create the linked local account.
@@ -292,6 +351,7 @@ class GitHubAuthService
     std::shared_ptr<ISocialAccountRepository> accountRepo_;
     std::string clientId_;
     std::string clientSecret_;
+    bool autoCreate_ = true;
 };
 
 }  // namespace fulla::identity

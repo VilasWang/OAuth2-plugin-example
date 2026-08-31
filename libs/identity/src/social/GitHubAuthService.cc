@@ -7,6 +7,8 @@
 
 #include <fulla/identity/SocialAuthService.h>
 
+#include "AccountLinkFlow.h"
+
 namespace fulla::identity
 {
 
@@ -116,13 +118,14 @@ void GitHubAuthService::login(
     }
 
     auto accountRepo = accountRepo_;
+    const bool autoCreate = autoCreate_;
     auto sharedCb = std::make_shared<std::function<void(GitHubLoginResult)>>(std::move(callback));
 
     // Steps 1-2 (code exchange + userinfo fetch) are shared with
     // fetchProfile -- one implementation of the provider protocol, two
     // consumers (login = fetchProfile + find-or-create; link =
     // fetchProfile only).
-    fetchProfile(code, [accountRepo, sharedCb](GitHubProfileResult profile) {
+    fetchProfile(code, [accountRepo, autoCreate, sharedCb](GitHubProfileResult profile) {
         if (!profile.errorCode.empty())
         {
             GitHubLoginResult result;
@@ -131,80 +134,29 @@ void GitHubAuthService::login(
             return;
         }
 
-        // Step 3: Find or create local user linked to this GitHub
-        // account.
-        std::string provider = "github";
-        std::string subject = std::to_string(profile.githubId);
-
-        accountRepo->findLinkedUser(
-          provider,
-          subject,
-          [accountRepo, sharedCb, provider, subject, profile](
-            SocialLinkStatus status, const SocialAccountLookup &existing
-          ) {
-              switch (status)
-              {
-              case SocialLinkStatus::Linked:
-              {
-                  GitHubLoginResult result;
-                  result.userId = existing.userId;
-                  result.username = existing.username;
-                  result.isNewUser = false;
-                  (*sharedCb)(std::move(result));
-                  return;
-              }
-              case SocialLinkStatus::AccountUnavailable:
-              {
-                  // #54 (V024 contract): the linked local user is
-                  // soft-deleted or locked — reject with the same
-                  // generic auth error the password path uses, so the
-                  // response leaks no account-status information.
-                  GitHubLoginResult result;
-                  result.errorCode = "AUTH_INVALID_CREDENTIALS";
-                  (*sharedCb)(std::move(result));
-                  return;
-              }
-              case SocialLinkStatus::RepositoryError:
-              {
-                  // DB failure must NOT fall through to account
-                  // creation (the old optional<nullopt> contract
-                  // conflated this with "no mapping yet").
-                  GitHubLoginResult result;
-                  result.errorCode = "DB_QUERY_ERROR";
-                  (*sharedCb)(std::move(result));
-                  return;
-              }
-              case SocialLinkStatus::NoMapping:
-                  break;
-              }
-
-              // New GitHub user -- create local account + link +
-              // default role (repository-owned, mirrors
-              // GitHubController.cc's INSERT users / INSERT
-              // oauth2_subject_mappings / INSERT user_roles
-              // sequence).
-              std::string username = "gh_" + profile.login;
-              accountRepo->createLinkedUser(
-                provider,
-                subject,
-                username,
-                profile.email,
-                [sharedCb](std::optional<LinkNewSocialAccountResult> created) {
-                    if (!created)
-                    {
-                        GitHubLoginResult result;
-                        result.errorCode = "DB_QUERY_ERROR";
-                        (*sharedCb)(std::move(result));
-                        return;
-                    }
-
-                    GitHubLoginResult result;
-                    result.userId = created->userId;
-                    result.username = created->username;
-                    result.isNewUser = true;
-                    (*sharedCb)(std::move(result));
-                }
-              );
+        // Step 3: Find or create local user linked to this GitHub account
+        // (#70: the four-state flow, the auto-create gate, and the
+        // username-collision retry now live in the provider-agnostic
+        // AccountLinkFlow helper shared with Google/WeChat).
+        social_detail::resolveOrCreateAccount(
+          accountRepo,
+          autoCreate,
+          "github",
+          std::to_string(profile.githubId),
+          "gh_" + profile.login,
+          profile.email,
+          [sharedCb](int32_t userId, const std::string &username, bool isNewUser, const std::string &publicSub) {
+              GitHubLoginResult result;
+              result.userId = userId;
+              result.username = username;
+              result.isNewUser = isNewUser;
+              result.publicSub = publicSub;
+              (*sharedCb)(std::move(result));
+          },
+          [sharedCb](std::string errorCode) {
+              GitHubLoginResult result;
+              result.errorCode = std::move(errorCode);
+              (*sharedCb)(std::move(result));
           }
         );
     });

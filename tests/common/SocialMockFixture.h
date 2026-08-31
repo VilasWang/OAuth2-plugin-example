@@ -74,6 +74,11 @@ using fulla::identity::testing::FakeSocialAccountRepository;
 // singleton. Credentials are arbitrary (the fake does not validate them); the
 // test seeds the fake's response queues.
 //
+// #70: the service gets a FakeSocialAccountRepository so login() runs the
+// full account-linking four-state flow (auto-create on NoMapping). Return
+// the repo so tests can pre-seed linked accounts or flip auto-create off
+// via the returned service's setAutoCreate().
+//
 // Implementation note: the service is rebuilt fresh on every call (so each
 // test case gets a clean FakeOAuthHttpClient with its own response queues),
 // and stored in a process-lifetime `static vector<shared_ptr<...>>` so the
@@ -81,32 +86,53 @@ using fulla::identity::testing::FakeSocialAccountRepository;
 // (DROGON_TEST case order is not source order; a stack-local or single
 // `static auto svc` would either dangle or reuse a stale bound http object
 // across cases -- both cause use-after-free / wrong-fake bugs).
-inline std::shared_ptr<FakeOAuthHttpClient> injectGoogleFake()
+struct GoogleFakeHandle
 {
-    auto http = std::make_shared<FakeOAuthHttpClient>();
-    auto svc = std::make_shared<fulla::identity::GoogleAuthService>(
-      http, "test-client-id", "test-client-secret", "https://example.test/cb");
+    std::shared_ptr<FakeOAuthHttpClient> http;
+    std::shared_ptr<FakeSocialAccountRepository> accountRepo;
+    std::shared_ptr<fulla::identity::GoogleAuthService> service;
+};
+
+inline GoogleFakeHandle injectGoogleFake()
+{
+    GoogleFakeHandle h;
+    h.http = std::make_shared<FakeOAuthHttpClient>();
+    h.accountRepo = std::make_shared<FakeSocialAccountRepository>();
+    h.service = std::make_shared<fulla::identity::GoogleAuthService>(
+      h.http, "test-client-id", "test-client-secret", "https://example.test/cb");
+    h.service->setAccountRepository(h.accountRepo);
     static std::vector<std::shared_ptr<fulla::identity::GoogleAuthService>> keepAlive;
-    keepAlive.push_back(svc);
+    keepAlive.push_back(h.service);
     auto ctrl = ::drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::GoogleController>();
     if (ctrl)
-        ctrl->setGoogleAuthService(svc.get());
-    return http;
+        ctrl->setGoogleAuthService(h.service.get());
+    return h;
 }
 
-// Install a WeChatAuthService backed by `http` onto the WeChatController singleton.
-// Same process-lifetime keepAlive pattern as injectGoogleFake (see comment there).
-inline std::shared_ptr<FakeOAuthHttpClient> injectWeChatFake()
+// Install a WeChatAuthService backed by `http` onto the WeChatController
+// singleton. #70: same FakeSocialAccountRepository wiring as Google (see
+// injectGoogleFake). Same process-lifetime keepAlive pattern.
+struct WeChatFakeHandle
 {
-    auto http = std::make_shared<FakeOAuthHttpClient>();
-    auto svc = std::make_shared<fulla::identity::WeChatAuthService>(
-      http, "test-appid", "test-secret");
+    std::shared_ptr<FakeOAuthHttpClient> http;
+    std::shared_ptr<FakeSocialAccountRepository> accountRepo;
+    std::shared_ptr<fulla::identity::WeChatAuthService> service;
+};
+
+inline WeChatFakeHandle injectWeChatFake()
+{
+    WeChatFakeHandle h;
+    h.http = std::make_shared<FakeOAuthHttpClient>();
+    h.accountRepo = std::make_shared<FakeSocialAccountRepository>();
+    h.service = std::make_shared<fulla::identity::WeChatAuthService>(
+      h.http, "test-appid", "test-secret");
+    h.service->setAccountRepository(h.accountRepo);
     static std::vector<std::shared_ptr<fulla::identity::WeChatAuthService>> keepAlive;
-    keepAlive.push_back(svc);
+    keepAlive.push_back(h.service);
     auto ctrl = ::drogon::DrClassMap::getSingleInstance<fulla::drogon::controllers::WeChatController>();
     if (ctrl)
-        ctrl->setWeChatAuthService(svc.get());
-    return http;
+        ctrl->setWeChatAuthService(h.service.get());
+    return h;
 }
 
 // Install a GitHubAuthService backed by `http` + `accountRepo` onto the

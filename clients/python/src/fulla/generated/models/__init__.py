@@ -41,7 +41,6 @@ from .post_api_admin_organizations_response_200 import PostApiAdminOrganizations
 from .post_api_admin_roles_body import PostApiAdminRolesBody
 from .post_api_admin_scopes_body import PostApiAdminScopesBody
 from .post_api_admin_users_body import PostApiAdminUsersBody
-from .post_api_github_login_response_200 import PostApiGithubLoginResponse200
 from .post_api_me_mfa_disable_body import PostApiMeMfaDisableBody
 from .post_api_me_mfa_setup_body import PostApiMeMfaSetupBody
 from .post_api_me_mfa_setup_response_200 import PostApiMeMfaSetupResponse200
@@ -70,6 +69,7 @@ from .social_link_entry_provider import SocialLinkEntryProvider
 from .social_link_result import SocialLinkResult
 from .social_link_result_provider import SocialLinkResultProvider
 from .social_links_list import SocialLinksList
+from .social_login_token_response import SocialLoginTokenResponse
 from .token_request import TokenRequest
 from .token_request_grant_type import TokenRequestGrantType
 from .token_response import TokenResponse
@@ -115,7 +115,6 @@ __all__ = (
     "PostApiAdminRolesBody",
     "PostApiAdminScopesBody",
     "PostApiAdminUsersBody",
-    "PostApiGithubLoginResponse200",
     "PostApiMeMfaDisableBody",
     "PostApiMeMfaSetupBody",
     "PostApiMeMfaSetupResponse200",
@@ -144,6 +143,7 @@ __all__ = (
     "SocialLinkResult",
     "SocialLinkResultProvider",
     "SocialLinksList",
+    "SocialLoginTokenResponse",
     "TokenRequest",
     "TokenRequestGrantType",
     "TokenResponse",

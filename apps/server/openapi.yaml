@@ -119,6 +119,33 @@ components:
       - token_type
       - expires_in
       type: object
+    SocialLoginTokenResponse:
+      description: >-
+        First-party token pair issued by a social login endpoint
+        (/api/{github,google,wechat}/login) once the provider identity is
+        linked to a local account (or auto-created on first login). Issued
+        for the configured first-party client
+        (external_auth.social_token_client_id, default vue-client) with
+        scope "openid profile email". Recorded as a SOCIAL_LOGIN_TOKEN_ISSUED
+        audit event (NOT a consent row) — an explicit social-consent
+        interaction is a registered follow-up.
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          description: Always "Bearer".
+        expires_in:
+          type: integer
+          format: int64
+        refresh_token:
+          type: string
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - refresh_token
+      type: object
     IntrospectionResponse:
       description: >-
         RFC 7662 introspection body. Inactive tokens return {"active": false}
@@ -1818,21 +1845,12 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  avatar_url:
-                    type: string
-                  email:
-                    type: string
-                  id:
-                    type: integer
-                  login:
-                    type: string
-                  name:
-                    type: string
-                type: object
-          description: GitHub user info retrieved successfully
+                $ref: '#/components/schemas/SocialLoginTokenResponse'
+          description: First-party token pair issued for the GitHub-linked local account. (Spec correction #70 - the previously documented profile object was stale; the runtime has returned tokens since the account-linking flow landed.)
         '400':
           description: Invalid request (missing or invalid code)
+        '403':
+          description: Provider identity is not linked to a local account and first-login auto-create is disabled (AUTH_SOCIAL_ACCOUNT_NOT_LINKED)
         '502':
           description: Failed to contact GitHub API
       summary: GitHub OAuth2 Login
@@ -1856,17 +1874,21 @@ paths:
           content:
             application/json:
               example:
-                email: john.doe@gmail.com
-                name: John Doe
-                picture: https://lh3.googleusercontent.com/...
-                sub: '123456789012345678901'
-          description: Google user info retrieved successfully
+                access_token: eyJhbGciOi...
+                expires_in: 3600
+                refresh_token: eyJhbGciOi...
+                token_type: Bearer
+              schema:
+                $ref: '#/components/schemas/SocialLoginTokenResponse'
+          description: First-party token pair issued for the Google-linked local account (the pre-#70 profile-only object is still returned when the service runs without an account repository - degraded mode, not the deployed configuration)
         '400':
           content:
             application/json:
               example:
                 error: Missing code parameter
           description: Invalid request (missing or invalid code)
+        '403':
+          description: Provider identity is not linked to a local account and first-login auto-create is disabled (AUTH_SOCIAL_ACCOUNT_NOT_LINKED)
         '502':
           description: Failed to contact Google API
       summary: Google OAuth2 Login
@@ -2475,16 +2497,21 @@ paths:
           content:
             application/json:
               example:
-                headimgurl: https://thirdwx.qlogo.cn/...
-                nickname: WeChat User
-                openid: oXXXXXXXXXXXXXXXXXXXXXXXXXX
-          description: WeChat user info retrieved successfully
+                access_token: eyJhbGciOi...
+                expires_in: 3600
+                refresh_token: eyJhbGciOi...
+                token_type: Bearer
+              schema:
+                $ref: '#/components/schemas/SocialLoginTokenResponse'
+          description: First-party token pair issued for the WeChat-linked local account (the pre-#70 profile-only object is still returned when the service runs without an account repository - degraded mode, not the deployed configuration)
         '400':
           content:
             application/json:
               example:
                 error: Missing code parameter
           description: Invalid request (missing or invalid code)
+        '403':
+          description: Provider identity is not linked to a local account and first-login auto-create is disabled (AUTH_SOCIAL_ACCOUNT_NOT_LINKED)
         '502':
           description: Failed to contact WeChat API
       summary: WeChat OAuth2 Login

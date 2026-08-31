@@ -126,4 +126,37 @@ test.describe('Connected Accounts (social links)', () => {
     await expect(page.getByText('Please sign in first', { exact: false })).toBeVisible()
     await expect(page).toHaveURL(/\/callback\/github/)
   })
+
+  // #70: the generalized google callback completes a LOGIN flow — the token
+  // response is stored and the user lands on the home page.
+  test('google callback page completes login with the issued token pair', async ({ page }) => {
+    await setupMocks(page)
+    await page.route('**/api/google/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: 'e2e-google-access',
+          refresh_token: 'e2e-google-refresh',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        }),
+      })
+    })
+    // auth.fetchUser() after setTokens
+    await page.route('**/api/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 1, username: 'google_e2e', email: 'g@example.test' }),
+      })
+    })
+
+    await page.goto('/callback/google?code=e2e-google-code')
+    await page.waitForTimeout(1000)
+
+    expect(localStorage.getItem('access_token')).toBe('e2e-google-access')
+    expect(localStorage.getItem('refresh_token')).toBe('e2e-google-refresh')
+    await expect(page).toHaveURL(/\/$/)
+  })
 })

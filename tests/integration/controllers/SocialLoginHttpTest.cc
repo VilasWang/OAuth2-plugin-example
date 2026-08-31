@@ -15,12 +15,11 @@
 // `if(service_)` injection branch, response re-filtering into JSON, and the
 // ErrorResponder error-envelope path with HTTP status codes).
 //
-// Storage: these run in EVERY CI leg (memory-mode included). The injected
-// Google/WeChat paths do NO DB writes (they only filter the service result
-// into JSON). GitHub's injected path calls issueTokensForUser on SUCCESS --
-// which under memory mode assert-crashes the process (review B1) -- so GitHub
-// cases here configure the fake to return ERRORS only (no success queue). No
-// postgresAvailable() guard needed for the error-only paths.
+// Storage: these run in EVERY CI leg (memory-mode included). Since #70 the
+// injected Google/WeChat services carry a FakeSocialAccountRepository and run
+// the full account-linking flow; token issuance goes through
+// SocialTokenIssuer -> plugin->saveTokenPair (MemoryTokenRepository in memory
+// mode), so the happy paths stay DB-free and testable everywhere.
 
 #include <drogon/drogon_test.h>
 #include <drogon/drogon.h>
@@ -66,37 +65,63 @@ using fulla::test::social::injectSocialLinkFake;
 // Google (/api/google/login)
 // ===========================================================================
 
-// Happy path: fake token exchange + userinfo, controller re-filters to
-// {sub,name,email,picture} and drops extra fields. Covers the injected-path
-// success branch + the controller's JSON response shaping.
-DROGON_TEST(Integration_P0_GoogleLogin_FakeExchange_ReturnsFilteredProfile)
+// #70 happy path: fake token exchange + userinfo + account auto-create in the
+// FakeSocialAccountRepository -> first-party token pair (access/refresh),
+// same shape as GitHub's.
+DROGON_TEST(Integration_P0_GoogleLogin_FakeExchange_ReturnsTokens)
 {
     SOCIAL_SKIP_GUARD;
 
-    auto http = injectGoogleFake();
+    auto h = injectGoogleFake();
     Json::Value tokenBody;
     tokenBody["access_token"] = "gtok-test";
-    http->postFormResponses.push_back(
+    h.http->postFormResponses.push_back(
       fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["sub"] = "g-123";
     userBody["name"] = "Test User";
     userBody["email"] = "test@example.com";
     userBody["picture"] = "https://example.test/pic.png";
-    userBody["extra_field_should_be_dropped"] = "secret";
-    http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/google/login", "code=test-auth-code");
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k200OK));
     Json::Value body;
     REQUIRE(parseJsonBody(resp, body));
-    CHECK(body["sub"].asString() == "g-123");
-    CHECK(body["name"].asString() == "Test User");
-    CHECK(body["email"].asString() == "test@example.com");
-    CHECK(body["picture"].asString() == "https://example.test/pic.png");
-    // The controller's filter drops any field not in {sub,name,email,picture}.
-    CHECK(!body.isMember("extra_field_should_be_dropped"));
+    CHECK(body.isMember("access_token"));
+    CHECK(body.isMember("refresh_token"));
+    CHECK(body["token_type"].asString() == "Bearer");
+    CHECK(body.isMember("expires_in"));
+    // The account was auto-created and linked in the fake repo.
+    CHECK(h.accountRepo->linked.count(
+            fulla::identity::testing::FakeSocialAccountRepository::key("google", "g-123")) == 1);
+}
+
+// #70: auto-create disabled -> 403 AUTH_SOCIAL_ACCOUNT_NOT_LINKED, and no
+// account was created (no side effects).
+DROGON_TEST(Integration_P0_GoogleLogin_AutoCreateDisabled_Returns403)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectGoogleFake();
+    h.service->setAutoCreate(false);
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gtok-test";
+    h.http->postFormResponses.push_back(
+      fulla::identity::testing::okJson(tokenBody));
+    Json::Value userBody;
+    userBody["sub"] = "g-403x";
+    userBody["email"] = "x@example.test";
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/google/login", "code=test-auth-code");
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k403Forbidden));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(!body.isMember("access_token"));
+    CHECK(h.accountRepo->linked.empty());
 }
 
 // Missing code -> 400 VALIDATION_MISSING_REQUIRED_FIELD (controller's own
@@ -121,8 +146,8 @@ DROGON_TEST(Integration_P1_GoogleLogin_TransportFailure_Returns502)
 {
     SOCIAL_SKIP_GUARD;
 
-    auto http = injectGoogleFake();
-    http->postFormResponses.push_back(fulla::identity::testing::transportFailure());
+    auto h = injectGoogleFake();
+    h.http->postFormResponses.push_back(fulla::identity::testing::transportFailure());
 
     auto resp = sendPostForm("/api/google/login", "code=test-auth-code");
     REQUIRE(resp != nullptr);
@@ -134,40 +159,94 @@ DROGON_TEST(Integration_P1_GoogleLogin_TransportFailure_Returns502)
 // WeChat (/api/wechat/login)
 // ===========================================================================
 
-// Happy path: fake access_token response + userinfo, controller re-filters to
-// {openid, nickname, headimgurl, sex, city, province, country}.
-DROGON_TEST(Integration_P0_WeChatLogin_FakeExchange_ReturnsFilteredProfile)
+// #70 happy path: fake exchange + userinfo + auto-create -> token pair.
+DROGON_TEST(Integration_P0_WeChatLogin_FakeExchange_ReturnsTokens)
 {
     SOCIAL_SKIP_GUARD;
 
-    auto http = injectWeChatFake();
+    auto h = injectWeChatFake();
     Json::Value tokenBody;
     tokenBody["access_token"] = "wtok-test";
     tokenBody["openid"] = "wx-openid-1";
-    http->getResponses.push_back(fulla::identity::testing::okJson(tokenBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(tokenBody));
     Json::Value userBody;
     userBody["openid"] = "wx-openid-1";
     userBody["nickname"] = "WX User";
-    userBody["headimgurl"] = "https://example.test/wx.png";
-    userBody["sex"] = 1;
-    userBody["city"] = "Shanghai";
-    userBody["province"] = "Shanghai";
-    userBody["country"] = "CN";
-    userBody["privilege_should_be_dropped"] = "x";
-    http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
 
     auto resp = sendPostForm("/api/wechat/login", "code=wx-auth-code");
     REQUIRE(resp != nullptr);
     CHECK(statusIs(resp, drogon::k200OK));
     Json::Value body;
     REQUIRE(parseJsonBody(resp, body));
-    CHECK(body["openid"].asString() == "wx-openid-1");
-    CHECK(body["nickname"].asString() == "WX User");
-    CHECK(body.isMember("headimgurl"));
+    CHECK(body.isMember("access_token"));
+    CHECK(body.isMember("refresh_token"));
+    CHECK(h.accountRepo->linked.count(
+            fulla::identity::testing::FakeSocialAccountRepository::key("wechat", "wx-openid-1")) == 1);
 }
 
-// Missing code -> 400. Body must not contain the "code=" substring (same
-// parser quirk as Google's missing-code case above).
+// #70: an already-linked WeChat identity (existing user) -> tokens, no
+// account creation (the linked map stays at the single pre-seeded entry).
+DROGON_TEST(Integration_P0_WeChatLogin_LinkedUser_ReturnsTokens)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectWeChatFake();
+    fulla::identity::SocialAccountLookup seeded;
+    seeded.userId = 4242;
+    seeded.username = "wx_existing";
+    seeded.publicSub = "sub-4242";
+    h.accountRepo->linked[
+      fulla::identity::testing::FakeSocialAccountRepository::key("wechat", "wx-linked-1")] = seeded;
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "wtok-2";
+    tokenBody["openid"] = "wx-linked-1";
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(tokenBody));
+    Json::Value userBody;
+    userBody["openid"] = "wx-linked-1";
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/wechat/login", "code=wx-auth-code");
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k200OK));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body.isMember("access_token"));
+    CHECK(h.accountRepo->linked.size() == 1);
+}
+
+// #70: derived username collision -> ONE retry with a random suffix, then
+// success (the repository logs the conflict; the user is not lost to a bare
+// DB_QUERY_ERROR).
+DROGON_TEST(Integration_P0_GoogleLogin_UsernameCollision_RetriesWithSuffix)
+{
+    SOCIAL_SKIP_GUARD;
+
+    auto h = injectGoogleFake();
+    // "google_g_collide1" is derived from sub "g-collide1" (first 12 chars);
+    // the first create attempt fails on the conflicting username, the retry
+    // (suffixed) succeeds.
+    h.accountRepo->conflictingUsernames.insert("google_g-collide1");
+    Json::Value tokenBody;
+    tokenBody["access_token"] = "gtok-c";
+    h.http->postFormResponses.push_back(fulla::identity::testing::okJson(tokenBody));
+    Json::Value userBody;
+    userBody["sub"] = "g-collide1";
+    userBody["email"] = "c@example.test";
+    h.http->getResponses.push_back(fulla::identity::testing::okJson(userBody));
+
+    auto resp = sendPostForm("/api/google/login", "code=test-auth-code");
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k200OK));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body.isMember("access_token"));
+    // Exactly one linked account was created (under the suffixed name).
+    CHECK(h.accountRepo->linked.size() == 1);
+}
+
+// Missing code -> 400. Body must not contain the "code=" substring (same
+// parser quirk as Google's missing-code case above).
 DROGON_TEST(Integration_P1_WeChatLogin_MissingCode_Returns400)
 {
     SOCIAL_SKIP_GUARD;
@@ -406,11 +485,10 @@ DROGON_TEST(Integration_P0_GitHubLogin_IssuedToken_RefreshGrantWorks)
     CHECK(refreshedBody.get("refresh_token", "").asString().empty() == false);
 }
 
-// #69 (PG-backed): a GitHub-issued token whose user_id is the INTERNAL id of
-// a REAL user (pre-linked mapping) works across the authenticated surface:
-// introspection (active:true), userinfo (numeric dispatch), the
-// /api/me/social/links numeric-dispatch branch from PR #68 (previously
-// untestable for exactly this reason), and the refresh grant. Introspection
+// #69 (PG-backed, #70-subject-updated): a GitHub-issued token whose user_id
+// is the PLATFORM SUBJECT of a REAL user (pre-linked mapping) works across the
+// authenticated surface: introspection (active:true), userinfo, the
+// /api/me/social/links list, and the refresh grant. Introspection
 // authenticates as the seeded CONFIDENTIAL backend-svc (client_secret_basic,
 // HTTP Basic) — the endpoint requires a non-empty secret, so the PUBLIC
 // admin-console cannot call it.
@@ -439,9 +517,19 @@ DROGON_TEST(Integration_P0_GitHubLogin_IssuedToken_AuthenticatedEndpointsWork)
     }
     REQUIRE(adminId > 0);
 
-    // Pre-link (github, "60691") -> admin's internal id in the FAKE repo, so
-    // the login flow issues tokens whose user_id is a REAL users row id.
+    // Pre-link (github, "60691") -> admin's internal id in the FAKE repo,
+    // mapped to the admin row's REAL public_sub (#70: token rows store the
+    // platform subject), so the issued tokens resolve on every authenticated
+    // endpoint exactly like a password-flow token.
+    auto db = ::drogon::app().getDbClient();
+    REQUIRE(db != nullptr);
+    auto adminRows = db->execSqlSync("SELECT public_sub FROM users WHERE id = $1", adminId);
+    REQUIRE(adminRows.size() == 1);
+    const std::string adminPublicSub = adminRows[0]["public_sub"].as<std::string>();
+    REQUIRE(!adminPublicSub.empty());
+
     auto h = injectGitHubFake();
+    h.accountRepo->userPublicSubs[adminId] = adminPublicSub;
     h.accountRepo->insertLink(
       "github",
       "60691",

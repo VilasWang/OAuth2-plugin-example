@@ -1,6 +1,9 @@
 #include <fulla/drogon/controllers/GoogleController.h>
 #include <drogon/HttpClient.h>
+#include <drogon/drogon.h>
+#include <fulla/drogon/controllers/SocialTokenIssuer.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/drogon/error/ErrorResponder.h>
 
 #ifdef WITH_SOCIAL
@@ -71,10 +74,13 @@ struct GoogleControllerDocs
         googleEndpoint.method = "POST";
         googleEndpoint.summary = "Google OAuth2 Login";
         googleEndpoint.description =
-          "Exchange Google authorization code for user information. "
-          "This endpoint handles the server-side OAuth2 flow with "
-          "Google "
-          "Identity Platform.";
+          "Exchange Google authorization code for a first-party token pair "
+          "(#70): the Google identity is resolved to a local account (auto-"
+          "created on first login unless external_auth.auto_create_on_first_"
+          "login is disabled, which yields 403 AUTH_SOCIAL_ACCOUNT_NOT_LINKED) "
+          "and an access/refresh pair is issued for the configured first-party "
+          "client. A SOCIAL_LOGIN_TOKEN_ISSUED audit event records the "
+          "issuance.";
         googleEndpoint.tags = {"External Auth", "Google"};
 
         // Initialize parameters
@@ -88,8 +94,9 @@ struct GoogleControllerDocs
 
         // Initialize responses
         googleEndpoint.responses =
-          {{200, "Google user info retrieved successfully"},
+          {{200, "First-party token pair for the Google-linked account"},
            {400, "Invalid request (missing or invalid code)"},
+           {403, "Not linked to a local account and auto-create disabled"},
            {502, "Failed to contact Google API"}};
 
         // Initialize response examples
@@ -104,6 +111,11 @@ struct GoogleControllerDocs
 GoogleControllerDocs docs_;
 
 }  // namespace
+
+OAuth2Plugin *GoogleController::resolvePlugin() const
+{
+    return plugin_ ? plugin_ : ::drogon::app().getPlugin<OAuth2Plugin>();
+}
 
 void GoogleController::login(
   const ::drogon::HttpRequestPtr &req,
@@ -155,7 +167,7 @@ void GoogleController::login(
                 std::move(callback)
               );
             googleAuthService_
-              ->login(code, [sharedCb, req](fulla::identity::GoogleLoginResult result) {
+              ->login(code, [this, sharedCb, req](fulla::identity::GoogleLoginResult result) {
                   if (!result.errorCode.empty())
                   {
                       respondError(
@@ -163,6 +175,29 @@ void GoogleController::login(
                       );
                       return;
                   }
+                  if (!result.publicSub.empty())
+                  {
+                      // #70: account-linked login — mint + persist a
+                      // first-party token pair (stored under the platform
+                      // subject; audit-traced) through the same shared issuer
+                      // as GitHub/WeChat.
+                      auto plugin = resolvePlugin();
+                      if (!plugin)
+                      {
+                          respondError(
+                            req, sharedCb, "INTERNAL_ERROR",
+                            "google login: OAuth2Plugin not available"
+                          );
+                          return;
+                      }
+                      SocialTokenIssuer::issueTokensForUser(
+                        req, sharedCb, plugin, "google", result.userId, result.publicSub
+                      );
+                      return;
+                  }
+                  // Degraded (service constructed without a repository —
+                  // direct construction/tests): the pre-#70 profile-only
+                  // response shape.
                   Json::Value filteredJson;
                   filteredJson["sub"] = result.profile.sub;
                   filteredJson["name"] = result.profile.name;

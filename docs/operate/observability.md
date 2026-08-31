@@ -47,12 +47,14 @@ Critical security operations (such as token issuance) emit logs tagged with `[AU
 2026-01-18 10:05:00 WARN [AUDIT] Action=ExchangeCode User=admin Client=vue-client Success=False Reason="Replay Detected"
 ```
 
-Security-relevant policy denials use stable action keywords:
+Security-relevant policy denials and social-login issuance use stable action keywords:
 
 - `AUTH_LEGACY_HASH_REJECTED` — login denied because the stored password
   hash is legacy-format and `auth.allow_legacy_hash=false` (#103). WARN
   with the internal user id; migrate the account via password reset or a
   temporary window reopen (docs/operate/configuration-guide.md §10).
+- `SOCIAL_LOGIN_TOKEN_ISSUED` — a social login endpoint (GitHub/Google/WeChat)
+  issued a first-party token pair (#70). Details carry provider/client/scope/internal id.
 
 ### 2.2 Contextual Logs
 
