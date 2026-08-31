@@ -97,8 +97,8 @@ async function handleMfa() {
           inputmode="numeric"
           maxlength="6"
           autocomplete="one-time-code"
-          class="block w-full px-4 py-4 text-center text-2xl tracking-[0.5em] font-mono border border-neutral-300 rounded-lg
-                 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-700"
+          class="block w-full px-4 py-4 text-center text-2xl tracking-[0.42em] font-mono tabular-nums border border-neutral-300 rounded-ctl bg-surface
+                 focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
           placeholder="000000"
         >
       </div>

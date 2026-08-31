@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '@/services/errorAdapter'
+import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 import DData from '@/components/ui/DData.vue'
 
 interface Token {
@@ -282,14 +283,11 @@ onMounted(fetchTokens)
     </div>
 
     <!-- Empty state -->
-    <div
+    <AppEmptyState
       v-else-if="tokens.length === 0"
-      class="text-center py-12"
-    >
-      <p class="text-neutral-500">
-        No active tokens found
-      </p>
-    </div>
+      title="No active tokens found"
+      description="Issued access tokens will be listed here."
+    />
 
     <!-- Token table -->
     <div
