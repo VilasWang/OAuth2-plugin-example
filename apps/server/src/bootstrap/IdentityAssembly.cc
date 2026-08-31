@@ -110,12 +110,29 @@ void wireIdentityServices()
     // (main.cc's registerBeginningAdvice) runs exactly once at startup.
     static auto authService =
       std::make_shared<fulla::identity::AuthService>(userRepo, crypto, clock);
-    // #103: auth.allow_legacy_hash (default true = migration window with
-    // rehash-on-login; operators flip to false after full migration).
+    // #103: auth.allow_legacy_hash — legacy unsalted-SHA256 verification
+    // window, CLOSED by default: a missing key explicitly disables the
+    // gate here (AuthService.h's field initializer stays true only for
+    // the api-diff SDK baseline; assembly semantics are authoritative).
+    // Operators reopen the window explicitly to let legacy users log in
+    // and be transparently rehashed to PBKDF2 (docs/operate/
+    // configuration-guide.md, "legacy hash migration window").
     {
         const auto &custom = ::drogon::app().getCustomConfig();
+        bool allowLegacy = false;
         if (custom.isMember("auth") && custom["auth"].isMember("allow_legacy_hash"))
-            authService->setAllowLegacyHash(custom["auth"]["allow_legacy_hash"].asBool());
+            allowLegacy = custom["auth"]["allow_legacy_hash"].asBool();
+        authService->setAllowLegacyHash(allowLegacy);
+        // Observability (#103): surface legacy-format rejections to the
+        // server log (the domain layer stays logging-free). Response body
+        // stays the generic AUTH_INVALID_CREDENTIALS — no oracle.
+        authService->setLegacyHashRejectionNotifier([](int32_t internalUserId) {
+            LOG_WARN << "AUTH_LEGACY_HASH_REJECTED: login denied for user "
+                     << internalUserId
+                     << " (stored hash is legacy-format and auth.allow_legacy_hash is "
+                        "false; migrate via password reset or reopen the window — see "
+                        "docs/operate/configuration-guide.md)";
+        });
     }
     // B1: shared outbound-HTTP client (Drogon-backed) used by both the
     // backchannel-logout notifier and, when built, the social auth services.

@@ -13,6 +13,13 @@ Before running tests, make sure the following services are ready:
 | **PostgreSQL** | `localhost:5432` | Database: `fulla_db` / user: `fulla_user` / password: `123456` |
 | **Redis** | `localhost:6379` | Password: `123456` (consistent with `config.json`)|
 
+> **Serialization warning**: the full test suite (`full_test.bat` /
+> `full-test.sh`) and the benchmark stack (`benchmarks/fulla/setup.sh`)
+> share port 5555 and the same PostgreSQL database. Never run them in
+> parallel on one machine — start the benchmark setup only after the test
+> suite (including its endpoint scripts) has fully finished, and vice
+> versa.
+
 > **Quick-start infrastructure**: if you use Docker, you can start the postgres and redis containers separately:
 > ```powershell
 > docker run -d -p 5432:5432 -e POSTGRES_USER=fulla_user -e POSTGRES_PASSWORD=123456 -e POSTGRES_DB=fulla_db postgres:17-alpine

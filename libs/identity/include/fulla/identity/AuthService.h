@@ -53,9 +53,23 @@ class AuthService
 {
   public:
     // #103: gate for the legacy unsalted-SHA256 verification branch
-    // (auth.allow_legacy_hash, default true = migration window with
-    // rehash-on-login; set false once all hashes are PBKDF2).
+    // (auth.allow_legacy_hash). Assembly semantics: the window is CLOSED
+    // by default — IdentityAssembly treats a missing config key as false
+    // (this field initializer stays true only so the api-diff SDK baseline
+    // line is untouched). Operators reopen the window explicitly during a
+    // migration; see docs/operate/configuration-guide.md.
     void setAllowLegacyHash(bool allow) { allowLegacyHash_ = allow; }
+
+    // #103: optional observer invoked whenever a login is rejected because
+    // the stored hash is legacy-format AND the window is closed. Pure
+    // observability hook (the domain layer stays logging-free): assembly
+    // wires it to a WARN + audit action carrying the internal user id so
+    // operators can find and migrate affected accounts. The client still
+    // only sees the generic AUTH_INVALID_CREDENTIALS (no oracle).
+    void setLegacyHashRejectionNotifier(std::function<void(int32_t internalUserId)> notifier)
+    {
+        legacyHashRejectionNotifier_ = std::move(notifier);
+    }
 
   public:
     /**
@@ -115,6 +129,7 @@ class AuthService
     std::shared_ptr<fulla::common::ports::IClock> clock_;
   private:
     bool allowLegacyHash_ = true;
+    std::function<void(int32_t)> legacyHashRejectionNotifier_;
 };
 
 }  // namespace fulla::identity

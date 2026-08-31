@@ -95,6 +95,11 @@ secrets:
   googleClientSecret: ""
   wechatSecret: ""
   smtpPassword: ""
+  # #103 first-boot admin bootstrap: when the deployment's database has no
+  # 'admin' user yet, the backend creates it with this password (PBKDF2).
+  # Empty = a strong random password is generated and printed to the log
+  # EXACTLY once. Ignored once the admin account exists.
+  bootstrapAdminPassword: ""
 
 # In-chart PostgreSQL (demo/local). Disable for production and configure
 # externalDatabase instead.

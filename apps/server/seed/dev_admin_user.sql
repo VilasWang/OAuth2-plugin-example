@@ -3,7 +3,7 @@
 -- DO NOT use in production!
 
 INSERT INTO users (username, password_hash, salt, email)
-VALUES ('admin', '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', 'admin_salt', 'admin@example.com')
+VALUES ('admin', '$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62', '', 'admin@example.com')
 ON CONFLICT (username) DO NOTHING;
 
 -- Assign admin role to admin user

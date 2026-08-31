@@ -220,7 +220,7 @@ docker compose -f deploy/docker/docker-compose.yml up -d --build
 
 > **仅限开发的凭证（#112）：** 该 compose 文件内置弱口令（数据库
 > `123456`、Redis `redis_secret_pass`、vue-client `123456`，以及种子账号
-> `admin`/`admin`），种子管理员只用于评估。PostgreSQL（127.0.0.1:5433）与
+> `admin`/`admin`，自 #103 起以 PBKDF2 哈希存储），种子管理员只用于评估。PostgreSQL（127.0.0.1:5433）与
 > Redis（127.0.0.1:6380）特意只绑定回环地址。任何超出本地评估的用途请使用
 > [`docker-compose.prod.yml`](deploy/docker/docker-compose.prod.yml) +
 > `.env.docker` —— 生产校验器（`FULLA_ENV=production`）启动时会拒绝这些默认值。

@@ -128,4 +128,5 @@ FULLA_GITHUB_CLIENT_SECRET: {{ .Values.secrets.githubClientSecret | quote }}
 FULLA_GOOGLE_CLIENT_SECRET: {{ .Values.secrets.googleClientSecret | quote }}
 FULLA_WECHAT_SECRET: {{ .Values.secrets.wechatSecret | quote }}
 FULLA_SMTP_PASSWORD: {{ .Values.secrets.smtpPassword | quote }}
+FULLA_BOOTSTRAP_ADMIN_PASSWORD: {{ .Values.secrets.bootstrapAdminPassword | quote }}
 {{- end }}

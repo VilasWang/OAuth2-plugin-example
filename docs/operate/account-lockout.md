@@ -80,7 +80,7 @@ $env:PGPASSWORD = $null
 
 # 如果密码也需要重置（重置为默认密码 'admin'）
 $env:PGPASSWORD = "123456"
-psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
+psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET password_hash = '$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62', salt = '', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
 $env:PGPASSWORD = $null
 ```
 
@@ -89,7 +89,7 @@ $env:PGPASSWORD = $null
 PGPASSWORD=123456 psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
 
 # 如果密码也需要重置
-PGPASSWORD=123456 psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
+PGPASSWORD=123456 psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users SET password_hash = '$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62', salt = '', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
 ```
 
 #### Docker database
@@ -99,7 +99,7 @@ PGPASSWORD=123456 psql -U fulla_user -d fulla_db -h localhost -c "UPDATE users S
 docker exec <container_name> psql -U fulla_user -d fulla_db -c "UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE username='admin';"
 
 # 如果密码也需要重置
-docker exec <container_name> psql -U fulla_user -d fulla_db -c "UPDATE users SET password_hash = '892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724', salt = 'admin_salt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
+docker exec <container_name> psql -U fulla_user -d fulla_db -c "UPDATE users SET password_hash = '$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62', salt = '', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
 ```
 
 ### Method 4: inspect lockout state

@@ -240,7 +240,7 @@
             "bootstrap_admin": {
                 "enabled": true
             },
-            "allow_legacy_hash": true,
+            "allow_legacy_hash": false,
             "min_password_length": 8
         },
         "rbac_rules": {

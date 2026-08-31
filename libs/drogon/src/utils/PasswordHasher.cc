@@ -93,99 +93,75 @@ bool PasswordHasher::verify(
   const std::string &salt
 )
 {
-    if (!needsRehash(storedHash))
+    // #103: legacy SHA-256+salt verification is RETIRED. needsRehash() is
+    // the format discriminator — anything that is not $pbkdf2-sha256$-
+    // prefixed is legacy and rejected outright, never parsed. The salt
+    // parameter is unused (PBKDF2 embeds it in the hash string); it stays
+    // in the signature for call-site compatibility.
+    (void)salt;
+    if (needsRehash(storedHash))
     {
-        // PBKDF2-SHA256 verification
-        // Parse: $pbkdf2-sha256$iterations$hexsalt$hexhash
-        if (storedHash.find("$pbkdf2-sha256$") != 0)
-        {
-            return false;
-        }
-
-        // Split by '$'
-        std::vector<std::string> parts;
-        std::string token;
-        std::istringstream stream(storedHash);
-        while (std::getline(stream, token, '$'))
-        {
-            if (!token.empty())
-            {
-                parts.push_back(token);
-            }
-        }
-
-        // parts: ["pbkdf2-sha256", "310000", "<hexsalt>", "<hexhash>"]
-        if (parts.size() != 4)
-        {
-            return false;
-        }
-
-        int iterations = std::stoi(parts[1]);
-        auto saltBytes = hexToBytes(parts[2]);
-        auto expectedHash = hexToBytes(parts[3]);
-
-        // Derive key with same parameters
-        unsigned char derivedKey[PBKDF2_KEY_LENGTH];
-        int result = PKCS5_PBKDF2_HMAC(
-          password.c_str(),
-          static_cast<int>(password.length()),
-          saltBytes.data(),
-          static_cast<int>(saltBytes.size()),
-          iterations,
-          EVP_sha256(),
-          PBKDF2_KEY_LENGTH,
-          derivedKey
-        );
-
-        if (result != 1)
-        {
-            return false;
-        }
-
-        // Constant-time comparison
-        if (expectedHash.size() != PBKDF2_KEY_LENGTH)
-        {
-            return false;
-        }
-        int diff = 0;
-        for (int i = 0; i < PBKDF2_KEY_LENGTH; ++i)
-        {
-            diff |= derivedKey[i] ^ expectedHash[i];
-        }
-        return diff == 0;
+        return false;
     }
-    else
+
+    // PBKDF2-SHA256 verification
+    // Parse: $pbkdf2-sha256$iterations$hexsalt$hexhash
+    if (storedHash.find("$pbkdf2-sha256$") != 0)
     {
-        // Legacy SHA-256 + salt verification. Task 14 (design.md §5.6):
-        // migrated off drogon::utils::getSha256() onto
-        // OpenSslCryptoProvider::sha256Hex(). sha256Hex() returns lowercase
-        // hex (vs. drogon::utils::getSha256()'s uppercase), but this is
-        // safe here (unlike CryptoUtils.h's hashToken()) because this
-        // comparison already explicitly lowercases BOTH sides below before
-        // comparing -- the legacy hash's stored case was never relied upon
-        // to match exactly.
-        static fulla::drogon::adapters::OpenSslCryptoProvider cryptoProvider;
-        std::string inputHash = cryptoProvider.sha256Hex(password + salt);
-
-        // Case-insensitive comparison (legacy hashes may vary in case)
-        if (inputHash.length() != storedHash.length())
-        {
-            return false;
-        }
-
-        std::string inputLower = inputHash;
-        std::string storedLower = storedHash;
-        std::transform(inputLower.begin(), inputLower.end(), inputLower.begin(), ::tolower);
-        std::transform(storedLower.begin(), storedLower.end(), storedLower.begin(), ::tolower);
-
-        // Constant-time comparison
-        int diff = 0;
-        for (size_t i = 0; i < inputLower.length(); ++i)
-        {
-            diff |= inputLower[i] ^ storedLower[i];
-        }
-        return diff == 0;
+        return false;
     }
+
+    // Split by '$'
+    std::vector<std::string> parts;
+    std::string token;
+    std::istringstream stream(storedHash);
+    while (std::getline(stream, token, '$'))
+    {
+        if (!token.empty())
+        {
+            parts.push_back(token);
+        }
+    }
+
+    // parts: ["pbkdf2-sha256", "310000", "<hexsalt>", "<hexhash>"]
+    if (parts.size() != 4)
+    {
+        return false;
+    }
+
+    int iterations = std::stoi(parts[1]);
+    auto saltBytes = hexToBytes(parts[2]);
+    auto expectedHash = hexToBytes(parts[3]);
+
+    // Derive key with same parameters
+    unsigned char derivedKey[PBKDF2_KEY_LENGTH];
+    int result = PKCS5_PBKDF2_HMAC(
+      password.c_str(),
+      static_cast<int>(password.length()),
+      saltBytes.data(),
+      static_cast<int>(saltBytes.size()),
+      iterations,
+      EVP_sha256(),
+      PBKDF2_KEY_LENGTH,
+      derivedKey
+    );
+
+    if (result != 1)
+    {
+        return false;
+    }
+
+    // Constant-time comparison
+    if (expectedHash.size() != PBKDF2_KEY_LENGTH)
+    {
+        return false;
+    }
+    int diff = 0;
+    for (int i = 0; i < PBKDF2_KEY_LENGTH; ++i)
+    {
+        diff |= derivedKey[i] ^ expectedHash[i];
+    }
+    return diff == 0;
 }
 
 bool PasswordHasher::needsRehash(const std::string &storedHash)

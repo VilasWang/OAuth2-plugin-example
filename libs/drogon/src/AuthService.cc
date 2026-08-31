@@ -66,7 +66,9 @@ void AuthService::validateUser(
                   return;
               }
 
-              // Compute Hash using PasswordHasher (supports PBKDF2 + legacy SHA-256)
+              // Compute Hash using PasswordHasher (PBKDF2 only; legacy
+              // SHA-256 hashes fail verification since #103 — this legacy
+              // fallback path has no migration window by design)
               std::string salt = user.getValueOfSalt();
               std::string dbHash = user.getValueOfPasswordHash();
 
@@ -91,35 +93,11 @@ void AuthService::validateUser(
                       );
                   }
 
-                  // Check if password hash needs upgrade to PBKDF2
-                  if (fulla::common::utils::PasswordHasher::needsRehash(dbHash))
-                  {
-                      // Async upgrade: rehash with PBKDF2
-                      try
-                      {
-                          std::string newHash =
-                            fulla::common::utils::PasswordHasher::hash(password);
-                          auto db = app().getDbClient();
-                          int userId = user.getValueOfId();
-                          auto hashUser = std::make_shared<drogon_model::fulla_db::Users>(user);
-                          hashUser->setPasswordHash(newHash);
-                          hashUser->setSalt("");
-                          Mapper<drogon_model::fulla_db::Users>(db).update(
-                            *hashUser,
-                            [hashUser, userId](const size_t) {
-                                LOG_INFO << "Upgraded password hash to PBKDF2 for user " << userId;
-                            },
-                            [hashUser, userId](const ::drogon::orm::DrogonDbException &e) {
-                                LOG_WARN << "Failed to upgrade password hash for user " << userId
-                                         << ": " << e.base().what();
-                            }
-                          );
-                      }
-                      catch (const std::exception &e)
-                      {
-                          LOG_WARN << "Password rehash failed: " << e.what();
-                      }
-                  }
+                  // #103: the legacy->PBKDF2 rehash-on-login block that used
+                  // to live here is gone — with legacy verification retired,
+                  // a legacy hash can no longer verify, making the upgrade
+                  // path dead code. Legacy users migrate on the identity
+                  // login path (window reopen) or via password reset.
 
                   AuthResult result;
                   result.internalId = user.getValueOfId();
