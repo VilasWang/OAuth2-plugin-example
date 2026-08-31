@@ -1,5 +1,5 @@
 // Internal (#70): the provider-agnostic four-state account resolution
-// shared by the social login services (Google/WeChat/GitHub). Lives under
+// shared by the social login services (GitHub/Google/WeChat). Lives under
 // src/ on purpose — it is an implementation detail of the social slice,
 // not part of the installed identity API surface.
 //
@@ -20,6 +20,15 @@
 //                                 (a bare DB_QUERY_ERROR would be
 //                                 non-actionable for the common case; the
 //                                 repository logs the true cause).
+//
+// Lifetime note (PR review B-1): the retry is a FREE FUNCTION recursing
+// through a shared ctx — the in-flight repository callback strongly owns
+// ctx, so with the fully-async production repository the chain stays
+// alive across every SQL round-trip and terminates (all owners drop) on
+// the terminal branches. A self-referencing std::function would either
+// leak (strong self-capture) or dangle (weak self-capture: the only
+// strong owner — the initiating stack frame — is gone when the async
+// INSERT returns, silently dropping the response).
 
 #ifdef WITH_SOCIAL
 
@@ -35,9 +44,15 @@
 namespace fulla::identity::social_detail
 {
 
-using LinkedAccountCallback =
-  std::function<void(int32_t userId, const std::string &username, bool isNewUser, const std::string &publicSub)>;
-using LinkErrorCallback = std::function<void(std::string errorCode)>;
+struct AttemptContext
+{
+    std::shared_ptr<ISocialAccountRepository> repo;
+    std::string provider;
+    std::string subject;
+    std::string email;
+    std::function<void(int32_t, const std::string &, bool, const std::string &)> onLinked;
+    std::function<void(std::string)> onError;
+};
 
 inline std::string randomUsernameSuffix()
 {
@@ -51,6 +66,36 @@ inline std::string randomUsernameSuffix()
     return out;
 }
 
+inline void runAttempt(
+  const std::shared_ptr<AttemptContext> &ctx,
+  const std::string &candidate,
+  bool isRetry
+)
+{
+    ctx->repo->createLinkedUser(
+      ctx->provider,
+      ctx->subject,
+      candidate,
+      ctx->email,
+      [ctx, candidate, isRetry](std::optional<LinkNewSocialAccountResult> created) {
+          if (created)
+          {
+              ctx->onLinked(created->userId, created->username, true, created->publicSub);
+              return;
+          }
+          if (!isRetry)
+          {
+              runAttempt(ctx, candidate + "_" + randomUsernameSuffix(), true);
+              return;
+          }
+          ctx->onError("VALIDATION_USERNAME_TAKEN");
+      }
+    );
+}
+
+using LinkedAccountCallback = std::function<void(int32_t userId, const std::string &username, bool isNewUser, const std::string &publicSub)>;
+using LinkErrorCallback = std::function<void(std::string errorCode)>;
+
 inline void resolveOrCreateAccount(
   const std::shared_ptr<ISocialAccountRepository> &repo,
   bool autoCreate,
@@ -62,68 +107,38 @@ inline void resolveOrCreateAccount(
   LinkErrorCallback &&onError
 )
 {
-    auto sharedLinked = std::make_shared<LinkedAccountCallback>(std::move(onLinked));
-    auto sharedErr = std::make_shared<LinkErrorCallback>(std::move(onError));
-
-    // Self-referencing async step: the function object outlives this frame
-    // (repository callbacks fire later), so it holds itself via weak_ptr —
-    // a shared_ptr self-capture would leak one node per login.
-    auto sharedAttempt = std::make_shared<std::function<void(const std::string &, bool)>>();
-    std::weak_ptr<std::function<void(const std::string &, bool)>> weakAttempt = sharedAttempt;
-    *sharedAttempt =
-      [repo, provider, subject, email, weakAttempt, sharedLinked, sharedErr](
-        const std::string &candidate, bool isRetry
-      ) {
-          repo->createLinkedUser(
-            provider,
-            subject,
-            candidate,
-            email,
-            [candidate, isRetry, weakAttempt, sharedLinked, sharedErr](
-              std::optional<LinkNewSocialAccountResult> created
-            ) {
-                if (created)
-                {
-                    (*sharedLinked)(created->userId, created->username, true, created->publicSub);
-                    return;
-                }
-                if (!isRetry)
-                {
-                    if (auto self = weakAttempt.lock())
-                        (*self)(candidate + "_" + randomUsernameSuffix(), true);
-                    return;
-                }
-                (*sharedErr)("VALIDATION_USERNAME_TAKEN");
-            }
-          );
-      };
+    auto ctx = std::make_shared<AttemptContext>();
+    ctx->repo = repo;
+    ctx->provider = provider;
+    ctx->subject = subject;
+    ctx->email = email;
+    ctx->onLinked = std::move(onLinked);
+    ctx->onError = std::move(onError);
 
     repo->findLinkedUser(
       provider,
       subject,
-      [repo, autoCreate, username, sharedAttempt, sharedLinked, sharedErr](
-        SocialLinkStatus status, const SocialAccountLookup &existing
-      ) {
+      [ctx, autoCreate, username](SocialLinkStatus status, const SocialAccountLookup &existing) {
           switch (status)
           {
           case SocialLinkStatus::Linked:
-              (*sharedLinked)(existing.userId, existing.username, false, existing.publicSub);
+              ctx->onLinked(existing.userId, existing.username, false, existing.publicSub);
               return;
           case SocialLinkStatus::AccountUnavailable:
-              (*sharedErr)("AUTH_INVALID_CREDENTIALS");
+              ctx->onError("AUTH_INVALID_CREDENTIALS");
               return;
           case SocialLinkStatus::RepositoryError:
-              (*sharedErr)("DB_QUERY_ERROR");
+              ctx->onError("DB_QUERY_ERROR");
               return;
           case SocialLinkStatus::NoMapping:
               break;
           }
           if (!autoCreate)
           {
-              (*sharedErr)("AUTH_SOCIAL_ACCOUNT_NOT_LINKED");
+              ctx->onError("AUTH_SOCIAL_ACCOUNT_NOT_LINKED");
               return;
           }
-          (*sharedAttempt)(username, false);
+          runAttempt(ctx, username, false);
       }
     );
 }

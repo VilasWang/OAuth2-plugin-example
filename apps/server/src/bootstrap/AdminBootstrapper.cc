@@ -301,7 +301,8 @@ void AdminBootstrapper::backfillLocalSubjectMappings(DoneCallback &&done)
         db->execSqlAsync(
           "INSERT INTO oauth2_subject_mappings (subject, internal_user_id, provider) "
           "SELECT u.id::text, u.id, 'local' FROM users u "
-          "ON CONFLICT (provider, subject) DO NOTHING",
+          "ON CONFLICT (provider, subject) DO NOTHING "
+          "RETURNING 1",
           [done](const Result &r) {
               if (r.size() > 0)
                   LOG_INFO << "SubjectMappingBackfill: healed " << r.size() << " user(s)";

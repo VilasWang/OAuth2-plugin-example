@@ -288,7 +288,11 @@ void WebAuthnService::finishRegistrationVerified(
 
     // --- authData (§7.1 steps 12, 15-19) ---
     auto authData = webauthn::parseAuthData(attestation->authData, true, &parseError);
-    if (!authData || !authData->up || !authData->at)
+    // UV is enforced here too: begin advertises userVerification=required,
+    // and a UV-less registration would create a credential that can never
+    // authenticate (the assertion path rejects UV=0) — reject it upfront
+    // (PR-review m-1; L2 §7.1 step 17).
+    if (!authData || !authData->up || !authData->uv || !authData->at)
     {
         callback("WEBAUTHN_INVALID_ATTESTATION");
         return;
