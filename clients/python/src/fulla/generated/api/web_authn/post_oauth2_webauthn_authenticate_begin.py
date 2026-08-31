@@ -43,7 +43,8 @@ def sync_detailed(
 ) -> Response[Any]:
     """WebAuthn Authenticate Begin
 
-     Start WebAuthn authentication.
+     Start passkey authentication (#142): the challenge is bound to the caller's session (send cookies -
+    credentials include); userVerification=required; ES256 only. Requires webauthn.rp_origins.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -68,7 +69,8 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """WebAuthn Authenticate Begin
 
-     Start WebAuthn authentication.
+     Start passkey authentication (#142): the challenge is bound to the caller's session (send cookies -
+    credentials include); userVerification=required; ES256 only. Requires webauthn.rp_origins.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

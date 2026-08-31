@@ -212,7 +212,11 @@ async function registerPasskey() {
     const options = beginResp.data?.options
     if (!options?.challenge) throw new Error('Passkey registration: invalid server options')
 
-    // Step 2: Call the browser WebAuthn API
+    // Step 2: Call the browser WebAuthn API (#142: pass the SERVER's
+    // rp/pubKeyCredParams/authenticatorSelection verbatim — the server now
+    // verifies against exactly what it advertised: ES256-only,
+    // userVerification=required, and excludeCredentials for already-
+    // registered passkeys).
     const credential = await navigator.credentials.create({
       publicKey: {
         challenge: base64UrlDecode(options.challenge),
@@ -222,27 +226,32 @@ async function registerPasskey() {
           name: options.user?.name || profile.value?.username || 'user',
           displayName: options.user?.displayName || profile.value?.username || 'User',
         },
-        pubKeyCredParams: options.pubKeyCredParams || [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
-        authenticatorSelection: options.authenticatorSelection || { userVerification: 'preferred' },
+        pubKeyCredParams: options.pubKeyCredParams || [{ alg: -7, type: 'public-key' }],
+        authenticatorSelection: options.authenticatorSelection || { userVerification: 'required' },
         timeout: options.timeout || 60000,
+        excludeCredentials: (options.excludeCredentials || []).map((e: { id: string; type?: string }) => ({
+          id: base64UrlDecode(e.id),
+          type: e.type || 'public-key',
+        })),
       }
     }) as PublicKeyCredential
 
     if (!credential) { showError('Passkey registration cancelled'); return }
 
-    // Step 3: Send the credential to the server in ITS contract shape:
-    // {credential_id, public_key, name} (base64url strings) — not the raw
-    // browser attestation envelope. getPublicKey() (WebAuthn L3) yields the
-    // SPKI DER public key; TS 5.9 lib.dom types it as ArrayBuffer | null.
+    // Step 3: Send the credential to the server in ITS contract shape
+    // (#142): the browser attestation envelope {id, rawId, response:
+    // {attestationObject, clientDataJSON}} — the server verifies the
+    // attestation itself; a client-side public_key field would be trusted
+    // material and is no longer part of the contract.
     const attestationResponse = credential.response as AuthenticatorAttestationResponse
-    const publicKeyBuffer = attestationResponse.getPublicKey()
-    if (!publicKeyBuffer) {
-      throw new Error('This browser did not expose the credential public key; passkey registration is not supported here')
-    }
     const label = passkeyName.value.trim() || `Passkey ${new Date().toISOString().slice(0, 10)}`
     await http.post('/api/me/webauthn/register/finish', {
-      credential_id: base64UrlEncode(new Uint8Array(credential.rawId)),
-      public_key: base64UrlEncode(new Uint8Array(publicKeyBuffer)),
+      id: base64UrlEncode(new Uint8Array(credential.rawId)),
+      rawId: base64UrlEncode(new Uint8Array(credential.rawId)),
+      response: {
+        attestationObject: base64UrlEncode(new Uint8Array(attestationResponse.attestationObject)),
+        clientDataJSON: base64UrlEncode(new Uint8Array(attestationResponse.clientDataJSON)),
+      },
       name: label,
     }, { headers: { 'Content-Type': 'application/json' } })
 

@@ -74,6 +74,10 @@ from .token_request import TokenRequest
 from .token_request_grant_type import TokenRequestGrantType
 from .token_response import TokenResponse
 from .user_info_response import UserInfoResponse
+from .web_authn_assertion_credential import WebAuthnAssertionCredential
+from .web_authn_assertion_credential_response import WebAuthnAssertionCredentialResponse
+from .web_authn_registration_credential import WebAuthnRegistrationCredential
+from .web_authn_registration_credential_response import WebAuthnRegistrationCredentialResponse
 
 __all__ = (
     "DeleteApiMeSocialLinksProviderProvider",
@@ -148,4 +152,8 @@ __all__ = (
     "TokenRequestGrantType",
     "TokenResponse",
     "UserInfoResponse",
+    "WebAuthnAssertionCredential",
+    "WebAuthnAssertionCredentialResponse",
+    "WebAuthnRegistrationCredential",
+    "WebAuthnRegistrationCredentialResponse",
 )

@@ -342,7 +342,7 @@ TEST(GitHubAuthServiceTest, Login_UserInfoFetchFailure_ReturnsNetError)
     EXPECT_EQ(result.errorCode, "NET_CONNECTION_FAILED");
 }
 
-TEST(GitHubAuthServiceTest, Login_RepositoryCreateFailure_ReturnsDbError)
+TEST(GitHubAuthServiceTest, Login_RepositoryCreateFailure_ReturnsUsernameTakenAfterRetry)
 {
     auto http = std::make_shared<FakeOAuthHttpClient>();
     Json::Value tokenBody;
@@ -362,7 +362,7 @@ TEST(GitHubAuthServiceTest, Login_RepositoryCreateFailure_ReturnsDbError)
     GitHubLoginResult result;
     svc.login("code", [&](GitHubLoginResult r) { result = std::move(r); });
 
-    EXPECT_EQ(result.errorCode, "DB_QUERY_ERROR");
+    EXPECT_EQ(result.errorCode, "VALIDATION_USERNAME_TAKEN");
 }
 
 // ---------------------------------------------------------------------------

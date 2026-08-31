@@ -219,7 +219,12 @@
             "url": "http://localhost:5173",
             "register_path": "/register"
         },
-        "external_auth": {
+    "webauthn": {
+        "rp_id": "localhost",
+        "rp_name": "OAuth2 Server",
+        "rp_origins": ["http://localhost:5173"]
+    },
+    "external_auth": {
             "github": {
                 "client_id": "",
                 "client_secret": ""

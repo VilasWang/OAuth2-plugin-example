@@ -59,10 +59,9 @@ class FullaConan(ConanFile):
         self.requires("libcurl/8.6.0")
         self.requires("brotli/1.1.0")
         self.requires("zlib/1.3.1", override=True)
-        # NOTE: libcbor/0.13.0 was declared here "for attestation" but the
-        # current WebAuthn controller is a non-cryptographic stub that consumes
-        # zero CBOR (no #include <cbor/...> anywhere, see CMakeLists.txt:42).
-        # Removed as dead. Re-add when real WebAuthn crypto lands.
+        # #142: real WebAuthn attestation/assertion verification. libcbor
+        # backs the typed read-only CborReader in libs/identity/src/webauthn/.
+        self.requires("libcbor/0.13.0")
 
     def build_requirements(self):
         self.test_requires("gtest/1.14.0")

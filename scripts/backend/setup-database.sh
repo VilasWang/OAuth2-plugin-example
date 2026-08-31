@@ -55,7 +55,7 @@ fi
 # benchmarks/fulla/seed and must never land in a dev/test database)
 if [ -d "$SEED_DIR" ]; then
     echo "Applying seed data from $SEED_DIR..."
-    for f in dev_admin_user.sql; do
+    for f in dev_admin_user.sql dev_admin_console_client.sql dev_backend_client.sql dev_vue_client.sql; do
         [ -f "$SEED_DIR/$f" ] || continue
         echo "  Applying $f..."
         psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -f "$SEED_DIR/$f"

@@ -4,6 +4,7 @@
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <fulla/drogon/error/ErrorResponder.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <chrono>
@@ -12,9 +13,6 @@
 // controller now optionally consumes.
 #include <fulla/identity/IUserRepository.h>
 #include <fulla/identity/WebAuthnService.h>
-
-#include <fulla/storage/postgres/models/Users.h>
-#include <fulla/storage/postgres/models/WebauthnCredentials.h>
 
 using namespace ::drogon::orm;
 
@@ -40,60 +38,33 @@ void respondError(
     );
 }
 
-struct WebAuthnControllerDocs
+// #142: the register endpoints run behind OAuth2AuthFilter (Bearer token,
+// no session-cookie contract — the SPA sends no credentials), so a
+// registration challenge is bound to the AUTHENTICATED SUBJECT instead of
+// a session. Fail closed when the service/repository are not wired
+// (memory-storage mode): the endpoints must be explicitly unavailable
+// rather than silently available with the old unverified contract.
+void respondWebAuthnUnavailable(
+  const ::drogon::HttpRequestPtr &req,
+  const std::shared_ptr<std::function<void(const ::drogon::HttpResponsePtr &)>> &cb,
+  const std::string &flow
+)
 {
-    WebAuthnControllerDocs()
-    {
-        ::fulla::drogon::observability::openapi::EndpointInfo regBeginDocs;
-        regBeginDocs.path = "/api/me/webauthn/register/begin";
-        regBeginDocs.method = "POST";
-        regBeginDocs.summary = "WebAuthn Register Begin";
-        regBeginDocs.description = "Start WebAuthn registration.";
-        regBeginDocs.tags = {"WebAuthn"};
-        regBeginDocs.requiresAuth = true;
-        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
+    LOG_ERROR << "WebAuthn " << flow
+              << ": service not configured (memory storage?) -- failing closed (#142)";
+    respondError(
+      req,
+      cb,
+      "INTERNAL_ERROR",
+      "WebAuthn " + flow + ": service not configured (memory storage deployments have no "
+                           "WebAuthn credentials; the endpoint is unavailable by design)"
+    );
+}
 
-        ::fulla::drogon::observability::openapi::EndpointInfo regFinishDocs;
-        regFinishDocs.path = "/api/me/webauthn/register/finish";
-        regFinishDocs.method = "POST";
-        regFinishDocs.summary = "WebAuthn Register Finish";
-        regFinishDocs.description = "Finish WebAuthn registration.";
-        regFinishDocs.tags = {"WebAuthn"};
-        regFinishDocs.requiresAuth = true;
-        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
-
-        ::fulla::drogon::observability::openapi::EndpointInfo loginBeginDocs;
-        loginBeginDocs.path = "/oauth2/webauthn/authenticate/begin";
-        loginBeginDocs.method = "POST";
-        loginBeginDocs.summary = "WebAuthn Authenticate Begin";
-        loginBeginDocs.description = "Start WebAuthn authentication.";
-        loginBeginDocs.tags = {"WebAuthn"};
-        loginBeginDocs.requiresAuth = false;
-        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
-
-        ::fulla::drogon::observability::openapi::EndpointInfo loginFinishDocs;
-        loginFinishDocs.path = "/oauth2/webauthn/authenticate/finish";
-        loginFinishDocs.method = "POST";
-        loginFinishDocs.summary = "WebAuthn Authenticate Finish";
-        loginFinishDocs.description = "Finish WebAuthn authentication.";
-        loginFinishDocs.tags = {"WebAuthn"};
-        loginFinishDocs.requiresAuth = false;
-        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
-
-        ::fulla::drogon::observability::openapi::EndpointInfo credentialsDocs;
-        credentialsDocs.path = "/api/me/webauthn/credentials";
-        credentialsDocs.method = "GET";
-        credentialsDocs.summary = "List WebAuthn Credentials";
-        credentialsDocs.description = "List registered WebAuthn credentials.";
-        credentialsDocs.tags = {"WebAuthn"};
-        credentialsDocs.requiresAuth = true;
-        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
-    }
-};
-
-WebAuthnControllerDocs docs_;
-
-// WebAuthn RP (Relying Party) configuration
+// #142 helpers: RP config reads (challenge/rp info split -- the subject-
+// bound challenge store returns a plain string; the rp/timeout boilerplate
+// stays view construction) and base64url codec through the shared adapter
+// (same static-instance pattern as PasswordHasher).
 std::string getRpId()
 {
     auto config = ::drogon::app().getCustomConfig();
@@ -109,6 +80,97 @@ std::string getRpName()
         return config["webauthn"]["rp_name"].asString();
     return "OAuth2 Server";
 }
+
+std::string b64UrlEncode(const std::string &raw)
+{
+    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
+    return crypto.base64UrlEncode(
+      reinterpret_cast<const unsigned char *>(raw.data()), raw.size());
+}
+
+std::string b64UrlDecode(const std::string &encoded)
+{
+    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
+    auto bytes = crypto.base64UrlDecode(encoded);
+    return std::string(bytes.begin(), bytes.end());
+}
+
+struct WebAuthnControllerDocs
+{
+    WebAuthnControllerDocs()
+    {
+        ::fulla::drogon::observability::openapi::EndpointInfo regBeginDocs;
+        regBeginDocs.path = "/api/me/webauthn/register/begin";
+        regBeginDocs.method = "POST";
+        regBeginDocs.summary = "WebAuthn Register Begin";
+        regBeginDocs.description =
+          "Start passkey registration (#142): returns creation options with a "
+          "subject-bound challenge (Bearer authentication, no session cookie), "
+          "ES256-only pubKeyCredParams, userVerification=required, and "
+          "excludeCredentials for credentials already registered to the user. "
+          "Requires webauthn.rp_origins to be configured.";
+        regBeginDocs.tags = {"WebAuthn"};
+        regBeginDocs.requiresAuth = true;
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regBeginDocs);
+
+        ::fulla::drogon::observability::openapi::EndpointInfo regFinishDocs;
+        regFinishDocs.path = "/api/me/webauthn/register/finish";
+        regFinishDocs.method = "POST";
+        regFinishDocs.summary = "WebAuthn Register Finish";
+        regFinishDocs.description =
+          "Finish passkey registration (#142): body is the browser "
+          "PublicKeyCredential {id, rawId, response:{attestationObject, "
+          "clientDataJSON}, name?} (base64url). The server verifies the "
+          "subject-bound challenge, clientDataJSON (type/origin/tokenBinding), "
+          "the none-format attestation object, authenticator data (rpIdHash/UP/"
+          "AT/credIdLen) and the ES256 COSE key before storing anything; the "
+          "client-submitted public_key field of the old contract is ignored.";
+        regFinishDocs.tags = {"WebAuthn"};
+        regFinishDocs.requiresAuth = true;
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(regFinishDocs);
+
+        ::fulla::drogon::observability::openapi::EndpointInfo loginBeginDocs;
+        loginBeginDocs.path = "/oauth2/webauthn/authenticate/begin";
+        loginBeginDocs.method = "POST";
+        loginBeginDocs.summary = "WebAuthn Authenticate Begin";
+        loginBeginDocs.description =
+          "Start passkey authentication (#142): returns a challenge bound to "
+          "the caller's SESSION (send cookies -- credentials:'include'). "
+          "userVerification=required; ES256 only. Requires webauthn.rp_origins.";
+        loginBeginDocs.tags = {"WebAuthn"};
+        loginBeginDocs.requiresAuth = false;
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginBeginDocs);
+
+        ::fulla::drogon::observability::openapi::EndpointInfo loginFinishDocs;
+        loginFinishDocs.path = "/oauth2/webauthn/authenticate/finish";
+        loginFinishDocs.method = "POST";
+        loginFinishDocs.summary = "WebAuthn Authenticate Finish";
+        loginFinishDocs.description =
+          "Finish passkey authentication (#142): body is the browser "
+          "PublicKeyCredential {id, rawId, response:{authenticatorData, "
+          "clientDataJSON, signature}, userHandle?} (base64url). The session "
+          "challenge is consumed unconditionally; the ES256 signature over "
+          "authData || SHA256(clientDataJSON) is verified against the STORED "
+          "COSE key; UV=1 is enforced; signCount regression is treated as "
+          "authenticator cloning. On success a browser session is established "
+          "(userId/sub/auth_time/amr) and Set-Cookie is returned. All failures "
+          "answer the generic AUTH_INVALID_CREDENTIALS.";
+        loginFinishDocs.tags = {"WebAuthn"};
+        loginFinishDocs.requiresAuth = false;
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(loginFinishDocs);
+
+        ::fulla::drogon::observability::openapi::EndpointInfo credentialsDocs;
+        credentialsDocs.path = "/api/me/webauthn/credentials";
+        credentialsDocs.method = "GET";
+        credentialsDocs.summary = "List WebAuthn Credentials";
+        credentialsDocs.description = "List registered passkey credentials.";
+        credentialsDocs.tags = {"WebAuthn"};
+        credentialsDocs.requiresAuth = true;
+        ::fulla::drogon::observability::openapi::OpenApiGenerator::addEndpoint(credentialsDocs);
+    }
+};
+
+WebAuthnControllerDocs docs_;
 }  // namespace
 
 void WebAuthnController::registerBegin(
@@ -116,113 +178,93 @@ void WebAuthnController::registerBegin(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    std::string userId = req->getAttributes()->get<std::string>("userId");
+    // The attribute carries the Bearer subject (public_sub).
+    std::string subject = req->getAttributes()->get<std::string>("userId");
+    auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+      std::move(callback)
+    );
 
-    // Task 24 slice 5: prefer the injected WebAuthnService (challenge
-    // generation only -- see WebAuthnService.h's own top comment on why
-    // it hands the challenge back rather than storing it itself), falling
-    // back to the pre-Task-24 direct generateSecureToken() call when
-    // unwired.
-    if (webAuthnService_)
+    if (!webAuthnService_ || !userRepo_)
     {
-        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-          std::move(callback)
-        );
-        webAuthnService_->beginRegistration(
-          [sharedCb,
-           req,
-           userId](std::optional<fulla::identity::WebAuthnRegistrationChallenge> result) {
-              if (!result)
-              {
-                  respondError(
-                    req, sharedCb, "INTERNAL_ERROR", "registerBegin: challenge generation failed"
-                  );
-                  return;
-              }
-              if (req->session())
-                  req->session()->insert("webauthn_challenge", result->challenge);
-
-              Json::Value options;
-              options["challenge"] = result->challenge;
-              Json::Value rp;
-              rp["id"] = result->rpId;
-              rp["name"] = result->rpName;
-              options["rp"] = rp;
-              Json::Value user;
-              user["id"] = userId;
-              user["name"] = userId;
-              user["displayName"] = userId;
-              options["user"] = user;
-              Json::Value pubKeyCredParams(Json::arrayValue);
-              Json::Value es256;
-              es256["type"] = "public-key";
-              es256["alg"] = -7;
-              pubKeyCredParams.append(es256);
-              Json::Value rs256;
-              rs256["type"] = "public-key";
-              rs256["alg"] = -257;
-              pubKeyCredParams.append(rs256);
-              options["pubKeyCredParams"] = pubKeyCredParams;
-              options["timeout"] = result->timeoutMs;
-              Json::Value authenticatorSelection;
-              authenticatorSelection["userVerification"] = "preferred";
-              authenticatorSelection["residentKey"] = "preferred";
-              options["authenticatorSelection"] = authenticatorSelection;
-              Json::Value response;
-              response["options"] = options;
-              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
-          }
-        );
+        respondWebAuthnUnavailable(req, sharedCb, "registerBegin");
         return;
     }
 
-    // Generate challenge (32 bytes, base64url encoded)
-    std::string challenge = ::fulla::drogon::utils::generateSecureToken();
+    // Resolve the internal user (excludeCredentials + the spec-correct
+    // user.id form need it).
+    userRepo_->findByPublicSub(
+      subject,
+      [this, sharedCb, req, subject](std::optional<fulla::identity::UserData> user) {
+          if (!user)
+          {
+              respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerBegin: unknown user");
+              return;
+          }
 
-    // Store challenge in session for verification in registerFinish
-    if (req->session())
-    {
-        req->session()->insert("webauthn_challenge", challenge);
-    }
+          auto challenge = webAuthnService_->issueRegistrationChallenge(subject);
+          if (!challenge)
+          {
+              respondError(
+                req, sharedCb, "INTERNAL_ERROR", "registerBegin: challenge generation failed"
+              );
+              return;
+          }
 
-    // Build PublicKeyCredentialCreationOptions
-    Json::Value options;
-    options["challenge"] = challenge;
+          webAuthnService_->listCredentials(
+            user->id,
+            [sharedCb, req, user, challenge = std::move(*challenge)](
+              std::vector<fulla::identity::WebAuthnCredentialSummary> creds) {
+                // Spec correction (#142): user.id is the base64url of the
+                // RP-scoped user handle BYTES. Registration uses the decimal
+                // internal id's bytes (authenticateFinish validates echoes
+                // against exactly this).
+                Json::Value options;
+                options["challenge"] = challenge;
+                Json::Value rp;
+                rp["id"] = getRpId();
+                rp["name"] = getRpName();
+                options["rp"] = rp;
+                Json::Value userJson;
+                userJson["id"] = b64UrlEncode(std::to_string(user->id));
+                userJson["name"] = user->username.empty() ? user->email : user->username;
+                userJson["displayName"] =
+                  user->username.empty() ? user->email : user->username;
+                options["user"] = userJson;
+                // Advertise EXACTLY what verification enforces (#142): ES256
+                // only — -257 (RS256) was advertised but never verifiable.
+                Json::Value pubKeyCredParams(Json::arrayValue);
+                Json::Value es256;
+                es256["type"] = "public-key";
+                es256["alg"] = -7;
+                pubKeyCredParams.append(es256);
+                options["pubKeyCredParams"] = pubKeyCredParams;
+                options["timeout"] = 60000;
+                Json::Value authenticatorSelection;
+                // BEGIN/FINISH POLICY ALIGNMENT (#142): finish enforces
+                // UV=1, so begin must REQUIRE it — "preferred" would let
+                // no-UV authenticators create credentials that can never
+                // authenticate. (Excludes UV-incapable authenticators from
+                // the supported surface; documented.)
+                authenticatorSelection["userVerification"] = "required";
+                authenticatorSelection["residentKey"] = "preferred";
+                options["authenticatorSelection"] = authenticatorSelection;
+                Json::Value exclude(Json::arrayValue);
+                for (const auto &c : creds)
+                {
+                    Json::Value e;
+                    e["type"] = "public-key";
+                    e["id"] = c.credentialId;
+                    exclude.append(e);
+                }
+                options["excludeCredentials"] = exclude;
 
-    Json::Value rp;
-    rp["id"] = getRpId();
-    rp["name"] = getRpName();
-    options["rp"] = rp;
-
-    Json::Value user;
-    user["id"] = userId;  // base64url of user ID
-    user["name"] = userId;
-    user["displayName"] = userId;
-    options["user"] = user;
-
-    // Supported algorithms (ES256 preferred, RS256 fallback)
-    Json::Value pubKeyCredParams(Json::arrayValue);
-    Json::Value es256;
-    es256["type"] = "public-key";
-    es256["alg"] = -7;  // ES256
-    pubKeyCredParams.append(es256);
-    Json::Value rs256;
-    rs256["type"] = "public-key";
-    rs256["alg"] = -257;  // RS256
-    pubKeyCredParams.append(rs256);
-    options["pubKeyCredParams"] = pubKeyCredParams;
-
-    options["timeout"] = 60000;  // 60 seconds
-
-    Json::Value authenticatorSelection;
-    authenticatorSelection["userVerification"] = "preferred";
-    authenticatorSelection["residentKey"] = "preferred";
-    options["authenticatorSelection"] = authenticatorSelection;
-
-    Json::Value response;
-    response["options"] = options;
-    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
+                Json::Value response;
+                response["options"] = options;
+                (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
+            }
+          );
+      }
+    );
 }
 
 void WebAuthnController::registerFinish(
@@ -230,157 +272,112 @@ void WebAuthnController::registerFinish(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    std::string userId = req->getAttributes()->get<std::string>("userId");
-    auto sharedCb =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+    std::string subject = req->getAttributes()->get<std::string>("userId");
+    auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+      std::move(callback)
+    );
 
     auto jsonBody = req->getJsonObject();
-    if (!jsonBody)
+    if (!jsonBody || !(*jsonBody).isObject() || !(*jsonBody).isMember("response") ||
+        !(*jsonBody)["response"].isObject())
     {
         respondError(
           req,
           sharedCb,
           "VALIDATION_INVALID_INPUT",
-          "registerFinish: JSON body with credential response required"
+          "registerFinish: body must be {id, rawId, response:{attestationObject, clientDataJSON}, name?}"
         );
         return;
     }
+    const Json::Value &body = *jsonBody;
+    const Json::Value &resp = body["response"];
 
-    std::string credentialId = (*jsonBody).get("credential_id", "").asString();
-    std::string publicKey = (*jsonBody).get("public_key", "").asString();
-    std::string credName = (*jsonBody).get("name", "Passkey").asString();
+    fulla::identity::WebAuthnService::RegistrationInput input;
+    input.id = body.get("id", "").asString();
+    input.rawId = body.get("rawId", "").asString();
+    input.attestationObject = resp.get("attestationObject", "").asString();
+    input.clientDataJSON = resp.get("clientDataJSON", "").asString();
+    input.name = body.get("name", "").asString();
 
-    if (credentialId.empty() || publicKey.empty())
+    if (input.id.empty() || input.rawId.empty() || input.attestationObject.empty() ||
+        input.clientDataJSON.empty())
     {
         respondError(
           req,
           sharedCb,
           "VALIDATION_MISSING_REQUIRED_FIELD",
-          "registerFinish: credential_id and public_key are required"
+          "registerFinish: id/rawId/response.attestationObject/response.clientDataJSON are required"
         );
         return;
     }
 
-    // Task 24 slice 5: prefer the injected WebAuthnService/IUserRepository,
-    // falling back to the pre-Task-24 raw SQL when unwired.
-    if (webAuthnService_ && userRepo_)
+    // The challenge echoed inside clientDataJSON (the browser returns it
+    // exactly as begin issued it).
+    std::string presentedChallenge;
     {
-        userRepo_->findByPublicSub(
-          userId,
-          [this, sharedCb, req, userId, credentialId, publicKey, credName](
-            std::optional<fulla::identity::UserData> user
-          ) {
-              if (!user)
-              {
-                  respondError(
-                    req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerFinish: unknown user"
-                  );
-                  return;
-              }
-              webAuthnService_->finishRegistration(
-                user->id,
-                credentialId,
-                publicKey,
-                credName,
-                [sharedCb, req, userId, credentialId](const std::string &errorCode) {
-                    if (!errorCode.empty())
-                    {
-                        respondError(req, sharedCb, errorCode, "registerFinish: " + errorCode);
-                        return;
-                    }
-                    ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
-                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                      "webauthn_registered",
-                      "success",
-                      req,
-                      userId,
-                      "credential",
-                      credentialId
-                    );
-                    Json::Value json;
-                    json["message"] = "Passkey registered successfully";
-                    json["credential_id"] = credentialId;
-                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                    resp->setStatusCode(::drogon::k201Created);
-                    (*sharedCb)(resp);
-                }
-              );
-          }
+        try
+        {
+            std::string raw = b64UrlDecode(input.clientDataJSON);
+            std::string jsonStr(raw);
+            Json::Reader reader;
+            Json::Value parsed;
+            if (reader.parse(jsonStr, parsed) && parsed.isMember("challenge"))
+                presentedChallenge = parsed.get("challenge", "").asString();
+        }
+        catch (...)
+        {
+        }
+    }
+    if (presentedChallenge.empty())
+    {
+        respondError(
+          req, sharedCb, "WEBAUTHN_INVALID_ATTESTATION", "registerFinish: unreadable clientDataJSON"
         );
         return;
     }
 
-    // Store credential: first resolve public_sub to user_id, then insert
-    auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::fulla_db::Users>(db).findBy(
-      Criteria(drogon_model::fulla_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
-      [db, sharedCb, req, credentialId, publicKey, credName](
-        const std::vector<drogon_model::fulla_db::Users> &usersResult
-      ) {
-          if (usersResult.empty())
+    if (!webAuthnService_ || !userRepo_)
+    {
+        respondWebAuthnUnavailable(req, sharedCb, "registerFinish");
+        return;
+    }
+
+    userRepo_->findByPublicSub(
+      subject,
+      [this, sharedCb, req, subject, input, presentedChallenge](
+        std::optional<fulla::identity::UserData> user) {
+          if (!user)
           {
-              respondError(
-                req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerFinish: user not found"
-              );
+              respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "registerFinish: unknown user");
               return;
           }
-          int32_t resolvedUserId = usersResult[0].getValueOfId();
-
-          drogon_model::fulla_db::WebauthnCredentials cred;
-          cred.setUserId(resolvedUserId);
-          cred.setCredentialId(credentialId);
-          cred.setPublicKey(publicKey);
-          cred.setName(credName);
-
-          Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).insert(
-            cred,
-            [sharedCb, credentialId, req](const drogon_model::fulla_db::WebauthnCredentials &) {
+          webAuthnService_->finishRegistrationVerified(
+            user->id,
+            subject,
+            presentedChallenge,
+            input,
+            [sharedCb, req, subject, input](const std::string &errorCode) {
+                if (!errorCode.empty())
+                {
+                    respondError(req, sharedCb, errorCode, "registerFinish: " + errorCode);
+                    return;
+                }
                 ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                   ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                   "webauthn_registered",
                   "success",
                   req,
-                  "",
+                  subject,
                   "credential",
-                  credentialId
+                  input.rawId
                 );
                 Json::Value json;
                 json["message"] = "Passkey registered successfully";
-                json["credential_id"] = credentialId;
+                json["credential_id"] = input.rawId;
                 auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                 resp->setStatusCode(::drogon::k201Created);
                 (*sharedCb)(resp);
-            },
-            [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                const std::string what = e.base().what();
-                if (
-                  what.find("webauthn_credentials") != std::string::npos &&
-                  what.find("credential_id") != std::string::npos
-                )
-                {
-                    respondError(
-                      req,
-                      sharedCb,
-                      "VALIDATION_CREDENTIAL_ALREADY_REGISTERED",
-                      std::string("registerFinish: duplicate credential_id: ") + what
-                    );
-                    return;
-                }
-                respondError(
-                  req,
-                  sharedCb,
-                  "DB_QUERY_ERROR",
-                  std::string("registerFinish: failed to store credential: ") + what
-                );
             }
-          );
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            sharedCb,
-            "DB_QUERY_ERROR",
-            std::string("registerFinish: user lookup failed: ") + e.base().what()
           );
       }
     );
@@ -391,65 +388,59 @@ void WebAuthnController::authenticateBegin(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    // Task 24 slice 5: prefer the injected WebAuthnService, falling back
-    // to the pre-Task-24 direct generateSecureToken() call when unwired.
-    if (webAuthnService_)
-    {
-        auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
-          std::move(callback)
-        );
-        webAuthnService_->beginAuthentication(
-          [sharedCb,
-           req](std::optional<fulla::identity::WebAuthnAuthenticationChallenge> result) {
-              if (!result)
-              {
-                  respondError(
-                    req,
-                    sharedCb,
-                    "INTERNAL_ERROR",
-                    "authenticateBegin: challenge generation failed"
-                  );
-                  return;
-              }
-              if (req->session())
-                  req->session()->insert("webauthn_auth_challenge", result->challenge);
+    auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+      std::move(callback)
+    );
 
-              Json::Value options;
-              options["challenge"] = result->challenge;
-              options["rpId"] = result->rpId;
-              options["timeout"] = result->timeoutMs;
-              options["userVerification"] = "preferred";
-              options["allowCredentials"] = Json::Value(Json::arrayValue);
-              Json::Value response;
-              response["options"] = options;
-              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
-          }
+    if (!webAuthnService_)
+    {
+        respondWebAuthnUnavailable(req, sharedCb, "authenticateBegin");
+        return;
+    }
+    // The authentication flow is ANONYMOUS and session-carried — a session
+    // is mandatory (fail closed without one; the cookie contract is
+    // documented in docs/domains and the endpoint description).
+    if (!req->session())
+    {
+        respondError(
+          req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: no session (cookies required)"
         );
         return;
     }
 
-    // Generate challenge
-    std::string challenge = ::fulla::drogon::utils::generateSecureToken();
+    webAuthnService_->beginAuthentication(
+      [this, sharedCb, req](std::optional<fulla::identity::WebAuthnAuthenticationChallenge> base) {
+          if (!base)
+          {
+              respondError(
+                req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: challenge generation failed"
+              );
+              return;
+          }
+          // #142: store challenge|issuedAt so the 300s TTL is enforceable
+          // (Drogon sessions have no per-key TTL).
+          auto sessionChallenge = webAuthnService_->issueAuthenticationChallenge();
+          if (!sessionChallenge)
+          {
+              respondError(
+                req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: challenge generation failed"
+              );
+              return;
+          }
+          req->session()->insert("webauthn_auth_challenge", sessionChallenge->sessionValue);
 
-    // Store in session
-    if (req->session())
-    {
-        req->session()->insert("webauthn_auth_challenge", challenge);
-    }
-
-    Json::Value options;
-    options["challenge"] = challenge;
-    options["rpId"] = getRpId();
-    options["timeout"] = 60000;
-    options["userVerification"] = "preferred";
-
-    // Allow any credential (discoverable/resident key flow)
-    options["allowCredentials"] = Json::Value(Json::arrayValue);
-
-    Json::Value response;
-    response["options"] = options;
-    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
+          Json::Value options;
+          options["challenge"] = sessionChallenge->challenge;
+          options["rpId"] = base->rpId;
+          options["timeout"] = base->timeoutMs;
+          // BEGIN/FINISH POLICY ALIGNMENT (#142): finish enforces UV=1.
+          options["userVerification"] = "required";
+          options["allowCredentials"] = Json::Value(Json::arrayValue);
+          Json::Value response;
+          response["options"] = options;
+          (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
+      }
+    );
 }
 
 void WebAuthnController::authenticateFinish(
@@ -457,148 +448,121 @@ void WebAuthnController::authenticateFinish(
   std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 )
 {
-    auto sharedCb =
-      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+    auto sharedCb = std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(
+      std::move(callback)
+    );
 
     auto jsonBody = req->getJsonObject();
-    if (!jsonBody)
+    if (!jsonBody || !(*jsonBody).isObject() || !(*jsonBody).isMember("response") ||
+        !(*jsonBody)["response"].isObject())
     {
         respondError(
-          req, sharedCb, "VALIDATION_INVALID_INPUT", "authenticateFinish: JSON body is required"
+          req,
+          sharedCb,
+          "VALIDATION_INVALID_INPUT",
+          "authenticateFinish: body must be {id, rawId, response:{authenticatorData, clientDataJSON, signature}, userHandle?}"
         );
         return;
     }
+    const Json::Value &body = *jsonBody;
+    const Json::Value &resp = body["response"];
 
-    std::string credentialId = (*jsonBody).get("credential_id", "").asString();
-    if (credentialId.empty())
+    fulla::identity::WebAuthnService::AssertionInput input;
+    input.id = body.get("id", "").asString();
+    input.rawId = body.get("rawId", "").asString();
+    input.authenticatorData = resp.get("authenticatorData", "").asString();
+    input.clientDataJSON = resp.get("clientDataJSON", "").asString();
+    input.signature = resp.get("signature", "").asString();
+    input.userHandle = body.get("userHandle", "").asString();
+
+    if (input.id.empty() || input.rawId.empty() || input.authenticatorData.empty() ||
+        input.clientDataJSON.empty() || input.signature.empty())
     {
         respondError(
           req,
           sharedCb,
           "VALIDATION_MISSING_REQUIRED_FIELD",
-          "authenticateFinish: credential_id is required"
+          "authenticateFinish: id/rawId/response.authenticatorData/clientDataJSON/signature are required"
         );
         return;
     }
 
-    // Task 24 slice 5: prefer the injected WebAuthnService, falling back
-    // to the pre-Task-24 raw SQL when unwired.
-    if (webAuthnService_)
+    if (!webAuthnService_ || !req->session())
     {
-        webAuthnService_->finishAuthentication(
-          credentialId,
-          [sharedCb,
-           req,
-           credentialId](std::optional<fulla::identity::WebAuthnAuthResult> result) {
-              if (!result)
-              {
-                  respondError(
-                    req,
-                    sharedCb,
-                    "AUTH_INVALID_CREDENTIALS",
-                    "authenticateFinish: credential not found"
-                  );
-                  return;
-              }
-              ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
-                ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                "webauthn_authenticated",
-                "success",
-                req,
-                result->publicSub,
-                "credential",
-                credentialId
-              );
-              Json::Value json;
-              json["authenticated"] = true;
-              json["user_id"] = result->publicSub;
-              json["sign_count"] = result->signCount;
-              (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-          }
-        );
+        respondWebAuthnUnavailable(req, sharedCb, "authenticateFinish");
         return;
     }
 
-    // Look up credential and verify (split JOIN into two Mapper queries)
-    auto db = ::drogon::app().getDbClient();
-    Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).findBy(
-      Criteria(
-        drogon_model::fulla_db::WebauthnCredentials::Cols::_credential_id,
-        CompareOperator::EQ,
-        credentialId
-      ),
-      [sharedCb, credentialId, db, req](
-        const std::vector<drogon_model::fulla_db::WebauthnCredentials> &creds
-      ) {
-          if (creds.empty())
+    // Session challenge: unconditional consumption FIRST (erased whether
+    // or not anything downstream matches — no validity oracle).
+    std::string sessionValue = req->session()->get<std::string>("webauthn_auth_challenge");
+    req->session()->erase("webauthn_auth_challenge");
+
+    std::string presentedChallenge;
+    {
+        try
+        {
+            std::string raw = b64UrlDecode(input.clientDataJSON);
+            std::string jsonStr(raw);
+            Json::Reader reader;
+            Json::Value parsed;
+            if (reader.parse(jsonStr, parsed) && parsed.isMember("challenge"))
+                presentedChallenge = parsed.get("challenge", "").asString();
+        }
+        catch (...)
+        {
+        }
+    }
+
+    const bool challengeOk =
+      !sessionValue.empty() && !presentedChallenge.empty() &&
+      webAuthnService_->verifyAuthenticationChallenge(sessionValue, presentedChallenge);
+    if (!challengeOk)
+    {
+        // Generic: indistinguishable from any other credential failure.
+        respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "authenticateFinish: failed");
+        return;
+    }
+
+    webAuthnService_->finishAuthenticationVerified(
+      presentedChallenge,
+      input,
+      [sharedCb, req, input](std::optional<fulla::identity::WebAuthnAuthResult> result) {
+          if (!result)
           {
-              respondError(
-                req,
-                sharedCb,
-                "AUTH_INVALID_CREDENTIALS",
-                "authenticateFinish: credential not found"
-              );
+              respondError(req, sharedCb, "AUTH_INVALID_CREDENTIALS", "authenticateFinish: failed");
               return;
           }
 
-          const auto &wc = creds[0];
-          int userId = wc.getValueOfUserId();
-          int signCount = wc.getValueOfSignCount();
+          // Establish the browser session, mirroring SessionController::login
+          // (#55 backchannel-logout attribution needs `sub`; F-021/F-022 need
+          // auth_time/amr). amr values are RFC 8176 registry entries:
+          // "hwk" (proof-of-possession of a hardware-protected key) plus
+          // "user" (user verification — enforced by the assertion policy);
+          // the server cannot distinguish PIN vs biometrics, so no "pin".
+          req->session()->insert("userId", std::to_string(result->userId));
+          req->session()->insert("sub", result->publicSub);
+          auto nowSecs = std::chrono::duration_cast<std::chrono::seconds>(
+                           std::chrono::system_clock::now().time_since_epoch()
+          )
+                           .count();
+          req->session()->insert("auth_time", static_cast<int64_t>(nowSecs));
+          req->session()->insert("amr", std::string("hwk user"));
 
-          // Build credential update from already-fetched object
-          int newSignCount = signCount + 1;
-          auto credUpdate = std::make_shared<drogon_model::fulla_db::WebauthnCredentials>(wc);
-          credUpdate->setSignCount(newSignCount);
-          credUpdate->setLastUsedAt(::trantor::Date::now());
-
-          // Query user for public_sub
-          Mapper<drogon_model::fulla_db::Users>(db).findBy(
-            Criteria(drogon_model::fulla_db::Users::Cols::_id, CompareOperator::EQ, userId),
-            [sharedCb, credentialId, db, req, userId, newSignCount, credUpdate](
-              const std::vector<drogon_model::fulla_db::Users> &users
-            ) {
-                std::string publicSub = users.empty() ? "" : users[0].getValueOfPublicSub();
-
-                // Update sign_count and last_used_at (reuse outer findBy result)
-                Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).update(
-                  *credUpdate,
-                  [](const size_t) {},
-                  [](const ::drogon::orm::DrogonDbException &e) {
-                      LOG_WARN << "Failed to update sign count: " << e.base().what();
-                  }
-                );
-
-                ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
-                  ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
-                  "webauthn_authenticated",
-                  "success",
-                  req,
-                  publicSub,
-                  "credential",
-                  credentialId
-                );
-
-                Json::Value json;
-                json["authenticated"] = true;
-                json["user_id"] = publicSub;
-                json["sign_count"] = newSignCount;
-                auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
-                (*sharedCb)(resp);
-            },
-            [sharedCb, req](const ::drogon::orm::DrogonDbException &) {
-                respondError(
-                  req, sharedCb, "DB_QUERY_ERROR", "authenticateFinish: DB error fetching user"
-                );
-            }
-          );
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
+          ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
+            ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+            "webauthn_authenticated",
+            "success",
             req,
-            sharedCb,
-            "DB_QUERY_ERROR",
-            std::string("authenticateFinish: lookup failed: ") + e.base().what()
+            result->publicSub,
+            "credential",
+            input.rawId
           );
+          Json::Value json;
+          json["authenticated"] = true;
+          json["user_id"] = result->publicSub;
+          json["sign_count"] = result->signCount;
+          (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
       }
     );
 }
@@ -612,49 +576,15 @@ void WebAuthnController::listCredentials(
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
-    // Task 24 slice 5: prefer the injected WebAuthnService/IUserRepository,
-    // falling back to the pre-Task-24 raw SQL when unwired.
-    if (webAuthnService_ && userRepo_)
+    if (!webAuthnService_ || !userRepo_)
     {
-        userRepo_->findByPublicSub(
-          userId, [this, sharedCb](std::optional<fulla::identity::UserData> user) {
-              if (!user)
-              {
-                  Json::Value json;
-                  json["credentials"] = Json::Value(Json::arrayValue);
-                  json["total"] = 0;
-                  (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-                  return;
-              }
-              webAuthnService_->listCredentials(
-                user->id,
-                [sharedCb](std::vector<fulla::identity::WebAuthnCredentialSummary> creds) {
-                    Json::Value json;
-                    Json::Value credsJson(Json::arrayValue);
-                    for (const auto &c : creds)
-                    {
-                        Json::Value cred;
-                        cred["credential_id"] = c.credentialId;
-                        cred["name"] = c.name;
-                        cred["sign_count"] = c.signCount;
-                        credsJson.append(cred);
-                    }
-                    json["credentials"] = credsJson;
-                    json["total"] = static_cast<int>(creds.size());
-                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-                }
-              );
-          }
-        );
+        respondWebAuthnUnavailable(req, sharedCb, "listCredentials");
         return;
     }
 
-    auto db = ::drogon::app().getDbClient();
-    // First resolve public_sub to user_id, then list credentials
-    Mapper<drogon_model::fulla_db::Users>(db).findBy(
-      Criteria(drogon_model::fulla_db::Users::Cols::_public_sub, CompareOperator::EQ, userId),
-      [sharedCb, db, req](const std::vector<drogon_model::fulla_db::Users> &users) {
-          if (users.empty())
+    userRepo_->findByPublicSub(
+      userId, [this, sharedCb](std::optional<fulla::identity::UserData> user) {
+          if (!user)
           {
               Json::Value json;
               json["credentials"] = Json::Value(Json::arrayValue);
@@ -662,46 +592,23 @@ void WebAuthnController::listCredentials(
               (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
               return;
           }
-          int32_t resolvedId = users[0].getValueOfId();
-
-          Mapper<drogon_model::fulla_db::WebauthnCredentials>(db).findBy(
-            Criteria(
-              drogon_model::fulla_db::WebauthnCredentials::Cols::_user_id,
-              CompareOperator::EQ,
-              resolvedId
-            ),
-            [sharedCb](const std::vector<drogon_model::fulla_db::WebauthnCredentials> &creds) {
+          webAuthnService_->listCredentials(
+            user->id,
+            [sharedCb](std::vector<fulla::identity::WebAuthnCredentialSummary> creds) {
                 Json::Value json;
                 Json::Value credsJson(Json::arrayValue);
-                for (const auto &wc : creds)
+                for (const auto &c : creds)
                 {
                     Json::Value cred;
-                    cred["credential_id"] = wc.getValueOfCredentialId();
-                    auto n = wc.getName();
-                    cred["name"] = n ? *n : "";
-                    cred["sign_count"] = wc.getValueOfSignCount();
+                    cred["credential_id"] = c.credentialId;
+                    cred["name"] = c.name;
+                    cred["sign_count"] = c.signCount;
                     credsJson.append(cred);
                 }
                 json["credentials"] = credsJson;
                 json["total"] = static_cast<int>(creds.size());
                 (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-            },
-            [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-                respondError(
-                  req,
-                  sharedCb,
-                  "DB_QUERY_ERROR",
-                  std::string("listCredentials: query failed: ") + e.base().what()
-                );
             }
-          );
-      },
-      [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
-          respondError(
-            req,
-            sharedCb,
-            "DB_QUERY_ERROR",
-            std::string("listCredentials: user lookup failed: ") + e.base().what()
           );
       }
     );

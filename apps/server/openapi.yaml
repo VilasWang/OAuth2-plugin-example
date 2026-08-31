@@ -146,6 +146,70 @@ components:
       - expires_in
       - refresh_token
       type: object
+    WebAuthnRegistrationCredential:
+      description: >-
+        Browser PublicKeyCredential for navigator.credentials.create()
+        (#142). All binary fields are base64url without padding. The server
+        ignores any client-submitted public_key: the stored key comes from
+        the verified attestation object's COSE bytes.
+      properties:
+        id:
+          type: string
+          description: base64url credential id (must equal rawId).
+        rawId:
+          type: string
+        response:
+          type: object
+          properties:
+            attestationObject:
+              type: string
+              description: base64url CBOR attestation object (fmt "none" only).
+            clientDataJSON:
+              type: string
+          required:
+          - attestationObject
+          - clientDataJSON
+        name:
+          type: string
+          description: Optional human-readable label (default "Passkey").
+      required:
+      - id
+      - rawId
+      - response
+      type: object
+    WebAuthnAssertionCredential:
+      description: >-
+        Browser PublicKeyCredential for navigator.credentials.get() (#142).
+        All binary fields are base64url without padding.
+      properties:
+        id:
+          type: string
+          description: base64url credential id (must equal rawId).
+        rawId:
+          type: string
+        response:
+          type: object
+          properties:
+            authenticatorData:
+              type: string
+            clientDataJSON:
+              type: string
+            signature:
+              type: string
+              description: base64url ASN.1 DER ECDSA signature.
+          required:
+          - authenticatorData
+          - clientDataJSON
+          - signature
+        userHandle:
+          type: string
+          description: Optional base64url user handle; when present it must
+            name the credential's owner.
+      required:
+      - id
+      - rawId
+      - response
+      type: object
     IntrospectionResponse:
       description: >-
         RFC 7662 introspection body. Inactive tokens return {"active": false}
@@ -2362,7 +2426,11 @@ paths:
       - WebAuthn
   /api/me/webauthn/register/begin:
     post:
-      description: Start WebAuthn registration.
+      description: 'Start passkey registration (#142): ES256-only pubKeyCredParams,
+        userVerification=required, user.id is the base64url of the internal
+        user id bytes, excludeCredentials lists already-registered credentials,
+        and the challenge is bound to the Bearer subject (no session cookie
+        contract). Requires webauthn.rp_origins to be configured.'
       operationId: post_api_me_webauthn_register_begin
       responses:
         '200':
@@ -2376,13 +2444,23 @@ paths:
       - WebAuthn
   /api/me/webauthn/register/finish:
     post:
-      description: Finish WebAuthn registration.
+      description: 'Finish passkey registration (#142): the browser PublicKeyCredential
+        is verified server-side (subject-bound challenge, origin allowlist,
+        none-format attestation, ES256 COSE key) before anything is stored;
+        the legacy {credential_id, public_key} body is rejected.'
       operationId: post_api_me_webauthn_register_finish
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebAuthnRegistrationCredential'
+        required: true
       responses:
         '201':
           description: Passkey registered successfully
         '400':
-          description: Invalid request
+          description: Invalid request or failed verification (WEBAUTHN_INVALID_ATTESTATION
+            / WEBAUTHN_CHALLENGE_MISMATCH)
         '401':
           description: Unauthorized
       security:
@@ -3354,7 +3432,9 @@ paths:
       - User
   /oauth2/webauthn/authenticate/begin:
     post:
-      description: Start WebAuthn authentication.
+      description: 'Start passkey authentication (#142): the challenge is bound to
+        the caller''s session (send cookies - credentials include); userVerification=required;
+        ES256 only. Requires webauthn.rp_origins.'
       operationId: post_oauth2_webauthn_authenticate_begin
       responses:
         '200':
@@ -3364,15 +3444,27 @@ paths:
       - WebAuthn
   /oauth2/webauthn/authenticate/finish:
     post:
-      description: Finish WebAuthn authentication.
+      description: 'Finish passkey authentication (#142): the session challenge is
+        consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON)
+        is verified against the STORED COSE key, UV=1 is enforced and signCount
+        regression is treated as cloning. On success a browser session is
+        established (Set-Cookie). All failures answer the generic
+        AUTH_INVALID_CREDENTIALS.'
       operationId: post_oauth2_webauthn_authenticate_finish
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebAuthnAssertionCredential'
+        required: true
       responses:
         '200':
           description: WebAuthn authentication successful
         '400':
           description: Invalid request
         '401':
-          description: Credential not found
+          description: Authentication failed (generic - credential, signature,
+            challenge or policy)
       summary: WebAuthn Authenticate Finish
       tags:
       - WebAuthn

@@ -68,28 +68,47 @@ void PostgresWebAuthnRepository::findByCredentialId(
     auto sharedCb = std::make_shared<CredentialLookupCallback>(std::move(cb));
 
     // 查询 webauthn_credentials 获取 user_id 和 sign_count
-    Mapper<WebauthnCredentials> wcMapper(dbClient_);
-    wcMapper.findOne(
-      Criteria(WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId),
-      [sharedCb, self = shared_from_this()](const WebauthnCredentials &wc) {
-          int32_t userId32 = wc.getValueOfUserId();
+    try
+    {
+        Mapper<WebauthnCredentials> wcMapper(dbClient_);
+        wcMapper.findOne(
+          Criteria(WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId),
+          [sharedCb, self = shared_from_this()](const WebauthnCredentials &wc) {
+              int32_t userId32 = wc.getValueOfUserId();
 
-          // 查询 users 获取 public_sub
-          Mapper<Users> userMapper(self->dbClient_);
-          userMapper.findOne(
-            Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
-            [sharedCb, wc](const Users &user) {
-                WebAuthnCredentialLookup lookup;
-                lookup.userId = wc.getValueOfUserId();
-                lookup.publicSub = user.getValueOfPublicSub();
-                lookup.signCount = static_cast<int>(wc.getValueOfSignCount());
-                (*sharedCb)(lookup);
-            },
-            [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
-          );
-      },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
-    );
+              // 查询 users 获取 public_sub。Guard: 每个 Mapper 构造独立
+              // try-catch —— 外层保护不到异步回调内部
+              // (db-operations.md rule 3)。
+              try
+              {
+                  Mapper<Users> userMapper(self->dbClient_);
+                  userMapper.findOne(
+                    Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+                    [sharedCb, wc](const Users &user) {
+                        WebAuthnCredentialLookup lookup;
+                        lookup.userId = wc.getValueOfUserId();
+                        lookup.publicSub = user.getValueOfPublicSub();
+                        lookup.signCount = static_cast<int>(wc.getValueOfSignCount());
+                        // #142: assertion signatures verify against the
+                        // STORED COSE key.
+                        lookup.publicKey = wc.getValueOfPublicKey();
+                        (*sharedCb)(lookup);
+                    },
+                    [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
+                  );
+              }
+              catch (...)
+              {
+                  (*sharedCb)(std::nullopt);
+              }
+          },
+          [sharedCb](const DrogonDbException &) { (*sharedCb)(std::nullopt); }
+        );
+    }
+    catch (...)
+    {
+        (*sharedCb)(std::nullopt);
+    }
 }
 
 void PostgresWebAuthnRepository::updateSignCount(
@@ -109,17 +128,30 @@ void PostgresWebAuthnRepository::updateSignCount(
     mapper.findOne(
       Criteria(WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId),
       [sharedCb, newSignCount, self = shared_from_this()](const WebauthnCredentials &found) {
-          WebauthnCredentials updated;
-          updated.setCredentialId(found.getValueOfCredentialId());
+          // Update from the FOUND row: a freshly-constructed object would
+          // carry empty NOT NULL columns (user_id/public_key), failing the
+          // whole UPDATE silently under the best-effort callback (#142
+          // found sign_count never advancing).
+          WebauthnCredentials updated(found);
           updated.setSignCount(static_cast<int32_t>(newSignCount));
           updated.setLastUsedAt(::trantor::Date::now());
 
-          Mapper<WebauthnCredentials>(self->dbClient_)
-            .update(
-              updated,
-              [sharedCb](const size_t) { (*sharedCb)(true); },
-              [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-            );
+          try
+          {
+              Mapper<WebauthnCredentials>(self->dbClient_)
+                .update(
+                  updated,
+                  [sharedCb](const size_t) { (*sharedCb)(true); },
+                  [sharedCb](const DrogonDbException &e) {
+                      LOG_WARN << "updateSignCount failed: " << e.base().what();
+                      (*sharedCb)(false);
+                  }
+                );
+          }
+          catch (...)
+          {
+              (*sharedCb)(false);
+          }
       },
       [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
     );

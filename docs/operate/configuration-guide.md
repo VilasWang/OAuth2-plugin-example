@@ -237,3 +237,44 @@ and are transparently rehashed to PBKDF2 on that first successful login
 lockout counter, no unlock is required before reopening. Close the window
 again once the inventory query returns `0`; the window (and the
 identity-side rehash code) is scheduled for removal in v1.1.
+
+## 11. WebAuthn / Passkeys (#142)
+
+Passkey registration and authentication perform REAL cryptographic
+verification (W3C WebAuthn Level 2 §7.1/§6.1): ES256 only, `fmt="none"`
+attestations only, and the assertion signature is checked against the COSE
+public key stored at registration time. Configuration:
+
+```json
+"webauthn": {
+    "rp_id": "localhost",
+    "rp_name": "OAuth2 Server",
+    "rp_origins": ["http://localhost:5173"]
+}
+```
+
+- `rp_id` — Relying Party id (the registrable domain the credential is
+  scoped to; `localhost` for local development).
+- `rp_origins` — STRICT allowlist of accepted `clientDataJSON` origins.
+  **Required before the finish endpoints accept anything**: while the list
+  is empty (or the key absent), registration/authentication finish fail
+  closed. Production must list the exact portal origin(s), e.g.
+  `["https://auth.example.com"]`.
+- Challenge lifetime is 300 seconds (code-enforced). The REGISTRATION
+  challenge is bound to the Bearer subject (the register endpoints sit
+  behind the token filter; the SPA sends no session cookie); the
+  AUTHENTICATION challenge is bound to the caller's session — the login
+  flow requires cookies (`credentials: 'include'`).
+- `userVerification` is `required` in both begin responses and enforced
+  (`UV=1`) on authentication — authenticators without user-verification
+  capability cannot register credentials here (they would never
+  authenticate). Sign-count regression is treated as authenticator
+  cloning: the assertion is rejected and a `webauthn_clone_detected`
+  audit action is recorded.
+- **V028 cleared all pre-existing credential rows**: every stored row was
+  client-asserted material that never passed attestation verification (and
+  authenticateFinish used to accept a bare credential id as proof of
+  possession). Users re-register their passkeys after upgrading.
+- Single-instance deployments: the subject-bound registration challenge
+  store is in-process (same limitation class as the consent_csrf nonce).
+  Multi-instance deployments need shared challenge storage (follow-up).

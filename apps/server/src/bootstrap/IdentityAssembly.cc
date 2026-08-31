@@ -1,7 +1,9 @@
 #include "IdentityAssembly.h"
 
+#include <fulla/common/observability/AuditEvent.h>
 #include <fulla/drogon/adapters/BackchannelLogoutNotifier.h>
 #include <fulla/drogon/adapters/DrogonOAuthHttpClient.h>
+#include <fulla/drogon/observability/AuditLogger.h>
 #ifdef WITH_SOCIAL
 #include <fulla/drogon/controllers/GitHubController.h>
 #include <fulla/drogon/controllers/GoogleController.h>
@@ -28,6 +30,9 @@
 #include <fulla/storage/postgres/PostgresWebAuthnRepository.h>
 #include <drogon/DrClassMap.h>
 #include <drogon/drogon.h>
+
+#include <string>
+#include <vector>
 #include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <fulla/drogon/adapters/SystemClock.h>
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
@@ -94,10 +99,18 @@ void wireIdentityServices()
       std::make_shared<fulla::storage::postgres::PostgresWebAuthnRepository>(dbClient);
     std::string rpId = "localhost";
     std::string rpName = "OAuth2 Server";
+    std::vector<std::string> rpOrigins;  // #142: strict origin allowlist
     if (customConfig.isMember("webauthn"))
     {
         rpId = customConfig["webauthn"].get("rp_id", rpId).asString();
         rpName = customConfig["webauthn"].get("rp_name", rpName).asString();
+        if (customConfig["webauthn"].isMember("rp_origins") &&
+            customConfig["webauthn"]["rp_origins"].isArray())
+        {
+            for (const auto &o : customConfig["webauthn"]["rp_origins"])
+                if (o.isString() && !o.asString().empty())
+                    rpOrigins.push_back(o.asString());
+        }
     }
 #endif  // WITH_WEBAUTHN
 
@@ -157,6 +170,29 @@ void wireIdentityServices()
 #ifdef WITH_WEBAUTHN
     static auto webAuthnService =
       std::make_shared<fulla::identity::WebAuthnService>(webAuthnRepo, crypto, rpId, rpName);
+    // #142: strict origin allowlist — verification fails closed while
+    // empty (an unconfigured deployment must not accept assertions from
+    // ANY origin). Clone detection surfaces as an audit action (the
+    // domain service stays logging-free).
+    webAuthnService->setRpOrigins(rpOrigins);
+    webAuthnService->setCloneDetectorNotifier([](int32_t userId, const std::string &credentialId) {
+        LOG_WARN << "WEBAUTHN_CLONE_DETECTED: user " << userId << " credential "
+                 << credentialId
+                 << " presented a non-increasing signCount — assertion rejected "
+                    "(possible cloned authenticator)";
+        fulla::common::observability::AuditEvent event;
+        event.action = "webauthn_clone_detected";
+        event.outcome = "failure";
+        event.actorType = "user";
+        event.actorId = std::to_string(userId);
+        event.targetType = "credential";
+        event.targetId = credentialId;
+        ::fulla::drogon::observability::AuditLogger::log(event);
+    });
+    if (rpOrigins.empty())
+        LOG_WARN << "IdentityAssembly: webauthn.rp_origins is empty — WebAuthn "
+                    "registration/authentication finish will fail closed until it "
+                    "is configured (see docs/operate/configuration-guide.md)";
 #endif  // WITH_WEBAUTHN
 
 #ifdef WITH_SOCIAL

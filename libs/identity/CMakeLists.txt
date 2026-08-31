@@ -29,6 +29,11 @@ find_package(jsoncpp REQUIRED)
 # ICryptoProvider adapters.
 find_package(OpenSSL REQUIRED)
 
+# #142: CBOR parsing for WebAuthn attestation/assertion verification
+# (libs/identity/src/webauthn/); same Domain-layer exception rationale as
+# OpenSSL above.
+find_package(libcbor REQUIRED)
+
 # Sources
 #
 # Task 19 (fulla-sdk-refactor): RoleProvider/SubjectResolver/
@@ -45,6 +50,11 @@ set(IDENTITY_SOURCES
     src/mfa/TotpUtils.cc
     # WebAuthn (conditional)
     $<$<BOOL:${WITH_WEBAUTHN}>:src/webauthn/WebAuthnService.cc>
+    # #142: crypto core (CborReader is header-only) -- compiled
+    # unconditionally (unlike WebAuthnService.cc) because its unit tests
+    # (CborReaderTest.cc/WebAuthnCryptoTest.cc) are glob-collected into
+    # fulla-identity-test regardless of WITH_WEBAUTHN.
+    src/webauthn/WebAuthnCrypto.cc
     # Social (conditional)
     $<$<BOOL:${WITH_SOCIAL}>:src/social/GoogleAuthService.cc>
     $<$<BOOL:${WITH_SOCIAL}>:src/social/WeChatAuthService.cc>
@@ -92,6 +102,10 @@ target_include_directories(fulla-identity
 target_link_libraries(fulla-identity
     PUBLIC
         fulla-common
+        # PUBLIC (not PRIVATE): the tests include src/webauthn/
+        # CborReader.h directly, so its <cbor/...> dependency must
+        # propagate to consumers of the build interface.
+        libcbor::libcbor
     PRIVATE
         JsonCpp::JsonCpp
         OpenSSL::Crypto
