@@ -160,15 +160,14 @@ test.describe('Connected Accounts (social links)', () => {
 
     await page.goto('/callback/google?code=e2e-google-code')
 
-    // Poll instead of a fixed sleep: the callback page stores the tokens
-    // in onMounted after the mocked round-trips; CI runners can be slow
-    // enough that a 1s wait observes the page mid-flight.
-    await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem('access_token')), { timeout: 10_000 })
-      .toBe('e2e-google-access')
+    // setTokens keeps the access token IN MEMORY (http.ts) and persists
+    // only the refresh_token — assert the persisted half, the redirect,
+    // and the authenticated shell instead of a localStorage key that is
+    // deliberately never written.
     await expect
       .poll(async () => page.evaluate(() => localStorage.getItem('refresh_token')), { timeout: 10_000 })
       .toBe('e2e-google-refresh')
     await expect(page).toHaveURL(/\/$/, { timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   })
 })
