@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fulla</title>
+    <script>
+      // Anti-FOUC: resolve the theme BEFORE first paint (mirrors
+      // stores/theme.ts read logic). Without this, dark users see a light
+      // flash while the JS bundle downloads.
+      try {
+        var t = localStorage.getItem('fulla-theme')
+        var dark = t === 'dark' || ((!t || t === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+      } catch (e) { /* keep default presentation */ }
+    </script>
   </head>
   <body>
     <div id="app"></div>

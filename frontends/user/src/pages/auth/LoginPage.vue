@@ -145,7 +145,7 @@ async function handleMfa() {
       <div class="flex justify-end">
         <router-link
           to="/forgot-password"
-          class="text-sm text-brand-700 hover:text-brand-700 font-medium transition-colors"
+          class="text-sm text-brand-700 hover:text-brand-800 font-medium transition-colors"
         >
           Forgot password?
         </router-link>

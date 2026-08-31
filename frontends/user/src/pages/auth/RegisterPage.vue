@@ -6,6 +6,7 @@ import { normalizeError } from '../../services/errorAdapter'
 import AppAlert from '../../components/ui/AppAlert.vue'
 import AppButton from '../../components/ui/AppButton.vue'
 import AppInput from '../../components/ui/AppInput.vue'
+import { passwordStrength } from '../../utils/passwordStrength'
 
 const router = useRouter()
 const username = ref('')
@@ -17,21 +18,9 @@ const loading = ref(false)
 const success = ref(false)
 
 // Password strength meter (mockup 17): 4 segments, error -> warning ->
-// success progression. Backend floor is auth.min_password_length = 8
-// (RuleSet D4); segment 1 is the hard floor, the rest reward length and
-// character-class mixing.
-const strength = computed(() => {
-  const pw = password.value
-  if (!pw) return -1
-  let score = 0
-  if (pw.length >= 8) score++
-  if (pw.length >= 12) score++
-  const classes = /[a-z]/.test(pw) && /[A-Z]/.test(pw) ? 1 : 0
-  const digits = /\d/.test(pw) ? 1 : 0
-  const symbols = /[^a-zA-Z0-9]/.test(pw) ? 1 : 0
-  if (classes + digits + symbols >= 2) score++
-  return Math.min(score, 4)
-})
+// success progression. Scoring lives in utils/passwordStrength.ts (unit
+// tested; the scale reaches 4 so every segment can light).
+const strength = computed(() => passwordStrength(password.value))
 
 async function handleRegister() {
   error.value = ''
@@ -132,7 +121,7 @@ async function handleRegister() {
         />
         <!-- Strength meter: 4 hairline segments (mockup .pw-meter) -->
         <div
-          v-if="strength >= 0"
+          v-if="password"
           class="flex gap-1.5 mt-2"
           aria-hidden="true"
         >

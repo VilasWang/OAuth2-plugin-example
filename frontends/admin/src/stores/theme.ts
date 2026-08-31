@@ -20,18 +20,24 @@ function systemPrefersDark(): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-function applyTheme(pref: ThemePreference) {
-  const dark = pref === 'dark' || (pref === 'system' && systemPrefersDark())
+function applyTheme(pref: ThemePreference, osDark: boolean) {
+  const dark = pref === 'dark' || (pref === 'system' && osDark)
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
 }
 
 export const useThemeStore = defineStore('theme', () => {
   const preference = ref<ThemePreference>(readStored())
+  // Reactive mirror of the OS preference. matchMedia().matches itself is
+  // NOT reactive — without this ref, a system-mode OS switch updates the
+  // DOM but `mode` (and every UI binding on it: toggle icon, label,
+  // aria-label) keeps the stale value, and toggle() writes back what is
+  // already displayed.
+  const osDark = ref(systemPrefersDark())
 
   // Effective mode ('light' | 'dark') — what the DOM currently shows.
   const mode = computed<'light' | 'dark'>(() =>
     preference.value === 'dark'
-      || (preference.value === 'system' && systemPrefersDark())
+      || (preference.value === 'system' && osDark.value)
       ? 'dark'
       : 'light',
   )
@@ -41,7 +47,7 @@ export const useThemeStore = defineStore('theme', () => {
     try {
       localStorage.setItem(STORAGE_KEY, next)
     } catch { /* non-fatal */ }
-    applyTheme(next)
+    applyTheme(next, osDark.value)
   }
 
   function toggle() {
@@ -49,11 +55,15 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   function init() {
-    applyTheme(preference.value)
-    // Hot-switch on OS preference changes while in 'system' mode.
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-      if (preference.value === 'system') applyTheme('system')
-    })
+    // Themed must never block app mount — a throw here (exotic embedded
+    // webviews, stubbed matchMedia) would leave a white screen.
+    try {
+      applyTheme(preference.value, osDark.value)
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        osDark.value = e.matches
+        if (preference.value === 'system') applyTheme('system', osDark.value)
+      })
+    } catch { /* keep default light presentation */ }
   }
 
   return { preference, mode, set, toggle, init }

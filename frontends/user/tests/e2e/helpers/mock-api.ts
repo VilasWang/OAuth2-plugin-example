@@ -256,6 +256,8 @@ export async function mockNetworkError(page: Page, urlPattern: string) {
 
 /**
  * Mock registration API to return an error (e.g., duplicate user).
+ * Codes mirror the real backend (AuthService.cc): duplicate registration
+ * answers VALIDATION_USERNAME_TAKEN / VALIDATION_EMAIL_TAKEN.
  */
 export async function mockRegistrationError(page: Page, status: number, errorCode: string) {
   await page.route('**/api/register', async (route) => {

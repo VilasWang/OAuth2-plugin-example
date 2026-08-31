@@ -30,6 +30,11 @@ html[data-theme="dark"] {
   --color-brand-200: oklch(33% 0.080 252);
   --color-brand-600: oklch(58% 0.150 252);
   --color-brand-700: oklch(78% 0.100 252);
+  /* 800/900 remapped too: text-brand-800 badges sit on brand-100, and a
+     dozen hover:text-brand-800/900 links would disappear in dark if these
+     kept their light-mode near-black values. */
+  --color-brand-800: oklch(84% 0.085 252);
+  --color-brand-900: oklch(90% 0.065 252);
 
   /* Semantic ramps: dark bgs/borders, bright text steps */
   --color-success-50:  oklch(24% 0.045 160);

@@ -27,29 +27,32 @@ test.describe('Registration Validation', () => {
   })
 
   test('duplicate username shows error', async ({ page }) => {
-    // Override registration mock to return conflict
-    await mockRegistrationError(page, 409, 'USER_ALREADY_EXISTS')
+    // Real backend code (AuthService.cc) — the catalog maps it to a
+    // dedicated message, so the assertion below is content-verified.
+    await mockRegistrationError(page, 409, 'VALIDATION_USERNAME_TAKEN')
     await page.locator('input[autocomplete="username"]').fill('existinguser')
     await page.locator('input[type="email"]').fill('new@example.com')
     await page.locator('input[autocomplete="new-password"]').first().fill('password123')
     await page.locator('input[autocomplete="new-password"]').last().fill('password123')
     await page.locator('button[type="submit"]').click()
-    await page.waitForTimeout(500)
-    // Error should be displayed
-    const errorEl = page.locator('.bg-error-50, [class*="error-"]')
-    await expect(errorEl.first()).toBeVisible()
+    // Assert the error ALERT (AppAlert renders role="alert"), not a
+    // [class*="error-"] substring — that matched the AppInput required-star
+    // and the strength meter unconditionally and passed even with no banner.
+    const alert = page.locator('[role="alert"]')
+    await expect(alert).toBeVisible({ timeout: 3000 })
+    await expect(alert).toContainText('该用户名已被注册')
   })
 
   test('duplicate email shows error', async ({ page }) => {
-    await mockRegistrationError(page, 409, 'EMAIL_ALREADY_EXISTS')
+    await mockRegistrationError(page, 409, 'VALIDATION_EMAIL_TAKEN')
     await page.locator('input[autocomplete="username"]').fill('newuser')
     await page.locator('input[type="email"]').fill('existing@example.com')
     await page.locator('input[autocomplete="new-password"]').first().fill('password123')
     await page.locator('input[autocomplete="new-password"]').last().fill('password123')
     await page.locator('button[type="submit"]').click()
-    await page.waitForTimeout(500)
-    const errorEl = page.locator('.bg-error-50, [class*="error-"]')
-    await expect(errorEl.first()).toBeVisible()
+    const alert = page.locator('[role="alert"]')
+    await expect(alert).toBeVisible({ timeout: 3000 })
+    await expect(alert).toContainText('该邮箱已被注册')
   })
 
   test('empty fields prevent submission via HTML5 validation', async ({ page }) => {

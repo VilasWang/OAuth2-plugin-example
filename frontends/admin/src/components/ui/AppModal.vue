@@ -67,9 +67,11 @@ onUnmounted(() => {
         @keydown="handleKeydown"
       >
         <!-- Backdrop: clicking it closes the modal (covers the full viewport,
-             so outer clicks land here, not on the container) -->
+             so outer clicks land here, not on the container). Uses the scrim
+             TOKEN, not bg-neutral-900/50 — dark mode inverts the neutral
+             ramp, which turned a 50% neutral scrim into white fog. -->
         <div
-          class="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm"
+          class="fixed inset-0 bg-(--color-bg-overlay) backdrop-blur-sm"
           aria-hidden="true"
           @click="emit('close')"
         />
