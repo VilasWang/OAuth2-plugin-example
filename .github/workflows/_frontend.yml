@@ -26,6 +26,12 @@ jobs:
         with:
           node-version: "20"
 
+      # Dual-copy UI kit drift gate (P1 shared-UI strategy stage 1): the
+      # admin and user components/ui directories must stay byte-identical
+      # until the kit graduates to frontends/packages/ui.
+      - name: UI kit dual-copy sync gate
+        run: node scripts/check-ui-sync.mjs
+
       - name: Unit / property tests (user portal)
         working-directory: ${{ github.workspace }}/frontends/user
         run: |

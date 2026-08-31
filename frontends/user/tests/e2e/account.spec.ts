@@ -318,9 +318,12 @@ test.describe('Authorized Apps', () => {
     })
     page.on('dialog', (dialog) => dialog.accept())
     await page.locator('button:has-text("Revoke")').first().click()
-    await page.waitForTimeout(500)
-    const errorEl = page.locator('[class*="error-"]')
-    await expect(errorEl.first()).toBeVisible()
+    // Assert the mounted error ALERT (role="alert") with its catalog
+    // message — a [class*="error-"] substring also matched the page's
+    // static Revoke button styling and passed unconditionally.
+    const alert = page.locator('[role="alert"]')
+    await expect(alert).toBeVisible({ timeout: 3000 })
+    await expect(alert).toContainText('服务器内部错误')
   })
 
   test('app without name shows client_id as fallback', async ({ page }) => {

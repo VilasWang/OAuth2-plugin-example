@@ -279,10 +279,10 @@
 }
 
 /* -------------------------------------------------------------------
-   DARK MODE OVERRIDES — moved to styles/dark-theme.css, imported AFTER
-   tailwindcss in style.css. Tailwind sweeps pre-import CSS into
-   @layer properties, which loses to the @layer theme :root emission
-   (later layer wins) — an unlayered block is the only reliable seat.
+   DARK MODE OVERRIDES — live in App.vue's SFC <style> (html[data-theme=
+   dark]). Plain-CSS carriers don't survive the Tailwind vite plugin: dev
+   strips sibling-import custom-property blocks; builds layer-merge them
+   into @layer properties, losing to the @layer theme :root emission.
    ------------------------------------------------------------------- */
 
 
