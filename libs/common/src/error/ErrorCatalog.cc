@@ -65,9 +65,9 @@ struct RawEntry
 
 // Verbatim copy of oauth2::error::ErrorCatalog's table (numeric codes/messages
 // preserved unchanged); grows as new codes are ratified.
-const std::array<RawEntry, 30> &rawEntries()
+const std::array<RawEntry, 32> &rawEntries()
 {
-    static const std::array<RawEntry, 30> kEntries = {{
+    static const std::array<RawEntry, 32> kEntries = {{
       // NETWORK (1000-1099)
       {"NET_CONNECTION_FAILED",
        1001,
@@ -198,6 +198,17 @@ const std::array<RawEntry, 30> &rawEntries()
        "该安全密钥已注册，无需重复添加",
        "WebAuthn 凭据重复注册（VALIDATION 类，HTTP 409）",
        409},
+      // #142: WebAuthn registration-side verification failures (400).
+      {"WEBAUTHN_INVALID_ATTESTATION",
+       3015,
+       ErrorCategory::VALIDATION,
+       "注册声明无法通过验证",
+       "WebAuthn 声明格式/算法不被支持（VALIDATION 类）"},
+      {"WEBAUTHN_CHALLENGE_MISMATCH",
+       3016,
+       ErrorCategory::VALIDATION,
+       "注册挑战校验失败",
+       "WebAuthn 挑战/来源不匹配（VALIDATION 类）"},
       {"VALIDATION_RESET_TOKEN_INVALID",
        3009,
        ErrorCategory::VALIDATION,

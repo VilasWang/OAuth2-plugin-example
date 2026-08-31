@@ -5,16 +5,26 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.web_authn_registration_credential import WebAuthnRegistrationCredential
 from ...types import Response
 
 
-def _get_kwargs() -> dict[str, Any]:
+def _get_kwargs(
+    *,
+    body: WebAuthnRegistrationCredential,
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/api/me/webauthn/register/finish",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -46,10 +56,19 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    body: WebAuthnRegistrationCredential,
 ) -> Response[Any]:
     """WebAuthn Register Finish
 
-     Finish WebAuthn registration.
+     Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side
+    (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything
+    is stored; the legacy {credential_id, public_key} body is rejected.
+
+    Args:
+        body (WebAuthnRegistrationCredential): Browser PublicKeyCredential for
+            navigator.credentials.create() (#142). All binary fields are base64url without padding.
+            The server ignores any client-submitted public_key: the stored key comes from the verified
+            attestation object's COSE bytes.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -59,7 +78,9 @@ def sync_detailed(
         Response[Any]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        body=body,
+    )
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -71,10 +92,19 @@ def sync_detailed(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    body: WebAuthnRegistrationCredential,
 ) -> Response[Any]:
     """WebAuthn Register Finish
 
-     Finish WebAuthn registration.
+     Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side
+    (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything
+    is stored; the legacy {credential_id, public_key} body is rejected.
+
+    Args:
+        body (WebAuthnRegistrationCredential): Browser PublicKeyCredential for
+            navigator.credentials.create() (#142). All binary fields are base64url without padding.
+            The server ignores any client-submitted public_key: the stored key comes from the verified
+            attestation object's COSE bytes.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -84,7 +114,9 @@ async def asyncio_detailed(
         Response[Any]
     """
 
-    kwargs = _get_kwargs()
+    kwargs = _get_kwargs(
+        body=body,
+    )
 
     response = await client.get_async_httpx_client().request(**kwargs)
 

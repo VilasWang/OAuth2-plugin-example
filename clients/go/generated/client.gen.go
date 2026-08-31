@@ -618,6 +618,38 @@ type UserInfoResponse struct {
 	Username *string `json:"username,omitempty"`
 }
 
+// WebAuthnAssertionCredential Browser PublicKeyCredential for navigator.credentials.get() (#142). All binary fields are base64url without padding.
+type WebAuthnAssertionCredential struct {
+	// Id base64url credential id (must equal rawId).
+	Id       string `json:"id"`
+	RawId    string `json:"rawId"`
+	Response struct {
+		AuthenticatorData string `json:"authenticatorData"`
+		ClientDataJSON    string `json:"clientDataJSON"`
+
+		// Signature base64url ASN.1 DER ECDSA signature.
+		Signature string `json:"signature"`
+	} `json:"response"`
+
+	// UserHandle Optional base64url user handle; when present it must name the credential's owner.
+	UserHandle *string `json:"userHandle,omitempty"`
+}
+
+// WebAuthnRegistrationCredential Browser PublicKeyCredential for navigator.credentials.create() (#142). All binary fields are base64url without padding. The server ignores any client-submitted public_key: the stored key comes from the verified attestation object's COSE bytes.
+type WebAuthnRegistrationCredential struct {
+	// Id base64url credential id (must equal rawId).
+	Id string `json:"id"`
+
+	// Name Optional human-readable label (default "Passkey").
+	Name     *string `json:"name,omitempty"`
+	RawId    string  `json:"rawId"`
+	Response struct {
+		// AttestationObject base64url CBOR attestation object (fmt "none" only).
+		AttestationObject string `json:"attestationObject"`
+		ClientDataJSON    string `json:"clientDataJSON"`
+	} `json:"response"`
+}
+
 // PostApiAdminClientsJSONBody defines parameters for PostApiAdminClients.
 type PostApiAdminClientsJSONBody struct {
 	AllowedGrantTypes *string `json:"allowed_grant_types,omitempty"`
@@ -981,6 +1013,9 @@ type PostApiMeMfaVerifyFormdataRequestBody PostApiMeMfaVerifyFormdataBody
 // PostApiMeSocialLinksProviderJSONRequestBody defines body for PostApiMeSocialLinksProvider for application/json ContentType.
 type PostApiMeSocialLinksProviderJSONRequestBody PostApiMeSocialLinksProviderJSONBody
 
+// PostApiMeWebauthnRegisterFinishJSONRequestBody defines body for PostApiMeWebauthnRegisterFinish for application/json ContentType.
+type PostApiMeWebauthnRegisterFinishJSONRequestBody = WebAuthnRegistrationCredential
+
 // PostOauth2DeviceApproveFormdataRequestBody defines body for PostOauth2DeviceApprove for application/x-www-form-urlencoded ContentType.
 type PostOauth2DeviceApproveFormdataRequestBody PostOauth2DeviceApproveFormdataBody
 
@@ -1010,6 +1045,9 @@ type PostOauth2RevokeFormdataRequestBody PostOauth2RevokeFormdataBody
 
 // PostOauth2TokenFormdataRequestBody defines body for PostOauth2Token for application/x-www-form-urlencoded ContentType.
 type PostOauth2TokenFormdataRequestBody = TokenRequest
+
+// PostOauth2WebauthnAuthenticateFinishJSONRequestBody defines body for PostOauth2WebauthnAuthenticateFinish for application/json ContentType.
+type PostOauth2WebauthnAuthenticateFinishJSONRequestBody = WebAuthnAssertionCredential
 
 // AsLoginSuccessResponse returns the union data inside the PostOauth2Login200JSONResponseBody as a LoginSuccessResponse
 func (t PostOauth2Login200JSONResponseBody) AsLoginSuccessResponse() (LoginSuccessResponse, error) {
@@ -1697,17 +1735,28 @@ type ClientInterface interface {
 
 	// PostApiMeWebauthnRegisterBegin WebAuthn Register Begin
 	//
-	// Start WebAuthn registration.
+	// Start passkey registration (#142): ES256-only pubKeyCredParams, userVerification=required, user.id is the base64url of the internal user id bytes, excludeCredentials lists already-registered credentials, and the challenge is bound to the Bearer subject (no session cookie contract). Requires webauthn.rp_origins to be configured.
 	//
 	// Corresponds with POST /api/me/webauthn/register/begin (the `PostApiMeWebauthnRegisterBegin` operationId).
 	PostApiMeWebauthnRegisterBegin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostApiMeWebauthnRegisterFinish WebAuthn Register Finish
+	// PostApiMeWebauthnRegisterFinishWithBody WebAuthn Register Finish
 	//
-	// Finish WebAuthn registration.
+	// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
+	//
+	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
-	PostApiMeWebauthnRegisterFinish(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostApiMeWebauthnRegisterFinishWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiMeWebauthnRegisterFinish WebAuthn Register Finish
+	//
+	// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
+	PostApiMeWebauthnRegisterFinish(ctx context.Context, body PostApiMeWebauthnRegisterFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiPasswordResetConfirm Confirm Password Reset
 	//
@@ -1978,17 +2027,28 @@ type ClientInterface interface {
 
 	// PostOauth2WebauthnAuthenticateBegin WebAuthn Authenticate Begin
 	//
-	// Start WebAuthn authentication.
+	// Start passkey authentication (#142): the challenge is bound to the caller's session (send cookies - credentials include); userVerification=required; ES256 only. Requires webauthn.rp_origins.
 	//
 	// Corresponds with POST /oauth2/webauthn/authenticate/begin (the `PostOauth2WebauthnAuthenticateBegin` operationId).
 	PostOauth2WebauthnAuthenticateBegin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostOauth2WebauthnAuthenticateFinish WebAuthn Authenticate Finish
+	// PostOauth2WebauthnAuthenticateFinishWithBody WebAuthn Authenticate Finish
 	//
-	// Finish WebAuthn authentication.
+	// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
+	//
+	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
-	PostOauth2WebauthnAuthenticateFinish(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostOauth2WebauthnAuthenticateFinishWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOauth2WebauthnAuthenticateFinish WebAuthn Authenticate Finish
+	//
+	// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
+	PostOauth2WebauthnAuthenticateFinish(ctx context.Context, body PostOauth2WebauthnAuthenticateFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 // GetWellKnownJwksJson JSON Web Key Set
@@ -3241,7 +3301,7 @@ func (c *Client) GetApiMeWebauthnCredentials(ctx context.Context, reqEditors ...
 
 // PostApiMeWebauthnRegisterBegin WebAuthn Register Begin
 //
-// Start WebAuthn registration.
+// Start passkey registration (#142): ES256-only pubKeyCredParams, userVerification=required, user.id is the base64url of the internal user id bytes, excludeCredentials lists already-registered credentials, and the challenge is bound to the Bearer subject (no session cookie contract). Requires webauthn.rp_origins to be configured.
 //
 // Corresponds with POST /api/me/webauthn/register/begin (the `PostApiMeWebauthnRegisterBegin` operationId).
 func (c *Client) PostApiMeWebauthnRegisterBegin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3256,13 +3316,34 @@ func (c *Client) PostApiMeWebauthnRegisterBegin(ctx context.Context, reqEditors 
 	return c.Client.Do(req)
 }
 
-// PostApiMeWebauthnRegisterFinish WebAuthn Register Finish
+// PostApiMeWebauthnRegisterFinishWithBody WebAuthn Register Finish
 //
-// Finish WebAuthn registration.
+// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
+//
+// Takes any type of body and a specified content type.
 //
 // Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
-func (c *Client) PostApiMeWebauthnRegisterFinish(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiMeWebauthnRegisterFinishRequest(c.Server)
+func (c *Client) PostApiMeWebauthnRegisterFinishWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiMeWebauthnRegisterFinishRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostApiMeWebauthnRegisterFinish WebAuthn Register Finish
+//
+// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
+func (c *Client) PostApiMeWebauthnRegisterFinish(ctx context.Context, body PostApiMeWebauthnRegisterFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiMeWebauthnRegisterFinishRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3872,7 +3953,7 @@ func (c *Client) GetOauth2Userinfo(ctx context.Context, reqEditors ...RequestEdi
 
 // PostOauth2WebauthnAuthenticateBegin WebAuthn Authenticate Begin
 //
-// Start WebAuthn authentication.
+// Start passkey authentication (#142): the challenge is bound to the caller's session (send cookies - credentials include); userVerification=required; ES256 only. Requires webauthn.rp_origins.
 //
 // Corresponds with POST /oauth2/webauthn/authenticate/begin (the `PostOauth2WebauthnAuthenticateBegin` operationId).
 func (c *Client) PostOauth2WebauthnAuthenticateBegin(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3887,13 +3968,34 @@ func (c *Client) PostOauth2WebauthnAuthenticateBegin(ctx context.Context, reqEdi
 	return c.Client.Do(req)
 }
 
-// PostOauth2WebauthnAuthenticateFinish WebAuthn Authenticate Finish
+// PostOauth2WebauthnAuthenticateFinishWithBody WebAuthn Authenticate Finish
 //
-// Finish WebAuthn authentication.
+// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
+//
+// Takes any type of body and a specified content type.
 //
 // Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
-func (c *Client) PostOauth2WebauthnAuthenticateFinish(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOauth2WebauthnAuthenticateFinishRequest(c.Server)
+func (c *Client) PostOauth2WebauthnAuthenticateFinishWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2WebauthnAuthenticateFinishRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostOauth2WebauthnAuthenticateFinish WebAuthn Authenticate Finish
+//
+// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
+func (c *Client) PostOauth2WebauthnAuthenticateFinish(ctx context.Context, body PostOauth2WebauthnAuthenticateFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2WebauthnAuthenticateFinishRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5891,8 +5993,19 @@ func NewPostApiMeWebauthnRegisterBeginRequest(server string) (*http.Request, err
 	return req, nil
 }
 
-// NewPostApiMeWebauthnRegisterFinishRequest constructs an http.Request for the PostApiMeWebauthnRegisterFinish method
-func NewPostApiMeWebauthnRegisterFinishRequest(server string) (*http.Request, error) {
+// NewPostApiMeWebauthnRegisterFinishRequest calls the generic PostApiMeWebauthnRegisterFinish builder with application/json body
+func NewPostApiMeWebauthnRegisterFinishRequest(server string, body PostApiMeWebauthnRegisterFinishJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiMeWebauthnRegisterFinishRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiMeWebauthnRegisterFinishRequestWithBody constructs an http.Request for the PostApiMeWebauthnRegisterFinish method, with any body, and a specified content type
+func NewPostApiMeWebauthnRegisterFinishRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -5910,10 +6023,12 @@ func NewPostApiMeWebauthnRegisterFinishRequest(server string) (*http.Request, er
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -7058,8 +7173,19 @@ func NewPostOauth2WebauthnAuthenticateBeginRequest(server string) (*http.Request
 	return req, nil
 }
 
-// NewPostOauth2WebauthnAuthenticateFinishRequest constructs an http.Request for the PostOauth2WebauthnAuthenticateFinish method
-func NewPostOauth2WebauthnAuthenticateFinishRequest(server string) (*http.Request, error) {
+// NewPostOauth2WebauthnAuthenticateFinishRequest calls the generic PostOauth2WebauthnAuthenticateFinish builder with application/json body
+func NewPostOauth2WebauthnAuthenticateFinishRequest(server string, body PostOauth2WebauthnAuthenticateFinishJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostOauth2WebauthnAuthenticateFinishRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostOauth2WebauthnAuthenticateFinishRequestWithBody constructs an http.Request for the PostOauth2WebauthnAuthenticateFinish method, with any body, and a specified content type
+func NewPostOauth2WebauthnAuthenticateFinishRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -7077,10 +7203,12 @@ func NewPostOauth2WebauthnAuthenticateFinishRequest(server string) (*http.Reques
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -7761,21 +7889,30 @@ type ClientWithResponsesInterface interface {
 
 	// PostApiMeWebauthnRegisterBeginWithResponse WebAuthn Register Begin
 	//
-	// Start WebAuthn registration.
+	// Start passkey registration (#142): ES256-only pubKeyCredParams, userVerification=required, user.id is the base64url of the internal user id bytes, excludeCredentials lists already-registered credentials, and the challenge is bound to the Bearer subject (no session cookie contract). Requires webauthn.rp_origins to be configured.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/me/webauthn/register/begin (the `PostApiMeWebauthnRegisterBegin` operationId).
 	PostApiMeWebauthnRegisterBeginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostApiMeWebauthnRegisterBeginResponse, error)
 
-	// PostApiMeWebauthnRegisterFinishWithResponse WebAuthn Register Finish
+	// PostApiMeWebauthnRegisterFinishWithBodyWithResponse WebAuthn Register Finish
 	//
-	// Finish WebAuthn registration.
+	// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
-	PostApiMeWebauthnRegisterFinishWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostApiMeWebauthnRegisterFinishResponse, error)
+	PostApiMeWebauthnRegisterFinishWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiMeWebauthnRegisterFinishResponse, error)
+
+	// PostApiMeWebauthnRegisterFinishWithResponse WebAuthn Register Finish
+	//
+	// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
+	PostApiMeWebauthnRegisterFinishWithResponse(ctx context.Context, body PostApiMeWebauthnRegisterFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMeWebauthnRegisterFinishResponse, error)
 
 	// PostApiPasswordResetConfirmWithResponse Confirm Password Reset
 	//
@@ -8076,21 +8213,30 @@ type ClientWithResponsesInterface interface {
 
 	// PostOauth2WebauthnAuthenticateBeginWithResponse WebAuthn Authenticate Begin
 	//
-	// Start WebAuthn authentication.
+	// Start passkey authentication (#142): the challenge is bound to the caller's session (send cookies - credentials include); userVerification=required; ES256 only. Requires webauthn.rp_origins.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /oauth2/webauthn/authenticate/begin (the `PostOauth2WebauthnAuthenticateBegin` operationId).
 	PostOauth2WebauthnAuthenticateBeginWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2WebauthnAuthenticateBeginResponse, error)
 
-	// PostOauth2WebauthnAuthenticateFinishWithResponse WebAuthn Authenticate Finish
+	// PostOauth2WebauthnAuthenticateFinishWithBodyWithResponse WebAuthn Authenticate Finish
 	//
-	// Finish WebAuthn authentication.
+	// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
-	PostOauth2WebauthnAuthenticateFinishWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2WebauthnAuthenticateFinishResponse, error)
+	PostOauth2WebauthnAuthenticateFinishWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2WebauthnAuthenticateFinishResponse, error)
+
+	// PostOauth2WebauthnAuthenticateFinishWithResponse WebAuthn Authenticate Finish
+	//
+	// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
+	PostOauth2WebauthnAuthenticateFinishWithResponse(ctx context.Context, body PostOauth2WebauthnAuthenticateFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2WebauthnAuthenticateFinishResponse, error)
 }
 
 type GetWellKnownJwksJsonResponse struct {
@@ -12788,7 +12934,7 @@ func (c *ClientWithResponses) GetApiMeWebauthnCredentialsWithResponse(ctx contex
 
 // PostApiMeWebauthnRegisterBeginWithResponse WebAuthn Register Begin
 //
-// Start WebAuthn registration.
+// Start passkey registration (#142): ES256-only pubKeyCredParams, userVerification=required, user.id is the base64url of the internal user id bytes, excludeCredentials lists already-registered credentials, and the challenge is bound to the Bearer subject (no session cookie contract). Requires webauthn.rp_origins to be configured.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -12801,15 +12947,30 @@ func (c *ClientWithResponses) PostApiMeWebauthnRegisterBeginWithResponse(ctx con
 	return ParsePostApiMeWebauthnRegisterBeginResponse(rsp)
 }
 
-// PostApiMeWebauthnRegisterFinishWithResponse WebAuthn Register Finish
+// PostApiMeWebauthnRegisterFinishWithBodyWithResponse WebAuthn Register Finish
 //
-// Finish WebAuthn registration.
+// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
-func (c *ClientWithResponses) PostApiMeWebauthnRegisterFinishWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostApiMeWebauthnRegisterFinishResponse, error) {
-	rsp, err := c.PostApiMeWebauthnRegisterFinish(ctx, reqEditors...)
+func (c *ClientWithResponses) PostApiMeWebauthnRegisterFinishWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiMeWebauthnRegisterFinishResponse, error) {
+	rsp, err := c.PostApiMeWebauthnRegisterFinishWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiMeWebauthnRegisterFinishResponse(rsp)
+}
+
+// PostApiMeWebauthnRegisterFinishWithResponse WebAuthn Register Finish
+//
+// Finish passkey registration (#142): the browser PublicKeyCredential is verified server-side (subject-bound challenge, origin allowlist, none-format attestation, ES256 COSE key) before anything is stored; the legacy {credential_id, public_key} body is rejected.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/me/webauthn/register/finish (the `PostApiMeWebauthnRegisterFinish` operationId).
+func (c *ClientWithResponses) PostApiMeWebauthnRegisterFinishWithResponse(ctx context.Context, body PostApiMeWebauthnRegisterFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiMeWebauthnRegisterFinishResponse, error) {
+	rsp, err := c.PostApiMeWebauthnRegisterFinish(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -13313,7 +13474,7 @@ func (c *ClientWithResponses) GetOauth2UserinfoWithResponse(ctx context.Context,
 
 // PostOauth2WebauthnAuthenticateBeginWithResponse WebAuthn Authenticate Begin
 //
-// Start WebAuthn authentication.
+// Start passkey authentication (#142): the challenge is bound to the caller's session (send cookies - credentials include); userVerification=required; ES256 only. Requires webauthn.rp_origins.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -13326,15 +13487,30 @@ func (c *ClientWithResponses) PostOauth2WebauthnAuthenticateBeginWithResponse(ct
 	return ParsePostOauth2WebauthnAuthenticateBeginResponse(rsp)
 }
 
-// PostOauth2WebauthnAuthenticateFinishWithResponse WebAuthn Authenticate Finish
+// PostOauth2WebauthnAuthenticateFinishWithBodyWithResponse WebAuthn Authenticate Finish
 //
-// Finish WebAuthn authentication.
+// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
-func (c *ClientWithResponses) PostOauth2WebauthnAuthenticateFinishWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2WebauthnAuthenticateFinishResponse, error) {
-	rsp, err := c.PostOauth2WebauthnAuthenticateFinish(ctx, reqEditors...)
+func (c *ClientWithResponses) PostOauth2WebauthnAuthenticateFinishWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2WebauthnAuthenticateFinishResponse, error) {
+	rsp, err := c.PostOauth2WebauthnAuthenticateFinishWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2WebauthnAuthenticateFinishResponse(rsp)
+}
+
+// PostOauth2WebauthnAuthenticateFinishWithResponse WebAuthn Authenticate Finish
+//
+// Finish passkey authentication (#142): the session challenge is consumed unconditionally, the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key, UV=1 is enforced and signCount regression is treated as cloning. On success a browser session is established (Set-Cookie). All failures answer the generic AUTH_INVALID_CREDENTIALS.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth2/webauthn/authenticate/finish (the `PostOauth2WebauthnAuthenticateFinish` operationId).
+func (c *ClientWithResponses) PostOauth2WebauthnAuthenticateFinishWithResponse(ctx context.Context, body PostOauth2WebauthnAuthenticateFinishJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2WebauthnAuthenticateFinishResponse, error) {
+	rsp, err := c.PostOauth2WebauthnAuthenticateFinish(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

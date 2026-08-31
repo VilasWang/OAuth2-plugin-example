@@ -46,7 +46,10 @@ def sync_detailed(
 ) -> Response[Any]:
     """WebAuthn Register Begin
 
-     Start WebAuthn registration.
+     Start passkey registration (#142): ES256-only pubKeyCredParams, userVerification=required, user.id
+    is the base64url of the internal user id bytes, excludeCredentials lists already-registered
+    credentials, and the challenge is bound to the Bearer subject (no session cookie contract). Requires
+    webauthn.rp_origins to be configured.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,7 +74,10 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """WebAuthn Register Begin
 
-     Start WebAuthn registration.
+     Start passkey registration (#142): ES256-only pubKeyCredParams, userVerification=required, user.id
+    is the base64url of the internal user id bytes, excludeCredentials lists already-registered
+    credentials, and the challenge is bound to the Bearer subject (no session cookie contract). Requires
+    webauthn.rp_origins to be configured.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -3933,6 +3933,7 @@ struct WebAuthnCredentialLookup
 int32_t userId = 0;
 std::string publicSub;
 int signCount = 0;
+std::string publicKey;
 };
 struct WebAuthnCredentialSummary
 {
@@ -4369,8 +4370,10 @@ std::shared_ptr<IUserRepository> repo_;
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 namespace fulla::identity
 {
@@ -4423,11 +4426,65 @@ void listCredentials(
 int32_t userId,
 std::function<void(std::vector<WebAuthnCredentialSummary>)> &&callback
 );
+void setRpOrigins(std::vector<std::string> origins)
+;
+void setChallengeTtlSeconds(int64_t seconds)
+;
+void setCloneDetectorNotifier(std::function<void(int32_t userId, const std::string &credentialId)> notifier)
+;
+std::optional<std::string> issueRegistrationChallenge(const std::string &subject);
+bool consumeRegistrationChallenge(const std::string &subject, const std::string &presentedChallenge);
+struct IssuedSessionChallenge
+{
+std::string challenge;
+std::string sessionValue;
+};
+std::optional<IssuedSessionChallenge> issueAuthenticationChallenge();
+bool verifyAuthenticationChallenge(const std::string &sessionValue, const std::string &presentedChallenge);
+struct RegistrationInput
+{
+std::string id;
+std::string rawId;
+std::string attestationObject;
+std::string clientDataJSON;
+std::string name;
+};
+void finishRegistrationVerified(
+int32_t userId,
+const std::string &subject,
+const std::string &presentedChallenge,
+const RegistrationInput &input,
+std::function<void(const std::string &errorCode)> &&callback
+);
+struct AssertionInput
+{
+std::string id;
+std::string rawId;
+std::string authenticatorData;
+std::string clientDataJSON;
+std::string signature;
+std::string userHandle;
+};
+void finishAuthenticationVerified(
+const std::string &presentedChallenge,
+const AssertionInput &input,
+std::function<void(std::optional<WebAuthnAuthResult>)> &&callback
+);
 private:
 std::shared_ptr<IWebAuthnRepository> repo_;
 std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
 std::string rpId_;
 std::string rpName_;
+std::vector<std::string> rpOrigins_;
+int64_t challengeTtlSeconds_ = 300;
+std::function<void(int32_t, const std::string &)> cloneDetectorNotifier_;
+std::mutex challengeMu_;
+struct ChallengeEntry
+{
+std::string challenge;
+int64_t issuedAt = 0;
+};
+std::unordered_map<std::string, ChallengeEntry> registrationChallenges_;
 };
 }
 === libs/identity/include/fulla/identity/testing/FakeOAuthHttpClient.h
@@ -4606,6 +4663,57 @@ std::map<std::string, SocialLinkStateData> states_;
 };
 }
 #endif
+=== libs/identity/include/fulla/identity/testing/WebAuthnTestBuilders.h
+#pragma once
+#include <openssl/core_names.h>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+#include <cstdint>
+#include <memory>
+#include <string>
+namespace fulla::identity::testing::webauthn
+{
+inline void appendHead(std::string &out, unsigned char major, uint64_t value)
+;
+inline void appendInt(std::string &out, int64_t value)
+;
+inline void appendBytes(std::string &out, const std::string &payload)
+;
+inline void appendText(std::string &out, const std::string &payload)
+;
+inline std::string buildCoseKey(int64_t kty, int64_t alg, int64_t crv, const std::string &x, const std::string &y)
+;
+struct AuthDataSpec
+{
+std::string rpIdHash;
+unsigned char flags = 0;
+uint32_t signCount = 0;
+std::string aaguid;
+std::string credentialId;
+std::string coseKey;
+std::string extension;
+};
+inline std::string buildAuthData(const AuthDataSpec &spec)
+;
+inline std::string buildAttestationObject(const std::string &authData, const std::string &fmt, bool emptyAttStmt)
+;
+struct EvpPkeyDeleter
+{
+void operator()(EVP_PKEY *key) const
+;
+};
+using EvpPkeyPtr = std::unique_ptr<EVP_PKEY, EvpPkeyDeleter>;
+inline std::string sha256(const std::string &data)
+;
+inline EvpPkeyPtr generateP256()
+;
+inline bool exportXy(EVP_PKEY *key, std::string &x, std::string &y)
+;
+inline std::string signedMessage(const std::string &authData, const std::string &clientDataJson)
+;
+inline std::string signEs256(EVP_PKEY *privateKey, const std::string &message)
+;
+}
 === libs/oauth2/include/fulla/oauth2/access/ScopeDecision.h
 #pragma once
 #include <string>

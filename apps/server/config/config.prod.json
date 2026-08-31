@@ -268,7 +268,14 @@
             "url": "https://app.example.com",
             "register_path": "/register"
         },
-        "external_auth": {
+        // #142 WebAuthn - REQUIRED before enabling passkeys in production:
+    // "webauthn": {
+    //     "rp_id": "auth.example.com",
+    //     "rp_name": "Example Auth",
+    //     "rp_origins": ["https://auth.example.com"]
+    // },
+    // finish endpoints fail closed while rp_origins is unconfigured.
+    "external_auth": {
             "github": {
                 "client_id": "OVERRIDE_VIA_FULLA_GITHUB_CLIENT_ID",
                 "client_secret": "OVERRIDE_VIA_FULLA_GITHUB_CLIENT_SECRET"

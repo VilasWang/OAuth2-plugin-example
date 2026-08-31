@@ -53,7 +53,9 @@ Security-relevant policy denials and social-login issuance use stable action key
   hash is legacy-format and `auth.allow_legacy_hash=false` (#103). WARN
   with the internal user id; migrate the account via password reset or a
   temporary window reopen (docs/operate/configuration-guide.md §10).
-- `SOCIAL_LOGIN_TOKEN_ISSUED` — a social login endpoint (GitHub/Google/WeChat)
+- `SOCIAL_LOGIN_TOKEN_ISSUED` — a social login endpoint (GitHub/Google/WeChat)- `webauthn_clone_detected` — an assertion presented a non-increasing signCount
+  (#142): rejected as a possible cloned authenticator; the credential should be
+  de-registered and re-registered.
   issued a first-party token pair (#70). Details carry provider/client/scope/internal id.
 
 ### 2.2 Contextual Logs

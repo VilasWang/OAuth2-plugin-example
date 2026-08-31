@@ -66,6 +66,10 @@ struct WebAuthnCredentialLookup
     int32_t userId = 0;     // Internal user id (webauthn_credentials.user_id).
     std::string publicSub;  // users.public_sub -- what the caller reports back as "user_id".
     int signCount = 0;      // webauthn_credentials.sign_count, as currently stored.
+    // #142: the stored COSE public key (base64url of the raw COSE bytes,
+    // as written at registration) -- the assertion signature is verified
+    // against THIS, never against anything the login request carries.
+    std::string publicKey;
 };
 
 /**

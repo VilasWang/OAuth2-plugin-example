@@ -61,7 +61,7 @@ REM Apply seed data (dev/test only; explicit list - benchmark-only seeds live
 REM in benchmarks\fulla\seed and never land in a dev/test database)
 if exist "%SEED_DIR%" (
     echo Applying seed data from %SEED_DIR%...
-    for %%f in ("dev_admin_user.sql") do (
+    for %%f in ("dev_admin_user.sql" "dev_admin_console_client.sql" "dev_backend_client.sql" "dev_vue_client.sql") do (
         echo   Applying %%~nxf...
         psql -U %FULLA_DB_USER% -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -d %FULLA_DB_NAME% -f "%SEED_DIR%\%%~nxf"
         if errorlevel 1 (

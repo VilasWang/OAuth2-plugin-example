@@ -12,10 +12,10 @@ test.describe('Security features (WebAuthn / MFA)', () => {
 
   test('registers a passkey with the backend credential contract', async ({ page }) => {
     // Stub the WebAuthn browser API before any page script runs. The stub
-    // mimics a real attestation response: rawId + getPublicKey() (SPKI DER).
+    // mimics a real attestation response (#142 shape: rawId + the attestation
+    // envelope; the client no longer extracts or submits a public key).
     await page.addInitScript(() => {
       const fakeRawId = new Uint8Array([1, 2, 3, 4]).buffer
-      const fakePublicKey = new Uint8Array([5, 6, 7, 8]).buffer
       Object.defineProperty(window, 'PublicKeyCredential', { value: window.PublicKeyCredential || class {}, configurable: true })
       Object.defineProperty(navigator, 'credentials', {
         value: {
@@ -26,7 +26,6 @@ test.describe('Security features (WebAuthn / MFA)', () => {
             response: {
               attestationObject: new ArrayBuffer(8),
               clientDataJSON: new ArrayBuffer(8),
-              getPublicKey: () => fakePublicKey,
             },
           }),
         },
@@ -40,12 +39,18 @@ test.describe('Security features (WebAuthn / MFA)', () => {
 
     const request = await finishRequest
     const body = request.postDataJSON()
-    // Backend contract: {credential_id, public_key, name} base64url strings —
-    // NOT the browser attestation envelope the old code sent (gap-fix E1).
-    expect(body.credential_id).toBeTruthy()
-    expect(typeof body.credential_id).toBe('string')
-    expect(body.public_key).toBeTruthy()
+    // Backend contract (#142): the browser attestation envelope
+    // {id, rawId, response:{attestationObject, clientDataJSON}, name} — the
+    // server-side verifier reads the COSE key out of the attestation object
+    // itself; a client-submitted public_key field is no longer part of the
+    // contract (it was trusted client material).
+    expect(body.id).toBeTruthy()
+    expect(body.rawId).toBeTruthy()
+    expect(body.response.attestationObject).toBeTruthy()
+    expect(body.response.clientDataJSON).toBeTruthy()
     expect(body.name).toBeTruthy()
+    expect(body.public_key).toBeUndefined()
+    expect(body.credential_id).toBeUndefined()
 
     // List re-renders from the real credential shape (gap-fix E4).
     await expect(page.locator('text=My Passkey')).toBeVisible()

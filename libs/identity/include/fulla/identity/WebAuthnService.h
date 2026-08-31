@@ -55,6 +55,14 @@
 // tracked by tasks.md Task 31 (WebAuthn crypto/CBOR dependencies), not
 // this task.
 //
+// #142 UPDATE: real verification landed. The two legacy finish methods are
+// RETAINED DECLARED (SDK API baseline) but now FAIL CLOSED -- they never
+// store or accept anything unverified. The live contracts are
+// finishRegistrationVerified()/finishAuthenticationVerified() plus the
+// subject-bound challenge store below; the crypto lives in
+// src/webauthn/WebAuthnCrypto.{h,cc} (libcbor + OpenSSL, ES256-only,
+// fmt="none"-only) against W3C WebAuthn Level 2 §7.1/§6.1.
+//
 // Scope boundary (design.md §4.1 rule 2, identity <-> oauth2 互不依赖):
 // see IWebAuthnRepository.h's header comment -- this class only handles
 // the identity-owned credential state and does not drive "authenticate,
@@ -69,8 +77,10 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace fulla::identity
@@ -215,11 +225,163 @@ class WebAuthnService
       std::function<void(std::vector<WebAuthnCredentialSummary>)> &&callback
     );
 
+    // ------------------------------------------------------------------
+    // #142: real verification surface (additive). The methods above keep
+    // their declarations; the two legacy finish methods fail closed now
+    // (see their reimplemented bodies).
+    // ------------------------------------------------------------------
+
+    /**
+     * @brief Strict allowlist of accepted clientDataJSON origins
+     * (webauthn.rp_origins config). Verification fails closed while the
+     * list is empty.
+     */
+    void setRpOrigins(std::vector<std::string> origins)
+    {
+        rpOrigins_ = std::move(origins);
+    }
+
+    /// @brief Challenge TTL in seconds (default 300; Drogon sessions have
+    /// no per-key TTL so it is enforced in code on every consume).
+    void setChallengeTtlSeconds(int64_t seconds)
+    {
+        challengeTtlSeconds_ = seconds > 0 ? seconds : 300;
+    }
+
+    /**
+     * @brief Clone-detection observability hook (the domain layer stays
+     * logging-free): fired when an assertion's signCount regressed
+     * (stored > 0 and new <= stored, WebAuthn L2 §6.1 step 17); the
+     * authentication is rejected. Assembly wires this to an audit action.
+     */
+    void setCloneDetectorNotifier(std::function<void(int32_t userId, const std::string &credentialId)> notifier)
+    {
+        cloneDetectorNotifier_ = std::move(notifier);
+    }
+
+    /**
+     * @brief Issue a REGISTRATION challenge bound to the authenticated
+     * subject (the Bearer public_sub the filter resolves). The register
+     * endpoints run behind OAuth2AuthFilter; session cookies are NOT part
+     * of their contract (the user SPA sends no credentials), so the store
+     * is an in-process map keyed by subject, last-write-wins, TTL-bound.
+     * Single-instance deployments only (same limitation class as the
+     * consent_csrf nonce store) -- multi-instance challenge sharing is
+     * registered follow-up work.
+     * @return The base64url challenge (nullopt if crypto is missing).
+     */
+    std::optional<std::string> issueRegistrationChallenge(const std::string &subject);
+
+    /**
+     * @brief Consume the subject-bound registration challenge. The stored
+     * entry is erased UNCONDITIONALLY (match or not) -- a challenge's
+     * validity must not be probed repeatedly.
+     * @return true iff a live (non-expired) entry existed and matched the
+     * presented value.
+     */
+    bool consumeRegistrationChallenge(const std::string &subject, const std::string &presentedChallenge);
+
+    /**
+     * @brief Issue an AUTHENTICATION (assertion) challenge. The flow is
+     * anonymous and session-cookie-carried (the cookie contract is
+     * documented: callers must send credentials); the caller persists the
+     * opaque session value (challenge|issuedAt, TTL enforced on verify).
+     */
+    struct IssuedSessionChallenge
+    {
+        std::string challenge;   // base64url, echoed by the client.
+        std::string sessionValue;  // opaque "challenge|issuedAtEpochSeconds".
+    };
+    std::optional<IssuedSessionChallenge> issueAuthenticationChallenge();
+
+    /**
+     * @brief Verify a session-carried authentication challenge against the
+     * presented value, TTL-enforced. The CALLER erases the session key
+     * after this call regardless of the result (unconditional
+     * consumption).
+     */
+    bool verifyAuthenticationChallenge(const std::string &sessionValue, const std::string &presentedChallenge);
+
+    /// Raw registration-attestation inputs (all base64url, browser shape).
+    struct RegistrationInput
+    {
+        std::string id;                 // body id (must equal rawId).
+        std::string rawId;
+        std::string attestationObject;
+        std::string clientDataJSON;
+        std::string name;               // optional label.
+    };
+
+    /**
+     * @brief Verified registration finish (WebAuthn L2 §7.1): consumes the
+     * subject-bound challenge, checks clientDataJSON
+     * (type=webauthn.create / challenge match / origin allowlist /
+     * tokenBinding), parses the attestation object (fmt="none" only),
+     * authenticator data (rpIdHash, UP, AT, credIdLen<=1023, ED tolerated)
+     * and the COSE ES256 key, requires id==rawId==authData credential id,
+     * then stores credential_id/public_key as the canonical base64url of
+     * the RAW bytes. The client-submitted public_key field is ignored.
+     * @param userId Internal user id the caller resolved for the subject
+     * (owner of the new credential).
+     * @param subject Authenticated subject the challenge was bound to.
+     * @param presentedChallenge Challenge echoed inside clientDataJSON.
+     * @return "" on success; WEBAUTHN_CHALLENGE_MISMATCH (challenge/origin
+     * gate), WEBAUTHN_INVALID_ATTESTATION (attestation/authData/COSE
+     * format or alg), VALIDATION_CREDENTIAL_ALREADY_REGISTERED,
+     * DB_QUERY_ERROR, INTERNAL_ERROR.
+     */
+    void finishRegistrationVerified(
+      int32_t userId,
+      const std::string &subject,
+      const std::string &presentedChallenge,
+      const RegistrationInput &input,
+      std::function<void(const std::string &errorCode)> &&callback
+    );
+
+    /// Raw assertion inputs (all base64url, browser shape).
+    struct AssertionInput
+    {
+        std::string id;                 // credential id (must equal rawId).
+        std::string rawId;
+        std::string authenticatorData;
+        std::string clientDataJSON;
+        std::string signature;          // ASN.1 DER ECDSA signature.
+        std::string userHandle;         // optional; when present must name
+                                        // the credential's owner.
+    };
+
+    /**
+     * @brief Verified assertion finish (WebAuthn L2 §6.1): clientDataJSON
+     * (type=webauthn.get / challenge / origin), userHandle owner check,
+     * authenticator data (rpIdHash, UP=1, UV=1 -- begin advertises
+     * userVerification=required), ES256 signature over
+     * authData || SHA256(clientDataJSON), signCount clone policy
+     * (stored>0 && new<=stored -> reject + clone notifier; both zero ->
+     * legal skip). Every failure answers nullopt (the caller maps to a
+     * generic AUTH_INVALID_CREDENTIALS -- no oracle which check failed).
+     */
+    void finishAuthenticationVerified(
+      const std::string &presentedChallenge,
+      const AssertionInput &input,
+      std::function<void(std::optional<WebAuthnAuthResult>)> &&callback
+    );
+
   private:
     std::shared_ptr<IWebAuthnRepository> repo_;
     std::shared_ptr<fulla::common::ports::ICryptoProvider> crypto_;
     std::string rpId_;
     std::string rpName_;
+    std::vector<std::string> rpOrigins_;
+    int64_t challengeTtlSeconds_ = 300;
+    std::function<void(int32_t, const std::string &)> cloneDetectorNotifier_;
+    // Subject-bound registration challenges (see issueRegistrationChallenge).
+    std::mutex challengeMu_;
+    struct ChallengeEntry
+    {
+        std::string challenge;
+        int64_t issuedAt = 0;
+    };
+    std::unordered_map<std::string, ChallengeEntry> registrationChallenges_;
 };
 
 }  // namespace fulla::identity
