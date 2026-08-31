@@ -8,6 +8,24 @@ and this project adheres to
 For the versioning policy (when to cut, what to bump, why), see
 [Versioning & Release](docs/contribute/versioning-and-release.md).
 
+## [Unreleased]
+
+### Security
+
+- **⚠️ Breaking (security hardening) — legacy 密码哈希默认拒绝（#103）**:`auth.allow_legacy_hash` 现默认 **false**（配置键缺失亦视为 false）；无盐 SHA256 哈希在所有路径（含改密旧口令校验）被直接拒绝。存量 legacy 用户请走**邮件/管理员重置**（重置即写入 PBKDF2 完成迁移）或临时重开窗口（登录即透明重哈希）；注意**只改密无法自迁移**（旧口令校验同样走已退役分支）。策略性拒绝不计入账户锁定计数。dev 种子与全部脚本改用 PBKDF2（口令不变）；`bench_users.sql` 移至 `benchmarks/fulla/seed`（不再随生产镜像分发）。
+- **⚠️ Breaking (security hardening) — WebAuthn 真实验签（#142）**:注册/认证改为 W3C WebAuthn L2 真实验证（仅 ES256、fmt="none"；挑战绑定+300s TTL+无条件消费；UV 强制；signCount 克隆检测）。**V028 清空既有凭证表**（存量行均为未验证的客户端自报材料，用户需重新注册 passkey）；**webauthn.rp_origins 为必配项**（缺省时 finish 端点 fail-closed）；旧请求体契约（`{credential_id, public_key}` / 裸 credential_id 登录）被拒绝;凭 credential_id 即可冒充的漏洞被消除。新错误码 `WEBAUTHN_INVALID_ATTESTATION`(3015)、`WEBAUTHN_CHALLENGE_MISMATCH`(3016)。
+- **⚠️ Breaking (security hardening) — 社交登录响应形态变更（#70）**:`/api/{google,wechat}/login` 由返回 profile 改为发放首方 token 对（token 行存 **public_sub**——同步修复 GitHub 既有 token 在 /api/me 族 404 的缺陷）;GitHub 端点 spec 同步修正。三提供商统一首登自动建户（全局开关 `external_auth.auto_create_on_first_login`,默认 true;关闭时未绑定 → 403 `AUTH_SOCIAL_ACCOUNT_NOT_LINKED`(5003)）;发放留痕走 `SOCIAL_LOGIN_TOKEN_ISSUED` 审计事件（非 consent 行）。
+
+### Fixed
+
+- **自注册/管理端创建用户 authorize→consent 500（#143）**:两条创建路径现在都会写入 (local, id) subject mapping（consent 的 getInternalUserId 唯一解析路径）;V027 一次性回填 + 启动自愈把"每个用户必有 local 映射"变成启动不变量。
+
+### Added
+
+- Google/WeChat 登录闭环（#70）:服务层四态建户/绑定、`SocialCallbackPage`（/callback/google、/callback/wechat）、登录页 Google 按钮（`VITE_GOOGLE_CLIENT_ID` 门控）。
+- WebAuthn 支持面与运维文档（#142）:rp_id/rp_origins 配置、单实例挑战存储限制、cookie 契约（认证流需 credentials:'include'）。
+- helm `secrets.bootstrapAdminPassword` 透传（#103）。
+
 ## [1.0.1] - 2026-08-30
 
 ### Security
