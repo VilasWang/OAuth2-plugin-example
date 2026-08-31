@@ -143,7 +143,13 @@ test.describe('Connected Accounts (social links)', () => {
         }),
       })
     })
-    // auth.fetchUser() after setTokens
+    // auth.fetchUser() after setTokens; the token refresh endpoint is
+    // stubbed defensively (the CI property-test leg runs without a live
+    // backend — any un-mocked pass through the dev-server proxy dies with
+    // ECONNREFUSED and breaks the redirect assertion).
+    await page.route('**/oauth2/token', async (route) => {
+      await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { code: 'AUTH_INVALID_GRANT', category: 'AUTHENTICATION', message: 'stub' } }) })
+    })
     await page.route('**/api/me', async (route) => {
       await route.fulfill({
         status: 200,
