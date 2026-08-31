@@ -184,7 +184,8 @@ void AuthService::validateUser(
     // `this` (db-operations rule 4 -- do not rely on the instance's
     // process-lifetime binding).
     const bool allowLegacy = allowLegacyHash_;
-    auto onFound = [allowLegacy, sharedCb, crypto, clock, userRepo, password](std::optional<UserData> found) {
+    const auto legacyRejectionNotifier = legacyHashRejectionNotifier_;
+    auto onFound = [allowLegacy, legacyRejectionNotifier, sharedCb, crypto, clock, userRepo, password](std::optional<UserData> found) {
         if (!found)
         {
             (*sharedCb)(std::nullopt);
@@ -200,11 +201,19 @@ void AuthService::validateUser(
         }
 
         // #103 gate: when the migration window is closed (auth.
-        // allow_legacy_hash=false), legacy-format hashes are rejected
-        // outright -- no verify, no rehash.
+        // allow_legacy_hash=false, the assembly default), legacy-format
+        // hashes are rejected outright -- no verify, no rehash. This is a
+        // POLICY rejection, not a wrong password: it must not advance the
+        // lockout counter (a username alone would otherwise let an
+        // attacker lock any legacy user out, and a reopened window would
+        // still be blocked by locked_until). The optional notifier is the
+        // observability hook for the assembly layer (WARN + audit with
+        // the internal id); the response stays the generic failure -- no
+        // oracle about which rejection fired.
         if (!allowLegacy && isLegacyHash(user.passwordHash))
         {
-            userRepo->incrementFailedLogins(user.id, [](bool) {});
+            if (legacyRejectionNotifier)
+                legacyRejectionNotifier(user.id);
             (*sharedCb)(std::nullopt);
             return;
         }

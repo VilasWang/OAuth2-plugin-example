@@ -51,13 +51,14 @@ else
     exit 1
 fi
 
-# Apply seed data
+# Apply seed data (explicit list: benchmark-only seeds live in
+# benchmarks/fulla/seed and must never land in a dev/test database)
 if [ -d "$SEED_DIR" ]; then
     echo "Applying seed data from $SEED_DIR..."
-    for f in "$SEED_DIR"/*.sql; do
-        [ -f "$f" ] || continue
-        echo "  Applying $(basename "$f")..."
-        psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -f "$f"
+    for f in dev_admin_user.sql; do
+        [ -f "$SEED_DIR/$f" ] || continue
+        echo "  Applying $f..."
+        psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -f "$SEED_DIR/$f"
     done
 fi
 

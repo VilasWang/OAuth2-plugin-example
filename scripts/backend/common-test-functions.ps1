@@ -84,10 +84,10 @@ function Reset-AdminAccount {
         Write-Host "Resetting admin account (password + lockout)..." -ForegroundColor Cyan
     }
     
-    # Default admin password hash (SHA-256 with salt 'admin_salt')
+    # Default admin password hash (PBKDF2-SHA256, salt embedded in the hash
     # Password: 'admin'
-    $defaultHash = "892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724"
-    $defaultSalt = "admin_salt"
+    $defaultHash = "$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62"
+    $defaultSalt = ""
     
     $query = "UPDATE users SET password_hash = '$defaultHash', salt = '$defaultSalt', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
     

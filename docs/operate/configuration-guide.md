@@ -193,3 +193,47 @@ invalidate all outstanding tokens signed by its predecessor.
 Production rotation is registered as an operations to-do. Until then, operators who include
 key compromise in their threat model should restart the server with new JWK material (and
 accept the invalidation of all previously issued tokens).
+
+## 10. Legacy Password-Hash Migration Window (#103)
+
+fulla verifies passwords exclusively through PBKDF2-SHA256
+(`$pbkdf2-sha256$310000$<salt>$<hash>`). The pre-1.0 unsalted-SHA256 format
+is **retired and rejected by default** on every path:
+
+- `auth.allow_legacy_hash` is `false` in all shipped configs, and a
+  *missing* key also means `false` (assembly-level default). While
+  `false`, a login attempt against a legacy-format hash is denied before
+  any password verification — with the **correct** password too.
+- The denial is a **policy rejection, not a wrong password**: it does not
+  advance the account-lockout counter (a username alone must not let an
+  attacker lock a legacy user out, and a later window reopen must not be
+  blocked by `locked_until`).
+- Each denial logs `AUTH_LEGACY_HASH_REJECTED` (WARN) with the internal
+  user id — the operator-facing signal for who still needs migration. The
+  client always receives the generic `AUTH_INVALID_CREDENTIALS`; nothing
+  distinguishes "legacy denied" from "wrong password" from the outside.
+
+**Who is affected?** Only databases seeded before v1.0.1 that still hold
+legacy-format rows. Inventory SQL:
+
+```sql
+SELECT count(*) FROM users WHERE password_hash NOT LIKE '$pbkdf2-sha256$%';
+```
+
+**Migration paths that need no window:**
+
+- **Email password reset** — the reset flow always writes PBKDF2, so a
+  legacy user who resets migrates transparently on completion.
+- **Administrator-triggered reset** — same effect.
+
+**Change-password does NOT migrate a legacy user**: it verifies the old
+password through the same retired branch and therefore fails; use a reset
+instead.
+
+**Reopening the window (temporary, login-only):** set
+`auth.allow_legacy_hash: true` and restart. Legacy users can then log in
+and are transparently rehashed to PBKDF2 on that first successful login
+(identity login path only). Because policy rejections never advanced the
+lockout counter, no unlock is required before reopening. Close the window
+again once the inventory query returns `0`; the window (and the
+identity-side rehash code) is scheduled for removal in v1.1.

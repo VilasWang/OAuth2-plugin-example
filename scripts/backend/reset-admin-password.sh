@@ -10,8 +10,8 @@ echo "Reset Admin Password to Default"
 echo "========================================"
 echo ""
 
-DEFAULT_HASH="892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724"
-DEFAULT_SALT="admin_salt"
+DEFAULT_HASH="$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62"
+DEFAULT_SALT=""
 
 QUERY="UPDATE users SET password_hash = '$DEFAULT_HASH', salt = '$DEFAULT_SALT', failed_login_count = 0, locked_until = 0 WHERE username = 'admin';"
 

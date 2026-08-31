@@ -350,6 +350,80 @@ TEST_F(AuthServiceTest, LegacyHashStaysUntouchedOnWrongPassword)
     EXPECT_EQ(reloaded->passwordHash, legacyHash);
 }
 
+// #103: with the migration window CLOSED — the assembly default
+// (IdentityAssembly treats a missing auth.allow_legacy_hash key as false;
+// this fixture constructs AuthService directly, so the closed state is set
+// explicitly) — a legacy-format hash is rejected before any password
+// verification. The rejection is a POLICY denial, not a wrong password: it
+// must not advance the lockout counter (a username alone would otherwise
+// let an attacker lock any legacy user out, and a reopened window would
+// stay blocked by locked_until), and it fires the optional observability
+// notifier with the internal user id. The stored hash stays untouched.
+TEST_F(AuthServiceTest, LegacyHashRejectedWhenWindowClosed_NoLockoutNotifierFires)
+{
+    service->setAllowLegacyHash(false);
+
+    std::string salt = "somesalt";
+    std::string legacyHash = crypto->sha256Hex("legacy-pw" + salt);
+
+    UserData legacyUser;
+    legacyUser.username = "zoe";
+    legacyUser.email = "zoe@example.com";
+    legacyUser.passwordHash = legacyHash;
+    legacyUser.salt = salt;
+    int32_t userId = repo->seed(legacyUser);
+
+    int32_t notifiedId = 0;
+    int notifyCount = 0;
+    service->setLegacyHashRejectionNotifier([&](int32_t id) {
+        notifiedId = id;
+        ++notifyCount;
+    });
+
+    // Even the CORRECT password is denied while the window is closed.
+    std::optional<AuthResult> result;
+    service->validateUser("zoe", "legacy-pw", [&](std::optional<AuthResult> r) { result = r; });
+    EXPECT_FALSE(result.has_value());
+
+    // Policy denial: lockout counter untouched, hash untouched.
+    std::optional<UserData> reloaded;
+    repo->findById(userId, [&](std::optional<UserData> u) { reloaded = u; });
+    ASSERT_TRUE(reloaded.has_value());
+    EXPECT_EQ(reloaded->failedLoginCount, 0);
+    EXPECT_EQ(reloaded->lockedUntil, 0);
+    EXPECT_EQ(reloaded->passwordHash, legacyHash);
+
+    // Observability hook fired exactly once with the internal id (the
+    // assembly layer wires this to a WARN + audit action).
+    EXPECT_EQ(notifyCount, 1);
+    EXPECT_EQ(notifiedId, userId);
+}
+
+// #103: explicitly reopening the window (auth.allow_legacy_hash=true) lets
+// legacy users log in and get transparently rehashed to PBKDF2 — the
+// runbook path documented in docs/operate/configuration-guide.md.
+TEST_F(AuthServiceTest, LegacyHashWindowReopen_VerifiesAndRehashes)
+{
+    service->setAllowLegacyHash(true);  // explicit reopen (assembly default is closed)
+
+    std::string salt = "somesalt";
+    UserData legacyUser;
+    legacyUser.username = "walt";
+    legacyUser.email = "walt@example.com";
+    legacyUser.passwordHash = crypto->sha256Hex("legacy-pw" + salt);
+    legacyUser.salt = salt;
+    int32_t userId = repo->seed(legacyUser);
+
+    std::optional<AuthResult> result;
+    service->validateUser("walt", "legacy-pw", [&](std::optional<AuthResult> r) { result = r; });
+    ASSERT_TRUE(result.has_value());
+
+    std::optional<UserData> upgraded;
+    repo->findById(userId, [&](std::optional<UserData> u) { upgraded = u; });
+    ASSERT_TRUE(upgraded.has_value());
+    EXPECT_EQ(upgraded->passwordHash.find("$pbkdf2-sha256$"), 0u);
+}
+
 TEST_F(AuthServiceTest, GetUserInfoReturnsClaimsForRegisteredUser)
 {
     int32_t userId = 0;

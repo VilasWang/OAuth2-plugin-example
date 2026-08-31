@@ -23,13 +23,16 @@ DROGON_TEST(Unit_P2_PasswordHasher_VerifyWrong)
     CHECK(PasswordHasher::verify("wrongpassword", hash) == false);
 }
 
-DROGON_TEST(Unit_P2_PasswordHasher_LegacyVerify)
+DROGON_TEST(Unit_P2_PasswordHasher_LegacyVerify_Rejected)
 {
-    // Legacy SHA-256+salt format
+    // #103: legacy SHA-256+salt verification is RETIRED — even a
+    // well-formed legacy hash with the correct password and salt must
+    // fail (needsRehash() is the format discriminator; legacy hashes are
+    // rejected without parsing).
     std::string salt = "test-salt";
     std::string password = "admin";
     std::string legacyHash = ::drogon::utils::getSha256(password + salt);
-    CHECK(PasswordHasher::verify(password, legacyHash, salt) == true);
+    CHECK(PasswordHasher::verify(password, legacyHash, salt) == false);
     CHECK(PasswordHasher::verify("wrong", legacyHash, salt) == false);
 }
 
@@ -41,16 +44,15 @@ DROGON_TEST(Unit_P2_PasswordHasher_NeedsRehash)
 }
 
 // ---------------------------------------------------------------------------
-// Coverage additions (P1): malformed-hash rejection branches in verify()
-// (PasswordHasher.cc:100, 118, 146). These defend against accepting
-// truncated/corrupt/prefix-less stored hashes -- security-relevant and
-// previously untested.
+// Coverage additions (P1): malformed-hash rejection branches in verify().
+// These defend against accepting truncated/corrupt/prefix-less stored
+// hashes -- security-relevant and previously untested.
 // ---------------------------------------------------------------------------
 
 DROGON_TEST(Unit_P1_PasswordHasher_VerifyMalformedHash_NoPrefix_ReturnsFalse)
 {
-    // A hash without the "$pbkdf2-sha256$" prefix takes the legacy branch
-    // (needsRehash==true) but fails the length/case compare -> false.
+    // #103: a hash without the "$pbkdf2-sha256$" prefix is legacy-format ->
+    // rejected outright by the needsRehash() discriminator.
     CHECK(PasswordHasher::verify("anypw", "not-a-real-hash", "salt") == false);
 }
 
@@ -64,15 +66,14 @@ DROGON_TEST(Unit_P1_PasswordHasher_VerifyMalformedHash_WrongPartCount_ReturnsFal
 
 DROGON_TEST(Unit_P1_PasswordHasher_VerifyMalformedHash_EmptyHash_ReturnsFalse)
 {
-    // Empty stored hash -> no prefix match on the PBKDF2 path; the legacy
-    // path's length check (0 != sha256 output length) also fails.
+    // Empty stored hash -> no prefix -> rejected outright.
     CHECK(PasswordHasher::verify("anypw", "") == false);
 }
 
 DROGON_TEST(Unit_P1_PasswordHasher_VerifyMalformedHash_ShortHashLengthMismatch_ReturnsFalse)
 {
     // PBKDF2 prefix + 4 parts, but the hex-hash segment is too short for
-    // the constant-time compare length guard (PasswordHasher.cc:146-149).
+    // the constant-time compare length guard.
     // Hex salt padded to look parseable but hash segment is 1 hex char.
     CHECK(
       PasswordHasher::verify("anypw", "$pbkdf2-sha256$310000$00112233445566778899aabbccddeeff$0") ==
@@ -80,13 +81,14 @@ DROGON_TEST(Unit_P1_PasswordHasher_VerifyMalformedHash_ShortHashLengthMismatch_R
     );
 }
 
-DROGON_TEST(Unit_P1_PasswordHasher_LegacyVerify_LengthMismatch_ReturnsFalse)
+DROGON_TEST(Unit_P1_PasswordHasher_LegacyVerify_AnyLength_Rejected)
 {
-    // A legacy hash whose length differs from the computed SHA-256 output
-    // (64 hex chars) -> false (PasswordHasher.cc:171-174).
-    std::string salt = "salt";
-    std::string password = "pw";
-    // 32-char legacy hash (half the real 64-char SHA-256 hex output).
+    // #103: every non-$pbkdf2-sha256$ stored hash is rejected without
+    // parsing, whatever its length (the old legacy branch's length
+    // arithmetic is gone; the discriminator is prefix-only).
     std::string shortLegacy(32, 'a');
-    CHECK(PasswordHasher::verify(password, shortLegacy, salt) == false);
+    std::string fullLegacy(64, 'a');
+    CHECK(PasswordHasher::verify("pw", shortLegacy, "salt") == false);
+    CHECK(PasswordHasher::verify("pw", fullLegacy, "salt") == false);
+    CHECK(PasswordHasher::verify("pw", "", "salt") == false);
 }

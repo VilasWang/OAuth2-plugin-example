@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Reset admin password to default 'admin' (SHA-256 hash)
+# Reset admin password to default 'admin' (PBKDF2-SHA256 hash)
 # Usage: .\reset-admin-password.ps1
 
 param(
@@ -16,10 +16,10 @@ Write-Host "Reset Admin Password to Default" -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Yellow
 Write-Host ""
 
-# Default admin password hash (SHA-256 with salt 'admin_salt')
+# Default admin password hash (PBKDF2-SHA256, salt embedded in the hash
 # Password: 'admin'
-$defaultHash = "892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724"
-$defaultSalt = "admin_salt"
+$defaultHash = "$pbkdf2-sha256$310000$61646d696e5f736565645f73616c74$6c0307305e1390e1214b15f1f4d0250b2de86aa0e8aa0e008e5cca03084d3d62"
+$defaultSalt = ""
 
 # Try Docker first
 $containers = docker ps --format "{{.Names}}" 2>$null | Select-String -Pattern "postgres"

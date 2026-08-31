@@ -5,12 +5,14 @@
 namespace fulla::common::utils
 {
 /**
- * @brief Password hashing utility using PBKDF2-SHA256 (via OpenSSL)
- * with backward compatibility for legacy SHA-256+salt hashes.
+ * @brief Password hashing utility using PBKDF2-SHA256 (via OpenSSL).
  *
  * New passwords are hashed with PBKDF2-SHA256 (310,000 iterations, OWASP 2023).
- * Legacy SHA-256+salt hashes are detected and verified for migration.
- * After successful legacy verification, callers should rehash with PBKDF2.
+ * Legacy SHA-256+salt verification is RETIRED (#103): hashes without the
+ * "$pbkdf2-sha256$" prefix fail verification outright. Users still holding
+ * legacy hashes migrate via password reset (which rewrites PBKDF2) or an
+ * explicitly reopened auth.allow_legacy_hash window on the identity login
+ * path — see docs/operate/configuration-guide.md.
  *
  * Storage format: $pbkdf2-sha256$<iterations>$<hex-salt>$<hex-hash>
  *
@@ -30,13 +32,14 @@ class PasswordHasher
 
     /**
      * @brief Verify a password against a stored hash
-     * Automatically detects format:
      * - If storedHash starts with "$pbkdf2-sha256$" -> PBKDF2 verification
-     * - Otherwise -> Legacy SHA-256+salt verification
+     * - Otherwise -> false (legacy SHA-256 verification is retired, #103;
+     *   legacy hashes are rejected without parsing)
      *
      * @param password The plaintext password to verify
-     * @param storedHash The stored hash (PBKDF2 or legacy hex)
-     * @param salt The salt (only used for legacy SHA-256 verification)
+     * @param storedHash The stored hash (must be PBKDF2 format)
+     * @param salt Unused (kept for call-site compatibility; PBKDF2 embeds
+     *        the salt in the hash string)
      * @return true if password matches
      */
     static bool verify(

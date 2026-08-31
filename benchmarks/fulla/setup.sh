@@ -127,9 +127,10 @@ fi
 # mounts seed/*.sql under initdb.d/seed/, but postgres does NOT recurse into
 # subdirectories (compose comment docker-compose.yml:79-81 calls this a no-op),
 # and the app's MigrationRunner (FULLA_AUTO_MIGRATE=true) runs schema migrations
-# ONLY, never seed. Seed data (backend-svc client, bench users, etc.) must be
-# applied explicitly via psql — same pattern as scripts/backend/setup-database.sh
-# and deploy/docker/docker-quick-verify-debug.sh:62-64.
+# ONLY, never seed. Seed data (dev clients from apps/server/seed + the 512
+# bench users from benchmarks/fulla/seed — benchmark-only, not shipped with the
+# server image) must be applied explicitly via psql — same pattern as
+# scripts/backend/setup-database.sh and deploy/docker/docker-quick-verify-debug.sh:62-64.
 #
 # Race note: MigrationRunner runs migrations on a detached thread with a 500ms
 # startup delay (MigrationRunner.cc:82-91), so /health/ready returning 200 only
@@ -138,7 +139,8 @@ fi
 # seed bundle until it applies cleanly. All seed files are idempotent
 # (ON CONFLICT DO NOTHING), so retries are safe.
 SEED_DIR_HOST="$REPO_ROOT/$FULLA_SERVER_DIR/seed"
-echo "[setup] applying seed SQL from $SEED_DIR_HOST ..."
+BENCH_SEED_DIR_HOST="$REPO_ROOT/benchmarks/fulla/seed"
+echo "[setup] applying seed SQL from $SEED_DIR_HOST + $BENCH_SEED_DIR_HOST ..."
 PG_CONTAINER="$(docker compose "${COMPOSE_ARGS[@]}" --project-directory "$REPO_ROOT" ps -q fulla-postgres 2>/dev/null || true)"
 if [ -z "$PG_CONTAINER" ]; then
     echo "[setup] ERROR: could not resolve the postgres container to apply seed."
@@ -147,7 +149,7 @@ fi
 SEED_APPLIED=0
 for attempt in $(seq 1 30); do
     SEED_FAIL=0
-    for seed_sql in "$SEED_DIR_HOST"/*.sql; do
+    for seed_sql in "$SEED_DIR_HOST"/*.sql "$BENCH_SEED_DIR_HOST"/*.sql; do
         fname="$(basename "$seed_sql")"
         if ! docker exec -i "$PG_CONTAINER" \
             psql -U fulla_user -d fulla_db -v ON_ERROR_STOP=1 -q \
@@ -157,7 +159,7 @@ for attempt in $(seq 1 30); do
     done
     if [ "$SEED_FAIL" -eq 0 ]; then
         SEED_APPLIED=1
-        echo "[setup] seed applied on attempt $attempt ($(ls "$SEED_DIR_HOST"/*.sql | wc -l) files)"
+        echo "[setup] seed applied on attempt $attempt ($(ls "$SEED_DIR_HOST"/*.sql "$BENCH_SEED_DIR_HOST"/*.sql | wc -l) files)"
         break
     fi
     # migrations not finished yet — wait and retry

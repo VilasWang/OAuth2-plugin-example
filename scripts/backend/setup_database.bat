@@ -57,12 +57,13 @@ if exist "%MIGRATIONS_DIR%" (
     exit /b 1
 )
 
-REM Apply seed data (dev/test only)
+REM Apply seed data (dev/test only; explicit list - benchmark-only seeds live
+REM in benchmarks\fulla\seed and never land in a dev/test database)
 if exist "%SEED_DIR%" (
     echo Applying seed data from %SEED_DIR%...
-    for %%f in ("%SEED_DIR%\*.sql") do (
+    for %%f in ("dev_admin_user.sql") do (
         echo   Applying %%~nxf...
-        psql -U %FULLA_DB_USER% -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -d %FULLA_DB_NAME% -f "%%f"
+        psql -U %FULLA_DB_USER% -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -d %FULLA_DB_NAME% -f "%SEED_DIR%\%%~nxf"
         if errorlevel 1 (
             echo [Error] Failed to apply seed %%~nxf
             exit /b 1
