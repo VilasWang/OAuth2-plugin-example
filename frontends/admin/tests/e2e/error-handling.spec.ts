@@ -61,8 +61,8 @@ test.describe('Error Handling', () => {
     await loginAsAdmin(page)
     await page.click('nav a:has-text("Users")')
     await page.waitForLoadState('networkidle')
-    // UsersPage uses inline error banner with bg-red-50
-    const errorElement = page.locator('.bg-red-50, .text-red-700')
+    // UsersPage uses inline error banner with bg-error-50
+    const errorElement = page.locator('.bg-error-50, .text-error-700')
     await expect(errorElement.first()).toBeVisible()
   })
 })

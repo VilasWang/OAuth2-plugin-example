@@ -30,12 +30,12 @@ defineEmits<{
       'px-4 py-2.5 text-sm leading-5',
 
       variant === 'secondary'
-        ? 'bg-white text-neutral-700 border border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400 focus-visible:ring-neutral-300 shadow-sm'
+        ? 'bg-surface text-neutral-700 border border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400 focus-visible:ring-neutral-300 shadow-sm'
         : variant === 'danger'
-          ? 'bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500 shadow-sm'
+          ? 'bg-error-600 text-white hover:bg-error-700 focus-visible:ring-error-500 shadow-sm'
           : variant === 'ghost'
             ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 focus-visible:ring-neutral-300'
-            : 'bg-sky-700 text-white hover:bg-sky-800 focus-visible:ring-sky-500 shadow-sm',
+            : 'bg-brand-600 text-white hover:bg-brand-700 focus-visible:ring-brand-500 shadow-sm',
     ]"
     @click="$emit('click', $event)"
   >

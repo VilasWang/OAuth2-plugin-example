@@ -73,19 +73,19 @@ onMounted(() => {
 
 <template>
   <div>
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">
+    <h2 class="text-2xl font-bold text-neutral-900 mb-6">
       Settings & Scopes
     </h2>
 
     <!-- Error Banner for Scopes -->
     <div
       v-if="errorMessage"
-      class="mb-6 rounded-md bg-red-50 p-4"
+      class="mb-6 rounded-md bg-error-50 p-4"
     >
       <div class="flex">
         <div class="flex-shrink-0">
           <svg
-            class="h-5 w-5 text-red-400"
+            class="h-5 w-5 text-error-500"
             viewBox="0 0 20 20"
             fill="currentColor"
           >
@@ -97,7 +97,7 @@ onMounted(() => {
           </svg>
         </div>
         <div class="ml-3">
-          <p class="text-sm text-red-800">
+          <p class="text-sm text-error-700">
             {{ errorMessage }}
           </p>
         </div>
@@ -105,56 +105,56 @@ onMounted(() => {
     </div>
 
     <!-- Scopes Section -->
-    <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="bg-surface shadow rounded-lg overflow-hidden">
       <div class="px-6 py-4 border-b">
-        <h3 class="text-lg font-medium text-gray-900">
+        <h3 class="text-lg font-medium text-neutral-900">
           OAuth2 Scopes
         </h3>
       </div>
 
       <div
         v-if="loading"
-        class="p-6 text-center text-gray-500"
+        class="p-6 text-center text-neutral-500"
       >
         Loading...
       </div>
 
       <table
         v-else
-        class="min-w-full divide-y divide-gray-200"
+        class="min-w-full divide-y divide-neutral-200"
       >
-        <thead class="bg-gray-50">
+        <thead class="bg-neutral-50">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Name
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Description
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Mapped Role
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Default
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Admin Only
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-surface divide-y divide-neutral-200">
           <tr
             v-for="scope in scopes"
             :key="scope.id"
-            class="hover:bg-gray-50"
+            class="hover:bg-neutral-50"
           >
-            <td class="px-6 py-4 text-sm font-medium text-gray-900 font-mono">
+            <td class="px-6 py-4 text-sm font-medium text-neutral-900 font-mono">
               {{ scope.name }}
             </td>
-            <td class="px-6 py-4 text-sm text-gray-500">
+            <td class="px-6 py-4 text-sm text-neutral-500">
               {{ scope.description || '—' }}
             </td>
-            <td class="px-6 py-4 text-sm text-gray-500">
+            <td class="px-6 py-4 text-sm text-neutral-500">
               {{ scope.mapped_role || '—' }}
             </td>
             <td class="px-6 py-4">
@@ -164,17 +164,17 @@ onMounted(() => {
               >✓</span>
               <span
                 v-else
-                class="text-gray-300"
+                class="text-neutral-300"
               >—</span>
             </td>
             <td class="px-6 py-4">
               <span
                 v-if="scope.requires_admin_role"
-                class="text-red-600"
+                class="text-error-600"
               >✓</span>
               <span
                 v-else
-                class="text-gray-300"
+                class="text-neutral-300"
               >—</span>
             </td>
           </tr>
@@ -183,9 +183,9 @@ onMounted(() => {
     </div>
 
     <!-- OIDC Signing Keys Section -->
-    <div class="bg-white shadow rounded-lg overflow-hidden mt-8">
+    <div class="bg-surface shadow rounded-lg overflow-hidden mt-8">
       <div class="px-6 py-4 border-b">
-        <h3 class="text-lg font-medium text-gray-900">
+        <h3 class="text-lg font-medium text-neutral-900">
           OIDC Signing Keys
         </h3>
       </div>
@@ -193,12 +193,12 @@ onMounted(() => {
       <!-- Error Banner for OIDC Keys -->
       <div
         v-if="oidcErrorMessage"
-        class="m-6 rounded-md bg-red-50 p-4"
+        class="m-6 rounded-md bg-error-50 p-4"
       >
         <div class="flex">
           <div class="flex-shrink-0">
             <svg
-              class="h-5 w-5 text-red-400"
+              class="h-5 w-5 text-error-500"
               viewBox="0 0 20 20"
               fill="currentColor"
             >
@@ -210,7 +210,7 @@ onMounted(() => {
             </svg>
           </div>
           <div class="ml-3">
-            <p class="text-sm text-red-800">
+            <p class="text-sm text-error-700">
               {{ oidcErrorMessage }}
             </p>
           </div>
@@ -219,7 +219,7 @@ onMounted(() => {
 
       <div
         v-if="oidcLoading"
-        class="p-6 text-center text-gray-500"
+        class="p-6 text-center text-neutral-500"
       >
         Loading...
       </div>
@@ -231,39 +231,39 @@ onMounted(() => {
         <!-- Key Metadata -->
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
           <div>
-            <dt class="text-sm font-medium text-gray-500">
+            <dt class="text-sm font-medium text-neutral-500">
               Key ID (kid)
             </dt>
-            <dd class="mt-1 text-sm text-gray-900 font-mono">
+            <dd class="mt-1 text-sm text-neutral-900 font-mono">
               {{ oidcKeys.kid }}
             </dd>
           </div>
           <div>
-            <dt class="text-sm font-medium text-gray-500">
+            <dt class="text-sm font-medium text-neutral-500">
               Key Type (kty)
             </dt>
-            <dd class="mt-1 text-sm text-gray-900 font-mono">
+            <dd class="mt-1 text-sm text-neutral-900 font-mono">
               {{ oidcKeys.kty }}
             </dd>
           </div>
           <div>
-            <dt class="text-sm font-medium text-gray-500">
+            <dt class="text-sm font-medium text-neutral-500">
               Algorithm (alg)
             </dt>
-            <dd class="mt-1 text-sm text-gray-900 font-mono">
+            <dd class="mt-1 text-sm text-neutral-900 font-mono">
               {{ oidcKeys.alg }}
             </dd>
           </div>
           <div>
-            <dt class="text-sm font-medium text-gray-500">
+            <dt class="text-sm font-medium text-neutral-500">
               Usage (use)
             </dt>
-            <dd class="mt-1 text-sm text-gray-900 font-mono">
+            <dd class="mt-1 text-sm text-neutral-900 font-mono">
               {{ oidcKeys.use }}
             </dd>
           </div>
           <div>
-            <dt class="text-sm font-medium text-gray-500">
+            <dt class="text-sm font-medium text-neutral-500">
               Status
             </dt>
             <dd class="mt-1">
@@ -278,13 +278,13 @@ onMounted(() => {
         <div class="border-t pt-4 space-y-3">
           <div class="flex items-center justify-between">
             <div>
-              <span class="text-sm font-medium text-gray-500">JWKS Endpoint</span>
-              <p class="mt-1 text-sm text-gray-900 font-mono">
+              <span class="text-sm font-medium text-neutral-500">JWKS Endpoint</span>
+              <p class="mt-1 text-sm text-neutral-900 font-mono">
                 {{ oidcKeys.jwks_uri }}
               </p>
             </div>
             <button
-              class="ml-4 inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              class="ml-4 inline-flex items-center px-3 py-1.5 border border-neutral-300 text-xs font-medium rounded text-neutral-700 bg-surface hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
               @click="copyToClipboard(oidcKeys.jwks_uri, 'jwks')"
             >
               {{ copySuccess === 'jwks' ? 'Copied!' : 'Copy' }}
@@ -292,13 +292,13 @@ onMounted(() => {
           </div>
           <div class="flex items-center justify-between">
             <div>
-              <span class="text-sm font-medium text-gray-500">Discovery Endpoint</span>
-              <p class="mt-1 text-sm text-gray-900 font-mono">
+              <span class="text-sm font-medium text-neutral-500">Discovery Endpoint</span>
+              <p class="mt-1 text-sm text-neutral-900 font-mono">
                 {{ oidcKeys.discovery_uri }}
               </p>
             </div>
             <button
-              class="ml-4 inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              class="ml-4 inline-flex items-center px-3 py-1.5 border border-neutral-300 text-xs font-medium rounded text-neutral-700 bg-surface hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
               @click="copyToClipboard(oidcKeys.discovery_uri, 'discovery')"
             >
               {{ copySuccess === 'discovery' ? 'Copied!' : 'Copy' }}
@@ -308,11 +308,11 @@ onMounted(() => {
 
         <!-- Note -->
         <div class="border-t pt-4">
-          <div class="rounded-md bg-blue-50 p-4">
+          <div class="rounded-md bg-brand-50 p-4">
             <div class="flex">
               <div class="flex-shrink-0">
                 <svg
-                  class="h-5 w-5 text-blue-400"
+                  class="h-5 w-5 text-brand-400"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                   aria-hidden="true"
@@ -325,7 +325,7 @@ onMounted(() => {
                 </svg>
               </div>
               <div class="ml-3">
-                <p class="text-sm text-blue-700">
+                <p class="text-sm text-brand-700">
                   {{ oidcKeys.note }}
                 </p>
               </div>
@@ -336,7 +336,7 @@ onMounted(() => {
 
       <div
         v-else
-        class="p-6 text-center text-gray-500"
+        class="p-6 text-center text-neutral-500"
       >
         Failed to load OIDC key information.
       </div>

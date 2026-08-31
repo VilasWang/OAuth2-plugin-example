@@ -76,8 +76,8 @@ test.describe('Navigation & Layout', () => {
     // Navigate to Applications and check active state
     await page.click('nav a:has-text("Applications")')
     const activeLink = page.locator('nav a:has-text("Applications")')
-    // Active links have bg-sky-50 class
-    await expect(activeLink).toHaveClass(/bg-sky-50/)
+    // Active links have bg-brand-50 class
+    await expect(activeLink).toHaveClass(/bg-brand-50/)
   })
 
   test('responsive layout at mobile width', async ({ page }) => {

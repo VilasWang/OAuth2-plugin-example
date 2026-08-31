@@ -8,7 +8,7 @@ defineProps<{
 <template>
   <div
     :class="[
-      'bg-white border border-neutral-200 rounded-xl overflow-hidden transition-all duration-150',
+      'bg-surface border border-neutral-200 rounded-xl overflow-hidden transition-all duration-150',
       hover ? 'hover:border-neutral-300 hover:shadow-md' : 'shadow-sm',
       padding === 'none' ? '' :
       padding === 'sm' ? 'p-4' :

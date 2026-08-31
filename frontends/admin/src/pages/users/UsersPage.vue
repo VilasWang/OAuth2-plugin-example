@@ -158,11 +158,11 @@ onMounted(fetchUsers)
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h2 class="text-2xl font-bold text-gray-900">
+      <h2 class="text-2xl font-bold text-neutral-900">
         Users
       </h2>
       <button
-        class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700"
+        class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700"
         @click="showCreateModal = true"
       >
         + Create User
@@ -171,7 +171,7 @@ onMounted(fetchUsers)
 
     <div
       v-if="errorMessage"
-      class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-md text-sm"
     >
       {{ errorMessage }}
     </div>
@@ -186,13 +186,13 @@ onMounted(fetchUsers)
     <div class="mb-4 flex flex-wrap items-center gap-3">
       <input
         v-model="searchQuery"
-        class="px-3 py-2 border border-gray-300 rounded-md text-sm w-64"
+        class="px-3 py-2 border border-neutral-300 rounded-md text-sm w-64"
         placeholder="Search username or email..."
         @keyup.enter="applySearch"
       >
       <select
         v-model="roleFilter"
-        class="px-3 py-2 border border-gray-300 rounded-md text-sm"
+        class="px-3 py-2 border border-neutral-300 rounded-md text-sm"
         @change="applySearch"
       >
         <option value="">
@@ -207,7 +207,7 @@ onMounted(fetchUsers)
       </select>
       <select
         v-model="lockedFilter"
-        class="px-3 py-2 border border-gray-300 rounded-md text-sm"
+        class="px-3 py-2 border border-neutral-300 rounded-md text-sm"
         @change="applySearch"
       >
         <option value="">
@@ -221,7 +221,7 @@ onMounted(fetchUsers)
         </option>
       </select>
       <button
-        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200"
+        class="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-md text-sm hover:bg-neutral-200"
         @click="applySearch"
       >
         Search
@@ -230,51 +230,51 @@ onMounted(fetchUsers)
 
     <div
       v-if="loading"
-      class="text-center py-12 text-gray-500"
+      class="text-center py-12 text-neutral-500"
     >
       Loading...
     </div>
 
     <div
       v-else
-      class="bg-white shadow rounded-lg overflow-hidden"
+      class="bg-surface shadow rounded-lg overflow-hidden"
     >
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table class="min-w-full divide-y divide-neutral-200">
+        <thead class="bg-neutral-50">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               ID
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Username
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Email
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Verified
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               MFA
             </th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-surface divide-y divide-neutral-200">
           <tr
             v-for="user in users"
             :key="user.id"
-            class="hover:bg-gray-50"
+            class="hover:bg-neutral-50"
           >
-            <td class="px-6 py-4 text-sm text-gray-400">
+            <td class="px-6 py-4 text-sm text-neutral-400">
               {{ user.id }}
             </td>
-            <td class="px-6 py-4 text-sm font-medium text-gray-900">
+            <td class="px-6 py-4 text-sm font-medium text-neutral-900">
               {{ user.username }}
             </td>
-            <td class="px-6 py-4 text-sm text-gray-500">
+            <td class="px-6 py-4 text-sm text-neutral-500">
               {{ user.email || '—' }}
             </td>
             <td class="px-6 py-4">
@@ -288,26 +288,26 @@ onMounted(fetchUsers)
             <td class="px-6 py-4">
               <span
                 class="px-2 py-1 text-xs rounded-full"
-                :class="user.mfa_enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
+                :class="user.mfa_enabled ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-600'"
               >
                 {{ user.mfa_enabled ? 'Enabled' : 'Off' }}
               </span>
             </td>
             <td class="px-6 py-4 text-sm">
               <button
-                class="text-indigo-600 hover:text-indigo-900 mr-3"
+                class="text-brand-600 hover:text-brand-900 mr-3"
                 @click="openRoleModal(user)"
               >
                 Assign Roles
               </button>
               <router-link
                 :to="{ name: 'user-detail', params: { id: user.id } }"
-                class="text-gray-600 hover:text-gray-900 mr-3"
+                class="text-neutral-600 hover:text-neutral-900 mr-3"
               >
                 Details
               </router-link>
               <button
-                class="text-red-600 hover:text-red-900"
+                class="text-error-600 hover:text-error-700"
                 @click="deleteUser(user)"
               >
                 Delete
@@ -320,22 +320,22 @@ onMounted(fetchUsers)
       <!-- Pagination controls -->
       <div
         v-if="totalPages > 1"
-        class="px-6 py-3 bg-gray-50 flex items-center justify-between border-t border-gray-200"
+        class="px-6 py-3 bg-neutral-50 flex items-center justify-between border-t border-neutral-200"
       >
-        <span class="text-sm text-gray-600">
+        <span class="text-sm text-neutral-600">
           {{ total }} user(s) · Page {{ currentPage }} of {{ totalPages }}
         </span>
         <div class="flex gap-2">
           <button
             :disabled="!hasPrev"
-            class="px-3 py-1.5 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            class="px-3 py-1.5 border border-neutral-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100"
             @click="goToPage(currentPage - 1)"
           >
             Previous
           </button>
           <button
             :disabled="!hasNext"
-            class="px-3 py-1.5 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            class="px-3 py-1.5 border border-neutral-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100"
             @click="goToPage(currentPage + 1)"
           >
             Next
@@ -349,62 +349,62 @@ onMounted(fetchUsers)
       v-if="showCreateModal"
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     >
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+      <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
           Create User
         </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700">Username *</label>
+            <label class="block text-sm font-medium text-neutral-700">Username *</label>
             <input
               v-model="createForm.username"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="newuser"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">Password *</label>
+            <label class="block text-sm font-medium text-neutral-700">Password *</label>
             <input
               v-model="createForm.password"
               type="password"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="••••••••"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">Email</label>
+            <label class="block text-sm font-medium text-neutral-700">Email</label>
             <input
               v-model="createForm.email"
               type="email"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="user@example.com"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">Roles (comma-separated)</label>
+            <label class="block text-sm font-medium text-neutral-700">Roles (comma-separated)</label>
             <input
               v-model="createForm.roles"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="user"
             >
-            <p class="mt-1 text-xs text-gray-500">
+            <p class="mt-1 text-xs text-neutral-500">
               Default: user. Available: admin, user
             </p>
           </div>
           <div class="flex gap-6">
-            <label class="flex items-center gap-2 text-sm text-gray-700">
+            <label class="flex items-center gap-2 text-sm text-neutral-700">
               <input
                 v-model="createForm.email_verified"
                 type="checkbox"
-                class="rounded border-gray-300 text-indigo-600"
+                class="rounded border-neutral-300 text-brand-600"
               >
               Email verified
             </label>
-            <label class="flex items-center gap-2 text-sm text-gray-700">
+            <label class="flex items-center gap-2 text-sm text-neutral-700">
               <input
                 v-model="createForm.mfa_enabled"
                 type="checkbox"
-                class="rounded border-gray-300 text-indigo-600"
+                class="rounded border-neutral-300 text-brand-600"
               >
               MFA enabled
             </label>
@@ -412,14 +412,14 @@ onMounted(fetchUsers)
         </div>
         <div class="flex justify-end space-x-3 mt-6">
           <button
-            class="px-4 py-2 border border-gray-300 rounded-md text-sm"
+            class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showCreateModal = false"
           >
             Cancel
           </button>
           <button
             :disabled="saving"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+            class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="createUser"
           >
             {{ saving ? 'Creating...' : 'Create User' }}
@@ -433,34 +433,34 @@ onMounted(fetchUsers)
       v-if="showRoleModal"
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     >
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+      <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-2">
           Assign Roles
         </h3>
-        <p class="text-sm text-gray-600 mb-4">
+        <p class="text-sm text-neutral-600 mb-4">
           User: <strong>{{ selectedUser?.username }}</strong>
         </p>
         <div>
-          <label class="block text-sm font-medium text-gray-700">Roles (comma-separated)</label>
+          <label class="block text-sm font-medium text-neutral-700">Roles (comma-separated)</label>
           <input
             v-model="roleInput"
-            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
             placeholder="admin, user"
           >
-          <p class="mt-1 text-xs text-gray-500">
+          <p class="mt-1 text-xs text-neutral-500">
             Available: admin, user
           </p>
         </div>
         <div class="flex justify-end space-x-3 mt-4">
           <button
-            class="px-4 py-2 border border-gray-300 rounded-md text-sm"
+            class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showRoleModal = false"
           >
             Cancel
           </button>
           <button
             :disabled="saving"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+            class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="assignRoles"
           >
             {{ saving ? 'Saving...' : 'Save Roles' }}

@@ -25,12 +25,12 @@ function handleDismiss() {
     :class="[
       'flex items-start gap-3 rounded-lg px-4 py-3 text-sm border transition-all duration-200',
       type === 'success'
-        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+        ? 'bg-success-50 text-success-700 border-success-200'
         : type === 'warning'
-          ? 'bg-amber-50 text-amber-800 border-amber-200'
+          ? 'bg-warning-50 text-warning-700 border-warning-200'
           : type === 'error'
-            ? 'bg-rose-50 text-rose-800 border-rose-200'
-            : 'bg-sky-50 text-sky-800 border-sky-200',
+            ? 'bg-error-50 text-error-700 border-error-200'
+            : 'bg-brand-50 text-brand-700 border-brand-200',
     ]"
     role="alert"
   >

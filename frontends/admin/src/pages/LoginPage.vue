@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AppInput from '../components/ui/AppInput.vue'
 import AppAlert from '../components/ui/AppAlert.vue'
+import AppLogo from '../components/shared/AppLogo.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -56,23 +57,21 @@ function backToLogin() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
+  <div class="min-h-screen flex items-center justify-center bg-page p-4">
     <div class="w-full max-w-[400px]">
       <!-- Logo -->
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sky-700 text-white font-bold text-lg mb-4">
-          AF
-        </div>
-        <h1 class="text-xl font-bold text-neutral-900 tracking-tight">
-          Fulla Admin
-        </h1>
-        <p class="mt-1.5 text-sm text-neutral-500">
-          Sign in to your administrator account
-        </p>
+      <div class="flex justify-center mb-7">
+        <AppLogo size="lg" />
       </div>
 
       <!-- Card -->
-      <div class="bg-white rounded-xl border border-neutral-200 shadow-sm p-8">
+      <div class="bg-surface rounded-auth border border-neutral-200 shadow-md p-8">
+        <h1 class="font-display text-[23px] leading-tight font-semibold text-neutral-900 tracking-tight">
+          Sign in to Fulla Admin
+        </h1>
+        <p class="mt-1.5 mb-6 text-sm text-neutral-500">
+          Sign in to your administrator account
+        </p>
         <AppAlert
           v-if="auth.loginError"
           type="error"
@@ -112,9 +111,9 @@ function backToLogin() {
               placeholder="Enter your password"
               required
               autocomplete="current-password"
-              class="block w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 bg-white
+              class="block w-full px-3.5 py-2.5 text-sm rounded-lg border border-neutral-300 bg-surface
                      placeholder:text-neutral-400 transition-colors duration-150
-                     focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
+                     focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-700"
             >
           </div>
 
@@ -122,10 +121,10 @@ function backToLogin() {
             type="submit"
             :disabled="loading"
             class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
-                   bg-sky-700 text-white rounded-lg hover:bg-sky-800 shadow-sm
+                   bg-brand-600 text-white rounded-lg hover:bg-brand-700 shadow-sm
                    disabled:opacity-50 disabled:cursor-not-allowed
                    transition-all duration-150 active:scale-[0.98]
-                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             <svg
               v-if="loading"
@@ -183,9 +182,9 @@ function backToLogin() {
               inputmode="numeric"
               autocomplete="one-time-code"
               maxlength="6"
-              class="block w-full px-3.5 py-2.5 text-sm tracking-[0.4em] text-center rounded-lg border border-neutral-300 bg-white
+              class="block w-full px-3.5 py-2.5 text-sm tracking-[0.4em] text-center rounded-lg border border-neutral-300 bg-surface
                      placeholder:text-neutral-400 placeholder:tracking-normal transition-colors duration-150
-                     focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
+                     focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-700"
             >
           </div>
 
@@ -193,10 +192,10 @@ function backToLogin() {
             type="submit"
             :disabled="mfaLoading || mfaCode.length !== 6"
             class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
-                   bg-sky-700 text-white rounded-lg hover:bg-sky-800 shadow-sm
+                   bg-brand-600 text-white rounded-lg hover:bg-brand-700 shadow-sm
                    disabled:opacity-50 disabled:cursor-not-allowed
                    transition-all duration-150 active:scale-[0.98]
-                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
           >
             <svg
               v-if="mfaLoading"

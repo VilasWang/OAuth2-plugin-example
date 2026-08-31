@@ -54,7 +54,7 @@ async function approve() {
 <template>
   <div>
     <div class="mb-6">
-      <h2 class="text-2xl font-bold text-gray-900">
+      <h2 class="text-2xl font-bold text-neutral-900">
         Device Approval
       </h2>
       <p class="mt-1 text-sm text-neutral-500">
@@ -62,26 +62,26 @@ async function approve() {
       </p>
     </div>
 
-    <div class="max-w-md bg-white rounded-xl border border-neutral-200 shadow-sm p-6">
+    <div class="max-w-md bg-surface rounded-xl border border-neutral-200 shadow-sm p-6">
       <div
         v-if="success"
-        class="rounded-lg bg-emerald-50 border border-emerald-200 p-4 mb-4"
+        class="rounded-lg bg-success-50 border border-success-200 p-4 mb-4"
         data-testid="device-approve-success"
       >
-        <p class="text-sm font-medium text-emerald-800">
+        <p class="text-sm font-medium text-success-700">
           Device approved
         </p>
-        <p class="mt-1 text-sm text-emerald-700">
+        <p class="mt-1 text-sm text-success-700">
           You can close this page and return to your device.
         </p>
       </div>
 
       <div
         v-if="errorMessage"
-        class="rounded-lg bg-rose-50 border border-rose-200 p-4 mb-4"
+        class="rounded-lg bg-error-50 border border-error-200 p-4 mb-4"
         data-testid="device-approve-error"
       >
-        <p class="text-sm text-rose-800">
+        <p class="text-sm text-error-700">
           {{ errorMessage }}
         </p>
       </div>
@@ -104,9 +104,9 @@ async function approve() {
             required
             autocomplete="off"
             placeholder="e.g. WDJB-MJHT"
-            class="block w-full px-3.5 py-2.5 text-sm uppercase tracking-widest rounded-lg border border-neutral-300 bg-white
+            class="block w-full px-3.5 py-2.5 text-sm uppercase tracking-widest rounded-lg border border-neutral-300 bg-surface
                    placeholder:text-neutral-400 placeholder:tracking-normal transition-colors duration-150
-                   focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
+                   focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-700"
           >
         </div>
 
@@ -114,7 +114,7 @@ async function approve() {
           type="submit"
           :disabled="approving || !normalizeCode()"
           class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium
-                 bg-sky-700 text-white rounded-lg hover:bg-sky-800 shadow-sm
+                 bg-brand-600 text-white rounded-lg hover:bg-brand-700 shadow-sm
                  disabled:opacity-50 disabled:cursor-not-allowed
                  transition-all duration-150 active:scale-[0.98]"
         >

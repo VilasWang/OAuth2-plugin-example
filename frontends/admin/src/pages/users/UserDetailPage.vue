@@ -134,7 +134,7 @@ onMounted(() => {
     <div class="flex items-center gap-3 mb-6">
       <router-link
         :to="{ name: 'users' }"
-        class="text-gray-500 hover:text-gray-700 text-sm"
+        class="text-neutral-500 hover:text-neutral-700 text-sm"
       >
         ← Back to Users
       </router-link>
@@ -148,14 +148,14 @@ onMounted(() => {
     </div>
     <div
       v-if="errorMessage"
-      class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-md text-sm"
     >
       {{ errorMessage }}
     </div>
 
     <div
       v-if="loading"
-      class="text-center py-12 text-gray-500"
+      class="text-center py-12 text-neutral-500"
     >
       Loading...
     </div>
@@ -163,10 +163,10 @@ onMounted(() => {
     <div v-else>
       <div class="flex justify-between items-start mb-6">
         <div>
-          <h2 class="text-2xl font-bold text-gray-900">
+          <h2 class="text-2xl font-bold text-neutral-900">
             {{ user.username }}
           </h2>
-          <p class="text-sm text-gray-500 mt-1">
+          <p class="text-sm text-neutral-500 mt-1">
             ID: {{ user.id }}
           </p>
         </div>
@@ -180,7 +180,7 @@ onMounted(() => {
           </button>
           <button
             v-else
-            class="px-3 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+            class="px-3 py-2 bg-error-600 text-white rounded-md text-sm hover:bg-error-700"
             @click="disableUser"
           >
             Disable Account
@@ -192,7 +192,7 @@ onMounted(() => {
       <div class="flex gap-2 mb-6">
         <span
           class="px-2 py-1 text-xs rounded-full"
-          :class="isLocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'"
+          :class="isLocked ? 'bg-error-100 text-error-700' : 'bg-green-100 text-green-800'"
         >
           {{ isLocked ? 'Locked' : 'Active' }}
         </span>
@@ -204,20 +204,20 @@ onMounted(() => {
         </span>
         <span
           class="px-2 py-1 text-xs rounded-full"
-          :class="user.mfa_enabled ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'"
+          :class="user.mfa_enabled ? 'bg-brand-100 text-brand-800' : 'bg-neutral-100 text-neutral-600'"
         >
           MFA {{ user.mfa_enabled ? 'Enabled' : 'Off' }}
         </span>
       </div>
 
       <!-- Tabs -->
-      <div class="border-b border-gray-200 mb-6">
+      <div class="border-b border-neutral-200 mb-6">
         <nav class="-mb-px flex space-x-8">
           <button
             v-for="tab in [{ key: 'info', label: 'Info' }, { key: 'security', label: 'Security' }, { key: 'roles', label: 'Roles' }]"
             :key="tab.key"
             :class="['py-3 px-1 border-b-2 text-sm font-medium transition-colors',
-                     activeTab === tab.key ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700']"
+                     activeTab === tab.key ? 'border-brand-500 text-brand-600' : 'border-transparent text-neutral-500 hover:text-neutral-700']"
             @click="activeTab = tab.key as any"
           >
             {{ tab.label }}
@@ -228,22 +228,22 @@ onMounted(() => {
       <!-- Info Tab -->
       <div
         v-if="activeTab === 'info'"
-        class="bg-white shadow rounded-lg p-6 space-y-5"
+        class="bg-surface shadow rounded-lg p-6 space-y-5"
       >
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">Username</label>
           <input
             v-model="editUsername"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+            class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm font-mono"
             placeholder="username"
           >
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">Email</label>
           <input
             v-model="editEmail"
             type="email"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
             placeholder="user@example.com"
           >
         </div>
@@ -252,11 +252,11 @@ onMounted(() => {
             id="emailVerified"
             v-model="editEmailVerified"
             type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-indigo-600"
+            class="h-4 w-4 rounded border-neutral-300 text-brand-600"
           >
           <label
             for="emailVerified"
-            class="text-sm font-medium text-gray-700"
+            class="text-sm font-medium text-neutral-700"
           >Email Verified</label>
         </div>
         <div class="flex items-center gap-3">
@@ -264,11 +264,11 @@ onMounted(() => {
             id="mfaEnabled"
             v-model="editMfaEnabled"
             type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-indigo-600"
+            class="h-4 w-4 rounded border-neutral-300 text-brand-600"
           >
           <label
             for="mfaEnabled"
-            class="text-sm font-medium text-gray-700"
+            class="text-sm font-medium text-neutral-700"
           >MFA Enabled</label>
         </div>
         <div class="flex items-center gap-3">
@@ -276,32 +276,32 @@ onMounted(() => {
             id="locked"
             v-model="editLocked"
             type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-red-600"
+            class="h-4 w-4 rounded border-neutral-300 text-error-600"
           >
           <label
             for="locked"
-            class="text-sm font-medium text-gray-700"
+            class="text-sm font-medium text-neutral-700"
           >Account Locked</label>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Organization ID</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">Organization ID</label>
           <input
             v-model="editOrgId"
             type="number"
-            class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
             placeholder="(none)"
           >
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Created At</label>
-          <p class="text-sm text-gray-600">
+          <label class="block text-sm font-medium text-neutral-700 mb-1">Created At</label>
+          <p class="text-sm text-neutral-600">
             {{ user.created_at || '—' }}
           </p>
         </div>
-        <div class="pt-4 border-t border-gray-200">
+        <div class="pt-4 border-t border-neutral-200">
           <button
             :disabled="saving"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+            class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="saveInfo"
           >
             {{ saving ? 'Saving...' : 'Save Changes' }}
@@ -312,27 +312,27 @@ onMounted(() => {
       <!-- Security Tab -->
       <div
         v-if="activeTab === 'security'"
-        class="bg-white shadow rounded-lg p-6 space-y-4"
+        class="bg-surface shadow rounded-lg p-6 space-y-4"
       >
         <div class="grid grid-cols-2 gap-4">
-          <div class="p-4 bg-gray-50 rounded-lg">
-            <p class="text-xs text-gray-500 uppercase font-medium">
+          <div class="p-4 bg-neutral-50 rounded-lg">
+            <p class="text-xs text-neutral-500 uppercase font-medium">
               Failed Login Count
             </p>
             <p
               class="text-2xl font-bold mt-1"
-              :class="(user.failed_login_count || 0) > 0 ? 'text-red-600' : 'text-gray-900'"
+              :class="(user.failed_login_count || 0) > 0 ? 'text-error-600' : 'text-neutral-900'"
             >
               {{ user.failed_login_count || 0 }}
             </p>
           </div>
-          <div class="p-4 bg-gray-50 rounded-lg">
-            <p class="text-xs text-gray-500 uppercase font-medium">
+          <div class="p-4 bg-neutral-50 rounded-lg">
+            <p class="text-xs text-neutral-500 uppercase font-medium">
               Account Status
             </p>
             <p
               class="text-lg font-semibold mt-1"
-              :class="isLocked ? 'text-red-600' : 'text-green-600'"
+              :class="isLocked ? 'text-error-600' : 'text-green-600'"
             >
               {{ isLocked ? 'Locked' : 'Active' }}
             </p>
@@ -340,25 +340,25 @@ onMounted(() => {
         </div>
         <div
           v-if="isLocked"
-          class="p-4 bg-red-50 border border-red-200 rounded-lg"
+          class="p-4 bg-error-50 border border-error-200 rounded-lg"
         >
-          <p class="text-sm text-red-700">
+          <p class="text-sm text-error-700">
             Account is locked until: {{ new Date((user.locked_until || 0) * 1000).toLocaleString() }}
           </p>
           <button
-            class="mt-2 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+            class="mt-2 px-3 py-1.5 bg-error-600 text-white rounded text-sm hover:bg-error-700"
             @click="enableUser"
           >
             Unlock Account
           </button>
         </div>
-        <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-xs text-gray-500 uppercase font-medium mb-1">
+        <div class="p-4 bg-neutral-50 rounded-lg">
+          <p class="text-xs text-neutral-500 uppercase font-medium mb-1">
             MFA Status
           </p>
           <p
             class="text-sm font-medium"
-            :class="user.mfa_enabled ? 'text-blue-600' : 'text-gray-500'"
+            :class="user.mfa_enabled ? 'text-brand-600' : 'text-neutral-500'"
           >
             {{ user.mfa_enabled ? 'Multi-Factor Authentication Enabled' : 'MFA Not Configured' }}
           </p>
@@ -368,14 +368,14 @@ onMounted(() => {
       <!-- Roles Tab -->
       <div
         v-if="activeTab === 'roles'"
-        class="bg-white shadow rounded-lg p-6"
+        class="bg-surface shadow rounded-lg p-6"
       >
-        <p class="text-sm text-gray-600 mb-4">
+        <p class="text-sm text-neutral-600 mb-4">
           Assign roles to control what this user can access.
         </p>
         <div
           v-if="allRoles.length === 0"
-          class="text-gray-500 text-sm"
+          class="text-neutral-500 text-sm"
         >
           No roles available.
         </div>
@@ -386,28 +386,28 @@ onMounted(() => {
           <label
             v-for="role in allRoles"
             :key="role.id"
-            class="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200"
+            class="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-neutral-50 border border-transparent hover:border-neutral-200"
           >
             <input
               v-model="selectedRoles"
               type="checkbox"
               :value="role.name"
-              class="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600"
+              class="mt-0.5 h-4 w-4 rounded border-neutral-300 text-brand-600"
             >
             <div>
-              <span class="text-sm font-medium text-gray-700">{{ role.name }}</span>
+              <span class="text-sm font-medium text-neutral-700">{{ role.name }}</span>
               <p
                 v-if="role.description"
-                class="text-xs text-gray-500"
+                class="text-xs text-neutral-500"
               >{{ role.description }}</p>
-              <p class="text-xs text-gray-400">{{ role.user_count }} user(s)</p>
+              <p class="text-xs text-neutral-400">{{ role.user_count }} user(s)</p>
             </div>
           </label>
         </div>
-        <div class="mt-6 pt-4 border-t border-gray-200">
+        <div class="mt-6 pt-4 border-t border-neutral-200">
           <button
             :disabled="saving"
-            class="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+            class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="saveRoles"
           >
             {{ saving ? 'Saving...' : 'Save Roles' }}

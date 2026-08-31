@@ -152,6 +152,7 @@ test.describe('GitHub Login', () => {
   // the environment does not configure GitHub login.
   test('shows GitHub login button on login page', async ({ page }) => {
     await page.goto('/login')
+    await page.locator('form').first().waitFor()
     const btn = page.locator('text=Sign in with GitHub')
     if ((await btn.count()) === 0)
       test.skip(true, 'VITE_GITHUB_CLIENT_ID not configured for this build')
@@ -160,6 +161,7 @@ test.describe('GitHub Login', () => {
 
   test('GitHub button links to GitHub OAuth', async ({ page }) => {
     await page.goto('/login')
+    await page.locator('form').first().waitFor()
     const githubLink = page.locator('a:has-text("Sign in with GitHub")')
     if ((await githubLink.count()) === 0)
       test.skip(true, 'VITE_GITHUB_CLIENT_ID not configured for this build')

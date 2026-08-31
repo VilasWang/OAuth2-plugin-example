@@ -76,7 +76,7 @@ const breadcrumbs = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden bg-neutral-50">
+  <div class="flex h-screen overflow-hidden bg-page">
     <!-- ============================================================ -->
     <!-- MOBILE OVERLAY -->
     <!-- ============================================================ -->
@@ -94,7 +94,7 @@ const breadcrumbs = computed(() => {
     <aside
       :class="[
         'fixed lg:static inset-y-0 left-0 z-50',
-        'flex flex-col bg-white border-r border-neutral-200',
+        'flex flex-col bg-surface border-r border-neutral-200',
         'transition-all duration-300 ease-out',
         mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         sidebarCollapsed ? 'w-[72px]' : 'w-[260px]',
@@ -137,10 +137,10 @@ const breadcrumbs = computed(() => {
               <router-link
                 :to="item.path"
                 :class="[
-                  'flex items-center gap-3 rounded-lg transition-all duration-150 group',
+                  'relative flex items-center gap-3 rounded-ctl transition-all duration-150 group',
                   sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5',
                   isActive(item.path)
-                    ? 'bg-sky-50 text-sky-700 font-medium'
+                    ? 'nav-active bg-brand-50 text-brand-700 font-semibold'
                     : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50',
                 ]"
                 :title="sidebarCollapsed ? item.name : undefined"
@@ -263,7 +263,7 @@ const breadcrumbs = computed(() => {
                 <span
                   v-if="!sidebarCollapsed"
                   class="text-sm"
-                  :class="isActive(item.path) ? 'font-medium' : 'font-normal'"
+                  :class="isActive(item.path) ? 'font-semibold' : 'font-normal'"
                 >
                   {{ item.name }}
                 </span>
@@ -277,7 +277,7 @@ const breadcrumbs = computed(() => {
       <div class="shrink-0 border-t border-neutral-100 p-3">
         <!-- Collapse toggle -->
         <button
-          class="hidden lg:flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-neutral-500
+          class="hidden lg:flex items-center gap-3 w-full rounded-ctl px-3 py-2.5 text-sm text-neutral-500
                  hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
           :class="sidebarCollapsed ? 'justify-center' : ''"
           @click="sidebarCollapsed = !sidebarCollapsed"
@@ -303,12 +303,12 @@ const breadcrumbs = computed(() => {
     <!-- ============================================================ -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       <!-- Top Header -->
-      <header class="h-16 shrink-0 bg-white border-b border-neutral-200 flex items-center justify-between px-4 lg:px-6">
+      <header class="h-16 shrink-0 bg-surface border-b border-neutral-200 flex items-center justify-between px-4 lg:px-6">
         <!-- Left: Mobile toggle + breadcrumb -->
         <div class="flex items-center gap-4 min-w-0">
           <button
-            class="lg:hidden p-2 -ml-2 rounded-lg text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100
-                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            class="lg:hidden p-2 -ml-2 rounded-ctl text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Toggle menu"
             @click="mobileMenuOpen = !mobileMenuOpen"
           >
@@ -366,11 +366,11 @@ const breadcrumbs = computed(() => {
           <!-- User menu -->
           <div class="relative">
             <button
-              class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-neutral-100 transition-colors
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              class="flex items-center gap-2.5 px-2 py-1.5 rounded-ctl hover:bg-neutral-100 transition-colors
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               @click="userMenuOpen = !userMenuOpen"
             >
-              <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-semibold">
+              <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">
                 {{ (auth.user?.name || 'A')[0].toUpperCase() }}
               </div>
               <span class="hidden sm:block text-sm font-medium text-neutral-700">
@@ -392,7 +392,7 @@ const breadcrumbs = computed(() => {
             <Transition name="dropdown">
               <div
                 v-if="userMenuOpen"
-                class="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-neutral-200 py-1.5 z-50"
+                class="absolute right-0 mt-2 w-64 bg-surface rounded-xl shadow-lg border border-neutral-200 py-1.5 z-50"
               >
                 <div class="px-4 py-3 border-b border-neutral-100">
                   <p class="text-sm font-medium text-neutral-900">
@@ -424,7 +424,7 @@ const breadcrumbs = computed(() => {
                 <div class="border-t border-neutral-100 my-1" />
 
                 <button
-                  class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+                  class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-error-600 hover:bg-error-50 transition-colors"
                   @click="handleLogout"
                 >
                   <svg
@@ -467,4 +467,16 @@ const breadcrumbs = computed(() => {
 .dropdown-leave-active { transition: all 100ms ease-in; }
 .dropdown-enter-from { opacity: 0; transform: translateY(-8px) scale(0.96); }
 .dropdown-leave-to { opacity: 0; transform: translateY(-4px) scale(0.98); }
+
+/* Active nav tick — 2px brand rule at the sidebar's left edge */
+.nav-active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-brand-600);
+}
 </style>

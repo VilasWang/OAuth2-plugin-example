@@ -36,7 +36,7 @@ test.describe('Registration Validation', () => {
     await page.locator('button[type="submit"]').click()
     await page.waitForTimeout(500)
     // Error should be displayed
-    const errorEl = page.locator('.bg-red-50, [class*="red"]')
+    const errorEl = page.locator('.bg-error-50, [class*="error-"]')
     await expect(errorEl.first()).toBeVisible()
   })
 
@@ -48,7 +48,7 @@ test.describe('Registration Validation', () => {
     await page.locator('input[autocomplete="new-password"]').last().fill('password123')
     await page.locator('button[type="submit"]').click()
     await page.waitForTimeout(500)
-    const errorEl = page.locator('.bg-red-50, [class*="red"]')
+    const errorEl = page.locator('.bg-error-50, [class*="error-"]')
     await expect(errorEl.first()).toBeVisible()
   })
 

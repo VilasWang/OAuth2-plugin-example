@@ -135,7 +135,7 @@ test.describe('User Management', () => {
     await page.click('button:has-text("Save Roles")')
     // VALIDATION_RESOURCE_NOT_FOUND is mapped to "资源不存在"; the raw backend
     // message is intentionally NOT surfaced.
-    const errorEl = page.locator('.bg-red-50')
+    const errorEl = page.locator('.bg-error-50')
     await expect(errorEl.first()).toBeVisible()
     await expect(errorEl.first()).toContainText('资源不存在')
     await expect(errorEl.first()).not.toContainText('Role does not exist')
@@ -155,7 +155,7 @@ test.describe('User Management', () => {
     await page.click('nav a:has-text("Dashboard")')
     await page.click('nav a:has-text("Users")')
     await page.waitForLoadState('networkidle')
-    const errorEl = page.locator('.bg-red-50, .text-red-700')
+    const errorEl = page.locator('.bg-error-50, .text-error-700')
     await expect(errorEl.first()).toBeVisible()
   })
 
@@ -229,7 +229,7 @@ test.describe('User Management', () => {
     await page.fill('input[placeholder="newuser"]', 'admin')
     await page.fill('input[placeholder="••••••••"]', 'TestPass123!')
     await page.locator('.fixed button:has-text("Create User")').click()
-    const errorEl = page.locator('.bg-red-50')
+    const errorEl = page.locator('.bg-error-50')
     await expect(errorEl.first()).toBeVisible({ timeout: 5000 })
   })
 })
