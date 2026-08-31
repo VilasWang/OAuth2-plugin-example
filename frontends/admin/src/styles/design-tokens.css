@@ -10,10 +10,15 @@
      utility classes (bg-brand-600, text-neutral-500, rounded-card)
      and CSS custom properties.
    - Semantic aliases (--color-brand, --color-text-*, --color-bg-*)
-     stay in :root / [data-theme="dark"] for var() consumers.
+     stay in :root for var() consumers.
    - Themeable surfaces (--color-surface / --color-page / --color-ring)
      are @theme-registered with light values so bg-surface / bg-page /
-     ring utilities exist; [data-theme="dark"] overrides them.
+     ring utilities exist.
+   - DARK OVERRIDES LIVE IN App.vue's SFC <style> (html[data-theme=dark]),
+     NOT here: the Tailwind vite plugin strips or layer-merges
+     non-:root custom-property blocks that sit in imported CSS files.
+     Theme switching is wired in stores/theme.ts (fulla-theme in
+     localStorage -> html[data-theme]).
    =================================================================== */
 
 @theme {
