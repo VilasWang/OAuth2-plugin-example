@@ -408,39 +408,29 @@ void WebAuthnController::authenticateBegin(
         return;
     }
 
-    webAuthnService_->beginAuthentication(
-      [this, sharedCb, req](std::optional<fulla::identity::WebAuthnAuthenticationChallenge> base) {
-          if (!base)
-          {
-              respondError(
-                req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: challenge generation failed"
-              );
-              return;
-          }
-          // #142: store challenge|issuedAt so the 300s TTL is enforceable
-          // (Drogon sessions have no per-key TTL).
-          auto sessionChallenge = webAuthnService_->issueAuthenticationChallenge();
-          if (!sessionChallenge)
-          {
-              respondError(
-                req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: challenge generation failed"
-              );
-              return;
-          }
-          req->session()->insert("webauthn_auth_challenge", sessionChallenge->sessionValue);
+    // #142: single challenge generation — issueAuthenticationChallenge
+    // mints the value used AND the session-carried TTL form (the earlier
+    // double mint discarded one CSPRNG draw; PR-review m-3).
+    auto sessionChallenge = webAuthnService_->issueAuthenticationChallenge();
+    if (!sessionChallenge)
+    {
+        respondError(req, sharedCb, "INTERNAL_ERROR", "authenticateBegin: challenge generation failed");
+        return;
+    }
+    req->session()->insert("webauthn_auth_challenge", sessionChallenge->sessionValue);
 
-          Json::Value options;
-          options["challenge"] = sessionChallenge->challenge;
-          options["rpId"] = base->rpId;
-          options["timeout"] = base->timeoutMs;
-          // BEGIN/FINISH POLICY ALIGNMENT (#142): finish enforces UV=1.
-          options["userVerification"] = "required";
-          options["allowCredentials"] = Json::Value(Json::arrayValue);
-          Json::Value response;
-          response["options"] = options;
-          (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
-      }
-    );
+    {
+        Json::Value options;
+        options["challenge"] = sessionChallenge->challenge;
+        options["rpId"] = getRpId();
+        options["timeout"] = 60000;
+        // BEGIN/FINISH POLICY ALIGNMENT (#142): finish enforces UV=1.
+        options["userVerification"] = "required";
+        options["allowCredentials"] = Json::Value(Json::arrayValue);
+        Json::Value response;
+        response["options"] = options;
+        (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(response));
+    }
 }
 
 void WebAuthnController::authenticateFinish(

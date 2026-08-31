@@ -15,6 +15,14 @@ using fulla::identity::WebAuthnCredentialSummary;
 using drogon_model::fulla_db::Users;
 using drogon_model::fulla_db::WebauthnCredentials;
 
+namespace
+{
+int64_t nowEpochSeconds()
+{
+    return static_cast<int64_t>(::trantor::Date::now().secondsSinceEpoch());
+}
+}  // namespace
+
 void PostgresWebAuthnRepository::storeCredential(
   int32_t userId,
   const std::string &credentialId,
@@ -36,10 +44,13 @@ void PostgresWebAuthnRepository::storeCredential(
     cred.setPublicKey(publicKey);
     cred.setName(name);
 
-    Mapper<WebauthnCredentials> mapper(dbClient_);
-    mapper.insert(
-      cred,
-      [sharedCb](const WebauthnCredentials &) { (*sharedCb)(StoreCredentialOutcome::Success); },
+    // Guard: Mapper construction inside try (db-operations.md rule 1).
+    try
+    {
+        Mapper<WebauthnCredentials> mapper(dbClient_);
+        mapper.insert(
+          cred,
+          [sharedCb](const WebauthnCredentials &) { (*sharedCb)(StoreCredentialOutcome::Success); },
       [sharedCb](const DrogonDbException &e) {
           const std::string what = e.base().what();
           if (
@@ -50,9 +61,14 @@ void PostgresWebAuthnRepository::storeCredential(
               (*sharedCb)(StoreCredentialOutcome::DuplicateCredentialId);
               return;
           }
-          (*sharedCb)(StoreCredentialOutcome::Error);
-      }
-    );
+              (*sharedCb)(StoreCredentialOutcome::Error);
+          }
+        );
+    }
+    catch (...)
+    {
+        (*sharedCb)(StoreCredentialOutcome::Error);
+    }
 }
 
 void PostgresWebAuthnRepository::findByCredentialId(
@@ -82,9 +98,21 @@ void PostgresWebAuthnRepository::findByCredentialId(
               try
               {
                   Mapper<Users> userMapper(self->dbClient_);
+                  // Liveness gate (#142 review M-1): a soft-deleted or
+                  // locked user must not authenticate via passkey — parity
+                  // with the password and social paths (V024/#54 contract:
+                  // "disabled" means cannot log in through ANY flow).
                   userMapper.findOne(
-                    Criteria(Users::Cols::_id, CompareOperator::EQ, userId32),
+                    Criteria(Users::Cols::_id, CompareOperator::EQ, userId32) &&
+                      Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
                     [sharedCb, wc](const Users &user) {
+                        if (user.getValueOfLockedUntil() > nowEpochSeconds())
+                        {
+                            // Generic nullopt — same failure shape as an
+                            // unknown credential, no account-status leak.
+                            (*sharedCb)(std::nullopt);
+                            return;
+                        }
                         WebAuthnCredentialLookup lookup;
                         lookup.userId = wc.getValueOfUserId();
                         lookup.publicSub = user.getValueOfPublicSub();
@@ -124,10 +152,12 @@ void PostgresWebAuthnRepository::updateSignCount(
     }
     auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
 
-    Mapper<WebauthnCredentials> mapper(dbClient_);
-    mapper.findOne(
-      Criteria(WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId),
-      [sharedCb, newSignCount, self = shared_from_this()](const WebauthnCredentials &found) {
+    try
+    {
+        Mapper<WebauthnCredentials> mapper(dbClient_);
+        mapper.findOne(
+          Criteria(WebauthnCredentials::Cols::_credential_id, CompareOperator::EQ, credentialId),
+          [sharedCb, newSignCount, self = shared_from_this()](const WebauthnCredentials &found) {
           // Update from the FOUND row: a freshly-constructed object would
           // carry empty NOT NULL columns (user_id/public_key), failing the
           // whole UPDATE silently under the best-effort callback (#142
@@ -153,8 +183,13 @@ void PostgresWebAuthnRepository::updateSignCount(
               (*sharedCb)(false);
           }
       },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
-    );
+          [sharedCb](const DrogonDbException &) { (*sharedCb)(false); }
+        );
+    }
+    catch (...)
+    {
+        (*sharedCb)(false);
+    }
 }
 
 void PostgresWebAuthnRepository::listCredentials(int32_t userId, ListCredentialsCallback &&cb)
@@ -166,10 +201,12 @@ void PostgresWebAuthnRepository::listCredentials(int32_t userId, ListCredentials
     }
     auto sharedCb = std::make_shared<ListCredentialsCallback>(std::move(cb));
 
-    Mapper<WebauthnCredentials> mapper(dbClient_);
-    mapper.findBy(
-      Criteria(WebauthnCredentials::Cols::_user_id, CompareOperator::EQ, userId),
-      [sharedCb](const std::vector<WebauthnCredentials> &creds) {
+    try
+    {
+        Mapper<WebauthnCredentials> mapper(dbClient_);
+        mapper.findBy(
+          Criteria(WebauthnCredentials::Cols::_user_id, CompareOperator::EQ, userId),
+          [sharedCb](const std::vector<WebauthnCredentials> &creds) {
           std::vector<WebAuthnCredentialSummary> summaries;
           for (const auto &wc : creds)
           {
@@ -180,10 +217,15 @@ void PostgresWebAuthnRepository::listCredentials(int32_t userId, ListCredentials
               summary.signCount = static_cast<int>(wc.getValueOfSignCount());
               summaries.push_back(std::move(summary));
           }
-          (*sharedCb)(summaries);
-      },
-      [sharedCb](const DrogonDbException &) { (*sharedCb)({}); }
-    );
+                (*sharedCb)(summaries);
+          },
+          [sharedCb](const DrogonDbException &) { (*sharedCb)({}); }
+        );
+    }
+    catch (...)
+    {
+        (*sharedCb)({});
+    }
 }
 
 }  // namespace fulla::storage::postgres
