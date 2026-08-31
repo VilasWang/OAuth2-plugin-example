@@ -104,9 +104,10 @@ async function approve() {
             required
             autocomplete="off"
             placeholder="e.g. WDJB-MJHT"
-            class="block w-full px-3.5 py-2.5 text-sm uppercase tracking-widest font-mono tabular-nums rounded-ctl border border-neutral-300 bg-surface
-                   placeholder:text-neutral-400 placeholder:tracking-normal placeholder:font-sans transition-colors duration-150
-                   focus:outline-none focus:ring-[3px] focus:ring-ring focus:border-brand-700"
+            class="block w-full px-3 py-[15px] pl-[calc(12px+0.18em)] text-[24px] font-semibold font-mono tabular-nums
+                   text-center uppercase tracking-[0.18em] rounded-ctl border border-neutral-300 bg-surface
+                   placeholder:text-neutral-400 placeholder:tracking-normal placeholder:font-sans placeholder:font-normal placeholder:text-base transition-colors duration-150
+                   focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
           >
         </div>
 
@@ -114,12 +115,17 @@ async function approve() {
           type="submit"
           :disabled="approving || !normalizeCode()"
           class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium
-                 bg-brand-600 text-white rounded-lg hover:bg-brand-700 shadow-sm
+                 bg-brand-600 text-white rounded-ctl hover:bg-brand-700 shadow-sm
                  disabled:opacity-50 disabled:cursor-not-allowed
-                 transition-all duration-150 active:scale-[0.98]"
+                 transition-all duration-150 active:scale-[0.98]
+                 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           {{ approving ? 'Approving...' : 'Approve device' }}
         </button>
+
+        <p class="mt-5 mb-0 font-mono text-[11.5px] text-neutral-500 text-center">
+          device flow &middot; RFC 8628
+        </p>
       </form>
     </div>
   </div>

@@ -3,6 +3,9 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+import AppAlert from '../../components/ui/AppAlert.vue'
+import AppBadge from '../../components/ui/AppBadge.vue'
+import DData from '../../components/ui/DData.vue'
 
 const route = useRoute()
 const userId = computed(() => route.params.id as string)
@@ -140,18 +143,20 @@ onMounted(() => {
       </router-link>
     </div>
 
-    <div
+    <AppAlert
       v-if="successMessage"
-      class="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-md text-sm"
+      type="success"
+      class="mb-4"
     >
       {{ successMessage }}
-    </div>
-    <div
+    </AppAlert>
+    <AppAlert
       v-if="errorMessage"
-      class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-md text-sm"
+      type="error"
+      class="mb-4"
     >
       {{ errorMessage }}
-    </div>
+    </AppAlert>
 
     <div
       v-if="loading"
@@ -166,21 +171,27 @@ onMounted(() => {
           <h2 class="text-2xl font-bold text-neutral-900">
             {{ user.username }}
           </h2>
-          <p class="text-sm text-neutral-500 mt-1">
-            ID: {{ user.id }}
-          </p>
+          <div class="mt-1.5">
+            <DData
+              :value="user.id"
+              label="ID"
+              truncate
+            />
+          </div>
         </div>
         <div class="flex gap-2">
           <button
             v-if="isLocked"
-            class="px-3 py-2 bg-success-600 text-white rounded-md text-sm hover:bg-success-700"
+            class="px-3 py-2 bg-success-600 text-white rounded-ctl text-sm hover:bg-success-700
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             @click="enableUser"
           >
             Enable Account
           </button>
           <button
             v-else
-            class="px-3 py-2 bg-error-600 text-white rounded-md text-sm hover:bg-error-700"
+            class="px-3 py-2 bg-error-600 text-white rounded-ctl text-sm hover:bg-error-700
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             @click="disableUser"
           >
             Disable Account
@@ -188,26 +199,17 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Status badges -->
+      <!-- Three-pill status bar -->
       <div class="flex gap-2 mb-6">
-        <span
-          class="px-2 py-1 text-xs rounded-full"
-          :class="isLocked ? 'bg-error-100 text-error-700' : 'bg-success-100 text-success-700'"
-        >
+        <AppBadge :variant="isLocked ? 'error' : 'success'">
           {{ isLocked ? 'Locked' : 'Active' }}
-        </span>
-        <span
-          class="px-2 py-1 text-xs rounded-full"
-          :class="user.email_verified ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'"
-        >
+        </AppBadge>
+        <AppBadge :variant="user.email_verified ? 'success' : 'warning'">
           {{ user.email_verified ? 'Email Verified' : 'Email Pending' }}
-        </span>
-        <span
-          class="px-2 py-1 text-xs rounded-full"
-          :class="user.mfa_enabled ? 'bg-brand-100 text-brand-800' : 'bg-neutral-100 text-neutral-600'"
-        >
+        </AppBadge>
+        <AppBadge :variant="user.mfa_enabled ? 'success' : 'default'">
           MFA {{ user.mfa_enabled ? 'Enabled' : 'Off' }}
-        </span>
+        </AppBadge>
       </div>
 
       <!-- Tabs -->

@@ -159,7 +159,7 @@ onMounted(fetchRoles)
             :key="role.id"
             class="hover:bg-neutral-50"
           >
-            <td class="px-6 py-4">
+            <td class="px-6 py-3">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-neutral-900">{{ role.name }}</span>
                 <span
@@ -168,13 +168,13 @@ onMounted(fetchRoles)
                 >built-in</span>
               </div>
             </td>
-            <td class="px-6 py-4 text-sm text-neutral-500">
+            <td class="px-6 py-3 text-sm text-neutral-500">
               {{ role.description || '—' }}
             </td>
-            <td class="px-6 py-4 text-sm text-neutral-500">
+            <td class="px-6 py-3 text-sm text-neutral-500">
               {{ role.user_count }}
             </td>
-            <td class="px-6 py-4 text-sm space-x-3">
+            <td class="px-6 py-3 text-sm space-x-3">
               <button
                 class="text-brand-600 hover:text-brand-900 transition-colors"
                 @click="openEditModal(role)"

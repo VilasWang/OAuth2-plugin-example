@@ -81,7 +81,7 @@ onMounted(async () => {
       class="grid grid-cols-2 lg:grid-cols-5 gap-5"
     >
       <!-- Users -->
-      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-card border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Total Users</span>
           <div class="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center">
@@ -94,7 +94,7 @@ onMounted(async () => {
             </svg>
           </div>
         </div>
-        <p class="text-3xl font-bold text-neutral-900 tracking-tight">
+        <p class="text-3xl font-semibold font-mono tabular-nums tracking-[-0.02em] text-neutral-900">
           {{ stats?.total_users ?? 0 }}
         </p>
         <p class="mt-1 text-xs text-neutral-400">
@@ -103,7 +103,7 @@ onMounted(async () => {
       </div>
 
       <!-- Applications -->
-      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-card border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Applications</span>
           <div class="w-9 h-9 rounded-lg bg-success-50 flex items-center justify-center">
@@ -119,7 +119,7 @@ onMounted(async () => {
             </svg>
           </div>
         </div>
-        <p class="text-3xl font-bold text-neutral-900 tracking-tight">
+        <p class="text-3xl font-semibold font-mono tabular-nums tracking-[-0.02em] text-neutral-900">
           {{ stats?.total_clients ?? 0 }}
         </p>
         <p class="mt-1 text-xs text-neutral-400">
@@ -128,7 +128,7 @@ onMounted(async () => {
       </div>
 
       <!-- Active Tokens -->
-      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-card border border-neutral-200 p-5 hover:border-brand-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Active Tokens</span>
           <div class="w-9 h-9 rounded-lg bg-warning-50 flex items-center justify-center">
@@ -144,7 +144,7 @@ onMounted(async () => {
             </svg>
           </div>
         </div>
-        <p class="text-3xl font-bold text-warning-600 tracking-tight">
+        <p class="text-3xl font-semibold font-mono tabular-nums tracking-[-0.02em] text-warning-600">
           {{ stats?.active_tokens ?? 0 }}
         </p>
         <p class="mt-1 text-xs text-neutral-400">
@@ -154,7 +154,7 @@ onMounted(async () => {
 
       <!-- Failures Today -->
       <div
-        class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150"
+        class="bg-surface rounded-card border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150"
         :class="(stats?.failures_today || 0) > 0 ? 'border-error-200' : ''"
       >
         <div class="flex items-center justify-between mb-3">
@@ -177,7 +177,7 @@ onMounted(async () => {
           </div>
         </div>
         <p
-          class="text-3xl font-bold tracking-tight"
+          class="text-3xl font-semibold font-mono tabular-nums tracking-[-0.02em]"
           :class="(stats?.failures_today || 0) > 0 ? 'text-error-600' : 'text-neutral-900'"
         >
           {{ stats?.failures_today ?? 0 }}
@@ -188,7 +188,7 @@ onMounted(async () => {
       </div>
 
       <!-- Logs Today (gap-fix: field returned by /stats but never displayed) -->
-      <div class="bg-surface rounded-xl border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150">
+      <div class="bg-surface rounded-card border border-neutral-200 p-5 hover:border-neutral-300 hover:shadow-sm transition-all duration-150">
         <div class="flex items-center justify-between mb-3">
           <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Logs Today</span>
           <div class="w-9 h-9 rounded-lg bg-neutral-50 flex items-center justify-center">
@@ -204,7 +204,7 @@ onMounted(async () => {
             </svg>
           </div>
         </div>
-        <p class="text-3xl font-bold text-neutral-900 tracking-tight">
+        <p class="text-3xl font-semibold font-mono tabular-nums tracking-[-0.02em] text-neutral-900">
           {{ stats?.logs_today ?? 0 }}
         </p>
         <p class="mt-1 text-xs text-neutral-400">
@@ -216,7 +216,7 @@ onMounted(async () => {
     <!-- Health + Quick Actions -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <!-- System Health -->
-      <div class="lg:col-span-2 bg-surface rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+      <div class="lg:col-span-2 bg-surface rounded-card border border-neutral-200 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-neutral-100">
           <h2 class="text-sm font-semibold text-neutral-900">
             System Health
@@ -285,7 +285,7 @@ onMounted(async () => {
       </div>
 
       <!-- Quick Actions -->
-      <div class="bg-surface rounded-xl border border-neutral-200 shadow-sm">
+      <div class="bg-surface rounded-card border border-neutral-200 shadow-sm">
         <div class="px-6 py-4 border-b border-neutral-100">
           <h2 class="text-sm font-semibold text-neutral-900">
             Quick Actions
