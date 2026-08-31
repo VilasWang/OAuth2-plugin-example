@@ -161,7 +161,7 @@ onMounted(fetchClients)
             :key="client.client_id"
             class="hover:bg-neutral-50"
           >
-            <td class="px-6 py-4 text-sm font-medium text-neutral-900">
+            <td class="px-6 py-3 text-sm font-medium text-neutral-900">
               <router-link
                 :to="{ name: 'application-detail', params: { id: client.client_id } }"
                 class="text-brand-600 hover:text-brand-800 hover:underline"
@@ -169,10 +169,10 @@ onMounted(fetchClients)
                 {{ client.name || client.client_id }}
               </router-link>
             </td>
-            <td class="px-6 py-4 text-sm text-neutral-500 font-mono text-xs">
+            <td class="px-6 py-3 text-sm text-neutral-500 font-mono text-xs">
               {{ client.client_id }}
             </td>
-            <td class="px-6 py-4">
+            <td class="px-6 py-3">
               <span
                 class="px-2 py-1 text-xs rounded-full"
                 :class="client.client_type === 'PUBLIC' ? 'bg-brand-100 text-brand-800' : 'bg-info-100 text-info-700'"
@@ -180,7 +180,7 @@ onMounted(fetchClients)
                 {{ client.client_type }}
               </span>
             </td>
-            <td class="px-6 py-4 text-sm space-x-2">
+            <td class="px-6 py-3 text-sm space-x-2">
               <button
                 v-if="client.client_type === 'CONFIDENTIAL'"
                 class="px-2 py-1 rounded text-brand-600 hover:bg-brand-50 hover:text-brand-800 font-medium transition-colors"

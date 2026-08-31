@@ -167,7 +167,7 @@ onMounted(fetchScopes)
             :key="scope.id"
             class="hover:bg-neutral-50"
           >
-            <td class="px-6 py-4">
+            <td class="px-6 py-3">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-neutral-900 font-mono">{{ scope.name }}</span>
                 <span
@@ -176,13 +176,13 @@ onMounted(fetchScopes)
                 >built-in</span>
               </div>
             </td>
-            <td class="px-6 py-4 text-sm text-neutral-500">
+            <td class="px-6 py-3 text-sm text-neutral-500">
               {{ scope.description || '—' }}
             </td>
-            <td class="px-6 py-4 text-sm text-neutral-500">
+            <td class="px-6 py-3 text-sm text-neutral-500">
               {{ scope.mapped_role || '—' }}
             </td>
-            <td class="px-6 py-4">
+            <td class="px-6 py-3">
               <div class="flex gap-1 flex-wrap">
                 <span
                   v-if="scope.is_default"
@@ -194,7 +194,7 @@ onMounted(fetchScopes)
                 >admin only</span>
               </div>
             </td>
-            <td class="px-6 py-4 text-sm space-x-3">
+            <td class="px-6 py-3 text-sm space-x-3">
               <button
                 class="text-brand-600 hover:text-brand-900 transition-colors"
                 @click="openEditModal(scope)"

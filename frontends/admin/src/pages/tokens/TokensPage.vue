@@ -355,7 +355,8 @@ onMounted(fetchTokens)
             </td>
             <td class="px-4 py-3">
               <button
-                class="text-sm text-error-600 hover:text-error-700 font-medium"
+                class="text-sm text-error-600 hover:text-error-700 font-medium rounded-ctl
+                       focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring px-2"
                 @click="revokeToken(token.token_prefix)"
               >
                 Revoke

@@ -268,16 +268,16 @@ onMounted(fetchUsers)
             :key="user.id"
             class="hover:bg-neutral-50"
           >
-            <td class="px-6 py-4 text-sm text-neutral-400">
+            <td class="px-6 py-3 text-sm text-neutral-400">
               {{ user.id }}
             </td>
-            <td class="px-6 py-4 text-sm font-medium text-neutral-900">
+            <td class="px-6 py-3 text-sm font-medium text-neutral-900">
               {{ user.username }}
             </td>
-            <td class="px-6 py-4 text-sm text-neutral-500">
+            <td class="px-6 py-3 text-sm text-neutral-500">
               {{ user.email || '—' }}
             </td>
-            <td class="px-6 py-4">
+            <td class="px-6 py-3">
               <span
                 class="px-2 py-1 text-xs rounded-full"
                 :class="user.email_verified ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'"
@@ -285,7 +285,7 @@ onMounted(fetchUsers)
                 {{ user.email_verified ? 'Verified' : 'Pending' }}
               </span>
             </td>
-            <td class="px-6 py-4">
+            <td class="px-6 py-3">
               <span
                 class="px-2 py-1 text-xs rounded-full"
                 :class="user.mfa_enabled ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-600'"
@@ -293,7 +293,7 @@ onMounted(fetchUsers)
                 {{ user.mfa_enabled ? 'Enabled' : 'Off' }}
               </span>
             </td>
-            <td class="px-6 py-4 text-sm">
+            <td class="px-6 py-3 text-sm">
               <button
                 class="text-brand-600 hover:text-brand-900 mr-3"
                 @click="openRoleModal(user)"
