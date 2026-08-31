@@ -29,7 +29,7 @@ test.describe('Audit Logs', () => {
 
   test('shows outcome badges with correct colors', async ({ page }) => {
     // Success badges (green)
-    const successBadges = page.locator('span.bg-green-100:has-text("success")')
+    const successBadges = page.locator('span.bg-success-100:has-text("success")')
     await expect(successBadges.first()).toBeVisible()
 
     // Failure badges (error)

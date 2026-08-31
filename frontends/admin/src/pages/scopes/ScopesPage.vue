@@ -119,7 +119,7 @@ onMounted(fetchScopes)
 
     <div
       v-if="successMessage"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-md text-sm"
     >
       {{ successMessage }}
     </div>
@@ -190,7 +190,7 @@ onMounted(fetchScopes)
                 >default</span>
                 <span
                   v-if="scope.requires_admin_role"
-                  class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-700 rounded"
+                  class="px-1.5 py-0.5 text-xs bg-warning-100 text-warning-700 rounded"
                 >admin only</span>
               </div>
             </td>

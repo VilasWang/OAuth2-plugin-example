@@ -64,7 +64,7 @@ test.describe('Security features (WebAuthn / MFA)', () => {
     const dialog = page.getByRole('dialog', { name: /backup codes/i })
     await expect(dialog).toBeVisible()
     for (const code of [MOCK_BACKUP_CODES[0], MOCK_BACKUP_CODES[9]]) {
-      await expect(dialog.locator(`code:has-text("${code}")`)).toBeVisible()
+      await expect(dialog.locator('[data-testid="backup-code"]', { hasText: code })).toBeVisible()
     }
 
     // "I have safely saved my codes" is the only way out.

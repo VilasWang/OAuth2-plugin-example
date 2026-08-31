@@ -28,7 +28,7 @@ test.describe('Application Detail Page', () => {
   test('Info tab shows client details', async ({ page }) => {
     // Info tab is active by default
     await expect(page.locator('text=Client ID')).toBeVisible()
-    await expect(page.locator('code:has-text("vue-client")')).toBeVisible()
+    await expect(page.locator('[data-testid="client-id-chip"]')).toContainText('vue-client')
     await expect(page.locator('text=PUBLIC')).toBeVisible()
     await expect(page.locator('input[placeholder="Application name"]')).toHaveValue('Vue Frontend')
   })

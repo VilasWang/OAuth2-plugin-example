@@ -114,7 +114,7 @@ onMounted(fetchRoles)
 
     <div
       v-if="successMessage"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-md text-sm"
     >
       {{ successMessage }}
     </div>

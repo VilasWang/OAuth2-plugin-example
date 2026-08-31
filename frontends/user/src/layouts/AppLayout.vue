@@ -89,7 +89,7 @@ const navItems = [
               <Transition name="dropdown">
                 <div
                   v-if="showUserMenu"
-                  class="absolute right-0 mt-2 w-56 bg-surface rounded-xl shadow-lg border border-neutral-200 py-1.5 z-50"
+                  class="absolute right-0 mt-2 w-56 bg-surface rounded-card shadow-lg border border-neutral-200 py-1.5 z-50"
                 >
                   <div class="px-4 py-3 border-b border-neutral-100">
                     <p class="text-sm font-medium text-neutral-900">

@@ -55,7 +55,7 @@ async function handleReset() {
           v-else-if="success"
           class="text-center space-y-3"
         >
-          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+          <div class="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto">
             <span class="text-2xl">✅</span>
           </div>
           <p class="text-neutral-700 font-medium">

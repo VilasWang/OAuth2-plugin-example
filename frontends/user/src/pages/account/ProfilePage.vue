@@ -3,6 +3,10 @@ import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import http from '../../services/http'
 import { normalizeError } from '../../services/errorAdapter'
+import AppAlert from '../../components/ui/AppAlert.vue'
+import AppBadge from '../../components/ui/AppBadge.vue'
+import AppCard from '../../components/ui/AppCard.vue'
+import DData from '../../components/ui/DData.vue'
 
 const auth = useAuthStore()
 const profile = ref<any>(null)
@@ -41,18 +45,20 @@ onMounted(fetchProfile)
       Profile
     </h1>
 
-    <div
+    <AppAlert
       v-if="success"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm"
+      type="success"
+      class="mb-4"
     >
       {{ success }}
-    </div>
-    <div
+    </AppAlert>
+    <AppAlert
       v-if="error"
-      class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-lg text-sm"
+      type="error"
+      class="mb-4"
     >
       {{ error }}
-    </div>
+    </AppAlert>
 
     <div
       v-if="loading"
@@ -61,9 +67,9 @@ onMounted(fetchProfile)
       Loading...
     </div>
 
-    <div
+    <AppCard
       v-else
-      class="bg-surface rounded-xl shadow-sm border border-neutral-200 p-6 space-y-6"
+      class="space-y-6"
     >
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -74,9 +80,12 @@ onMounted(fetchProfile)
         </div>
         <div>
           <label class="block text-sm font-medium text-neutral-500">Account ID (sub)</label>
-          <p class="mt-1 text-sm font-mono text-neutral-700 break-all">
-            {{ auth.user?.sub }}
-          </p>
+          <div class="mt-1">
+            <DData
+              :value="auth.user?.sub || '—'"
+              truncate
+            />
+          </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-neutral-500">Email</label>
@@ -84,14 +93,16 @@ onMounted(fetchProfile)
             <p class="text-neutral-900">
               {{ profile?.email || 'N/A' }}
             </p>
-            <span
+            <AppBadge
               v-if="profile?.email_verified"
-              class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full"
-            >Verified</span>
-            <span
+              variant="success"
+              size="sm"
+            >Verified</AppBadge>
+            <AppBadge
               v-else
-              class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full"
-            >Unverified</span>
+              variant="warning"
+              size="sm"
+            >Unverified</AppBadge>
           </div>
           <button
             v-if="profile?.email && !profile?.email_verified"
@@ -103,16 +114,17 @@ onMounted(fetchProfile)
         </div>
         <div>
           <label class="block text-sm font-medium text-neutral-500">Roles</label>
-          <div class="flex flex-wrap gap-1 mt-1">
-            <span
+          <div class="flex flex-wrap gap-1.5 mt-1">
+            <AppBadge
               v-for="role in (auth.user?.roles || [])"
               :key="role"
-              class="px-2 py-0.5 text-xs font-medium rounded-full bg-brand-100 text-brand-700"
-            >{{ role }}</span>
+              variant="info"
+              size="sm"
+            >{{ role }}</AppBadge>
           </div>
         </div>
       </div>
-    </div>
+    </AppCard>
   </div>
 </template>
 

@@ -181,7 +181,7 @@ onMounted(fetchClients)
             <td class="px-6 py-4">
               <span
                 class="px-2 py-1 text-xs rounded-full"
-                :class="client.client_type === 'PUBLIC' ? 'bg-brand-100 text-brand-800' : 'bg-purple-100 text-purple-800'"
+                :class="client.client_type === 'PUBLIC' ? 'bg-brand-100 text-brand-800' : 'bg-info-100 text-info-700'"
               >
                 {{ client.client_type }}
               </span>

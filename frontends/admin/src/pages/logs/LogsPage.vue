@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '@/services/errorAdapter'
+import DData from '@/components/ui/DData.vue'
 
 const logs = ref<any[]>([])
 const loading = ref(true)
@@ -189,32 +190,37 @@ onMounted(fetchLogs)
             :key="log.id"
             class="hover:bg-neutral-50"
           >
-            <td class="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">
-              {{ formatTime(log.timestamp) }}
+            <td class="px-4 py-3">
+              <DData :value="formatTime(log.timestamp)" />
             </td>
             <td class="px-4 py-3 text-sm font-medium text-neutral-900">
               {{ log.action }}
             </td>
-            <td class="px-4 py-3 text-xs text-neutral-500">
-              <span class="text-neutral-400">{{ log.actor_type }}:</span> {{ log.actor_id?.substring(0, 12) || '—' }}
+            <td class="px-4 py-3">
+              <DData
+                :label="log.actor_type ? `${log.actor_type}:` : undefined"
+                :value="log.actor_id?.substring(0, 12) || '—'"
+              />
             </td>
-            <td class="px-4 py-3 text-xs text-neutral-500 font-mono">
-              <span
+            <td class="px-4 py-3">
+              <DData
                 v-if="log.target_type || log.target_id"
+                :label="log.target_type || undefined"
+                :value="log.target_id?.substring(0, 8) || '—'"
                 :title="`${log.target_type || ''}:${log.target_id || ''}`"
-              >{{ log.target_type || '—' }}<span class="text-neutral-400">:</span>{{ log.target_id?.substring(0, 8) || '—' }}</span>
+              />
               <span v-else>—</span>
             </td>
             <td class="px-4 py-3">
               <span
                 class="px-2 py-0.5 text-xs rounded-full"
-                :class="log.outcome === 'success' ? 'bg-green-100 text-green-800' : 'bg-error-100 text-error-700'"
+                :class="log.outcome === 'success' ? 'bg-success-100 text-success-700' : 'bg-error-100 text-error-700'"
               >
                 {{ log.outcome }}
               </span>
             </td>
-            <td class="px-4 py-3 text-xs text-neutral-500 font-mono">
-              {{ log.ip || '—' }}
+            <td class="px-4 py-3">
+              <DData :value="log.ip || '—'" />
             </td>
           </tr>
         </tbody>

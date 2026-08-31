@@ -36,7 +36,7 @@ onMounted(async () => {
         </p>
       </div>
       <div v-else-if="status === 'success'">
-        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <div class="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto">
           <span class="text-3xl">✅</span>
         </div>
         <h2 class="mt-4 text-xl font-bold text-neutral-900">

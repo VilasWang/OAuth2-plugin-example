@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { useAuthStore } from '../../stores/auth'
+import AppBadge from '../../components/ui/AppBadge.vue'
+import AppCard from '../../components/ui/AppCard.vue'
+import DData from '../../components/ui/DData.vue'
 
 const auth = useAuthStore()
 </script>
@@ -17,7 +20,7 @@ const auth = useAuthStore()
     </div>
 
     <!-- Welcome Card -->
-    <div class="bg-surface rounded-xl border border-neutral-200 shadow-sm p-6">
+    <AppCard>
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-semibold">
           {{ (auth.user?.name || 'U')[0].toUpperCase() }}
@@ -31,53 +34,56 @@ const auth = useAuthStore()
           </p>
         </div>
       </div>
-    </div>
+    </AppCard>
 
     <!-- Account Overview Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-      <div class="bg-surface rounded-xl border border-neutral-200 p-5">
+      <AppCard padding="sm">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Account ID
         </p>
-        <p class="text-sm font-mono text-neutral-800 break-all">
-          {{ auth.user?.sub || 'N/A' }}
-        </p>
-      </div>
+        <DData
+          :value="auth.user?.sub || 'N/A'"
+          truncate
+        />
+      </AppCard>
 
-      <div class="bg-surface rounded-xl border border-neutral-200 p-5">
+      <AppCard padding="sm">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Email
         </p>
         <p class="text-sm text-neutral-800">
           {{ auth.user?.email || 'N/A' }}
         </p>
-      </div>
+      </AppCard>
 
-      <div class="bg-surface rounded-xl border border-neutral-200 p-5">
+      <AppCard padding="sm">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
           Roles
         </p>
         <div class="flex flex-wrap gap-1.5">
-          <span
+          <AppBadge
             v-for="role in (auth.user?.roles || [])"
             :key="role"
-            class="px-2.5 py-0.5 text-xs font-medium rounded-full bg-brand-50 text-brand-700 border border-brand-100"
+            variant="info"
+            size="sm"
           >
             {{ role }}
-          </span>
+          </AppBadge>
           <span
             v-if="!auth.user?.roles?.length"
             class="text-sm text-neutral-400"
           >None</span>
         </div>
-      </div>
+      </AppCard>
     </div>
 
     <!-- Quick Links -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <router-link
         to="/profile"
-        class="group p-5 bg-surface rounded-xl border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150"
+        class="group p-5 bg-surface rounded-card border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150
+               focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         <div class="flex items-center gap-3 mb-2">
           <div class="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center group-hover:bg-brand-100 transition-colors">
@@ -103,7 +109,8 @@ const auth = useAuthStore()
 
       <router-link
         to="/security"
-        class="group p-5 bg-surface rounded-xl border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150"
+        class="group p-5 bg-surface rounded-card border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150
+               focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         <div class="flex items-center gap-3 mb-2">
           <div class="w-9 h-9 rounded-lg bg-warning-50 flex items-center justify-center group-hover:bg-warning-100 transition-colors">
@@ -129,7 +136,8 @@ const auth = useAuthStore()
 
       <router-link
         to="/authorized-apps"
-        class="group p-5 bg-surface rounded-xl border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150"
+        class="group p-5 bg-surface rounded-card border border-neutral-200 hover:border-brand-300 hover:shadow-sm transition-all duration-150
+               focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         <div class="flex items-center gap-3 mb-2">
           <div class="w-9 h-9 rounded-lg bg-success-50 flex items-center justify-center group-hover:bg-success-100 transition-colors">
