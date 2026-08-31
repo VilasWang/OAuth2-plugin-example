@@ -274,55 +274,12 @@
 }
 
 /* -------------------------------------------------------------------
-   DARK MODE OVERRIDES
-   Swap semantic tokens — primitives remain unchanged.
+   DARK MODE OVERRIDES — moved to styles/dark-theme.css, imported AFTER
+   tailwindcss in style.css. Tailwind sweeps pre-import CSS into
+   @layer properties, which loses to the @layer theme :root emission
+   (later layer wins) — an unlayered block is the only reliable seat.
    ------------------------------------------------------------------- */
 
-[data-theme="dark"] {
-  /* Themeable surface overrides (utilities read these via var()) */
-  --color-surface: var(--color-neutral-800);
-  --color-page:    var(--color-neutral-900);
-  --color-ring:    oklch(63% 0.135 252 / 0.40);
-
-  --color-brand:          var(--color-brand-400);
-  --color-brand-hover:    var(--color-brand-300);
-  --color-brand-pressed:  var(--color-brand-200);
-  --color-brand-subtle:   var(--color-brand-900);
-  --color-brand-muted:    var(--color-brand-800);
-
-  --color-text-primary:    var(--color-neutral-100);
-  --color-text-secondary:  var(--color-neutral-400);
-  --color-text-tertiary:   var(--color-neutral-500);
-  --color-text-inverse:    var(--color-neutral-900);
-  --color-text-link:       var(--color-brand-300);
-  --color-text-link-hover: var(--color-brand-200);
-
-  --color-bg-page:        var(--color-page);
-  --color-bg-surface:     var(--color-surface);
-  --color-bg-surface-alt: var(--color-neutral-700);
-  --color-bg-overlay:     oklch(8% 0.003 252 / 0.70);
-
-  --color-border-default: var(--color-neutral-700);
-  --color-border-hover:   var(--color-neutral-600);
-  --color-border-focus:   var(--color-brand-500);
-
-  --color-success:        var(--color-success-200);
-  --color-success-bg:     oklch(20% 0.030 160);
-  --color-warning:        var(--color-warning-200);
-  --color-warning-bg:     oklch(20% 0.030 85);
-  --color-error:          var(--color-error-200);
-  --color-error-bg:       oklch(20% 0.030 10);
-  --color-info:           var(--color-info-200);
-  --color-info-bg:        oklch(20% 0.020 230);
-
-  --shadow-xs: 0 1px 2px 0 oklch(0% 0 0 / 0.20);
-  --shadow-sm: 0 1px 3px 0  oklch(0% 0 0 / 0.30),
-               0 1px 2px -1px oklch(0% 0 0 / 0.25);
-  --shadow-md: 0 4px 6px -1px oklch(0% 0 0 / 0.35);
-  --shadow-lg: 0 10px 15px -3px oklch(0% 0 0 / 0.40);
-
-  --ring-color: var(--color-ring);
-}
 
 /* -------------------------------------------------------------------
    BASE RESET & GLOBAL STYLES

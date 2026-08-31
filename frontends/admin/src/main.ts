@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
 import { useAuthStore } from './stores/auth'
+import { useThemeStore } from './stores/theme'
 import '@fontsource/dm-sans/400.css'
 import '@fontsource/dm-sans/500.css'
 import '@fontsource/dm-sans/600.css'
@@ -24,5 +25,8 @@ app.use(router)
 // session restoration completes before first render regardless. Top-level
 // await would break the Vite es2020 build target (see frontends/user pattern).
 useAuthStore().restoreSession()
+
+// Apply the persisted/system theme before first paint of app content.
+useThemeStore().init()
 
 app.mount('#app')

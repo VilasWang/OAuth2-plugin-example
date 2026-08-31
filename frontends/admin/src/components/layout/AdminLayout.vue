@@ -2,9 +2,11 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { useThemeStore } from '../../stores/theme'
 import AppLogo from '../shared/AppLogo.vue'
 
 const auth = useAuthStore()
+const theme = useThemeStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -420,6 +422,34 @@ const breadcrumbs = computed(() => {
                   </svg>
                   Settings
                 </router-link>
+
+                <button
+                  class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors
+                         focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
+                  :aria-label="theme.mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+                  @click="theme.toggle()"
+                >
+                  <svg
+                    class="w-4 h-4 text-neutral-400"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      v-if="theme.mode === 'dark'"
+                      fill-rule="evenodd"
+                      d="M8 1a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 018 1zm0 10.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm4.95-7.95a.75.75 0 010 1.06l-1.06 1.06a.75.75 0 11-1.06-1.06l1.06-1.06a.75.75 0 011.06 0zM8 14.5a.75.75 0 01-.75-.75v-1.5a.75.75 0 011.5 0v1.5a.75.75 0 01-.75.75zM3.05 4.55a.75.75 0 011.06 0l1.06 1.06A.75.75 0 114.11 6.67L3.05 5.61a.75.75 0 010-1.06zM3.5 8.75a.75.75 0 000-1.5H2a.75.75 0 000 1.5h1.5zm9.5 0a.75.75 0 000-1.5h1.5a.75.75 0 010 1.5H13zM4.11 9.39a.75.75 0 011.06 1.06l-1.06 1.06a.75.75 0 11-1.06-1.06l1.06-1.06zm7.78 0 1.06 1.06a.75.75 0 11-1.06 1.06l-1.06-1.06a.75.75 0 111.06-1.06z"
+                    />
+                    <path
+                      v-else
+                      fill-rule="evenodd"
+                      d="M9.598 1.591a.748.748 0 01.785-.175 7.001 7.001 0 1010.467 7.467 7 7 0 00-10.467-7.467.75.75 0 01-.785-.175z"
+                      clip-rule="evenodd"
+                      transform="scale(0.7)"
+                    />
+                  </svg>
+                  {{ theme.mode === 'dark' ? 'Light theme' : 'Dark theme' }}
+                </button>
 
                 <div class="border-t border-neutral-100 my-1" />
 
