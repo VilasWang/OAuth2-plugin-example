@@ -10,11 +10,15 @@ defineProps<{
   hint?: string
   required?: boolean
   disabled?: boolean
+  readonly?: boolean
   autocomplete?: string
+  inputmode?: string
+  maxlength?: number
 }>()
 
 defineEmits<{
   'update:modelValue': [value: string]
+  blur: [e: FocusEvent]
 }>()
 
 const inputId = useId()
@@ -34,6 +38,10 @@ const errorId = useId()
         class="text-error-500 ml-0.5"
         aria-hidden="true"
       >*</span>
+      <span
+        v-if="required"
+        class="sr-only"
+      >(required)</span>
     </label>
 
     <div class="relative">
@@ -44,20 +52,25 @@ const errorId = useId()
         :placeholder="placeholder"
         :required="required"
         :disabled="disabled"
+        :readonly="readonly"
         :autocomplete="autocomplete"
+        :inputmode="inputmode"
+        :maxlength="maxlength"
         :aria-invalid="!!error"
         :aria-describedby="error ? errorId : undefined"
-        class="block w-full px-3.5 py-2.5 text-sm rounded-lg transition-colors duration-150
+        class="block w-full px-3.5 py-2.5 text-sm rounded-ctl transition-colors duration-150
                bg-surface text-neutral-900
                placeholder:text-neutral-400
                disabled:bg-neutral-50 disabled:text-neutral-500 disabled:cursor-not-allowed
-               focus:outline-none focus:ring-2 focus:ring-offset-0"
+               focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         :class="error
-          ? 'border border-error-200 focus:ring-error-500/20 focus:border-error-500'
-          : 'border border-neutral-300 focus:ring-brand-500/20 focus:border-brand-700'"
+          ? 'border border-error-200 focus:border-error-500'
+          : 'border border-neutral-300 focus:border-brand-400'"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        @blur="$emit('blur', $event)"
       >
 
+      <!-- Error icon -->
       <div
         v-if="error"
         class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"

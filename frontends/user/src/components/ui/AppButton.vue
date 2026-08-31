@@ -18,27 +18,31 @@ defineEmits<{
     :type="type || 'button'"
     :disabled="disabled || loading"
     :class="[
+      // Base
       'inline-flex items-center justify-center gap-2 font-medium',
-      'rounded-lg transition-all duration-150 select-none',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+      'rounded-ctl transition-all duration-150 select-none',
+      'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
       'disabled:opacity-50 disabled:cursor-not-allowed',
       'active:scale-[0.98]',
       block ? 'w-full' : '',
 
+      // Size
       size === 'sm' ? 'px-3 py-1.5 text-xs leading-4 gap-1.5' :
       size === 'lg' ? 'px-6 py-3 text-base leading-6 gap-2.5' :
       'px-4 py-2.5 text-sm leading-5',
 
+      // Variant
       variant === 'secondary'
-        ? 'bg-surface text-neutral-700 border border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400 focus-visible:ring-neutral-300 shadow-sm'
+        ? 'bg-surface text-neutral-700 border border-neutral-300 hover:bg-neutral-50 hover:border-neutral-400 shadow-sm'
         : variant === 'danger'
-          ? 'bg-error-600 text-white hover:bg-error-700 focus-visible:ring-error-500 shadow-sm'
+          ? 'bg-error-600 text-white hover:bg-error-700 shadow-sm'
           : variant === 'ghost'
-            ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 focus-visible:ring-neutral-300'
-            : 'bg-brand-600 text-white hover:bg-brand-700 focus-visible:ring-brand-500 shadow-sm',
+            ? 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+            : 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm',
     ]"
     @click="$emit('click', $event)"
   >
+    <!-- Loading spinner -->
     <svg
       v-if="loading"
       class="animate-spin shrink-0"

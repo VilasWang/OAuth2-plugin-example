@@ -55,7 +55,7 @@ async function handleRegister() {
 
         <div
           v-if="success"
-          class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center"
+          class="p-4 bg-success-50 border border-success-200 text-success-700 rounded-lg text-center"
         >
           <p class="font-medium">
             Account created successfully!

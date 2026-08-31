@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '@/services/errorAdapter'
+import DData from '@/components/ui/DData.vue'
 
 interface Token {
   token_prefix: string
@@ -327,23 +328,32 @@ onMounted(fetchTokens)
             :key="token.token_prefix"
             class="hover:bg-neutral-50"
           >
-            <td class="px-4 py-3 text-sm font-mono text-neutral-900">
-              {{ token.token_prefix }}
+            <td class="px-4 py-3">
+              <DData
+                :value="token.token_prefix"
+                label="tok"
+              />
             </td>
             <td class="px-4 py-3 text-sm text-neutral-500">
               access
             </td>
-            <td class="px-4 py-3 text-sm text-neutral-500">
-              {{ token.client_id || '—' }}
+            <td class="px-4 py-3">
+              <DData
+                :value="token.client_id || '—'"
+                truncate
+              />
             </td>
             <td class="px-4 py-3 text-sm text-neutral-500">
               {{ token.user_id || '—' }}
             </td>
-            <td class="px-4 py-3 text-xs text-neutral-500 max-w-[200px] truncate">
-              {{ token.scope || '—' }}
+            <td class="px-4 py-3 max-w-[200px]">
+              <DData
+                :value="token.scope || '—'"
+                truncate
+              />
             </td>
-            <td class="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">
-              {{ formatTime(token.expires_at) }}
+            <td class="px-4 py-3">
+              <DData :value="formatTime(token.expires_at)" />
             </td>
             <td class="px-4 py-3">
               <button

@@ -2,6 +2,10 @@
 import { ref, onMounted } from 'vue'
 import http from '../../services/http'
 import { normalizeError } from '../../services/errorAdapter'
+import AppAlert from '../../components/ui/AppAlert.vue'
+import AppCard from '../../components/ui/AppCard.vue'
+import AppEmptyState from '../../components/ui/AppEmptyState.vue'
+import DData from '../../components/ui/DData.vue'
 
 const apps = ref<any[]>([])
 const loading = ref(true)
@@ -48,18 +52,20 @@ onMounted(fetchApps)
       These applications have been granted access to your account.
     </p>
 
-    <div
+    <AppAlert
       v-if="success"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm"
+      type="success"
+      class="mb-4"
     >
       {{ success }}
-    </div>
-    <div
+    </AppAlert>
+    <AppAlert
       v-if="error"
-      class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-lg text-sm"
+      type="error"
+      class="mb-4"
     >
       {{ error }}
-    </div>
+    </AppAlert>
 
     <div
       v-if="loading"
@@ -68,48 +74,55 @@ onMounted(fetchApps)
       Loading...
     </div>
 
-    <div
+    <AppCard
       v-else-if="apps.length === 0"
-      class="bg-surface rounded-xl border border-neutral-200 p-12 text-center"
+      padding="none"
     >
-      <p class="text-neutral-400 text-lg">
-        No authorized applications
-      </p>
-      <p class="text-neutral-400 text-sm mt-2">
-        When you authorize third-party apps, they'll appear here.
-      </p>
-    </div>
+      <AppEmptyState
+        title="No authorized applications"
+        description="When you authorize third-party apps, they'll appear here."
+      />
+    </AppCard>
 
     <div
       v-else
       class="space-y-3"
     >
-      <div
+      <AppCard
         v-for="app in apps"
         :key="app.client_id"
-        class="bg-surface rounded-xl border border-neutral-200 p-5 flex items-center justify-between"
+        padding="sm"
       >
+        <div class="flex items-center justify-between">
         <div>
           <p class="font-medium text-neutral-900">
             {{ app.name || app.client_id }}
           </p>
-          <p class="text-sm text-neutral-500 mt-0.5">
-            Client ID: <code class="font-mono text-xs">{{ app.client_id }}</code>
-          </p>
-          <p
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="text-sm text-neutral-500">Client ID:</span>
+            <DData :value="app.client_id" />
+          </div>
+          <div
             v-if="app.scope"
-            class="text-xs text-neutral-400 mt-1"
+            class="flex flex-wrap items-center gap-1.5 mt-1.5"
           >
-            Scopes: {{ app.scope }}
-          </p>
+            <span class="text-xs text-neutral-400">Scopes:</span>
+            <DData
+              v-for="s in app.scope.split(' ').filter(Boolean)"
+              :key="s"
+              :value="s"
+            />
+          </div>
         </div>
         <button
-          class="px-3 py-1.5 text-sm text-error-600 border border-error-200 rounded-lg hover:bg-error-50 transition-colors"
+          class="px-3 py-1.5 text-sm text-error-600 border border-error-200 rounded-ctl hover:bg-error-50 transition-colors
+                 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
           @click="revokeApp(app.client_id, app.name || app.client_id)"
         >
           Revoke
         </button>
-      </div>
+        </div>
+      </AppCard>
     </div>
   </div>
 </template>

@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+import DData from '../../components/ui/DData.vue'
 
 const route = useRoute()
 const clientId = computed(() => route.params.id as string)
@@ -184,7 +185,7 @@ onMounted(() => {
     <!-- Toast Messages -->
     <div
       v-if="successMessage"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-md text-sm"
     >
       {{ successMessage }}
     </div>
@@ -242,7 +243,12 @@ onMounted(() => {
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1">Client ID</label>
           <div class="flex items-center gap-2">
-            <code class="flex-1 px-3 py-2 bg-neutral-100 rounded-md text-sm font-mono text-neutral-800">{{ client.client_id }}</code>
+            <DData
+              :value="client.client_id"
+              truncate
+              class="flex-1"
+              data-testid="client-id-chip"
+            />
             <button
               class="px-3 py-2 text-sm text-brand-600 hover:bg-brand-50 rounded-md transition-colors"
               @click="copyToClipboard(client.client_id)"
@@ -263,7 +269,7 @@ onMounted(() => {
           <label class="block text-sm font-medium text-neutral-700 mb-1">Type</label>
           <span
             class="px-3 py-1 text-sm rounded-full"
-            :class="client.client_type === 'PUBLIC' ? 'bg-brand-100 text-brand-800' : 'bg-purple-100 text-purple-800'"
+            :class="client.client_type === 'PUBLIC' ? 'bg-brand-100 text-brand-800' : 'bg-info-100 text-info-700'"
           >
             {{ client.client_type }}
           </span>
@@ -277,8 +283,8 @@ onMounted(() => {
       >
         <div>
           <label class="block text-sm font-medium text-neutral-700 mb-1">Token Endpoint Auth Method</label>
-          <div class="px-3 py-2 bg-neutral-50 rounded-md text-sm font-mono text-neutral-700 inline-block">
-            {{ client.token_endpoint_auth_method || '(not set)' }}
+          <div>
+            <DData :value="client.token_endpoint_auth_method || '(not set)'" />
           </div>
           <p class="text-xs text-neutral-500 mt-1">
             How this client authenticates at the token endpoint. PUBLIC clients use <code>none</code>;
@@ -370,7 +376,7 @@ onMounted(() => {
               >{{ scope.description }}</p>
               <p
                 v-if="scope.requires_admin_role"
-                class="text-xs text-orange-600"
+                class="text-xs text-warning-600"
               >Requires admin role</p>
             </div>
           </label>

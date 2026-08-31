@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { normalizeError } from '@/services/errorAdapter'
+import DData from '@/components/ui/DData.vue'
 
 const scopes = ref<any[]>([])
 const loading = ref(true)
@@ -160,7 +161,7 @@ onMounted(() => {
             <td class="px-6 py-4">
               <span
                 v-if="scope.is_default"
-                class="text-green-600"
+                class="text-success-600"
               >✓</span>
               <span
                 v-else
@@ -234,32 +235,32 @@ onMounted(() => {
             <dt class="text-sm font-medium text-neutral-500">
               Key ID (kid)
             </dt>
-            <dd class="mt-1 text-sm text-neutral-900 font-mono">
-              {{ oidcKeys.kid }}
+            <dd class="mt-1">
+              <DData :value="oidcKeys.kid" />
             </dd>
           </div>
           <div>
             <dt class="text-sm font-medium text-neutral-500">
               Key Type (kty)
             </dt>
-            <dd class="mt-1 text-sm text-neutral-900 font-mono">
-              {{ oidcKeys.kty }}
+            <dd class="mt-1">
+              <DData :value="oidcKeys.kty" />
             </dd>
           </div>
           <div>
             <dt class="text-sm font-medium text-neutral-500">
               Algorithm (alg)
             </dt>
-            <dd class="mt-1 text-sm text-neutral-900 font-mono">
-              {{ oidcKeys.alg }}
+            <dd class="mt-1">
+              <DData :value="oidcKeys.alg" />
             </dd>
           </div>
           <div>
             <dt class="text-sm font-medium text-neutral-500">
               Usage (use)
             </dt>
-            <dd class="mt-1 text-sm text-neutral-900 font-mono">
-              {{ oidcKeys.use }}
+            <dd class="mt-1">
+              <DData :value="oidcKeys.use" />
             </dd>
           </div>
           <div>
@@ -267,7 +268,7 @@ onMounted(() => {
               Status
             </dt>
             <dd class="mt-1">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-700">
                 {{ oidcKeys.key_status }}
               </span>
             </dd>
@@ -279,9 +280,12 @@ onMounted(() => {
           <div class="flex items-center justify-between">
             <div>
               <span class="text-sm font-medium text-neutral-500">JWKS Endpoint</span>
-              <p class="mt-1 text-sm text-neutral-900 font-mono">
-                {{ oidcKeys.jwks_uri }}
-              </p>
+              <div class="mt-1">
+                <DData
+                  :value="oidcKeys.jwks_uri"
+                  truncate
+                />
+              </div>
             </div>
             <button
               class="ml-4 inline-flex items-center px-3 py-1.5 border border-neutral-300 text-xs font-medium rounded text-neutral-700 bg-surface hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
@@ -293,9 +297,12 @@ onMounted(() => {
           <div class="flex items-center justify-between">
             <div>
               <span class="text-sm font-medium text-neutral-500">Discovery Endpoint</span>
-              <p class="mt-1 text-sm text-neutral-900 font-mono">
-                {{ oidcKeys.discovery_uri }}
-              </p>
+              <div class="mt-1">
+                <DData
+                  :value="oidcKeys.discovery_uri"
+                  truncate
+                />
+              </div>
             </div>
             <button
               class="ml-4 inline-flex items-center px-3 py-1.5 border border-neutral-300 text-xs font-medium rounded text-neutral-700 bg-surface hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"

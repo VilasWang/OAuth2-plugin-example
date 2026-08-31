@@ -22,9 +22,9 @@ test.describe('UX Polish', () => {
       await page.locator('.fixed button:has-text("Save")').click()
 
       // Success message should appear
-      await expect(page.locator('.bg-green-50')).toBeVisible({ timeout: 3000 })
+      await expect(page.locator('.bg-success-50')).toBeVisible({ timeout: 3000 })
       // After 3s, it should disappear
-      await expect(page.locator('.bg-green-50')).not.toBeVisible({ timeout: 5000 })
+      await expect(page.locator('.bg-success-50')).not.toBeVisible({ timeout: 5000 })
     })
 
     test('error message auto-dismisses after ~5 seconds', async ({ page }) => {

@@ -23,7 +23,7 @@ function handleDismiss() {
   <div
     v-if="visible"
     :class="[
-      'flex items-start gap-3 rounded-lg px-4 py-3 text-sm border transition-all duration-200',
+      'flex items-start gap-3 rounded-ctl px-4 py-3 text-sm border transition-all duration-200',
       type === 'success'
         ? 'bg-success-50 text-success-700 border-success-200'
         : type === 'warning'
@@ -34,6 +34,7 @@ function handleDismiss() {
     ]"
     role="alert"
   >
+    <!-- Icon -->
     <svg
       v-if="type === 'success'"
       class="w-5 h-5 shrink-0 mt-0.5"
@@ -83,6 +84,7 @@ function handleDismiss() {
       />
     </svg>
 
+    <!-- Content -->
     <div class="flex-1 min-w-0">
       <p
         v-if="title"
@@ -95,10 +97,11 @@ function handleDismiss() {
       </div>
     </div>
 
+    <!-- Dismiss -->
     <button
       v-if="dismissible"
       type="button"
-      class="shrink-0 p-0.5 rounded hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+      class="shrink-0 p-0.5 rounded-ctl hover:opacity-70 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       aria-label="Dismiss"
       @click="handleDismiss"
     >

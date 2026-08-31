@@ -5,6 +5,11 @@ import { userService } from '../../services/userService'
 import { normalizeError } from '../../services/errorAdapter'
 import { base64UrlEncode, base64UrlDecode } from '../../utils/pkce'
 import type { SocialLink } from '../../types'
+import AppAlert from '../../components/ui/AppAlert.vue'
+import AppBadge from '../../components/ui/AppBadge.vue'
+import AppCard from '../../components/ui/AppCard.vue'
+import AppModal from '../../components/ui/AppModal.vue'
+import DData from '../../components/ui/DData.vue'
 
 const loading = ref(true)
 const profile = ref<any>(null)
@@ -280,18 +285,20 @@ onMounted(fetchProfile)
       Security Settings
     </h1>
 
-    <div
+    <AppAlert
       v-if="success"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm"
+      type="success"
+      class="mb-4"
     >
       {{ success }}
-    </div>
-    <div
+    </AppAlert>
+    <AppAlert
       v-if="error"
-      class="mb-4 p-3 bg-error-50 border border-error-200 text-error-700 rounded-lg text-sm"
+      type="error"
+      class="mb-4"
     >
       {{ error }}
-    </div>
+    </AppAlert>
 
     <div
       v-if="loading"
@@ -305,7 +312,7 @@ onMounted(fetchProfile)
       class="space-y-6"
     >
       <!-- Change Password -->
-      <div class="bg-surface rounded-xl shadow-sm border border-neutral-200 p-6">
+      <AppCard>
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
           Change Password
         </h2>
@@ -320,7 +327,7 @@ onMounted(fetchProfile)
               type="password"
               required
               autocomplete="current-password"
-              class="block w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+              class="block w-full px-3 py-2 border border-neutral-300 rounded-ctl text-sm focus:ring-2 focus:ring-brand-500"
             >
           </div>
           <div>
@@ -330,7 +337,7 @@ onMounted(fetchProfile)
               type="password"
               required
               autocomplete="new-password"
-              class="block w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+              class="block w-full px-3 py-2 border border-neutral-300 rounded-ctl text-sm focus:ring-2 focus:ring-brand-500"
             >
           </div>
           <div>
@@ -340,21 +347,21 @@ onMounted(fetchProfile)
               type="password"
               required
               autocomplete="new-password"
-              class="block w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500"
+              class="block w-full px-3 py-2 border border-neutral-300 rounded-ctl text-sm focus:ring-2 focus:ring-brand-500"
             >
           </div>
           <button
             type="submit"
             :disabled="changingPassword"
-            class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50"
+            class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50"
           >
             {{ changingPassword ? 'Changing...' : 'Change Password' }}
           </button>
         </form>
-      </div>
+      </AppCard>
 
       <!-- MFA -->
-      <div class="bg-surface rounded-xl shadow-sm border border-neutral-200 p-6">
+      <AppCard>
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
           Two-Factor Authentication (MFA)
         </h2>
@@ -364,7 +371,10 @@ onMounted(fetchProfile)
           class="space-y-4"
         >
           <div class="flex items-center gap-2">
-            <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full font-medium">Enabled</span>
+            <AppBadge
+              variant="success"
+              size="sm"
+            >Enabled</AppBadge>
             <p class="text-sm text-neutral-600">
               Your account is protected with TOTP-based MFA.
             </p>
@@ -378,11 +388,11 @@ onMounted(fetchProfile)
                 v-model="disablePassword"
                 type="password"
                 placeholder="Your password"
-                class="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+                class="flex-1 px-3 py-2 border border-neutral-300 rounded-ctl text-sm"
               >
               <button
                 :disabled="disablingMfa"
-                class="px-4 py-2 bg-error-600 text-white rounded-lg text-sm hover:bg-error-700 disabled:opacity-50"
+                class="px-4 py-2 bg-error-600 text-white rounded-ctl text-sm hover:bg-error-700 disabled:opacity-50"
                 @click="disableMfa"
               >
                 {{ disablingMfa ? 'Disabling...' : 'Disable MFA' }}
@@ -398,7 +408,7 @@ onMounted(fetchProfile)
           <p class="text-sm text-neutral-600">
             Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):
           </p>
-          <div class="bg-neutral-50 p-4 rounded-lg text-center">
+          <div class="bg-neutral-50 p-4 rounded-ctl text-center">
             <p class="text-xs text-neutral-500 mb-2">
               Manual entry key:
             </p>
@@ -411,20 +421,21 @@ onMounted(fetchProfile)
               type="text"
               inputmode="numeric"
               maxlength="6"
-              class="block w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm text-center tracking-widest"
+              class="block w-full px-3 py-2 border border-neutral-300 rounded-ctl text-sm text-center font-mono tabular-nums tracking-[0.42em]
+                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
               placeholder="000000"
             >
           </div>
           <div class="flex gap-2">
             <button
               :disabled="mfaVerifyCode.length !== 6"
-              class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50"
+              class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50"
               @click="verifyMfaSetup"
             >
               Verify & Enable
             </button>
             <button
-              class="px-4 py-2 border border-neutral-300 rounded-lg text-sm hover:bg-neutral-50"
+              class="px-4 py-2 border border-neutral-300 rounded-ctl text-sm hover:bg-neutral-50"
               @click="mfaSetupData = null; settingUpMfa = false"
             >
               Cancel
@@ -438,19 +449,16 @@ onMounted(fetchProfile)
           </p>
           <button
             :disabled="settingUpMfa"
-            class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50"
+            class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="setupMfa"
           >
             {{ settingUpMfa ? 'Setting up...' : 'Enable MFA' }}
           </button>
         </div>
-      </div>
+      </AppCard>
 
       <!-- WebAuthn / Passkeys -->
-      <div
-        v-if="webauthnSupported"
-        class="bg-surface rounded-xl shadow-sm border border-neutral-200 p-6"
-      >
+      <AppCard v-if="webauthnSupported">
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
           Passkeys (WebAuthn)
         </h2>
@@ -468,7 +476,7 @@ onMounted(fetchProfile)
           <div
             v-for="cred in webauthnCredentials"
             :key="cred.credential_id"
-            class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg"
+            class="flex items-center justify-between p-3 bg-neutral-50 rounded-ctl"
           >
             <div>
               <p class="text-sm font-medium text-neutral-900">
@@ -478,12 +486,15 @@ onMounted(fetchProfile)
                 Sign counter: {{ cred.sign_count ?? 0 }}
               </p>
             </div>
-            <span class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">Active</span>
+            <AppBadge
+              variant="success"
+              size="sm"
+            >Active</AppBadge>
           </div>
         </div>
         <div
           v-else
-          class="mb-4 p-3 bg-neutral-50 rounded-lg text-sm text-neutral-500"
+          class="mb-4 p-3 bg-neutral-50 rounded-ctl text-sm text-neutral-500"
         >
           No passkeys registered yet.
         </div>
@@ -493,20 +504,20 @@ onMounted(fetchProfile)
             v-model="passkeyName"
             type="text"
             placeholder="Passkey name (optional)"
-            class="flex-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+            class="flex-1 px-3 py-2 text-sm rounded-ctl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
           >
           <button
             :disabled="registeringPasskey"
-            class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap"
+            class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap"
             @click="registerPasskey"
           >
             {{ registeringPasskey ? 'Registering...' : '+ Add Passkey' }}
           </button>
         </div>
-      </div>
+      </AppCard>
 
       <!-- Connected social accounts (B2 link/unlink) -->
-      <div class="bg-surface rounded-xl shadow-sm border border-neutral-200 p-6">
+      <AppCard>
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
           Connected Accounts
         </h2>
@@ -521,7 +532,7 @@ onMounted(fetchProfile)
           <div
             v-for="link in socialLinks"
             :key="link.provider"
-            class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg"
+            class="flex items-center justify-between p-3 bg-neutral-50 rounded-ctl"
           >
             <div>
               <p class="text-sm font-medium text-neutral-900">
@@ -533,7 +544,7 @@ onMounted(fetchProfile)
             </div>
             <button
               :disabled="unlinkingProvider === link.provider"
-              class="px-3 py-1.5 border border-error-200 text-error-600 rounded-lg text-sm hover:bg-error-50 disabled:opacity-50"
+              class="px-3 py-1.5 border border-error-200 text-error-600 rounded-ctl text-sm hover:bg-error-50 disabled:opacity-50"
               @click="unlinkSocial(link.provider)"
             >
               {{ unlinkingProvider === link.provider ? 'Unlinking...' : 'Unlink' }}
@@ -542,7 +553,7 @@ onMounted(fetchProfile)
         </div>
         <div
           v-else-if="socialLinksLoaded"
-          class="mb-4 p-3 bg-neutral-50 rounded-lg text-sm text-neutral-500"
+          class="mb-4 p-3 bg-neutral-50 rounded-ctl text-sm text-neutral-500"
         >
           No social accounts linked.
         </div>
@@ -550,15 +561,15 @@ onMounted(fetchProfile)
         <button
           v-if="!unlinkingProvider"
           :disabled="linkingProvider !== ''"
-          class="inline-block px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm hover:bg-neutral-800 disabled:opacity-50"
+          class="inline-block px-4 py-2 bg-neutral-900 text-white rounded-ctl text-sm hover:bg-neutral-800 disabled:opacity-50"
           @click="beginSocialLink('github')"
         >
           {{ linkingProvider === 'github' ? 'Redirecting...' : 'Link GitHub Account' }}
         </button>
-      </div>
+      </AppCard>
 
       <!-- Delete Account -->
-      <div class="bg-surface rounded-xl shadow-sm border border-error-200 p-6">
+      <div class="bg-surface rounded-card shadow-sm border border-error-200 p-6">
         <h2 class="text-lg font-semibold text-error-700 mb-2">
           Danger Zone
         </h2>
@@ -574,13 +585,13 @@ onMounted(fetchProfile)
               v-model="deleteConfirmUsername"
               type="text"
               autocomplete="off"
-              class="block w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-error-500 focus:border-error-500"
+              class="block w-full px-3 py-2 border border-neutral-300 rounded-ctl text-sm focus:ring-2 focus:ring-error-500 focus:border-error-500"
               :placeholder="profile?.username"
             >
           </div>
           <button
             :disabled="deletingAccount || deleteConfirmUsername !== profile?.username"
-            class="px-4 py-2 bg-error-600 text-white rounded-lg text-sm hover:bg-error-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-4 py-2 bg-error-600 text-white rounded-ctl text-sm hover:bg-error-700 disabled:opacity-50 disabled:cursor-not-allowed"
             @click="deleteAccount"
           >
             {{ deletingAccount ? 'Deleting...' : 'Delete My Account' }}
@@ -590,54 +601,56 @@ onMounted(fetchProfile)
 
       <!-- One-time MFA backup codes (gap-fix P0): the backend returns the 10
            single-use recovery codes exactly once and never again. The modal
-           blocks until the user explicitly confirms saving them. -->
-      <div
-        v-if="showBackupCodes"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        role="dialog"
-        aria-modal="true"
+           blocks until the user explicitly confirms saving them — AppModal's
+           close (Esc/backdrop) is deliberately not wired for that reason. -->
+      <AppModal
+        :open="showBackupCodes"
         aria-label="Save your MFA backup codes"
+        size="sm"
       >
-        <div class="bg-surface rounded-xl shadow-xl max-w-md w-full p-6">
-          <h2 class="text-lg font-semibold text-neutral-900 mb-2">
-            Save your backup codes
-          </h2>
-          <p class="text-sm text-error-600 font-medium mb-4">
-            These 10 one-time codes are the only way to sign in if you lose your
-            authenticator. They cannot be shown again.
-          </p>
-          <div class="grid grid-cols-2 gap-2 mb-4">
-            <code
-              v-for="code in backupCodes"
-              :key="code"
-              class="px-2 py-1.5 bg-neutral-50 border border-neutral-200 rounded text-sm font-mono text-center"
-            >{{ code }}</code>
-          </div>
-          <div class="flex gap-2 mb-4">
-            <button
-              type="button"
-              class="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm hover:bg-neutral-50"
-              @click="copyBackupCodes"
-            >
-              Copy all
-            </button>
-            <button
-              type="button"
-              class="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm hover:bg-neutral-50"
-              @click="downloadBackupCodes"
-            >
-              Download .txt
-            </button>
-          </div>
+        <h2 class="text-lg font-semibold text-neutral-900 mb-2">
+          Save your backup codes
+        </h2>
+        <p class="text-sm text-error-600 font-medium mb-4">
+          These 10 one-time codes are the only way to sign in if you lose your
+          authenticator. They cannot be shown again.
+        </p>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <DData
+            v-for="code in backupCodes"
+            :key="code"
+            :value="code"
+            class="justify-center"
+            data-testid="backup-code"
+          />
+        </div>
+        <div class="flex gap-2 mb-4">
           <button
             type="button"
-            class="w-full px-4 py-2 bg-brand-600 text-white rounded-lg text-sm hover:bg-brand-700"
-            @click="dismissBackupCodes"
+            class="flex-1 px-3 py-2 border border-neutral-300 rounded-ctl text-sm hover:bg-neutral-50
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+            @click="copyBackupCodes"
           >
-            I have safely saved my codes
+            Copy all
+          </button>
+          <button
+            type="button"
+            class="flex-1 px-3 py-2 border border-neutral-300 rounded-ctl text-sm hover:bg-neutral-50
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+            @click="downloadBackupCodes"
+          >
+            Download .txt
           </button>
         </div>
-      </div>
+        <button
+          type="button"
+          class="w-full px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700
+                 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          @click="dismissBackupCodes"
+        >
+          I have safely saved my codes
+        </button>
+      </AppModal>
     </div>
   </div>
 </template>

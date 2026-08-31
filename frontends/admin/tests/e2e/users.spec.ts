@@ -185,7 +185,7 @@ test.describe('User Management', () => {
     // The modal-specific create button (the page-level button is behind the
     // modal overlay and would intercept pointer events).
     await page.locator('.fixed button:has-text("Create User")').click()
-    await expect(page.locator('.bg-green-50')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('.bg-success-50')).toBeVisible({ timeout: 5000 })
     expect(createRequestBody.username).toBe('newuser_test')
   })
 

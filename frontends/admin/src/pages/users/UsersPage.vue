@@ -177,7 +177,7 @@ onMounted(fetchUsers)
     </div>
     <div
       v-if="successMessage"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-md text-sm"
     >
       {{ successMessage }}
     </div>
@@ -280,7 +280,7 @@ onMounted(fetchUsers)
             <td class="px-6 py-4">
               <span
                 class="px-2 py-1 text-xs rounded-full"
-                :class="user.email_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'"
+                :class="user.email_verified ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'"
               >
                 {{ user.email_verified ? 'Verified' : 'Pending' }}
               </span>
@@ -288,7 +288,7 @@ onMounted(fetchUsers)
             <td class="px-6 py-4">
               <span
                 class="px-2 py-1 text-xs rounded-full"
-                :class="user.mfa_enabled ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-600'"
+                :class="user.mfa_enabled ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-600'"
               >
                 {{ user.mfa_enabled ? 'Enabled' : 'Off' }}
               </span>

@@ -210,7 +210,7 @@ test.describe('User Detail - Edge Cases', () => {
       await saveButton.click()
       await page.waitForTimeout(300)
       // Should show "No changes" message
-      const successMsg = page.locator('.bg-green-50, .text-green-700')
+      const successMsg = page.locator('.bg-success-50, .text-success-700')
       await expect(successMsg.first()).toBeVisible()
     }
   })

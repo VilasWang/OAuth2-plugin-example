@@ -142,7 +142,7 @@ onMounted(() => {
 
     <div
       v-if="successMessage"
-      class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md text-sm"
+      class="mb-4 p-3 bg-success-50 border border-success-200 text-success-700 rounded-md text-sm"
     >
       {{ successMessage }}
     </div>
@@ -173,7 +173,7 @@ onMounted(() => {
         <div class="flex gap-2">
           <button
             v-if="isLocked"
-            class="px-3 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700"
+            class="px-3 py-2 bg-success-600 text-white rounded-md text-sm hover:bg-success-700"
             @click="enableUser"
           >
             Enable Account
@@ -192,13 +192,13 @@ onMounted(() => {
       <div class="flex gap-2 mb-6">
         <span
           class="px-2 py-1 text-xs rounded-full"
-          :class="isLocked ? 'bg-error-100 text-error-700' : 'bg-green-100 text-green-800'"
+          :class="isLocked ? 'bg-error-100 text-error-700' : 'bg-success-100 text-success-700'"
         >
           {{ isLocked ? 'Locked' : 'Active' }}
         </span>
         <span
           class="px-2 py-1 text-xs rounded-full"
-          :class="user.email_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'"
+          :class="user.email_verified ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'"
         >
           {{ user.email_verified ? 'Email Verified' : 'Email Pending' }}
         </span>
@@ -332,7 +332,7 @@ onMounted(() => {
             </p>
             <p
               class="text-lg font-semibold mt-1"
-              :class="isLocked ? 'text-error-600' : 'text-green-600'"
+              :class="isLocked ? 'text-error-600' : 'text-success-600'"
             >
               {{ isLocked ? 'Locked' : 'Active' }}
             </p>

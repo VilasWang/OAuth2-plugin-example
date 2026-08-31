@@ -348,8 +348,8 @@ test.describe('Authorized Apps', () => {
     page.on('dialog', (dialog) => dialog.accept())
     await page.locator('button:has-text("Revoke")').first().click()
     // Success message appears
-    await expect(page.locator('.bg-green-50, [class*="green"]').first()).toBeVisible({ timeout: 3000 })
+    await expect(page.locator('.bg-success-50, [class*="success"]').first()).toBeVisible({ timeout: 3000 })
     // Should disappear after ~3 seconds
-    await expect(page.locator('.bg-green-50, [class*="green"]').first()).not.toBeVisible({ timeout: 5000 })
+    await expect(page.locator('.bg-success-50, [class*="success"]').first()).not.toBeVisible({ timeout: 5000 })
   })
 })

@@ -104,9 +104,9 @@ async function approve() {
             required
             autocomplete="off"
             placeholder="e.g. WDJB-MJHT"
-            class="block w-full px-3.5 py-2.5 text-sm uppercase tracking-widest rounded-lg border border-neutral-300 bg-surface
-                   placeholder:text-neutral-400 placeholder:tracking-normal transition-colors duration-150
-                   focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-700"
+            class="block w-full px-3.5 py-2.5 text-sm uppercase tracking-widest font-mono tabular-nums rounded-ctl border border-neutral-300 bg-surface
+                   placeholder:text-neutral-400 placeholder:tracking-normal placeholder:font-sans transition-colors duration-150
+                   focus:outline-none focus:ring-[3px] focus:ring-ring focus:border-brand-700"
           >
         </div>
 
