@@ -283,4 +283,34 @@ void AdminBootstrapper::run(const std::string &explicitPassword, DoneCallback &&
         finish(run, false, "INTERNAL_ERROR");
     }
 }
+void AdminBootstrapper::backfillLocalSubjectMappings(DoneCallback &&done)
+{
+    auto db = app().getDbClient();
+    if (!db)
+    {
+        done(false, "no db client (memory storage?)");
+        return;
+    }
+    try
+    {
+        db->execSqlAsync(
+          "INSERT INTO oauth2_subject_mappings (subject, internal_user_id, provider) "
+          "SELECT u.id::text, u.id, 'local' FROM users u "
+          "ON CONFLICT (provider, subject) DO NOTHING",
+          [done](const Result &r) {
+              if (r.size() > 0)
+                  LOG_INFO << "SubjectMappingBackfill: healed " << r.size() << " user(s)";
+              done(true, "local subject mapping invariant holds");
+          },
+          [done](const DrogonDbException &e) {
+              done(false, std::string("subject mapping backfill failed: ") + e.base().what());
+          }
+        );
+    }
+    catch (...)
+    {
+        done(false, "INTERNAL_ERROR");
+    }
+}
+
 }  // namespace bootstrap

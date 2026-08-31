@@ -706,7 +706,7 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
               // silent "success" with a permission-less user.
               auto assigned = std::make_shared<std::vector<std::string>>();
               auto assignedMu = std::make_shared<std::mutex>();
-              auto respondCreated =
+              auto sendCreated =
                 [cb, req, newId, inserted, assigned, assignedMu](const std::vector<std::string> &requested) {
                     auditFromRequest(req, "user_create", "success", "user", std::to_string(newId));
                     std::vector<std::string> assignedCopy;
@@ -739,6 +739,39 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
                     resp->setStatusCode(::drogon::k201Created);
                     (*cb)(resp);
                 };
+
+              // #143: a user created here must also get a (local, <id>)
+              // subject mapping — consent's getInternalUserId resolves users
+              // exclusively through that table and 500s without a row (same
+              // defect class as the self-registration path). Ensured before
+              // the 201 goes out; a failure is logged and tolerated (mirrors
+              // the roles_failed semantics above — the startup backfill
+              // converges the invariant).
+              auto respondCreated = [db, newId, sendCreated](const std::vector<std::string> &requested) {
+                  try
+                  {
+                      db->execSqlAsync(
+                        "INSERT INTO oauth2_subject_mappings "
+                        "(subject, internal_user_id, provider) "
+                        "VALUES ($1, $2, 'local') "
+                        "ON CONFLICT (provider, subject) DO NOTHING",
+                        [sendCreated, requested](const ::drogon::orm::Result &) {
+                            sendCreated(requested);
+                        },
+                        [sendCreated, requested, newId](const ::drogon::orm::DrogonDbException &e) {
+                            LOG_ERROR << "createUser: subject mapping insert failed for user "
+                                      << newId << ": " << e.base().what();
+                            sendCreated(requested);
+                        },
+                        std::to_string(newId), newId);
+                  }
+                  catch (...)
+                  {
+                      LOG_ERROR << "createUser: subject mapping exec setup failed for user "
+                                << newId;
+                      sendCreated(requested);
+                  }
+              };
 
               // Determine which roles to assign.
               std::vector<std::string> roleNames;

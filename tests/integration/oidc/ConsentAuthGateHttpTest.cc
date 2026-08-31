@@ -238,18 +238,10 @@ DROGON_TEST(Integration_P1_Consent_NonceRoundTrip_ApprovesAndRejectsReplay)
     REQUIRE(!csrf.empty());
     REQUIRE(!userId.empty());
 
-    // The seeded dev admin normally has a 'local' subject mapping; create it
-    // if a prior test run consumed/removed it (consent's getInternalUserId
-    // 500s without it -- pre-existing gap, not part of the gate contract).
-    {
-        auto db = app().getDbClient();
-        if (db)
-            db->execSqlSync(
-              "INSERT INTO oauth2_subject_mappings (subject, internal_user_id, provider) "
-              "SELECT u.id::text, u.id, 'local' FROM users u WHERE u.username='admin' "
-              "ON CONFLICT (provider, subject) DO NOTHING"
-            );
-    }
+    // #143: the admin's (local, <id>) mapping comes from the dev seed (and
+    // is converged by the V027 backfill + startup self-heal) — no manual
+    // re-seeding workaround here anymore; consent's getInternalUserId must
+    // resolve the session user through the mapping table on its own.
 
     // Approve with the minted nonce -> 302 back to the client with a code.
     auto approve = post(

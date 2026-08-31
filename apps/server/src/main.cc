@@ -369,6 +369,37 @@ int main(int argc, char *argv[])
         }
     }
 
+    // 5c. #143 startup self-heal: every user must own a (local, <id>) subject
+    // mapping — consent resolves users exclusively through that table and a
+    // user without a row 500s on authorize->consent. V027 backfills existing
+    // rows once at migration time; this pass turns it into a startup
+    // invariant that also converges transient creation-path failures.
+    // Independent of (and runs alongside) the admin bootstrap above: it only
+    // needs the users table to exist, and ON CONFLICT DO NOTHING makes it
+    // idempotent against races with migrations or the bootstrap thread.
+    {
+        drogon::app().registerBeginningAdvice([]() {
+            std::thread([]() {
+                for (int attempt = 1; attempt <= 5; ++attempt)
+                {
+                    std::this_thread::sleep_for(std::chrono::seconds(2 * attempt));
+                    auto result = std::make_shared<std::promise<bool>>();
+                    bootstrap::AdminBootstrapper::backfillLocalSubjectMappings(
+                      [result](bool ok, const std::string &detail) {
+                          if (ok)
+                              LOG_INFO << "SubjectMappingHeal: " << detail;
+                          else
+                              LOG_WARN << "SubjectMappingHeal attempt: " << detail;
+                          result->set_value(ok);
+                      }
+                    );
+                    if (result->get_future().get())
+                        break;
+                }
+            }).detach();
+        });
+    }
+
     registerLeakDiagHook();
 
     // 6. Start the server
