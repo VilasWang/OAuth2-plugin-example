@@ -35,9 +35,14 @@ psql -U %FULLA_DB_USER% -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -d postgres -c "DR
 echo Creating new database...
 psql -U %FULLA_DB_USER% -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -d postgres -c "CREATE DATABASE %FULLA_DB_NAME%;"
 if errorlevel 1 (
+    echo [Warn] CREATE DATABASE failed -- a common cause is the role lacking
+    echo        CREATEDB ^(DROP succeeds because it only needs ownership^).
+    echo        Check once and fix with the superuser account of this install:
+    echo          psql -U postgres -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -c "ALTER ROLE %FULLA_DB_USER% CREATEDB;"
+    echo        ^(docker: docker exec ^<postgres-container^> psql -U postgres -c "ALTER ROLE %FULLA_DB_USER% CREATEDB;"^)
+    echo        Then re-run this script. Also verify the role exists, FULLA_DB_PASSWORD
+    echo        is correct, and PostgreSQL is reachable at %FULLA_DB_HOST%:%FULLA_DB_PORT%.
     echo [Error] Failed to create database "%FULLA_DB_NAME%" as role "%FULLA_DB_USER%".
-    echo         Verify the role exists, FULLA_DB_PASSWORD is correct, and that
-    echo         PostgreSQL is reachable at %FULLA_DB_HOST%:%FULLA_DB_PORT%.
     exit /b 1
 )
 
