@@ -133,6 +133,23 @@ TEST(WebAuthnServiceTest, FinishRegistrationVerified_NoChallenge_ReturnsMismatch
 
 // #142: subject-bound challenge store semantics — match consumes, mismatch
 // ALSO consumes (unconditional), TTL expiry rejects.
+// PR review (Low): the CAS interface default (used by in-memory fakes)
+// forwards to plain updateSignCount -- single-threaded tests observe the
+// non-atomic fallback; the PG override is exercised end-to-end by
+// WebAuthnHttpTest's assertion chain.
+TEST(WebAuthnServiceTest, UpdateSignCountIfCurrent_DefaultForwardsToUpdate)
+{
+    auto repo = std::make_shared<FakeWebAuthnRepository>();
+    repo->credentials["cred-1"] = {42, "pk", "Passkey", 3};
+    bool called = false;
+    repo->updateSignCountIfCurrent("cred-1", 3, 4, [&](bool ok) {
+        called = true;
+        EXPECT_TRUE(ok);
+    });
+    EXPECT_TRUE(called);
+    EXPECT_EQ(repo->credentials["cred-1"].signCount, 4);
+}
+
 TEST(WebAuthnServiceTest, RegistrationChallengeStore_UnconditionalConsumptionAndTtl)
 {
     auto repo = std::make_shared<FakeWebAuthnRepository>();

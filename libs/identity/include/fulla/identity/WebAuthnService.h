@@ -126,6 +126,10 @@ struct WebAuthnAuthResult
     int32_t userId = 0;     // Internal user id (for the caller's own follow-up lookups).
     std::string publicSub;  // users.public_sub -- what the controller today calls "user_id".
     int signCount = 0;      // sign_count AFTER this authentication's increment.
+    // #142 PR review: canonical base64url credential id (the stored form),
+    // so callers audit/respond with the server-normalized value instead
+    // of the client-submitted encoding.
+    std::string credentialId;
 };
 
 /**
@@ -264,7 +268,9 @@ class WebAuthnService
      * subject (the Bearer public_sub the filter resolves). The register
      * endpoints run behind OAuth2AuthFilter; session cookies are NOT part
      * of their contract (the user SPA sends no credentials), so the store
-     * is an in-process map keyed by subject, last-write-wins, TTL-bound.
+     * is an in-process map keyed by subject, last-write-wins; stale
+     * entries are rejected on consume AND lazily swept on every issue
+     * (no background thread).
      * Single-instance deployments only (same limitation class as the
      * consent_csrf nonce store) -- multi-instance challenge sharing is
      * registered follow-up work.

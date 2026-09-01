@@ -420,6 +420,52 @@ DROGON_TEST(Integration_P0_WebAuthn_AuthFinish_VerifiedAssertion_EstablishesSess
     CHECK(storedSignCount == 1);
 }
 
+// PR review (Medium): crossOrigin=true assertions are rejected -- this RP
+// declares no cross-origin support, so an iframe-driven ceremony fails the
+// clientData gate like any other origin mismatch.
+DROGON_TEST(Integration_P0_WebAuthn_AuthFinish_CrossOriginRejected401)
+{
+    WEBAUTHN_SKIP_GUARD;
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    const std::string tag = uniqueTag();
+    auto cred = RealCredential::generate(tag);
+    bool ok = false;
+    auto regOptions = registerBeginOptions(*token, ok);
+    REQUIRE(ok);
+    auto reg = sendPostJson("/api/me/webauthn/register/finish", cred.registrationBody(regOptions.get("challenge", "").asString()), *token);
+    REQUIRE(statusIs(reg, drogon::k201Created));
+
+    std::string challenge, cookie;
+    REQUIRE(authenticateBegin(challenge, cookie));
+
+    // Same-key valid signature, but clientDataJSON claims crossOrigin=true.
+    const std::string authData = wa::buildAuthData([] {
+        wa::AuthDataSpec spec;
+        spec.rpIdHash = wa::sha256(kRpId);
+        spec.flags = 0x05;  // UP | UV
+        spec.signCount = 7;
+        return spec;
+    }());
+    const std::string clientDataJson =
+        "{\"type\":\"webauthn.get\",\"challenge\":\"" + challenge +
+        "\",\"origin\":\"" + kOrigin + "\",\"crossOrigin\":true}";
+    const std::string signature = wa::signEs256(cred.key.get(), wa::signedMessage(authData, clientDataJson));
+    Json::Value body;
+    body["id"] = cred.credentialIdB64;
+    body["rawId"] = cred.credentialIdB64;
+    Json::Value resp;
+    resp["authenticatorData"] = b64url(authData);
+    resp["clientDataJSON"] = b64url(clientDataJson);
+    resp["signature"] = b64url(signature);
+    body["response"] = resp;
+
+    auto response = authenticateFinish(cookie, body);
+    REQUIRE(response != nullptr);
+    CHECK(statusIs(response, drogon::k401Unauthorized));
+}
+
 DROGON_TEST(Integration_P0_WebAuthn_AuthFinish_TamperedSignature_Rejected401)
 {
     WEBAUTHN_SKIP_GUARD;

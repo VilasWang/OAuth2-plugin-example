@@ -3967,6 +3967,13 @@ const std::string &credentialId,
 int newSignCount,
 BoolCallback &&cb
 ) = 0;
+virtual void updateSignCountIfCurrent(
+const std::string &credentialId,
+int expectedCurrent,
+int newSignCount,
+BoolCallback &&cb
+)
+;
 virtual void listCredentials(int32_t userId, ListCredentialsCallback &&cb) = 0;
 };
 }
@@ -4395,6 +4402,7 @@ struct WebAuthnAuthResult
 int32_t userId = 0;
 std::string publicSub;
 int signCount = 0;
+std::string credentialId;
 };
 class WebAuthnService
 {
@@ -6112,6 +6120,12 @@ StoreCredentialCallback &&cb
 void findByCredentialId(
 const std::string &credentialId,
 CredentialLookupCallback &&cb
+) override;
+void updateSignCountIfCurrent(
+const std::string &credentialId,
+int expectedCurrent,
+int newSignCount,
+BoolCallback &&cb
 ) override;
 void updateSignCount(
 const std::string &credentialId,
