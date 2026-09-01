@@ -8,7 +8,7 @@ and this project adheres to
 For the versioning policy (when to cut, what to bump, why), see
 [Versioning & Release](docs/contribute/versioning-and-release.md).
 
-## [Unreleased]
+## [1.1.0] - 2026-09-01
 
 ### Security
 
@@ -19,6 +19,9 @@ For the versioning policy (when to cut, what to bump, why), see
 ### Fixed
 
 - **自注册/管理端创建用户 authorize→consent 500（#143）**:两条创建路径现在都会写入 (local, id) subject mapping（consent 的 getInternalUserId 唯一解析路径）;V027 一次性回填 + 启动自愈把"每个用户必有 local 映射"变成启动不变量。
+- WebAuthn 加固（#142 评审轮）:crossOrigin=true 断言拒绝（本 RP 不支持跨源仪式）；注册挑战存储惰性回收（begin 后放弃的条目不再驻留）；signCount 克隆检测改为原子 compare-and-set（并发同凭证断言不再双双通过）；`social_token_client_id` 发放前校验已注册。
+- AdminBootstrapper 首启建户补 `salt`（users.salt NOT NULL，此前真·净库首启路径必败——潜在缺陷被新测试暴露）。
+- `setup-database` 根因分类与自愈:按"不可达/认证失败（密码错或角色不存在，防枚举同型）/库删不掉（占用或非 owner）/缺 CREATEDB"给出精确修复命令，Linux/WSL 下可经 `sudo -u postgres psql` 自动补 CREATEDB 并重试；测试脚本对缺失的暂存配置给出明确跳过指引。
 
 ### Added
 
