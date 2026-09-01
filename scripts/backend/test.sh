@@ -63,6 +63,18 @@ if [ ! -f "$CI_CONFIG" ]; then
     exit 0
 fi
 
+# The staged tests config must exist before the swap: a bare directory
+# check let cp die with 'cannot stat' (set -e) when the file was missing
+# -- e.g. cmake ran without build.sh's post-build copy step, or a stale
+# clone carries an older layout. Fail soft with the exact re-stage step.
+if [ ! -f "$TEST_WORK_DIR/$CONFIG_FILE" ]; then
+    echo "[SKIP] $TEST_WORK_DIR/$CONFIG_FILE not found -- staged tests config"
+    echo "       is missing (build.sh copies it there after a build)."
+    echo "       Re-run scripts/backend/build.sh (or ./manage.sh build-backend)"
+    echo "       to stage it, then re-run the tests. Skipping the CI-config run."
+    exit 0
+fi
+
 if [ -d "$TEST_WORK_DIR" ]; then
     cp "$TEST_WORK_DIR/$CONFIG_FILE" "$TEST_WORK_DIR/$CONFIG_FILE.bak"
     cp "$CI_CONFIG" "$TEST_WORK_DIR/$CONFIG_FILE"
