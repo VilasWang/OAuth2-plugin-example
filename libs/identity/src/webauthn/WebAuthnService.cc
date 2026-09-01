@@ -95,7 +95,7 @@ void WebAuthnService::finishRegistration(
   std::function<void(const std::string &errorCode)> &&callback
 )
 {
-    // #142: the legacy UNVERIFIED contract is retired — this method kept
+    // #142: the legacy UNVERIFIED contract is retired -- this method kept
     // its declaration (SDK baseline) but must never store client-asserted
     // key material again. Callers are migrated to
     // finishRegistrationVerified(); this fails closed with the
@@ -236,7 +236,7 @@ void WebAuthnService::finishRegistrationVerified(
         callback("INTERNAL_ERROR");
         return;
     }
-    // Challenge gate FIRST, and its consumption is unconditional — the
+    // Challenge gate FIRST, and its consumption is unconditional -- the
     // attestation body is never even parsed without a live bound
     // challenge (no replay oracle).
     if (!consumeRegistrationChallenge(subject, presentedChallenge))
@@ -254,7 +254,7 @@ void WebAuthnService::finishRegistrationVerified(
         return;
     }
 
-    // --- clientDataJSON (L2 §7.1 steps 5-9) ---
+    // --- clientDataJSON (L2 section 7.1 steps 5-9) ---
     std::string parseError;
     auto clientData = webauthn::parseClientDataJSON(clientDataJson, &parseError);
     if (!clientData || clientData->type != "webauthn.create" ||
@@ -278,7 +278,7 @@ void WebAuthnService::finishRegistrationVerified(
         return;
     }
 
-    // --- attestationObject (§7.1 steps 10-11: fmt="none" only) ---
+    // --- attestationObject (section 7.1 steps 10-11: fmt="none" only) ---
     auto attestation = webauthn::parseAttestationObject(attestationObject, &parseError);
     if (!attestation || attestation->fmt != "none" || !attestation->attStmtEmptyMap)
     {
@@ -286,12 +286,12 @@ void WebAuthnService::finishRegistrationVerified(
         return;
     }
 
-    // --- authData (§7.1 steps 12, 15-19) ---
+    // --- authData (section 7.1 steps 12, 15-19) ---
     auto authData = webauthn::parseAuthData(attestation->authData, true, &parseError);
     // UV is enforced here too: begin advertises userVerification=required,
     // and a UV-less registration would create a credential that can never
-    // authenticate (the assertion path rejects UV=0) — reject it upfront
-    // (PR-review m-1; L2 §7.1 step 17).
+    // authenticate (the assertion path rejects UV=0) -- reject it upfront
+    // (PR-review m-1; L2 section 7.1 step 17).
     if (!authData || !authData->up || !authData->uv || !authData->at)
     {
         callback("WEBAUTHN_INVALID_ATTESTATION");
@@ -310,7 +310,7 @@ void WebAuthnService::finishRegistrationVerified(
         return;
     }
 
-    // --- COSE key (§7.1 steps 16-18, ES256-only) ---
+    // --- COSE key (section 7.1 steps 16-18, ES256-only) ---
     if (!webauthn::parseCoseKeyEs256(authData->coseKey, &parseError))
     {
         callback("WEBAUTHN_INVALID_ATTESTATION");
@@ -373,7 +373,7 @@ void WebAuthnService::finishAuthenticationVerified(
     }
 
     // Generic rejector: every failure after this point answers the same
-    // nullopt — the caller maps it to a generic AUTH_INVALID_CREDENTIALS
+    // nullopt -- the caller maps it to a generic AUTH_INVALID_CREDENTIALS
     // so the response leaks nothing about WHICH check failed.
     auto sharedCb =
       std::make_shared<std::function<void(std::optional<WebAuthnAuthResult>)>>(std::move(callback));
@@ -404,7 +404,7 @@ void WebAuthnService::finishAuthenticationVerified(
     // time base64url of the RAW bytes).
     const std::string credentialIdB64 = crypto_->base64UrlEncode(rawIdBytes);
 
-    // Value-capture everything the async repository callbacks touch —
+    // Value-capture everything the async repository callbacks touch --
     // this member function has returned by the time they run.
     auto repo = repo_;
     auto crypto = crypto_;
@@ -422,8 +422,8 @@ void WebAuthnService::finishAuthenticationVerified(
               return;
           }
 
-          // userHandle (L2 §6.1 step 6): when the authenticator echoes it,
-          // it must name this credential's owner — registration set
+          // userHandle (L2 section 6.1 step 6): when the authenticator echoes it,
+          // it must name this credential's owner -- registration set
           // user.id to the internal id, so the decoded handle must equal
           // its decimal string.
           if (!input.userHandle.empty())
@@ -446,9 +446,9 @@ void WebAuthnService::finishAuthenticationVerified(
               }
           }
 
-          // authData (§6.1 steps 9-11): assertion form (no attested
+          // authData (section 6.1 steps 9-11): assertion form (no attested
           // credential data), UP=1 AND UV=1 (begin advertises
-          // userVerification=required — no-UV authenticators are outside
+          // userVerification=required -- no-UV authenticators are outside
           // the supported surface, documented).
           auto authData = webauthn::parseAuthData(authDataBytes, false, nullptr);
           if (!authData || !authData->up || !authData->uv)
@@ -464,7 +464,7 @@ void WebAuthnService::finishAuthenticationVerified(
               return;
           }
 
-          // Signature (§6.1 steps 15-16): ES256 over
+          // Signature (section 6.1 steps 15-16): ES256 over
           // authData || SHA256(clientDataJSON) against the STORED COSE key
           // (the client-submitted public_key was never stored, #142).
           std::string storedCose;
@@ -485,8 +485,8 @@ void WebAuthnService::finishAuthenticationVerified(
               return;
           }
 
-          // signCount (§6.1 step 17): stored>0 and new<=stored means a
-          // cloned authenticator — reject and fire the observability
+          // signCount (section 6.1 step 17): stored>0 and new<=stored means a
+          // cloned authenticator -- reject and fire the observability
           // hook. Both zero is the no-counter legal case.
           const uint32_t stored = static_cast<uint32_t>(found->signCount);
           const uint32_t presented = authData->signCount;

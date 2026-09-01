@@ -46,7 +46,7 @@ namespace
 constexpr const char *kRetiredLegacyHash =
   "892738161086b314334f88d661aa6e7bab7c825c34bf55222811dad46cdbf724";
 
-bool loginExpect(const std::string &username, const std::string &password, unsigned want)
+bool loginExpect(const std::string &username, const std::string &password, drogon::HttpStatusCode want)
 {
     auto resp = sendPostForm(
       "/oauth2/login?json=true",

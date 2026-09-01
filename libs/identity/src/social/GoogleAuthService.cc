@@ -60,7 +60,7 @@ void GoogleAuthService::login(
        {"grant_type", "authorization_code"}};
 
     // #70: after the profile fetch, resolve-or-create the local account
-    // behind the Google identity (when a repository has been injected —
+    // behind the Google identity (when a repository has been injected --
     // the assembly path always injects one; profile-only otherwise).
     auto accountRepo = accountRepo_;
     const bool autoCreate = autoCreate_;

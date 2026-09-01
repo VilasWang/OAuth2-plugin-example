@@ -1,13 +1,13 @@
 // Internal (#70): the provider-agnostic four-state account resolution
 // shared by the social login services (GitHub/Google/WeChat). Lives under
-// src/ on purpose — it is an implementation detail of the social slice,
+// src/ on purpose -- it is an implementation detail of the social slice,
 // not part of the installed identity API surface.
 //
 // State machine (mirrors ISocialAccountRepository::findLinkedUser's
 // contract):
 //   Linked            -> onLinked(existing id/username/publicSub, isNew=false)
 //   AccountUnavailable-> onError("AUTH_INVALID_CREDENTIALS")  (soft-deleted
-//                        or locked local user — generic, no status leak)
+//                        or locked local user -- generic, no status leak)
 //   RepositoryError   -> onError("DB_QUERY_ERROR")            (never falls
 //                        through to creation)
 //   NoMapping         -> autoCreate gate:
@@ -22,12 +22,12 @@
 //                                 repository logs the true cause).
 //
 // Lifetime note (PR review B-1): the retry is a FREE FUNCTION recursing
-// through a shared ctx — the in-flight repository callback strongly owns
+// through a shared ctx -- the in-flight repository callback strongly owns
 // ctx, so with the fully-async production repository the chain stays
 // alive across every SQL round-trip and terminates (all owners drop) on
 // the terminal branches. A self-referencing std::function would either
 // leak (strong self-capture) or dangle (weak self-capture: the only
-// strong owner — the initiating stack frame — is gone when the async
+// strong owner -- the initiating stack frame -- is gone when the async
 // INSERT returns, silently dropping the response).
 
 #ifdef WITH_SOCIAL
@@ -56,7 +56,7 @@ struct AttemptContext
 
 inline std::string randomUsernameSuffix()
 {
-    // Not a secret — just collision avoidance for the retry attempt.
+    // Not a secret -- just collision avoidance for the retry attempt.
     static thread_local std::mt19937_64 rng{std::random_device{}()};
     static const char hex[] = "0123456789abcdef";
     std::string out;
