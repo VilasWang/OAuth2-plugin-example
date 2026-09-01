@@ -30,12 +30,33 @@ psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
 echo "Creating new database..."
 # Do NOT swallow stderr here: a missing role, wrong password or unreachable
 # server must surface loudly with actionable guidance (parity with the .bat).
-if ! psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres \
-    -c "CREATE DATABASE $DB_NAME;"; then
-    echo "[Error] Failed to create database \"$DB_NAME\" as role \"$DB_USER\"." >&2
-    echo "        Verify the role exists, FULLA_DB_PASSWORD is correct, and that" >&2
-    echo "        PostgreSQL is reachable at $DB_HOST:$DB_PORT." >&2
-    exit 1
+if ! psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres     -c "CREATE DATABASE $DB_NAME;"; then
+    # Common cause: the role lacks CREATEDB (DROP succeeds -- it only needs
+    # ownership -- while CREATE needs the attribute). Local Linux/WSL
+    # PostgreSQL usually exposes the 'postgres' superuser over peer auth,
+    # so try to self-heal the attribute once and retry; otherwise fall
+    # through to precise manual guidance.
+    echo "[Warn] CREATE DATABASE failed -- checking whether \"$DB_USER\" lacks CREATEDB..."
+    HAS_DB=$(psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres -tAc         "SELECT 1 FROM pg_roles WHERE rolname = '$DB_USER' AND rolcreatedb;" 2>/dev/null || true)
+    CREATED_OK=0
+    if [ "$HAS_DB" != "1" ] && command -v sudo >/dev/null 2>&1 &&        sudo -n -u postgres psql -tAc            "SELECT 1 FROM pg_roles WHERE rolname = '$DB_USER';" 2>/dev/null | grep -q 1; then
+        echo "        Granting CREATEDB to \"$DB_USER\" via the local postgres superuser..."
+        if sudo -n -u postgres psql -c "ALTER ROLE \"$DB_USER\" CREATEDB;" >/dev/null 2>&1; then
+            if psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres                 -c "CREATE DATABASE $DB_NAME;"; then
+                echo "        Self-healed: role granted CREATEDB, database created."
+                CREATED_OK=1
+            fi
+        fi
+    fi
+    if [ "$CREATED_OK" != "1" ]; then
+        echo "[Error] Failed to create database \"$DB_NAME\" as role \"$DB_USER\"." >&2
+        echo "        If the role lacks CREATEDB (typical for a hand-created role), fix once with:" >&2
+        echo "          sudo -u postgres psql -c 'ALTER ROLE $DB_USER CREATEDB;'" >&2
+        echo "        (docker: docker exec <postgres-container> psql -U postgres -c 'ALTER ROLE $DB_USER CREATEDB;')" >&2
+        echo "        Also verify the role exists, FULLA_DB_PASSWORD is correct, and PostgreSQL" >&2
+        echo "        is reachable at $DB_HOST:$DB_PORT." >&2
+        exit 1
+    fi
 fi
 
 # Apply migrations
