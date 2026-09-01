@@ -86,9 +86,11 @@ if ! psql -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -d postgres     -c "CREATE D
             -v db="$DB_NAME" -tAf - 2>/dev/null || true)
     if [ "$DB_STILL_THERE" = "1" ]; then
         echo "[Error] Database \"$DB_NAME\" already exists and could not be dropped" >&2
-        echo "        (the earlier DROP's error was suppressed; the usual cause is an active" >&2
-        echo "        connection holding the database, e.g. a running fulla-server)." >&2
-        echo "        Fix: stop whatever is connected, then re-run -- or drop manually:" >&2
+        echo "        (the earlier DROP's error was suppressed; two possible causes:" >&2
+        echo "        an active connection holds the database -- e.g. a running" >&2
+        echo "        fulla-server -- or the database's owner is NOT \"$DB_USER\")." >&2
+        echo "        Fix: stop whatever is connected, then re-run -- or drop manually" >&2
+        echo "        from a superuser shell:" >&2
         echo "          psql -U postgres -h $DB_HOST -p $DB_PORT -c \"DROP DATABASE $DB_NAME WITH (FORCE);\"" >&2
         exit 1
     fi
