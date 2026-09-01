@@ -35,14 +35,29 @@ psql -U %FULLA_DB_USER% -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -d postgres -c "DR
 echo Creating new database...
 psql -U %FULLA_DB_USER% -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -d postgres -c "CREATE DATABASE %FULLA_DB_NAME%;"
 if errorlevel 1 (
-    echo [Warn] CREATE DATABASE failed -- a common cause is the role lacking
-    echo        CREATEDB ^(DROP succeeds because it only needs ownership^).
-    echo        Check once and fix with the superuser account of this install:
-    echo          psql -U postgres -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -c "ALTER ROLE %FULLA_DB_USER% CREATEDB;"
-    echo        ^(docker: docker exec ^<postgres-container^> psql -U postgres -c "ALTER ROLE %FULLA_DB_USER% CREATEDB;"^)
-    echo        Then re-run this script. Also verify the role exists, FULLA_DB_PASSWORD
-    echo        is correct, and PostgreSQL is reachable at %FULLA_DB_HOST%:%FULLA_DB_PORT%.
     echo [Error] Failed to create database "%FULLA_DB_NAME%" as role "%FULLA_DB_USER%".
+    echo Match the psql message above to its fix ^(run the fix from a
+    echo superuser shell, then re-run this script^):
+    echo.
+    echo  1^) "database ... already exists" -- the silent DROP step failed,
+    echo     usually an open connection ^(running fulla-server, psql, IDE^)
+    echo     holds it open:
+    echo       psql -U postgres -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -c "DROP DATABASE %FULLA_DB_NAME% WITH (FORCE);"
+    echo.
+    echo  2^) "permission denied to create database" -- the role lacks
+    echo     CREATEDB ^(DROP only needs ownership^):
+    echo       psql -U postgres -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -c "ALTER ROLE %FULLA_DB_USER% CREATEDB;"
+    echo     ^(docker: docker exec ^<pg-container^> psql -U postgres -c "ALTER ROLE %FULLA_DB_USER% CREATEDB;"^)
+    echo.
+    echo  3^) "role ... does not exist" -- create it once with the same
+    echo     password FULLA_DB_PASSWORD points at:
+    echo       psql -U postgres -h %FULLA_DB_HOST% -p %FULLA_DB_PORT% -c "CREATE ROLE %FULLA_DB_USER% LOGIN PASSWORD '<choose-a-password>';"
+    echo.
+    echo  4^) "password authentication failed" -- set FULLA_DB_PASSWORD to
+    echo     this role's real password.
+    echo.
+    echo  5^) "could not connect" / "Connection refused" -- start PostgreSQL
+    echo     or point FULLA_DB_HOST/FULLA_DB_PORT at it.
     exit /b 1
 )
 
