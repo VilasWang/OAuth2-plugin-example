@@ -38,6 +38,13 @@ class PostgresWebAuthnRepository : public fulla::identity::IWebAuthnRepository,
       CredentialLookupCallback &&cb
     ) override;
 
+    void updateSignCountIfCurrent(
+      const std::string &credentialId,
+      int expectedCurrent,
+      int newSignCount,
+      BoolCallback &&cb
+    ) override;
+
     void updateSignCount(
       const std::string &credentialId,
       int newSignCount,

@@ -192,6 +192,44 @@ void PostgresWebAuthnRepository::updateSignCount(
     }
 }
 
+void PostgresWebAuthnRepository::updateSignCountIfCurrent(
+  const std::string &credentialId,
+  int expectedCurrent,
+  int newSignCount,
+  BoolCallback &&cb
+)
+{
+    if (!dbClient_)
+    {
+        cb(false);
+        return;
+    }
+    auto sharedCb = std::make_shared<BoolCallback>(std::move(cb));
+    try
+    {
+        // Atomic clone-check CAS (#142 PR review): the WHERE clause makes
+        // read-compare-write one statement -- a concurrent assertion that
+        // already advanced sign_count makes this match zero rows. Raw SQL
+        // because Mapper has no conditional-update form (db-operations
+        // exemption: parameter-bound single-statement UPDATE).
+        dbClient_->execSqlAsync(
+          "UPDATE webauthn_credentials "
+          "SET sign_count = $1, last_used_at = NOW() "
+          "WHERE credential_id = $2 AND sign_count = $3 "
+          "RETURNING 1",
+          [sharedCb](const Result &r) { (*sharedCb)(r.size() > 0); },
+          [sharedCb](const DrogonDbException &e) {
+              LOG_WARN << "updateSignCountIfCurrent failed: " << e.base().what();
+              (*sharedCb)(false);
+          },
+          newSignCount, credentialId, expectedCurrent);
+    }
+    catch (...)
+    {
+        (*sharedCb)(false);
+    }
+}
+
 void PostgresWebAuthnRepository::listCredentials(int32_t userId, ListCredentialsCallback &&cb)
 {
     if (!dbClient_)

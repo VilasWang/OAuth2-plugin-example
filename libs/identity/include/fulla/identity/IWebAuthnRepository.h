@@ -131,6 +131,23 @@ class IWebAuthnRepository
       BoolCallback &&cb
     ) = 0;
 
+    /// Atomic clone-check compare-and-set (#142 PR review): UPDATE
+    /// sign_count/last_used_at ONLY IF sign_count still equals
+    /// expectedCurrent. Callback true = the row advanced under this call;
+    /// false = a concurrent assertion won the race (the caller treats that
+    /// as clone/replay evidence and rejects). Default implementation is a
+    /// non-atomic fallback for in-memory fakes (single-threaded tests).
+    virtual void updateSignCountIfCurrent(
+      const std::string &credentialId,
+      int expectedCurrent,
+      int newSignCount,
+      BoolCallback &&cb
+    )
+    {
+        (void)expectedCurrent;
+        updateSignCount(credentialId, newSignCount, std::move(cb));
+    }
+
     /// List all credentials belonging to `userId`, most recently created
     /// first (listCredentials' SELECT ... ORDER BY created_at DESC).
     virtual void listCredentials(int32_t userId, ListCredentialsCallback &&cb) = 0;

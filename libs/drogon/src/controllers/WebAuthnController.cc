@@ -539,6 +539,11 @@ void WebAuthnController::authenticateFinish(
           req->session()->insert("auth_time", static_cast<int64_t>(nowSecs));
           req->session()->insert("amr", std::string("hwk user"));
 
+          // Audit/respond with the server-normalized credential id (the
+          // stored canonical form), not the client-submitted encoding
+          // (PR review Info: consistency + no client-controlled audit text).
+          const std::string &auditCredId =
+            result->credentialId.empty() ? input.rawId : result->credentialId;
           ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
             ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
             "webauthn_authenticated",
@@ -546,7 +551,7 @@ void WebAuthnController::authenticateFinish(
             req,
             result->publicSub,
             "credential",
-            input.rawId
+            auditCredId
           );
           Json::Value json;
           json["authenticated"] = true;

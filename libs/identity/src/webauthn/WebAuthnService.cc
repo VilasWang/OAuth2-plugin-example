@@ -159,10 +159,23 @@ std::optional<std::string> WebAuthnService::issueRegistrationChallenge(const std
     std::string challenge = generateChallenge(*crypto_);
     {
         std::lock_guard<std::mutex> lock(challengeMu_);
+        // Lazy expiry sweep (PR review Low): a subject that begins and never
+        // finishes would otherwise pin its entry forever -- TTL used to only
+        // REJECT stale entries, never reclaim them. Sweeping here (rather
+        // than a background thread) keeps the store bounded by live
+        // subjects; cost is O(live subjects) per issue.
+        const int64_t now = nowSeconds();
+        for (auto it = registrationChallenges_.begin(); it != registrationChallenges_.end();)
+        {
+            if (now - it->second.issuedAt > challengeTtlSeconds_)
+                it = registrationChallenges_.erase(it);
+            else
+                ++it;
+        }
         // Last-write-wins: a subject's concurrent begin overwrites the
         // previous challenge (multi-tab registration races fail safe --
         // the overwritten challenge no longer verifies).
-        registrationChallenges_[subject] = ChallengeEntry{challenge, nowSeconds()};
+        registrationChallenges_[subject] = ChallengeEntry{challenge, now};
     }
     return challenge;
 }
@@ -257,8 +270,13 @@ void WebAuthnService::finishRegistrationVerified(
     // --- clientDataJSON (L2 section 7.1 steps 5-9) ---
     std::string parseError;
     auto clientData = webauthn::parseClientDataJSON(clientDataJson, &parseError);
+    // L2 7.1 step 9 (PR review Medium): this RP declares no cross-origin
+    // support (strict origin allowlist), so a ceremony performed inside a
+    // cross-origin iframe (the phishing vector crossOrigin exists to
+    // surface) is rejected outright.
     if (!clientData || clientData->type != "webauthn.create" ||
-        clientData->challenge != presentedChallenge)
+        clientData->challenge != presentedChallenge ||
+        (clientData->crossOriginPresent && clientData->crossOrigin))
     {
         callback("WEBAUTHN_CHALLENGE_MISMATCH");
         return;
@@ -379,8 +397,12 @@ void WebAuthnService::finishAuthenticationVerified(
       std::make_shared<std::function<void(std::optional<WebAuthnAuthResult>)>>(std::move(callback));
 
     auto clientData = webauthn::parseClientDataJSON(clientDataJson, nullptr);
+    // L2 6.1 step 5 (PR review Medium): same-origin policy only -- a
+    // crossOrigin=true assertion (cross-origin iframe ceremony) fails with
+    // the generic rejection like every other check.
     if (!clientData || clientData->type != "webauthn.get" ||
-        clientData->challenge != presentedChallenge)
+        clientData->challenge != presentedChallenge ||
+        (clientData->crossOriginPresent && clientData->crossOrigin))
     {
         (*sharedCb)(std::nullopt);
         return;
@@ -499,15 +521,41 @@ void WebAuthnService::finishAuthenticationVerified(
           }
           const uint32_t newSignCount = (presented == 0 && stored == 0) ? 0 : presented;
 
-          // Best-effort bookkeeping (a persistence failure does not
-          // invalidate the just-verified authentication).
-          repo->updateSignCount(credentialIdB64, static_cast<int>(newSignCount), [](bool) {});
-
-          WebAuthnAuthResult result;
-          result.userId = found->userId;
-          result.publicSub = found->publicSub;
-          result.signCount = static_cast<int>(newSignCount);
-          (*sharedCb)(result);
+          // Atomic clone-check CAS (#142 PR review Low): the previous
+          // read-compare-then-async-update let two concurrent assertions
+          // with the SAME counter value both pass. Losing the CAS means a
+          // concurrent assertion of this credential won between our read
+          // and our write -- legitimate authenticators never race
+          // themselves, so treat it as clone/replay evidence and reject.
+          // (Both-zero counters skip the write entirely -- the legal
+          // no-counter case cannot CAS.)
+          if (stored == 0 && presented == 0)
+          {
+              WebAuthnAuthResult result;
+              result.userId = found->userId;
+              result.publicSub = found->publicSub;
+              result.signCount = 0;
+              result.credentialId = credentialIdB64;
+              (*sharedCb)(result);
+              return;
+          }
+          repo->updateSignCountIfCurrent(
+            credentialIdB64,
+            static_cast<int>(stored),
+            static_cast<int>(newSignCount),
+            [sharedCb, found, newSignCount, credentialIdB64](bool advanced) {
+                if (!advanced)
+                {
+                    (*sharedCb)(std::nullopt);
+                    return;
+                }
+                WebAuthnAuthResult result;
+                result.userId = found->userId;
+                result.publicSub = found->publicSub;
+                result.signCount = static_cast<int>(newSignCount);
+                result.credentialId = credentialIdB64;
+                (*sharedCb)(result);
+            });
       }
     );
 }

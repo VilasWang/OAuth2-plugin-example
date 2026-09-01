@@ -50,13 +50,15 @@ void respondError(
 }
 }  // namespace
 
-void SocialTokenIssuer::issueTokensForUser(
+void issueTokensForRegisteredClient(
   const ::drogon::HttpRequestPtr &req,
-  const CallbackPtr &callbackPtr,
+  const SocialTokenIssuer::CallbackPtr &callbackPtr,
   ::OAuth2Plugin *plugin,
   const std::string &provider,
   int64_t internalUserId,
-  const std::string &userPublicSub
+  const std::string &userPublicSub,
+  const std::string &clientId,
+  const std::string &scope
 )
 {
     if (!plugin)
@@ -86,8 +88,6 @@ void SocialTokenIssuer::issueTokensForUser(
                  .count();
     const long long accessTokenTtl = plugin->getAccessTokenTtl();
     const long long refreshTokenTtl = plugin->getRefreshTokenTtl();
-    const std::string clientId = socialTokenClientId();
-    const std::string scope = "openid profile email";
 
     // #69: store the HASH of the token (hash-based lookups in
     // validateAccessToken / introspection / refresh would miss raw values).
@@ -161,6 +161,60 @@ void SocialTokenIssuer::issueTokensForUser(
           (*callbackPtr)(::drogon::HttpResponse::newHttpJsonResponse(result));
       }
     );
+}
+
+void SocialTokenIssuer::issueTokensForUser(
+  const ::drogon::HttpRequestPtr &req,
+  const CallbackPtr &callbackPtr,
+  ::OAuth2Plugin *plugin,
+  const std::string &provider,
+  int64_t internalUserId,
+  const std::string &userPublicSub
+)
+{
+    if (!plugin)
+    {
+        respondError(req, callbackPtr, "INTERNAL_ERROR", provider + " login: OAuth2Plugin not available");
+        return;
+    }
+    if (userPublicSub.empty())
+    {
+        // Without a platform subject the token rows would be unresolvable by
+        // every authenticated handler — refuse rather than mint dead tokens.
+        respondError(
+          req, callbackPtr, "INTERNAL_ERROR", provider + " login: no public subject resolved"
+        );
+        return;
+    }
+
+    // #70 PR review Low: the configured first-party client must actually be
+    // a REGISTERED client -- a typo'd/unregistered social_token_client_id
+    // would otherwise mint tokens no introspection/refresh path can
+    // resolve, silently. (Whether a registered client is first-party stays
+    // an operator responsibility -- documented in social-login.md; there is
+    // no first-party flag in the data model.)
+    const std::string clientId = socialTokenClientId();
+    const std::string scope = "openid profile email";
+    plugin->getClient(
+      clientId,
+      [req, callbackPtr, plugin, provider, internalUserId, userPublicSub, clientId, scope](
+        std::optional<fulla::oauth2::model::OAuth2Client> clientRow) {
+          if (!clientRow)
+          {
+              LOG_ERROR << "SocialTokenIssuer: external_auth.social_token_client_id '"
+                        << clientId
+                        << "' is not a registered client -- refusing to issue social tokens";
+              respondError(
+                req,
+                callbackPtr,
+                "INTERNAL_ERROR",
+                provider + " login: social token client not registered"
+              );
+              return;
+          }
+          issueTokensForRegisteredClient(
+            req, callbackPtr, plugin, provider, internalUserId, userPublicSub, clientId, scope);
+      });
 }
 
 }  // namespace fulla::drogon::controllers
