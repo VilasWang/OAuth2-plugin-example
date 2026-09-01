@@ -28,7 +28,8 @@
 #include <fulla/identity/testing/WebAuthnTestBuilders.h>
 
 #include <chrono>
-#include <thread>#include <string>
+#include <thread>
+#include <string>
 
 using fulla::test::http::loginAsAdmin;
 using fulla::test::http::parseJsonBody;
@@ -80,11 +81,6 @@ std::string b64url(const std::string &raw)
         if (i + 2 < raw.size()) out.push_back(tbl[n & 63]);
     }
     return out;
-}
-
-std::string sha256Hex(const std::string &data)
-{
-    return "";  // unused placeholder (kept for symmetry)
 }
 
 // A real keypair + the credential material built from it.
