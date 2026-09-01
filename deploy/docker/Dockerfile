@@ -10,7 +10,12 @@ ARG NODE_VERSION=22-alpine
 # C/C++ libraries (Drogon, jsoncpp, libpq, hiredis, ...) come from Conan, not
 # apt — parity with scripts/backend/build.sh and CI (_build-test.yml). apt only
 # bootstraps the compiler toolchain plus the client tools used by backend-dev.
-FROM ubuntu:22.04 AS backend-base
+# GCC 13 toolchain: the 22.04 (GCC 11) linker hit lto1 ICE
+# (bytecode stream: expected tag LTO_function) linking fulla-identity-test
+# against the conan libcbor package — libcbor landed in v1.1.0 (#142).
+# 24.04 matches the CI linux leg and the WSL dev environment where the
+# same tree builds clean, so the image now tracks those.
+FROM ubuntu:24.04 AS backend-base
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     build-essential cmake git pkg-config python3-pip wget ca-certificates \
@@ -19,11 +24,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Conan 2.x resolves all C/C++ dependencies (drogon/1.9.13 per conanfile.py).
-# cmake also comes from pip: Ubuntu 22.04's apt cmake (3.22) cannot read the
-# Conan-generated CMakeUserPresets.json (schema version 4 needs CMake >= 3.23);
-# /usr/local/bin precedes /usr/bin so the pip cmake wins.
-RUN pip3 install --no-cache-dir "conan>=2,<3" "cmake>=3.23" && \
-    conan profile detect --force
+# cmake also comes from pip (>= 3.23 for the Conan-generated
+# CMakeUserPresets.json schema v4), independent of the base image's apt
+# cmake; /usr/local/bin precedes /usr/bin so the pip cmake wins.
+# --break-system-packages: PEP 668 marks the 24.04 system python as
+# externally managed; in a throwaway builder image installing into it is
+# the intended use (a venv + PATH dance would buy nothing here).
+RUN pip3 install --no-cache-dir --break-system-packages \
+    "conan>=2,<3" "cmake>=3.23" && conan profile detect --force
 
 # --- Stage 2: Backend Development (Target: backend-dev) ---
 FROM backend-base AS backend-dev
@@ -52,11 +60,11 @@ RUN --mount=type=cache,target=/root/.conan2 \
 
 # --- Stage 4: Backend Runtime (Target: backend-runtime) ---
 # Conan links all C/C++ dependencies statically: `ldd fulla-server` inside
-# the image resolves only libstdc++/libm/libgcc_s/libc, which the ubuntu:22.04
+# the image resolves only libstdc++/libm/libgcc_s/libc, which the ubuntu:24.04
 # base already ships. The former per-library apt list (libjsoncpp25, libpq5,
 # libhiredis0.14, ...) is gone; only TLS roots for outbound HTTPS (SMTP,
 # social login) and curl for container healthchecks remain.
-FROM ubuntu:22.04 AS backend-runtime
+FROM ubuntu:24.04 AS backend-runtime
 # Mirrors the builder stage's preset choice for the artifact path: an empty
 # FULLA_CMAKE_PRESET resolves to the Linux default (linux-release) inside
 # build.sh, so the fallback here must match; alternate presets (e.g.
