@@ -80,7 +80,7 @@ onMounted(async () => {
     <div class="text-center max-w-md">
       <div
         v-if="error"
-        class="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700"
+        class="rounded-lg bg-error-50 border border-error-200 p-4 text-sm text-error-700"
       >
         {{ error }}
       </div>
