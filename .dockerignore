@@ -34,3 +34,20 @@ __pycache__/
 
 # Drogon specific
 tmp_output/
+
+# Large directories that no stage ever COPYs -- excluded purely to shrink the
+# build context (on Windows the context upload is the slowest build phase).
+# Both frontend images run `npm ci`/`npm install` INSIDE the container and are
+# then overlaid by `COPY . .`, so a host-installed node_modules (Windows native
+# binaries) must never enter the context.
+# libs/ apps/ frontends/ tests/ examples/ scripts/ cmake/ deploy/ are all
+# REQUIRED by the backend/frontend builds and stay included.
+**/node_modules/
+frontends/*/dist/
+benchmarks/
+graphify-out/
+deliverables/
+docs/
+docs-local/
+website/
+clients/
