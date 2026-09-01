@@ -48,7 +48,7 @@ void WeChatAuthService::login(
     auto sharedCb = std::make_shared<std::function<void(WeChatLoginResult)>>(std::move(callback));
 
     // #70: after the profile fetch, resolve-or-create the local account
-    // behind the WeChat identity (when a repository has been injected —
+    // behind the WeChat identity (when a repository has been injected --
     // the assembly path always injects one; profile-only otherwise).
     auto accountRepo = accountRepo_;
     const bool autoCreate = autoCreate_;
