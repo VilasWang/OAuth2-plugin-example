@@ -5,6 +5,8 @@
 ![CI](https://github.com/voidvec/fulla/actions/workflows/ci.yml/badge.svg)
 ![Security](https://github.com/voidvec/fulla/actions/workflows/security.yml/badge.svg)
 [![Release](https://img.shields.io/github/v/release/voidvec/fulla)](https://github.com/voidvec/fulla/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/fulla-oauth2.svg)](https://pypi.org/project/fulla-oauth2/)
+[![Go Reference](https://pkg.go.dev/badge/github.com/voidvec/fulla/clients/go.svg)](https://pkg.go.dev/github.com/voidvec/fulla/clients/go)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-AGPL_v3-blue.svg)
@@ -12,7 +14,7 @@
 
 Fulla 是以 C++17 构建的**高性能开源身份与访问管理（IAM）核心**：生产级 OAuth2.0/OIDC 授权服务器（RFC 6749/7662/7009/8414），完整覆盖用户认证、MFA、WebAuthn、RBAC 与多租户——既可作为**开箱即用的产品**（Docker/Helm）部署，也可作为**可嵌入的 C++ SDK**（`find_package(fulla-*)`）集成。包含管理后台、用户前端与完整的测试体系。
 
-> **路线图 · 开源核心：** 开源核心是可选商业增强模块（企业集成与支持服务，规划中）的底座。运行一套完整 IAM 所需的一切，现在且永远以 MIT 许可开源。
+> **路线图 · 开源核心：** 开源核心是可选商业增强模块（企业集成与支持服务，规划中）的底座。运行一套完整 IAM 所需的一切，现在且永远以 AGPL-3.0 许可开源。
 
 ---
 

@@ -5,6 +5,8 @@
 ![CI](https://github.com/voidvec/fulla/actions/workflows/ci.yml/badge.svg)
 ![Security](https://github.com/voidvec/fulla/actions/workflows/security.yml/badge.svg)
 [![Release](https://img.shields.io/github/v/release/voidvec/fulla)](https://github.com/voidvec/fulla/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/fulla-oauth2.svg)](https://pypi.org/project/fulla-oauth2/)
+[![Go Reference](https://pkg.go.dev/badge/github.com/voidvec/fulla/clients/go.svg)](https://pkg.go.dev/github.com/voidvec/fulla/clients/go)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)
 ![Conan](https://img.shields.io/badge/Conan-2.x-6699CB.svg)
 ![License](https://img.shields.io/badge/license-AGPL_v3-blue.svg)
@@ -19,7 +21,7 @@ test suite.
 
 > **Roadmap — open core:** the open-source core is the base for optional commercial
 > enhancement modules (enterprise integration & support offerings, planned). Everything
-> needed to run a complete IAM is and stays open source under MIT.
+> needed to run a complete IAM is and stays open source under AGPL-3.0.
 
 ---
 
