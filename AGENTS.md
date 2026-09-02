@@ -45,6 +45,14 @@
 
 > 旧版 `TECH_SPECS.md` 曾把 `[this]` 列为全局禁令，与 controller 层实践冲突，已在本次精简中移除该条。
 
+## 跟踪类 issue 创建规范
+
+用 `gh`/API 创建跟踪类 issue（审计发现、评审遗留、技术债登记）时，**英文**填写并套用
+[`.github/ISSUE_TEMPLATE/tracking.md`](.github/ISSUE_TEMPLATE/tracking.md) 的骨架
+（Problem / Evidence / Suggested fix / Acceptance criteria / Out of scope）——
+issue forms 只在网页新建流程生效，CLI 会绕过，故以此模板对齐结构。
+面向用户的 bug/feature 仍走网页表单模板，不要用 tracking 骨架。
+
 ## 各 AI 工具目录的角色
 
 本仓库的规则与工作流资产以 `.claude/` 为**唯一权威源**（git 跟踪）：
