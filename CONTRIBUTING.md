@@ -92,6 +92,9 @@ Rules:
   welcome, e.g. `feat(auth): ...`). Release notes are generated from them.
 - Branch names: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`.
 - Target branch is `master`; every PR must pass all CI checks before merge.
+- `CHANGELOG.md` entries are written in **English only** — the changelog
+  feeds the GitHub release notes verbatim (curated breaking-change entries
+  are spliced into them), so it must stay single-language.
 
 ### Documentation changes are bilingual (same-PR dual write)
 
