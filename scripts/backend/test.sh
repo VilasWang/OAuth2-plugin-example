@@ -43,7 +43,12 @@ cd "$PRESET_DIR"
 # Run 1: Standard config.json
 echo ""
 echo "[1/2] Running tests with standard $CONFIG_FILE..."
-ctest --build-config "$BUILD_TYPE" $VERBOSE
+# The JUnit report feeds the full-test endpoint dedup (#119): full-test.sh
+# skips its manual endpoint re-run when EndpointTests_OutOfProcess is proven
+# green in this run. Absolute path -- relative --output-junit paths resolve
+# against --test-dir/cwd and both ctest invocations below share one.
+ctest --build-config "$BUILD_TYPE" $VERBOSE \
+    --output-junit "$PRESET_DIR/Testing/junit-config-standard.xml"
 echo "[PASS] Standard config tests successful."
 
 # Run 2: config.ci.json
@@ -80,7 +85,8 @@ if [ -d "$TEST_WORK_DIR" ]; then
     cp "$CI_CONFIG" "$TEST_WORK_DIR/$CONFIG_FILE"
 
     CI_EXIT=0
-    ctest --build-config "$BUILD_TYPE" $VERBOSE || CI_EXIT=$?
+    ctest --build-config "$BUILD_TYPE" $VERBOSE \
+        --output-junit "$PRESET_DIR/Testing/junit-config-ci.xml" || CI_EXIT=$?
 
     # Restore original config
     mv "$TEST_WORK_DIR/$CONFIG_FILE.bak" "$TEST_WORK_DIR/$CONFIG_FILE"

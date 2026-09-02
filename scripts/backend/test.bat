@@ -59,7 +59,10 @@ cd /d "%PRESET_DIR%"
 REM --- Run 1: Standard config.json ---
 echo.
 echo [1/2] Running tests with standard %CONFIG_FILE%...
-ctest -C %BUILD_TYPE% %VERBOSE%
+REM The JUnit report feeds the full_test endpoint dedup (#119): full_test.bat
+REM skips its manual endpoint re-run when EndpointTests_OutOfProcess is proven
+REM green in this run.
+ctest -C %BUILD_TYPE% %VERBOSE% --output-junit "%PRESET_DIR%\Testing\junit-config-standard.xml"
 if !errorlevel! neq 0 (
     echo [FAIL] Tests failed with standard %CONFIG_FILE%
     exit /b 1
@@ -86,7 +89,7 @@ set "CI_CFG_SRC=!CI_CFG_SRC:/=\!"
 copy /Y "%TEST_CONFIG%" "%TEST_CONFIG%.bak" >nul
 copy /Y "!CI_CFG_SRC!" "%TEST_CONFIG%" >nul
 
-ctest -C %BUILD_TYPE% %VERBOSE%
+ctest -C %BUILD_TYPE% %VERBOSE% --output-junit "%PRESET_DIR%\Testing\junit-config-ci.xml"
 set "CI_EXIT=!errorlevel!"
 
 REM Restore original config immediately

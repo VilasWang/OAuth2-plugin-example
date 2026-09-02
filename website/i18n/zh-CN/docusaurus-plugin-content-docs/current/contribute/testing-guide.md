@@ -137,6 +137,32 @@ cd build\windows-msvc\tests\Release
 .\manage.ps1 test-oauth2-endpoints
 ```
 
+### full-test 流水线的三层执行关系（以及去重了什么）
+
+`manage full-test`（由 `scripts/backend/full_test.bat` / `full-test.sh` /
+`full-test-docker.sh` 驱动）叠加了三层。理解它们的重叠关系，才能判断一次
+全量到底实际执行了什么：
+
+1. **ctest 层** —— `EndpointTests_OutOfProcess`（label `Endpoint`）是一条
+   普通 ctest 条目：它自己起服、对它跑 59 条 OAuth2 + 52 条管理端点脚本、
+   然后停服（见 `tests/CMakeLists.txt`）。当其运行环境（服务二进制 /
+   shell）不可用时，以 `SKIP_RETURN_CODE=77` 报告跳过。
+2. **双配置层** —— `test.bat` / `test.sh` 会把**整套** ctest 套件跑
+   **两遍**：一遍标准 `config.json`（PostgreSQL），一遍 `config.ci.json`
+   （memory 存储）。这层重复是有意设计 —— 两种存储后端通过同一套件是
+   发布信心的来源。
+3. **手动端点层** —— 流水线自己的“起服 → 跑端点脚本 → 停服”步骤。由于
+   第 1 层已经在同样的标准配置下跑过同一套脚本，当本次 ctest 运行的
+   JUnit 报告（`build/<preset>/Testing/junit-config-standard.xml`，由
+   `test.bat`/`test.sh` 写出）证明 `EndpointTests_OutOfProcess` 本次实际
+   跑绿时，这一层会自动跳过（#119）。任何不确定情形 —— 报告缺失、条目
+   缺失、被跳过、无法解析 —— 手动层照旧执行，因此 ctest 条目退出（77）
+   的环境仍保有端点覆盖路径。
+
+同理适用于逐条注册的 `Contract.*` ctest 条目：每一条也会随 `OAuth2Tests`
+二进制整体执行而跑到。它们单独注册成 ctest 条目只是为了提供标签化入口
+（`ctest -L Contract`）；在上述意义上不会构成对同一用例的第二遍执行。
+
 ---
 
 ## 4. 测试输出示例
