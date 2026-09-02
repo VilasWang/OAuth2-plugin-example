@@ -133,11 +133,11 @@ test.describe('User Management', () => {
     await page.locator('button:has-text("Assign Roles")').first().click()
     await page.fill('input[placeholder="admin, user"]', 'superadmin')
     await page.click('button:has-text("Save Roles")')
-    // VALIDATION_RESOURCE_NOT_FOUND is mapped to "资源不存在"; the raw backend
-    // message is intentionally NOT surfaced.
+    // VALIDATION_RESOURCE_NOT_FOUND is mapped to "Resource not found"; the
+    // raw backend message is intentionally NOT surfaced.
     const errorEl = page.locator('.bg-error-50')
     await expect(errorEl.first()).toBeVisible()
-    await expect(errorEl.first()).toContainText('资源不存在')
+    await expect(errorEl.first()).toContainText('Resource not found')
     await expect(errorEl.first()).not.toContainText('Role does not exist')
   })
 

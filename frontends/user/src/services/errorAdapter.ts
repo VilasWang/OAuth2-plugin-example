@@ -17,14 +17,16 @@
  *      `httpStatus = 0`.
  *
  * The resolved code is mapped to a localized, user-readable message via the
- * Error_Message_Catalog_FE (`getErrorMessage`). Default locale is `zh-CN`.
+ * Error_Message_Catalog_FE (`getErrorMessage`). When no explicit locale is
+ * passed, the active UI locale (`services/locale.ts`) is used; the fallback
+ * table is English (ADR-0013).
  */
 import {
   getErrorMessage,
   NETWORK_CODE,
   UNKNOWN_CODE,
-  DEFAULT_LOCALE,
 } from './messages'
+import { getCurrentLocale } from './locale'
 
 /** Backend Error_Code for rate limiting (maps to the localized throttling message). */
 const RATE_LIMITED_CODE = 'VALIDATION_RATE_LIMITED'
@@ -93,8 +95,9 @@ export function normalizeError(err: unknown, locale?: string): NormalizedError {
     return err
   }
 
-  // Resolve locale defensively; an invalid/missing locale falls back to zh-CN.
-  const loc = isNonEmptyString(locale) ? locale : DEFAULT_LOCALE
+  // Resolve locale defensively; an invalid/missing locale follows the active
+  // UI locale (services/locale.ts), never a hardcoded one.
+  const loc = isNonEmptyString(locale) ? locale : getCurrentLocale()
 
   const errObj = isObject(err) ? err : undefined
   const response = errObj?.['response']
@@ -117,7 +120,7 @@ export function normalizeError(err: unknown, locale?: string): NormalizedError {
 
   // F-018: the token endpoint emits RFC 6749 `{"error":"invalid_request"}`
   // with HTTP 429 when the (ip, client_id) failure bucket overflows. The
-  // generic "请求参数缺失或无效" message for `invalid_request` is misleading
+  // generic "Missing or invalid request parameters" message for `invalid_request` is misleading
   // for a rate-limit response, so remap to the dedicated throttling message.
   // Only applies when the body's error code IS `invalid_request` — a 429
   // carrying a different code (e.g. `access_denied`) keeps that code.
@@ -192,7 +195,7 @@ export function normalizeError(err: unknown, locale?: string): NormalizedError {
 
 /**
  * Reserved Error_Code used to convey an expired/invalid session
- * (401 with a failed token refresh). Maps to the localized "登录已过期"
+ * (401 with a failed token refresh). Maps to the localized "Your session has expired"
  * message in the Error_Message_Catalog_FE.
  */
 export const SESSION_EXPIRED_CODE = 'AUTH_TOKEN_EXPIRED'
@@ -204,7 +207,7 @@ export const SESSION_EXPIRED_CODE = 'AUTH_TOKEN_EXPIRED'
  * (Requirement 10.4). Never throws.
  */
 export function sessionExpiredError(locale?: string): NormalizedError {
-  const loc = isNonEmptyString(locale) ? locale : DEFAULT_LOCALE
+  const loc = isNonEmptyString(locale) ? locale : getCurrentLocale()
   return brand({
     code: SESSION_EXPIRED_CODE,
     message: getErrorMessage(SESSION_EXPIRED_CODE, loc),

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+
+const { t } = useI18n()
 
 const scopes = ref<any[]>([])
 const loading = ref(true)
@@ -43,7 +46,7 @@ async function createScope() {
   saving.value = true
   try {
     await axios.post('/api/admin/scopes', newScope.value, { headers: { 'Content-Type': 'application/json' } })
-    showSuccess(`Scope "${newScope.value.name}" created`)
+    showSuccess(t('admin.scopes.created', { name: newScope.value.name }))
     showCreateModal.value = false
     newScope.value = { name: '', description: '', mapped_role: '', is_default: false, requires_admin_role: false }
     await fetchScopes()
@@ -70,7 +73,7 @@ async function updateScope() {
   saving.value = true
   try {
     await axios.put(`/api/admin/scopes/${selectedScope.value.id}`, editScope.value, { headers: { 'Content-Type': 'application/json' } })
-    showSuccess('Scope updated')
+    showSuccess(t('admin.scopes.updated'))
     showEditModal.value = false
     await fetchScopes()
   } catch (e: unknown) {
@@ -81,10 +84,10 @@ async function updateScope() {
 }
 
 async function deleteScope(scope: any) {
-  if (!confirm(`Delete scope "${scope.name}"? This cannot be undone.`)) return
+  if (!confirm(t('admin.scopes.deleteConfirm', { name: scope.name }))) return
   try {
     await axios.delete(`/api/admin/scopes/${scope.id}`)
-    showSuccess(`Scope "${scope.name}" deleted`)
+    showSuccess(t('admin.scopes.deleted', { name: scope.name }))
     await fetchScopes()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -107,13 +110,13 @@ onMounted(fetchScopes)
   <div>
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-neutral-900">
-        Scopes
+        {{ $t('admin.scopes.title') }}
       </h2>
       <button
         class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700"
         @click="showCreateModal = true"
       >
-        + Create Scope
+        {{ $t('admin.scopes.create') }}
       </button>
     </div>
 
@@ -134,7 +137,7 @@ onMounted(fetchScopes)
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <div
@@ -145,19 +148,19 @@ onMounted(fetchScopes)
         <thead class="bg-neutral-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Name
+              {{ $t('common.name') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Description
+              {{ $t('common.description') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Mapped Role
+              {{ $t('admin.scopes.mappedRole') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Flags
+              {{ $t('admin.scopes.flags') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Actions
+              {{ $t('common.actions') }}
             </th>
           </tr>
         </thead>
@@ -173,7 +176,7 @@ onMounted(fetchScopes)
                 <span
                   v-if="BUILTIN_SCOPES.includes(scope.name)"
                   class="px-1.5 py-0.5 text-xs bg-neutral-100 text-neutral-500 rounded"
-                >built-in</span>
+                >{{ $t('common.builtin') }}</span>
               </div>
             </td>
             <td class="px-6 py-3 text-sm text-neutral-500">
@@ -187,11 +190,11 @@ onMounted(fetchScopes)
                 <span
                   v-if="scope.is_default"
                   class="px-1.5 py-0.5 text-xs bg-brand-100 text-brand-700 rounded"
-                >default</span>
+                >{{ $t('admin.scopes.defaultBadge') }}</span>
                 <span
                   v-if="scope.requires_admin_role"
                   class="px-1.5 py-0.5 text-xs bg-warning-100 text-warning-700 rounded"
-                >admin only</span>
+                >{{ $t('admin.scopes.adminOnlyBadge') }}</span>
               </div>
             </td>
             <td class="px-6 py-3 text-sm space-x-3">
@@ -199,14 +202,14 @@ onMounted(fetchScopes)
                 class="text-brand-600 hover:text-brand-900 transition-colors"
                 @click="openEditModal(scope)"
               >
-                Edit
+                {{ $t('common.edit') }}
               </button>
               <button
                 v-if="!BUILTIN_SCOPES.includes(scope.name)"
                 class="text-error-600 hover:text-error-700 transition-colors"
                 @click="deleteScope(scope)"
               >
-                Delete
+                {{ $t('common.delete') }}
               </button>
             </td>
           </tr>
@@ -215,7 +218,7 @@ onMounted(fetchScopes)
               colspan="5"
               class="px-6 py-12 text-center text-neutral-500"
             >
-              No scopes found
+              {{ $t('admin.scopes.noneFound') }}
             </td>
           </tr>
         </tbody>
@@ -229,31 +232,31 @@ onMounted(fetchScopes)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
-          Create Scope
+          {{ $t('admin.scopes.createTitle') }}
         </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Name <span class="text-error-500">*</span></label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.name') }} <span class="text-error-500">*</span></label>
             <input
               v-model="newScope.name"
               class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm font-mono"
-              placeholder="e.g. reports:read"
+              :placeholder="$t('admin.scopes.namePlaceholder')"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.description') }}</label>
             <input
               v-model="newScope.description"
               class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
-              placeholder="What this scope grants access to"
+              :placeholder="$t('admin.scopes.descriptionPlaceholder')"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Mapped Role</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.scopes.mappedRole') }}</label>
             <input
               v-model="newScope.mapped_role"
               class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
-              placeholder="e.g. user"
+              :placeholder="$t('admin.scopes.mappedRolePlaceholder')"
             >
           </div>
           <div class="flex gap-6">
@@ -263,7 +266,7 @@ onMounted(fetchScopes)
                 type="checkbox"
                 class="h-4 w-4 rounded border-neutral-300 text-brand-600"
               >
-              <span class="text-sm text-neutral-700">Default scope</span>
+              <span class="text-sm text-neutral-700">{{ $t('admin.scopes.defaultScope') }}</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input
@@ -271,7 +274,7 @@ onMounted(fetchScopes)
                 type="checkbox"
                 class="h-4 w-4 rounded border-neutral-300 text-brand-600"
               >
-              <span class="text-sm text-neutral-700">Requires admin role</span>
+              <span class="text-sm text-neutral-700">{{ $t('common.requiresAdminRole') }}</span>
             </label>
           </div>
         </div>
@@ -280,14 +283,14 @@ onMounted(fetchScopes)
             class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showCreateModal = false"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             :disabled="saving || !newScope.name.trim()"
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="createScope"
           >
-            {{ saving ? 'Creating...' : 'Create' }}
+            {{ saving ? $t('common.creating') : $t('common.create') }}
           </button>
         </div>
       </div>
@@ -300,18 +303,18 @@ onMounted(fetchScopes)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
-          Edit Scope: <code class="font-mono text-brand-600">{{ selectedScope?.name }}</code>
+          {{ $t('admin.scopes.editTitle') }} <code class="font-mono text-brand-600">{{ selectedScope?.name }}</code>
         </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.description') }}</label>
             <input
               v-model="editScope.description"
               class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Mapped Role</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.scopes.mappedRole') }}</label>
             <input
               v-model="editScope.mapped_role"
               class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
@@ -324,7 +327,7 @@ onMounted(fetchScopes)
                 type="checkbox"
                 class="h-4 w-4 rounded border-neutral-300 text-brand-600"
               >
-              <span class="text-sm text-neutral-700">Default scope</span>
+              <span class="text-sm text-neutral-700">{{ $t('admin.scopes.defaultScope') }}</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
               <input
@@ -332,7 +335,7 @@ onMounted(fetchScopes)
                 type="checkbox"
                 class="h-4 w-4 rounded border-neutral-300 text-brand-600"
               >
-              <span class="text-sm text-neutral-700">Requires admin role</span>
+              <span class="text-sm text-neutral-700">{{ $t('common.requiresAdminRole') }}</span>
             </label>
           </div>
         </div>
@@ -341,14 +344,14 @@ onMounted(fetchScopes)
             class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showEditModal = false"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             :disabled="saving"
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="updateScope"
           >
-            {{ saving ? 'Saving...' : 'Save' }}
+            {{ saving ? $t('common.saving') : $t('common.save') }}
           </button>
         </div>
       </div>

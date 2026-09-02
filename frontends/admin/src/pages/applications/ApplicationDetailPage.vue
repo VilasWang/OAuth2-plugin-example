@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 import DData from '../../components/ui/DData.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const clientId = computed(() => route.params.id as string)
 
@@ -30,12 +32,21 @@ const clientScopes = ref<string[]>([])
 const showSecretModal = ref(false)
 const newClientSecret = ref('')
 
-const AVAILABLE_GRANT_TYPES = [
-  { value: 'authorization_code', label: 'Authorization Code', description: '标准授权码流程（推荐）' },
-  { value: 'refresh_token', label: 'Refresh Token', description: '允许刷新访问令牌' },
-  { value: 'client_credentials', label: 'Client Credentials', description: '服务间通信（M2M）' },
-  { value: 'urn:ietf:params:oauth:grant-type:device_code', label: 'Device Code', description: '无浏览器设备授权' },
-]
+// Grant-type checkboxes: labels/descriptions follow the active locale.
+const AVAILABLE_GRANT_TYPES = computed(() => [
+  { value: 'authorization_code', label: t('admin.applications.grantTypeOptions.authorizationCode.label'), description: t('admin.applications.grantTypeOptions.authorizationCode.description') },
+  { value: 'refresh_token', label: t('admin.applications.grantTypeOptions.refreshToken.label'), description: t('admin.applications.grantTypeOptions.refreshToken.description') },
+  { value: 'client_credentials', label: t('admin.applications.grantTypeOptions.clientCredentials.label'), description: t('admin.applications.grantTypeOptions.clientCredentials.description') },
+  { value: 'urn:ietf:params:oauth:grant-type:device_code', label: t('admin.applications.grantTypeOptions.deviceCode.label'), description: t('admin.applications.grantTypeOptions.deviceCode.description') },
+])
+
+// Tab strip (labels follow the active locale).
+const TABS = computed(() => [
+  { key: 'info' as const, label: t('admin.applications.tabs.info') },
+  { key: 'auth' as const, label: t('admin.applications.tabs.auth') },
+  { key: 'scopes' as const, label: t('admin.applications.tabs.scopes') },
+  { key: 'credentials' as const, label: t('admin.applications.tabs.credentials') },
+])
 
 function showSuccess(msg: string) {
   successMessage.value = msg
@@ -85,7 +96,7 @@ async function saveChanges() {
       // RFC 7591 §2.2: client_name is required; the backend now rejects
       // empty names with 400. Validate client-side for better UX.
       if (!editName.value.trim()) {
-        showError('应用名称不能为空')
+        showError(t('admin.applications.nameRequired'))
         saving.value = false
         return
       }
@@ -104,7 +115,7 @@ async function saveChanges() {
     }
 
     if (Object.keys(body).length === 0) {
-      showSuccess('No changes to save')
+      showSuccess(t('admin.applications.noChangesToSave'))
       saving.value = false
       return
     }
@@ -112,7 +123,7 @@ async function saveChanges() {
     await axios.put(`/api/admin/clients/${clientId.value}`, body, {
       headers: { 'Content-Type': 'application/json' },
     })
-    showSuccess('Changes saved successfully')
+    showSuccess(t('admin.applications.changesSaved'))
     await fetchClient()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -130,7 +141,7 @@ async function saveScopes() {
       headers: { 'Content-Type': 'application/json' },
     })
     clientScopes.value = resp.data.scopes || clientScopes.value
-    showSuccess('Scopes updated successfully')
+    showSuccess(t('admin.applications.scopesUpdated'))
   } catch (e: unknown) {
     showError(normalizeError(e).message)
   } finally {
@@ -139,7 +150,7 @@ async function saveScopes() {
 }
 
 async function resetSecret() {
-  if (!confirm(`Reset secret for "${clientId.value}"? The old secret will be immediately invalidated.`)) return
+  if (!confirm(t('admin.applications.resetSecretConfirm', { name: clientId.value }))) return
   try {
     const resp = await axios.post(`/api/admin/clients/${clientId.value}/reset-secret`)
     newClientSecret.value = resp.data.client_secret || ''
@@ -151,7 +162,7 @@ async function resetSecret() {
 
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text)
-  showSuccess('Copied to clipboard')
+  showSuccess(t('admin.applications.copiedToClipboard'))
 }
 
 onMounted(() => {
@@ -169,7 +180,7 @@ onMounted(() => {
           :to="{ name: 'applications' }"
           class="text-neutral-500 hover:text-neutral-700 text-sm"
         >
-          ← Back to Applications
+          {{ $t('admin.applications.backToList') }}
         </router-link>
       </div>
       <button
@@ -178,7 +189,7 @@ onMounted(() => {
         class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm font-medium disabled:opacity-50"
         @click="saveChanges"
       >
-        {{ saving ? 'Saving...' : 'Save Changes' }}
+        {{ saving ? $t('common.saving') : $t('common.saveChanges') }}
       </button>
     </div>
 
@@ -201,7 +212,7 @@ onMounted(() => {
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <!-- Content -->
@@ -215,12 +226,7 @@ onMounted(() => {
       <div class="border-b border-neutral-200 mb-6">
         <nav class="-mb-px flex space-x-8">
           <button
-            v-for="tab in [
-              { key: 'info', label: 'Info' },
-              { key: 'auth', label: 'Auth Config' },
-              { key: 'scopes', label: 'Scopes' },
-              { key: 'credentials', label: 'Credentials' },
-            ]"
+            v-for="tab in TABS"
             :key="tab.key"
             :class="[
               'py-3 px-1 border-b-2 text-sm font-medium transition-colors',
@@ -228,7 +234,7 @@ onMounted(() => {
                 ? 'border-brand-500 text-brand-600'
                 : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             ]"
-            @click="activeTab = tab.key as any"
+            @click="activeTab = tab.key"
           >
             {{ tab.label }}
           </button>
@@ -241,7 +247,7 @@ onMounted(() => {
         class="bg-surface shadow rounded-lg p-6 space-y-5"
       >
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Client ID</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.applications.clientId') }}</label>
           <div class="flex items-center gap-2">
             <DData
               :value="client.client_id"
@@ -253,20 +259,20 @@ onMounted(() => {
               class="px-3 py-2 text-sm text-brand-600 hover:bg-brand-50 rounded-md transition-colors"
               @click="copyToClipboard(client.client_id)"
             >
-              Copy
+              {{ $t('common.copy') }}
             </button>
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Name</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.applications.nameLabel') }}</label>
           <input
             v-model="editName"
             class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm focus:ring-brand-500 focus:border-brand-500"
-            placeholder="Application name"
+            :placeholder="$t('admin.applications.applicationNamePlaceholder')"
           >
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Type</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.type') }}</label>
           <span
             class="px-3 py-1 text-sm rounded-full"
             :class="client.client_type === 'PUBLIC' ? 'bg-brand-100 text-brand-800' : 'bg-info-100 text-info-700'"
@@ -282,18 +288,22 @@ onMounted(() => {
         class="bg-surface shadow rounded-lg p-6 space-y-5"
       >
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Token Endpoint Auth Method</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.applications.authMethodLabel') }}</label>
           <div>
-            <DData :value="client.token_endpoint_auth_method || '(not set)'" />
+            <DData :value="client.token_endpoint_auth_method || $t('admin.applications.notSet')" />
           </div>
           <p class="text-xs text-neutral-500 mt-1">
-            How this client authenticates at the token endpoint. PUBLIC clients use <code>none</code>;
-            CONFIDENTIAL clients use <code>client_secret_basic</code> or <code>client_secret_post</code>.
-            Set automatically based on client type.
+            {{
+              $t('admin.applications.authMethodHint', {
+                none: 'none',
+                basic: 'client_secret_basic',
+                post: 'client_secret_post',
+              })
+            }}
           </p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Redirect URIs (one per line)</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.applications.redirectUrisLines') }}</label>
           <textarea
             v-model="editRedirectUris"
             rows="4"
@@ -302,7 +312,7 @@ onMounted(() => {
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-2">Allowed Grant Types</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-2">{{ $t('admin.applications.allowedGrantTypes') }}</label>
           <div class="space-y-2">
             <label
               v-for="gt in AVAILABLE_GRANT_TYPES"
@@ -323,15 +333,14 @@ onMounted(() => {
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Backchannel Logout URI</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.applications.backchannelLabelEdit') }}</label>
           <input
             v-model="editBackchannelLogoutUri"
             class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm font-mono focus:ring-brand-500 focus:border-brand-500"
             placeholder="https://rp.example.com/backchannel-logout"
           >
           <p class="text-xs text-neutral-500 mt-1">
-            OIDC Back-Channel Logout 1.0. When set (https), the OP POSTs a signed
-            logout_token here on user logout. Leave empty to disable.
+            {{ $t('admin.applications.backchannelHintEdit') }}
           </p>
         </div>
       </div>
@@ -345,13 +354,13 @@ onMounted(() => {
           v-if="editGrantTypes.includes('client_credentials')"
           class="mb-4 p-3 bg-brand-50 border border-brand-200 text-brand-700 rounded-md text-sm"
         >
-          这些 Scope 决定了该应用通过 Client Credentials 模式获取的 Token 权限范围
+          {{ $t('admin.applications.clientCredentialsScopeNote') }}
         </div>
         <div
           v-if="allScopes.length === 0"
           class="text-neutral-500 text-sm"
         >
-          No scopes available in the system.
+          {{ $t('admin.applications.noScopesAvailable') }}
         </div>
         <div
           v-else
@@ -377,7 +386,7 @@ onMounted(() => {
               <p
                 v-if="scope.requires_admin_role"
                 class="text-xs text-warning-600"
-              >Requires admin role</p>
+              >{{ $t('common.requiresAdminRole') }}</p>
             </div>
           </label>
         </div>
@@ -387,7 +396,7 @@ onMounted(() => {
             class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm font-medium disabled:opacity-50"
             @click="saveScopes"
           >
-            {{ savingScopes ? 'Saving...' : 'Save Scopes' }}
+            {{ savingScopes ? $t('common.saving') : $t('admin.applications.saveScopes') }}
           </button>
         </div>
       </div>
@@ -399,21 +408,21 @@ onMounted(() => {
       >
         <div v-if="client.client_type === 'CONFIDENTIAL'">
           <h3 class="text-sm font-medium text-neutral-700 mb-2">
-            Client Secret
+            {{ $t('admin.applications.secretTitle') }}
           </h3>
           <p class="text-sm text-neutral-500 mb-4">
-            The client secret is stored securely and cannot be viewed. You can reset it to generate a new one.
+            {{ $t('admin.applications.secretStoredHint') }}
           </p>
           <button
             class="px-4 py-2 bg-error-600 text-white rounded-md hover:bg-error-700 text-sm font-medium"
             @click="resetSecret"
           >
-            Reset Client Secret
+            {{ $t('admin.applications.resetClientSecret') }}
           </button>
         </div>
         <div v-else>
           <p class="text-sm text-neutral-500">
-            Public clients do not have a client secret.
+            {{ $t('admin.applications.noClientSecret') }}
           </p>
         </div>
       </div>
@@ -426,10 +435,10 @@ onMounted(() => {
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-2">
-          New Client Secret
+          {{ $t('admin.applications.newSecretTitle') }}
         </h3>
         <p class="text-sm text-error-600 mb-4">
-          Copy this secret now. It will not be shown again.
+          {{ $t('admin.applications.secretWarning') }}
         </p>
         <div class="bg-neutral-100 p-3 rounded-md font-mono text-sm break-all select-all">
           {{ newClientSecret }}
@@ -439,13 +448,13 @@ onMounted(() => {
             class="px-4 py-2 border border-neutral-300 rounded-md text-sm hover:bg-neutral-50"
             @click="copyToClipboard(newClientSecret)"
           >
-            Copy
+            {{ $t('common.copy') }}
           </button>
           <button
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700"
             @click="showSecretModal = false; newClientSecret = ''"
           >
-            Done
+            {{ $t('common.done') }}
           </button>
         </div>
       </div>

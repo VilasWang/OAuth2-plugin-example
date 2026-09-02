@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import http from '../../services/http'
 import { userService } from '../../services/userService'
 import { normalizeError } from '../../services/errorAdapter'
@@ -11,6 +12,7 @@ import AppCard from '../../components/ui/AppCard.vue'
 import AppModal from '../../components/ui/AppModal.vue'
 import DData from '../../components/ui/DData.vue'
 
+const { t } = useI18n()
 const loading = ref(true)
 const profile = ref<any>(null)
 const success = ref('')
@@ -75,11 +77,11 @@ async function unlinkSocial(provider: string) {
   const label = providerLabels[provider] || provider
   // W4: after unlinking, sign-in with this identity fails until it is
   // linked to an account again -- say so up front, not after the fact.
-  if (!window.confirm(`Unlink your ${label} account? You will not be able to sign in with ${label} until it is linked to an account again.`)) return
+  if (!window.confirm(t('account.security.social.unlinkConfirm', { provider: label }))) return
   unlinkingProvider.value = provider
   try {
     await userService.unlinkSocialAccount(provider)
-    showSuccess(`${label} account unlinked`)
+    showSuccess(t('account.security.social.unlinked', { provider: label }))
     await fetchSocialLinks()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -101,12 +103,12 @@ function showSuccess(msg: string) { success.value = msg; error.value = ''; setTi
 function showError(msg: string) { error.value = msg; success.value = '' }
 
 async function changePassword() {
-  if (newPassword.value !== confirmNewPassword.value) { showError('Passwords do not match'); return }
-  if (newPassword.value.length < 8) { showError('Password must be at least 8 characters'); return }
+  if (newPassword.value !== confirmNewPassword.value) { showError(t('common.passwordsDoNotMatch')); return }
+  if (newPassword.value.length < 8) { showError(t('common.passwordMinLength')); return }
   changingPassword.value = true
   try {
     await http.put('/api/me/password', { old_password: oldPassword.value, new_password: newPassword.value }, { headers: { 'Content-Type': 'application/json' } })
-    showSuccess('Password changed successfully')
+    showSuccess(t('account.security.passwordChanged'))
     oldPassword.value = ''; newPassword.value = ''; confirmNewPassword.value = ''
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -139,7 +141,7 @@ async function verifyMfaSetup() {
       backupCodes.value = codes
       showBackupCodes.value = true
     } else {
-      showSuccess('MFA enabled successfully!')
+      showSuccess(t('account.security.mfa.enabledSuccess'))
     }
     await fetchProfile()
   } catch (e: unknown) {
@@ -150,7 +152,7 @@ async function verifyMfaSetup() {
 function dismissBackupCodes() {
   showBackupCodes.value = false
   backupCodes.value = []
-  showSuccess('MFA enabled successfully!')
+  showSuccess(t('account.security.mfa.enabledSuccess'))
 }
 
 async function copyBackupCodes() {
@@ -173,11 +175,11 @@ function downloadBackupCodes() {
 }
 
 async function disableMfa() {
-  if (!disablePassword.value) { showError('Password required to disable MFA'); return }
+  if (!disablePassword.value) { showError(t('account.security.mfa.passwordRequired')); return }
   disablingMfa.value = true
   try {
     await http.post('/api/me/mfa/disable', new URLSearchParams({ password: disablePassword.value }))
-    showSuccess('MFA disabled')
+    showSuccess(t('account.security.mfa.disabled'))
     disablePassword.value = ''
     await fetchProfile()
   } catch (e: unknown) {
@@ -236,7 +238,7 @@ async function registerPasskey() {
       }
     }) as PublicKeyCredential
 
-    if (!credential) { showError('Passkey registration cancelled'); return }
+    if (!credential) { showError(t('account.security.passkeys.cancelled')); return }
 
     // Step 3: Send the credential to the server in ITS contract shape
     // (#142): the browser attestation envelope {id, rawId, response:
@@ -244,7 +246,7 @@ async function registerPasskey() {
     // attestation itself; a client-side public_key field would be trusted
     // material and is no longer part of the contract.
     const attestationResponse = credential.response as AuthenticatorAttestationResponse
-    const label = passkeyName.value.trim() || `Passkey ${new Date().toISOString().slice(0, 10)}`
+    const label = passkeyName.value.trim() || t('account.security.passkeys.defaultName', { date: new Date().toISOString().slice(0, 10) })
     await http.post('/api/me/webauthn/register/finish', {
       id: base64UrlEncode(new Uint8Array(credential.rawId)),
       rawId: base64UrlEncode(new Uint8Array(credential.rawId)),
@@ -256,11 +258,11 @@ async function registerPasskey() {
     }, { headers: { 'Content-Type': 'application/json' } })
 
     passkeyName.value = ''
-    showSuccess('Passkey registered successfully!')
+    showSuccess(t('account.security.passkeys.success'))
     await fetchWebauthnCredentials()
   } catch (e: any) {
     if (e.name === 'NotAllowedError') {
-      showError('Passkey registration was cancelled or timed out')
+      showError(t('account.security.passkeys.timedOut'))
     } else {
       showError(normalizeError(e).message)
     }
@@ -271,7 +273,7 @@ const webauthnSupported = typeof window !== 'undefined' && !!window.PublicKeyCre
 
 async function deleteAccount() {
   if (deleteConfirmUsername.value !== profile.value?.username) {
-    showError('Username does not match. Please type your username to confirm.')
+    showError(t('account.security.danger.usernameMismatch'))
     return
   }
   deletingAccount.value = true
@@ -291,7 +293,7 @@ onMounted(fetchProfile)
 <template>
   <div>
     <h1 class="text-2xl font-bold text-neutral-900 mb-6">
-      Security Settings
+      {{ $t('account.security.title') }}
     </h1>
 
     <AppAlert
@@ -313,7 +315,7 @@ onMounted(fetchProfile)
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <div
@@ -323,14 +325,14 @@ onMounted(fetchProfile)
       <!-- Change Password -->
       <AppCard>
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
-          Change Password
+          {{ $t('account.security.changePassword') }}
         </h2>
         <form
           class="space-y-4 max-w-md"
           @submit.prevent="changePassword"
         >
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Current Password</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('account.security.currentPassword') }}</label>
             <input
               v-model="oldPassword"
               type="password"
@@ -340,7 +342,7 @@ onMounted(fetchProfile)
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">New Password</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.newPassword') }}</label>
             <input
               v-model="newPassword"
               type="password"
@@ -350,7 +352,7 @@ onMounted(fetchProfile)
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Confirm New Password</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.confirmNewPassword') }}</label>
             <input
               v-model="confirmNewPassword"
               type="password"
@@ -364,7 +366,7 @@ onMounted(fetchProfile)
             :disabled="changingPassword"
             class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50"
           >
-            {{ changingPassword ? 'Changing...' : 'Change Password' }}
+            {{ changingPassword ? $t('account.security.changing') : $t('account.security.changePassword') }}
           </button>
         </form>
       </AppCard>
@@ -372,7 +374,7 @@ onMounted(fetchProfile)
       <!-- MFA -->
       <AppCard>
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
-          Two-Factor Authentication (MFA)
+          {{ $t('account.security.mfa.title') }}
         </h2>
 
         <div
@@ -383,20 +385,20 @@ onMounted(fetchProfile)
             <AppBadge
               variant="success"
               size="sm"
-            >Enabled</AppBadge>
+            >{{ $t('account.security.mfa.enabled') }}</AppBadge>
             <p class="text-sm text-neutral-600">
-              Your account is protected with TOTP-based MFA.
+              {{ $t('account.security.mfa.protected') }}
             </p>
           </div>
           <div class="border-t pt-4">
             <p class="text-sm text-neutral-600 mb-2">
-              Enter your password to disable MFA:
+              {{ $t('account.security.mfa.disablePrompt') }}
             </p>
             <div class="flex gap-2 max-w-md">
               <input
                 v-model="disablePassword"
                 type="password"
-                placeholder="Your password"
+                :placeholder="$t('account.security.mfa.disablePlaceholder')"
                 class="flex-1 px-3 py-2 border border-neutral-300 rounded-ctl text-sm"
               >
               <button
@@ -404,7 +406,7 @@ onMounted(fetchProfile)
                 class="px-4 py-2 bg-error-600 text-white rounded-ctl text-sm hover:bg-error-700 disabled:opacity-50"
                 @click="disableMfa"
               >
-                {{ disablingMfa ? 'Disabling...' : 'Disable MFA' }}
+                {{ disablingMfa ? $t('account.security.mfa.disabling') : $t('account.security.mfa.disable') }}
               </button>
             </div>
           </div>
@@ -415,16 +417,16 @@ onMounted(fetchProfile)
           class="space-y-4"
         >
           <p class="text-sm text-neutral-600">
-            Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):
+            {{ $t('account.security.mfa.scanQr') }}
           </p>
           <div class="bg-neutral-50 p-4 rounded-ctl text-center">
             <p class="text-xs text-neutral-500 mb-2">
-              Manual entry key:
+              {{ $t('account.security.mfa.manualKey') }}
             </p>
             <code class="text-sm font-mono bg-surface px-3 py-1 rounded border select-all">{{ mfaSetupData.secret }}</code>
           </div>
           <div class="max-w-xs">
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Verification Code</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('account.security.mfa.verificationCode') }}</label>
             <input
               v-model="mfaVerifyCode"
               type="text"
@@ -441,27 +443,27 @@ onMounted(fetchProfile)
               class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50"
               @click="verifyMfaSetup"
             >
-              Verify & Enable
+              {{ $t('account.security.mfa.verifyEnable') }}
             </button>
             <button
               class="px-4 py-2 border border-neutral-300 rounded-ctl text-sm hover:bg-neutral-50"
               @click="mfaSetupData = null; settingUpMfa = false"
             >
-              Cancel
+              {{ $t('common.cancel') }}
             </button>
           </div>
         </div>
 
         <div v-else>
           <p class="text-sm text-neutral-600 mb-4">
-            Add an extra layer of security to your account with time-based one-time passwords (TOTP).
+            {{ $t('account.security.mfa.totpIntro') }}
           </p>
           <button
             :disabled="settingUpMfa"
             class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="setupMfa"
           >
-            {{ settingUpMfa ? 'Setting up...' : 'Enable MFA' }}
+            {{ settingUpMfa ? $t('account.security.mfa.settingUp') : $t('account.security.mfa.enable') }}
           </button>
         </div>
       </AppCard>
@@ -469,12 +471,10 @@ onMounted(fetchProfile)
       <!-- WebAuthn / Passkeys -->
       <AppCard v-if="webauthnSupported">
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
-          Passkeys (WebAuthn)
+          {{ $t('account.security.passkeys.title') }}
         </h2>
         <p class="text-sm text-neutral-600 mb-4">
-          Register a fingerprint, face, or security key to this account now —
-          passkey sign-in becomes available once server-side assertion
-          verification ships.
+          {{ $t('account.security.passkeys.intro') }}
         </p>
 
         <!-- Registered credentials -->
@@ -489,30 +489,30 @@ onMounted(fetchProfile)
           >
             <div>
               <p class="text-sm font-medium text-neutral-900">
-                {{ cred.name || 'Passkey' }}
+                {{ cred.name || $t('account.security.passkeys.fallbackName') }}
               </p>
               <p class="text-xs text-neutral-500">
-                Sign counter: {{ cred.sign_count ?? 0 }}
+                {{ $t('account.security.passkeys.signCounter', { count: cred.sign_count ?? 0 }) }}
               </p>
             </div>
             <AppBadge
               variant="success"
               size="sm"
-            >Active</AppBadge>
+            >{{ $t('account.security.passkeys.active') }}</AppBadge>
           </div>
         </div>
         <div
           v-else
           class="mb-4 p-3 bg-neutral-50 rounded-ctl text-sm text-neutral-500"
         >
-          No passkeys registered yet.
+          {{ $t('account.security.passkeys.empty') }}
         </div>
 
         <div class="flex flex-col sm:flex-row gap-2">
           <input
             v-model="passkeyName"
             type="text"
-            placeholder="Passkey name (optional)"
+            :placeholder="$t('account.security.passkeys.namePlaceholder')"
             class="flex-1 px-3 py-2 text-sm rounded-ctl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
           >
           <button
@@ -520,7 +520,7 @@ onMounted(fetchProfile)
             class="px-4 py-2 bg-brand-600 text-white rounded-ctl text-sm hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap"
             @click="registerPasskey"
           >
-            {{ registeringPasskey ? 'Registering...' : '+ Add Passkey' }}
+            {{ registeringPasskey ? $t('account.security.passkeys.registering') : $t('account.security.passkeys.add') }}
           </button>
         </div>
       </AppCard>
@@ -528,10 +528,10 @@ onMounted(fetchProfile)
       <!-- Connected social accounts (B2 link/unlink) -->
       <AppCard>
         <h2 class="text-lg font-semibold text-neutral-900 mb-4">
-          Connected Accounts
+          {{ $t('account.security.social.title') }}
         </h2>
         <p class="text-sm text-neutral-600 mb-4">
-          Link social identities to sign in with them. Unlinking removes the association but does not revoke active sessions.
+          {{ $t('account.security.social.intro') }}
         </p>
 
         <div
@@ -548,7 +548,7 @@ onMounted(fetchProfile)
                 {{ providerLabels[link.provider] || link.provider }}
               </p>
               <p class="text-xs text-neutral-500">
-                Linked {{ link.linked_at ? new Date(link.linked_at).toLocaleDateString() : '' }}
+                {{ link.linked_at ? $t('account.security.social.linkedOn', { date: new Date(link.linked_at).toLocaleDateString() }) : '' }}
               </p>
             </div>
             <button
@@ -556,7 +556,7 @@ onMounted(fetchProfile)
               class="px-3 py-1.5 border border-error-200 text-error-600 rounded-ctl text-sm hover:bg-error-50 disabled:opacity-50"
               @click="unlinkSocial(link.provider)"
             >
-              {{ unlinkingProvider === link.provider ? 'Unlinking...' : 'Unlink' }}
+              {{ unlinkingProvider === link.provider ? $t('account.security.social.unlinking') : $t('account.security.social.unlink') }}
             </button>
           </div>
         </div>
@@ -564,7 +564,7 @@ onMounted(fetchProfile)
           v-else-if="socialLinksLoaded"
           class="mb-4 p-3 bg-neutral-50 rounded-ctl text-sm text-neutral-500"
         >
-          No social accounts linked.
+          {{ $t('account.security.social.empty') }}
         </div>
 
         <button
@@ -573,22 +573,22 @@ onMounted(fetchProfile)
           class="inline-block px-4 py-2 bg-neutral-900 text-white rounded-ctl text-sm hover:bg-neutral-800 disabled:opacity-50"
           @click="beginSocialLink('github')"
         >
-          {{ linkingProvider === 'github' ? 'Redirecting...' : 'Link GitHub Account' }}
+          {{ linkingProvider === 'github' ? $t('account.security.social.redirecting') : $t('account.security.social.linkGithub') }}
         </button>
       </AppCard>
 
       <!-- Delete Account -->
       <div class="bg-surface rounded-card shadow-sm border border-error-200 p-6">
         <h2 class="text-lg font-semibold text-error-700 mb-2">
-          Danger Zone
+          {{ $t('account.security.danger.title') }}
         </h2>
         <p class="text-sm text-neutral-600 mb-4">
-          Permanently delete your account and all associated data. This action cannot be undone.
+          {{ $t('account.security.danger.intro') }}
         </p>
         <div class="space-y-3 max-w-md">
           <div>
             <label class="block text-sm font-medium text-neutral-700 mb-1">
-              Type <strong>{{ profile?.username }}</strong> to confirm
+              {{ $t('account.security.danger.typePrefix') }} <strong>{{ profile?.username }}</strong> {{ $t('account.security.danger.typeSuffix') }}
             </label>
             <input
               v-model="deleteConfirmUsername"
@@ -603,7 +603,7 @@ onMounted(fetchProfile)
             class="px-4 py-2 bg-error-600 text-white rounded-ctl text-sm hover:bg-error-700 disabled:opacity-50 disabled:cursor-not-allowed"
             @click="deleteAccount"
           >
-            {{ deletingAccount ? 'Deleting...' : 'Delete My Account' }}
+            {{ deletingAccount ? $t('account.security.danger.deleting') : $t('account.security.danger.delete') }}
           </button>
         </div>
       </div>
@@ -614,15 +614,14 @@ onMounted(fetchProfile)
            close (Esc/backdrop) is deliberately not wired for that reason. -->
       <AppModal
         :open="showBackupCodes"
-        aria-label="Save your MFA backup codes"
+        :aria-label="$t('account.security.backup.ariaLabel')"
         size="sm"
       >
         <h2 class="text-lg font-semibold text-neutral-900 mb-2">
-          Save your backup codes
+          {{ $t('account.security.backup.title') }}
         </h2>
         <p class="text-sm text-error-600 font-medium mb-4">
-          These 10 one-time codes are the only way to sign in if you lose your
-          authenticator. They cannot be shown again.
+          {{ $t('account.security.backup.warning') }}
         </p>
         <div class="grid grid-cols-2 gap-2 mb-4">
           <DData
@@ -640,7 +639,7 @@ onMounted(fetchProfile)
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             @click="copyBackupCodes"
           >
-            Copy all
+            {{ $t('account.security.backup.copyAll') }}
           </button>
           <button
             type="button"
@@ -648,7 +647,7 @@ onMounted(fetchProfile)
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             @click="downloadBackupCodes"
           >
-            Download .txt
+            {{ $t('account.security.backup.download') }}
           </button>
         </div>
         <button
@@ -657,7 +656,7 @@ onMounted(fetchProfile)
                  focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
           @click="dismissBackupCodes"
         >
-          I have safely saved my codes
+          {{ $t('account.security.backup.saved') }}
         </button>
       </AppModal>
     </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLogo from '../components/shared/AppLogo.vue'
+import LocaleSwitcher from '../components/ui/LocaleSwitcher.vue'
 
 // "Vault door" composition: the issuer line lets users verify the issuing
 // party before typing a password. Hidden when no issuer is configured.
@@ -30,10 +31,13 @@ const issuer = (import.meta.env.VITE_ISSUER as string | undefined) || ''
         <span class="font-semibold text-neutral-600">issuer</span> &middot; {{ issuer }}
       </p>
 
-      <!-- Legal line -->
-      <p class="mt-2.5 text-xs text-neutral-400">
-        Fulla Identity Platform &middot; MFA protected &middot; OIDC conformant
-      </p>
+      <!-- Legal line + locale switcher -->
+      <div class="mt-2.5 flex items-center justify-center gap-3">
+        <p class="text-xs text-neutral-400">
+          {{ $t('authLayout.tagline') }}
+        </p>
+        <LocaleSwitcher />
+      </div>
     </main>
   </div>
 </template>

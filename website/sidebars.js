@@ -74,6 +74,7 @@ const sidebars = {
         'documentation-governance',
         'contribute/admin-test-cases',
         'contribute/user-frontend-test-cases',
+        'contribute/frontend-i18n',
         'contribute/admin-e2e-testing-guide',
       ],
     },

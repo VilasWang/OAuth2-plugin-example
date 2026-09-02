@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
 import { normalizeError } from '../../services/errorAdapter'
+
+const { t } = useI18n()
 
 // Gap-fix E2 / plan D5: device approval lives in the admin console because the
 // backend endpoint is admin-gated (AuthorizationFilter + rbac rule). The user
@@ -41,7 +44,7 @@ async function approve() {
     if (success.value) {
       userCode.value = ''
     } else {
-      errorMessage.value = 'The device code could not be approved'
+      errorMessage.value = t('admin.devices.notApproved')
     }
   } catch (e: unknown) {
     errorMessage.value = normalizeError(e).message
@@ -55,10 +58,10 @@ async function approve() {
   <div>
     <div class="mb-6">
       <h2 class="text-2xl font-bold text-neutral-900">
-        Device Approval
+        {{ $t('admin.devices.title') }}
       </h2>
       <p class="mt-1 text-sm text-neutral-500">
-        Approve a device sign-in request by entering the code shown on the device screen.
+        {{ $t('admin.devices.subtitle') }}
       </p>
     </div>
 
@@ -69,10 +72,10 @@ async function approve() {
         data-testid="device-approve-success"
       >
         <p class="text-sm font-medium text-success-700">
-          Device approved
+          {{ $t('admin.devices.approvedTitle') }}
         </p>
         <p class="mt-1 text-sm text-success-700">
-          You can close this page and return to your device.
+          {{ $t('admin.devices.approvedBody') }}
         </p>
       </div>
 
@@ -95,7 +98,7 @@ async function approve() {
             for="device-user-code"
             class="block text-sm font-medium text-neutral-700"
           >
-            Device code
+            {{ $t('admin.devices.codeLabel') }}
           </label>
           <input
             id="device-user-code"
@@ -103,7 +106,7 @@ async function approve() {
             type="text"
             required
             autocomplete="off"
-            placeholder="e.g. WDJB-MJHT"
+            :placeholder="$t('admin.devices.codePlaceholder')"
             class="block w-full px-3 py-[15px] pl-[calc(12px+0.18em)] text-[24px] font-semibold font-mono tabular-nums
                    text-center uppercase tracking-[0.18em] rounded-ctl border border-neutral-300 bg-surface
                    placeholder:text-neutral-400 placeholder:tracking-normal placeholder:font-sans placeholder:font-normal placeholder:text-base transition-colors duration-150
@@ -120,7 +123,7 @@ async function approve() {
                  transition-all duration-150 active:scale-[0.98]
                  focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
-          {{ approving ? 'Approving...' : 'Approve device' }}
+          {{ approving ? $t('admin.devices.approving') : $t('admin.devices.approve') }}
         </button>
 
         <p class="mt-5 mb-0 font-mono text-[11.5px] text-neutral-500 text-center">

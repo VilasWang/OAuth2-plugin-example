@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '@/services/errorAdapter'
 import AppEmptyState from '@/components/ui/AppEmptyState.vue'
 import DData from '@/components/ui/DData.vue'
+
+const { t } = useI18n()
 
 interface Token {
   token_prefix: string
@@ -90,7 +93,7 @@ function cancelConfirm() {
 }
 
 async function revokeToken(tokenPrefix: string) {
-  showConfirm(`Revoke token starting with "${tokenPrefix}"?`, async () => {
+  showConfirm(t('admin.tokens.revokeTokenConfirm', { prefix: tokenPrefix }), async () => {
     // Each action owns the banner lifecycle: clear stale banners up front,
     // then show the outcome — never inside fetchTokens, which the actions
     // call afterwards (clearing there would wipe the just-set message).
@@ -108,14 +111,14 @@ async function revokeToken(tokenPrefix: string) {
 
 async function revokeByClient(clientId: string) {
   showBulkMenu.value = false
-  showConfirm(`Revoke ALL tokens for client "${clientId}"?`, async () => {
+  showConfirm(t('admin.tokens.revokeClientConfirm', { name: clientId }), async () => {
     errorMessage.value = ''
     successMessage.value = ''
     try {
       const resp = await axios.post('/api/admin/tokens/revoke-by-client', { client_id: clientId })
       // Gap-fix: surface the backend count ("revoked N tokens") instead of a
       // silent success (the response carries the number of deleted rows).
-      successMessage.value = `Revoked ${resp.data?.count ?? 0} token(s) for client "${clientId}"`
+      successMessage.value = t('admin.tokens.revokedCountForClient', { count: resp.data?.count ?? 0, name: clientId })
       await fetchTokens()
     } catch (e) {
       const normalized = normalizeError(e)
@@ -126,12 +129,12 @@ async function revokeByClient(clientId: string) {
 
 async function revokeByUser() {
   if (!userIdFilter.value) return
-  showConfirm(`Revoke ALL tokens for user "${userIdFilter.value}"?`, async () => {
+  showConfirm(t('admin.tokens.revokeUserConfirm', { name: userIdFilter.value }), async () => {
     errorMessage.value = ''
     successMessage.value = ''
     try {
       const resp = await axios.post('/api/admin/tokens/revoke-by-user', { user_id: userIdFilter.value })
-      successMessage.value = `Revoked ${resp.data?.count ?? 0} token(s) for user "${userIdFilter.value}"`
+      successMessage.value = t('admin.tokens.revokedCountForUser', { count: resp.data?.count ?? 0, name: userIdFilter.value })
       await fetchTokens()
     } catch (e) {
       const normalized = normalizeError(e)
@@ -160,14 +163,14 @@ onMounted(fetchTokens)
   <div>
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-neutral-900">
-        Tokens
+        {{ $t('admin.tokens.title') }}
       </h2>
       <div class="relative">
         <button
           class="inline-flex items-center px-4 py-2 border border-neutral-300 rounded-md shadow-sm text-sm font-medium text-neutral-700 bg-surface hover:bg-neutral-50"
           @click="showBulkMenu = !showBulkMenu"
         >
-          Revoke All by App ▾
+          {{ $t('admin.tokens.revokeAllByApp') }}
         </button>
         <div
           v-if="showBulkMenu"
@@ -186,7 +189,7 @@ onMounted(fetchTokens)
               v-if="uniqueClientIds.length === 0"
               class="px-4 py-2 text-sm text-neutral-400"
             >
-              No clients in current results
+              {{ $t('admin.tokens.noClientsInResults') }}
             </p>
           </div>
         </div>
@@ -236,20 +239,20 @@ onMounted(fetchTokens)
     <!-- Filter bar -->
     <div class="bg-surface shadow rounded-lg p-4 mb-4 flex items-center gap-4 flex-wrap">
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-neutral-700">Client ID:</label>
+        <label class="text-sm font-medium text-neutral-700">{{ $t('admin.tokens.clientIdLabel') }}</label>
         <input
           v-model="clientIdFilter"
           type="text"
-          placeholder="Filter by client_id"
+          :placeholder="$t('admin.tokens.clientFilterPlaceholder')"
           class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
         >
       </div>
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-neutral-700">User ID:</label>
+        <label class="text-sm font-medium text-neutral-700">{{ $t('admin.tokens.userIdLabel') }}</label>
         <input
           v-model="userIdFilter"
           type="text"
-          placeholder="Filter by user_id"
+          :placeholder="$t('admin.tokens.userFilterPlaceholder')"
           class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
         >
       </div>
@@ -257,20 +260,20 @@ onMounted(fetchTokens)
         class="px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-md hover:bg-brand-700"
         @click="applyFilters"
       >
-        Apply
+        {{ $t('common.apply') }}
       </button>
       <button
         class="px-4 py-1.5 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-md hover:bg-neutral-50"
         @click="clearFilters"
       >
-        Clear
+        {{ $t('common.clear') }}
       </button>
       <button
         v-if="userIdFilter"
         class="px-4 py-1.5 bg-error-600 text-white text-sm font-medium rounded-md hover:bg-error-700 ml-auto"
         @click="revokeByUser"
       >
-        Revoke All for User
+        {{ $t('admin.tokens.revokeAllForUser') }}
       </button>
     </div>
 
@@ -279,14 +282,14 @@ onMounted(fetchTokens)
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <!-- Empty state -->
     <AppEmptyState
       v-else-if="tokens.length === 0"
-      title="No active tokens found"
-      description="Issued access tokens will be listed here."
+      :title="$t('admin.tokens.emptyTitle')"
+      :description="$t('admin.tokens.emptyDescription')"
     />
 
     <!-- Token table -->
@@ -298,25 +301,25 @@ onMounted(fetchTokens)
         <thead class="bg-neutral-50">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Token
+              {{ $t('admin.tokens.token') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Type
+              {{ $t('common.type') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Client
+              {{ $t('admin.tokens.client') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              User
+              {{ $t('admin.tokens.user') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Scope
+              {{ $t('admin.tokens.scope') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Expires
+              {{ $t('admin.tokens.expires') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Actions
+              {{ $t('common.actions') }}
             </th>
           </tr>
         </thead>
@@ -359,7 +362,7 @@ onMounted(fetchTokens)
                        focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring px-2"
                 @click="revokeToken(token.token_prefix)"
               >
-                Revoke
+                {{ $t('admin.tokens.revoke') }}
               </button>
             </td>
           </tr>
@@ -373,15 +376,15 @@ onMounted(fetchTokens)
           class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page > 1 && (page--, fetchTokens())"
         >
-          ← Previous
+          {{ $t('common.previousArrow') }}
         </button>
-        <span class="text-sm text-neutral-500">Page {{ page }} · {{ total }} total</span>
+        <span class="text-sm text-neutral-500">{{ $t('admin.tokens.pageTotal', { page, total }) }}</span>
         <button
           :disabled="tokens.length < perPage"
           class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page++; fetchTokens()"
         >
-          Next →
+          {{ $t('common.nextArrow') }}
         </button>
       </div>
     </div>
@@ -397,7 +400,7 @@ onMounted(fetchTokens)
       />
       <div class="relative bg-surface rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
         <h3 class="text-lg font-medium text-neutral-900 mb-2">
-          Confirm Action
+          {{ $t('admin.tokens.confirmTitle') }}
         </h3>
         <p class="text-sm text-neutral-600 mb-4">
           {{ confirmMessage }}
@@ -407,13 +410,13 @@ onMounted(fetchTokens)
             class="px-4 py-2 text-sm font-medium text-neutral-700 border border-neutral-300 rounded-md hover:bg-neutral-50"
             @click="cancelConfirm"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             class="px-4 py-2 text-sm font-medium text-white bg-error-600 rounded-md hover:bg-error-700"
             @click="executeConfirm"
           >
-            Confirm
+            {{ $t('common.confirm') }}
           </button>
         </div>
       </div>

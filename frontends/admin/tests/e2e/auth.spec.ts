@@ -43,7 +43,7 @@ test.describe('Authentication', () => {
     await page.click('button[type="submit"]')
 
     await expect(page.locator('[role="alert"]')).toBeVisible()
-    await expect(page.locator('[role="alert"]')).toContainText('用户名或密码错误')
+    await expect(page.locator('[role="alert"]')).toContainText('Incorrect username or password')
   })
 
   test('denies access for non-admin users', async ({ page }) => {
@@ -150,7 +150,7 @@ test.describe('Authentication', () => {
     await page.click('button:has-text("Verify code")')
 
     // Error banner shows and the user can retry on the same view.
-    await expect(page.locator('[role="alert"]')).toContainText('用户名或密码错误')
+    await expect(page.locator('[role="alert"]')).toContainText('Incorrect username or password')
     await expect(page.getByText('Two-factor authentication')).toBeVisible()
     await expect(page).toHaveURL(/\/admin\/login/)
   })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 import AppAlert from '../../components/ui/AppAlert.vue'
@@ -8,6 +9,7 @@ import AppButton from '../../components/ui/AppButton.vue'
 import AppInput from '../../components/ui/AppInput.vue'
 import { passwordStrength } from '../../utils/passwordStrength'
 
+const { t } = useI18n()
 const router = useRouter()
 const username = ref('')
 const email = ref('')
@@ -25,11 +27,11 @@ const strength = computed(() => passwordStrength(password.value))
 async function handleRegister() {
   error.value = ''
   if (password.value !== confirmPassword.value) {
-    error.value = 'Passwords do not match'
+    error.value = t('common.passwordsDoNotMatch')
     return
   }
   if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters'
+    error.value = t('common.passwordMinLength')
     return
   }
   loading.value = true
@@ -53,10 +55,10 @@ async function handleRegister() {
   <div>
     <div class="mb-8">
       <h1 class="font-display text-2xl font-bold text-neutral-900 tracking-tight">
-        Create Account
+        {{ $t('auth.register.title') }}
       </h1>
       <p class="mt-2 text-sm text-neutral-500">
-        Join us today
+        {{ $t('auth.register.subtitle') }}
       </p>
     </div>
 
@@ -75,10 +77,10 @@ async function handleRegister() {
         </svg>
       </div>
       <p class="text-neutral-700 font-medium">
-        Account created successfully!
+        {{ $t('auth.register.success') }}
       </p>
       <p class="text-sm text-neutral-500">
-        Redirecting to login...
+        {{ $t('common.redirectingToLogin') }}
       </p>
     </div>
 
@@ -97,7 +99,7 @@ async function handleRegister() {
     >
       <AppInput
         v-model="email"
-        label="Email"
+        :label="$t('common.email')"
         type="email"
         required
         autocomplete="email"
@@ -105,15 +107,15 @@ async function handleRegister() {
       />
       <AppInput
         v-model="username"
-        label="Username"
-        hint="Optional — generated for you when left blank"
+        :label="$t('common.username')"
+        :hint="$t('auth.register.usernameHint')"
         autocomplete="username"
         placeholder="mia"
       />
       <div>
         <AppInput
           v-model="password"
-          label="Password"
+          :label="$t('common.password')"
           type="password"
           required
           autocomplete="new-password"
@@ -135,12 +137,12 @@ async function handleRegister() {
           />
         </div>
         <p class="text-xs text-neutral-500 mt-1.5">
-          Minimum 8 characters. A longer passphrase of 3–4 random words works well.
+          {{ $t('auth.register.passwordHint') }}
         </p>
       </div>
       <AppInput
         v-model="confirmPassword"
-        label="Confirm Password"
+        :label="$t('common.confirmPassword')"
         type="password"
         required
         autocomplete="new-password"
@@ -151,17 +153,17 @@ async function handleRegister() {
         :loading="loading"
         block
       >
-        {{ loading ? 'Creating...' : 'Create Account' }}
+        {{ loading ? $t('auth.register.creating') : $t('auth.register.submit') }}
       </AppButton>
     </form>
 
     <p class="mt-6 text-center text-sm text-neutral-500">
-      Already have an account?
+      {{ $t('auth.register.haveAccount') }}
       <router-link
         to="/login"
         class="text-brand-600 font-medium hover:text-brand-800"
       >
-        Sign in
+        {{ $t('auth.register.signIn') }}
       </router-link>
     </p>
   </div>

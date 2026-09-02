@@ -102,7 +102,7 @@ function handleDismiss() {
       v-if="dismissible"
       type="button"
       class="shrink-0 p-0.5 rounded-ctl hover:opacity-70 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-      aria-label="Dismiss"
+      :aria-label="$t('ui.alert.dismiss')"
       @click="handleDismiss"
     >
       <svg

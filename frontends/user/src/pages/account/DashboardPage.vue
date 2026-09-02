@@ -12,10 +12,12 @@ const auth = useAuthStore()
     <!-- Header -->
     <div>
       <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">
-        Dashboard
+        {{ $t('account.dashboard.title') }}
       </h1>
       <p class="mt-1 text-sm text-neutral-500">
-        Welcome back{{ auth.user?.name ? ', ' + auth.user.name : '' }}
+        {{ auth.user?.name
+          ? $t('account.dashboard.welcomeBackName', { name: auth.user.name })
+          : $t('account.dashboard.welcomeBack') }}
       </p>
     </div>
 
@@ -27,10 +29,10 @@ const auth = useAuthStore()
         </div>
         <div>
           <h2 class="text-lg font-semibold text-neutral-900">
-            {{ auth.user?.name || 'User' }}
+            {{ auth.user?.name || $t('common.user') }}
           </h2>
           <p class="text-sm text-neutral-500">
-            {{ auth.user?.email || 'No email' }}
+            {{ auth.user?.email || $t('account.dashboard.noEmail') }}
           </p>
         </div>
       </div>
@@ -40,7 +42,7 @@ const auth = useAuthStore()
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
       <AppCard padding="sm">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
-          Account ID
+          {{ $t('account.dashboard.accountId') }}
         </p>
         <DData
           :value="auth.user?.sub || 'N/A'"
@@ -50,7 +52,7 @@ const auth = useAuthStore()
 
       <AppCard padding="sm">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
-          Email
+          {{ $t('common.email') }}
         </p>
         <p class="text-sm text-neutral-800">
           {{ auth.user?.email || 'N/A' }}
@@ -59,7 +61,7 @@ const auth = useAuthStore()
 
       <AppCard padding="sm">
         <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
-          Roles
+          {{ $t('common.roles') }}
         </p>
         <div class="flex flex-wrap gap-1.5">
           <AppBadge
@@ -73,7 +75,7 @@ const auth = useAuthStore()
           <span
             v-if="!auth.user?.roles?.length"
             class="text-sm text-neutral-400"
-          >None</span>
+          >{{ $t('account.dashboard.noRoles') }}</span>
         </div>
       </AppCard>
     </div>
@@ -99,11 +101,11 @@ const auth = useAuthStore()
             </svg>
           </div>
           <p class="font-medium text-neutral-900">
-            Edit Profile
+            {{ $t('account.dashboard.editProfile') }}
           </p>
         </div>
         <p class="text-sm text-neutral-500">
-          Update your personal information
+          {{ $t('account.dashboard.editProfileDesc') }}
         </p>
       </router-link>
 
@@ -126,11 +128,11 @@ const auth = useAuthStore()
             </svg>
           </div>
           <p class="font-medium text-neutral-900">
-            Security Settings
+            {{ $t('account.dashboard.securityTitle') }}
           </p>
         </div>
         <p class="text-sm text-neutral-500">
-          Manage MFA, password, and passkeys
+          {{ $t('account.dashboard.securityDesc') }}
         </p>
       </router-link>
 
@@ -153,11 +155,11 @@ const auth = useAuthStore()
             </svg>
           </div>
           <p class="font-medium text-neutral-900">
-            Authorized Apps
+            {{ $t('nav.authorizedApps') }}
           </p>
         </div>
         <p class="text-sm text-neutral-500">
-          Review connected applications
+          {{ $t('account.dashboard.authorizedAppsDesc') }}
         </p>
       </router-link>
     </div>

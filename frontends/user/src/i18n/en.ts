@@ -1,0 +1,278 @@
+/**
+ * English UI catalog. Namespaces: common / ui / nav / authLayout / appLayout /
+ * auth / oauth / account.
+ * Keys must stay in lockstep with `./zh-CN.ts` (key-parity unit test) and
+ * `ui.*` must resolve identically in frontends/admin (byte-synced
+ * `components/ui` consumers).
+ * English is the source of truth: values are the original UI copy, verbatim.
+ */
+export const en = {
+  ui: {
+    locale: {
+      label: 'Language',
+      en: 'English',
+      zhCN: '简体中文',
+    },
+    alert: {
+      dismiss: 'Dismiss',
+    },
+    modal: {
+      close: 'Close dialog',
+    },
+    table: {
+      empty: 'No data found',
+    },
+  },
+  common: {
+    loading: 'Loading...',
+    cancel: 'Cancel',
+    backToLogin: 'Back to Login',
+    goToLogin: 'Go to Login',
+    redirectingToLogin: 'Redirecting to login...',
+    user: 'User',
+    username: 'Username',
+    email: 'Email',
+    roles: 'Roles',
+    password: 'Password',
+    newPassword: 'New Password',
+    confirmPassword: 'Confirm Password',
+    confirmNewPassword: 'Confirm New Password',
+    passwordsDoNotMatch: 'Passwords do not match',
+    passwordMinLength: 'Password must be at least 8 characters',
+  },
+  nav: {
+    overview: 'Overview',
+    profile: 'Profile',
+    security: 'Security',
+    authorizedApps: 'Authorized Apps',
+    signOut: 'Sign out',
+  },
+  appLayout: {
+    switchToLightTheme: 'Switch to light theme',
+    switchToDarkTheme: 'Switch to dark theme',
+    lightTheme: 'Light theme',
+    darkTheme: 'Dark theme',
+    footer: 'Fulla Identity Platform',
+  },
+  authLayout: {
+    tagline: 'Fulla Identity Platform · MFA protected · OIDC conformant',
+  },
+  auth: {
+    login: {
+      title: 'Sign in to your account',
+      or: 'Or',
+      createAccountLink: 'create a new account',
+      emailOrUsername: 'Email or Username',
+      passwordPlaceholder: 'Enter your password',
+      forgotPassword: 'Forgot password?',
+      submit: 'Sign In',
+      orContinueWith: 'or continue with',
+      signInWithGitHub: 'Sign in with GitHub',
+      signInWithGoogle: 'Sign in with Google',
+      wechatNote:
+        'WeChat sign-in uses the mobile app scan flow — scan the QR code shown by your provider on a WeChat-enabled device.',
+      mfa: {
+        title: 'Two-Factor Authentication',
+        subtitle: 'Enter the 6-digit code from your authenticator app',
+        verify: 'Verify Code',
+        back: 'Back to sign in',
+      },
+    },
+    register: {
+      title: 'Create Account',
+      subtitle: 'Join us today',
+      success: 'Account created successfully!',
+      usernameHint: 'Optional — generated for you when left blank',
+      passwordHint:
+        'Minimum 8 characters. A longer passphrase of 3–4 random words works well.',
+      submit: 'Create Account',
+      creating: 'Creating...',
+      haveAccount: 'Already have an account?',
+      signIn: 'Sign in',
+    },
+    forgot: {
+      title: 'Reset Password',
+      subtitle: 'Enter your email to receive a reset link',
+      sent: "If an account with that email exists, we've sent a password reset link.",
+      sentHint: 'Check your inbox and spam folder.',
+      emailAddress: 'Email Address',
+      sending: 'Sending...',
+      submit: 'Send Reset Link',
+    },
+    reset: {
+      title: 'Set New Password',
+      invalidToken: 'Invalid or missing reset token.',
+      requestNewLink: 'Request a new link',
+      success: 'Password reset successfully!',
+      resetting: 'Resetting...',
+      submit: 'Reset Password',
+    },
+    verify: {
+      verifying: 'Verifying your email...',
+      successTitle: 'Email Verified!',
+      successDefault: 'Email verified successfully!',
+      errorTitle: 'Verification Failed',
+      missingToken: 'Missing verification token',
+    },
+  },
+  oauth: {
+    consent: {
+      title: 'Authorize Access',
+      subtitle: 'This application is asking to access your account.',
+      unknownClient: 'Unknown client',
+      permissionsHeading: 'It will be able to',
+      missingUser: 'Your session could not be identified. Please sign in again.',
+      deny: 'Deny',
+      authorize: 'Authorize',
+      authorizing: 'Authorizing...',
+      signedInAs: 'signed in as {name}',
+    },
+    scopes: {
+      openid: 'Verify your identity',
+      profile: 'Access your basic profile (username)',
+      email: 'Access your email address',
+      admin: 'Administrative access',
+      'users:read': 'Read user accounts',
+      'users:write': 'Manage user accounts',
+      'clients:read': 'View registered applications',
+      'clients:write': 'Manage registered applications',
+      'tokens:read': 'View active tokens',
+      'tokens:write': 'Revoke tokens',
+      'roles:read': 'View roles and scopes',
+      'roles:write': 'Manage roles and scopes',
+      'audit:read': 'View audit logs and statistics',
+    },
+    callback: {
+      errorTitle: 'Authentication Error',
+      noCode: 'No authorization code received',
+      completing: 'Completing sign in...',
+    },
+    github: {
+      errorTitle: 'GitHub Login Failed',
+      completing: 'Signing in with GitHub...',
+    },
+    social: {
+      completing: 'Completing {provider} sign-in…',
+    },
+    noCodeFromProvider: 'No authorization code from {provider}',
+    linkMissingState:
+      'Missing link state; restart the link flow from the security page.',
+    linkSignInFirst:
+      'Please sign in first, then retry linking your {provider} account.',
+    noAccessToken: '{provider} login did not return an access token',
+  },
+  account: {
+    dashboard: {
+      title: 'Dashboard',
+      welcomeBack: 'Welcome back',
+      welcomeBackName: 'Welcome back, {name}',
+      noEmail: 'No email',
+      accountId: 'Account ID',
+      noRoles: 'None',
+      editProfile: 'Edit Profile',
+      editProfileDesc: 'Update your personal information',
+      securityTitle: 'Security Settings',
+      securityDesc: 'Manage MFA, password, and passkeys',
+      authorizedAppsDesc: 'Review connected applications',
+    },
+    profile: {
+      loadFailed: 'Failed to load profile',
+      verificationSent: 'Verification email sent!',
+      accountIdSub: 'Account ID (sub)',
+      verified: 'Verified',
+      unverified: 'Unverified',
+      resendVerification: 'Resend verification email',
+    },
+    security: {
+      title: 'Security Settings',
+      changePassword: 'Change Password',
+      currentPassword: 'Current Password',
+      changing: 'Changing...',
+      passwordChanged: 'Password changed successfully',
+      mfa: {
+        title: 'Two-Factor Authentication (MFA)',
+        enabled: 'Enabled',
+        protected: 'Your account is protected with TOTP-based MFA.',
+        disablePrompt: 'Enter your password to disable MFA:',
+        disablePlaceholder: 'Your password',
+        disabling: 'Disabling...',
+        disable: 'Disable MFA',
+        passwordRequired: 'Password required to disable MFA',
+        scanQr:
+          'Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):',
+        manualKey: 'Manual entry key:',
+        verificationCode: 'Verification Code',
+        verifyEnable: 'Verify & Enable',
+        totpIntro:
+          'Add an extra layer of security to your account with time-based one-time passwords (TOTP).',
+        settingUp: 'Setting up...',
+        enable: 'Enable MFA',
+        enabledSuccess: 'MFA enabled successfully!',
+        disabled: 'MFA disabled',
+      },
+      passkeys: {
+        title: 'Passkeys (WebAuthn)',
+        intro:
+          'Register a fingerprint, face, or security key to this account now — passkey sign-in becomes available once server-side assertion verification ships.',
+        fallbackName: 'Passkey',
+        defaultName: 'Passkey {date}',
+        signCounter: 'Sign counter: {count}',
+        active: 'Active',
+        empty: 'No passkeys registered yet.',
+        namePlaceholder: 'Passkey name (optional)',
+        registering: 'Registering...',
+        add: '+ Add Passkey',
+        cancelled: 'Passkey registration cancelled',
+        timedOut: 'Passkey registration was cancelled or timed out',
+        success: 'Passkey registered successfully!',
+      },
+      social: {
+        title: 'Connected Accounts',
+        intro:
+          'Link social identities to sign in with them. Unlinking removes the association but does not revoke active sessions.',
+        linkedOn: 'Linked {date}',
+        unlinking: 'Unlinking...',
+        unlink: 'Unlink',
+        empty: 'No social accounts linked.',
+        redirecting: 'Redirecting...',
+        linkGithub: 'Link GitHub Account',
+        unlinkConfirm:
+          'Unlink your {provider} account? You will not be able to sign in with {provider} until it is linked to an account again.',
+        unlinked: '{provider} account unlinked',
+      },
+      danger: {
+        title: 'Danger Zone',
+        intro:
+          'Permanently delete your account and all associated data. This action cannot be undone.',
+        typePrefix: 'Type',
+        typeSuffix: 'to confirm',
+        deleting: 'Deleting...',
+        delete: 'Delete My Account',
+        usernameMismatch:
+          'Username does not match. Please type your username to confirm.',
+      },
+      backup: {
+        ariaLabel: 'Save your MFA backup codes',
+        title: 'Save your backup codes',
+        warning:
+          'These 10 one-time codes are the only way to sign in if you lose your authenticator. They cannot be shown again.',
+        copyAll: 'Copy all',
+        download: 'Download .txt',
+        saved: 'I have safely saved my codes',
+      },
+    },
+    authorizedApps: {
+      title: 'Authorized Applications',
+      intro: 'These applications have been granted access to your account.',
+      loadFailed: 'Failed to load authorized apps',
+      emptyTitle: 'No authorized applications',
+      emptyDesc: "When you authorize third-party apps, they'll appear here.",
+      clientId: 'Client ID:',
+      scopes: 'Scopes:',
+      revoke: 'Revoke',
+      revokeConfirm:
+        'Revoke access for "{app}"? This app will no longer be able to access your data.',
+      revoked: 'Access revoked for "{app}"',
+    },
+  },
+}

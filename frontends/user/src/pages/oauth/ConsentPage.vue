@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import DData from '../../components/ui/DData.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const auth = useAuthStore()
 const loading = ref(false)
@@ -38,22 +40,23 @@ const missingUserId = !userId
 // #43: resource-scope vocabulary. The legacy bare 'read'/'write' labels are
 // dropped; the OIDC standard scopes keep their human-readable descriptions and
 // the resource-prefixed admin scopes are listed for completeness (they
-// normally appear only for admin-console clients, not end users).
-const scopeDescriptions: Record<string, string> = {
-  openid: 'Verify your identity',
-  profile: 'Access your basic profile (username)',
-  email: 'Access your email address',
-  admin: 'Administrative access',
-  'users:read': 'Read user accounts',
-  'users:write': 'Manage user accounts',
-  'clients:read': 'View registered applications',
-  'clients:write': 'Manage registered applications',
-  'tokens:read': 'View active tokens',
-  'tokens:write': 'Revoke tokens',
-  'roles:read': 'View roles and scopes',
-  'roles:write': 'Manage roles and scopes',
-  'audit:read': 'View audit logs and statistics',
-}
+// normally appear only for admin-console clients, not end users). The map is
+// a computed so descriptions follow locale switches.
+const scopeDescriptions = computed<Record<string, string>>(() => ({
+  openid: t('oauth.scopes.openid'),
+  profile: t('oauth.scopes.profile'),
+  email: t('oauth.scopes.email'),
+  admin: t('oauth.scopes.admin'),
+  'users:read': t('oauth.scopes.users:read'),
+  'users:write': t('oauth.scopes.users:write'),
+  'clients:read': t('oauth.scopes.clients:read'),
+  'clients:write': t('oauth.scopes.clients:write'),
+  'tokens:read': t('oauth.scopes.tokens:read'),
+  'tokens:write': t('oauth.scopes.tokens:write'),
+  'roles:read': t('oauth.scopes.roles:read'),
+  'roles:write': t('oauth.scopes.roles:write'),
+  'audit:read': t('oauth.scopes.audit:read'),
+}))
 
 /**
  * Submit consent via a native form POST (not XHR).
@@ -104,10 +107,10 @@ function handleConsent(action: 'approve' | 'deny') {
 <template>
   <div>
     <h1 class="font-display text-[25px] font-bold text-neutral-900 tracking-tight leading-tight">
-      Authorize Access
+      {{ $t('oauth.consent.title') }}
     </h1>
     <p class="mt-1.5 text-sm text-neutral-500">
-      This application is asking to access your account.
+      {{ $t('oauth.consent.subtitle') }}
     </p>
 
     <!-- Client identity block -->
@@ -117,7 +120,7 @@ function handleConsent(action: 'approve' | 'deny') {
       </div>
       <div class="min-w-0">
         <div class="font-bold text-[15.5px] leading-tight text-neutral-900 truncate">
-          {{ clientId || 'Unknown client' }}
+          {{ clientId || $t('oauth.consent.unknownClient') }}
         </div>
         <DData
           :value="clientId.length > 10 ? clientId.slice(0, 10) + '…' : clientId"
@@ -130,7 +133,7 @@ function handleConsent(action: 'approve' | 'deny') {
     <!-- Requested permissions: human voice left, machine voice right -->
     <div class="mt-7">
       <p class="text-[10.5px] font-semibold tracking-[0.09em] uppercase text-neutral-500 mb-1">
-        It will be able to
+        {{ $t('oauth.consent.permissionsHeading') }}
       </p>
       <div
         v-for="s in scopes"
@@ -164,7 +167,7 @@ function handleConsent(action: 'approve' | 'deny') {
       class="mt-4 text-center text-sm text-error-600"
       data-testid="consent-missing-user"
     >
-      Your session could not be identified. Please sign in again.
+      {{ $t('oauth.consent.missingUser') }}
     </p>
 
     <!-- Actions: Deny (quiet) / Authorize (primary stamp) -->
@@ -176,7 +179,7 @@ function handleConsent(action: 'approve' | 'deny') {
                disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         @click="handleConsent('deny')"
       >
-        Deny
+        {{ $t('oauth.consent.deny') }}
       </button>
       <button
         :disabled="loading || missingUserId"
@@ -186,13 +189,13 @@ function handleConsent(action: 'approve' | 'deny') {
         :class="loading ? 'stamp-pulse' : ''"
         @click="handleConsent('approve')"
       >
-        {{ loading ? 'Authorizing...' : 'Authorize' }}
+        {{ loading ? $t('oauth.consent.authorizing') : $t('oauth.consent.authorize') }}
       </button>
     </div>
 
     <!-- Session microcopy (mono) -->
     <p class="mt-7 pt-4 border-t border-neutral-100 font-mono text-[11.5px] text-neutral-500 text-center">
-      signed in as {{ auth.user?.name || auth.user?.sub || '—' }}
+      {{ $t('oauth.consent.signedInAs', { name: auth.user?.name || auth.user?.sub || '—' }) }}
     </p>
   </div>
 </template>

@@ -96,7 +96,7 @@ const colAlign = (col: { align?: string }) => {
                 />
               </svg>
               <p class="text-sm text-neutral-500">
-                {{ emptyText || 'No data found' }}
+                {{ emptyText || $t('ui.table.empty') }}
               </p>
             </td>
           </tr>

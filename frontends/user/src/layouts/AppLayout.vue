@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
 import AppLogo from '../components/shared/AppLogo.vue'
+import LocaleSwitcher from '../components/ui/LocaleSwitcher.vue'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const theme = useThemeStore()
 const router = useRouter()
@@ -20,12 +23,12 @@ async function handleLogout() {
   router.push('/login')
 }
 
-const navItems = [
-  { name: 'Overview', path: '/', icon: 'dashboard' },
-  { name: 'Profile', path: '/profile', icon: 'profile' },
-  { name: 'Security', path: '/security', icon: 'security' },
-  { name: 'Authorized Apps', path: '/authorized-apps', icon: 'apps' },
-]
+const navItems = computed(() => [
+  { name: t('nav.overview'), path: '/', icon: 'dashboard' },
+  { name: t('nav.profile'), path: '/profile', icon: 'profile' },
+  { name: t('nav.security'), path: '/security', icon: 'security' },
+  { name: t('nav.authorizedApps'), path: '/authorized-apps', icon: 'apps' },
+])
 </script>
 
 <template>
@@ -61,8 +64,9 @@ const navItems = [
             </nav>
           </div>
 
-          <!-- Right: User Menu -->
-          <div class="flex items-center">
+          <!-- Right: Locale switcher + User Menu -->
+          <div class="flex items-center gap-2">
+            <LocaleSwitcher class="flex items-center" />
             <div class="relative">
               <button
                 class="flex items-center gap-2.5 px-2 py-1.5 rounded-ctl hover:bg-neutral-100 transition-colors
@@ -73,7 +77,7 @@ const navItems = [
                   {{ (auth.user?.name || 'U')[0].toUpperCase() }}
                 </div>
                 <span class="hidden sm:block text-sm font-medium text-neutral-700">
-                  {{ auth.user?.name || 'User' }}
+                  {{ auth.user?.name || t('common.user') }}
                 </span>
                 <svg
                   class="w-4 h-4 text-neutral-400"
@@ -117,7 +121,7 @@ const navItems = [
                         d="M7 8a3 3 0 100-6 3 3 0 000 6zm-2.5 3.5A3.5 3.5 0 001 15v.75a.75.75 0 001.5 0V15a2 2 0 012-2h7a2 2 0 012 2v.75a.75.75 0 001.5 0V15a3.5 3.5 0 00-3.5-3.5h-7z"
                       />
                     </svg>
-                    Profile
+                    {{ t('nav.profile') }}
                   </router-link>
 
                   <router-link
@@ -135,13 +139,13 @@ const navItems = [
                         d="M8 2a3.5 3.5 0 00-3.5 3.5v2.382l-.964.643A1.5 1.5 0 003 9.862v.638a1.5 1.5 0 001.5 1.5h7a1.5 1.5 0 001.5-1.5v-.638a1.5 1.5 0 00-.536-1.137l-.964-.643V5.5A3.5 3.5 0 008 2z"
                       />
                     </svg>
-                    Security
+                    {{ t('nav.security') }}
                   </router-link>
 
                   <button
                     class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors
                            focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
-                    :aria-label="theme.mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+                    :aria-label="theme.mode === 'dark' ? t('appLayout.switchToLightTheme') : t('appLayout.switchToDarkTheme')"
                     @click="theme.toggle()"
                   >
                     <svg
@@ -163,7 +167,7 @@ const navItems = [
                         transform="scale(0.7)"
                       />
                     </svg>
-                    {{ theme.mode === 'dark' ? 'Light theme' : 'Dark theme' }}
+                    {{ theme.mode === 'dark' ? t('appLayout.lightTheme') : t('appLayout.darkTheme') }}
                   </button>
 
                   <div class="border-t border-neutral-100 my-1" />
@@ -182,7 +186,7 @@ const navItems = [
                         d="M3.75 2A1.75 1.75 0 002 3.75v8.5C2 13.216 2.784 14 3.75 14h2.5a.75.75 0 000-1.5h-2.5a.25.25 0 01-.25-.25v-8.5a.25.25 0 01.25-.25h2.5a.75.75 0 000-1.5h-2.5zm6.97.47a.75.75 0 011.06 0l4.5 4.5a.75.75 0 010 1.06l-4.5 4.5a.75.75 0 11-1.06-1.06L13.94 8.75H6a.75.75 0 010-1.5h7.94l-3.22-3.22a.75.75 0 010-1.06z"
                       />
                     </svg>
-                    Sign out
+                    {{ t('nav.signOut') }}
                   </button>
                 </div>
               </Transition>
@@ -200,7 +204,7 @@ const navItems = [
     <!-- Footer -->
     <footer class="border-t border-neutral-100 py-4">
       <p class="text-center text-xs text-neutral-400">
-        Fulla Identity Platform
+        {{ t('appLayout.footer') }}
       </p>
     </footer>
   </div>

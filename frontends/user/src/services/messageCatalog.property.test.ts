@@ -115,41 +115,48 @@ describe('Property 13: 前端信息目录覆盖与清洁性', () => {
   //
   // 注意：getErrorMessage() 对缺失键会回退到 __unknown__，从而掩盖「缺键」缺陷；
   // 因此覆盖性必须直接检查目录表是否拥有该键，而非仅看返回值是否非空。
-  it('为后端每个 Error_Code 与每个协议码提供非空、清洁的本地化条目（穷举）', () => {
-    const table = messages[DEFAULT_LOCALE]
-    expect(table, `缺失默认语言目录: ${DEFAULT_LOCALE}`).toBeTruthy()
+  it('为后端每个 Error_Code 与每个协议码提供非空、清洁的本地化条目（穷举，全部已登记语言）', () => {
+    // Property 13 覆盖范围随登记语言扩展（ADR-0013）：en 与 zh-CN 都必须
+    // 完整覆盖 REQUIRED_CODES，缺一即违反 Requirement 9.1。
+    const registered = Object.keys(messages)
+    expect(registered).toContain(DEFAULT_LOCALE)
 
-    const missing: string[] = []
-    for (const code of REQUIRED_CODES) {
-      const hasOwn = Object.prototype.hasOwnProperty.call(table, code)
-      const value = table[code]
-      if (!hasOwn || typeof value !== 'string' || value.length === 0) {
-        missing.push(code)
-        continue
+    for (const locale of registered) {
+      const table = messages[locale]
+      expect(table, `缺失语言目录: ${locale}`).toBeTruthy()
+
+      const missing: string[] = []
+      for (const code of REQUIRED_CODES) {
+        const hasOwn = Object.prototype.hasOwnProperty.call(table, code)
+        const value = table[code]
+        if (!hasOwn || typeof value !== 'string' || value.length === 0) {
+          missing.push(code)
+          continue
+        }
+
+        // 非空、无未替换占位符标记。
+        const placeholder = findPlaceholder(value)
+        expect(
+          placeholder,
+          `[${locale}] 码 ${code} 的条目含未替换占位符标记 (${placeholder}): "${value}"`,
+        ).toBeUndefined()
+
+        // 无 SQL/路径/堆栈等 Internal_Detail。
+        const internal = findInternalDetail(value)
+        expect(
+          internal,
+          `[${locale}] 码 ${code} 的条目含 Internal_Detail (${internal}): "${value}"`,
+        ).toBeUndefined()
+
+        // getErrorMessage 的功能路径返回的就是该条目本身（而非回退到 __unknown__）。
+        expect(getErrorMessage(code, locale)).toBe(value)
       }
 
-      // 非空、无未替换占位符标记。
-      const placeholder = findPlaceholder(value)
       expect(
-        placeholder,
-        `码 ${code} 的条目含未替换占位符标记 (${placeholder}): "${value}"`,
-      ).toBeUndefined()
-
-      // 无 SQL/路径/堆栈等 Internal_Detail。
-      const internal = findInternalDetail(value)
-      expect(
-        internal,
-        `码 ${code} 的条目含 Internal_Detail (${internal}): "${value}"`,
-      ).toBeUndefined()
-
-      // getErrorMessage 的功能路径返回的就是该条目本身（而非回退到 __unknown__）。
-      expect(getErrorMessage(code, DEFAULT_LOCALE)).toBe(value)
+        missing,
+        `[${locale}] Error_Message_Catalog_FE 缺失以下码的条目（违反 Requirement 9.1）: ${missing.join(', ')}`,
+      ).toEqual([])
     }
-
-    expect(
-      missing,
-      `Error_Message_Catalog_FE 缺失以下码的条目（违反 Requirement 9.1）: ${missing.join(', ')}`,
-    ).toEqual([])
   })
 
   // 9.4 — 清洁性：目录中所有展示给用户的信息（含保留回退键 __unknown__/__network__
@@ -186,26 +193,31 @@ describe('Property 13: 前端信息目录覆盖与清洁性', () => {
     }
   })
 
-  // 9.1 / 9.4 — 属性化采样：对任一后端码/协议码，zh-CN 下都映射到非空、清洁、
-  // 无占位符的本地化信息（numRuns: 100）。直接检查目录键存在以避免 __unknown__
-  // 回退掩盖缺键。
-  it('对任一码均返回非空、无占位符、无 Internal_Detail 的本地化信息', () => {
-    const table = messages[DEFAULT_LOCALE]
+  // 9.1 / 9.4 — 属性化采样：对任一后端码/协议码，在任一已登记语言下都映射到
+  // 非空、清洁、无占位符的本地化信息（numRuns: 100）。直接检查目录键存在以
+  // 避免 __unknown__ 回退掩盖缺键。
+  it('对任一码与任一已登记语言均返回非空、无占位符、无 Internal_Detail 的本地化信息', () => {
+    const registered = Object.keys(messages)
     fc.assert(
-      fc.property(fc.constantFrom(...REQUIRED_CODES), (code) => {
-        // 覆盖性：目录拥有该键。
-        expect(Object.prototype.hasOwnProperty.call(table, code)).toBe(true)
+      fc.property(
+        fc.constantFrom(...REQUIRED_CODES),
+        fc.constantFrom(...registered),
+        (code, locale) => {
+          const localeTable = messages[locale]
+          // 覆盖性：目录拥有该键。
+          expect(Object.prototype.hasOwnProperty.call(localeTable, code)).toBe(true)
 
-        const message = getErrorMessage(code, DEFAULT_LOCALE)
-        // 非空本地化信息。
-        expect(typeof message).toBe('string')
-        expect(message.length).toBeGreaterThan(0)
-        // 返回的是该码自身的条目，而非通用未知回退。
-        expect(message).toBe(table[code])
-        // 清洁性。
-        expect(findPlaceholder(message)).toBeUndefined()
-        expect(findInternalDetail(message)).toBeUndefined()
-      }),
+          const message = getErrorMessage(code, locale)
+          // 非空本地化信息。
+          expect(typeof message).toBe('string')
+          expect(message.length).toBeGreaterThan(0)
+          // 返回的是该码自身的条目，而非通用未知回退。
+          expect(message).toBe(localeTable[code])
+          // 清洁性。
+          expect(findPlaceholder(message)).toBeUndefined()
+          expect(findInternalDetail(message)).toBeUndefined()
+        },
+      ),
       RUNS,
     )
   })

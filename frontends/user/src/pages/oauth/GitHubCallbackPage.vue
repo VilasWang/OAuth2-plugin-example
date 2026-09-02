@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { setTokens, getAccessToken, tryRestoreSession } from '../../services/http'
 import { userService } from '../../services/userService'
 import { normalizeError } from '../../services/errorAdapter'
 import axios from 'axios'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
@@ -15,7 +17,7 @@ const error = ref('')
 onMounted(async () => {
   const code = route.query.code as string
   if (!code) {
-    error.value = 'No authorization code from GitHub'
+    error.value = t('oauth.noCodeFromProvider', { provider: 'GitHub' })
     return
   }
 
@@ -35,12 +37,12 @@ onMounted(async () => {
   if (isLinkFlow) {
     sessionStorage.removeItem('social_link_flow')
     if (!queryState) {
-      error.value = 'Missing link state; restart the link flow from the security page.'
+      error.value = t('oauth.linkMissingState')
       return
     }
     const hasSession = getAccessToken() ? true : await tryRestoreSession()
     if (!hasSession) {
-      error.value = 'Please sign in first, then retry linking your GitHub account.'
+      error.value = t('oauth.linkSignInFirst', { provider: 'GitHub' })
       return
     }
     try {
@@ -65,7 +67,7 @@ onMounted(async () => {
       await auth.fetchUser()
       router.replace('/')
     } else {
-      error.value = 'GitHub login did not return an access token'
+      error.value = t('oauth.noAccessToken', { provider: 'GitHub' })
     }
   } catch (e: unknown) {
     error.value = normalizeError(e).message
@@ -82,7 +84,7 @@ onMounted(async () => {
         class="p-6 bg-surface border border-error-200 rounded-card shadow-sm text-left"
       >
         <p class="text-error-700 font-medium">
-          GitHub Login Failed
+          {{ $t('oauth.github.errorTitle') }}
         </p>
         <p class="text-error-600 text-sm mt-2">
           {{ error }}
@@ -92,13 +94,13 @@ onMounted(async () => {
           class="mt-4 inline-block text-brand-600 hover:text-brand-800 rounded-ctl
                  focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
         >
-          Back to Login
+          {{ $t('common.backToLogin') }}
         </router-link>
       </div>
       <div v-else>
         <div class="animate-spin w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full mx-auto" />
         <p class="mt-4 text-neutral-600">
-          Signing in with GitHub...
+          {{ $t('oauth.github.completing') }}
         </p>
       </div>
     </div>

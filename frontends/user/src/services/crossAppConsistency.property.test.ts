@@ -80,8 +80,8 @@ const ALL_CODES = [
   ...RESERVED_CODES,
 ] as const
 
-// 语言域：默认 zh-CN（已登记）加上一个未登记的语言（应回退到 zh-CN）。
-const LOCALES = ['zh-CN', 'en-US', 'fr', '__unknown_locale__'] as const
+// 语言域：已登记的 en 与 zh-CN，加上未登记语言（应回退到 en 备选表）。
+const LOCALES = ['en', 'zh-CN', 'en-US', 'fr', '__unknown_locale__'] as const
 
 describe('Property 14: 跨应用映射确定性一致', () => {
   // 对未登记 code/缺失键，目录会发出 console.warn —— 静默以保持输出干净。

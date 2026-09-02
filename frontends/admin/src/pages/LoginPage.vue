@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
 import AppInput from '../components/ui/AppInput.vue'
 import AppAlert from '../components/ui/AppAlert.vue'
 import AppLogo from '../components/shared/AppLogo.vue'
+import LocaleSwitcher from '../components/ui/LocaleSwitcher.vue'
+import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -73,181 +74,186 @@ function backToLogin() {
     <!-- Card -->
     <div class="w-full max-w-[440px] bg-surface rounded-auth border border-neutral-200 shadow-md p-9 pb-[30px]">
       <h1 class="font-display text-[23px] leading-tight font-semibold text-neutral-900 tracking-tight">
-        Sign in to Fulla Admin
+        {{ $t('login.title') }}
       </h1>
       <p class="mt-1.5 mb-6 text-sm text-neutral-500">
-        Sign in to your administrator account
+        {{ $t('login.subtitle') }}
       </p>
-        <AppAlert
-          v-if="auth.loginError"
-          type="error"
-          class="mb-6"
-          dismissible
-          @dismiss="auth.loginError = ''"
-        >
-          {{ auth.loginError }}
-        </AppAlert>
+      <AppAlert
+        v-if="auth.loginError"
+        type="error"
+        class="mb-6"
+        dismissible
+        @dismiss="auth.loginError = ''"
+      >
+        {{ auth.loginError }}
+      </AppAlert>
 
-        <form
-          v-if="!showMfa"
-          class="space-y-5"
-          @submit.prevent="handleLogin"
-        >
-          <AppInput
-            v-model="username"
-            label="Username"
-            placeholder="admin"
-            required
-            autocomplete="username"
-          />
+      <form
+        v-if="!showMfa"
+        class="space-y-5"
+        @submit.prevent="handleLogin"
+      >
+        <AppInput
+          v-model="username"
+          :label="$t('login.username')"
+          placeholder="admin"
+          required
+          autocomplete="username"
+        />
 
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label
-                for="password-field"
-                class="block text-sm font-medium text-neutral-700"
-              >
-                Password
-              </label>
-            </div>
-            <input
-              id="password-field"
-              v-model="password"
-              type="password"
-              placeholder="Enter your password"
-              required
-              autocomplete="current-password"
-              class="block w-full px-3.5 py-2.5 text-sm rounded-ctl border border-neutral-300 bg-surface
-                     placeholder:text-neutral-400 transition-colors duration-150
-                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
-            >
-          </div>
-
-          <button
-            type="submit"
-            :disabled="loading"
-            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
-                   bg-brand-600 text-white rounded-ctl hover:bg-brand-700 shadow-sm
-                   disabled:opacity-50 disabled:cursor-not-allowed
-                   transition-all duration-150 active:scale-[0.98]
-                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-          >
-            <svg
-              v-if="loading"
-              class="animate-spin w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              />
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            {{ loading ? 'Signing in...' : 'Sign in' }}
-          </button>
-        </form>
-
-        <!-- MFA challenge: complete the login with the 6-digit TOTP code -->
-        <form
-          v-else
-          class="space-y-5"
-          @submit.prevent="handleMfa"
-        >
-          <div>
-            <h2 class="text-base font-semibold text-neutral-900">
-              Two-factor authentication
-            </h2>
-            <p class="mt-1 text-sm text-neutral-500">
-              Enter the 6-digit code from your authenticator app.
-            </p>
-          </div>
-
-          <div class="space-y-1.5">
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
             <label
-              for="mfa-code-field"
+              for="password-field"
               class="block text-sm font-medium text-neutral-700"
             >
-              Authentication code
+              {{ $t('login.password') }}
             </label>
-            <input
-              id="mfa-code-field"
-              v-model="mfaCode"
-              type="text"
-              placeholder="000000"
-              required
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              maxlength="6"
-              class="block w-full px-3.5 py-2.5 text-sm tracking-[0.4em] text-center font-mono tabular-nums rounded-ctl border border-neutral-300 bg-surface
-                     placeholder:text-neutral-400 placeholder:tracking-normal placeholder:font-sans transition-colors duration-150
-                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
-            >
           </div>
+          <input
+            id="password-field"
+            v-model="password"
+            type="password"
+            :placeholder="$t('login.passwordPlaceholder')"
+            required
+            autocomplete="current-password"
+            class="block w-full px-3.5 py-2.5 text-sm rounded-ctl border border-neutral-300 bg-surface
+                     placeholder:text-neutral-400 transition-colors duration-150
+                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
+          >
+        </div>
 
-          <button
-            type="submit"
-            :disabled="mfaLoading || mfaCode.length !== 6"
-            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
+        <button
+          type="submit"
+          :disabled="loading"
+          class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
                    bg-brand-600 text-white rounded-ctl hover:bg-brand-700 shadow-sm
                    disabled:opacity-50 disabled:cursor-not-allowed
                    transition-all duration-150 active:scale-[0.98]
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+        >
+          <svg
+            v-if="loading"
+            class="animate-spin w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
           >
-            <svg
-              v-if="mfaLoading"
-              class="animate-spin w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              />
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            {{ mfaLoading ? 'Verifying...' : 'Verify code' }}
-          </button>
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            />
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          {{ loading ? $t('login.signingIn') : $t('login.submit') }}
+        </button>
+      </form>
 
-          <button
-            type="button"
-            class="w-full text-center text-xs text-neutral-500 hover:text-neutral-700 transition-colors
-                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
-            @click="backToLogin"
-          >
-            ← Back to sign in
-          </button>
-        </form>
-      </div>
-
-      <!-- Issuer verification line (hidden when unconfigured) -->
-      <p
-        v-if="issuer"
-        class="mt-6 font-mono text-xs text-neutral-500 tabular-nums"
+      <!-- MFA challenge: complete the login with the 6-digit TOTP code -->
+      <form
+        v-else
+        class="space-y-5"
+        @submit.prevent="handleMfa"
       >
-        <span class="font-semibold text-neutral-600">issuer</span> &middot; {{ issuer }}
-      </p>
+        <div>
+          <h2 class="text-base font-semibold text-neutral-900">
+            {{ $t('login.mfa.title') }}
+          </h2>
+          <p class="mt-1 text-sm text-neutral-500">
+            {{ $t('login.mfa.subtitle') }}
+          </p>
+        </div>
 
-      <p class="mt-2.5 text-center text-xs text-neutral-400">
-        Fulla Identity Platform &middot; Enterprise OAuth2/OIDC Server
-      </p>
+        <div class="space-y-1.5">
+          <label
+            for="mfa-code-field"
+            class="block text-sm font-medium text-neutral-700"
+          >
+            {{ $t('login.mfa.codeLabel') }}
+          </label>
+          <input
+            id="mfa-code-field"
+            v-model="mfaCode"
+            type="text"
+            placeholder="000000"
+            required
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+            class="block w-full px-3.5 py-2.5 text-sm tracking-[0.4em] text-center font-mono tabular-nums rounded-ctl border border-neutral-300 bg-surface
+                     placeholder:text-neutral-400 placeholder:tracking-normal placeholder:font-sans transition-colors duration-150
+                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
+          >
+        </div>
+
+        <button
+          type="submit"
+          :disabled="mfaLoading || mfaCode.length !== 6"
+          class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
+                   bg-brand-600 text-white rounded-ctl hover:bg-brand-700 shadow-sm
+                   disabled:opacity-50 disabled:cursor-not-allowed
+                   transition-all duration-150 active:scale-[0.98]
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+        >
+          <svg
+            v-if="mfaLoading"
+            class="animate-spin w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            />
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          {{ mfaLoading ? $t('login.mfa.verifying') : $t('login.mfa.verify') }}
+        </button>
+
+        <button
+          type="button"
+          class="w-full text-center text-xs text-neutral-500 hover:text-neutral-700 transition-colors
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
+          @click="backToLogin"
+        >
+          {{ $t('login.mfa.back') }}
+        </button>
+      </form>
     </div>
+
+    <!-- Issuer verification line (hidden when unconfigured) -->
+    <p
+      v-if="issuer"
+      class="mt-6 font-mono text-xs text-neutral-500 tabular-nums"
+    >
+      <span class="font-semibold text-neutral-600">issuer</span> &middot; {{ issuer }}
+    </p>
+
+    <p class="mt-2.5 text-center text-xs text-neutral-400">
+      {{ $t('login.footer') }}
+    </p>
+
+    <!-- Locale switcher (card footer area) -->
+    <div class="mt-4 flex items-center justify-center">
+      <LocaleSwitcher />
+    </div>
+  </div>
 </template>

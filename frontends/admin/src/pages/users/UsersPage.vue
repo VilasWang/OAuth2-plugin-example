@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+
+const { t } = useI18n()
 
 const users = ref<any[]>([])
 const loading = ref(true)
@@ -84,7 +87,7 @@ async function assignRoles() {
       headers: { 'Content-Type': 'application/json' },
     })
     showRoleModal.value = false
-    showSuccess('Roles assigned successfully')
+    showSuccess(t('admin.users.rolesAssigned'))
     await fetchUsers()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -95,11 +98,11 @@ async function assignRoles() {
 
 async function createUser() {
   if (!createForm.value.username.trim() || !createForm.value.password.trim()) {
-    showError('Username and password are required')
+    showError(t('admin.users.usernamePasswordRequired'))
     return
   }
   if (createForm.value.password.length < 8) {
-    showError('Password must be at least 8 characters')
+    showError(t('common.passwordMinLength'))
     return
   }
   saving.value = true
@@ -122,9 +125,12 @@ async function createUser() {
     // failed for some entries (UserAdminService).
     const failedRoles: string[] = resp.data?.roles_failed || []
     if (failedRoles.length > 0 || resp.data?.warning) {
-      showError(`User created, but role assignment failed for: ${failedRoles.join(', ')}${resp.data?.warning ? ` — ${resp.data.warning}` : ''}`)
+      showError(t('admin.users.createdRolesFailed', {
+        roles: failedRoles.join(', '),
+        warning: resp.data?.warning ? ` — ${resp.data.warning}` : '',
+      }))
     } else {
-      showSuccess('User created successfully')
+      showSuccess(t('admin.users.userCreated'))
     }
     await fetchUsers()
   } catch (e: unknown) {
@@ -135,16 +141,18 @@ async function createUser() {
 }
 
 async function deleteUser(user: any) {
-  if (!confirm(`Delete user "${user.username}"? This action cannot be undone.`)) return
+  if (!confirm(t('admin.users.deleteConfirm', { name: user.username }))) return
   try {
     const resp = await axios.delete(`/api/admin/users/${user.id}`)
     // Gap-fix: the delete response reports whether tokens were revoked; a
     // tokens_revoked=false + warning means some tokens may outlive the user
     // row — surface it instead of a blanket success.
     if (resp.data?.tokens_revoked === false) {
-      showError(`User deleted, but token revocation reported: ${resp.data?.warning || 'some tokens could not be revoked'}`)
+      showError(t('admin.users.deletedRevokeIssue', {
+        detail: resp.data?.warning || t('admin.users.someTokensNotRevoked'),
+      }))
     } else {
-      showSuccess('User deleted successfully')
+      showSuccess(t('admin.users.userDeleted'))
     }
     await fetchUsers()
   } catch (e: unknown) {
@@ -159,13 +167,13 @@ onMounted(fetchUsers)
   <div>
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-2xl font-bold text-neutral-900">
-        Users
+        {{ $t('admin.users.title') }}
       </h2>
       <button
         class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700"
         @click="showCreateModal = true"
       >
-        + Create User
+        {{ $t('admin.users.create') }}
       </button>
     </div>
 
@@ -187,7 +195,7 @@ onMounted(fetchUsers)
       <input
         v-model="searchQuery"
         class="px-3 py-2 border border-neutral-300 rounded-md text-sm w-64"
-        placeholder="Search username or email..."
+        :placeholder="$t('admin.users.searchPlaceholder')"
         @keyup.enter="applySearch"
       >
       <select
@@ -196,7 +204,7 @@ onMounted(fetchUsers)
         @change="applySearch"
       >
         <option value="">
-          All roles
+          {{ $t('admin.users.allRoles') }}
         </option>
         <option value="admin">
           admin
@@ -211,20 +219,20 @@ onMounted(fetchUsers)
         @change="applySearch"
       >
         <option value="">
-          All status
+          {{ $t('admin.users.allStatus') }}
         </option>
         <option value="true">
-          Locked
+          {{ $t('admin.users.locked') }}
         </option>
         <option value="false">
-          Active
+          {{ $t('admin.users.active') }}
         </option>
       </select>
       <button
         class="px-4 py-2 bg-neutral-100 text-neutral-700 rounded-md text-sm hover:bg-neutral-200"
         @click="applySearch"
       >
-        Search
+        {{ $t('common.search') }}
       </button>
     </div>
 
@@ -232,7 +240,7 @@ onMounted(fetchUsers)
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <div
@@ -246,19 +254,19 @@ onMounted(fetchUsers)
               ID
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Username
+              {{ $t('common.username') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Email
+              {{ $t('common.email') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Verified
+              {{ $t('admin.users.verified') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
               MFA
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Actions
+              {{ $t('common.actions') }}
             </th>
           </tr>
         </thead>
@@ -282,7 +290,7 @@ onMounted(fetchUsers)
                 class="px-2 py-1 text-xs rounded-full"
                 :class="user.email_verified ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700'"
               >
-                {{ user.email_verified ? 'Verified' : 'Pending' }}
+                {{ user.email_verified ? $t('admin.users.verified') : $t('admin.users.pending') }}
               </span>
             </td>
             <td class="px-6 py-3">
@@ -290,7 +298,7 @@ onMounted(fetchUsers)
                 class="px-2 py-1 text-xs rounded-full"
                 :class="user.mfa_enabled ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-600'"
               >
-                {{ user.mfa_enabled ? 'Enabled' : 'Off' }}
+                {{ user.mfa_enabled ? $t('admin.users.enabled') : $t('admin.users.off') }}
               </span>
             </td>
             <td class="px-6 py-3 text-sm">
@@ -298,19 +306,19 @@ onMounted(fetchUsers)
                 class="text-brand-600 hover:text-brand-900 mr-3"
                 @click="openRoleModal(user)"
               >
-                Assign Roles
+                {{ $t('admin.users.assignRoles') }}
               </button>
               <router-link
                 :to="{ name: 'user-detail', params: { id: user.id } }"
                 class="text-neutral-600 hover:text-neutral-900 mr-3"
               >
-                Details
+                {{ $t('admin.users.details') }}
               </router-link>
               <button
                 class="text-error-600 hover:text-error-700"
                 @click="deleteUser(user)"
               >
-                Delete
+                {{ $t('common.delete') }}
               </button>
             </td>
           </tr>
@@ -323,7 +331,7 @@ onMounted(fetchUsers)
         class="px-6 py-3 bg-neutral-50 flex items-center justify-between border-t border-neutral-200"
       >
         <span class="text-sm text-neutral-600">
-          {{ total }} user(s) · Page {{ currentPage }} of {{ totalPages }}
+          {{ $t('admin.users.paginationSummary', { total, current: currentPage, totalPages }) }}
         </span>
         <div class="flex gap-2">
           <button
@@ -331,14 +339,14 @@ onMounted(fetchUsers)
             class="px-3 py-1.5 border border-neutral-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100"
             @click="goToPage(currentPage - 1)"
           >
-            Previous
+            {{ $t('common.previous') }}
           </button>
           <button
             :disabled="!hasNext"
             class="px-3 py-1.5 border border-neutral-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100"
             @click="goToPage(currentPage + 1)"
           >
-            Next
+            {{ $t('common.next') }}
           </button>
         </div>
       </div>
@@ -351,11 +359,11 @@ onMounted(fetchUsers)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
-          Create User
+          {{ $t('admin.users.createTitle') }}
         </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Username *</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('admin.users.usernameRequired') }}</label>
             <input
               v-model="createForm.username"
               class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
@@ -363,7 +371,7 @@ onMounted(fetchUsers)
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Password *</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('admin.users.passwordRequired') }}</label>
             <input
               v-model="createForm.password"
               type="password"
@@ -372,7 +380,7 @@ onMounted(fetchUsers)
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Email</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('common.email') }}</label>
             <input
               v-model="createForm.email"
               type="email"
@@ -381,14 +389,14 @@ onMounted(fetchUsers)
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Roles (comma-separated)</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('admin.users.rolesCommaSeparated') }}</label>
             <input
               v-model="createForm.roles"
               class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="user"
             >
             <p class="mt-1 text-xs text-neutral-500">
-              Default: user. Available: admin, user
+              {{ $t('admin.users.defaultRolesHint') }}
             </p>
           </div>
           <div class="flex gap-6">
@@ -398,7 +406,7 @@ onMounted(fetchUsers)
                 type="checkbox"
                 class="rounded border-neutral-300 text-brand-600"
               >
-              Email verified
+              {{ $t('admin.users.emailVerified') }}
             </label>
             <label class="flex items-center gap-2 text-sm text-neutral-700">
               <input
@@ -406,7 +414,7 @@ onMounted(fetchUsers)
                 type="checkbox"
                 class="rounded border-neutral-300 text-brand-600"
               >
-              MFA enabled
+              {{ $t('admin.users.mfaEnabled') }}
             </label>
           </div>
         </div>
@@ -415,14 +423,14 @@ onMounted(fetchUsers)
             class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showCreateModal = false"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             :disabled="saving"
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="createUser"
           >
-            {{ saving ? 'Creating...' : 'Create User' }}
+            {{ saving ? $t('common.creating') : $t('admin.users.createTitle') }}
           </button>
         </div>
       </div>
@@ -435,20 +443,20 @@ onMounted(fetchUsers)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-2">
-          Assign Roles
+          {{ $t('admin.users.assignRolesTitle') }}
         </h3>
         <p class="text-sm text-neutral-600 mb-4">
-          User: <strong>{{ selectedUser?.username }}</strong>
+          {{ $t('admin.users.userPrefix') }} <strong>{{ selectedUser?.username }}</strong>
         </p>
         <div>
-          <label class="block text-sm font-medium text-neutral-700">Roles (comma-separated)</label>
+          <label class="block text-sm font-medium text-neutral-700">{{ $t('admin.users.rolesCommaSeparated') }}</label>
           <input
             v-model="roleInput"
             class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
             placeholder="admin, user"
           >
           <p class="mt-1 text-xs text-neutral-500">
-            Available: admin, user
+            {{ $t('admin.users.availableRolesHint') }}
           </p>
         </div>
         <div class="flex justify-end space-x-3 mt-4">
@@ -456,14 +464,14 @@ onMounted(fetchUsers)
             class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showRoleModal = false"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             :disabled="saving"
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="assignRoles"
           >
-            {{ saving ? 'Saving...' : 'Save Roles' }}
+            {{ saving ? $t('common.saving') : $t('admin.users.saveRoles') }}
           </button>
         </div>
       </div>

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 import AppAlert from '../../components/ui/AppAlert.vue'
 import AppButton from '../../components/ui/AppButton.vue'
 import AppInput from '../../components/ui/AppInput.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const token = route.query.token as string || ''
@@ -17,8 +19,8 @@ const error = ref('')
 const success = ref(false)
 
 async function handleReset() {
-  if (newPassword.value !== confirmPassword.value) { error.value = 'Passwords do not match'; return }
-  if (newPassword.value.length < 8) { error.value = 'Password must be at least 8 characters'; return }
+  if (newPassword.value !== confirmPassword.value) { error.value = t('common.passwordsDoNotMatch'); return }
+  if (newPassword.value.length < 8) { error.value = t('common.passwordMinLength'); return }
   error.value = ''
   loading.value = true
   try {
@@ -36,19 +38,19 @@ async function handleReset() {
 <template>
   <div>
     <h1 class="font-display text-2xl font-bold text-neutral-900 tracking-tight text-center mb-8">
-      Set New Password
+      {{ $t('auth.reset.title') }}
     </h1>
 
     <div
       v-if="!token"
       class="text-center text-error-600"
     >
-      <p>Invalid or missing reset token.</p>
+      <p>{{ $t('auth.reset.invalidToken') }}</p>
       <router-link
         to="/forgot-password"
         class="mt-4 inline-block text-brand-600"
       >
-        Request a new link
+        {{ $t('auth.reset.requestNewLink') }}
       </router-link>
     </div>
 
@@ -67,10 +69,10 @@ async function handleReset() {
         </svg>
       </div>
       <p class="text-neutral-700 font-medium">
-        Password reset successfully!
+        {{ $t('auth.reset.success') }}
       </p>
       <p class="text-sm text-neutral-500">
-        Redirecting to login...
+        {{ $t('common.redirectingToLogin') }}
       </p>
     </div>
 
@@ -87,7 +89,7 @@ async function handleReset() {
       </AppAlert>
       <AppInput
         v-model="newPassword"
-        label="New Password"
+        :label="$t('common.newPassword')"
         type="password"
         required
         autocomplete="new-password"
@@ -95,7 +97,7 @@ async function handleReset() {
       />
       <AppInput
         v-model="confirmPassword"
-        label="Confirm Password"
+        :label="$t('common.confirmPassword')"
         type="password"
         required
         autocomplete="new-password"
@@ -106,7 +108,7 @@ async function handleReset() {
         :loading="loading"
         block
       >
-        {{ loading ? 'Resetting...' : 'Reset Password' }}
+        {{ loading ? $t('auth.reset.resetting') : $t('auth.reset.submit') }}
       </AppButton>
     </form>
   </div>

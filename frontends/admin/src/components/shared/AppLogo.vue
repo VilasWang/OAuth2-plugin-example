@@ -54,7 +54,7 @@ defineProps<{
         v-if="size === 'lg'"
         class="block text-xs text-neutral-400 font-normal tracking-normal mt-0.5"
       >
-        Identity Platform
+        {{ $t('common.identityPlatform') }}
       </span>
     </div>
   </div>

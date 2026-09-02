@@ -33,11 +33,13 @@
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/noto-sans-sc": "^5.3.0",
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
     "axios": "^1.19.0",
     "pinia": "^4.0.3",
     "vue": "^3.5.41",
+    "vue-i18n": "^11.4.10",
     "vue-router": "^4.6.4"
   }
 }
