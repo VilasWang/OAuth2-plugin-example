@@ -33,6 +33,7 @@ cookies.txt
 benchmarks/fulla/lib/generated/
 .env.*.local
 .env.docker
+.env.docker.*
 .mcp.json
 *.pem
 *.key

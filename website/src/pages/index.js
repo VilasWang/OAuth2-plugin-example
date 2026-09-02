@@ -12,7 +12,7 @@ const STRINGS = {
     title: 'fulla — High-performance open-source IAM core (C++17)',
     description:
       'Production-grade OAuth2/OIDC authorization server and embeddable C++17 SDK: auth-code+PKCE, MFA, WebAuthn, RBAC, multi-tenancy — with admin console, user frontend and official Python/Go clients.',
-    badges: ['MIT License', 'Leads all 5 benchmark scenarios', 'Docker · Helm · C++ SDK'],
+    badges: ['AGPL-3.0 License', 'Leads all 5 benchmark scenarios', 'Docker · Helm · C++ SDK'],
     taglinePre: 'A ',
     taglineAccent: 'high-performance identity & access core',
     taglinePost: ', built in C++17',
@@ -79,7 +79,7 @@ const STRINGS = {
     title: 'fulla — 高性能开源 IAM 内核（C++17）',
     description:
       '生产级 OAuth2/OIDC 授权服务器 + 可嵌入 C++17 SDK：授权码/PKCE、MFA、WebAuthn、RBAC、多租户，附管理后台、用户前端与官方 Python/Go 客户端。',
-    badges: ['MIT License', '五项基准场景全面领先', 'Docker · Helm · C++ SDK'],
+    badges: ['AGPL-3.0 License', '五项基准场景全面领先', 'Docker · Helm · C++ SDK'],
     taglinePre: '以 C++17 构建的',
     taglineAccent: '高性能身份与访问管理内核',
     taglinePost: '',

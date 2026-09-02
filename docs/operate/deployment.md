@@ -169,7 +169,7 @@ docker pull postgres:17-alpine
 docker pull redis:7-alpine
 docker pull nginx:stable-alpine
 docker pull prom/prometheus:latest
-docker pull ubuntu:22.04
+docker pull ubuntu:24.04
 ```
 
 If a mirror reports an error (such as `502` or `i/o timeout`), Docker automatically tries the next one; if all of them fail, see the troubleshooting notes below.
@@ -498,7 +498,7 @@ curl -k https://localhost/admin/
 |------|-----|
 | Container name | fulla-backend |
 | Build | Dockerfile (target: backend-runtime) |
-| Base image | ubuntu:22.04 (minimal) |
+| Base image | ubuntu:24.04 (minimal) |
 | Internal port | 5555 |
 | Access path | `https://your-domain.com/api/*`, `/oauth2/*` |
 | Database migration | Executed automatically at startup (FULLA_AUTO_MIGRATE=true) |

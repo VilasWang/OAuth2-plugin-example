@@ -168,7 +168,7 @@ docker pull postgres:17-alpine
 docker pull redis:7-alpine
 docker pull nginx:stable-alpine
 docker pull prom/prometheus:latest
-docker pull ubuntu:22.04
+docker pull ubuntu:24.04
 ```
 
 如果某个加速器报错（如 `502` 或 `i/o timeout`），Docker 会自动尝试下一个；若全部失败，参考下方故障排除。
@@ -497,7 +497,7 @@ curl -k https://localhost/admin/
 |------|-----|
 | 容器名 | fulla-backend |
 | 构建 | Dockerfile (target: backend-runtime) |
-| 基础镜像 | ubuntu:22.04 (minimal) |
+| 基础镜像 | ubuntu:24.04 (minimal) |
 | 内部端口 | 5555 |
 | 访问路径 | `https://your-domain.com/api/*`, `/oauth2/*` |
 | 数据库迁移 | 启动时自动执行（FULLA_AUTO_MIGRATE=true） |
