@@ -71,6 +71,7 @@ class Users
         static const std::string _mfa_pending_client_id;
         static const std::string _mfa_pending_redirect_uri;
         static const std::string _deleted_at;
+        static const std::string _must_change_password;
     };
 
     static const int primaryKeyNumber;
@@ -289,8 +290,17 @@ class Users
     void setDeletedAt(const ::trantor::Date &pDeletedAt) noexcept;
     void setDeletedAtToNull() noexcept;
 
+    /**  For column must_change_password  */
+    ///Get the value of the column must_change_password, returns the default value if the column is null
+    const bool &getValueOfMustChangePassword() const noexcept;
+    ///Return a shared_ptr object pointing to the column const value, or an empty shared_ptr object if the column is null
+    const std::shared_ptr<bool> &getMustChangePassword() const noexcept;
+    ///Set the value of the column must_change_password
+    void setMustChangePassword(const bool &pMustChangePassword) noexcept;
+    void setMustChangePasswordToNull() noexcept;
 
-    static size_t getColumnNumber() noexcept {  return 18;  }
+
+    static size_t getColumnNumber() noexcept {  return 19;  }
     static const std::string &getColumnName(size_t index) noexcept(false);
 
     Json::Value toJson() const;
@@ -362,6 +372,7 @@ class Users
     std::shared_ptr<std::string> mfaPendingClientId_;
     std::shared_ptr<std::string> mfaPendingRedirectUri_;
     std::shared_ptr<::trantor::Date> deletedAt_;
+    std::shared_ptr<bool> mustChangePassword_;
     struct MetaData
     {
         const std::string colName_;
@@ -373,7 +384,7 @@ class Users
         const bool notNull_;
     };
     static const std::vector<MetaData> metaData_;
-    bool dirtyFlag_[18]={ false };
+    bool dirtyFlag_[19]={ false };
   public:
     static const std::string &sqlForFindingByPrimaryKey()
     {
@@ -484,6 +495,12 @@ class Users
         {
             sql += "deleted_at,";
             ++parametersCount;
+        }
+        sql += "must_change_password,";
+        ++parametersCount;
+        if(!dirtyFlag_[18])
+        {
+            needSelection=true;
         }
         needSelection=true;
         if(parametersCount > 0)
@@ -610,6 +627,15 @@ class Users
         {
             n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
             sql.append(placeholderStr, n);
+        }
+        if(dirtyFlag_[18])
+        {
+            n = snprintf(placeholderStr,sizeof(placeholderStr),"$%d,",placeholder++);
+            sql.append(placeholderStr, n);
+        }
+        else
+        {
+            sql +="default,";
         }
         if(parametersCount > 0)
         {

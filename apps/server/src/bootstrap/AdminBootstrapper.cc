@@ -204,21 +204,28 @@ void ensureAdminUser(const RunPtr &run)
                   return;
               }
 
-              try
-              {
-                  Mapper<Users> userMapper(run->db);
-                  Users admin;
-                  admin.setUsername("admin");
-                  admin.setPasswordHash(passwordHash);
-                  // users.salt is NOT NULL: PBKDF2 embeds the salt in the
-                  // hash string, so the column carries the empty string
-                  // (same convention as every other creation path). Missing
-                  // this made the first-boot insert fail on the constraint.
-                  admin.setSalt("");
-                  admin.setEmail("admin@example.com");
-                  userMapper.insert(
-                    admin,
-                    [run, generated, password](const Users &inserted) {
+                  try
+                  {
+                      Mapper<Users> userMapper(run->db);
+                      Users admin;
+                      admin.setUsername("admin");
+                      admin.setPasswordHash(passwordHash);
+                      // users.salt is NOT NULL: PBKDF2 embeds the salt in the
+                      // hash string, so the column carries the empty string
+                      // (same convention as every other creation path). Missing
+                      // this made the first-boot insert fail on the constraint.
+                      admin.setSalt("");
+                      admin.setEmail("admin@example.com");
+                      // #145: force a password change at first login. Both the
+                      // random password (printed to the log) and an
+                      // operator-provided env password must be replaced by the
+                      // administrator; while flagged, no authorization codes
+                      // are issued for the account (POST /oauth2/password/change
+                      // is the designated change path).
+                      admin.setMustChangePassword(true);
+                      userMapper.insert(
+                        admin,
+                        [run, generated, password](const Users &inserted) {
                         run->userId = inserted.getValueOfId();
                         if (generated)
                         {

@@ -63,6 +63,7 @@ export interface AdminLoginResult {
   success?: boolean
   mfaRequired?: boolean
   mfaToken?: string
+  passwordChangeRequired?: boolean
   error?: string
 }
 
@@ -138,6 +139,14 @@ export const useAuthStore = defineStore('auth', () => {
         return { mfaRequired: true, mfaToken: loginResp.data.mfa_token }
       }
 
+      // #145: forced first-login password change (e.g. the bootstrap admin).
+      // The backend refuses to issue an authorization code while the account
+      // is flagged; changePasswordForced() replaces the password on the login
+      // session and the administrator signs in again.
+      if (loginResp.data.password_change_required) {
+        return { passwordChangeRequired: true }
+      }
+
       const code = loginResp.data.code
       if (!code) {
         throw new Error('No authorization code received')
@@ -200,6 +209,24 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e: unknown) {
       loginError.value = normalizeError(e).message
       return { error: loginError.value }
+    }
+  }
+
+  /**
+   * #145: forced first-login password change. Session-authenticated (the
+   * login that returned password_change_required set the browser session);
+   * no Bearer token exists at this point by design.
+   */
+  async function changePasswordForced(oldPassword: string, newPassword: string): Promise<void> {
+    loginError.value = ''
+    try {
+      await axios.post('/oauth2/password/change', JSON.stringify({
+        old_password: oldPassword,
+        new_password: newPassword,
+      }), { headers: { 'Content-Type': 'application/json' } })
+    } catch (e: unknown) {
+      loginError.value = normalizeError(e).message
+      throw e
     }
   }
 
@@ -373,6 +400,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     verifyMfa,
+    changePasswordForced,
     fetchUserInfo,
     refreshAccessToken,
     restoreSession,

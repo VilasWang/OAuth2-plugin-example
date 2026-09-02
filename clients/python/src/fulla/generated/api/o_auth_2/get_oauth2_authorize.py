@@ -93,7 +93,10 @@ def sync_detailed(
 ) -> Response[Any]:
     """Request authorization
 
-     OAuth2 authorization endpoint - initiates authorization flow
+     OAuth2 authorization endpoint - initiates authorization flow. Sessions paused at the MFA challenge
+    or flagged must_change_password (#144/#145) are treated as not fully authenticated: prompt=none
+    answers error=login_required, silent requests are redirected to the login / password-change page
+    instead of issuing a code.
 
     Args:
         client_id (str):
@@ -151,7 +154,10 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Request authorization
 
-     OAuth2 authorization endpoint - initiates authorization flow
+     OAuth2 authorization endpoint - initiates authorization flow. Sessions paused at the MFA challenge
+    or flagged must_change_password (#144/#145) are treated as not fully authenticated: prompt=none
+    answers error=login_required, silent requests are redirected to the login / password-change page
+    instead of issuing a code.
 
     Args:
         client_id (str):

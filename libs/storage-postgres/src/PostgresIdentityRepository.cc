@@ -42,6 +42,13 @@ UserData toUserData(const Users &row)
     }
     try
     {
+        data.mustChangePassword = row.getValueOfMustChangePassword();
+    }
+    catch (...)
+    {
+    }
+    try
+    {
         data.lockedUntil = row.getValueOfLockedUntil();
     }
     catch (...)

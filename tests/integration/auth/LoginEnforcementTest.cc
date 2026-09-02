@@ -2,12 +2,33 @@
 #include <drogon/drogon.h>
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/drogon/utils/CryptoUtils.h>
-#include <fulla/drogon/utils/TotpUtils.h>
+#include <fulla/identity/TotpUtils.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <chrono>
 #include <future>
 #include <chrono>
 
 using namespace drogon;
 using namespace drogon::orm;
+
+// #122: identity-domain TOTP free functions (drogon static copy deleted).
+namespace
+{
+fulla::common::ports::ICryptoProvider &totpCrypto()
+{
+    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
+    return crypto;
+}
+
+int64_t totpNowSeconds()
+{
+    return static_cast<int64_t>(
+      std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+      ).count()
+    );
+}
+}  // namespace
 
 /**
  * Test: MFA enforcement - when user has mfa_enabled=true,
@@ -26,7 +47,7 @@ DROGON_TEST(Integration_P1_Login_MFA_Enforcement)
     auto db = app().getDbClient();
 
     // Setup: enable MFA for admin user
-    std::string secret = fulla::common::utils::TotpUtils::generateSecret();
+    std::string secret = fulla::identity::totp::generateSecret(totpCrypto());
     std::promise<bool> pSetup;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -46,9 +67,9 @@ DROGON_TEST(Integration_P1_Login_MFA_Enforcement)
     CHECK(pVerify.get_future().get() == true);
 
     // Verify TOTP generation works with this secret
-    auto code = fulla::common::utils::TotpUtils::generateCode(secret);
+    auto code = fulla::identity::totp::generateCode(secret, totpNowSeconds());
     CHECK(code.length() == 6);
-    CHECK(fulla::common::utils::TotpUtils::verifyCode(secret, code) == true);
+    CHECK(fulla::identity::totp::verifyCode(secret, code, totpNowSeconds()) == true);
 
     // Cleanup: disable MFA
     std::promise<void> pCleanup;

@@ -63,8 +63,9 @@ def sync_detailed(
 ) -> Response[Any]:
     """Create User
 
-     Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and
-    org_id are optional.
+     Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified,
+    must_change_password, and org_id are optional. must_change_password (default false, #145) forces the
+    user to change the password at first login.
 
     Args:
         body (PostApiAdminUsersBody):
@@ -95,8 +96,9 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Create User
 
-     Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and
-    org_id are optional.
+     Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified,
+    must_change_password, and org_id are optional. must_change_password (default false, #145) forces the
+    user to change the password at first login.
 
     Args:
         body (PostApiAdminUsersBody):

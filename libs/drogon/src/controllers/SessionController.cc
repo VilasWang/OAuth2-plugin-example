@@ -1,5 +1,7 @@
 #include <mutex>
 #include <fulla/drogon/controllers/SessionController.h>
+#include <fulla/drogon/utils/ConsentCsrfSlots.h>
+#include <fulla/drogon/utils/PasswordHasher.h>
 #include <fulla/storage/postgres/models/Users.h>
 #include <fulla/drogon/adapters/DrogonAuditSink.h>
 
@@ -259,7 +261,7 @@ struct OAuth2ControllerDocs
                                         codeChallengeParam,
                                         codeChallengeMethodParam};
             loginEndpoint.responses =
-              {{200, "Authentication successful (JSON with redirect_uri)"},
+              {{200, "Authentication successful (JSON with redirect_uri); 200 with mfa_required=true when the account has MFA enabled, or password_change_required=true while the account is flagged must_change_password (#145)"},
                {302, "Redirect with authorization code (if requested via browser)"},
                {401, "Authentication failed"}};
             loginEndpoint.responseExamples = {{200, successExample}, {401, errorExample}};
@@ -387,11 +389,49 @@ struct OAuth2ControllerDocs
             consentEndpoint.responses = {
               {302, "Redirect to client with authorization code or error"},
               {400, "Missing/expired/mismatched consent_csrf nonce, or deny redirect_uri not registered"},
-              {401, "No authenticated session (AUTH_SESSION_REQUIRED)"},
-              {403, "user_id does not match the session (AUTHZ_ACCESS_DENIED)"}
+              {401, "No authenticated session (AUTH_SESSION_REQUIRED), or MFA-pending session (AUTH_MFA_REQUIRED, #144)"},
+              {403, "user_id does not match the session (AUTHZ_ACCESS_DENIED), or must_change_password flagged (AUTH_PASSWORD_CHANGE_REQUIRED, #145)"}
             };
             consentEndpoint.requiresAuth = false;
             OpenApiGenerator::addEndpoint(consentEndpoint);
+        }
+
+        // Forced password-change endpoint (#145: session-authenticated, only
+        // usable while the session carries the must_change_password marker)
+        {
+            ::fulla::drogon::observability::openapi::EndpointInfo pwdChangeEndpoint;
+            pwdChangeEndpoint.path = "/oauth2/password/change";
+            pwdChangeEndpoint.method = "POST";
+            pwdChangeEndpoint.summary = "Change password (forced first-login flow)";
+            pwdChangeEndpoint.description =
+              "Changes the password of the session user while the account is "
+              "flagged must_change_password (bootstrap admin, admin-created "
+              "users). Requires old_password; clears the flag, revokes all "
+              "tokens, and keeps the current session.";
+            pwdChangeEndpoint.tags = {"OAuth2", "Session"};
+
+            ::fulla::drogon::observability::openapi::ParameterInfo oldPwdParam;
+            oldPwdParam.name = "old_password";
+            oldPwdParam.description = "Current password (required)";
+            oldPwdParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+            oldPwdParam.location = ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
+            oldPwdParam.required = true;
+
+            ::fulla::drogon::observability::openapi::ParameterInfo newPwdParam;
+            newPwdParam.name = "new_password";
+            newPwdParam.description = "New password (required, min length from auth.min_password_length)";
+            newPwdParam.type = ::fulla::drogon::observability::openapi::ParameterType::STRING;
+            newPwdParam.location = ::fulla::drogon::observability::openapi::ParameterLocation::QUERY;
+            newPwdParam.required = true;
+
+            pwdChangeEndpoint.parameters = {oldPwdParam, newPwdParam};
+            pwdChangeEndpoint.responses = {
+              {200, "Password changed; must_change_password flag cleared"},
+              {400, "Missing fields or new password below the configured minimum"},
+              {401, "No session / session without the must_change_password marker (AUTH_SESSION_REQUIRED), or wrong old_password (AUTH_INVALID_CREDENTIALS)"}
+            };
+            pwdChangeEndpoint.requiresAuth = false;
+            OpenApiGenerator::addEndpoint(pwdChangeEndpoint);
         }
 
         // Logout endpoint (Bearer-protected programmatic logout)
@@ -638,7 +678,8 @@ void SessionController::login(
                          int32_t internalId,
                          std::string publicSub,
                          bool emailVerified,
-                         bool mfaEnabled
+                         bool mfaEnabled,
+                         bool mustChangePassword
                        ) mutable {
         if (success)
         {
@@ -662,6 +703,17 @@ void SessionController::login(
                              .count();
             req->session()->insert("auth_time", static_cast<int64_t>(nowSecs));
             req->session()->insert("amr", std::string("pwd"));
+            // #144: a fresh password login is the newest authentication
+            // state -- drop any stale MFA-pending marker (e.g. MFA was
+            // administratively disabled while a session sat at the challenge
+            // screen; without this the authorize gate would redirect that
+            // session to /login forever).
+            req->session()->erase("mfa_pending");
+            // #145: symmetric stale-marker cleanup for the password-change
+            // flag (Session::insert never overwrites, so a stale true must be
+            // erased explicitly; it is re-inserted below only when still set
+            // in the users row).
+            req->session()->erase("must_change_password");
 
             // Audit: login success
             ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
@@ -673,6 +725,48 @@ void SessionController::login(
               "user",
               publicSub
             );
+
+            // === #145: forced first-login password change ===
+            // Checked BEFORE evaluateLoginPolicy: changing the password needs
+            // only the first factor; after a successful change the user
+            // re-logs-in and MFA (if enabled) proceeds from a clean state.
+            // While flagged, no authorization codes are issued for this
+            // account (authorize redirects to the change-password page,
+            // consent answers 403 AUTH_PASSWORD_CHANGE_REQUIRED, and
+            // MfaController::verifyLogin refuses to mint a code) -- the
+            // change itself happens via POST /oauth2/password/change on this
+            // session.
+            if (mustChangePassword)
+            {
+                req->session()->insert("must_change_password", true);
+                if (req->getParameter("json") == "true")
+                {
+                    Json::Value pwdResp;
+                    pwdResp["password_change_required"] = true;
+                    pwdResp["message"] =
+                      "Password change required. Change the password via "
+                      "POST /oauth2/password/change before signing in";
+                    auto resp = ::drogon::HttpResponse::newHttpJsonResponse(pwdResp);
+                    resp->setStatusCode(::drogon::k200OK);
+                    callback(resp);
+                    return;
+                }
+                auto customCfg = ::drogon::app().getCustomConfig();
+                std::string frontendUrl = "http://localhost:5173";
+                if (
+                  customCfg.isMember("frontend") && customCfg["frontend"].isMember("url")
+                )
+                {
+                    frontendUrl = customCfg["frontend"]["url"].asString();
+                }
+                if (!frontendUrl.empty() && frontendUrl.back() == '/')
+                    frontendUrl.pop_back();
+                auto resp = ::drogon::HttpResponse::newRedirectionResponse(
+                  frontendUrl + "/login?must_change_password=1"
+                );
+                callback(resp);
+                return;
+            }
 
             // === CHECK 1/2: email verification + MFA enforcement ===
             // Task 24 slice 4: delegates to
@@ -742,6 +836,14 @@ void SessionController::login(
                             {
                                 req->session()->insert("mfa_code_challenge", codeChallenge);
                                 req->session()->insert("mfa_code_challenge_method", codeChallengeMethod);
+                                // #144: mark the session as paused at the MFA
+                                // challenge. Consent/authorize gates treat a
+                                // pending session as NOT fully authenticated
+                                // (amr is still "pwd" here); the marker is
+                                // erased by MfaController::verifyLogin on
+                                // successful second-factor completion or by
+                                // the next password login.
+                                req->session()->insert("mfa_pending", true);
                             }
                             Json::Value mfaResp;
                             mfaResp["mfa_required"] = true;
@@ -954,7 +1056,7 @@ void SessionController::login(
           ) mutable {
               if (!result)
               {
-                  onValidated(false, 0, "", false, false);
+                  onValidated(false, 0, "", false, false, false);
                   return;
               }
               onValidated(
@@ -962,7 +1064,8 @@ void SessionController::login(
                 result->internalId,
                 result->publicSub,
                 result->emailVerified,
-                result->mfaEnabled
+                result->mfaEnabled,
+                result->mustChangePassword
               );
           }
         );
@@ -976,7 +1079,7 @@ void SessionController::login(
              std::move(onValidated)](std::optional<services::AuthResult> result) mutable {
               if (!result)
               {
-                  onValidated(false, 0, "", false, false);
+                  onValidated(false, 0, "", false, false, false);
                   return;
               }
               onValidated(
@@ -984,7 +1087,8 @@ void SessionController::login(
                 result->internalId,
                 result->publicSub,
                 result->emailVerified,
-                result->mfaEnabled
+                result->mfaEnabled,
+                result->mustChangePassword
               );
           }
         );
@@ -1044,33 +1148,49 @@ void SessionController::consent(
         return;
     }
 
-    // Gate 3 — CSRF nonce (the find/verify/erase sequence must be atomic:
-    // two concurrent submissions on one session could otherwise both pass
-    // verification and mint two codes; consent traffic is tiny, so a
-    // process-wide mutex is sufficient. Cross-instance deployments share
-    // session storage only with sticky routing — same limitation as the
-    // rest of the in-memory session surface.)
-    static std::mutex consentCsrfMutex;
-    std::lock_guard<std::mutex> consentCsrfLock(consentCsrfMutex);
+    // Gate 2a (#144) — a session paused at the MFA challenge passed Gate 1
+    // (login writes userId/sub before the MFA decision), but amr is still
+    // "pwd": consent granted on it would mint a code for an MFA-required
+    // account without the second factor ever completing. Refuse until
+    // MfaController::verifyLogin clears the marker.
+    if (req->session()->find("mfa_pending") && req->session()->get<bool>("mfa_pending"))
+    {
+        respondError(
+          req, std::move(callback), "AUTH_MFA_REQUIRED",
+          "consent: complete MFA verification before granting consent"
+        );
+        return;
+    }
+
+    // Gate 2b (#145) — accounts flagged must_change_password must change the
+    // password (POST /oauth2/password/change) before any authorization code
+    // is issued; consent submissions are refused meanwhile.
+    if (
+      req->session()->find("must_change_password") &&
+      req->session()->get<bool>("must_change_password")
+    )
+    {
+        respondError(
+          req, std::move(callback), "AUTH_PASSWORD_CHANGE_REQUIRED",
+          "consent: change the account password before granting consent"
+        );
+        return;
+    }
+
     // Gate 3 — CSRF nonce (server-minted at the authorize->consent redirect;
     // deliberately NOT the client-chosen `state`, which is attacker-known).
-    // One-shot: consumed here so replays fail; TTL 10 minutes.
+    // One-shot per nonce: consumed here so replays fail; TTL 10 minutes.
+    // #144: the nonce lives in a bounded multi-slot list
+    // (ConsentCsrfSlots) so concurrent authorize flows on one session no
+    // longer overwrite each other; the helper holds the process-wide mutex
+    // across its full read-modify-write (cross-instance deployments share
+    // session storage only with sticky routing — same limitation as the
+    // rest of the in-memory session surface).
     {
-        std::string slot;
-        int64_t slotTs = 0;
-        bool hasSlot = false;
-        if (req->session()->find("pending_consent_csrf"))
-        {
-            slot = req->session()->get<std::string>("pending_consent_csrf");
-            hasSlot = true;
-        }
-        if (req->session()->find("pending_consent_csrf_ts"))
-            slotTs = req->session()->get<int64_t>("pending_consent_csrf_ts");
         const int64_t now = static_cast<int64_t>(
           ::trantor::Date::now().secondsSinceEpoch()
         );
-        const bool fresh = hasSlot && !slot.empty() && (now - slotTs) <= 600;
-        if (!fresh || consentCsrf != slot)
+        if (!::fulla::drogon::utils::ConsentCsrfSlots::consume(req->session(), consentCsrf, now))
         {
             respondError(
               req, std::move(callback), "VALIDATION_INVALID_INPUT",
@@ -1078,8 +1198,6 @@ void SessionController::consent(
             );
             return;
         }
-        req->session()->erase("pending_consent_csrf");
-        req->session()->erase("pending_consent_csrf_ts");
     }
 
     // F-022 (OIDC Core §3.1.3.7): read auth_time/amr from the session so the
@@ -1319,6 +1437,236 @@ void SessionController::consent(
           }
       }
     );
+}
+
+// #145: forced first-login password change. Unlike PUT /api/me/password
+// (Bearer-token protected), this endpoint authenticates via the browser
+// session -- a must_change_password user cannot obtain tokens (all code
+// issuance is gated), so the session that just passed the first factor is
+// the only credential available. Hardened by:
+//   * only usable while the session carries the must_change_password marker
+//     (set at login from the users row; cleared here on success),
+//   * old_password is always verified against the stored hash (same
+//     knowledge factor as the login itself),
+//   * the password policy (auth.min_password_length) applies,
+//   * on success all access/refresh tokens are revoked (same documented
+//     batch exemption as PUT /api/me/password) and the audit trail records
+//     the change.
+void SessionController::changePasswordForced(
+  const ::drogon::HttpRequestPtr &req,
+  std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+)
+{
+    auto sharedCb =
+      std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
+
+    // Session must exist, identify a user, and carry the marker.
+    if (
+      !req->session() || !req->session()->find("userId") ||
+      req->session()->get<std::string>("userId").empty() ||
+      !req->session()->find("must_change_password") ||
+      !req->session()->get<bool>("must_change_password")
+    )
+    {
+        respondError(
+          req,
+          *sharedCb,
+          "AUTH_SESSION_REQUIRED",
+          "password/change: only available to a session flagged must_change_password"
+        );
+        return;
+    }
+    const std::string sessUserId = req->session()->get<std::string>("userId");
+    const std::string sessSub = req->session()->find("sub")
+                                  ? req->session()->get<std::string>("sub")
+                                  : sessUserId;
+
+    std::string oldPassword;
+    std::string newPassword;
+    if (req->getJsonObject())
+    {
+        oldPassword = req->getJsonObject()->get("old_password", "").asString();
+        newPassword = req->getJsonObject()->get("new_password", "").asString();
+    }
+    else
+    {
+        oldPassword = req->getParameter("old_password");
+        newPassword = req->getParameter("new_password");
+    }
+
+    if (oldPassword.empty() || newPassword.empty())
+    {
+        respondError(
+          req,
+          *sharedCb,
+          "VALIDATION_MISSING_REQUIRED_FIELD",
+          "password/change: old_password and new_password are required"
+        );
+        return;
+    }
+
+    if (newPassword.length() < fulla::drogon::validation::RuleSet::passwordMinLength())
+    {
+        respondError(
+          req,
+          *sharedCb,
+          "VALIDATION_PASSWORD_TOO_SHORT",
+          "password/change: new password must be at least " +
+            std::to_string(fulla::drogon::validation::RuleSet::passwordMinLength()) + " characters"
+        );
+        return;
+    }
+
+    auto db = ::drogon::app().getDbClient();
+    // users.id is int4; the session stores the internal id as string.
+    int internalId = 0;
+    try
+    {
+        internalId = std::stoi(sessUserId);
+    }
+    catch (...)
+    {
+        respondError(
+          req, *sharedCb, "AUTH_SESSION_REQUIRED", "password/change: invalid session user id"
+        );
+        return;
+    }
+
+    try
+    {
+        Criteria pwCrit(Users::Cols::_id, CompareOperator::EQ, internalId);
+        Criteria deletedCrit(Users::Cols::_deleted_at, CompareOperator::IsNull);
+        Mapper<Users>(db).findBy(
+          pwCrit && deletedCrit,
+          [sharedCb, req, db, oldPassword, newPassword, internalId, sessSub](
+            const std::vector<Users> &users
+          ) {
+              if (users.empty())
+              {
+                  respondError(
+                    req, *sharedCb, "VALIDATION_RESOURCE_NOT_FOUND", "password/change: user not found"
+                  );
+                  return;
+              }
+              const Users &user = users[0];
+              if (!::fulla::common::utils::PasswordHasher::verify(
+                    oldPassword, user.getValueOfPasswordHash(), user.getValueOfSalt()
+                  ))
+              {
+                  ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
+                    ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                    "password_change_failed",
+                    "failure",
+                    req,
+                    sessSub,
+                    "user",
+                    sessSub
+                  );
+                  respondError(
+                    req,
+                    *sharedCb,
+                    "AUTH_INVALID_CREDENTIALS",
+                    "password/change: current password is incorrect"
+                  );
+                  return;
+              }
+
+              std::string newHash;
+              try
+              {
+                  newHash = ::fulla::common::utils::PasswordHasher::hash(newPassword);
+              }
+              catch (const std::exception &e)
+              {
+                  respondError(
+                    req, *sharedCb, "INTERNAL_ERROR", std::string("Password hashing failed: ") + e.what()
+                  );
+                  return;
+              }
+
+              Users updatedUser = user;
+              updatedUser.setPasswordHash(newHash);
+              updatedUser.setSalt("");
+              updatedUser.setMustChangePassword(false);
+              try
+              {
+                  Mapper<Users>(db).update(
+                    updatedUser,
+                    [sharedCb, req, db, sessSub](const size_t) {
+                        // Exemption (db-operations.md §3): security-critical
+                        // batch revoke on password change (same as PUT
+                        // /api/me/password). The current browser session is
+                        // kept so the user can continue signing in.
+                        db->execSqlAsync(
+                          "UPDATE oauth2_access_tokens SET revoked = true WHERE user_id = $1",
+                          [sharedCb, req, db, sessSub](const ::drogon::orm::Result &) {
+                              db->execSqlAsync(
+                                "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
+                                [sharedCb, req, sessSub](const ::drogon::orm::Result &) {
+                                    if (req->session())
+                                        req->session()->erase("must_change_password");
+                                    ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
+                                      ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
+                                      "password_changed",
+                                      "success",
+                                      req,
+                                      sessSub,
+                                      "user",
+                                      sessSub
+                                    );
+                                    Json::Value json;
+                                    json["message"] =
+                                      "Password changed successfully. Sign in again to continue.";
+                                    (*sharedCb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                                },
+                                [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                                    respondError(
+                                      req, *sharedCb, "DB_QUERY_ERROR",
+                                      std::string("Failed to revoke refresh tokens: ") + e.base().what()
+                                    );
+                                },
+                                sessSub
+                              );
+                          },
+                          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                              respondError(
+                                req, *sharedCb, "DB_QUERY_ERROR",
+                                std::string("Failed to revoke access tokens: ") + e.base().what()
+                              );
+                          },
+                          sessSub
+                        );
+                    },
+                    [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+                        respondError(
+                          req, *sharedCb, "DB_QUERY_ERROR",
+                          std::string("Failed to update password: ") + e.base().what()
+                        );
+                    }
+                  );
+              }
+              catch (const std::exception &e)
+              {
+                  respondError(
+                    req, *sharedCb, "DB_QUERY_ERROR",
+                    std::string("Failed to update password: ") + e.what()
+                  );
+              }
+          },
+          [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
+              respondError(
+                req, *sharedCb, "DB_QUERY_ERROR",
+                std::string("Failed to load user: ") + e.base().what()
+              );
+          }
+        );
+    }
+    catch (const std::exception &e)
+    {
+        respondError(
+          req, *sharedCb, "DB_QUERY_ERROR", std::string("Failed to load user: ") + e.what()
+        );
+    }
 }
 
 void SessionController::logout(

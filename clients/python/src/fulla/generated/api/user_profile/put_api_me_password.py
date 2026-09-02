@@ -52,7 +52,9 @@ def sync_detailed(
 ) -> Response[Any]:
     """Change Password
 
-     Change the current user's password.
+     Change the current user's password. A successful change also clears the must_change_password flag
+    (#145) and revokes all existing tokens. For the forced first-login flow (no Bearer token available)
+    use POST /oauth2/password/change instead.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -77,7 +79,9 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Change Password
 
-     Change the current user's password.
+     Change the current user's password. A successful change also clears the must_change_password flag
+    (#145) and revokes all existing tokens. For the forced first-login flow (no Bearer token available)
+    use POST /oauth2/password/change instead.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

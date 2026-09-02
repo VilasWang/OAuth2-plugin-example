@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '../../stores/auth'
 import { normalizeError } from '../../services/errorAdapter'
@@ -17,8 +18,15 @@ const { t } = useI18n()
 // {status: "approved", user_code}.
 
 const auth = useAuthStore()
+const route = useRoute()
 
 const userCode = ref('')
+// #146: verification_uri_complete lands the admin on this page with
+// ?user_code=<code> (RFC 8628 §3.3.1) — prefill the input so no manual
+// code entry is needed.
+const initialCode = typeof route.query.user_code === 'string' ? route.query.user_code : ''
+userCode.value = initialCode
+
 const approving = ref(false)
 const success = ref(false)
 const errorMessage = ref('')

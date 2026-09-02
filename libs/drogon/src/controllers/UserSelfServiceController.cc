@@ -149,6 +149,7 @@ void UserSelfServiceController::getProfile(
                   json["email"] = user.getValueOfEmail().empty() ? "" : user.getValueOfEmail();
                   json["email_verified"] = user.getValueOfEmailVerified();
                   json["mfa_enabled"] = user.getValueOfMfaEnabled();
+                  json["must_change_password"] = user.getValueOfMustChangePassword();
                   auto resp = ::drogon::HttpResponse::newHttpJsonResponse(json);
                   (*sharedCb)(resp);
               },
@@ -289,6 +290,10 @@ void UserSelfServiceController::changePassword(
               Users updatedUser = user;
               updatedUser.setPasswordHash(newHash);
               updatedUser.setSalt("");
+              // #145: a successful password change retires the forced-change
+              // flag (this is the normal Bearer-token path; the forced flow
+              // goes through POST /oauth2/password/change).
+              updatedUser.setMustChangePassword(false);
               auto db2 = ::drogon::app().getDbClient();
               try
               {

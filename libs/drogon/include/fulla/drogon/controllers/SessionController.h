@@ -59,6 +59,16 @@ class SessionController : public ::drogon::HttpController<SessionController, fal
     ADD_METHOD_TO(SessionController::showLoginPage, "/login", ::drogon::Get);
     ADD_METHOD_TO(SessionController::login, "/oauth2/login", ::drogon::Post);
     ADD_METHOD_TO(SessionController::consent, "/oauth2/consent", ::drogon::Post);
+    // #145: session-authenticated forced-password-change endpoint. No auth
+    // filter -- like /oauth2/login it authenticates via the browser session
+    // and is only usable while the session carries the must_change_password
+    // marker (set at login from the users row); old_password is always
+    // verified against the stored hash.
+    ADD_METHOD_TO(
+      SessionController::changePasswordForced,
+      "/oauth2/password/change",
+      ::drogon::Post
+    );
     ADD_METHOD_TO(
       SessionController::logout,
       "/oauth2/logout",
@@ -82,6 +92,10 @@ class SessionController : public ::drogon::HttpController<SessionController, fal
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );
     void consent(
+      const ::drogon::HttpRequestPtr &req,
+      std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+    );
+    void changePasswordForced(
       const ::drogon::HttpRequestPtr &req,
       std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
     );

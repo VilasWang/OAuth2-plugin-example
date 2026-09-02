@@ -1,6 +1,6 @@
 // api-diff baseline -- Fulla SDK public header skeletons.
 // Regenerate ONLY via: python tools/api-diff/api_diff.py --update-baseline
-// version: 1.0.1
+// version: 1.1.0
 === libs/common/include/fulla/common/config/ConfigManager.h
 #pragma once
 #include <string>
@@ -668,6 +668,7 @@ int internalId;
 std::string publicSub;
 bool emailVerified = false;
 bool mfaEnabled = false;
+bool mustChangePassword = false;
 };
 class AuthService
 {
@@ -1904,6 +1905,11 @@ ADD_METHOD_TO(SessionController::showLoginPage, "/login", ::drogon::Get);
 ADD_METHOD_TO(SessionController::login, "/oauth2/login", ::drogon::Post);
 ADD_METHOD_TO(SessionController::consent, "/oauth2/consent", ::drogon::Post);
 ADD_METHOD_TO(
+SessionController::changePasswordForced,
+"/oauth2/password/change",
+::drogon::Post
+);
+ADD_METHOD_TO(
 SessionController::logout,
 "/oauth2/logout",
 ::drogon::Post,
@@ -1922,6 +1928,10 @@ const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
 void consent(
+const ::drogon::HttpRequestPtr &req,
+std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
+);
+void changePasswordForced(
 const ::drogon::HttpRequestPtr &req,
 std::function<void(const ::drogon::HttpResponsePtr &)> &&callback
 );
@@ -3196,6 +3206,31 @@ static void requestReset(const ::drogon::HttpRequestPtr &req, ResponseCallback c
 static void confirmReset(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
 };
 }
+=== libs/drogon/include/fulla/drogon/utils/ConsentCsrfSlots.h
+#pragma once
+#include <drogon/drogon.h>
+#include <cstdint>
+#include <string>
+namespace fulla::drogon::utils
+{
+class ConsentCsrfSlots
+{
+public:
+static constexpr std::size_t kMaxSlots = 5;
+static constexpr int64_t kTtlSeconds = 600;
+static constexpr const char *kSessionKey = "pending_consent_csrf_slots";
+static void mint(
+const ::drogon::SessionPtr &session,
+const std::string &nonce,
+int64_t nowSeconds
+);
+static bool consume(
+const ::drogon::SessionPtr &session,
+const std::string &nonce,
+int64_t nowSeconds
+);
+};
+}
 === libs/drogon/include/fulla/drogon/utils/CryptoUtils.h
 #pragma once
 #include <cctype>
@@ -3342,31 +3377,6 @@ static std::string forProvider(const std::string &provider, const std::string &s
 ;
 static bool isValid(const std::string &subject)
 ;
-};
-}
-=== libs/drogon/include/fulla/drogon/utils/TotpUtils.h
-#pragma once
-#include <string>
-#include <vector>
-#include <cstdint>
-namespace fulla::common::utils
-{
-class TotpUtils
-{
-public:
-static std::string generateSecret();
-static std::string generateCode(const std::string &secret);
-static bool verifyCode(const std::string &secret, const std::string &code);
-static std::string generateOtpAuthUri(
-const std::string &secret,
-const std::string &accountName,
-const std::string &issuer = "OAuth2Server"
-);
-static std::vector<std::string> generateBackupCodes(int count = 10);
-private:
-static std::vector<uint8_t> base32Decode(const std::string &encoded);
-static std::string base32Encode(const uint8_t *data, size_t len);
-static uint32_t generateOtp(const std::vector<uint8_t> &key, uint64_t counter);
 };
 }
 === libs/drogon/include/fulla/drogon/validation/HttpResponder.h
@@ -3579,6 +3589,7 @@ int32_t internalId = 0;
 std::string publicSub;
 bool emailVerified = false;
 bool mfaEnabled = false;
+bool mustChangePassword = false;
 };
 class AuthService
 {
@@ -3873,6 +3884,7 @@ std::string salt;
 std::string publicSub;
 bool emailVerified = false;
 bool mfaEnabled = false;
+bool mustChangePassword = false;
 int64_t lockedUntil = 0;
 int failedLoginCount = 0;
 };
@@ -8870,6 +8882,7 @@ static const std::string _org_id;
 static const std::string _mfa_pending_client_id;
 static const std::string _mfa_pending_redirect_uri;
 static const std::string _deleted_at;
+static const std::string _must_change_password;
 };
 static const int primaryKeyNumber;
 static const std::string tableName;
@@ -8974,6 +8987,10 @@ const ::trantor::Date &getValueOfDeletedAt() const noexcept;
 const std::shared_ptr<::trantor::Date> &getDeletedAt() const noexcept;
 void setDeletedAt(const ::trantor::Date &pDeletedAt) noexcept;
 void setDeletedAtToNull() noexcept;
+const bool &getValueOfMustChangePassword() const noexcept;
+const std::shared_ptr<bool> &getMustChangePassword() const noexcept;
+void setMustChangePassword(const bool &pMustChangePassword) noexcept;
+void setMustChangePasswordToNull() noexcept;
 static size_t getColumnNumber() noexcept ;
 static const std::string &getColumnName(size_t index) noexcept(false);
 Json::Value toJson() const;
@@ -9043,6 +9060,7 @@ std::shared_ptr<int32_t> orgId_;
 std::shared_ptr<std::string> mfaPendingClientId_;
 std::shared_ptr<std::string> mfaPendingRedirectUri_;
 std::shared_ptr<::trantor::Date> deletedAt_;
+std::shared_ptr<bool> mustChangePassword_;
 struct MetaData
 {
 const std::string colName_;
@@ -9054,7 +9072,7 @@ const bool isPrimaryKey_;
 const bool notNull_;
 };
 static const std::vector<MetaData> metaData_;
-bool dirtyFlag_[18]={ false };
+bool dirtyFlag_[19]={ false };
 public:
 static const std::string &sqlForFindingByPrimaryKey()
 ;

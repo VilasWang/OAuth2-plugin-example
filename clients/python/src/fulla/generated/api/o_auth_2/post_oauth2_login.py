@@ -9,6 +9,7 @@ from ...models.error_envelope import ErrorEnvelope
 from ...models.login_request import LoginRequest
 from ...models.login_success_response import LoginSuccessResponse
 from ...models.mfa_required_response import MfaRequiredResponse
+from ...models.password_change_required_response import PasswordChangeRequiredResponse
 from ...types import UNSET, Response
 
 
@@ -37,10 +38,12 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | None:
+) -> Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse | None:
     if response.status_code == 200:
 
-        def _parse_response_200(data: object) -> LoginSuccessResponse | MfaRequiredResponse:
+        def _parse_response_200(
+            data: object,
+        ) -> LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
@@ -49,11 +52,19 @@ def _parse_response(
                 return response_200_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                response_200_type_1 = MfaRequiredResponse.from_dict(data)
+
+                return response_200_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            response_200_type_1 = MfaRequiredResponse.from_dict(data)
+            response_200_type_2 = PasswordChangeRequiredResponse.from_dict(data)
 
-            return response_200_type_1
+            return response_200_type_2
 
         response_200 = _parse_response_200(response.json())
 
@@ -86,7 +97,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse]:
+) -> Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -99,7 +110,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: LoginRequest | LoginRequest | Unset = UNSET,
-) -> Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse]:
+) -> Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse]:
     """Authenticate user
 
      Authenticates user credentials and generates an authorization code. Usually called by the frontend
@@ -117,7 +128,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse]
+        Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse]
     """
 
     kwargs = _get_kwargs(
@@ -135,7 +146,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: LoginRequest | LoginRequest | Unset = UNSET,
-) -> Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | None:
+) -> Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse | None:
     """Authenticate user
 
      Authenticates user credentials and generates an authorization code. Usually called by the frontend
@@ -153,7 +164,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse
+        Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse
     """
 
     return sync_detailed(
@@ -166,7 +177,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: LoginRequest | LoginRequest | Unset = UNSET,
-) -> Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse]:
+) -> Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse]:
     """Authenticate user
 
      Authenticates user credentials and generates an authorization code. Usually called by the frontend
@@ -184,7 +195,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse]
+        Response[Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse]
     """
 
     kwargs = _get_kwargs(
@@ -200,7 +211,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: LoginRequest | LoginRequest | Unset = UNSET,
-) -> Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | None:
+) -> Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse | None:
     """Authenticate user
 
      Authenticates user credentials and generates an authorization code. Usually called by the frontend
@@ -218,7 +229,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse
+        Any | ErrorEnvelope | LoginSuccessResponse | MfaRequiredResponse | PasswordChangeRequiredResponse
     """
 
     return (

@@ -1,9 +1,9 @@
 #pragma once
 
 // M2.5 identity completion (fulla-sdk-refactor, design.md §5.1/§6):
-// real (non-placeholder) implementation. Ports
-// fulla::common::utils::TotpUtils (OAuth2Plugin/include/oauth2/utils/TotpUtils.h)
-// into the Domain layer, unchanged algorithm (RFC 6238 TOTP over
+// real (non-placeholder) implementation. Ports the former
+// fulla::common::utils::TotpUtils static class into the Domain layer,
+// unchanged algorithm (RFC 6238 TOTP over
 // HMAC-SHA1, 30-second time steps, 6-digit codes; RFC 4226 dynamic
 // truncation), but expressed as free functions taking an
 // fulla::common::ports::ICryptoProvider& instead of hardcoding a

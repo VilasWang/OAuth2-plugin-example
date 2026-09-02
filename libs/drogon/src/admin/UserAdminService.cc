@@ -217,6 +217,7 @@ Json::Value userRowToListJson(const Users &row)
     user["email"] = row.getValueOfEmail();
     user["email_verified"] = row.getValueOfEmailVerified();
     user["mfa_enabled"] = row.getValueOfMfaEnabled();
+    user["must_change_password"] = row.getValueOfMustChangePassword();
     return user;
 }
 
@@ -617,6 +618,7 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
         !jsonMemberHasType(*jsonBody, "email", isStringVal) ||
         !jsonMemberHasType(*jsonBody, "email_verified", isBoolVal) ||
         !jsonMemberHasType(*jsonBody, "mfa_enabled", isBoolVal) ||
+        !jsonMemberHasType(*jsonBody, "must_change_password", isBoolVal) ||
         !jsonMemberHasType(*jsonBody, "org_id", isIntOrNullVal))
     {
         respondError(req, cb, "VALIDATION_INVALID_INPUT", "One or more fields have an invalid type");
@@ -632,6 +634,10 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
     std::string email = jsonBody->get("email", "").asString();
     bool emailVerified = jsonBody->get("email_verified", false).asBool();
     bool mfaEnabled = jsonBody->get("mfa_enabled", false).asBool();
+    // #145: opt-in forced password change for admin-created users (the admin
+    // knows the initial password, so it can be flagged for replacement at
+    // first login). Default false: existing API consumers keep their behavior.
+    bool mustChangePassword = jsonBody->get("must_change_password", false).asBool();
 
     if (username.empty())
     {
@@ -684,6 +690,7 @@ void UserAdminService::createUser(const ::drogon::HttpRequestPtr &req, ResponseC
     }
     row.setEmailVerified(emailVerified);
     row.setMfaEnabled(mfaEnabled);
+    row.setMustChangePassword(mustChangePassword);
     // org_id: explicit int sets it; null/absent leaves the column NULL (#59).
     if (jsonBody->isMember("org_id") && (*jsonBody)["org_id"].isInt())
     {
@@ -924,6 +931,7 @@ void UserAdminService::getUser(
               json["email"] = row.getValueOfEmail();
               json["email_verified"] = row.getValueOfEmailVerified();
               json["mfa_enabled"] = row.getValueOfMfaEnabled();
+              json["must_change_password"] = row.getValueOfMustChangePassword();
               json["failed_login_count"] = row.getValueOfFailedLoginCount();
               int64_t lockedUntil = row.getValueOfLockedUntil();
               int64_t now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
@@ -998,6 +1006,7 @@ void UserAdminService::updateUser(
         !jsonMemberHasType(*jsonBody, "email_verified", isBoolVal) ||
         !jsonMemberHasType(*jsonBody, "username", isStringVal) ||
         !jsonMemberHasType(*jsonBody, "mfa_enabled", isBoolVal) ||
+        !jsonMemberHasType(*jsonBody, "must_change_password", isBoolVal) ||
         !jsonMemberHasType(*jsonBody, "locked", isBoolVal) ||
         !jsonMemberHasType(*jsonBody, "org_id", isIntOrNullVal))
     {
@@ -1008,10 +1017,14 @@ void UserAdminService::updateUser(
     bool hasEmailVerified = jsonBody->isMember("email_verified");
     bool hasUsername = jsonBody->isMember("username");
     bool hasMfaEnabled = jsonBody->isMember("mfa_enabled");
+    bool hasMustChangePassword = jsonBody->isMember("must_change_password");
     bool hasLocked = jsonBody->isMember("locked");
     bool hasOrgId = jsonBody->isMember("org_id");
     bool locking = hasLocked && (*jsonBody)["locked"].asBool();
-    if (!hasEmail && !hasEmailVerified && !hasUsername && !hasMfaEnabled && !hasLocked && !hasOrgId)
+    if (
+      !hasEmail && !hasEmailVerified && !hasUsername && !hasMfaEnabled && !hasMustChangePassword &&
+      !hasLocked && !hasOrgId
+    )
     {
         respondError(req, cb, "VALIDATION_INVALID_INPUT", "No updatable fields provided");
         return;
@@ -1029,8 +1042,8 @@ void UserAdminService::updateUser(
         mapper.findOne(
           Criteria(Users::Cols::_id, CompareOperator::EQ, id) &&
         Criteria(Users::Cols::_deleted_at, CompareOperator::IsNull),
-          [cb, req, jsonBody, hasEmail, hasEmailVerified, hasUsername, hasMfaEnabled, hasLocked,
-           hasOrgId, locking, db, id](
+          [cb, req, jsonBody, hasEmail, hasEmailVerified, hasUsername, hasMfaEnabled,
+           hasMustChangePassword, hasLocked, hasOrgId, locking, db, id](
             Users row
           ) {
               // Defense-in-depth (db-operations rule 2): the whole callback
@@ -1044,7 +1057,8 @@ void UserAdminService::updateUser(
                   // stays callable from const capture contexts (the guard's
                   // async callback captures it by value).
                   auto proceedWithUpdate = [cb, req, jsonBody, hasEmail, hasEmailVerified,
-                                            hasUsername, hasMfaEnabled, hasLocked, hasOrgId, db,
+                                            hasUsername, hasMfaEnabled, hasMustChangePassword,
+                                            hasLocked, hasOrgId, db,
                                             id, row]() {
                       Users rowLocal = row;
                       if (hasEmail)
@@ -1062,6 +1076,14 @@ void UserAdminService::updateUser(
                       if (hasMfaEnabled)
                       {
                           rowLocal.setMfaEnabled((*jsonBody)["mfa_enabled"].asBool());
+                      }
+                      if (hasMustChangePassword)
+                      {
+                          // #145: admin can set/clear the forced-change flag on
+                          // an existing account; enforcement starts at the
+                          // user's next login (the session marker is minted
+                          // there from this column).
+                          rowLocal.setMustChangePassword((*jsonBody)["must_change_password"].asBool());
                       }
                       if (hasLocked)
                       {

@@ -369,6 +369,12 @@ int httpStatusOverrideFor(const CatalogEntry &e)
     {
         return 400;
     }
+    // #145: AUTHENTICATION defaults to 401, but a must_change_password gate on
+    // an AUTHENTICATED session is an authorization refusal -> explicit 403.
+    if (e.code == "AUTH_PASSWORD_CHANGE_REQUIRED")
+    {
+        return 403;
+    }
     return 0;
 }
 

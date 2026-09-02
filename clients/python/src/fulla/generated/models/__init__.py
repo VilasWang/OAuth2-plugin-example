@@ -34,6 +34,7 @@ from .o_auth_2_error_error import OAuth2ErrorError
 from .o_auth_authorization_server_metadata import OAuthAuthorizationServerMetadata
 from .open_id_configuration import OpenIDConfiguration
 from .organization import Organization
+from .password_change_required_response import PasswordChangeRequiredResponse
 from .post_api_admin_clients_body import PostApiAdminClientsBody
 from .post_api_admin_clients_body_client_type import PostApiAdminClientsBodyClientType
 from .post_api_admin_organizations_body import PostApiAdminOrganizationsBody
@@ -58,6 +59,8 @@ from .post_oauth_2_device_authorization_body import PostOauth2DeviceAuthorizatio
 from .post_oauth_2_introspect_body import PostOauth2IntrospectBody
 from .post_oauth_2_logout_body import PostOauth2LogoutBody
 from .post_oauth_2_mfa_verify_response_200 import PostOauth2MfaVerifyResponse200
+from .post_oauth_2_password_change_data_body import PostOauth2PasswordChangeDataBody
+from .post_oauth_2_password_change_json_body import PostOauth2PasswordChangeJsonBody
 from .post_oauth_2_revoke_body import PostOauth2RevokeBody
 from .put_api_admin_clients_client_id_body import PutApiAdminClientsClientIdBody
 from .put_api_admin_roles_role_id_body import PutApiAdminRolesRoleIdBody
@@ -112,6 +115,7 @@ __all__ = (
     "OAuthAuthorizationServerMetadata",
     "OpenIDConfiguration",
     "Organization",
+    "PasswordChangeRequiredResponse",
     "PostApiAdminClientsBody",
     "PostApiAdminClientsBodyClientType",
     "PostApiAdminOrganizationsBody",
@@ -136,6 +140,8 @@ __all__ = (
     "PostOauth2IntrospectBody",
     "PostOauth2LogoutBody",
     "PostOauth2MfaVerifyResponse200",
+    "PostOauth2PasswordChangeDataBody",
+    "PostOauth2PasswordChangeJsonBody",
     "PostOauth2RevokeBody",
     "PutApiAdminClientsClientIdBody",
     "PutApiAdminRolesRoleIdBody",

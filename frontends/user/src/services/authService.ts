@@ -44,6 +44,14 @@ export const authService = {
       return { mfaRequired: true, mfaToken: resp.data.mfa_token }
     }
 
+    // #145: forced first-login password change. The backend refuses to issue
+    // an authorization code while the account is flagged; the user changes
+    // the password on the login session (POST /oauth2/password/change) and
+    // signs in again.
+    if (resp.data.password_change_required) {
+      return { passwordChangeRequired: true }
+    }
+
     const code = resp.data.code
     if (!code) throw new Error('No authorization code received')
 
@@ -82,6 +90,18 @@ export const authService = {
       return { success: true }
     }
     return { error: 'MFA verification failed' }
+  },
+
+  /**
+   * #145: forced first-login password change. Session-authenticated (the
+   * login that returned password_change_required set the browser session);
+   * no Bearer token exists at this point by design.
+   */
+  async changePasswordForced(oldPassword: string, newPassword: string): Promise<void> {
+    await http.post('/oauth2/password/change', JSON.stringify({
+      old_password: oldPassword,
+      new_password: newPassword,
+    }), { headers: { 'Content-Type': 'application/json' } })
   },
 
   /**

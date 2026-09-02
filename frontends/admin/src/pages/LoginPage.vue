@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppInput from '../components/ui/AppInput.vue'
 import AppAlert from '../components/ui/AppAlert.vue'
 import AppLogo from '../components/shared/AppLogo.vue'
@@ -9,6 +10,8 @@ import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+const { t } = useI18n()
 
 // Issuer verification line (mockup 06): hidden when not configured.
 const issuer = (import.meta.env.VITE_ISSUER as string | undefined) || ''
@@ -25,6 +28,24 @@ const mfaToken = ref('')
 const mfaCode = ref('')
 const mfaLoading = ref(false)
 
+// #145: forced first-login password change (e.g. the bootstrap admin whose
+// initial password was printed to the server log). The backend refuses to
+// issue tokens while the account is flagged; the password is replaced on the
+// login session and the administrator signs in again.
+const showPasswordChange = ref(false)
+const oldPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordChangeBusy = ref(false)
+const passwordChangeDone = ref(false)
+
+// PR #157 review MAJOR 4: the server's must-change redirect sends flagged
+// admin-console users here with the query flag set (302 from
+// /oauth2/authorize); show the change form without a login round-trip.
+if (route.query.must_change_password === '1') {
+  showPasswordChange.value = true
+}
+
 async function handleLogin() {
   loading.value = true
   try {
@@ -32,6 +53,10 @@ async function handleLogin() {
     if (result?.mfaRequired) {
       mfaToken.value = result.mfaToken!
       showMfa.value = true
+    } else if (result?.passwordChangeRequired) {
+      oldPassword.value = password.value
+      password.value = ''
+      showPasswordChange.value = true
     } else if (!result?.error) {
       router.push('/')
     }
@@ -52,10 +77,29 @@ async function handleMfa() {
   }
 }
 
+async function handlePasswordChange() {
+  if (newPassword.value !== confirmPassword.value) {
+    auth.loginError = t('login.passwordChange.mismatch')
+    return
+  }
+  passwordChangeBusy.value = true
+  try {
+    await auth.changePasswordForced(oldPassword.value, newPassword.value)
+    passwordChangeDone.value = true
+    auth.loginError = ''
+  } catch {
+    // loginError is set by the store; shown in the banner above.
+  } finally {
+    passwordChangeBusy.value = false
+  }
+}
+
 function backToLogin() {
   showMfa.value = false
   mfaCode.value = ''
   mfaToken.value = ''
+  showPasswordChange.value = false
+  passwordChangeDone.value = false
   auth.loginError = ''
 }
 </script>
@@ -89,8 +133,112 @@ function backToLogin() {
         {{ auth.loginError }}
       </AppAlert>
 
+      <!-- #145: forced first-login password change -->
       <form
-        v-if="!showMfa"
+        v-if="showPasswordChange"
+        class="space-y-5"
+        @submit.prevent="handlePasswordChange"
+      >
+        <div>
+          <h2 class="text-base font-semibold text-neutral-900">
+            {{ $t('login.passwordChange.title') }}
+          </h2>
+          <p class="mt-1 text-sm text-neutral-500">
+            {{ $t('login.passwordChange.subtitle') }}
+          </p>
+        </div>
+
+        <div
+          v-if="passwordChangeDone"
+          class="rounded-ctl border border-success-200 bg-success-50 p-4 text-sm text-success-800"
+          data-testid="forced-password-change-done"
+        >
+          {{ $t('login.passwordChange.done') }}
+        </div>
+        <template v-else>
+          <div class="space-y-1.5">
+            <label
+              for="old-password-field"
+              class="block text-sm font-medium text-neutral-700"
+            >
+              {{ $t('login.passwordChange.oldLabel') }}
+            </label>
+            <input
+              id="old-password-field"
+              v-model="oldPassword"
+              type="password"
+              :placeholder="$t('login.passwordChange.oldPlaceholder')"
+              required
+              autocomplete="current-password"
+              class="block w-full px-3.5 py-2.5 text-sm rounded-ctl border border-neutral-300 bg-surface
+                     placeholder:text-neutral-400 transition-colors duration-150
+                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
+            >
+          </div>
+          <div class="space-y-1.5">
+            <label
+              for="new-password-field"
+              class="block text-sm font-medium text-neutral-700"
+            >
+              {{ $t('login.passwordChange.newLabel') }}
+            </label>
+            <input
+              id="new-password-field"
+              v-model="newPassword"
+              type="password"
+              :placeholder="$t('login.passwordChange.newPlaceholder')"
+              required
+              autocomplete="new-password"
+              class="block w-full px-3.5 py-2.5 text-sm rounded-ctl border border-neutral-300 bg-surface
+                     placeholder:text-neutral-400 transition-colors duration-150
+                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
+            >
+          </div>
+          <div class="space-y-1.5">
+            <label
+              for="confirm-password-field"
+              class="block text-sm font-medium text-neutral-700"
+            >
+              {{ $t('login.passwordChange.confirmLabel') }}
+            </label>
+            <input
+              id="confirm-password-field"
+              v-model="confirmPassword"
+              type="password"
+              :placeholder="$t('login.passwordChange.confirmPlaceholder')"
+              required
+              autocomplete="new-password"
+              class="block w-full px-3.5 py-2.5 text-sm rounded-ctl border border-neutral-300 bg-surface
+                     placeholder:text-neutral-400 transition-colors duration-150
+                     focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus:border-brand-700"
+            >
+          </div>
+
+          <button
+            type="submit"
+            :disabled="passwordChangeBusy || !oldPassword || !newPassword || !confirmPassword"
+            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium
+                   bg-brand-600 text-white rounded-ctl hover:bg-brand-700 shadow-sm
+                   disabled:opacity-50 disabled:cursor-not-allowed
+                   transition-all duration-150 active:scale-[0.98]
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          >
+            {{ passwordChangeBusy ? $t('login.passwordChange.submitting') : $t('login.passwordChange.submit') }}
+          </button>
+        </template>
+
+        <button
+          type="button"
+          class="w-full text-center text-xs text-neutral-500 hover:text-neutral-700 transition-colors
+                 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
+          @click="backToLogin"
+        >
+          {{ $t('login.passwordChange.back') }}
+        </button>
+      </form>
+
+      <form
+        v-else-if="!showMfa"
         class="space-y-5"
         @submit.prevent="handleLogin"
       >
@@ -231,7 +379,7 @@ function backToLogin() {
         <button
           type="button"
           class="w-full text-center text-xs text-neutral-500 hover:text-neutral-700 transition-colors
-                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
+                 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
           @click="backToLogin"
         >
           {{ $t('login.mfa.back') }}

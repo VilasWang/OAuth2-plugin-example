@@ -74,6 +74,13 @@ constexpr int POLLING_INTERVAL_SECONDS = 5;
 constexpr const char *ALLOWED_USER_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 constexpr int USER_CODE_LENGTH = 8;
 
+// #146: the verification_uri default must point at a page that actually
+// exists. /oauth2/device has never had a backing route or page; the approval
+// UI shipped with PR #141 lives in the admin console SPA at /admin/devices
+// (router base '/admin/' + route 'devices'). Priority:
+//   1. custom_config.device_authorization.verification_uri (explicit override)
+//   2. {custom_config.admin_console.url}/admin/devices (admin console origin;
+//      dev default http://localhost:5174 matches frontends/admin vite server)
 std::string getVerificationUri()
 {
     auto customConfig = ::drogon::app().getCustomConfig();
@@ -84,7 +91,30 @@ std::string getVerificationUri()
     {
         return customConfig["device_authorization"]["verification_uri"].asString();
     }
-    return "http://localhost:5555/oauth2/device";
+    std::string adminConsoleUrl = "http://localhost:5174";
+    if (
+      customConfig.isMember("admin_console") &&
+      customConfig["admin_console"].isMember("url") &&
+      customConfig["admin_console"]["url"].isString()
+    )
+    {
+        adminConsoleUrl = customConfig["admin_console"]["url"].asString();
+    }
+    // Normalize a trailing slash so the join never yields "...//admin/devices".
+    if (!adminConsoleUrl.empty() && adminConsoleUrl.back() == '/')
+    {
+        adminConsoleUrl.pop_back();
+    }
+    return adminConsoleUrl + "/admin/devices";
+}
+
+// RFC 8628 §3.3.1: verification_uri_complete is the verification_uri with the
+// user_code appended as a query parameter so the user agent can skip manual
+// code entry (DeviceApprovePage prefills from ?user_code=).
+std::string getVerificationUriComplete(const std::string &verificationUri, const std::string &userCode)
+{
+    const char separator = (verificationUri.find('?') == std::string::npos) ? '?' : '&';
+    return verificationUri + separator + "user_code=" + ::drogon::utils::urlEncode(userCode);
 }
 
 // F-015 (RFC 8628 §3.2.1 defers to RFC 6749 §3.2.1): the device
@@ -296,10 +326,12 @@ void DeviceAuthController::deviceAuthorizationInner(
                   return;
               }
               // Success - return device authorization response
+              const std::string verificationUri = getVerificationUri();
               Json::Value response;
               response["device_code"] = deviceCode;
               response["user_code"] = userCode;
-              response["verification_uri"] = getVerificationUri();
+              response["verification_uri"] = verificationUri;
+              response["verification_uri_complete"] = getVerificationUriComplete(verificationUri, userCode);
               response["expires_in"] = DEVICE_CODE_LIFETIME_SECONDS;
               response["interval"] = POLLING_INTERVAL_SECONDS;
 

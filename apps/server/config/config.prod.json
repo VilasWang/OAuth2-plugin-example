@@ -229,6 +229,9 @@
         "metadata": {
             "issuer": "https://auth.example.com"
         },
+        "admin_console": {
+            "url": "https://admin.example.com"
+        },
         "auth": {
             "require_email_verification": true,
             "require_pkce_for_public": true,

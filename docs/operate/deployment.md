@@ -597,6 +597,9 @@ Generate a secure password hash and create the admin user:
 ADMIN_PASSWORD=$(openssl rand -base64 24)
 echo "Admin password: $ADMIN_PASSWORD"
 echo "Save this password — you will need it to log in to the admin console."
+# The account is flagged must_change_password (#145): the first login forces a
+# password change via the admin console's change-password form before any
+# authorization is granted, so the printed/initial password cannot linger.
 
 # Preferred: let the server bootstrap the admin on first start (random
 # PBKDF2 password printed ONCE to the container log):
@@ -608,10 +611,11 @@ echo "Save this password — you will need it to log in to the admin console."
 # hash string:
 ADMIN_HASH=$(python3 -c "import hashlib,os;pw=os.environ['ADMIN_PASSWORD'];salt=os.urandom(16);print('\$pbkdf2-sha256\$310000\$'+salt.hex()+'\$'+hashlib.pbkdf2_hmac('sha256',pw.encode(),salt,310000,32).hex())")
 
-# Create the admin user
+# Create the admin user (must_change_password=true mirrors the bootstrapper:
+# the first login forces a password change, #145)
 docker exec -i fulla-postgres psql -U fulla_user -d fulla_db <<EOF
-INSERT INTO users (username, password_hash, salt, email)
-VALUES ('admin', '${ADMIN_HASH}', '', 'admin@your-domain.com')
+INSERT INTO users (username, password_hash, salt, email, must_change_password)
+VALUES ('admin', '${ADMIN_HASH}', '', 'admin@your-domain.com', true)
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO user_roles (user_id, role_id)

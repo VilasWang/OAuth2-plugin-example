@@ -19,6 +19,8 @@ class PutApiAdminUsersUserIdBody:
         email (str | Unset):
         email_verified (bool | Unset):
         mfa_enabled (bool | Unset):
+        must_change_password (bool | Unset): Set/clear the forced password-change flag (#145); enforcement starts at the
+            user's next login.
         locked (bool | Unset):
         org_id (int | None | Unset):
     """
@@ -27,6 +29,7 @@ class PutApiAdminUsersUserIdBody:
     email: str | Unset = UNSET
     email_verified: bool | Unset = UNSET
     mfa_enabled: bool | Unset = UNSET
+    must_change_password: bool | Unset = UNSET
     locked: bool | Unset = UNSET
     org_id: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -39,6 +42,8 @@ class PutApiAdminUsersUserIdBody:
         email_verified = self.email_verified
 
         mfa_enabled = self.mfa_enabled
+
+        must_change_password = self.must_change_password
 
         locked = self.locked
 
@@ -59,6 +64,8 @@ class PutApiAdminUsersUserIdBody:
             field_dict["email_verified"] = email_verified
         if mfa_enabled is not UNSET:
             field_dict["mfa_enabled"] = mfa_enabled
+        if must_change_password is not UNSET:
+            field_dict["must_change_password"] = must_change_password
         if locked is not UNSET:
             field_dict["locked"] = locked
         if org_id is not UNSET:
@@ -77,6 +84,8 @@ class PutApiAdminUsersUserIdBody:
 
         mfa_enabled = d.pop("mfa_enabled", UNSET)
 
+        must_change_password = d.pop("must_change_password", UNSET)
+
         locked = d.pop("locked", UNSET)
 
         def _parse_org_id(data: object) -> int | None | Unset:
@@ -93,6 +102,7 @@ class PutApiAdminUsersUserIdBody:
             email=email,
             email_verified=email_verified,
             mfa_enabled=mfa_enabled,
+            must_change_password=must_change_password,
             locked=locked,
             org_id=org_id,
         )
