@@ -28,6 +28,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Exit 0 iff the JUnit report written by test.sh proves the out-of-process
+# endpoint suite ran green THIS invocation (see full-test.sh; #119 dedup).
+endpoint_junit_proves_green() {
+    local junit="$1"
+    [ -f "$junit" ] || return 1
+    awk '
+        /<testcase[^>]*name="EndpointTests_OutOfProcess"/ { inblock = 1 }
+        inblock && /status="run"/ { seen_run = 1 }
+        inblock && /<failure/     { bad = 1 }
+        inblock && /<skipped/     { bad = 1 }
+        inblock && /<\/testcase>/ { inblock = 0 }
+        END { exit (seen_run && !bad ? 0 : 1) }
+    ' "$junit"
+}
+
 echo ""
 echo "========================================"
 echo "One-Click Build and Test (Docker)"
@@ -116,6 +131,22 @@ bash "$SCRIPT_DIR/test.sh" "$BUILD_ARG"
 echo "[SUCCESS] All tests passed"
 echo ""
 
+# Step 5b: Endpoint dedup check (#119 layer 1)
+# Same rationale as full-test.sh: skip the manual endpoint layer (steps 6-9)
+# when test.sh's standard-config ctest run already executed the endpoint
+# suite green this invocation. Fail-safe: any doubt -> run the manual layer.
+ENDPOINT_JUNIT="$BUILD_ABS_DIR/$(resolve_cmake_preset "$BUILD_TYPE")/Testing/junit-config-standard.xml"
+SKIP_MANUAL_ENDPOINTS=0
+if endpoint_junit_proves_green "$ENDPOINT_JUNIT"; then
+    SKIP_MANUAL_ENDPOINTS=1
+    echo "[SKIP #119] Endpoint suite already ran green inside step 5"
+    echo "            (ctest EndpointTests_OutOfProcess, standard config);"
+    echo "            skipping the manual endpoint layer (steps 6-9)."
+    echo ""
+fi
+
+if [ "$SKIP_MANUAL_ENDPOINTS" -eq 0 ]; then
+
 # Step 6: Start Server
 echo "========================================"
 echo "Step 6: Starting OAuth2 server"
@@ -172,6 +203,8 @@ wait "$SERVER_PID" 2>/dev/null || true
 SERVER_PID=""
 echo "[SUCCESS] Server stopped"
 echo ""
+
+fi  # SKIP_MANUAL_ENDPOINTS
 
 # Step 10: Stop Docker
 echo "========================================"

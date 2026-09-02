@@ -9,9 +9,9 @@ description: 全量测试 — 后端 8 步（full_test.bat/full-test.sh）+ 前�
 
 ## 步骤
 
-1. **执行 `/full-backend-test`** — 后端 8 步流水线（DB重置→ORM→构建→ctest→服务器→59+52 端点测试→关闭）
+1. **执行 `/full-backend-test`** — 后端 8 步流水线（DB重置→ORM→构建→ctest→服务器→59+52 端点测试→关闭）。注：ctest 步骤内的 `EndpointTests_OutOfProcess` 跑绿后，步骤 5-8（手动端点层）会自动去重跳过并打印 `[SKIP #119]` 理由（#119）；摘要里 5-8 显示 SKIPPED 属正常
 2. **执行 `/full-frontend-test`** — 前端（Admin: build[tsc&&vite build]+16 e2e；User: build[vite build]+8 e2e+test:unit 5 文件[含 3 属性测试]）
 
 ## 通过标准
 
-后端 8/8 PASS + 前端 0 FAIL = 全量测试通过。
+后端 1-4 PASS 且 5-8 为 PASS 或 SKIPPED(#119) + 前端 0 FAIL = 全量测试通过。

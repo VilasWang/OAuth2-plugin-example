@@ -108,6 +108,33 @@ echo [SUCCESS] All tests passed
 echo.
 
 REM ========================================
+REM Step 4b: Endpoint dedup check (#119)
+REM ========================================
+REM test.bat's standard-config ctest run already contains the out-of-process
+REM endpoint suite (EndpointTests_OutOfProcess starts its own server and runs
+REM the same 59+52 endpoint scripts). When its JUnit report proves that test
+REM ran green this invocation, the manual endpoint layer below (steps 5-8) is
+REM a pure duplicate -- skip it. On any doubt (report missing, entry
+REM missing/skipped, unreadable XML) the manual layer still runs, so
+REM environments where the ctest entry bails out keep their coverage path.
+set "SKIP_ENDPOINTS=0"
+set "S5=SKIPPED (#119: covered in step 4)"
+set "S6=SKIPPED (#119: covered in step 4)"
+set "S7=SKIPPED (#119: covered in step 4)"
+set "S8=SKIPPED (#119: covered in step 4)"
+if exist "%PRESET_DIR%\Testing\junit-config-standard.xml" (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$x=[xml](Get-Content -LiteralPath '%PRESET_DIR%\Testing\junit-config-standard.xml' -Raw); $t=@($x.testsuite.testcase)+@($x.testsuites.testsuite.testcase)|Where-Object{$_.name -eq 'EndpointTests_OutOfProcess'}; if(-not $t -or $t.failure -or $t.skipped -or $t.status -ne 'run'){exit 1}; exit 0" >nul 2>&1
+    if !errorlevel! equ 0 set "SKIP_ENDPOINTS=1"
+)
+if "%SKIP_ENDPOINTS%"=="1" (
+    echo [SKIP #119] Endpoint suite already ran green inside step 4
+    echo             ^(ctest EndpointTests_OutOfProcess, standard config^);
+    echo             skipping the manual endpoint layer ^(steps 5-8^).
+    echo.
+    goto success_summary
+)
+
+REM ========================================
 REM Step 5: Start Server
 REM ========================================
 echo ========================================
@@ -150,6 +177,7 @@ if !errorlevel! neq 0 (
     goto cleanup_and_exit
 )
 echo [SUCCESS] Server started
+set "S5=PASS"
 echo.
 
 REM ========================================
@@ -166,6 +194,7 @@ if !errorlevel! neq 0 (
     goto cleanup_and_exit
 )
 echo [SUCCESS] OAuth2 endpoint tests passed
+set "S6=PASS"
 echo.
 
 REM ========================================
@@ -182,6 +211,7 @@ if !errorlevel! neq 0 (
     goto cleanup_and_exit
 )
 echo [SUCCESS] Admin endpoint tests passed
+set "S7=PASS"
 echo.
 
 REM ========================================
@@ -192,11 +222,13 @@ echo Step 8: Stopping OAuth2 server
 echo ========================================
 taskkill /F /IM %SERVER_BINARY_NAME%.exe >nul 2>&1
 echo [SUCCESS] Server stopped
+set "S8=PASS"
 echo.
 
 REM ========================================
 REM Success Summary
 REM ========================================
+:success_summary
 echo ========================================
 echo ALL STEPS COMPLETED SUCCESSFULLY!
 echo ========================================
@@ -206,10 +238,10 @@ echo   [1/8] Database initialization    - PASS
 echo   [2/8] ORM model generation       - PASS
 echo   [3/8] Project build              - PASS
 echo   [4/8] Unit tests                 - PASS
-echo   [5/8] Server startup             - PASS
-echo   [6/8] OAuth2 endpoint tests      - PASS
-echo   [7/8] Admin endpoint tests       - PASS
-echo   [8/8] Server shutdown            - PASS
+echo   [5/8] Server startup             - !S5!
+echo   [6/8] OAuth2 endpoint tests      - !S6!
+echo   [7/8] Admin endpoint tests       - !S7!
+echo   [8/8] Server shutdown            - !S8!
 echo.
 
 :cleanup_and_exit

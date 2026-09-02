@@ -137,6 +137,39 @@ cd build\windows-msvc\tests\Release
 .\manage.ps1 test-oauth2-endpoints
 ```
 
+### The full-test pipeline: three execution layers (and what is deduplicated)
+
+`manage full-test` (backed by `scripts/backend/full_test.bat` /
+`full-test.sh` / `full-test-docker.sh`) stacks three layers. Knowing how they
+overlap explains what a full run actually executes:
+
+1. **ctest layer** — `EndpointTests_OutOfProcess` (label `Endpoint`) is a
+   regular ctest entry: it starts its own server, runs the 59 OAuth2 + 52
+   admin endpoint scripts against it, then stops it
+   (`tests/CMakeLists.txt`). It reports `SKIP_RETURN_CODE=77` when its
+   environment (server binary / shell) is unusable.
+2. **Dual-config layer** — `test.bat` / `test.sh` run the *entire* ctest
+   suite **twice**: once with the standard `config.json` (PostgreSQL) and
+   once with `config.ci.json` (memory storage). This duplication is
+   intentional — it is the release-confidence signal that both storage
+   backends pass the same suite.
+3. **Manual endpoint layer** — the pipeline's own "start server → run the
+   endpoint scripts → stop server" steps. Since layer 1 already runs the
+   same scripts in the same standard configuration, this layer is skipped
+   automatically when the ctest run's JUnit report
+   (`build/<preset>/Testing/junit-config-standard.xml`, written by
+   `test.bat`/`test.sh`) proves `EndpointTests_OutOfProcess` ran green in
+   that invocation (#119). On any doubt — report missing, entry missing,
+   skipped, or unreadable — the manual layer runs as before, so
+   environments where the ctest entry bails out (77) keep their endpoint
+   coverage path.
+
+The same applies to the per-case `Contract.*` ctest entries: each is also
+executed as part of the `OAuth2Tests` binary run. Their individual ctest
+registrations exist only to provide a labeled entry point
+(`ctest -L Contract`); they do not add a second execution of those cases
+beyond the labeled entry.
+
 ---
 
 ## 4. Sample Test Output
