@@ -1,77 +1,16 @@
 # CLAUDE.md
 
-fulla — Production-grade OAuth2.0/OIDC authorization server (Drogon / C++17,
-PostgreSQL, Redis, Vue.js frontends). Supports RFC 6749, 7662, 7009, 8414, 8628, 7591.
+This file is a thin pointer: Fulla keeps a single, tool-neutral set of
+project instructions rather than per-assistant copies.
 
-## Build & Test (non-standard flags only)
+- **Read [AGENTS.md](AGENTS.md) first** — the cross-tool entry point. It
+  indexes the authoritative rule files and module guides.
+- **`.claude/rules/`** auto-loads path-scoped hard constraints (DB operations,
+  ORM model generation, data access, dev workflow). When a rule there applies
+  to files you are touching, follow it.
+- Human-facing docs cover the rest: [CONTRIBUTING.md](CONTRIBUTING.md)
+  (build/test, conventions, CI gates), [docs/](docs/) (architecture, testing,
+  operations, SDK contracts), [README.md](README.md) (quick start).
 
-Standard build / run / test goes through the unified wrappers
-`./manage.sh` / `./manage.ps1` — see `README.md` "Quick Start", or the
-`/build-and-test` skill. Only the non-obvious flags are listed here:
-
-- Debug build: append `-debug`.  Sanitizers: `--sanitizer=thread|address`
-  (Linux/macOS only, imply `-debug`).
-- No-external-DB test build: `-DFULLA_MEMORY_TESTS_ONLY=ON`.
-- Run C++ tests by label: `ctest -R Unit|Integration|E2E|Security|Performance`.
-- All platforms build through Conan + `cmake --preset`
-  (`scripts/backend/build.bat` on Windows, `scripts/backend/build.sh` on
-  Linux/macOS). Each preset installs to `build/<preset>` (e.g.
-  `build/windows-msvc`, `build/linux-release`, `build/macos-arm64`); see
-  `CMakePresets.json`. `cmake --list-presets` lists them.
-
-## Architecture
-
-### Key Patterns
-
-- **Plugin-based DI**: `OAuth2Plugin` is a Drogon `HttpPlugin<>` singleton.
-  `initAndStart()` creates the storage, services (TokenService, ClientService,
-  IdentityService), JwkManager and CleanupService. Access them via
-  `drogon::app().getPlugin<OAuth2Plugin>()`.
-- **Storage Strategy**: the monolithic `IOAuth2Storage` is retired. `storage_type`
-  in config (`postgres` / `redis` / `memory`) selects the backend;
-  `OAuth2Plugin::initStorage()` constructs the per-backend `RepositoryBundle`
-  (`libs/storage-postgres|redis|memory`) for the 4 oauth2 repositories
-  (client/grant/token/consent) and a separate `fulla::identity` backing
-  store (`PostgresIdentityRepository` / `MemoryIdentityRepository`) for the 3
-  identity repositories (user/role/subject-mapping). `redis` has no dedicated
-  identity backend — it falls back to the memory identity repo as a placeholder.
-- **Async callbacks**: all repository/service methods are async with
-  `std::function<void(result)> &&callback` as the last parameter. Services hold
-  `shared_ptr` repository handles for lifetime; async continuations capture
-  `auto self = shared_from_this()` to prevent use-after-free.
-- **Error system**: `Error` → `ErrorCatalog` (single source for error codes and
-  messages) → `ErrorResponder` renders JSON error envelopes. Codes are stable
-  strings (e.g. `AUTH_INVALID_CREDENTIALS`), never integers.
-
-## Critical Rules
-
-Path-scoped hard constraints and workflow entry points live in `.claude/rules/`
-and auto-load when you touch matching files:
-- `orm-models.md` — never hand-edit `models/**`; regenerate with `/orm-gen`.
-- `db-operations.md` — DB access is the async + Mapper + Criteria combo; raw SQL only for DDL / `UPDATE...RETURNING` / documented batch.
-- `data-access.md` — pointer to `db-operations.md` for storage code.
-- `dev-workflow.md` — dev commands: prefer `./manage.sh` / `./manage.ps1`; backend rebuild-DB / ORM / build / test / endpoint tests, frontend build / run / test.
-
-`git push` is forbidden (human review required) and enforced as a deny rule in
-`.claude/settings.json`.
-
-Code-style and async/lambda/ORM conventions are in the `project-conventions`
-skill (the single source for those). Highlights that matter in every edit:
-never use `CoroMapper`; never capture `[this]` or `[&]` in async contexts (use
-`shared_from_this()`); no emoji in code/output (use `[+]`/`[-]`/`[!]`).
-
-## Configuration
-
-- Sensitive values via env vars: `FULLA_DB_PASSWORD`, `FULLA_REDIS_PASSWORD`.
-- No-external-DB test build flag: `-DFULLA_MEMORY_TESTS_ONLY=ON`.
-- Config files: `apps/server/config/config*.json` + `config.{dev,ci,prod}.json` overrides.
-
-## Test Architecture
-
-Tests live in `tests/`; category labels and priorities are defined
-authoritatively in `tests/common/test_categories.h`.
-
-- `TestBase.h` provides `TestTransaction` (RAII rollback wrapper) — prefer it
-  over manual rollback so every test reverts its DB changes.
-- CI runs on three platforms: Linux (GCC + PostgreSQL + Redis), Windows
-  (MSVC 2022, memory-storage only), macOS (Clang ARM64, build verification only).
+`git push` is forbidden for agents (human review required); enforced as a deny
+rule in `.claude/settings.json`.
