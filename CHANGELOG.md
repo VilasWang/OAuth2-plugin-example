@@ -569,6 +569,6 @@ v1.0.0 以来的首次正式發布。涵蓋 842 個 commit，包含完整的 OID
 ---
 
 [1.0.1]: https://github.com/voidvec/fulla/compare/v1.0.0...v1.0.1
-[Unreleased]: https://github.com/voidvec/fulla/compare/v1.0.1...HEAD
-[1.1.0]: https://github.com/voidvec/authforge/releases/tag/v1.1.0
-[1.0.0]: https://github.com/voidvec/authforge/releases/tag/v1.0.0
+[Unreleased]: https://github.com/voidvec/fulla/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/voidvec/fulla/compare/v1.0.1...v1.1.0
+[1.0.0]: https://github.com/voidvec/fulla/releases/tag/v1.0.0
