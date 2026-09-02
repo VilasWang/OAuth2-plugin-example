@@ -3,6 +3,10 @@
 Thanks for your interest in contributing! This document covers the local
 workflow, conventions, and CI gates a change must pass.
 
+By participating in this project you agree to uphold its
+[Code of Conduct](.github/CODE_OF_CONDUCT.md). Not sure where to ask
+something? See [SUPPORT.md](SUPPORT.md) for the right channel.
+
 ## Prerequisites
 
 | Tool | Version |
@@ -123,6 +127,8 @@ the description — breaking changes require a major version bump.
 
 ## Reporting Issues
 
+- Usage questions / discussions: [GitHub Discussions](https://github.com/voidvec/fulla/discussions)
+  (see [SUPPORT.md](SUPPORT.md) for the full routing table).
 - Bugs / features: open a GitHub issue with reproduction steps.
 - Security vulnerabilities: **do not open a public issue** — see
   [SECURITY.md](SECURITY.md).
