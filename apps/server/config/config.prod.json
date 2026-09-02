@@ -157,7 +157,8 @@
                 "sub_limits": [
                     {
                         "urls": [
-                            "^/oauth2/login"
+                            "^/oauth2/login",
+                            "^/oauth2/password/change"
                         ],
                         "capacity": 5000,
                         "ip_capacity": 3,

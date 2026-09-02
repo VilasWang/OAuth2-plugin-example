@@ -66,6 +66,15 @@ DROGON_TEST(Integration_P0_DeviceAuth_AdminConsoleClient_ReturnsDeviceCode)
     CHECK(body.isMember("user_code"));
     CHECK(body["user_code"].isString());
     CHECK(body.isMember("verification_uri"));
+    // #146: the default verification_uri must point at the REAL approval page
+    // (admin console /admin/devices — the old default /oauth2/device had no
+    // page behind it), and verification_uri_complete carries the user_code
+    // (RFC 8628 §3.3.1) so the approval page can prefill.
+    CHECK(body["verification_uri"].asString().find("/admin/devices") != std::string::npos);
+    CHECK(body.isMember("verification_uri_complete"));
+    CHECK(
+      body["verification_uri_complete"].asString().find("user_code=") != std::string::npos
+    );
 }
 
 // ---------------------------------------------------------------------------
