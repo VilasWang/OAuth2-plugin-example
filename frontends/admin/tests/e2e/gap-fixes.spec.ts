@@ -40,7 +40,7 @@ test.describe('Device approval page (gap-fix E2)', () => {
     await page.waitForURL('**/admin/devices')
     await page.fill('#device-user-code', 'BAD-CODE')
     await page.click('button:has-text("Approve device")')
-    await expect(page.getByTestId('device-approve-error')).toContainText('输入参数有误')
+    await expect(page.getByTestId('device-approve-error')).toContainText('Invalid input')
   })
 })
 

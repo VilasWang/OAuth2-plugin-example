@@ -323,7 +323,7 @@ test.describe('Authorized Apps', () => {
     // static Revoke button styling and passed unconditionally.
     const alert = page.locator('[role="alert"]')
     await expect(alert).toBeVisible({ timeout: 3000 })
-    await expect(alert).toContainText('服务器内部错误')
+    await expect(alert).toContainText('Internal server error')
   })
 
   test('app without name shows client_id as fallback', async ({ page }) => {

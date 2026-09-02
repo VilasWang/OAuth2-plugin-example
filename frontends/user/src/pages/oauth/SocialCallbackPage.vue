@@ -11,12 +11,14 @@
 //      pair (#70) -> setTokens + fetchUser + redirect home.
 import { onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { setTokens, getAccessToken, tryRestoreSession } from '../../services/http'
 import { userService } from '../../services/userService'
 import { normalizeError } from '../../services/errorAdapter'
 import axios from 'axios'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
@@ -28,7 +30,7 @@ const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1)
 onMounted(async () => {
   const code = route.query.code as string
   if (!code) {
-    error.value = `No authorization code from ${providerLabel}`
+    error.value = t('oauth.noCodeFromProvider', { provider: providerLabel })
     return
   }
 
@@ -38,12 +40,12 @@ onMounted(async () => {
   if (isLinkFlow) {
     sessionStorage.removeItem('social_link_flow')
     if (!queryState) {
-      error.value = 'Missing link state; restart the link flow from the security page.'
+      error.value = t('oauth.linkMissingState')
       return
     }
     const hasSession = getAccessToken() ? true : await tryRestoreSession()
     if (!hasSession) {
-      error.value = `Please sign in first, then retry linking your ${providerLabel} account.`
+      error.value = t('oauth.linkSignInFirst', { provider: providerLabel })
       return
     }
     try {
@@ -67,7 +69,7 @@ onMounted(async () => {
       await auth.fetchUser()
       router.replace('/')
     } else {
-      error.value = `${providerLabel} login did not return an access token`
+      error.value = t('oauth.noAccessToken', { provider: providerLabel })
     }
   } catch (e: unknown) {
     error.value = normalizeError(e).message
@@ -85,7 +87,7 @@ onMounted(async () => {
         {{ error }}
       </div>
       <div v-else class="text-neutral-500">
-        Completing {{ providerLabel }} sign-in…
+        {{ $t('oauth.social.completing', { provider: providerLabel }) }}
       </div>
     </div>
   </div>

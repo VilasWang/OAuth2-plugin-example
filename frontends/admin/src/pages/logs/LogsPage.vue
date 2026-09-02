@@ -59,29 +59,29 @@ onMounted(fetchLogs)
 <template>
   <div>
     <h2 class="text-2xl font-bold text-neutral-900 mb-6">
-      Audit Logs
+      {{ $t('admin.logs.title') }}
     </h2>
 
     <!-- Filter bar -->
     <div class="bg-surface shadow rounded-lg p-4 mb-4 flex items-center gap-4 flex-wrap">
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-neutral-700">Action:</label>
+        <label class="text-sm font-medium text-neutral-700">{{ $t('admin.logs.actionLabel') }}</label>
         <input
           v-model="actionFilter"
           type="text"
-          placeholder="e.g. login_success"
+          :placeholder="$t('admin.logs.actionPlaceholder')"
           class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
           @keyup.enter="applyFilters"
         >
       </div>
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-neutral-700">Outcome:</label>
+        <label class="text-sm font-medium text-neutral-700">{{ $t('admin.logs.outcomeLabel') }}</label>
         <select
           v-model="outcomeFilter"
           class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
         >
           <option value="">
-            (any)
+            {{ $t('admin.logs.anyOutcome') }}
           </option>
           <option value="success">
             success
@@ -92,11 +92,11 @@ onMounted(fetchLogs)
         </select>
       </div>
       <div class="flex items-center gap-2">
-        <label class="text-sm font-medium text-neutral-700">Actor ID:</label>
+        <label class="text-sm font-medium text-neutral-700">{{ $t('admin.logs.actorIdLabel') }}</label>
         <input
           v-model="actorIdFilter"
           type="text"
-          placeholder="filter by actor uuid"
+          :placeholder="$t('admin.logs.actorPlaceholder')"
           class="border border-neutral-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
           @keyup.enter="applyFilters"
         >
@@ -105,13 +105,13 @@ onMounted(fetchLogs)
         class="px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-md hover:bg-brand-700"
         @click="applyFilters"
       >
-        Apply
+        {{ $t('common.apply') }}
       </button>
       <button
         class="px-4 py-1.5 border border-neutral-300 text-neutral-700 text-sm font-medium rounded-md hover:bg-neutral-50"
         @click="clearFilters"
       >
-        Clear
+        {{ $t('common.clear') }}
       </button>
     </div>
 
@@ -146,13 +146,13 @@ onMounted(fetchLogs)
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <AppEmptyState
       v-else-if="logs.length === 0"
-      title="No audit logs recorded yet"
-      description="Audit events will appear here as administrators and services act."
+      :title="$t('admin.logs.emptyTitle')"
+      :description="$t('admin.logs.emptyDescription')"
     />
 
     <div
@@ -163,22 +163,22 @@ onMounted(fetchLogs)
         <thead class="bg-neutral-50">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Time
+              {{ $t('admin.logs.time') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Action
+              {{ $t('admin.logs.action') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Actor
+              {{ $t('admin.logs.actor') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Target
+              {{ $t('admin.logs.target') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Outcome
+              {{ $t('admin.logs.outcome') }}
             </th>
             <th class="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              IP
+              {{ $t('admin.logs.ip') }}
             </th>
           </tr>
         </thead>
@@ -230,15 +230,15 @@ onMounted(fetchLogs)
           class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page > 1 && (page--, fetchLogs())"
         >
-          ← Previous
+          {{ $t('common.previousArrow') }}
         </button>
-        <span class="text-sm text-neutral-500">Page {{ page }}</span>
+        <span class="text-sm text-neutral-500">{{ $t('admin.logs.pageOf', { page }) }}</span>
         <button
           :disabled="logs.length < 50"
           class="text-sm text-brand-600 disabled:text-neutral-400"
           @click="page++; fetchLogs()"
         >
-          Next →
+          {{ $t('common.nextArrow') }}
         </button>
       </div>
     </div>

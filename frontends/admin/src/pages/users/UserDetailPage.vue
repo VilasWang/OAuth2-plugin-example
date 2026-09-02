@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 import AppAlert from '../../components/ui/AppAlert.vue'
 import AppBadge from '../../components/ui/AppBadge.vue'
 import DData from '../../components/ui/DData.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const userId = computed(() => route.params.id as string)
+
+// Tab strip (labels follow the active locale).
+const TABS = computed(() => [
+  { key: 'info' as const, label: t('admin.users.tabs.info') },
+  { key: 'security' as const, label: t('admin.users.tabs.security') },
+  { key: 'roles' as const, label: t('admin.users.tabs.roles') },
+])
 
 const loading = ref(true)
 const saving = ref(false)
@@ -75,9 +84,9 @@ async function saveInfo() {
     // org_id: an emptied field is an explicit "clear" — send null (the API's
     // null = setOrgIdToNull), never '' (the backend now 400s wrong types).
     if (editOrgId.value !== (user.value.org_id ?? '')) body.org_id = editOrgId.value === '' ? null : editOrgId.value
-    if (Object.keys(body).length === 0) { showSuccess('No changes'); saving.value = false; return }
+    if (Object.keys(body).length === 0) { showSuccess(t('admin.users.noChanges')); saving.value = false; return }
     await axios.put(`/api/admin/users/${userId.value}`, body, { headers: { 'Content-Type': 'application/json' } })
-    showSuccess('User updated successfully')
+    showSuccess(t('admin.users.userUpdated'))
     await fetchUser()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -90,7 +99,7 @@ async function saveRoles() {
   saving.value = true
   try {
     await axios.put(`/api/admin/users/${userId.value}/roles`, { roles: selectedRoles.value }, { headers: { 'Content-Type': 'application/json' } })
-    showSuccess('Roles updated successfully')
+    showSuccess(t('admin.users.rolesUpdated'))
     // Refresh user data in background without clearing success message
     fetchUser().catch(() => {})
   } catch (e: unknown) {
@@ -101,10 +110,10 @@ async function saveRoles() {
 }
 
 async function disableUser() {
-  if (!confirm(`Disable user "${user.value.username}"? They will not be able to log in.`)) return
+  if (!confirm(t('admin.users.disableConfirm', { name: user.value.username }))) return
   try {
     await axios.put(`/api/admin/users/${userId.value}/disable`)
-    showSuccess('User disabled')
+    showSuccess(t('admin.users.userDisabled'))
     await fetchUser()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -114,7 +123,7 @@ async function disableUser() {
 async function enableUser() {
   try {
     await axios.post(`/api/admin/users/${userId.value}/enable`)
-    showSuccess('User enabled')
+    showSuccess(t('admin.users.userEnabled'))
     await fetchUser()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -139,7 +148,7 @@ onMounted(() => {
         :to="{ name: 'users' }"
         class="text-neutral-500 hover:text-neutral-700 text-sm"
       >
-        ← Back to Users
+        {{ $t('admin.users.backToList') }}
       </router-link>
     </div>
 
@@ -162,7 +171,7 @@ onMounted(() => {
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <div v-else>
@@ -186,7 +195,7 @@ onMounted(() => {
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             @click="enableUser"
           >
-            Enable Account
+            {{ $t('admin.users.enableAccount') }}
           </button>
           <button
             v-else
@@ -194,7 +203,7 @@ onMounted(() => {
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
             @click="disableUser"
           >
-            Disable Account
+            {{ $t('admin.users.disableAccount') }}
           </button>
         </div>
       </div>
@@ -202,13 +211,13 @@ onMounted(() => {
       <!-- Three-pill status bar -->
       <div class="flex gap-2 mb-6">
         <AppBadge :variant="isLocked ? 'error' : 'success'">
-          {{ isLocked ? 'Locked' : 'Active' }}
+          {{ isLocked ? $t('admin.users.locked') : $t('admin.users.active') }}
         </AppBadge>
         <AppBadge :variant="user.email_verified ? 'success' : 'warning'">
-          {{ user.email_verified ? 'Email Verified' : 'Email Pending' }}
+          {{ user.email_verified ? $t('admin.users.emailVerifiedBadge') : $t('admin.users.emailPendingBadge') }}
         </AppBadge>
         <AppBadge :variant="user.mfa_enabled ? 'success' : 'default'">
-          MFA {{ user.mfa_enabled ? 'Enabled' : 'Off' }}
+          {{ user.mfa_enabled ? $t('admin.users.mfaBadgeEnabled') : $t('admin.users.mfaBadgeOff') }}
         </AppBadge>
       </div>
 
@@ -216,11 +225,11 @@ onMounted(() => {
       <div class="border-b border-neutral-200 mb-6">
         <nav class="-mb-px flex space-x-8">
           <button
-            v-for="tab in [{ key: 'info', label: 'Info' }, { key: 'security', label: 'Security' }, { key: 'roles', label: 'Roles' }]"
+            v-for="tab in TABS"
             :key="tab.key"
             :class="['py-3 px-1 border-b-2 text-sm font-medium transition-colors',
                      activeTab === tab.key ? 'border-brand-500 text-brand-600' : 'border-transparent text-neutral-500 hover:text-neutral-700']"
-            @click="activeTab = tab.key as any"
+            @click="activeTab = tab.key"
           >
             {{ tab.label }}
           </button>
@@ -233,7 +242,7 @@ onMounted(() => {
         class="bg-surface shadow rounded-lg p-6 space-y-5"
       >
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Username</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.username') }}</label>
           <input
             v-model="editUsername"
             class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm font-mono"
@@ -241,7 +250,7 @@ onMounted(() => {
           >
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Email</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.email') }}</label>
           <input
             v-model="editEmail"
             type="email"
@@ -259,7 +268,7 @@ onMounted(() => {
           <label
             for="emailVerified"
             class="text-sm font-medium text-neutral-700"
-          >Email Verified</label>
+          >{{ $t('admin.users.emailVerifiedBadge') }}</label>
         </div>
         <div class="flex items-center gap-3">
           <input
@@ -271,7 +280,7 @@ onMounted(() => {
           <label
             for="mfaEnabled"
             class="text-sm font-medium text-neutral-700"
-          >MFA Enabled</label>
+          >{{ $t('admin.users.mfaBadgeEnabled') }}</label>
         </div>
         <div class="flex items-center gap-3">
           <input
@@ -283,19 +292,19 @@ onMounted(() => {
           <label
             for="locked"
             class="text-sm font-medium text-neutral-700"
-          >Account Locked</label>
+          >{{ $t('admin.users.accountLocked') }}</label>
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Organization ID</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.users.organizationId') }}</label>
           <input
             v-model="editOrgId"
             type="number"
             class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
-            placeholder="(none)"
+            :placeholder="$t('admin.users.organizationNone')"
           >
         </div>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Created At</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('admin.users.createdAt') }}</label>
           <p class="text-sm text-neutral-600">
             {{ user.created_at || '—' }}
           </p>
@@ -306,7 +315,7 @@ onMounted(() => {
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="saveInfo"
           >
-            {{ saving ? 'Saving...' : 'Save Changes' }}
+            {{ saving ? $t('common.saving') : $t('common.saveChanges') }}
           </button>
         </div>
       </div>
@@ -319,7 +328,7 @@ onMounted(() => {
         <div class="grid grid-cols-2 gap-4">
           <div class="p-4 bg-neutral-50 rounded-lg">
             <p class="text-xs text-neutral-500 uppercase font-medium">
-              Failed Login Count
+              {{ $t('admin.users.failedLoginCount') }}
             </p>
             <p
               class="text-2xl font-bold mt-1"
@@ -330,13 +339,13 @@ onMounted(() => {
           </div>
           <div class="p-4 bg-neutral-50 rounded-lg">
             <p class="text-xs text-neutral-500 uppercase font-medium">
-              Account Status
+              {{ $t('admin.users.accountStatus') }}
             </p>
             <p
               class="text-lg font-semibold mt-1"
               :class="isLocked ? 'text-error-600' : 'text-success-600'"
             >
-              {{ isLocked ? 'Locked' : 'Active' }}
+              {{ isLocked ? $t('admin.users.locked') : $t('admin.users.active') }}
             </p>
           </div>
         </div>
@@ -345,24 +354,24 @@ onMounted(() => {
           class="p-4 bg-error-50 border border-error-200 rounded-lg"
         >
           <p class="text-sm text-error-700">
-            Account is locked until: {{ new Date((user.locked_until || 0) * 1000).toLocaleString() }}
+            {{ $t('admin.users.lockedUntil', { time: new Date((user.locked_until || 0) * 1000).toLocaleString() }) }}
           </p>
           <button
             class="mt-2 px-3 py-1.5 bg-error-600 text-white rounded text-sm hover:bg-error-700"
             @click="enableUser"
           >
-            Unlock Account
+            {{ $t('admin.users.unlockAccount') }}
           </button>
         </div>
         <div class="p-4 bg-neutral-50 rounded-lg">
           <p class="text-xs text-neutral-500 uppercase font-medium mb-1">
-            MFA Status
+            {{ $t('admin.users.mfaStatus') }}
           </p>
           <p
             class="text-sm font-medium"
             :class="user.mfa_enabled ? 'text-brand-600' : 'text-neutral-500'"
           >
-            {{ user.mfa_enabled ? 'Multi-Factor Authentication Enabled' : 'MFA Not Configured' }}
+            {{ user.mfa_enabled ? $t('admin.users.mfaFullEnabled') : $t('admin.users.mfaNotConfigured') }}
           </p>
         </div>
       </div>
@@ -373,13 +382,13 @@ onMounted(() => {
         class="bg-surface shadow rounded-lg p-6"
       >
         <p class="text-sm text-neutral-600 mb-4">
-          Assign roles to control what this user can access.
+          {{ $t('admin.users.rolesTabIntro') }}
         </p>
         <div
           v-if="allRoles.length === 0"
           class="text-neutral-500 text-sm"
         >
-          No roles available.
+          {{ $t('admin.users.noRolesAvailable') }}
         </div>
         <div
           v-else
@@ -402,7 +411,7 @@ onMounted(() => {
                 v-if="role.description"
                 class="text-xs text-neutral-500"
               >{{ role.description }}</p>
-              <p class="text-xs text-neutral-400">{{ role.user_count }} user(s)</p>
+              <p class="text-xs text-neutral-400">{{ $t('admin.users.userCount', { count: role.user_count }) }}</p>
             </div>
           </label>
         </div>
@@ -412,7 +421,7 @@ onMounted(() => {
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="saveRoles"
           >
-            {{ saving ? 'Saving...' : 'Save Roles' }}
+            {{ saving ? $t('common.saving') : $t('admin.users.saveRoles') }}
           </button>
         </div>
       </div>

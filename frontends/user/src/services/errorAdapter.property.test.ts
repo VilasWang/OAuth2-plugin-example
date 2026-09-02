@@ -16,6 +16,7 @@ import fc from 'fast-check'
 import { normalizeError } from './errorAdapter'
 import { getErrorMessage, NETWORK_CODE, UNKNOWN_CODE } from './messages'
 import { zhCN } from './messages/zh-CN'
+import { en } from './messages/en'
 
 const RUNS = { numRuns: 100 } as const
 
@@ -278,13 +279,15 @@ describe('Property 12: 前端格式解析与本地化映射', () => {
     )
   })
 
-  // 9.2 / 9.6 / 12.5 — Localization mapping: under zh-CN (the default locale)
-  // EVERY resolved code maps to a non-empty localized message. A code present
-  // in the catalog maps to its entry; any other code (including the reserved
-  // unknown code) falls back to the unknown-code message. Passing a locale
-  // absent from the catalog falls back to zh-CN and still returns a non-empty
-  // message (Requirement 9.6 language fallback).
-  it('returns a non-empty localized message for any code in zh-CN and for a missing locale', () => {
+  // 9.2 / 9.6 / 12.5 — Localization mapping: under the default active locale
+  // (en, per services/locale.ts initial state) EVERY resolved code maps to a
+  // non-empty localized message. A code present in the catalog maps to its
+  // entry; any other code (including the reserved unknown code) falls back to
+  // the unknown-code message. Passing a locale absent from the catalog falls
+  // back to the en fallback table and still returns a non-empty message
+  // (Requirement 9.6 language fallback). The registered zh-CN locale resolves
+  // its own table (ADR-0013).
+  it('returns a non-empty localized message for any code in the default and registered locales', () => {
     const knownCodes = Object.keys(zhCN)
     const codeArb = fc.oneof(
       fc.constantFrom(...knownCodes), // catalog-mapped codes
@@ -303,19 +306,29 @@ describe('Property 12: 前端格式解析与本地化映射', () => {
           // Build an Error Envelope so `normalizeError` resolves exactly `code`.
           const err = { response: { status: 400, data: { error: { code } } } }
 
-          // Default locale (zh-CN): message is non-empty and matches the
+          // Default active locale (en): message is non-empty and matches the
           // catalog mapping (entry when present, else the unknown fallback).
-          const zh = normalizeError(err)
+          const def = normalizeError(err)
+          expect(def.code).toBe(code)
+          expect(def.message.length).toBeGreaterThan(0)
+          const expected =
+            typeof en[code] === 'string' && en[code].length > 0
+              ? en[code]
+              : en[UNKNOWN_CODE]
+          expect(def.message).toBe(expected)
+
+          // Registered zh-CN: resolves its own table.
+          const zh = normalizeError(err, 'zh-CN')
           expect(zh.code).toBe(code)
           expect(zh.message.length).toBeGreaterThan(0)
-          const expected =
+          const expectedZh =
             typeof zhCN[code] === 'string' && zhCN[code].length > 0
               ? zhCN[code]
               : zhCN[UNKNOWN_CODE]
-          expect(zh.message).toBe(expected)
+          expect(zh.message).toBe(expectedZh)
 
-          // Missing locale: falls back to zh-CN and remains non-empty, and
-          // equals the value the catalog resolves for that locale.
+          // Missing locale: falls back to the en table and remains non-empty,
+          // and equals the value the catalog resolves for that locale.
           const fallback = normalizeError(err, missingLocale)
           expect(fallback.code).toBe(code)
           expect(fallback.message.length).toBeGreaterThan(0)

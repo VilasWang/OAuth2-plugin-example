@@ -9,6 +9,9 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:5173',
+    // Pin the browser locale so unregistered-storage detection resolves to
+    // the en catalog deterministically (i18n.spec exercises zh explicitly).
+    locale: 'en-US',
     trace: 'on-first-retry',
   },
   projects: [

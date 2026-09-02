@@ -40,7 +40,7 @@ test.describe('Registration Validation', () => {
     // and the strength meter unconditionally and passed even with no banner.
     const alert = page.locator('[role="alert"]')
     await expect(alert).toBeVisible({ timeout: 3000 })
-    await expect(alert).toContainText('该用户名已被注册')
+    await expect(alert).toContainText('This username is already taken')
   })
 
   test('duplicate email shows error', async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe('Registration Validation', () => {
     await page.locator('button[type="submit"]').click()
     const alert = page.locator('[role="alert"]')
     await expect(alert).toBeVisible({ timeout: 3000 })
-    await expect(alert).toContainText('该邮箱已被注册')
+    await expect(alert).toContainText('This email address is already registered')
   })
 
   test('empty fields prevent submission via HTML5 validation', async ({ page }) => {

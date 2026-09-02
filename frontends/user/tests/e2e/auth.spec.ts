@@ -28,7 +28,7 @@ test.describe('Login', () => {
     await page.locator('input[autocomplete="username"]').fill('testuser')
     await page.locator('input[autocomplete="current-password"]').fill('wrong')
     await page.locator('button[type="submit"]').click()
-    await expect(page.locator('text=用户名或密码错误')).toBeVisible()
+    await expect(page.locator('text=Incorrect username or password')).toBeVisible()
   })
 
   test('shows MFA challenge when required', async ({ page }) => {

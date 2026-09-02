@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { useThemeStore } from '../../stores/theme'
 import AppLogo from '../shared/AppLogo.vue'
+import LocaleSwitcher from '../ui/LocaleSwitcher.vue'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const theme = useThemeStore()
 const router = useRouter()
@@ -20,33 +23,33 @@ watch(() => route.path, () => {
   mobileMenuOpen.value = false
 })
 
-// Navigation items with SVG icon components
-const navSections = [
+// Navigation items with SVG icon components (computed so labels follow the locale)
+const navSections = computed(() => [
   {
-    label: 'Overview',
+    label: t('nav.overview'),
     items: [
-      { name: 'Dashboard', path: '/', icon: 'dashboard' },
+      { name: t('nav.dashboard'), path: '/', icon: 'dashboard' },
     ],
   },
   {
-    label: 'Management',
+    label: t('nav.management'),
     items: [
-      { name: 'Applications', path: '/applications', icon: 'apps' },
-      { name: 'Users', path: '/users', icon: 'users' },
-      { name: 'Roles', path: '/roles', icon: 'roles' },
-      { name: 'Scopes', path: '/scopes', icon: 'scopes' },
-      { name: 'Tokens', path: '/tokens', icon: 'tokens' },
-      { name: 'Devices', path: '/devices', icon: 'devices' },
+      { name: t('nav.applications'), path: '/applications', icon: 'apps' },
+      { name: t('nav.users'), path: '/users', icon: 'users' },
+      { name: t('nav.roles'), path: '/roles', icon: 'roles' },
+      { name: t('nav.scopes'), path: '/scopes', icon: 'scopes' },
+      { name: t('nav.tokens'), path: '/tokens', icon: 'tokens' },
+      { name: t('nav.devices'), path: '/devices', icon: 'devices' },
     ],
   },
   {
-    label: 'Monitoring',
+    label: t('nav.monitoring'),
     items: [
-      { name: 'Audit Logs', path: '/logs', icon: 'logs' },
-      { name: 'Settings', path: '/settings', icon: 'settings' },
+      { name: t('nav.auditLogs'), path: '/logs', icon: 'logs' },
+      { name: t('nav.settings'), path: '/settings', icon: 'settings' },
     ],
   },
-]
+])
 
 function isActive(path: string): boolean {
   if (path === '/') return route.path === '/'
@@ -58,23 +61,39 @@ async function handleLogout() {
   router.push('/login')
 }
 
-// Breadcrumb
+// Breadcrumb: top-level route segments map to the localized nav labels;
+// unknown segments (resource ids) keep the capitalized raw value.
+const CRUMB_KEYS: Record<string, string> = {
+  applications: 'nav.applications',
+  users: 'nav.users',
+  roles: 'nav.roles',
+  scopes: 'nav.scopes',
+  tokens: 'nav.tokens',
+  devices: 'nav.devices',
+  logs: 'nav.auditLogs',
+  settings: 'nav.settings',
+}
+
 const breadcrumbs = computed(() => {
   const parts = route.path.split('/').filter(Boolean)
-  if (parts.length === 0) return [{ name: 'Dashboard', path: '/' }]
+  if (parts.length === 0) return [{ name: t('nav.dashboard'), path: '/' }]
 
-  const crumbs = [{ name: 'Dashboard', path: '/' }]
+  const crumbs = [{ name: t('nav.dashboard'), path: '/' }]
   let current = ''
   for (const part of parts) {
     current += '/' + part
     crumbs.push({
-      name: part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
+      name: CRUMB_KEYS[part]
+        ? t(CRUMB_KEYS[part])
+        : part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
       path: current,
     })
   }
   return crumbs
 })
 
+// Display name fallback when no user is loaded
+const displayName = computed(() => auth.user?.name || t('adminLayout.defaultUser'))
 </script>
 
 <template>
@@ -295,7 +314,7 @@ const breadcrumbs = computed(() => {
               d="M10.22 3.22a.75.75 0 011.06 1.06L7.56 8l3.72 3.72a.75.75 0 11-1.06 1.06L5.94 8.53a.75.75 0 010-1.06l4.28-4.25z"
             />
           </svg>
-          <span v-if="!sidebarCollapsed">Collapse</span>
+          <span v-if="!sidebarCollapsed">{{ $t('adminLayout.collapse') }}</span>
         </button>
       </div>
     </aside>
@@ -311,7 +330,7 @@ const breadcrumbs = computed(() => {
           <button
             class="lg:hidden p-2 -ml-2 rounded-ctl text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100
                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Toggle menu"
+            :aria-label="$t('adminLayout.toggleMenu')"
             @click="mobileMenuOpen = !mobileMenuOpen"
           >
             <svg
@@ -329,7 +348,7 @@ const breadcrumbs = computed(() => {
           <!-- Breadcrumbs (desktop) -->
           <nav
             class="hidden sm:flex items-center gap-1.5 text-sm min-w-0"
-            aria-label="Breadcrumb"
+            :aria-label="$t('adminLayout.breadcrumb')"
           >
             <template
               v-for="(crumb, idx) in breadcrumbs"
@@ -363,8 +382,13 @@ const breadcrumbs = computed(() => {
           </nav>
         </div>
 
-        <!-- Right: User -->
+        <!-- Right: Locale + User -->
         <div class="flex items-center gap-3">
+          <!-- Locale switcher (desktop + mobile) -->
+          <div class="flex items-center">
+            <LocaleSwitcher />
+          </div>
+
           <!-- User menu -->
           <div class="relative">
             <button
@@ -373,10 +397,10 @@ const breadcrumbs = computed(() => {
               @click="userMenuOpen = !userMenuOpen"
             >
               <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">
-                {{ (auth.user?.name || 'A')[0].toUpperCase() }}
+                {{ displayName[0].toUpperCase() }}
               </div>
               <span class="hidden sm:block text-sm font-medium text-neutral-700">
-                {{ auth.user?.name || 'Admin' }}
+                {{ displayName }}
               </span>
               <svg
                 class="w-4 h-4 text-neutral-400"
@@ -398,10 +422,10 @@ const breadcrumbs = computed(() => {
               >
                 <div class="px-4 py-3 border-b border-neutral-100">
                   <p class="text-sm font-medium text-neutral-900">
-                    {{ auth.user?.name || 'Admin' }}
+                    {{ displayName }}
                   </p>
                   <p class="text-xs text-neutral-500 mt-0.5">
-                    Administrator
+                    {{ $t('adminLayout.administrator') }}
                   </p>
                 </div>
 
@@ -420,13 +444,13 @@ const breadcrumbs = computed(() => {
                       d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.205 1.251l-1.18 2.044a1 1 0 01-1.186.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.113a7.047 7.047 0 010-2.228L1.822 7.71a1 1 0 01-.205-1.251l1.18-2.044a1 1 0 011.186-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM8 10a2 2 0 100-4 2 2 0 000 4z"
                     />
                   </svg>
-                  Settings
+                  {{ $t('nav.settings') }}
                 </router-link>
 
                 <button
                   class="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors
                          focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-ctl"
-                  :aria-label="theme.mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+                  :aria-label="theme.mode === 'dark' ? $t('adminLayout.switchToLightTheme') : $t('adminLayout.switchToDarkTheme')"
                   @click="theme.toggle()"
                 >
                   <svg
@@ -448,7 +472,7 @@ const breadcrumbs = computed(() => {
                       transform="scale(0.7)"
                     />
                   </svg>
-                  {{ theme.mode === 'dark' ? 'Light theme' : 'Dark theme' }}
+                  {{ theme.mode === 'dark' ? $t('adminLayout.lightTheme') : $t('adminLayout.darkTheme') }}
                 </button>
 
                 <div class="border-t border-neutral-100 my-1" />
@@ -467,7 +491,7 @@ const breadcrumbs = computed(() => {
                       d="M3.75 2A1.75 1.75 0 002 3.75v8.5C2 13.216 2.784 14 3.75 14h2.5a.75.75 0 000-1.5h-2.5a.25.25 0 01-.25-.25v-8.5a.25.25 0 01.25-.25h2.5a.75.75 0 000-1.5h-2.5zm6.97.47a.75.75 0 011.06 0l4.5 4.5a.75.75 0 010 1.06l-4.5 4.5a.75.75 0 11-1.06-1.06L13.94 8.75H6a.75.75 0 010-1.5h7.94l-3.22-3.22a.75.75 0 010-1.06z"
                     />
                   </svg>
-                  Sign out
+                  {{ $t('nav.signOut') }}
                 </button>
               </div>
             </Transition>

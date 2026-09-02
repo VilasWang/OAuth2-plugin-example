@@ -48,15 +48,15 @@ async function handleMfa() {
     <!-- Header -->
     <div class="mb-8">
       <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">
-        Sign in to your account
+        {{ $t('auth.login.title') }}
       </h1>
       <p class="mt-2 text-sm text-neutral-500">
-        Or
+        {{ $t('auth.login.or') }}
         <router-link
           to="/register"
           class="text-brand-700 font-medium hover:text-brand-700 transition-colors"
         >
-          create a new account
+          {{ $t('auth.login.createAccountLink') }}
         </router-link>
       </p>
     </div>
@@ -90,10 +90,10 @@ async function handleMfa() {
           </svg>
         </div>
         <h2 class="text-lg font-semibold text-neutral-900">
-          Two-Factor Authentication
+          {{ $t('auth.login.mfa.title') }}
         </h2>
         <p class="text-sm text-neutral-500 mt-1">
-          Enter the 6-digit code from your authenticator app
+          {{ $t('auth.login.mfa.subtitle') }}
         </p>
       </div>
       <div>
@@ -114,14 +114,14 @@ async function handleMfa() {
         :disabled="mfaCode.length !== 6"
         block
       >
-        Verify Code
+        {{ $t('auth.login.mfa.verify') }}
       </AppButton>
       <button
         type="button"
         class="w-full text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
         @click="showMfa = false; mfaCode = ''"
       >
-        Back to sign in
+        {{ $t('auth.login.mfa.back') }}
       </button>
     </form>
 
@@ -133,7 +133,7 @@ async function handleMfa() {
     >
       <AppInput
         v-model="username"
-        label="Email or Username"
+        :label="$t('auth.login.emailOrUsername')"
         placeholder="you@example.com"
         required
         autocomplete="username"
@@ -141,9 +141,9 @@ async function handleMfa() {
 
       <AppInput
         v-model="password"
-        label="Password"
+        :label="$t('common.password')"
         type="password"
-        placeholder="Enter your password"
+        :placeholder="$t('auth.login.passwordPlaceholder')"
         required
         autocomplete="current-password"
       />
@@ -153,7 +153,7 @@ async function handleMfa() {
           to="/forgot-password"
           class="text-sm text-brand-700 hover:text-brand-800 font-medium transition-colors"
         >
-          Forgot password?
+          {{ $t('auth.login.forgotPassword') }}
         </router-link>
       </div>
 
@@ -162,7 +162,7 @@ async function handleMfa() {
         :loading="auth.loading"
         block
       >
-        Sign In
+        {{ $t('auth.login.submit') }}
       </AppButton>
 
       <!-- Social Login Divider -->
@@ -174,7 +174,7 @@ async function handleMfa() {
           <div class="w-full border-t border-neutral-200" />
         </div>
         <div class="relative flex justify-center text-sm">
-          <span class="px-3 bg-surface text-neutral-400">or continue with</span>
+          <span class="px-3 bg-surface text-neutral-400">{{ $t('auth.login.orContinueWith') }}</span>
         </div>
       </div>
 
@@ -193,7 +193,7 @@ async function handleMfa() {
         >
           <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
         </svg>
-        Sign in with GitHub
+        {{ $t('auth.login.signInWithGitHub') }}
       </a>
 
       <!-- Google Login (#70) -->
@@ -225,7 +225,7 @@ async function handleMfa() {
             d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.97 11.97 0 0 0 12 0 11.99 11.99 0 0 0 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
           />
         </svg>
-        Sign in with Google
+        {{ $t('auth.login.signInWithGoogle') }}
       </a>
 
       <!-- WeChat (#70): QR-scan login requires a mobile browser agent; the
@@ -234,8 +234,7 @@ async function handleMfa() {
         v-if="WECHAT_ENABLED"
         class="mt-4 text-xs text-neutral-400 text-center"
       >
-        WeChat sign-in uses the mobile app scan flow — scan the QR code shown
-        by your provider on a WeChat-enabled device.
+        {{ $t('auth.login.wechatNote') }}
       </p>
     </form>
   </div>

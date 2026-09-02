@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 
+const { t } = useI18n()
 const route = useRoute()
 const status = ref<'loading' | 'success' | 'error'>('loading')
 const message = ref('')
@@ -12,13 +14,13 @@ onMounted(async () => {
   const token = route.query.token as string
   if (!token) {
     status.value = 'error'
-    message.value = 'Missing verification token'
+    message.value = t('auth.verify.missingToken')
     return
   }
   try {
     const resp = await axios.get(`/api/verify-email?token=${encodeURIComponent(token)}`)
     status.value = 'success'
-    message.value = resp.data?.message || 'Email verified successfully!'
+    message.value = resp.data?.message || t('auth.verify.successDefault')
   } catch (e: unknown) {
     status.value = 'error'
     message.value = normalizeError(e).message
@@ -31,7 +33,7 @@ onMounted(async () => {
     <div v-if="status === 'loading'">
       <div class="animate-spin w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full mx-auto" />
       <p class="mt-4 text-neutral-600">
-        Verifying your email...
+        {{ $t('auth.verify.verifying') }}
       </p>
     </div>
     <div v-else-if="status === 'success'">
@@ -46,7 +48,7 @@ onMounted(async () => {
         </svg>
       </div>
       <h2 class="mt-4 text-xl font-bold text-neutral-900">
-        Email Verified!
+        {{ $t('auth.verify.successTitle') }}
       </h2>
       <p class="mt-2 text-neutral-600">
         {{ message }}
@@ -56,7 +58,7 @@ onMounted(async () => {
         class="mt-6 inline-block px-6 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-ctl hover:bg-brand-700
                focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring transition-colors shadow-sm"
       >
-        Go to Login
+        {{ $t('common.goToLogin') }}
       </router-link>
     </div>
     <div v-else>
@@ -71,7 +73,7 @@ onMounted(async () => {
         </svg>
       </div>
       <h2 class="mt-4 text-xl font-bold text-neutral-900">
-        Verification Failed
+        {{ $t('auth.verify.errorTitle') }}
       </h2>
       <p class="mt-2 text-neutral-600">
         {{ message }}
@@ -81,7 +83,7 @@ onMounted(async () => {
         class="mt-6 inline-block px-6 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-ctl hover:bg-brand-700
                focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring transition-colors shadow-sm"
       >
-        Go to Login
+        {{ $t('common.goToLogin') }}
       </router-link>
     </div>
   </div>

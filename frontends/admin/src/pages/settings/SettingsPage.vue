@@ -75,7 +75,7 @@ onMounted(() => {
 <template>
   <div>
     <h2 class="text-2xl font-bold text-neutral-900 mb-6">
-      Settings & Scopes
+      {{ $t('admin.settings.title') }}
     </h2>
 
     <!-- Error Banner for Scopes -->
@@ -109,7 +109,7 @@ onMounted(() => {
     <div class="bg-surface shadow rounded-lg overflow-hidden">
       <div class="px-6 py-4 border-b">
         <h3 class="text-lg font-medium text-neutral-900">
-          OAuth2 Scopes
+          {{ $t('admin.settings.oauth2Scopes') }}
         </h3>
       </div>
 
@@ -117,7 +117,7 @@ onMounted(() => {
         v-if="loading"
         class="p-6 text-center text-neutral-500"
       >
-        Loading...
+        {{ $t('common.loading') }}
       </div>
 
       <table
@@ -127,19 +127,19 @@ onMounted(() => {
         <thead class="bg-neutral-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Name
+              {{ $t('common.name') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Description
+              {{ $t('common.description') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Mapped Role
+              {{ $t('admin.settings.mappedRole') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Default
+              {{ $t('admin.settings.defaultColumn') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Admin Only
+              {{ $t('admin.settings.adminOnlyColumn') }}
             </th>
           </tr>
         </thead>
@@ -187,7 +187,7 @@ onMounted(() => {
     <div class="bg-surface shadow rounded-lg overflow-hidden mt-8">
       <div class="px-6 py-4 border-b">
         <h3 class="text-lg font-medium text-neutral-900">
-          OIDC Signing Keys
+          {{ $t('admin.settings.oidcSigningKeys') }}
         </h3>
       </div>
 
@@ -222,7 +222,7 @@ onMounted(() => {
         v-if="oidcLoading"
         class="p-6 text-center text-neutral-500"
       >
-        Loading...
+        {{ $t('common.loading') }}
       </div>
 
       <div
@@ -233,7 +233,7 @@ onMounted(() => {
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
           <div>
             <dt class="text-sm font-medium text-neutral-500">
-              Key ID (kid)
+              {{ $t('admin.settings.keyId') }}
             </dt>
             <dd class="mt-1">
               <DData :value="oidcKeys.kid" />
@@ -241,7 +241,7 @@ onMounted(() => {
           </div>
           <div>
             <dt class="text-sm font-medium text-neutral-500">
-              Key Type (kty)
+              {{ $t('admin.settings.keyType') }}
             </dt>
             <dd class="mt-1">
               <DData :value="oidcKeys.kty" />
@@ -249,7 +249,7 @@ onMounted(() => {
           </div>
           <div>
             <dt class="text-sm font-medium text-neutral-500">
-              Algorithm (alg)
+              {{ $t('admin.settings.algorithm') }}
             </dt>
             <dd class="mt-1">
               <DData :value="oidcKeys.alg" />
@@ -257,7 +257,7 @@ onMounted(() => {
           </div>
           <div>
             <dt class="text-sm font-medium text-neutral-500">
-              Usage (use)
+              {{ $t('admin.settings.usage') }}
             </dt>
             <dd class="mt-1">
               <DData :value="oidcKeys.use" />
@@ -265,7 +265,7 @@ onMounted(() => {
           </div>
           <div>
             <dt class="text-sm font-medium text-neutral-500">
-              Status
+              {{ $t('admin.settings.status') }}
             </dt>
             <dd class="mt-1">
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-700">
@@ -279,7 +279,7 @@ onMounted(() => {
         <div class="border-t pt-4 space-y-3">
           <div class="flex items-center justify-between">
             <div>
-              <span class="text-sm font-medium text-neutral-500">JWKS Endpoint</span>
+              <span class="text-sm font-medium text-neutral-500">{{ $t('admin.settings.jwksEndpoint') }}</span>
               <div class="mt-1">
                 <DData
                   :value="oidcKeys.jwks_uri"
@@ -291,12 +291,12 @@ onMounted(() => {
               class="ml-4 inline-flex items-center px-3 py-1.5 border border-neutral-300 text-xs font-medium rounded text-neutral-700 bg-surface hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
               @click="copyToClipboard(oidcKeys.jwks_uri, 'jwks')"
             >
-              {{ copySuccess === 'jwks' ? 'Copied!' : 'Copy' }}
+              {{ copySuccess === 'jwks' ? $t('common.copied') : $t('common.copy') }}
             </button>
           </div>
           <div class="flex items-center justify-between">
             <div>
-              <span class="text-sm font-medium text-neutral-500">Discovery Endpoint</span>
+              <span class="text-sm font-medium text-neutral-500">{{ $t('admin.settings.discoveryEndpoint') }}</span>
               <div class="mt-1">
                 <DData
                   :value="oidcKeys.discovery_uri"
@@ -308,7 +308,7 @@ onMounted(() => {
               class="ml-4 inline-flex items-center px-3 py-1.5 border border-neutral-300 text-xs font-medium rounded text-neutral-700 bg-surface hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
               @click="copyToClipboard(oidcKeys.discovery_uri, 'discovery')"
             >
-              {{ copySuccess === 'discovery' ? 'Copied!' : 'Copy' }}
+              {{ copySuccess === 'discovery' ? $t('common.copied') : $t('common.copy') }}
             </button>
           </div>
         </div>
@@ -345,7 +345,7 @@ onMounted(() => {
         v-else
         class="p-6 text-center text-neutral-500"
       >
-        Failed to load OIDC key information.
+        {{ $t('admin.settings.loadFailed') }}
       </div>
     </div>
   </div>

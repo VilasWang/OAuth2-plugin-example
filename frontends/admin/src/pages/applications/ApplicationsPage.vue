@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
 import AppEmptyState from '../../components/ui/AppEmptyState.vue'
+
+const { t } = useI18n()
 
 const clients = ref<any[]>([])
 const loading = ref(true)
@@ -19,12 +22,13 @@ const createForm = ref({
 })
 const creating = ref(false)
 
-const AVAILABLE_GRANT_TYPES = [
-  { value: 'authorization_code', label: 'Authorization Code', description: '标准授权码流程（推荐）' },
-  { value: 'refresh_token', label: 'Refresh Token', description: '允许刷新访问令牌' },
-  { value: 'client_credentials', label: 'Client Credentials', description: '服务间通信（M2M）' },
-  { value: 'urn:ietf:params:oauth:grant-type:device_code', label: 'Device Code', description: '无浏览器设备授权' },
-]
+// Grant-type checkboxes: labels/descriptions follow the active locale.
+const AVAILABLE_GRANT_TYPES = computed(() => [
+  { value: 'authorization_code', label: t('admin.applications.grantTypeOptions.authorizationCode.label'), description: t('admin.applications.grantTypeOptions.authorizationCode.description') },
+  { value: 'refresh_token', label: t('admin.applications.grantTypeOptions.refreshToken.label'), description: t('admin.applications.grantTypeOptions.refreshToken.description') },
+  { value: 'client_credentials', label: t('admin.applications.grantTypeOptions.clientCredentials.label'), description: t('admin.applications.grantTypeOptions.clientCredentials.description') },
+  { value: 'urn:ietf:params:oauth:grant-type:device_code', label: t('admin.applications.grantTypeOptions.deviceCode.label'), description: t('admin.applications.grantTypeOptions.deviceCode.description') },
+])
 
 // Inline error banner (replaces native alert for backend errors, Req 10.6).
 function showError(msg: string) {
@@ -46,7 +50,7 @@ async function fetchClients() {
 
 async function createClient() {
   if (createForm.value.grant_types.length === 0) {
-    showError('Please select at least one grant type')
+    showError(t('admin.applications.selectGrantType'))
     return
   }
   creating.value = true
@@ -75,7 +79,7 @@ async function createClient() {
 }
 
 async function deleteClient(clientId: string) {
-  if (!confirm(`Delete client "${clientId}"? This cannot be undone.`)) return
+  if (!confirm(t('admin.applications.deleteConfirm', { name: clientId }))) return
   try {
     await axios.delete(`/api/admin/clients/${clientId}`)
     await fetchClients()
@@ -85,7 +89,7 @@ async function deleteClient(clientId: string) {
 }
 
 async function resetSecret(clientId: string) {
-  if (!confirm(`Reset secret for "${clientId}"? The old secret will be immediately invalidated.`)) return
+  if (!confirm(t('admin.applications.resetSecretConfirm', { name: clientId }))) return
   try {
     const resp = await axios.post(`/api/admin/clients/${clientId}/reset-secret`)
     newClientSecret.value = resp.data.client_secret || ''
@@ -102,13 +106,13 @@ onMounted(fetchClients)
   <div>
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-neutral-900">
-        Applications
+        {{ $t('admin.applications.title') }}
       </h2>
       <button
         class="px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm font-medium"
         @click="showCreateModal = true"
       >
-        + Create Application
+        {{ $t('admin.applications.create') }}
       </button>
     </div>
 
@@ -123,14 +127,14 @@ onMounted(fetchClients)
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <AppEmptyState
       v-else-if="clients.length === 0"
-      title="No applications registered yet"
-      description="Register an OAuth2 client to start issuing tokens."
-      action-label="Create your first application"
+      :title="$t('admin.applications.emptyTitle')"
+      :description="$t('admin.applications.emptyDescription')"
+      :action-label="$t('admin.applications.emptyAction')"
       @action="showCreateModal = true"
     />
 
@@ -142,16 +146,16 @@ onMounted(fetchClients)
         <thead class="bg-neutral-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Name
+              {{ $t('common.name') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Client ID
+              {{ $t('admin.applications.clientId') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Type
+              {{ $t('common.type') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Actions
+              {{ $t('common.actions') }}
             </th>
           </tr>
         </thead>
@@ -186,13 +190,13 @@ onMounted(fetchClients)
                 class="px-2 py-1 rounded text-brand-600 hover:bg-brand-50 hover:text-brand-800 font-medium transition-colors"
                 @click="resetSecret(client.client_id)"
               >
-                Reset Secret
+                {{ $t('admin.applications.resetSecret') }}
               </button>
               <button
                 class="px-2 py-1 rounded text-error-600 hover:bg-error-50 hover:text-error-700 font-medium transition-colors"
                 @click="deleteClient(client.client_id)"
               >
-                Delete
+                {{ $t('common.delete') }}
               </button>
             </td>
           </tr>
@@ -207,37 +211,37 @@ onMounted(fetchClients)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
-          Create Application
+          {{ $t('admin.applications.createTitle') }}
         </h3>
         <form
           class="space-y-4"
           @submit.prevent="createClient"
         >
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Name</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('admin.applications.nameLabel') }}</label>
             <input
               v-model="createForm.name"
               required
               class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
-              placeholder="My App"
+              :placeholder="$t('admin.applications.namePlaceholder')"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Type</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('common.type') }}</label>
             <select
               v-model="createForm.client_type"
               class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
             >
               <option value="CONFIDENTIAL">
-                Confidential (Server-side)
+                {{ $t('admin.applications.confidential') }}
               </option>
               <option value="PUBLIC">
-                Public (SPA / Mobile)
+                {{ $t('admin.applications.public') }}
               </option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Redirect URIs (comma-separated)</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('admin.applications.redirectUrisComma') }}</label>
             <input
               v-model="createForm.redirect_uris"
               class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
@@ -245,18 +249,18 @@ onMounted(fetchClients)
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700">Backchannel Logout URI (optional)</label>
+            <label class="block text-sm font-medium text-neutral-700">{{ $t('admin.applications.backchannelLabel') }}</label>
             <input
               v-model="createForm.backchannel_logout_uri"
               class="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
               placeholder="https://rp.example.com/backchannel-logout"
             >
             <p class="mt-1 text-xs text-neutral-500">
-              OIDC Back-Channel Logout 1.0 (https). Leave empty to disable.
+              {{ $t('admin.applications.backchannelHint') }}
             </p>
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-2">Grant Types</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-2">{{ $t('admin.applications.grantTypes') }}</label>
             <div class="space-y-2">
               <label
                 v-for="gt in AVAILABLE_GRANT_TYPES"
@@ -282,14 +286,14 @@ onMounted(fetchClients)
               class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
               @click="showCreateModal = false"
             >
-              Cancel
+              {{ $t('common.cancel') }}
             </button>
             <button
               type="submit"
               :disabled="creating"
               class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             >
-              {{ creating ? 'Creating...' : 'Create' }}
+              {{ creating ? $t('common.creating') : $t('common.create') }}
             </button>
           </div>
         </form>
@@ -303,10 +307,10 @@ onMounted(fetchClients)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-2">
-          Client Secret
+          {{ $t('admin.applications.secretTitle') }}
         </h3>
         <p class="text-sm text-error-600 mb-4">
-          Copy this secret now. It will not be shown again.
+          {{ $t('admin.applications.secretWarning') }}
         </p>
         <div class="bg-neutral-100 p-3 rounded-md font-mono text-sm break-all select-all">
           {{ newClientSecret }}
@@ -316,7 +320,7 @@ onMounted(fetchClients)
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm"
             @click="showSecretModal = false; newClientSecret = ''"
           >
-            Done
+            {{ $t('common.done') }}
           </button>
         </div>
       </div>

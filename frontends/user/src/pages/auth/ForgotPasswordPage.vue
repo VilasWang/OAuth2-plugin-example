@@ -28,10 +28,10 @@ async function handleSubmit() {
   <div>
     <div class="mb-8">
       <h1 class="font-display text-2xl font-bold text-neutral-900 tracking-tight">
-        Reset Password
+        {{ $t('auth.forgot.title') }}
       </h1>
       <p class="mt-2 text-sm text-neutral-500">
-        Enter your email to receive a reset link
+        {{ $t('auth.forgot.subtitle') }}
       </p>
     </div>
 
@@ -52,16 +52,16 @@ async function handleSubmit() {
         </svg>
       </div>
       <p class="text-neutral-700">
-        If an account with that email exists, we've sent a password reset link.
+        {{ $t('auth.forgot.sent') }}
       </p>
       <p class="text-sm text-neutral-500">
-        Check your inbox and spam folder.
+        {{ $t('auth.forgot.sentHint') }}
       </p>
       <router-link
         to="/login"
         class="inline-block mt-2 text-brand-600 hover:text-brand-800 font-medium"
       >
-        Back to Login
+        {{ $t('common.backToLogin') }}
       </router-link>
     </div>
 
@@ -72,7 +72,7 @@ async function handleSubmit() {
     >
       <AppInput
         v-model="email"
-        label="Email Address"
+        :label="$t('auth.forgot.emailAddress')"
         type="email"
         required
         autocomplete="email"
@@ -83,14 +83,14 @@ async function handleSubmit() {
         :loading="loading"
         block
       >
-        {{ loading ? 'Sending...' : 'Send Reset Link' }}
+        {{ loading ? $t('auth.forgot.sending') : $t('auth.forgot.submit') }}
       </AppButton>
       <p class="text-center text-sm text-neutral-500">
         <router-link
           to="/login"
           class="text-brand-600 hover:text-brand-800"
         >
-          Back to Login
+          {{ $t('common.backToLogin') }}
         </router-link>
       </p>
     </form>

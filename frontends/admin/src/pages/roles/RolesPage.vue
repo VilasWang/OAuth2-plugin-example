@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { normalizeError } from '../../services/errorAdapter'
+
+const { t } = useI18n()
 
 const roles = ref<any[]>([])
 const loading = ref(true)
@@ -47,7 +50,7 @@ async function createRole() {
       name: newRoleName.value.trim(),
       description: newRoleDescription.value.trim(),
     }, { headers: { 'Content-Type': 'application/json' } })
-    showSuccess(`Role "${newRoleName.value}" created`)
+    showSuccess(t('admin.roles.created', { name: newRoleName.value }))
     showCreateModal.value = false
     newRoleName.value = ''
     newRoleDescription.value = ''
@@ -72,7 +75,7 @@ async function updateRole() {
     await axios.put(`/api/admin/roles/${selectedRole.value.id}`, {
       description: editDescription.value,
     }, { headers: { 'Content-Type': 'application/json' } })
-    showSuccess('Role updated')
+    showSuccess(t('admin.roles.updated'))
     showEditModal.value = false
     await fetchRoles()
   } catch (e: unknown) {
@@ -83,10 +86,10 @@ async function updateRole() {
 }
 
 async function deleteRole(role: any) {
-  if (!confirm(`Delete role "${role.name}"? This cannot be undone.`)) return
+  if (!confirm(t('admin.roles.deleteConfirm', { name: role.name }))) return
   try {
     await axios.delete(`/api/admin/roles/${role.id}`)
-    showSuccess(`Role "${role.name}" deleted`)
+    showSuccess(t('admin.roles.deleted', { name: role.name }))
     await fetchRoles()
   } catch (e: unknown) {
     showError(normalizeError(e).message)
@@ -102,13 +105,13 @@ onMounted(fetchRoles)
   <div>
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-neutral-900">
-        Roles
+        {{ $t('admin.roles.title') }}
       </h2>
       <button
         class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700"
         @click="showCreateModal = true"
       >
-        + Create Role
+        {{ $t('admin.roles.create') }}
       </button>
     </div>
 
@@ -129,7 +132,7 @@ onMounted(fetchRoles)
       v-if="loading"
       class="text-center py-12 text-neutral-500"
     >
-      Loading...
+      {{ $t('common.loading') }}
     </div>
 
     <div
@@ -140,16 +143,16 @@ onMounted(fetchRoles)
         <thead class="bg-neutral-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Name
+              {{ $t('common.name') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Description
+              {{ $t('common.description') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Users
+              {{ $t('admin.roles.users') }}
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
-              Actions
+              {{ $t('common.actions') }}
             </th>
           </tr>
         </thead>
@@ -165,7 +168,7 @@ onMounted(fetchRoles)
                 <span
                   v-if="BUILTIN_ROLES.includes(role.name)"
                   class="px-1.5 py-0.5 text-xs bg-neutral-100 text-neutral-500 rounded"
-                >built-in</span>
+                >{{ $t('common.builtin') }}</span>
               </div>
             </td>
             <td class="px-6 py-3 text-sm text-neutral-500">
@@ -179,14 +182,14 @@ onMounted(fetchRoles)
                 class="text-brand-600 hover:text-brand-900 transition-colors"
                 @click="openEditModal(role)"
               >
-                Edit
+                {{ $t('common.edit') }}
               </button>
               <button
                 v-if="!BUILTIN_ROLES.includes(role.name)"
                 class="text-error-600 hover:text-error-700 transition-colors"
                 @click="deleteRole(role)"
               >
-                Delete
+                {{ $t('common.delete') }}
               </button>
             </td>
           </tr>
@@ -195,7 +198,7 @@ onMounted(fetchRoles)
               colspan="4"
               class="px-6 py-12 text-center text-neutral-500"
             >
-              No roles found
+              {{ $t('admin.roles.noneFound') }}
             </td>
           </tr>
         </tbody>
@@ -209,23 +212,23 @@ onMounted(fetchRoles)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
-          Create Role
+          {{ $t('admin.roles.createTitle') }}
         </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Name <span class="text-error-500">*</span></label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.name') }} <span class="text-error-500">*</span></label>
             <input
               v-model="newRoleName"
               class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
-              placeholder="e.g. editor"
+              :placeholder="$t('admin.roles.namePlaceholder')"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+            <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.description') }}</label>
             <input
               v-model="newRoleDescription"
               class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
-              placeholder="Optional description"
+              :placeholder="$t('admin.roles.optionalDescription')"
             >
           </div>
         </div>
@@ -234,14 +237,14 @@ onMounted(fetchRoles)
             class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showCreateModal = false"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             :disabled="saving || !newRoleName.trim()"
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="createRole"
           >
-            {{ saving ? 'Creating...' : 'Create' }}
+            {{ saving ? $t('common.creating') : $t('common.create') }}
           </button>
         </div>
       </div>
@@ -254,14 +257,14 @@ onMounted(fetchRoles)
     >
       <div class="bg-surface rounded-lg shadow-xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">
-          Edit Role: {{ selectedRole?.name }}
+          {{ $t('admin.roles.editTitle', { name: selectedRole?.name }) }}
         </h3>
         <div>
-          <label class="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+          <label class="block text-sm font-medium text-neutral-700 mb-1">{{ $t('common.description') }}</label>
           <input
             v-model="editDescription"
             class="block w-full px-3 py-2 border border-neutral-300 rounded-md text-sm"
-            placeholder="Optional description"
+            :placeholder="$t('admin.roles.optionalDescription')"
           >
         </div>
         <div class="flex justify-end gap-3 mt-6">
@@ -269,14 +272,14 @@ onMounted(fetchRoles)
             class="px-4 py-2 border border-neutral-300 rounded-md text-sm"
             @click="showEditModal = false"
           >
-            Cancel
+            {{ $t('common.cancel') }}
           </button>
           <button
             :disabled="saving"
             class="px-4 py-2 bg-brand-600 text-white rounded-md text-sm hover:bg-brand-700 disabled:opacity-50"
             @click="updateRole"
           >
-            {{ saving ? 'Saving...' : 'Save' }}
+            {{ saving ? $t('common.saving') : $t('common.save') }}
           </button>
         </div>
       </div>

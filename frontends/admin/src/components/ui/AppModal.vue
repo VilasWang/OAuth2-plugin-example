@@ -106,7 +106,7 @@ onUnmounted(() => {
               type="button"
               class="p-1.5 rounded-ctl text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100
                      focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-              aria-label="Close dialog"
+              :aria-label="$t('ui.modal.close')"
               @click="emit('close')"
             >
               <svg
