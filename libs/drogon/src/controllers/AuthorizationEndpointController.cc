@@ -6,6 +6,7 @@
 #include <fulla/drogon/error/OAuth2ErrorHandler.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/utils/ConsentCsrfSlots.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -414,30 +415,69 @@ void AuthorizationEndpointController::authorize(
                 // checkUserConsentAndProceed). The engine returns a single
                 // ScopeValidationSummary the controller maps to a response.
                 std::string userId;
+                bool mfaPendingSession = false;
+                bool mustChangePasswordSession = false;
                 if (req->session())
                 {
                     userId = req->session()->get<std::string>("userId");
+                    // #144: a session paused at the MFA challenge (password
+                    // verified, second factor outstanding) is NOT a usable
+                    // authenticated session for authorize — treating it as
+                    // logged in would mint codes with amr="pwd" for an
+                    // MFA-required account. #145: same for sessions flagged
+                    // must_change_password (no codes until the password is
+                    // changed).
+                    if (req->session()->find("mfa_pending"))
+                        mfaPendingSession = req->session()->get<bool>("mfa_pending");
+                    if (req->session()->find("must_change_password"))
+                        mustChangePasswordSession =
+                          req->session()->get<bool>("must_change_password");
                 }
 
-                if (userId.empty())
+                if (userId.empty() || mfaPendingSession || mustChangePasswordSession)
                 {
                     // F-022 (OIDC Core §3.1.2.1): prompt=none requires that
-                    // no UI be shown. With no authenticated session, the
-                    // request cannot be satisfied non-interactively -> return
-                    // an error redirect with login_required (never show UI).
+                    // no UI be shown. Without a fully usable session (none,
+                    // MFA-pending, or password-change-pending) the request
+                    // cannot be satisfied non-interactively -> return an
+                    // error redirect with login_required (never show UI).
                     if (promptNone)
                     {
                         callback(buildAuthorizeErrorRedirect(
                           redirectUri,
                           "login_required",
-                          "prompt=none requested but no active session",
+                          "prompt=none requested but no fully authenticated session",
                           state
                         ));
                         return;
                     }
-                    // Not logged in -> redirect to the login screen (unchanged
-                    // behavior; the engine's scope/consent tiers only apply to
-                    // an authenticated subject).
+                    // #145: flagged accounts are routed to the frontend login
+                    // page, which renders the inline change-password form
+                    // (POST /oauth2/password/change); no authorize context is
+                    // carried (no return URL -> no open redirect).
+                    if (mustChangePasswordSession)
+                    {
+                        auto customConfig = ::drogon::app().getCustomConfig();
+                        std::string frontendUrl = "http://localhost:5173";
+                        if (
+                          customConfig.isMember("frontend") &&
+                          customConfig["frontend"].isMember("url")
+                        )
+                        {
+                            frontendUrl = customConfig["frontend"]["url"].asString();
+                        }
+                        if (!frontendUrl.empty() && frontendUrl.back() == '/')
+                            frontendUrl.pop_back();
+                        auto resp = ::drogon::HttpResponse::newRedirectionResponse(
+                          frontendUrl + "/login?must_change_password=1"
+                        );
+                        callback(resp);
+                        return;
+                    }
+                    // Not logged in (or MFA-pending -> re-authenticate to
+                    // complete the second factor) -> redirect to the login
+                    // screen (unchanged behavior; the engine's scope/consent
+                    // tiers only apply to a fully authenticated subject).
                     auto customConfig = ::drogon::app().getCustomConfig();
                     std::string loginUrl = "/login";
                     if (
@@ -640,16 +680,22 @@ void AuthorizationEndpointController::authorize(
                           // F1 (consent auth): mint a SERVER-side random CSRF
                           // nonce for the consent round-trip. The consent form
                           // must echo it and POST /oauth2/consent verifies it
-                          // against this session slot (one-shot, TTL-bounded).
-                          // It deliberately does NOT reuse the client-chosen
-                          // `state` (client-controllable, empty-matchable).
+                          // against this session (one-shot per nonce,
+                          // TTL-bounded). It deliberately does NOT reuse the
+                          // client-chosen `state` (client-controllable,
+                          // empty-matchable).
+                          // #144: the nonce is stored in a bounded multi-slot
+                          // list (ConsentCsrfSlots) so concurrent authorize
+                          // flows on one session no longer overwrite each
+                          // other's slot (single-slot regression for
+                          // multi-tab users).
                           if (req->session())
                           {
                               std::string consentCsrf =
                                 ::fulla::drogon::utils::generateSecureToken();
-                              req->session()->insert("pending_consent_csrf", consentCsrf);
-                              req->session()->insert(
-                                "pending_consent_csrf_ts",
+                              ::fulla::drogon::utils::ConsentCsrfSlots::mint(
+                                req->session(),
+                                consentCsrf,
                                 static_cast<int64_t>(
                                   ::trantor::Date::now().secondsSinceEpoch()
                                 )

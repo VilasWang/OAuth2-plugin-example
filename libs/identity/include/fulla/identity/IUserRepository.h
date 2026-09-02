@@ -22,6 +22,7 @@ struct UserData
     std::string publicSub;
     bool emailVerified = false;
     bool mfaEnabled = false;
+    bool mustChangePassword = false;  // #145: forced first-login password change flag
     int64_t lockedUntil = 0;
     int failedLoginCount = 0;
 };

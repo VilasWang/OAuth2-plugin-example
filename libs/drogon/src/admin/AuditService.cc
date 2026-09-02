@@ -118,37 +118,78 @@ void AuditService::listLogs(const ::drogon::HttpRequestPtr &req, ResponseCallbac
         filter = filter && Criteria(AuditLogs::Cols::_actor_id, CompareOperator::EQ, actorId);
     }
 
-    Mapper<AuditLogs> mapper(db);
-    mapper.paginate(page, perPage)
-      .orderBy(AuditLogs::Cols::_timestamp, SortOrder::DESC)
-      .findBy(
-        filter,
-        [cb, page, perPage](const std::vector<AuditLogs> &rows) {
-            // `total` reflects rows on this page (matches the pre-fix behavior;
-            // the logs table is not expected to drive precise pagination
-            // counts here).
-            Json::Value json;
-            json["status"] = "success";
-            json["page"] = page;
-            json["per_page"] = perPage;
-            json["total"] = static_cast<int>(rows.size());
-            Json::Value logs(Json::arrayValue);
-            for (const auto &row : rows)
-            {
-                logs.append(logRowToJson(row));
-            }
-            json["logs"] = logs;
-            (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
-        },
-        [req, cb](const ::drogon::orm::DrogonDbException &e) {
-            respondError(
-              req,
-              cb,
-              "DB_QUERY_ERROR",
-              std::string("Failed to fetch audit logs: ") + e.base().what()
-            );
-        }
-      );
+    // #146: count-then-page two-step (same shape as
+    // TokenManagementService::listTokens). `total` must be the number of rows
+    // matching the filter set -- the previous implementation echoed back the
+    // current page's row count, so any client paging via `total` mis-computed.
+    // Each Mapper construction gets its own try/catch (db-operations rule:
+    // an outer guard cannot protect constructions inside async callbacks).
+    try
+    {
+        Mapper<AuditLogs> countMapper(db);
+        countMapper.count(
+          filter,
+          [cb, req, page, perPage, filter, db](const size_t total) {
+              try
+              {
+                  Mapper<AuditLogs> dataMapper(db);
+                  dataMapper.paginate(page, perPage)
+                    .orderBy(AuditLogs::Cols::_timestamp, SortOrder::DESC)
+                    .findBy(
+                      filter,
+                      [cb, page, perPage, total](const std::vector<AuditLogs> &rows) {
+                          Json::Value json;
+                          json["status"] = "success";
+                          json["page"] = page;
+                          json["per_page"] = perPage;
+                          json["total"] = static_cast<Json::UInt64>(total);
+                          Json::Value logs(Json::arrayValue);
+                          for (const auto &row : rows)
+                          {
+                              logs.append(logRowToJson(row));
+                          }
+                          json["logs"] = logs;
+                          (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
+                      },
+                      [req, cb](const ::drogon::orm::DrogonDbException &e) {
+                          respondError(
+                            req,
+                            cb,
+                            "DB_QUERY_ERROR",
+                            std::string("Failed to fetch audit logs: ") + e.base().what()
+                          );
+                      }
+                    );
+              }
+              catch (const std::exception &e)
+              {
+                  respondError(
+                    req,
+                    cb,
+                    "DB_QUERY_ERROR",
+                    std::string("Failed to fetch audit logs: ") + e.what()
+                  );
+              }
+          },
+          [req, cb](const ::drogon::orm::DrogonDbException &e) {
+              respondError(
+                req,
+                cb,
+                "DB_QUERY_ERROR",
+                std::string("Failed to count audit logs: ") + e.base().what()
+              );
+          }
+        );
+    }
+    catch (const std::exception &e)
+    {
+        respondError(
+          req,
+          cb,
+          "DB_QUERY_ERROR",
+          std::string("Failed to count audit logs: ") + e.what()
+        );
+    }
 }
 
 void AuditService::getDashboardStats(const ::drogon::HttpRequestPtr &req, ResponseCallback cb)

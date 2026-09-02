@@ -65,9 +65,9 @@ struct RawEntry
 
 // Verbatim copy of oauth2::error::ErrorCatalog's table (numeric codes/messages
 // preserved unchanged); grows as new codes are ratified.
-const std::array<RawEntry, 32> &rawEntries()
+const std::array<RawEntry, 34> &rawEntries()
 {
-    static const std::array<RawEntry, 32> kEntries = {{
+    static const std::array<RawEntry, 34> kEntries = {{
       // NETWORK (1000-1099)
       {"NET_CONNECTION_FAILED",
        1001,
@@ -148,6 +148,17 @@ const std::array<RawEntry, 32> &rawEntries()
        ErrorCategory::AUTHENTICATION,
        "需要先登录",
        "该操作要求已认证的浏览器会话（AUTHENTICATION 类）"},
+      {"AUTH_MFA_REQUIRED",
+       4008,
+       ErrorCategory::AUTHENTICATION,
+       "需要完成 MFA 验证",
+       "MFA 第二因子尚未完成，会话不得通过授权/同意门（#144，AUTHENTICATION 类）"},
+      {"AUTH_PASSWORD_CHANGE_REQUIRED",
+       4009,
+       ErrorCategory::AUTHENTICATION,
+       "必须先修改密码",
+       "账号被标记为首次登录须改密，完成改密前不签发授权码（#145，AUTHENTICATION 类，HTTP 403）",
+       403},
 
       // AUTHORIZATION (5000-5099)
       {"AUTHZ_ACCESS_DENIED",

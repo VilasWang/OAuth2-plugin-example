@@ -277,7 +277,7 @@ func (e PostOauth2ConsentParamsAction) Valid() bool {
 	}
 }
 
-// DeviceAuthorizationResponse RFC 8628 device authorization response (no verification_uri_complete).
+// DeviceAuthorizationResponse RFC 8628 device authorization response. The verification URIs point at the admin console device-approval page by default (admin_console.url config + /admin/devices, #146); override with custom_config.device_authorization.verification_uri.
 type DeviceAuthorizationResponse struct {
 	DeviceCode string `json:"device_code"`
 
@@ -288,8 +288,13 @@ type DeviceAuthorizationResponse struct {
 	Interval int `json:"interval"`
 
 	// UserCode 8 characters from the A-Z2-9 alphabet (no 0/1/I/O).
-	UserCode        string `json:"user_code"`
+	UserCode string `json:"user_code"`
+
+	// VerificationUri Page the user visits to approve the device (admin console /admin/devices by default).
 	VerificationUri string `json:"verification_uri"`
+
+	// VerificationUriComplete verification_uri with ?user_code=<code> appended (RFC 8628 §3.3.1) so the approval page can prefill the code.
+	VerificationUriComplete *string `json:"verification_uri_complete,omitempty"`
 }
 
 // Error The nested error object of the application error envelope. Application (non-OAuth2-protocol) endpoints respond with {"error": {...}} on failure; /oauth2/* and /.well-known/* endpoints use RFC 6749 §5.2 bodies instead (see OAuth2Error).
@@ -507,6 +512,12 @@ type Organization struct {
 	Name           *string `json:"name,omitempty"`
 	PrimaryColor   *string `json:"primary_color,omitempty"`
 	Slug           *string `json:"slug,omitempty"`
+}
+
+// PasswordChangeRequiredResponse /oauth2/login response while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). No authorization code is issued until the password is changed via POST /oauth2/password/change.
+type PasswordChangeRequiredResponse struct {
+	Message                *string `json:"message,omitempty"`
+	PasswordChangeRequired bool    `json:"password_change_required"`
 }
 
 // SocialLinkEntry One social provider identity linked to the current user.
@@ -737,13 +748,16 @@ type GetApiAdminUsersParamsLocked string
 
 // PostApiAdminUsersJSONBody defines parameters for PostApiAdminUsers.
 type PostApiAdminUsersJSONBody struct {
-	Email         *string   `json:"email,omitempty"`
-	EmailVerified *bool     `json:"email_verified,omitempty"`
-	MfaEnabled    *bool     `json:"mfa_enabled,omitempty"`
-	OrgId         *int      `json:"org_id,omitempty"`
-	Password      string    `json:"password"`
-	Roles         *[]string `json:"roles,omitempty"`
-	Username      string    `json:"username"`
+	Email         *string `json:"email,omitempty"`
+	EmailVerified *bool   `json:"email_verified,omitempty"`
+	MfaEnabled    *bool   `json:"mfa_enabled,omitempty"`
+
+	// MustChangePassword Force a password change at first login (#145); while flagged, no authorization codes are issued for the account. Default false.
+	MustChangePassword *bool     `json:"must_change_password,omitempty"`
+	OrgId              *int      `json:"org_id,omitempty"`
+	Password           string    `json:"password"`
+	Roles              *[]string `json:"roles,omitempty"`
+	Username           string    `json:"username"`
 }
 
 // PutApiAdminUsersUserIdJSONBody defines parameters for PutApiAdminUsersUserId.
@@ -752,8 +766,11 @@ type PutApiAdminUsersUserIdJSONBody struct {
 	EmailVerified *bool   `json:"email_verified,omitempty"`
 	Locked        *bool   `json:"locked,omitempty"`
 	MfaEnabled    *bool   `json:"mfa_enabled,omitempty"`
-	OrgId         *int    `json:"org_id,omitempty"`
-	Username      *string `json:"username,omitempty"`
+
+	// MustChangePassword Set/clear the forced password-change flag (#145); enforcement starts at the user's next login.
+	MustChangePassword *bool   `json:"must_change_password,omitempty"`
+	OrgId              *int    `json:"org_id,omitempty"`
+	Username           *string `json:"username,omitempty"`
 }
 
 // PutApiAdminUsersUserIdRolesJSONBody defines parameters for PutApiAdminUsersUserIdRoles.
@@ -953,6 +970,19 @@ type PostOauth2Login200JSONResponseBody struct {
 // PostOauth2LogoutJSONBody defines parameters for PostOauth2Logout.
 type PostOauth2LogoutJSONBody = map[string]interface{}
 
+// PostOauth2PasswordChangeJSONBody defines parameters for PostOauth2PasswordChange.
+type PostOauth2PasswordChangeJSONBody struct {
+	// NewPassword Must satisfy auth.min_password_length (default 8).
+	NewPassword string `json:"new_password"`
+	OldPassword string `json:"old_password"`
+}
+
+// PostOauth2PasswordChangeFormdataBody defines parameters for PostOauth2PasswordChange.
+type PostOauth2PasswordChangeFormdataBody struct {
+	NewPassword string `form:"new_password" json:"new_password"`
+	OldPassword string `form:"old_password" json:"old_password"`
+}
+
 // PostOauth2RevokeFormdataBody defines parameters for PostOauth2Revoke.
 type PostOauth2RevokeFormdataBody struct {
 	// ClientId Client identifier (alternative to HTTP Basic authentication).
@@ -1040,6 +1070,12 @@ type PostOauth2MfaVerifyJSONRequestBody = MfaVerifyRequest
 // PostOauth2MfaVerifyFormdataRequestBody defines body for PostOauth2MfaVerify for application/x-www-form-urlencoded ContentType.
 type PostOauth2MfaVerifyFormdataRequestBody = MfaVerifyRequest
 
+// PostOauth2PasswordChangeJSONRequestBody defines body for PostOauth2PasswordChange for application/json ContentType.
+type PostOauth2PasswordChangeJSONRequestBody PostOauth2PasswordChangeJSONBody
+
+// PostOauth2PasswordChangeFormdataRequestBody defines body for PostOauth2PasswordChange for application/x-www-form-urlencoded ContentType.
+type PostOauth2PasswordChangeFormdataRequestBody PostOauth2PasswordChangeFormdataBody
+
 // PostOauth2RevokeFormdataRequestBody defines body for PostOauth2Revoke for application/x-www-form-urlencoded ContentType.
 type PostOauth2RevokeFormdataRequestBody PostOauth2RevokeFormdataBody
 
@@ -1091,6 +1127,32 @@ func (t *PostOauth2Login200JSONResponseBody) FromMfaRequiredResponse(v MfaRequir
 
 // MergeMfaRequiredResponse performs a merge with any union data inside the PostOauth2Login200JSONResponseBody, using the provided MfaRequiredResponse
 func (t *PostOauth2Login200JSONResponseBody) MergeMfaRequiredResponse(v MfaRequiredResponse) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPasswordChangeRequiredResponse returns the union data inside the PostOauth2Login200JSONResponseBody as a PasswordChangeRequiredResponse
+func (t PostOauth2Login200JSONResponseBody) AsPasswordChangeRequiredResponse() (PasswordChangeRequiredResponse, error) {
+	var body PasswordChangeRequiredResponse
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPasswordChangeRequiredResponse overwrites any union data inside the PostOauth2Login200JSONResponseBody as the provided PasswordChangeRequiredResponse
+func (t *PostOauth2Login200JSONResponseBody) FromPasswordChangeRequiredResponse(v PasswordChangeRequiredResponse) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePasswordChangeRequiredResponse performs a merge with any union data inside the PostOauth2Login200JSONResponseBody, using the provided PasswordChangeRequiredResponse
+func (t *PostOauth2Login200JSONResponseBody) MergePasswordChangeRequiredResponse(v PasswordChangeRequiredResponse) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1488,7 +1550,7 @@ type ClientInterface interface {
 
 	// PostApiAdminUsersWithBody Create User
 	//
-	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1497,7 +1559,7 @@ type ClientInterface interface {
 
 	// PostApiAdminUsers Create User
 	//
-	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1520,7 +1582,7 @@ type ClientInterface interface {
 
 	// PutApiAdminUsersUserIdWithBody Update User
 	//
-	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1529,7 +1591,7 @@ type ClientInterface interface {
 
 	// PutApiAdminUsersUserId Update User
 	//
-	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1598,7 +1660,7 @@ type ClientInterface interface {
 
 	// GetApiMe Get User Profile
 	//
-	// Get current user's profile information.
+	// Get current user's profile information. The 200 body includes username, email, email_verified, mfa_enabled, and must_change_password (#145; true while the account must change its password at first login).
 	//
 	// Corresponds with GET /api/me (the `GetApiMe` operationId).
 	GetApiMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1682,7 +1744,7 @@ type ClientInterface interface {
 
 	// PutApiMePassword Change Password
 	//
-	// Change the current user's password.
+	// Change the current user's password. A successful change also clears the must_change_password flag (#145) and revokes all existing tokens. For the forced first-login flow (no Bearer token available) use POST /oauth2/password/change instead.
 	//
 	// Corresponds with PUT /api/me/password (the `PutApiMePassword` operationId).
 	PutApiMePassword(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1823,7 +1885,7 @@ type ClientInterface interface {
 
 	// GetOauth2Authorize Request authorization
 	//
-	// OAuth2 authorization endpoint - initiates authorization flow.
+	// OAuth2 authorization endpoint - initiates authorization flow. Sessions paused at the MFA challenge or flagged must_change_password (#144/#145) are treated as not fully authenticated: prompt=none answers error=login_required, silent requests are redirected to the login / password-change page instead of issuing a code.
 	//
 	// Corresponds with GET /oauth2/authorize (the `GetOauth2Authorize` operationId).
 	GetOauth2Authorize(ctx context.Context, params *GetOauth2AuthorizeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1974,6 +2036,33 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /oauth2/mfa/verify (the `PostOauth2MfaVerify` operationId).
 	PostOauth2MfaVerifyWithFormdataBody(ctx context.Context, body PostOauth2MfaVerifyFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOauth2PasswordChangeWithBody Change Password (Forced First-Login Flow)
+	//
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+	PostOauth2PasswordChangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOauth2PasswordChange Change Password (Forced First-Login Flow)
+	//
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+	PostOauth2PasswordChange(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostOauth2PasswordChangeWithFormdataBody Change Password (Forced First-Login Flow)
+	//
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type.
+	//
+	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+	PostOauth2PasswordChangeWithFormdataBody(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostOauth2Register Register Client
 	//
@@ -2744,7 +2833,7 @@ func (c *Client) GetApiAdminUsers(ctx context.Context, params *GetApiAdminUsersP
 
 // PostApiAdminUsersWithBody Create User
 //
-// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 //
 // Takes any type of body and a specified content type.
 //
@@ -2763,7 +2852,7 @@ func (c *Client) PostApiAdminUsersWithBody(ctx context.Context, contentType stri
 
 // PostApiAdminUsers Create User
 //
-// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -2816,7 +2905,7 @@ func (c *Client) GetApiAdminUsersUserId(ctx context.Context, userId int, reqEdit
 
 // PutApiAdminUsersUserIdWithBody Update User
 //
-// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 //
 // Takes any type of body and a specified content type.
 //
@@ -2835,7 +2924,7 @@ func (c *Client) PutApiAdminUsersUserIdWithBody(ctx context.Context, userId int,
 
 // PutApiAdminUsersUserId Update User
 //
-// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -2994,7 +3083,7 @@ func (c *Client) DeleteApiMe(ctx context.Context, reqEditors ...RequestEditorFn)
 
 // GetApiMe Get User Profile
 //
-// Get current user's profile information.
+// Get current user's profile information. The 200 body includes username, email, email_verified, mfa_enabled, and must_change_password (#145; true while the account must change its password at first login).
 //
 // Corresponds with GET /api/me (the `GetApiMe` operationId).
 func (c *Client) GetApiMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3178,7 +3267,7 @@ func (c *Client) PostApiMeMfaVerifyWithFormdataBody(ctx context.Context, body Po
 
 // PutApiMePassword Change Password
 //
-// Change the current user's password.
+// Change the current user's password. A successful change also clears the must_change_password flag (#145) and revokes all existing tokens. For the forced first-login flow (no Bearer token available) use POST /oauth2/password/change instead.
 //
 // Corresponds with PUT /api/me/password (the `PutApiMePassword` operationId).
 func (c *Client) PutApiMePassword(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3509,7 +3598,7 @@ func (c *Client) GetHealthReady(ctx context.Context, reqEditors ...RequestEditor
 
 // GetOauth2Authorize Request authorization
 //
-// OAuth2 authorization endpoint - initiates authorization flow.
+// OAuth2 authorization endpoint - initiates authorization flow. Sessions paused at the MFA challenge or flagged must_change_password (#144/#145) are treated as not fully authenticated: prompt=none answers error=login_required, silent requests are redirected to the login / password-change page instead of issuing a code.
 //
 // Corresponds with GET /oauth2/authorize (the `GetOauth2Authorize` operationId).
 func (c *Client) GetOauth2Authorize(ctx context.Context, params *GetOauth2AuthorizeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3831,6 +3920,63 @@ func (c *Client) PostOauth2MfaVerify(ctx context.Context, body PostOauth2MfaVeri
 // Corresponds with POST /oauth2/mfa/verify (the `PostOauth2MfaVerify` operationId).
 func (c *Client) PostOauth2MfaVerifyWithFormdataBody(ctx context.Context, body PostOauth2MfaVerifyFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostOauth2MfaVerifyRequestWithFormdataBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostOauth2PasswordChangeWithBody Change Password (Forced First-Login Flow)
+//
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+func (c *Client) PostOauth2PasswordChangeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2PasswordChangeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostOauth2PasswordChange Change Password (Forced First-Login Flow)
+//
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+func (c *Client) PostOauth2PasswordChange(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2PasswordChangeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PostOauth2PasswordChangeWithFormdataBody Change Password (Forced First-Login Flow)
+//
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type.
+//
+// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+func (c *Client) PostOauth2PasswordChangeWithFormdataBody(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2PasswordChangeRequestWithFormdataBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7012,6 +7158,57 @@ func NewPostOauth2MfaVerifyRequestWithBody(server string, contentType string, bo
 	return req, nil
 }
 
+// NewPostOauth2PasswordChangeRequest calls the generic PostOauth2PasswordChange builder with application/json body
+func NewPostOauth2PasswordChangeRequest(server string, body PostOauth2PasswordChangeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostOauth2PasswordChangeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostOauth2PasswordChangeRequestWithFormdataBody calls the generic PostOauth2PasswordChange builder with application/x-www-form-urlencoded body
+func NewPostOauth2PasswordChangeRequestWithFormdataBody(server string, body PostOauth2PasswordChangeFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewPostOauth2PasswordChangeRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewPostOauth2PasswordChangeRequestWithBody constructs an http.Request for the PostOauth2PasswordChange method, with any body, and a specified content type
+func NewPostOauth2PasswordChangeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth2/password/change")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostOauth2RegisterRequest constructs an http.Request for the PostOauth2Register method
 func NewPostOauth2RegisterRequest(server string) (*http.Request, error) {
 	var err error
@@ -7610,7 +7807,7 @@ type ClientWithResponsesInterface interface {
 
 	// PostApiAdminUsersWithBodyWithResponse Create User
 	//
-	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7619,7 +7816,7 @@ type ClientWithResponsesInterface interface {
 
 	// PostApiAdminUsersWithResponse Create User
 	//
-	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+	// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7646,7 +7843,7 @@ type ClientWithResponsesInterface interface {
 
 	// PutApiAdminUsersUserIdWithBodyWithResponse Update User
 	//
-	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7655,7 +7852,7 @@ type ClientWithResponsesInterface interface {
 
 	// PutApiAdminUsersUserIdWithResponse Update User
 	//
-	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+	// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7736,7 +7933,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiMeWithResponse Get User Profile
 	//
-	// Get current user's profile information.
+	// Get current user's profile information. The 200 body includes username, email, email_verified, mfa_enabled, and must_change_password (#145; true while the account must change its password at first login).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -7826,7 +8023,7 @@ type ClientWithResponsesInterface interface {
 
 	// PutApiMePasswordWithResponse Change Password
 	//
-	// Change the current user's password.
+	// Change the current user's password. A successful change also clears the must_change_password flag (#145) and revokes all existing tokens. For the forced first-login flow (no Bearer token available) use POST /oauth2/password/change instead.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -7997,7 +8194,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetOauth2AuthorizeWithResponse Request authorization
 	//
-	// OAuth2 authorization endpoint - initiates authorization flow.
+	// OAuth2 authorization endpoint - initiates authorization flow. Sessions paused at the MFA challenge or flagged must_change_password (#144/#145) are treated as not fully authenticated: prompt=none answers error=login_required, silent requests are redirected to the login / password-change page instead of issuing a code.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -8156,6 +8353,33 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /oauth2/mfa/verify (the `PostOauth2MfaVerify` operationId).
 	PostOauth2MfaVerifyWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2MfaVerifyFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2MfaVerifyResponse, error)
+
+	// PostOauth2PasswordChangeWithBodyWithResponse Change Password (Forced First-Login Flow)
+	//
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+	PostOauth2PasswordChangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error)
+
+	// PostOauth2PasswordChangeWithResponse Change Password (Forced First-Login Flow)
+	//
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+	PostOauth2PasswordChangeWithResponse(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error)
+
+	// PostOauth2PasswordChangeWithFormdataBodyWithResponse Change Password (Forced First-Login Flow)
+	//
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+	PostOauth2PasswordChangeWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error)
 
 	// PostOauth2RegisterWithResponse Register Client
 	//
@@ -11586,6 +11810,68 @@ func (r PostOauth2MfaVerifyResponse) ContentType() string {
 	return ""
 }
 
+type PostOauth2PasswordChangeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MessageResponse
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *ErrorEnvelope
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *ErrorEnvelope
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *ErrorEnvelope
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PostOauth2PasswordChangeResponse) GetJSON200() *MessageResponse {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PostOauth2PasswordChangeResponse) GetJSON400() *ErrorEnvelope {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r PostOauth2PasswordChangeResponse) GetJSON401() *ErrorEnvelope {
+	return r.JSON401
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r PostOauth2PasswordChangeResponse) GetJSON500() *ErrorEnvelope {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r PostOauth2PasswordChangeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOauth2PasswordChangeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOauth2PasswordChangeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PostOauth2PasswordChangeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PostOauth2RegisterResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12469,7 +12755,7 @@ func (c *ClientWithResponses) GetApiAdminUsersWithResponse(ctx context.Context, 
 
 // PostApiAdminUsersWithBodyWithResponse Create User
 //
-// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -12484,7 +12770,7 @@ func (c *ClientWithResponses) PostApiAdminUsersWithBodyWithResponse(ctx context.
 
 // PostApiAdminUsersWithResponse Create User
 //
-// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, and org_id are optional.
+// Create a new user. Requires username and password; email, roles, mfa_enabled, email_verified, must_change_password, and org_id are optional. must_change_password (default false, #145) forces the user to change the password at first login.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -12529,7 +12815,7 @@ func (c *ClientWithResponses) GetApiAdminUsersUserIdWithResponse(ctx context.Con
 
 // PutApiAdminUsersUserIdWithBodyWithResponse Update User
 //
-// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -12544,7 +12830,7 @@ func (c *ClientWithResponses) PutApiAdminUsersUserIdWithBodyWithResponse(ctx con
 
 // PutApiAdminUsersUserIdWithResponse Update User
 //
-// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
+// Update user information. Updatable fields: username, email, email_verified, mfa_enabled, must_change_password (#145; enforcement starts at the user's next login), locked (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are rejected with 400 (never silently skipped).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -12679,7 +12965,7 @@ func (c *ClientWithResponses) DeleteApiMeWithResponse(ctx context.Context, reqEd
 
 // GetApiMeWithResponse Get User Profile
 //
-// Get current user's profile information.
+// Get current user's profile information. The 200 body includes username, email, email_verified, mfa_enabled, and must_change_password (#145; true while the account must change its password at first login).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -12829,7 +13115,7 @@ func (c *ClientWithResponses) PostApiMeMfaVerifyWithFormdataBodyWithResponse(ctx
 
 // PutApiMePasswordWithResponse Change Password
 //
-// Change the current user's password.
+// Change the current user's password. A successful change also clears the must_change_password flag (#145) and revokes all existing tokens. For the forced first-login flow (no Bearer token available) use POST /oauth2/password/change instead.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -13114,7 +13400,7 @@ func (c *ClientWithResponses) GetHealthReadyWithResponse(ctx context.Context, re
 
 // GetOauth2AuthorizeWithResponse Request authorization
 //
-// OAuth2 authorization endpoint - initiates authorization flow.
+// OAuth2 authorization endpoint - initiates authorization flow. Sessions paused at the MFA challenge or flagged must_change_password (#144/#145) are treated as not fully authenticated: prompt=none answers error=login_required, silent requests are redirected to the login / password-change page instead of issuing a code.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -13380,6 +13666,51 @@ func (c *ClientWithResponses) PostOauth2MfaVerifyWithFormdataBodyWithResponse(ct
 		return nil, err
 	}
 	return ParsePostOauth2MfaVerifyResponse(rsp)
+}
+
+// PostOauth2PasswordChangeWithBodyWithResponse Change Password (Forced First-Login Flow)
+//
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+func (c *ClientWithResponses) PostOauth2PasswordChangeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error) {
+	rsp, err := c.PostOauth2PasswordChangeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2PasswordChangeResponse(rsp)
+}
+
+// PostOauth2PasswordChangeWithResponse Change Password (Forced First-Login Flow)
+//
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+func (c *ClientWithResponses) PostOauth2PasswordChangeWithResponse(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error) {
+	rsp, err := c.PostOauth2PasswordChange(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2PasswordChangeResponse(rsp)
+}
+
+// PostOauth2PasswordChangeWithFormdataBodyWithResponse Change Password (Forced First-Login Flow)
+//
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
+func (c *ClientWithResponses) PostOauth2PasswordChangeWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error) {
+	rsp, err := c.PostOauth2PasswordChangeWithFormdataBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2PasswordChangeResponse(rsp)
 }
 
 // PostOauth2RegisterWithResponse Register Client
@@ -15555,6 +15886,53 @@ func ParsePostOauth2MfaVerifyResponse(rsp *http.Response) (*PostOauth2MfaVerifyR
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostOauth2PasswordChangeResponse parses an HTTP response from a PostOauth2PasswordChangeWithResponse call
+func ParsePostOauth2PasswordChangeResponse(rsp *http.Response) (*PostOauth2PasswordChangeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOauth2PasswordChangeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorEnvelope
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

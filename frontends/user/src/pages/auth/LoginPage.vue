@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import { authService } from '../../services/authService'
 import AppInput from '../../components/ui/AppInput.vue'
 import AppButton from '../../components/ui/AppButton.vue'
 import AppAlert from '../../components/ui/AppAlert.vue'
@@ -16,6 +17,17 @@ const mfaCode = ref('')
 const mfaToken = ref('')
 const showMfa = ref(false)
 
+// #145: forced first-login password change (account flagged
+// must_change_password — the backend refuses to issue tokens until the
+// password is replaced on the login session).
+const showPasswordChange = ref(false)
+const oldPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordChangeError = ref('')
+const passwordChangeBusy = ref(false)
+const passwordChangeDone = ref(false)
+
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || ''
 const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=user:email&redirect_uri=${encodeURIComponent(window.location.origin + '/callback/github')}`
 
@@ -25,11 +37,21 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&response_type=code&scope=openid%20email%20profile&redirect_uri=${encodeURIComponent(window.location.origin + '/callback/google')}`
 const WECHAT_ENABLED = Boolean(import.meta.env.VITE_WECHAT_APPID)
 
+// #145: the authorize gate sends flagged users here with the query flag set
+// (302 from /oauth2/authorize) — show the change form without a login round-trip.
+if (route.query.must_change_password === '1') {
+  showPasswordChange.value = true
+}
+
 async function handleLogin() {
   const result = await auth.login(username.value, password.value)
   if (result.mfaRequired) {
     mfaToken.value = result.mfaToken!
     showMfa.value = true
+  } else if (result.passwordChangeRequired) {
+    oldPassword.value = password.value
+    password.value = ''
+    showPasswordChange.value = true
   } else if (result.success) {
     router.push((route.query.redirect as string) || '/')
   }
@@ -39,6 +61,23 @@ async function handleMfa() {
   const result = await auth.verifyMfa(mfaToken.value, mfaCode.value)
   if (result.success) {
     router.push((route.query.redirect as string) || '/')
+  }
+}
+
+async function handlePasswordChange() {
+  passwordChangeError.value = ''
+  if (newPassword.value !== confirmPassword.value) {
+    passwordChangeError.value = 'New passwords do not match'
+    return
+  }
+  passwordChangeBusy.value = true
+  try {
+    await authService.changePasswordForced(oldPassword.value, newPassword.value)
+    passwordChangeDone.value = true
+  } catch (e) {
+    passwordChangeError.value = e instanceof Error ? e.message : 'Password change failed'
+  } finally {
+    passwordChangeBusy.value = false
   }
 }
 </script>
@@ -70,9 +109,82 @@ async function handleMfa() {
       {{ auth.error }}
     </AppAlert>
 
+    <!-- #145: Forced Password Change -->
+    <form
+      v-if="showPasswordChange"
+      class="space-y-5"
+      @submit.prevent="handlePasswordChange"
+    >
+      <div class="text-center py-4">
+        <h2 class="text-lg font-semibold text-neutral-900">
+          Change Your Password
+        </h2>
+        <p class="text-sm text-neutral-500 mt-1">
+          Your account requires a password change before you can sign in.
+        </p>
+      </div>
+
+      <div
+        v-if="passwordChangeDone"
+        class="rounded-lg bg-success-50 border border-success-200 p-4 text-sm text-success-800"
+        data-testid="forced-password-change-done"
+      >
+        Password changed successfully. Sign in with your new password.
+      </div>
+      <template v-else>
+        <AppAlert
+          v-if="passwordChangeError"
+          type="error"
+          class="mb-2"
+        >
+          {{ passwordChangeError }}
+        </AppAlert>
+        <AppInput
+          v-model="oldPassword"
+          label="Current Password"
+          type="password"
+          placeholder="Enter your current password"
+          required
+          autocomplete="current-password"
+        />
+        <AppInput
+          v-model="newPassword"
+          label="New Password"
+          type="password"
+          placeholder="Enter your new password"
+          required
+          autocomplete="new-password"
+        />
+        <AppInput
+          v-model="confirmPassword"
+          label="Confirm New Password"
+          type="password"
+          placeholder="Re-enter your new password"
+          required
+          autocomplete="new-password"
+        />
+        <AppButton
+          type="submit"
+          :loading="passwordChangeBusy"
+          :disabled="!oldPassword || !newPassword || !confirmPassword"
+          block
+        >
+          Change Password
+        </AppButton>
+      </template>
+
+      <button
+        type="button"
+        class="w-full text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
+        @click="showPasswordChange = false; passwordChangeDone = false"
+      >
+        Back to sign in
+      </button>
+    </form>
+
     <!-- MFA Challenge -->
     <form
-      v-if="showMfa"
+      v-else-if="showMfa"
       class="space-y-6"
       @submit.prevent="handleMfa"
     >

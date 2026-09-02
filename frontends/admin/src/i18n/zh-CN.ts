@@ -98,6 +98,22 @@ export const zhCN = {
       verifying: '验证中…',
       back: '← 返回登录',
     },
+    // #145：首登强制改密（must_change_password 标记）
+    passwordChange: {
+      title: '修改密码',
+      subtitle: '该账号要求在登录前修改密码。',
+      done: '密码修改成功。请使用新密码重新登录。',
+      oldLabel: '当前密码',
+      oldPlaceholder: '输入当前密码',
+      newLabel: '新密码',
+      newPlaceholder: '输入新密码',
+      confirmLabel: '确认新密码',
+      confirmPlaceholder: '再次输入新密码',
+      submit: '修改密码',
+      submitting: '修改中…',
+      mismatch: '两次输入的新密码不一致',
+      back: '← 返回登录',
+    },
   },
   admin: {
     dashboard: {

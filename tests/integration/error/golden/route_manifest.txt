@@ -76,6 +76,7 @@ POST /oauth2/introspect
 POST /oauth2/login
 POST /oauth2/logout
 POST /oauth2/mfa/verify
+POST /oauth2/password/change
 POST /oauth2/register
 POST /oauth2/revoke
 POST /oauth2/token

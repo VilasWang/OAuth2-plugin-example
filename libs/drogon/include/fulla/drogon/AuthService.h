@@ -23,6 +23,7 @@ struct AuthResult
     std::string publicSub;       // Public UUID subject (for OAuth2 tokens, never expose internalId)
     bool emailVerified = false;  // Whether email is verified
     bool mfaEnabled = false;     // Whether MFA (TOTP) is enabled
+    bool mustChangePassword = false;  // #145: forced first-login password change flag
 };
 
 class AuthService

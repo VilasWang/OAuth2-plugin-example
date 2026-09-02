@@ -104,3 +104,20 @@ userHandle?}; every failure answers the generic
 AUTH_INVALID_CREDENTIALS. The GitHub response-schema correction in the
 same PR (profile object -> SocialLoginTokenResponse) is additive on the
 response side and not reported as breaking.
+
+---
+
+## 2026-09-02 · #145 forced first-login password change (PR: issues batch 2)
+
+POST /oauth2/login's 200 response gains a third anyOf variant,
+PasswordChangeRequiredResponse (password_change_required=true), alongside the
+existing code/mfa_required shapes. Same shape of change as the MfaRequiredResponse
+variant added with the consent batch: adding a DISCRIMINATED response variant is
+not a consumer break — every consumer already branches on the distinguishing
+boolean, an unvariant-aware strict validator seeing one more alternative is the
+oasdiff false-positive direction, and both SDKs are regenerated in the same PR.
+Without the variant the login endpoint could not express the forced-change flow
+at all. The change itself is the security fix: flagged accounts (bootstrap admin,
+admin-created users) get no authorization codes until the password is changed.
+
+- POST /oauth2/login added `#/components/schemas/PasswordChangeRequiredResponse` to the response body `anyOf` list for the response status `200`

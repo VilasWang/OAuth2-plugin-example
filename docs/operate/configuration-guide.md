@@ -95,6 +95,39 @@ Constraints:
 - Production deployments **must** configure an `https://` issuer; a plaintext http issuer on a non-loopback host triggers a startup warning.
 - Introspection `iss` and the discovery documents' `issuer` are guaranteed byte-for-byte identical (as OIDC Discovery §3 requires).
 
+## 4a. Admin Console Origin & Device Verification URI (#146)
+
+`config.admin_console.url` (custom config) is the ORIGIN (scheme + host [+ port], no
+path) of the admin console SPA — `https://admin.example.com` in production,
+default `http://localhost:5174` (the dev vite server). It feeds exactly one
+consumer today: the RFC 8628 device-authorization response's
+`verification_uri`/`verification_uri_complete`, which default to
+`{admin_console.url}/admin/devices` — the real device-approval page. Before #146
+the default pointed at `/oauth2/device`, a path with no page behind it.
+
+- Explicit override: `config.device_authorization.verification_uri` (full URL)
+  wins over the derived default; `verification_uri_complete` is always derived
+  (`verification_uri` + `?user_code=<code>`).
+- Trailing slashes on `admin_console.url` are normalized away.
+
+## 4b. Forced First-Login Password Change (#145)
+
+Accounts created with `users.must_change_password = true` — the bootstrap admin
+(both the random and the `FULLA_BOOTSTRAP_ADMIN_PASSWORD` variants) and users
+created/updated via the admin API with `must_change_password: true` — must
+change the password before any authorization code is issued:
+
+- `/oauth2/login` answers `200 {"password_change_required": true, ...}` instead
+  of issuing a code;
+- `/oauth2/authorize` redirects to the frontend login page (which renders the
+  change-password form); `prompt=none` answers `error=login_required`;
+- `POST /oauth2/consent` answers 403 `AUTH_PASSWORD_CHANGE_REQUIRED`.
+
+The change path is `POST /oauth2/password/change` (session-authenticated,
+requires `old_password`, enforces `auth.min_password_length`, revokes all
+tokens, clears the flag). `PUT /api/me/password` also clears the flag. An
+admin-set flag on an existing account takes effect at that user's next login.
+
 ## 5. Client Token-Endpoint Authentication Methods (F-017)
 
 Each client declares, via the `oauth2_clients.token_endpoint_auth_method` column, how it

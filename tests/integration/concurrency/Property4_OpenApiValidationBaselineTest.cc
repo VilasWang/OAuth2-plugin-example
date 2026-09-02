@@ -178,6 +178,7 @@ const std::string &expectedFingerprint()
       "POST /oauth2/login\n"
       "POST /oauth2/logout\n"
       "POST /oauth2/mfa/verify\n"
+      "POST /oauth2/password/change\n"
       "POST /oauth2/register\n"
       "POST /oauth2/revoke\n"
       "POST /oauth2/token\n"

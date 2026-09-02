@@ -1237,11 +1237,15 @@
                 }
               }
             },
-            "description" : "GitHub user info retrieved successfully"
+            "description" : "First-party token pair for the GitHub-linked account"
           },
           "400" : 
           {
             "description" : "Invalid request (missing or invalid code)"
+          },
+          "403" : 
+          {
+            "description" : "Not linked to a local account and auto-create disabled"
           },
           "502" : 
           {
@@ -1260,7 +1264,7 @@
     {
       "post" : 
       {
-        "description" : "Exchange Google authorization code for user information. This endpoint handles the server-side OAuth2 flow with Google Identity Platform.",
+        "description" : "Exchange Google authorization code for a first-party token pair (#70): the Google identity is resolved to a local account (auto-created on first login unless external_auth.auto_create_on_first_login is disabled, which yields 403 AUTH_SOCIAL_ACCOUNT_NOT_LINKED) and an access/refresh pair is issued for the configured first-party client. A SOCIAL_LOGIN_TOKEN_ISSUED audit event records the issuance.",
         "operationId" : "post_api_google_login",
         "parameters" : 
         [
@@ -1292,7 +1296,7 @@
                 }
               }
             },
-            "description" : "Google user info retrieved successfully"
+            "description" : "First-party token pair for the Google-linked account"
           },
           "400" : 
           {
@@ -1307,6 +1311,10 @@
               }
             },
             "description" : "Invalid request (missing or invalid code)"
+          },
+          "403" : 
+          {
+            "description" : "Not linked to a local account and auto-create disabled"
           },
           "502" : 
           {
@@ -1595,7 +1603,7 @@
     {
       "get" : 
       {
-        "description" : "List registered WebAuthn credentials.",
+        "description" : "List registered passkey credentials.",
         "operationId" : "get_api_me_webauthn_credentials",
         "responses" : null,
         "security" : 
@@ -1615,7 +1623,7 @@
     {
       "post" : 
       {
-        "description" : "Start WebAuthn registration.",
+        "description" : "Start passkey registration (#142): returns creation options with a subject-bound challenge (Bearer authentication, no session cookie), ES256-only pubKeyCredParams, userVerification=required, and excludeCredentials for credentials already registered to the user. Requires webauthn.rp_origins to be configured.",
         "operationId" : "post_api_me_webauthn_register_begin",
         "responses" : null,
         "security" : 
@@ -1635,7 +1643,7 @@
     {
       "post" : 
       {
-        "description" : "Finish WebAuthn registration.",
+        "description" : "Finish passkey registration (#142): body is the browser PublicKeyCredential {id, rawId, response:{attestationObject, clientDataJSON}, name?} (base64url). The server verifies the subject-bound challenge, clientDataJSON (type/origin/tokenBinding), the none-format attestation object, authenticator data (rpIdHash/UP/AT/credIdLen) and the ES256 COSE key before storing anything; the client-submitted public_key field of the old contract is ignored.",
         "operationId" : "post_api_me_webauthn_register_finish",
         "responses" : null,
         "security" : 
@@ -1780,7 +1788,7 @@
     {
       "post" : 
       {
-        "description" : "Exchange WeChat authorization code for user information. This endpoint handles the server-side OAuth2 flow with WeChat Open Platform.",
+        "description" : "Exchange WeChat authorization code for a first-party token pair (#70): the WeChat identity is resolved to a local account (auto-created on first login unless external_auth.auto_create_on_first_login is disabled, which yields 403 AUTH_SOCIAL_ACCOUNT_NOT_LINKED) and an access/refresh pair is issued for the configured first-party client. A SOCIAL_LOGIN_TOKEN_ISSUED audit event records the issuance.",
         "operationId" : "post_api_wechat_login",
         "parameters" : 
         [
@@ -1811,7 +1819,7 @@
                 }
               }
             },
-            "description" : "WeChat user info retrieved successfully"
+            "description" : "First-party token pair for the WeChat-linked account"
           },
           "400" : 
           {
@@ -1826,6 +1834,10 @@
               }
             },
             "description" : "Invalid request (missing or invalid code)"
+          },
+          "403" : 
+          {
+            "description" : "Not linked to a local account and auto-create disabled"
           },
           "502" : 
           {
@@ -2157,11 +2169,11 @@
           },
           "401" : 
           {
-            "description" : "No authenticated session (AUTH_SESSION_REQUIRED)"
+            "description" : "No authenticated session (AUTH_SESSION_REQUIRED), or MFA-pending session (AUTH_MFA_REQUIRED, #144)"
           },
           "403" : 
           {
-            "description" : "user_id does not match the session (AUTHZ_ACCESS_DENIED)"
+            "description" : "user_id does not match the session (AUTHZ_ACCESS_DENIED), or must_change_password flagged (AUTH_PASSWORD_CHANGE_REQUIRED, #145)"
           }
         },
         "summary" : "Submit user consent",
@@ -2522,7 +2534,7 @@
                 }
               }
             },
-            "description" : "Authentication successful (JSON with redirect_uri)"
+            "description" : "Authentication successful (JSON with redirect_uri); 200 with mfa_required=true when the account has MFA enabled, or password_change_required=true while the account is flagged must_change_password (#145)"
           },
           "302" : 
           {
@@ -2676,6 +2688,68 @@
         "tags" : 
         [
           "MFA"
+        ]
+      }
+    },
+    "/oauth2/password/change" : 
+    {
+      "post" : 
+      {
+        "description" : "Changes the password of the session user while the account is flagged must_change_password (bootstrap admin, admin-created users). Requires old_password; clears the flag, revokes all tokens, and keeps the current session.",
+        "operationId" : "post_oauth2_password_change",
+        "parameters" : 
+        [
+          {
+            "description" : "Current password (required)",
+            "in" : "query",
+            "name" : "old_password",
+            "required" : true,
+            "schema" : 
+            {
+              "type" : "string"
+            }
+          },
+          {
+            "description" : "New password (required, min length from auth.min_password_length)",
+            "in" : "query",
+            "name" : "new_password",
+            "required" : true,
+            "schema" : 
+            {
+              "type" : "string"
+            }
+          }
+        ],
+        "responses" : 
+        {
+          "200" : 
+          {
+            "content" : 
+            {
+              "application/json" : 
+              {
+                "schema" : 
+                {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Password changed; must_change_password flag cleared"
+          },
+          "400" : 
+          {
+            "description" : "Missing fields or new password below the configured minimum"
+          },
+          "401" : 
+          {
+            "description" : "No session / session without the must_change_password marker (AUTH_SESSION_REQUIRED), or wrong old_password (AUTH_INVALID_CREDENTIALS)"
+          }
+        },
+        "summary" : "Change password (forced first-login flow)",
+        "tags" : 
+        [
+          "OAuth2",
+          "Session"
         ]
       }
     },
@@ -2960,7 +3034,7 @@
     {
       "post" : 
       {
-        "description" : "Start WebAuthn authentication.",
+        "description" : "Start passkey authentication (#142): returns a challenge bound to the caller's SESSION (send cookies -- credentials:'include'). userVerification=required; ES256 only. Requires webauthn.rp_origins.",
         "operationId" : "post_oauth2_webauthn_authenticate_begin",
         "responses" : null,
         "summary" : "WebAuthn Authenticate Begin",
@@ -2974,7 +3048,7 @@
     {
       "post" : 
       {
-        "description" : "Finish WebAuthn authentication.",
+        "description" : "Finish passkey authentication (#142): body is the browser PublicKeyCredential {id, rawId, response:{authenticatorData, clientDataJSON, signature}, userHandle?} (base64url). The session challenge is consumed unconditionally; the ES256 signature over authData || SHA256(clientDataJSON) is verified against the STORED COSE key; UV=1 is enforced; signCount regression is treated as authenticator cloning. On success a browser session is established (userId/sub/auth_time/amr) and Set-Cookie is returned. All failures answer the generic AUTH_INVALID_CREDENTIALS.",
         "operationId" : "post_oauth2_webauthn_authenticate_finish",
         "responses" : null,
         "summary" : "WebAuthn Authenticate Finish",

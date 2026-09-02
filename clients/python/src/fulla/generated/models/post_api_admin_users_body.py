@@ -20,6 +20,8 @@ class PostApiAdminUsersBody:
         email (str | Unset):
         email_verified (bool | Unset):
         mfa_enabled (bool | Unset):
+        must_change_password (bool | Unset): Force a password change at first login (#145); while flagged, no
+            authorization codes are issued for the account. Default false.
         org_id (int | None | Unset):
         roles (list[str] | Unset):
     """
@@ -29,6 +31,7 @@ class PostApiAdminUsersBody:
     email: str | Unset = UNSET
     email_verified: bool | Unset = UNSET
     mfa_enabled: bool | Unset = UNSET
+    must_change_password: bool | Unset = UNSET
     org_id: int | None | Unset = UNSET
     roles: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -43,6 +46,8 @@ class PostApiAdminUsersBody:
         email_verified = self.email_verified
 
         mfa_enabled = self.mfa_enabled
+
+        must_change_password = self.must_change_password
 
         org_id: int | None | Unset
         if isinstance(self.org_id, Unset):
@@ -68,6 +73,8 @@ class PostApiAdminUsersBody:
             field_dict["email_verified"] = email_verified
         if mfa_enabled is not UNSET:
             field_dict["mfa_enabled"] = mfa_enabled
+        if must_change_password is not UNSET:
+            field_dict["must_change_password"] = must_change_password
         if org_id is not UNSET:
             field_dict["org_id"] = org_id
         if roles is not UNSET:
@@ -88,6 +95,8 @@ class PostApiAdminUsersBody:
 
         mfa_enabled = d.pop("mfa_enabled", UNSET)
 
+        must_change_password = d.pop("must_change_password", UNSET)
+
         def _parse_org_id(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -105,6 +114,7 @@ class PostApiAdminUsersBody:
             email=email,
             email_verified=email_verified,
             mfa_enabled=mfa_enabled,
+            must_change_password=must_change_password,
             org_id=org_id,
             roles=roles,
         )

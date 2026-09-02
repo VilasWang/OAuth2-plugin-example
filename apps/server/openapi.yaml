@@ -454,6 +454,18 @@ components:
       - mfa_required
       - mfa_token
       type: object
+    PasswordChangeRequiredResponse:
+      description: '/oauth2/login response while the account is flagged must_change_password
+        (#145: bootstrap admin, admin-created users). No authorization code is
+        issued until the password is changed via POST /oauth2/password/change.'
+      properties:
+        password_change_required:
+          type: boolean
+        message:
+          type: string
+      required:
+      - password_change_required
+      type: object
     MessageResponse:
       properties:
         message:
@@ -507,7 +519,10 @@ components:
       - message
       type: object
     DeviceAuthorizationResponse:
-      description: RFC 8628 device authorization response (no verification_uri_complete).
+      description: 'RFC 8628 device authorization response. The verification URIs
+        point at the admin console device-approval page by default (admin_console.url
+        config + /admin/devices, #146); override with
+        custom_config.device_authorization.verification_uri.'
       properties:
         device_code:
           type: string
@@ -516,6 +531,12 @@ components:
           description: 8 characters from the A-Z2-9 alphabet (no 0/1/I/O).
         verification_uri:
           type: string
+          description: Page the user visits to approve the device (admin console
+            /admin/devices by default).
+        verification_uri_complete:
+          type: string
+          description: 'verification_uri with ?user_code=<code> appended (RFC 8628
+            §3.3.1) so the approval page can prefill the code.'
         expires_in:
           type: integer
           description: Device code lifetime in seconds (600).
@@ -1586,7 +1607,9 @@ paths:
     post:
       description: >-
         Create a new user. Requires username and password; email, roles,
-        mfa_enabled, email_verified, and org_id are optional.
+        mfa_enabled, email_verified, must_change_password, and org_id are
+        optional. must_change_password (default false, #145) forces the user
+        to change the password at first login.
       operationId: post_api_admin_users
       requestBody:
         required: true
@@ -1607,6 +1630,11 @@ paths:
                   type: boolean
                 mfa_enabled:
                   type: boolean
+                must_change_password:
+                  type: boolean
+                  description: 'Force a password change at first login (#145);
+                    while flagged, no authorization codes are issued for the
+                    account. Default false.'
                 org_id:
                   type: integer
                   nullable: true
@@ -1721,9 +1749,10 @@ paths:
     put:
       description: >-
         Update user information. Updatable fields: username, email,
-        email_verified, mfa_enabled, locked (true locks the account), and
-        org_id (integer sets it; JSON null clears it). Fields with a wrong
-        JSON type are rejected with 400 (never silently skipped).
+        email_verified, mfa_enabled, must_change_password (#145; enforcement
+        starts at the user's next login), locked (true locks the account),
+        and org_id (integer sets it; JSON null clears it). Fields with a
+        wrong JSON type are rejected with 400 (never silently skipped).
       operationId: put_api_admin_users_{userId}
       parameters:
       - description: User ID
@@ -1745,6 +1774,10 @@ paths:
                   type: boolean
                 mfa_enabled:
                   type: boolean
+                must_change_password:
+                  type: boolean
+                  description: 'Set/clear the forced password-change flag (#145);
+                    enforcement starts at the user''s next login.'
                 locked:
                   type: boolean
                 org_id:
@@ -1976,7 +2009,9 @@ paths:
       tags:
       - User Profile
     get:
-      description: Get current user's profile information.
+      description: Get current user's profile information. The 200 body includes
+        username, email, email_verified, mfa_enabled, and must_change_password
+        (#145; true while the account must change its password at first login).
       operationId: get_api_me
       responses:
         '200':
@@ -2161,7 +2196,10 @@ paths:
       - MFA
   /api/me/password:
     put:
-      description: Change the current user's password.
+      description: Change the current user's password. A successful change also
+        clears the must_change_password flag (#145) and revokes all existing
+        tokens. For the forced first-login flow (no Bearer token available) use
+        POST /oauth2/password/change instead.
       operationId: put_api_me_password
       responses:
         '200':
@@ -2654,7 +2692,11 @@ paths:
       - System
   /oauth2/authorize:
     get:
-      description: OAuth2 authorization endpoint - initiates authorization flow
+      description: 'OAuth2 authorization endpoint - initiates authorization flow.
+        Sessions paused at the MFA challenge or flagged must_change_password
+        (#144/#145) are treated as not fully authenticated: prompt=none answers
+        error=login_required, silent requests are redirected to the login /
+        password-change page instead of issuing a code.'
       operationId: get_oauth2_authorize
       parameters:
       - description: Client identifier (required)
@@ -2789,9 +2831,13 @@ paths:
         '400':
           description: Missing/expired/mismatched consent_csrf nonce, or (deny) redirect_uri not registered for the client (VALIDATION_INVALID_INPUT / VALIDATION_REDIRECT_URI_NOT_REGISTERED)
         '401':
-          description: No authenticated session (AUTH_SESSION_REQUIRED)
+          description: 'No authenticated session (AUTH_SESSION_REQUIRED), or the
+            session is paused at the MFA challenge (AUTH_MFA_REQUIRED, #144:
+            consent must not be granted on amr="pwd" for an MFA-required account)'
         '403':
-          description: user_id does not match the authenticated session (AUTHZ_ACCESS_DENIED)
+          description: 'user_id does not match the authenticated session
+            (AUTHZ_ACCESS_DENIED), or the account is flagged must_change_password
+            (AUTH_PASSWORD_CHANGE_REQUIRED, #145)'
       summary: Submit user consent
       tags:
       - OAuth2
@@ -3113,6 +3159,7 @@ paths:
                 anyOf:
                 - $ref: '#/components/schemas/LoginSuccessResponse'
                 - $ref: '#/components/schemas/MfaRequiredResponse'
+                - $ref: '#/components/schemas/PasswordChangeRequiredResponse'
               examples:
                 success:
                   summary: Login succeeded (json=true)
@@ -3125,8 +3172,17 @@ paths:
                     mfa_required: true
                     mfa_token: '42'
                     message: MFA verification required. Submit TOTP code to /oauth2/mfa/verify
+                password_change_required:
+                  summary: Forced first-login password change (#145)
+                  value:
+                    password_change_required: true
+                    message: Password change required. Change the password via
+                      POST /oauth2/password/change before signing in
           description: 'Authentication outcome: authorization code issued (JSON with
-            code/location when json=true) or MFA challenge deferred'
+            code/location when json=true), MFA challenge deferred, or a forced
+            password-change request while the account is flagged
+            must_change_password (bootstrap admin / admin-created users; no code
+            is issued until the password is changed)'
         '302':
           description: Redirect with authorization code (browser flow / json omitted);
             PKCE-missing errors also redirect with ?error=... to a verified redirect_uri
@@ -3231,6 +3287,73 @@ paths:
       summary: Verify MFA Code (Login)
       tags:
       - MFA
+  /oauth2/password/change:
+    post:
+      description: 'Changes the password of the session user while the account is
+        flagged must_change_password (#145: bootstrap admin, admin-created users).
+        Session-authenticated like /oauth2/login (no Bearer token — a flagged
+        account cannot obtain tokens by design); requires old_password, applies
+        the auth.min_password_length policy, clears the flag, and revokes all
+        access/refresh tokens. Only usable while the session carries the
+        must_change_password marker set at login.'
+      operationId: post_oauth2_password_change
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - old_password
+              - new_password
+              properties:
+                old_password:
+                  type: string
+                new_password:
+                  type: string
+                  description: Must satisfy auth.min_password_length (default 8).
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - old_password
+              - new_password
+              properties:
+                old_password:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+          description: Password changed; the must_change_password flag is cleared
+            and all tokens revoked. Sign in again to continue.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: 'Missing fields (VALIDATION_MISSING_REQUIRED_FIELD) or new
+            password below the configured minimum (VALIDATION_PASSWORD_TOO_SHORT)'
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: 'No session / session without the must_change_password marker
+            (AUTH_SESSION_REQUIRED), or wrong old_password (AUTH_INVALID_CREDENTIALS)'
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Database failure (DB_QUERY_ERROR)
+      summary: Change Password (Forced First-Login Flow)
+      tags:
+      - Session
   /oauth2/register:
     post:
       description: Dynamic client registration.

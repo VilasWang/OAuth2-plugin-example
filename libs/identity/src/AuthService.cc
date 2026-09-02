@@ -250,6 +250,7 @@ void AuthService::validateUser(
         result.publicSub = user.publicSub;
         result.emailVerified = user.emailVerified;
         result.mfaEnabled = user.mfaEnabled;
+        result.mustChangePassword = user.mustChangePassword;
         (*sharedCb)(result);
     };
 

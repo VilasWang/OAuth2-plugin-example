@@ -52,7 +52,9 @@ def sync_detailed(
 ) -> Response[Any]:
     """Get User Profile
 
-     Get current user's profile information.
+     Get current user's profile information. The 200 body includes username, email, email_verified,
+    mfa_enabled, and must_change_password (#145; true while the account must change its password at
+    first login).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -77,7 +79,9 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Get User Profile
 
-     Get current user's profile information.
+     Get current user's profile information. The 200 body includes username, email, email_verified,
+    mfa_enabled, and must_change_password (#145; true while the account must change its password at
+    first login).
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

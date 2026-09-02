@@ -1,6 +1,7 @@
 #include <fulla/drogon/controllers/MfaController.h>
-#include <fulla/drogon/utils/TotpUtils.h>
+#include <fulla/identity/TotpUtils.h>
 #include <fulla/drogon/utils/CryptoUtils.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/drogon/adapters/DrogonAuditSink.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
@@ -27,6 +28,26 @@ OAuth2Plugin *MfaController::resolvePlugin() const
 
 namespace
 {
+
+// #122: the legacy fallback paths below use the identity-domain TOTP free
+// functions (fulla::identity::totp) instead of the retired drogon-static
+// copy. The adapter crypto provider follows the CryptoUtils.h
+// detail::cryptoProvider() idiom: a process-lifetime static instance owned
+// by the adapter layer.
+fulla::common::ports::ICryptoProvider &mfaTotpCrypto()
+{
+    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
+    return crypto;
+}
+
+int64_t mfaNowSeconds()
+{
+    return static_cast<int64_t>(
+      std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+      ).count()
+    );
+}
 
 void respondError(
   const ::drogon::HttpRequestPtr &req,
@@ -175,7 +196,7 @@ void MfaController::setup(
         return;
     }
 
-    std::string secret = ::fulla::common::utils::TotpUtils::generateSecret();
+    std::string secret = ::fulla::identity::totp::generateSecret(mfaTotpCrypto());
 
     auto db = ::drogon::app().getDbClient();
     // #54: deleted_at filter — a soft-deleted user must not mutate MFA state
@@ -202,7 +223,7 @@ void MfaController::setup(
                   Mapper<drogon_model::fulla_db::Users>(db).update(
                     updated,
                     [sharedCb, secret, userId](const size_t) {
-                        std::string otpUri = ::fulla::common::utils::TotpUtils::generateOtpAuthUri(
+                        std::string otpUri = ::fulla::identity::totp::generateOtpAuthUri(
                           secret, userId, "OAuth2Server"
                         );
                         Json::Value json;
@@ -371,7 +392,7 @@ void MfaController::verifySetup(
                   return;
               }
 
-              if (!::fulla::common::utils::TotpUtils::verifyCode(secret, code))
+              if (!::fulla::identity::totp::verifyCode(secret, code, mfaNowSeconds()))
               {
                   respondError(
                     req, sharedCb, "AUTH_MFA_CODE_INVALID", "verifySetup: TOTP code is incorrect"
@@ -379,7 +400,7 @@ void MfaController::verifySetup(
                   return;
               }
 
-              auto backupCodes = ::fulla::common::utils::TotpUtils::generateBackupCodes(10);
+              auto backupCodes = ::fulla::identity::totp::generateBackupCodes(mfaTotpCrypto(), 10);
               Json::Value codesJson(Json::arrayValue);
               Json::Value hashedCodesJson(Json::arrayValue);
               for (const auto &bc : backupCodes)
@@ -615,6 +636,24 @@ void MfaController::verifyLogin(
         scope = "openid profile email";
     }
 
+    // #145: accounts flagged must_change_password must not obtain
+    // authorization codes even through the MFA completion path -- the flag
+    // is checked at login BEFORE the MFA branch, so a flagged session here
+    // means the marker was set by that earlier login.
+    if (
+      req->session() && req->session()->find("must_change_password") &&
+      req->session()->get<bool>("must_change_password")
+    )
+    {
+        ::fulla::common::error::ErrorResponder::respond(
+          req,
+          std::move(callback),
+          "AUTH_PASSWORD_CHANGE_REQUIRED",
+          "verifyLogin: change the account password before tokens are issued"
+        );
+        return;
+    }
+
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
 
@@ -639,23 +678,42 @@ void MfaController::verifyLogin(
     // amr = "pwd mfa" (acr will be "2" = MFA in the id_token). Also refresh
     // the session's auth_time/amr so a subsequent authorize silent re-auth
     // in the same browser session picks up the MFA-elevated values.
+    // #144: the session writes happen ONLY after the TOTP code actually
+    // verified (inside onTotpVerified, and mirrored in the legacy success
+    // block below). Writing them here, before verification, let a FAILED
+    // verify leave the session elevated to amr="pwd mfa" -- a following
+    // authorize silent re-auth would then mint an MFA-claimed code although
+    // the second factor never completed (amr must reflect methods actually
+    // performed).
     auto mfaNowSecs = std::chrono::duration_cast<std::chrono::seconds>(
                         std::chrono::system_clock::now().time_since_epoch()
     )
                         .count();
     int64_t mfaAuthTime = static_cast<int64_t>(mfaNowSecs);
     std::string mfaAmr = "pwd mfa";
-    if (req->session())
-    {
-        req->session()->insert("auth_time", mfaAuthTime);
-        req->session()->insert("amr", mfaAmr);
-    }
-    auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken, mfaAuthTime, mfaAmr, codeVerifier](
+    auto elevateSessionAfterMfa = [req, mfaAuthTime, mfaAmr]() {
+        if (req->session())
+        {
+            // Session::insert does NOT overwrite an existing key (std::map
+            // semantics), so re-writing auth_time/amr requires erase-first —
+            // otherwise a password login's amr="pwd" would stick forever and
+            // silent re-auth would never pick up the MFA-elevated values.
+            req->session()->erase("auth_time");
+            req->session()->insert("auth_time", mfaAuthTime);
+            req->session()->erase("amr");
+            req->session()->insert("amr", mfaAmr);
+            // #144: the second factor completed -- the session is no longer
+            // MFA-pending (consent/authorize gates stop refusing it).
+            req->session()->erase("mfa_pending");
+        }
+    };
+    auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken, mfaAuthTime, mfaAmr, codeVerifier, elevateSessionAfterMfa](
                             std::string publicSub,
                             std::string pendingClientId,
                             std::string pendingRedirectUri,
                             std::function<void(std::function<void()> &&)> clearPendingBinding
                           ) {
+        elevateSessionAfterMfa();
         plugin->validateClient(
           clientId,
           "",
@@ -939,7 +997,7 @@ void MfaController::verifyLogin(
         Mapper<drogon_model::fulla_db::Users>(db).findBy(
           Criteria(drogon_model::fulla_db::Users::Cols::_id, CompareOperator::EQ, fallbackUserId) &&
             Criteria(drogon_model::fulla_db::Users::Cols::_deleted_at, CompareOperator::IsNull),
-          [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin, mfaAuthTime, mfaAmr](
+          [sharedCb, code, mfaToken, req, clientId, redirectUri, scope, nonce, plugin, mfaAuthTime, mfaAmr, elevateSessionAfterMfa](
             const std::vector<drogon_model::fulla_db::Users> &users
           ) {
               if (users.empty())
@@ -970,8 +1028,13 @@ void MfaController::verifyLogin(
           auto puri = u.getMfaPendingRedirectUri();
           std::string pendingRedirectUri = puri ? *puri : "";
 
-          if (::fulla::common::utils::TotpUtils::verifyCode(secret, code))
+          if (::fulla::identity::totp::verifyCode(secret, code, mfaNowSeconds()))
           {
+              // #144: legacy path mirror of the wired path's onTotpVerified
+              // prologue -- the TOTP code verified, so NOW the session may be
+              // elevated to amr="pwd mfa" and the mfa_pending marker cleared
+              // (never before verification).
+              elevateSessionAfterMfa();
               plugin->validateClient(
                 clientId,
                 "",

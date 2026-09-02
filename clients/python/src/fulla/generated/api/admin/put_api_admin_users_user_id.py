@@ -69,9 +69,10 @@ def sync_detailed(
 ) -> Response[Any]:
     """Update User
 
-     Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked
-    (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong
-    JSON type are rejected with 400 (never silently skipped).
+     Update user information. Updatable fields: username, email, email_verified, mfa_enabled,
+    must_change_password (#145; enforcement starts at the user's next login), locked (true locks the
+    account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are
+    rejected with 400 (never silently skipped).
 
     Args:
         user_id (int):
@@ -105,9 +106,10 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Update User
 
-     Update user information. Updatable fields: username, email, email_verified, mfa_enabled, locked
-    (true locks the account), and org_id (integer sets it; JSON null clears it). Fields with a wrong
-    JSON type are rejected with 400 (never silently skipped).
+     Update user information. Updatable fields: username, email, email_verified, mfa_enabled,
+    must_change_password (#145; enforcement starts at the user's next login), locked (true locks the
+    account), and org_id (integer sets it; JSON null clears it). Fields with a wrong JSON type are
+    rejected with 400 (never silently skipped).
 
     Args:
         user_id (int):

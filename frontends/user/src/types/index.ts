@@ -20,6 +20,7 @@ export interface LoginResult {
   success?: boolean
   mfaRequired?: boolean
   mfaToken?: string
+  passwordChangeRequired?: boolean
   error?: string
 }
 

@@ -23,7 +23,9 @@
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
-#include <fulla/drogon/utils/TotpUtils.h>
+#include <fulla/identity/TotpUtils.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <chrono>
 #include <json/json.h>
 #include <future>
 #include <chrono>
@@ -31,6 +33,25 @@
 
 using namespace drogon;
 using namespace drogon::orm;
+
+// #122: identity-domain TOTP free functions (drogon static copy deleted).
+namespace
+{
+fulla::common::ports::ICryptoProvider &totpCrypto()
+{
+    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
+    return crypto;
+}
+
+int64_t totpNowSeconds()
+{
+    return static_cast<int64_t>(
+      std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+      ).count()
+    );
+}
+}  // namespace
 
 namespace
 {
@@ -82,7 +103,7 @@ MfaFixture enableAdminMfa()
     MfaFixture f;
     if (!db)
         return f;
-    f.secret = fulla::common::utils::TotpUtils::generateSecret();
+    f.secret = fulla::identity::totp::generateSecret(totpCrypto());
     std::promise<bool> p;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",
@@ -213,7 +234,7 @@ DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_HappyPath_EndToEnd)
     std::string mfaToken = loginForMfaToken("vue-client", kVueRedirectUri);
     REQUIRE(!mfaToken.empty());
 
-    std::string code = fulla::common::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = fulla::identity::totp::generateCode(fx.secret, totpNowSeconds());
     Json::Value body;
     body["mfa_token"] = mfaToken;
     body["code"] = code;
@@ -276,7 +297,7 @@ DROGON_TEST(Integration_P1_MfaCrossClientAuthFix_CrossClient_NoRowsCreated)
     long tokensBefore = countRowsForUser("oauth2_access_tokens");
     REQUIRE(tokensBefore >= 0);
 
-    std::string code = fulla::common::utils::TotpUtils::generateCode(fx.secret);
+    std::string code = fulla::identity::totp::generateCode(fx.secret, totpNowSeconds());
     Json::Value body;
     body["mfa_token"] = mfaToken;
     body["code"] = code;

@@ -290,8 +290,8 @@ OIDC profile 分档（按用户要求）：
 
 #### 3.7.2 §3.2 响应字段 —— **部分符合（Low）**
 
-- `device_code/user_code/verification_uri/expires_in/interval` 齐（`DeviceAuthController.cc:202-213`）。
-- `verification_uri_complete` 缺失（§3.3.1 可选）。
+- `device_code/user_code/verification_uri/expires_in/interval` 齐（`DeviceAuthController.cc`）。
+- `verification_uri_complete` 已补齐（#146，2026-09-02）：`verification_uri + "?user_code=" + urlencode(user_code)`，审批页从 query 预填。默认 `verification_uri` 指向管理台审批页（`admin_console.url` 配置 + `/admin/devices`），可由 `custom_config.device_authorization.verification_uri` 覆盖（#146 前默认值 `http://localhost:5555/oauth2/device` 是无页面的死路径）。
 - **user_code 字符集**：`"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"`（`:75`）剔除歧义字符，符合 §5.2。
 - **token 端点 client_type 分支**：`TokenEndpointController.cc:1227-1276` 正确分支（PUBLIC 仅 client_id；CONFIDENTIAL 需 secret）。✅
 

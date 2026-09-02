@@ -116,6 +116,13 @@ void AuthService::validateUser(
                   catch (...)
                   {
                   }
+                  try
+                  {
+                      result.mustChangePassword = user.getValueOfMustChangePassword();
+                  }
+                  catch (...)
+                  {
+                  }
                   (*sharedCb)(result);
               }
               else

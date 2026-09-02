@@ -1,11 +1,37 @@
 #include <drogon/drogon_test.h>
-#include <fulla/drogon/utils/TotpUtils.h>
+#include <fulla/identity/TotpUtils.h>
+#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 
-using namespace fulla::common::utils;
+#include <chrono>
+
+// #122: the drogon-static TotpUtils copy was deleted; these unit tests now
+// exercise the identity-domain free functions through the real OpenSSL
+// adapter. (Algorithm-level coverage with fakes + fixed timestamps lives in
+// libs/identity/test/TotpUtilsTest.cc; this file keeps the real-provider
+// smoke angle of the old drogon copy.)
+namespace
+{
+
+fulla::common::ports::ICryptoProvider &testCrypto()
+{
+    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
+    return crypto;
+}
+
+int64_t testNowSeconds()
+{
+    return static_cast<int64_t>(
+      std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+      ).count()
+    );
+}
+
+}  // namespace
 
 DROGON_TEST(Unit_P2_TotpUtils_GenerateSecret)
 {
-    auto secret = TotpUtils::generateSecret();
+    auto secret = fulla::identity::totp::generateSecret(testCrypto());
     CHECK(secret.length() == 32);  // 20 bytes base32 = 32 chars
     // All chars should be valid base32
     for (char c : secret)
@@ -17,8 +43,8 @@ DROGON_TEST(Unit_P2_TotpUtils_GenerateSecret)
 
 DROGON_TEST(Unit_P2_TotpUtils_GenerateCode)
 {
-    auto secret = TotpUtils::generateSecret();
-    auto code = TotpUtils::generateCode(secret);
+    auto secret = fulla::identity::totp::generateSecret(testCrypto());
+    auto code = fulla::identity::totp::generateCode(secret, testNowSeconds());
     CHECK(code.length() == 6);
     // All digits
     for (char c : code)
@@ -30,15 +56,15 @@ DROGON_TEST(Unit_P2_TotpUtils_GenerateCode)
 
 DROGON_TEST(Unit_P2_TotpUtils_VerifyCode)
 {
-    auto secret = TotpUtils::generateSecret();
-    auto code = TotpUtils::generateCode(secret);
-    CHECK(TotpUtils::verifyCode(secret, code) == true);
-    CHECK(TotpUtils::verifyCode(secret, "000000") == false);
+    auto secret = fulla::identity::totp::generateSecret(testCrypto());
+    auto code = fulla::identity::totp::generateCode(secret, testNowSeconds());
+    CHECK(fulla::identity::totp::verifyCode(secret, code, testNowSeconds()) == true);
+    CHECK(fulla::identity::totp::verifyCode(secret, "000000", testNowSeconds()) == false);
 }
 
 DROGON_TEST(Unit_P2_TotpUtils_GenerateBackupCodes)
 {
-    auto codes = TotpUtils::generateBackupCodes(10);
+    auto codes = fulla::identity::totp::generateBackupCodes(testCrypto(), 10);
     CHECK(codes.size() == 10);
     for (const auto &code : codes)
     {
@@ -48,7 +74,8 @@ DROGON_TEST(Unit_P2_TotpUtils_GenerateBackupCodes)
 
 DROGON_TEST(Unit_P2_TotpUtils_OtpAuthUri)
 {
-    auto uri = TotpUtils::generateOtpAuthUri("JBSWY3DPEHPK3PXP", "user@test.com", "TestApp");
+    auto uri =
+      fulla::identity::totp::generateOtpAuthUri("JBSWY3DPEHPK3PXP", "user@test.com", "TestApp");
     CHECK(uri.find("otpauth://totp/") == 0);
     CHECK(uri.find("secret=JBSWY3DPEHPK3PXP") != std::string::npos);
     CHECK(uri.find("issuer=TestApp") != std::string::npos);
