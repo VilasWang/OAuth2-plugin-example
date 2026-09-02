@@ -15,6 +15,7 @@
 
 #include "HttpTestClient.h"
 
+#include <future>
 #include <string>
 
 using fulla::test::http::loginAsAdmin;
@@ -85,6 +86,47 @@ DROGON_TEST(Integration_P0_AdminAudit_ListLogs_Returns200)
     CHECK(body.isMember("page"));
     CHECK(body.isMember("per_page"));
     CHECK(body.isMember("total"));
+}
+
+// ---------------------------------------------------------------------------
+// #146: `total` must be the count of rows matching the FILTER set, not the
+// current page's row count (the pre-fix implementation echoed rows.size(), so
+// any client paging via `total` mis-computed). Ground truth comes from a
+// direct SQL count of the same filter; a couple of fresh logins guarantee
+// more matching rows than one page of per_page=3.
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P0_AdminAudit_ListLogs_TotalIsFilteredCount)
+{
+    ADMIN_AUDIT_SKIP_GUARD;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        auto extra = loginAsAdmin();
+        REQUIRE(extra.has_value());
+    }
+    auto token = loginAsAdmin();
+    REQUIRE(token.has_value());
+
+    auto db = drogon::app().getDbClient();
+    REQUIRE(db != nullptr);
+    std::promise<long long> countPromise;
+    db->execSqlAsync(
+      "SELECT count(*) AS n FROM audit_logs WHERE action = 'login_success'",
+      [&countPromise](const drogon::orm::Result &rows) {
+          countPromise.set_value(rows.empty() ? 0 : rows[0]["n"].as<long long>());
+      },
+      [&countPromise](const drogon::orm::DrogonDbException &) { countPromise.set_value(-1); }
+    );
+    const long long expected = countPromise.get_future().get();
+    REQUIRE(expected > 3);  // enough rows that the page-size bug would diverge
+
+    auto resp = sendGet("/api/admin/logs?action=login_success&per_page=3&page=1", *token);
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k200OK));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body["total"].asInt64() == expected);
+    CHECK(body["logs"].size() <= 3);
 }
 
 // ---------------------------------------------------------------------------

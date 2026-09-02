@@ -323,6 +323,17 @@ DROGON_TEST(Integration_P0_ForcedPasswordChange_ChangeEndpoint_ValidationAndSucc
     REQUIRE(again != nullptr);
     CHECK(again->getStatusCode() == k401Unauthorized);
 
+    // PR #157 review (MAJOR 1): the successful change must DEMOTE the session
+    // to anonymous — authorize with the pre-change cookie is refused (routed
+    // to the login screen, no code), enforcing the promised re-login. Without
+    // this, a flagged MFA-enabled account could authorize single-factor from
+    // the leftover first-factor session.
+    auto silent = authorize(cookie);
+    REQUIRE(silent != nullptr);
+    CHECK(silent->getStatusCode() == k302Found);
+    CHECK(silent->getHeader("Location").find("/login") != std::string::npos);
+    CHECK(silent->getHeader("Location").find("code=") == std::string::npos);
+
     // Re-login with the NEW password: no password_change_required, and the
     // normal code issuance path works again.
     auto relogin = fulla::test::http::sendPostForm(

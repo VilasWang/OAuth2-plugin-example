@@ -809,6 +809,22 @@ void SessionController::login(
                     std::move(callback)
                   );
                 auto db = ::drogon::app().getDbClient();
+                // C4 (RFC 7636) + #144: the session-side MFA-pause state is
+                // written BEFORE the pending-binding DB update. All of it is
+                // session state, not DB state: if the DB write below fails,
+                // the session must still be marked mfa_pending — otherwise the
+                // already-written userId/sub/amr="pwd" would pass the
+                // authorize/consent gates as a fully authenticated session and
+                // mint single-factor codes for an MFA-required account (PR #157
+                // review MINOR 5). The marker is erased by MfaController::
+                // verifyLogin on second-factor completion or by the next
+                // password login.
+                if (req->session())
+                {
+                    req->session()->insert("mfa_code_challenge", codeChallenge);
+                    req->session()->insert("mfa_code_challenge_method", codeChallengeMethod);
+                    req->session()->insert("mfa_pending", true);
+                }
                 // users.id is a Postgres `integer` (32-bit) column; internalId
                 // is int32_t all the way through (Task 39 direction Y), so it
                 // binds as int4 with no narrowing step needed.
@@ -822,29 +838,7 @@ void SessionController::login(
                       mfaUpdated.setMfaPendingRedirectUri(redirectUri);
                       Mapper<Users>(db).update(
                         mfaUpdated,
-                        [req, internalId, sharedCb, codeChallenge, codeChallengeMethod](const size_t) {
-                            // C4 (RFC 7636): persist the first-factor PKCE
-                            // challenge on the session so MfaController::
-                            // verifyLogin can thread it onto the authorization
-                            // code it generates at MFA completion. Without this,
-                            // the MFA path issued tokens with empty PKCE params
-                            // (no protection for PUBLIC clients — F-011 gap).
-                            // Session-based (not a DB column) because the
-                            // challenge is short-lived and the session already
-                            // carries userId/auth_time/amr across the MFA pause.
-                            if (req->session())
-                            {
-                                req->session()->insert("mfa_code_challenge", codeChallenge);
-                                req->session()->insert("mfa_code_challenge_method", codeChallengeMethod);
-                                // #144: mark the session as paused at the MFA
-                                // challenge. Consent/authorize gates treat a
-                                // pending session as NOT fully authenticated
-                                // (amr is still "pwd" here); the marker is
-                                // erased by MfaController::verifyLogin on
-                                // successful second-factor completion or by
-                                // the next password login.
-                                req->session()->insert("mfa_pending", true);
-                            }
+                        [req, internalId, sharedCb](const size_t) {
                             Json::Value mfaResp;
                             mfaResp["mfa_required"] = true;
                             mfaResp["mfa_token"] = std::to_string(internalId);
@@ -1562,6 +1556,45 @@ void SessionController::changePasswordForced(
                     "user",
                     sessSub
                   );
+                  // PR #157 review (MAJOR 2): a wrong old_password must count
+                  // toward the account lockout exactly like a failed login —
+                  // otherwise the session-authenticated endpoint is an
+                  // unthrottled brute-force surface on the knowledge factor.
+                  // Same thresholds as PostgresIdentityRepository::
+                  // incrementFailedLogins.
+                  {
+                      const int newFailedCount = user.getValueOfFailedLoginCount() + 1;
+                      const int64_t nowSecs = static_cast<int64_t>(
+                        std::chrono::duration_cast<std::chrono::seconds>(
+                          std::chrono::system_clock::now().time_since_epoch()
+                        ).count()
+                      );
+                      int64_t newLockedUntil = 0;
+                      if (newFailedCount >= 20)
+                          newLockedUntil = nowSecs + 3600;
+                      else if (newFailedCount >= 15)
+                          newLockedUntil = nowSecs + 1800;
+                      else if (newFailedCount >= 10)
+                          newLockedUntil = nowSecs + 300;
+                      else if (newFailedCount >= 5)
+                          newLockedUntil = nowSecs + 60;
+                      try
+                      {
+                          Users lockoutRow = user;
+                          lockoutRow.setFailedLoginCount(newFailedCount);
+                          lockoutRow.setLockedUntil(newLockedUntil);
+                          lockoutRow.setLastFailedLogin(nowSecs);
+                          Mapper<Users>(db).update(
+                            lockoutRow,
+                            [](const size_t) {},
+                            [](const ::drogon::orm::DrogonDbException &) {}
+                          );
+                      }
+                      catch (const std::exception &)
+                      {
+                          // Lockout bookkeeping must not mask the 401.
+                      }
+                  }
                   respondError(
                     req,
                     *sharedCb,
@@ -1592,19 +1625,40 @@ void SessionController::changePasswordForced(
               {
                   Mapper<Users>(db).update(
                     updatedUser,
-                    [sharedCb, req, db, sessSub](const size_t) {
+                    [sharedCb, req, db, sessSub, internalId](const size_t) {
                         // Exemption (db-operations.md §3): security-critical
                         // batch revoke on password change (same as PUT
-                        // /api/me/password). The current browser session is
-                        // kept so the user can continue signing in.
+                        // /api/me/password). Dual key form (UserReadCache
+                        // contract): password-flow tokens cache reads under
+                        // the public sub, social-flow tokens under the
+                        // numeric id — revoke both key shapes.
+                        const std::string internalIdKey = std::to_string(internalId);
                         db->execSqlAsync(
-                          "UPDATE oauth2_access_tokens SET revoked = true WHERE user_id = $1",
-                          [sharedCb, req, db, sessSub](const ::drogon::orm::Result &) {
+                          "UPDATE oauth2_access_tokens SET revoked = true WHERE user_id = $1 OR user_id = $2",
+                          [sharedCb, req, db, sessSub, internalIdKey](const ::drogon::orm::Result &) {
                               db->execSqlAsync(
-                                "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1",
+                                "UPDATE oauth2_refresh_tokens SET revoked = true WHERE user_id = $1 OR user_id = $2",
                                 [sharedCb, req, sessSub](const ::drogon::orm::Result &) {
+                                    // PR #157 review (MAJOR 1): demote the
+                                    // session to anonymous — the response
+                                    // promises "sign in again", and keeping
+                                    // the first-factor login state would let
+                                    // a flagged MFA-enabled account authorize
+                                    // single-factor from this session (the
+                                    // must-change branch returns before the
+                                    // RequireMfa decision, so no mfa_pending
+                                    // marker was ever set for it).
                                     if (req->session())
+                                    {
                                         req->session()->erase("must_change_password");
+                                        req->session()->erase("userId");
+                                        req->session()->erase("sub");
+                                        req->session()->erase("auth_time");
+                                        req->session()->erase("amr");
+                                        req->session()->erase("mfa_pending");
+                                        req->session()->erase("mfa_code_challenge");
+                                        req->session()->erase("mfa_code_challenge_method");
+                                    }
                                     ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                       ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
                                       "password_changed",
@@ -1625,7 +1679,8 @@ void SessionController::changePasswordForced(
                                       std::string("Failed to revoke refresh tokens: ") + e.base().what()
                                     );
                                 },
-                                sessSub
+                                sessSub,
+                                internalIdKey
                               );
                           },
                           [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
@@ -1634,7 +1689,8 @@ void SessionController::changePasswordForced(
                                 std::string("Failed to revoke access tokens: ") + e.base().what()
                               );
                           },
-                          sessSub
+                          sessSub,
+                          internalIdKey
                         );
                     },
                     [sharedCb, req](const ::drogon::orm::DrogonDbException &e) {
