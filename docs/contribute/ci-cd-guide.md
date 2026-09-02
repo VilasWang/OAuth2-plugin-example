@@ -12,7 +12,7 @@ The CI configuration lives in `.github/workflows/ci.yml` and consists of three f
 Push/PR to master (and workflow_dispatch)
         │
         ├── FAST gate
-        │     ├── static-checks (ubuntu-22.04) — source-level guards:
+        │     ├── static-checks (ubuntu-24.04) — source-level guards:
         │     │     arch-guard / migration-check / api-diff /
         │     │     test naming / manage-script parity / OpenAPI checks /
         │     │     OpenAPI governance gate (three-layer consistency + version sync)
@@ -164,7 +164,7 @@ Multi-platform CI has been consolidated into the `build-test` job in `ci.yml`; a
 ### Quick Reference
 
 - **Workflow File:** `.github/workflows/ci.yml` (invokes `_build-test.yml`)
-- **Platforms:** Linux (ubuntu-22.04), Windows (windows-2022), macOS (macos-14)
+- **Platforms:** Linux (ubuntu-24.04), Windows (windows-2022), macOS (macos-14)
 - **Trigger:** Push to master, pull requests, manual workflow dispatch
 - **Runtime:** ~15-20 minutes cold cache, ~3-5 minutes warm cache per platform
 

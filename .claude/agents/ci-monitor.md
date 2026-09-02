@@ -14,7 +14,7 @@ Claude 自动调用：当 CI 构建失败或代码变更影响 CI 时
 ## CI/CD 架构分析
 
 ### 平台覆盖
-- **Linux CI**: Ubuntu 22.04 + GCC + PostgreSQL + Redis
+- **Linux CI**: Ubuntu 24.04 + GCC + PostgreSQL + Redis
 - **Windows CI**: Server 2022 + MSVC 2022 + 内存存储
 - **macOS CI**: macOS 14 + Clang + ARM64 构建
 

@@ -12,7 +12,7 @@ CI 配置位于 `.github/workflows/ci.yml`，由三个 fail-fast 串联的 Job�
 Push/PR 到 master (及 workflow_dispatch)
         │
         ├── FAST gate
-        │     ├── static-checks (ubuntu-22.04) — 源码级守卫：
+        │     ├── static-checks (ubuntu-24.04) — 源码级守卫：
         │     │     arch-guard / migration-check / api-diff /
         │     │     测试命名 / manage 脚本对等 / OpenAPI 校验 /
         │     │     OpenAPI 治理门（三层一致性 + 版本同步）
@@ -163,7 +163,7 @@ ctest -V -C Release --output-on-failure
 ### Quick Reference
 
 - **Workflow File:** `.github/workflows/ci.yml`（调用 `_build-test.yml`）
-- **Platforms:** Linux (ubuntu-22.04), Windows (windows-2022), macOS (macos-14)
+- **Platforms:** Linux (ubuntu-24.04), Windows (windows-2022), macOS (macos-14)
 - **Trigger:** Push to master, pull requests, manual workflow dispatch
 - **Runtime:** ~15-20 minutes cold cache, ~3-5 minutes warm cache per platform
 
