@@ -3340,6 +3340,15 @@ const std::string &salt = ""
 static bool needsRehash(const std::string &storedHash);
 };
 }
+=== libs/drogon/include/fulla/drogon/utils/PortalUrl.h
+#pragma once
+#include <drogon/drogon.h>
+#include <string>
+namespace fulla::drogon::utils
+{
+inline std::string mustChangePasswordRedirectUrl(const std::string &clientId)
+;
+}
 === libs/drogon/include/fulla/drogon/utils/ScopeChecker.h
 #pragma once
 #include <string>
@@ -8990,7 +8999,6 @@ void setDeletedAtToNull() noexcept;
 const bool &getValueOfMustChangePassword() const noexcept;
 const std::shared_ptr<bool> &getMustChangePassword() const noexcept;
 void setMustChangePassword(const bool &pMustChangePassword) noexcept;
-void setMustChangePasswordToNull() noexcept;
 static size_t getColumnNumber() noexcept ;
 static const std::string &getColumnName(size_t index) noexcept(false);
 Json::Value toJson() const;
