@@ -77,7 +77,6 @@ describe('i18n catalog integrity', () => {
     // Same dynamic-import pattern as crossAppConsistency.property.test.ts;
     // the catalog module is dependency-free so node-env vitest resolves it.
     const adminEn = (await import('../../../admin/src/i18n/en')).en as Tree
-    expect(flatten((adminEn.ui ?? {}) as Tree)).toEqual(flatten(en.ui))
     expect(adminEn.ui).toEqual(en.ui)
   })
 })

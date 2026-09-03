@@ -40,6 +40,17 @@ export const messages: Record<string, Record<string, string>> = {
 }
 
 /**
+ * Own-property lookup. Guards the prototype chain: `code` can originate
+ * from untrusted input (URL query params via CallbackPage, backend bodies),
+ * so `'__proto__'` / `'constructor'` must never hit `Object.prototype`.
+ */
+function lookup(table: Record<string, string> | undefined, code: string): string | undefined {
+  if (!table || !Object.prototype.hasOwnProperty.call(table, code)) return undefined
+  const value = table[code]
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/**
  * Resolve a localized, user-readable message for an Error_Code.
  * Never returns an empty string.
  */
@@ -47,8 +58,8 @@ export function getErrorMessage(code: string, locale: string = getCurrentLocale(
   // Resolve the locale table, falling back to the default language (en).
   const table = messages[locale] ?? messages[DEFAULT_LOCALE]
 
-  const direct = table?.[code]
-  if (typeof direct === 'string' && direct.length > 0) {
+  const direct = lookup(table, code)
+  if (direct !== undefined) {
     return direct
   }
 
@@ -56,8 +67,8 @@ export function getErrorMessage(code: string, locale: string = getCurrentLocale(
 
   console.warn(`[errorAdapter] missing message for code: ${code} (locale: ${locale})`)
 
-  const fallback = table?.[UNKNOWN_CODE] ?? messages[DEFAULT_LOCALE]?.[UNKNOWN_CODE]
-  if (typeof fallback === 'string' && fallback.length > 0) {
+  const fallback = lookup(table, UNKNOWN_CODE) ?? lookup(messages[DEFAULT_LOCALE], UNKNOWN_CODE)
+  if (fallback !== undefined) {
     return fallback
   }
 

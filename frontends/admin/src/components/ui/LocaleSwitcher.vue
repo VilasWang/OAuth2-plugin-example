@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { setLocale, SUPPORTED_LOCALES, type AppLocale } from '../../i18n'
 
 const { locale, t } = useI18n()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
+const trigger = ref<HTMLButtonElement | null>(null)
 
 // Native endonyms — shown identically in every locale (i18n convention).
-const NATIVE_LABELS: Record<AppLocale, string> = {
+// computed so the labels re-resolve if a locale's table ever changes the
+// other locale's endonym spelling (t() at setup top-level would freeze).
+const NATIVE_LABELS = computed<Record<AppLocale, string>>(() => ({
   en: t('ui.locale.en'),
   'zh-CN': t('ui.locale.zhCN'),
-}
+}))
 
 const SHORT_LABELS: Record<AppLocale, string> = {
   en: 'EN',
@@ -21,12 +24,35 @@ const SHORT_LABELS: Record<AppLocale, string> = {
 function pick(next: AppLocale): void {
   setLocale(next)
   open.value = false
+  trigger.value?.focus()
 }
 
 function onClickOutside(event: MouseEvent): void {
   if (root.value && !root.value.contains(event.target as Node)) {
     open.value = false
   }
+}
+
+// ARIA menu pattern: Escape closes and restores focus to the trigger;
+// ArrowDown/ArrowUp cycle focus through the menu items.
+function onMenuKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    open.value = false
+    trigger.value?.focus()
+    return
+  }
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+  if (!root.value) return
+  event.preventDefault()
+  const items = Array.from(
+    root.value.querySelectorAll<HTMLButtonElement>('button[role="menuitemradio"]'),
+  )
+  if (items.length === 0) return
+  const idx = items.indexOf(document.activeElement as HTMLButtonElement)
+  const delta = event.key === 'ArrowDown' ? 1 : -1
+  const next = idx === -1 ? 0 : (idx + delta + items.length) % items.length
+  items[next].focus()
 }
 
 onMounted(() => document.addEventListener('click', onClickOutside))
@@ -39,6 +65,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
     class="relative"
   >
     <button
+      ref="trigger"
       type="button"
       class="flex items-center gap-1.5 px-2 py-1.5 rounded-ctl text-sm text-neutral-600
              hover:bg-neutral-100 transition-colors
@@ -68,6 +95,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside))
         class="absolute right-0 mt-2 w-40 bg-surface rounded-card shadow-lg border border-neutral-200 py-1 z-50"
         role="menu"
         :aria-label="t('ui.locale.label')"
+        @keydown="onMenuKeydown"
       >
         <button
           v-for="loc in SUPPORTED_LOCALES"
