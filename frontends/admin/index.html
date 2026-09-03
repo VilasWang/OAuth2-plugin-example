@@ -14,12 +14,19 @@
         var dark = t === 'dark' || ((!t || t === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
       } catch (e) { /* keep default presentation */ }
-      // Sync <html lang> from the stored UI locale before paint (mirrors
-      // i18n/index.ts detection; screen readers shouldn't see 'en' first).
+      // Sync <html lang> from the resolved UI locale before paint — mirrors
+      // i18n/index.ts detection (stored value wins; otherwise any zh browser
+      // language resolves zh-CN) so screen readers never see 'en' first.
       try {
-        if (localStorage.getItem('fulla-locale') === 'zh-CN') {
-          document.documentElement.lang = 'zh-CN'
+        var storedLocale = localStorage.getItem('fulla-locale')
+        var zh
+        if (storedLocale === 'zh-CN') {
+          zh = true
+        } else if (storedLocale !== 'en') {
+          var langs = navigator.languages || [navigator.language]
+          zh = langs.some(function (l) { return /^zh/i.test(l || '') })
         }
+        if (zh) document.documentElement.lang = 'zh-CN'
       } catch (e) { /* keep default 'en' */ }
     </script>
   </head>

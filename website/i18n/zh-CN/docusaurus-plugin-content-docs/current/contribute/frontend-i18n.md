@@ -99,7 +99,7 @@ src/services/
 ```
 
 - **检测与持久化**（沿用 `fulla-theme` 模式）：`localStorage['fulla-locale']` → `navigator.languages` 最佳匹配（`zh*` → `zh-CN`，否则 `en`）→ `en`。`initI18n()` 在 `app.mount` 前**同步**执行 —— 无语言闪烁 —— `index.html` 内联脚本为首绘前预同步 `<html lang>`（读屏器正确性）。
-- **一个切换器驱动一切**：`setLocale()` 更新 composer 语言、推送 `services/locale.ts` 状态（`normalizeError`/`getErrorMessage` 随之跟随）、持久化并同步 `document.documentElement.lang`。
+- **一个切换器驱动一切（含一项已文档化的局限）**：`setLocale()` 更新 composer 语言、推送 `services/locale.ts` 状态（`normalizeError`/`getErrorMessage` 随之跟随）、持久化并同步 `document.documentElement.lang`。局限：错误消息**在错误触发时一次性解析**——错误状态存的是已解析字符串（`normalizeError(e).message`），切换语言后不会重译屏上已有文本，只有新触发的错误跟随新语言。该行为由 `i18n.spec.ts` 显式锁定。完全响应式变体（存 `code`、渲染时解析、响应式语言状态）是代价合理时的已知后续选项。
 - **用法**：模板 `$t('auth.login.title')`（字节同步的 `components/ui` 同样适用）；`<script setup>` 中 `const { t } = useI18n()` —— **不带选项**（全局作用域）；纯 `.ts` 模块用 `i18n.global.t(...)`。`legacy: false` 下 `i18n.global.locale` 是 ref —— 脚本里读 `.value`，模板自动解包。响应式常量（导航项、选项数组）用 `computed` 包装。
 - **错误**：`getErrorMessage(code)` 默认当前 UI 语言；`DEFAULT_LOCALE = 'en'` 仅作为未登记语言的回退表。
 - **字体**：两应用都加载 Noto Sans SC，中文不会回退到系统字体。
