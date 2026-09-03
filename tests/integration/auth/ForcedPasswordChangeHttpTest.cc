@@ -39,20 +39,6 @@ const std::string &newPassword()
     return v;
 }
 
-bool execSql(const std::string &sql)
-{
-    auto db = app().getDbClient();
-    if (!db)
-        return false;
-    std::promise<bool> p;
-    db->execSqlAsync(
-      sql,
-      [&](const Result &) { p.set_value(true); },
-      [&](const DrogonDbException &) { p.set_value(false); }
-    );
-    return p.get_future().get();
-}
-
 bool execSqlBind(const std::string &sql, const std::string &param)
 {
     auto db = app().getDbClient();
