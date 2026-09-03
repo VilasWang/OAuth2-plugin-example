@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../stores/auth'
 import { authService } from '../../services/authService'
 import AppInput from '../../components/ui/AppInput.vue'
@@ -10,6 +11,7 @@ import AppAlert from '../../components/ui/AppAlert.vue'
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
 const username = ref('')
 const password = ref('')
@@ -67,7 +69,7 @@ async function handleMfa() {
 async function handlePasswordChange() {
   passwordChangeError.value = ''
   if (newPassword.value !== confirmPassword.value) {
-    passwordChangeError.value = 'New passwords do not match'
+    passwordChangeError.value = t('auth.login.passwordChange.mismatch')
     return
   }
   passwordChangeBusy.value = true
@@ -75,7 +77,7 @@ async function handlePasswordChange() {
     await authService.changePasswordForced(oldPassword.value, newPassword.value)
     passwordChangeDone.value = true
   } catch (e) {
-    passwordChangeError.value = e instanceof Error ? e.message : 'Password change failed'
+    passwordChangeError.value = e instanceof Error ? e.message : t('auth.login.passwordChange.failed')
   } finally {
     passwordChangeBusy.value = false
   }
@@ -117,10 +119,10 @@ async function handlePasswordChange() {
     >
       <div class="text-center py-4">
         <h2 class="text-lg font-semibold text-neutral-900">
-          Change Your Password
+          {{ $t('auth.login.passwordChange.title') }}
         </h2>
         <p class="text-sm text-neutral-500 mt-1">
-          Your account requires a password change before you can sign in.
+          {{ $t('auth.login.passwordChange.subtitle') }}
         </p>
       </div>
 
@@ -129,7 +131,7 @@ async function handlePasswordChange() {
         class="rounded-lg bg-success-50 border border-success-200 p-4 text-sm text-success-800"
         data-testid="forced-password-change-done"
       >
-        Password changed successfully. Sign in with your new password.
+        {{ $t('auth.login.passwordChange.done') }}
       </div>
       <template v-else>
         <AppAlert
@@ -141,25 +143,25 @@ async function handlePasswordChange() {
         </AppAlert>
         <AppInput
           v-model="oldPassword"
-          label="Current Password"
+          :label="$t('auth.login.passwordChange.oldLabel')"
           type="password"
-          placeholder="Enter your current password"
+          :placeholder="$t('auth.login.passwordChange.oldPlaceholder')"
           required
           autocomplete="current-password"
         />
         <AppInput
           v-model="newPassword"
-          label="New Password"
+          :label="$t('auth.login.passwordChange.newLabel')"
           type="password"
-          placeholder="Enter your new password"
+          :placeholder="$t('auth.login.passwordChange.newPlaceholder')"
           required
           autocomplete="new-password"
         />
         <AppInput
           v-model="confirmPassword"
-          label="Confirm New Password"
+          :label="$t('auth.login.passwordChange.confirmLabel')"
           type="password"
-          placeholder="Re-enter your new password"
+          :placeholder="$t('auth.login.passwordChange.confirmPlaceholder')"
           required
           autocomplete="new-password"
         />
@@ -169,7 +171,7 @@ async function handlePasswordChange() {
           :disabled="!oldPassword || !newPassword || !confirmPassword"
           block
         >
-          Change Password
+          {{ $t('auth.login.passwordChange.submit') }}
         </AppButton>
       </template>
 

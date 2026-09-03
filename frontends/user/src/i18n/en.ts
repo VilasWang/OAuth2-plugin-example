@@ -77,6 +77,21 @@ export const en = {
         verify: 'Verify Code',
         back: 'Back to sign in',
       },
+      // #145: forced first-login password change (must_change_password flag)
+      passwordChange: {
+        title: 'Change Your Password',
+        subtitle: 'Your account requires a password change before you can sign in.',
+        done: 'Password changed successfully. Sign in with your new password.',
+        oldLabel: 'Current Password',
+        oldPlaceholder: 'Enter your current password',
+        newLabel: 'New Password',
+        newPlaceholder: 'Enter your new password',
+        confirmLabel: 'Confirm New Password',
+        confirmPlaceholder: 'Re-enter your new password',
+        submit: 'Change Password',
+        mismatch: 'New passwords do not match',
+        failed: 'Password change failed',
+      },
     },
     register: {
       title: 'Create Account',
