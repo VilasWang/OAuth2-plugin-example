@@ -972,15 +972,9 @@ type PostOauth2LogoutJSONBody = map[string]interface{}
 
 // PostOauth2PasswordChangeJSONBody defines parameters for PostOauth2PasswordChange.
 type PostOauth2PasswordChangeJSONBody struct {
-	// NewPassword Must satisfy auth.min_password_length (default 8).
+	// NewPassword Must satisfy auth.min_password_length (default 8) and is capped at 128 characters.
 	NewPassword string `json:"new_password"`
 	OldPassword string `json:"old_password"`
-}
-
-// PostOauth2PasswordChangeFormdataBody defines parameters for PostOauth2PasswordChange.
-type PostOauth2PasswordChangeFormdataBody struct {
-	NewPassword string `form:"new_password" json:"new_password"`
-	OldPassword string `form:"old_password" json:"old_password"`
 }
 
 // PostOauth2RevokeFormdataBody defines parameters for PostOauth2Revoke.
@@ -1072,9 +1066,6 @@ type PostOauth2MfaVerifyFormdataRequestBody = MfaVerifyRequest
 
 // PostOauth2PasswordChangeJSONRequestBody defines body for PostOauth2PasswordChange for application/json ContentType.
 type PostOauth2PasswordChangeJSONRequestBody PostOauth2PasswordChangeJSONBody
-
-// PostOauth2PasswordChangeFormdataRequestBody defines body for PostOauth2PasswordChange for application/x-www-form-urlencoded ContentType.
-type PostOauth2PasswordChangeFormdataRequestBody PostOauth2PasswordChangeFormdataBody
 
 // PostOauth2RevokeFormdataRequestBody defines body for PostOauth2Revoke for application/x-www-form-urlencoded ContentType.
 type PostOauth2RevokeFormdataRequestBody PostOauth2RevokeFormdataBody
@@ -2039,7 +2030,7 @@ type ClientInterface interface {
 
 	// PostOauth2PasswordChangeWithBody Change Password (Forced First-Login Flow)
 	//
-	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -2048,21 +2039,12 @@ type ClientInterface interface {
 
 	// PostOauth2PasswordChange Change Password (Forced First-Login Flow)
 	//
-	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
 	PostOauth2PasswordChange(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PostOauth2PasswordChangeWithFormdataBody Change Password (Forced First-Login Flow)
-	//
-	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
-	//
-	// Takes a body of the `application/x-www-form-urlencoded` content type.
-	//
-	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
-	PostOauth2PasswordChangeWithFormdataBody(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostOauth2Register Register Client
 	//
@@ -3932,7 +3914,7 @@ func (c *Client) PostOauth2MfaVerifyWithFormdataBody(ctx context.Context, body P
 
 // PostOauth2PasswordChangeWithBody Change Password (Forced First-Login Flow)
 //
-// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 //
 // Takes any type of body and a specified content type.
 //
@@ -3951,32 +3933,13 @@ func (c *Client) PostOauth2PasswordChangeWithBody(ctx context.Context, contentTy
 
 // PostOauth2PasswordChange Change Password (Forced First-Login Flow)
 //
-// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 //
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
 func (c *Client) PostOauth2PasswordChange(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostOauth2PasswordChangeRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// PostOauth2PasswordChangeWithFormdataBody Change Password (Forced First-Login Flow)
-//
-// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
-//
-// Takes a body of the `application/x-www-form-urlencoded` content type.
-//
-// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
-func (c *Client) PostOauth2PasswordChangeWithFormdataBody(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOauth2PasswordChangeRequestWithFormdataBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7169,17 +7132,6 @@ func NewPostOauth2PasswordChangeRequest(server string, body PostOauth2PasswordCh
 	return NewPostOauth2PasswordChangeRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewPostOauth2PasswordChangeRequestWithFormdataBody calls the generic PostOauth2PasswordChange builder with application/x-www-form-urlencoded body
-func NewPostOauth2PasswordChangeRequestWithFormdataBody(server string, body PostOauth2PasswordChangeFormdataRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	bodyStr, err := runtime.MarshalForm(body, nil)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = strings.NewReader(bodyStr.Encode())
-	return NewPostOauth2PasswordChangeRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
-}
-
 // NewPostOauth2PasswordChangeRequestWithBody constructs an http.Request for the PostOauth2PasswordChange method, with any body, and a specified content type
 func NewPostOauth2PasswordChangeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
@@ -8356,7 +8308,7 @@ type ClientWithResponsesInterface interface {
 
 	// PostOauth2PasswordChangeWithBodyWithResponse Change Password (Forced First-Login Flow)
 	//
-	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -8365,21 +8317,12 @@ type ClientWithResponsesInterface interface {
 
 	// PostOauth2PasswordChangeWithResponse Change Password (Forced First-Login Flow)
 	//
-	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
 	PostOauth2PasswordChangeWithResponse(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error)
-
-	// PostOauth2PasswordChangeWithFormdataBodyWithResponse Change Password (Forced First-Login Flow)
-	//
-	// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
-	//
-	// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
-	PostOauth2PasswordChangeWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error)
 
 	// PostOauth2RegisterWithResponse Register Client
 	//
@@ -13670,7 +13613,7 @@ func (c *ClientWithResponses) PostOauth2MfaVerifyWithFormdataBodyWithResponse(ct
 
 // PostOauth2PasswordChangeWithBodyWithResponse Change Password (Forced First-Login Flow)
 //
-// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -13685,28 +13628,13 @@ func (c *ClientWithResponses) PostOauth2PasswordChangeWithBodyWithResponse(ctx c
 
 // PostOauth2PasswordChangeWithResponse Change Password (Forced First-Login Flow)
 //
-// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
+// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the session carries the must_change_password marker set at login. JSON body only — the endpoint has no CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the old_password knowledge factor close the cross-site surface.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
 func (c *ClientWithResponses) PostOauth2PasswordChangeWithResponse(ctx context.Context, body PostOauth2PasswordChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error) {
 	rsp, err := c.PostOauth2PasswordChange(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePostOauth2PasswordChangeResponse(rsp)
-}
-
-// PostOauth2PasswordChangeWithFormdataBodyWithResponse Change Password (Forced First-Login Flow)
-//
-// Changes the password of the session user while the account is flagged must_change_password (#145: bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a flagged account cannot obtain tokens by design); requires old_password, applies the auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable while the session carries the must_change_password marker set at login.
-//
-// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /oauth2/password/change (the `PostOauth2PasswordChange` operationId).
-func (c *ClientWithResponses) PostOauth2PasswordChangeWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2PasswordChangeFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2PasswordChangeResponse, error) {
-	rsp, err := c.PostOauth2PasswordChangeWithFormdataBody(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

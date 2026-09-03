@@ -7,14 +7,13 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.error_envelope import ErrorEnvelope
 from ...models.message_response import MessageResponse
-from ...models.post_oauth_2_password_change_data_body import PostOauth2PasswordChangeDataBody
-from ...models.post_oauth_2_password_change_json_body import PostOauth2PasswordChangeJsonBody
-from ...types import UNSET, Response
+from ...models.post_oauth_2_password_change_body import PostOauth2PasswordChangeBody
+from ...types import Response
 
 
 def _get_kwargs(
     *,
-    body: PostOauth2PasswordChangeJsonBody | PostOauth2PasswordChangeDataBody | Unset = UNSET,
+    body: PostOauth2PasswordChangeBody,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -23,13 +22,9 @@ def _get_kwargs(
         "url": "/oauth2/password/change",
     }
 
-    if isinstance(body, PostOauth2PasswordChangeJsonBody):
-        _kwargs["json"] = body.to_dict()
+    _kwargs["json"] = body.to_dict()
 
-        headers["Content-Type"] = "application/json"
-    if isinstance(body, PostOauth2PasswordChangeDataBody):
-        _kwargs["data"] = body.to_dict()
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -78,19 +73,21 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: PostOauth2PasswordChangeJsonBody | PostOauth2PasswordChangeDataBody | Unset = UNSET,
+    body: PostOauth2PasswordChangeBody,
 ) -> Response[ErrorEnvelope | MessageResponse]:
     """Change Password (Forced First-Login Flow)
 
      Changes the password of the session user while the account is flagged must_change_password (#145:
     bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a
     flagged account cannot obtain tokens by design); requires old_password, applies the
-    auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable
-    while the session carries the must_change_password marker set at login.
+    auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all
+    access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the
+    session carries the must_change_password marker set at login. JSON body only — the endpoint has no
+    CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the
+    old_password knowledge factor close the cross-site surface.
 
     Args:
-        body (PostOauth2PasswordChangeJsonBody):
-        body (PostOauth2PasswordChangeDataBody):
+        body (PostOauth2PasswordChangeBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,19 +111,21 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    body: PostOauth2PasswordChangeJsonBody | PostOauth2PasswordChangeDataBody | Unset = UNSET,
+    body: PostOauth2PasswordChangeBody,
 ) -> ErrorEnvelope | MessageResponse | None:
     """Change Password (Forced First-Login Flow)
 
      Changes the password of the session user while the account is flagged must_change_password (#145:
     bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a
     flagged account cannot obtain tokens by design); requires old_password, applies the
-    auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable
-    while the session carries the must_change_password marker set at login.
+    auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all
+    access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the
+    session carries the must_change_password marker set at login. JSON body only — the endpoint has no
+    CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the
+    old_password knowledge factor close the cross-site surface.
 
     Args:
-        body (PostOauth2PasswordChangeJsonBody):
-        body (PostOauth2PasswordChangeDataBody):
+        body (PostOauth2PasswordChangeBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -145,19 +144,21 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    body: PostOauth2PasswordChangeJsonBody | PostOauth2PasswordChangeDataBody | Unset = UNSET,
+    body: PostOauth2PasswordChangeBody,
 ) -> Response[ErrorEnvelope | MessageResponse]:
     """Change Password (Forced First-Login Flow)
 
      Changes the password of the session user while the account is flagged must_change_password (#145:
     bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a
     flagged account cannot obtain tokens by design); requires old_password, applies the
-    auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable
-    while the session carries the must_change_password marker set at login.
+    auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all
+    access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the
+    session carries the must_change_password marker set at login. JSON body only — the endpoint has no
+    CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the
+    old_password knowledge factor close the cross-site surface.
 
     Args:
-        body (PostOauth2PasswordChangeJsonBody):
-        body (PostOauth2PasswordChangeDataBody):
+        body (PostOauth2PasswordChangeBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -179,19 +180,21 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    body: PostOauth2PasswordChangeJsonBody | PostOauth2PasswordChangeDataBody | Unset = UNSET,
+    body: PostOauth2PasswordChangeBody,
 ) -> ErrorEnvelope | MessageResponse | None:
     """Change Password (Forced First-Login Flow)
 
      Changes the password of the session user while the account is flagged must_change_password (#145:
     bootstrap admin, admin-created users). Session-authenticated like /oauth2/login (no Bearer token — a
     flagged account cannot obtain tokens by design); requires old_password, applies the
-    auth.min_password_length policy, clears the flag, and revokes all access/refresh tokens. Only usable
-    while the session carries the must_change_password marker set at login.
+    auth.min_password_length policy and a 128-character maximum, clears the flag, revokes all
+    access/refresh tokens, and demotes the session to anonymous (sign in again). Only usable while the
+    session carries the must_change_password marker set at login. JSON body only — the endpoint has no
+    CSRF nonce of its own, so the content type (which a cross-site form cannot produce) plus the
+    old_password knowledge factor close the cross-site surface.
 
     Args:
-        body (PostOauth2PasswordChangeJsonBody):
-        body (PostOauth2PasswordChangeDataBody):
+        body (PostOauth2PasswordChangeBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

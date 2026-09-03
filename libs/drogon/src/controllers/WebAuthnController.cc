@@ -530,14 +530,26 @@ void WebAuthnController::authenticateFinish(
           // "hwk" (proof-of-possession of a hardware-protected key) plus
           // "user" (user verification — enforced by the assertion policy);
           // the server cannot distinguish PIN vs biometrics, so no "pin".
+          // erase-first everywhere: Session::insert never overwrites, so a
+          // re-login on a live session must not inherit the previous
+          // account's userId/sub or a stale amr (PR #157 review MAJOR 1).
+          req->session()->erase("userId");
           req->session()->insert("userId", std::to_string(result->userId));
+          req->session()->erase("sub");
           req->session()->insert("sub", result->publicSub);
           auto nowSecs = std::chrono::duration_cast<std::chrono::seconds>(
                            std::chrono::system_clock::now().time_since_epoch()
           )
                            .count();
+          req->session()->erase("auth_time");
           req->session()->insert("auth_time", static_cast<int64_t>(nowSecs));
+          req->session()->erase("amr");
           req->session()->insert("amr", std::string("hwk user"));
+          req->session()->erase("mfa_pending");
+          req->session()->erase("must_change_password");
+          // Fresh authentication -> rotate the session identifier (fixation
+          // defense, same as SessionController::login).
+          req->session()->changeSessionIdToClient();
 
           // Audit/respond with the server-normalized credential id (the
           // stored canonical form), not the client-submitted encoding

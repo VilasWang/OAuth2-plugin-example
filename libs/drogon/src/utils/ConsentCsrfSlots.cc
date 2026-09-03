@@ -21,6 +21,11 @@ struct Slot
 
 // Process-wide mutex shared by mint() and consume() (see the header comment
 // for why the lock must cover the full read-modify-write on both sides).
+// NOTE (PR #157 review NIT 12): this single mutex serializes consent-slot
+// traffic across ALL sessions in the process. That is fine at consent-endpoint
+// volumes (human-paced form submissions); it is NOT a design that scales to
+// machine-rate traffic -- if this ever shows up in profiles, shard by session
+// id before anything else.
 std::mutex &slotsMutex()
 {
     static std::mutex mutex;

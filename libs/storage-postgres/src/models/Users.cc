@@ -64,7 +64,7 @@ const std::vector<typename Users::MetaData> Users::metaData_={
 {"mfa_pending_client_id","std::string","character varying",50,0,0,0},
 {"mfa_pending_redirect_uri","std::string","text",0,0,0,0},
 {"deleted_at","::trantor::Date","timestamp with time zone",0,0,0,0},
-{"must_change_password","bool","boolean",1,0,0,0}
+{"must_change_password","bool","boolean",1,0,0,1}
 };
 const std::string &Users::getColumnName(size_t index) noexcept(false)
 {
@@ -1549,11 +1549,6 @@ const std::shared_ptr<bool> &Users::getMustChangePassword() const noexcept
 void Users::setMustChangePassword(const bool &pMustChangePassword) noexcept
 {
     mustChangePassword_ = std::make_shared<bool>(pMustChangePassword);
-    dirtyFlag_[18] = true;
-}
-void Users::setMustChangePasswordToNull() noexcept
-{
-    mustChangePassword_.reset();
     dirtyFlag_[18] = true;
 }
 
@@ -3380,7 +3375,8 @@ bool Users::validJsonOfField(size_t index,
         case 18:
             if(pJson.isNull())
             {
-                return true;
+                err="The " + fieldName + " column cannot be null";
+                return false;
             }
             if(!pJson.isBool())
             {

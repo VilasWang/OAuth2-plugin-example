@@ -1,7 +1,6 @@
 #include <fulla/drogon/controllers/MfaController.h>
 #include <fulla/identity/TotpUtils.h>
 #include <fulla/drogon/utils/CryptoUtils.h>
-#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/drogon/adapters/DrogonAuditSink.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
@@ -31,14 +30,8 @@ namespace
 
 // #122: the legacy fallback paths below use the identity-domain TOTP free
 // functions (fulla::identity::totp) instead of the retired drogon-static
-// copy. The adapter crypto provider follows the CryptoUtils.h
-// detail::cryptoProvider() idiom: a process-lifetime static instance owned
-// by the adapter layer.
-fulla::common::ports::ICryptoProvider &mfaTotpCrypto()
-{
-    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
-    return crypto;
-}
+// copy. The crypto provider is the shared CryptoUtils.h
+// detail::cryptoProvider() process-lifetime instance (no per-file duplicate).
 
 int64_t mfaNowSeconds()
 {
@@ -196,7 +189,7 @@ void MfaController::setup(
         return;
     }
 
-    std::string secret = ::fulla::identity::totp::generateSecret(mfaTotpCrypto());
+    std::string secret = ::fulla::identity::totp::generateSecret(::fulla::drogon::utils::detail::cryptoProvider());
 
     auto db = ::drogon::app().getDbClient();
     // #54: deleted_at filter — a soft-deleted user must not mutate MFA state
@@ -400,7 +393,7 @@ void MfaController::verifySetup(
                   return;
               }
 
-              auto backupCodes = ::fulla::identity::totp::generateBackupCodes(mfaTotpCrypto(), 10);
+              auto backupCodes = ::fulla::identity::totp::generateBackupCodes(::fulla::drogon::utils::detail::cryptoProvider(), 10);
               Json::Value codesJson(Json::arrayValue);
               Json::Value hashedCodesJson(Json::arrayValue);
               for (const auto &bc : backupCodes)
@@ -705,6 +698,12 @@ void MfaController::verifyLogin(
             // #144: the second factor completed -- the session is no longer
             // MFA-pending (consent/authorize gates stop refusing it).
             req->session()->erase("mfa_pending");
+            // PR #157 review MAJOR 2: the first-factor PKCE challenge was
+            // threaded onto the code just issued; consumed here so a second
+            // MFA login in the same session can never bind its code to the
+            // previous flow's challenge.
+            req->session()->erase("mfa_code_challenge");
+            req->session()->erase("mfa_code_challenge_method");
         }
     };
     auto onTotpVerified = [sharedCb, req, plugin, clientId, redirectUri, scope, nonce, mfaToken, mfaAuthTime, mfaAmr, codeVerifier, elevateSessionAfterMfa](

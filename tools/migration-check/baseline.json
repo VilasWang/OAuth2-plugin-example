@@ -27,5 +27,5 @@
   "V026__token_redundant_index_cleanup.sql": "fc1bc4c51737c20deab14b07fd1719770baad78c7251908776e4fa68cac8464d",
   "V027__local_subject_mapping_backfill.sql": "5965f1553c53b6e3a05cfe7ad1dda7f9a34154b80c3f29338a5ea55835248bc8",
   "V028__webauthn_purge_unverified_credentials.sql": "4419bb7ea8ad1c54fb759e10d47153087919ba5c3b408dcbd4d3494383aeb970",
-  "V029__users_must_change_password.sql": "d92d337d9fe481977ea93f8b41a9440be43eface91983ae2404fe7a47a5358c3"
+  "V029__users_must_change_password.sql": "88bb480064d45eec4eaa7c67d455293ce543c8771c82264a562e7db641fd63a2"
 }

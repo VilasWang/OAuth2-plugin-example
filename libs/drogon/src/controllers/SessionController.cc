@@ -2,6 +2,7 @@
 #include <fulla/drogon/controllers/SessionController.h>
 #include <fulla/drogon/utils/ConsentCsrfSlots.h>
 #include <fulla/drogon/utils/PasswordHasher.h>
+#include <fulla/drogon/utils/PortalUrl.h>
 #include <fulla/storage/postgres/models/Users.h>
 #include <fulla/drogon/adapters/DrogonAuditSink.h>
 
@@ -683,11 +684,22 @@ void SessionController::login(
                        ) mutable {
         if (success)
         {
+            // PR #157 review MAJOR 1: Session::insert uses std::map semantics
+            // (existing key -> silent no-op), so EVERY re-writable login-state
+            // key must be erased before its insert. Without this, a second
+            // login on a live session kept the PREVIOUS account's userId/sub
+            // (codes minted for the wrong subject) and the previous amr (a
+            // "pwd mfa" left by an earlier MFA login would ride along on a
+            // password-only re-login -- exactly the #144 amr-elevation bug via
+            // a different path). The stale first-factor PKCE challenge and the
+            // MFA-pending marker are cleared for the same reason.
+            req->session()->erase("userId");
             req->session()->insert("userId", std::to_string(internalId));
             // #55: also remember the PUBLIC subject (the id_token sub) on the
             // session. endSession needs it to attribute the logout to a user
             // for backchannel notification -- the internal id above does not
             // match oauth2_access_tokens.user_id (which stores public_sub).
+            req->session()->erase("sub");
             req->session()->insert("sub", publicSub);
             // F-021/F-022 (OIDC Core §2/§3.1.3.7): record the auth_time and
             // amr on the session so the authorization-code issuance paths
@@ -701,7 +713,9 @@ void SessionController::login(
                              std::chrono::system_clock::now().time_since_epoch()
             )
                              .count();
+            req->session()->erase("auth_time");
             req->session()->insert("auth_time", static_cast<int64_t>(nowSecs));
+            req->session()->erase("amr");
             req->session()->insert("amr", std::string("pwd"));
             // #144: a fresh password login is the newest authentication
             // state -- drop any stale MFA-pending marker (e.g. MFA was
@@ -714,6 +728,11 @@ void SessionController::login(
             // erased explicitly; it is re-inserted below only when still set
             // in the users row).
             req->session()->erase("must_change_password");
+            // A fresh authentication is a privilege boundary -- rotate the
+            // session identifier so a pre-login id cannot be replayed against
+            // the authenticated session (fixation defense; Drogon keeps the
+            // old slot alive for 10s for in-flight requests).
+            req->session()->changeSessionIdToClient();
 
             // Audit: login success
             ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
@@ -751,18 +770,10 @@ void SessionController::login(
                     callback(resp);
                     return;
                 }
-                auto customCfg = ::drogon::app().getCustomConfig();
-                std::string frontendUrl = "http://localhost:5173";
-                if (
-                  customCfg.isMember("frontend") && customCfg["frontend"].isMember("url")
-                )
-                {
-                    frontendUrl = customCfg["frontend"]["url"].asString();
-                }
-                if (!frontendUrl.empty() && frontendUrl.back() == '/')
-                    frontendUrl.pop_back();
+                // Form branch: route to the ORIGINATING portal's login page
+                // (admin-console -> admin_console.url; PR #157 review MAJOR 4).
                 auto resp = ::drogon::HttpResponse::newRedirectionResponse(
-                  frontendUrl + "/login?must_change_password=1"
+                  fulla::drogon::utils::mustChangePasswordRedirectUrl(clientId)
                 );
                 callback(resp);
                 return;
@@ -821,7 +832,12 @@ void SessionController::login(
                 // password login.
                 if (req->session())
                 {
+                    // erase-first (Session::insert never overwrites): a second
+                    // MFA login in one session must not inherit the previous
+                    // flow's PKCE challenge (PR #157 review MAJOR 2).
+                    req->session()->erase("mfa_code_challenge");
                     req->session()->insert("mfa_code_challenge", codeChallenge);
+                    req->session()->erase("mfa_code_challenge_method");
                     req->session()->insert("mfa_code_challenge_method", codeChallengeMethod);
                     req->session()->insert("mfa_pending", true);
                 }
@@ -1477,6 +1493,12 @@ void SessionController::changePasswordForced(
 
     std::string oldPassword;
     std::string newPassword;
+    // PR #157 review MINOR 6: JSON body only. The endpoint authenticates via
+    // the browser session with no additional nonce, so accepting the
+    // form-encoded fallback kept a cross-site <form> POST vector open (dev
+    // config ships session_same_site=Null); a simple cross-site form cannot
+    // send Content-Type: application/json, so JSON-only closes it. The
+    // old_password knowledge requirement stays as the in-band defense.
     if (req->getJsonObject())
     {
         oldPassword = req->getJsonObject()->get("old_password", "").asString();
@@ -1484,8 +1506,13 @@ void SessionController::changePasswordForced(
     }
     else
     {
-        oldPassword = req->getParameter("old_password");
-        newPassword = req->getParameter("new_password");
+        respondError(
+          req,
+          *sharedCb,
+          "VALIDATION_INVALID_INPUT",
+          "password/change: a JSON body is required"
+        );
+        return;
     }
 
     if (oldPassword.empty() || newPassword.empty())
@@ -1507,6 +1534,20 @@ void SessionController::changePasswordForced(
           "VALIDATION_PASSWORD_TOO_SHORT",
           "password/change: new password must be at least " +
             std::to_string(fulla::drogon::validation::RuleSet::passwordMinLength()) + " characters"
+        );
+        return;
+    }
+    // Upper bound: KDF cost scales linearly with input length, so an
+    // unbounded new_password is a CPU-amplification surface (PR #157 review
+    // MAJOR 3).
+    constexpr std::size_t kMaxNewPasswordLength = 128;
+    if (newPassword.length() > kMaxNewPasswordLength)
+    {
+        respondError(
+          req,
+          *sharedCb,
+          "VALIDATION_INVALID_INPUT",
+          "password/change: new password must be at most 128 characters"
         );
         return;
     }
@@ -1543,6 +1584,29 @@ void SessionController::changePasswordForced(
                   return;
               }
               const Users &user = users[0];
+              // PR #157 review MAJOR 3: the lockout counters below must have
+              // a read side too -- the login path (PostgresIdentityRepository)
+              // refuses locked accounts before verifying credentials, and
+              // without the same check here the wrong-old_password increments
+              // would fill locked_until while the endpoint kept accepting
+              // attempts (write-only lock = no lock).
+              {
+                  const int64_t nowSecs = static_cast<int64_t>(
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                      std::chrono::system_clock::now().time_since_epoch()
+                    ).count()
+                  );
+                  if (user.getValueOfLockedUntil() > nowSecs)
+                  {
+                      respondError(
+                        req,
+                        *sharedCb,
+                        "AUTH_INVALID_CREDENTIALS",
+                        "password/change: account is locked"
+                      );
+                      return;
+                  }
+              }
               if (!::fulla::common::utils::PasswordHasher::verify(
                     oldPassword, user.getValueOfPasswordHash(), user.getValueOfSalt()
                   ))
@@ -1658,6 +1722,13 @@ void SessionController::changePasswordForced(
                                         req->session()->erase("mfa_pending");
                                         req->session()->erase("mfa_code_challenge");
                                         req->session()->erase("mfa_code_challenge_method");
+                                        // Rotate the session identifier too:
+                                        // the anonymous remnant must not be
+                                        // replayable against any future login
+                                        // on this browser (fixation defense;
+                                        // the old id stays valid 10s for
+                                        // in-flight requests only).
+                                        req->session()->changeSessionIdToClient();
                                     }
                                     ::fulla::drogon::adapters::DrogonAuditSink::logFromRequest(
                                       ::drogon::app().getPlugin<::OAuth2Plugin>()->getAuditSink(),
