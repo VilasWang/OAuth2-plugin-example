@@ -3,7 +3,6 @@
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/drogon/utils/CryptoUtils.h>
 #include <fulla/identity/TotpUtils.h>
-#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
 #include <chrono>
 #include <future>
 #include <chrono>
@@ -11,14 +10,8 @@
 using namespace drogon;
 using namespace drogon::orm;
 
-// #122: identity-domain TOTP free functions (drogon static copy deleted).
 namespace
 {
-fulla::common::ports::ICryptoProvider &totpCrypto()
-{
-    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
-    return crypto;
-}
 
 int64_t totpNowSeconds()
 {
@@ -28,6 +21,7 @@ int64_t totpNowSeconds()
       ).count()
     );
 }
+
 }  // namespace
 
 /**
@@ -47,7 +41,7 @@ DROGON_TEST(Integration_P1_Login_MFA_Enforcement)
     auto db = app().getDbClient();
 
     // Setup: enable MFA for admin user
-    std::string secret = fulla::identity::totp::generateSecret(totpCrypto());
+    std::string secret = fulla::identity::totp::generateSecret(::fulla::drogon::utils::detail::cryptoProvider());
     std::promise<bool> pSetup;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",

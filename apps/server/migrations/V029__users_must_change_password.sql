@@ -4,4 +4,7 @@
 -- before any authorization codes are issued for it.
 -- Set on bootstrap-created admin accounts and optionally via the admin
 -- create/update user API. Cleared automatically on successful password change.
-ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE;
+-- NOT NULL (PR #157 review MINOR 10): a nullable boolean flag with DEFAULT
+-- FALSE invites `= false` predicates that silently miss NULL rows; every
+-- reader treats the flag as total.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;

@@ -39,6 +39,20 @@ const std::string &newPassword()
     return v;
 }
 
+bool execSql(const std::string &sql)
+{
+    auto db = app().getDbClient();
+    if (!db)
+        return false;
+    std::promise<bool> p;
+    db->execSqlAsync(
+      sql,
+      [&](const Result &) { p.set_value(true); },
+      [&](const DrogonDbException &) { p.set_value(false); }
+    );
+    return p.get_future().get();
+}
+
 bool execSqlBind(const std::string &sql, const std::string &param)
 {
     auto db = app().getDbClient();
@@ -137,15 +151,20 @@ std::string cookieOf(const HttpResponsePtr &resp)
     return cookie;
 }
 
-HttpResponsePtr authorize(const std::string &cookie, const std::string &prompt = "")
+HttpResponsePtr authorize(
+  const std::string &cookie,
+  const std::string &prompt = "",
+  const std::string &clientId = "vue-client",
+  const std::string &redirectUri = "http://127.0.0.1:5173/callback"
+)
 {
     auto client = HttpClient::newHttpClient("http://127.0.0.1:5555", app().getLoop());
     auto req = HttpRequest::newHttpRequest();
     req->setMethod(Get);
     req->setPath("/oauth2/authorize");
     req->setParameter("response_type", "code");
-    req->setParameter("client_id", "vue-client");
-    req->setParameter("redirect_uri", "http://127.0.0.1:5173/callback");
+    req->setParameter("client_id", clientId);
+    req->setParameter("redirect_uri", redirectUri);
     req->setParameter("scope", "openid");
     req->setParameter("state", "pwdstate001");
     req->setParameter("code_challenge", "F_TTxId01kOTYIcFSCqZnz9wQ-6F1aJ1vtm1YoBy8po");
@@ -219,6 +238,23 @@ DROGON_TEST(Integration_P1_ForcedPasswordChange_Authorize_BlockedAndPromptNone)
     CHECK(silent->getStatusCode() == k302Found);
     CHECK(silent->getHeader("Location").find("must_change_password=1") != std::string::npos);
     CHECK(silent->getHeader("Location").find("code=") == std::string::npos);
+
+    // PR #157 review MAJOR 4: the redirect must follow the ORIGINATING
+    // portal — vue-client goes to the user portal (frontend.url), the
+    // admin-console client goes to the admin console (admin_console.url +
+    // /admin/login), never a hardcoded origin.
+    CHECK(
+      silent->getHeader("Location").find("http://localhost:5173/login?must_change_password=1") !=
+      std::string::npos
+    );
+    auto adminSilent = authorize(cookie, "", "admin-console", "http://127.0.0.1:5174/admin/callback");
+    REQUIRE(adminSilent != nullptr);
+    CHECK(adminSilent->getStatusCode() == k302Found);
+    CHECK(
+      adminSilent->getHeader("Location").find(
+        "http://localhost:5174/admin/login?must_change_password=1"
+      ) != std::string::npos
+    );
 
     // prompt=none: OIDC Core §3.1.2.1 — error redirect, never UI.
     auto promptNone = authorize(cookie, "none");
@@ -427,4 +463,62 @@ DROGON_TEST(Integration_P1_AdminUser_MustChangePassword_FieldRoundTrip)
     Json::Value detail;
     REQUIRE(fulla::test::http::parseJsonBody(detailResp, detail));
     CHECK(detail.get("must_change_password", true).asBool() == false);
+}
+
+// PR #157 review MAJOR 3: the lockout counters must have a READ side — a
+// locked account is refused here (even with the CORRECT old password) just
+// like the login path refuses it; otherwise the wrong-password increments
+// fill locked_until while the endpoint keeps accepting attempts.
+DROGON_TEST(Integration_P1_ForcedPasswordChange_LockedAccount_RefusedWith401)
+{
+    if (!fulla::test::http::postgresAvailable())
+    {
+        CHECK(true);
+        return;
+    }
+
+    // RAII: whatever REQUIRE aborts mid-case, the shared row is unlocked for
+    // the rest of the suite.
+    struct UnlockGuard
+    {
+        ~UnlockGuard()
+        {
+            execSql(
+              std::string("UPDATE users SET locked_until = 0, failed_login_count = 0 WHERE "
+                          "username = '") +
+              kTestUser + "'"
+            );
+        }
+    } unlockGuard;
+
+    // Establish the flagged session FIRST (login itself checks the lock).
+    REQUIRE(ensureFlaggedUser());
+    auto login = loginUser();
+    REQUIRE(login != nullptr);
+    REQUIRE(login->getStatusCode() == k200OK);
+    const std::string cookie = cookieOf(login);
+    REQUIRE(!cookie.empty());
+
+    // Seed a live lock directly (5 wrong logins would also work but is slower).
+    const int64_t future = static_cast<int64_t>(
+      std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+      ).count()
+    ) + 60;
+    REQUIRE(execSql(
+      std::string("UPDATE users SET locked_until = ") + std::to_string(future) +
+      " WHERE username = '" + kTestUser + "'"
+    ));
+
+    // Correct old password + live lock -> 401, and the flag stays set.
+    auto change = postChange(cookie, oldPassword(), newPassword());
+    REQUIRE(change != nullptr);
+    CHECK(change->getStatusCode() == k401Unauthorized);
+    Json::Value errBody;
+    REQUIRE(fulla::test::http::parseJsonBody(change, errBody));
+    CHECK(errBody["error"]["code"].asString() == "AUTH_INVALID_CREDENTIALS");
+
+    bool flag = true;
+    REQUIRE(userFlag(kTestUser, flag));
+    CHECK(flag == true);
 }

@@ -1,6 +1,6 @@
 #include <drogon/drogon_test.h>
 #include <fulla/identity/TotpUtils.h>
-#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 
 #include <chrono>
 
@@ -12,11 +12,6 @@
 namespace
 {
 
-fulla::common::ports::ICryptoProvider &testCrypto()
-{
-    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
-    return crypto;
-}
 
 int64_t testNowSeconds()
 {
@@ -31,7 +26,7 @@ int64_t testNowSeconds()
 
 DROGON_TEST(Unit_P2_TotpUtils_GenerateSecret)
 {
-    auto secret = fulla::identity::totp::generateSecret(testCrypto());
+    auto secret = fulla::identity::totp::generateSecret(::fulla::drogon::utils::detail::cryptoProvider());
     CHECK(secret.length() == 32);  // 20 bytes base32 = 32 chars
     // All chars should be valid base32
     for (char c : secret)
@@ -43,7 +38,7 @@ DROGON_TEST(Unit_P2_TotpUtils_GenerateSecret)
 
 DROGON_TEST(Unit_P2_TotpUtils_GenerateCode)
 {
-    auto secret = fulla::identity::totp::generateSecret(testCrypto());
+    auto secret = fulla::identity::totp::generateSecret(::fulla::drogon::utils::detail::cryptoProvider());
     auto code = fulla::identity::totp::generateCode(secret, testNowSeconds());
     CHECK(code.length() == 6);
     // All digits
@@ -56,7 +51,7 @@ DROGON_TEST(Unit_P2_TotpUtils_GenerateCode)
 
 DROGON_TEST(Unit_P2_TotpUtils_VerifyCode)
 {
-    auto secret = fulla::identity::totp::generateSecret(testCrypto());
+    auto secret = fulla::identity::totp::generateSecret(::fulla::drogon::utils::detail::cryptoProvider());
     auto code = fulla::identity::totp::generateCode(secret, testNowSeconds());
     CHECK(fulla::identity::totp::verifyCode(secret, code, testNowSeconds()) == true);
     CHECK(fulla::identity::totp::verifyCode(secret, "000000", testNowSeconds()) == false);
@@ -64,7 +59,7 @@ DROGON_TEST(Unit_P2_TotpUtils_VerifyCode)
 
 DROGON_TEST(Unit_P2_TotpUtils_GenerateBackupCodes)
 {
-    auto codes = fulla::identity::totp::generateBackupCodes(testCrypto(), 10);
+    auto codes = fulla::identity::totp::generateBackupCodes(::fulla::drogon::utils::detail::cryptoProvider(), 10);
     CHECK(codes.size() == 10);
     for (const auto &code : codes)
     {

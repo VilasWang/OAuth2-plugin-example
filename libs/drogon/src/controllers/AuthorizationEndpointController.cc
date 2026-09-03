@@ -7,6 +7,7 @@
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
 #include <fulla/drogon/utils/CryptoUtils.h>
 #include <fulla/drogon/utils/ConsentCsrfSlots.h>
+#include <fulla/drogon/utils/PortalUrl.h>
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
 #include <algorithm>
@@ -451,25 +452,15 @@ void AuthorizationEndpointController::authorize(
                         ));
                         return;
                     }
-                    // #145: flagged accounts are routed to the frontend login
-                    // page, which renders the inline change-password form
-                    // (POST /oauth2/password/change); no authorize context is
-                    // carried (no return URL -> no open redirect).
+                    // #145: flagged accounts are routed to their portal's
+                    // login page (admin-console -> admin_console.url, other
+                    // clients -> frontend.url; PR #157 review MAJOR 4), which
+                    // renders the inline change-password form; no authorize
+                    // context is carried (no return URL -> no open redirect).
                     if (mustChangePasswordSession)
                     {
-                        auto customConfig = ::drogon::app().getCustomConfig();
-                        std::string frontendUrl = "http://localhost:5173";
-                        if (
-                          customConfig.isMember("frontend") &&
-                          customConfig["frontend"].isMember("url")
-                        )
-                        {
-                            frontendUrl = customConfig["frontend"]["url"].asString();
-                        }
-                        if (!frontendUrl.empty() && frontendUrl.back() == '/')
-                            frontendUrl.pop_back();
                         auto resp = ::drogon::HttpResponse::newRedirectionResponse(
-                          frontendUrl + "/login?must_change_password=1"
+                          ::fulla::drogon::utils::mustChangePasswordRedirectUrl(clientId)
                         );
                         callback(resp);
                         return;

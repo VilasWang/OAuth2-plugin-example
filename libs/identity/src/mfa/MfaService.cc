@@ -31,6 +31,13 @@ void MfaService::setupSecret(
     }
 
     std::string secret = totp::generateSecret(*crypto_);
+    // totp::generateSecret returns "" when the RNG fails (PR #157 review
+    // MAJOR 5) -- never persist or hand out an empty secret.
+    if (secret.empty())
+    {
+        callback(std::nullopt);
+        return;
+    }
     std::string otpUri = totp::generateOtpAuthUri(secret, accountLabel, issuerName_);
 
     mfaRepo_->setSecret(userId, secret, [secret, otpUri, callback = std::move(callback)](bool ok) {
@@ -80,6 +87,14 @@ void MfaService::verifyAndEnable(
           }
 
           auto backupCodes = totp::generateBackupCodes(*crypto, 10);
+          // generateBackupCodes returns a short vector when the RNG fails
+          // (PR #157 review MAJOR 5) -- enabling MFA with fewer codes than
+          // promised would silently weaken the recovery surface.
+          if (backupCodes.size() != 10)
+          {
+              callback(std::nullopt);
+              return;
+          }
           std::vector<std::string> hashedCodes;
           hashedCodes.reserve(backupCodes.size());
           for (const auto &bc : backupCodes)

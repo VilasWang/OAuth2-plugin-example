@@ -31,7 +31,7 @@
 #include <drogon/HttpResponse.h>
 #include <fulla/drogon/plugin/OAuth2Plugin.h>
 #include <fulla/identity/TotpUtils.h>
-#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 #include <chrono>
 #include <json/json.h>
 #include <future>
@@ -41,14 +41,9 @@
 using namespace drogon;
 using namespace drogon::orm;
 
-// #122: identity-domain TOTP free functions (drogon static copy deleted).
+
 namespace
 {
-fulla::common::ports::ICryptoProvider &totpCrypto()
-{
-    static fulla::drogon::adapters::OpenSslCryptoProvider crypto;
-    return crypto;
-}
 
 int64_t totpNowSeconds()
 {
@@ -58,6 +53,7 @@ int64_t totpNowSeconds()
       ).count()
     );
 }
+
 }  // namespace
 
 namespace
@@ -109,7 +105,7 @@ MfaFixture enableAdminMfa()
     MfaFixture f;
     if (!db)
         return f;
-    f.secret = fulla::identity::totp::generateSecret(totpCrypto());
+    f.secret = fulla::identity::totp::generateSecret(::fulla::drogon::utils::detail::cryptoProvider());
     std::promise<bool> p;
     db->execSqlAsync(
       "UPDATE users SET mfa_enabled = true, mfa_secret = $1 WHERE username = 'admin'",

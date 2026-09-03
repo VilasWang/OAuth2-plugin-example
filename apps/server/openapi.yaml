@@ -3293,9 +3293,13 @@ paths:
         flagged must_change_password (#145: bootstrap admin, admin-created users).
         Session-authenticated like /oauth2/login (no Bearer token — a flagged
         account cannot obtain tokens by design); requires old_password, applies
-        the auth.min_password_length policy, clears the flag, and revokes all
-        access/refresh tokens. Only usable while the session carries the
-        must_change_password marker set at login.'
+        the auth.min_password_length policy and a 128-character maximum, clears
+        the flag, revokes all access/refresh tokens, and demotes the session to
+        anonymous (sign in again). Only usable while the session carries the
+        must_change_password marker set at login. JSON body only — the endpoint
+        has no CSRF nonce of its own, so the content type (which a cross-site
+        form cannot produce) plus the old_password knowledge factor close the
+        cross-site surface.'
       operationId: post_oauth2_password_change
       requestBody:
         required: true
@@ -3311,40 +3315,34 @@ paths:
                   type: string
                 new_password:
                   type: string
-                  description: Must satisfy auth.min_password_length (default 8).
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              required:
-              - old_password
-              - new_password
-              properties:
-                old_password:
-                  type: string
-                new_password:
-                  type: string
+                  description: Must satisfy auth.min_password_length (default 8)
+                    and is capped at 128 characters.
       responses:
         '200':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
-          description: Password changed; the must_change_password flag is cleared
-            and all tokens revoked. Sign in again to continue.
+          description: Password changed; the must_change_password flag is cleared,
+            all tokens revoked, and the session demoted to anonymous. Sign in
+            again to continue.
         '400':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-          description: 'Missing fields (VALIDATION_MISSING_REQUIRED_FIELD) or new
-            password below the configured minimum (VALIDATION_PASSWORD_TOO_SHORT)'
+          description: 'Non-JSON body (VALIDATION_INVALID_INPUT), missing fields
+            (VALIDATION_MISSING_REQUIRED_FIELD), new password below the configured
+            minimum (VALIDATION_PASSWORD_TOO_SHORT) or above 128 characters
+            (VALIDATION_INVALID_INPUT)'
         '401':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: 'No session / session without the must_change_password marker
-            (AUTH_SESSION_REQUIRED), or wrong old_password (AUTH_INVALID_CREDENTIALS)'
+            (AUTH_SESSION_REQUIRED), account locked (AUTH_INVALID_CREDENTIALS),
+            or wrong old_password (AUTH_INVALID_CREDENTIALS)'
         '500':
           content:
             application/json:

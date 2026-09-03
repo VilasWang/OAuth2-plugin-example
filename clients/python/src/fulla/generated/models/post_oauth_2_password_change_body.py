@@ -6,15 +6,15 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="PostOauth2PasswordChangeJsonBody")
+T = TypeVar("T", bound="PostOauth2PasswordChangeBody")
 
 
 @_attrs_define
-class PostOauth2PasswordChangeJsonBody:
+class PostOauth2PasswordChangeBody:
     """
     Attributes:
         old_password (str):
-        new_password (str): Must satisfy auth.min_password_length (default 8).
+        new_password (str): Must satisfy auth.min_password_length (default 8) and is capped at 128 characters.
     """
 
     old_password: str
@@ -44,13 +44,13 @@ class PostOauth2PasswordChangeJsonBody:
 
         new_password = d.pop("new_password")
 
-        post_oauth_2_password_change_json_body = cls(
+        post_oauth_2_password_change_body = cls(
             old_password=old_password,
             new_password=new_password,
         )
 
-        post_oauth_2_password_change_json_body.additional_properties = d
-        return post_oauth_2_password_change_json_body
+        post_oauth_2_password_change_body.additional_properties = d
+        return post_oauth_2_password_change_body
 
     @property
     def additional_keys(self) -> list[str]:

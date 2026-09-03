@@ -9,11 +9,12 @@
 #include <drogon/drogon_test.h>
 #include <drogon/HttpClient.h>
 #include <fulla/identity/TotpUtils.h>
-#include <fulla/drogon/adapters/OpenSslCryptoProvider.h>
+#include <fulla/drogon/utils/CryptoUtils.h>
 #include <fulla/drogon/utils/PasswordHasher.h>
 #include <json/json.h>
 
 #include <future>
+#include <sstream>
 #include <string>
 
 #include "../../common/HttpTestClient.h"
@@ -144,6 +145,24 @@ bool execSql(const std::string &sql)
     return p.get_future().get();
 }
 
+// PR #157 review MINOR 7: RAII restore for tests that flip the shared admin
+// row's MFA state. A REQUIRE failure aborts the case mid-flow; the guard's
+// destructor still runs, so the seeded admin can never leak to the rest of
+// the suite with mfa_enabled=true (which would cascade login failures).
+struct AdminMfaRestore
+{
+    bool armed = true;
+    explicit AdminMfaRestore() = default;
+    AdminMfaRestore(const AdminMfaRestore &) = delete;
+    AdminMfaRestore &operator=(const AdminMfaRestore &) = delete;
+    ~AdminMfaRestore()
+    {
+        if (armed)
+            execSql("UPDATE users SET mfa_enabled = false, mfa_secret = NULL WHERE username = 'admin'");
+    }
+};
+
+
 // Internal id of the seeded admin (Gate 2 needs user_id = session["userId"]).
 std::string adminInternalId()
 {
@@ -264,6 +283,7 @@ DROGON_TEST(Integration_P1_MfaPending_Consent_Returns401)
         return;
     }
     REQUIRE(execSql("UPDATE users SET mfa_enabled = true, mfa_secret = 'JBSWY3DPEHPK3PXP' WHERE username = 'admin'"));
+    AdminMfaRestore mfaRestore;
 
     // First factor only -> mfa_required response, session is MFA-pending.
     auto resp = fulla::test::http::sendPostForm(
@@ -290,7 +310,6 @@ DROGON_TEST(Integration_P1_MfaPending_Consent_Returns401)
     // Restore the seed state BEFORE asserting: the mfa_pending SESSION marker
     // intentionally survives until the next login, and the DB flag must not
     // leak into other tests.
-    REQUIRE(execSql("UPDATE users SET mfa_enabled = false, mfa_secret = NULL WHERE username = 'admin'"));
 
     const std::string userId = adminInternalId();
     REQUIRE(!userId.empty());
@@ -319,6 +338,7 @@ DROGON_TEST(Integration_P1_MfaPending_Authorize_BlockedAndPromptNone_LoginRequir
         return;
     }
     REQUIRE(execSql("UPDATE users SET mfa_enabled = true, mfa_secret = 'JBSWY3DPEHPK3PXP' WHERE username = 'admin'"));
+    AdminMfaRestore mfaRestore;
 
     auto resp = fulla::test::http::sendPostForm(
       "/oauth2/login?json=true",
@@ -338,7 +358,6 @@ DROGON_TEST(Integration_P1_MfaPending_Authorize_BlockedAndPromptNone_LoginRequir
     }
     REQUIRE(!cookie.empty());
 
-    REQUIRE(execSql("UPDATE users SET mfa_enabled = false, mfa_secret = NULL WHERE username = 'admin'"));
 
     // Silent authorize: the MFA-pending session must NOT receive a code —
     // it is routed to the login screen like an anonymous session.
@@ -370,6 +389,7 @@ DROGON_TEST(Integration_P1_MfaWrongCode_SessionNotElevated)
         return;
     }
     REQUIRE(execSql("UPDATE users SET mfa_enabled = true, mfa_secret = 'JBSWY3DPEHPK3PXP' WHERE username = 'admin'"));
+    AdminMfaRestore mfaRestore;
 
     auto resp = fulla::test::http::sendPostForm(
       "/oauth2/login?json=true",
@@ -404,7 +424,6 @@ DROGON_TEST(Integration_P1_MfaWrongCode_SessionNotElevated)
     REQUIRE(wrong != nullptr);
     CHECK(wrong->getStatusCode() == k401Unauthorized);
 
-    REQUIRE(execSql("UPDATE users SET mfa_enabled = false, mfa_secret = NULL WHERE username = 'admin'"));
 
     // The session stays MFA-pending (never elevated) -> authorize is refused.
     auto silent = authorize(cookie);
@@ -412,4 +431,128 @@ DROGON_TEST(Integration_P1_MfaWrongCode_SessionNotElevated)
     CHECK(silent->getStatusCode() == k302Found);
     CHECK(silent->getHeader("Location").find("/login") != std::string::npos);
     CHECK(silent->getHeader("Location").find("code=") == std::string::npos);
+}
+
+// PR #157 review MINOR 8: a DIRECT assertion that a failed TOTP attempt does
+// not leave amr elevated. The refusal-based cases above are also guaranteed
+// by the mfa_pending gate alone, so they would pass even with the pre-fix
+// (verify-time) amr write. This case inspects the actual id_token amr claim:
+//
+//   1. enable MFA, login (mfa_required), submit a WRONG TOTP code
+//   2. disable MFA (row flag), re-login password-only with a known PKCE pair
+//   3. exchange the issued code and decode the id_token payload
+//
+// Pre-fix (amr written before verification + bare-insert re-login) the
+// stale "pwd mfa" survives step 2's insert and the id_token carries
+// amr=["pwd","mfa"]; post-fix it must be exactly ["pwd"].
+DROGON_TEST(Integration_P0_MfaWrongCodeThenRelogin_IdTokenAmrStaysPwd)
+{
+    if (!fulla::test::http::postgresAvailable())
+    {
+        CHECK(true);
+        return;
+    }
+    REQUIRE(execSql("UPDATE users SET mfa_enabled = true, mfa_secret = 'JBSWY3DPEHPK3PXP' WHERE username = 'admin'"));
+    AdminMfaRestore mfaRestore;
+
+    // Step 1: first factor + wrong TOTP.
+    auto login1 = fulla::test::http::sendPostForm(
+      "/oauth2/login?json=true",
+      "username=admin&password=admin"
+      "&client_id=admin-console&redirect_uri=http%3A%2F%2F127.0.0.1%3A5174%2Fadmin%2Fcallback"
+      "&scope=openid&state=g1&code_challenge=F_TTxId01kOTYIcFSCqZnz9wQ-6F1aJ1vtm1YoBy8po&code_challenge_method=S256"
+    );
+    REQUIRE(login1 != nullptr);
+    REQUIRE(login1->getStatusCode() == k200OK);
+    Json::Value body1;
+    REQUIRE(fulla::test::http::parseJsonBody(login1, body1));
+    const std::string mfaToken = body1.get("mfa_token", "").asString();
+    REQUIRE(!mfaToken.empty());
+    std::string cookie1;
+    for (const auto &entry : login1->getCookies())
+    {
+        if (!cookie1.empty())
+            cookie1 += "; ";
+        cookie1 += entry.first + "=" + entry.second.value();
+    }
+    auto wrong = post(
+      "/oauth2/mfa/verify",
+      "mfa_token=" + mfaToken + "&code=000000"
+      "&client_id=admin-console&redirect_uri=http%3A%2F%2F127.0.0.1%3A5174%2Fadmin%2Fcallback"
+      "&scope=openid",
+      cookie1
+    );
+    REQUIRE(wrong != nullptr);
+    CHECK(wrong->getStatusCode() == k401Unauthorized);
+
+    // Step 2: MFA administratively disabled, password-only re-login with a
+    // known PKCE pair (RFC 7636: verifier -> S256 challenge).
+    REQUIRE(execSql("UPDATE users SET mfa_enabled = false, mfa_secret = NULL WHERE username = 'admin'"));
+    const std::string verifier = ::fulla::drogon::utils::generateSecureToken(32);
+    const std::string challenge = ::fulla::drogon::utils::computeCodeChallenge(verifier, "S256");
+    auto login2 = fulla::test::http::sendPostForm(
+      "/oauth2/login?json=true",
+      "username=admin&password=admin"
+      "&client_id=vue-client&redirect_uri=http%3A%2F%2F127.0.0.1%3A5173%2Fcallback"
+      "&scope=openid&state=g2&code_challenge=" + challenge + "&code_challenge_method=S256"
+    );
+    REQUIRE(login2 != nullptr);
+    REQUIRE(login2->getStatusCode() == k200OK);
+    Json::Value body2;
+    REQUIRE(fulla::test::http::parseJsonBody(login2, body2));
+    const std::string code = body2.get("code", "").asString();
+    REQUIRE(!code.empty());
+
+    // Step 3: exchange and decode the id_token payload.
+    auto tokenResp = fulla::test::http::sendPostForm(
+      "/oauth2/token",
+      "grant_type=authorization_code&code=" + code +
+        "&redirect_uri=http%3A%2F%2F127.0.0.1%3A5173%2Fcallback&client_id=vue-client&code_verifier=" +
+        verifier
+    );
+    REQUIRE(tokenResp != nullptr);
+    REQUIRE(tokenResp->getStatusCode() == k200OK);
+    Json::Value tokens;
+    REQUIRE(fulla::test::http::parseJsonBody(tokenResp, tokens));
+    const std::string idToken = tokens.get("id_token", "").asString();
+    REQUIRE(!idToken.empty());
+
+    auto payloadPos = idToken.find('.');
+    auto signaturePos = idToken.find('.', payloadPos + 1);
+    REQUIRE(payloadPos != std::string::npos);
+    REQUIRE(signaturePos != std::string::npos);
+    std::string b64 = idToken.substr(payloadPos + 1, signaturePos - payloadPos - 1);
+    // base64url -> base64 (+/ with padding) for drogon::utils::base64Decode.
+    for (auto &c : b64)
+    {
+        if (c == '-')
+            c = '+';
+        else if (c == '_')
+            c = '/';
+    }
+    while (b64.size() % 4 != 0)
+        b64 += '=';
+    const std::string decoded = ::drogon::utils::base64Decode(b64);
+    Json::Value claims;
+    {
+        Json::CharReaderBuilder reader;
+        std::istringstream stream(decoded);
+        std::string errors;
+        REQUIRE(Json::parseFromStream(reader, stream, &claims, &errors));
+    }
+    // amr must reflect ONLY the methods actually performed (OIDC Core
+    // §2 / RFC 8176): a single password factor, no "mfa".
+    REQUIRE(claims.isMember("amr"));
+    std::string amrJoined;
+    if (claims["amr"].isArray())
+    {
+        for (const auto &v : claims["amr"])
+            amrJoined += v.asString() + " ";
+    }
+    else
+    {
+        amrJoined = claims["amr"].asString();
+    }
+    CHECK(amrJoined.find("mfa") == std::string::npos);
+    CHECK(amrJoined.find("pwd") != std::string::npos);
 }

@@ -118,7 +118,11 @@ std::string formatSixDigits(uint32_t otp)
 std::string generateSecret(fulla::common::ports::ICryptoProvider &crypto)
 {
     uint8_t secretBytes[20];  // 160 bits
-    crypto.secureRandomBytes(secretBytes, 20);
+    // secureRandomBytes leaves the buffer untouched on failure; base32-encoding
+    // it anyway would hand the caller a TOTP secret made of uninitialized
+    // stack memory (PR #157 review MAJOR 5). Callers treat "" as failure.
+    if (!crypto.secureRandomBytes(secretBytes, 20))
+        return "";
     return base32Encode(secretBytes, 20);
 }
 
@@ -176,7 +180,12 @@ std::vector<std::string> generateBackupCodes(
     for (int i = 0; i < count; ++i)
     {
         uint8_t randomBytes[8];
-        crypto.secureRandomBytes(randomBytes, 8);
+        // Same fail-closed rule as generateSecret: on RNG failure return a
+        // short (size != count) vector instead of codes built from
+        // uninitialized stack memory; callers check the size (PR #157 review
+        // MAJOR 5).
+        if (!crypto.secureRandomBytes(randomBytes, 8))
+            return {};
 
         std::string code;
         for (int j = 0; j < 8; ++j)

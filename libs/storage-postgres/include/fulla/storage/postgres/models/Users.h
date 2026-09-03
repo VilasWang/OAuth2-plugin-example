@@ -297,7 +297,6 @@ class Users
     const std::shared_ptr<bool> &getMustChangePassword() const noexcept;
     ///Set the value of the column must_change_password
     void setMustChangePassword(const bool &pMustChangePassword) noexcept;
-    void setMustChangePasswordToNull() noexcept;
 
 
     static size_t getColumnNumber() noexcept {  return 19;  }
