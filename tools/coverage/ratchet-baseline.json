@@ -1,0 +1,39 @@
+{
+  "libs": {
+    "common": {
+      "covered": 364,
+      "total": 490,
+      "pct": 74.3
+    },
+    "drogon": {
+      "covered": 6967,
+      "total": 12056,
+      "pct": 57.8
+    },
+    "identity": {
+      "covered": 1294,
+      "total": 1485,
+      "pct": 87.1
+    },
+    "oauth2": {
+      "covered": 936,
+      "total": 1054,
+      "pct": 88.8
+    },
+    "storage-memory": {
+      "covered": 421,
+      "total": 434,
+      "pct": 97.0
+    },
+    "storage-postgres": {
+      "covered": 1047,
+      "total": 1936,
+      "pct": 54.1
+    },
+    "storage-redis": {
+      "covered": 705,
+      "total": 1134,
+      "pct": 62.2
+    }
+  }
+}
