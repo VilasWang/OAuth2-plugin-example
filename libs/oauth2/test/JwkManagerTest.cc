@@ -18,7 +18,10 @@
 
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
+#include <utility>
+#include <vector>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <string>
@@ -777,6 +780,208 @@ TEST(JwkManagerTest, Init_DevelopmentEnv_NoKeySource_EphemeralOk)
     JwkManager jwk;
     EXPECT_TRUE(jwk.init(Json::Value(Json::objectValue)));
     EXPECT_TRUE(jwk.isInitialized());
+}
+
+
+// ---------------------------------------------------------------------------
+// #110-B keystore directory: multi-key load, active-kid signing, verify
+// routing across keys, JWKS publication of every key, rotation semantics
+// (retired key no longer verifies), and the structural failure modes.
+// ---------------------------------------------------------------------------
+
+// Build a keystore dir with the given kids (fresh PEMs) + active_kid marker;
+// returns the dir path.
+// Local issuer for the keystore tests (kTestIssuer lives in the nested
+// anonymous namespace above and is not visible here).
+constexpr const char *kStoreIssuer = "https://auth.example.test";
+
+// Write a keystore dir from EXPLICIT (kid, pem) pairs -- the multi-manager
+// rotation tests must share one key material across directories (a fresh
+// generateTestPem() per dir would give same-named kids DIFFERENT keys).
+std::string writeKeystoreDir(
+  const std::vector<std::pair<std::string, std::string>> &entries,
+  const std::string &activeKid
+)
+{
+    namespace fs = std::filesystem;
+    static int counter = 100;
+    const std::string dir = std::string(std::getenv("TEMP") ? std::getenv("TEMP") : "/tmp") +
+                            "/jwkstore_" + std::to_string(++counter);
+    std::error_code ec;
+    fs::remove_all(fs::path(dir), ec);  // stale pems from earlier runs poison the load
+    fs::create_directories(dir);
+    for (const auto &[kid, pem] : entries)
+    {
+        std::ofstream f(fs::path(dir) / (kid + ".pem"), std::ios::binary | std::ios::trunc);
+        f << pem;
+    }
+    std::ofstream active(fs::path(dir) / "active_kid", std::ios::trunc);
+    active << activeKid << '\n';
+    return dir;
+}
+
+std::string makeKeystoreDir(const std::vector<std::string> &kids, const std::string &activeKid)
+{
+    namespace fs = std::filesystem;
+    static int counter = 0;
+    const std::string dir = std::string(std::getenv("TEMP") ? std::getenv("TEMP") : "/tmp") +
+                            "/jwkstore_" + std::to_string(++counter);
+    std::error_code ec;
+    fs::remove_all(fs::path(dir), ec);  // stale pems from earlier runs poison the load
+    fs::create_directories(dir);
+    for (const auto &kid : kids)
+    {
+        std::ofstream f(fs::path(dir) / (kid + ".pem"), std::ios::binary | std::ios::trunc);
+        f << generateTestPem();
+    }
+    std::ofstream active(fs::path(dir) / "active_kid", std::ios::trunc);
+    active << activeKid << "\n";
+    return dir;
+}
+
+Json::Value keystoreConfig(const std::string &dir)
+{
+    Json::Value config(Json::objectValue);
+    config["signing_keystore_dir"] = dir;
+    return config;
+}
+
+TEST(JwkManagerTest, Keystore_LoadsAllKeysAndActiveKid)
+{
+    const std::string dir = makeKeystoreDir({"k2025", "k2026"}, "k2026");
+    JwkManager jwk;
+    EXPECT_TRUE(jwk.init(keystoreConfig(dir)));
+    EXPECT_EQ(jwk.getKeyId(), "k2026");
+
+    Json::Value jwks = jwk.getJwks();
+    ASSERT_TRUE(jwks["keys"].isArray());
+    ASSERT_EQ(jwks["keys"].size(), 2u);
+    // Sorted by filename: k2025 first, k2026 second.
+    EXPECT_EQ(jwks["keys"][0]["kid"].asString(), "k2025");
+    EXPECT_EQ(jwks["keys"][1]["kid"].asString(), "k2026");
+}
+
+TEST(JwkManagerTest, Keystore_SignsWithActiveKidAndVerifies)
+{
+    const std::string dir = makeKeystoreDir({"k2025", "k2026"}, "k2026");
+    JwkManager jwk;
+    ASSERT_TRUE(jwk.init(keystoreConfig(dir)));
+
+    Json::Value claims;
+    claims["iss"] = kStoreIssuer;
+    claims["sub"] = "user-1";
+    claims["exp"] = static_cast<Json::Int64>(std::time(nullptr) + 300);
+    const std::string jwt = jwk.signJwt(claims);
+    ASSERT_FALSE(jwt.empty());
+
+    // Round-trips on the same (both-keys) manager.
+    EXPECT_EQ(
+      jwk.verifyJwt(jwt, kStoreIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::Ok
+    );
+
+    // Kid routing proves the ACTIVE key signed it: a manager holding ONLY
+    // k2025 rejects the k2026-kid token with KidMismatch (not BadSignature).
+    const std::string dirOldOnly = makeKeystoreDir({"k2025"}, "k2025");
+    JwkManager oldOnly;
+    ASSERT_TRUE(oldOnly.init(keystoreConfig(dirOldOnly)));
+    EXPECT_EQ(
+      oldOnly.verifyJwt(jwt, kStoreIssuer, std::time(nullptr)),
+      JwkManager::JwtVerificationResult::KidMismatch
+    );
+}
+
+TEST(JwkManagerTest, Keystore_RetiredKeyStopsVerifyingAfterRemoval)
+{
+    // ONE key material shared across the three rotation-stage directories.
+    const std::string pemOld = generateTestPem();
+    const std::string pemNew = generateTestPem();
+
+    // Rotation step 1+2 state: both keys loaded, OLD one still signing.
+    const std::string dirBoth =
+      writeKeystoreDir({{"k2025", pemOld}, {"k2026", pemNew}}, "k2025");
+    JwkManager signing;
+    ASSERT_TRUE(signing.init(keystoreConfig(dirBoth)));
+
+    Json::Value claims;
+    claims["iss"] = kStoreIssuer;
+    claims["sub"] = "user-1";
+    claims["exp"] = static_cast<Json::Int64>(std::time(nullptr) + 300);
+    const std::string oldKeyToken = signing.signJwt(claims);  // signed by k2025 (active)
+    ASSERT_FALSE(oldKeyToken.empty());
+
+    // While k2025 is still published, a manager that loaded BOTH keys
+    // verifies it (grace window) -- same key material, active flipped.
+    {
+        const std::string dirVerify =
+          writeKeystoreDir({{"k2025", pemOld}, {"k2026", pemNew}}, "k2026");
+        JwkManager verifier;
+        ASSERT_TRUE(verifier.init(keystoreConfig(dirVerify)));
+        EXPECT_EQ(
+          verifier.verifyJwt(oldKeyToken, kStoreIssuer, std::time(nullptr)),
+          JwkManager::JwtVerificationResult::Ok
+        );
+    }
+
+    // Rotation step 3: k2025 removed from the keystore -> its tokens now
+    // fail with KidMismatch (unknown kid), never BadSignature confusion.
+    {
+        const std::string dirRetired = writeKeystoreDir({{"k2026", pemNew}}, "k2026");
+        JwkManager retired;
+        ASSERT_TRUE(retired.init(keystoreConfig(dirRetired)));
+        EXPECT_EQ(
+          retired.verifyJwt(oldKeyToken, kStoreIssuer, std::time(nullptr)),
+          JwkManager::JwtVerificationResult::KidMismatch
+        );
+    }
+}
+
+TEST(JwkManagerTest, Keystore_ActiveKidMissingFromDir_FailsInit)
+{
+    const std::string dir = makeKeystoreDir({"k2026"}, "k2026");
+    // Marker names a kid with no pem.
+    std::ofstream active(std::filesystem::path(dir) / "active_kid", std::ios::trunc);
+    active << "k9999\n";
+
+    JwkManager jwk;
+    EXPECT_FALSE(jwk.init(keystoreConfig(dir)));
+    EXPECT_FALSE(jwk.isInitialized());
+}
+
+TEST(JwkManagerTest, Keystore_NoActiveKidMarker_FailsInit)
+{
+    namespace fs = std::filesystem;
+    const std::string dir = makeKeystoreDir({"k2026"}, "k2026");
+    fs::remove(fs::path(dir) / "active_kid");
+
+    JwkManager jwk;
+    EXPECT_FALSE(jwk.init(keystoreConfig(dir)));
+}
+
+TEST(JwkManagerTest, Keystore_BrokenDirDoesNotFallBackToEnvKey)
+{
+    // A configured-but-invalid keystore must be a HARD failure (init false),
+    // never a silent fallthrough to FULLA_SIGNING_KEY: half-configured
+    // rotation state signing with an unexpected key is the worst outcome.
+    const std::string dir = makeKeystoreDir({"k2026"}, "k2026");
+    std::filesystem::remove(std::filesystem::path(dir) / "active_kid");
+
+    EnvVarGuard env("FULLA_SIGNING_KEY", generateTestPem());
+    JwkManager jwk;
+    EXPECT_FALSE(jwk.init(keystoreConfig(dir)));
+}
+
+TEST(JwkManagerTest, Keystore_TakesPrecedenceOverEnvKey)
+{
+    // With a VALID keystore configured, the env key is ignored (keystore is
+    // authoritative) -- the active kid proves which source loaded.
+    const std::string dir = makeKeystoreDir({"kk"}, "kk");
+    EnvVarGuard env("FULLA_SIGNING_KEY", generateTestPem());
+    JwkManager jwk;
+    EXPECT_TRUE(jwk.init(keystoreConfig(dir)));
+    EXPECT_EQ(jwk.getKeyId(), "kk");
+    Json::Value jwks = jwk.getJwks();
+    ASSERT_EQ(jwks["keys"].size(), 1u);
 }
 
 }  // namespace

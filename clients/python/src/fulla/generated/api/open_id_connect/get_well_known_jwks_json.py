@@ -46,7 +46,9 @@ def sync_detailed(
 ) -> Response[JWKSet]:
     """JSON Web Key Set
 
-     Returns the public keys used by this server to sign JWTs.
+     Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110)
+    EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active
+    signer is the kid the issued JWT headers carry.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,7 +73,9 @@ def sync(
 ) -> JWKSet | None:
     """JSON Web Key Set
 
-     Returns the public keys used by this server to sign JWTs.
+     Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110)
+    EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active
+    signer is the kid the issued JWT headers carry.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -92,7 +96,9 @@ async def asyncio_detailed(
 ) -> Response[JWKSet]:
     """JSON Web Key Set
 
-     Returns the public keys used by this server to sign JWTs.
+     Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110)
+    EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active
+    signer is the kid the issued JWT headers carry.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -115,7 +121,9 @@ async def asyncio(
 ) -> JWKSet | None:
     """JSON Web Key Set
 
-     Returns the public keys used by this server to sign JWTs.
+     Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110)
+    EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active
+    signer is the kid the issued JWT headers carry.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

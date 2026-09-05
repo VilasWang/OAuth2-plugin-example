@@ -240,8 +240,13 @@ test_11() {
     local r
     r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/oidc/keys")
     assert_json_field "$r" "status" "success" || return 1
-    assert_json_field "$r" "kty" "RSA" || return 1
-    assert_json_field "$r" "alg" "RS256" || return 1
+    # #110-B: live keystore view -- keys[] entries (kid/kty/alg/status) +
+    # active_kid; the entry flagged "active" is by construction active_kid.
+    assert_json_field "$r" "keys[0].kty" "RSA" || return 1
+    assert_json_field "$r" "keys[0].alg" "RS256" || return 1
+    assert_json_field "$r" "keys[0].status" "active" || return 1
+    assert_json_exists "$r" "active_kid" || return 1
+    assert_json_exists "$r" "keys[0].kid" || return 1
 }
 run_test "Test 11: GET /api/admin/oidc/keys" test_11
 

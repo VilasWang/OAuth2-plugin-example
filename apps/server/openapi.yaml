@@ -727,7 +727,10 @@ openapi: 3.0.0
 paths:
   /.well-known/jwks.json:
     get:
-      description: Returns the public keys used by this server to sign JWTs.
+      description: Returns the public keys used by this server to sign JWTs. With a
+        signing keystore configured (#110) EVERY loaded key is published so tokens
+        keep verifying across the rotation grace window; the active signer is the
+        kid the issued JWT headers carry.
       operationId: get_.well-known_jwks.json
       responses:
         '200':
@@ -1073,7 +1076,10 @@ paths:
       - Logs
   /api/admin/oidc/keys:
     get:
-      description: Get information about OIDC signing keys.
+      description: 'Live signing-keystore state (#110): every loaded kid with its
+        status (active = signs new tokens, published = verification-only during a
+        rotation grace window), the active_kid, and the key count. Cryptographic
+        material (n/e) lives in /.well-known/jwks.json.'
       operationId: get_api_admin_oidc_keys
       responses:
         '200':
@@ -2963,9 +2969,11 @@ paths:
         RS256 signature against the OP key set, strict alg/kid, iss, exp) — any
         failure, or a hint subject that contradicts the browser session, is
         rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri
-        MUST be registered for the client identified by the verified id_token_hint
-        (its aud claim); without a hint the request is rejected with 400 when a
-        redirect URI is supplied. Accepts both GET (link-based) and POST
+        MUST be registered for the client identifying itself in the request: the
+        verified id_token_hint (its aud claim) or, when no hint is supplied, the
+        client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for
+        exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI
+        is rejected with 400. Accepts both GET (link-based) and POST
         (form-based).'
       operationId: get_oauth2_end_session
       parameters:
@@ -2984,6 +2992,14 @@ paths:
           id_token_hint client; rejected with 400 otherwise.
         in: query
         name: post_logout_redirect_uri
+        required: false
+        schema:
+          type: string
+      - description: 'RP self-identification when id_token_hint is absent
+          (RP-Initiated Logout 1.0 §2.1). The post_logout_redirect_uri must be
+          registered for this client (#88-3).'
+        in: query
+        name: client_id
         required: false
         schema:
           type: string

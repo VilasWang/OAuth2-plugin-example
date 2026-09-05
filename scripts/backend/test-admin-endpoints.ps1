@@ -292,10 +292,14 @@ Test-Endpoint "Test 11: GET /api/admin/oidc/keys" {
     $h = Get-AuthHeaders
     $r = Invoke-RestMethod -Uri "$BaseUrl/api/admin/oidc/keys" -Method Get -Headers $h
     if ($r.status -ne "success") { throw "status != success" }
-    if ($r.kty -ne "RSA") { throw "kty != RSA" }
-    if ($r.alg -ne "RS256") { throw "alg != RS256" }
-    if ($r.key_status -ne "active") { throw "key_status != active" }
-    Write-Host "    kid=$($r.kid), alg=$($r.alg), status=$($r.key_status)"
+    # 110-B: live keystore view -- keys[] entries (kid/kty/alg/status) + active_kid.
+    if ($r.keys.Count -lt 1) { throw "keys[] is empty" }
+    if ($r.keys[0].kty -ne "RSA") { throw "keys[0].kty != RSA" }
+    if ($r.keys[0].alg -ne "RS256") { throw "keys[0].alg != RS256" }
+    $active = @($r.keys | Where-Object { $_.status -eq "active" })
+    if ($active.Count -ne 1) { throw "expected exactly one active key, got $($active.Count)" }
+    if ($active[0].kid -ne $r.active_kid) { throw "active entry kid != active_kid" }
+    Write-Host "    keys=$($r.keys.Count), active_kid=$($r.active_kid)"
 }
 
 Test-Endpoint "Test 11b: DELETE /api/admin/tokens/:tokenPrefix - Single Revoke" {

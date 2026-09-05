@@ -931,6 +931,9 @@ type GetOauth2EndSessionParams struct {
 	// PostLogoutRedirectUri URI to redirect to after logout. Must be registered for the id_token_hint client; rejected with 400 otherwise.
 	PostLogoutRedirectUri *string `form:"post_logout_redirect_uri,omitempty" json:"post_logout_redirect_uri,omitempty"`
 
+	// ClientId RP self-identification when id_token_hint is absent (RP-Initiated Logout 1.0 §2.1). The post_logout_redirect_uri must be registered for this client (#88-3).
+	ClientId *string `form:"client_id,omitempty" json:"client_id,omitempty"`
+
 	// State Opaque value echoed back to the post_logout_redirect_uri.
 	State *string `form:"state,omitempty" json:"state,omitempty"`
 }
@@ -1240,7 +1243,7 @@ type ClientInterface interface {
 
 	// GetWellKnownJwksJson JSON Web Key Set
 	//
-	// Returns the public keys used by this server to sign JWTs.
+	// Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110) EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active signer is the kid the issued JWT headers carry.
 	//
 	// Corresponds with GET /.well-known/jwks.json (the `GetWellKnownJwksJson` operationId).
 	GetWellKnownJwksJson(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1360,7 +1363,7 @@ type ClientInterface interface {
 
 	// GetApiAdminOidcKeys Get OIDC Keys Info
 	//
-	// Get information about OIDC signing keys.
+	// Live signing-keystore state (#110): every loaded kid with its status (active = signs new tokens, published = verification-only during a rotation grace window), the active_kid, and the key count. Cryptographic material (n/e) lives in /.well-known/jwks.json.
 	//
 	// Corresponds with GET /api/admin/oidc/keys (the `GetApiAdminOidcKeys` operationId).
 	GetApiAdminOidcKeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1926,7 +1929,7 @@ type ClientInterface interface {
 
 	// GetOauth2EndSession RP-Initiated Logout
 	//
-	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400. Accepts both GET (link-based) and POST (form-based).
 	//
 	// Corresponds with GET /oauth2/end_session (the `GetOauth2EndSession` operationId).
 	GetOauth2EndSession(ctx context.Context, params *GetOauth2EndSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2124,7 +2127,7 @@ type ClientInterface interface {
 
 // GetWellKnownJwksJson JSON Web Key Set
 //
-// Returns the public keys used by this server to sign JWTs.
+// Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110) EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active signer is the kid the issued JWT headers carry.
 //
 // Corresponds with GET /.well-known/jwks.json (the `GetWellKnownJwksJson` operationId).
 func (c *Client) GetWellKnownJwksJson(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2404,7 +2407,7 @@ func (c *Client) GetApiAdminLogs(ctx context.Context, reqEditors ...RequestEdito
 
 // GetApiAdminOidcKeys Get OIDC Keys Info
 //
-// Get information about OIDC signing keys.
+// Live signing-keystore state (#110): every loaded kid with its status (active = signs new tokens, published = verification-only during a rotation grace window), the active_kid, and the key count. Cryptographic material (n/e) lives in /.well-known/jwks.json.
 //
 // Corresponds with GET /api/admin/oidc/keys (the `GetApiAdminOidcKeys` operationId).
 func (c *Client) GetApiAdminOidcKeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3690,7 +3693,7 @@ func (c *Client) PostOauth2DeviceAuthorizationWithFormdataBody(ctx context.Conte
 
 // GetOauth2EndSession RP-Initiated Logout
 //
-// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400. Accepts both GET (link-based) and POST (form-based).
 //
 // Corresponds with GET /oauth2/end_session (the `GetOauth2EndSession` operationId).
 func (c *Client) GetOauth2EndSession(ctx context.Context, params *GetOauth2EndSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -6835,6 +6838,18 @@ func NewGetOauth2EndSessionRequest(server string, params *GetOauth2EndSessionPar
 
 		}
 
+		if params.ClientId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "client_id", *params.ClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.State != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
@@ -7408,7 +7423,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetWellKnownJwksJsonWithResponse JSON Web Key Set
 	//
-	// Returns the public keys used by this server to sign JWTs.
+	// Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110) EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active signer is the kid the issued JWT headers carry.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -7552,7 +7567,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiAdminOidcKeysWithResponse Get OIDC Keys Info
 	//
-	// Get information about OIDC signing keys.
+	// Live signing-keystore state (#110): every loaded kid with its status (active = signs new tokens, published = verification-only during a rotation grace window), the active_kid, and the key count. Cryptographic material (n/e) lives in /.well-known/jwks.json.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -8200,7 +8215,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetOauth2EndSessionWithResponse RP-Initiated Logout
 	//
-	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+	// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400. Accepts both GET (link-based) and POST (form-based).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -12113,7 +12128,7 @@ func (r PostOauth2WebauthnAuthenticateFinishResponse) ContentType() string {
 
 // GetWellKnownJwksJsonWithResponse JSON Web Key Set
 //
-// Returns the public keys used by this server to sign JWTs.
+// Returns the public keys used by this server to sign JWTs. With a signing keystore configured (#110) EVERY loaded key is published so tokens keep verifying across the rotation grace window; the active signer is the kid the issued JWT headers carry.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -12353,7 +12368,7 @@ func (c *ClientWithResponses) GetApiAdminLogsWithResponse(ctx context.Context, r
 
 // GetApiAdminOidcKeysWithResponse Get OIDC Keys Info
 //
-// Get information about OIDC signing keys.
+// Live signing-keystore state (#110): every loaded kid with its status (active = signs new tokens, published = verification-only during a rotation grace window), the active_kid, and the key count. Cryptographic material (n/e) lives in /.well-known/jwks.json.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -13433,7 +13448,7 @@ func (c *ClientWithResponses) PostOauth2DeviceAuthorizationWithFormdataBodyWithR
 
 // GetOauth2EndSessionWithResponse RP-Initiated Logout
 //
-// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identified by the verified id_token_hint (its aud claim); without a hint the request is rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-based).
+// OIDC RP-Initiated Logout 1.0 §2. Terminates the user's server-side session and (optionally) redirects to a registered post_logout_redirect_uri. When id_token_hint is supplied it MUST pass end-to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any failure, or a hint subject that contradicts the browser session, is rejected with 400 AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400. Accepts both GET (link-based) and POST (form-based).
 //
 // Returns a wrapper object for the known response body format(s).
 //

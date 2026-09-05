@@ -46,7 +46,9 @@ def sync_detailed(
 ) -> Response[Any]:
     """Get OIDC Keys Info
 
-     Get information about OIDC signing keys.
+     Live signing-keystore state (#110): every loaded kid with its status (active = signs new tokens,
+    published = verification-only during a rotation grace window), the active_kid, and the key count.
+    Cryptographic material (n/e) lives in /.well-known/jwks.json.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,7 +73,9 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Get OIDC Keys Info
 
-     Get information about OIDC signing keys.
+     Live signing-keystore state (#110): every loaded kid with its status (active = signs new tokens,
+    published = verification-only during a rotation grace window), the active_kid, and the key count.
+    Cryptographic material (n/e) lives in /.well-known/jwks.json.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

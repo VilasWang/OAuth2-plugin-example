@@ -14,6 +14,7 @@ def _get_kwargs(
     *,
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
+    client_id: str | Unset = UNSET,
     state: str | Unset = UNSET,
 ) -> dict[str, Any]:
 
@@ -22,6 +23,8 @@ def _get_kwargs(
     params["id_token_hint"] = id_token_hint
 
     params["post_logout_redirect_uri"] = post_logout_redirect_uri
+
+    params["client_id"] = client_id
 
     params["state"] = state
 
@@ -75,6 +78,7 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
+    client_id: str | Unset = UNSET,
     state: str | Unset = UNSET,
 ) -> Response[Any | ErrorEnvelope | MessageResponse]:
     """RP-Initiated Logout
@@ -84,13 +88,15 @@ def sync_detailed(
     to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any
     failure, or a hint subject that contradicts the browser session, is rejected with 400
     AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the
-    client identified by the verified id_token_hint (its aud claim); without a hint the request is
-    rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-
-    based).
+    client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no
+    hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for
+    exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400.
+    Accepts both GET (link-based) and POST (form-based).
 
     Args:
         id_token_hint (str | Unset):
         post_logout_redirect_uri (str | Unset):
+        client_id (str | Unset):
         state (str | Unset):
 
     Raises:
@@ -104,6 +110,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         id_token_hint=id_token_hint,
         post_logout_redirect_uri=post_logout_redirect_uri,
+        client_id=client_id,
         state=state,
     )
 
@@ -119,6 +126,7 @@ def sync(
     client: AuthenticatedClient | Client,
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
+    client_id: str | Unset = UNSET,
     state: str | Unset = UNSET,
 ) -> Any | ErrorEnvelope | MessageResponse | None:
     """RP-Initiated Logout
@@ -128,13 +136,15 @@ def sync(
     to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any
     failure, or a hint subject that contradicts the browser session, is rejected with 400
     AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the
-    client identified by the verified id_token_hint (its aud claim); without a hint the request is
-    rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-
-    based).
+    client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no
+    hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for
+    exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400.
+    Accepts both GET (link-based) and POST (form-based).
 
     Args:
         id_token_hint (str | Unset):
         post_logout_redirect_uri (str | Unset):
+        client_id (str | Unset):
         state (str | Unset):
 
     Raises:
@@ -149,6 +159,7 @@ def sync(
         client=client,
         id_token_hint=id_token_hint,
         post_logout_redirect_uri=post_logout_redirect_uri,
+        client_id=client_id,
         state=state,
     ).parsed
 
@@ -158,6 +169,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
+    client_id: str | Unset = UNSET,
     state: str | Unset = UNSET,
 ) -> Response[Any | ErrorEnvelope | MessageResponse]:
     """RP-Initiated Logout
@@ -167,13 +179,15 @@ async def asyncio_detailed(
     to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any
     failure, or a hint subject that contradicts the browser session, is rejected with 400
     AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the
-    client identified by the verified id_token_hint (its aud claim); without a hint the request is
-    rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-
-    based).
+    client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no
+    hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for
+    exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400.
+    Accepts both GET (link-based) and POST (form-based).
 
     Args:
         id_token_hint (str | Unset):
         post_logout_redirect_uri (str | Unset):
+        client_id (str | Unset):
         state (str | Unset):
 
     Raises:
@@ -187,6 +201,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         id_token_hint=id_token_hint,
         post_logout_redirect_uri=post_logout_redirect_uri,
+        client_id=client_id,
         state=state,
     )
 
@@ -200,6 +215,7 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     id_token_hint: str | Unset = UNSET,
     post_logout_redirect_uri: str | Unset = UNSET,
+    client_id: str | Unset = UNSET,
     state: str | Unset = UNSET,
 ) -> Any | ErrorEnvelope | MessageResponse | None:
     """RP-Initiated Logout
@@ -209,13 +225,15 @@ async def asyncio(
     to-end verification (#78: RS256 signature against the OP key set, strict alg/kid, iss, exp) — any
     failure, or a hint subject that contradicts the browser session, is rejected with 400
     AUTH_INVALID_ID_TOKEN_HINT (Error Envelope). post_logout_redirect_uri MUST be registered for the
-    client identified by the verified id_token_hint (its aud claim); without a hint the request is
-    rejected with 400 when a redirect URI is supplied. Accepts both GET (link-based) and POST (form-
-    based).
+    client identifying itself in the request: the verified id_token_hint (its aud claim) or, when no
+    hint is supplied, the client_id parameter (RP-Initiated Logout 1.0 §2.1 defines client_id for
+    exactly this case, #88-3). With NEITHER hint nor client_id a redirect URI is rejected with 400.
+    Accepts both GET (link-based) and POST (form-based).
 
     Args:
         id_token_hint (str | Unset):
         post_logout_redirect_uri (str | Unset):
+        client_id (str | Unset):
         state (str | Unset):
 
     Raises:
@@ -231,6 +249,7 @@ async def asyncio(
             client=client,
             id_token_hint=id_token_hint,
             post_logout_redirect_uri=post_logout_redirect_uri,
+            client_id=client_id,
             state=state,
         )
     ).parsed

@@ -1,12 +1,14 @@
 name: Coverage
 
-# #105: produce (not gate) line coverage on Linux. FULLA_TEST_COVERAGE +
+# #105: produce AND gate line coverage on Linux. FULLA_TEST_COVERAGE +
 # cmake/Coverage.cmake instrument every first-party lib; scripts/
-# measure_coverage.py aggregates the gcov JSON into a per-library report.
-# No threshold/ratchet yet -- the first goal is a visible baseline (a
-# ratchet that starts red is worse than no ratchet). Codecov integration is
-# deliberately deferred (needs an account/token decision); artifacts carry
-# the raw data meanwhile.
+# measure_coverage.py aggregates the gcov JSON into a per-library report and
+# enforces the local ratchet (decision B, 2026-09-03): any non-exempt library
+# dropping more than 0.5pp below tools/coverage/ratchet-baseline.json fails
+# the build. Re-baselining (including upward) is a deliberate reviewed PR
+# edit of the JSON. Codecov-style external hosting remains deliberately out
+# (self-contained gate, consistent with api-diff/oasdiff/spec-governance);
+# artifacts carry the raw data meanwhile.
 
 on:
   workflow_dispatch:
@@ -137,6 +139,15 @@ jobs:
             find build/$PRESET/libs -name '*.gcov.json.gz' | python3 scripts/measure_coverage.py
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Coverage ratchet gate (#105, no-decrease vs baseline)
+        # Decision B (local self-contained gate): fail when any non-exempt
+        # library drops more than 0.5pp below tools/coverage/
+        # ratchet-baseline.json. Seed mode (baseline absent) prints the JSON
+        # to commit and passes.
+        working-directory: ${{ github.workspace }}
+        run: |
+          find build/$PRESET/libs -name '*.gcov.json.gz' | python3 scripts/measure_coverage.py --ratchet tools/coverage/ratchet-baseline.json
 
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

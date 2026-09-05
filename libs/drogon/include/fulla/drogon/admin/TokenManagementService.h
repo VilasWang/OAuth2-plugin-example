@@ -12,6 +12,7 @@
 
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
 
 #include <functional>
 #include <memory>
@@ -51,7 +52,12 @@ class TokenManagementService
     static void revokeTokensByUser(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
 
     // ---- GET /api/admin/oidc/keys (no DB access, pure metadata) ----
-    static void getOidcKeys(ResponseCallback cb);
+    // #110-B: reports the LIVE keystore state (every loaded kid, which one
+    // is active) from the provided JwkManager instead of the hardcoded stub.
+    static void getOidcKeys(
+      ResponseCallback cb,
+      const std::shared_ptr<const fulla::oauth2::JwkManager> &jwkManager
+    );
 };
 
 }  // namespace fulla::drogon::admin

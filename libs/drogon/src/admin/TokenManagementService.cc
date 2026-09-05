@@ -320,18 +320,39 @@ void TokenManagementService::revokeTokensByUser(
     );
 }
 
-void TokenManagementService::getOidcKeys(ResponseCallback cb)
+void TokenManagementService::getOidcKeys(
+  ResponseCallback cb,
+  const std::shared_ptr<const fulla::oauth2::JwkManager> &jwkManager
+)
 {
     Json::Value json;
     json["status"] = "success";
-    json["kid"] = "default-key-1";
-    json["kty"] = "RSA";
-    json["alg"] = "RS256";
-    json["use"] = "sig";
     json["jwks_uri"] = "/.well-known/jwks.json";
     json["discovery_uri"] = "/.well-known/openid-configuration";
-    json["key_status"] = "active";
-    json["note"] = "Key rotation is not yet implemented. Single signing key in use.";
+
+    // #110-B: live keystore view. The JWKS carries the cryptographic detail
+    // (n/e per key); this admin view summarizes the rotation state instead:
+    // every loaded kid, the active signer, and the rotation procedure note.
+    Json::Value jwks = jwkManager ? jwkManager->getJwks() : Json::Value(Json::objectValue);
+    Json::Value keys(Json::arrayValue);
+    const std::string &activeKid = jwkManager ? jwkManager->getKeyId() : std::string();
+    for (const auto &key : jwks["keys"])
+    {
+        Json::Value entry;
+        entry["kid"] = key.get("kid", "");
+        entry["kty"] = key.get("kty", "RSA");
+        entry["alg"] = key.get("alg", "RS256");
+        entry["use"] = key.get("use", "sig");
+        entry["status"] = (entry["kid"].asString() == activeKid) ? "active" : "published";
+        keys.append(entry);
+    }
+    json["keys"] = keys;
+    json["active_kid"] = activeKid;
+    json["key_count"] = static_cast<Json::UInt64>(keys.size());
+    json["note"] =
+      "Rotation: add <kid>.pem to the keystore dir and restart (published), flip "
+      "active_kid and restart (signing switches), remove the old <kid>.pem after "
+      "the max token lifetime and restart (retired).";
 
     (*cb)(::drogon::HttpResponse::newHttpJsonResponse(json));
 }

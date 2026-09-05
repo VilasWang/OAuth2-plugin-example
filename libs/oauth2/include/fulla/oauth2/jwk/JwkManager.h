@@ -24,6 +24,7 @@
 #include <json/json.h>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace fulla::oauth2
 {
@@ -31,17 +32,33 @@ namespace fulla::oauth2
 /**
  * @brief Manages RSA signing keys for OpenID Connect id_token.
  *
- * Loads RSA private key from PEM file or environment variable.
- * Signs JWT tokens using RS256 algorithm.
- * Exposes public key in JWK format for /.well-known/jwks.json.
+ * Loads RSA private keys from a keystore directory (#110-B), a single PEM
+ * file / env var (legacy single-key sources), or an ephemeral dev fallback.
+ * Signs JWT tokens with the ACTIVE key (RS256); verifies by routing on the
+ * JWT header kid across ALL loaded keys, so outstanding tokens signed by a
+ * since-retired key keep verifying while its public half is still published.
+ * Exposes every loaded public key in JWK format for /.well-known/jwks.json.
+ *
+ * ── Keystore directory (#110-B rotation) ─────────────────────────────────
+ * config "signing_keystore_dir" points at a directory of
+ *   <kid>.pem        one RSA private key per file, filename = kid
+ *   active_kid       a one-line text file naming the signing kid
+ * Rotation procedure (JwkManager is init-once/read-only by contract, so each
+ * step restarts the server -- see docs/operate/configuration-guide.md §9):
+ *   1. drop the new <kid>.pem in, restart  -> both keys published in JWKS,
+ *      old key keeps signing;
+ *   2. flip active_kid to the new kid, restart -> new key signs, old still
+ *      published for verification;
+ *   3. after the max token lifetime has passed, remove the old <kid>.pem,
+ *      restart -> old key fully retired.
  *
  * ── Concurrency contract: init-once, then read-only ─────────────────────
  * This class follows an "initialize exactly once during startup, read-only
  * at runtime" contract:
  *   - init() MUST be called exactly once, before the server begins
  *     accepting requests. init() is the ONLY mutating method; a second
- *     call logs an error and is a no-op (does NOT re-allocate rsaKey_ or
- *     overwrite kid_), removing the run-time mutation entry point.
+ *     call logs an error and is a no-op (does NOT re-allocate keys_ or
+ *     overwrite activeKid_), removing the run-time mutation entry point.
  *   - signJwt(), getJwks(), getKeyId(), isInitialized() are all const and
  *     only read the key state; safe to call concurrently from many
  *     threads with no per-call locking, PROVIDED init() has already
@@ -79,15 +96,22 @@ class JwkManager
     /**
      * @brief Initialize from configuration (call EXACTLY ONCE, at startup).
      *
-     * Loads the RSA private key from an env var / file path, or generates
-     * an ephemeral dev key as a fallback. This is the only mutating
-     * method.
+     * Source precedence (first that yields a loaded key wins):
+     *   1. "signing_keystore_dir" -- multi-key rotation directory (#110-B);
+     *   2. FULLA_SIGNING_KEY env (inline PEM, single key);
+     *   3. FULLA_JWT_KEY_PATH env (PEM file, single key);
+     *   4. "signing_key_path" config (PEM file, single key);
+     *   5. ephemeral generated key -- DEV ONLY, refused under
+     *      FULLA_ENV=production.
+     * Single-key sources load with kid = config "kid" (default "key-1");
+     * the keystore derives kids from the PEM filenames and the active key
+     * from the directory's active_kid file.
      *
-     * @param config JSON config with "signing_key_path" / "kid" (or env
-     * vars).
-     * @return true if a key is loaded and the manager is initialized
-     * (including the no-op case where it was already initialized); false
-     * on first-time initialization failure.
+     * @param config JSON config with "signing_keystore_dir" /
+     * "signing_key_path" / "kid" (or env vars).
+     * @return true if at least one key is loaded and the manager is
+     * initialized (including the no-op case where it was already
+     * initialized); false on first-time initialization failure.
      */
     bool init(const Json::Value &config);
 
@@ -177,7 +201,7 @@ class JwkManager
     /// Get the current key ID.
     const std::string &getKeyId() const
     {
-        return kid_;
+        return activeKid_;
     }
 
     /// Check if manager is initialized with a valid key.
@@ -187,13 +211,34 @@ class JwkManager
     }
 
   private:
-    void *rsaKey_ = nullptr;  // EVP_PKEY* (opaque to avoid OpenSSL header in public API)
-    std::string kid_;
+    /// One loaded signing key. `pkey` is an EVP_PKEY* kept opaque (void*) so
+    /// the public header does not pull OpenSSL in -- same convention as the
+    /// pre-#110 single `rsaKey_` member.
+    struct KeyEntry
+    {
+        std::string kid;
+        void *pkey = nullptr;  // EVP_PKEY* (owned)
+    };
+
+    /// All loaded keys (>=1 once initialized_). Order = load order; the
+    /// keystore sorts by filename, single-key sources append their one entry.
+    std::vector<KeyEntry> keys_;
+    std::string activeKid_;  // kid of the signing key (equals keys_[i].kid)
     bool initialized_ = false;
     fulla::common::ports::ILogger *logger_ = nullptr;  // non-owning; may be nullptr
 
-    bool generateEphemeralKey();
-    bool loadFromPem(const std::string &pemData);
+    /// Find a loaded entry by kid; nullptr when unknown.
+    const KeyEntry *findEntry(const std::string &kid) const;
+    /// The active (signing) entry; nullptr when uninitialized.
+    const KeyEntry *activeEntry() const;
+
+    bool generateEphemeralKey(KeyEntry &entry);
+    /// Parse one PEM into `entry.pkey`; returns false on parse failure
+    /// (kid must be set by the caller).
+    bool loadPemInto(KeyEntry &entry, const std::string &pemData);
+    /// #110-B: load <kid>.pem files + the active_kid marker from `dir`.
+    /// Returns false (with keys_ untouched) on any structural error.
+    bool loadKeystoreDir(const std::string &dir);
 
     static std::string base64UrlEncode(const unsigned char *data, size_t len);
     static std::string base64UrlEncode(const std::string &data);
@@ -202,7 +247,13 @@ class JwkManager
     /// on failure. Domain-layer constraint: hand-rolled, no drogon/3rd-party.
     static bool base64UrlDecode(const std::string &input, std::string &output);
 
-    bool getPublicKeyComponents(std::string &n, std::string &e) const;
+    /// n/e components of one key's public half (empty-then-false on failure).
+    bool getPublicKeyComponents(const KeyEntry &entry, std::string &n, std::string &e) const;
+
+    /// Verify the RS256 signature of `signingInput` against one key.
+    static bool verifyRs256Signature(
+      const void *pkey, const std::string &signingInput, const std::string &signature
+    );
 
     /// Shared verification core of verifyJwt()/verifyAndDecode(): runs the
     /// full check chain; when verifiedPayloadOut is non-null and every check

@@ -474,13 +474,17 @@ struct OAuth2ControllerDocs
             endSessionGet.tags = {"OAuth2", "OIDC"};
             endSessionGet.parameters = {
               endSessionParam("id_token_hint", "Previously issued id_token hinting at the client/session to terminate."),
-              endSessionParam("post_logout_redirect_uri", "URI to redirect to after logout; must be registered for the id_token_hint client."),
+              endSessionParam(
+                "client_id",
+                "RP self-identification when id_token_hint is absent (RP-Initiated Logout 1.0 §2.1); the post_logout_redirect_uri must be registered for this client (#88-3)."
+              ),
+              endSessionParam("post_logout_redirect_uri", "URI to redirect to after logout; must be registered for the id_token_hint (or client_id) client."),
               endSessionParam("state", "Opaque value echoed back to the post_logout_redirect_uri."),
             };
             endSessionGet.responses = {
               {200, "Logged out (no post_logout_redirect_uri supplied)"},
               {302, "Redirect to the validated post_logout_redirect_uri (with state)"},
-              {400, "post_logout_redirect_uri not registered / no id_token_hint"},
+              {400, "post_logout_redirect_uri not registered / neither id_token_hint nor client_id supplied"},
             };
             endSessionGet.requiresAuth = false;
             OpenApiGenerator::addEndpoint(endSessionGet);
@@ -1880,14 +1884,18 @@ void SessionController::endSession(
     auto params = req->getParameters();
     std::string idTokenHint = params["id_token_hint"];
     std::string postLogoutRedirectUri = params["post_logout_redirect_uri"];
+    std::string clientId = params["client_id"];
     std::string state = params["state"];
 
     // Validate post_logout_redirect_uri: if id_token_hint is present (and,
     // since #78, signature-verified -- see the gate below), use its aud claim
     // to find the client_id, then require the redirect URI to be one of that
-    // client's registered redirect_uris. If id_token_hint is absent, only
-    // accept the redirect URI when it is empty (the spec allows the server to
-    // require pre-registration; this server does so for safety).
+    // client's registered redirect_uris. If id_token_hint is absent, the RP
+    // may instead identify itself with the client_id parameter (OIDC
+    // RP-Initiated Logout 1.0 §2.1 defines client_id for exactly the
+    // no-hint case; §2.3 still requires the post_logout_redirect_uri to be
+    // pre-registered for that client, which validateRedirectUri enforces
+    // below). #88-3 decision A (2026-09-03).
     auto plugin = resolvePlugin();
 
     // #78: an id_token_hint MUST pass end-to-end verification (RS256 signature
@@ -2001,6 +2009,17 @@ void SessionController::endSession(
             return;
         }
     }
+    // #88-3 (decision A): with no id_token_hint, the request's client_id is
+    // the RP self-identification the spec defines for exactly this case
+    // (RP-Initiated Logout 1.0 §2.1). It feeds the SAME registered-URI gate
+    // the aud candidates use, so the redirect target must still be
+    // pre-registered for that client -- the relaxation adds no open
+    // redirect, and the session-termination semantics below (which a plain
+    // parameterless end_session already performs) are unchanged.
+    if (idTokenHint.empty() && !clientId.empty())
+    {
+        audCandidates.push_back(clientId);
+    }
     std::string subject;
     if (req->session())
         subject = req->session()->get<std::string>("sub");
@@ -2034,7 +2053,8 @@ void SessionController::endSession(
         // reject immediately -- this server requires pre-registration per
         // §2.3 ("the OP MAY require pre-registration"). #88: enveloped as
         // AUTH_INVALID_ID_TOKEN_HINT (was a plain-text body), still routed
-        // through finish so no backchannel notification fires.
+        // through finish so no backchannel notification fires. #88-3: this
+        // now only fires when BOTH id_token_hint and client_id are absent.
         if (audCandidates.empty())
         {
             respondError(
@@ -2042,7 +2062,7 @@ void SessionController::endSession(
               [finish](const ::drogon::HttpResponsePtr &r) mutable { finish("", r); },
               "AUTH_INVALID_ID_TOKEN_HINT",
               "end_session: post_logout_redirect_uri requires a valid id_token_hint "
-              "for client identification"
+              "or client_id for client identification"
             );
             return;
         }
