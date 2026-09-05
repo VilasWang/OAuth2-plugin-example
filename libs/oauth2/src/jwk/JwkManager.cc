@@ -225,6 +225,21 @@ bool JwkManager::loadPemInto(KeyEntry &entry, const std::string &pemData)
         return false;
     }
 
+    // PR #176 review MINOR-1: strict RS256 means RSA keys ONLY. A dropped-in
+    // EC/Ed25519 PEM would otherwise load, silently vanish from the JWKS
+    // (RSA-only component extraction) and — as the active key — sign ECDSA
+    // signatures under an alg=RS256 header no RP can verify. Wrong key type
+    // is a hard init failure, same as a parse failure.
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA)
+    {
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: signing key is not an RSA key (strict RS256) -- refusing to load"
+        );
+        EVP_PKEY_free(pkey);
+        return false;
+    }
+
     entry.pkey = pkey;
     return true;
 }
@@ -287,8 +302,19 @@ bool JwkManager::loadKeystoreDir(const std::string &dir)
         if (kid.empty())
             continue;
         std::ifstream pemFile(fs::path(dir) / (kid + ".pem"));
+        // PR #176 review MINOR-2: an unopenable .pem is a hard failure, not a
+        // skip -- silently dropping the NEW key would no-op rotation step 1
+        // ("Publish") and only surface when step 2 flips active_kid.
         if (!pemFile.is_open())
-            continue;
+        {
+            for (auto &e : loaded)
+                EVP_PKEY_free(static_cast<EVP_PKEY *>(e.pkey));
+            log(
+              fulla::common::ports::LogLevel::Error,
+              "JwkManager: keystore " + dir + "/" + kid + ".pem cannot be opened"
+            );
+            return false;
+        }
         std::stringstream ss;
         ss << pemFile.rdbuf();
         KeyEntry entry;

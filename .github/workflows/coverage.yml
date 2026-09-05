@@ -19,6 +19,7 @@ on:
       - "apps/server/**"
       - "tests/**"
       - "scripts/measure_coverage.py"
+      - "tools/coverage/**"
       - "cmake/Coverage.cmake"
       - "CMakePresets.json"
       - ".github/workflows/coverage.yml"
@@ -28,6 +29,7 @@ on:
       - "libs/**"
       - "apps/server/**"
       - "tests/**"
+      - "tools/coverage/**"
 
 concurrency:
   group: coverage-${{ github.ref }}

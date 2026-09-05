@@ -242,7 +242,8 @@ Semantics:
 restart — three restarts per cycle):
 
 1. **Publish**: drop the new `<kid>.pem` into the directory, restart. Both keys are now in
-   the JWKS; the OLD key keeps signing.
+   the JWKS; the OLD key keeps signing. Wait at least the JWKS `Cache-Control` max-age
+   (1 h) before step 2 — a strictly-caching RP otherwise cannot resolve the new kid yet.
 2. **Switch**: edit `active_kid` to the new kid, restart. New tokens carry the new kid;
    old tokens still verify (old key still published).
 3. **Retire**: after the maximum token lifetime has elapsed (access + refresh chain —
