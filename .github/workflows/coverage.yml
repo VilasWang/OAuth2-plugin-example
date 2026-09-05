@@ -120,17 +120,29 @@ jobs:
         # files consumed by measure_coverage.py must be produced by an explicit
         # gcov pass over the .gcda files the test run left behind (#105 review:
         # without this step the report is empty and the job is a false green).
+        # PR #176: gcov -j -p writes <mangled-path>.gcov.json.gz into the
+        # CURRENT directory, not next to the .gcda -- normalize them under
+        # libs/ so the summarize/ratchet/artifact steps keep one find path,
+        # and fail loudly on zero instead of masking with || true (the gate
+        # seeded an EMPTY baseline for exactly this reason before).
         working-directory: build/${{ env.PRESET }}
         run: |
-          gcda_count=$(find . -name '*.gcda' | wc -l)
+          gcda_count=$(find libs -name '*.gcda' | wc -l)
           echo "Found $gcda_count .gcda files"
           if [ "$gcda_count" -eq 0 ]; then
             echo "::error::No coverage data produced (instrumentation or test run failed)"
             exit 1
           fi
-          find libs -name '*.gcda' -print0 | xargs -0 -n 32 gcov -j -p -o . >/dev/null || true
+          find libs -name '*.gcda' -print0 | xargs -0 -n 32 gcov -j -p || true
+          repo_wide=$(find . -name '*.gcov.json.gz' | wc -l)
+          echo "gcov produced $repo_wide report(s) repo-wide; relocating any left in the cwd into libs/"
+          find . -maxdepth 1 -name '*.gcov.json.gz' -exec mv {} libs/ \; 2>/dev/null || true
           json_count=$(find libs -name '*.gcov.json.gz' | wc -l)
-          echo "Generated $json_count gcov JSON reports"
+          echo "Generated $json_count gcov JSON reports under libs/"
+          if [ "$json_count" -eq 0 ]; then
+            echo "::error::gcov pass produced no JSON reports under libs/ (see repo-wide count above)"
+            exit 1
+          fi
 
       - name: Summarize coverage (measure_coverage.py)
         working-directory: ${{ github.workspace }}

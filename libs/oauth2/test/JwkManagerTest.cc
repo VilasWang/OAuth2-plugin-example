@@ -324,13 +324,22 @@ namespace
 {
 const char *kTestIssuer = "https://auth.example.test";
 
-Json::Value validClaims(long long expOffsetSecs)
+// Explicit-base overload (declared first so the 1-arg form can delegate): the exact-boundary expiry test must pin exp to a
+// NOW captured by the test itself -- a fresh std::time(nullptr) here races
+// the wall clock across a second boundary and flips the result to Ok
+// (1-second flake caught by PR #176's CI on a loaded Windows runner).
+Json::Value validClaims(long long expOffsetSecs, long long baseSecs)
 {
     Json::Value claims;
     claims["iss"] = kTestIssuer;
     claims["sub"] = "user-123";
-    claims["exp"] = static_cast<Json::Int64>(std::time(nullptr) + expOffsetSecs);
+    claims["exp"] = static_cast<Json::Int64>(baseSecs + expOffsetSecs);
     return claims;
+}
+
+Json::Value validClaims(long long expOffsetSecs)
+{
+    return validClaims(expOffsetSecs, std::time(nullptr));
 }
 
 // Minimal base64url encoder (test-side only) so adversarial headers (alg=none,
@@ -465,13 +474,15 @@ TEST(JwkManagerTest, VerifyJwt_Expired_IsExpired_IncludingExactBoundary)
     JwkManager jwk;
     ASSERT_TRUE(jwk.init(Json::Value(Json::objectValue)));
     const long long now = std::time(nullptr);
-    const std::string clearlyExpired = jwk.signJwt(validClaims(-10));
+    const std::string clearlyExpired = jwk.signJwt(validClaims(-10, now));
     EXPECT_EQ(
       jwk.verifyJwt(clearlyExpired, kTestIssuer, now),
       JwkManager::JwtVerificationResult::Expired
     );
-    // exp == now is already expired (strict <= rejection).
-    const std::string boundary = jwk.signJwt(validClaims(0));
+    // exp == now is already expired (strict <= rejection). Both the token's
+    // exp and the verification instant pin to the SAME `now` (see the
+    // validClaims overload note).
+    const std::string boundary = jwk.signJwt(validClaims(0, now));
     EXPECT_EQ(
       jwk.verifyJwt(boundary, kTestIssuer, now),
       JwkManager::JwtVerificationResult::Expired
