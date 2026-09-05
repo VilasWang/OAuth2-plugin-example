@@ -214,18 +214,48 @@ Both keys may be omitted; when the `rate_limit` object is missing, built-in defa
 one counter table within the same process. This is minimal brute-force / token-probing
 protection; multi-instance deployments require shared storage (Redis), which is future work.
 
-## 9. JWKS Key Rotation (F-029 — Operations To-Do)
+## 9. JWKS Key Rotation (#110 — keystore directory)
 
-The JWKS endpoint (`/.well-known/jwks.json`) currently serves a **single static `kid`**,
-initialized once at plugin startup from the configured JWK material
-(`OAuth2Plugin::initAndStart()` → `JwkManager::init()`). **Rotation is not implemented**:
-there is no rotation schedule, no kid rolling window, and no dual-key publication. Tokens
-signed by the current key remain valid for their entire lifetime; rotating the key would
-invalidate all outstanding tokens signed by its predecessor.
+`plugins.OAuth2Plugin.config.oidc.signing_keystore_dir` points at a **keystore directory**
+and is the key-rotation mechanism:
 
-Production rotation is registered as an operations to-do. Until then, operators who include
-key compromise in their threat model should restart the server with new JWK material (and
-accept the invalidation of all previously issued tokens).
+```
+<path>/
+  2026-09.pem        # one RSA private key per file; FILENAME (minus .pem) = kid
+  2026-12.pem
+  active_kid         # one-line text file naming the signing kid (e.g. "2026-12")
+```
+
+Semantics:
+
+- **Signing** always uses the key named by `active_kid`; the JWT header carries that kid.
+- **Verification** routes on the token's header kid across ALL loaded keys, and the JWKS
+  endpoint (`/.well-known/jwks.json`) publishes every loaded public key — so outstanding
+  tokens keep resolving while their key remains in the directory.
+- `GET /api/admin/oidc/keys` reports the live state: every kid, which one is `active`,
+  which are merely `published`.
+- The keystore takes **precedence** over `FULLA_SIGNING_KEY` / `FULLA_JWT_KEY_PATH` /
+  `signing_key_path`, and a configured-but-broken directory is a **hard startup failure**
+  (never a silent fallback to a different key source).
+
+**Rotation procedure** (JwkManager is init-once/read-only by design, so each step is a
+restart — three restarts per cycle):
+
+1. **Publish**: drop the new `<kid>.pem` into the directory, restart. Both keys are now in
+   the JWKS; the OLD key keeps signing. Wait at least the JWKS `Cache-Control` max-age
+   (1 h) before step 2 — a strictly-caching RP otherwise cannot resolve the new kid yet.
+2. **Switch**: edit `active_kid` to the new kid, restart. New tokens carry the new kid;
+   old tokens still verify (old key still published).
+3. **Retire**: after the maximum token lifetime has elapsed (access + refresh chain —
+   size this from your token TTLs, not the clock of step 2), delete the old `<kid>.pem`
+   and restart. Tokens from the old key now fail verification with an unknown-kid error.
+
+Skipping step 3 leaves the old key published forever (harmless, but keeps the compromise
+surface open); performing it early invalidates outstanding old-key tokens.
+
+Key generation is standard tooling, e.g.
+`openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out 2026-12.pem`.
+Protect the directory like any private-key material (file permissions / secret mounts).
 
 ## 10. Legacy Password-Hash Migration Window (#103)
 

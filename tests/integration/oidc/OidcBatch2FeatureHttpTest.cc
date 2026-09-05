@@ -560,3 +560,59 @@ DROGON_TEST(Integration_P1_OidcBatch2_BackchannelLogout_DualSubjectForm_CoversBo
     REQUIRE(done2.get_future().wait_for(std::chrono::seconds(10)) == std::future_status::ready);
     CHECK(http->postFormCalls.size() == 2);
 }
+
+
+// ---------------------------------------------------------------------------
+// #88-3 (decision A, RP-Initiated Logout 1.0 §2.1): with no id_token_hint,
+// the client_id parameter identifies the RP. A post_logout_redirect_uri
+// REGISTERED for that client is honored (302 + state echo); an unregistered
+// one still 400s; neither hint nor client_id still 400s (unchanged).
+// ---------------------------------------------------------------------------
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_ClientIdNoHint_RegisteredUri302)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    auto resp = sendGet(
+      "/oauth2/end_session?client_id=" + std::string(kAdminClientId) +
+        "&post_logout_redirect_uri=" + std::string(kAdminRedirectUri) + "&state=st883"
+    );
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k302Found));
+    auto location = resp->getHeader("location");
+    CHECK(location.find(kAdminRedirectUri) == 0);
+    CHECK(location.find("state=st883") != std::string::npos);
+}
+
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_ClientIdNoHint_UnregisteredUri400)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    auto resp = sendGet(
+      "/oauth2/end_session?client_id=" + std::string(kAdminClientId) +
+        "&post_logout_redirect_uri=https://attacker.example.net/logout"
+    );
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k400BadRequest));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(
+      body["error"]["code"].asString() == "VALIDATION_REDIRECT_URI_NOT_REGISTERED"
+    );
+}
+
+DROGON_TEST(Integration_P1_OidcBatch2_EndSession_NoHintNoClientId_Still400)
+{
+    OIDC_BATCH2_SKIP_GUARD;
+
+    // Unchanged behavior: neither identification parameter -> the #88
+    // envelope rejection (this is the RedirectUriWithoutHint case with an
+    // explicit empty client_id to pin the boundary).
+    auto resp = sendGet(
+      "/oauth2/end_session?client_id=&post_logout_redirect_uri=http://127.0.0.1:5173/"
+    );
+    REQUIRE(resp != nullptr);
+    CHECK(statusIs(resp, drogon::k400BadRequest));
+    Json::Value body;
+    REQUIRE(parseJsonBody(resp, body));
+    CHECK(body["error"]["code"].asString() == "AUTH_INVALID_ID_TOKEN_HINT");
+}

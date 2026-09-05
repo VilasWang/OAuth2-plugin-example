@@ -1050,6 +1050,7 @@ const std::string &scopeId
 #pragma once
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
+#include <fulla/oauth2/jwk/JwkManager.h>
 #include <functional>
 #include <memory>
 #include <string>
@@ -1068,7 +1069,10 @@ const std::string &tokenPrefix
 );
 static void revokeTokensByClient(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
 static void revokeTokensByUser(const ::drogon::HttpRequestPtr &req, ResponseCallback cb);
-static void getOidcKeys(ResponseCallback cb);
+static void getOidcKeys(
+ResponseCallback cb,
+const std::shared_ptr<const fulla::oauth2::JwkManager> &jwkManager
+);
 };
 }
 === libs/drogon/include/fulla/drogon/admin/UserAdminService.h
@@ -4806,6 +4810,7 @@ const std::function<bool(const std::string &)> &scopeRequiresAdmin
 #include <json/json.h>
 #include <memory>
 #include <optional>
+#include <vector>
 namespace fulla::oauth2
 {
 class JwkManager
@@ -4849,16 +4854,27 @@ const std::string &getKeyId() const
 bool isInitialized() const
 ;
 private:
-void *rsaKey_ = nullptr;
-std::string kid_;
+struct KeyEntry
+{
+std::string kid;
+void *pkey = nullptr;
+};
+std::vector<KeyEntry> keys_;
+std::string activeKid_;
 bool initialized_ = false;
 fulla::common::ports::ILogger *logger_ = nullptr;
-bool generateEphemeralKey();
-bool loadFromPem(const std::string &pemData);
+const KeyEntry *findEntry(const std::string &kid) const;
+const KeyEntry *activeEntry() const;
+bool generateEphemeralKey(KeyEntry &entry);
+bool loadPemInto(KeyEntry &entry, const std::string &pemData);
+bool loadKeystoreDir(const std::string &dir);
 static std::string base64UrlEncode(const unsigned char *data, size_t len);
 static std::string base64UrlEncode(const std::string &data);
 static bool base64UrlDecode(const std::string &input, std::string &output);
-bool getPublicKeyComponents(std::string &n, std::string &e) const;
+bool getPublicKeyComponents(const KeyEntry &entry, std::string &n, std::string &e) const;
+static bool verifyRs256Signature(
+const void *pkey, const std::string &signingInput, const std::string &signature
+);
 JwtVerificationResult verifyCore(
 const std::string &jwt,
 const std::string &expectedIssuer,

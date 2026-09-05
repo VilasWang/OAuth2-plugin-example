@@ -408,6 +408,7 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
             const char *keyEnv = std::getenv("FULLA_SIGNING_KEY");
             const char *keyPathEnv = std::getenv("FULLA_JWT_KEY_PATH");
             std::string configKeyPath;
+            std::string configKeystoreDir;
             if (config.isMember("plugins") && config["plugins"].isArray())
             {
                 for (const auto &plugin : config["plugins"])
@@ -419,8 +420,15 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
                     // The plugin hands config["oidc"] to JwkManager::init, so
                     // signing_key_path lives under "oidc".
                     if (pluginConfig.isMember("oidc"))
+                    {
                         configKeyPath =
                           pluginConfig["oidc"].get("signing_key_path", "").asString();
+                        // #110-B: the keystore directory is a complete key
+                        // source on its own (rotation deployments use nothing
+                        // else) -- count it for the production key check.
+                        configKeystoreDir =
+                          pluginConfig["oidc"].get("signing_keystore_dir", "").asString();
+                    }
 
                     // #102 (memory-storage scope): config-declared clients
                     // with default/empty secrets. In postgres mode the client
@@ -450,12 +458,13 @@ bool ConfigManager::validate(const Json::Value &config, std::string &errorMessag
             }
             const bool hasEnvKey = keyEnv && std::strlen(keyEnv) > 0;
             const bool hasEnvPath = keyPathEnv && std::strlen(keyPathEnv) > 0;
-            if (!hasEnvKey && !hasEnvPath && configKeyPath.empty())
+            if (!hasEnvKey && !hasEnvPath && configKeyPath.empty() && configKeystoreDir.empty())
             {
                 errorMessage =
                   "Production requires a real signing key: set FULLA_SIGNING_KEY, "
-                  "FULLA_JWT_KEY_PATH, or plugins.OAuth2Plugin.config.oidc."
-                  "signing_key_path (the ephemeral dev key is rejected in production)";
+                  "FULLA_JWT_KEY_PATH, plugins.OAuth2Plugin.config.oidc."
+                  "signing_key_path, or plugins.OAuth2Plugin.config.oidc."
+                  "signing_keystore_dir (the ephemeral dev key is rejected in production)";
                 return false;
             }
         }

@@ -240,8 +240,19 @@ test_11() {
     local r
     r=$(curl -s -H "$(auth_header)" "$BASE_URL/api/admin/oidc/keys")
     assert_json_field "$r" "status" "success" || return 1
-    assert_json_field "$r" "kty" "RSA" || return 1
-    assert_json_field "$r" "alg" "RS256" || return 1
+    # #110-B: live keystore view. Rotation-proof assertions: exactly one
+    # entry is "active" and it carries active_kid -- keys[0] is merely the
+    # filename-sorted first key and may be a "published" (retiring) one.
+    assert_json_field "$r" "keys[0].kty" "RSA" || return 1
+    assert_json_field "$r" "keys[0].alg" "RS256" || return 1
+    local active_kid active_count
+    active_kid=$(echo "$r" | jq -r '.active_kid')
+    active_count=$(echo "$r" | jq -r '[.keys[] | select(.status == "active")] | length')
+    if [ "$active_count" != "1" ]; then
+        echo -e "    ${C_RED}[FAIL] expected exactly 1 active key, got $active_count${C_NC}"
+        return 1
+    fi
+    assert_json_field "$r" "keys[] | select(.status == \"active\") | .kid" "$active_kid" || return 1
 }
 run_test "Test 11: GET /api/admin/oidc/keys" test_11
 

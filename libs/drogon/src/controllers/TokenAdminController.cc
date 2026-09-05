@@ -1,6 +1,7 @@
 #include <fulla/drogon/controllers/TokenAdminController.h>
 #include <fulla/drogon/admin/TokenManagementService.h>
 #include <fulla/drogon/observability/openapi/OpenApiGenerator.h>
+#include <fulla/drogon/plugin/OAuth2Plugin.h>
 
 #include <memory>
 
@@ -120,7 +121,14 @@ void TokenAdminController::getOidcKeys(
     (void)req;  // no DB access, no auth-derived behavior in this metadata route
     auto sharedCb =
       std::make_shared<std::function<void(const ::drogon::HttpResponsePtr &)>>(std::move(callback));
-    TokenService::getOidcKeys(sharedCb);
+    // #110-B: report the live keystore from the plugin's published (already
+    // init()'d, read-only) JwkManager.
+    TokenService::getOidcKeys(
+      sharedCb,
+      ::drogon::app().getPlugin<::OAuth2Plugin>()
+        ? ::drogon::app().getPlugin<::OAuth2Plugin>()->getJwkManager()
+        : nullptr
+    );
 }
 
 }  // namespace fulla::drogon::controllers

@@ -4,6 +4,8 @@
 #include <openssl/bn.h>
 #include <openssl/core_names.h>
 #include <openssl/err.h>
+#include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <cstring>
@@ -21,11 +23,29 @@ void JwkManager::log(fulla::common::ports::LogLevel level, const std::string &me
 
 JwkManager::~JwkManager()
 {
-    if (rsaKey_)
+    for (auto &entry : keys_)
     {
-        EVP_PKEY_free(static_cast<EVP_PKEY *>(rsaKey_));
-        rsaKey_ = nullptr;
+        if (entry.pkey)
+        {
+            EVP_PKEY_free(static_cast<EVP_PKEY *>(entry.pkey));
+            entry.pkey = nullptr;
+        }
     }
+}
+
+const JwkManager::KeyEntry *JwkManager::findEntry(const std::string &kid) const
+{
+    for (const auto &entry : keys_)
+    {
+        if (entry.kid == kid)
+            return &entry;
+    }
+    return nullptr;
+}
+
+const JwkManager::KeyEntry *JwkManager::activeEntry() const
+{
+    return findEntry(activeKid_);
 }
 
 bool JwkManager::init(const Json::Value &config)
@@ -35,17 +55,49 @@ bool JwkManager::init(const Json::Value &config)
         log(
           fulla::common::ports::LogLevel::Error,
           "JwkManager: init() called more than once; ignoring "
-          "(init-once-then-read-only contract). The existing key is kept."
+          "(init-once-then-read-only contract). The existing keys are kept."
         );
         return true;
+    }
+
+    // #110-B (decision B): the multi-key keystore directory is the richest
+    // source and takes precedence -- when configured it is authoritative
+    // (mixing it with the single-key env vars below would make the effective
+    // key set depend on ambient env, which a rotation runbook cannot
+    // tolerate). A configured-but-broken directory is a HARD failure, never
+    // a silent fallthrough to a different key source.
+    const std::string keystoreDir = config.get("signing_keystore_dir", "").asString();
+    if (!keystoreDir.empty())
+    {
+        if (loadKeystoreDir(keystoreDir))
+        {
+            initialized_ = true;
+            log(
+              fulla::common::ports::LogLevel::Info,
+              "JwkManager: Loaded " + std::to_string(keys_.size()) +
+                " signing key(s) from keystore dir " + keystoreDir + " (active kid: " +
+                activeKid_ + ")"
+            );
+            return true;
+        }
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: signing_keystore_dir=" + keystoreDir +
+            " is configured but failed to load -- refusing to fall back to "
+            "another key source (fix the directory and restart)"
+        );
+        return false;
     }
 
     const char *keyEnv = std::getenv("FULLA_SIGNING_KEY");
     if (keyEnv && std::strlen(keyEnv) > 0)
     {
-        if (loadFromPem(keyEnv))
+        KeyEntry entry;
+        entry.kid = config.get("kid", "key-1").asString();
+        if (loadPemInto(entry, keyEnv))
         {
-            kid_ = config.get("kid", "key-1").asString();
+            keys_.push_back(std::move(entry));
+            activeKid_ = keys_.front().kid;
             initialized_ = true;
             log(
               fulla::common::ports::LogLevel::Info,
@@ -63,9 +115,12 @@ bool JwkManager::init(const Json::Value &config)
         {
             std::stringstream ss;
             ss << file.rdbuf();
-            if (loadFromPem(ss.str()))
+            KeyEntry entry;
+            entry.kid = config.get("kid", "key-1").asString();
+            if (loadPemInto(entry, ss.str()))
             {
-                kid_ = config.get("kid", "key-1").asString();
+                keys_.push_back(std::move(entry));
+                activeKid_ = keys_.front().kid;
                 initialized_ = true;
                 log(
                   fulla::common::ports::LogLevel::Info,
@@ -89,9 +144,12 @@ bool JwkManager::init(const Json::Value &config)
         {
             std::stringstream ss;
             ss << file.rdbuf();
-            if (loadFromPem(ss.str()))
+            KeyEntry entry;
+            entry.kid = config.get("kid", "key-1").asString();
+            if (loadPemInto(entry, ss.str()))
             {
-                kid_ = config.get("kid", "key-1").asString();
+                keys_.push_back(std::move(entry));
+                activeKid_ = keys_.front().kid;
                 initialized_ = true;
                 log(
                   fulla::common::ports::LogLevel::Info,
@@ -117,9 +175,9 @@ bool JwkManager::init(const Json::Value &config)
             log(
               fulla::common::ports::LogLevel::Error,
               "JwkManager: no signing key configured and FULLA_ENV=production -- "
-              "the ephemeral fallback is DEV ONLY. Configure FULLA_SIGNING_KEY, "
-              "FULLA_JWT_KEY_PATH, or plugins.OAuth2Plugin.config.oidc."
-              "signing_key_path and restart"
+              "the ephemeral fallback is DEV ONLY. Configure signing_keystore_dir, "
+              "FULLA_SIGNING_KEY, FULLA_JWT_KEY_PATH, or "
+              "plugins.OAuth2Plugin.config.oidc.signing_key_path and restart"
             );
             return false;
         }
@@ -129,21 +187,28 @@ bool JwkManager::init(const Json::Value &config)
       fulla::common::ports::LogLevel::Warn,
       "JwkManager: No signing key configured, generating ephemeral key (DEV ONLY)"
     );
-    if (generateEphemeralKey())
     {
+        KeyEntry entry;
         // #87: honor a configured kid on the ephemeral path too (previously
         // hardcoded, so tests/ops needing a distinct kid had to go through
         // env+PEM). The ephemeral marker stays the default.
-        kid_ = config.get("kid", "ephemeral-dev-key").asString();
-        initialized_ = true;
-        return true;
+        entry.kid = config.get("kid", "ephemeral-dev-key").asString();
+        if (generateEphemeralKey(entry))
+        {
+            // generateEphemeralKey() hands its EVP_PKEY to the pending entry
+            // (see its #110-B note).
+            keys_.push_back(std::move(entry));
+            activeKid_ = keys_.front().kid;
+            initialized_ = true;
+            return true;
+        }
     }
 
     log(fulla::common::ports::LogLevel::Error, "JwkManager: Failed to initialize");
     return false;
 }
 
-bool JwkManager::loadFromPem(const std::string &pemData)
+bool JwkManager::loadPemInto(KeyEntry &entry, const std::string &pemData)
 {
     BIO *bio = BIO_new_mem_buf(pemData.c_str(), static_cast<int>(pemData.length()));
     if (!bio)
@@ -160,11 +225,147 @@ bool JwkManager::loadFromPem(const std::string &pemData)
         return false;
     }
 
-    rsaKey_ = pkey;
+    // PR #176 review MINOR-1: strict RS256 means RSA keys ONLY. A dropped-in
+    // EC/Ed25519 PEM would otherwise load, silently vanish from the JWKS
+    // (RSA-only component extraction) and — as the active key — sign ECDSA
+    // signatures under an alg=RS256 header no RP can verify. Wrong key type
+    // is a hard init failure, same as a parse failure.
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA)
+    {
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: signing key is not an RSA key (strict RS256) -- refusing to load"
+        );
+        EVP_PKEY_free(pkey);
+        return false;
+    }
+
+    entry.pkey = pkey;
     return true;
 }
 
-bool JwkManager::generateEphemeralKey()
+bool JwkManager::loadKeystoreDir(const std::string &dir)
+{
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    if (!fs::is_directory(fs::path(dir), ec))
+    {
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: keystore dir " + dir + " is not a directory"
+        );
+        return false;
+    }
+
+    // Collect <kid>.pem candidates (sorted for deterministic load/JWKS order).
+    std::vector<std::string> kids;
+    for (const auto &item : fs::directory_iterator(fs::path(dir), ec))
+    {
+        if (!item.is_regular_file())
+            continue;
+        const std::string filename = item.path().filename().string();
+        if (filename.size() <= 4 || filename.substr(filename.size() - 4) != ".pem")
+            continue;
+        kids.push_back(filename.substr(0, filename.size() - 4));
+    }
+    std::sort(kids.begin(), kids.end());
+    if (kids.empty())
+    {
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: keystore dir " + dir + " contains no <kid>.pem files"
+        );
+        return false;
+    }
+
+    // The active kid marker is a one-line text file.
+    std::ifstream activeFile(fs::path(dir) / "active_kid");
+    if (!activeFile.is_open())
+    {
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: keystore dir " + dir + " has no active_kid marker file"
+        );
+        return false;
+    }
+    std::string activeKid;
+    std::getline(activeFile, activeKid);
+    // Trim CR/whitespace for hand-edited markers.
+    while (
+      !activeKid.empty() &&
+      (activeKid.back() == '\r' || activeKid.back() == ' ' || activeKid.back() == '\t'))
+        activeKid.pop_back();
+
+    std::vector<KeyEntry> loaded;
+    for (const auto &kid : kids)
+    {
+        if (kid.empty())
+            continue;
+        std::ifstream pemFile(fs::path(dir) / (kid + ".pem"));
+        // PR #176 review MINOR-2: an unopenable .pem is a hard failure, not a
+        // skip -- silently dropping the NEW key would no-op rotation step 1
+        // ("Publish") and only surface when step 2 flips active_kid.
+        if (!pemFile.is_open())
+        {
+            for (auto &e : loaded)
+                EVP_PKEY_free(static_cast<EVP_PKEY *>(e.pkey));
+            log(
+              fulla::common::ports::LogLevel::Error,
+              "JwkManager: keystore " + dir + "/" + kid + ".pem cannot be opened"
+            );
+            return false;
+        }
+        std::stringstream ss;
+        ss << pemFile.rdbuf();
+        KeyEntry entry;
+        entry.kid = kid;
+        if (!loadPemInto(entry, ss.str()))
+        {
+            for (auto &e : loaded)
+                EVP_PKEY_free(static_cast<EVP_PKEY *>(e.pkey));
+            log(
+              fulla::common::ports::LogLevel::Error,
+              "JwkManager: keystore " + dir + "/" + kid + ".pem failed to parse"
+            );
+            return false;
+        }
+        loaded.push_back(std::move(entry));
+    }
+    if (loaded.empty())
+    {
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: keystore dir " + dir + " loaded zero usable keys"
+        );
+        return false;
+    }
+    bool activeFound = false;
+    for (const auto &entry : loaded)
+    {
+        if (entry.kid == activeKid)
+        {
+            activeFound = true;
+            break;
+        }
+    }
+    if (!activeFound)
+    {
+        for (auto &e : loaded)
+            EVP_PKEY_free(static_cast<EVP_PKEY *>(e.pkey));
+        log(
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: keystore active_kid marker names [" + activeKid +
+            "] but no matching .pem exists in " + dir
+        );
+        return false;
+    }
+
+    keys_ = std::move(loaded);
+    activeKid_ = activeKid;
+    return true;
+}
+
+bool JwkManager::generateEphemeralKey(KeyEntry &entry)
 {
     EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
     if (!ctx)
@@ -190,7 +391,7 @@ bool JwkManager::generateEphemeralKey()
     }
 
     EVP_PKEY_CTX_free(ctx);
-    rsaKey_ = pkey;
+    entry.pkey = pkey;
     return true;
 }
 
@@ -253,10 +454,12 @@ std::string JwkManager::base64UrlEncode(const std::string &data)
 
 std::string JwkManager::signJwt(const Json::Value &payload) const
 {
-    if (!initialized_ || !rsaKey_)
+    const KeyEntry *active = activeEntry();
+    if (!initialized_ || !active)
     {
         log(
-          fulla::common::ports::LogLevel::Error, "JwkManager: Cannot sign JWT - not initialized"
+          fulla::common::ports::LogLevel::Error,
+          "JwkManager: Cannot sign JWT - not initialized (or active kid missing)"
         );
         return "";
     }
@@ -264,7 +467,9 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
     Json::Value header;
     header["alg"] = "RS256";
     header["typ"] = "JWT";
-    header["kid"] = kid_;
+    // #110-B: the active kid routes verifiers (and JWKS consumers) to the
+    // intended public key.
+    header["kid"] = active->kid;
 
     Json::StreamWriterBuilder writerBuilder;
     writerBuilder["indentation"] = "";
@@ -280,7 +485,7 @@ std::string JwkManager::signJwt(const Json::Value &payload) const
     if (!mdCtx)
         return "";
 
-    EVP_PKEY *pkey = static_cast<EVP_PKEY *>(rsaKey_);
+    EVP_PKEY *pkey = static_cast<EVP_PKEY *>(active->pkey);
 
     if (EVP_DigestSignInit(mdCtx, nullptr, EVP_sha256(), nullptr, pkey) <= 0)
     {
@@ -426,7 +631,7 @@ JwkManager::JwtVerificationResult JwkManager::verifyCore(
   Json::Value *verifiedPayloadOut
 ) const
 {
-    if (!initialized_ || !rsaKey_)
+    if (!initialized_ || keys_.empty())
     {
         log(
           fulla::common::ports::LogLevel::Error, "JwkManager::verifyJwt: not initialized"
@@ -462,9 +667,17 @@ JwkManager::JwtVerificationResult JwkManager::verifyCore(
     if (!header.isMember("alg") || !header["alg"].isString() ||
         header["alg"].asString() != "RS256")
         return JwtVerificationResult::BadAlg;
-    if (header.isMember("kid") && header["kid"].isString() && !kid_.empty() &&
-        header["kid"].asString() != kid_)
-        return JwtVerificationResult::KidMismatch;
+    // #110-B: route by kid across ALL loaded keys. A kid naming no loaded
+    // key is a hard KidMismatch (previously: != the single configured kid).
+    // An absent kid (pre-kid-era tokens) tries every loaded key in order --
+    // strictly no narrower than the old single-key behavior.
+    const KeyEntry *entry = nullptr;
+    if (header.isMember("kid") && header["kid"].isString() && !header["kid"].asString().empty())
+    {
+        entry = findEntry(header["kid"].asString());
+        if (!entry)
+            return JwtVerificationResult::KidMismatch;
+    }
 
     // RS256 signature over the exact header.payload segments as received.
     const std::string signingInput = headerB64 + "." + payloadB64;
@@ -472,22 +685,21 @@ JwkManager::JwtVerificationResult JwkManager::verifyCore(
     if (!base64UrlDecode(signatureB64, signature))
         return JwtVerificationResult::Malformed;
     bool signatureOk = false;
+    if (entry != nullptr)
     {
-        EVP_MD_CTX *mdCtx = EVP_MD_CTX_new();
-        if (mdCtx)
+        signatureOk = verifyRs256Signature(entry->pkey, signingInput, signature);
+    }
+    else
+    {
+        // Absent kid: try every loaded key (RFC 7515 §4.1.4 permits this when
+        // the verifier holds several keys).
+        for (const auto &candidate : keys_)
         {
-            EVP_PKEY *pkey = static_cast<EVP_PKEY *>(rsaKey_);
-            if (EVP_DigestVerifyInit(mdCtx, nullptr, EVP_sha256(), nullptr, pkey) == 1 &&
-                EVP_DigestVerifyUpdate(mdCtx, signingInput.data(), signingInput.size()) == 1)
+            if (verifyRs256Signature(candidate.pkey, signingInput, signature))
             {
-                const int rc = EVP_DigestVerifyFinal(
-                  mdCtx,
-                  reinterpret_cast<const unsigned char *>(signature.data()),
-                  signature.size()
-                );
-                signatureOk = (rc == 1);
+                signatureOk = true;
+                break;
             }
-            EVP_MD_CTX_free(mdCtx);
         }
     }
     if (!signatureOk)
@@ -549,12 +761,35 @@ JwkManager::JwtVerificationResult JwkManager::verifyCore(
     return JwtVerificationResult::Ok;
 }
 
-bool JwkManager::getPublicKeyComponents(std::string &n, std::string &e) const
+bool JwkManager::verifyRs256Signature(
+  const void *pkeyVoid, const std::string &signingInput, const std::string &signature
+)
 {
-    if (!rsaKey_)
+    EVP_MD_CTX *mdCtx = EVP_MD_CTX_new();
+    if (!mdCtx)
+        return false;
+    bool ok = false;
+    EVP_PKEY *pkey = static_cast<EVP_PKEY *>(const_cast<void *>(pkeyVoid));
+    if (EVP_DigestVerifyInit(mdCtx, nullptr, EVP_sha256(), nullptr, pkey) == 1 &&
+        EVP_DigestVerifyUpdate(mdCtx, signingInput.data(), signingInput.size()) == 1)
+    {
+        const int rc = EVP_DigestVerifyFinal(
+          mdCtx,
+          reinterpret_cast<const unsigned char *>(signature.data()),
+          signature.size()
+        );
+        ok = (rc == 1);
+    }
+    EVP_MD_CTX_free(mdCtx);
+    return ok;
+}
+
+bool JwkManager::getPublicKeyComponents(const KeyEntry &entry, std::string &n, std::string &e) const
+{
+    if (!entry.pkey)
         return false;
 
-    EVP_PKEY *pkey = static_cast<EVP_PKEY *>(rsaKey_);
+    EVP_PKEY *pkey = static_cast<EVP_PKEY *>(entry.pkey);
 
     BIGNUM *bn_n = nullptr;
     BIGNUM *bn_e = nullptr;
@@ -593,14 +828,19 @@ Json::Value JwkManager::getJwks() const
     if (!initialized_)
         return jwks;
 
-    std::string n, e;
-    if (getPublicKeyComponents(n, e))
+    // #110-B: publish EVERY loaded key so verifiers keep resolving tokens
+    // signed by a since-deactivated (but still trusted) key during the
+    // rotation grace window.
+    for (const auto &entry : keys_)
     {
+        std::string n, e;
+        if (!getPublicKeyComponents(entry, n, e))
+            continue;
         Json::Value key;
         key["kty"] = "RSA";
         key["use"] = "sig";
         key["alg"] = "RS256";
-        key["kid"] = kid_;
+        key["kid"] = entry.kid;
         key["n"] = n;
         key["e"] = e;
         jwks["keys"].append(key);
